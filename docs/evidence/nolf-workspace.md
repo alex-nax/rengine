@@ -40,3 +40,7 @@ their prerequisites complete.
 
 Image preview implementation and its separate Mac proof are recorded in
 [preview evidence](image-previews-macos-2026-09-05.md).
+
+The later [gameplay/input checkpoint](gameplay-input-macos-2026-09-05.md) adds real lobby
+movement and a native mouse-release regression. Relative aiming remains unverified because the
+Mac console was locked during pointer-lock qualification; it does not close the remaining gates.

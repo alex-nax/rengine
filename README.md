@@ -42,6 +42,10 @@ Run `npm test` for services/launcher checks and `npm run test:desktop` for the r
 With the native adapter built, `node --test orchestrator/tests/sdl.spec.mjs` exercises a real
 SDL/GL producer. `RENGINE_NOLF_ROOT=/absolute/checkout npm run test:nolf` exercises the actual
 local game, menu input, pane moves, GUI restart, reattachment and Stop. Game assets remain local.
+`node --test orchestrator/tests/game-input.spec.mjs` checks native mouse release and focus loss.
+For sustained macOS gameplay inspection, use the isolated
+[gameplay probe](docs/evidence/gameplay-input-macos-2026-09-05.md); native mouse locking requires
+an unlocked console and has a separate qualification command.
 `RENGINE_NOLF_ROOT=/absolute/checkout node --test orchestrator/tests/agent-desktop.spec.mjs`
 boots the installed Codex CLI and checks its connected rEngine tool list without sending a
 coding prompt. Keep credentials and generated runtime evidence local.

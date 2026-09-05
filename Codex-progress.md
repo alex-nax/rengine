@@ -1,5 +1,35 @@
 # Progress Log
 
+## Session 12 (macos) — 2026-09-05 — Game button release and actual lobby movement
+
+**Goal turn classification**: progress. The preceding remote-only turn confirmed synchronization
+but did not advance gameplay. This turn reproduced and fixed a native mouse-up loss when the
+pointer left the canvas. Ordinary release preserves held movement; capture loss and pane blur
+release controls, and subsequent focused keyboard input reacquires session ownership.
+
+**Verification**: Nineteen service smoke checks passed (4.3 s). The completed SDL/Electron input
+regression and existing GL/key check pass (13.1 s total). A real isolated NOLF run entered the
+UNITY lobby, strafed left and moved forward, with inspected release evidence and preserved host
+files. The direct gameplay probe is now checked in; its separate launch/menu/cleanup run exited
+0 and stopped its own processes. Evidence/pins are in `docs/evidence/gameplay-input-macos-2026-09-05.md`.
+
+**Findings**: Sustained Playwright raw-frame tracing stalled its Electron process at 6.2 GiB;
+direct CDP input/screenshots stayed responsive. This comparison changes the sustained test
+method, not the production surface or performance criteria. Early probe cleanup needed explicit
+process termination; the checked-in tool now closes its client/child streams and stdin reference.
+
+**Unproven**: Pointer lock failed before permission handling. Native window focus stayed false;
+CoreGraphics confirms the Mac session is locked. An unlock request is pending. The explicit
+`RENGINE_REQUIRE_POINTER_LOCK=1` check remains a required additional qualification, not part of
+the passing button-release claim. Windows source-transfer approval is also still pending; its
+auto-review rejection remains in force. All 15 feature gates and the overall goal remain open.
+
+**Next**: Qualify relative aiming on the unlocked Mac; complete drawable/logical DPI mapping,
+recovery and resource checks. On approved transfer, wire and qualify the Windows adapter/desktop
+in an isolated checkout. No active probe/test process is intentionally left running.
+
+---
+
 ## Session 11 (macos) — 2026-09-05 — Windows environment fix and transfer approval
 
 **Goal turn classification**: progress. Preview checkpoint `fa7e346` and preceding launch/agent

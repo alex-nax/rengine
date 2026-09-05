@@ -9,12 +9,27 @@
         "end": 16,
         "snippet": "export function GamePane({ id, name }) {"
       },
-      "note": "The pane is bound to one game session ID through tab movement and reconnection. Bottom-up RGBA is flipped into a bounded canvas buffer, retaining only the newest pending animation frame. Focus owns native input; blur and detach release held controls. Current coordinates assume logical and drawable dimensions coincide, as observed in the initial NOLF menu run. High-DPI, relative aiming and pointer capture loss remain qualification work."
+      "note": "The pane is bound to one game session ID through tab movement and reconnection. Bottom-up RGBA is flipped into a bounded canvas buffer, retaining only the newest pending animation frame. Focus owns native input; blur and detach release held controls. Current coordinates assume logical and drawable dimensions coincide, as observed in the initial NOLF menu run. High-DPI and relative aiming across pane sizes remain qualification work."
+    },
+    {
+      "id": "mouse-release-and-input-reacquisition",
+      "kind": "rationale",
+      "anchor": {
+        "start": 21,
+        "end": 21,
+        "snippet": "const [status, setStatus] = useState('Connecting to game');"
+      },
+      "note": "Pointer capture keeps compatibility mouse-up events targeted at the canvas when a press ends outside it. Continue using mouse down/up for individual chorded buttons: pointerdown only fires when the first mouse button goes down. Normal implicit capture loss follows the last mouse-up, when the held-button set is empty, so it must not cancel a still-held movement key. Unexpected capture loss or cancellation releases all native controls. Release clears sidecar input ownership even if DOM focus stays on the canvas; the next key-down or pointer lock acquisition must claim that ownership again. Native SDL integration tests cover actual outside release, chorded buttons, forced established capture loss, keyboard reacquisition and pane blur.",
+      "refs": [
+        "orchestrator/tests/game-input.spec.mjs",
+        "https://developer.mozilla.org/en-US/docs/Web/API/Pointer_events",
+        "docs/specs/043-gameplay-input-qualification.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/ui/game.jsx",
-    "sha256": "1e9824784c1d7581d98b89d951b51585dfc08e9eb506b39e7d7ec141bd8c50ec",
+    "sha256": "a3a30ca2f1324ea1a5f39fb49133bff1192d996c4281f0c70f9af05b685b60cc",
     "format": "javascript-jsx",
     "format_fingerprint": "11ad0a4bbf93a56c64f822ad858d1df4b80558927984313e6232f0cce2f843ae"
   }

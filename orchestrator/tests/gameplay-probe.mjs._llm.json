@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "isolated-gameplay-and-direct-inspection",
+      "kind": "rationale",
+      "anchor": {
+        "start": 14,
+        "end": 14,
+        "snippet": "const source = path.resolve(process.env.RENGINE_NOLF_ROOT);"
+      },
+      "note": "This explicit macOS qualification utility copies the selected executable and links only archive files into a new ignored runtime root. Writable saves/config and Electron state stay separate from the owner's checkout. It launches the actual desktop and uses direct CDP input/screenshots without enabling the Network domain. Playwright's automatic Network domain streams every raw game frame through the inspector; a sustained 1280x720 probe grew Electron's main-process footprint to 6.2 GiB and stopped responding. Direct inspection stayed responsive in the same world with about 140 MiB main-process RSS at a sampled point. This comparison supports instrumentation overhead as the cause; it is not a complete production resource budget. Keyboard/click commands exercise browser input, while DOM evaluation only locates controls and focuses the canvas. Native pointer lock still requires an unlocked foreground console session. This is an interactive evidence tool, never an automatic gameplay pass.",
+      "refs": [
+        "docs/specs/043-gameplay-input-qualification.md",
+        "https://chromedevtools.github.io/devtools-protocol/tot/Input/",
+        "https://chromedevtools.github.io/devtools-protocol/tot/Page/#method-captureScreenshot"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/tests/gameplay-probe.mjs",
+    "sha256": "0a06380b99ae5769cb6c5ba6705694eba697db6b25accd2e1d29435941f59d2a",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

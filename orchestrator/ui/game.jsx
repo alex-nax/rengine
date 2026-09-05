@@ -16,10 +16,14 @@ for (let index = 1; index <= 12; index++) keyCodes[`F${index}`] = 57 + index;
 export function GamePane({ id, name }) {
   const canvas = useRef(null);
   const socket = useRef(null);
+  const heldButtons = useRef(new Set());
+  const inputFocused = useRef(false);
   const [status, setStatus] = useState('Connecting to game');
   const [size, setSize] = useState('');
   const [captured, setCaptured] = useState(false);
-  const send = (kind, values = []) => { if (socket.current?.readyState === WebSocket.OPEN) socket.current.send(JSON.stringify({ kind, values })); };
+  const send = (kind, values = []) => { if (socket.current?.readyState !== WebSocket.OPEN) return false; socket.current.send(JSON.stringify({ kind, values })); return true; };
+  const focusInput = () => { if (!inputFocused.current) inputFocused.current = send(5, [1]); };
+  const releaseInput = () => { heldButtons.current.clear(); inputFocused.current = false; send(6); };
   useEffect(() => {
     let alive = true; let reconnect; let draw; let latest;
     const connect = () => {
@@ -47,11 +51,11 @@ export function GamePane({ id, name }) {
           setSize(`${width} × ${height}`);
         });
       };
-      ws.onclose = event => { if (alive) { setStatus(event.reason || 'Game disconnected'); if (event.code !== 1000 && event.code !== 1008) reconnect = setTimeout(connect, 1000); } };
+      ws.onclose = event => { inputFocused.current = false; heldButtons.current.clear(); if (alive) { setStatus(event.reason || 'Game disconnected'); if (event.code !== 1000 && event.code !== 1008) reconnect = setTimeout(connect, 1000); } };
       ws.onerror = () => ws.close();
     };
-    const release = () => send(6);
-    const pointer = () => { const locked = document.pointerLockElement === canvas.current; setCaptured(locked); if (!locked) release(); };
+    const release = releaseInput;
+    const pointer = () => { const locked = document.pointerLockElement === canvas.current; setCaptured(locked); if (locked) focusInput(); else release(); };
     window.addEventListener('blur', release); document.addEventListener('pointerlockchange', pointer);
     const observer = new ResizeObserver(() => { if (!canvas.current?.clientWidth || !canvas.current?.clientHeight) release(); });
     observer.observe(canvas.current);
@@ -63,14 +67,16 @@ export function GamePane({ id, name }) {
     const rect = canvas.current.getBoundingClientRect();
     return [Math.round((event.clientX - rect.left) * canvas.current.width / rect.width), Math.round((event.clientY - rect.top) * canvas.current.height / rect.height)];
   };
-  const key = (event, down) => { const scancode = keyCodes[event.code]; if (scancode !== undefined) { event.preventDefault(); event.stopPropagation(); send(1, [scancode, down ? 1 : 0, event.repeat ? 1 : 0]); } };
+  const key = (event, down) => { const scancode = keyCodes[event.code]; if (scancode !== undefined) { event.preventDefault(); event.stopPropagation(); if (down) focusInput(); send(1, [scancode, down ? 1 : 0, event.repeat ? 1 : 0]); } };
   return <div className="game pane"><div className="pane-tools"><span>{name ?? 'NOLF'} · {status}</span><span className="muted">{size}</span>
     <button onClick={() => { canvas.current.focus(); canvas.current.requestPointerLock()?.catch(error => setStatus(error.message)); }}>{captured ? 'Mouse captured · Esc releases' : 'Capture mouse'}</button></div>
     <div className="game-stage"><canvas ref={canvas} aria-label="Live NOLF game" tabIndex={0} width={1280} height={720}
-      onFocus={() => send(5, [1])} onBlur={() => send(5, [0])} onContextMenu={event => event.preventDefault()}
+      onFocus={focusInput} onBlur={() => { heldButtons.current.clear(); inputFocused.current = false; send(5, [0]); }} onContextMenu={event => event.preventDefault()}
       onKeyDown={event => key(event, true)} onKeyUp={event => key(event, false)}
-      onMouseDown={event => { canvas.current.focus(); send(5, [1]); send(3, [[1, 2, 3, 4, 5][event.button], 1, ...coordinates(event)]); }}
-      onMouseUp={event => send(3, [[1, 2, 3, 4, 5][event.button], 0, ...coordinates(event)])}
+      onPointerDown={event => { if (!document.pointerLockElement) event.currentTarget.setPointerCapture(event.pointerId); }}
+      onLostPointerCapture={() => { if (heldButtons.current.size) releaseInput(); }} onPointerCancel={releaseInput}
+      onMouseDown={event => { canvas.current.focus(); focusInput(); heldButtons.current.add(event.button); send(3, [[1, 2, 3, 4, 5][event.button], 1, ...coordinates(event)]); }}
+      onMouseUp={event => { if (heldButtons.current.delete(event.button)) send(3, [[1, 2, 3, 4, 5][event.button], 0, ...coordinates(event)]); }}
       onMouseMove={event => send(2, [...coordinates(event), Math.round(event.movementX), Math.round(event.movementY)])}
       onWheel={event => send(4, [Math.sign(-event.deltaX), Math.sign(-event.deltaY)])} /></div>
     <div className="terminal-status"><span>Click game to focus · Capture mouse for relative aiming</span><span>Close tab to detach</span></div></div>;

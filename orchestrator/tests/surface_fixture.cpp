@@ -5,7 +5,7 @@
 #include "surface.h"
 #endif
 
-int main(int, char**) {
+int main(int argc, char**) {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) return 2;
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
@@ -15,7 +15,7 @@ int main(int, char**) {
     const auto context = SDL_GL_CreateContext(window);
     if (!context) return 4;
     bool pressed = false;
-    for (int frame = 0; frame < 1000; ++frame) {
+    for (int frame = 0; frame < (argc > 1 ? 6000 : 1000); ++frame) {
         SDL_Event event{};
         for (;;) {
 #ifdef _WIN32
@@ -26,6 +26,11 @@ int main(int, char**) {
             if (!available) break;
             if (event.type == SDL_KEYDOWN && event.key.keysym.scancode == SDL_SCANCODE_W) pressed = true;
             if (event.type == SDL_KEYUP && event.key.keysym.scancode == SDL_SCANCODE_W) pressed = false;
+            if (event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP)
+                std::printf("button %u %u %d %d\n", event.button.button, event.button.state, event.button.x, event.button.y);
+            if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP)
+                std::printf("key %d %u\n", event.key.keysym.scancode, event.key.state);
+            std::fflush(stdout);
         }
         glDisable(GL_SCISSOR_TEST);
         glClearColor(pressed ? 0.0f : 1.0f, pressed ? 1.0f : 0.0f, 0.0f, 1.0f);
