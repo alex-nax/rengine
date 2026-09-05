@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en" data-ispec-name="rengine-roadmap-2026-09-05-v1">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rEngine — roadmap review</title>
+<link rel="stylesheet" href="./ispec.css">
+<script src="./ispec.js" defer></script>
+</head>
+<body>
+<header class="toolbar">
+  <h1>rEngine — roadmap review</h1>
+  <span class="meta">54 proposed features · 6 scope decisions · proposal f5363a09f5f7</span>
+  <span class="spacer"></span>
+  <span class="summary-chip" id="ispecSummary">0 / 6 reviewed</span>
+  <button class="tb-btn secondary" id="ispecCopy">Copy JSON</button>
+  <button class="tb-btn" id="ispecSave">Save JSON</button>
+</header>
+<main>
+  <div class="intro">Review the proposed work around the decisions already confirmed. Expand a feature to see its complete acceptance criteria, owner and dependencies. Approve, revise, reject or defer each branch; comments can name individual feature IDs. Save JSON when ready, or give the same feedback in chat. Unreviewed or deferred work is not activated. The first implementation step is completing the desktop qualification spec.</div>
+<section class="item" data-section="confirmed">
+  <header><h2>Confirmed decisions</h2></header>
+  <div class="block"><h3>Already agreed in chat</h3><p>Curated upstream plus our own gaps; independent games; iklib in both games first; verified pinned capability adoption earns powered-by status with optional IDE/shared harness. Desktop implementation comes first on macOS and Windows: multi-root splits/tabs, tree/previews/editor with optional Vim, real terminals, retained sessions/browser, explicit Stop, local editor recovery drafts and explicit Save. NOLF is the first live game tab; VtMB is the second adapter. Quest starts with a shared 2D workspace and desktop sidecar.</p><details><summary>docs/specs/000-charter.md</summary><pre># rEngine charter and design interview
+
+Date: 2026-09-05. Status: **interview in progress; recommendations are not owner decisions**.
+
+## Owner-established requirements
+
+| ID | Decision | Source |
+| --- | --- | --- |
+| D01 | Create rEngine, eventually called realEngine, as a harness, curated library and tool collection for the AI era. | Initial project brief |
+| D02 | Both reLith and reSource should be considered powered by rEngine. | Initial project brief |
+| D03 | Projects remain individual; a game&#x27;s framework choice, including potentially flecs, must remain possible. | Initial project brief |
+| D04 | Use the referenced projects&#x27; harness patterns and plan future integrations precisely. | Initial project brief |
+| D05 | Conduct a probing design interview while setting up the repository. | Initial project brief |
+| D06 | NOLF works; AVP2 and NOLF2 are in progress. iklib and agent-training work already exist. | Owner&#x27;s status report; not a new runtime verification |
+| D07 | Prioritize a quality library base for AI-assisted, purpose-built implementations. The owner sees NOLF and VtMB as evidence that individual engines can be written from scratch and questions the need for large all-in-one engines. | Owner&#x27;s answer to interview question 1, 2026-09-05 |
+| D08 | Curate upstream libraries and implement our own demonstrated gaps. | Owner confirmed the library-ownership recommendation, 2026-09-05 |
+| D09 | Prove one library in both games before expanding the collection broadly. | Owner confirmed the first-proof strategy, 2026-09-05; D23 later names iklib |
+| D10 | Include a tab-based IDE/orchestrator to improve the current Zed-plus-terminal workflow: start empty, split/resize panes and populate them with project tree, terminals, rendered tools and game output. Game views can open as tabs and move into panes. | Owner&#x27;s workspace description, 2026-09-05 |
+| D11 | Initially an agent tab runs a terminal with a Bash launcher that selects or installs a CLI coding agent and bootstraps integrations such as custom MCP servers. | Owner&#x27;s workspace description, 2026-09-05 |
+| D12 | Consider integration with tools such as Meta XR Operator. | Owner&#x27;s integration suggestion, 2026-09-05; compatibility and implementation remain unverified |
+| D13 | Support macOS and Windows from the first desktop release. | Owner&#x27;s platform answer, 2026-09-05; supersedes the macOS-first recommendation |
+| D14 | Use adapters for initial game/tool integration; also investigate support for unmodified external apps. | Owner&#x27;s surface answer, 2026-09-05; arbitrary app compatibility is not guaranteed |
+| D15 | Research a Quest distribution with a desktop sidecar. | Owner&#x27;s research request, 2026-09-05 |
+| D16 | Quest starts with the shared 2D workspace; independent spatial panes follow later. | Owner&#x27;s Quest-layout answer, 2026-09-05 |
+| D17 | Include project tree, previews, a basic text editor with optional Vim mode, and terminals in the initial IDE scope. | Owner&#x27;s editing answer, 2026-09-05; supersedes the preview-plus-external-editor recommendation |
+| D18 | Closing views detaches them; sessions persist until explicitly stopped. Include a session browser for managing and reopening sessions. | Owner&#x27;s lifecycle answer, 2026-09-05 |
+| D19 | Implement the desktop workspace and terminals first, including a flat game rendered into a new tab in that first useful milestone. | Owner&#x27;s execution-priority answer, 2026-09-05 |
+| D20 | A workspace supports multiple project/worktree roots; each terminal, editor, agent and game session is explicitly bound to its own root. | Owner&#x27;s “Yes, just as you recommend” to the project-scope recommendation, 2026-09-05 |
+| D21 | Use flat NOLF for the first live game tab on macOS and Windows; VtMB follows as the second game adapter. | Owner&#x27;s “Yes, that&#x27;s what I was thinking about” confirming the two recommendations, 2026-09-05 |
+| D22 | Preserve unsaved edits as local recovery drafts; write working files only on explicit Save. | Same owner confirmation as D21, 2026-09-05 |
+| D23 | Select iklib as the first library to prove in both games. | Owner&#x27;s “GO for gecommended” answering the iklib/adoption round, 2026-09-05 |
+| D24 | “Powered by rEngine” requires adoption of at least one curated capability at a pinned version with passing game integration checks. Use of the IDE and shared harness is optional. | Same owner confirmation as D23, 2026-09-05 |
+
+D07 establishes the product direction. The claim that engines are becoming obsolete is the owner&#x27;s
+thesis, not a verified industry-wide conclusion. The implementation question here is how rEngine
+can make a project&#x27;s selected components dependable and straightforward to compose.
+
+## Code-derived constraints
+
+- The engines have separate compatibility seams and different platform/math conventions.
+- Both engines already compile portions of `infra-vr` from a local sibling path.
+- iklib exposes a portable core and host presets, but its tracked host migrations are pending.
+- Training owns frozen evaluation splits, isolated grading, export auditing, and a readiness GO.
+- Existing feature counts and old README status blurbs are not playability measurements.
+- Engine worktrees were active during inspection. Commit IDs alone do not identify every file
+  observed; the source inventory records working-file hashes.
+
+Evidence and limitations: [reconnaissance](../reconnaissance.md).
+
+## Recommendations awaiting confirmation
+
+| ID | Recommendation | Why / consequence |
+| --- | --- | --- |
+| P01 (superseded) | First prove one shared verification/evidence workflow in both engines. | Replaced after D07: this would put supporting tooling ahead of the requested library base. Retained as a later harness proposal. |
+| P02 (confirmed by D03/D24) | Projects selectively adopt pinned capabilities and remain independently buildable. | Games retain their architecture and can meet the adoption minimum without the IDE or shared harness. |
+| P03 (minimum confirmed as D24) | Use an optional project manifest and capability-specific conformance to make adoption measurable. | Verified pinned adoption is confirmed; the exact record/manifest format remains proposed. |
+| P04 | Keep iklib, infra-vr, and training independently maintained; curate and integrate them. | Existing ownership, APIs, and roadmaps already exist. |
+| P05 | Keep model/provider selection outside core contracts; interchange tasks, commands, and evidence. | A model choice should not require a game integration rewrite. |
+| P06 (revised) | Keep reusable tooling usable independently of the orchestrator; use text/JSON artifacts where useful. | D10 now supplies an explicit IDE use case. The earlier deferral of an editor/workspace product is superseded. |
+| P07 | Use native game behavior as the authority for parity; distinguish it from deliberate modernization. | A shared package&#x27;s unit tests cannot prove that a game still behaves correctly. |
+| P08 (confirmed as D08) | Curate upstream libraries and author/extract our own libraries for demonstrated gaps. | Owner confirmed. Whether any specific wrapper adds value is still a per-boundary decision. |
+| P09 (confirmed as D09/D23) | Prove iklib in both engines first. | Strategy and named library confirmed; exact revision, target profiles and parity measures remain feature-spec work. |
+| P10 | Library quality includes contract clarity, correctness, composition, measured resource behavior, maintenance and executable integration knowledge. | Detailed proposal: library-quality.md. A README link alone is insufficient evidence. |
+| P11 (lifecycle confirmed as D18) | Model the workspace as resizable splits containing tab groups; tabs refer to sessions with independent lifetimes. | Moving a tab preserves terminal/game identity. D18 settles close/detach/stop and GUI-exit behavior; D20 settles explicit root binding. |
+| P12 (partly superseded/confirmed) | Use explicit game/tool adapters first. | D14 confirms adapters. D13 supersedes macOS-first with macOS and Windows from the start. |
+| P13 (layout confirmed as D16) | A Quest client uses a desktop sidecar for filesystem, build, terminal, agent and game sessions. Start with the shared layout in a 2D panel before optional independent spatial panels. | The 2D-first layout is confirmed. Pairing, transport and input design still need proof. |
+| P14 (confirmed as D18) | Detach views while sessions remain in the sidecar, with an explicit Stop operation. | Owner also requires a session browser for managing retained sessions. |
+| P15 (confirmed and extended as D19) | Implement the desktop workspace/terminal slice first. | Owner explicitly includes a flat game rendered into a new tab; terminal/layout-only work does not complete the first milestone. |
+
+These are planning defaults, not settled runtime interfaces or implementation authorization.
+
+## Interview tree
+
+Ask small rounds, in dependency order; answer source questions through inspection.
+
+1. **Purpose — direction answered, concrete proof pending.** D07 makes the quality library base
+   primary. D24 settles the minimum powered-by commitment; operational authority and the precise
+   training bridge remain scoped design work.
+2. **Library ownership and first proof — answered.** D08/D09/D23 confirm curated upstream
+   plus our own gaps and iklib in both games first. Specify the parity slice and applicable
+   quality criteria next; do not ask the settled selection questions again.
+3. **Quality and composition.** Agree the admission bar, first subsystem coverage, portability,
+   performance/ownership contracts, host adapter rules and the agent&#x27;s usable context package.
+   Establish infra-vr&#x27;s role, dependency pins and the first selected library&#x27;s integration slice.
+4. **Orchestrator — scope, lifecycle, priority and root association answered.** macOS/Windows from the start,
+   adapters first, Quest 2D-first, and tree/previews/basic editor with optional Vim mode are
+   confirmed, as are retained sessions, session browser and desktop-first execution with a live flat
+   game tab. Multiple project/worktree roots share a workspace with explicitly bound sessions.
+   NOLF is the first game; editor recovery uses local drafts with explicit saves.
+   Next resolve the concrete host baseline, editor/Vim details and
+   later agent recipes/Windows Bash setup; do not repeat settled questions.
+   The specification is `002-orchestrator.md`.
+5. **Operational model.** Set resource/time budgets, hardware verification ownership, unattended
+   authority and concurrent-work coordination. Distinguish terminal sessions from bounded check jobs.
+6. **AI/training boundary.** Decide whether first-class agent support means development tooling,
+   training feedback, in-game AI, or some combination; define what may leave a game workspace.
+7. **Scope and commitment.** Review feature proposals, exclusions, milestone order, evidence
+   requirements, and the point where an unsuccessful extraction should stop.
+
+## Questions to challenge before freezing the roadmap
+
+- What would be measurably easier in the games after the first milestone?
+- What do we provide beyond linking an agent to a library&#x27;s existing documentation?
+- Which composition problems should an agent solve locally, and which should we solve once?
+- If only one game needs a component, what justifies maintaining it here?
+- Can an engine decline a new rEngine version and still ship?
+- Does the adoption record prove the selected capability and its claimed game/platform scope?
+- Do we need new shared code, or would packaging the existing code solve the problem?
+- What evidence would make us reject an abstraction and keep the code local?
+- How much game progress can this foundation effort consume before it must show value?
+
+Record subsequent answers here with their source, date, and which proposal they confirm or
+replace. Do not infer approval from silence or from a generated review artifact.
+
+## Revision record
+
+2026-09-05, owner answer 1: shifted the draft&#x27;s primary path from shared command tooling to
+library quality, curation and real game adoption. Proposed IDs remain traceable, but their
+milestones/priorities/dependencies are revised while the inventory is unapproved. No accepted
+feature history or completion evidence is changed.
+
+2026-09-05, subsequent owner answer: confirmed D08/D09 and added the orchestrator scope D10–D12.
+The new IDE branch explicitly supersedes the earlier editor deferral. Preserve the library proof
+as an independent deliverable; the relative implementation priority of IDE and library work is
+still to be decided.
+
+2026-09-05, platform/surface and editing answers: recorded D13–D17. Researched official Quest
+2D/PWA/Spatial SDK paths, native Operator, Windows window parenting/capture and macOS capture.
+Evidence supports candidate architectures, not a tested port, universal embedding or distribution
+approval. 2D-first Quest and basic built-in editing supersede the earlier pending recommendations.
+
+2026-09-05, lifecycle/order answer: D18/D19 require an independent session owner, a session
+browser and a first desktop slice that includes actual flat game output. Library adoption remains
+independent of IDE completion, but implementation starts with the desktop workflow.
+
+2026-09-05, project-scope answer: D20 confirms multiple roots with explicit per-session binding.
+It does not approve the whole feature inventory, select a toolkit or select the named library.
+
+2026-09-05, first-game/editor answer: D21 selects NOLF then VtMB; D22 selects local recovery
+drafts with explicit working-file saves. The desktop acceptance draft is `032-desktop-v0.md`.
+The exact host revisions, toolkit and measurement budgets remain unselected; D23 below settles
+the named library.
+
+2026-09-05, library/adoption answer: D23 selects iklib. D24 sets verified pinned capability
+adoption as the powered-by minimum, with optional IDE/shared harness. The “GO” answers those two
+presented recommendations; the complete feature proposal still needs concrete roadmap review.
+</pre></details></div>
+</section>
+<section class="item" data-section="desktop">
+  <header><span class="badge ">11 features</span><h2>First desktop release: NOLF workspace</h2></header>
+  <div class="block"><h3>Proposed scope</h3><p>Implement this branch first. Both macOS and Windows must show the real terminal/editor/NOLF workflow; F32 still needs concrete machine, host and measurement inputs.</p></div>
+  <div class="block"><h3>Full acceptance criteria</h3><details><summary>F32: Specify the first desktop workspace, terminal, draft recovery and NOLF integration slice.</summary><p>Owner: rengine · Milestone: O0 · Priority: high · Dependencies: none</p><p>Deliverable: docs/specs/032-desktop-v0.md</p><ol><li>Carry forward macOS/Windows, empty-to-split layout, movable tabs, basic editing/optional Vim, persistent sidecar sessions, the session browser and multiple project/worktree roots with explicit per-session bindings as confirmed requirements.</li><li>Pin the owner-selected flat NOLF host build/profile; specify actual rendered output/input in a new tab, native host ownership and acceptance commands on both platforms, with VtMB as the second adapter.</li><li>Specify stable root identities and local recovery drafts with explicit file saves; define checkpoint/conflict handling, initial Vim subset and predeclared measurable terminal/editor/game budgets; keep agent installers, Quest and XR as later gates.</li></ol></details>
+<details><summary>F33: Qualify the desktop UI, terminal and game-surface stack on macOS and Windows.</summary><p>Owner: rengine · Milestone: O0 · Priority: high · Dependencies: F32</p><p>Deliverable: docs/decisions/desktop-stack.md and bounded feasibility prototype</p><ol><li>Compare a small set of existing layout/editor/terminal components against native desktop and later Quest-client constraints with source/license/version references.</li><li>On both platforms demonstrate a real PTY, editable text/Vim-mode feasibility and a real cooperative graphical surface with resize/input; static mockups are insufficient.</li><li>Measure agreed budgets and choose an implementation stack with known limits and rollback; failure produces a revised proposal, not a supported-platform claim.</li></ol></details>
+<details><summary>F34: Implement the empty workspace with recursive splits and movable tab groups.</summary><p>Owner: rengine · Milestone: O1 · Priority: high · Dependencies: F33</p><p>Deliverable: orchestrator layout implementation and UI evidence</p><ol><li>Start empty, split horizontally/vertically, resize and collapse splits, and open/reorder/move tabs between pane groups.</li><li>Keyboard/pointer focus follows the intended tab; moving a view preserves its session and root binding and does not trigger a new session or change another tab&#x27;s context.</li><li>Exercise the actual UI on macOS and Windows, including minimum sizes and displays with different scaling.</li></ol></details>
+<details><summary>F35: Implement a desktop sidecar that owns interactive sessions independently of views.</summary><p>Owner: rengine · Milestone: O1 · Priority: high · Dependencies: F33</p><p>Deliverable: sidecar session service and lifecycle tests</p><ol><li>Session records identify owning sidecar, stable project/worktree root, type, target, launch cwd, process/PTY identity and state; launch only through explicit commands and distinguish shell cwd from launch association.</li><li>Closing a view or GUI leaves sessions alive; reconnect attaches to the same session; explicit Stop terminates the intended process tree and reports exit.</li><li>Test sessions in two separate worktrees, GUI loss, sidecar failure, missing roots and stale identities on macOS/Windows; never retarget a session by focus/display name or claim a terminated process has resumed.</li></ol></details>
+<details><summary>F36: Connect real terminal panes to sidecar-owned PTY sessions.</summary><p>Owner: rengine · Milestone: O1 · Priority: high · Dependencies: F34, F35</p><p>Deliverable: terminal provider and desktop acceptance evidence</p><ol><li>Exercise an interactive shell/full-screen terminal program with input, resize, scrollback, Unicode, paste and control keys on both desktops.</li><li>Move/detach/reattach terminals bound to different roots without losing their process and retained output; focus routes input only to the selected session and a shell cwd change does not rebind its launch root.</li><li>Long-lived sessions have no inherited verification-job deadline; measure responsiveness and retain failure/exit state.</li></ol></details>
+<details><summary>F37: Provide project tree, previews and basic text editing with optional Vim mode.</summary><p>Owner: rengine · Milestone: O1 · Priority: high · Dependencies: F34, F35</p><p>Deliverable: file/tree/editor providers and edit-path evidence</p><ol><li>Browse multiple declared roots, preview files, and edit/save text with undo/redo/search, dirty-buffer status and external-change handling; identical relative filenames in separate worktrees retain distinct root-bound buffers and save destinations.</li><li>Exercise the F32-defined Vim subset and ordinary editing on macOS/Windows; preserve supported encoding/line endings and avoid silent overwrite of external edits.</li><li>Retain unsaved edits as local recovery drafts on view close/GUI restart and write working files only on explicit Save; exercise external edits, checkpoint failure and explicit Discard without losing the only unsaved copy; large/binary/unsupported files fail or preview explicitly.</li></ol></details>
+<details><summary>F38: Persist layout and recover views onto retained sessions after GUI restart.</summary><p>Owner: rengine · Milestone: O1 · Priority: high · Dependencies: F34, F35, F36, F37</p><p>Deliverable: versioned workspace persistence and recovery evidence</p><ol><li>Restore splits, tab placement, stable root/session associations and durable local editor drafts after closing/reopening the GUI with multiple projects/worktrees; no restore path silently writes working files.</li><li>Resolve live session IDs through the sidecar; no restore path relaunches commands automatically or confuses a dead process with a live one.</li><li>Interrupted saves and unknown persistence versions recover with an actionable result; test macOS/Windows paths and changed/missing/removed roots without silently remapping sessions, relaunching commands or stopping retained processes.</li></ol></details>
+<details><summary>F42: Implement the cooperative game surface and input contract for desktop panes.</summary><p>Owner: rengine · Milestone: O3 · Priority: high · Dependencies: F33, F35</p><p>Deliverable: versioned surface adapter and native graphical fixture</p><ol><li>Transport actual frames from a separate graphical process to a tab with explicit session identity, frame lifetime, resize and input semantics.</li><li>Prove focus/aspect/DPI handling, view movement, detach/reattach and explicit stop without affecting another session on macOS and Windows.</li><li>Measure the F32/F33 budgets and keep the transport distinct from MCP control; expose capabilities suitable for a later remote client.</li></ol></details>
+<details><summary>F43: Render flat NOLF into an orchestrator tab on macOS and Windows.</summary><p>Owner: nolf-improved · Milestone: O3 · Priority: high · Dependencies: F42</p><p>Deliverable: reLith-owned surface adapter and two-platform game evidence</p><ol><li>From the owning nolf-improved workspace, implement the flat NOLF adapter using the F32-pinned native build/launch profile and user-owned assets.</li><li>Show actual game output in a new tab and verify resize, input, tab move, close/reattach and explicit stop through the sidecar on macOS and Windows.</li><li>Run relevant existing host gates, record the tested game/profile and rollback; an external window or log-only tab does not complete the pane requirement.</li></ol></details>
+<details><summary>F48: Complete the first desktop workflow with a terminal, editor, session browser and flat game tab.</summary><p>Owner: rengine · Milestone: O5 · Priority: high · Dependencies: F36, F37, F38, F43, F54</p><p>Deliverable: docs/evidence/desktop-v0.md and packaged desktop builds</p><ol><li>On macOS and Windows execute the empty-to-split workflow with multiple roots, ordinary and optional Vim editing, local draft recovery with explicit saves, real terminals and flat NOLF in a new tab.</li><li>Move and detach views, find retained sessions in the browser, reattach after GUI restart, and explicitly stop the intended game/process; identical filenames and similarly named sessions across roots never redirect a file write or session operation.</li><li>Record real rendered/input evidence and agreed performance measurements; a layout mock, terminal-only shell or external game window cannot close this milestone.</li></ol></details>
+<details><summary>F54: Provide the session browser for inspecting, reattaching and explicitly stopping sessions.</summary><p>Owner: rengine · Milestone: O1 · Priority: high · Dependencies: F34, F35</p><p>Deliverable: session browser UI and two-platform lifecycle evidence</p><ol><li>List live/detached/exited sessions with explicit project/worktree root, type, target, state and attached-view information; distinguish similarly named sessions and retain root association even after its removal from the layout.</li><li>Attach or focus an existing session and explicitly stop one with accurate exit reporting; moving/closing the browser does not stop other sessions.</li><li>Exercise detached game and terminal sessions across GUI restart on macOS and Windows, including a stale/dead session and two similarly named worktrees; attach and Stop affect only the selected root/session.</li></ol></details></div>
+  <div class="block"><h3>Source specifications</h3><details><summary>docs/specs/032-desktop-v0.md</summary><pre># First desktop workspace: NOLF and retained sessions
+
+Date: 2026-09-05. Status: **acceptance draft; F32 remains proposed and incomplete**.
+Owner decisions: [charter D13–D22](000-charter.md). Architecture: [orchestrator](002-orchestrator.md).
+This defines the first useful release. No UI stack, session service or host adapter is implemented.
+
+## Confirmed result
+
+On macOS and Windows, construct an initially empty workspace from splits and movable tab groups.
+Use multiple project/worktree roots, a project tree, previews, a basic editor with optional Vim
+mode and real terminals. Launch flat NOLF into a new interactive game tab. Move and detach views,
+then recover the same live sessions through a session browser after restarting the GUI. Stop
+sessions explicitly. Retain unsaved editor drafts locally; change working files on explicit Save.
+
+VtMB follows as the second game adapter. Agent installation/MCP bootstrap, Quest 2D delivery,
+spatial panels, external-app compatibility and XR Operator have separate roadmap gates.
+
+## Acceptance workflow on each desktop
+
+1. Start with an empty layout. Add a NOLF checkout and a second project/worktree root. Include
+   the same relative text filename in both roots to expose incorrect file/session association.
+2. Split horizontally and vertically, resize the panes, and open a tree, file tabs and two real
+   terminal sessions. Each session exposes its root. Normal editing and the declared Vim subset
+   both work. The terminal handles an interactive full-screen program, resize and control keys.
+3. Edit both files to different unsaved contents. Close one editor view, then reopen its retained
+   draft. Verify that both files on disk are unchanged. Save one explicitly and verify that only
+   its intended file changed. Repeat with an external edit while a draft is retained.
+4. Launch the pinned flat NOLF profile into a new tab through its host-owned adapter. Verify live
+   game image and gameplay input. Move/resize the tab; the same process and game state survive.
+   Changing tree focus to the other root cannot redirect game input or terminal commands.
+5. Detach the game and terminal views. Find both sessions in the browser with root, type, target,
+   state and view information. Reattach to the same sessions and retained terminal output.
+6. Leave a dirty editor draft and live sessions, close the GUI, then reopen it. Restore layout,
+   root bindings and the draft; reattach to the sidecar&#x27;s existing processes without rerunning
+   launch commands. Stop NOLF explicitly and verify the intended session exits while the other
+   terminal remains usable.
+7. Record actual image/input, file-state and process-identity evidence plus the measurements
+   below. Run the host&#x27;s applicable native gates. A static image, log tab or external game window
+   cannot satisfy the game-tab criterion.
+
+## Proposed draft and conflict semantics
+
+The owner selected the user-facing policy; these mechanics implement it and remain design proposals:
+
+- Draft identity includes its owning root and file/buffer identity. Keep drafts in local application
+  state outside tracked project files. Retain the base disk version needed to detect external edits.
+- Closing a view preserves its draft and a route to reopen it. Before orderly GUI exit, durably
+  checkpoint unsaved contents. Checkpoint failure is visible and must not discard the only copy.
+- A disk edit by a CLI agent or another editor does not replace the retained draft. Show the
+  conflict and preserve both versions; overwriting the changed file requires an explicit choice.
+- Explicit Save writes only the intended file and clears dirty state only after a successful write.
+  Interrupted writes must preserve a recoverable previous or new version; select and test the
+  platform-specific write strategy during implementation. Read-only/deleted files report failure.
+- Explicit Discard removes the selected draft and uses the current disk version. Closing a tab
+  alone is not Discard. An untitled buffer still belongs to a selected root and needs a Save path.
+- After a crash, restore the last durable checkpoint and report its freshness. Checkpoint cadence
+  and size limits need measurement; do not claim that every in-flight edit survives an OS failure.
+
+## Failure and isolation cases
+
+| Case | Required outcome |
+| --- | --- |
+| Same filenames/session labels in different worktrees | Saves, input, reattachment and Stop address the selected root/session. |
+| Root removed from the layout or directory missing | Retained sessions keep their identity; missing paths are visible and never mapped to another checkout automatically. |
+| Sidecar terminates or an old process ID is reused | Report lost/exited state; never present a replacement process as the original session. |
+| Game crashes or its surface disconnects | Keep diagnostics/session state and other panes usable; reconnect and relaunch are distinct actions. |
+| Editor disk conflict or draft-write failure | Preserve unsaved contents and show a recoverable state without silently saving or discarding. |
+| Unknown/interrupted persistence format | Preserve available recovery material and report the unsupported/damaged state. |
+| GUI restart with long-lived processes | Reattach without executing persisted commands again. |
+
+## Qualification inputs still required
+
+F32 cannot pass until these are recorded. The initial source inventory is a dated observation,
+not the integration pin. A reported working NOLF baseline is not new two-platform verification.
+
+| Input | Required record before the F33 feasibility run |
+| --- | --- |
+| NOLF source and assets | Reviewed host revision plus patch hash if needed, flat target/profile, local asset prerequisites and reproducible launch arguments. |
+| Native commands | Current configure/build/launch commands and applicable regression gates for each OS, read from the owning repository. |
+| Reference machines | macOS/Windows versions, CPU/GPU, display scale/refresh, driver/toolchain and the NOLF scene used for comparison. |
+| Editor scope | Supported text encoding/line endings, preview types, file-size limits, exact initial Vim actions and keyboard shortcuts. |
+| Session/persistence scope | Versioned root/session identity, path relocation behavior, draft checkpoint cadence and retained terminal-output limits. |
+| Measurement limits | Numeric thresholds set before the experiment, with a fixed workload and repeatable measurement method. |
+
+Measure terminal input-to-display and resize responsiveness; editor open/search/save/recovery time;
+idle and active GUI/sidecar memory and CPU; NOLF frame pacing and input-to-display overhead relative
+to the same scene running directly; and resource behavior when tabs are visible, hidden or detached.
+Record sample counts and percentile definitions with the results. Prototype measurements guide the
+component choice; any revised threshold needs a recorded rationale rather than a retroactive pass.
+
+Qualify a small number of existing layout/editor/terminal components plus cooperative game output
+on both platforms. Record source, version, license, supported interfaces and limits in F33&#x27;s
+decision. The later Quest client is a design constraint, not an untested desktop-release claim.
+
+## Ownership and completion
+
+rEngine owns F32/F33 and the workspace/session implementation. `nolf-improved` owns F43&#x27;s native
+adapter and host checks; `vtmb-vr` owns F44. Shared reLith changes require checks for affected games.
+Preserve each game&#x27;s independent build and runtime architecture; reverting an adapter/pin restores
+the recorded direct-launch path without making either engine depend on the workspace GUI.
+
+F48 closes the desktop release only when its prerequisites and the full workflow pass on both
+desktops. Drafting this document does not complete F32, F43 or F48. The feature proposal still
+requires owner review before activation; later library and agent work retain separate scopes.
+</pre></details></div>
+  <div class="status-row"><span class="lbl">Verdict</span><button class="st-btn" data-st="approved">Approve</button><button class="st-btn" data-st="rejected">Reject</button><button class="st-btn" data-st="needs-revision">Revise</button><button class="st-btn" data-st="deferred">Defer</button></div>
+  <textarea class="comment" data-comment placeholder="comment (optional)"></textarea>
+</section>
+<section class="item" data-section="iklib">
+  <header><span class="badge ">12 features</span><h2>First library proof: iklib in both games</h2></header>
+  <div class="block"><h3>Proposed scope</h3><p>Independent of desktop completion. Recommend this as the next product proof after desktop v0. Core IK adoption precedes optional fingers; the IDE/shared harness are optional for powered-by eligibility.</p></div>
+  <div class="block"><h3>Full acceptance criteria</h3><details><summary>F1: Specify the reviewed iklib pilot and its two-game quality and adoption criteria.</summary><p>Owner: rengine · Milestone: M0 · Priority: medium · Dependencies: none</p><p>Deliverable: docs/specs/001-library-pilot.md</p><ol><li>Carry forward curated upstream plus authored gaps, iklib first, project independence and verified pinned capability adoption with optional IDE/shared harness; record remaining wrapper, infrastructure and training boundaries explicitly.</li><li>Specify the selected iklib core proof in VtMB and NOLF with exact target profiles, parity measures, resource budgets and bounded effort; preserve separate finger migrations.</li><li>Review the revised library-first proposal and record accepted scope before activating features.json.</li></ol></details>
+<details><summary>F13: Define the catalog admission and compatibility record for real components.</summary><p>Owner: rengine · Milestone: M1 · Priority: high · Dependencies: F31</p><p>Deliverable: catalog schema and admission policy</p><ol><li>Owner decides required provenance/license documentation, maintainer, immutable source identity, capability, platforms and independent-consumption evidence.</li><li>Schema distinguishes discovered candidate, reviewed recipe and verified consumer adoption; none implies another.</li><li>Represent iklib and infra-vr from current source evidence; a hypothetical flecs choice is not marked selected or verified.</li></ol></details>
+<details><summary>F14: Define reproducible dependency pins and explicit developer overrides.</summary><p>Owner: rengine · Milestone: M1 · Priority: high · Dependencies: F13</p><p>Deliverable: dependency manifest/lock contract and consumer fixtures</p><ol><li>Choose one consumption mechanism with owner input at F1/F13 and test immutable revision/checksum resolution.</li><li>Consumer fixture builds from prepared local sources without implicit home paths or hidden network; missing material fails explicitly.</li><li>Local source override is opt-in and appears in evidence; it cannot be advertised as the reviewed release pin.</li></ol></details>
+<details><summary>F15: Publish a reviewed local iklib consumption recipe and two fixture proofs.</summary><p>Owner: rengine · Milestone: M1 · Priority: high · Dependencies: F14, F27</p><p>Deliverable: catalog/iklib entry and consumption evidence</p><ol><li>Use the actual iklib CMake target and supported source-tree model at a reviewed revision; do not invent an install package.</li><li>Two minimal host-shaped fixtures with different frames/scales compile and run selected solvers without unrelated engine dependencies.</li><li>Verify consumer target/options/test isolation; recipe links pending host migrations and makes no completed-game-integration claim.</li></ol><p>External references (verify required versus optional scope in owner workspace): iklib:F100, iklib:F101, iklib:F102, iklib:F130, iklib:F131</p></details>
+<details><summary>F18: Complete the existing reSource core IK migration from its owning workspace.</summary><p>Owner: vtmb-vr · Milestone: M2 · Priority: high · Dependencies: F15</p><p>Deliverable: host migration commit and iklib:F131 evidence link</p><ol><li>Re-pin current host seam, map a host-owned feature to iklib:F131, and satisfy its unchanged acceptance criteria.</li><li>Record old/new pose equivalence and existing IK/contract tests using the pinned library; remove obsolete core solver code.</li><li>Record relevant host runtime/manual gates and rollback; do not claim the separate finger migration is included.</li></ol><p>External references (verify required versus optional scope in owner workspace): iklib:F131</p></details>
+<details><summary>F19: Complete the existing reLith IK migration with NOLF parameter parity.</summary><p>Owner: nolf-improved · Milestone: M2 · Priority: high · Dependencies: F15, F18</p><p>Deliverable: host migration commit and iklib:F130 evidence link</p><ol><li>Resolve iklib F130 V2 constant comparison against current host before changing solver behavior; use explicit per-host parameters if needed.</li><li>Complete F130 criteria with existing host tests and recorded old/new output equivalence; remove replaced production solvers.</li><li>Record every reLith game affected by the shared closure, required gates and rollback; adding fingers is a separate task.</li></ol><p>External references (verify required versus optional scope in owner workspace): iklib:F130</p></details>
+<details><summary>F21: Record runtime adoption evidence by engine, game and supported profile.</summary><p>Owner: rengine · Milestone: M2 · Priority: high · Dependencies: F18, F19</p><p>Deliverable: docs/evidence/ik-adoption-matrix.md</p><ol><li>Reference both core host migrations F18/F19 and immutable evidence without changing external feature states; list fingers pending until separately proven by F20 or its host-owned follow-up.</li><li>Distinguish NOLF, AVP2, NOLF2 and VtMB plus flat/VR/platform profiles; list verified, unaffected, pending or unsupported honestly.</li><li>Each verified row includes component revision, host gates and rollback evidence; coordinate optional iklib:F132 as separate future work.</li><li>For the first library proof, retain host integration effort, replaced production duplication and representative resource evidence; evaluate the agreed F1/F31 quality measures.</li></ol><p>External references (verify required versus optional scope in owner workspace): iklib:F130, iklib:F131, iklib:F132, iklib:F133</p></details>
+<details><summary>F27: Map both games&#x27; library needs and qualify the selected iklib pilot scope.</summary><p>Owner: rengine · Milestone: M1 · Priority: high · Dependencies: F31</p><p>Deliverable: docs/library-coverage.md and first-candidate decision</p><ol><li>Map relevant existing dependencies and duplicated capabilities across both games with current source references and actual integration differences.</li><li>For the initial scope, classify curate upstream, extract our own component, implement a demonstrated gap or keep host-local; do not mark untested candidates qualified.</li><li>Use owner-selected iklib for the first two-game core proof; record exact integration slices, quality gaps and bounded follow-ups, preserving independent iklib/infra-vr ownership.</li></ol></details>
+<details><summary>F28: Prove a new host can adopt a capability without either game engine.</summary><p>Owner: rengine · Milestone: M5 · Priority: medium · Dependencies: F15</p><p>Deliverable: independent host fixture and conformance evidence</p><ol><li>Create a minimal unrelated host layout/object model that consumes one selected capability using public interfaces only.</li><li>No reLith/reSource source, globals, game assets or mandatory ECS are needed; remove either game adapter and the fixture still works.</li><li>Document what a future flecs-based host would own without claiming or adding a flecs integration absent a selected consumer.</li></ol></details>
+<details><summary>F29: Define evidence-backed powered-by records for both engine families.</summary><p>Owner: rengine · Milestone: M5 · Priority: medium · Dependencies: F13, F21</p><p>Deliverable: docs/compatibility.md and adoption record format</p><ol><li>Apply D24: at least one curated capability at a pinned version with passing game integration checks; list exact capabilities, pins and verified game/platform/profile rows.</li><li>Keep IDE/shared harness use optional and upgrades independent; include only separately proven tool/runtime capabilities without requiring the later shared-runner branch.</li><li>Do not relabel a pending host, publish branding changes or require an unrelated component to claim a verified capability.</li></ol></details>
+<details><summary>F30: Audit the harness and decide the next bounded roadmap from measured results.</summary><p>Owner: rengine · Milestone: M5 · Priority: medium · Dependencies: F13, F21</p><p>Deliverable: docs/audits/first-cycle.md and reviewed follow-up proposal</p><ol><li>Validate feature graph, local document links, source/evidence freshness and owner-workspace boundaries; record drift with repair actions.</li><li>Compare first-library integration benefit, resource measurements and maintenance cost against F1/F31 measures, including failed and deferred verification.</li><li>Review the next bounded work with the owner; preserve accepted feature history and the confirmed independent library/workspace paths instead of expanding unrelated runtime scope.</li></ol></details>
+<details><summary>F31: Agree the library quality standard and the usable integration knowledge package.</summary><p>Owner: rengine · Milestone: M0 · Priority: high · Dependencies: F1</p><p>Deliverable: docs/library-quality.md and selected-library qualification spec</p><ol><li>Owner reviews applicable correctness, API/ownership/threading, composition, resource, portability, maintenance and agent-usability criteria; requirements remain scoped per component.</li><li>Distinguish candidate, qualified component and verified real-consumer adoption with explicit evidence for each claim.</li><li>Apply the standard to the selected first library and define the minimum executable examples, contract context, native checks, measurements and failure cases before integration.</li></ol></details></div>
+  <div class="block"><h3>Source specifications</h3><details><summary>docs/specs/001-library-pilot.md</summary><pre># First library proof: iklib in reSource and reLith
+
+Date: 2026-09-05. Status: **pilot draft; F1 remains proposed and incomplete**.
+Owner decisions: charter D08/D09/D23/D24. The library is selected; no new host migration or
+runtime verification is claimed. [Integration plan](../integration-plan.md) records source seams.
+
+## Confirmed outcome and proposed slice
+
+Curate upstream libraries and author demonstrated gaps. First prove iklib in both games, preserving
+their independent architectures. A pinned curated capability with passing game integration checks
+meets the powered-by minimum; neither the IDE nor the shared harness is required.
+
+Proposed first slice: migrate the existing core IK paths in VtMB and NOLF, preserving behavior.
+Follow iklib&#x27;s existing order: reSource core (`iklib:F131`, rEngine F18), then NOLF parameter parity
+and adoption (`iklib:F130`, rEngine F19). This is separate from NOLF-first desktop integration.
+ReSource fingers (`iklib:F133`, F20) and new NOLF fingers (`iklib:F132`) are separate capabilities;
+their incompletion must not block an evidence-backed claim about the selected core solver.
+
+## Concrete delivery sequence
+
+1. Recheck the active host seams and iklib contract; record reviewed revisions and any working
+   patches. Declare supported solver inputs, basis/units/pose space, quaternion layout, ownership,
+   thread use, allocation behavior and host parameters. Do not standardize the games&#x27; internal types.
+2. Curate the actual supported source-tree CMake consumption path at an immutable pin. Build two
+   small fixtures with different frames/scales and test namespace/options isolation. No nonexistent
+   installed package or implicit sibling lookup belongs in the recipe.
+3. In the VtMB workspace, bind a host-owned task to F131. Establish old/new pose comparisons and
+   existing host gates, migrate the selected core path, remove replaced production duplication and
+   verify rollback. Record required runtime/device observations under that host&#x27;s rules.
+4. In the NOLF workspace, resolve F130&#x27;s V2 parameter comparison before changing solver behavior.
+   Use explicit host parameters where needed, apply its existing gates and check every reLith game
+   whose shared source/build closure changed. Record pending targets separately from passes.
+5. In rEngine F21, link both host migration commits and immutable evidence. Record integration
+   effort, retired duplication, correctness, representative resource costs and independent rollback.
+   F20 later adds finger evidence without expanding the meaning of the already-proven core rows.
+6. Produce scoped powered-by records (F29). ReSource and reLith can remain on different reviewed
+   revisions when their own compatibility evidence supports those pins; release cadence stays local.
+
+## Proposed quality and rejection criteria
+
+| Area | Required before accepting the pilot |
+| --- | --- |
+| Correctness | Predeclared tolerances and representative recorded poses; native regression gates detect meaningful failures. |
+| Behavior parity | Separate parameter differences from solver differences; no new finger behavior smuggled into the core migration. |
+| Composition | Minimal host fixtures and actual consumers work without unrelated engine libraries, target collisions or hidden downloads. |
+| Resource behavior | Measure representative solve time and contractually relevant allocations with reproducible fixtures and machine/profile identity. |
+| Agent usability | Short contract entry point, executable example, host adapter recipe, actionable diagnostics and exact verification commands. |
+| Maintenance | Owned upstream/host changes, independent pins, known limits and tested rollback; remove obsolete production solver copies after parity proof. |
+
+Reject or narrow the proposed extraction if preserving host policy requires game internals in the
+portable core, if parity cannot be demonstrated, or if the reusable API costs more than the local
+implementation without a measured benefit. Record failures and revise the bounded slice; do not
+enlarge rEngine into a required common runtime to force adoption.
+
+## Inputs still required before implementation
+
+- Reviewed library/host source identities, matching host tasks and current external F130/F131 status.
+- Exact core solver coverage, old/new pose fixtures, numerical tolerances and behavior oracle.
+- Claimed platform/flat/VR profiles, reference hardware, native commands and required manual checks.
+- Per-capability resource thresholds and a bounded effort budget before the extraction starts.
+- Applicable provenance/license/maintenance requirements from the library-quality proposal.
+
+F1/F31 capture these inputs; naming iklib alone does not complete either. Cross-project rows are
+executed from their owning workspace, and rEngine records their evidence without changing external
+feature flags. No training export or model run follows automatically from a successful integration.
+</pre></details>
+<details><summary>docs/library-quality.md</summary><pre># Quality library base — proposal
+
+Status: quality-standard recommendation for the design interview. The owner confirmed curated
+upstream plus our own gaps, iklib proven in both games first, and verified pinned capability
+adoption as the powered-by minimum. Detailed standards and pilot profiles remain proposed.
+
+## What rEngine contributes
+
+A selected library should arrive with enough verified implementation and integration knowledge
+that an agent can use it in a new game without reconstructing hidden assumptions. The proposed
+unit of curation contains:
+
+- The implementation&#x27;s origin, maintainer, license information and immutable reviewed revision.
+- A clear capability description, selection tradeoffs and known limits.
+- Explicit API, data, ownership, threading and resource contracts appropriate to that component.
+- Minimal executable consumption examples and meaningful correctness checks.
+- Tested integration recipes and a compatibility record scoped to actual consumers/platforms.
+- Upgrade history, known failures and a way for each consumer to pin or roll back independently.
+
+This can describe an upstream package, an independent library such as iklib, or a new component
+authored to fill a demonstrated gap, following the confirmed ownership strategy. The extent of
+wrapping any particular API remains a design choice. Add adapters where real integration
+differences justify them.
+
+## Proposed quality dimensions
+
+| Dimension | Evidence to require | What must stay explicit |
+| --- | --- | --- |
+| Capability and scope | Named game need, public API and usage example | What the component does not implement and when another choice is appropriate |
+| Correctness | Tests that detect meaningful failures; reference/replay evidence where parity matters | Numerical tolerances, malformed-input behavior and unavailable oracles |
+| Composition | Standalone consumption plus real host usage; no unrelated module dependency | Lifecycle, allocation ownership, callbacks, thread use and host-side policy |
+| Resource behavior | Measurements for representative workloads on the claimed platform | Latency, memory/allocation behavior, limits and test configuration; budgets set per capability |
+| Portability | Actual build/runtime evidence for listed targets and profiles | Verified versus pending/unsupported platforms; optional dependencies |
+| Maintenance | Source/version provenance, change history, known issues and upgrade/rollback recipe | Who owns fixes and what compatibility is promised |
+| Agent usability | A short entry point, precise contracts, executable examples and actionable diagnostics | Which inputs an agent must supply and what checks establish a correct integration |
+
+Zero allocation is appropriate to iklib&#x27;s declared solve contract; it is not a blanket rule for
+every parser, tool or asset importer. Likewise, the quality base does not require every library
+to adopt one math type, C ABI, ECS, renderer or build generator. Composition must make conversions
+and ownership visible at the actual boundary.
+
+## Admission and proof
+
+Recommended progression:
+
+1. **Candidate:** source and intended capability identified; suitability still under evaluation.
+2. **Qualified component:** applicable contracts, tests, consumption recipe and resource evidence
+   have been reviewed. Claims are limited to the exact version and configurations tested.
+3. **Verified adoption:** a named game&#x27;s actual implementation uses the component and passes its
+   own relevant gates. This is recorded separately for every consumer.
+
+For the first base-building pilot, the owner selected two real game consumers. This should expose
+assumptions that isolated library tests miss. It is not yet a rule
+that every useful library must already be used by two games before it can enter the catalog.
+
+## Confirmed first library: iklib
+
+The existing source inventory identifies a portable implementation, host presets and pending
+real-game migrations. The owner selected iklib in D23. The proposed success case is:
+
+- Freeze a reviewed iklib revision and document the usable contracts/consumption example.
+- Recheck reSource and reLith&#x27;s current integration differences, including NOLF&#x27;s unresolved
+  parameter comparison and reSource&#x27;s separate finger seam.
+- Use native host gates and recorded old/new behavior to complete the selected migrations from
+  their owning workspaces. Remove the replaced production duplication after parity is proven.
+- Record integration effort, resource behavior and maintenance/rollback evidence. Judge whether
+  the base reduced repeated solver work while preserving each game&#x27;s architecture.
+
+Fixtures remain useful for the package boundary; real host adoption establishes the intended
+product value. The [pilot draft](specs/001-library-pilot.md) keeps core solver parity and the
+separate finger migrations distinct. Naming the library does not claim that migration is complete.
+
+## Confirmed powered-by minimum
+
+D24 requires at least one curated capability at a pinned version with passing game integration
+checks. The IDE and shared harness are optional. The record should name the capability, component
+revision, host revision, game/platform/profile and evidence; a manifest format is still proposed.
+Only verified rows earn the claim. A NOLF result does not certify AVP2/NOLF2 or another platform.
+Games select and upgrade capabilities independently and keep their own framework and host gates.
+
+## Coverage to map before expanding the collection
+
+Read the actual dependency and duplication boundaries in both games, then classify the needed
+capabilities: platform/input, rendering support, audio, physics/collision, math/animation/IK,
+formats/assets, concurrency, diagnostics and reporting. Existing donor evidence already shows
+different SDL versions, a reSource Jolt dependency, iklib, and shared infra-vr consumption.
+These are source observations, not a new recommendation or a qualified package inventory.
+
+For each capability, decide whether to curate existing implementation, extract a shared component,
+author a missing piece, or leave it host-local. Avoid promising a full engine&#x27;s worth of modules
+before those choices and their consumer needs are established.
+
+## Remaining design questions
+
+- Where are common conventions worth their adapter cost, and where do they constrain a game?
+- Which exact iklib revision, game profiles and parity scope will establish the first proof?
+- What measured benefit and quality bar justify calling that proof successful?
+- Which record format makes the confirmed powered-by minimum easy to verify and maintain?
+</pre></details></div>
+  <div class="status-row"><span class="lbl">Verdict</span><button class="st-btn" data-st="approved">Approve</button><button class="st-btn" data-st="rejected">Reject</button><button class="st-btn" data-st="needs-revision">Revise</button><button class="st-btn" data-st="deferred">Defer</button></div>
+  <textarea class="comment" data-comment placeholder="comment (optional)"></textarea>
+</section>
+<section class="item" data-section="agents-tools">
+  <header><span class="badge ">5 features</span><h2>Later workspace capabilities: agents, VtMB and tools</h2></header>
+  <div class="block"><h3>Proposed scope</h3><p>Standalone Bash agent selection/installation and project MCP recipes, the second game adapter and a tool view. Windows Bash/native/WSL behavior and the first CLI recipes are specified before their implementation.</p></div>
+  <div class="block"><h3>Full acceptance criteria</h3><details><summary>F39: Implement the terminal-based Bash agent selector and extensible launch registry.</summary><p>Owner: rengine · Milestone: O2 · Priority: medium · Dependencies: F36</p><p>Deliverable: standalone agent launcher and registered CLI recipes</p><ol><li>Discover supported installed CLI agents and allow an explicit custom installed command; launch in the chosen terminal&#x27;s explicit root and launch directory regardless of another tab&#x27;s focused project.</li><li>Keep recipes/version detection outside pane code and specify the Windows Bash/native-or-WSL path contract without guessing conversions.</li><li>Prove selection/launch both inside the orchestrator and standalone on macOS/Windows, including missing agent and cancelled selection.</li></ol></details>
+<details><summary>F40: Add visible selected-agent installation and recoverable setup recipes.</summary><p>Owner: rengine · Milestone: O2 · Priority: medium · Dependencies: F39</p><p>Deliverable: versioned agent install recipes and installation evidence</p><ol><li>For a user-selected supported recipe, show official source, version, destination and required changes before installation; do not install on tab open alone.</li><li>Verify the installed CLI/version and support cancellation, failed download/install and repeat invocation without corrupting an existing installation.</li><li>Exercise at least the first agreed real CLI recipe per desktop platform plus isolated failure fixtures; preserve unrelated agent configuration.</li></ol></details>
+<details><summary>F41: Bootstrap project MCP integrations through agent-specific configuration adapters.</summary><p>Owner: rengine · Milestone: O2 · Priority: medium · Dependencies: F39</p><p>Deliverable: agent integration profiles and connectivity evidence</p><ol><li>Merge the explicitly bound root&#x27;s project profile through the supported CLI/version adapter without replacing unrelated settings, using a global active project or assuming every agent shares a format.</li><li>Distinguish configured, reachable, unsupported and failed integrations; re-running setup is idempotent and exposes repair steps.</li><li>Prove the selected agent calls an actual local test MCP tool scoped to its project/session; unknown CLI configuration is not silently guessed.</li></ol></details>
+<details><summary>F44: Add the reSource flat-game surface through the same public session contract.</summary><p>Owner: vtmb-vr · Milestone: O3 · Priority: medium · Dependencies: F42</p><p>Deliverable: reSource-owned adapter and scoped compatibility evidence</p><ol><li>Implement a host-owned adapter without importing reLith engine/window types or requiring its dependencies.</li><li>Exercise actual VtMB rendering/input/resize/reattach on the declared desktop profiles with the same public surface contract.</li><li>Preserve the existing host gates and record unsupported/pending profiles separately; verify game behavior and rollback.</li></ol></details>
+<details><summary>F45: Host one additional rendered tool through an explicit pane provider.</summary><p>Owner: rengine · Milestone: O3 · Priority: medium · Dependencies: F34, F35</p><p>Deliverable: tool provider contract and one real tool integration</p><ol><li>Select a real tool need and qualify its native or web presentation route against the agreed stack; no assumption all tools share one renderer.</li><li>Open, move, resize and close/reopen its pane with project/session identity and honest lifecycle/error state.</li><li>Record input capabilities and limitations; tool-specific UI types do not enter the game runtime contract.</li></ol></details></div>
+  <div class="status-row"><span class="lbl">Verdict</span><button class="st-btn" data-st="approved">Approve</button><button class="st-btn" data-st="rejected">Reject</button><button class="st-btn" data-st="needs-revision">Revise</button><button class="st-btn" data-st="deferred">Defer</button></div>
+  <textarea class="comment" data-comment placeholder="comment (optional)"></textarea>
+</section>
+<section class="item" data-section="library-followups">
+  <header><span class="badge ">3 features</span><h2>Independent library follow-ups</h2></header>
+  <div class="block"><h3>Proposed scope</h3><p>Investigate reproducible infra-vr packaging and migrate the separate VtMB finger seam. These do not block the first core IK proof.</p></div>
+  <div class="block"><h3>Full acceptance criteria</h3><details><summary>F16: Resolve the infra-vr embeddable packaging boundary from both host closures.</summary><p>Owner: rengine · Milestone: M1 · Priority: high · Dependencies: F13</p><p>Deliverable: docs/specs/016-infra-packaging.md</p><ol><li>Pin and compare both actual INFRA_VR_DIR build closures, target/option collisions, microui ownership and optional transport/platform dependencies.</li><li>Agree with the owner whether the fix belongs upstream in infra-vr or in a narrowly scoped consumption recipe; name files and rollback.</li><li>Specify both consumer fixture builds and acceptance conditions; do not operate or redesign the backend.</li></ol></details>
+<details><summary>F17: Prove pinned infra-vr consumption with both host-shaped build fixtures.</summary><p>Owner: rengine · Milestone: M1 · Priority: high · Dependencies: F14, F16, F27</p><p>Deliverable: catalog/infra-vr recipe and fixture evidence</p><ol><li>Implement the reviewed recipe or consume its owner-landed upstream change at an immutable pin.</li><li>Both fixtures build the reporting ABI with one microui definition and no leaked parent options/targets or implicit sibling path.</li><li>Exercise a local synthetic report/render callback path and explicit transport configuration; retain upstream-change references if required.</li></ol></details>
+<details><summary>F20: Complete the separate reSource finger IK migration.</summary><p>Owner: vtmb-vr · Milestone: M2 · Priority: high · Dependencies: F18</p><p>Deliverable: host finger migration commit and iklib:F133 evidence link</p><ol><li>Map the engine-side finger seam outside src/vrik to the existing iklib:F133 scope.</li><li>Prove recorded curl/collision/pose behavior equivalence and host gates; remove or reduce duplicate glm solver code to necessary glue.</li><li>Retain separate device/manual evidence where required; no NOLF finger capability is claimed.</li><li>Update the adoption matrix with separately verified finger rows; the core two-game proof does not depend on this follow-up.</li></ol><p>External references (verify required versus optional scope in owner workspace): iklib:F133</p></details></div>
+  <div class="status-row"><span class="lbl">Verdict</span><button class="st-btn" data-st="approved">Approve</button><button class="st-btn" data-st="rejected">Reject</button><button class="st-btn" data-st="needs-revision">Revise</button><button class="st-btn" data-st="deferred">Defer</button></div>
+  <textarea class="comment" data-comment placeholder="comment (optional)"></textarea>
+</section>
+<section class="item" data-section="harness-training">
+  <header><span class="badge ">16 features</span><h2>Supporting harness and training bridge</h2></header>
+  <div class="block"><h3>Proposed scope</h3><p>Use shared command/evidence tooling where it addresses actual integration needs. The training bridge classifies eligible evidence through the training repository; these features do not themselves authorize training runs.</p></div>
+  <div class="block"><h3>Full acceptance criteria</h3><details><summary>F2: Specify a project adapter contract that preserves native commands and policies.</summary><p>Owner: rengine · Milestone: M3 · Priority: medium · Dependencies: F1</p><p>Deliverable: contracts/project-v1.schema.json and fixtures</p><ol><li>Versioned schema represents repository identity, game target, progress/inventory paths, argv commands, working directory, verification tiers and capabilities.</li><li>Fixtures represent reLith NOLF/AVP2/NOLF2 and reSource without forcing common paths, ECS, SDL or CMake targets.</li><li>Reject malformed commands, missing required identities and unknown required contract versions; inspection does not execute commands.</li></ol></details>
+<details><summary>F3: Specify a verification result envelope with honest non-pass states.</summary><p>Owner: rengine · Milestone: M3 · Priority: medium · Dependencies: F1</p><p>Deliverable: contracts/check-result-v1.schema.json and fixtures</p><ol><li>Contract records pass, fail, skip, infrastructure_error, timeout and pending_manual distinctly, with declared required checks.</li><li>Each check identifies command, tool/host revision, platform/profile, timestamps, raw-log reference and reason for a non-pass.</li><li>Negative fixtures prove that missing/skipped required checks and absent manual evidence cannot aggregate to passing.</li></ol></details>
+<details><summary>F4: Implement one local native-command runner with bounded process lifetime.</summary><p>Owner: rengine · Milestone: M3 · Priority: medium · Dependencies: F2, F3</p><p>Deliverable: runner implementation and process integration evidence</p><ol><li>Execute argv directly in an explicit workspace; preserve native exit status, stdout and stderr without shell interpolation.</li><li>Real child-process tests cover success, nonzero exit, timeout including child cleanup, missing executable and explicit skip mapping.</li><li>Inspection/plan mode performs no execution; first runner scope is the pilot platform from F1, with unsupported platforms reported explicitly.</li></ol></details>
+<details><summary>F5: Write immutable, verifiable run bundles from runner results.</summary><p>Owner: rengine · Milestone: M3 · Priority: medium · Dependencies: F4</p><p>Deliverable: run-bundle contract, writer and validator</p><ol><li>Bundle includes source revision plus dirty patch identity when relevant, adapter/tool version, declared check inventory, results and hashed logs.</li><li>Writes are atomic and existing run identities cannot be silently overwritten; partial/interrupted runs remain visibly incomplete.</li><li>Validator rejects tampered/missing artifacts and path traversal; valid bundle survives relocation without absolute sibling paths.</li></ol></details>
+<details><summary>F6: Describe and exercise the selected reLith check through a local adapter.</summary><p>Owner: rengine · Milestone: M3 · Priority: medium · Dependencies: F2, F4</p><p>Deliverable: adapters/relith pilot and run evidence</p><ol><li>Resolve current native check command from the host and identify NOLF, AVP2 and NOLF2 separately; use the F1-selected pilot target only.</li><li>In a prepared isolated host workspace, direct and wrapped invocation agree on results and relevant raw facts.</li><li>Adapter preserves source/assets identity and host gate requirements; it never changes the original host tracker or active worktree.</li></ol></details>
+<details><summary>F7: Describe and exercise the selected reSource check through a local adapter.</summary><p>Owner: rengine · Milestone: M3 · Priority: medium · Dependencies: F2, F4</p><p>Deliverable: adapters/resource pilot and run evidence</p><ol><li>Resolve the selected native check from the current host; encode everyday/slow/data/manual tiers without weakening required gates.</li><li>In a prepared isolated host workspace, direct and wrapped invocation agree without assuming reLith paths or binaries.</li><li>Record missing assets/tools as non-passes and leave the original host tracker and active worktree untouched.</li></ol></details>
+<details><summary>F8: Demonstrate the same tool on both real engine pilots.</summary><p>Owner: rengine · Milestone: M3 · Priority: medium · Dependencies: F5, F6, F7</p><p>Deliverable: docs/evidence/first-two-engine-proof.md</p><ol><li>Archive validated bundles from actual native invocations in both selected engine snapshots and compare with their direct baselines.</li><li>Demonstrate at least one intentional non-pass that remains non-passing through aggregation; infrastructure problems are not hidden.</li><li>Record wrapper overhead and outcome preservation against direct native invocation; justify further tooling adoption from the actual integration needs. Fixtures alone do not complete this feature.</li></ol></details>
+<details><summary>F9: Package a minimal agent-neutral harness template with local policy extension.</summary><p>Owner: rengine · Milestone: M3 · Priority: medium · Dependencies: F8</p><p>Deliverable: templates/minimal and generated fixture repository</p><ol><li>Generate a usable instruction entry point, single progress log, feature helper, spec template and bootstrap in a temporary repository.</li><li>Project-specific rules extend the template without replacing the host authority; optional agent entry points reference the same instructions.</li><li>Generated repository boots without other game repositories or network; template update produces an explicit reviewable diff.</li></ol></details>
+<details><summary>F10: Adopt a pinned rEngine tool capability in the reLith workspace.</summary><p>Owner: nolf-improved · Milestone: M3 · Priority: medium · Dependencies: F9</p><p>Deliverable: host-owned spec, pin/adapter commit and gate evidence</p><ol><li>Host owner records an approved integration task and adopts a reviewed immutable tool version with a local adapter.</li><li>Existing feature IDs, descriptions, progress history and required game gates remain authoritative; host selected checks pass.</li><li>Demonstrate the adopted workflow in an independent checkout without rEngine sibling path; report capability and game target scope.</li></ol></details>
+<details><summary>F11: Adopt a pinned rEngine tool capability in the reSource workspace.</summary><p>Owner: vtmb-vr · Milestone: M3 · Priority: medium · Dependencies: F9</p><p>Deliverable: host-owned spec, pin/adapter commit and gate evidence</p><ol><li>Host owner records an approved integration task and adopts a reviewed immutable tool version with a local adapter.</li><li>Preserve local verification tiers, progress history, device/manual requirements and ordinary build behavior.</li><li>Demonstrate the adopted workflow in an independent checkout without rEngine sibling path; record selected platform/profile scope.</li></ol></details>
+<details><summary>F12: Prove independent tool upgrade and rollback in both consumers.</summary><p>Owner: rengine · Milestone: M3 · Priority: medium · Dependencies: F10, F11</p><p>Deliverable: docs/evidence/tool-upgrade-rollback.md</p><ol><li>Use host-owned evidence to show one consumer upgrades while the other remains on its reviewed version.</li><li>Both accepted versions pass their declared contract/gates; incompatible contract is rejected with an actionable reason.</li><li>Restore the preceding pin/adapter and reproduce the relevant gate; no synchronized game release is required.</li></ol></details>
+<details><summary>F22: Define report-to-reproduction metadata around existing infra-vr reports.</summary><p>Owner: rengine · Milestone: M4 · Priority: medium · Dependencies: F3, F16</p><p>Deliverable: report/repro contract and synthetic fixtures</p><ol><li>Record report/game/build identity, archived save/input hashes, reproduction steps and expected observation without redefining report transport.</li><li>Fixtures distinguish restricted/local assets from exportable metadata and do not embed credentials or game content.</li><li>A valid reference resolves to the original local evidence; missing/changed save identity cannot masquerade as a reproduced bug.</li></ol></details>
+<details><summary>F23: Represent oracle and manual/device evidence without replacing native gates.</summary><p>Owner: rengine · Milestone: M4 · Priority: medium · Dependencies: F5, F22</p><p>Deliverable: oracle/manual evidence extension and fixtures</p><ol><li>Record original-reference version, capture/replay identity, declared tolerance or manual criterion, observer and result.</li><li>Demonstrate that unit tests cannot substitute for pending visual/audio/headset criteria and that absent reference is non-passing.</li><li>Round-trip representative reLith and reSource evidence shapes without introducing a shared game-format parser.</li></ol></details>
+<details><summary>F24: Specify an explicit eligibility-checked development evidence export.</summary><p>Owner: rengine · Milestone: M4 · Priority: medium · Dependencies: F5</p><p>Deliverable: export contract, classifier fixtures and training mapping spec</p><ol><li>Map only allowed development evidence to the current training schemas, preserving source/tool revisions and content hashes.</li><li>Reject held-out repository/task identity, withheld fixes/tests, missing provenance and tampered artifacts; ordinary indexes expose no grader material.</li><li>Training owner reviews boundary and downstream task; output carries eligibility/outcome rather than invented reward or solved status.</li></ol><p>External references (verify required versus optional scope in owner workspace): vr-port-agent-training:schemas/env.schema.json, vr-port-agent-training:schemas/rubric.schema.json, vr-port-agent-training:F30</p></details>
+<details><summary>F25: Demonstrate the evidence bridge in the training-owned intake path.</summary><p>Owner: vr-port-agent-training · Milestone: M4 · Priority: medium · Dependencies: F24</p><p>Deliverable: training-owned intake spec and synthetic E2E evidence</p><ol><li>Execute a synthetic eligible export through the actual training intake validation path and preserve all provenance fields.</li><li>Frozen/hidden/tampered negative examples fail before ingestion; grader isolation and split authority remain in training.</li><li>Record exact versions and results; do not start training, change eval selections or bypass F30 and owner GO.</li></ol><p>External references (verify required versus optional scope in owner workspace): vr-port-agent-training:F30</p></details>
+<details><summary>F26: Coordinate explicitly reserved workspaces and scarce test resources.</summary><p>Owner: rengine · Milestone: M3 · Priority: medium · Dependencies: F4</p><p>Deliverable: local reservation contract and contention tests</p><ol><li>Use explicit resource IDs for workspace/build directory, display or device; avoid global host discovery.</li><li>Two competing processes prove exclusive ownership, reliable release after failure, and safe stale-owner recovery without stealing active work.</li><li>Planning and CPU-only use require no device; reservation does not grant launch, deployment or production authority.</li></ol></details></div>
+  <div class="block"><h3>Source specifications</h3><details><summary>docs/integration-plan.md</summary><pre># Integration plan
+
+Status: **proposed**, pending the charter interview. This document plans host-owned work; it does
+not authorize or claim modifications to the reference workspaces. Task IDs below are rEngine
+proposal IDs unless prefixed with an external repository name.
+
+The owner clarified that the library base is primary (charter D07). The tables below describe
+independent capability paths, not a requirement to complete R-L1–3/R-S1–3 harness adoption before
+runtime work. The owner-selected first library proof uses the existing iklib migrations and native
+host gates; shared runner implementation can follow a demonstrated need. Exact pilot profiles
+remain to be specified; the owner confirmed iklib in both games. See
+[quality proposal](library-quality.md).
+
+The owner then selected the desktop orchestrator as the first implementation milestone, with
+macOS/Windows, terminals and actual flat-game output in a new tab. Its F42 surface contract and
+F43/F44 host adapters are independent of the library migrations and earlier harness-adoption
+rows below. Flat NOLF is the owner-selected first workspace target; reSource follows through its own
+adapter. [Orchestrator scope](specs/002-orchestrator.md) includes retained sidecar sessions, the
+session browser, basic editing/Vim and the later Quest 2D client.
+The [desktop v0 acceptance draft](specs/032-desktop-v0.md) separates the confirmed workflow from
+host revisions, native commands and performance budgets that still need to be established.
+
+## Shared acceptance rule
+
+Every adoption names the consumer repository, game target, reviewed component/tool revision,
+host commit and any dirty-tree patch hash, build profile, commands, actual results, and artifact
+hashes. A supported-platform claim requires evidence on that platform. Pending device judgment,
+missing assets and infrastructure problems remain visible and prevent the relevant claim.
+
+Before integration, recheck the dated [source inventory](source-inventory.json). For a changed
+seam, record the current behavior and freeze a replay/oracle before replacing it. Shared code
+must pass its own tests and the consumer&#x27;s existing acceptance gates.
+
+## reLith — staged by game
+
+| Stage | Owning workspace | Change | Required evidence / rollback |
+| --- | --- | --- | --- |
+| R-L1: observe | rEngine | Describe the native commands and inventory/progress locations in a tool adapter | Read-only command plan distinguishes NOLF, AVP2 and NOLF2; no build or game launch while inspecting. |
+| R-L2: first workflow | rEngine + later host task | Wrap one approved native check and preserve its raw log/status | Same command succeeds/fails identically with and without the wrapper; timeout and skip remain non-passes. Remove wrapper to return to native workflow. |
+| R-L3: harness adoption | `nolf-improved` | Pin a reviewed tool release and add a small local adapter | Existing feature IDs/logs/rules remain authoritative; clean checkout works without sibling directories; rollback changes the pin/adapter only. |
+| R-L4: IK parity | `nolf-improved`; coordinates with `iklib:F130` | Resolve V2 parameter differences; adopt iklib at one existing arm seam | Old/new recorded outputs match within a predeclared tolerance; host tests pass; obsolete solver is removed only after parity; revert the migration commit/pin for rollback. |
+| R-L5: shared-game check | `nolf-improved` | Exercise every game whose source/build closure was affected | Record separate NOLF, AVP2 and NOLF2 results. For a target without the capability, prove unaffected build/runtime behavior; an untested target is pending. |
+| R-L6: new capability | `nolf-improved`; `iklib:F132` | Optional fingers after arm migration | Separate behavior-change task; no retroactive expansion of the parity migration. |
+
+Observed native entry points include `./init.sh`, `cmake --build build`, `ctest --test-dir build`,
+lint/format targets, `relith-nolf --selftest`, `scripts/world_smoke.py`, and `ctest -L smoke`.
+Resolve the exact active configuration and per-game target from the current build files before
+execution. The current repository has additional scoped gates; the adapter must not silently
+replace them with a shorter generic command.
+
+NOLF is the proposed first reLith pilot because the owner reports it working. This is a planning
+recommendation, not a claim that AVP2 or NOLF2 are blocked from selective harness adoption.
+
+## reSource — preserve its own architecture
+
+| Stage | Owning workspace | Change | Required evidence / rollback |
+| --- | --- | --- | --- |
+| R-S1: observe | rEngine | Describe native commands and project-local verification tiers | Adapter distinguishes ordinary CTest, relevant slow tests, data/oracle checks and manual VR results. |
+| R-S2: first workflow | rEngine + later host task | Run the same shared tool capability as R-L2 around a native reSource check | Raw results agree with direct invocation; no assumption of reLith&#x27;s executable names, SDL or asset layout. |
+| R-S3: harness adoption | `vtmb-vr` | Pin tool version with local policy overrides | Standalone checkout and rollback proven; local instruction/progress authority retained. |
+| R-S4: IK parity | `vtmb-vr`; `iklib:F131` | Replace `src/vrik` with library-backed implementation and thin necessary glue | Existing IK tests plus recorded-pose equivalence; verify allocation and host contract; remove duplicate solver source. |
+| R-S5: finger parity | `vtmb-vr`; `iklib:F133` | Replace the separate engine finger solver | Dedicated finger recordings and collision-provider behavior; no assumption F131 already covers it. |
+| R-S6: capability sign-off | `vtmb-vr` | Record the precise adopted rEngine capabilities and supported profiles | Only tested platform/mode combinations listed; human/device judgment retained where required by the host. |
+
+Observed build targets include `vtmb`, `vtmb-vr`, and `vtmb-vr-android`. The ordinary gate in
+`AGENTS.md` is `ctest --output-on-failure -LE slow`; changes covered by slow tests require that
+tier as well. `src/app` composition, Source entity/Python seams, Jolt integration, and host
+coordinate policy remain local.
+
+iklib&#x27;s own roadmap recommends the VtMB core migration before NOLF. Preserve that order for the
+selected IK branch unless current host recon provides a reason to change it; this does not force
+the same order on the desktop adapters or shared-tool pilots. F21 records the F18/F19 core proof;
+F20 fingers updates the evidence separately and does not delay that core adoption claim.
+
+## iklib — integrate, do not duplicate
+
+The catalog entry should point to a reviewed immutable iklib revision, its native `iklib` CMake
+target and integration guide. Source-tree consumption is supported; a nonexistent install/config
+package must not be advertised. The package proof uses two minimal consumers with different host
+frames/scales and demonstrates that unrelated tests, downloads and target names do not leak into
+consumer builds.
+
+The real migrations remain the authority of `iklib:F131`, `F130`, `F133`, and `F132` plus matching
+host features. rEngine records links to their evidence; it neither invents replacement solver work
+nor flips their feature flags. Adding a future framework such as flecs should require a host-side
+adapter, not edits to the portable core merely to recognize that framework.
+
+## infra-vr — existing infrastructure boundary
+
+First decide its desired relationship to rEngine during the interview. The proposed default is
+an independent catalog provider for reporting, launcher and distribution services.
+
+The first technical task is a packaging reconnaissance: identify the minimum embeddable target
+closure, target/option collisions, microui ownership, optional HTTP transport and platform needs.
+Then propose a pinned consumption recipe exercised by both host shapes. Preserve the current
+report transport and UI behavior; packaging should not require operating its production backend.
+
+Report/save intake is a later explicit bridge. Define report IDs, game/build identity, archive
+hashes and reproduction steps. Test with synthetic or appropriately local fixtures; real uploaded
+reports, credentials and user-owned assets are not copied into this repository during setup.
+
+## Agent-training handoff
+
+Keep three activities separate:
+
+1. Normal development records immutable task/run evidence.
+2. An explicit bridge classifies and exports eligible records with source/tool hashes.
+3. The training repository validates splits, isolates candidate/grader material, selects rubrics,
+   runs evaluations, and decides model-training readiness.
+
+Proposed first bridge proof: a synthetic record accepted end to end by the current schema path,
+plus negative cases for held-out identity, hidden-fix material, missing provenance and tampered
+hashes. A successful export does not mark a task solved or authorize a LoRA run. Real-record
+adoption requires a training-owned task and its normal review gates.
+
+The proposed rEngine check envelope must preserve all raw training-verifier fields or use an
+explicit versioned adapter. It must not flatten infrastructure failures into ordinary failures
+or reward values. Fix-test overlays remain grader-only; their implementation is not moved into
+the normal development runner.
+
+## Upgrade and rollback protocol
+
+1. Component owner releases a reviewed revision with a changelog and supported contract version.
+2. Each engine separately selects a pin and records its baseline/gates.
+3. Adopt one capability, run component and host checks, retain immutable evidence.
+4. Record the verified compatibility row for that specific engine/game/platform/profile.
+5. Prove rollback to the preceding pin or migration commit using the same relevant gate.
+
+Do not require synchronized releases or migrate both engines in one unreviewable change. Temporary
+old/new comparison code may exist in an isolated parity test; a completed migration removes the
+obsolete production implementation. If host-specific policy overwhelms the shared API, stop the
+extraction and document the evidence rather than expanding the common runtime indefinitely.
+</pre></details></div>
+  <div class="status-row"><span class="lbl">Verdict</span><button class="st-btn" data-st="approved">Approve</button><button class="st-btn" data-st="rejected">Reject</button><button class="st-btn" data-st="needs-revision">Revise</button><button class="st-btn" data-st="deferred">Defer</button></div>
+  <textarea class="comment" data-comment placeholder="comment (optional)"></textarea>
+</section>
+<section class="item" data-section="quest-xr-apps">
+  <header><span class="badge ">7 features</span><h2>Quest, XR control and external-app feasibility</h2></header>
+  <div class="block"><h3>Proposed scope</h3><p>Quest uses the shared 2D workspace and a paired desktop sidecar first. Native XR Operator and arbitrary-app capture/control require bounded, platform-specific proofs. Spatial panes follow later; no tested compatibility or store approval is implied.</p></div>
+  <div class="block"><h3>Full acceptance criteria</h3><details><summary>F46: Resolve Meta XR Operator compatibility for a selected native host profile.</summary><p>Owner: rengine · Milestone: O4 · Priority: medium · Dependencies: F32</p><p>Deliverable: native XR compatibility spec and evidence plan</p><ol><li>Verify current standalone layer/proxy/custom-tool documentation and pin selected host OpenXR loader, graphics binding and runtime profile.</li><li>Define session targeting, endpoint coexistence, input ownership and native custom-tool boundaries; do not inherit Unity scene capabilities by assertion.</li><li>Specify one real native read/capture/input proof and cleanup path; macOS distribution alone does not prove current flat-only host XR support.</li></ol><p>External references (verify required versus optional scope in owner workspace): docs/research/meta-xr-operator.md</p></details>
+<details><summary>F47: Demonstrate optional XR inspection/control on one identified native game session.</summary><p>Owner: rengine · Milestone: O4 · Priority: medium · Dependencies: F41, F46</p><p>Deliverable: XR adapter and real native runtime evidence</p><ol><li>Connect the selected native host through the documented layer/proxy and verify identity, state read, frame capture and one bounded input/pose action.</li><li>Test disconnect/reconnect and prevent targeting another live app; unsupported tools remain explicit and input/session state is restored.</li><li>Keep the live viewport functional through its own surface provider and keep flat-mode orchestrator use independent of Operator; preserve native manual/device gates.</li></ol></details>
+<details><summary>F49: Specify the shared 2D Quest client delivery and desktop-link proof.</summary><p>Owner: rengine · Milestone: Q0 · Priority: medium · Dependencies: F32, F33</p><p>Deliverable: Quest client architecture and delivery decision</p><ol><li>Use official Android-panel/PWA paths and distinguish future Spatial SDK panes; select package/origin/sidecar constraints for the agreed 2D-first experience.</li><li>Specify desktop-owned files/builds/PTYs/agents and paired session/text/frame/input channels, including readable editor/terminal UI and keyboard/controller behavior.</li><li>Plan actual headset tests against Mac and Windows sidecars with latency/reconnect budgets; store distribution and native Quest-game coexistence remain separate claims.</li></ol><p>External references (verify required versus optional scope in owner workspace): docs/research/quest-and-app-surfaces.md</p></details>
+<details><summary>F50: Expose paired remote session access for the Quest client through the desktop sidecar.</summary><p>Owner: rengine · Milestone: Q1 · Priority: medium · Dependencies: F35, F49</p><p>Deliverable: remote session protocol and pairing/reconnect implementation</p><ol><li>Pair a client with an explicit desktop and root scope and transport session lifecycle, terminal and file operations over an authenticated connection; resolve desktop root/session IDs without converting paths into Quest-local locations.</li><li>Test reconnect/duplicate requests, client revocation and wrong-session commands without duplicating processes or exposing unrelated project state.</li><li>Exercise the service on both Mac and Windows; credentials/configuration stay on the owning desktop and incompatible protocol versions fail explicitly.</li></ol></details>
+<details><summary>F51: Build the Quest 2D workspace client with real remote terminal and editor access.</summary><p>Owner: rengine · Milestone: Q2 · Priority: medium · Dependencies: F34, F37, F50</p><p>Deliverable: Quest package and on-headset desktop-sidecar evidence</p><ol><li>Build/install the selected client package and connect to both a Mac and a Windows sidecar on a real Quest.</li><li>Use the shared split/tab layout with tree/previews/basic editing and a real remote terminal; verify keyboard, pointer/controller, scrolling and text readability.</li><li>Verify connection loss/recovery and session browser behavior; layout persistence is independent of later spatial-panel support.</li></ol></details>
+<details><summary>F52: Display and interact with a desktop game in the Quest workspace pane.</summary><p>Owner: rengine · Milestone: Q2 · Priority: medium · Dependencies: F42, F51</p><p>Deliverable: Quest game-stream adapter and latency/input evidence</p><ol><li>Render the selected actual desktop game stream into a Quest tab with correct session identity and input routing.</li><li>Move/resize/reconnect the view without relaunch; measure agreed latency, frame/decode cost and sustained interaction on both sidecar platforms.</li><li>Do not claim native Quest VR-game coexistence or headset parity from a desktop flat-game stream; record supported profiles and next limitations.</li></ol></details>
+<details><summary>F53: Qualify unmodified external-app presentation on a finite Mac/Windows app set.</summary><p>Owner: rengine · Milestone: A0 · Priority: medium · Dependencies: F33, F42</p><p>Deliverable: external-app capture/control and optional reparenting report</p><ol><li>Separate cooperative adapters, captured/controlled windows and Windows reparenting; choose representative apps and approved platform APIs for the proof.</li><li>Test actual pixels plus input/focus, DPI/resize, dialogs, minimize/occlusion, app restart and permission denial; distinguish view-only from interactive support.</li><li>Publish a per-app/platform capability matrix and remote-client implications, not a universal embedding guarantee.</li></ol><p>External references (verify required versus optional scope in owner workspace): docs/research/quest-and-app-surfaces.md</p></details></div>
+  <div class="block"><h3>Source specifications</h3><details><summary>docs/research/quest-and-app-surfaces.md</summary><pre># Quest distribution and external app panes
+
+Research date: 2026-09-05. Owner decisions: macOS and Windows from the first desktop release;
+adapters first; Quest uses the shared 2D workspace before later spatial panes. The owner asked
+for Quest/desktop-sidecar feasibility and is interested in unmodified app support.
+
+**Finding:** official platform capabilities support a plausible Quest client plus desktop
+sidecar. This is a documentation-backed feasibility finding. No rEngine prototype, package,
+network link, input route or store submission has been tested.
+
+## Quest delivery options
+
+| Route | What upstream establishes | Implication for this project |
+| --- | --- | --- |
+| Android app in a 2D panel | Horizon OS can display Android apps as panels and offers a store route. | Candidate for a packaged client with local frontend assets and a paired desktop connection. |
+| Hosted web UI / packaged PWA | Browser can run the web UI; Meta documents PWA packaging for store distribution. | Candidate for sharing a web frontend with desktop clients; HTTPS/origin/packaging constraints must be designed. |
+| Spatial SDK | Android UI can be placed in spatial panels; samples cover shared 2D/immersive UI. | Suitable to investigate for the later independently placed pane experience. |
+
+Meta describes the Android and web/Spatial SDK paths in its
+[Quest app overview](https://developers.meta.com/horizon/discover/2d-apps-meta-spatial/) and
+[platform guide](https://developers.meta.com/horizon/discover/platforms/).
+
+PWA packaging uses a hosted manifest and a Trusted Web Activity. Its release path needs HTTPS,
+package signing and Digital Asset Links; it is not simply a store package pointed at a private
+desktop&#x27;s HTTP address. A native Android shell with bundled assets may be preferable for a
+desktop-local setup, but that choice still needs connection/input feasibility evidence.
+[PWA overview](https://developers.meta.com/horizon/documentation/web/pwa-overview/),
+[packaging instructions](https://developers.meta.com/horizon/documentation/web/pwa-packaging/).
+
+Spatial SDK provides panel rendering/input and its hybrid sample shares Compose content between
+2D and immersive activities. Meta&#x27;s Focus showcase provides a workspace/panel reference. These
+are relevant references for the later spatial branch, not a reason to build it before the agreed
+2D version. [Panels](https://developers.meta.com/horizon/documentation/spatial-sdk/spatial-sdk-2dpanel/),
+[hybrid sample](https://developers.meta.com/horizon/documentation/spatial-sdk/spatial-sdk-sample-hybrid/),
+[official sample repository](https://github.com/meta-quest/Meta-Spatial-SDK-Samples).
+
+## Proposed client/sidecar architecture
+
+```mermaid
+flowchart LR
+  DesktopUI[macOS or Windows workspace UI] --&gt; Sessions[Desktop sidecar: sessions and project access]
+  QuestUI[Quest: same 2D workspace] &lt;--&gt;|Paired control, text and image channels| Sessions
+  Sessions --&gt; Files[Project files and basic editor operations]
+  Sessions --&gt; PTY[Terminals and CLI agents]
+  Sessions --&gt; Jobs[Build and verification jobs]
+  Sessions --&gt; Games[Game and tool processes]
+  Games --&gt; Surfaces[Cooperative render adapter or capture provider]
+  Surfaces --&gt; QuestUI
+  Sessions --&gt; MCP[Session-specific MCP and optional XR control]
+```
+
+This architecture is our inference/recommendation. The first implementation should:
+
+- Keep files, credentials, CLI installation, compilation and game ownership on the desktop.
+- Send structured terminal/file data and layout state, reserving video/image transport for game
+  and graphical tool surfaces. A full-desktop video alone does not supply independently arranged
+  project/tool panes.
+- Use a versioned, explicitly paired connection with project/session identity and input ownership.
+- Recover a disconnected client without treating a reconnect as another process launch.
+- Share session contracts across local desktop and Quest clients; select frontend reuse only
+  after terminal/editor/input and render-stream feasibility on the required platforms.
+
+The desktop sidecar here is a runtime companion process. It is unrelated to source-code
+`._llm.json` maintenance metadata.
+
+## External apps inside panes
+
+| Platform/path | Verified capability | Limit of the current finding |
+| --- | --- | --- |
+| Windows native reparenting | Win32 `SetParent` can change window parentage, including cross-process cases. | Styles, UI state and DPI behavior require handling; not evidence every application&#x27;s dialogs/input/render loop will behave correctly. |
+| Windows capture | `Windows.Graphics.Capture` acquires frames from windows/displays for further presentation. | Must check runtime support and test capture, resizing and independent input routing. |
+| macOS capture | ScreenCaptureKit provides window/application/display capture and frame/audio output. | Requires the applicable system permission; capture does not itself establish input control or native reparenting. |
+| Quest desktop-app view | A client can be designed to display desktop-side captured/cooperative surfaces. | That is a remote presentation path, not execution or native embedding of a desktop application on Quest. |
+
+Microsoft documents style and cross-process DPI caveats in
+[SetParent](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setparent), and
+separately documents [window capture](https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/screen-capture).
+Apple&#x27;s [ScreenCaptureKit sample](https://developer.apple.com/documentation/screencapturekit/capturing-screen-content-in-macos?changes=_9)
+demonstrates filtered window/application capture. The reviewed Apple sources establish a capture
+path; this research has not established a supported universal cross-process reparenting mechanism.
+
+Recommended product approach: implement game/tool adapters first, then qualify external-app
+capture/control by platform and app type. Keep any Windows-specific reparenting experiment
+separate. Do not label captured video an interactive embedded app until input/focus behavior is
+also proven.
+
+## Proofs required before promising support
+
+1. On macOS and Windows, prove real terminal rendering, basic editing/Vim behavior and a live
+   cooperative game surface in the candidate UI stack. Include resize, focus and tab moves.
+2. Pair a Quest client to each desktop sidecar and test typed text, terminal control sequences,
+   pointer/controller input, scrolling, readable text and connection recovery on a real headset.
+3. Stream one desktop game to its Quest pane. Measure frame latency, decode/render cost and
+   interaction accuracy against budgets agreed before the test.
+4. Build and sideload a candidate Quest package; establish its origin/connection and distribution
+   requirements. A local install does not establish a successful store submission.
+5. For unmodified apps, test a finite app set with resize/focus/dialogs, minimize/occlusion,
+   app restart and permission denial. State view-only versus interactive support explicitly.
+6. Treat workspace coexistence with a native Quest immersive game as a separate OS/lifecycle
+   investigation. A desktop-streamed game in a panel does not prove that use case.
+
+No public service, installer, game launch, system permission or OpenXR runtime setting was
+changed for this research. Toolkit/transport choices and numerical budgets remain open.
+</pre></details>
+<details><summary>docs/research/meta-xr-operator.md</summary><pre># Meta XR Operator — initial investigation
+
+Checked: 2026-09-05. Sources below are Meta&#x27;s documentation. No download, installation, runtime
+activation, device connection or native-game test was performed.
+
+## Verified upstream capabilities
+
+Meta offers a standalone distribution for native OpenXR applications, with desktop API-layer
+and MCP-proxy setup for Windows/macOS and a separate Android packaging path. Its documented
+proxy can reconnect and expose a tool list while the app is offline. The setup uses a local
+app endpoint; concurrent app/port behavior therefore needs investigation before multi-session
+support is claimed. [Standalone documentation](https://developers.meta.com/horizon/documentation/unity/meta-xr-operator/connecting-ai-agents/).
+
+Operator exposes XR state, pose/input control and image capture through MCP and is labeled
+experimental. Its overview also describes Unity-specific scene inspection. Those Unity features
+do not prove native reLith/reSource entity inspection.
+[Overview](https://developers.meta.com/horizon/documentation/unity/meta-xr-operator/).
+
+Native applications can register custom tools through the
+`XR_METAX1_agentic_external_tool` instance extension. Any engine-specific integration needs its
+own capability check and thread/lifetime contract.
+[Custom-tool documentation](https://developers.meta.com/horizon/documentation/unity/meta-xr-operator/custom-tools/).
+
+Meta describes image/scene requests as on-demand rather than continuous streaming. Our inference:
+the orchestrator&#x27;s live game pane needs a separately verified presentation route; an MCP
+connection is not evidence that the continuous viewport requirement is satisfied.
+[Introduction](https://developers.meta.com/horizon/blog/meta-xr-operator-close-the-build-test-verify-loop-for-vr/).
+
+Meta XR Simulator runs OpenXR apps in supported graphics/engine configurations, and activating it
+changes the active OpenXR runtime. The documented macOS path is not proof that either port&#x27;s
+current graphics/XR build works with it.
+[Native simulator setup](https://developers.meta.com/horizon/documentation/native/xrsim-getting-started/).
+
+## Proposed rEngine integration boundary
+
+- Treat Operator as an optional inspection/control provider associated with an explicit session.
+- Keep visual presentation and control capabilities independently negotiated and testable.
+- Detect the actual layer/runtime/tool versions and supported operations at connection time.
+- Keep game-specific object/state introspection in the owning engine&#x27;s adapter.
+- Separate unsupported, disconnected, unavailable and verified operation results.
+
+## Required native proof
+
+1. Recheck the selected host&#x27;s build profile, graphics binding, OpenXR loader and runtime support.
+   Current donor instructions describe macOS as flat-only; Operator&#x27;s macOS distribution does not
+   add XR support to those builds.
+2. In an isolated selected session, enable the layer and establish the documented proxy path;
+   preserve the user&#x27;s existing runtime/configuration and record any deliberate changes.
+3. Verify session identity, one state read, a frame capture and one bounded controller/pose action
+   against actual observed behavior. Preserve the evidence and restore input/session state.
+4. Test disconnect/reconnect and multiple-session targeting before allowing simultaneous game
+   instances. Do not assume the default endpoint can be duplicated or freely reconfigured.
+5. If needed, implement one separately specified native custom tool in the owning game. Do not
+   claim a Unity-style scene hierarchy before that game supplies an equivalent interface.
+
+The immediate deliverable is a compatibility decision and scoped adapter proof, not a guarantee
+of full automation, every graphics backend, or replacement of in-headset acceptance criteria.
+</pre></details></div>
+  <div class="status-row"><span class="lbl">Verdict</span><button class="st-btn" data-st="approved">Approve</button><button class="st-btn" data-st="rejected">Reject</button><button class="st-btn" data-st="needs-revision">Revise</button><button class="st-btn" data-st="deferred">Defer</button></div>
+  <textarea class="comment" data-comment placeholder="comment (optional)"></textarea>
+</section>
+<section class="item" data-section="next-step">
+  <header><h2>Implementation priority and reference hardware</h2></header>
+  <div class="block"><h3>Recommended sequence</h3><p>Desktop F32/F33 qualification → desktop v0 with NOLF → iklib core proof → agent onboarding and VtMB. Other branches stay separately scoped. Approving a feature never marks it complete; required host/platform evidence still applies.</p></div>
+  <div class="field"><span class="lbl">Order after the confirmed desktop-first milestone</span><select data-key="sequence"><option value="">Not selected</option><option value="library-next">iklib proof, then agents and VtMB (Recommended)</option><option value="agents-next">Agent onboarding, then iklib and VtMB</option><option value="custom">Use the order in my comments</option></select></div>
+  <div class="field"><span class="lbl">Windows test machine or existing runner available for the first prototype</span><input type="text" data-key="windows-test-access" placeholder="Hardware/runner and access method, if already known"></div>
+  <textarea class="comment" data-comment placeholder="comment (optional)"></textarea>
+</section>
+<section class="item" data-section="general-comments">
+  <header><h2>General comments</h2></header>
+  <div class="field"><span class="lbl">Overall thoughts</span><textarea class="comment" data-key="overall" rows="2"></textarea></div>
+  <div class="field"><span class="lbl">Blockers or concerns</span><textarea class="comment" data-key="blockers" rows="2"></textarea></div>
+  <div class="field"><span class="lbl">Suggestions for next steps</span><textarea class="comment" data-key="next-steps" rows="2"></textarea></div>
+</section>
+</main>
+<aside id="ispecJsonPanel" class="collapsed"><header>JSON preview (click to toggle)</header><pre hidden></pre></aside>
+</body>
+</html>

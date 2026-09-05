@@ -1,8 +1,8 @@
 # Quality library base — proposal
 
 Status: quality-standard recommendation for the design interview. The owner confirmed curated
-upstream plus our own gaps and one library proven in both games first. The detailed standards,
-named library and pilot scope below remain to be confirmed.
+upstream plus our own gaps, iklib proven in both games first, and verified pinned capability
+adoption as the powered-by minimum. Detailed standards and pilot profiles remain proposed.
 
 ## What rEngine contributes
 
@@ -53,10 +53,10 @@ For the first base-building pilot, the owner selected two real game consumers. T
 assumptions that isolated library tests miss. It is not yet a rule
 that every useful library must already be used by two games before it can enter the catalog.
 
-## First proposed proof: iklib
+## Confirmed first library: iklib
 
 The existing source inventory identifies a portable implementation, host presets and pending
-real-game migrations. A candidate success case is:
+real-game migrations. The owner selected iklib in D23. The proposed success case is:
 
 - Freeze a reviewed iklib revision and document the usable contracts/consumption example.
 - Recheck reSource and reLith's current integration differences, including NOLF's unresolved
@@ -67,8 +67,16 @@ real-game migrations. A candidate success case is:
   the base reduced repeated solver work while preserving each game's architecture.
 
 Fixtures remain useful for the package boundary; real host adoption establishes the intended
-product value. The owner may select a different named library; preserve the confirmed one-library,
-two-game strategy when rewriting its concrete proof.
+product value. The [pilot draft](specs/001-library-pilot.md) keeps core solver parity and the
+separate finger migrations distinct. Naming the library does not claim that migration is complete.
+
+## Confirmed powered-by minimum
+
+D24 requires at least one curated capability at a pinned version with passing game integration
+checks. The IDE and shared harness are optional. The record should name the capability, component
+revision, host revision, game/platform/profile and evidence; a manifest format is still proposed.
+Only verified rows earn the claim. A NOLF result does not certify AVP2/NOLF2 or another platform.
+Games select and upgrade capabilities independently and keep their own framework and host gates.
 
 ## Coverage to map before expanding the collection
 
@@ -85,6 +93,6 @@ before those choices and their consumer needs are established.
 ## Remaining design questions
 
 - Where are common conventions worth their adapter cost, and where do they constrain a game?
-- Which library is the first proof and which targets must it support?
+- Which exact iklib revision, game profiles and parity scope will establish the first proof?
 - What measured benefit and quality bar justify calling that proof successful?
-- What minimum adoption earns “powered by rEngine,” and what authority does that grant the project?
+- Which record format makes the confirmed powered-by minimum easy to verify and maintain?

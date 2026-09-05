@@ -43,12 +43,16 @@ a coherent change. Preserve other sessions' entries and unrelated edits.
 - rEngine's primary product is a quality library base and its integration knowledge. Reusable
   harness/tool contracts support that base. Games own their engine architecture, ECS choice,
   assets, compatibility behavior, release cadence, and engine-specific adapters.
+  iklib is the selected first two-game library proof. A pinned curated capability with passing
+  game integration checks meets the powered-by minimum; IDE/shared harness adoption is optional.
 - The owner also requested a tab/pane IDE-orchestrator. Its scoped design is in
   `docs/specs/002-orchestrator.md`; it does not replace a game's runtime or make GUI use mandatory
   for library consumption. Initial desktop targets are macOS/Windows, with adapters first and
   basic editing plus optional Vim mode. Quest uses the shared 2D workspace with a desktop sidecar
   before later spatial panes. Views detach; the sidecar retains sessions managed by a session
-  browser. Implementation starts with the desktop workspace, terminals and a live flat-game tab.
+  browser. Implementation starts with the desktop workspace, terminals and a live flat NOLF tab;
+  VtMB follows as the second game adapter. Editors retain local recovery drafts and write working
+  files on explicit Save. The first desktop acceptance draft is `docs/specs/032-desktop-v0.md`.
   Workspaces support multiple project/worktree roots with explicit per-session bindings; moving
   tabs or changing focus must never retarget terminal, file, agent or game operations.
 - `iklib`, `infra-vr`, and training keep their own source and feature authorities.

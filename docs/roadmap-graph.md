@@ -56,8 +56,8 @@ flowchart TD
   F20["F20: proposed"]
   F18 --> F20
   F21["F21: proposed"]
+  F18 --> F21
   F19 --> F21
-  F20 --> F21
   F22["F22: proposed"]
   F3 --> F22
   F16 --> F22
@@ -150,7 +150,7 @@ flowchart TD
 
 | ID | Milestone | Owner | State | Description |
 | --- | --- | --- | --- | --- |
-| F1 | M0 | rengine | proposed | Record the reviewed library-base charter and first real integration proof. |
+| F1 | M0 | rengine | proposed | Specify the reviewed iklib pilot and its two-game quality and adoption criteria. |
 | F2 | M3 | rengine | proposed | Specify a project adapter contract that preserves native commands and policies. |
 | F3 | M3 | rengine | proposed | Specify a verification result envelope with honest non-pass states. |
 | F4 | M3 | rengine | proposed | Implement one local native-command runner with bounded process lifetime. |
@@ -176,12 +176,12 @@ flowchart TD
 | F24 | M4 | rengine | proposed | Specify an explicit eligibility-checked development evidence export. |
 | F25 | M4 | vr-port-agent-training | proposed | Demonstrate the evidence bridge in the training-owned intake path. |
 | F26 | M3 | rengine | proposed | Coordinate explicitly reserved workspaces and scarce test resources. |
-| F27 | M1 | rengine | proposed | Map both games' library needs and select the first base-building candidate. |
+| F27 | M1 | rengine | proposed | Map both games' library needs and qualify the selected iklib pilot scope. |
 | F28 | M5 | rengine | proposed | Prove a new host can adopt a capability without either game engine. |
 | F29 | M5 | rengine | proposed | Define evidence-backed powered-by records for both engine families. |
 | F30 | M5 | rengine | proposed | Audit the harness and decide the next bounded roadmap from measured results. |
 | F31 | M0 | rengine | proposed | Agree the library quality standard and the usable integration knowledge package. |
-| F32 | O0 | rengine | proposed | Specify the first desktop workspace, terminal and flat-game integration slice. |
+| F32 | O0 | rengine | proposed | Specify the first desktop workspace, terminal, draft recovery and NOLF integration slice. |
 | F33 | O0 | rengine | proposed | Qualify the desktop UI, terminal and game-surface stack on macOS and Windows. |
 | F34 | O1 | rengine | proposed | Implement the empty workspace with recursive splits and movable tab groups. |
 | F35 | O1 | rengine | proposed | Implement a desktop sidecar that owns interactive sessions independently of views. |
@@ -192,7 +192,7 @@ flowchart TD
 | F40 | O2 | rengine | proposed | Add visible selected-agent installation and recoverable setup recipes. |
 | F41 | O2 | rengine | proposed | Bootstrap project MCP integrations through agent-specific configuration adapters. |
 | F42 | O3 | rengine | proposed | Implement the cooperative game surface and input contract for desktop panes. |
-| F43 | O3 | nolf-improved | proposed | Render the selected reLith flat game into an orchestrator tab on both desktops. |
+| F43 | O3 | nolf-improved | proposed | Render flat NOLF into an orchestrator tab on macOS and Windows. |
 | F44 | O3 | vtmb-vr | proposed | Add the reSource flat-game surface through the same public session contract. |
 | F45 | O3 | rengine | proposed | Host one additional rendered tool through an explicit pane provider. |
 | F46 | O4 | rengine | proposed | Resolve Meta XR Operator compatibility for a selected native host profile. |

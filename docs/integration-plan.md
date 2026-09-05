@@ -6,17 +6,19 @@ proposal IDs unless prefixed with an external repository name.
 
 The owner clarified that the library base is primary (charter D07). The tables below describe
 independent capability paths, not a requirement to complete R-L1–3/R-S1–3 harness adoption before
-runtime work. The proposed first library proof uses the existing iklib migrations and native
-host gates; shared runner implementation can follow a demonstrated need. Library/pilot selection
-is still under interview; the owner confirmed one library in both games. See
+runtime work. The owner-selected first library proof uses the existing iklib migrations and native
+host gates; shared runner implementation can follow a demonstrated need. Exact pilot profiles
+remain to be specified; the owner confirmed iklib in both games. See
 [quality proposal](library-quality.md).
 
 The owner then selected the desktop orchestrator as the first implementation milestone, with
 macOS/Windows, terminals and actual flat-game output in a new tab. Its F42 surface contract and
 F43/F44 host adapters are independent of the library migrations and earlier harness-adoption
-rows below. Flat NOLF is the recommended first runtime target; reSource follows through its own
+rows below. Flat NOLF is the owner-selected first workspace target; reSource follows through its own
 adapter. [Orchestrator scope](specs/002-orchestrator.md) includes retained sidecar sessions, the
 session browser, basic editing/Vim and the later Quest 2D client.
+The [desktop v0 acceptance draft](specs/032-desktop-v0.md) separates the confirmed workflow from
+host revisions, native commands and performance budgets that still need to be established.
 
 ## Shared acceptance rule
 
@@ -66,8 +68,9 @@ tier as well. `src/app` composition, Source entity/Python seams, Jolt integratio
 coordinate policy remain local.
 
 iklib's own roadmap recommends the VtMB core migration before NOLF. Preserve that order for the
-optional IK branch unless current host recon provides a reason to change it; this does not force
-the same order on the first shared-tool pilots.
+selected IK branch unless current host recon provides a reason to change it; this does not force
+the same order on the desktop adapters or shared-tool pilots. F21 records the F18/F19 core proof;
+F20 fingers updates the evidence separately and does not delay that core adoption claim.
 
 ## iklib — integrate, do not duplicate
 

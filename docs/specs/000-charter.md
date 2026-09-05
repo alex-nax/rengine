@@ -14,7 +14,7 @@ Date: 2026-09-05. Status: **interview in progress; recommendations are not owner
 | D06 | NOLF works; AVP2 and NOLF2 are in progress. iklib and agent-training work already exist. | Owner's status report; not a new runtime verification |
 | D07 | Prioritize a quality library base for AI-assisted, purpose-built implementations. The owner sees NOLF and VtMB as evidence that individual engines can be written from scratch and questions the need for large all-in-one engines. | Owner's answer to interview question 1, 2026-09-05 |
 | D08 | Curate upstream libraries and implement our own demonstrated gaps. | Owner confirmed the library-ownership recommendation, 2026-09-05 |
-| D09 | Prove one library in both games before expanding the collection broadly. | Owner confirmed the first-proof strategy, 2026-09-05; the named library remains to be selected |
+| D09 | Prove one library in both games before expanding the collection broadly. | Owner confirmed the first-proof strategy, 2026-09-05; D23 later names iklib |
 | D10 | Include a tab-based IDE/orchestrator to improve the current Zed-plus-terminal workflow: start empty, split/resize panes and populate them with project tree, terminals, rendered tools and game output. Game views can open as tabs and move into panes. | Owner's workspace description, 2026-09-05 |
 | D11 | Initially an agent tab runs a terminal with a Bash launcher that selects or installs a CLI coding agent and bootstraps integrations such as custom MCP servers. | Owner's workspace description, 2026-09-05 |
 | D12 | Consider integration with tools such as Meta XR Operator. | Owner's integration suggestion, 2026-09-05; compatibility and implementation remain unverified |
@@ -26,6 +26,10 @@ Date: 2026-09-05. Status: **interview in progress; recommendations are not owner
 | D18 | Closing views detaches them; sessions persist until explicitly stopped. Include a session browser for managing and reopening sessions. | Owner's lifecycle answer, 2026-09-05 |
 | D19 | Implement the desktop workspace and terminals first, including a flat game rendered into a new tab in that first useful milestone. | Owner's execution-priority answer, 2026-09-05 |
 | D20 | A workspace supports multiple project/worktree roots; each terminal, editor, agent and game session is explicitly bound to its own root. | Owner's “Yes, just as you recommend” to the project-scope recommendation, 2026-09-05 |
+| D21 | Use flat NOLF for the first live game tab on macOS and Windows; VtMB follows as the second game adapter. | Owner's “Yes, that's what I was thinking about” confirming the two recommendations, 2026-09-05 |
+| D22 | Preserve unsaved edits as local recovery drafts; write working files only on explicit Save. | Same owner confirmation as D21, 2026-09-05 |
+| D23 | Select iklib as the first library to prove in both games. | Owner's “GO for gecommended” answering the iklib/adoption round, 2026-09-05 |
+| D24 | “Powered by rEngine” requires adoption of at least one curated capability at a pinned version with passing game integration checks. Use of the IDE and shared harness is optional. | Same owner confirmation as D23, 2026-09-05 |
 
 D07 establishes the product direction. The claim that engines are becoming obsolete is the owner's
 thesis, not a verified industry-wide conclusion. The implementation question here is how rEngine
@@ -48,14 +52,14 @@ Evidence and limitations: [reconnaissance](../reconnaissance.md).
 | ID | Recommendation | Why / consequence |
 | --- | --- | --- |
 | P01 (superseded) | First prove one shared verification/evidence workflow in both engines. | Replaced after D07: this would put supporting tooling ahead of the requested library base. Retained as a later harness proposal. |
-| P02 | Projects selectively adopt pinned capabilities and remain independently buildable. | Fits the explicit requirement for individual architectures. |
-| P03 | Use an optional project manifest and capability-specific conformance to make adoption measurable. | Branding then points to a reproducible contribution instead of a badge alone. |
+| P02 (confirmed by D03/D24) | Projects selectively adopt pinned capabilities and remain independently buildable. | Games retain their architecture and can meet the adoption minimum without the IDE or shared harness. |
+| P03 (minimum confirmed as D24) | Use an optional project manifest and capability-specific conformance to make adoption measurable. | Verified pinned adoption is confirmed; the exact record/manifest format remains proposed. |
 | P04 | Keep iklib, infra-vr, and training independently maintained; curate and integrate them. | Existing ownership, APIs, and roadmaps already exist. |
 | P05 | Keep model/provider selection outside core contracts; interchange tasks, commands, and evidence. | A model choice should not require a game integration rewrite. |
 | P06 (revised) | Keep reusable tooling usable independently of the orchestrator; use text/JSON artifacts where useful. | D10 now supplies an explicit IDE use case. The earlier deferral of an editor/workspace product is superseded. |
 | P07 | Use native game behavior as the authority for parity; distinguish it from deliberate modernization. | A shared package's unit tests cannot prove that a game still behaves correctly. |
 | P08 (confirmed as D08) | Curate upstream libraries and author/extract our own libraries for demonstrated gaps. | Owner confirmed. Whether any specific wrapper adds value is still a per-boundary decision. |
-| P09 (strategy confirmed as D09) | Prove one complete library integration in both engines first; iklib is the existing candidate. | Two-game proof confirmed. Naming iklib and defining its exact adoption scope remain recommendations. |
+| P09 (confirmed as D09/D23) | Prove iklib in both engines first. | Strategy and named library confirmed; exact revision, target profiles and parity measures remain feature-spec work. |
 | P10 | Library quality includes contract clarity, correctness, composition, measured resource behavior, maintenance and executable integration knowledge. | Detailed proposal: library-quality.md. A README link alone is insufficient evidence. |
 | P11 (lifecycle confirmed as D18) | Model the workspace as resizable splits containing tab groups; tabs refer to sessions with independent lifetimes. | Moving a tab preserves terminal/game identity. D18 settles close/detach/stop and GUI-exit behavior; D20 settles explicit root binding. |
 | P12 (partly superseded/confirmed) | Use explicit game/tool adapters first. | D14 confirms adapters. D13 supersedes macOS-first with macOS and Windows from the start. |
@@ -70,10 +74,11 @@ These are planning defaults, not settled runtime interfaces or implementation au
 Ask small rounds, in dependency order; answer source questions through inspection.
 
 1. **Purpose — direction answered, concrete proof pending.** D07 makes the quality library base
-   primary. Authority, minimum powered-by commitment and the meaning of “both streams” remain open.
-2. **Library ownership and first proof — strategy answered.** D08/D09 confirm curated upstream
-   plus our own gaps and one library in both games first. Select the named library and applicable
-   quality criteria next; do not ask the settled strategy questions again.
+   primary. D24 settles the minimum powered-by commitment; operational authority and the precise
+   training bridge remain scoped design work.
+2. **Library ownership and first proof — answered.** D08/D09/D23 confirm curated upstream
+   plus our own gaps and iklib in both games first. Specify the parity slice and applicable
+   quality criteria next; do not ask the settled selection questions again.
 3. **Quality and composition.** Agree the admission bar, first subsystem coverage, portability,
    performance/ownership contracts, host adapter rules and the agent's usable context package.
    Establish infra-vr's role, dependency pins and the first selected library's integration slice.
@@ -81,7 +86,8 @@ Ask small rounds, in dependency order; answer source questions through inspectio
    adapters first, Quest 2D-first, and tree/previews/basic editor with optional Vim mode are
    confirmed, as are retained sessions, session browser and desktop-first execution with a live flat
    game tab. Multiple project/worktree roots share a workspace with explicitly bound sessions.
-   Next resolve the concrete first game, editor/Vim details and
+   NOLF is the first game; editor recovery uses local drafts with explicit saves.
+   Next resolve the concrete host baseline, editor/Vim details and
    later agent recipes/Windows Bash setup; do not repeat settled questions.
    The specification is `002-orchestrator.md`.
 5. **Operational model.** Set resource/time budgets, hardware verification ownership, unattended
@@ -98,7 +104,7 @@ Ask small rounds, in dependency order; answer source questions through inspectio
 - Which composition problems should an agent solve locally, and which should we solve once?
 - If only one game needs a component, what justifies maintaining it here?
 - Can an engine decline a new rEngine version and still ship?
-- Is a common harness mandatory for branding, or is adopting one library enough?
+- Does the adoption record prove the selected capability and its claimed game/platform scope?
 - Do we need new shared code, or would packaging the existing code solve the problem?
 - What evidence would make us reject an abstraction and keep the code local?
 - How much game progress can this foundation effort consume before it must show value?
@@ -129,3 +135,12 @@ independent of IDE completion, but implementation starts with the desktop workfl
 
 2026-09-05, project-scope answer: D20 confirms multiple roots with explicit per-session binding.
 It does not approve the whole feature inventory, select a toolkit or select the named library.
+
+2026-09-05, first-game/editor answer: D21 selects NOLF then VtMB; D22 selects local recovery
+drafts with explicit working-file saves. The desktop acceptance draft is `032-desktop-v0.md`.
+The exact host revisions, toolkit and measurement budgets remain unselected; D23 below settles
+the named library.
+
+2026-09-05, library/adoption answer: D23 selects iklib. D24 sets verified pinned capability
+adoption as the powered-by minimum, with optional IDE/shared harness. The “GO” answers those two
+presented recommendations; the complete feature proposal still needs concrete roadmap review.

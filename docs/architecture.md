@@ -17,6 +17,10 @@ game-surface transport has been selected.
 
 ## Ownership
 
+Charter D24 sets the powered-by minimum: at least one curated capability at a pinned version
+with passing game integration checks. The IDE and shared harness remain optional. Evidence and
+compatibility claims are scoped to the actual game/platform/profile, with independent upgrades.
+
 | Boundary | Owns | Consumer retains |
 | --- | --- | --- |
 | rEngine catalog | Capability descriptions, source provenance, reviewed version references, integration recipes | Dependency selection and upgrade timing |

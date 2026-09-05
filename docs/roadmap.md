@@ -13,9 +13,9 @@ implementations around a game's needs, using dependable components. Our first re
 leading with a shared command runner is superseded. The proposed path now establishes library
 quality and proves actual adoption; supporting harness work follows concrete needs.
 
-The owner confirmed curated upstream plus our own gaps and one library proven in both games.
-The table uses iklib as the existing candidate, not an owner-confirmed named selection. Its host
-tasks already exist and retain their ownership and acceptance criteria.
+The owner confirmed curated upstream plus our own gaps and iklib proven in both games first.
+Its host tasks already exist and retain their ownership and acceptance criteria. A verified
+pinned capability meets the powered-by minimum; the IDE and shared harness are optional.
 
 The owner subsequently added the IDE/orchestrator and selected **desktop workspace, terminals
 and a flat game rendered into a new tab as the first implementation milestone**, on macOS and
@@ -28,7 +28,7 @@ milestones below; implementation need not wait for the entire library/training c
 | --- | --- | --- | --- |
 | M0 — define the base and quality bar | F1, F31 | Reviewed charter, first proof and library quality standard | Library ownership/wrapping policy, selected capability, quality criteria, target profiles and success measures decided. |
 | M1 — qualify real components | F13–F17, F27 | Capability map, catalog admission, pins, iklib recipe and infra-vr packaging work | First selected component has verified contracts, consumption examples, resource requirements and a concrete host integration path. |
-| M2 — prove value inside games | F18–F21 | Proposed iklib adoption in reSource and reLith, separate finger follow-up and per-game evidence | Actual host behavior/gates hold; obsolete duplicated implementation is removed; integration cost, resource behavior and rollback are recorded. |
+| M2 — prove value inside games | F18–F21 | iklib adoption in reSource and reLith, separate finger follow-up and per-game evidence | Actual host behavior/gates hold; obsolete duplicated implementation is removed; integration cost, resource behavior and rollback are recorded. F20 fingers is a follow-up, not a prerequisite of the core proof. |
 | M3 — support composition and maintenance | F2–F12, F26 | Reusable verification/evidence tools, minimal harness templates and resource coordination | Tools address observed integration needs and preserve the native host outcomes, local authority and independent upgrades. |
 | M4 — connect work to learning | F22–F25 | Report/repro evidence and explicit training intake bridge | Eligible evidence reaches training validation; held-out/hidden/tampered examples are rejected. No training run implied. |
 | M5 — validate breadth and maintainability | F28–F30 | Independent host fixture, scoped powered-by records and quality audit | Adoption remains independent and evidence-backed; next base expansion follows measured consumer needs. |
@@ -44,7 +44,7 @@ authority to launch a device or require a distributed scheduler for local librar
 
 ## First library proof, concretely
 
-Recommended candidate: iklib. It already has portable solvers, integration presets and pending
+Owner-selected library: iklib. It already has portable solvers, integration presets and pending
 host migrations. Define the [quality standard](library-quality.md), recheck the current seams,
 pin one revision, and complete the selected adoption work using native host gates and recorded
 behavior. The integration plan keeps reSource core, NOLF parameter parity, separate reSource
@@ -55,8 +55,9 @@ correctness/behavior preserved, representative resource costs and the ability to
 one game independently. Set tolerances and budgets before executing the proof. A small package
 fixture establishes consumability; a working real host establishes adoption.
 
-The first library strategy is settled. If the owner selects a different named library, revise
-the proposed integration tasks while retaining the one-library/two-game proof.
+The [pilot draft](specs/001-library-pilot.md) scopes the first proof to existing core IK in both
+games. F21 depends on F18/F19; F20 fingers contributes a separate later evidence update. This
+keeps the graph consistent with the original separate-finger scope and the two-game core proof.
 
 ## First desktop release and later workspace capabilities
 
@@ -66,7 +67,7 @@ shell or terminal-only app does not complete it. F43 is a real host-owned game i
 
 | Milestone | Proposed features | Exit condition |
 | --- | --- | --- |
-| O0 — qualify the implementation | F32–F33 | Pin the first flat game and scope; prove terminal/editor/game-surface feasibility on macOS and Windows before selecting the stack. |
+| O0 — qualify the implementation | F32–F33 | Pin the selected NOLF baseline and scope; prove terminal/editor/game-surface feasibility on macOS and Windows before selecting the stack. |
 | O1 — workspace and retained sessions | F34–F38, F54 | Splits/tabs, real terminals, tree/previews/basic editor with optional Vim, independent sidecar, persistence and session browser work on both desktops. |
 | O3 — live game and tool views | F42–F45 | Cooperative surface contract and actual host output/input; F43 supplies the first flat game, F44 adds reSource and F45 another tool separately. |
 | O5 — desktop v0 complete | F48 | Actual empty-to-split/edit/terminal/game-tab workflow, moves, detach/browser/reattach, GUI restart and explicit stop, on both desktops. |
@@ -76,16 +77,18 @@ shell or terminal-only app does not complete it. F43 is a real host-owned game i
 | A0 — external-app feasibility | F53 | Finite Mac/Windows app matrix for capture/control and optional Windows reparenting, with honest view-only/interactive limitations. |
 
 The O/Q/A names identify independent branches; their numbers do not override dependency order.
-F32 is independently selectable ahead of the broader library-charter feature F1. The first
-prototype's suggested game is flat NOLF because the owner reports it working; its exact host
-revision, native build and scope are established in F32. F44 is a later second-engine adapter,
+F32 is independently selectable ahead of the broader library-charter feature F1. The owner
+selected flat NOLF first and VtMB second; exact host revisions, native builds and scope are
+established in F32 and the later F44 spec. The [desktop acceptance draft](specs/032-desktop-v0.md)
+records the confirmed workflow and remaining qualification inputs. F44 is a later second-engine adapter,
 not a reason to postpone the first NOLF workflow or a claim that NOLF evidence covers VtMB.
 
 Closing tabs/windows detaches views, while the sidecar retains sessions. The session browser is
 required in v0. Workspaces support multiple project/worktree roots with explicit session bindings;
 the desktop proof exercises identical filenames and similarly named sessions across roots.
 Basic editing includes the agreed optional Vim subset; a full IDE language-server
-or debugger ecosystem is not part of that requirement. Agent installation, Quest distribution,
+or debugger ecosystem is not part of that requirement. Unsaved edits survive as local recovery
+drafts; working files change only on explicit Save. Agent installation, Quest distribution,
 external apps and XR automation have distinct gates after the first desktop proof. The ordering
 of those later gates relative to the first library proof remains a prioritization decision.
 
@@ -117,10 +120,10 @@ bounded follow-ups. Calendar dates and effort estimates await the selected proof
 
 ## Open decisions
 
-- Named first library, detailed quality bar and per-component conventions.
-- Desktop toolkit, flat-game baseline, root identity/persistence details, editing/Vim details and resource budgets.
+- iklib pilot profiles, detailed quality bar and per-component conventions.
+- Desktop toolkit, NOLF build baseline, root/draft persistence details, initial Vim subset and resource budgets.
 - Later agent recipes/Windows Bash environment, Quest packaging and runtime-control ownership.
-- Minimum commitment for “powered by rEngine” and each project's upgrade autonomy.
+- Adoption-record format for the confirmed pinned-capability minimum and independent upgrades.
 - infra-vr's product relationship and the meaning of the two streams.
 - In-game inference scope, training data boundaries and automation authority.
 

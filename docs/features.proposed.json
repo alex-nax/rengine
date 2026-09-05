@@ -9,10 +9,10 @@
       "milestone": "M0",
       "category": "design",
       "priority": "medium",
-      "description": "Record the reviewed library-base charter and first real integration proof.",
+      "description": "Specify the reviewed iklib pilot and its two-game quality and adoption criteria.",
       "acceptance_criteria": [
-        "Record owner decisions on library-base purpose, upstream/authored ownership, wrapper policy, both streams, project independence, powered-by minimum and infra-vr relationship with attribution.",
-        "Select the named first library, both real game consumers, target profiles, quality measures, resource budgets and bounded integration effort; preserve the confirmed curated-upstream/own-gaps strategy.",
+        "Carry forward curated upstream plus authored gaps, iklib first, project independence and verified pinned capability adoption with optional IDE/shared harness; record remaining wrapper, infrastructure and training boundaries explicitly.",
+        "Specify the selected iklib core proof in VtMB and NOLF with exact target profiles, parity measures, resource budgets and bounded effort; preserve separate finger migrations.",
         "Review the revised library-first proposal and record accepted scope before activating features.json."
       ],
       "passes": false,
@@ -411,7 +411,8 @@
       "acceptance_criteria": [
         "Map the engine-side finger seam outside src/vrik to the existing iklib:F133 scope.",
         "Prove recorded curl/collision/pose behavior equivalence and host gates; remove or reduce duplicate glm solver code to necessary glue.",
-        "Retain separate device/manual evidence where required; no NOLF finger capability is claimed."
+        "Retain separate device/manual evidence where required; no NOLF finger capability is claimed.",
+        "Update the adoption matrix with separately verified finger rows; the core two-game proof does not depend on this follow-up."
       ],
       "passes": false,
       "dependencies": [
@@ -431,15 +432,15 @@
       "priority": "high",
       "description": "Record runtime adoption evidence by engine, game and supported profile.",
       "acceptance_criteria": [
-        "Reference host-owned migration commits and immutable evidence without changing external feature states from this workspace.",
+        "Reference both core host migrations F18/F19 and immutable evidence without changing external feature states; list fingers pending until separately proven by F20 or its host-owned follow-up.",
         "Distinguish NOLF, AVP2, NOLF2 and VtMB plus flat/VR/platform profiles; list verified, unaffected, pending or unsupported honestly.",
         "Each verified row includes component revision, host gates and rollback evidence; coordinate optional iklib:F132 as separate future work.",
         "For the first library proof, retain host integration effort, replaced production duplication and representative resource evidence; evaluate the agreed F1/F31 quality measures."
       ],
       "passes": false,
       "dependencies": [
-        19,
-        20
+        18,
+        19
       ],
       "owner_workspace": "rengine",
       "deliverable": "docs/evidence/ik-adoption-matrix.md",
@@ -564,11 +565,11 @@
       "milestone": "M1",
       "category": "discovery",
       "priority": "high",
-      "description": "Map both games' library needs and select the first base-building candidate.",
+      "description": "Map both games' library needs and qualify the selected iklib pilot scope.",
       "acceptance_criteria": [
         "Map relevant existing dependencies and duplicated capabilities across both games with current source references and actual integration differences.",
         "For the initial scope, classify curate upstream, extract our own component, implement a demonstrated gap or keep host-local; do not mark untested candidates qualified.",
-        "Confirm the named first library and record its two-game integration slices, quality gaps and bounded follow-ups; align existing iklib/infra-vr work rather than duplicating ownership."
+        "Use owner-selected iklib for the first two-game core proof; record exact integration slices, quality gaps and bounded follow-ups, preserving independent iklib/infra-vr ownership."
       ],
       "passes": false,
       "dependencies": [
@@ -606,8 +607,8 @@
       "priority": "medium",
       "description": "Define evidence-backed powered-by records for both engine families.",
       "acceptance_criteria": [
-        "Apply the owner-agreed powered-by minimum from F1; list exact adopted capabilities, pins and verified game/platform/profile rows.",
-        "Include only separately proven tool/runtime capabilities; a library adoption does not require completing the later shared-runner branch.",
+        "Apply D24: at least one curated capability at a pinned version with passing game integration checks; list exact capabilities, pins and verified game/platform/profile rows.",
+        "Keep IDE/shared harness use optional and upgrades independent; include only separately proven tool/runtime capabilities without requiring the later shared-runner branch.",
         "Do not relabel a pending host, publish branding changes or require an unrelated component to claim a verified capability."
       ],
       "passes": false,
@@ -629,7 +630,7 @@
       "acceptance_criteria": [
         "Validate feature graph, local document links, source/evidence freshness and owner-workspace boundaries; record drift with repair actions.",
         "Compare first-library integration benefit, resource measurements and maintenance cost against F1/F31 measures, including failed and deferred verification.",
-        "Review the next work with the owner; preserve accepted feature history and do not expand into an editor/runtime without a named need."
+        "Review the next bounded work with the owner; preserve accepted feature history and the confirmed independent library/workspace paths instead of expanding unrelated runtime scope."
       ],
       "passes": false,
       "dependencies": [
@@ -666,11 +667,11 @@
       "milestone": "O0",
       "category": "design",
       "priority": "high",
-      "description": "Specify the first desktop workspace, terminal and flat-game integration slice.",
+      "description": "Specify the first desktop workspace, terminal, draft recovery and NOLF integration slice.",
       "acceptance_criteria": [
         "Carry forward macOS/Windows, empty-to-split layout, movable tabs, basic editing/optional Vim, persistent sidecar sessions, the session browser and multiple project/worktree roots with explicit per-session bindings as confirmed requirements.",
-        "Pin the first flat game and host build profile; specify actual rendered output/input in a new tab, native host ownership and acceptance commands on both platforms.",
-        "Specify stable root identities and persistence without implicit retargeting; define unsaved-buffer recovery, initial Vim subset and measured terminal/editor/game budgets; keep agent installers, Quest and XR as later gates."
+        "Pin the owner-selected flat NOLF host build/profile; specify actual rendered output/input in a new tab, native host ownership and acceptance commands on both platforms, with VtMB as the second adapter.",
+        "Specify stable root identities and local recovery drafts with explicit file saves; define checkpoint/conflict handling, initial Vim subset and predeclared measurable terminal/editor/game budgets; keep agent installers, Quest and XR as later gates."
       ],
       "passes": false,
       "dependencies": [],
@@ -769,7 +770,7 @@
       "acceptance_criteria": [
         "Browse multiple declared roots, preview files, and edit/save text with undo/redo/search, dirty-buffer status and external-change handling; identical relative filenames in separate worktrees retain distinct root-bound buffers and save destinations.",
         "Exercise the F32-defined Vim subset and ordinary editing on macOS/Windows; preserve supported encoding/line endings and avoid silent overwrite of external edits.",
-        "Apply the agreed unsaved-buffer close/recovery behavior; large/binary/unsupported files fail or preview explicitly without blocking terminal/game sessions."
+        "Retain unsaved edits as local recovery drafts on view close/GUI restart and write working files only on explicit Save; exercise external edits, checkpoint failure and explicit Discard without losing the only unsaved copy; large/binary/unsupported files fail or preview explicitly."
       ],
       "passes": false,
       "dependencies": [
@@ -788,7 +789,7 @@
       "priority": "high",
       "description": "Persist layout and recover views onto retained sessions after GUI restart.",
       "acceptance_criteria": [
-        "Restore splits, tab placement, stable root/session associations and the agreed editor recovery state after closing/reopening the GUI with multiple projects/worktrees.",
+        "Restore splits, tab placement, stable root/session associations and durable local editor drafts after closing/reopening the GUI with multiple projects/worktrees; no restore path silently writes working files.",
         "Resolve live session IDs through the sidecar; no restore path relaunches commands automatically or confuses a dead process with a live one.",
         "Interrupted saves and unknown persistence versions recover with an actionable result; test macOS/Windows paths and changed/missing/removed roots without silently remapping sessions, relaunching commands or stopping retained processes."
       ],
@@ -890,9 +891,9 @@
       "milestone": "O3",
       "category": "host-adoption",
       "priority": "high",
-      "description": "Render the selected reLith flat game into an orchestrator tab on both desktops.",
+      "description": "Render flat NOLF into an orchestrator tab on macOS and Windows.",
       "acceptance_criteria": [
-        "From the owning host workspace, implement the F32-selected flat game adapter using current native build/launch and user-owned assets.",
+        "From the owning nolf-improved workspace, implement the flat NOLF adapter using the F32-pinned native build/launch profile and user-owned assets.",
         "Show actual game output in a new tab and verify resize, input, tab move, close/reattach and explicit stop through the sidecar on macOS and Windows.",
         "Run relevant existing host gates, record the tested game/profile and rollback; an external window or log-only tab does not complete the pane requirement."
       ],
@@ -996,7 +997,7 @@
       "priority": "high",
       "description": "Complete the first desktop workflow with a terminal, editor, session browser and flat game tab.",
       "acceptance_criteria": [
-        "On both macOS and Windows execute the empty-to-split workflow with multiple project/worktree roots, edit/save text, use an interactive terminal and open the selected flat game in a new tab.",
+        "On macOS and Windows execute the empty-to-split workflow with multiple roots, ordinary and optional Vim editing, local draft recovery with explicit saves, real terminals and flat NOLF in a new tab.",
         "Move and detach views, find retained sessions in the browser, reattach after GUI restart, and explicitly stop the intended game/process; identical filenames and similarly named sessions across roots never redirect a file write or session operation.",
         "Record real rendered/input evidence and agreed performance measurements; a layout mock, terminal-only shell or external game window cannot close this milestone."
       ],

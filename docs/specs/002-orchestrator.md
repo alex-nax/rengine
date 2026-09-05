@@ -1,7 +1,7 @@
 # rEngine IDE / orchestrator
 
 Date: 2026-09-05. Status: **owner-requested product; detailed design under interview**.
-Source: charter D10–D20. No application, agent installer, remote service or game adapter has been
+Source: charter D10–D22. No application, agent installer, remote service or game adapter has been
 implemented during harness setup.
 
 Confirmed scope: macOS and Windows from the first desktop release; adapters first for game/tool
@@ -10,6 +10,8 @@ the same 2D workspace and a desktop sidecar, with spatial panes later. The initi
 external-editor-only recommendations are superseded. External app presentation is being researched.
 A workspace supports multiple project/worktree roots; terminals, editors, agents and games each
 have an explicit root binding.
+Flat NOLF is the first game integration, followed by VtMB. Unsaved editor changes are retained
+as local recovery drafts; working files are written on explicit Save.
 
 ## User workflow
 
@@ -121,8 +123,16 @@ native window are separate mechanisms with different compatibility. See the
 The first IDE includes editable text files, previews, and optional Vim mode. Proposed minimum:
 open/save, dirty-buffer indication, undo/redo, search, external-change handling and the declared
 Vim keybinding subset. Preserve text encoding and line endings when supported; show an explicit
-read-only/error state for unsupported files. Unsaved buffers need a deliberate close/recovery
-policy independent of whether a terminal process keeps running.
+read-only/error state for unsupported files.
+
+D22 confirms local recovery drafts with explicit file saves. Closing an editor view or restarting
+the workspace must allow its retained draft to be reopened without silently writing the working
+file. The proposed recovery design records the owning root, file identity and base disk version;
+external changes by an agent or other editor surface as a conflict while preserving the draft.
+Draft checkpoint failures remain visible; do not discard the only unsaved copy on close. Crash
+recovery restores the last durable checkpoint, with its freshness visible rather than promising
+that every in-flight keystroke survived. Details and acceptance cases are in the
+[desktop v0 draft](032-desktop-v0.md).
 
 Reuse a qualified editing component rather than implementing a general code editor from scratch.
 Choose the component alongside terminal/rendering feasibility on macOS and Windows, with the
@@ -190,14 +200,16 @@ other's entire roadmap. The first library proof still remains one library in bot
 
 For the first useful desktop milestone on both macOS and Windows: add two project/worktree roots, create
 the empty-to-split layout, use a real PTY, view/edit/save files with ordinary and optional Vim
-controls, launch one flat game into a new live tab, and move/resize that tab without relaunching.
+controls, launch flat NOLF into a new live tab, and move/resize that tab without relaunching.
 Close its view, find the still-running session in the browser, reattach, then explicitly stop it.
 Close/reopen the GUI and recover the running session while the sidecar remains alive.
 Use identical relative filenames and similarly named sessions across roots to verify that focus,
 tab moves, file writes and explicit Stop preserve the intended association.
+Close/reopen a dirty editor and recover its draft; the working file changes only on explicit
+Save. Exercise an external edit while the draft is retained and preserve both versions.
 
-Flat NOLF is the recommended first game because the owner reports it working. This choice still
-needs a pinned host/build target before implementation; the corresponding host adapter is a
+Flat NOLF is the owner-confirmed first game. It still needs a pinned host/build target before
+implementation; the corresponding host adapter is a
 separate owned change. A mock terminal, external game window, log tab or static image does not
 complete the live-pane requirement. The second engine, agent installation/MCP setup and Quest
 client follow their own integration gates; the owner has not yet ordered those later milestones.
@@ -210,13 +222,14 @@ must remain visible and recoverable without destroying another session.
 
 Settled: macOS/Windows desktop first, adapters first, basic editor with optional Vim, retained
 sessions with a session browser, Quest 2D-first, and an initial desktop milestone with a real flat
-game tab, plus multiple project/worktree roots with explicit per-session binding. Keep those
+NOLF game tab, multiple project/worktree roots with explicit per-session binding, and local
+editor recovery drafts with explicit file saves. VtMB is the second game adapter. Keep those
 decisions when refining the implementation specs.
 
 Before the first implementation:
 
-- Confirm the concrete flat game/host baseline and the bounded prototype's performance budgets.
-- Specify root identity/persistence details and the basic editor/Vim subset plus unsaved-buffer recovery.
+- Pin the NOLF host/build baseline and the bounded prototype's performance budgets.
+- Specify root identity/persistence details, the basic editor/Vim subset and draft checkpoint mechanics.
 - Qualify a terminal/editor/layout stack with an actual game surface on both platforms; choose
   dependencies using the same curation principles as the library base.
 

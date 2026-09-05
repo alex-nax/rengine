@@ -1,5 +1,48 @@
 # Progress Log
 
+## Session 4 (macos) — 2026-09-05 — NOLF, recovery drafts and iklib roadmap review
+
+**Agent**: Codex.
+**Owner decisions**: D21 confirms NOLF as the first live desktop game tab, with VtMB second.
+D22 confirms local recovery drafts and explicit working-file saves. The later “GO for
+gecommended” answers the next two-question round: D23 selects iklib as the first two-game library
+proof; D24 requires verified pinned capability adoption for powered-by status, with optional
+IDE/shared harness. All session 3 questions are answered. This is not a blanket roadmap verdict.
+
+**Artifacts**: Added `docs/specs/032-desktop-v0.md` and `001-library-pilot.md`. They turn confirmed
+choices into acceptance workflows, host ownership and failure cases, while marking concrete
+source pins, hardware, numerical/resource budgets and initial Vim details as still required.
+F32/F1 remain incomplete; writing a draft does not satisfy their outstanding criteria.
+
+**Proposal correction**: F21 now depends on both core migrations F18/F19 instead of requiring
+the separate F20 finger migration. This repairs the draft graph's mismatch with the existing
+separate-finger scope. F20 contributes a later evidence update. Updated NOLF/recovery/iklib and
+powered-by criteria throughout the 54-feature proposal; every feature remains non-passing.
+
+**Review**: `docs/reviews/rengine-roadmap-2026-09-05-v1.html` embeds all features and complete
+criteria in six review branches, along with the current source specs. Its content JSON records
+source hashes and group membership. Adjacent CSS/JS are unmodified copies from the ispec skill;
+the review works offline without requiring that skill to be installed. The `.spec.json` input
+is not an owner verdict. Use the exported `.json` or explicit chat feedback to record review.
+Recommended later order is iklib core proof after desktop v0, then agents/VtMB; this remains a
+recommendation. Windows test access is an open input in the review, not a claimed available host.
+
+**Verification**: `./init.sh`, JavaScript syntax, graph reproduction, Markdown links, 54-feature
+coverage, review source hashes and export-control structure pass. Verified that desktop v0 stays
+independent of library/training/installer work, and core IK proof no longer waits for fingers or
+the shared-runner branch. In-app browser discovery returned no available browser, so automated
+visual, click and JSON-export checks were not performed. The review is ready for presentation
+in the regular browser. No orchestrator runtime, native game build, host migration or training
+workload was implemented or executed; sibling workspaces remain untouched.
+
+**Next suggested task**: Present the concrete review and incorporate owner feedback. The
+harness-init skill requires review of the feature list before creating `features.json`; ispec
+waits for completed feedback after presentation. Chat decisions can serve as review without
+forcing an exported file. Reconcile revisions/deferred groups and dependency closure, activate
+only accepted scope, then complete the desktop qualification inputs before a toolkit prototype.
+
+---
+
 ## Session 3 (macos) — 2026-09-05 — Explicit roots in shared workspaces
 
 **Agent**: Codex.
