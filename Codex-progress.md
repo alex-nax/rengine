@@ -1,5 +1,40 @@
 # Progress Log
 
+## Session 16 (macos) — 2026-09-06 — Repair shared terminal freeze during resume
+
+**Owner direction and environment**: The exact real conversation resumed in the native pane.
+Verified its `RENGINE_ORCHESTRATOR_SESSION`, running agent PID 33534 and root-bound rEngine MCP
+workspace/session calls for this checkout. The owner then reported both agent and shell unable
+to accept input and suggested incomplete terminal animations. The original GUI/agent exited;
+the same conversation was resumed externally. Prioritized this explicitly authorized handoff
+repair and deferred NOLF KI-024 without game/sibling edits. No new conversation or goal.
+
+**Reproduced and fixed**: Animated ANSI alone stayed interactive, but an 8,000-event burst
+filled the 128-message native receive queue and killed the shared stream worker. Its disconnect
+notice could also be discarded, leaving apparently connected panes with undelivered input.
+Spec 059 adds receive backpressure, bounded per-tick draining, disconnect status and retries
+to the same authenticated endpoint. Reattach retained terminal IDs through fresh snapshots,
+discard unsent/offline input and preserve processes, bindings and drafts. No launch or repeated
+continuation occurs during recovery. Automated native windows now have a distinguishing title.
+
+**Verification**: Pre-fix animation-only pass (6.17 s), burst regression fail (14.15 s); final
+real PTY/native input checks pass in both panes after burst and forced outage with the same
+PIDs, two sessions and no offline-input replay. Replaying 803,215 bytes from the ended real
+Codex session through the test PTY also passes (8.69 s), without another provider run. Service
+tests: 20 passes (4.30 s). Final desktop suite: five passes (41.89 s). CTest: two passes
+(0.45 s). Screenshot visually inspected; the selected font lacks the spinner glyph, separately
+from input recovery. Harness/inventory, metadata and diff checks pass. Actual recording stays
+ignored/local. Evidence and exact limits: `docs/evidence/native-terminal-recovery-macos-2026-09-06.md`.
+
+**Preserved state and next**: Original retained service PID 33465 and user shell PIDs 33500/39735
+remain running; tests cleaned up only their own fixtures. All 15 feature gates remain false.
+After the current conversation writer exits, run `npm run resume` and verify the new attached
+agent environment/MCP before returning to KI-024. Service identity replacement and Windows
+remain unqualified; the Windows transfer approval boundary and optional service-migration
+decision remain unchanged. Commit: `fix(native): keep terminal streams responsive and reconnect retained sessions`.
+
+---
+
 ## Session 15 (macos) — 2026-09-05 — Pause at the orchestrator handoff
 
 **Owner direction**: stop broader feature work here and resume this exact agent conversation

@@ -54,6 +54,11 @@ The initial native Vim subset and current limits are in the [native desktop spec
 running sessions. A build failure leaves those sessions retained; rerun the launch command after
 fixing it. Reload covers the desktop; it does not replace a running service or coding agent.
 
+Terminal output waits for space in bounded receive queues. A dropped session stream reports
+the loss and reconnects to the same retained processes; disconnected keystrokes are discarded.
+Reattachment uses fresh terminal snapshots without launching another agent. See the
+[terminal recovery checks](docs/specs/059-native-terminal-recovery.md).
+
 To resume a specific Codex conversation inside an agent pane, use
 `npm start -- --handoff /path/to/handoff.json`. The version-1 manifest contains `project`
 (relative to the manifest), `sessionId` (the exact local Codex UUID), and `checkpoint`

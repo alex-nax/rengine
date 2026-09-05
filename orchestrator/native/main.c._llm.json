@@ -9,7 +9,7 @@
         "end": 25,
         "snippet": "int main(int argc, char **argv) {"
       },
-      "note": "The C desktop owns only native views, renderer resources and service connections. Normal exit waits for durable draft/layout requests before detaching. The event-driven loop schedules one settling frame when microui next_hover_root differs from hover_root; without it the first click after entering another container can miss because hover is computed from the previous frame. Static workspaces do not repaint continuously. --automation allocates optional inspection metadata and is a local testing seam, not a production remote-control endpoint.",
+      "note": "The C desktop owns only native views, renderer resources and service connections. Normal exit waits for durable draft/layout requests before detaching. The event-driven loop schedules one settling frame when microui next_hover_root differs from hover_root; without it the first click after entering another container can miss because hover is computed from the previous frame. Static workspaces do not repaint continuously. --automation allocates optional inspection metadata and is a local testing seam, not a production remote-control endpoint. Automation windows have a distinct title so a visible regression fixture is distinguishable from the owner's workspace.",
       "refs": [
         "docs/specs/056-native-desktop.md"
       ]
@@ -30,7 +30,7 @@
   ],
   "source": {
     "path": "orchestrator/native/main.c",
-    "sha256": "7f24a0ebb8a5129087f7949759efeb36bc7b9c4c4b3bd8c5fd9fc2a89b08b9fd",
+    "sha256": "fbeb96c6468baf0f7074a944d4c9ba4c98ba433763e617cf958afdc2953fca76",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
   }
   SDL_SetMainReady();
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) { fprintf(stderr, "%s\n", SDL_GetError()); return 1; }
-  SDL_Window *window = SDL_CreateWindow("rEngine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+  SDL_Window *window = SDL_CreateWindow(automation ? "rEngine — automated verification" : "rEngine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        1280, 800, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
   if (!window) { fprintf(stderr, "%s\n", SDL_GetError()); SDL_Quit(); return 1; }
   SDL_SetWindowMinimumSize(window, 1050, 480);

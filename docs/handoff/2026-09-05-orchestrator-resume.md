@@ -28,7 +28,7 @@ and supplies this checkpoint, not a scheduler migration. If it remains paused, c
 user-authorized work as the resumed CLI turn and leave scheduler controls with the user.
 
 All 15 feature gates remain false. `features.json` criteria have not changed. Read the newest
-`Codex-progress.md` entry, `known-issues.md`, specs 055–058 and architecture before choosing the
+`Codex-progress.md` entry, `known-issues.md`, specs 055–059 and architecture before choosing the
 next bounded fix. Check `RENGINE_ORCHESTRATOR_SESSION`, then the MCP workspace/session identity
 for `/Users/alex/rengine`; its session must be the running root-bound agent. The environment
 marker is context, not a security boundary. Confirm the MCP connection before continuing edits.
@@ -39,8 +39,13 @@ tests cover those behaviors. The handoff test uses an instrumented Codex executa
 PTY: no invocation before presentation, correct explicit resume/MCP arguments once, native
 interaction, rebuild/reload, dirty draft recovery, repeated launch and the same process identity.
 Installed real Codex 0.153.4 reports resume support and an authenticated ChatGPT login. Its local
-session metadata matches this root. The live conversation has deliberately not been reopened
-in parallel; the next real launch is the final continuation boundary.
+session metadata matches this root. The real continuation crossed this boundary on 2026-09-06:
+its orchestrator session environment and root-bound MCP workspace/session calls were verified.
+The owner subsequently reported both terminals stuck. That GUI and agent exited; the same
+conversation was resumed externally for the explicitly authorized terminal repair in spec 059.
+The repair passes native burst/reconnection tests and replay of the ended CLI's actual ANSI
+output. Exit the current writer before running `npm run resume` again. Broader NOLF work still
+requires a verified orchestrator session; the external repair did not remove that boundary.
 
 ## Next investigation
 
@@ -59,7 +64,7 @@ image while allowing keyboard focus, and clamping the release of a button held i
 Preserve relative delta/capture semantics. The speculative regression and debug inspection
 started before the owner's pause were withdrawn; no unimplemented test is left in the suite.
 
-Later gaps remain previews, terminal scrollback/selection, editor/Vim breadth, reconnect/failure
+Later gaps remain previews, terminal scrollback/selection, editor/Vim breadth, service-restart/failure
 recovery, gameplay aiming/DPI, packaging/resources and Windows proof. Basic Ctrl+Home editor
 behavior also needs qualification; do not infer insertion position from retained-text checks.
 

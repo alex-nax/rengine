@@ -202,10 +202,17 @@ ReApp *re_app_open(const char *url, const char *token) {
 void re_app_tick(ReApp *a) {
   ReMessage *m;
   while ((m = re_net_poll(a->net))) { response(a, m); re_message_free(m); }
-  while ((m = re_socket_poll(a->events))) {
+  for (int messages = 0; messages < 128 && (m = re_socket_poll(a->events)); messages++) {
     cJSON *j = cJSON_ParseWithLength(m->data, m->size); const char *type = re_string(j, "type");
-    if (!strcmp(type, "connected")) a->connected = true;
-    else if (!strcmp(type, "disconnected")) { a->connected = false; re_copy(a->status, sizeof(a->status), "Session connection lost. Retained processes are not replaced automatically."); }
+    if (!strcmp(type, "connected")) {
+      a->connected = true;
+      if (a->initialized) {
+        request(a, OP_STATE, -1, "state", NULL);
+        re_copy(a->status, sizeof(a->status), "Session connection restored. Reattaching retained processes.");
+      }
+      for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].terminal) re_terminal_attach(a->tabs[i].terminal);
+    }
+    else if (!strcmp(type, "disconnected")) { a->connected = false; re_copy(a->status, sizeof(a->status), "Session connection lost. Reconnecting to retained processes…"); }
     else if (!strcmp(type, "session")) update_session(a, cJSON_GetObjectItemCaseSensitive(j, "session"));
     else if (!strcmp(type, "error")) re_copy(a->status, sizeof(a->status), re_string(j, "error"));
     for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].terminal) re_terminal_message(a->tabs[i].terminal, j);
@@ -247,6 +254,7 @@ cJSON *re_app_inspect(ReApp *a) {
     cJSON_AddBoolToObject(tab, "dirty", t->dirty); cJSON_AddBoolToObject(tab, "conflict", t->conflict); cJSON_AddStringToObject(tab, "error", t->error);
     char *text = t->terminal ? re_terminal_text(t->terminal) : t->editor ? re_editor_text(t->editor) : NULL;
     if (text) { cJSON_AddStringToObject(tab, "text", text); free(text); }
+    if (t->terminal) cJSON_AddBoolToObject(tab, "attached", re_terminal_ready(t->terminal));
     if (t->editor) cJSON_AddStringToObject(tab, "mode", re_editor_mode(t->editor));
     if (t->game) { cJSON_AddNumberToObject(tab, "sequence", t->game->sequence); cJSON_AddBoolToObject(tab, "captured", t->game->captured); }
     if (t->data && t->type == RE_TREE) cJSON_AddItemToObject(tab, "tree", cJSON_Duplicate(t->data, 1));

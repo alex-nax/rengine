@@ -74,7 +74,11 @@ Tab overflow navigation, header reordering and non-destructive pane merging are 
 [native pane navigation](057-native-pane-navigation.md). Strip offsets are ephemeral; stable tab
 order, root/session bindings and the selected tab remain in the version-1 persisted layout.
 
-Native image previews, terminal scrollback/selection, richer text navigation, transport recovery,
+Session-stream backpressure and reconnection to the same authenticated endpoint now pass native
+macOS checks with fresh terminal snapshots and retained PIDs; see [spec 059](059-native-terminal-recovery.md).
+A changed service identity/address still requires explicit launcher reconnection.
+
+Native image previews, terminal scrollback/selection, richer text navigation, service-restart recovery,
 frame/input DPI mapping, actual in-level aiming, resource budgets, packaging and Windows runtime
 proof remain open. No accepted feature is marked passing by this checkpoint. The historical web
 prototype and its browser-specific tests were retired; version `916a204` retains that history.

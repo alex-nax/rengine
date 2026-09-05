@@ -5,19 +5,20 @@
       "id": "bounded-native-transport",
       "kind": "rationale",
       "anchor": {
-        "start": 130,
-        "end": 130,
+        "start": 163,
+        "end": 163,
         "snippet": "static int socket_worker(void *userdata) {"
       },
-      "note": "Each HTTP/WS worker owns its curl handle. SDL mutexes protect bounded queues, binary game frames replace one latest slot, and HTTP work stays off the UI thread. This client accepts only an authenticated 127.0.0.1 service URL, disables proxies and redirects, and builds libcurl without TLS. The later Quest/web remote transport must not reuse this local-only assumption. Stream reconnection and more failure/backpressure qualification remain open.",
+      "note": "Each HTTP/WS worker owns its curl handle. SDL mutexes protect queues capped at 128 messages and 16 MiB; binary game frames replace one latest slot. Text reception waits for capacity instead of terminating the worker on overload. Poll signals capacity, shutdown broadcasts, and timed waits keep the SDL consumer awake. On failure, discard unsent outgoing messages, reject sends while disconnected and retry the same authenticated endpoint after 500 ms. Never discover a different service identity or launch a process here. HTTP work stays off the UI thread. This client accepts only an authenticated 127.0.0.1 service URL, disables proxies and redirects, and builds libcurl without TLS. The later Quest/web remote transport must not reuse this local-only assumption.",
       "refs": [
-        "docs/specs/056-native-desktop.md"
+        "docs/specs/056-native-desktop.md",
+        "docs/specs/059-native-terminal-recovery.md"
       ]
     }
   ],
   "source": {
     "path": "orchestrator/native/net.c",
-    "sha256": "695d281f7612aa601fa45ef391261ee6acfe4f1af74db70343016030cd5bfdae",
+    "sha256": "e9634198bd8f5a7d41479e4bcacd6cc061dc1ea01819aed725d6e613eac3305f",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

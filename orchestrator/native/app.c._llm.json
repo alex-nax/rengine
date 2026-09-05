@@ -39,11 +39,24 @@
       "refs": [
         "docs/specs/058-orchestrator-handoff.md"
       ]
+    },
+    {
+      "id": "reattach-retained-streams",
+      "kind": "rationale",
+      "anchor": {
+        "start": 207,
+        "end": 207,
+        "snippet": "if (!strcmp(type, \"connected\")) {"
+      },
+      "note": "Process at most 128 stream messages per tick so continuous output yields to SDL input and rendering. On connection, refresh initialized workspace state and attach existing terminal IDs without creating sessions or repeating a handoff prompt. Local editor buffers, layout and immutable root/session bindings survive this recovery. Inspection reports each terminal attachment separately: a retained old screen plus a live socket is not proof that a fresh snapshot arrived.",
+      "refs": [
+        "docs/specs/059-native-terminal-recovery.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/app.c",
-    "sha256": "9fb2e9a2c7f3ec9a4df0c549c93cd26d42f8e481fd1a785e5febd119cc02f103",
+    "sha256": "f365dff6957ce5125bbdfc19a88f00f1c878c6c118135cfc1c730c1eea702c4c",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

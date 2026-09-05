@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "animated-output-and-reconnection",
+      "kind": "rationale",
+      "anchor": {
+        "start": 11,
+        "end": 11,
+        "snippet": "test('animated PTY output and a stream burst keep both native terminals interactive', { timeout: 45000 }, async () => {"
+      },
+      "note": "The animated fixture and shell are real PTYs; native text/key events must produce executed responses in both. The stale sequence-1 burst fills the native transport without fabricating actual process output or changing its retained snapshot. A local TCP proxy forces an outage without restarting the sidecar. Wait for the fresh attached flag as well as connection and retained text before testing new input; otherwise an old screen can falsely signal readiness. Input typed offline must never appear after reconnection, and session count/PIDs must stay unchanged. An optional local ended-CLI ANSI recording replays bytes through the same fixture without starting another provider conversation; recordings remain private ignored evidence. The test owns and cleans up its GUI, proxy, service and both PTYs.",
+      "refs": [
+        "docs/specs/059-native-terminal-recovery.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/tests/native-terminal-recovery.spec.mjs",
+    "sha256": "e511b81bd452560e577cbab99cdc1ca386eae771732189aceab348a187eb83e8",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

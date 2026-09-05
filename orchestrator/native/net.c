@@ -11,7 +11,7 @@ struct ReNet {
 };
 struct ReSocket {
   char url[512];
-  SDL_mutex *mutex; SDL_Thread *thread; SDL_atomic_t stop;
+  SDL_mutex *mutex; SDL_cond *space; SDL_Thread *thread; SDL_atomic_t stop, connected;
   Queue outgoing, incoming; ReMessage *frame;
 };
 static bool push(Queue *q, ReMessage *m) {
@@ -122,19 +122,20 @@ char *re_net_query(const char *route, const char *root, const char *path) {
   curl_free(r); curl_free(p); return result;
 }
 static bool socket_received(ReSocket *s, ReMessage *m, bool binary) {
+  if (!m) return false;
   SDL_LockMutex(s->mutex); bool ok = true;
   if (binary) { re_message_free(s->frame); s->frame = m; }
-  else ok = push(&s->incoming, m);
+  else {
+    while (!(ok = push(&s->incoming, m)) && !SDL_AtomicGet(&s->stop)) {
+      wake(); SDL_CondWaitTimeout(s->space, s->mutex, 50);
+    }
+  }
   SDL_UnlockMutex(s->mutex); if (!ok) re_message_free(m); wake(); return ok;
 }
-static int socket_worker(void *userdata) {
-  ReSocket *s = userdata; CURL *curl = curl_easy_init(); configure(curl);
-  curl_easy_setopt(curl, CURLOPT_URL, s->url); curl_easy_setopt(curl, CURLOPT_CONNECT_ONLY, 2L);
-  CURLcode code = curl_easy_perform(curl);
-  if (code != CURLE_OK) goto done;
-  socket_received(s, message("{\"type\":\"connected\"}", 20), false);
+static void socket_stream(ReSocket *s, CURL *curl) {
+  CURLcode code;
   ReMessage *incoming = message("", 0), *outgoing = NULL; size_t sent = 0; bool binary = false;
-  while (!SDL_AtomicGet(&s->stop)) {
+  while (incoming && !SDL_AtomicGet(&s->stop)) {
     if (!outgoing) { SDL_LockMutex(s->mutex); outgoing = pop(&s->outgoing); SDL_UnlockMutex(s->mutex); sent = 0; }
     if (outgoing) {
       size_t amount = 0;
@@ -158,26 +159,42 @@ static int socket_worker(void *userdata) {
     }
   }
   re_message_free(incoming); re_message_free(outgoing);
-done:
-  curl_easy_cleanup(curl);
-  socket_received(s, message("{\"type\":\"disconnected\"}", 23), false); return 0;
+}
+static int socket_worker(void *userdata) {
+  ReSocket *s = userdata;
+  while (!SDL_AtomicGet(&s->stop)) {
+    CURL *curl = curl_easy_init();
+    if (curl) {
+      configure(curl); curl_easy_setopt(curl, CURLOPT_URL, s->url); curl_easy_setopt(curl, CURLOPT_CONNECT_ONLY, 2L);
+      if (curl_easy_perform(curl) == CURLE_OK && !SDL_AtomicGet(&s->stop)) {
+        SDL_AtomicSet(&s->connected, 1);
+        socket_received(s, message("{\"type\":\"connected\"}", 20), false); socket_stream(s, curl);
+      }
+    }
+    SDL_LockMutex(s->mutex); SDL_AtomicSet(&s->connected, 0); clear(&s->outgoing); SDL_UnlockMutex(s->mutex);
+    if (curl) curl_easy_cleanup(curl);
+    if (SDL_AtomicGet(&s->stop)) break;
+    socket_received(s, message("{\"type\":\"disconnected\"}", 23), false);
+    for (int i = 0; i < 50 && !SDL_AtomicGet(&s->stop); i++) SDL_Delay(10);
+  }
+  return 0;
 }
 ReSocket *re_socket_open(ReNet *n, const char *route) {
   if (!n || strlen(route) > 256) return NULL;
   ReSocket *s = calloc(1, sizeof(*s)); if (!s) return NULL;
   snprintf(s->url, sizeof(s->url), "ws%s/%s%ctoken=%s", n->url + 4, route, strchr(route, '?') ? '&' : '?', n->token);
-  s->mutex = SDL_CreateMutex(); s->thread = SDL_CreateThread(socket_worker, "workspace-stream", s);
-  if (!s->thread) { SDL_DestroyMutex(s->mutex); free(s); return NULL; } return s;
+  s->mutex = SDL_CreateMutex(); s->space = SDL_CreateCond(); s->thread = SDL_CreateThread(socket_worker, "workspace-stream", s);
+  if (!s->thread) { SDL_DestroyCond(s->space); SDL_DestroyMutex(s->mutex); free(s); return NULL; } return s;
 }
 bool re_socket_send(ReSocket *s, const char *text) {
   if (!s) return false;
   ReMessage *m = message(text, strlen(text)); if (!m) return false;
-  SDL_LockMutex(s->mutex); bool ok = push(&s->outgoing, m); SDL_UnlockMutex(s->mutex);
+  SDL_LockMutex(s->mutex); bool ok = SDL_AtomicGet(&s->connected) && push(&s->outgoing, m); SDL_UnlockMutex(s->mutex);
   if (!ok) re_message_free(m); return ok;
 }
 ReMessage *re_socket_poll(ReSocket *s) {
   if (!s) return NULL;
-  SDL_LockMutex(s->mutex); ReMessage *m = pop(&s->incoming); SDL_UnlockMutex(s->mutex); return m;
+  SDL_LockMutex(s->mutex); ReMessage *m = pop(&s->incoming); SDL_CondSignal(s->space); SDL_UnlockMutex(s->mutex); return m;
 }
 ReMessage *re_socket_frame(ReSocket *s) {
   if (!s) return NULL;
@@ -185,6 +202,7 @@ ReMessage *re_socket_frame(ReSocket *s) {
 }
 void re_socket_close(ReSocket *s) {
   if (!s) return;
-  SDL_AtomicSet(&s->stop, 1); SDL_WaitThread(s->thread, NULL); clear(&s->outgoing); clear(&s->incoming);
-  re_message_free(s->frame); SDL_DestroyMutex(s->mutex); free(s);
+  SDL_AtomicSet(&s->stop, 1); SDL_LockMutex(s->mutex); SDL_CondBroadcast(s->space); SDL_UnlockMutex(s->mutex);
+  SDL_WaitThread(s->thread, NULL); clear(&s->outgoing); clear(&s->incoming);
+  re_message_free(s->frame); SDL_DestroyCond(s->space); SDL_DestroyMutex(s->mutex); free(s);
 }

@@ -33,6 +33,7 @@ ReTerminal *re_terminal_open(ReSocket *socket, const char *id, int cols, int row
   re_terminal_attach(t); return t;
 }
 void re_terminal_close(ReTerminal *t) { if (t) { vterm_free(t->vt); free(t); } }
+bool re_terminal_ready(ReTerminal *t) { return t && t->attached; }
 void re_terminal_attach(ReTerminal *t) {
   t->attached = t->presented = false;
   cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "type", "attach"); send(t, j);
@@ -44,7 +45,8 @@ void re_terminal_presented(ReTerminal *t) {
 }
 void re_terminal_message(ReTerminal *t, const cJSON *j) {
   const char *type = re_string(j, "type");
-  if (!strcmp(type, "attached")) {
+  if (!strcmp(type, "disconnected")) t->attached = t->presented = false;
+  else if (!strcmp(type, "attached")) {
     const cJSON *s = cJSON_GetObjectItemCaseSensitive(j, "session");
     if (strcmp(re_string(s, "id"), t->id)) return;
     t->waiting_for_view = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(s, "waitingForView"));
