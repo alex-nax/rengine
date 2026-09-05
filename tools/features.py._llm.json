@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "review-boundary",
+      "kind": "constraint",
+      "anchor": {
+        "start": 81,
+        "end": 91,
+        "symbol": "state",
+        "snippet": "def state(data, rows, feature):"
+      },
+      "note": "A proposed inventory is review material, never an executable queue. Check its review state before passes or dependency readiness. External owner workspaces produce host handoffs, not local ready tasks; unstructured external references still require owner-workspace verification. The tool reports facts and cannot authorize another repository or manufacture owner approval.",
+      "refs": [
+        "docs/specs/000-harness.md",
+        "docs/specs/000-charter.md"
+      ]
+    },
+    {
+      "id": "inventory-integrity",
+      "kind": "constraint",
+      "anchor": {
+        "start": 21,
+        "end": 69,
+        "symbol": "validate",
+        "snippet": "def validate(data):"
+      },
+      "note": "Validate types before indexing or hashing values so malformed input is rejected cleanly. Boolean IDs are invalid despite being Python integers. A passing feature requires evidence references and passing dependencies; these structural checks do not prove the evidence is genuine or all acceptance criteria have been met. Iterative dependency waves detect cycles without recursion depth dependence.",
+      "refs": [
+        "docs/specs/000-harness.md",
+        "docs/specs/000-charter.md"
+      ]
+    },
+    {
+      "id": "explicit-review-record",
+      "kind": "constraint",
+      "anchor": {
+        "start": 72,
+        "end": 78,
+        "symbol": "load",
+        "snippet": "def load(path):"
+      },
+      "note": "Approved inventories must reference recorded owner review. This is a structural breadcrumb, not an authentication or authorization mechanism. The surrounding workflow is responsible for the actual owner decision and evidence; neither a file name nor a timestamp is approval.",
+      "refs": [
+        "docs/specs/000-harness.md",
+        "docs/specs/000-charter.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "tools/features.py",
+    "sha256": "642920111a4b46f40ea76994f8ef6b49913854647fda55f19064a780e89c44cc",
+    "format": "python",
+    "format_fingerprint": "a67a51640399e60d6402a43d48acddd852a615617d5502a24e0e77d080b238af"
+  }
+}

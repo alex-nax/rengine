@@ -1,0 +1,644 @@
+{
+  "schema_version": 1,
+  "project": "rengine",
+  "created": "2026-09-05",
+  "review_status": "proposed",
+  "features": [
+    {
+      "id": 1,
+      "milestone": "M0",
+      "category": "design",
+      "priority": "high",
+      "description": "Record the reviewed charter and one concrete pilot workflow.",
+      "acceptance_criteria": [
+        "Record owner answers on first outcome, both streams, project independence, powered-by minimum, and infra-vr relationship with attribution.",
+        "Name one native check per pilot engine, initial platform/mode, required resources, success measurement and bounded effort budget.",
+        "Review the feature proposal and record accepted scope before activating features.json."
+      ],
+      "passes": false,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/001-pilot.md",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 2,
+      "milestone": "M1",
+      "category": "contracts",
+      "priority": "high",
+      "description": "Specify a project adapter contract that preserves native commands and policies.",
+      "acceptance_criteria": [
+        "Versioned schema represents repository identity, game target, progress/inventory paths, argv commands, working directory, verification tiers and capabilities.",
+        "Fixtures represent reLith NOLF/AVP2/NOLF2 and reSource without forcing common paths, ECS, SDL or CMake targets.",
+        "Reject malformed commands, missing required identities and unknown required contract versions; inspection does not execute commands."
+      ],
+      "passes": false,
+      "dependencies": [
+        1
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "contracts/project-v1.schema.json and fixtures",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 3,
+      "milestone": "M1",
+      "category": "contracts",
+      "priority": "high",
+      "description": "Specify a verification result envelope with honest non-pass states.",
+      "acceptance_criteria": [
+        "Contract records pass, fail, skip, infrastructure_error, timeout and pending_manual distinctly, with declared required checks.",
+        "Each check identifies command, tool/host revision, platform/profile, timestamps, raw-log reference and reason for a non-pass.",
+        "Negative fixtures prove that missing/skipped required checks and absent manual evidence cannot aggregate to passing."
+      ],
+      "passes": false,
+      "dependencies": [
+        1
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "contracts/check-result-v1.schema.json and fixtures",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 4,
+      "milestone": "M1",
+      "category": "tooling",
+      "priority": "high",
+      "description": "Implement one local native-command runner with bounded process lifetime.",
+      "acceptance_criteria": [
+        "Execute argv directly in an explicit workspace; preserve native exit status, stdout and stderr without shell interpolation.",
+        "Real child-process tests cover success, nonzero exit, timeout including child cleanup, missing executable and explicit skip mapping.",
+        "Inspection/plan mode performs no execution; first runner scope is the pilot platform from F1, with unsupported platforms reported explicitly."
+      ],
+      "passes": false,
+      "dependencies": [
+        2,
+        3
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "runner implementation and process integration evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 5,
+      "milestone": "M1",
+      "category": "evidence",
+      "priority": "high",
+      "description": "Write immutable, verifiable run bundles from runner results.",
+      "acceptance_criteria": [
+        "Bundle includes source revision plus dirty patch identity when relevant, adapter/tool version, declared check inventory, results and hashed logs.",
+        "Writes are atomic and existing run identities cannot be silently overwritten; partial/interrupted runs remain visibly incomplete.",
+        "Validator rejects tampered/missing artifacts and path traversal; valid bundle survives relocation without absolute sibling paths."
+      ],
+      "passes": false,
+      "dependencies": [
+        4
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "run-bundle contract, writer and validator",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 6,
+      "milestone": "M1",
+      "category": "adapters",
+      "priority": "high",
+      "description": "Describe and exercise the selected reLith check through a local adapter.",
+      "acceptance_criteria": [
+        "Resolve current native check command from the host and identify NOLF, AVP2 and NOLF2 separately; use the F1-selected pilot target only.",
+        "In a prepared isolated host workspace, direct and wrapped invocation agree on results and relevant raw facts.",
+        "Adapter preserves source/assets identity and host gate requirements; it never changes the original host tracker or active worktree."
+      ],
+      "passes": false,
+      "dependencies": [
+        2,
+        4
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "adapters/relith pilot and run evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 7,
+      "milestone": "M1",
+      "category": "adapters",
+      "priority": "high",
+      "description": "Describe and exercise the selected reSource check through a local adapter.",
+      "acceptance_criteria": [
+        "Resolve the selected native check from the current host; encode everyday/slow/data/manual tiers without weakening required gates.",
+        "In a prepared isolated host workspace, direct and wrapped invocation agree without assuming reLith paths or binaries.",
+        "Record missing assets/tools as non-passes and leave the original host tracker and active worktree untouched."
+      ],
+      "passes": false,
+      "dependencies": [
+        2,
+        4
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "adapters/resource pilot and run evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 8,
+      "milestone": "M1",
+      "category": "integration",
+      "priority": "high",
+      "description": "Demonstrate the same tool on both real engine pilots.",
+      "acceptance_criteria": [
+        "Archive validated bundles from actual native invocations in both selected engine snapshots and compare with their direct baselines.",
+        "Demonstrate at least one intentional non-pass that remains non-passing through aggregation; infrastructure problems are not hidden.",
+        "Record the F1 success measurement and whether the workflow earns further adoption; fixtures alone do not complete this feature."
+      ],
+      "passes": false,
+      "dependencies": [
+        5,
+        6,
+        7
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/evidence/first-two-engine-proof.md",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 9,
+      "milestone": "M2",
+      "category": "harness",
+      "priority": "high",
+      "description": "Package a minimal agent-neutral harness template with local policy extension.",
+      "acceptance_criteria": [
+        "Generate a usable instruction entry point, single progress log, feature helper, spec template and bootstrap in a temporary repository.",
+        "Project-specific rules extend the template without replacing the host authority; optional agent entry points reference the same instructions.",
+        "Generated repository boots without other game repositories or network; template update produces an explicit reviewable diff."
+      ],
+      "passes": false,
+      "dependencies": [
+        8
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "templates/minimal and generated fixture repository",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 10,
+      "milestone": "M2",
+      "category": "host-adoption",
+      "priority": "high",
+      "description": "Adopt a pinned rEngine tool capability in the reLith workspace.",
+      "acceptance_criteria": [
+        "Host owner records an approved integration task and adopts a reviewed immutable tool version with a local adapter.",
+        "Existing feature IDs, descriptions, progress history and required game gates remain authoritative; host selected checks pass.",
+        "Demonstrate the adopted workflow in an independent checkout without rEngine sibling path; report capability and game target scope."
+      ],
+      "passes": false,
+      "dependencies": [
+        9
+      ],
+      "owner_workspace": "nolf-improved",
+      "deliverable": "host-owned spec, pin/adapter commit and gate evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 11,
+      "milestone": "M2",
+      "category": "host-adoption",
+      "priority": "high",
+      "description": "Adopt a pinned rEngine tool capability in the reSource workspace.",
+      "acceptance_criteria": [
+        "Host owner records an approved integration task and adopts a reviewed immutable tool version with a local adapter.",
+        "Preserve local verification tiers, progress history, device/manual requirements and ordinary build behavior.",
+        "Demonstrate the adopted workflow in an independent checkout without rEngine sibling path; record selected platform/profile scope."
+      ],
+      "passes": false,
+      "dependencies": [
+        9
+      ],
+      "owner_workspace": "vtmb-vr",
+      "deliverable": "host-owned spec, pin/adapter commit and gate evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 12,
+      "milestone": "M2",
+      "category": "release",
+      "priority": "high",
+      "description": "Prove independent tool upgrade and rollback in both consumers.",
+      "acceptance_criteria": [
+        "Use host-owned evidence to show one consumer upgrades while the other remains on its reviewed version.",
+        "Both accepted versions pass their declared contract/gates; incompatible contract is rejected with an actionable reason.",
+        "Restore the preceding pin/adapter and reproduce the relevant gate; no synchronized game release is required."
+      ],
+      "passes": false,
+      "dependencies": [
+        10,
+        11
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/evidence/tool-upgrade-rollback.md",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 13,
+      "milestone": "M3",
+      "category": "catalog",
+      "priority": "medium",
+      "description": "Define the catalog admission and compatibility record for real components.",
+      "acceptance_criteria": [
+        "Owner decides required provenance/license documentation, maintainer, immutable source identity, capability, platforms and independent-consumption evidence.",
+        "Schema distinguishes discovered candidate, reviewed recipe and verified consumer adoption; none implies another.",
+        "Represent iklib and infra-vr from current source evidence; a hypothetical flecs choice is not marked selected or verified."
+      ],
+      "passes": false,
+      "dependencies": [
+        1
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "catalog schema and admission policy",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 14,
+      "milestone": "M3",
+      "category": "packaging",
+      "priority": "medium",
+      "description": "Define reproducible dependency pins and explicit developer overrides.",
+      "acceptance_criteria": [
+        "Choose one consumption mechanism with owner input at F1/F13 and test immutable revision/checksum resolution.",
+        "Consumer fixture builds from prepared local sources without implicit home paths or hidden network; missing material fails explicitly.",
+        "Local source override is opt-in and appears in evidence; it cannot be advertised as the reviewed release pin."
+      ],
+      "passes": false,
+      "dependencies": [
+        13
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "dependency manifest/lock contract and consumer fixtures",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 15,
+      "milestone": "M3",
+      "category": "packaging",
+      "priority": "medium",
+      "description": "Publish a reviewed local iklib consumption recipe and two fixture proofs.",
+      "acceptance_criteria": [
+        "Use the actual iklib CMake target and supported source-tree model at a reviewed revision; do not invent an install package.",
+        "Two minimal host-shaped fixtures with different frames/scales compile and run selected solvers without unrelated engine dependencies.",
+        "Verify consumer target/options/test isolation; recipe links pending host migrations and makes no completed-game-integration claim."
+      ],
+      "passes": false,
+      "dependencies": [
+        14
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "catalog/iklib entry and consumption evidence",
+      "external_references": [
+        "iklib:F100",
+        "iklib:F101",
+        "iklib:F102",
+        "iklib:F130",
+        "iklib:F131"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 16,
+      "milestone": "M3",
+      "category": "discovery",
+      "priority": "medium",
+      "description": "Resolve the infra-vr embeddable packaging boundary from both host closures.",
+      "acceptance_criteria": [
+        "Pin and compare both actual INFRA_VR_DIR build closures, target/option collisions, microui ownership and optional transport/platform dependencies.",
+        "Agree with the owner whether the fix belongs upstream in infra-vr or in a narrowly scoped consumption recipe; name files and rollback.",
+        "Specify both consumer fixture builds and acceptance conditions; do not operate or redesign the backend."
+      ],
+      "passes": false,
+      "dependencies": [
+        13
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/016-infra-packaging.md",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 17,
+      "milestone": "M3",
+      "category": "packaging",
+      "priority": "medium",
+      "description": "Prove pinned infra-vr consumption with both host-shaped build fixtures.",
+      "acceptance_criteria": [
+        "Implement the reviewed recipe or consume its owner-landed upstream change at an immutable pin.",
+        "Both fixtures build the reporting ABI with one microui definition and no leaked parent options/targets or implicit sibling path.",
+        "Exercise a local synthetic report/render callback path and explicit transport configuration; retain upstream-change references if required."
+      ],
+      "passes": false,
+      "dependencies": [
+        14,
+        16
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "catalog/infra-vr recipe and fixture evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 18,
+      "milestone": "M4",
+      "category": "host-adoption",
+      "priority": "medium",
+      "description": "Complete the existing reSource core IK migration from its owning workspace.",
+      "acceptance_criteria": [
+        "Re-pin current host seam, map a host-owned feature to iklib:F131, and satisfy its unchanged acceptance criteria.",
+        "Record old/new pose equivalence and existing IK/contract tests using the pinned library; remove obsolete core solver code.",
+        "Record relevant host runtime/manual gates and rollback; do not claim the separate finger migration is included."
+      ],
+      "passes": false,
+      "dependencies": [
+        15
+      ],
+      "owner_workspace": "vtmb-vr",
+      "deliverable": "host migration commit and iklib:F131 evidence link",
+      "external_references": [
+        "iklib:F131"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 19,
+      "milestone": "M4",
+      "category": "host-adoption",
+      "priority": "medium",
+      "description": "Complete the existing reLith IK migration with NOLF parameter parity.",
+      "acceptance_criteria": [
+        "Resolve iklib F130 V2 constant comparison against current host before changing solver behavior; use explicit per-host parameters if needed.",
+        "Complete F130 criteria with existing host tests and recorded old/new output equivalence; remove replaced production solvers.",
+        "Record every reLith game affected by the shared closure, required gates and rollback; adding fingers is a separate task."
+      ],
+      "passes": false,
+      "dependencies": [
+        15,
+        18
+      ],
+      "owner_workspace": "nolf-improved",
+      "deliverable": "host migration commit and iklib:F130 evidence link",
+      "external_references": [
+        "iklib:F130"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 20,
+      "milestone": "M4",
+      "category": "host-adoption",
+      "priority": "medium",
+      "description": "Complete the separate reSource finger IK migration.",
+      "acceptance_criteria": [
+        "Map the engine-side finger seam outside src/vrik to the existing iklib:F133 scope.",
+        "Prove recorded curl/collision/pose behavior equivalence and host gates; remove or reduce duplicate glm solver code to necessary glue.",
+        "Retain separate device/manual evidence where required; no NOLF finger capability is claimed."
+      ],
+      "passes": false,
+      "dependencies": [
+        18
+      ],
+      "owner_workspace": "vtmb-vr",
+      "deliverable": "host finger migration commit and iklib:F133 evidence link",
+      "external_references": [
+        "iklib:F133"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 21,
+      "milestone": "M4",
+      "category": "integration",
+      "priority": "medium",
+      "description": "Record runtime adoption evidence by engine, game and supported profile.",
+      "acceptance_criteria": [
+        "Reference host-owned migration commits and immutable evidence without changing external feature states from this workspace.",
+        "Distinguish NOLF, AVP2, NOLF2 and VtMB plus flat/VR/platform profiles; list verified, unaffected, pending or unsupported honestly.",
+        "Each verified row includes component revision, host gates and rollback evidence; coordinate optional iklib:F132 as separate future work."
+      ],
+      "passes": false,
+      "dependencies": [
+        19,
+        20
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/evidence/ik-adoption-matrix.md",
+      "external_references": [
+        "iklib:F130",
+        "iklib:F131",
+        "iklib:F132",
+        "iklib:F133"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 22,
+      "milestone": "M5",
+      "category": "evidence",
+      "priority": "medium",
+      "description": "Define report-to-reproduction metadata around existing infra-vr reports.",
+      "acceptance_criteria": [
+        "Record report/game/build identity, archived save/input hashes, reproduction steps and expected observation without redefining report transport.",
+        "Fixtures distinguish restricted/local assets from exportable metadata and do not embed credentials or game content.",
+        "A valid reference resolves to the original local evidence; missing/changed save identity cannot masquerade as a reproduced bug."
+      ],
+      "passes": false,
+      "dependencies": [
+        3,
+        16
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "report/repro contract and synthetic fixtures",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 23,
+      "milestone": "M5",
+      "category": "evidence",
+      "priority": "medium",
+      "description": "Represent oracle and manual/device evidence without replacing native gates.",
+      "acceptance_criteria": [
+        "Record original-reference version, capture/replay identity, declared tolerance or manual criterion, observer and result.",
+        "Demonstrate that unit tests cannot substitute for pending visual/audio/headset criteria and that absent reference is non-passing.",
+        "Round-trip representative reLith and reSource evidence shapes without introducing a shared game-format parser."
+      ],
+      "passes": false,
+      "dependencies": [
+        5,
+        22
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "oracle/manual evidence extension and fixtures",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 24,
+      "milestone": "M5",
+      "category": "training",
+      "priority": "medium",
+      "description": "Specify an explicit eligibility-checked development evidence export.",
+      "acceptance_criteria": [
+        "Map only allowed development evidence to the current training schemas, preserving source/tool revisions and content hashes.",
+        "Reject held-out repository/task identity, withheld fixes/tests, missing provenance and tampered artifacts; ordinary indexes expose no grader material.",
+        "Training owner reviews boundary and downstream task; output carries eligibility/outcome rather than invented reward or solved status."
+      ],
+      "passes": false,
+      "dependencies": [
+        5
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "export contract, classifier fixtures and training mapping spec",
+      "external_references": [
+        "vr-port-agent-training:schemas/env.schema.json",
+        "vr-port-agent-training:schemas/rubric.schema.json",
+        "vr-port-agent-training:F30"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 25,
+      "milestone": "M5",
+      "category": "host-adoption",
+      "priority": "medium",
+      "description": "Demonstrate the evidence bridge in the training-owned intake path.",
+      "acceptance_criteria": [
+        "Execute a synthetic eligible export through the actual training intake validation path and preserve all provenance fields.",
+        "Frozen/hidden/tampered negative examples fail before ingestion; grader isolation and split authority remain in training.",
+        "Record exact versions and results; do not start training, change eval selections or bypass F30 and owner GO."
+      ],
+      "passes": false,
+      "dependencies": [
+        24
+      ],
+      "owner_workspace": "vr-port-agent-training",
+      "deliverable": "training-owned intake spec and synthetic E2E evidence",
+      "external_references": [
+        "vr-port-agent-training:F30"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 26,
+      "milestone": "M6",
+      "category": "operations",
+      "priority": "medium",
+      "description": "Coordinate explicitly reserved workspaces and scarce test resources.",
+      "acceptance_criteria": [
+        "Use explicit resource IDs for workspace/build directory, display or device; avoid global host discovery.",
+        "Two competing processes prove exclusive ownership, reliable release after failure, and safe stale-owner recovery without stealing active work.",
+        "Planning and CPU-only use require no device; reservation does not grant launch, deployment or production authority."
+      ],
+      "passes": false,
+      "dependencies": [
+        4
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "local reservation contract and contention tests",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 27,
+      "milestone": "M6",
+      "category": "discovery",
+      "priority": "medium",
+      "description": "Evaluate one next shared component against real duplicated host needs.",
+      "acceptance_criteria": [
+        "Select one candidate from current host evidence and document API/behavior differences and maintenance cost.",
+        "Decide extract, curate existing library, or leave local with reasons and a falsifying acceptance case.",
+        "Any accepted implementation is a separately reviewed bounded feature; do not land a speculative subsystem during discovery."
+      ],
+      "passes": false,
+      "dependencies": [
+        8,
+        13
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/decisions/next-component.md",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 28,
+      "milestone": "M6",
+      "category": "integration",
+      "priority": "medium",
+      "description": "Prove a new host can adopt a capability without either game engine.",
+      "acceptance_criteria": [
+        "Create a minimal unrelated host layout/object model that consumes one selected capability using public interfaces only.",
+        "No reLith/reSource source, globals, game assets or mandatory ECS are needed; remove either game adapter and the fixture still works.",
+        "Document what a future flecs-based host would own without claiming or adding a flecs integration absent a selected consumer."
+      ],
+      "passes": false,
+      "dependencies": [
+        9,
+        15
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "independent host fixture and conformance evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 29,
+      "milestone": "M6",
+      "category": "release",
+      "priority": "medium",
+      "description": "Define evidence-backed powered-by records for both engine families.",
+      "acceptance_criteria": [
+        "Apply the owner-agreed powered-by minimum from F1; list exact adopted capabilities, pins and verified game/platform/profile rows.",
+        "Retain runtime adoption only where separately proven; tools-only adoption is labeled according to the agreed contract.",
+        "Do not relabel a pending host, publish branding changes or require an unrelated component to claim a verified capability."
+      ],
+      "passes": false,
+      "dependencies": [
+        12,
+        13
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/compatibility.md and adoption record format",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 30,
+      "milestone": "M6",
+      "category": "harness",
+      "priority": "medium",
+      "description": "Audit the harness and decide the next bounded roadmap from measured results.",
+      "acceptance_criteria": [
+        "Validate feature graph, local document links, source/evidence freshness and owner-workspace boundaries; record drift with repair actions.",
+        "Compare first-pilot benefit and maintenance cost against F1 measures, including failures and deferred verification.",
+        "Review the next work with the owner; preserve accepted feature history and do not expand into an editor/runtime without a named need."
+      ],
+      "passes": false,
+      "dependencies": [
+        8,
+        13
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/audits/first-cycle.md and reviewed follow-up proposal",
+      "external_references": [],
+      "evidence": []
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+.DS_Store
+.cache/
+__pycache__/
+*.py[cod]
+.venv/
+build/
+artifacts.local/
+*.local.json
+*.local.md
+.env
+.env.*
+!.env.example
