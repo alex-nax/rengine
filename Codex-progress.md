@@ -1,5 +1,35 @@
 # Progress Log
 
+## Session 8 (macos) — 2026-09-05 — Agent MCP bootstrap and actual CLI/download proof
+
+**Goal turn classification**: progress. Native NOLF checkpoint committed as `a22d823`. Added
+project-bound MCP tools and per-invocation agent overlays through the Bash launcher. The full
+goal remains active; Windows, gameplay and other outstanding desktop requirements remain open.
+
+**Implemented**: Official MCP SDK stdio bridge with project identity, bounded tree/text/session
+tools, NOLF preflight/launch and explicit Stop. Every call retains its original root and sidecar
+instance. Private context/config files live in sidecar state; existing user/project config and
+CLI authentication remain in their normal scopes. Codex uses invocation overrides, Claude an
+additional MCP config, OpenCode merged inline JSONC, Gemini preserved defaults plus the new
+server, and custom executables receive a generic config path. Windows wrapper execution uses
+Git Bash argv forwarding for native npm shims; actual Windows execution remains unverified.
+
+**Verification**: All fifteen service/config/MCP tests pass, including the stale-instance rejection.
+Actual Codex 0.153.4 launched in the
+NOLF workspace and `/mcp verbose` showed rEngine connected with all eight tools (pass, about
+5.8 seconds; screenshot inspected). Automated fast typing initially left the command unsubmitted;
+after waiting for startup and using human-paced keys it executed. The PTY input trace records
+Enter as carriage return. A real isolated managed install of 0.153.3 and update to 0.153.4 both
+verified their resulting executable versions; managed launch selected that installation.
+
+**Limits/next**: Existing Capture MCP handshake failure is separate KI-017. Other agent runtimes,
+Windows, the combined launch command, image previews, full game/aiming/DPI/performance and crash
+recovery remain to verify or implement. The Windows-host question remains pending; independent
+work continues. No feature or goal completion is claimed. Evidence details are in
+`docs/evidence/agent-bootstrap-macos-2026-09-05.md`.
+
+---
+
 ## Session 7 (macos) — 2026-09-05 — Live NOLF game pane and native input
 
 **Goal turn classification**: progress. Implemented the native SDL2/OpenGL surface, bounded

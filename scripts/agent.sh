@@ -7,6 +7,7 @@ action="menu"
 version="latest"
 agent_home="${RENGINE_AGENT_HOME:-${XDG_STATE_HOME:-$HOME/.local/state}/rengine/agents}"
 extra=()
+launcher_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
   cat <<'HELP'
@@ -97,6 +98,9 @@ launch_agent() {
   mkdir -p -- "$agent_home"
   printf '%s\n' "$agent" > "$agent_home/preferred-agent"
   printf 'Launching %s in %s\n' "$executable" "$project"
+  if [ -n "${RENGINE_WORKSPACE_CONTEXT:-}" ]; then
+    exec "${RENGINE_NODE:-node}" "$launcher_dir/../orchestrator/agents/launch.mjs" "$agent" "$executable" "$RENGINE_WORKSPACE_CONTEXT" ${extra[@]+"${extra[@]}"}
+  fi
   exec "$executable" ${extra[@]+"${extra[@]}"}
 }
 

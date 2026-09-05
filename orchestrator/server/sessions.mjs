@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
+import { mkdir, writeFile, rename } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -78,6 +79,15 @@ export class Sessions extends EventEmitter {
       file = bashPath();
       argv = [agentScript, '--project', root.path, '--action', action];
       if (agent) argv.push('--agent', agent);
+      if (this.workspaceContext) {
+        const directory = path.join(this.store.directory, 'integrations');
+        await mkdir(directory, { recursive: true, mode: 0o700 });
+        const filename = path.join(directory, `${root.id}.json`);
+        const temporary = `${filename}.${randomUUID()}.tmp`;
+        await writeFile(temporary, JSON.stringify({ ...this.workspaceContext, rootId: root.id }), { mode: 0o600 });
+        await rename(temporary, filename);
+        env = { ...env, RENGINE_WORKSPACE_CONTEXT: filename, RENGINE_NODE: process.execPath, RENGINE_BASH: file };
+      }
     }
     if (typeof file !== 'string' || !Array.isArray(argv) || argv.some(arg => typeof arg !== 'string')) fail('Invalid executable or arguments.');
     const child = pty.spawn(file, argv, { name: 'xterm-256color', cols, rows, cwd: root.path,

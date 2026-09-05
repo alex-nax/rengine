@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "immutable-root-instance",
+      "kind": "rationale",
+      "anchor": {
+        "start": 14,
+        "end": 14,
+        "snippet": "const scopedState = async () => {"
+      },
+      "note": "The context is read once at startup. Every tool checks the same sidecar instance and filters to the original root before reading a file or operating on a session. An agent cannot retarget by submitting another root ID or by following later GUI focus changes. Text/log output is bounded; SDK errors preserve failure instead of synthesizing empty success. This binding does not confine the coding CLI\u2019s independent OS tools."
+    }
+  ],
+  "source": {
+    "path": "orchestrator/agents/mcp.mjs",
+    "sha256": "883cbf1450cdf1ff0c287d8015cc9d01f06e8e06f9339cba1ba297bdbcb6cc9a",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

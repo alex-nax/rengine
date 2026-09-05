@@ -28,7 +28,10 @@ update actions. Windows agent launching requires Git Bash (`RENGINE_BASH` can se
 On macOS, Launch NOLF opens the project's existing `build/relith-nolf` with `nolf/NOLF.REZ` and
 its normal local game configuration. Add `--launch-game` to start it with the workspace. Building
 the native adapter requires CMake, SDL2 2.32.10 development files and platform OpenGL. Windows
-host integration is still pending. Agent MCP bootstrap is also pending.
+host integration is still pending. Agents launched from the workspace receive a project-bound
+rEngine MCP connection. Codex was verified interactively; Claude/OpenCode/Gemini overlays have
+configuration tests and still need their own runtime qualification. Custom executables receive
+an `RENGINE_MCP_CONFIG` file path for their own integration recipe.
 
 The sidecar retains sessions when the desktop closes; use Session browser to attach or Stop.
 State defaults to `~/.local/state/rengine`; `--state DIR` selects an isolated workspace. Working
@@ -37,6 +40,9 @@ Run `npm test` for services/launcher checks and `npm run test:desktop` for the r
 With the native adapter built, `node --test orchestrator/tests/sdl.spec.mjs` exercises a real
 SDL/GL producer. `RENGINE_NOLF_ROOT=/absolute/checkout npm run test:nolf` exercises the actual
 local game, menu input, pane moves, GUI restart, reattachment and Stop. Game assets remain local.
+`RENGINE_NOLF_ROOT=/absolute/checkout node --test orchestrator/tests/agent-desktop.spec.mjs`
+boots the installed Codex CLI and checks its connected rEngine tool list without sending a
+coding prompt. Keep credentials and generated runtime evidence local.
 
 The project boundary is established by
 the owner's brief and library-first clarification. Curated upstream plus our own gaps and iklib

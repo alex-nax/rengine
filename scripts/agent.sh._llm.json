@@ -5,8 +5,8 @@
       "id": "recipe-ownership",
       "kind": "rationale",
       "anchor": {
-        "start": 65,
-        "end": 65,
+        "start": 66,
+        "end": 66,
         "snippet": "install_agent() {"
       },
       "note": "Install/download uses an isolated npm prefix and verifies the newly managed executable. Existing global native installations use their own supported update command. A custom executable has no inferred installer, updater or configuration format. Every launch argument remains an argv element; never replace this with eval.",
@@ -18,11 +18,11 @@
       "id": "menu-and-startup",
       "kind": "constraint",
       "anchor": {
-        "start": 93,
-        "end": 93,
+        "start": 94,
+        "end": 94,
         "snippet": "launch_agent() {"
       },
-      "note": "Launch does not silently update or install. The visible menu exposes those actions, while an explicit launch execs the selected CLI in the chosen project. MCP setup remains a later integration step; this launcher must not claim it has configured servers yet.",
+      "note": "Launch never silently installs or updates. The menu exposes those explicit actions. With an rEngine context, launch execs the Node provider adapter to supply project-bound MCP configuration; without a context it execs the selected CLI directly. Custom executable formats are not inferred: they receive a generic MCP configuration path and keep responsibility for consuming it.",
       "refs": [
         "docs/specs/055-nolf-workspace-goal.md"
       ]
@@ -30,7 +30,7 @@
   ],
   "source": {
     "path": "scripts/agent.sh",
-    "sha256": "02cb4243991a7eb37577239e3d1aaae6ee0d0a633ab8708705d0510cd9f34122",
+    "sha256": "9895990f5d70e724f3ff2cb7c4f01e1b3e7b7e332a294438a03c9d1fda7f2765",
     "format": "shell",
     "format_fingerprint": "0c07404ffdecc7f9c766fddf6b5a92dfedbae0728eaef728c4c42a67f47f7f4a"
   }

@@ -125,6 +125,7 @@ export async function startServer({ stateDir, port = 0, staticDir = defaultStati
   });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
   url = `http://127.0.0.1:${server.address().port}`;
+  sessions.workspaceContext = { url, token, instance };
   return { url, token, instance, store, sessions, games, async close() {
     for (const client of sockets.clients) client.terminate();
     sockets.close();
