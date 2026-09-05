@@ -12,9 +12,11 @@ typedef struct {
   mu_Rect rect, header; Uint64 edited;
 } ReTab;
 typedef struct { int id, operation, tab, generation, revision; } RePending;
+typedef struct { int first, count, selected, width, tab; } ReTabStrip;
 typedef struct {
   ReNet *net; ReSocket *events; ReLayout layout;
   ReTab tabs[RE_TABS]; RePending pending[128];
+  ReTabStrip strips[RE_PANES];
   cJSON *state, *previous_layout, *controls;
   char root[65], initial_terminal[65], initial_agent[65], initial_game[65];
   char project_input[1024], agent[256], status[512];

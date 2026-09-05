@@ -13,11 +13,24 @@
       "refs": [
         "docs/specs/056-native-desktop.md"
       ]
+    },
+    {
+      "id": "collapse-without-detach",
+      "kind": "rationale",
+      "anchor": {
+        "start": 52,
+        "end": 52,
+        "snippet": "int re_layout_collapse(ReLayout *l, int n) {"
+      },
+      "note": "Collapse accepts a leaf of the validated live tree, appends its tab IDs to the first leaf of the sibling subtree and promotes that sibling into the parent slot. Only the removed leaf and old sibling slots are freed; sibling descendants retain their IDs. If the target was the sibling itself, remap active to the promoted parent slot. Preserve the collapsed leaf selection when nonempty. This changes membership only and never destroys view buffers or sessions.",
+      "refs": [
+        "docs/specs/057-native-pane-navigation.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/layout.c",
-    "sha256": "09782e69abb512929f3b7dc886510eb26f32436f1283bb53694b00cfe52f9b9c",
+    "sha256": "778a3f35ad3e1d23edf438352d3f66e0fd59a58ff37495a47ef4279b9dac2c24",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

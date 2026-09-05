@@ -16,7 +16,10 @@ static cJSON *file_body(ReTab *t, bool draft) {
   char *text = re_editor_text(t->editor); cJSON_AddStringToObject(j, "text", text ? text : ""); free(text);
   cJSON_AddStringToObject(j, draft ? "baseVersion" : "version", t->version); return j;
 }
-void re_app_layout_changed(ReApp *a) { a->layout_dirty = true; a->layout_changed = SDL_GetTicks64(); }
+void re_app_layout_changed(ReApp *a) {
+  a->layout_dirty = true; a->layout_changed = SDL_GetTicks64();
+  for (int n = 0; n < RE_PANES; n++) a->strips[n].width = -1;
+}
 static void checkpoint(ReApp *a, int tab) {
   ReTab *t = &a->tabs[tab];
   if (!t->editor || t->discarding || !t->dirty || t->checkpoint_flight || t->checkpoint == re_editor_revision(t->editor)) return;
@@ -139,6 +142,9 @@ static void state_loaded(ReApp *a, const cJSON *j) {
   cJSON_ArrayForEach(session, sessions) {
     const char *id = re_string(session, "id");
     if ((!strcmp(id, a->initial_terminal) || !strcmp(id, a->initial_agent) || !strcmp(id, a->initial_game)) && !strcmp(re_string(session, "state"), "running")) session_tab(a, session);
+  }
+  if (getenv("RENGINE_RESUME_AGENT")) cJSON_ArrayForEach(session, sessions) {
+    if (!strcmp(re_string(session, "id"), a->initial_agent) && !strcmp(re_string(session, "state"), "running")) session_tab(a, session);
   }
   re_copy(a->status, sizeof(a->status), "Workspace connected. Closing a view detaches; sessions stop explicitly.");
 }

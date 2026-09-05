@@ -13,7 +13,7 @@ usage() {
   cat <<'HELP'
 rEngine agent launcher
   agent.sh --project DIR [--agent codex|claude|gemini|opencode|EXECUTABLE]
-           [--action menu|list|launch|install|update] [--version VERSION] [-- ARGS...]
+           [--action menu|list|launch|install|update|check-resume] [--version VERSION] [-- ARGS...]
 Install/download uses an isolated npm prefix under RENGINE_AGENT_HOME.
 Launch never silently installs or updates an agent. Choose that action explicitly.
 Windows: run with Git Bash and native Node/npm; WSL is a separate environment.
@@ -34,7 +34,7 @@ done
 
 cd -- "$project"
 project="$PWD"
-case "$action" in menu|list|launch|install|update) ;; *) echo "Unknown action: $action" >&2; exit 2;; esac
+case "$action" in menu|list|launch|install|update|check-resume) ;; *) echo "Unknown action: $action" >&2; exit 2;; esac
 case "$version" in ''|*[!a-zA-Z0-9._+-]*) echo "Invalid package version." >&2; exit 2;; esac
 
 package_for() {
@@ -105,6 +105,14 @@ launch_agent() {
 }
 
 if [ "$action" = list ]; then list_agents; exit 0; fi
+if [ "$action" = check-resume ]; then
+  [ "$agent" = codex ] || { echo 'Resume currently supports Codex.' >&2; exit 2; }
+  executable="$(find_agent codex || true)"
+  [ -n "$executable" ] || { echo 'Codex is missing; install it explicitly through Manage.' >&2; exit 127; }
+  "$executable" resume --help >/dev/null
+  "$executable" login status
+  exit 0
+fi
 if [ -z "$agent" ] && [ -f "$agent_home/preferred-agent" ]; then IFS= read -r agent < "$agent_home/preferred-agent" || true; fi
 if [ "$action" != menu ]; then
   [ -n "$agent" ] || { echo 'Select --agent or set RENGINE_AGENT.' >&2; exit 2; }

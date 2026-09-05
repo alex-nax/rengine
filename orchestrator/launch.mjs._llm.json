@@ -5,18 +5,18 @@
       "id": "desktop-does-not-own-sidecar",
       "kind": "rationale",
       "anchor": {
-        "start": 23,
-        "end": 23,
+        "start": 31,
+        "end": 31,
         "snippet": "await import('./build.mjs');"
       },
-      "note": "The development launcher uses system Node for native PTY ABI consistency. It reuses live sessions by explicit root/type/agent identity and opens their existing IDs in the desktop. Desktop exit affects this launcher only. Game prerequisite checks run before creating shell/agent sessions so a missing build does not leave fresh processes without the requested GUI. Installer/package prerequisites remain explicit; this is not yet an installable Windows/macOS release."
+      "note": "The development launcher uses system Node for native PTY ABI consistency. It reuses live sessions by explicit root/type/agent identity and opens their existing IDs in the desktop. Desktop exit affects this launcher only. Game prerequisite checks run before creating shell/agent sessions so a missing build does not leave fresh processes without the requested GUI. Installer/package prerequisites remain explicit; this is not yet an installable Windows/macOS release. Handoff launches additionally require service capability version 1 and are deduplicated inside the service. Exit code 75 requests a native rebuild/restart with the same initial session IDs. Build failure preserves the service; rerunning the same command reattaches live sessions. This does not hot-replace service code."
     },
     {
       "id": "explicit-ui-inspection",
       "kind": "constraint",
       "anchor": {
-        "start": 52,
-        "end": 52,
+        "start": 62,
+        "end": 62,
         "snippet": "const desktopArgs = options.inspectUI ? ['--automation'] : [];"
       },
       "note": "Only explicit --inspect-ui enables the native C desktop stdin/stdout SDL-event inspection channel. Normal launches expose no UI inspection endpoint. Connection credentials are passed in the child environment, not arguments or logs. Desktop exit detaches views from the independent retained service. Historical Electron/CDP automation was removed under owner decisions D26\u2013D27."
@@ -24,7 +24,7 @@
   ],
   "source": {
     "path": "orchestrator/launch.mjs",
-    "sha256": "c07e8429fa03c60cfed6f9615a24dc1adad691f216580a1a141dacb86ed5a682",
+    "sha256": "5cdeed693ca81061d3092c3ca9c721a8444c5099a95fee69ffed000bd6bda098",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

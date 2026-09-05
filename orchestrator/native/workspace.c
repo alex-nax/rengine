@@ -67,12 +67,49 @@ static void sessions_ui(ReApp *a, mu_Context *ui) {
     if (mu_button_ex(ui, label, 0, 0)) re_app_tab(a, RE_EDITOR, re_string(draft, "rootId"), re_string(draft, "path"), "", re_string(draft, "path"));
   }
 }
+static void pane_header(ReApp *a, mu_Context *ui, int n) {
+  RePane *p = &a->layout.panes[n]; ReTabStrip *strip = &a->strips[n];
+  if (!p->count) { mu_layout_row(ui, 1, (int[]){-1}, 24); mu_label(ui, "Empty pane · choose a view above"); return; }
+  int available = re_max(0, p->rect.w - 10), nav = p->count * 158 > available ? re_min(24, available / 4) : 0;
+  available -= 2 * nav;
+  int slots = re_max(1, available / 158), cell = re_min(158, available), selected_tab = p->tabs[p->selected];
+  strip->first = re_max(0, re_min(strip->first, p->count - slots));
+  if (strip->width != p->rect.w || strip->count != p->count || strip->selected != p->selected || strip->tab != selected_tab) {
+    if (p->selected < strip->first) strip->first = p->selected;
+    if (p->selected >= strip->first + slots) strip->first = p->selected - slots + 1;
+  }
+  strip->width = p->rect.w; strip->count = p->count; strip->selected = p->selected; strip->tab = selected_tab;
+  if (nav) {
+    mu_layout_set_next(ui, mu_rect(p->rect.x + 5, p->rect.y + 4, re_max(0, nav - 2), 26), 0);
+    if (button(a, ui, "<", "tab-scroll", "previous", n)) strip->first = re_max(0, strip->first - slots);
+    mu_layout_set_next(ui, mu_rect(p->rect.x + p->rect.w - 5 - nav, p->rect.y + 4, re_max(0, nav - 2), 26), 0);
+    if (button(a, ui, ">", "tab-scroll", "next", n)) strip->first = re_min(re_max(0, p->count - slots), strip->first + slots);
+  }
+  for (int i = strip->first; i < re_min(p->count, strip->first + slots); i++) {
+    int tab = p->tabs[i]; ReTab *t = &a->tabs[tab]; char label[280];
+    const char *end = t->title; int characters = 0;
+    while (*end && characters++ < 11) re_utf8(&end);
+    snprintf(label, sizeof(label), "%s%.*s%s%s", i == p->selected ? "• " : "", (int)(end - t->title), t->title, *end ? "…" : "", t->dirty ? " *" : "");
+    int close_width = re_min(22, re_max(0, cell - 6));
+    mu_Rect r = mu_rect(p->rect.x + 5 + nav + (i - strip->first) * cell, p->rect.y + 4, re_max(0, cell - close_width - 6), 26);
+    t->header = r; mu_layout_set_next(ui, r, 0); mu_push_id(ui, &tab, sizeof(tab));
+    if (button(a, ui, label, "tab", "", tab)) { p->selected = i; a->layout.active = n; a->focus = -1; re_app_layout_changed(a); }
+    mu_layout_set_next(ui, mu_rect(r.x + r.w + 2, r.y, close_width, 26), 0);
+    bool closed = button(a, ui, "x", "detach", "", tab);
+    if (closed) {
+      re_layout_remove(&a->layout, tab); a->focus = -1;
+      re_terminal_close(t->terminal); t->terminal = NULL; re_game_close(t->game); t->game = NULL;
+      t->header = mu_rect(0, 0, 0, 0); re_app_layout_changed(a);
+    }
+    mu_pop_id(ui); if (closed) break;
+  }
+}
 void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
   if (a->controls) { cJSON_Delete(a->controls); a->controls = cJSON_CreateArray(); }
   int opts = MU_OPT_NOTITLE | MU_OPT_NORESIZE | MU_OPT_NOCLOSE | MU_OPT_NOSCROLL;
   mu_get_container(ui, "Toolbar")->rect = mu_rect(0, 0, width, 78);
   if (mu_begin_window_ex(ui, "Toolbar", mu_rect(0, 0, width, 78), opts)) {
-    mu_layout_row(ui, 10, (int[]){78, 75, 75, 75, 80, 95, 120, 125, 85, -1}, 26);
+    mu_layout_row(ui, 11, (int[]){78, 75, 75, 75, 80, 95, 120, 125, 95, 85, -1}, 26);
     mu_label(ui, "rEngine");
     if (button(a, ui, "Tree", "toolbar", "Tree", -1)) { if (*a->root) re_app_tab(a, RE_TREE, a->root, "", "", "Project"); }
     if (button(a, ui, "Shell", "toolbar", "Shell", -1)) launch_terminal(a, false, false);
@@ -81,6 +118,10 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
     if (button(a, ui, "Sessions", "toolbar", "Sessions", -1)) re_app_tab(a, RE_SESSIONS, "", "", "", "Sessions");
     if (button(a, ui, "Split vertical", "toolbar", "Split vertical", -1)) { re_layout_split(&a->layout, a->layout.active, 1); re_app_layout_changed(a); }
     if (button(a, ui, "Split horizontal", "toolbar", "Split horizontal", -1)) { re_layout_split(&a->layout, a->layout.active, 2); re_app_layout_changed(a); }
+    if (button(a, ui, "Merge pane", "toolbar", "Merge pane", -1)) {
+      if (re_layout_collapse(&a->layout, a->layout.active) >= 0) { a->focus = -1; re_app_layout_changed(a); }
+      else re_copy(a->status, sizeof(a->status), "This is already the only pane.");
+    }
     if (button(a, ui, "NOLF", "toolbar", "NOLF", -1)) {
       cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "rootId", a->root); re_app_action(a, "game", j); cJSON_Delete(j);
     }
@@ -110,23 +151,7 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
     char title[40]; snprintf(title, sizeof(title), "Pane header %d", n); mu_Rect header = p->rect; header.h = 34;
     mu_get_container(ui, title)->rect = header;
     if (mu_begin_window_ex(ui, title, header, opts)) {
-      for (int i = 0; i < p->count; i++) {
-        int tab = p->tabs[i]; ReTab *t = &a->tabs[tab]; char label[280];
-        const char *end = t->title; int characters = 0;
-        while (*end && characters++ < 11) re_utf8(&end);
-        snprintf(label, sizeof(label), "%s%.*s%s%s", i == p->selected ? "• " : "", (int)(end - t->title), t->title, *end ? "…" : "", t->dirty ? " *" : "");
-        mu_Rect r = mu_rect(header.x + 5 + i * 158, header.y + 4, 130, 26);
-        t->header = r; mu_layout_set_next(ui, r, 0); mu_push_id(ui, &tab, sizeof(tab));
-        if (mu_button(ui, label)) { p->selected = i; a->layout.active = n; a->focus = -1; re_app_layout_changed(a); }
-        mu_layout_set_next(ui, mu_rect(r.x + 132, r.y, 22, 26), 0);
-        if (mu_button(ui, "x")) {
-          re_layout_remove(&a->layout, tab); a->focus = -1;
-          re_terminal_close(t->terminal); t->terminal = NULL; re_game_close(t->game); t->game = NULL;
-          re_app_layout_changed(a);
-        }
-        mu_pop_id(ui);
-      }
-      if (!p->count) { mu_layout_row(ui, 1, (int[]){-1}, 24); mu_label(ui, "Empty pane · choose a view above"); }
+      pane_header(a, ui, n);
       mu_end_window(ui);
     }
     snprintf(title, sizeof(title), "Pane content %d", n);
@@ -196,7 +221,18 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
   if (e->type == SDL_MOUSEBUTTONUP && e->button.button == SDL_BUTTON_LEFT) {
     if (a->drag_tab >= 0 && abs(e->button.x - a->drag_x) + abs(e->button.y - a->drag_y) > 8) {
       int pane = re_layout_hit(&a->layout, e->button.x, e->button.y, false);
-      if (pane >= 0) { re_layout_move(&a->layout, a->drag_tab, pane, a->layout.panes[pane].count); re_app_layout_changed(a); }
+      if (pane >= 0) {
+        RePane *target = &a->layout.panes[pane]; int index = target->count;
+        if (e->button.y < target->rect.y + 34) {
+          for (int i = 0; i < target->count; i++) {
+            mu_Rect r = a->tabs[target->tabs[i]].header; if (r.w <= 0) continue;
+            index = i; if (e->button.x < r.x + r.w / 2) break; index = i + 1;
+          }
+        }
+        if (re_layout_find(&a->layout, a->drag_tab) == pane)
+          for (int i = 0; i < target->count; i++) if (target->tabs[i] == a->drag_tab) { if (i < index) index--; break; }
+        re_layout_move(&a->layout, a->drag_tab, pane, index); re_app_layout_changed(a);
+      }
     }
     a->drag_tab = a->resize_pane = -1;
   }

@@ -5,19 +5,45 @@
       "id": "draft-save-ordering",
       "kind": "rationale",
       "anchor": {
-        "start": 20,
-        "end": 20,
+        "start": 23,
+        "end": 23,
         "snippet": "static void checkpoint(ReApp *a, int tab) {"
       },
       "note": "Drafts and saves go through the same FIFO HTTP worker. Do not checkpoint with a stale base version while Save is in flight. A save acknowledgement updates the baseline without dropping later edits; Discard blocks editing until the replacement file arrives. Closing views retains editor buffers/drafts, and normal GUI exit waits for persistence requests. Native layout stores historical layout data without loading the retired browser renderer.",
       "refs": [
         "docs/specs/056-native-desktop.md"
       ]
+    },
+    {
+      "id": "tab-strip-reveal-after-layout-change",
+      "kind": "rationale",
+      "anchor": {
+        "start": 19,
+        "end": 19,
+        "snippet": "void re_app_layout_changed(ReApp *a) {"
+      },
+      "note": "Explicit selection, move, split, collapse and restore-related placement must reveal the selected header. Invalidate each ephemeral strip width on layout changes, including reuse of an old pane index with the same width/count/selected tab; comparing those values alone misses split/merge round trips after scrolling away from the selected tab. Header browsing itself does not call this function, so it can show other tabs without switching content.",
+      "refs": [
+        "docs/specs/057-native-pane-navigation.md"
+      ]
+    },
+    {
+      "id": "show-resumed-agent",
+      "kind": "rationale",
+      "anchor": {
+        "start": 146,
+        "end": 146,
+        "snippet": "  if (getenv(\"RENGINE_RESUME_AGENT\")) cJSON_ArrayForEach(session, sessions) {"
+      },
+      "note": "The handoff launcher selects its explicit initial agent after restoring other initial views so the pending bootstrap has visible native content and can cross the readiness gate. Root/session identities remain immutable. A reload of an already running agent selects that same retained view; it sends no continuation prompt.",
+      "refs": [
+        "docs/specs/058-orchestrator-handoff.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/app.c",
-    "sha256": "3d86e3828b087814c6724e5d6b2e75d450bc59708f2f7802783295c2c9e7e1d2",
+    "sha256": "9fb2e9a2c7f3ec9a4df0c549c93cd26d42f8e481fd1a785e5febd119cc02f103",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

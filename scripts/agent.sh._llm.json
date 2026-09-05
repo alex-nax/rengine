@@ -22,7 +22,7 @@
         "end": 94,
         "snippet": "launch_agent() {"
       },
-      "note": "Launch never silently installs or updates. The menu exposes those explicit actions. With an rEngine context, launch execs the Node provider adapter to supply project-bound MCP configuration; without a context it execs the selected CLI directly. Custom executable formats are not inferred: they receive a generic MCP configuration path and keep responsibility for consuming it.",
+      "note": "Launch never silently installs or updates. The menu exposes those explicit actions. With an rEngine context, launch execs the Node provider adapter to supply project-bound MCP configuration; without a context it execs the selected CLI directly. Custom executable formats are not inferred: they receive a generic MCP configuration path and keep responsibility for consuming it. check-resume uses the same managed/PATH executable lookup and probes Codex resume help and login status without installing, updating or launching a coding session.",
       "refs": [
         "docs/specs/055-nolf-workspace-goal.md"
       ]
@@ -30,7 +30,7 @@
   ],
   "source": {
     "path": "scripts/agent.sh",
-    "sha256": "9895990f5d70e724f3ff2cb7c4f01e1b3e7b7e332a294438a03c9d1fda7f2765",
+    "sha256": "1ee76a82f799d1ee97ab9e6c30b5fc8bbcc17c4d1b850e85595c79927a29a93c",
     "format": "shell",
     "format_fingerprint": "0c07404ffdecc7f9c766fddf6b5a92dfedbae0728eaef728c4c42a67f47f7f4a"
   }

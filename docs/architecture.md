@@ -18,6 +18,13 @@ An optional later web interface consumes the same workspace contracts independen
 Node/node-pty service and SDL2 game adapter supply migration contracts; native GUI qualification
 must repeat the actual workflow. Earlier Electron results do not qualify the replacement.
 
+The [orchestrator handoff](specs/058-orchestrator-handoff.md) binds a checkpoint to an explicit
+local Codex conversation and project. A retained bootstrap waits for its native view to be
+attached and presented before starting the CLI. Native reload flushes drafts/layout and rebuilds
+the desktop while the service retains the same sessions. The handoff capability is versioned
+in service state; old services cannot silently launch an ungated continuation. Agent conversation
+resumption and the calling application's goal scheduler remain separate responsibilities.
+
 ## Ownership
 
 Charter D24 sets the powered-by minimum: at least one curated capability at a pinned version

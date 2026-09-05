@@ -2,6 +2,14 @@
 
 ## Orient
 
+The owner paused broader development here on 2026-09-05 and requested the next session through
+the native orchestrator. Finish only the handoff preparation outside it. Resume the NOLF
+workspace goal when `RENGINE_ORCHESTRATOR_SESSION` identifies the attached agent session and
+the root-bound rEngine MCP connection is available; read
+`docs/handoff/2026-09-05-orchestrator-resume.md`. Do not start another conversation or goal as
+a substitute, or treat automatic goal continuations outside the orchestrator as overriding this
+pause. A later explicit owner direction can change this boundary.
+
 1. Confirm the repository root with `pwd`.
 2. Read the newest entry in `Codex-progress.md` and `docs/specs/000-charter.md`.
 3. Run `./init.sh`, then `python3 tools/features.py status` and `next`.

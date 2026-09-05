@@ -110,6 +110,16 @@ test('normal launcher opens native NOLF, source tree, editor, shell and installe
     await select(game.id);
     state = await gui.command({ op: 'state' });
     let gameTab = state.tabs.find(t => t?.session === game.id);
+    await drag(gameTab, 100, 450);
+    state = await gui.until(s => s.tabs.some(t => t?.session === game.id && t.rect[0] < 100 && t.rect[2] > 0 && t.sequence > gameTab.sequence), 'live NOLF moved into narrow pane');
+    gameTab = state.tabs.find(t => t?.session === game.id);
+    assert.ok(gameTab.header[0] + gameTab.header[2] <= gameTab.rect[0] + gameTab.rect[2] + 6);
+    assert.equal((await request(instance, `session?id=${game.id}`)).pid, game.pid);
+    await gui.command({ op: 'snapshot', path: path.join(directory, 'game-narrow.bmp') });
+    await drag(gameTab, 700, 450);
+    await gui.until(s => s.tabs.some(t => t?.session === game.id && t.rect[0] > 280 && t.sequence > gameTab.sequence), 'live NOLF returned to wide pane');
+    await select(game.id);
+    state = await gui.command({ op: 'state' }); gameTab = state.tabs.find(t => t?.session === game.id);
     await gui.key('Return'); await delay(500);
     await gui.command({ op: 'snapshot', path: path.join(directory, 'game-input.bmp') });
     await gui.click(gameTab.header[0] + 142, gameTab.header[1] + 12);
@@ -132,7 +142,7 @@ test('normal launcher opens native NOLF, source tree, editor, shell and installe
     assert.equal(await readFile(path.join(source, 'README.md'), 'utf8'), originalReadme);
     await gui.command({ op: 'snapshot', path: path.join(directory, 'sessions-stop.bmp') });
     await writeFile(path.join(directory, 'evidence.json'), JSON.stringify({ sessions, instance: instance.instance,
-      sourceRoot: sourceRoot.id, editableRoot: editRoot.id, sourceDraft, scope: 'normal native launcher, shell, connected agent MCP, tree, two-root editing, Save/conflict/Discard, move, detach/reattach, GUI restart, session browser Stop' }, null, 2));
+      sourceRoot: sourceRoot.id, editableRoot: editRoot.id, sourceDraft, scope: 'normal native launcher, shell, connected agent MCP, tree, two-root editing, Save/conflict/Discard, editor and live NOLF pane moves, detach/reattach, GUI restart, session browser Stop' }, null, 2));
     console.log(`Native combined evidence: ${directory}`);
   } catch (error) {
     if (gui) {

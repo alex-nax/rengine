@@ -9,7 +9,7 @@
         "end": 28,
         "snippet": "export async function startServer({ stateDir, port = 0 } = {}) {"
       },
-      "note": "This is a loopback-only desktop service. HTTP and WebSocket requests need the private runtime token and compatible Origin; it is not the Quest pairing protocol. Tokens stay in mode-0600 local state, never tracked files. Slow sockets reconnect to bounded retained output without stopping sessions. The retired browser bundle is no longer served; unknown non-API paths return 404. A later web client requires an explicit separate delivery decision.",
+      "note": "This is a loopback-only desktop service. HTTP and WebSocket requests need the private runtime token and compatible Origin; it is not the Quest pairing protocol. Tokens stay in mode-0600 local state, never tracked files. Slow sockets reconnect to bounded retained output without stopping sessions. The retired browser bundle is no longer served; unknown non-API paths return 404. A later web client requires an explicit separate delivery decision. State advertises handoff capability version 1. A presented message must reference an ID previously attached on that authenticated socket; the native client sends it after drawing a waiting terminal. This is a local workflow protocol, not proof against an authenticated client deliberately forging readiness.",
       "refs": [
         "docs/specs/055-nolf-workspace-goal.md"
       ]
@@ -17,7 +17,7 @@
   ],
   "source": {
     "path": "orchestrator/server/main.mjs",
-    "sha256": "645a2e46ccc6610ed160208259b3506fedbe7483cdc0fd350acd1484c884163c",
+    "sha256": "41e0d5234f0fa547dc462f11d9ce1a6cd676eebc954424737576fe10af7422f6",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

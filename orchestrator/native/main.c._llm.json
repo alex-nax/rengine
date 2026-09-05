@@ -13,11 +13,24 @@
       "refs": [
         "docs/specs/056-native-desktop.md"
       ]
+    },
+    {
+      "id": "native-reload-and-presentation",
+      "kind": "rationale",
+      "anchor": {
+        "start": 94,
+        "end": 94,
+        "snippet": "    re_draw_end(draw);"
+      },
+      "note": "Only after presentation, for visible non-minimized terminal content, report readiness to the attached session. Cmd/Ctrl+Shift+R consumes the shortcut before terminal/editor/game dispatch and uses normal quit persistence before exit code 75. The launcher rebuilds and reconnects; native exit never stops the service or agent. Direct binary launches report the required launcher instead of disappearing on reload. Failed persistence cancels reload along with quit.",
+      "refs": [
+        "docs/specs/058-orchestrator-handoff.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/main.c",
-    "sha256": "81e1739d2fe7576deb53ebc66977f189d49d88afd2a78218e2f851efc29a25e1",
+    "sha256": "7f24a0ebb8a5129087f7949759efeb36bc7b9c4c4b3bd8c5fd9fc2a89b08b9fd",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

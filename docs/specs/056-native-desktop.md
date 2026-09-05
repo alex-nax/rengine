@@ -70,6 +70,9 @@ Two microui root containers per pane plus the toolbar fit upstream's fixed 32-ro
 The current Vim subset is h/j/k/l, 0/$, gg/G, i/a/o, x/dd, u, Ctrl-R and Escape. Conventional editing
 adds selection, clipboard, Home/End, Page Up/Down and undo/redo. This is not full Vim compatibility.
 Font glyph coverage depends on the selected trusted local monospace TTF/TTC (`RENGINE_FONT`).
+Tab overflow navigation, header reordering and non-destructive pane merging are implemented in
+[native pane navigation](057-native-pane-navigation.md). Strip offsets are ephemeral; stable tab
+order, root/session bindings and the selected tab remain in the version-1 persisted layout.
 
 Native image previews, terminal scrollback/selection, richer text navigation, transport recovery,
 frame/input DPI mapping, actual in-level aiming, resource budgets, packaging and Windows runtime

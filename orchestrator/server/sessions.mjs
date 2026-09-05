@@ -9,6 +9,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import pty from 'node-pty';
 import { fail } from './store.mjs';
+import { readHandoff, checkResume } from '../agents/handoff.mjs';
 
 const execute = promisify(execFile);
 const agentScript = fileURLToPath(new URL('../../scripts/agent.sh', import.meta.url));
@@ -69,7 +70,7 @@ async function signalTree(pid, signal) {
 }
 
 export class Sessions extends EventEmitter {
-  constructor(store) { super(); this.store = store; this.items = new Map(); }
+  constructor(store) { super(); this.store = store; this.items = new Map(); this.handoffFlights = new Map(); }
 
   get(id) {
     const item = this.items.get(id);
@@ -78,16 +79,38 @@ export class Sessions extends EventEmitter {
   }
 
   snapshot(id, includeOutput = false) {
-    const { id: sessionId, rootId, type, agent, title, pid, state, exitCode, signal, createdAt, endedAt, cols, rows, sequence, output } = this.get(id);
+    const { id: sessionId, rootId, type, agent, handoff, released, title, pid, state, exitCode, signal, createdAt, endedAt, cols, rows, sequence, output } = this.get(id);
     return { id: sessionId, rootId, type, agent, title, pid, state, exitCode, signal, createdAt, endedAt, cols, rows, sequence,
+      ...(handoff ? { handoff: { sessionId: handoff.sessionId, checkpoint: handoff.checkpoint }, waitingForView: !released } : {}),
       ...(includeOutput ? { output } : {}) };
   }
 
   list() { return [...this.items.keys()].map(id => this.snapshot(id)); }
   changed(item) { this.emit('event', { type: 'session', session: this.snapshot(item.id) }); }
 
-  async terminal({ rootId, type = 'terminal', agent, action = 'launch', command, args, cols = 100, rows = 30, env = {} }) {
+  async terminal(options) {
+    if (!options.handoffFile) return this.spawnTerminal(options);
+    const key = options.rootId;
+    const flight = (this.handoffFlights.get(key) ?? Promise.resolve()).catch(() => {}).then(() => this.spawnTerminal(options));
+    this.handoffFlights.set(key, flight);
+    try { return await flight; }
+    finally { if (this.handoffFlights.get(key) === flight) this.handoffFlights.delete(key); }
+  }
+
+  async spawnTerminal({ rootId, type = 'terminal', agent, action = 'launch', command, args, handoffFile, cols = 100, rows = 30, env = {} }) {
     const root = this.store.root(rootId);
+    const id = randomUUID(); let handoff, gate;
+    env = shellEnvironment({ ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents'),
+      RENGINE_HANDOFF_GATE: undefined, RENGINE_HANDOFF_FILE: undefined, RENGINE_ORCHESTRATOR_SESSION: undefined });
+    if (handoffFile) {
+      if (type !== 'agent' || agent !== 'codex' || action !== 'launch' || args?.length || !this.workspaceContext) fail('Handoff requires the Codex workspace launcher.');
+      handoff = await readHandoff(handoffFile, root.path, env);
+      const existing = [...this.items.values()].find(item => item.rootId === rootId && item.state === 'running' && item.handoff?.sessionId === handoff.sessionId);
+      if (existing) return this.snapshot(existing.id);
+      await checkResume(bashPath(), root.path, env);
+      gate = path.join(this.store.directory, 'integrations', `${id}.ready`);
+      env = { ...env, RENGINE_HANDOFF_GATE: gate, RENGINE_HANDOFF_FILE: handoff.filename, RENGINE_ORCHESTRATOR_SESSION: id };
+    }
     if (!['terminal', 'agent', 'game'].includes(type)) fail('Unsupported terminal type.');
     this.dimensions(cols, rows);
     let file = command ?? (process.platform === 'win32' ? 'powershell.exe' : process.env.SHELL ?? '/bin/bash');
@@ -99,6 +122,11 @@ export class Sessions extends EventEmitter {
       if (this.workspaceContext) {
         const directory = path.join(this.store.directory, 'integrations');
         await mkdir(directory, { recursive: true, mode: 0o700 });
+        if (handoff) {
+          const snapshot = path.join(directory, `${id}.handoff.json`);
+          await writeFile(snapshot, JSON.stringify({ version: 1, project: root.path, sessionId: handoff.sessionId, checkpoint: handoff.checkpoint }), { mode: 0o600 });
+          env.RENGINE_HANDOFF_FILE = snapshot;
+        }
         const filename = path.join(directory, `${root.id}.json`);
         const temporary = `${filename}.${randomUUID()}.tmp`;
         await writeFile(temporary, JSON.stringify({ ...this.workspaceContext, rootId: root.id }), { mode: 0o600 });
@@ -109,7 +137,7 @@ export class Sessions extends EventEmitter {
     if (typeof file !== 'string' || !Array.isArray(argv) || argv.some(arg => typeof arg !== 'string')) fail('Invalid executable or arguments.');
     const child = pty.spawn(file, argv, { name: 'xterm-256color', cols, rows, cwd: root.path,
       env: shellEnvironment({ ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents') }) });
-    const item = { id: randomUUID(), rootId, type, ...(type === 'agent' ? { agent: agent ?? '' } : {}),
+    const item = { id, rootId, type, handoff, gate, released: false, ...(type === 'agent' ? { agent: agent ?? '' } : {}),
       title: type === 'agent' ? `${agent || 'Choose agent'} · ${root.name}` : `${type === 'game' ? 'NOLF' : 'Terminal'} · ${root.name}`,
       pid: child.pid, child, state: 'running', createdAt: Date.now(), cols, rows, output: '', sequence: 0 };
     this.items.set(item.id, item);
@@ -130,9 +158,17 @@ export class Sessions extends EventEmitter {
     if (!Number.isInteger(cols) || !Number.isInteger(rows) || cols < 2 || cols > 500 || rows < 1 || rows > 300) fail('Invalid terminal dimensions.');
   }
 
+  async presented(id) {
+    const item = this.get(id);
+    if (!item.gate || item.released || item.state !== 'running') return;
+    await writeFile(item.gate, '', { mode: 0o600 });
+    item.released = true; this.changed(item);
+  }
+
   input(id, data) {
     const item = this.get(id);
     if (item.state !== 'running') fail('Session is not running.', 409);
+    if (item.gate && !item.released) fail('Handoff is waiting for its native view.', 409);
     if (typeof data !== 'string' || data.length > 1024 * 1024) fail('Invalid terminal input.');
     item.child.write(data);
   }

@@ -44,7 +44,7 @@ export async function startServer({ stateDir, port = 0 } = {}) {
         let value;
         if (request.method === 'GET') {
           switch (target.pathname) {
-            case '/api/state': value = { instance, roots: store.state.roots, layout: store.state.layout, preferences: store.state.preferences,
+            case '/api/state': value = { instance, capabilities: { handoff: 1 }, roots: store.state.roots, layout: store.state.layout, preferences: store.state.preferences,
               drafts: Object.values(store.state.drafts).map(({ rootId, path, updatedAt }) => ({ rootId, path, updatedAt })), sessions: sessions.list() }; break;
             case '/api/tree': value = await store.list(query.get('rootId'), query.get('path') ?? '', query.get('hidden') === 'true'); break;
             case '/api/file': value = await store.readText(query.get('rootId'), query.get('path')); break;
@@ -100,12 +100,19 @@ export async function startServer({ stateDir, port = 0 } = {}) {
     else sockets.handleUpgrade(request, socket, head, ws => sockets.emit('connection', ws));
   });
   sockets.on('connection', ws => {
+    const attached = new Set();
     ws.on('error', () => {});
     ws.send(JSON.stringify({ type: 'hello', instance }));
-    ws.on('message', bytes => {
+    ws.on('message', async bytes => {
       try {
         const data = JSON.parse(bytes.toString());
-        if (data.type === 'attach') ws.send(JSON.stringify({ type: 'attached', session: sessions.snapshot(data.id, true) }));
+        if (data.type === 'attach') {
+          ws.send(JSON.stringify({ type: 'attached', session: sessions.snapshot(data.id, true) })); attached.add(data.id);
+        }
+        else if (data.type === 'presented') {
+          if (!attached.has(data.id)) fail('Attach the session before presenting it.');
+          await sessions.presented(data.id);
+        }
         else if (data.type === 'input') sessions.input(data.id, data.data);
         else if (data.type === 'resize') sessions.resize(data.id, data.cols, data.rows);
         else fail('Unknown session message.');

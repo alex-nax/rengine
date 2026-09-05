@@ -49,6 +49,24 @@ int re_layout_split(ReLayout *l, int n, int axis) {
   p->used = true; p->axis = axis; p->child[0] = a; p->child[1] = b; p->ratio = 0.5f;
   l->active = b; return b;
 }
+int re_layout_collapse(ReLayout *l, int n) {
+  if (!leaf(l, n) || n == 0) return -1;
+  int parent = -1, sibling = -1;
+  for (int i = 0; i < RE_PANES; i++) if (l->panes[i].used && l->panes[i].axis) {
+    if (l->panes[i].child[0] == n) { parent = i; sibling = l->panes[i].child[1]; break; }
+    if (l->panes[i].child[1] == n) { parent = i; sibling = l->panes[i].child[0]; break; }
+  }
+  if (parent < 0) return -1;
+  int target = sibling;
+  while (l->panes[target].axis) target = l->panes[target].child[0];
+  RePane *from = &l->panes[n], *to = &l->panes[target];
+  if (to->count + from->count > RE_TABS) return -1;
+  if (from->count) to->selected = to->count + from->selected;
+  memcpy(to->tabs + to->count, from->tabs, (size_t)from->count * sizeof(int)); to->count += from->count;
+  l->panes[parent] = l->panes[sibling];
+  memset(&l->panes[n], 0, sizeof(RePane)); memset(&l->panes[sibling], 0, sizeof(RePane));
+  l->active = target == sibling ? parent : target; return l->active;
+}
 static void measure(ReLayout *l, int n, mu_Rect r) {
   RePane *p = &l->panes[n]; p->rect = r;
   if (!p->axis) return;

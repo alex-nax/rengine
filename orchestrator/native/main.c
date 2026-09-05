@@ -55,13 +55,19 @@ int main(int argc, char **argv) {
   re_draw_bind(draw, ui);
   if (automation) app->controls = cJSON_CreateArray();
   Uint32 automation_event = automation ? re_automation_start() : 0;
-  bool running = true, closing = false; int frames = 0, result = 0; cJSON *capture = NULL;
+  bool running = true, closing = false, reload = false; int frames = 0, result = 0; cJSON *capture = NULL;
   SDL_StartTextInput();
   while (running) {
     SDL_Event event; bool redraw = false;
     if (SDL_WaitEventTimeout(&event, smoke ? 1 : 250)) do {
       redraw = true;
       if (event.type == SDL_QUIT) closing = true;
+      else if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_r &&
+               (event.key.keysym.mod & KMOD_SHIFT) && (event.key.keysym.mod & (KMOD_GUI | KMOD_CTRL))) {
+        if (getenv("RENGINE_CAN_RELOAD")) { closing = reload = true; }
+        else re_copy(app->status, sizeof(app->status), "Start through npm start to rebuild and reload the desktop.");
+        continue;
+      }
       else if (automation_event && event.type == automation_event) {
         cJSON *command = event.user.data1;
         if (!strcmp(re_string(command, "op"), "snapshot")) { cJSON_Delete(capture); capture = command; }
@@ -86,7 +92,13 @@ int main(int argc, char **argv) {
       printf("Native microui frame rendered: %dx%d, renderer=%s\n", width, height, SDL_GetCurrentVideoDriver()); closing = true;
     }
     re_draw_end(draw);
-    if (closing) { running = !re_app_quit(app); if (!app->quitting) closing = false; }
+    if (!closing && !(SDL_GetWindowFlags(window) & (SDL_WINDOW_HIDDEN | SDL_WINDOW_MINIMIZED))) {
+      for (int i = 0; i < RE_TABS; i++) {
+        ReTab *t = &app->tabs[i];
+        if (t->terminal && t->rect.w > 0 && t->rect.h > 0) re_terminal_presented(t->terminal);
+      }
+    }
+    if (closing) { running = !re_app_quit(app); if (!app->quitting) closing = reload = false; }
   }
-  cJSON_Delete(capture); re_app_close(app); free(ui); re_draw_close(draw); SDL_DestroyWindow(window); SDL_Quit(); return result;
+  cJSON_Delete(capture); re_app_close(app); free(ui); re_draw_close(draw); SDL_DestroyWindow(window); SDL_Quit(); return reload ? 75 : result;
 }

@@ -43,9 +43,27 @@ save directory. Omit `--launch-game` to launch it later from the NOLF button. Th
 streams live frames into a native texture; Windows host wiring remains pending.
 
 Closing views detaches them; use **Sessions** to reattach or explicitly **Stop** a process.
+Use the tab-strip arrows when a pane fills up. Drag onto a tab to reorder, or into another pane
+to move it. **Merge pane** collapses the active pane into its neighbor while keeping all views
+and running sessions. The selected tab becomes visible after layout changes and GUI restart.
 State defaults to `~/.local/state/rengine`; `--state DIR` isolates a workspace. Working files change
 only on Save. Recovery drafts are checkpointed locally and flushed before normal GUI exit.
 The initial native Vim subset and current limits are in the [native desktop spec](docs/specs/056-native-desktop.md).
+
+**Cmd/Ctrl+Shift+R** flushes drafts/layout, rebuilds the C desktop and reconnects to the same
+running sessions. A build failure leaves those sessions retained; rerun the launch command after
+fixing it. Reload covers the desktop; it does not replace a running service or coding agent.
+
+To resume a specific Codex conversation inside an agent pane, use
+`npm start -- --handoff /path/to/handoff.json`. The version-1 manifest contains `project`
+(relative to the manifest), `sessionId` (the exact local Codex UUID), and `checkpoint`
+(a document relative to the project). The launcher checks the matching local session, CLI and
+login; the CLI waits until its native pane is attached and presented. It never picks the latest
+session implicitly. A live session is reused on reload or repeated launch without another prompt.
+Older services are rejected for this path; use a new state directory or explicitly stop/restart
+the old service. The local prepared handoff runs with `npm run resume`; see the
+[current checkpoint](docs/handoff/2026-09-05-orchestrator-resume.md). Manifest and workspace state
+are local, ignored files. A fresh checkout needs its own manifest and local Codex conversation.
 
 The GUI can also be built and run independently of the JavaScript launcher:
 

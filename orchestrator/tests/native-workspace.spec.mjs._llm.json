@@ -9,7 +9,7 @@
         "end": 11,
         "snippet": "test('normal launcher opens native NOLF, source tree, editor, shell and installed Codex together', { timeout: 120000 }, async () => {"
       },
-      "note": "The ordinary npm launcher owns build, sidecar startup and all initial sessions. Copy the real NOLF executable and link only REZ files to keep writes to autoexec.cfg/Save isolated. Add the real source root through native controls and retain its README as a local draft; only a temporary second README receives Save/conflict writes. Read-only service snapshots corroborate identity, while native input drives actions. Pace the Codex slash command like typed keys so its paste-burst heuristic does not interpret Enter as pasted text. No coding prompt is submitted. Evidence and private connection data stay in ignored local state; source-controlled evidence contains hashes.",
+      "note": "The ordinary npm launcher owns build, sidecar startup and all initial sessions. Copy the real NOLF executable and link only REZ files to keep writes to autoexec.cfg/Save isolated. Add the real source root through native controls and retain its README as a local draft; only a temporary second README receives Save/conflict writes. Read-only service snapshots corroborate identity, while native input drives actions. Pace the Codex slash command like typed keys so its paste-burst heuristic does not interpret Enter as pasted text. No coding prompt is submitted. Evidence and private connection data stay in ignored local state; source-controlled evidence contains hashes. Move the live NOLF tab into the narrow tree pane and back, asserting continuing frame sequence, visible header bounds and the same game PID before menu input and lifecycle checks. The post-move menu transition lacks an automated state oracle: the latest inspected screenshot remained at the main menu after Enter (KI-024). A passing frame/lifecycle check is not proof of menu input after movement.",
       "refs": [
         "docs/specs/055-launch-command-qualification.md"
       ]
@@ -17,7 +17,7 @@
   ],
   "source": {
     "path": "orchestrator/tests/native-workspace.spec.mjs",
-    "sha256": "f761634d88310917b6e44939ca4509b4dd5e3a37300b69c4bfa040e0ece8433a",
+    "sha256": "1177eb7e7ee36af72c9dc542eccb802744f040d5980346c3d55b49c9e49d1bc9",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

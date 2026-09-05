@@ -33,6 +33,7 @@ Date: 2026-09-05. Status: **interview in progress; recommendations are not owner
 | D25 | Implement the launchable NOLF orchestrator with proper game launching, tree, editor and a preferred CLI agent booted through a find/update/download/launch shell script. | Owner's active implementation goal, 2026-09-05; authorizes the scoped desktop/agent inventory and supersedes the setup-only review wait |
 | D26 | Use microui with C for the desktop GUI; remove Electron. | Owner: “no electron, use microui with c instead for gui”, 2026-09-05; supersedes the earlier implementation stack |
 | D27 | Avoid heavyweight application runtimes such as Electron. A web interface follows later as a separate client. | Owner: “We never use such overhead in runtime such as electron … later we would have web interface though”, 2026-09-05 |
+| D28 | Pause broader development here; resume the same agent conversation through the native orchestrator after prerequisites, with desktop reload retaining the agent. | Owner's 2026-09-05 orchestrator handoff/pause request; implementation and limits in spec 058 |
 
 D07 establishes the product direction. The claim that engines are becoming obsolete is the owner's
 thesis, not a verified industry-wide conclusion. The implementation question here is how rEngine

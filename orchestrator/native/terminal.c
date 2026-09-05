@@ -4,7 +4,7 @@
 struct ReTerminal {
   ReSocket *socket; char id[65];
   VTerm *vt; VTermScreen *screen;
-  int cols, rows, sequence; bool attached;
+  int cols, rows, sequence; bool attached, presented, waiting_for_view;
 };
 static void send(ReTerminal *t, cJSON *j) {
   cJSON_AddStringToObject(j, "id", t->id); char *bytes = cJSON_PrintUnformatted(j);
@@ -34,14 +34,20 @@ ReTerminal *re_terminal_open(ReSocket *socket, const char *id, int cols, int row
 }
 void re_terminal_close(ReTerminal *t) { if (t) { vterm_free(t->vt); free(t); } }
 void re_terminal_attach(ReTerminal *t) {
-  t->attached = false;
+  t->attached = t->presented = false;
   cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "type", "attach"); send(t, j);
+}
+void re_terminal_presented(ReTerminal *t) {
+  if (!t->attached || t->presented || !t->waiting_for_view) return;
+  cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "type", "presented"); send(t, j);
+  t->presented = true;
 }
 void re_terminal_message(ReTerminal *t, const cJSON *j) {
   const char *type = re_string(j, "type");
   if (!strcmp(type, "attached")) {
     const cJSON *s = cJSON_GetObjectItemCaseSensitive(j, "session");
     if (strcmp(re_string(s, "id"), t->id)) return;
+    t->waiting_for_view = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(s, "waitingForView"));
     int cols = re_number(s, "cols"), rows = re_number(s, "rows");
     if (cols >= 2 && cols <= 500 && rows >= 2 && rows <= 300) { t->cols = cols; t->rows = rows; vterm_set_size(t->vt, rows, cols); }
     vterm_screen_reset(t->screen, 1);

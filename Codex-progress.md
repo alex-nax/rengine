@@ -1,5 +1,49 @@
 # Progress Log
 
+## Session 15 (macos) — 2026-09-05 — Pause at the orchestrator handoff
+
+**Owner direction**: stop broader feature work here and resume this exact agent conversation
+inside the native orchestrator after prerequisites. The handoff is the remaining authorized
+work for this session. AGENTS and charter D28 preserve that boundary. No feature or overall goal
+is marked complete. The available goal API cannot pause; the application's Pause goal control
+remains owner-controlled, and this agent stops broader work after the checkpoint.
+
+**Implemented**: Before the pause request, added bounded tab-strip arrows, reorder and Merge
+pane with stable view identity, selected-header reveal, draft/order persistence and retained
+PTYs (spec 057). Then added spec 058: explicit Codex UUID/project/checkpoint validation, CLI
+resume/login probes, a private per-session manifest snapshot and readiness gate. The real CLI
+starts only after its native terminal is attached and presented. Concurrent handoff creation and
+later launches reuse the same live conversation PTY. Native Cmd/Ctrl+Shift+R flushes drafts/layout,
+rebuilds the C desktop and reconnects without a second continuation prompt. Old sidecars must
+advertise handoff capability; they cannot silently launch an ungated CLI. Normal close detaches.
+
+**Verification**: Native desktop suite: four passes (game texture/capture, handoff/reload,
+pane navigation and workspace/editor/PTY), 24.23 s; CTest: two passes, 0.33 s. Service suite:
+20 passes, 4.36 s on the final source; the hardened manifest-snapshot native regression also
+passes (8.43 s). Final checks are recorded in the handoff evidence. The handoff consumer uses an instrumented managed CLI with a real PTY,
+Bash/MCP setup and actual native presentation/rebuild: rejected login creates no session;
+no CLI before its visible pane; explicit UUID/MCP args delivered once; interactive output and
+same PID retained; dirty draft survives reload; repeated launch does not invoke again; Stop
+allows a fresh waiting bootstrap. Real installed Codex 0.153.4 has resume support, authenticated
+ChatGPT login and matching local session metadata. The active conversation is not reopened
+concurrently; its real continuation happens at the next launch. All test-owned processes are
+cleaned up. See `docs/evidence/orchestrator-handoff-macos-2026-09-05.md`.
+
+**Honest remaining finding**: Moving real NOLF into/out of a narrow pane preserves frames and
+PID, but the last inspected `game-input.png` remains on the main menu after Enter. The combined
+test's green result lacks a menu-state oracle. Recorded KI-024 instead of claiming post-move
+input works. The speculative letterbox regression/debug addition was withdrawn when work was
+paused, leaving the tested pane checkpoint. No game-input fix was added. Windows source transfer
+approval, Node-service timing and other existing limits remain outstanding.
+
+**Next session**: Run `npm run resume` from this checkout after the current writer yields. Local
+`.cache/handoff/current.json` selects this conversation; `.cache/orchestrator-development` is
+its retained workspace. Read `docs/handoff/2026-09-05-orchestrator-resume.md`, verify the attached
+agent/MCP root and resume the existing goal there, starting with the missing NOLF menu oracle.
+No automatic continuation outside the orchestrator overrides the owner's pause.
+
+---
+
 ## Session 14 (macos) — 2026-09-05 — Qualify the normal native NOLF launcher
 
 **Goal turn classification**: progress. The owner's no-Electron/runtime-overhead constraint

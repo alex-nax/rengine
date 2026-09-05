@@ -14,6 +14,7 @@ typedef struct { RePane panes[RE_PANES]; int active; } ReLayout;
 void re_layout_init(ReLayout *layout);
 void re_layout_measure(ReLayout *layout, mu_Rect rect);
 int re_layout_split(ReLayout *layout, int pane, int axis);
+int re_layout_collapse(ReLayout *layout, int pane);
 bool re_layout_add(ReLayout *layout, int pane, int tab);
 bool re_layout_remove(ReLayout *layout, int tab);
 bool re_layout_move(ReLayout *layout, int tab, int pane, int index);

@@ -5,8 +5,8 @@
       "id": "windows-environment-casing",
       "kind": "rationale",
       "anchor": {
-        "start": 17,
-        "end": 17,
+        "start": 18,
+        "end": 18,
         "snippet": "export function shellEnvironment(overrides = {}, { inherited = process.env, platform = process.platform, userDirectory = homedir() } = {}) {"
       },
       "note": "Spreading process.env loses Windows' case-insensitive lookup behavior. Normalize inherited and override names before adding CLI directories so a new PATH cannot mask the real Path. Later overrides retain their spelling, POSIX keys remain case-sensitive, and Electron's run-as-Node setting is removed regardless of Windows casing. Explicit inputs make the platform transformation testable on Mac without claiming Windows process qualification.",
@@ -19,8 +19,8 @@
       "id": "views-are-not-owners",
       "kind": "constraint",
       "anchor": {
-        "start": 71,
-        "end": 71,
+        "start": 72,
+        "end": 72,
         "snippet": "export class Sessions extends EventEmitter {"
       },
       "note": "The sidecar owns PTYs independently of display connections. Socket detach must never invoke stop or shutdown. Exited state comes from the actual PTY exit event; layout/session records cannot resurrect a PID.",
@@ -32,19 +32,32 @@
       "id": "stop-process-tree",
       "kind": "rationale",
       "anchor": {
-        "start": 54,
-        "end": 54,
+        "start": 55,
+        "end": 55,
         "snippet": "async function signalTree(pid, signal) {"
       },
       "note": "Stop targets descendants from a fresh numeric process-tree snapshot, then the owned root. Windows uses taskkill /T. POSIX escalates after a grace period only while the tracked PTY remains alive. Adversarial detached descendants and PID-reuse edge cases still need qualification; do not claim this is a security sandbox.",
       "refs": [
         "docs/specs/055-nolf-workspace-goal.md"
       ]
+    },
+    {
+      "id": "one-retained-handoff",
+      "kind": "rationale",
+      "anchor": {
+        "start": 91,
+        "end": 91,
+        "snippet": "  async terminal(options) {"
+      },
+      "note": "Serialize handoff creation per project, then reuse a running session by canonical root and exact conversation UUID. Snapshot the validated manifest privately before spawning; editing the original while its pane is waiting must not retarget an existing session. A fresh unique readiness path prevents stale releases. Presentation releases only a live waiting bootstrap; input is rejected while waiting. Reload and view detach retain both waiting and running sessions. A later explicit launch after Stop/exit creates a fresh gated PTY.",
+      "refs": [
+        "docs/specs/058-orchestrator-handoff.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/server/sessions.mjs",
-    "sha256": "a3d3d7806f14211a13bdfce6ea503236f8c1c828f7ac0c91375f3fd460fb4024",
+    "sha256": "a5d3280d0e7f6257cedd156000800c6d2bdfdb67b7f4ecba3937d4f2b9256977",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

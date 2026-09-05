@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "native-pane-behavior-regression",
+      "kind": "rationale",
+      "anchor": {
+        "start": 10,
+        "end": 10,
+        "snippet": "test('native tab overflow, reordering and pane merging preserve files and retained terminals', { timeout: 45000 }, async () => {"
+      },
+      "note": "Drive actual toolbar/tree/tab controls and SDL drag events against temporary files and a real retained shell. Reproduce the former off-pane header and reused-pane hidden-selection regressions. Browsing headers must not switch content; reordering/merging/restart must retain the dirty buffer, original working file, layout order and shell PID. This test supplements actual NOLF pane movement in native-workspace.spec.mjs; it is not Windows or performance evidence.",
+      "refs": [
+        "docs/specs/057-native-pane-navigation.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/tests/native-layout.spec.mjs",
+    "sha256": "85bc9bac8d064e327634e42a4519f424679a8146b79d92ff5e8b452ab8d45815",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

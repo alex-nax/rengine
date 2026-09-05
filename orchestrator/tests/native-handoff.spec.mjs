@@ -1,0 +1,104 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, writeFile, readFile, rm, realpath } from 'node:fs/promises';
+import path from 'node:path';
+import { tmpdir } from 'node:os';
+import { spawn } from 'node:child_process';
+import { setTimeout as delay } from 'node:timers/promises';
+import { startServer } from '../server/main.mjs';
+import { nativeClient, nativeBridge } from './native-client.mjs';
+
+test('handoff waits for a presented native pane and reload retains the once-resumed CLI', { timeout: 60000 }, async () => {
+  const dir = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-native-handoff-')));
+  const stateDir = path.join(dir, 'state'), project = path.join(dir, 'project'), home = path.join(dir, 'codex');
+  const sessionId = '00000000-0000-0000-0000-000000000058';
+  const previousHome = process.env.CODEX_HOME;
+  let server, gui;
+  try {
+    const bin = path.join(stateDir, 'agents/codex/node_modules/.bin');
+    await mkdir(bin, { recursive: true }); await mkdir(project);
+    await mkdir(path.join(home, 'sessions'), { recursive: true });
+    const marker = path.join(project, 'invocations.jsonl');
+    await writeFile(path.join(bin, 'codex'), `#!/usr/bin/env node
+const fs = require('node:fs');
+const args = process.argv.slice(2);
+if (args.includes('status') && fs.existsSync(${JSON.stringify(path.join(project, 'logged-out'))})) { console.error('Not logged in'); process.exit(1); }
+if (args.includes('--help') || args.includes('status')) process.exit(0);
+fs.appendFileSync(${JSON.stringify(marker)}, JSON.stringify({ args, cwd: process.cwd(), session: process.env.RENGINE_ORCHESTRATOR_SESSION }) + '\\n');
+console.log('RESUMED_IN_NATIVE_PANE');
+if (process.stdin.isTTY) process.stdin.setRawMode(true);
+process.stdin.on('data', () => console.log('CLI_RECEIVED_INPUT'));
+`, { mode: 0o700 });
+    await writeFile(path.join(project, 'checkpoint.md'), 'paused checkpoint\n');
+    await writeFile(path.join(home, 'sessions', `rollout-test-${sessionId}.jsonl`), JSON.stringify({ type: 'session_meta', payload: { id: sessionId, cwd: project } }) + '\n');
+    const handoffFile = path.join(project, 'handoff.json');
+    await writeFile(handoffFile, JSON.stringify({ version: 1, project: '.', sessionId, checkpoint: 'checkpoint.md' }));
+    process.env.CODEX_HOME = home;
+    server = await startServer({ stateDir });
+    await writeFile(path.join(stateDir, 'sidecar.json'), JSON.stringify({ url: server.url, token: server.token, instance: server.instance, pid: process.pid }), { mode: 0o600 });
+    const root = await server.store.addRoot(project);
+    const options = { rootId: root.id, type: 'agent', agent: 'codex', handoffFile };
+    await writeFile(path.join(project, 'logged-out'), '');
+    await assert.rejects(server.sessions.terminal(options), /Not logged in/);
+    assert.equal(server.sessions.list().length, 0);
+    await rm(path.join(project, 'logged-out'));
+    const pair = await Promise.all([server.sessions.terminal(options), server.sessions.terminal(options)]);
+    const agent = pair[0]; assert.equal(pair[1].id, agent.id);
+    await writeFile(path.join(project, 'other.md'), 'Later manifest edits must not retarget a waiting session.');
+    await writeFile(handoffFile, JSON.stringify({ version: 1, project: '.', sessionId, checkpoint: 'other.md' }));
+    await delay(400);
+    assert.equal(server.sessions.snapshot(agent.id).waitingForView, true);
+    assert.throws(() => server.sessions.input(agent.id, 'ignored'), /waiting/);
+    await assert.rejects(readFile(marker), { code: 'ENOENT' });
+    gui = await nativeClient(server, { root: root.id });
+    await gui.until(s => s.connected, 'desktop without agent view'); await delay(200);
+    await assert.rejects(readFile(marker), { code: 'ENOENT' });
+    await gui.close(); gui = null;
+    const launch = () => nativeBridge(spawn(process.execPath,
+      ['orchestrator/launch.mjs', '--handoff', handoffFile, '--state', stateDir, '--inspect-ui'],
+      { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, CODEX_HOME: home } }), { timeout: 15000 });
+    gui = launch();
+    let state = await gui.until(s => s.tabs.some(t => t?.session === agent.id && t.rect[2] > 0 && t.text?.includes('RESUMED_IN_NATIVE_PANE')), 'presented resumed agent');
+    const invocation = JSON.parse((await readFile(marker, 'utf8')).trim());
+    assert.equal(invocation.cwd, project); assert.equal(invocation.session, agent.id);
+    const resume = invocation.args.indexOf('resume');
+    assert.equal(invocation.args[resume + 1], sessionId);
+    assert.ok(invocation.args.some(arg => arg.includes('mcp_servers.rengine_')));
+    assert.ok(invocation.args.at(-1).includes('checkpoint.md'));
+    let tab = state.tabs.find(t => t?.session === agent.id);
+    await gui.click(tab.rect[0] + 40, tab.rect[1] + 10);
+    await gui.command({ op: 'text', text: 'test' });
+    await gui.until(s => s.tabs.some(t => t?.text?.includes('CLI_RECEIVED_INPUT')), 'interactive retained CLI');
+    await gui.control('tree-entry', 'checkpoint.md');
+    state = await gui.until(s => s.tabs.some(t => t?.type === 2 && t.text === 'paused checkpoint\n'));
+    tab = state.tabs.find(t => t?.type === 2);
+    await gui.click(tab.rect[0] + 12, tab.rect[1] + 8);
+    await gui.command({ op: 'text', text: 'reload draft ' });
+    await gui.until(s => s.tabs.some(t => t?.type === 2 && t.dirty));
+    await gui.command({ op: 'key', key: 'R', mod: 0xc3 });
+    for (let i = 0; i < 150 && !gui.diagnostics().includes('Rebuilding rEngine'); i++) await delay(20);
+    assert.match(gui.diagnostics(), /Rebuilding rEngine/);
+    await delay(1200);
+    state = await gui.until(s => s.connected && s.tabs.some(t => t?.type === 2 && t.dirty && t.text?.includes('reload draft')), 'draft after actual native rebuild/reload');
+    assert.equal(state.state.sessions.find(s => s.id === agent.id).pid, agent.pid);
+    assert.equal((await readFile(marker, 'utf8')).trim().split('\n').length, 1);
+    assert.equal(await readFile(path.join(project, 'checkpoint.md'), 'utf8'), 'paused checkpoint\n');
+    await mkdir('.cache/evidence', { recursive: true });
+    await gui.command({ op: 'snapshot', path: path.resolve('.cache/evidence/native-handoff.bmp') });
+    await gui.close(); gui = launch();
+    await gui.until(s => s.tabs.some(t => t?.session === agent.id && t.text?.includes('CLI_RECEIVED_INPUT')), 'same CLI on a later launch');
+    assert.equal((await readFile(marker, 'utf8')).trim().split('\n').length, 1);
+    assert.equal(server.sessions.snapshot(agent.id).pid, agent.pid);
+    await gui.close(); gui = null;
+    await server.sessions.stop(agent.id);
+    const resumedAgain = await server.sessions.terminal(options);
+    assert.notEqual(resumedAgain.id, agent.id);
+    assert.equal(resumedAgain.waitingForView, true);
+    await delay(200);
+    assert.equal((await readFile(marker, 'utf8')).trim().split('\n').length, 1);
+  } finally {
+    await gui?.close(); await server?.close();
+    if (previousHome === undefined) delete process.env.CODEX_HOME; else process.env.CODEX_HOME = previousHome;
+    await rm(dir, { recursive: true, force: true });
+  }
+});

@@ -5,8 +5,8 @@
       "id": "native-focus-and-detach",
       "kind": "rationale",
       "anchor": {
-        "start": 179,
-        "end": 179,
+        "start": 204,
+        "end": 204,
         "snippet": "bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {"
       },
       "note": "Pointer focus selects a view without changing its root/session binding. Toolbar focus clears custom editor/terminal/game keyboard routing. Moving a tab keeps its identity. Detaching closes terminal/game display resources but never calls Stop; retained process management belongs to the explicit Sessions controls.",
@@ -26,11 +26,24 @@
       "refs": [
         "docs/specs/055-launch-command-qualification.md"
       ]
+    },
+    {
+      "id": "bounded-tab-strip",
+      "kind": "rationale",
+      "anchor": {
+        "start": 70,
+        "end": 70,
+        "snippet": "static void pane_header(ReApp *a, mu_Context *ui, int n) {"
+      },
+      "note": "Visible tab slots and previous/next controls fit the measured pane header; only displayed tabs receive hit rectangles. Strip offsets are ephemeral and can browse away from the selected content without retargeting it. Explicit layout changes invalidate the cached width to reveal the selected tab even when pane indices are reused. Drops choose insertion boundaries from visible header midpoints, then adjust for removal when source and destination are the same pane. Root/session identity stays on ReTab.",
+      "refs": [
+        "docs/specs/057-native-pane-navigation.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/workspace.c",
-    "sha256": "0133bbd27fdfcfcb34fb03a6c3fc8eb02a72d41e933481bb723be05597d6c68f",
+    "sha256": "12b930b2d422b00fcc0d792b8529f59bbab0e931448768110024786ad79fdefa",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

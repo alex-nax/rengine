@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "explicit-local-conversation",
+      "kind": "rationale",
+      "anchor": {
+        "start": 27,
+        "end": 27,
+        "snippet": "export async function readHandoff(filename, project, env = process.env) {"
+      },
+      "note": "Resolve the manifest project and checkpoint, then inspect only the bounded first session_meta line of the exact local rollout. Never import conversation contents into repository files, choose --last, or invent a replacement conversation. Root identity is canonical realpath. CODEX_HOME is read as a provider input, not repurposed. Session metadata and CLI/login probes are prerequisites, not proof that an actively locked conversation can be reopened concurrently. The old writer must yield before actual continuation.",
+      "refs": [
+        "docs/specs/058-orchestrator-handoff.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/agents/handoff.mjs",
+    "sha256": "ca1d8ad813ab3787cf055cf354cab1e25ff416d59bd147a968ff9924abaa877c",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}
