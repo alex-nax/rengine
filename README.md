@@ -8,7 +8,12 @@ The planned IDE is a tab-and-pane orchestrator: arrange terminals, project/file 
 agents, live game output and integrated tools in one workspace. An initial agent terminal will
 run a Bash selection/installation launcher and bootstrap that agent's project integrations.
 
-**Status: initial design interview and harness setup.** The project boundary is established by
+**Status: desktop implementation in progress.** The active NOLF workspace goal authorizes the
+desktop and agent scope in [F55](docs/specs/055-nolf-workspace-goal.md). The sidecar file/session
+services and standalone agent launcher have automated tests; the GUI, game surface and full
+Mac/Windows workflow are not yet verified. Run `npm ci` then `npm test` for this implementation.
+
+The project boundary is established by
 the owner's brief and library-first clarification. Curated upstream plus our own gaps and iklib
 proven in both games first are confirmed. A pinned curated capability with passing game integration
 checks meets the powered-by minimum; the IDE and shared harness are optional. Detailed pilot
@@ -21,7 +26,7 @@ VtMB follows as the second game adapter. Editors retain local recovery drafts an
 files explicitly.
 Each workspace supports multiple project/worktree roots, with terminals, editors, agents and
 games explicitly bound to their own root.
-No engine has been migrated and no IDE implemented by this repository.
+No engine migration or completed IDE release is claimed.
 
 The primary value is reusable, dependable implementation that an agent can select and compose
 for a game's needs. Library contracts, executable examples, host integration evidence and clear
@@ -41,7 +46,7 @@ python3 tools/features.py next
 
 The bootstrap checks this repository only and works without game assets, sibling checkouts,
 network access, or a native game toolchain. While the roadmap is under review, the feature
-helper validates the proposal and reports that execution has not been activated.
+helper uses the scoped approved `features.json`. The larger inventory remains a separate proposal.
 
 | Document | Purpose |
 | --- | --- |

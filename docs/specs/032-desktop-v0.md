@@ -1,8 +1,9 @@
 # First desktop workspace: NOLF and retained sessions
 
-Date: 2026-09-05. Status: **acceptance draft; F32 remains proposed and incomplete**.
+Date: 2026-09-05. Status: **implementation authorized; F32 qualification remains incomplete**.
 Owner decisions: [charter D13–D22](000-charter.md). Architecture: [orchestrator](002-orchestrator.md).
-This defines the first useful release. No UI stack, session service or host adapter is implemented.
+This defines the first useful release. The [active goal](055-nolf-workspace-goal.md) brings agent
+onboarding into the workflow. Sidecar implementation has started; UI/game/platform proof remains.
 
 ## Confirmed result
 
@@ -100,5 +101,5 @@ Preserve each game's independent build and runtime architecture; reverting an ad
 the recorded direct-launch path without making either engine depend on the workspace GUI.
 
 F48 closes the desktop release only when its prerequisites and the full workflow pass on both
-desktops. Drafting this document does not complete F32, F43 or F48. The feature proposal still
-requires owner review before activation; later library and agent work retain separate scopes.
+desktops. Drafting this document does not complete F32, F43 or F48. The owner authorized the
+desktop/agent scope through F55; the broader library/Quest/training proposal remains separate.

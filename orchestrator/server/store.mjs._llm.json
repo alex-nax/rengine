@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "root-path-binding",
+      "kind": "constraint",
+      "anchor": {
+        "start": 61,
+        "end": 61,
+        "snippet": "async resolve(rootId, relative = '', allowMissing = false) {"
+      },
+      "note": "Resolve paths using their stored root and real paths, including symlink targets. Roots identify distinct worktrees; a focused tree never supplies an implicit file root. File API confinement is separate from shell/agent OS access.",
+      "refs": [
+        "docs/specs/055-nolf-workspace-goal.md"
+      ]
+    },
+    {
+      "id": "save-and-draft-order",
+      "kind": "rationale",
+      "anchor": {
+        "start": 120,
+        "end": 120,
+        "snippet": "async saveText({ rootId, path: relative, text, version }) {"
+      },
+      "note": "Serialize saves per canonical file, check the disk hash before and after staging, and retain the draft on conflicts. Rename preserves a whole file version. This is not an OS-level compare-and-swap against arbitrary external writers; power-loss durability and draft checkpoint scheduling still require qualification.",
+      "refs": [
+        "docs/specs/055-nolf-workspace-goal.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/server/store.mjs",
+    "sha256": "4c6912e8e1d5dd92f559173bc92c92890596eb198bf8323558a23be1589b8290",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

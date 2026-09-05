@@ -4,6 +4,10 @@ __pycache__/
 *.py[cod]
 .venv/
 build/
+node_modules/
+dist/
+test-results/
+playwright-report/
 artifacts.local/
 *.local.json
 *.local.md

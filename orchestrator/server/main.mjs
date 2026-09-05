@@ -1,0 +1,136 @@
+import http from 'node:http';
+import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { readFile, writeFile, stat } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { homedir } from 'node:os';
+import path from 'node:path';
+import { WebSocketServer, WebSocket } from 'ws';
+import { WorkspaceStore, fail } from './store.mjs';
+import { Sessions } from './sessions.mjs';
+
+const defaultStatic = fileURLToPath(new URL('../../dist/', import.meta.url));
+const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
+const authorized = (value, token) => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value) && timingSafeEqual(Buffer.from(value), Buffer.from(token));
+
+async function body(request) {
+  if (!request.headers['content-type']?.startsWith('application/json')) fail('Expected application/json.', 415);
+  const chunks = []; let size = 0;
+  for await (const chunk of request) { size += chunk.length; if (size > 8 * 1024 * 1024) fail('Request body is too large.', 413); chunks.push(chunk); }
+  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
+  catch { fail('Malformed JSON.'); }
+}
+
+function json(response, status, value) {
+  response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+  response.end(JSON.stringify(value));
+}
+
+export async function startServer({ stateDir, port = 0, staticDir = defaultStatic } = {}) {
+  if (!stateDir) fail('The sidecar requires an explicit state directory.');
+  const store = await WorkspaceStore.open(stateDir);
+  const sessions = new Sessions(store);
+  const token = randomBytes(32).toString('hex');
+  const instance = randomUUID();
+  let url;
+  const server = http.createServer(async (request, response) => {
+    try {
+      const target = new URL(request.url, 'http://127.0.0.1');
+      if (request.headers.origin && request.headers.origin !== url) fail('Origin is not this workspace.', 403);
+      if (target.pathname === '/health') { json(response, 200, { protocol: 1, instance }); return; }
+      if (target.pathname.startsWith('/api/')) {
+        if (!authorized(request.headers.authorization?.replace(/^Bearer /, ''), token)) fail('Workspace authentication required.', 401);
+        const query = target.searchParams;
+        let value;
+        if (request.method === 'GET') {
+          switch (target.pathname) {
+            case '/api/state': value = { instance, roots: store.state.roots, layout: store.state.layout, preferences: store.state.preferences,
+              drafts: Object.values(store.state.drafts).map(({ rootId, path, updatedAt }) => ({ rootId, path, updatedAt })), sessions: sessions.list() }; break;
+            case '/api/tree': value = await store.list(query.get('rootId'), query.get('path') ?? '', query.get('hidden') === 'true'); break;
+            case '/api/file': value = await store.readText(query.get('rootId'), query.get('path')); break;
+            case '/api/session': value = sessions.snapshot(query.get('id'), true); break;
+            default: fail('Unknown workspace endpoint.', 404);
+          }
+        } else if (request.method === 'POST') {
+          const data = await body(request);
+          if (!data || typeof data !== 'object' || Array.isArray(data)) fail('Expected an object.');
+          switch (target.pathname) {
+            case '/api/roots': value = await store.addRoot(data.path); break;
+            case '/api/save': value = await store.saveText(data); break;
+            case '/api/draft': value = await store.putDraft(data); break;
+            case '/api/discard': await store.discardDraft(data.rootId, data.path); value = { ok: true }; break;
+            case '/api/layout': await store.saveLayout(data.layout); value = { ok: true }; break;
+            case '/api/preferences': value = await store.preferences(data); break;
+            case '/api/terminal': value = await sessions.terminal(data); break;
+            case '/api/input': sessions.input(data.id, data.data); value = { ok: true }; break;
+            case '/api/resize': sessions.resize(data.id, data.cols, data.rows); value = { ok: true }; break;
+            case '/api/stop': value = await sessions.stop(data.id); break;
+            default: fail('Unknown workspace endpoint.', 404);
+          }
+        } else fail('Method not supported.', 405);
+        json(response, 200, value);
+        return;
+      }
+      if (request.method !== 'GET') fail('Method not supported.', 405);
+      const requested = decodeURIComponent(target.pathname === '/' ? '/index.html' : target.pathname);
+      const file = path.resolve(staticDir, `.${requested}`);
+      if (!file.startsWith(`${path.resolve(staticDir)}${path.sep}`)) fail('Invalid asset path.', 403);
+      if (!(await stat(file)).isFile()) fail('Asset not found.', 404);
+      response.writeHead(200, { 'Content-Type': mime[path.extname(file)] ?? 'application/octet-stream',
+        'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff',
+        'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'" });
+      response.end(await readFile(file));
+    } catch (error) {
+      if (!response.headersSent) json(response, error.status ?? (error.code === 'ENOENT' ? 404 : 500), { error: error.message });
+      else response.destroy();
+    }
+  });
+  const sockets = new WebSocketServer({ noServer: true, maxPayload: 2 * 1024 * 1024 });
+  server.on('upgrade', (request, socket, head) => {
+    const target = new URL(request.url, 'http://127.0.0.1');
+    if (target.pathname !== '/events' || !authorized(target.searchParams.get('token'), token) || (request.headers.origin && request.headers.origin !== url)) {
+      socket.end('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n'); return;
+    }
+    sockets.handleUpgrade(request, socket, head, ws => sockets.emit('connection', ws));
+  });
+  sockets.on('connection', ws => {
+    ws.on('error', () => {});
+    ws.send(JSON.stringify({ type: 'hello', instance }));
+    ws.on('message', bytes => {
+      try {
+        const data = JSON.parse(bytes.toString());
+        if (data.type === 'attach') ws.send(JSON.stringify({ type: 'attached', session: sessions.snapshot(data.id, true) }));
+        else if (data.type === 'input') sessions.input(data.id, data.data);
+        else if (data.type === 'resize') sessions.resize(data.id, data.cols, data.rows);
+        else fail('Unknown session message.');
+      } catch (error) { ws.send(JSON.stringify({ type: 'error', error: error.message })); }
+    });
+  });
+  sessions.on('event', event => {
+    const bytes = JSON.stringify(event);
+    for (const client of sockets.clients) {
+      if (client.readyState !== WebSocket.OPEN) continue;
+      if (client.bufferedAmount > 4 * 1024 * 1024) client.close(1013, 'Reconnect to recover retained output');
+      else client.send(bytes);
+    }
+  });
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
+  url = `http://127.0.0.1:${server.address().port}`;
+  return { url, token, instance, store, sessions, async close() {
+    for (const client of sockets.clients) client.terminate();
+    sockets.close();
+    await sessions.shutdown();
+    await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });
+    await store.persisting;
+  } };
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const index = process.argv.indexOf('--state');
+  const stateDir = path.resolve(index >= 0 ? process.argv[index + 1] : path.join(homedir(), '.local/state/rengine'));
+  const instance = await startServer({ stateDir });
+  await writeFile(path.join(stateDir, 'sidecar.json'), JSON.stringify({ url: instance.url, token: instance.token, instance: instance.instance, pid: process.pid }), { mode: 0o600 });
+  console.log(`rEngine sidecar listening at ${instance.url}`);
+  let stopping = false;
+  const stop = async () => { if (stopping) return; stopping = true; await instance.close(); process.exit(0); };
+  process.on('SIGTERM', stop); process.on('SIGINT', stop);
+}

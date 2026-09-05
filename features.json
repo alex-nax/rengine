@@ -1,0 +1,321 @@
+{
+  "schema_version": 1,
+  "project": "rengine",
+  "created": "2026-09-05",
+  "review_status": "approved",
+  "review_record": "docs/specs/055-nolf-workspace-goal.md \u2014 owner active implementation goal, 2026-09-05",
+  "features": [
+    {
+      "id": 32,
+      "milestone": "O0",
+      "category": "design",
+      "priority": "high",
+      "description": "Specify the first desktop workspace, terminal, draft recovery and NOLF integration slice.",
+      "acceptance_criteria": [
+        "Carry forward macOS/Windows, empty-to-split layout, movable tabs, basic editing/optional Vim, persistent sidecar sessions, the session browser and multiple project/worktree roots with explicit per-session bindings as confirmed requirements.",
+        "Pin the owner-selected flat NOLF host build/profile; specify actual rendered output/input in a new tab, native host ownership and acceptance commands on both platforms, with VtMB as the second adapter.",
+        "Specify stable root identities and local recovery drafts with explicit file saves; define checkpoint/conflict handling, initial Vim subset and predeclared measurable terminal/editor/game budgets; keep agent installers, Quest and XR as later gates."
+      ],
+      "passes": false,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/032-desktop-v0.md",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 33,
+      "milestone": "O0",
+      "category": "discovery",
+      "priority": "high",
+      "description": "Qualify the desktop UI, terminal and game-surface stack on macOS and Windows.",
+      "acceptance_criteria": [
+        "Compare a small set of existing layout/editor/terminal components against native desktop and later Quest-client constraints with source/license/version references.",
+        "On both platforms demonstrate a real PTY, editable text/Vim-mode feasibility and a real cooperative graphical surface with resize/input; static mockups are insufficient.",
+        "Measure agreed budgets and choose an implementation stack with known limits and rollback; failure produces a revised proposal, not a supported-platform claim."
+      ],
+      "passes": false,
+      "dependencies": [
+        32
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/decisions/desktop-stack.md and bounded feasibility prototype",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 34,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "Implement the empty workspace with recursive splits and movable tab groups.",
+      "acceptance_criteria": [
+        "Start empty, split horizontally/vertically, resize and collapse splits, and open/reorder/move tabs between pane groups.",
+        "Keyboard/pointer focus follows the intended tab; moving a view preserves its session and root binding and does not trigger a new session or change another tab's context.",
+        "Exercise the actual UI on macOS and Windows, including minimum sizes and displays with different scaling."
+      ],
+      "passes": false,
+      "dependencies": [
+        33
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "orchestrator layout implementation and UI evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 35,
+      "milestone": "O1",
+      "category": "sessions",
+      "priority": "high",
+      "description": "Implement a desktop sidecar that owns interactive sessions independently of views.",
+      "acceptance_criteria": [
+        "Session records identify owning sidecar, stable project/worktree root, type, target, launch cwd, process/PTY identity and state; launch only through explicit commands and distinguish shell cwd from launch association.",
+        "Closing a view or GUI leaves sessions alive; reconnect attaches to the same session; explicit Stop terminates the intended process tree and reports exit.",
+        "Test sessions in two separate worktrees, GUI loss, sidecar failure, missing roots and stale identities on macOS/Windows; never retarget a session by focus/display name or claim a terminated process has resumed."
+      ],
+      "passes": false,
+      "dependencies": [
+        33
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "sidecar session service and lifecycle tests",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 36,
+      "milestone": "O1",
+      "category": "terminal",
+      "priority": "high",
+      "description": "Connect real terminal panes to sidecar-owned PTY sessions.",
+      "acceptance_criteria": [
+        "Exercise an interactive shell/full-screen terminal program with input, resize, scrollback, Unicode, paste and control keys on both desktops.",
+        "Move/detach/reattach terminals bound to different roots without losing their process and retained output; focus routes input only to the selected session and a shell cwd change does not rebind its launch root.",
+        "Long-lived sessions have no inherited verification-job deadline; measure responsiveness and retain failure/exit state."
+      ],
+      "passes": false,
+      "dependencies": [
+        34,
+        35
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "terminal provider and desktop acceptance evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 37,
+      "milestone": "O1",
+      "category": "editor",
+      "priority": "high",
+      "description": "Provide project tree, previews and basic text editing with optional Vim mode.",
+      "acceptance_criteria": [
+        "Browse multiple declared roots, preview files, and edit/save text with undo/redo/search, dirty-buffer status and external-change handling; identical relative filenames in separate worktrees retain distinct root-bound buffers and save destinations.",
+        "Exercise the F32-defined Vim subset and ordinary editing on macOS/Windows; preserve supported encoding/line endings and avoid silent overwrite of external edits.",
+        "Retain unsaved edits as local recovery drafts on view close/GUI restart and write working files only on explicit Save; exercise external edits, checkpoint failure and explicit Discard without losing the only unsaved copy; large/binary/unsupported files fail or preview explicitly."
+      ],
+      "passes": false,
+      "dependencies": [
+        34,
+        35
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "file/tree/editor providers and edit-path evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 38,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "Persist layout and recover views onto retained sessions after GUI restart.",
+      "acceptance_criteria": [
+        "Restore splits, tab placement, stable root/session associations and durable local editor drafts after closing/reopening the GUI with multiple projects/worktrees; no restore path silently writes working files.",
+        "Resolve live session IDs through the sidecar; no restore path relaunches commands automatically or confuses a dead process with a live one.",
+        "Interrupted saves and unknown persistence versions recover with an actionable result; test macOS/Windows paths and changed/missing/removed roots without silently remapping sessions, relaunching commands or stopping retained processes."
+      ],
+      "passes": false,
+      "dependencies": [
+        34,
+        35,
+        36,
+        37
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "versioned workspace persistence and recovery evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 39,
+      "milestone": "O2",
+      "category": "agents",
+      "priority": "medium",
+      "description": "Implement the terminal-based Bash agent selector and extensible launch registry.",
+      "acceptance_criteria": [
+        "Discover supported installed CLI agents and allow an explicit custom installed command; launch in the chosen terminal's explicit root and launch directory regardless of another tab's focused project.",
+        "Keep recipes/version detection outside pane code and specify the Windows Bash/native-or-WSL path contract without guessing conversions.",
+        "Prove selection/launch both inside the orchestrator and standalone on macOS/Windows, including missing agent and cancelled selection."
+      ],
+      "passes": false,
+      "dependencies": [
+        36
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "standalone agent launcher and registered CLI recipes",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 40,
+      "milestone": "O2",
+      "category": "agents",
+      "priority": "medium",
+      "description": "Add visible selected-agent installation and recoverable setup recipes.",
+      "acceptance_criteria": [
+        "For a user-selected supported recipe, show official source, version, destination and required changes before installation; do not install on tab open alone.",
+        "Verify the installed CLI/version and support cancellation, failed download/install and repeat invocation without corrupting an existing installation.",
+        "Exercise at least the first agreed real CLI recipe per desktop platform plus isolated failure fixtures; preserve unrelated agent configuration."
+      ],
+      "passes": false,
+      "dependencies": [
+        39
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "versioned agent install recipes and installation evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 41,
+      "milestone": "O2",
+      "category": "agents",
+      "priority": "medium",
+      "description": "Bootstrap project MCP integrations through agent-specific configuration adapters.",
+      "acceptance_criteria": [
+        "Merge the explicitly bound root's project profile through the supported CLI/version adapter without replacing unrelated settings, using a global active project or assuming every agent shares a format.",
+        "Distinguish configured, reachable, unsupported and failed integrations; re-running setup is idempotent and exposes repair steps.",
+        "Prove the selected agent calls an actual local test MCP tool scoped to its project/session; unknown CLI configuration is not silently guessed."
+      ],
+      "passes": false,
+      "dependencies": [
+        39
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "agent integration profiles and connectivity evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 42,
+      "milestone": "O3",
+      "category": "surfaces",
+      "priority": "high",
+      "description": "Implement the cooperative game surface and input contract for desktop panes.",
+      "acceptance_criteria": [
+        "Transport actual frames from a separate graphical process to a tab with explicit session identity, frame lifetime, resize and input semantics.",
+        "Prove focus/aspect/DPI handling, view movement, detach/reattach and explicit stop without affecting another session on macOS and Windows.",
+        "Measure the F32/F33 budgets and keep the transport distinct from MCP control; expose capabilities suitable for a later remote client."
+      ],
+      "passes": false,
+      "dependencies": [
+        33,
+        35
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "versioned surface adapter and native graphical fixture",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 43,
+      "milestone": "O3",
+      "category": "host-adoption",
+      "priority": "high",
+      "description": "Render flat NOLF into an orchestrator tab on macOS and Windows.",
+      "acceptance_criteria": [
+        "From the owning nolf-improved workspace, implement the flat NOLF adapter using the F32-pinned native build/launch profile and user-owned assets.",
+        "Show actual game output in a new tab and verify resize, input, tab move, close/reattach and explicit stop through the sidecar on macOS and Windows.",
+        "Run relevant existing host gates, record the tested game/profile and rollback; an external window or log-only tab does not complete the pane requirement."
+      ],
+      "passes": false,
+      "dependencies": [
+        42
+      ],
+      "owner_workspace": "nolf-improved",
+      "deliverable": "reLith-owned surface adapter and two-platform game evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 48,
+      "milestone": "O5",
+      "category": "integration",
+      "priority": "high",
+      "description": "Complete the first desktop workflow with a terminal, editor, session browser and flat game tab.",
+      "acceptance_criteria": [
+        "On macOS and Windows execute the empty-to-split workflow with multiple roots, ordinary and optional Vim editing, local draft recovery with explicit saves, real terminals and flat NOLF in a new tab.",
+        "Move and detach views, find retained sessions in the browser, reattach after GUI restart, and explicitly stop the intended game/process; identical filenames and similarly named sessions across roots never redirect a file write or session operation.",
+        "Record real rendered/input evidence and agreed performance measurements; a layout mock, terminal-only shell or external game window cannot close this milestone."
+      ],
+      "passes": false,
+      "dependencies": [
+        36,
+        37,
+        38,
+        43,
+        54
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/evidence/desktop-v0.md and packaged desktop builds",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 54,
+      "milestone": "O1",
+      "category": "sessions",
+      "priority": "high",
+      "description": "Provide the session browser for inspecting, reattaching and explicitly stopping sessions.",
+      "acceptance_criteria": [
+        "List live/detached/exited sessions with explicit project/worktree root, type, target, state and attached-view information; distinguish similarly named sessions and retain root association even after its removal from the layout.",
+        "Attach or focus an existing session and explicitly stop one with accurate exit reporting; moving/closing the browser does not stop other sessions.",
+        "Exercise detached game and terminal sessions across GUI restart on macOS and Windows, including a stale/dead session and two similarly named worktrees; attach and Stop affect only the selected root/session."
+      ],
+      "passes": false,
+      "dependencies": [
+        34,
+        35
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "session browser UI and two-platform lifecycle evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 55,
+      "milestone": "O6",
+      "category": "integration",
+      "priority": "high",
+      "description": "Launch the NOLF orchestrator with live game, project tree, editor and preferred agent CLI onboarding.",
+      "acceptance_criteria": [
+        "A documented launch command opens an explicit NOLF project with tree/editor, real terminals and an interactive live NOLF game tab on macOS and Windows.",
+        "The standalone Bash launcher finds, installs/downloads, updates or launches the preferred supported CLI agent and supports a custom executable; the real CLI boots in the selected root.",
+        "Verify file saves and recovery drafts, session detach/reattach/Stop, tab moves and GUI restart through the actual workflow; record live NOLF and agent evidence alongside automated checks."
+      ],
+      "passes": false,
+      "dependencies": [
+        39,
+        40,
+        41,
+        48
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "launchable workspace and docs/evidence/nolf-workspace.md",
+      "external_references": [],
+      "evidence": []
+    }
+  ]
+}

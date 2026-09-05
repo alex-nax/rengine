@@ -1,5 +1,10 @@
 # Roadmap review artifacts
 
+This v1 artifact is a historical pre-implementation snapshot. The later active NOLF workspace
+goal (charter D25) authorizes the scoped `features.json` without another review export. Source
+hashes below identify the earlier snapshot, not a requirement that current implementation docs
+remain unchanged. The broader library/Quest/training proposal remains separate.
+
 Open [the roadmap review](rengine-roadmap-2026-09-05-v1.html) in a browser. It embeds all 54
 proposed features, their complete acceptance criteria, owners and dependencies, grouped into
 six branches. Confirmed interview decisions are context, not questions to answer again.

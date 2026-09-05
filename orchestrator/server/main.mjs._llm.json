@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "local-session-capability",
+      "kind": "constraint",
+      "anchor": {
+        "start": 28,
+        "end": 28,
+        "snippet": "export async function startServer({ stateDir, port = 0, staticDir = defaultStatic } = {}) {"
+      },
+      "note": "This is a loopback-only desktop service. HTTP and WebSocket requests need the private runtime token and compatible Origin; it is not the Quest pairing protocol. Tokens stay in mode-0600 local state, never tracked files. Slow sockets reconnect to bounded retained output without stopping sessions.",
+      "refs": [
+        "docs/specs/055-nolf-workspace-goal.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/server/main.mjs",
+    "sha256": "80f487259a8905be28503ff616dcc32ae99410cc8c2ad8e1358385069b3c0c8d",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

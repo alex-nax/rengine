@@ -1,5 +1,51 @@
 # Progress Log
 
+## Session 5 (macos) — 2026-09-05 — Begin the authorized NOLF workspace implementation
+
+**Goal turn classification**: progress. The previous push completed; this first implementation
+turn changes authoritative code and verifies real sidecar/PTY behavior. The full user objective
+remains the launchable NOLF workspace with tree, editor, live game and agent onboarding, on the
+previously required macOS/Windows targets. No goal completion or blocker is claimed.
+
+**Authority and scope**: The owner's active objective supersedes the setup-only review wait.
+Recorded D25 and `docs/specs/055-nolf-workspace-goal.md`; activated 15 desktop/agent rows including
+aggregate F55. Agent find/update/download/launch is now in the first usable workflow. All feature
+completion states remain false because the full platform/UI/host criteria are still unproven.
+
+**Implemented**: Node sidecar HTTP/WebSocket/file/session services; explicit root identities;
+UTF-8 text reads, LF/CRLF-preserving explicit saves, local recovery drafts and external-version
+conflicts; real PTY sessions with bounded output, reconnect and explicit process-tree Stop.
+Standalone `scripts/agent.sh` detects Codex/Claude/Gemini/OpenCode or a custom executable, launches
+in an explicit project, installs into a managed npm prefix, and dispatches supported updates.
+MCP bootstrap is not yet wired and no actual agent update/download was performed in this turn.
+
+**Dependencies**: Exact npm versions/lockfile for Electron, React/FlexLayout, CodeMirror/Vim,
+xterm/node-pty, WebSocket, esbuild and Playwright. Existing Node is v25.3.0 on macOS 15.7.3 arm64.
+node-pty 1.1.0's prebuilt spawn-helper lacked execute bits; the postinstall preparation step
+repairs the known helper paths. The actual PTY then works outside the sandbox.
+
+**Verification**: Meaningful red tests preceded the modules and launcher. Ten tests cover real
+PTY startup, retained session identity across WebSocket disconnect/reconnect, explicit Stop
+isolation, HTTP auth/origin/file conflict paths, root/draft restart behavior and agent dispatch.
+A malformed UTF-8 token regression was reproduced (500 instead of 401) and repaired. Native PTY
+and socket checks need the normal unsandboxed app environment. Default zsh startup asked for an
+oh-my-zsh update and consumed the test's first character; controlled tests now use clean shell
+profiles, while production terminals retain the user's normal shell configuration. Sidecar
+metadata is stamped/validated. Final `npm test` and harness results accompany the checkpoint.
+
+**NOLF evidence**: Current `build/relith-nolf` and local `nolf/NOLF.REZ` exist. Read the host rules,
+CLI and profile: `--flat`, `--game nolf`, size arguments and `RELITH_HIDDEN_WINDOW=1` provide a
+hidden real GL context. SDL swap/input seams are in `src/platform/sdl_window.cpp` and a second
+swap in `src/compat/lt_render_impl.cpp`; both matter to an adapter. No NOLF source, active host
+worktree or game asset was changed, and no game was launched yet.
+
+**Next**: Connect Electron/FlexLayout/CodeMirror/xterm to the real sidecar, implement the native
+SDL2/OpenGL live surface and NOLF launch adapter, add per-agent MCP bootstrap, then exercise the
+actual GUI/NOLF/installed-agent workflow. Preserve persistent sessions, explicit roots/saves,
+game input/tab movement and Windows support. Full GUI/native/Windows gates remain owed.
+
+---
+
 ## Session 4 (macos) — 2026-09-05 — NOLF, recovery drafts and iklib roadmap review
 
 **Agent**: Codex.

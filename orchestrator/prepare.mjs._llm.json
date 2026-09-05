@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "pty-helper-permissions",
+      "kind": "history",
+      "anchor": {
+        "start": 5,
+        "end": 5,
+        "snippet": "if (process.platform !== 'win32') {"
+      },
+      "note": "The pinned node-pty 1.1.0 macOS arm64 prebuild installed spawn-helper without execute bits. A real PTY failed with posix_spawnp even outside the sandbox. Preserve existing mode bits and add execution only to the known upstream helper paths during npm postinstall.",
+      "refs": [
+        "docs/specs/055-nolf-workspace-goal.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/prepare.mjs",
+    "sha256": "a80465bc16523a74a5b422850827aa3a8603f6cb2b13d4bac32b513a68be84c3",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

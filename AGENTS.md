@@ -8,9 +8,9 @@
 4. Read `docs/architecture.md` and the relevant integration-plan section.
 5. Select one ready, approved feature; read its acceptance criteria before implementing.
 
-During initialization, `docs/features.proposed.json` is a review artifact. If `features.json`
-is absent, continue the design interview and harness setup; do not treat proposals as approved
-implementation tasks. Record owner review before activating the inventory.
+`docs/features.proposed.json` retains the broader design proposal. The owner's active NOLF
+orchestrator goal authorizes the implementation scope in `docs/specs/055-nolf-workspace-goal.md`
+and its active `features.json` rows. No additional review export is required for that scope.
 
 ## Sources of truth
 
@@ -56,8 +56,9 @@ a coherent change. Preserve other sessions' entries and unrelated edits.
   Workspaces support multiple project/worktree roots with explicit per-session bindings; moving
   tabs or changing focus must never retarget terminal, file, agent or game operations.
 - `iklib`, `infra-vr`, and training keep their own source and feature authorities.
-- Sibling checkouts are read-only during this setup. Later integrations execute from the owning
-  workspace with explicit scope; a local rEngine task cannot mark another project's feature done.
+- Sibling changes are scoped to the required NOLF adapter integration under the active goal and
+  follow that workspace's rules. A local task cannot mark another project's feature done. Preserve
+  unrelated active worktrees; prefer a separately buildable adapter where the host supports it.
 - New components use explicit inputs and versioned dependencies; no required `~/...` paths,
   hidden downloads, global mutable configuration, or mandatory umbrella runtime.
 - Honor the training project's held-out-data and grader boundaries. Recording a run does not
@@ -76,5 +77,5 @@ Keep source files under 1,000 lines. Public API documentation stays with the API
 rationale belongs in `._llm.json` sidecars using the installed llm-sidecar skill; refresh anchors
 and review stamps when editing an annotated file. Cross-file decisions belong in specs.
 
-The initializer is responsible for a usable harness and reviewable plan, not implementation of
-the proposed shared engine/tool features.
+The initialization phase is complete. Pursue the active NOLF workspace goal through implementation
+and runtime verification; the larger library/Quest/training proposal remains independently scoped.
