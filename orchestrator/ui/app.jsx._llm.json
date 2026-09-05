@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "explicit-pane-binding",
+      "kind": "rationale",
+      "anchor": {
+        "start": 40,
+        "end": 40,
+        "snippet": "const add = (tab, location = DockLocation.CENTER) => {"
+      },
+      "note": "Tab configuration stores root and session identity. The project selector governs only new operations. Files and sessions opened from the tree target the main area; subsequent tab moves preserve their configuration. Layout is flushed with drafts before acknowledging normal native-window close."
+    }
+  ],
+  "source": {
+    "path": "orchestrator/ui/app.jsx",
+    "sha256": "ffc88ea8fda9ed5a67d93ca234a6aef3b50948fc4b7fba7826b02f66e0015045",
+    "format": "javascript-jsx",
+    "format_fingerprint": "11ad0a4bbf93a56c64f822ad858d1df4b80558927984313e6232f0cce2f843ae"
+  }
+}

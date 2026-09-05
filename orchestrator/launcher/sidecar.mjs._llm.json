@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "startup-ownership",
+      "kind": "rationale",
+      "anchor": {
+        "start": 41,
+        "end": 41,
+        "snippet": "export async function ensureSidecar(directory) {"
+      },
+      "note": "An exclusive local lock serializes startup and transfers its recorded PID to the spawned sidecar before releasing the launcher. An observation timeout keeps that ownership while the process is alive. Only an absent process allows stale startup ownership to be removed; health or identity failure of an alive instance never launches a duplicate. The authenticated descriptor is published by atomic rename."
+    }
+  ],
+  "source": {
+    "path": "orchestrator/launcher/sidecar.mjs",
+    "sha256": "6eea153184ea65bd4b6d67ebf5e1c90a488f69228ba8268326d1579c36d614a7",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

@@ -10,10 +10,11 @@ quality and maintenance of that base. [Library quality](library-quality.md) defi
 admission questions and evidence.
 
 The owner also requested an IDE/orchestrator. Its UI arranges project views and live sessions;
-its agent launcher configures the selected CLI and integrations. See the
+its agent launcher selects the CLI; MCP bootstrap remains in progress. See the
 [orchestrator spec](specs/002-orchestrator.md). The GUI is a consumer of reusable components and
-project adapters; engines and libraries remain independently usable. No UI toolkit or terminal/
-game-surface transport has been selected.
+project adapters; engines and libraries remain independently usable. Electron/React/FlexLayout,
+CodeMirror and xterm connect to a separate Node/node-pty sidecar under F55 qualification. Native
+game-surface transport remains in progress; toolkit selection is not a completed platform claim.
 
 ## Ownership
 
@@ -102,7 +103,7 @@ game simulation or require the training stack to launch a game.
 | `catalog/` (future) | Curated entries and conformance evidence |
 | `adapters/` (future) | Development-tool adapters; runtime glue usually stays with the host |
 | `templates/` (future) | Minimal agent-neutral project harness and optional native wrappers |
-| `orchestrator/` (future) | Workspace UI and session integration; layout is not yet implemented |
+| `orchestrator/` | Desktop UI, launcher, retained session service and acceptance tests; live game integration in progress |
 
 Do not create empty runtime modules to imply progress. Introduce each directory with its first
 complete artifact. Broad design rationale lives here or in a spec; file-local notes use sidecars.

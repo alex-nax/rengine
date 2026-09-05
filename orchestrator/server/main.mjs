@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { readFile, writeFile, stat } from 'node:fs/promises';
+import { readFile, writeFile, rename, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import path from 'node:path';
@@ -128,7 +128,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const index = process.argv.indexOf('--state');
   const stateDir = path.resolve(index >= 0 ? process.argv[index + 1] : path.join(homedir(), '.local/state/rengine'));
   const instance = await startServer({ stateDir });
-  await writeFile(path.join(stateDir, 'sidecar.json'), JSON.stringify({ url: instance.url, token: instance.token, instance: instance.instance, pid: process.pid }), { mode: 0o600 });
+  const descriptor = path.join(stateDir, 'sidecar.json');
+  await writeFile(`${descriptor}.${process.pid}.tmp`, JSON.stringify({ url: instance.url, token: instance.token, instance: instance.instance, pid: process.pid }), { mode: 0o600 });
+  await rename(`${descriptor}.${process.pid}.tmp`, descriptor);
   console.log(`rEngine sidecar listening at ${instance.url}`);
   let stopping = false;
   const stop = async () => { if (stopping) return; stopping = true; await instance.close(); process.exit(0); };

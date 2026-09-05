@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "close-draft-handshake",
+      "kind": "rationale",
+      "anchor": {
+        "start": 14,
+        "end": 14,
+        "snippet": "app.whenReady().then(async () => {"
+      },
+      "note": "The renderer has no Node integration and only narrow preload IPC. A normal close waits for recovery drafts and layout to reach the sidecar, with a visible error retaining the window if checkpointing fails. A renderer crash may close using the last completed checkpoint. Closing the GUI does not stop the independent sidecar or its processes."
+    }
+  ],
+  "source": {
+    "path": "orchestrator/desktop/main.cjs",
+    "sha256": "9b42375b14d46eb4fd8b2cda4f6d5fbc75cc119f452394e101e29bb7f45eb031",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "retained-buffer-and-write-order",
+      "kind": "rationale",
+      "anchor": {
+        "start": 9,
+        "end": 9,
+        "snippet": "const buffers = new Map();"
+      },
+      "note": "Each root/path pair owns one retained EditorView so tab remounts preserve undo and unsaved text. Draft writes queue before Save; saving is reserved before the first await to coalesce repeated Save actions. Edits made while Save is pending get a new draft based on its returned disk version. Closing the desktop awaits all buffer checkpoints. This does not establish power-loss durability."
+    }
+  ],
+  "source": {
+    "path": "orchestrator/ui/buffers.js",
+    "sha256": "f8208e55b6ccabc4161d6453c3867a8add914e84538a9b2a4c2b6171a980c0f0",
+    "format": "javascript",
+    "format_fingerprint": "397cc7395a5b30abc2d87ad72f98c45366ad1d4d1b2372e940122fd100fda425"
+  }
+}

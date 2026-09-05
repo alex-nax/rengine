@@ -1,5 +1,35 @@
 # Progress Log
 
+## Session 6 (macos) — 2026-09-05 — Working desktop panes and retained-sidecar launcher
+
+**Goal turn classification**: progress. Pushed the foundation commit as requested, then added
+the launchable Electron/React workspace. The full NOLF/editor/agent objective remains active;
+all 15 feature gates remain false pending their full host/platform criteria.
+
+**Implemented**: Tree, retained CodeMirror buffers, optional Vim, explicit Save/conflict actions,
+xterm sessions, FlexLayout splits and movable tabs, session browser, saved layout and awaited
+draft flush on normal desktop exit. The native window exposes only project selection and close
+handshake IPC. `npm start -- --project DIR --agent ID` builds the UI and starts or reuses a separate
+Node sidecar, then opens a project-bound shell and agent. Startup ownership and authenticated
+instance checks prevent duplicate sidecars; an alive unavailable process remains an error.
+
+**Verification**: Eleven service/launcher tests pass, including concurrent launchers sharing one
+real sidecar. The Electron test passes real editor Save, external-disk conflict preservation,
+Discard/reload, Vim `ggdd`, keyboard input executed by a real PTY, terminal tab movement, GUI exit,
+same-PID reattachment and draft recovery in the editor. The initial missing-desktop run timed out;
+after implementation the full desktop test passes in about 6.3 seconds. Inspected its screenshot;
+corrected file/session placement so the main area is used when opening from the tree. Test shells
+use Bash on macOS to avoid an interactive profile updater; production still honors the user shell.
+
+**Limitations**: No live game tab, real installed-agent session proof or MCP bootstrap yet.
+Windows execution and release packaging remain unverified. Image previews, forced-crash recovery,
+power-loss durability and full resource budgets are still owed. No NOLF source/assets changed.
+
+**Next**: Implement and verify the SDL2/OpenGL live NOLF surface, finish agent integration and
+exercise the actual NOLF workspace. Preserve independent roots and retained process lifetimes.
+
+---
+
 ## Session 5 (macos) — 2026-09-05 — Begin the authorized NOLF workspace implementation
 
 **Goal turn classification**: progress. The previous push completed; this first implementation

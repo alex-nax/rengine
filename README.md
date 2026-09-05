@@ -10,8 +10,25 @@ run a Bash selection/installation launcher and bootstrap that agent's project in
 
 **Status: desktop implementation in progress.** The active NOLF workspace goal authorizes the
 desktop and agent scope in [F55](docs/specs/055-nolf-workspace-goal.md). The sidecar file/session
-services and standalone agent launcher have automated tests; the GUI, game surface and full
-Mac/Windows workflow are not yet verified. Run `npm ci` then `npm test` for this implementation.
+services, standalone agent launcher and desktop tree/editor/terminal workflow have automated
+macOS tests. The live game surface and full Mac/Windows workflow remain in progress.
+
+With Node 22.12 or later installed:
+
+```sh
+npm ci
+npm start -- --project /absolute/path/to/nolf-improved --agent codex
+```
+
+This opens the project tree, a shell and the installed agent. Omit `--agent` to use the saved
+preference or the terminal selection menu; Manage agents offers explicit install/download and
+update actions. Windows agent launching requires Git Bash (`RENGINE_BASH` can select its path).
+The game tab is still being implemented. Agent MCP bootstrap is also pending.
+
+The sidecar retains sessions when the desktop closes; use Session browser to attach or Stop.
+State defaults to `~/.local/state/rengine`; `--state DIR` selects an isolated workspace. Working
+files change on Save; unsaved text is checkpointed locally and flushed before normal GUI exit.
+Run `npm test` for services/launcher checks and `npm run test:desktop` for the real desktop test.
 
 The project boundary is established by
 the owner's brief and library-first clarification. Curated upstream plus our own gaps and iklib
