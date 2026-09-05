@@ -1,5 +1,37 @@
 # Progress Log
 
+## Session 14 (macos) — 2026-09-05 — Qualify the normal native NOLF launcher
+
+**Goal turn classification**: progress. The owner's no-Electron/runtime-overhead constraint
+remains explicit in AGENTS, charter and architecture. The future web client stays independent.
+This turn qualified the normal C/microui workflow, beyond the previous isolated component tests.
+
+**Implemented**: `test:workspace` now drives the actual npm launcher, including build, retained
+sidecar and initial NOLF/shell/Codex creation. Optional stdin inspection reports bounded clipped
+control geometry and accepts SDL wheel events; actions still use real native input. Fixed a
+microui hover regression discovered by adding the real source project: schedule one settling
+frame when entering another root container so the first click works without continuous repaint.
+The shared test bridge accepts launcher build output and matches the Windows multi-config path.
+
+**Verification**: Combined check passed in 15.06 s: executed shell output, installed Codex 0.153.4
+with eight connected rEngine MCP tools, real NOLF tree/README, two-root Unicode Save/conflict/
+Discard, dirty editor movement, NOLF Single Player menu input, GUI detach/reattach/restart with
+the same process identities and draft, and session-browser Stop affecting only NOLF. Screenshots
+were inspected; all four test-owned service/session PIDs exited after cleanup. NOLF checkout
+status and source README were preserved. Nineteen service tests, two CTest checks and both existing
+native GUI regressions passed. Evidence: `docs/evidence/native-workspace-macos-2026-09-05.md`.
+
+**Remaining**: All feature gates and the overall goal remain open. Native previews, terminal/
+editor breadth, reconnect/failure recovery, in-level aiming/DPI, packaging/resource budgets and
+Windows qualification remain. KI-023 records observed tab overflow and field/status polish.
+Windows source-transfer approval and the optional Node-service timing answer are still pending;
+neither was inferred from silence. No Windows source transfer occurred.
+
+**Next**: Continue the native workflow gaps and resource/recovery qualification. Preserve C/microui
+presentation and independent game/library ownership through any later service migration.
+
+---
+
 ## Session 13 (macos) — 2026-09-05 — Replace Electron with C/microui
 
 **Goal turn classification**: progress. The owner explicitly rejected Electron and selected C

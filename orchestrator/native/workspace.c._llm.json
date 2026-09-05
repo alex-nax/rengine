@@ -5,19 +5,32 @@
       "id": "native-focus-and-detach",
       "kind": "rationale",
       "anchor": {
-        "start": 164,
-        "end": 164,
+        "start": 179,
+        "end": 179,
         "snippet": "bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {"
       },
       "note": "Pointer focus selects a view without changing its root/session binding. Toolbar focus clears custom editor/terminal/game keyboard routing. Moving a tab keeps its identity. Detaching closes terminal/game display resources but never calls Stop; retained process management belongs to the explicit Sessions controls.",
       "refs": [
         "docs/specs/056-native-desktop.md"
       ]
+    },
+    {
+      "id": "inspection-control-geometry",
+      "kind": "rationale",
+      "anchor": {
+        "start": 3,
+        "end": 3,
+        "snippet": "static void inspect_control(ReApp *a, mu_Context *ui, const char *role, const char *key, int tab) {"
+      },
+      "note": "Only explicit automation allocates the controls array. Record at most 512 clipped visible control rectangles per rendered frame, preserving the actual microui action path and tab/session identity. Production rendering allocates none of this metadata. The test uses ordinary SDL pointer/wheel events to reach controls; it cannot bypass scrolling or call button handlers by name.",
+      "refs": [
+        "docs/specs/055-launch-command-qualification.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/workspace.c",
-    "sha256": "33a62b5b8b90d103646ed2a3bb35dae84f29874e418c23b392c3149fed0e6f78",
+    "sha256": "0133bbd27fdfcfcb34fb03a6c3fc8eb02a72d41e933481bb723be05597d6c68f",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

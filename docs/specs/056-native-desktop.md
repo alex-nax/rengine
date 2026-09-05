@@ -44,11 +44,20 @@ resource use, then qualify the previously declared budgets rather than assuming 
 
 ## Current checkpoint and limits
 
+An event-driven microui host must settle container hover after crossing between roots. Queue one
+additional frame when upstream's next hover root differs; an idle interval must not make the first
+click on a project textbox or another pane ineffective. Do not require a continuous redraw loop.
+
 The C executable builds and renders on macOS. Real file/tree/PTY checks pass, including Unicode
 codepoint editing, explicit Save, external conflict, Discard, moving a dirty editor between panes
 and same-process/draft recovery after GUI restart. The SDL fixture proves live textures, native
 relative capture and first-Escape release/second-Escape delivery. Actual NOLF main-menu to Single
 Player input, same-process restart and explicit Stop pass in an isolated game runtime directory.
+The normal npm launcher also passes the combined macOS workflow: installed Codex with eight
+connected rEngine MCP tools, executed shell output, real NOLF source tree, two-root editing,
+Save/conflict/Discard, dirty-tab movement, retained draft/process identities after GUI restart,
+and game detach/reattach/Stop through the session browser. See the
+[combined evidence](../evidence/native-workspace-macos-2026-09-05.md).
 
 Owned UI/layout/editor/terminal/transport code is C11. Dependencies are pinned in
 `third_party/sources.json` and `orchestrator/native/curl.cmake`; SDL2 is required at 2.32.10.

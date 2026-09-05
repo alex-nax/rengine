@@ -15,7 +15,7 @@
     "start": "node orchestrator/launch.mjs",
     "test:desktop": "npm run build && node --test --test-concurrency=1 orchestrator/tests/native.spec.mjs orchestrator/tests/native-game.spec.mjs",
     "test:nolf": "npm run build && node --test orchestrator/tests/native-nolf.spec.mjs",
-    "test:workspace": "npm run test:desktop"
+    "test:workspace": "node --test orchestrator/tests/native-workspace.spec.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",

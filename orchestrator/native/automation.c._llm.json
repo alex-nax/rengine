@@ -17,7 +17,7 @@
   ],
   "source": {
     "path": "orchestrator/native/automation.c",
-    "sha256": "f2c6860758b7a5fe851381b8e359d59c1f56acb99c4b03b853f69fd51795cf18",
+    "sha256": "66a1d5428ed7d2aa9caf5810efe1aec76107fd24f09fdb8f842c84e2961a1f22",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

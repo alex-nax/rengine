@@ -5,6 +5,10 @@ launcher, sidecar process, desktop and native NOLF executable. The qualification
 isolated application state and an explicit `--inspect-ui` flag, which enables native SDL event
 automation over the process's stdin/stdout. Ordinary launches expose no debugging endpoint.
 The flag does not replace launch/session code, game output, CLI output or user interaction.
+Inspection may report the clipped rectangles of visible controls and accept native wheel events.
+Controls are clicked through ordinary SDL pointer events; inspection must not invoke their actions.
+This metadata is allocated only for explicit inspection, capped at 512 visible controls per frame.
+The test drives the actual npm launcher over inherited stdin/stdout, including its build step.
 
 Before starting terminal/agent sessions for `--launch-game`, check the selected game's prerequisites.
 A missing build/data/adapter must produce a visible error without orphaning newly launched sessions.

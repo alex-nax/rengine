@@ -9,7 +9,7 @@
         "end": 25,
         "snippet": "int main(int argc, char **argv) {"
       },
-      "note": "The C desktop owns only native views, renderer resources and service connections. Normal exit waits for durable draft/layout requests before detaching. The idle loop redraws for SDL/network events rather than continuously repainting a static workspace. --automation is an explicit local testing seam, not a production remote-control endpoint.",
+      "note": "The C desktop owns only native views, renderer resources and service connections. Normal exit waits for durable draft/layout requests before detaching. The event-driven loop schedules one settling frame when microui next_hover_root differs from hover_root; without it the first click after entering another container can miss because hover is computed from the previous frame. Static workspaces do not repaint continuously. --automation allocates optional inspection metadata and is a local testing seam, not a production remote-control endpoint.",
       "refs": [
         "docs/specs/056-native-desktop.md"
       ]
@@ -17,7 +17,7 @@
   ],
   "source": {
     "path": "orchestrator/native/main.c",
-    "sha256": "c489904b3df69942a1685b10152b1bb313c0aeb2850d9674a47de75abb89564f",
+    "sha256": "81e1739d2fe7576deb53ebc66977f189d49d88afd2a78218e2f851efc29a25e1",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

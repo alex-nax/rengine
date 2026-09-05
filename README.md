@@ -34,8 +34,9 @@ processes. It is not linked into the GUI or either game. Service migration timin
 Omit `--agent` to use the saved preference or selection menu. Manage opens the standalone Bash
 agent launcher with explicit find/install/update/launch actions. Windows agent launching requires
 Git Bash (`RENGINE_BASH` selects an alternate path). Agent sessions receive project-bound rEngine
-MCP configuration; the native terminal boots installed Codex 0.153.4 through the Bash launcher. Full native MCP/TUI
-interaction still needs qualification; earlier connected-tool evidence used the former desktop. Existing agent settings and credentials stay with the agent.
+MCP configuration. The combined macOS check boots installed Codex 0.153.4 through Bash and
+verifies `/mcp` reports rEngine connected with eight tools in the native terminal. Existing agent
+settings and credentials stay with the agent.
 
 NOLF uses the selected project's existing `build/relith-nolf`, `nolf/NOLF.REZ`, configuration and
 save directory. Omit `--launch-game` to launch it later from the NOLF button. The macOS adapter
@@ -62,12 +63,16 @@ builds the executable is under `bin/Release`. The GUI uses a trusted system mono
 npm test
 npm run test:desktop
 RENGINE_NOLF_ROOT=/absolute/checkout npm run test:nolf
+RENGINE_NOLF_ROOT=/absolute/checkout npm run test:workspace
 ```
 
 Desktop GUI tests run sequentially to avoid competing for native mouse capture. NOLF qualification
 copies the executable and links only asset archives into an ignored runtime directory, preserving
 the original project's saves/configuration. Native `--inspect-ui` automation uses process stdin;
 normal launches expose no UI debugging endpoint. See [native evidence](docs/evidence/native-desktop-macos-2026-09-05.md).
+The [combined qualification](docs/evidence/native-workspace-macos-2026-09-05.md) exercises the normal
+launcher, installed Codex, real source tree, isolated Save/conflict checks, draft/process recovery
+and game reattachment/Stop through the native session browser. It requires installed, authenticated Codex.
 
 The project boundary is established by
 the owner's brief and library-first clarification. Curated upstream plus our own gaps and iklib

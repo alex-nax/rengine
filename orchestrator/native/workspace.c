@@ -1,5 +1,18 @@
 #include "app.h"
 
+static void inspect_control(ReApp *a, mu_Context *ui, const char *role, const char *key, int tab) {
+  if (!a->controls || cJSON_GetArraySize(a->controls) >= 512) return;
+  mu_Rect r = ui->last_rect, clip = mu_get_clip_rect(ui);
+  int x = re_max(r.x, clip.x), y = re_max(r.y, clip.y);
+  int right = re_min(r.x + r.w, clip.x + clip.w), bottom = re_min(r.y + r.h, clip.y + clip.h);
+  if (right <= x || bottom <= y) return;
+  cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "role", role); cJSON_AddStringToObject(j, "key", key);
+  cJSON_AddNumberToObject(j, "tab", tab); cJSON_AddItemToObject(j, "rect", cJSON_CreateIntArray((int[]){x, y, right - x, bottom - y}, 4));
+  cJSON_AddItemToArray(a->controls, j);
+}
+static int button(ReApp *a, mu_Context *ui, const char *label, const char *role, const char *key, int tab) {
+  int result = mu_button(ui, label); inspect_control(a, ui, role, key, tab); return result;
+}
 static const char *root_name(ReApp *a, const char *id) {
   const cJSON *root = NULL;
   cJSON_ArrayForEach(root, cJSON_GetObjectItemCaseSensitive(a->state, "roots"))
@@ -27,7 +40,7 @@ static void tree_ui(ReApp *a, mu_Context *ui, int index) {
     const char *name = re_string(entry, "name"), *path = re_string(entry, "path");
     bool directory = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(entry, "directory"));
     char label[1024]; snprintf(label, sizeof(label), "%s %s", directory ? ">" : " ", name);
-    if (mu_button_ex(ui, label, 0, 0)) {
+    if (button(a, ui, label, "tree-entry", path, index)) {
       if (strlen(path) >= sizeof(t->path)) { re_copy(t->error, sizeof(t->error), "File path exceeds the view limit."); continue; }
       if (directory) { re_copy(t->path, sizeof(t->path), path); re_app_load(a, index); re_app_layout_changed(a); }
       else re_app_tab(a, RE_EDITOR, t->root, path, "", name);
@@ -43,8 +56,8 @@ static void sessions_ui(ReApp *a, mu_Context *ui) {
     mu_layout_row(ui, 3, (int[]){-155, 80, -1}, 26);
     char label[1024]; snprintf(label, sizeof(label), "%s · %s · %s · PID %d", re_string(session, "title"), root_name(a, root), re_string(session, "state"), re_number(session, "pid"));
     mu_label(ui, label);
-    if (mu_button(ui, "Attach")) re_app_tab(a, !strcmp(re_string(session, "type"), "game") ? RE_GAME : RE_TERMINAL, root, "", id, re_string(session, "title"));
-    if (mu_button(ui, "Stop")) { cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "id", id); re_app_action(a, "stop", j); cJSON_Delete(j); }
+    if (button(a, ui, "Attach", "attach", id, -1)) re_app_tab(a, !strcmp(re_string(session, "type"), "game") ? RE_GAME : RE_TERMINAL, root, "", id, re_string(session, "title"));
+    if (button(a, ui, "Stop", "stop", id, -1)) { cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "id", id); re_app_action(a, "stop", j); cJSON_Delete(j); }
     mu_pop_id(ui);
   }
   mu_layout_row(ui, 1, (int[]){-1}, 24); mu_label(ui, "Recovery drafts");
@@ -55,19 +68,20 @@ static void sessions_ui(ReApp *a, mu_Context *ui) {
   }
 }
 void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
+  if (a->controls) { cJSON_Delete(a->controls); a->controls = cJSON_CreateArray(); }
   int opts = MU_OPT_NOTITLE | MU_OPT_NORESIZE | MU_OPT_NOCLOSE | MU_OPT_NOSCROLL;
   mu_get_container(ui, "Toolbar")->rect = mu_rect(0, 0, width, 78);
   if (mu_begin_window_ex(ui, "Toolbar", mu_rect(0, 0, width, 78), opts)) {
     mu_layout_row(ui, 10, (int[]){78, 75, 75, 75, 80, 95, 120, 125, 85, -1}, 26);
     mu_label(ui, "rEngine");
-    if (mu_button(ui, "Tree")) { if (*a->root) re_app_tab(a, RE_TREE, a->root, "", "", "Project"); }
-    if (mu_button(ui, "Shell")) launch_terminal(a, false, false);
-    if (mu_button(ui, "Agent")) launch_terminal(a, true, false);
-    if (mu_button(ui, "Manage")) launch_terminal(a, true, true);
-    if (mu_button(ui, "Sessions")) re_app_tab(a, RE_SESSIONS, "", "", "", "Sessions");
-    if (mu_button(ui, "Split vertical")) { re_layout_split(&a->layout, a->layout.active, 1); re_app_layout_changed(a); }
-    if (mu_button(ui, "Split horizontal")) { re_layout_split(&a->layout, a->layout.active, 2); re_app_layout_changed(a); }
-    if (mu_button(ui, "NOLF")) {
+    if (button(a, ui, "Tree", "toolbar", "Tree", -1)) { if (*a->root) re_app_tab(a, RE_TREE, a->root, "", "", "Project"); }
+    if (button(a, ui, "Shell", "toolbar", "Shell", -1)) launch_terminal(a, false, false);
+    if (button(a, ui, "Agent", "toolbar", "Agent", -1)) launch_terminal(a, true, false);
+    if (button(a, ui, "Manage", "toolbar", "Manage", -1)) launch_terminal(a, true, true);
+    if (button(a, ui, "Sessions", "toolbar", "Sessions", -1)) re_app_tab(a, RE_SESSIONS, "", "", "", "Sessions");
+    if (button(a, ui, "Split vertical", "toolbar", "Split vertical", -1)) { re_layout_split(&a->layout, a->layout.active, 1); re_app_layout_changed(a); }
+    if (button(a, ui, "Split horizontal", "toolbar", "Split horizontal", -1)) { re_layout_split(&a->layout, a->layout.active, 2); re_app_layout_changed(a); }
+    if (button(a, ui, "NOLF", "toolbar", "NOLF", -1)) {
       cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "rootId", a->root); re_app_action(a, "game", j); cJSON_Delete(j);
     }
     int vim = a->vim;
@@ -84,7 +98,8 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
       }
     }
     mu_textbox(ui, a->project_input, sizeof(a->project_input));
-    if (mu_button(ui, "Add project")) { cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "path", a->project_input); re_app_action(a, "roots", j); cJSON_Delete(j); }
+    inspect_control(a, ui, "textbox", "project", -1);
+    if (button(a, ui, "Add project", "toolbar", "Add project", -1)) { cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "path", a->project_input); re_app_action(a, "roots", j); cJSON_Delete(j); }
     mu_label(ui, "Agent CLI"); mu_textbox(ui, a->agent, sizeof(a->agent));
     mu_end_window(ui);
   }
@@ -126,8 +141,8 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
       else if (t->type == RE_SESSIONS) sessions_ui(a, ui);
       else if (t->type == RE_EDITOR) {
         mu_layout_row(ui, 4, (int[]){65, 80, 130, -1}, 26);
-        if (mu_button(ui, "Save")) re_app_save(a, index);
-        if (mu_button(ui, "Discard")) re_app_discard(a, index);
+        if (button(a, ui, "Save", "save", "", index)) re_app_save(a, index);
+        if (button(a, ui, "Discard", "discard", "", index)) re_app_discard(a, index);
         mu_label(ui, t->editor ? re_editor_mode(t->editor) : "Loading…");
         mu_label(ui, t->conflict ? "Conflict: draft preserved" : t->dirty ? "Unsaved · local draft" : "Saved");
         t->rect = mu_rect(content.x + 6, content.y + 59, re_max(0, content.w - 12), re_max(0, content.h - 85));

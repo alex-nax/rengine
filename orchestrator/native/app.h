@@ -15,7 +15,7 @@ typedef struct { int id, operation, tab, generation, revision; } RePending;
 typedef struct {
   ReNet *net; ReSocket *events; ReLayout layout;
   ReTab tabs[RE_TABS]; RePending pending[128];
-  cJSON *state, *previous_layout;
+  cJSON *state, *previous_layout, *controls;
   char root[65], initial_terminal[65], initial_agent[65], initial_game[65];
   char project_input[1024], agent[256], status[512];
   bool initialized, connected, vim, layout_dirty, quitting;

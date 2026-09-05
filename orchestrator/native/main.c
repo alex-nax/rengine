@@ -53,6 +53,7 @@ int main(int argc, char **argv) {
   mu_Context *ui = calloc(1, sizeof(*ui));
   if (!app || !ui) { re_app_close(app); free(ui); re_draw_close(draw); SDL_DestroyWindow(window); SDL_Quit(); return 1; }
   re_draw_bind(draw, ui);
+  if (automation) app->controls = cJSON_CreateArray();
   Uint32 automation_event = automation ? re_automation_start() : 0;
   bool running = true, closing = false; int frames = 0, result = 0; cJSON *capture = NULL;
   SDL_StartTextInput();
@@ -73,6 +74,7 @@ int main(int argc, char **argv) {
     if (!redraw && frames && !smoke && !closing) continue;
     int width, height; SDL_GetWindowSize(window, &width, &height);
     mu_begin(ui); re_app_ui(app, ui, width, height); mu_end(ui);
+    if (ui->hover_root != ui->next_hover_root) { SDL_Event settle = {.type = SDL_USEREVENT}; SDL_PushEvent(&settle); }
     re_draw_begin(draw, width, height); re_draw_commands(draw, ui); re_app_draw(app, draw);
     re_draw_text(draw, app->status, -1, 8, height - 24, mu_color(146, 167, 178, 255));
     if (capture) {
