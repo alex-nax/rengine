@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "validate-before-allocation",
+      "kind": "rationale",
+      "anchor": {
+        "start": 8,
+        "end": 8,
+        "snippet": "export class FrameDecoder {"
+      },
+      "note": "Every frame header is validated before allocating its payload. Incremental copies handle arbitrary TCP fragmentation without repeated whole-buffer concatenation. RGBA rows are bottom-up; the renderer explicitly flips them once. Frame length and dimension constraints must agree with the native producer and renderer."
+    }
+  ],
+  "source": {
+    "path": "orchestrator/server/surface-protocol.mjs",
+    "sha256": "92293950d3b74258b9a3da6510dab45baeae22474c980d7ac475199a408276ce",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

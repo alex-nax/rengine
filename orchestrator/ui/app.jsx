@@ -4,6 +4,7 @@ import { Actions, DockLocation, Layout, Model } from 'flexlayout-react';
 import { api, connect, subscribe } from './client.js';
 import { flushBuffers, setVim } from './buffers.js';
 import { EditorPane, SessionPane, TerminalPane, TreePane } from './panes.jsx';
+import { GamePane } from './game.jsx';
 import 'flexlayout-react/style/dark.css';
 import '@xterm/xterm/css/xterm.css';
 import './style.css';
@@ -49,7 +50,7 @@ function App({ initial }) {
   const openFile = (boundRoot, path) => add({ id: `file:${JSON.stringify([boundRoot, path])}`, name: path.split('/').pop(), component: 'editor', config: { rootId: boundRoot, path } });
   const attach = session => {
     if (session.type === 'editor') return openFile(session.rootId, session.path);
-    add({ id: `session:${session.id}`, name: session.title, component: 'terminal', config: { id: session.id, rootId: session.rootId } });
+    add({ id: `session:${session.id}`, name: session.title, component: session.type === 'game' ? 'game' : 'terminal', config: { id: session.id, rootId: session.rootId } });
   };
   const launch = (type, action = 'launch') => act(async () => {
     await api('preferences', { agent, vim });
@@ -60,7 +61,7 @@ function App({ initial }) {
   useEffect(() => {
     setVim(vim).catch(error => setError(error.message));
     if (requested.has('root')) tree(rootId);
-    for (const name of ['terminal', 'agent']) {
+    for (const name of ['terminal', 'agent', 'game']) {
       const session = initial.sessions.find(item => item.id === requested.get(name));
       if (session) attach(session);
     }
@@ -85,6 +86,7 @@ function App({ initial }) {
       case 'tree': return <TreePane root={root} openFile={openFile} />;
       case 'editor': return <EditorPane {...config} />;
       case 'terminal': return <TerminalPane {...config} />;
+      case 'game': return <GamePane {...config} name={root.name} />;
       default: return <div className="empty-pane"><strong>Your workspace</strong><p>Open a tree, terminal or agent here.</p><p>Drag tabs to arrange your panes.</p></div>;
     }
   };
@@ -102,6 +104,7 @@ function App({ initial }) {
       })}>Add project</button>
       <button disabled={!rootId} onClick={() => tree(rootId)}>Project tree</button>
       <button disabled={!rootId || busy} onClick={() => launch('terminal')}>New terminal</button>
+      <button disabled={!rootId || busy} onClick={() => act(async () => { attach(await api('game', { rootId })); await refresh(); })}>Launch NOLF</button>
       <button onClick={() => act(async () => { await flushBuffers(); await refresh(); add({ id: 'sessions', name: 'Sessions', component: 'sessions' }); })}>Session browser</button>
       <div className="toolbar-spacer" />
       <button title="Split active pane vertically" onClick={() => add({ id: crypto.randomUUID(), name: 'Empty pane', component: 'empty' }, DockLocation.RIGHT)}>Split right</button>

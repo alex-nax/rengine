@@ -1,5 +1,31 @@
 # Progress Log
 
+## Session 7 (macos) — 2026-09-05 — Live NOLF game pane and native input
+
+**Goal turn classification**: progress. Implemented the native SDL2/OpenGL surface, bounded
+authenticated frame/input transport, NOLF preflight/launch, canvas presentation and game-session
+reattachment. Desktop checkpoint committed as `c09d2a8`. The complete goal remains active.
+
+**Verified**: Actual existing NOLF build renders its menu live in the desktop. Enter opens Single
+player through the native input path; a pixel-region assertion and inspected screenshot corroborate
+the transition. Moving and closing the tab, restarting the GUI and reattaching retain the same PID;
+explicit Stop reaches exited state. The expanded NOLF test passes in about 10.3 seconds. A separate
+real SDL/GL fixture verifies key-down/release, pixel orientation and preservation of pixel-pack
+state (pass, about 13.4 seconds). Thirteen service/protocol tests pass. Detailed host/executable
+hashes and local artifact hashes are in `docs/evidence/nolf-surface-macos-2026-09-05.md`.
+
+**Failures resolved**: The SDK does not ship dyld's private interpose header; the adapter now
+declares the documented two-pointer Mach-O section directly. The first NOLF test's polling code
+forgot to await a browser attribute, producing NaN; corrected and reran after the prior run ended.
+No NOLF source/assets were edited; pre-existing host worktree status was preserved.
+
+**Remaining**: Full gameplay/relative aiming/DPI/performance, image previews, installed-agent/MCP
+proof, forced-crash recovery and Windows qualification. The Windows cooperative API source exists;
+host integration is unverified. Asked which Windows host is available while continuing
+independent agent work. No blocker or completion state is claimed; feature gates stay false.
+
+---
+
 ## Session 6 (macos) — 2026-09-05 — Working desktop panes and retained-sidecar launcher
 
 **Goal turn classification**: progress. Pushed the foundation commit as requested, then added

@@ -70,7 +70,7 @@ export class Sessions extends EventEmitter {
 
   async terminal({ rootId, type = 'terminal', agent, action = 'launch', command, args, cols = 100, rows = 30, env = {} }) {
     const root = this.store.root(rootId);
-    if (!['terminal', 'agent'].includes(type)) fail('Unsupported terminal type.');
+    if (!['terminal', 'agent', 'game'].includes(type)) fail('Unsupported terminal type.');
     this.dimensions(cols, rows);
     let file = command ?? (process.platform === 'win32' ? 'powershell.exe' : process.env.SHELL ?? '/bin/bash');
     let argv = args ?? (process.platform === 'win32' ? ['-NoLogo'] : ['-l']);
@@ -82,7 +82,8 @@ export class Sessions extends EventEmitter {
     if (typeof file !== 'string' || !Array.isArray(argv) || argv.some(arg => typeof arg !== 'string')) fail('Invalid executable or arguments.');
     const child = pty.spawn(file, argv, { name: 'xterm-256color', cols, rows, cwd: root.path,
       env: shellEnvironment({ ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents') }) });
-    const item = { id: randomUUID(), rootId, type, ...(type === 'agent' ? { agent: agent ?? '' } : {}), title: type === 'agent' ? `${agent || 'Choose agent'} · ${root.name}` : `Terminal · ${root.name}`,
+    const item = { id: randomUUID(), rootId, type, ...(type === 'agent' ? { agent: agent ?? '' } : {}),
+      title: type === 'agent' ? `${agent || 'Choose agent'} · ${root.name}` : `${type === 'game' ? 'NOLF' : 'Terminal'} · ${root.name}`,
       pid: child.pid, child, state: 'running', createdAt: Date.now(), cols, rows, output: '', sequence: 0 };
     this.items.set(item.id, item);
     child.onData(data => {

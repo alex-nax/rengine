@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "capability-and-input-owner",
+      "kind": "rationale",
+      "anchor": {
+        "start": 6,
+        "end": 6,
+        "snippet": "export class Surfaces extends EventEmitter {"
+      },
+      "note": "Each per-game capability associates exactly one input and frame connection with one live session. Browser viewers use the workspace capability at the HTTP upgrade, then focus grants one viewer input ownership. Detach or blur releases held controls. Slow viewers receive the next latest frame only when their send buffer is empty; this is local raw-frame transport, not a Quest protocol. Input sockets have a bounded write backlog."
+    }
+  ],
+  "source": {
+    "path": "orchestrator/server/surfaces.mjs",
+    "sha256": "5d56713f7b1b06fab1de40617b9382cce00f686906bf33fe12b808a1d5727162",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

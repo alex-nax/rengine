@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "surface-identity-and-presentation",
+      "kind": "rationale",
+      "anchor": {
+        "start": 16,
+        "end": 16,
+        "snippet": "export function GamePane({ id, name }) {"
+      },
+      "note": "The pane is bound to one game session ID through tab movement and reconnection. Bottom-up RGBA is flipped into a bounded canvas buffer, retaining only the newest pending animation frame. Focus owns native input; blur and detach release held controls. Current coordinates assume logical and drawable dimensions coincide, as observed in the initial NOLF menu run. High-DPI, relative aiming and pointer capture loss remain qualification work."
+    }
+  ],
+  "source": {
+    "path": "orchestrator/ui/game.jsx",
+    "sha256": "1e9824784c1d7581d98b89d951b51585dfc08e9eb506b39e7d7ec141bd8c50ec",
+    "format": "javascript-jsx",
+    "format_fingerprint": "11ad0a4bbf93a56c64f822ad858d1df4b80558927984313e6232f0cce2f843ae"
+  }
+}

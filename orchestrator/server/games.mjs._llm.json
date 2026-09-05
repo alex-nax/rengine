@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "explicit-host-adapter",
+      "kind": "rationale",
+      "anchor": {
+        "start": 9,
+        "end": 9,
+        "snippet": "export class Games {"
+      },
+      "note": "Preflight names the actual NOLF executable/data and its own checkout cwd. Concurrent launch requests are coalesced per root; later requests reattach to a running game. The current macOS path qualifies SDL interposition against the existing development build. Windows launch remains an explicit unsupported-integration error until the cooperative surface is wired and proven in that host; source portability is not a passing platform gate."
+    }
+  ],
+  "source": {
+    "path": "orchestrator/server/games.mjs",
+    "sha256": "170300dd259bedffec6190cfcc667cd5c5f5ab0a90e7c90d13c400a011a15478",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

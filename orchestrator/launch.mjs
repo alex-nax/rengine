@@ -11,6 +11,7 @@ for (let index = 2; index < process.argv.length; index++) {
     if (!process.argv[index + 1]) throw new Error(`Missing value for ${flag}`);
     options[flag.slice(2)] = process.argv[++index];
   } else if (flag === '--no-agent') options.noAgent = true;
+  else if (flag === '--launch-game') options.launchGame = true;
   else if (flag === '--help') {
     console.log('npm start -- [--project DIR] [--agent codex|claude|gemini|opencode|EXEC] [--state DIR] [--no-agent]\nThe desktop detaches on exit; manage retained processes in Session browser.');
     process.exit(0);
@@ -34,6 +35,7 @@ if (options.project) {
     session ??= await request(instance, 'terminal', { rootId: root.id, type: 'agent', agent, action: agent ? 'launch' : 'menu' });
     query.set('agent', session.id);
   }
+  if (options.launchGame) query.set('game', (await request(instance, 'game', { rootId: root.id })).id);
 }
 const { default: electron } = await import('electron');
 const env = { ...process.env, RENGINE_UI_URL: `${instance.url}/?${query}#${instance.token}` };

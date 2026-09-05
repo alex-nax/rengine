@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "development-interposition",
+      "kind": "rationale",
+      "anchor": {
+        "start": 14,
+        "end": 14,
+        "snippet": "static const struct { const void* replacement; const void* original; }"
+      },
+      "note": "macOS development binaries explicitly load this image with DYLD_INSERT_LIBRARIES. The Mach-O interpose tuples cover both host swap call sites without editing the sibling project. This SDK lacks the private dyld header, so the required two-pointer records are declared directly. Calls from this image continue to original SDL functions. Relative mouse requests are represented by the browser capture control instead of grabbing the desktop pointer. This does not promise compatibility with hardened/signed third-party apps."
+    }
+  ],
+  "source": {
+    "path": "adapters/sdl2/interpose_macos.cpp",
+    "sha256": "189d4de187f949a0c0f3c9cf0bb51c646cf7153aebcc3999c911deafe9515fb7",
+    "format": "cpp",
+    "format_fingerprint": "2d233b6da8ecf11656dc0c873eec1bcc38ba089c331fdf6956b5a0f1d5a145fc"
+  }
+}

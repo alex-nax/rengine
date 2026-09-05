@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "bounded-render-network",
+      "kind": "rationale",
+      "anchor": {
+        "start": 60,
+        "end": 60,
+        "snippet": "class Surface {"
+      },
+      "note": "Only the GL/main thread calls frame/next. Separate workers handle frame writes and input reads; one pending frame replaces older work, and the input queue resets held controls on overflow/disconnect. Pixel readback is synchronous and the hot path still allocates and takes a brief mutex; resource budgets and lower-cost GPU transfer remain unqualified. The GL hook preserves default read-buffer selection, read FBO and pixel-pack state. Logical/physical DPI behavior requires separate qualification."
+    }
+  ],
+  "source": {
+    "path": "adapters/sdl2/surface.cpp",
+    "sha256": "b02901a9b415e0a1bea32b84d27728822ce1997781760b938e724cd234a482af",
+    "format": "cpp",
+    "format_fingerprint": "2d233b6da8ecf11656dc0c873eec1bcc38ba089c331fdf6956b5a0f1d5a145fc"
+  }
+}

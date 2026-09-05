@@ -5,8 +5,8 @@
       "id": "desktop-does-not-own-sidecar",
       "kind": "rationale",
       "anchor": {
-        "start": 20,
-        "end": 20,
+        "start": 21,
+        "end": 21,
         "snippet": "await import('./build.mjs');"
       },
       "note": "The development launcher uses system Node for native PTY ABI consistency. It reuses live sessions by explicit root/type/agent identity and opens their existing IDs in the desktop. Desktop exit affects this launcher only. Installer/package prerequisites remain explicit; this is not yet an installable Windows/macOS release."
@@ -14,7 +14,7 @@
   ],
   "source": {
     "path": "orchestrator/launch.mjs",
-    "sha256": "b6bc87cd16920545fb0ca3b0d1a5d1de1ee11b00010c96a7a889430405bb6a3b",
+    "sha256": "695df75623f8e3b2925fd1161349d3d5ff82566ac16207236c3164af7f7f8625",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

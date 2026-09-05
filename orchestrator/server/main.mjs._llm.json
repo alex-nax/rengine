@@ -5,8 +5,8 @@
       "id": "local-session-capability",
       "kind": "constraint",
       "anchor": {
-        "start": 28,
-        "end": 28,
+        "start": 29,
+        "end": 29,
         "snippet": "export async function startServer({ stateDir, port = 0, staticDir = defaultStatic } = {}) {"
       },
       "note": "This is a loopback-only desktop service. HTTP and WebSocket requests need the private runtime token and compatible Origin; it is not the Quest pairing protocol. Tokens stay in mode-0600 local state, never tracked files. Slow sockets reconnect to bounded retained output without stopping sessions.",
@@ -17,7 +17,7 @@
   ],
   "source": {
     "path": "orchestrator/server/main.mjs",
-    "sha256": "174123f37f4a0bf309c2a34e9ceb2864dfb99fc02f6765a0a9a7d518685f4147",
+    "sha256": "a7765e7e8e172192c0f60a44f21e020d3498b9ef9da6f1cfb7227200eeebe865",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

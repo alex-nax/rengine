@@ -11,8 +11,10 @@
     "postinstall": "node orchestrator/prepare.mjs",
     "test": "node --test orchestrator/tests/*.test.mjs",
     "build": "node orchestrator/build.mjs",
+    "build:surface": "cmake -S adapters/sdl2 -B .cache/native -DCMAKE_BUILD_TYPE=Release && cmake --build .cache/native --config Release",
     "start": "node orchestrator/launch.mjs",
-    "test:desktop": "npm run build && node --test orchestrator/tests/desktop.spec.mjs"
+    "test:desktop": "npm run build && node --test orchestrator/tests/desktop.spec.mjs",
+    "test:nolf": "npm run build && node --test orchestrator/tests/nolf.spec.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "6.11.0",

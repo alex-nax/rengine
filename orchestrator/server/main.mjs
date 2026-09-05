@@ -7,6 +7,7 @@ import path from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { WorkspaceStore, fail } from './store.mjs';
 import { Sessions } from './sessions.mjs';
+import { Games } from './games.mjs';
 
 const defaultStatic = fileURLToPath(new URL('../../dist/', import.meta.url));
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
@@ -29,6 +30,7 @@ export async function startServer({ stateDir, port = 0, staticDir = defaultStati
   if (!stateDir) fail('The sidecar requires an explicit state directory.');
   const store = await WorkspaceStore.open(stateDir);
   const sessions = new Sessions(store);
+  const games = await Games.open(store, sessions);
   const token = randomBytes(32).toString('hex');
   const instance = randomUUID();
   let url;
@@ -48,6 +50,7 @@ export async function startServer({ stateDir, port = 0, staticDir = defaultStati
             case '/api/tree': value = await store.list(query.get('rootId'), query.get('path') ?? '', query.get('hidden') === 'true'); break;
             case '/api/file': value = await store.readText(query.get('rootId'), query.get('path')); break;
             case '/api/session': value = sessions.snapshot(query.get('id'), true); break;
+            case '/api/game-config': value = await games.inspect(query.get('rootId')); break;
             default: fail('Unknown workspace endpoint.', 404);
           }
         } else if (request.method === 'POST') {
@@ -60,7 +63,10 @@ export async function startServer({ stateDir, port = 0, staticDir = defaultStati
             case '/api/discard': await store.discardDraft(data.rootId, data.path); value = { ok: true }; break;
             case '/api/layout': await store.saveLayout(data.layout); value = { ok: true }; break;
             case '/api/preferences': value = await store.preferences(data); break;
-            case '/api/terminal': value = await sessions.terminal(data); break;
+            case '/api/terminal':
+              if (data.type && !['terminal', 'agent'].includes(data.type)) fail('Use the game adapter to launch a game.');
+              value = await sessions.terminal(data); break;
+            case '/api/game': value = await games.launch(data.rootId); break;
             case '/api/input': sessions.input(data.id, data.data); value = { ok: true }; break;
             case '/api/resize': sessions.resize(data.id, data.cols, data.rows); value = { ok: true }; break;
             case '/api/stop': value = await sessions.stop(data.id); break;
@@ -85,12 +91,16 @@ export async function startServer({ stateDir, port = 0, staticDir = defaultStati
     }
   });
   const sockets = new WebSocketServer({ noServer: true, maxPayload: 2 * 1024 * 1024 });
+  const gameSockets = new WebSocketServer({ noServer: true, maxPayload: 4096 });
   server.on('upgrade', (request, socket, head) => {
     const target = new URL(request.url, 'http://127.0.0.1');
-    if (target.pathname !== '/events' || !authorized(target.searchParams.get('token'), token) || (request.headers.origin && request.headers.origin !== url)) {
+    if (!['/events', '/surface'].includes(target.pathname) || !authorized(target.searchParams.get('token'), token) || (request.headers.origin && request.headers.origin !== url)) {
       socket.end('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n'); return;
     }
-    sockets.handleUpgrade(request, socket, head, ws => sockets.emit('connection', ws));
+    if (target.pathname === '/surface') gameSockets.handleUpgrade(request, socket, head, ws => {
+      ws.on('error', () => {}); games.attach(target.searchParams.get('id'), ws);
+    });
+    else sockets.handleUpgrade(request, socket, head, ws => sockets.emit('connection', ws));
   });
   sockets.on('connection', ws => {
     ws.on('error', () => {});
@@ -115,10 +125,13 @@ export async function startServer({ stateDir, port = 0, staticDir = defaultStati
   });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
   url = `http://127.0.0.1:${server.address().port}`;
-  return { url, token, instance, store, sessions, async close() {
+  return { url, token, instance, store, sessions, games, async close() {
     for (const client of sockets.clients) client.terminate();
     sockets.close();
     await sessions.shutdown();
+    await games.close();
+    for (const client of gameSockets.clients) client.terminate();
+    gameSockets.close();
     await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });
     await store.persisting;
   } };
