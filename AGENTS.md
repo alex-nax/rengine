@@ -40,8 +40,15 @@ a coherent change. Preserve other sessions' entries and unrelated edits.
 
 ## Boundaries
 
-- rEngine owns reusable harness/tool contracts and curation. Games own their engine architecture,
-  ECS choice, assets, compatibility behavior, release cadence, and engine-specific adapters.
+- rEngine's primary product is a quality library base and its integration knowledge. Reusable
+  harness/tool contracts support that base. Games own their engine architecture, ECS choice,
+  assets, compatibility behavior, release cadence, and engine-specific adapters.
+- The owner also requested a tab/pane IDE-orchestrator. Its scoped design is in
+  `docs/specs/002-orchestrator.md`; it does not replace a game's runtime or make GUI use mandatory
+  for library consumption. Initial desktop targets are macOS/Windows, with adapters first and
+  basic editing plus optional Vim mode. Quest uses the shared 2D workspace with a desktop sidecar
+  before later spatial panes. Views detach; the sidecar retains sessions managed by a session
+  browser. Implementation starts with the desktop workspace, terminals and a live flat-game tab.
 - `iklib`, `infra-vr`, and training keep their own source and feature authorities.
 - Sibling checkouts are read-only during this setup. Later integrations execute from the owning
   workspace with explicit scope; a local rEngine task cannot mark another project's feature done.

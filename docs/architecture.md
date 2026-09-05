@@ -3,14 +3,27 @@
 Status: proposed decomposition constrained by the owner's requirement for independent projects.
 No common runtime, plugin ABI, ECS, renderer, physics SDK, or model provider has been selected.
 
+The primary product is the quality library base clarified in charter D07. Each game composes a
+selected set of implementations around its own needs; AI can author its integration and game
+code using explicit library contracts and executable examples. Harness tooling supports the
+quality and maintenance of that base. [Library quality](library-quality.md) defines the proposed
+admission questions and evidence.
+
+The owner also requested an IDE/orchestrator. Its UI arranges project views and live sessions;
+its agent launcher configures the selected CLI and integrations. See the
+[orchestrator spec](specs/002-orchestrator.md). The GUI is a consumer of reusable components and
+project adapters; engines and libraries remain independently usable. No UI toolkit or terminal/
+game-surface transport has been selected.
+
 ## Ownership
 
 | Boundary | Owns | Consumer retains |
 | --- | --- | --- |
-| rEngine harness | Task/session contracts, evidence envelopes, reusable checks and templates | Local feature truth, commands, policies and acceptance gates |
 | rEngine catalog | Capability descriptions, source provenance, reviewed version references, integration recipes | Dependency selection and upgrade timing |
 | Reusable component | A narrow documented API, standalone tests, versioned releases | Host allocation/threading/lifecycle/axis conventions through explicit seams |
 | Engine adapter | Translation between a shared capability and the host | ILT interfaces or Source scripting/entity behavior, ECS and game policy |
+| rEngine harness | Task/session contracts, evidence envelopes, reusable checks and templates | Local feature truth, commands, policies and acceptance gates |
+| rEngine orchestrator | Workspace layouts, session views, agent launcher and integration discovery | Game build/runtime, CLI agent behavior and project-owned policies |
 | Training bridge | Proposed export of eligible immutable evidence | Training repo's split classification, rubrics, grading and readiness decision |
 
 Component source may live in an independent repository, as iklib and infra-vr already do.
@@ -28,6 +41,9 @@ flowchart TD
   Evidence --> Bridge[Explicit eligibility/export bridge]
   Bridge --> Training[vr-port-agent-training intake]
   Catalog[rEngine curated catalog] -. describes .-> Components
+  Workspace[Tab and pane workspace] --> Sessions[Terminal, game and tool sessions]
+  Sessions --> HostAdapters[Project and surface adapters]
+  Workspace --> AgentLaunch[CLI selection and MCP bootstrap]
 ```
 
 The engine may build selected library source, but libraries must not import its internals.
@@ -56,6 +72,13 @@ game simulation or require the training stack to launch a game.
    and log per repo avoid divergent Claude/Codex histories.
 10. Training exports are explicit and classified. Withheld fixes, protected tests and frozen
     evaluation material never become ordinary agent context through a shared index or catalog.
+11. Pane layout is distinct from process ownership. Session IDs connect display, terminal/input,
+    tool endpoints and project identity. Moving a tab must preserve that binding. Final close,
+    detach and application-exit behavior is confirmed: views detach and the sidecar retains sessions;
+    explicit Stop terminates the selected session. A session browser manages/reattaches views.
+12. Long-lived interactive PTYs and game sessions are distinct from bounded verification jobs.
+    A check runner's timeout must not silently govern an interactive agent terminal. MCP control
+    and visual presentation are separate adapters bound to the same intended runtime session.
 
 ## Initial files and future placement
 
@@ -70,6 +93,7 @@ game simulation or require the training stack to launch a game.
 | `catalog/` (future) | Curated entries and conformance evidence |
 | `adapters/` (future) | Development-tool adapters; runtime glue usually stays with the host |
 | `templates/` (future) | Minimal agent-neutral project harness and optional native wrappers |
+| `orchestrator/` (future) | Workspace UI and session integration; layout is not yet implemented |
 
 Do not create empty runtime modules to imply progress. Introduce each directory with its first
 complete artifact. Broad design rationale lives here or in a spec; file-local notes use sidecars.

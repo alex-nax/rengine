@@ -4,6 +4,20 @@ Status: **proposed**, pending the charter interview. This document plans host-ow
 not authorize or claim modifications to the reference workspaces. Task IDs below are rEngine
 proposal IDs unless prefixed with an external repository name.
 
+The owner clarified that the library base is primary (charter D07). The tables below describe
+independent capability paths, not a requirement to complete R-L1–3/R-S1–3 harness adoption before
+runtime work. The proposed first library proof uses the existing iklib migrations and native
+host gates; shared runner implementation can follow a demonstrated need. Library/pilot selection
+is still under interview; the owner confirmed one library in both games. See
+[quality proposal](library-quality.md).
+
+The owner then selected the desktop orchestrator as the first implementation milestone, with
+macOS/Windows, terminals and actual flat-game output in a new tab. Its F42 surface contract and
+F43/F44 host adapters are independent of the library migrations and earlier harness-adoption
+rows below. Flat NOLF is the recommended first runtime target; reSource follows through its own
+adapter. [Orchestrator scope](specs/002-orchestrator.md) includes retained sidecar sessions, the
+session browser, basic editing/Vim and the later Quest 2D client.
+
 ## Shared acceptance rule
 
 Every adoption names the consumer repository, game target, reviewed component/tool revision,

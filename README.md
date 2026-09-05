@@ -1,16 +1,27 @@
 # rEngine
 
-rEngine is the shared development harness, curated library collection, and tooling for
-independently maintained game reimplementations. reLith and reSource are its first intended
-consumers. The eventual name is **realEngine**.
+rEngine is a quality library base for AI-assisted development of purpose-built game engines.
+Its curated components, integration knowledge, tools and harness support independently maintained
+projects. reLith and reSource are its first intended consumers. The eventual name is **realEngine**.
+
+The planned IDE is a tab-and-pane orchestrator: arrange terminals, project/file views, coding
+agents, live game output and integrated tools in one workspace. An initial agent terminal will
+run a Bash selection/installation launcher and bootstrap that agent's project integrations.
 
 **Status: initial design interview and harness setup.** The project boundary is established by
-the owner's brief; the first deliverable, adoption contract, and implementation order are still
-under review. No engine has been migrated by this repository.
+the owner's brief and library-first clarification; the first library proof, adoption contract,
+and implementation order are still under review. Curated upstream plus our own gaps and one
+library proven in both games are confirmed. Desktop IDE support starts with macOS and Windows,
+using game/tool adapters first and including basic text editing with optional Vim mode. Quest
+starts with the same 2D workspace backed by a desktop sidecar; delivery and external-app support
+are under investigation. Views detach from retained sessions, managed in a session browser.
+The first implementation milestone is desktop workspace, terminals and a live flat-game tab.
+No engine has been migrated and no IDE implemented by this repository.
 
-The aim is to make game work easier for people and coding agents: discover the right tools,
-make bounded changes, reproduce behavior, retain trustworthy verification evidence, and feed
-eligible work into the separate agent-training project.
+The primary value is reusable, dependable implementation that an agent can select and compose
+for a game's needs. Library contracts, executable examples, host integration evidence and clear
+limitations make that base usable. The harness supports its quality and maintenance; eligible
+development evidence can later feed the separate agent-training project.
 
 Each game keeps its own architecture. A project can choose flecs, another framework, or its
 existing object model. Shared components must earn their place through actual consumers.
@@ -33,6 +44,10 @@ helper validates the proposal and reports that execution has not been activated.
 | [Progress](Codex-progress.md) | Latest verified work and next action |
 | [Charter and interview](docs/specs/000-charter.md) | Owner decisions, recommendations, and open questions |
 | [Architecture](docs/architecture.md) | Ownership and dependency boundaries |
+| [Library quality proposal](docs/library-quality.md) | What makes a component dependable and practical for an agent to use |
+| [Orchestrator specification](docs/specs/002-orchestrator.md) | Tab/pane workflow, process boundaries, agent bootstrap and open choices |
+| [Meta XR Operator investigation](docs/research/meta-xr-operator.md) | Verified upstream capabilities and unverified native-host compatibility |
+| [Quest and app-pane feasibility](docs/research/quest-and-app-surfaces.md) | Quest delivery routes, desktop sidecar design and platform constraints |
 | [Project reconnaissance](docs/reconnaissance.md) | Evidence from the existing repositories |
 | [Roadmap](docs/roadmap.md) | Proposed milestones and their exit conditions |
 | [Integration plan](docs/integration-plan.md) | reLith, reSource, iklib, infra-vr, and training handoffs |

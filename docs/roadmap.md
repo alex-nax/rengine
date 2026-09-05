@@ -1,73 +1,136 @@
 # Proposed roadmap
 
-Status: **draft for owner review**. The charter's first round may change the first milestone.
-[features.proposed.json](features.proposed.json) contains the concrete proposed acceptance slices;
-it becomes `features.json` only after review. All features are initially non-passing. Harness setup
-itself is recorded in the progress log, not disguised as completed product functionality.
+Status: **draft for owner review, revised after the library-base clarification**.
+[features.proposed.json](features.proposed.json) contains the proposed acceptance slices;
+it becomes `features.json` only after review. All features remain non-passing. The existing
+bootstrap is setup infrastructure; shared libraries and real integrations have not been
+implemented by rEngine yet.
 
-## Milestones and exit conditions
+## Product direction
+
+The owner selected a quality library base as the primary value: AI can help build individual
+implementations around a game's needs, using dependable components. Our first recommendation of
+leading with a shared command runner is superseded. The proposed path now establishes library
+quality and proves actual adoption; supporting harness work follows concrete needs.
+
+The owner confirmed curated upstream plus our own gaps and one library proven in both games.
+The table uses iklib as the existing candidate, not an owner-confirmed named selection. Its host
+tasks already exist and retain their ownership and acceptance criteria.
+
+The owner subsequently added the IDE/orchestrator and selected **desktop workspace, terminals
+and a flat game rendered into a new tab as the first implementation milestone**, on macOS and
+Windows from the start. The library base remains an independent product path. See the desktop
+milestones below; implementation need not wait for the entire library/training charter.
+
+## Library and reusable harness milestones
 
 | Milestone | Proposed features | Deliverable | Exit condition |
 | --- | --- | --- | --- |
-| M0 — agree on the product | F1 | Reviewed charter and prioritized pilot | First workflow, project independence, “powered by” meaning, platform scope and non-goals decided. |
-| M1 — prove a shared tool | F2–F8 | Project adapter, evidence contract, local runner, one native check per engine | Both native checks retain identical outcomes through the shared tool; artifact hashes and timeout/skip/error semantics verified. |
-| M2 — adopt the harness | F9–F12 | Minimal templates, independent tool pins, upgrade/rollback proof | Each consumer adopts from its own workspace, keeps local rules, and works without sibling paths. |
-| M3 — curate real components | F13–F17 | Catalog contract, pin/override rules, iklib recipe, infra-vr packaging plan/proof | One component is consumed independently by two host-shaped fixtures; unsupported profiles remain explicit. |
-| M4 — prove runtime adoption (optional branch) | F18–F21 | Existing IK migrations and their host evidence | reSource core then reLith parity, separate finger follow-up, and per-game compatibility evidence. |
-| M5 — connect work to learning (optional branch) | F22–F25 | Report/repro evidence and explicit training intake bridge | Eligible record reaches training's validation path; held-out/hidden/tampered examples are rejected. No training run implied. |
-| M6 — validate breadth and maintainability | F26–F30 | Resource coordination, reuse assessment, new-host trial and compatibility/audit summary | Adoption and failures remain inspectable; further extraction justified by real consumers and measured cost. |
+| M0 — define the base and quality bar | F1, F31 | Reviewed charter, first proof and library quality standard | Library ownership/wrapping policy, selected capability, quality criteria, target profiles and success measures decided. |
+| M1 — qualify real components | F13–F17, F27 | Capability map, catalog admission, pins, iklib recipe and infra-vr packaging work | First selected component has verified contracts, consumption examples, resource requirements and a concrete host integration path. |
+| M2 — prove value inside games | F18–F21 | Proposed iklib adoption in reSource and reLith, separate finger follow-up and per-game evidence | Actual host behavior/gates hold; obsolete duplicated implementation is removed; integration cost, resource behavior and rollback are recorded. |
+| M3 — support composition and maintenance | F2–F12, F26 | Reusable verification/evidence tools, minimal harness templates and resource coordination | Tools address observed integration needs and preserve the native host outcomes, local authority and independent upgrades. |
+| M4 — connect work to learning | F22–F25 | Report/repro evidence and explicit training intake bridge | Eligible evidence reaches training validation; held-out/hidden/tampered examples are rejected. No training run implied. |
+| M5 — validate breadth and maintainability | F28–F30 | Independent host fixture, scoped powered-by records and quality audit | Adoption remains independent and evidence-backed; next base expansion follows measured consumer needs. |
 
-The proposed first useful product is **M1**, not completion of the whole table. M3 can follow M0
-alongside the tool branch if packaging is the chosen pain point. M4 and M5 are separately scoped;
-neither is required merely to build a game. F26's reservation work precedes shared-device or
-concurrent runner claims; the first runner proof can use isolated CPU fixtures.
+The first proposed product proof combines the chosen M1 library with its M2 real-game adoption.
+The separate infra-vr recipe and finger migration need not delay that first proof unless selected
+as part of its scope. The larger table remains a planning inventory, not a requirement to finish
+all entries before rEngine delivers value. M3 is not a prerequisite for M1/M2: existing native
+checks and host harnesses can establish the first library's evidence.
 
-## First integration slice, concretely
+F26's reservation work precedes shared-device or concurrent runner claims. This does not grant
+authority to launch a device or require a distributed scheduler for local library work.
 
-Recommended pilot: wrap one CPU check from NOLF and one from VtMB using each host's native
-invocation, record structured outcomes plus raw logs and source identity, and demonstrate that a
-failed/skipped/timed-out check cannot be reported as passing. Use isolated prepared workspaces
-when actual native commands would mutate builds. Initial source discovery is read-only.
+## First library proof, concretely
 
-The exact pair of checks and target platform are deliberately selected in F1 with the owner.
-That selection fixes the M1 budget and avoids a generic orchestration project with no acceptance
-case. The proof must include actual invocations from both engines before claiming M1 complete;
-fixtures alone only qualify the runner implementation.
+Recommended candidate: iklib. It already has portable solvers, integration presets and pending
+host migrations. Define the [quality standard](library-quality.md), recheck the current seams,
+pin one revision, and complete the selected adoption work using native host gates and recorded
+behavior. The integration plan keeps reSource core, NOLF parameter parity, separate reSource
+fingers and per-game reLith evidence distinct.
+
+Measure what the base contributes: duplicated implementation retired, effort needed to integrate,
+correctness/behavior preserved, representative resource costs and the ability to upgrade/revert
+one game independently. Set tolerances and budgets before executing the proof. A small package
+fixture establishes consumability; a working real host establishes adoption.
+
+The first library strategy is settled. If the owner selects a different named library, revise
+the proposed integration tasks while retaining the one-library/two-game proof.
+
+## First desktop release and later workspace capabilities
+
+The [orchestrator spec](specs/002-orchestrator.md) records the owner decisions and detailed
+workflow. The first useful desktop release includes the O0/O1/O3 path through **F48**; an empty
+shell or terminal-only app does not complete it. F43 is a real host-owned game integration.
+
+| Milestone | Proposed features | Exit condition |
+| --- | --- | --- |
+| O0 — qualify the implementation | F32–F33 | Pin the first flat game and scope; prove terminal/editor/game-surface feasibility on macOS and Windows before selecting the stack. |
+| O1 — workspace and retained sessions | F34–F38, F54 | Splits/tabs, real terminals, tree/previews/basic editor with optional Vim, independent sidecar, persistence and session browser work on both desktops. |
+| O3 — live game and tool views | F42–F45 | Cooperative surface contract and actual host output/input; F43 supplies the first flat game, F44 adds reSource and F45 another tool separately. |
+| O5 — desktop v0 complete | F48 | Actual empty-to-split/edit/terminal/game-tab workflow, moves, detach/browser/reattach, GUI restart and explicit stop, on both desktops. |
+| O2 — CLI agent onboarding | F39–F41 | Bash selector/installer recipes and project MCP bootstrap work visibly and independently of the GUI. |
+| O4 — optional native XR control | F46–F47 | Native runtime compatibility and real session-specific Operator proof; no assumed Unity scene support. |
+| Q0–Q2 — Quest 2D client | F49–F52 | Delivery decision, paired desktop link, real editor/terminal access and live game stream on a headset with each desktop sidecar. |
+| A0 — external-app feasibility | F53 | Finite Mac/Windows app matrix for capture/control and optional Windows reparenting, with honest view-only/interactive limitations. |
+
+The O/Q/A names identify independent branches; their numbers do not override dependency order.
+F32 is independently selectable ahead of the broader library-charter feature F1. The first
+prototype's suggested game is flat NOLF because the owner reports it working; its exact host
+revision, native build and scope are established in F32. F44 is a later second-engine adapter,
+not a reason to postpone the first NOLF workflow or a claim that NOLF evidence covers VtMB.
+
+Closing tabs/windows detaches views, while the sidecar retains sessions. The session browser is
+required in v0. Basic editing includes the agreed optional Vim subset; a full IDE language-server
+or debugger ecosystem is not part of that requirement. Agent installation, Quest distribution,
+external apps and XR automation have distinct gates after the first desktop proof. The ordering
+of those later gates relative to the first library proof remains a prioritization decision.
+
+Quest uses the shared 2D workspace first; independently placed spatial panes follow later.
+Official [feasibility research](research/quest-and-app-surfaces.md) supports Android/PWA delivery
+options. A package, remote input/stream and native Quest-game coexistence must each be tested
+before claims are made. macOS/Windows support is required from the first desktop release.
 
 ## Planning precision
 
-Each proposed feature has an owning workspace, dependencies, acceptance criteria, and an output
-artifact. A host-owned migration cannot become ready just because rEngine's local dependency
-graph is green: confirm the referenced host feature, current seam and workspace authority first.
-`tools/features.py next` only offers work owned by this checkout; external rows are handoffs.
+IDs remain stable across this unapproved draft's revision; milestone membership, priorities and
+dependencies reflect the library-first direction. Each feature has an owning workspace,
+dependencies, acceptance criteria and output. Accepted feature history has not been rewritten.
 
-Near-term features are implementation slices. Later discovery features end in a decision or
-bounded follow-up list, not a promise to implement an unknown renderer/ECS/editor. No calendar
-dates or session estimates are asserted without the selected pilot and available hardware budget.
+A host-owned migration requires the referenced host feature, current seam and workspace authority;
+a green local dependency graph alone cannot satisfy those prerequisites. `tools/features.py next`
+only offers approved work owned by this checkout. External rows are handoffs.
 
 Before starting a feature, write its spec with:
 
-- Current source identity, exact affected API/files and external prerequisites.
-- User-visible result and what would falsify the design.
-- Commands, fixtures, baseline, pass/fail rules and required manual/device evidence.
-- Change owner and consumer owner, version/pin policy, and rollback method.
-- Maximum initial slice; new discoveries become explicit follow-up work.
+- Current source identity, affected interfaces/files and external prerequisites.
+- Consumer result, selection tradeoffs and evidence that would falsify the design.
+- Commands, fixtures, baseline, resource budgets and required manual/device observations.
+- Component/consumer owner, version policy and rollback method.
+- Maximum initial slice; discoveries become explicit follow-up work.
 
-## Scope choices still requiring answers
+Near-term entries describe implementation slices. Later discovery entries end in decisions and
+bounded follow-ups. Calendar dates and effort estimates await the selected proof and resources.
 
-- Whether the first deliverable is shared tooling, runtime adoption or a complete training loop.
-- Whether any capability is mandatory for “powered by rEngine.”
-- infra-vr's product relationship, catalog admission and dependency distribution policy.
-- Platform/mode priorities, available hardware, per-run budgets and automation authority.
-- Whether “AI-era” includes in-game inference or focuses on the development lifecycle.
+## Open decisions
 
-## Explicitly deferred pending demand
+- Named first library, detailed quality bar and per-component conventions.
+- Desktop toolkit, flat-game baseline, multi-root identity, editing/Vim details and resource budgets.
+- Later agent recipes/Windows Bash environment, Quest packaging and runtime-control ownership.
+- Minimum commitment for “powered by rEngine” and each project's upgrade autonomy.
+- infra-vr's product relationship and the meaning of the two streams.
+- In-game inference scope, training data boundaries and automation authority.
 
-A new renderer, engine-wide ECS, editor, universal game object model, package hosting service,
-general distributed scheduler, custom model runtime and training cluster have no approved
-deliverable here. Each would need a concrete consumer problem and a separate decision.
+## Expansion requires a consumer need
 
-Generate the graph from the active reviewed inventory (or the clearly labeled proposal):
+A new renderer, common ECS, universal game object model, package-hosting service, general
+distributed scheduler, custom model runtime or training cluster has no approved deliverable here.
+The workspace/basic editor is now explicitly requested; its earlier blanket deferral is superseded.
+Curating implementation for a specific rendering or ECS need remains possible without selecting
+it for every project.
+
+Generate the graph from the active reviewed inventory or the clearly labeled proposal:
 
 ```sh
 python3 tools/features.py graph > docs/roadmap-graph.md

@@ -8,25 +8,25 @@
       "id": 1,
       "milestone": "M0",
       "category": "design",
-      "priority": "high",
-      "description": "Record the reviewed charter and one concrete pilot workflow.",
+      "priority": "medium",
+      "description": "Record the reviewed library-base charter and first real integration proof.",
       "acceptance_criteria": [
-        "Record owner answers on first outcome, both streams, project independence, powered-by minimum, and infra-vr relationship with attribution.",
-        "Name one native check per pilot engine, initial platform/mode, required resources, success measurement and bounded effort budget.",
-        "Review the feature proposal and record accepted scope before activating features.json."
+        "Record owner decisions on library-base purpose, upstream/authored ownership, wrapper policy, both streams, project independence, powered-by minimum and infra-vr relationship with attribution.",
+        "Select the named first library, both real game consumers, target profiles, quality measures, resource budgets and bounded integration effort; preserve the confirmed curated-upstream/own-gaps strategy.",
+        "Review the revised library-first proposal and record accepted scope before activating features.json."
       ],
       "passes": false,
       "dependencies": [],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/001-pilot.md",
+      "deliverable": "docs/specs/001-library-pilot.md",
       "external_references": [],
       "evidence": []
     },
     {
       "id": 2,
-      "milestone": "M1",
+      "milestone": "M3",
       "category": "contracts",
-      "priority": "high",
+      "priority": "medium",
       "description": "Specify a project adapter contract that preserves native commands and policies.",
       "acceptance_criteria": [
         "Versioned schema represents repository identity, game target, progress/inventory paths, argv commands, working directory, verification tiers and capabilities.",
@@ -44,9 +44,9 @@
     },
     {
       "id": 3,
-      "milestone": "M1",
+      "milestone": "M3",
       "category": "contracts",
-      "priority": "high",
+      "priority": "medium",
       "description": "Specify a verification result envelope with honest non-pass states.",
       "acceptance_criteria": [
         "Contract records pass, fail, skip, infrastructure_error, timeout and pending_manual distinctly, with declared required checks.",
@@ -64,9 +64,9 @@
     },
     {
       "id": 4,
-      "milestone": "M1",
+      "milestone": "M3",
       "category": "tooling",
-      "priority": "high",
+      "priority": "medium",
       "description": "Implement one local native-command runner with bounded process lifetime.",
       "acceptance_criteria": [
         "Execute argv directly in an explicit workspace; preserve native exit status, stdout and stderr without shell interpolation.",
@@ -85,9 +85,9 @@
     },
     {
       "id": 5,
-      "milestone": "M1",
+      "milestone": "M3",
       "category": "evidence",
-      "priority": "high",
+      "priority": "medium",
       "description": "Write immutable, verifiable run bundles from runner results.",
       "acceptance_criteria": [
         "Bundle includes source revision plus dirty patch identity when relevant, adapter/tool version, declared check inventory, results and hashed logs.",
@@ -105,9 +105,9 @@
     },
     {
       "id": 6,
-      "milestone": "M1",
+      "milestone": "M3",
       "category": "adapters",
-      "priority": "high",
+      "priority": "medium",
       "description": "Describe and exercise the selected reLith check through a local adapter.",
       "acceptance_criteria": [
         "Resolve current native check command from the host and identify NOLF, AVP2 and NOLF2 separately; use the F1-selected pilot target only.",
@@ -126,9 +126,9 @@
     },
     {
       "id": 7,
-      "milestone": "M1",
+      "milestone": "M3",
       "category": "adapters",
-      "priority": "high",
+      "priority": "medium",
       "description": "Describe and exercise the selected reSource check through a local adapter.",
       "acceptance_criteria": [
         "Resolve the selected native check from the current host; encode everyday/slow/data/manual tiers without weakening required gates.",
@@ -147,14 +147,14 @@
     },
     {
       "id": 8,
-      "milestone": "M1",
+      "milestone": "M3",
       "category": "integration",
-      "priority": "high",
+      "priority": "medium",
       "description": "Demonstrate the same tool on both real engine pilots.",
       "acceptance_criteria": [
         "Archive validated bundles from actual native invocations in both selected engine snapshots and compare with their direct baselines.",
         "Demonstrate at least one intentional non-pass that remains non-passing through aggregation; infrastructure problems are not hidden.",
-        "Record the F1 success measurement and whether the workflow earns further adoption; fixtures alone do not complete this feature."
+        "Record wrapper overhead and outcome preservation against direct native invocation; justify further tooling adoption from the actual integration needs. Fixtures alone do not complete this feature."
       ],
       "passes": false,
       "dependencies": [
@@ -169,9 +169,9 @@
     },
     {
       "id": 9,
-      "milestone": "M2",
+      "milestone": "M3",
       "category": "harness",
-      "priority": "high",
+      "priority": "medium",
       "description": "Package a minimal agent-neutral harness template with local policy extension.",
       "acceptance_criteria": [
         "Generate a usable instruction entry point, single progress log, feature helper, spec template and bootstrap in a temporary repository.",
@@ -189,9 +189,9 @@
     },
     {
       "id": 10,
-      "milestone": "M2",
+      "milestone": "M3",
       "category": "host-adoption",
-      "priority": "high",
+      "priority": "medium",
       "description": "Adopt a pinned rEngine tool capability in the reLith workspace.",
       "acceptance_criteria": [
         "Host owner records an approved integration task and adopts a reviewed immutable tool version with a local adapter.",
@@ -209,9 +209,9 @@
     },
     {
       "id": 11,
-      "milestone": "M2",
+      "milestone": "M3",
       "category": "host-adoption",
-      "priority": "high",
+      "priority": "medium",
       "description": "Adopt a pinned rEngine tool capability in the reSource workspace.",
       "acceptance_criteria": [
         "Host owner records an approved integration task and adopts a reviewed immutable tool version with a local adapter.",
@@ -229,9 +229,9 @@
     },
     {
       "id": 12,
-      "milestone": "M2",
+      "milestone": "M3",
       "category": "release",
-      "priority": "high",
+      "priority": "medium",
       "description": "Prove independent tool upgrade and rollback in both consumers.",
       "acceptance_criteria": [
         "Use host-owned evidence to show one consumer upgrades while the other remains on its reviewed version.",
@@ -250,9 +250,9 @@
     },
     {
       "id": 13,
-      "milestone": "M3",
+      "milestone": "M1",
       "category": "catalog",
-      "priority": "medium",
+      "priority": "high",
       "description": "Define the catalog admission and compatibility record for real components.",
       "acceptance_criteria": [
         "Owner decides required provenance/license documentation, maintainer, immutable source identity, capability, platforms and independent-consumption evidence.",
@@ -261,7 +261,7 @@
       ],
       "passes": false,
       "dependencies": [
-        1
+        31
       ],
       "owner_workspace": "rengine",
       "deliverable": "catalog schema and admission policy",
@@ -270,9 +270,9 @@
     },
     {
       "id": 14,
-      "milestone": "M3",
+      "milestone": "M1",
       "category": "packaging",
-      "priority": "medium",
+      "priority": "high",
       "description": "Define reproducible dependency pins and explicit developer overrides.",
       "acceptance_criteria": [
         "Choose one consumption mechanism with owner input at F1/F13 and test immutable revision/checksum resolution.",
@@ -290,9 +290,9 @@
     },
     {
       "id": 15,
-      "milestone": "M3",
+      "milestone": "M1",
       "category": "packaging",
-      "priority": "medium",
+      "priority": "high",
       "description": "Publish a reviewed local iklib consumption recipe and two fixture proofs.",
       "acceptance_criteria": [
         "Use the actual iklib CMake target and supported source-tree model at a reviewed revision; do not invent an install package.",
@@ -301,7 +301,8 @@
       ],
       "passes": false,
       "dependencies": [
-        14
+        14,
+        27
       ],
       "owner_workspace": "rengine",
       "deliverable": "catalog/iklib entry and consumption evidence",
@@ -316,9 +317,9 @@
     },
     {
       "id": 16,
-      "milestone": "M3",
+      "milestone": "M1",
       "category": "discovery",
-      "priority": "medium",
+      "priority": "high",
       "description": "Resolve the infra-vr embeddable packaging boundary from both host closures.",
       "acceptance_criteria": [
         "Pin and compare both actual INFRA_VR_DIR build closures, target/option collisions, microui ownership and optional transport/platform dependencies.",
@@ -336,9 +337,9 @@
     },
     {
       "id": 17,
-      "milestone": "M3",
+      "milestone": "M1",
       "category": "packaging",
-      "priority": "medium",
+      "priority": "high",
       "description": "Prove pinned infra-vr consumption with both host-shaped build fixtures.",
       "acceptance_criteria": [
         "Implement the reviewed recipe or consume its owner-landed upstream change at an immutable pin.",
@@ -348,7 +349,8 @@
       "passes": false,
       "dependencies": [
         14,
-        16
+        16,
+        27
       ],
       "owner_workspace": "rengine",
       "deliverable": "catalog/infra-vr recipe and fixture evidence",
@@ -357,9 +359,9 @@
     },
     {
       "id": 18,
-      "milestone": "M4",
+      "milestone": "M2",
       "category": "host-adoption",
-      "priority": "medium",
+      "priority": "high",
       "description": "Complete the existing reSource core IK migration from its owning workspace.",
       "acceptance_criteria": [
         "Re-pin current host seam, map a host-owned feature to iklib:F131, and satisfy its unchanged acceptance criteria.",
@@ -379,9 +381,9 @@
     },
     {
       "id": 19,
-      "milestone": "M4",
+      "milestone": "M2",
       "category": "host-adoption",
-      "priority": "medium",
+      "priority": "high",
       "description": "Complete the existing reLith IK migration with NOLF parameter parity.",
       "acceptance_criteria": [
         "Resolve iklib F130 V2 constant comparison against current host before changing solver behavior; use explicit per-host parameters if needed.",
@@ -402,9 +404,9 @@
     },
     {
       "id": 20,
-      "milestone": "M4",
+      "milestone": "M2",
       "category": "host-adoption",
-      "priority": "medium",
+      "priority": "high",
       "description": "Complete the separate reSource finger IK migration.",
       "acceptance_criteria": [
         "Map the engine-side finger seam outside src/vrik to the existing iklib:F133 scope.",
@@ -424,14 +426,15 @@
     },
     {
       "id": 21,
-      "milestone": "M4",
+      "milestone": "M2",
       "category": "integration",
-      "priority": "medium",
+      "priority": "high",
       "description": "Record runtime adoption evidence by engine, game and supported profile.",
       "acceptance_criteria": [
         "Reference host-owned migration commits and immutable evidence without changing external feature states from this workspace.",
         "Distinguish NOLF, AVP2, NOLF2 and VtMB plus flat/VR/platform profiles; list verified, unaffected, pending or unsupported honestly.",
-        "Each verified row includes component revision, host gates and rollback evidence; coordinate optional iklib:F132 as separate future work."
+        "Each verified row includes component revision, host gates and rollback evidence; coordinate optional iklib:F132 as separate future work.",
+        "For the first library proof, retain host integration effort, replaced production duplication and representative resource evidence; evaluate the agreed F1/F31 quality measures."
       ],
       "passes": false,
       "dependencies": [
@@ -450,7 +453,7 @@
     },
     {
       "id": 22,
-      "milestone": "M5",
+      "milestone": "M4",
       "category": "evidence",
       "priority": "medium",
       "description": "Define report-to-reproduction metadata around existing infra-vr reports.",
@@ -471,7 +474,7 @@
     },
     {
       "id": 23,
-      "milestone": "M5",
+      "milestone": "M4",
       "category": "evidence",
       "priority": "medium",
       "description": "Represent oracle and manual/device evidence without replacing native gates.",
@@ -492,7 +495,7 @@
     },
     {
       "id": 24,
-      "milestone": "M5",
+      "milestone": "M4",
       "category": "training",
       "priority": "medium",
       "description": "Specify an explicit eligibility-checked development evidence export.",
@@ -516,7 +519,7 @@
     },
     {
       "id": 25,
-      "milestone": "M5",
+      "milestone": "M4",
       "category": "host-adoption",
       "priority": "medium",
       "description": "Demonstrate the evidence bridge in the training-owned intake path.",
@@ -538,7 +541,7 @@
     },
     {
       "id": 26,
-      "milestone": "M6",
+      "milestone": "M3",
       "category": "operations",
       "priority": "medium",
       "description": "Coordinate explicitly reserved workspaces and scarce test resources.",
@@ -558,28 +561,27 @@
     },
     {
       "id": 27,
-      "milestone": "M6",
+      "milestone": "M1",
       "category": "discovery",
-      "priority": "medium",
-      "description": "Evaluate one next shared component against real duplicated host needs.",
+      "priority": "high",
+      "description": "Map both games' library needs and select the first base-building candidate.",
       "acceptance_criteria": [
-        "Select one candidate from current host evidence and document API/behavior differences and maintenance cost.",
-        "Decide extract, curate existing library, or leave local with reasons and a falsifying acceptance case.",
-        "Any accepted implementation is a separately reviewed bounded feature; do not land a speculative subsystem during discovery."
+        "Map relevant existing dependencies and duplicated capabilities across both games with current source references and actual integration differences.",
+        "For the initial scope, classify curate upstream, extract our own component, implement a demonstrated gap or keep host-local; do not mark untested candidates qualified.",
+        "Confirm the named first library and record its two-game integration slices, quality gaps and bounded follow-ups; align existing iklib/infra-vr work rather than duplicating ownership."
       ],
       "passes": false,
       "dependencies": [
-        8,
-        13
+        31
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/decisions/next-component.md",
+      "deliverable": "docs/library-coverage.md and first-candidate decision",
       "external_references": [],
       "evidence": []
     },
     {
       "id": 28,
-      "milestone": "M6",
+      "milestone": "M5",
       "category": "integration",
       "priority": "medium",
       "description": "Prove a new host can adopt a capability without either game engine.",
@@ -590,7 +592,6 @@
       ],
       "passes": false,
       "dependencies": [
-        9,
         15
       ],
       "owner_workspace": "rengine",
@@ -600,19 +601,19 @@
     },
     {
       "id": 29,
-      "milestone": "M6",
+      "milestone": "M5",
       "category": "release",
       "priority": "medium",
       "description": "Define evidence-backed powered-by records for both engine families.",
       "acceptance_criteria": [
         "Apply the owner-agreed powered-by minimum from F1; list exact adopted capabilities, pins and verified game/platform/profile rows.",
-        "Retain runtime adoption only where separately proven; tools-only adoption is labeled according to the agreed contract.",
+        "Include only separately proven tool/runtime capabilities; a library adoption does not require completing the later shared-runner branch.",
         "Do not relabel a pending host, publish branding changes or require an unrelated component to claim a verified capability."
       ],
       "passes": false,
       "dependencies": [
-        12,
-        13
+        13,
+        21
       ],
       "owner_workspace": "rengine",
       "deliverable": "docs/compatibility.md and adoption record format",
@@ -621,22 +622,525 @@
     },
     {
       "id": 30,
-      "milestone": "M6",
+      "milestone": "M5",
       "category": "harness",
       "priority": "medium",
       "description": "Audit the harness and decide the next bounded roadmap from measured results.",
       "acceptance_criteria": [
         "Validate feature graph, local document links, source/evidence freshness and owner-workspace boundaries; record drift with repair actions.",
-        "Compare first-pilot benefit and maintenance cost against F1 measures, including failures and deferred verification.",
+        "Compare first-library integration benefit, resource measurements and maintenance cost against F1/F31 measures, including failed and deferred verification.",
         "Review the next work with the owner; preserve accepted feature history and do not expand into an editor/runtime without a named need."
       ],
       "passes": false,
       "dependencies": [
-        8,
-        13
+        13,
+        21
       ],
       "owner_workspace": "rengine",
       "deliverable": "docs/audits/first-cycle.md and reviewed follow-up proposal",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 31,
+      "milestone": "M0",
+      "category": "design",
+      "priority": "high",
+      "description": "Agree the library quality standard and the usable integration knowledge package.",
+      "acceptance_criteria": [
+        "Owner reviews applicable correctness, API/ownership/threading, composition, resource, portability, maintenance and agent-usability criteria; requirements remain scoped per component.",
+        "Distinguish candidate, qualified component and verified real-consumer adoption with explicit evidence for each claim.",
+        "Apply the standard to the selected first library and define the minimum executable examples, contract context, native checks, measurements and failure cases before integration."
+      ],
+      "passes": false,
+      "dependencies": [
+        1
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/library-quality.md and selected-library qualification spec",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 32,
+      "milestone": "O0",
+      "category": "design",
+      "priority": "high",
+      "description": "Specify the first desktop workspace, terminal and flat-game integration slice.",
+      "acceptance_criteria": [
+        "Carry forward macOS/Windows, empty-to-split layout, movable tabs, basic editing/optional Vim, persistent sidecar sessions and the session browser as confirmed requirements.",
+        "Pin the first flat game and host build profile; specify actual rendered output/input in a new tab, native host ownership and acceptance commands on both platforms.",
+        "Define project/worktree identity, unsaved-buffer recovery, initial Vim subset and measured terminal/editor/game budgets; keep agent installers, Quest and XR as later gates."
+      ],
+      "passes": false,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/032-desktop-v0.md",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 33,
+      "milestone": "O0",
+      "category": "discovery",
+      "priority": "high",
+      "description": "Qualify the desktop UI, terminal and game-surface stack on macOS and Windows.",
+      "acceptance_criteria": [
+        "Compare a small set of existing layout/editor/terminal components against native desktop and later Quest-client constraints with source/license/version references.",
+        "On both platforms demonstrate a real PTY, editable text/Vim-mode feasibility and a real cooperative graphical surface with resize/input; static mockups are insufficient.",
+        "Measure agreed budgets and choose an implementation stack with known limits and rollback; failure produces a revised proposal, not a supported-platform claim."
+      ],
+      "passes": false,
+      "dependencies": [
+        32
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/decisions/desktop-stack.md and bounded feasibility prototype",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 34,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "Implement the empty workspace with recursive splits and movable tab groups.",
+      "acceptance_criteria": [
+        "Start empty, split horizontally/vertically, resize and collapse splits, and open/reorder/move tabs between pane groups.",
+        "Keyboard/pointer focus follows the intended tab; moving a view preserves its identity and does not trigger a new session.",
+        "Exercise the actual UI on macOS and Windows, including minimum sizes and displays with different scaling."
+      ],
+      "passes": false,
+      "dependencies": [
+        33
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "orchestrator layout implementation and UI evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 35,
+      "milestone": "O1",
+      "category": "sessions",
+      "priority": "high",
+      "description": "Implement a desktop sidecar that owns interactive sessions independently of views.",
+      "acceptance_criteria": [
+        "Session records identify project/worktree, type, target, cwd, process/PTY identity and state; launch only through explicit commands.",
+        "Closing a view or GUI leaves sessions alive; reconnect attaches to the same session; explicit Stop terminates the intended process tree and reports exit.",
+        "Test two simultaneous sessions, GUI loss, sidecar failure and stale identities on macOS/Windows; never claim a terminated process has resumed."
+      ],
+      "passes": false,
+      "dependencies": [
+        33
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "sidecar session service and lifecycle tests",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 36,
+      "milestone": "O1",
+      "category": "terminal",
+      "priority": "high",
+      "description": "Connect real terminal panes to sidecar-owned PTY sessions.",
+      "acceptance_criteria": [
+        "Exercise an interactive shell/full-screen terminal program with input, resize, scrollback, Unicode, paste and control keys on both desktops.",
+        "Move/detach/reattach a terminal without losing its process and retained output; focus routes input only to its session.",
+        "Long-lived sessions have no inherited verification-job deadline; measure responsiveness and retain failure/exit state."
+      ],
+      "passes": false,
+      "dependencies": [
+        34,
+        35
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "terminal provider and desktop acceptance evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 37,
+      "milestone": "O1",
+      "category": "editor",
+      "priority": "high",
+      "description": "Provide project tree, previews and basic text editing with optional Vim mode.",
+      "acceptance_criteria": [
+        "Browse the declared project, preview files, and edit/save text with undo/redo/search, dirty-buffer status and external-change handling.",
+        "Exercise the F32-defined Vim subset and ordinary editing on macOS/Windows; preserve supported encoding/line endings and avoid silent overwrite of external edits.",
+        "Apply the agreed unsaved-buffer close/recovery behavior; large/binary/unsupported files fail or preview explicitly without blocking terminal/game sessions."
+      ],
+      "passes": false,
+      "dependencies": [
+        34,
+        35
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "file/tree/editor providers and edit-path evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 38,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "Persist layout and recover views onto retained sessions after GUI restart.",
+      "acceptance_criteria": [
+        "Restore splits, tab placement, project association and the agreed editor recovery state after closing/reopening the GUI.",
+        "Resolve live session IDs through the sidecar; no restore path relaunches commands automatically or confuses a dead process with a live one.",
+        "Interrupted saves and unknown persistence versions recover with an actionable result; test macOS/Windows paths and changed/missing project roots."
+      ],
+      "passes": false,
+      "dependencies": [
+        34,
+        35,
+        36,
+        37
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "versioned workspace persistence and recovery evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 39,
+      "milestone": "O2",
+      "category": "agents",
+      "priority": "medium",
+      "description": "Implement the terminal-based Bash agent selector and extensible launch registry.",
+      "acceptance_criteria": [
+        "Discover supported installed CLI agents and allow an explicit custom installed command; launch in the chosen project terminal.",
+        "Keep recipes/version detection outside pane code and specify the Windows Bash/native-or-WSL path contract without guessing conversions.",
+        "Prove selection/launch both inside the orchestrator and standalone on macOS/Windows, including missing agent and cancelled selection."
+      ],
+      "passes": false,
+      "dependencies": [
+        36
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "standalone agent launcher and registered CLI recipes",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 40,
+      "milestone": "O2",
+      "category": "agents",
+      "priority": "medium",
+      "description": "Add visible selected-agent installation and recoverable setup recipes.",
+      "acceptance_criteria": [
+        "For a user-selected supported recipe, show official source, version, destination and required changes before installation; do not install on tab open alone.",
+        "Verify the installed CLI/version and support cancellation, failed download/install and repeat invocation without corrupting an existing installation.",
+        "Exercise at least the first agreed real CLI recipe per desktop platform plus isolated failure fixtures; preserve unrelated agent configuration."
+      ],
+      "passes": false,
+      "dependencies": [
+        39
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "versioned agent install recipes and installation evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 41,
+      "milestone": "O2",
+      "category": "agents",
+      "priority": "medium",
+      "description": "Bootstrap project MCP integrations through agent-specific configuration adapters.",
+      "acceptance_criteria": [
+        "Merge the selected project profile through the supported CLI/version adapter without replacing unrelated settings or assuming every agent shares a format.",
+        "Distinguish configured, reachable, unsupported and failed integrations; re-running setup is idempotent and exposes repair steps.",
+        "Prove the selected agent calls an actual local test MCP tool scoped to its project/session; unknown CLI configuration is not silently guessed."
+      ],
+      "passes": false,
+      "dependencies": [
+        39
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "agent integration profiles and connectivity evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 42,
+      "milestone": "O3",
+      "category": "surfaces",
+      "priority": "high",
+      "description": "Implement the cooperative game surface and input contract for desktop panes.",
+      "acceptance_criteria": [
+        "Transport actual frames from a separate graphical process to a tab with explicit session identity, frame lifetime, resize and input semantics.",
+        "Prove focus/aspect/DPI handling, view movement, detach/reattach and explicit stop without affecting another session on macOS and Windows.",
+        "Measure the F32/F33 budgets and keep the transport distinct from MCP control; expose capabilities suitable for a later remote client."
+      ],
+      "passes": false,
+      "dependencies": [
+        33,
+        35
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "versioned surface adapter and native graphical fixture",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 43,
+      "milestone": "O3",
+      "category": "host-adoption",
+      "priority": "high",
+      "description": "Render the selected reLith flat game into an orchestrator tab on both desktops.",
+      "acceptance_criteria": [
+        "From the owning host workspace, implement the F32-selected flat game adapter using current native build/launch and user-owned assets.",
+        "Show actual game output in a new tab and verify resize, input, tab move, close/reattach and explicit stop through the sidecar on macOS and Windows.",
+        "Run relevant existing host gates, record the tested game/profile and rollback; an external window or log-only tab does not complete the pane requirement."
+      ],
+      "passes": false,
+      "dependencies": [
+        42
+      ],
+      "owner_workspace": "nolf-improved",
+      "deliverable": "reLith-owned surface adapter and two-platform game evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 44,
+      "milestone": "O3",
+      "category": "host-adoption",
+      "priority": "medium",
+      "description": "Add the reSource flat-game surface through the same public session contract.",
+      "acceptance_criteria": [
+        "Implement a host-owned adapter without importing reLith engine/window types or requiring its dependencies.",
+        "Exercise actual VtMB rendering/input/resize/reattach on the declared desktop profiles with the same public surface contract.",
+        "Preserve the existing host gates and record unsupported/pending profiles separately; verify game behavior and rollback."
+      ],
+      "passes": false,
+      "dependencies": [
+        42
+      ],
+      "owner_workspace": "vtmb-vr",
+      "deliverable": "reSource-owned adapter and scoped compatibility evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 45,
+      "milestone": "O3",
+      "category": "tooling",
+      "priority": "medium",
+      "description": "Host one additional rendered tool through an explicit pane provider.",
+      "acceptance_criteria": [
+        "Select a real tool need and qualify its native or web presentation route against the agreed stack; no assumption all tools share one renderer.",
+        "Open, move, resize and close/reopen its pane with project/session identity and honest lifecycle/error state.",
+        "Record input capabilities and limitations; tool-specific UI types do not enter the game runtime contract."
+      ],
+      "passes": false,
+      "dependencies": [
+        34,
+        35
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "tool provider contract and one real tool integration",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 46,
+      "milestone": "O4",
+      "category": "discovery",
+      "priority": "medium",
+      "description": "Resolve Meta XR Operator compatibility for a selected native host profile.",
+      "acceptance_criteria": [
+        "Verify current standalone layer/proxy/custom-tool documentation and pin selected host OpenXR loader, graphics binding and runtime profile.",
+        "Define session targeting, endpoint coexistence, input ownership and native custom-tool boundaries; do not inherit Unity scene capabilities by assertion.",
+        "Specify one real native read/capture/input proof and cleanup path; macOS distribution alone does not prove current flat-only host XR support."
+      ],
+      "passes": false,
+      "dependencies": [
+        32
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "native XR compatibility spec and evidence plan",
+      "external_references": [
+        "docs/research/meta-xr-operator.md"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 47,
+      "milestone": "O4",
+      "category": "integration",
+      "priority": "medium",
+      "description": "Demonstrate optional XR inspection/control on one identified native game session.",
+      "acceptance_criteria": [
+        "Connect the selected native host through the documented layer/proxy and verify identity, state read, frame capture and one bounded input/pose action.",
+        "Test disconnect/reconnect and prevent targeting another live app; unsupported tools remain explicit and input/session state is restored.",
+        "Keep the live viewport functional through its own surface provider and keep flat-mode orchestrator use independent of Operator; preserve native manual/device gates."
+      ],
+      "passes": false,
+      "dependencies": [
+        41,
+        46
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "XR adapter and real native runtime evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 48,
+      "milestone": "O5",
+      "category": "integration",
+      "priority": "high",
+      "description": "Complete the first desktop workflow with a terminal, editor, session browser and flat game tab.",
+      "acceptance_criteria": [
+        "On both macOS and Windows execute the empty-to-split workflow, edit/save text, use an interactive terminal and open the selected flat game in a new tab.",
+        "Move and detach views, find retained sessions in the browser, reattach after GUI restart, and explicitly stop the intended game/process.",
+        "Record real rendered/input evidence and agreed performance measurements; a layout mock, terminal-only shell or external game window cannot close this milestone."
+      ],
+      "passes": false,
+      "dependencies": [
+        36,
+        37,
+        38,
+        43,
+        54
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/evidence/desktop-v0.md and packaged desktop builds",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 49,
+      "milestone": "Q0",
+      "category": "discovery",
+      "priority": "medium",
+      "description": "Specify the shared 2D Quest client delivery and desktop-link proof.",
+      "acceptance_criteria": [
+        "Use official Android-panel/PWA paths and distinguish future Spatial SDK panes; select package/origin/sidecar constraints for the agreed 2D-first experience.",
+        "Specify desktop-owned files/builds/PTYs/agents and paired session/text/frame/input channels, including readable editor/terminal UI and keyboard/controller behavior.",
+        "Plan actual headset tests against Mac and Windows sidecars with latency/reconnect budgets; store distribution and native Quest-game coexistence remain separate claims."
+      ],
+      "passes": false,
+      "dependencies": [
+        32,
+        33
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "Quest client architecture and delivery decision",
+      "external_references": [
+        "docs/research/quest-and-app-surfaces.md"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 50,
+      "milestone": "Q1",
+      "category": "sessions",
+      "priority": "medium",
+      "description": "Expose paired remote session access for the Quest client through the desktop sidecar.",
+      "acceptance_criteria": [
+        "Pair a client with an explicit desktop/project scope and transport session lifecycle, terminal and file operations over an authenticated connection.",
+        "Test reconnect/duplicate requests, client revocation and wrong-session commands without duplicating processes or exposing unrelated project state.",
+        "Exercise the service on both Mac and Windows; credentials/configuration stay on the owning desktop and incompatible protocol versions fail explicitly."
+      ],
+      "passes": false,
+      "dependencies": [
+        35,
+        49
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "remote session protocol and pairing/reconnect implementation",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 51,
+      "milestone": "Q2",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "Build the Quest 2D workspace client with real remote terminal and editor access.",
+      "acceptance_criteria": [
+        "Build/install the selected client package and connect to both a Mac and a Windows sidecar on a real Quest.",
+        "Use the shared split/tab layout with tree/previews/basic editing and a real remote terminal; verify keyboard, pointer/controller, scrolling and text readability.",
+        "Verify connection loss/recovery and session browser behavior; layout persistence is independent of later spatial-panel support."
+      ],
+      "passes": false,
+      "dependencies": [
+        34,
+        37,
+        50
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "Quest package and on-headset desktop-sidecar evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 52,
+      "milestone": "Q2",
+      "category": "surfaces",
+      "priority": "medium",
+      "description": "Display and interact with a desktop game in the Quest workspace pane.",
+      "acceptance_criteria": [
+        "Render the selected actual desktop game stream into a Quest tab with correct session identity and input routing.",
+        "Move/resize/reconnect the view without relaunch; measure agreed latency, frame/decode cost and sustained interaction on both sidecar platforms.",
+        "Do not claim native Quest VR-game coexistence or headset parity from a desktop flat-game stream; record supported profiles and next limitations."
+      ],
+      "passes": false,
+      "dependencies": [
+        42,
+        51
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "Quest game-stream adapter and latency/input evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 53,
+      "milestone": "A0",
+      "category": "discovery",
+      "priority": "medium",
+      "description": "Qualify unmodified external-app presentation on a finite Mac/Windows app set.",
+      "acceptance_criteria": [
+        "Separate cooperative adapters, captured/controlled windows and Windows reparenting; choose representative apps and approved platform APIs for the proof.",
+        "Test actual pixels plus input/focus, DPI/resize, dialogs, minimize/occlusion, app restart and permission denial; distinguish view-only from interactive support.",
+        "Publish a per-app/platform capability matrix and remote-client implications, not a universal embedding guarantee."
+      ],
+      "passes": false,
+      "dependencies": [
+        33,
+        42
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "external-app capture/control and optional reparenting report",
+      "external_references": [
+        "docs/research/quest-and-app-surfaces.md"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 54,
+      "milestone": "O1",
+      "category": "sessions",
+      "priority": "high",
+      "description": "Provide the session browser for inspecting, reattaching and explicitly stopping sessions.",
+      "acceptance_criteria": [
+        "List live/detached/exited sessions with project, type, target, state and attached-view information; identify sessions without relying on tab position.",
+        "Attach or focus an existing session and explicitly stop one with accurate exit reporting; moving/closing the browser does not stop other sessions.",
+        "Exercise detached game and terminal sessions across GUI restart on macOS and Windows, including a stale/dead session and two similarly named projects."
+      ],
+      "passes": false,
+      "dependencies": [
+        34,
+        35
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "session browser UI and two-platform lifecycle evidence",
       "external_references": [],
       "evidence": []
     }

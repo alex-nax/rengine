@@ -12,6 +12,23 @@ Date: 2026-09-05. Status: **interview in progress; recommendations are not owner
 | D04 | Use the referenced projects' harness patterns and plan future integrations precisely. | Initial project brief |
 | D05 | Conduct a probing design interview while setting up the repository. | Initial project brief |
 | D06 | NOLF works; AVP2 and NOLF2 are in progress. iklib and agent-training work already exist. | Owner's status report; not a new runtime verification |
+| D07 | Prioritize a quality library base for AI-assisted, purpose-built implementations. The owner sees NOLF and VtMB as evidence that individual engines can be written from scratch and questions the need for large all-in-one engines. | Owner's answer to interview question 1, 2026-09-05 |
+| D08 | Curate upstream libraries and implement our own demonstrated gaps. | Owner confirmed the library-ownership recommendation, 2026-09-05 |
+| D09 | Prove one library in both games before expanding the collection broadly. | Owner confirmed the first-proof strategy, 2026-09-05; the named library remains to be selected |
+| D10 | Include a tab-based IDE/orchestrator to improve the current Zed-plus-terminal workflow: start empty, split/resize panes and populate them with project tree, terminals, rendered tools and game output. Game views can open as tabs and move into panes. | Owner's workspace description, 2026-09-05 |
+| D11 | Initially an agent tab runs a terminal with a Bash launcher that selects or installs a CLI coding agent and bootstraps integrations such as custom MCP servers. | Owner's workspace description, 2026-09-05 |
+| D12 | Consider integration with tools such as Meta XR Operator. | Owner's integration suggestion, 2026-09-05; compatibility and implementation remain unverified |
+| D13 | Support macOS and Windows from the first desktop release. | Owner's platform answer, 2026-09-05; supersedes the macOS-first recommendation |
+| D14 | Use adapters for initial game/tool integration; also investigate support for unmodified external apps. | Owner's surface answer, 2026-09-05; arbitrary app compatibility is not guaranteed |
+| D15 | Research a Quest distribution with a desktop sidecar. | Owner's research request, 2026-09-05 |
+| D16 | Quest starts with the shared 2D workspace; independent spatial panes follow later. | Owner's Quest-layout answer, 2026-09-05 |
+| D17 | Include project tree, previews, a basic text editor with optional Vim mode, and terminals in the initial IDE scope. | Owner's editing answer, 2026-09-05; supersedes the preview-plus-external-editor recommendation |
+| D18 | Closing views detaches them; sessions persist until explicitly stopped. Include a session browser for managing and reopening sessions. | Owner's lifecycle answer, 2026-09-05 |
+| D19 | Implement the desktop workspace and terminals first, including a flat game rendered into a new tab in that first useful milestone. | Owner's execution-priority answer, 2026-09-05 |
+
+D07 establishes the product direction. The claim that engines are becoming obsolete is the owner's
+thesis, not a verified industry-wide conclusion. The implementation question here is how rEngine
+can make a project's selected components dependable and straightforward to compose.
 
 ## Code-derived constraints
 
@@ -29,13 +46,21 @@ Evidence and limitations: [reconnaissance](../reconnaissance.md).
 
 | ID | Recommendation | Why / consequence |
 | --- | --- | --- |
-| P01 | First prove one shared verification/evidence workflow in both engines. | A small shared tool can deliver value without waiting for two runtime migrations. |
+| P01 (superseded) | First prove one shared verification/evidence workflow in both engines. | Replaced after D07: this would put supporting tooling ahead of the requested library base. Retained as a later harness proposal. |
 | P02 | Projects selectively adopt pinned capabilities and remain independently buildable. | Fits the explicit requirement for individual architectures. |
 | P03 | Use an optional project manifest and capability-specific conformance to make adoption measurable. | Branding then points to a reproducible contribution instead of a badge alone. |
 | P04 | Keep iklib, infra-vr, and training independently maintained; curate and integrate them. | Existing ownership, APIs, and roadmaps already exist. |
 | P05 | Keep model/provider selection outside core contracts; interchange tasks, commands, and evidence. | A model choice should not require a game integration rewrite. |
-| P06 | Start with repository-local command-line tools and text/JSON artifacts. | A hosted orchestration service or editor needs a demonstrated consumer problem first. |
+| P06 (revised) | Keep reusable tooling usable independently of the orchestrator; use text/JSON artifacts where useful. | D10 now supplies an explicit IDE use case. The earlier deferral of an editor/workspace product is superseded. |
 | P07 | Use native game behavior as the authority for parity; distinguish it from deliberate modernization. | A shared package's unit tests cannot prove that a game still behaves correctly. |
+| P08 (confirmed as D08) | Curate upstream libraries and author/extract our own libraries for demonstrated gaps. | Owner confirmed. Whether any specific wrapper adds value is still a per-boundary decision. |
+| P09 (strategy confirmed as D09) | Prove one complete library integration in both engines first; iklib is the existing candidate. | Two-game proof confirmed. Naming iklib and defining its exact adoption scope remain recommendations. |
+| P10 | Library quality includes contract clarity, correctness, composition, measured resource behavior, maintenance and executable integration knowledge. | Detailed proposal: library-quality.md. A README link alone is insufficient evidence. |
+| P11 | Model the workspace as resizable splits containing tab groups; tabs refer to sessions with independent lifetimes. | Moving a tab can preserve terminal/game identity. Close/detach/stop and app-exit behavior still need decisions. |
+| P12 (partly superseded/confirmed) | Use explicit game/tool adapters first. | D14 confirms adapters. D13 supersedes macOS-first with macOS and Windows from the start. |
+| P13 (layout confirmed as D16) | A Quest client uses a desktop sidecar for filesystem, build, terminal, agent and game sessions. Start with the shared layout in a 2D panel before optional independent spatial panels. | The 2D-first layout is confirmed. Pairing, transport and input design still need proof. |
+| P14 (confirmed as D18) | Detach views while sessions remain in the sidecar, with an explicit Stop operation. | Owner also requires a session browser for managing retained sessions. |
+| P15 (confirmed and extended as D19) | Implement the desktop workspace/terminal slice first. | Owner explicitly includes a flat game rendered into a new tab; terminal/layout-only work does not complete the first milestone. |
 
 These are planning defaults, not settled runtime interfaces or implementation authorization.
 
@@ -43,24 +68,32 @@ These are planning defaults, not settled runtime interfaces or implementation au
 
 Ask small rounds, in dependency order; answer source questions through inspection.
 
-1. **Purpose and authority — asked, awaiting answers.** What first milestone proves value?
-   How much can rEngine require of an individual project? Does “both streams” mean the two
-   engines or game development and agent training? Which repeated pain must disappear first?
-2. **First consumer workflow.** Choose the concrete repro/task; decide whether the initial
-   shared result is feature/handoff tooling, verifier evidence, dependency adoption, or runtime IK.
-   Define “powered by” and the smallest required contract, if any.
-3. **Runtime curation.** Establish infra-vr's role, iklib's first host, package admission criteria,
-   distribution/pinning approach, and whether any common native substrate is actually required.
-4. **Operational model.** Set target platforms for the first proof, resource/time budgets,
-   hardware verification ownership, unattended authority, and concurrent-work coordination.
-5. **AI/training boundary.** Decide whether first-class agent support means development tooling,
+1. **Purpose — direction answered, concrete proof pending.** D07 makes the quality library base
+   primary. Authority, minimum powered-by commitment and the meaning of “both streams” remain open.
+2. **Library ownership and first proof — strategy answered.** D08/D09 confirm curated upstream
+   plus our own gaps and one library in both games first. Select the named library and applicable
+   quality criteria next; do not ask the settled strategy questions again.
+3. **Quality and composition.** Agree the admission bar, first subsystem coverage, portability,
+   performance/ownership contracts, host adapter rules and the agent's usable context package.
+   Establish infra-vr's role, dependency pins and the first selected library's integration slice.
+4. **Orchestrator — scope answered, lifecycle/order pending.** macOS/Windows from the start,
+   adapters first, Quest 2D-first, and tree/previews/basic editor with optional Vim mode are
+   confirmed, as are retained sessions, session browser and desktop-first execution with a live flat
+   game tab. Next resolve project association, the concrete first game, editor/Vim details and
+   later agent recipes/Windows Bash setup; do not repeat settled questions.
+   The specification is `002-orchestrator.md`.
+5. **Operational model.** Set resource/time budgets, hardware verification ownership, unattended
+   authority and concurrent-work coordination. Distinguish terminal sessions from bounded check jobs.
+6. **AI/training boundary.** Decide whether first-class agent support means development tooling,
    training feedback, in-game AI, or some combination; define what may leave a game workspace.
-6. **Scope and commitment.** Review feature proposals, exclusions, milestone order, evidence
+7. **Scope and commitment.** Review feature proposals, exclusions, milestone order, evidence
    requirements, and the point where an unsuccessful extraction should stop.
 
 ## Questions to challenge before freezing the roadmap
 
 - What would be measurably easier in the games after the first milestone?
+- What do we provide beyond linking an agent to a library's existing documentation?
+- Which composition problems should an agent solve locally, and which should we solve once?
 - If only one game needs a component, what justifies maintaining it here?
 - Can an engine decline a new rEngine version and still ship?
 - Is a common harness mandatory for branding, or is adopting one library enough?
@@ -70,3 +103,24 @@ Ask small rounds, in dependency order; answer source questions through inspectio
 
 Record subsequent answers here with their source, date, and which proposal they confirm or
 replace. Do not infer approval from silence or from a generated review artifact.
+
+## Revision record
+
+2026-09-05, owner answer 1: shifted the draft's primary path from shared command tooling to
+library quality, curation and real game adoption. Proposed IDs remain traceable, but their
+milestones/priorities/dependencies are revised while the inventory is unapproved. No accepted
+feature history or completion evidence is changed.
+
+2026-09-05, subsequent owner answer: confirmed D08/D09 and added the orchestrator scope D10–D12.
+The new IDE branch explicitly supersedes the earlier editor deferral. Preserve the library proof
+as an independent deliverable; the relative implementation priority of IDE and library work is
+still to be decided.
+
+2026-09-05, platform/surface and editing answers: recorded D13–D17. Researched official Quest
+2D/PWA/Spatial SDK paths, native Operator, Windows window parenting/capture and macOS capture.
+Evidence supports candidate architectures, not a tested port, universal embedding or distribution
+approval. 2D-first Quest and basic built-in editing supersede the earlier pending recommendations.
+
+2026-09-05, lifecycle/order answer: D18/D19 require an independent session owner, a session
+browser and a first desktop slice that includes actual flat game output. Library adoption remains
+independent of IDE completion, but implementation starts with the desktop workflow.

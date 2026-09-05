@@ -1,5 +1,53 @@
 # Progress Log
 
+## Session 2 (macos) — 2026-09-05 — Library base and desktop orchestrator design
+
+**Agent**: Codex.
+**Owner decisions**: Charter D07–D19 records the library-base thesis; curated upstream plus our
+own gaps; one library proven in both games first; tab/split IDE; terminal-based Bash agent
+selection/installation/MCP bootstrap; macOS and Windows from the start; adapters first with
+external-app research; Quest 2D workspace with desktop sidecar before spatial panes; tree,
+previews and basic editing with optional Vim; retained sessions with explicit Stop and a session
+browser; and desktop workspace/terminals/flat-game-tab as the first implementation milestone.
+
+**Summary**: Revised the initial shared-runner-first plan. Added the library quality proposal,
+orchestrator spec and primary-source investigations of Meta XR Operator, Quest delivery and
+external app presentation. The first desktop proof includes actual game pixels/input and session
+reattachment on both platforms. iklib remains the recommended named library and flat NOLF the
+recommended first game; neither name is treated as an explicit new owner decision.
+
+**Proposal changes**: 54 features, all proposed/non-passing. Library and desktop branches are
+independent. F32 is the first proposed local design/feasibility entry; desktop v0 closes at F48,
+including the host-owned F43 game adapter and F54 session browser. Later agents, XR, Quest and
+external-app work have separate gates. The previous blanket editor deferral is superseded.
+No accepted feature history was rewritten and `features.json` remains absent pending review.
+
+**Research findings**: Official Meta documentation establishes native standalone Operator and
+Android/PWA/Spatial SDK routes suitable for a Quest-client feasibility path. Windows supports
+window parenting with caveats and window capture; Apple documents window/app capture. These
+support candidate designs, not universal embedding, tested native-host compatibility or store
+approval. The proposed sidecar owns files/builds/PTYs/agents/game sessions; layout/session
+contracts can serve desktop and Quest views. MCP inspection/control is separate from live-pane
+presentation. Source links and proof requirements are recorded in `docs/research/`.
+
+**Verification**: `./init.sh` validates 54 features and their dependency graph. Before commit,
+check graph reproducibility, local Markdown links, all-proposed status, desktop-v0 dependency
+closure and independence from the library/training/installer branches. No runtime code changed;
+no game, native build, GUI prototype, install, device or training job was executed. No reference
+workspace was modified.
+
+**Question pending**: Whether one workspace contains multiple project/worktree roots with each
+session explicitly bound to a root (recommended), or one root per workspace. Prior strategy,
+platform, editing, lifecycle and first-milestone questions have been answered; do not repeat them.
+
+**Next suggested task**: Record the project-association answer, settle the bounded desktop v0
+spec, and present the revised feature proposal for owner review. Qualify the implementation stack
+through real terminal/editor/game-surface feasibility on both desktops before building the larger
+UI. Preserve the required game tab and session browser in the first useful milestone. Agent
+recipes/Windows Bash details and later Quest/XR scope remain follow-up design decisions.
+
+---
+
 ## Session 1 (macos) — 2026-09-05 — Initial harness and architecture interview
 
 **Agent**: Codex initializer.
