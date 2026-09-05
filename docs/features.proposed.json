@@ -668,9 +668,9 @@
       "priority": "high",
       "description": "Specify the first desktop workspace, terminal and flat-game integration slice.",
       "acceptance_criteria": [
-        "Carry forward macOS/Windows, empty-to-split layout, movable tabs, basic editing/optional Vim, persistent sidecar sessions and the session browser as confirmed requirements.",
+        "Carry forward macOS/Windows, empty-to-split layout, movable tabs, basic editing/optional Vim, persistent sidecar sessions, the session browser and multiple project/worktree roots with explicit per-session bindings as confirmed requirements.",
         "Pin the first flat game and host build profile; specify actual rendered output/input in a new tab, native host ownership and acceptance commands on both platforms.",
-        "Define project/worktree identity, unsaved-buffer recovery, initial Vim subset and measured terminal/editor/game budgets; keep agent installers, Quest and XR as later gates."
+        "Specify stable root identities and persistence without implicit retargeting; define unsaved-buffer recovery, initial Vim subset and measured terminal/editor/game budgets; keep agent installers, Quest and XR as later gates."
       ],
       "passes": false,
       "dependencies": [],
@@ -707,7 +707,7 @@
       "description": "Implement the empty workspace with recursive splits and movable tab groups.",
       "acceptance_criteria": [
         "Start empty, split horizontally/vertically, resize and collapse splits, and open/reorder/move tabs between pane groups.",
-        "Keyboard/pointer focus follows the intended tab; moving a view preserves its identity and does not trigger a new session.",
+        "Keyboard/pointer focus follows the intended tab; moving a view preserves its session and root binding and does not trigger a new session or change another tab's context.",
         "Exercise the actual UI on macOS and Windows, including minimum sizes and displays with different scaling."
       ],
       "passes": false,
@@ -726,9 +726,9 @@
       "priority": "high",
       "description": "Implement a desktop sidecar that owns interactive sessions independently of views.",
       "acceptance_criteria": [
-        "Session records identify project/worktree, type, target, cwd, process/PTY identity and state; launch only through explicit commands.",
+        "Session records identify owning sidecar, stable project/worktree root, type, target, launch cwd, process/PTY identity and state; launch only through explicit commands and distinguish shell cwd from launch association.",
         "Closing a view or GUI leaves sessions alive; reconnect attaches to the same session; explicit Stop terminates the intended process tree and reports exit.",
-        "Test two simultaneous sessions, GUI loss, sidecar failure and stale identities on macOS/Windows; never claim a terminated process has resumed."
+        "Test sessions in two separate worktrees, GUI loss, sidecar failure, missing roots and stale identities on macOS/Windows; never retarget a session by focus/display name or claim a terminated process has resumed."
       ],
       "passes": false,
       "dependencies": [
@@ -747,7 +747,7 @@
       "description": "Connect real terminal panes to sidecar-owned PTY sessions.",
       "acceptance_criteria": [
         "Exercise an interactive shell/full-screen terminal program with input, resize, scrollback, Unicode, paste and control keys on both desktops.",
-        "Move/detach/reattach a terminal without losing its process and retained output; focus routes input only to its session.",
+        "Move/detach/reattach terminals bound to different roots without losing their process and retained output; focus routes input only to the selected session and a shell cwd change does not rebind its launch root.",
         "Long-lived sessions have no inherited verification-job deadline; measure responsiveness and retain failure/exit state."
       ],
       "passes": false,
@@ -767,7 +767,7 @@
       "priority": "high",
       "description": "Provide project tree, previews and basic text editing with optional Vim mode.",
       "acceptance_criteria": [
-        "Browse the declared project, preview files, and edit/save text with undo/redo/search, dirty-buffer status and external-change handling.",
+        "Browse multiple declared roots, preview files, and edit/save text with undo/redo/search, dirty-buffer status and external-change handling; identical relative filenames in separate worktrees retain distinct root-bound buffers and save destinations.",
         "Exercise the F32-defined Vim subset and ordinary editing on macOS/Windows; preserve supported encoding/line endings and avoid silent overwrite of external edits.",
         "Apply the agreed unsaved-buffer close/recovery behavior; large/binary/unsupported files fail or preview explicitly without blocking terminal/game sessions."
       ],
@@ -788,9 +788,9 @@
       "priority": "high",
       "description": "Persist layout and recover views onto retained sessions after GUI restart.",
       "acceptance_criteria": [
-        "Restore splits, tab placement, project association and the agreed editor recovery state after closing/reopening the GUI.",
+        "Restore splits, tab placement, stable root/session associations and the agreed editor recovery state after closing/reopening the GUI with multiple projects/worktrees.",
         "Resolve live session IDs through the sidecar; no restore path relaunches commands automatically or confuses a dead process with a live one.",
-        "Interrupted saves and unknown persistence versions recover with an actionable result; test macOS/Windows paths and changed/missing project roots."
+        "Interrupted saves and unknown persistence versions recover with an actionable result; test macOS/Windows paths and changed/missing/removed roots without silently remapping sessions, relaunching commands or stopping retained processes."
       ],
       "passes": false,
       "dependencies": [
@@ -811,7 +811,7 @@
       "priority": "medium",
       "description": "Implement the terminal-based Bash agent selector and extensible launch registry.",
       "acceptance_criteria": [
-        "Discover supported installed CLI agents and allow an explicit custom installed command; launch in the chosen project terminal.",
+        "Discover supported installed CLI agents and allow an explicit custom installed command; launch in the chosen terminal's explicit root and launch directory regardless of another tab's focused project.",
         "Keep recipes/version detection outside pane code and specify the Windows Bash/native-or-WSL path contract without guessing conversions.",
         "Prove selection/launch both inside the orchestrator and standalone on macOS/Windows, including missing agent and cancelled selection."
       ],
@@ -851,7 +851,7 @@
       "priority": "medium",
       "description": "Bootstrap project MCP integrations through agent-specific configuration adapters.",
       "acceptance_criteria": [
-        "Merge the selected project profile through the supported CLI/version adapter without replacing unrelated settings or assuming every agent shares a format.",
+        "Merge the explicitly bound root's project profile through the supported CLI/version adapter without replacing unrelated settings, using a global active project or assuming every agent shares a format.",
         "Distinguish configured, reachable, unsupported and failed integrations; re-running setup is idempotent and exposes repair steps.",
         "Prove the selected agent calls an actual local test MCP tool scoped to its project/session; unknown CLI configuration is not silently guessed."
       ],
@@ -996,8 +996,8 @@
       "priority": "high",
       "description": "Complete the first desktop workflow with a terminal, editor, session browser and flat game tab.",
       "acceptance_criteria": [
-        "On both macOS and Windows execute the empty-to-split workflow, edit/save text, use an interactive terminal and open the selected flat game in a new tab.",
-        "Move and detach views, find retained sessions in the browser, reattach after GUI restart, and explicitly stop the intended game/process.",
+        "On both macOS and Windows execute the empty-to-split workflow with multiple project/worktree roots, edit/save text, use an interactive terminal and open the selected flat game in a new tab.",
+        "Move and detach views, find retained sessions in the browser, reattach after GUI restart, and explicitly stop the intended game/process; identical filenames and similarly named sessions across roots never redirect a file write or session operation.",
         "Record real rendered/input evidence and agreed performance measurements; a layout mock, terminal-only shell or external game window cannot close this milestone."
       ],
       "passes": false,
@@ -1043,7 +1043,7 @@
       "priority": "medium",
       "description": "Expose paired remote session access for the Quest client through the desktop sidecar.",
       "acceptance_criteria": [
-        "Pair a client with an explicit desktop/project scope and transport session lifecycle, terminal and file operations over an authenticated connection.",
+        "Pair a client with an explicit desktop and root scope and transport session lifecycle, terminal and file operations over an authenticated connection; resolve desktop root/session IDs without converting paths into Quest-local locations.",
         "Test reconnect/duplicate requests, client revocation and wrong-session commands without duplicating processes or exposing unrelated project state.",
         "Exercise the service on both Mac and Windows; credentials/configuration stay on the owning desktop and incompatible protocol versions fail explicitly."
       ],
@@ -1130,9 +1130,9 @@
       "priority": "high",
       "description": "Provide the session browser for inspecting, reattaching and explicitly stopping sessions.",
       "acceptance_criteria": [
-        "List live/detached/exited sessions with project, type, target, state and attached-view information; identify sessions without relying on tab position.",
+        "List live/detached/exited sessions with explicit project/worktree root, type, target, state and attached-view information; distinguish similarly named sessions and retain root association even after its removal from the layout.",
         "Attach or focus an existing session and explicitly stop one with accurate exit reporting; moving/closing the browser does not stop other sessions.",
-        "Exercise detached game and terminal sessions across GUI restart on macOS and Windows, including a stale/dead session and two similarly named projects."
+        "Exercise detached game and terminal sessions across GUI restart on macOS and Windows, including a stale/dead session and two similarly named worktrees; attach and Stop affect only the selected root/session."
       ],
       "passes": false,
       "dependencies": [

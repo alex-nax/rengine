@@ -1,13 +1,15 @@
 # rEngine IDE / orchestrator
 
 Date: 2026-09-05. Status: **owner-requested product; detailed design under interview**.
-Source: charter D10–D12. No application, agent installer, remote service or game adapter has been
+Source: charter D10–D20. No application, agent installer, remote service or game adapter has been
 implemented during harness setup.
 
 Confirmed scope: macOS and Windows from the first desktop release; adapters first for game/tool
 surfaces; tree, previews, basic editing with optional Vim mode, and terminals. Quest starts with
 the same 2D workspace and a desktop sidecar, with spatial panes later. The initial macOS-only and
 external-editor-only recommendations are superseded. External app presentation is being researched.
+A workspace supports multiple project/worktree roots; terminals, editors, agents and games each
+have an explicit root binding.
 
 ## User workflow
 
@@ -48,19 +50,48 @@ Workspace: reLith
 
 This illustrates a possible user-created layout, not default panels or an implemented screen.
 
+## Multiple roots and explicit association
+
+Confirmed by D20: one workspace can contain reLith, reSource, iklib and separate worktrees of
+the same repository. Every terminal, editor, agent and game session belongs to a selected root.
+Creating a session shows its root; tab placement and the currently focused tree do not retarget
+an existing session. A tree may show several roots, while opening a file binds its editor to the
+owning root.
+
+Proposed implementation rules derived from that requirement:
+
+- Assign stable root IDs scoped to the owning desktop sidecar, distinct from repository identity,
+  checkout revision and display labels. Two worktrees of one repository remain distinct roots.
+- Store the launch root with each session; report its launch cwd separately from a shell's current
+  cwd when available. A user may `cd` elsewhere without changing the recorded launch association.
+  Root binding identifies context; it does not by itself sandbox terminal or agent access.
+- Show the root alongside session/file labels where names collide. Commands, file saves, game
+  input and MCP endpoints resolve through explicit root/session identities, never a global
+  “active project” variable. Relative filenames alone cannot identify editor buffers.
+- Removing a root from the workspace must not silently stop or retarget its retained sessions.
+  Keep their association visible in the session browser. If its directory is missing, report that
+  state and require an explicit resolution before new root-dependent operations. Relocation and
+  path-alias reconciliation belong in the persistence design; do not guess replacement checkouts.
+- Persist associations across GUI restart. Later Quest views refer to the desktop's root IDs;
+  desktop paths are not translated into Quest-local paths.
+
+Acceptance includes two roots with the same relative filename and two similarly named sessions:
+editing, launching, moving tabs, reattaching and stopping one must affect only the selected root
+and session. Exercise separate worktrees as well as unrelated repositories on both desktops.
+
 ## Separate layout, session and presentation
 
 | Responsibility | Proposed owner | Required distinction |
 | --- | --- | --- |
 | Split, resize, tabs, focus, drag and placement | Workspace UI | Moving a view is not a new process launch. |
-| Process/PTY identity, cwd, exit status and attached views | Session manager | A terminal/game session belongs to a declared project and target. |
+| Process/PTY identity, cwd, exit status and attached views | Session manager | A session belongs to an explicit root and target independently of view placement. |
 | Terminal rendering, tree/file view, tool UI or game image/input | Surface provider | A tool must expose a supported presentation route; arbitrary native-window embedding is not assumed. |
 | Agent detection, installation recipe, launch and integration setup | Agent launcher/adapters | CLI/provider-specific configuration remains outside pane layout code. |
 | Build/launch parameters, game data and runtime tools | Project adapter | reLith/reSource keep their own targets and engine interfaces. |
 
 Confirmed lifecycle: moving/resizing tabs preserves session, terminal buffer and game state.
 Closing a tab or workspace window detaches views; the desktop sidecar continues to own live
-sessions. An explicit Stop ends the selected session. Provide a session browser listing project,
+sessions. An explicit Stop ends the selected session. Provide a session browser listing root,
 type, target, state, attached views and exit information, with reopen/attach and stop controls.
 The sidecar must therefore have a lifetime independent of the GUI. Restart after sidecar/OS
 termination is distinct from view reattachment; never imply a dead process has been resumed.
@@ -102,7 +133,7 @@ separate possible capabilities. External-editor integration can remain optional.
 
 The owner selected a real terminal plus Bash launcher as the initial agent UI. Proposed flow:
 
-1. Use the tab's declared project directory and detect registered installed agents.
+1. Use the tab's explicitly bound root and launch directory and detect registered installed agents.
 2. Offer installed agents, supported installation recipes, and an explicit custom CLI command.
 3. For an installation selected by the user, show the official source, version, install location
    and required changes, then execute the recipe in the visible terminal.
@@ -157,11 +188,13 @@ other's entire roadmap. The first library proof still remains one library in bot
 
 ## Acceptance scenario to refine
 
-For the first useful desktop milestone on both macOS and Windows: open a real project, create
+For the first useful desktop milestone on both macOS and Windows: add two project/worktree roots, create
 the empty-to-split layout, use a real PTY, view/edit/save files with ordinary and optional Vim
 controls, launch one flat game into a new live tab, and move/resize that tab without relaunching.
 Close its view, find the still-running session in the browser, reattach, then explicitly stop it.
 Close/reopen the GUI and recover the running session while the sidecar remains alive.
+Use identical relative filenames and similarly named sessions across roots to verify that focus,
+tab moves, file writes and explicit Stop preserve the intended association.
 
 Flat NOLF is the recommended first game because the owner reports it working. This choice still
 needs a pinned host/build target before implementation; the corresponding host adapter is a
@@ -177,12 +210,13 @@ must remain visible and recoverable without destroying another session.
 
 Settled: macOS/Windows desktop first, adapters first, basic editor with optional Vim, retained
 sessions with a session browser, Quest 2D-first, and an initial desktop milestone with a real flat
-game tab. Keep those decisions when refining the implementation specs.
+game tab, plus multiple project/worktree roots with explicit per-session binding. Keep those
+decisions when refining the implementation specs.
 
 Before the first implementation:
 
 - Confirm the concrete flat game/host baseline and the bounded prototype's performance budgets.
-- Decide project/worktree association and the basic editor/Vim subset plus unsaved-buffer recovery.
+- Specify root identity/persistence details and the basic editor/Vim subset plus unsaved-buffer recovery.
 - Qualify a terminal/editor/layout stack with an actual game surface on both platforms; choose
   dependencies using the same curation principles as the library base.
 

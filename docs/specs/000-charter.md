@@ -25,6 +25,7 @@ Date: 2026-09-05. Status: **interview in progress; recommendations are not owner
 | D17 | Include project tree, previews, a basic text editor with optional Vim mode, and terminals in the initial IDE scope. | Owner's editing answer, 2026-09-05; supersedes the preview-plus-external-editor recommendation |
 | D18 | Closing views detaches them; sessions persist until explicitly stopped. Include a session browser for managing and reopening sessions. | Owner's lifecycle answer, 2026-09-05 |
 | D19 | Implement the desktop workspace and terminals first, including a flat game rendered into a new tab in that first useful milestone. | Owner's execution-priority answer, 2026-09-05 |
+| D20 | A workspace supports multiple project/worktree roots; each terminal, editor, agent and game session is explicitly bound to its own root. | Owner's “Yes, just as you recommend” to the project-scope recommendation, 2026-09-05 |
 
 D07 establishes the product direction. The claim that engines are becoming obsolete is the owner's
 thesis, not a verified industry-wide conclusion. The implementation question here is how rEngine
@@ -56,7 +57,7 @@ Evidence and limitations: [reconnaissance](../reconnaissance.md).
 | P08 (confirmed as D08) | Curate upstream libraries and author/extract our own libraries for demonstrated gaps. | Owner confirmed. Whether any specific wrapper adds value is still a per-boundary decision. |
 | P09 (strategy confirmed as D09) | Prove one complete library integration in both engines first; iklib is the existing candidate. | Two-game proof confirmed. Naming iklib and defining its exact adoption scope remain recommendations. |
 | P10 | Library quality includes contract clarity, correctness, composition, measured resource behavior, maintenance and executable integration knowledge. | Detailed proposal: library-quality.md. A README link alone is insufficient evidence. |
-| P11 | Model the workspace as resizable splits containing tab groups; tabs refer to sessions with independent lifetimes. | Moving a tab can preserve terminal/game identity. Close/detach/stop and app-exit behavior still need decisions. |
+| P11 (lifecycle confirmed as D18) | Model the workspace as resizable splits containing tab groups; tabs refer to sessions with independent lifetimes. | Moving a tab preserves terminal/game identity. D18 settles close/detach/stop and GUI-exit behavior; D20 settles explicit root binding. |
 | P12 (partly superseded/confirmed) | Use explicit game/tool adapters first. | D14 confirms adapters. D13 supersedes macOS-first with macOS and Windows from the start. |
 | P13 (layout confirmed as D16) | A Quest client uses a desktop sidecar for filesystem, build, terminal, agent and game sessions. Start with the shared layout in a 2D panel before optional independent spatial panels. | The 2D-first layout is confirmed. Pairing, transport and input design still need proof. |
 | P14 (confirmed as D18) | Detach views while sessions remain in the sidecar, with an explicit Stop operation. | Owner also requires a session browser for managing retained sessions. |
@@ -76,10 +77,11 @@ Ask small rounds, in dependency order; answer source questions through inspectio
 3. **Quality and composition.** Agree the admission bar, first subsystem coverage, portability,
    performance/ownership contracts, host adapter rules and the agent's usable context package.
    Establish infra-vr's role, dependency pins and the first selected library's integration slice.
-4. **Orchestrator — scope answered, lifecycle/order pending.** macOS/Windows from the start,
+4. **Orchestrator — scope, lifecycle, priority and root association answered.** macOS/Windows from the start,
    adapters first, Quest 2D-first, and tree/previews/basic editor with optional Vim mode are
    confirmed, as are retained sessions, session browser and desktop-first execution with a live flat
-   game tab. Next resolve project association, the concrete first game, editor/Vim details and
+   game tab. Multiple project/worktree roots share a workspace with explicitly bound sessions.
+   Next resolve the concrete first game, editor/Vim details and
    later agent recipes/Windows Bash setup; do not repeat settled questions.
    The specification is `002-orchestrator.md`.
 5. **Operational model.** Set resource/time budgets, hardware verification ownership, unattended
@@ -124,3 +126,6 @@ approval. 2D-first Quest and basic built-in editing supersede the earlier pendin
 2026-09-05, lifecycle/order answer: D18/D19 require an independent session owner, a session
 browser and a first desktop slice that includes actual flat game output. Library adoption remains
 independent of IDE completion, but implementation starts with the desktop workflow.
+
+2026-09-05, project-scope answer: D20 confirms multiple roots with explicit per-session binding.
+It does not approve the whole feature inventory, select a toolkit or select the named library.

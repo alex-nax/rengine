@@ -79,6 +79,11 @@ game simulation or require the training stack to launch a game.
 12. Long-lived interactive PTYs and game sessions are distinct from bounded verification jobs.
     A check runner's timeout must not silently govern an interactive agent terminal. MCP control
     and visual presentation are separate adapters bound to the same intended runtime session.
+13. One workspace supports multiple project/worktree roots. Terminal, editor, agent and game
+    sessions retain explicit root bindings through focus changes, tab moves and GUI restart.
+    Different worktrees are distinct roots even when they share repository identity. File writes
+    and session operations must not resolve through an implicit global active project. A shell's
+    current directory is separate from its recorded launch root; binding is not access confinement.
 
 ## Initial files and future placement
 

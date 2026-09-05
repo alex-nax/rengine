@@ -1,5 +1,37 @@
 # Progress Log
 
+## Session 3 (macos) — 2026-09-05 — Explicit roots in shared workspaces
+
+**Agent**: Codex.
+**Owner decision**: D20 confirms multiple project/worktree roots in one workspace, with every
+terminal, editor, agent and game session explicitly bound to its own root. This answers session
+2's pending question; it is not blanket approval of the feature inventory.
+
+**Summary**: Updated the charter, orchestrator specification, architecture, roadmap and agent
+instructions. The proposed implementation separates stable root identity, repository identity,
+launch directory and shell cwd. Focus changes and tab moves cannot retarget existing operations.
+Root removal/missing directories retain visible session associations instead of guessing a new
+checkout. Root binding records context; it is not an access sandbox.
+
+**Proposal changes**: Tightened 11 existing features around two worktrees, duplicate filenames,
+similarly named sessions and preserved root bindings after GUI restart. No feature IDs,
+dependencies or completion states changed. All 54 remain proposed/non-passing; `features.json`
+is still absent. The first desktop milestone retains its actual game tab and session browser.
+
+**Verification**: `./init.sh` passes. Graph reproduction, local document links, proposal state and
+desktop/library dependency boundaries are checked before commit. No runtime code, sibling
+workspace, game build, installation, device or training job was changed or executed.
+
+**Questions pending**: Select the first live game (NOLF recommended, followed by the VtMB adapter)
+and editor recovery policy (local recovery drafts with explicit saves recommended). These were
+asked together; do not treat either recommendation as confirmed before an answer.
+
+**Next suggested task**: Record the answers and refine F32's concrete desktop acceptance spec.
+Present the proposed scope for review before activating implementation. Toolkit feasibility,
+Vim subset and measured budgets remain open; settled platform/lifecycle/multi-root choices do not.
+
+---
+
 ## Session 2 (macos) — 2026-09-05 — Library base and desktop orchestrator design
 
 **Agent**: Codex.

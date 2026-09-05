@@ -49,6 +49,8 @@ a coherent change. Preserve other sessions' entries and unrelated edits.
   basic editing plus optional Vim mode. Quest uses the shared 2D workspace with a desktop sidecar
   before later spatial panes. Views detach; the sidecar retains sessions managed by a session
   browser. Implementation starts with the desktop workspace, terminals and a live flat-game tab.
+  Workspaces support multiple project/worktree roots with explicit per-session bindings; moving
+  tabs or changing focus must never retarget terminal, file, agent or game operations.
 - `iklib`, `infra-vr`, and training keep their own source and feature authorities.
 - Sibling checkouts are read-only during this setup. Later integrations execute from the owning
   workspace with explicit scope; a local rEngine task cannot mark another project's feature done.

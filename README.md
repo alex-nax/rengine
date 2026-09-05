@@ -10,12 +10,14 @@ run a Bash selection/installation launcher and bootstrap that agent's project in
 
 **Status: initial design interview and harness setup.** The project boundary is established by
 the owner's brief and library-first clarification; the first library proof, adoption contract,
-and implementation order are still under review. Curated upstream plus our own gaps and one
+and later implementation order are still under review. Curated upstream plus our own gaps and one
 library proven in both games are confirmed. Desktop IDE support starts with macOS and Windows,
 using game/tool adapters first and including basic text editing with optional Vim mode. Quest
 starts with the same 2D workspace backed by a desktop sidecar; delivery and external-app support
 are under investigation. Views detach from retained sessions, managed in a session browser.
 The first implementation milestone is desktop workspace, terminals and a live flat-game tab.
+Each workspace supports multiple project/worktree roots, with terminals, editors, agents and
+games explicitly bound to their own root.
 No engine has been migrated and no IDE implemented by this repository.
 
 The primary value is reusable, dependable implementation that an agent can select and compose

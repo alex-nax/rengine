@@ -82,7 +82,9 @@ revision, native build and scope are established in F32. F44 is a later second-e
 not a reason to postpone the first NOLF workflow or a claim that NOLF evidence covers VtMB.
 
 Closing tabs/windows detaches views, while the sidecar retains sessions. The session browser is
-required in v0. Basic editing includes the agreed optional Vim subset; a full IDE language-server
+required in v0. Workspaces support multiple project/worktree roots with explicit session bindings;
+the desktop proof exercises identical filenames and similarly named sessions across roots.
+Basic editing includes the agreed optional Vim subset; a full IDE language-server
 or debugger ecosystem is not part of that requirement. Agent installation, Quest distribution,
 external apps and XR automation have distinct gates after the first desktop proof. The ordering
 of those later gates relative to the first library proof remains a prioritization decision.
@@ -116,7 +118,7 @@ bounded follow-ups. Calendar dates and effort estimates await the selected proof
 ## Open decisions
 
 - Named first library, detailed quality bar and per-component conventions.
-- Desktop toolkit, flat-game baseline, multi-root identity, editing/Vim details and resource budgets.
+- Desktop toolkit, flat-game baseline, root identity/persistence details, editing/Vim details and resource budgets.
 - Later agent recipes/Windows Bash environment, Quest packaging and runtime-control ownership.
 - Minimum commitment for “powered by rEngine” and each project's upgrade autonomy.
 - infra-vr's product relationship and the meaning of the two streams.
