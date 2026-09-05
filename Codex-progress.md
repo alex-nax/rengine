@@ -1,5 +1,33 @@
 # Progress Log
 
+## Session 10 (macos) — 2026-09-05 — Image previews and verified pane movement
+
+**Goal turn classification**: progress. Combined-launch checkpoint committed as `7c407f3`.
+Added actual image previews with bounded authenticated reads and root-bound tab persistence.
+The complete Windows/gameplay/recovery qualification remains active.
+
+**Implemented/verified**: PNG/JPEG/GIF/WebP browser decoding, fit/actual size and refresh; invalid
+metadata/data and byte/pixel limits report errors. Object URLs and reads are released on view
+replacement/detach. Seventeen service tests pass; the real image test verifies two roots with
+different pixels, refresh, decoder-error recovery and GUI restart. Existing text/terminal checks
+still pass. Evidence is in `docs/evidence/image-previews-macos-2026-09-05.md`.
+
+**Evidence correction**: A stronger pane-position assertion exposed that the previous short
+Playwright drag emitted no drop on this Electron/macOS profile. The tests now use intermediate
+pointer moves and assert actual destination coordinates. NOLF passes the stronger move/input/
+restart/Stop check (11.1 seconds), and preview movement passes (about 2.1 seconds). Historical
+survival-after-gesture assertions alone were insufficient; refreshed native evidence records the
+correction. This required test input changes, not a replacement layout implementation.
+
+**Windows progress/next**: The NOLF project's configured Windows host was reachable with a
+read-only SSH check. It has Node 24.15.0, npm 11.12.1, Git, CMake, Ninja and an active console
+session. Its older NOLF checkout has unrelated edits; preserve it. Read its AGENTS/CLAUDE rules.
+Use an isolated rEngine qualification checkout next; Windows game integration, installed-agent
+proof, gameplay/DPI, packaging, resource budgets and failure recovery remain open. The earlier
+host question no longer prevents establishing Windows tests. No feature/goal marked complete.
+
+---
+
 ## Session 9 (macos) — 2026-09-05 — Combined production launch and two-root editing
 
 **Goal turn classification**: progress. Pushed the earlier native/desktop commits as requested;

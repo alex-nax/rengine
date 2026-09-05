@@ -5,6 +5,7 @@ import { api, connect, subscribe } from './client.js';
 import { flushBuffers, setVim } from './buffers.js';
 import { EditorPane, SessionPane, TerminalPane, TreePane } from './panes.jsx';
 import { GamePane } from './game.jsx';
+import { ImagePane, imagePath } from './preview.jsx';
 import 'flexlayout-react/style/dark.css';
 import '@xterm/xterm/css/xterm.css';
 import './style.css';
@@ -47,7 +48,7 @@ function App({ initial }) {
     target ??= model.getNodeById('main') ?? model.getRootRow().getChildren().find(node => node.getType() === 'tabset');
     model.doAction(Actions.addTab({ type: 'tab', ...tab }, target?.getId() ?? model.getRootRow().getId(), location, -1, true));
   };
-  const openFile = (boundRoot, path) => add({ id: `file:${JSON.stringify([boundRoot, path])}`, name: path.split('/').pop(), component: 'editor', config: { rootId: boundRoot, path } });
+  const openFile = (boundRoot, path) => add({ id: `file:${JSON.stringify([boundRoot, path])}`, name: path.split('/').pop(), component: imagePath(path) ? 'image' : 'editor', config: { rootId: boundRoot, path } });
   const attach = session => {
     if (session.type === 'editor') return openFile(session.rootId, session.path);
     add({ id: `session:${session.id}`, name: session.title, component: session.type === 'game' ? 'game' : 'terminal', config: { id: session.id, rootId: session.rootId } });
@@ -84,7 +85,8 @@ function App({ initial }) {
     if (!root && config?.rootId) return <p className="error">The bound project is unavailable. Reopen its original root.</p>;
     switch (node.getComponent()) {
       case 'tree': return <TreePane root={root} openFile={openFile} />;
-      case 'editor': return <EditorPane {...config} />;
+      case 'editor': return imagePath(config.path) ? <ImagePane {...config} name={root.name} /> : <EditorPane {...config} />;
+      case 'image': return <ImagePane {...config} name={root.name} />;
       case 'terminal': return <TerminalPane {...config} />;
       case 'game': return <GamePane {...config} name={root.name} />;
       default: return <div className="empty-pane"><strong>Your workspace</strong><p>Open a tree, terminal or agent here.</p><p>Drag tabs to arrange your panes.</p></div>;

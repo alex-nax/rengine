@@ -34,6 +34,9 @@ selector errors (provider-named agent tab and two root-specific README buttons) 
 race during window close. Explicit root selectors and waiting for close/exit events resolved them.
 
 Remaining: Windows runtime/host adapter and packaged builds, full NOLF gameplay/relative aiming,
-DPI and resize cases, numeric performance qualification, image previews, forced-crash/persistence
+DPI and resize cases, numeric performance qualification, forced-crash/persistence
 failure cases and outstanding provider qualification. This checkpoint does not mark F48/F55 or
 their prerequisites complete.
+
+Image preview implementation and its separate Mac proof are recorded in
+[preview evidence](image-previews-macos-2026-09-05.md).

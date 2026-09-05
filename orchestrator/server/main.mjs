@@ -8,6 +8,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { WorkspaceStore, fail } from './store.mjs';
 import { Sessions } from './sessions.mjs';
 import { Games } from './games.mjs';
+import { readImage } from './images.mjs';
 
 const defaultStatic = fileURLToPath(new URL('../../dist/', import.meta.url));
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
@@ -49,6 +50,12 @@ export async function startServer({ stateDir, port = 0, staticDir = defaultStati
               drafts: Object.values(store.state.drafts).map(({ rootId, path, updatedAt }) => ({ rootId, path, updatedAt })), sessions: sessions.list() }; break;
             case '/api/tree': value = await store.list(query.get('rootId'), query.get('path') ?? '', query.get('hidden') === 'true'); break;
             case '/api/file': value = await store.readText(query.get('rootId'), query.get('path')); break;
+            case '/api/image': {
+              const image = await readImage(store, query.get('rootId'), query.get('path'));
+              response.writeHead(200, { 'Content-Type': image.mime, 'Content-Length': image.bytes.length,
+                'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+              response.end(image.bytes); return;
+            }
             case '/api/session': value = sessions.snapshot(query.get('id'), true); break;
             case '/api/game-config': value = await games.inspect(query.get('rootId')); break;
             default: fail('Unknown workspace endpoint.', 404);

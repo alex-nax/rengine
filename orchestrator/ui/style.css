@@ -25,3 +25,9 @@ footer { display: flex; gap: 18px; padding: 6px 12px; color: #8b9aab; font-size:
 .game-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; background: #080a0d; overflow: hidden; }
 .game-stage canvas { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; outline: none; }
 .game-stage canvas:focus-visible { outline: 2px solid #89c1a9; outline-offset: -2px; }
+.image-preview { display: flex; flex-direction: column; overflow: hidden; }
+.image-stage { flex: 1; min-height: 0; overflow: auto; padding: 16px; background: repeating-conic-gradient(#1d252e 0% 25%, #252f39 0% 50%) 0 0 / 20px 20px; }
+.image-stage.fit { display: flex; align-items: center; justify-content: center; }
+.image-stage img { display: block; }
+.image-stage.fit img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.image-stage.actual img { max-width: none; max-height: none; }

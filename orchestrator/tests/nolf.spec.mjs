@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { startServer } from '../server/main.mjs';
+import { dragTab } from './drag.mjs';
 
 test('actual NOLF build renders through the native surface into the desktop', { timeout: 90000 }, async t => {
   assert.ok(process.env.RENGINE_NOLF_ROOT, 'Set RENGINE_NOLF_ROOT to an actual built NOLF checkout with local game data.');
@@ -52,7 +53,8 @@ test('actual NOLF build renders through the native surface into the desktop', { 
   await expect.poll(lowerMenuInk).toBeLessThan(mainMenuInk / 2);
   await page.screenshot({ path: '.cache/evidence/nolf-single-player.png' });
   await page.getByRole('button', { name: 'Split right', exact: true }).click();
-  await page.locator('.flexlayout__tab_button').filter({ hasText: 'NOLF ·' }).dragTo(page.locator('.empty-pane').last());
+  const destination = await dragTab(page, page.locator('.flexlayout__tab_button').filter({ hasText: 'NOLF ·' }), page.locator('.empty-pane').last());
+  await expect.poll(async () => (await canvas.boundingBox()).x).toBeGreaterThanOrEqual(destination.x - 2);
   await expect(canvas).toBeVisible();
   const sequence = item.frameCount;
   await page.locator('.flexlayout__tab_button').filter({ hasText: 'NOLF ·' }).getByTitle('Close', { exact: true }).click();

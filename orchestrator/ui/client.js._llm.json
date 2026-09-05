@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "authenticated-image-fetch",
+      "kind": "rationale",
+      "anchor": {
+        "start": 24,
+        "end": 24,
+        "snippet": "export async function fileImage(rootId, path, signal) {"
+      },
+      "note": "Binary preview requests use the same fragment-derived bearer capability as JSON calls. The token is never part of the image URL; the view creates and owns an object URL from the returned Blob. Combine caller cancellation with a finite read timeout so a stale image refresh does not outlive its view."
+    }
+  ],
+  "source": {
+    "path": "orchestrator/ui/client.js",
+    "sha256": "0cc6e648c5e67a10b20336b52426168a60802103174daec0d1e59c6f5908f7fb",
+    "format": "javascript",
+    "format_fingerprint": "397cc7395a5b30abc2d87ad72f98c45366ad1d4d1b2372e940122fd100fda425"
+  }
+}

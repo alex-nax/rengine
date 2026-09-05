@@ -11,12 +11,12 @@ desktop feature criteria remain open. No NOLF source or asset edits were made by
 - The host worktree retained its pre-existing untracked handoff/diagnostic files and dirty SDK
   submodule. The executable hash identifies the actual tested build; HEAD alone is not its pin.
 - Command: `RENGINE_NOLF_ROOT=/Users/alex/nolf-improved node --test orchestrator/tests/nolf.spec.mjs`.
-- Result: pass, about 10.3 seconds. Observed PID 96704, 124 frames before interaction, 960×600,
+- Latest strengthened result: pass, about 11.1 seconds. Observed PID 80221, 111 frames before interaction, 960×600,
   all 256 channel values. The host's local display configuration selected 960×600 despite launch
   dimensions of 1280×720; the pane followed actual frame dimensions.
 - The menu input check compares the lower menu's dark text pixels before/after Enter and the
   inspected screenshot shows Single player. It does not infer input success from frame count.
-- After tab drag and close, GUI restart and Session browser reattachment, the same game PID
+- After a tab drag with an asserted change in pane position and close, GUI restart and Session browser reattachment, the same game PID
   continued streaming. Explicit Stop reached the actual exited state.
 - Native SDL fixture separately passed key-down/release color changes, bottom-row orientation
   and restoration of pixel-pack alignment/row length; about 13.4 seconds, exit 0.
@@ -25,9 +25,15 @@ Local evidence (ignored, contains rendered proprietary game content):
 
 | Artifact under `.cache/evidence/` | SHA-256 |
 | --- | --- |
-| `nolf-single-player.png` | `c4eb5882e3f4228ac07266a41c1f2aa153b57102098baf0a76da0157e86af090` |
-| `nolf-reattached.png` | `7844f547d38c0ead16d5a287cf5ae6e9db08c53cab34b3b35dd2c837c1050220` |
+| `nolf-single-player.png` | `6f521936b576e6085e24cfc00a14407f10e84fbf063ad4fdc5d20e0413165996` |
+| `nolf-reattached.png` | `92f600e6ccd3e3fb19c8b975c143c5de8fddad033cfa7abed20958a93480d138` |
 
 The first NOLF test run failed because its browser polling expression converted an unawaited
 Promise to a number. After correcting that check, live frames passed; the subsequent expanded
 input/lifecycle test also passed. This test-code failure is not a runtime pass or a game failure.
+
+The earlier drag assertion proved that the process survived the gesture, but did not verify a
+new pane position. The stronger check exposed that Playwright's short drag emitted no drop on
+this profile. Intermediate pointer movements now generate dragover/drop, and the test asserts
+the live canvas moved into the destination pane. This latest run supersedes the earlier move
+claim and refreshes the local screenshot hashes above.

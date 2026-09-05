@@ -36,6 +36,8 @@ an `RENGINE_MCP_CONFIG` file path for their own integration recipe.
 The sidecar retains sessions when the desktop closes; use Session browser to attach or Stop.
 State defaults to `~/.local/state/rengine`; `--state DIR` selects an isolated workspace. Working
 files change on Save; unsaved text is checkpointed locally and flushed before normal GUI exit.
+PNG, JPEG, GIF and WebP open as read-only image previews with fit/actual-size and Refresh controls
+(8 MiB encoded, 16 megapixels, maximum 8,192 pixels per dimension).
 Run `npm test` for services/launcher checks and `npm run test:desktop` for the real desktop test.
 With the native adapter built, `node --test orchestrator/tests/sdl.spec.mjs` exercises a real
 SDL/GL producer. `RENGINE_NOLF_ROOT=/absolute/checkout npm run test:nolf` exercises the actual

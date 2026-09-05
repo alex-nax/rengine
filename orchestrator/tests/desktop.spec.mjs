@@ -5,6 +5,7 @@ import { mkdtemp, writeFile, readFile, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { startServer } from '../server/main.mjs';
+import { dragTab } from './drag.mjs';
 
 test('desktop tree/editor saves, retains drafts and reattaches a terminal after GUI restart', { timeout: 90000 }, async t => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-desktop-'));
@@ -54,7 +55,8 @@ test('desktop tree/editor saves, retains drafts and reattaches a terminal after 
   await page.keyboard.press('Enter');
   await expect.poll(() => server.sessions.snapshot(session.id, true).output).toContain('DESKTOP_INPUT_OK');
   await page.getByRole('button', { name: 'Split right', exact: true }).click();
-  await page.locator('.flexlayout__tab_button').filter({ hasText: 'Terminal ·' }).dragTo(page.locator('.empty-pane').last());
+  const destination = await dragTab(page, page.locator('.flexlayout__tab_button').filter({ hasText: 'Terminal ·' }), page.locator('.empty-pane').last());
+  await expect.poll(async () => (await page.locator('.terminal.pane').boundingBox()).x).toBeGreaterThanOrEqual(destination.x - 2);
   assert.equal(server.sessions.list()[0].pid, session.pid);
   await app.close();
   assert.equal(server.sessions.get(session.id).state, 'running');

@@ -21,6 +21,14 @@ export function send(message) {
   return true;
 }
 
+export async function fileImage(rootId, path, signal) {
+  const response = await fetch(`/api/image?${query({ rootId, path })}`, {
+    headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.any([signal, AbortSignal.timeout(10000)]),
+  });
+  if (!response.ok) throw new Error((await response.json()).error ?? 'Unable to read image.');
+  return response.blob();
+}
+
 export function connect() {
   if (socket && socket.readyState < WebSocket.CLOSING) return;
   socket = new WebSocket(`${location.origin.replace('http:', 'ws:')}/events?token=${encodeURIComponent(token)}`);

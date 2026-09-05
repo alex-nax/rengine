@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "bounded-encoded-image-read",
+      "kind": "rationale",
+      "anchor": {
+        "start": 8,
+        "end": 8,
+        "snippet": "export async function readImage(store, rootId, relative) {"
+      },
+      "note": "Resolve through the same explicit root/symlink boundary as text. Reject non-files before opening, then check the opened handle before allocation. Read only the observed length plus one byte to detect growth without an unbounded readFile. Metadata limits are based on encoded source dimensions before browser decoding; the format allowlist also keeps SVG/HTML and unqualified parsers out of the image response. A valid metadata header is not a decoding proof: the actual browser must display or report its decoder error. This is ordinary project binding, not a sandbox against a malicious process replacing paths concurrently."
+    }
+  ],
+  "source": {
+    "path": "orchestrator/server/images.mjs",
+    "sha256": "ce6da5983362f59d38a70f48d34a6bac8a1b8a1af210f1f2cc92ae8cbf2e948f",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}
