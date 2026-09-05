@@ -1,5 +1,29 @@
 # Progress Log
 
+## Session 9 (macos) — 2026-09-05 — Combined production launch and two-root editing
+
+**Goal turn classification**: progress. Pushed the earlier native/desktop commits as requested;
+committed agent bootstrap as `bdae7a3`. Verified the actual npm launch command rather than only
+separately constructed desktop/service tests. The complete goal remains active.
+
+**Implemented/verified**: Explicit opt-in local UI inspection enables acceptance automation of
+the normal launcher. Missing project/game prerequisites now fail before new shell/agent sessions.
+The combined test passes (29.3 seconds): actual NOLF frames, installed Codex with MCP tools,
+real shell input, real NOLF tree/README draft, second-root Save and conflict preservation, GUI
+close/relaunch retaining all session IDs/PIDs, draft recovery and explicit NOLF Stop while the
+other sessions stay running. The NOLF working file was preserved. Both launcher regressions pass.
+Inspected rendered evidence and recorded its hash in `docs/evidence/nolf-workspace.md`.
+
+**Test corrections**: Selected the actual provider-named agent tab and root-specific README
+buttons. Awaiting the page close event plus launcher exit handles CDP shutdown reply timing.
+These failures did not require changing session or editor behavior.
+
+**Next**: Image previews, native gameplay/input/DPI, Windows integration and remaining recovery,
+packaging and performance qualification. No feature or goal completion claimed; all 15 gates
+retain their unproven status. The existing Windows-host question remains pending.
+
+---
+
 ## Session 8 (macos) — 2026-09-05 — Agent MCP bootstrap and actual CLI/download proof
 
 **Goal turn classification**: progress. Native NOLF checkpoint committed as `a22d823`. Added

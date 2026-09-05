@@ -19,14 +19,14 @@ With Node 22.12 or later installed:
 ```sh
 npm ci
 npm run build:surface
-npm start -- --project /absolute/path/to/nolf-improved --agent codex
+npm start -- --project /absolute/path/to/nolf-improved --agent codex --launch-game
 ```
 
-This opens the project tree, a shell and the installed agent. Omit `--agent` to use the saved
+This opens the project tree, a shell, the installed agent and live NOLF. Omit `--agent` to use the saved
 preference or the terminal selection menu; Manage agents offers explicit install/download and
 update actions. Windows agent launching requires Git Bash (`RENGINE_BASH` can select its path).
 On macOS, Launch NOLF opens the project's existing `build/relith-nolf` with `nolf/NOLF.REZ` and
-its normal local game configuration. Add `--launch-game` to start it with the workspace. Building
+its normal local game configuration. Omit `--launch-game` to launch the game later from its button. Building
 the native adapter requires CMake, SDL2 2.32.10 development files and platform OpenGL. Windows
 host integration is still pending. Agents launched from the workspace receive a project-bound
 rEngine MCP connection. Codex was verified interactively; Claude/OpenCode/Gemini overlays have
@@ -43,6 +43,10 @@ local game, menu input, pane moves, GUI restart, reattachment and Stop. Game ass
 `RENGINE_NOLF_ROOT=/absolute/checkout node --test orchestrator/tests/agent-desktop.spec.mjs`
 boots the installed Codex CLI and checks its connected rEngine tool list without sending a
 coding prompt. Keep credentials and generated runtime evidence local.
+`RENGINE_NOLF_ROOT=/absolute/checkout npm run test:workspace` checks the combined launch command,
+two-root editing, agent tools and reuse after GUI exit. It opts into `--inspect-ui`, which enables
+an ephemeral local Electron debugging endpoint; ordinary launches leave debugging disabled.
+See the [combined workflow evidence](docs/evidence/nolf-workspace.md) for the current scope.
 
 The project boundary is established by
 the owner's brief and library-first clarification. Curated upstream plus our own gaps and iklib
