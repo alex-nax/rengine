@@ -14,12 +14,29 @@ const execute = promisify(execFile);
 const agentScript = fileURLToPath(new URL('../../scripts/agent.sh', import.meta.url));
 const OUTPUT_LIMIT = 1024 * 1024;
 
-export function shellEnvironment(overrides = {}) {
-  const env = { ...process.env, ...overrides, TERM: 'xterm-256color', COLORTERM: 'truecolor' };
-  const extra = ['.local/bin', '.n/bin', '.opencode/bin', '.cargo/bin'].map(part => path.join(homedir(), part));
-  env.PATH = [...new Set([...(env.PATH ?? '').split(path.delimiter), ...extra])].join(path.delimiter);
-  delete env.ELECTRON_RUN_AS_NODE;
-  return Object.fromEntries(Object.entries(env).filter(([, value]) => typeof value === 'string'));
+export function shellEnvironment(overrides = {}, { inherited = process.env, platform = process.platform, userDirectory = homedir() } = {}) {
+  const win = platform === 'win32';
+  const paths = win ? path.win32 : path.posix;
+  const key = name => win ? name.toUpperCase() : name;
+  const entries = new Map();
+  for (const values of [inherited, overrides, { TERM: 'xterm-256color', COLORTERM: 'truecolor' }]) {
+    for (const [name, value] of Object.entries(values)) {
+      if (typeof value === 'string') entries.set(key(name), [name, value]);
+      else entries.delete(key(name));
+    }
+  }
+  entries.delete(key('ELECTRON_RUN_AS_NODE'));
+  const env = Object.fromEntries(entries.values());
+  const pathKey = entries.get(key('PATH'))?.[0] ?? (win ? 'Path' : 'PATH');
+  const extra = ['.local/bin', '.n/bin', '.opencode/bin', '.cargo/bin'].map(part => paths.join(userDirectory, part));
+  const candidates = [...(env[pathKey] === undefined ? [] : env[pathKey].split(paths.delimiter)), ...extra];
+  const seen = new Set();
+  env[pathKey] = candidates.filter(value => {
+    const identity = win ? value.toLowerCase() : value;
+    if (seen.has(identity)) return false;
+    seen.add(identity); return true;
+  }).join(paths.delimiter);
+  return env;
 }
 
 export function bashPath() {

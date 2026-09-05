@@ -1,5 +1,30 @@
 # Progress Log
 
+## Session 11 (macos) — 2026-09-05 — Windows environment fix and transfer approval
+
+**Goal turn classification**: progress. Preview checkpoint `fa7e346` and preceding launch/agent
+commits were pushed to the requested origin. Fixed Windows environment key normalization while
+preserving POSIX behavior. Nineteen service tests pass, including both new environment checks
+and actual macOS PTY/MCP/agent tests (about 4.4 seconds).
+
+**Windows authority**: Read-only checks reached the NOLF-configured Windows machine and read
+its local checkout rules/tools/status. Automatic approval review rejected copying the committed
+261 KiB source bundle to that host: the destination was inferred from project configuration,
+not directly authorized by the owner. No source transfer occurred. An explicit async approval
+question names the machine/destination and isolated checkout; it remains pending. Do not bypass
+the rejection through clone, archive streaming or another transfer mechanism.
+
+**Scope**: The environment regression proves path/key transformation, not Windows process
+execution. Installed Codex/Claude help confirms their native update commands exist; managed
+Codex download/update remains the actual update runtime proof. No global agent update occurred.
+
+**Next**: On approval, transfer the prepared source and run native Windows qualification in an
+isolated checkout, preserving the dirty NOLF checkout. While approval is pending, local gameplay,
+input/DPI, editor/session failure recovery and packaging/performance work remain available.
+The complete goal stays active; no blocker/completion state or feature pass is claimed.
+
+---
+
 ## Session 10 (macos) — 2026-09-05 — Image previews and verified pane movement
 
 **Goal turn classification**: progress. Combined-launch checkpoint committed as `7c407f3`.
