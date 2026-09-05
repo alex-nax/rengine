@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "native-editor-scope",
+      "kind": "rationale",
+      "anchor": {
+        "start": 112,
+        "end": 112,
+        "snippet": "static void vim_key(ReEditor *e, SDL_Keycode k) {"
+      },
+      "note": "The native buffer stores Unicode codepoints and delegates selection/edit/undo mechanics to pristine stb_textedit. Vim is the explicitly documented initial subset, not full Vim emulation. A mode-changing i/a/o key also generates SDL_TEXTINPUT in a real window; ignore that initiating character once so entering insert mode does not insert the command itself. Storage converts back to UTF-8 through the service, which enforces encoded byte and line-ending policies.",
+      "refs": [
+        "docs/specs/056-native-desktop.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/editor.c",
+    "sha256": "1c8e33f049fdbcd635a85f81a7c464b3a053ab7ea163622460e5574f2ef8a51c",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

@@ -31,6 +31,8 @@ Date: 2026-09-05. Status: **interview in progress; recommendations are not owner
 | D23 | Select iklib as the first library to prove in both games. | Owner's “GO for gecommended” answering the iklib/adoption round, 2026-09-05 |
 | D24 | “Powered by rEngine” requires adoption of at least one curated capability at a pinned version with passing game integration checks. Use of the IDE and shared harness is optional. | Same owner confirmation as D23, 2026-09-05 |
 | D25 | Implement the launchable NOLF orchestrator with proper game launching, tree, editor and a preferred CLI agent booted through a find/update/download/launch shell script. | Owner's active implementation goal, 2026-09-05; authorizes the scoped desktop/agent inventory and supersedes the setup-only review wait |
+| D26 | Use microui with C for the desktop GUI; remove Electron. | Owner: “no electron, use microui with c instead for gui”, 2026-09-05; supersedes the earlier implementation stack |
+| D27 | Avoid heavyweight application runtimes such as Electron. A web interface follows later as a separate client. | Owner: “We never use such overhead in runtime such as electron … later we would have web interface though”, 2026-09-05 |
 
 D07 establishes the product direction. The claim that engines are becoming obsolete is the owner's
 thesis, not a verified industry-wide conclusion. The implementation question here is how rEngine

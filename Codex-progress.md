@@ -1,5 +1,47 @@
 # Progress Log
 
+## Session 13 (macos) — 2026-09-05 — Replace Electron with C/microui
+
+**Goal turn classification**: progress. The owner explicitly rejected Electron and selected C
+with microui, followed by a separate later web interface. Charter D26–D27, architecture, roadmap
+and AGENTS now preserve that constraint. A question about moving the separate Node session service
+to C remains optional/pending; that service has not been rewritten by the GUI migration.
+
+**Implemented**: A real C11/SDL2/microui desktop now replaces the Electron/React/CodeMirror/xterm
+UI and is the normal launcher target. Pinned C libraries provide JSON, terminal emulation,
+text editing, font rasterization and loopback transport. Native split/tab layout, root-bound
+file tree/editor, Save/conflict/Discard/drafts, real PTYs, session browser/Stop, live game textures
+and native capture/Escape handling are connected. Removed browser-only packages, source/tests
+and static serving. A web client is a future independent consumer. Vendored upstream remains
+pristine, with licenses/hashes and a documented owned-source style exemption.
+
+**Verification**: All 19 service checks pass. CTest layout/editor checks pass with Release
+assertions active. Native GUI tests pass executed PTY output, Unicode Save, external conflict,
+Discard, dirty-tab movement, durable close/restart and same shell PID. The actual SDL fixture
+passes live texture, native capture, held W release on first Escape, next Escape delivery and
+explicit asynchronous Stop. Actual NOLF main-menu to Single Player input, GUI restart with the
+same PID and Stop pass in an isolated copied-binary/archive-only runtime directory. Installed
+Codex 0.153.4 boots through the real Bash launcher in the native terminal; its startup was
+visually inspected without sending a coding prompt. Details: `docs/evidence/native-desktop-macos-2026-09-05.md`.
+
+**Corrections/findings**: Strengthened terminal proof to distinguish executed output from echo.
+Excluded a game mouse-up originating from the Capture button. Native Vim mode entry suppresses
+the initiating SDL text event; undo tests position the cursor explicitly. Respect microui's
+fixed command-root capacity with 15 panes. Rasterize fonts at drawable density; avoid idle repaint
+loops. Moving the downloaded curl cache beneath an ignored build directory prevented the sidecar
+indexer from ingesting thousands of generated/dependency files. All source metadata was reviewed.
+
+**Remaining**: Native combined-launch/MCP interaction, image previews, terminal/editor breadth,
+reconnect/failure handling, in-level aiming, logical/drawable game input mapping, packaging,
+resource budgets and Windows qualification remain open. The Windows source-transfer auto-review
+rejection remains in force; no transfer occurred. No feature or overall goal is marked complete.
+The former Electron tests/evidence are historical, not a native release pass.
+
+**Next**: Complete the native workflow and qualification against unchanged accepted criteria;
+retain service/engine independence and incorporate any owner steering on the service implementation.
+
+---
+
 ## Session 12 (macos) — 2026-09-05 — Game button release and actual lobby movement
 
 **Goal turn classification**: progress. The preceding remote-only turn confirmed synchronization

@@ -2,8 +2,8 @@
 
 Exercise `npm start -- --project DIR --agent codex --launch-game` through the real development
 launcher, sidecar process, desktop and native NOLF executable. The qualification runner supplies
-isolated application state and an explicit `--inspect-ui` flag, which enables Electron's local
-ephemeral debugging endpoint for UI automation. Ordinary launches expose no debugging endpoint.
+isolated application state and an explicit `--inspect-ui` flag, which enables native SDL event
+automation over the process's stdin/stdout. Ordinary launches expose no debugging endpoint.
 The flag does not replace launch/session code, game output, CLI output or user interaction.
 
 Before starting terminal/agent sessions for `--launch-game`, check the selected game's prerequisites.

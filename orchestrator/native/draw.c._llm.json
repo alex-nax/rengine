@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "trusted-fonts-and-density",
+      "kind": "rationale",
+      "anchor": {
+        "start": 52,
+        "end": 52,
+        "snippet": "ReDraw *re_draw_open(SDL_Window *window, const char *font_path) {"
+      },
+      "note": "stb_truetype only reads trusted OS/user-selected local fonts; it is not used to preview arbitrary project font files. The glyph cache is bounded and rasterizes at drawable density while UI coordinates remain logical. Glyph availability follows the chosen monospace font; automatic font fallback, shaping and full Unicode typography are not claimed.",
+      "refs": [
+        "docs/specs/056-native-desktop.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/draw.c",
+    "sha256": "deb5bd18d9277b2ea268a2ebccd6eeb313aea4ef5621fc58d3d3554b39cb8cf3",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

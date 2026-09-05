@@ -1,8 +1,11 @@
-import { build } from 'esbuild';
-import { mkdir, copyFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 const root = fileURLToPath(new URL('../', import.meta.url));
-await mkdir(`${root}/dist`, { recursive: true });
-await build({ absWorkingDir: root, entryPoints: ['orchestrator/ui/app.jsx'], bundle: true, outfile: 'dist/app.js',
-  sourcemap: true, minify: false, target: 'chrome140', define: { 'process.env.NODE_ENV': '"production"' }, loader: { '.woff2': 'file' } });
-await copyFile(`${root}/orchestrator/ui/index.html`, `${root}/dist/index.html`);
+const build = path.join(root, '.cache/desktop');
+const args = ['-S', root, '-B', build, '-DCMAKE_BUILD_TYPE=Release'];
+for (const command of [args, ['--build', build, '--config', 'Release', '--parallel', '6']]) {
+  const result = spawnSync('cmake', command, { cwd: root, stdio: 'inherit' });
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(`Native desktop build failed (${result.status}).`);
+}

@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "native-event-test-client",
+      "kind": "rationale",
+      "anchor": {
+        "start": 7,
+        "end": 7,
+        "snippet": "export async function nativeClient(instance, { root = '', terminal = '', agent = '', game = '' } = {}) {"
+      },
+      "note": "Runs the actual C executable with opt-in stdin automation and normal authenticated service connections. Pointer movement and down/up are separated so microui sees real frame boundaries. Test processes and local evidence are disposable; GUI close must preserve retained service processes until the test explicitly stops them.",
+      "refs": [
+        "docs/specs/056-native-desktop.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/tests/native-client.mjs",
+    "sha256": "0a6c4cd652308e37c00696d2a89d799d753b0ec4d9357303b3672192354d033d",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

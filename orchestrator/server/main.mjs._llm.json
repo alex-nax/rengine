@@ -5,11 +5,11 @@
       "id": "local-session-capability",
       "kind": "constraint",
       "anchor": {
-        "start": 30,
-        "end": 30,
-        "snippet": "export async function startServer({ stateDir, port = 0, staticDir = defaultStatic } = {}) {"
+        "start": 28,
+        "end": 28,
+        "snippet": "export async function startServer({ stateDir, port = 0 } = {}) {"
       },
-      "note": "This is a loopback-only desktop service. HTTP and WebSocket requests need the private runtime token and compatible Origin; it is not the Quest pairing protocol. Tokens stay in mode-0600 local state, never tracked files. Slow sockets reconnect to bounded retained output without stopping sessions.",
+      "note": "This is a loopback-only desktop service. HTTP and WebSocket requests need the private runtime token and compatible Origin; it is not the Quest pairing protocol. Tokens stay in mode-0600 local state, never tracked files. Slow sockets reconnect to bounded retained output without stopping sessions. The retired browser bundle is no longer served; unknown non-API paths return 404. A later web client requires an explicit separate delivery decision.",
       "refs": [
         "docs/specs/055-nolf-workspace-goal.md"
       ]
@@ -17,7 +17,7 @@
   ],
   "source": {
     "path": "orchestrator/server/main.mjs",
-    "sha256": "3d0f994ad305959af3199f5e748d61471e713941d72d7282b772504e791f356f",
+    "sha256": "645a2e46ccc6610ed160208259b3506fedbe7483cdc0fd350acd1484c884163c",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

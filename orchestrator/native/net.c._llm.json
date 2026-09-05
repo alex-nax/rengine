@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "bounded-native-transport",
+      "kind": "rationale",
+      "anchor": {
+        "start": 130,
+        "end": 130,
+        "snippet": "static int socket_worker(void *userdata) {"
+      },
+      "note": "Each HTTP/WS worker owns its curl handle. SDL mutexes protect bounded queues, binary game frames replace one latest slot, and HTTP work stays off the UI thread. This client accepts only an authenticated 127.0.0.1 service URL, disables proxies and redirects, and builds libcurl without TLS. The later Quest/web remote transport must not reuse this local-only assumption. Stream reconnection and more failure/backpressure qualification remain open.",
+      "refs": [
+        "docs/specs/056-native-desktop.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/net.c",
+    "sha256": "695d281f7612aa601fa45ef391261ee6acfe4f1af74db70343016030cd5bfdae",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

@@ -1,0 +1,23 @@
+# Native desktop dependency provenance
+
+`sources.json` records exact revisions and SHA-256 hashes for the pristine vendored files.
+Their original licenses are retained next to them. These are desktop implementation dependencies,
+not a claim that the first iklib two-game curation proof is complete.
+
+| Component | Use | Pin / license |
+| --- | --- | --- |
+| microui | Immediate-mode C controls and drawing commands | 2.02, commit `0850aba860959c3e75fb3e97120ca92957f9d057`; MIT |
+| stb_truetype / stb_textedit | Trusted local font rasterization and native text editing | Commit `2c980bb59875b0d32144a71867fbdebb2f77cd20`; MIT or public domain |
+| cJSON | Workspace JSON messages and persisted layout | 1.7.19; MIT |
+| libvterm | Actual PTY terminal emulation | 0.3.3 official release archive; MIT |
+| libcurl | Bounded local HTTP/WebSocket client transport | 8.22.0 archive SHA-256 in `orchestrator/native/curl.cmake`; curl license |
+| SDL2 | Native window, input, clipboard and texture rendering | External development prerequisite, exact 2.32.10; zlib license |
+
+The normal CMake configure fetches and verifies libcurl's pinned archive on its first build.
+It does not run a downloaded installer or access the network at application startup. libcurl is
+built without TLS and non-HTTP protocols for the existing loopback-only desktop service; the C
+client rejects non-loopback service addresses. Quest/web pairing needs its own reviewed secure
+transport. Do not expose this local protocol as a remote service.
+
+Owned C source stays under 1,000 lines per file. Vendored upstream sources remain intact, rather
+than changing their layout or stripping their licenses/comments to meet an owned-code guideline.

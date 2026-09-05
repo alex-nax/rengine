@@ -22,6 +22,11 @@ and a flat game rendered into a new tab as the first implementation milestone**,
 Windows from the start. The library base remains an independent product path. See the desktop
 milestones below; implementation need not wait for the entire library/training charter.
 
+The owner subsequently fixed the desktop GUI to C with microui and excluded Electron/runtime
+browser overhead (D26–D27). The [native migration](specs/056-native-desktop.md) replaces the earlier
+UI implementation within the same accepted feature scope. A later web client remains separate;
+native desktop qualification must establish its own evidence on both platforms.
+
 ## Library and reusable harness milestones
 
 | Milestone | Proposed features | Deliverable | Exit condition |

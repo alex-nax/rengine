@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { readFile, writeFile, rename, stat } from 'node:fs/promises';
+import { writeFile, rename } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import path from 'node:path';
@@ -10,8 +10,6 @@ import { Sessions } from './sessions.mjs';
 import { Games } from './games.mjs';
 import { readImage } from './images.mjs';
 
-const defaultStatic = fileURLToPath(new URL('../../dist/', import.meta.url));
-const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
 const authorized = (value, token) => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value) && timingSafeEqual(Buffer.from(value), Buffer.from(token));
 
 async function body(request) {
@@ -27,7 +25,7 @@ function json(response, status, value) {
   response.end(JSON.stringify(value));
 }
 
-export async function startServer({ stateDir, port = 0, staticDir = defaultStatic } = {}) {
+export async function startServer({ stateDir, port = 0 } = {}) {
   if (!stateDir) fail('The sidecar requires an explicit state directory.');
   const store = await WorkspaceStore.open(stateDir);
   const sessions = new Sessions(store);
@@ -83,15 +81,7 @@ export async function startServer({ stateDir, port = 0, staticDir = defaultStati
         json(response, 200, value);
         return;
       }
-      if (request.method !== 'GET') fail('Method not supported.', 405);
-      const requested = decodeURIComponent(target.pathname === '/' ? '/index.html' : target.pathname);
-      const file = path.resolve(staticDir, `.${requested}`);
-      if (!file.startsWith(`${path.resolve(staticDir)}${path.sep}`)) fail('Invalid asset path.', 403);
-      if (!(await stat(file)).isFile()) fail('Asset not found.', 404);
-      response.writeHead(200, { 'Content-Type': mime[path.extname(file)] ?? 'application/octet-stream',
-        'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff',
-        'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'" });
-      response.end(await readFile(file));
+      fail('No web client is installed. Use the native desktop.', 404);
     } catch (error) {
       if (!response.headersSent) json(response, error.status ?? (error.code === 'ENOENT' ? 404 : 500), { error: error.message });
       else response.destroy();

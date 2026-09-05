@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "native-game-input",
+      "kind": "rationale",
+      "anchor": {
+        "start": 64,
+        "end": 64,
+        "snippet": "void re_game_event(ReGame *g, const SDL_Event *e) {"
+      },
+      "note": "The separate game adapter consumes SDL scancodes and input events. Native relative capture belongs to this desktop process; first Escape releases capture and all held controls, while a later Escape is delivered to the game. Ignore mouse-up events for buttons never pressed in the game, such as the Capture mouse toolbar click. Current absolute coordinates still follow frame dimensions: logical/drawable game DPI mapping remains unqualified and must be extended explicitly.",
+      "refs": [
+        "docs/specs/056-native-desktop.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/game.c",
+    "sha256": "bf73e27b0cc5c59ebfc361879d11e7bc044e6f9db7729a71ac751a9eec429f89",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

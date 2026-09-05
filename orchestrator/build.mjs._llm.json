@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "explicit-native-build",
+      "kind": "rationale",
+      "anchor": {
+        "start": 6,
+        "end": 6,
+        "snippet": "const args = ['-S', root, '-B', build, '-DCMAKE_BUILD_TYPE=Release'];"
+      },
+      "note": "The development launcher builds the CMake native desktop. First configure verifies and fetches the pinned libcurl archive; subsequent builds reuse CMake state. SDL2 is an explicit exact-version prerequisite. No Electron or browser bundle is built, and application startup never downloads GUI dependencies silently outside this declared build step.",
+      "refs": [
+        "docs/specs/056-native-desktop.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/build.mjs",
+    "sha256": "debc384550462d3694ef42eec92df2b6f02092946bce2394758c3ed8531a55a0",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

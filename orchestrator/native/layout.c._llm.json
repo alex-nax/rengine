@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "stable-view-identity",
+      "kind": "rationale",
+      "anchor": {
+        "start": 32,
+        "end": 32,
+        "snippet": "bool re_layout_move(ReLayout *l, int tab, int n, int index) {"
+      },
+      "note": "Moves change pane membership only. File/root/session ownership remains on the stable tab record. Restoration validates bounds, integral indices, unique tabs, a single connected acyclic split tree and a leaf active pane before replacing the live layout. Empty leaves remain available for additional views. The 29-node tree permits 15 leaves: each leaf uses two microui root containers and the toolbar uses one, below pristine upstream microui's fixed 32-root limit.",
+      "refs": [
+        "docs/specs/056-native-desktop.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/layout.c",
+    "sha256": "09782e69abb512929f3b7dc886510eb26f32436f1283bb53694b00cfe52f9b9c",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

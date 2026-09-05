@@ -1,0 +1,59 @@
+[
+  {
+    "name": "microui",
+    "upstream": "https://github.com/rxi/microui",
+    "revision": "0850aba860959c3e75fb3e97120ca92957f9d057",
+    "files": {
+      "microui.c": "880ce7e017fe307553586c9ba8291e9d9f56cdb20bc4188df072f1e8bd9af6dd",
+      "microui.h": "9aa08e7f58c2152dbfcb4d7deb1f5d79ab1bf0c2809d87f3ff89dc34e24d0c63",
+      "LICENSE": "470601a025efe1d098dcce9b86b4e5b3fbdb9341c1f9ec285cf9435f6caa0a38"
+    }
+  },
+  {
+    "name": "stb",
+    "upstream": "https://github.com/nothings/stb",
+    "revision": "2c980bb59875b0d32144a71867fbdebb2f77cd20",
+    "files": {
+      "stb_truetype.h": "ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab",
+      "stb_textedit.h": "7af0ded9e07ee2dcd1dab9e1413f59ac66d0a4f7bdaa39b4aaaca08cf691d0f3",
+      "LICENSE": "bebfe904b14301657e4e5d655c811d51fd31b97c455b9cc2d8600d6bac6cff63"
+    }
+  },
+  {
+    "name": "cjson",
+    "upstream": "https://github.com/DaveGamble/cJSON",
+    "revision": "v1.7.19",
+    "files": {
+      "cJSON.c": "298581a04a36c0165da4b0aade235c23088cb2faa58651d720ea2f3706ed0b0d",
+      "cJSON.h": "25b0145150d500498e4d209cec69c18c42cf818bffcc54690be3b895a2a16dee",
+      "LICENSE": "a36dda207c36db5818729c54e7ad4e8b0c6fba847491ba64f372c1a2037b6d5c"
+    }
+  },
+  {
+    "name": "libvterm",
+    "upstream": "https://www.leonerd.org.uk/code/libvterm/",
+    "revision": "0.3.3",
+    "archive": "https://www.leonerd.org.uk/code/libvterm/libvterm-0.3.3.tar.gz",
+    "sha256": "09156f43dd2128bd347cbeebe50d9a571d32c64e0cf18d211197946aff7226e0",
+    "files": {
+      "LICENSE": "66c627cf44f0c59daf81ba442e62e9b3d3cd1091a41e116de5ea9058a57bbba7",
+      "include/vterm.h": "07f78f27bc043e3791ede1fb61891400f06fd64c5c7cf38a92a02712fb18fe6b",
+      "include/vterm_keycodes.h": "2a8a667b8f820d9c824b79e7bc4add4acab79b9712fd5b162715f59e11e15fc6",
+      "src/encoding/DECdrawing.inc": "d8c25047d5f4b6cea81904fb9efb640307298dbe945d1b71623fcb741a6449ee",
+      "src/encoding/uk.inc": "9dad74b7ced668b4ed495791c59d3006d858593e4b5fe5e01cb5bfa7a5e24ebb",
+      "src/encoding.c": "f5a91b627ee06c3c3cd8ba0abef7258e889d0ed6a484728a0dc51c7e99a7cf99",
+      "src/fullwidth.inc": "41c4b4a0722cd8d269e66225c04e922454039405903fefb2c8b07c9de0cf57f1",
+      "src/keyboard.c": "3d0f3ac0c46af4d9463dedf8fd28dfad07dd11a851f22f60cba5ea70a6133cde",
+      "src/mouse.c": "2824a884d4ac64ee147febe8c4a470679351d0c040c0171d7ac8f4f4165b0f7e",
+      "src/parser.c": "237220e912ab95795f78c013d6734b88080b00595010dab87d11980c24d025af",
+      "src/pen.c": "f97dde69a6e7e7f9c3a6fdb7575e965ef9a17077bf196609759f9f181982ca2b",
+      "src/rect.h": "8ac51df5e5c7e092b5c3feedc930a5238327f204da50febd3ae635788ba1de06",
+      "src/screen.c": "d37cc2977595c9766dd85d20ce86e3a7838271a7df9c28f9ff1ac4a8ff1bb59a",
+      "src/state.c": "8f6504f091a91194fa4e972a142d586fb96bd8e7a15b6d26747323f1fe48ff38",
+      "src/unicode.c": "a3905a313d8825aa95b4e26a8cb72a06c5c88a80c665cdf093ebaa8b874d7026",
+      "src/utf8.h": "2a1c6ffd176d2750e077debbd8bc43f9d7b8bd451eb37b7bbe7e7b60ed29a974",
+      "src/vterm.c": "f8620e99da940d9c49c8d58dccd161aeaad45c5c6c3950f5289e6e4f77be85ac",
+      "src/vterm_internal.h": "d283425a4bc343d351f858dfd32840320f25701fbbca06eb44d0d2040bf6e7e9"
+    }
+  }
+]

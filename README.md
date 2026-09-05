@@ -8,13 +8,17 @@ The planned IDE is a tab-and-pane orchestrator: arrange terminals, project/file 
 agents, live game output and integrated tools in one workspace. An initial agent terminal will
 run a Bash selection/installation launcher and bootstrap that agent's project integrations.
 
-**Status: desktop implementation in progress.** The active NOLF workspace goal authorizes the
-desktop and agent scope in [F55](docs/specs/055-nolf-workspace-goal.md). The sidecar file/session
-services, standalone agent launcher and desktop tree/editor/terminal workflow have automated
-macOS tests. A native adapter now renders the actual NOLF menu into a movable game pane and
-accepts input; the full Mac/Windows workflow remains in progress.
+**Status: native desktop implementation in progress.** The GUI is C with microui and SDL2.
+Electron and embedded browser application runtimes are excluded by the owner's architectural
+constraint. A later web interface will be a separate client of workspace services.
 
-With Node 22.12 or later installed:
+The current macOS checks cover real project files, Unicode editing, explicit Save/conflicts,
+local draft recovery, movable tabs and retained PTYs. Native SDL mouse capture/Escape release
+passes, and the actual NOLF menu renders and accepts input in a game tab. Windows, full gameplay,
+previews, terminal/editor completeness, packaging and resource qualification remain in progress.
+Earlier Electron screenshots/tests are historical evidence, not native desktop qualification.
+
+With CMake, a C compiler, SDL2 **2.32.10** development files and Node **22.12+** installed:
 
 ```sh
 npm ci
@@ -22,37 +26,48 @@ npm run build:surface
 npm start -- --project /absolute/path/to/nolf-improved --agent codex --launch-game
 ```
 
-This opens the project tree, a shell, the installed agent and live NOLF. Omit `--agent` to use the saved
-preference or the terminal selection menu; Manage agents offers explicit install/download and
-update actions. Windows agent launching requires Git Bash (`RENGINE_BASH` can select its path).
-On macOS, Launch NOLF opens the project's existing `build/relith-nolf` with `nolf/NOLF.REZ` and
-its normal local game configuration. Omit `--launch-game` to launch the game later from its button. Building
-the native adapter requires CMake, SDL2 2.32.10 development files and platform OpenGL. Windows
-host integration is still pending. Agents launched from the workspace receive a project-bound
-rEngine MCP connection. Codex was verified interactively; Claude/OpenCode/Gemini overlays have
-configuration tests and still need their own runtime qualification. Custom executables receive
-an `RENGINE_MCP_CONFIG` file path for their own integration recipe.
+The launcher builds and runs the native executable. The first CMake configure downloads a
+checksum-pinned libcurl source archive; the other small C dependencies are vendored with licenses.
+Node currently runs the development launcher and retained PTY/file/agent service as separate
+processes. It is not linked into the GUI or either game. Service migration timing remains open.
 
-The sidecar retains sessions when the desktop closes; use Session browser to attach or Stop.
-State defaults to `~/.local/state/rengine`; `--state DIR` selects an isolated workspace. Working
-files change on Save; unsaved text is checkpointed locally and flushed before normal GUI exit.
-PNG, JPEG, GIF and WebP open as read-only image previews with fit/actual-size and Refresh controls
-(8 MiB encoded, 16 megapixels, maximum 8,192 pixels per dimension).
-Run `npm test` for services/launcher checks and `npm run test:desktop` for the real desktop test.
-With the native adapter built, `node --test orchestrator/tests/sdl.spec.mjs` exercises a real
-SDL/GL producer. `RENGINE_NOLF_ROOT=/absolute/checkout npm run test:nolf` exercises the actual
-local game, menu input, pane moves, GUI restart, reattachment and Stop. Game assets remain local.
-`node --test orchestrator/tests/game-input.spec.mjs` checks native mouse release and focus loss.
-For sustained macOS gameplay inspection, use the isolated
-[gameplay probe](docs/evidence/gameplay-input-macos-2026-09-05.md); native mouse locking requires
-an unlocked console and has a separate qualification command.
-`RENGINE_NOLF_ROOT=/absolute/checkout node --test orchestrator/tests/agent-desktop.spec.mjs`
-boots the installed Codex CLI and checks its connected rEngine tool list without sending a
-coding prompt. Keep credentials and generated runtime evidence local.
-`RENGINE_NOLF_ROOT=/absolute/checkout npm run test:workspace` checks the combined launch command,
-two-root editing, agent tools and reuse after GUI exit. It opts into `--inspect-ui`, which enables
-an ephemeral local Electron debugging endpoint; ordinary launches leave debugging disabled.
-See the [combined workflow evidence](docs/evidence/nolf-workspace.md) for the current scope.
+Omit `--agent` to use the saved preference or selection menu. Manage opens the standalone Bash
+agent launcher with explicit find/install/update/launch actions. Windows agent launching requires
+Git Bash (`RENGINE_BASH` selects an alternate path). Agent sessions receive project-bound rEngine
+MCP configuration; the native terminal boots installed Codex 0.153.4 through the Bash launcher. Full native MCP/TUI
+interaction still needs qualification; earlier connected-tool evidence used the former desktop. Existing agent settings and credentials stay with the agent.
+
+NOLF uses the selected project's existing `build/relith-nolf`, `nolf/NOLF.REZ`, configuration and
+save directory. Omit `--launch-game` to launch it later from the NOLF button. The macOS adapter
+streams live frames into a native texture; Windows host wiring remains pending.
+
+Closing views detaches them; use **Sessions** to reattach or explicitly **Stop** a process.
+State defaults to `~/.local/state/rengine`; `--state DIR` isolates a workspace. Working files change
+only on Save. Recovery drafts are checkpointed locally and flushed before normal GUI exit.
+The initial native Vim subset and current limits are in the [native desktop spec](docs/specs/056-native-desktop.md).
+
+The GUI can also be built and run independently of the JavaScript launcher:
+
+```sh
+cmake -S . -B build/desktop -DCMAKE_BUILD_TYPE=Release
+cmake --build build/desktop --config Release
+build/desktop/bin/rengine --connection /absolute/state/directory/sidecar.json
+```
+
+An existing service connection is required for files and sessions. On multi-configuration Windows
+builds the executable is under `bin/Release`. The GUI uses a trusted system monospace font;
+`RENGINE_FONT=/absolute/font.ttf` selects another. Glyph coverage follows that font.
+
+```sh
+npm test
+npm run test:desktop
+RENGINE_NOLF_ROOT=/absolute/checkout npm run test:nolf
+```
+
+Desktop GUI tests run sequentially to avoid competing for native mouse capture. NOLF qualification
+copies the executable and links only asset archives into an ignored runtime directory, preserving
+the original project's saves/configuration. Native `--inspect-ui` automation uses process stdin;
+normal launches expose no UI debugging endpoint. See [native evidence](docs/evidence/native-desktop-macos-2026-09-05.md).
 
 The project boundary is established by
 the owner's brief and library-first clarification. Curated upstream plus our own gaps and iklib

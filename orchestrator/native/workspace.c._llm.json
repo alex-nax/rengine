@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "native-focus-and-detach",
+      "kind": "rationale",
+      "anchor": {
+        "start": 164,
+        "end": 164,
+        "snippet": "bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {"
+      },
+      "note": "Pointer focus selects a view without changing its root/session binding. Toolbar focus clears custom editor/terminal/game keyboard routing. Moving a tab keeps its identity. Detaching closes terminal/game display resources but never calls Stop; retained process management belongs to the explicit Sessions controls.",
+      "refs": [
+        "docs/specs/056-native-desktop.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/workspace.c",
+    "sha256": "33a62b5b8b90d103646ed2a3bb35dae84f29874e418c23b392c3149fed0e6f78",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

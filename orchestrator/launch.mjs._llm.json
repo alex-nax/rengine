@@ -15,16 +15,16 @@
       "id": "explicit-ui-inspection",
       "kind": "constraint",
       "anchor": {
-        "start": 51,
-        "end": 51,
-        "snippet": "if (options.inspectUI) desktopArgs.unshift('--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0');"
+        "start": 52,
+        "end": 52,
+        "snippet": "const desktopArgs = options.inspectUI ? ['--automation'] : [];"
       },
-      "note": "Only the explicit --inspect-ui flag enables Electron's ephemeral loopback debugging endpoint. The combined acceptance check uses it to observe the ordinary production launcher through CDP instead of constructing a different desktop/session setup. Do not enable inspection by default or bind it to a remote address. Test state and runtime logs are local and disposable."
+      "note": "Only explicit --inspect-ui enables the native C desktop stdin/stdout SDL-event inspection channel. Normal launches expose no UI inspection endpoint. Connection credentials are passed in the child environment, not arguments or logs. Desktop exit detaches views from the independent retained service. Historical Electron/CDP automation was removed under owner decisions D26\u2013D27."
     }
   ],
   "source": {
     "path": "orchestrator/launch.mjs",
-    "sha256": "7071a04b48efcbf8c212a10a287378999dde9a3ec04fcffe6babf8c4b3ec908c",
+    "sha256": "c07e8429fa03c60cfed6f9615a24dc1adad691f216580a1a141dacb86ed5a682",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

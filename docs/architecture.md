@@ -12,9 +12,11 @@ admission questions and evidence.
 The owner also requested an IDE/orchestrator. Its UI arranges project views and live sessions;
 its agent launcher selects the CLI; MCP bootstrap remains in progress. See the
 [orchestrator spec](specs/002-orchestrator.md). The GUI is a consumer of reusable components and
-project adapters; engines and libraries remain independently usable. Electron/React/FlexLayout,
-CodeMirror and xterm connect to a separate Node/node-pty sidecar under F55 qualification. Native
-game-surface transport remains in progress; toolkit selection is not a completed platform claim.
+project adapters; engines and libraries remain independently usable. The desktop GUI is C with
+microui (owner decisions D26–D27). Electron and embedded browser application runtimes are excluded.
+An optional later web interface consumes the same workspace contracts independently. The existing
+Node/node-pty service and SDL2 game adapter supply migration contracts; native GUI qualification
+must repeat the actual workflow. Earlier Electron results do not qualify the replacement.
 
 ## Ownership
 
@@ -89,6 +91,9 @@ game simulation or require the training stack to launch a game.
     Different worktrees are distinct roots even when they share repository identity. File writes
     and session operations must not resolve through an implicit global active project. A shell's
     current directory is separate from its recorded launch root; binding is not access confinement.
+14. Desktop presentation uses C and microui without an embedded browser runtime. Web delivery is
+    a separate client. Neither client nor its tooling service is required to run a game or consume
+    a curated library. Measure memory, CPU, frame and input costs at each boundary.
 
 ## Initial files and future placement
 

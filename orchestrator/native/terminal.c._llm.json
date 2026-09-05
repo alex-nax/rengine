@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "real-vt-screen",
+      "kind": "rationale",
+      "anchor": {
+        "start": 40,
+        "end": 40,
+        "snippet": "void re_terminal_message(ReTerminal *t, const cJSON *j) {"
+      },
+      "note": "Only attached snapshot/output bytes from the selected retained PTY feed libvterm. Sequence gaps request a fresh snapshot instead of replaying a launch command. The terminal emulator supplies key/control encoding and screen state; it is not a plain output log. Scrollback, selection, cursor properties and complete CLI/font/resize behavior remain separate qualification work.",
+      "refs": [
+        "docs/specs/056-native-desktop.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/terminal.c",
+    "sha256": "f29ad80ea5490870f54ec251b6ea85bade3e35fe8fdc167cf5368c8cd2bfca81",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

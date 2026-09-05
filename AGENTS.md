@@ -61,6 +61,9 @@ a coherent change. Preserve other sessions' entries and unrelated edits.
   unrelated active worktrees; prefer a separately buildable adapter where the host supports it.
 - New components use explicit inputs and versioned dependencies; no required `~/...` paths,
   hidden downloads, global mutable configuration, or mandatory umbrella runtime.
+- Desktop GUI code is C using microui. Electron and embedded browser application runtimes are
+  prohibited in the desktop and game runtime. A later web interface is an optional separate
+  client of workspace services, never a dependency of native tools or games (charter D26–D27).
 - Honor the training project's held-out-data and grader boundaries. Recording a run does not
   authorize training, data export, or model creation.
 - Do not delegate by default. Spawn agents only when the user or an applicable skill asks for it.
@@ -73,7 +76,8 @@ a coherent change. Preserve other sessions' entries and unrelated edits.
 structure and dependency cycles. The initial Python tooling uses the standard library only.
 Native toolchains will be selected per component when that component is approved.
 
-Keep source files under 1,000 lines. Public API documentation stays with the API. Longer file-local
+Keep owned source files under 1,000 lines; retain pinned upstream sources intact with their licenses.
+Public API documentation stays with the API. Longer file-local
 rationale belongs in `._llm.json` sidecars using the installed llm-sidecar skill; refresh anchors
 and review stamps when editing an annotated file. Cross-file decisions belong in specs.
 

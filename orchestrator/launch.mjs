@@ -14,7 +14,7 @@ for (let index = 2; index < process.argv.length; index++) {
   else if (flag === '--launch-game') options.launchGame = true;
   else if (flag === '--inspect-ui') options.inspectUI = true;
   else if (flag === '--help') {
-    console.log('npm start -- [--project DIR] [--agent codex|claude|gemini|opencode|EXEC] [--state DIR] [--no-agent] [--launch-game] [--inspect-ui]\n--launch-game requires an explicit --project. --inspect-ui enables local UI debugging.\nThe desktop detaches on exit; manage retained processes in Session browser.');
+    console.log('npm start -- [--project DIR] [--agent codex|claude|gemini|opencode|EXEC] [--state DIR] [--no-agent] [--launch-game] [--inspect-ui]\n--launch-game requires an explicit --project. --inspect-ui enables native stdin automation.\nThe C/microui desktop detaches on exit; manage retained processes in Sessions.');
     process.exit(0);
   } else throw new Error(`Unknown option: ${flag}`);
 }
@@ -43,12 +43,13 @@ if (options.project) {
   }
   if (options.launchGame) query.set('game', (await request(instance, 'game', { rootId: root.id })).id);
 }
-const { default: electron } = await import('electron');
-const env = { ...process.env, RENGINE_UI_URL: `${instance.url}/?${query}#${instance.token}` };
-delete env.ELECTRON_RUN_AS_NODE;
-const desktopArgs = [fileURLToPath(new URL('./desktop/main.cjs', import.meta.url))];
-// Opt-in inspection only — see sidecar: explicit-ui-inspection.
-if (options.inspectUI) desktopArgs.unshift('--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0');
-const desktop = spawn(electron, desktopArgs, { stdio: 'inherit', env });
+const env = { ...process.env, RENGINE_WORKSPACE_URL: instance.url, RENGINE_WORKSPACE_TOKEN: instance.token,
+  RENGINE_INITIAL_ROOT: query.get('root') ?? '', RENGINE_INITIAL_TERMINAL: query.get('terminal') ?? '',
+  RENGINE_INITIAL_AGENT: query.get('agent') ?? '', RENGINE_INITIAL_GAME: query.get('game') ?? '' };
+const binary = process.env.RENGINE_NATIVE_BINARY ?? fileURLToPath(new URL(
+  process.platform === 'win32' ? '../.cache/desktop/bin/Release/rengine.exe' : '../.cache/desktop/bin/rengine', import.meta.url));
+// Opt-in local stdin inspection — see sidecar: explicit-ui-inspection.
+const desktopArgs = options.inspectUI ? ['--automation'] : [];
+const desktop = spawn(binary, desktopArgs, { stdio: 'inherit', env });
 desktop.on('error', error => { console.error(error.message); process.exitCode = 1; });
 desktop.on('exit', code => { process.exitCode = code ?? 1; });

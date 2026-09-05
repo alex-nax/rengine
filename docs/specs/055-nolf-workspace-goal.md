@@ -30,19 +30,23 @@ optional Vim and explicit-save recovery requirements still apply.
 
 ## Implementation approach under qualification
 
-Use Electron as the desktop shell, a separately launched Node sidecar, node-pty/xterm.js for
-terminals, React/FlexLayout for splits/tabs, and CodeMirror with an optional Vim extension for
-editing. Pin resolved package versions and lockfile integrity. Node sidecar lifetime is independent
-of Electron; native PTY modules are built for the sidecar's Node ABI rather than Electron's ABI.
-The initial development launcher therefore requires Node as a declared prerequisite. Packaging
-must include or explicitly provision that prerequisite before claiming an installable release.
+The owner superseded the initial Electron implementation: the desktop GUI is C using microui
+(charter D26–D27). No Electron, Chromium shell or embedded web application runtime belongs in the
+native desktop or either game's runtime. A later optional web interface consumes the workspace
+service contracts independently. Implement native split/tab layout, terminal rendering, editor
+and game views; the previous browser tests are historical evidence, not qualification of this GUI.
+See [native desktop migration](056-native-desktop.md) for the implementation and verification plan.
+
+The current Node/node-pty service is separate from GUI and game processes. Its replacement timing
+is being clarified with the owner; preserve its authenticated contracts and retained-session
+behavior through that transition. No game or curated runtime library depends on this service.
 
 The game surface is a separate adapter with explicit process/session identity. Qualify NOLF's
 SDL2/OpenGL swap and input boundaries; do not treat an external game window or screenshots as
 the live interactive tab. Bound buffered frames and terminal output to avoid memory growth.
 
 Local HTTP/WebSocket access uses a loopback listener, an unguessable session token and explicit
-root/session identifiers. The browser renderer has no Node integration. File writes check the
+root/session identifiers. The native GUI receives explicit connection credentials. File writes check the
 base version and preserve drafts; shell commands retain their normal operating-system authority.
 
 ## Delivery and verification
@@ -59,7 +63,6 @@ and installed-agent run. Concrete platform and performance evidence is recorded 
 
 Primary component references reviewed during qualification:
 
-- https://www.electronjs.org/docs/latest/tutorial/using-native-node-modules
+- https://github.com/rxi/microui
+- https://www.leonerd.org.uk/code/libvterm/
 - https://github.com/microsoft/node-pty
-- https://github.com/caplin/FlexLayout
-- https://github.com/replit/codemirror-vim

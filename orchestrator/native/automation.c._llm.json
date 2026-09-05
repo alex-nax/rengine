@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "opt-in-native-acceptance",
+      "kind": "rationale",
+      "anchor": {
+        "start": 12,
+        "end": 12,
+        "snippet": "Uint32 re_automation_start(void) {"
+      },
+      "note": "Only explicit test-mode startup creates the stdin reader. Commands enqueue ordinary SDL key/mouse/text events and expose read-only state/rendered snapshots. It does not start a network listener or replace file/session/game operations with fixtures. Tests close stdin and their owned process; this is not a general-purpose user tool protocol.",
+      "refs": [
+        "docs/specs/056-native-desktop.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/automation.c",
+    "sha256": "f2c6860758b7a5fe851381b8e359d59c1f56acb99c4b03b853f69fd51795cf18",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}
