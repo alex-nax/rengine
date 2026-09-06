@@ -3,6 +3,8 @@ import { openScript } from './scripts.mjs';
 import { listFormats, formatPreview, readBytes } from '../server/formats.mjs';
 import { dashboardAction, dashboardActions, dashboardRunPayload, dashboardCapture } from '../server/dashboard.mjs';
 import { inspectGame } from '../server/games.mjs';
+import { projectDevices } from '../server/devices.mjs';
+import { readDeclaration } from '../server/formats.mjs';
 import { randomBytes } from 'node:crypto';
 import { WebSocket, WebSocketServer } from 'ws';
 import { Desktops } from '../server/desktops.mjs';
@@ -23,7 +25,13 @@ export async function startWorker(host) {
      the retained host, which owns the PTY and the embedded surface. See sidecar: game-routes. */
   const preflight = (rootId, gameId) => inspectGame(root(rootId), gameId);
   const capabilities = ({ projectGameLaunch, ...rest }) => ({ ...rest, desktopActions: 1, layeredUpdates: 1, scriptActions: 1,
-    formatRegistry: 1, dashboard: 1, projectGame: 1, ...(rest.projectGame === 1 ? { projectGameLaunch: 1 } : {}) });
+    formatRegistry: 1, dashboard: 1, projectGame: 1, projectDevices: 1, ...(rest.projectGame === 1 ? { projectGameLaunch: 1 } : {}) });
+  /* Refused here, from the worker's own preflight, before anything reaches the retained host: the
+     spec-078 / KI-043 lesson is that the host must not be the one to answer. See sidecar: remote-launch. */
+  const refuseRemote = async (rootId, gameId) => {
+    const config = await preflight(rootId, gameId);
+    if (config.refusal) fail(config.refusal, 409);
+  };
   const launch = payload => {
     if (bindings.capabilities?.projectGame !== 1) {
       fail('This retained session host predates per-project game declarations and would launch its removed built-in game; game_preflight answers from the declaration. Replacing the session host requires quiescence.', 409);
@@ -50,15 +58,23 @@ export async function startWorker(host) {
         await refresh(); json(res, 200, await readBytes(root(target.searchParams.get('rootId')), Object.fromEntries(target.searchParams)));
       } else if (req.method === 'GET' && target.pathname === '/api/game-config') {
         await refresh(); json(res, 200, await preflight(target.searchParams.get('rootId'), target.searchParams.get('gameId') ?? undefined));
+      } else if (req.method === 'GET' && target.pathname === '/api/devices') {
+        await refresh();
+        const selected = root(target.searchParams.get('rootId'));
+        json(res, 200, await projectDevices(selected, await readDeclaration(selected.path), { refresh: target.searchParams.get('refresh') === '1' }));
       } else if (req.method === 'POST' && target.pathname === '/api/game') {
         const data = await body(req); await refresh();
+        await refuseRemote(data.rootId, data.gameId ?? undefined);
         json(res, 200, await launch({ rootId: data.rootId, ...(data.gameId === undefined ? {} : { gameId: data.gameId }), ...(data.args === undefined ? {} : { args: data.args }) }));
       } else if (req.method === 'GET' && target.pathname === '/api/dashboard') {
         await refresh(); json(res, 200, await dashboardActions(root(target.searchParams.get('rootId')), preflight));
       } else if (req.method === 'POST' && target.pathname === '/api/dashboard-run') {
         const data = await body(req); await refresh();
         const selected = root(data.rootId), action = await dashboardAction(selected, data.actionId, preflight);
-        if (action.kind === 'game') { json(res, 200, await launch({ rootId: selected.id, gameId: action.game, args: action.args ?? [] })); return; }
+        if (action.kind === 'game') {
+          await refuseRemote(selected.id, action.game);
+          json(res, 200, await launch({ rootId: selected.id, gameId: action.game, args: action.args ?? [] })); return;
+        }
         const payload = await dashboardRunPayload(selected, action);
         json(res, 200, { ...await call(host, 'terminal', payload), title: payload.title }); /* the retained host may predate session titles */
       } else if (req.method === 'POST' && target.pathname === '/api/dashboard-capture') {

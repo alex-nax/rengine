@@ -1,24 +1,15 @@
-import { stat, mkdir, readFile, writeFile, rename, rm, access, constants } from 'node:fs/promises';
+import { stat, mkdir, readFile, writeFile, rename, rm } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { readDeclaration, runCommand } from './formats.mjs';
+import { onPath, present, targetAvailability } from './devices.mjs';
 import { fail, hash, resolveInRoot } from './store.mjs';
-import { shellEnvironment, bashPath } from './sessions.mjs';
+import { bashPath } from './sessions.mjs';
 
 export const CAPTURE_TIMEOUT_MS = 10000;
 export const CAPTURE_MAX_BYTES = 8 * 1024 * 1024;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
-async function present(root, relative) { try { await resolveInRoot(root, relative); return true; } catch { return false; } }
-async function onPath(name) {
-  const env = shellEnvironment(), key = Object.keys(env).find(k => k.toLowerCase() === 'path');
-  const extensions = process.platform === 'win32' ? (env.PATHEXT ?? '.EXE;.CMD;.BAT').split(';') : [''];
-  for (const directory of (env[key] ?? '').split(path.delimiter).filter(Boolean)) for (const extension of extensions) {
-    const candidate = path.join(directory, name + extension);
-    try { if ((await stat(candidate)).isFile()) { await access(candidate, constants.X_OK); return true; } } catch { /* next candidate */ }
-  }
-  return false;
-}
 /* A game action's availability is its referenced record's preflight, taken from the spec-078 path
    the launch itself uses rather than a second copy of those checks. See sidecar: game-availability. */
 async function gameMissing(root, action, preflight) {
@@ -28,7 +19,7 @@ async function gameMissing(root, action, preflight) {
   catch (error) { return [{ type: 'game', name: error.message }]; }
   return config?.ready ? [] : [{ type: 'game', name: config?.issues?.[0] ?? 'The game preflight failed.' }];
 }
-export async function dashboardActions(root, preflight) {
+export async function dashboardActions(root, preflight, options = {}) {
   const declared = await readDeclaration(root.path), base = { rootId: root.id, declared: declared.declared };
   if (!declared.declared) return { ...base, groups: [] };
   if (declared.error) return { ...base, error: declared.error, groups: [] };
@@ -38,8 +29,13 @@ export async function dashboardActions(root, preflight) {
     const missing = [];
     for (const name of action.requires ?? []) if (!(await present(root, name))) missing.push({ type: 'requires', name });
     for (const name of action.tools ?? []) if (!(await onPath(name))) missing.push({ type: 'tools', name });
+    /* Availability composes: the device answering AND this action's own local prerequisites, with
+       the failing half named. Probes are cached and coalesced, so one listing probes each device
+       once rather than once per action. See sidecar: composed-availability. */
+    const { device, missing: unreachable } = await targetAvailability(root, declared, action, options);
+    missing.push(...unreachable);
     if (action.kind === 'game' && !missing.length) missing.push(...await gameMissing(root, action, preflight));
-    return { ...action, available: !missing.length, missing };
+    return { ...action, device: device ?? undefined, available: !missing.length, missing };
   })) })));
   return { ...base, contract: declared.contract, title: declared.dashboard.title, groups };
 }

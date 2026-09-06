@@ -1,4 +1,7 @@
-// Cross-field rules for the contract-2 dashboard and script env values; no imports so formats.mjs, dashboard.mjs and scripts.mjs share them.
+// Cross-field rules for the contract-2 dashboard, its script env values and the contract-4 device
+// binding; only the pure device rules are imported, so formats.mjs, dashboard.mjs and scripts.mjs
+// still share this without pulling in fs.
+import { deviceReferenceRules } from './device-rules.mjs';
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/, ENV_KEY = /^[A-Z][A-Z0-9_]*$/, SHELL = /[|;&$`]/;
 const KIND_FIELDS = { script: ['script', 'args', 'env'], log: ['command', 'filters'], capture: ['command', 'into', 'format'], game: ['game', 'args'] };
 const KIND_REQUIRED = { script: ['script'], log: ['command'], capture: ['command', 'into', 'format'], game: ['game'] };
@@ -48,6 +51,7 @@ export function dashboardRules(dashboard, context = {}) {
           errors.push(`${where}.game references undeclared game id ${JSON.stringify(action.game)}; this declaration declares ${declared.length ? declared.join(', ') : 'no games'}`);
         }
       }
+      errors.push(...deviceReferenceRules(action, where, context));
       errors.push(...envRules(action.env, `${where}.env`));
     });
   });

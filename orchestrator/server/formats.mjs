@@ -7,13 +7,14 @@ import { fail, hash, resolveInRoot, MAX_TEXT_BYTES } from './store.mjs';
 import { shellEnvironment } from './sessions.mjs';
 import { dashboardRules, nameOf } from './dashboard-rules.mjs';
 import { gamesRules } from './game-rules.mjs';
+import { devicesRules } from './device-rules.mjs';
 
-export const CONTRACTS = [1, 2, 3];
+export const CONTRACTS = [1, 2, 3, 4];
 export const DEFAULT_TIMEOUT_MS = 10000;
 export const DEFAULT_MAX_BYTES = 4 * 1024 * 1024;
 export const MAX_RAW_WINDOW = 64 * 1024;
 const MAX_DECLARATION_BYTES = 256 * 1024, MAX_TREE_DEPTH = 64, MAX_TREE_NODES = 200000, MAX_STDERR = 16 * 1024;
-const PLACEHOLDER = /\$\{(file|entry)\}/g;
+const PLACEHOLDER = /\$\{(file|entry|host|selector)\}/g; /* host/selector only reach here from a device probe; the schema permits them nowhere else */
 const schema = JSON.parse(await readFile(new URL('../../contracts/project-v1.schema.json', import.meta.url), 'utf8'));
 
 const uses = (spec, name) => Array.isArray(spec?.command) && spec.command.some(arg => typeof arg === 'string' && arg.includes(`\${${name}}`));
@@ -47,17 +48,20 @@ export async function readDeclaration(rootPath) {
   try { value = JSON.parse(bytes.toString('utf8')); } catch (error) { return problem(`invalid JSON (${error.message})`); }
   if (!value || typeof value !== 'object' || Array.isArray(value)) return problem('declaration must be a JSON object');
   if (!CONTRACTS.includes(value.contract)) return problem(`unknown contract ${JSON.stringify(value.contract)}; this rEngine supports contracts ${CONTRACTS.slice(0, -1).join(', ')} and ${CONTRACTS.at(-1)}`);
-  const { dashboard, games, ...base } = value;
+  const { dashboard, games, devices, ...base } = value;
   const structural = validateSchema(schema, base);
   if (structural.length) return problem(report(structural));
   const errors = crossRules(base);
   if (errors.length) return problem(report(errors));
   const result = { declared: true, contract: value.contract, project: value.project,
     formats: value.formats.map(format => ({ ...format, preview: bounded(format.preview), entry: bounded(format.entry) })) };
-  /* games and dashboard are each reported separately so neither can disable the formats; see sidecar: declaration-reporting */
-  return section(section(result, 'games', games, value.contract), 'dashboard', dashboard, value.contract);
+  /* devices, games and dashboard are each reported separately so none can disable the formats, and
+     devices settles first so both of the others can resolve a device binding; see sidecar: declaration-reporting */
+  const withDevices = section(result, 'devices', devices, value.contract);
+  return section(section(withDevices, 'games', games, value.contract), 'dashboard', dashboard, value.contract);
 }
 const SECTIONS = {
+  devices: { minimum: 4, rules: devicesRules, node: () => schema.properties.devices },
   games: { minimum: 3, rules: gamesRules, node: () => schema.properties.games },
   dashboard: { minimum: 2, rules: dashboardRules, node: () => schema.$defs.dashboard },
 };
@@ -65,7 +69,7 @@ function section(result, name, block, contract) {
   if (block === undefined) return result;
   const { minimum, rules, node } = SECTIONS[name], key = `${name}Error`;
   if (contract < minimum) return { ...result, [key]: `.rengine/project.json: ${name} requires contract ${minimum} (declared contract ${contract})` };
-  const problems = [...validateSchema(node(), block, schema, `$.${name}`), ...rules(block, result)]; /* games is settled first, so dashboard rules can resolve game references */
+  const problems = [...validateSchema(node(), block, schema, `$.${name}`), ...rules(block, result)]; /* devices settle before games, and games before dashboard, so each can resolve the references it makes */
   return problems.length ? { ...result, [key]: `.rengine/project.json: ${report(problems)}` } : { ...result, [name]: block };
 }
 export async function listFormats(root) { return { rootId: root.id, ...await readDeclaration(root.path) }; }

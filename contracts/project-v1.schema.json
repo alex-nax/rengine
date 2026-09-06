@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rengine.local/contracts/project-v1.schema.json",
-  "title": "rEngine project declaration, contracts 1, 2 and 3",
-  "description": "Read from <root>/.rengine/project.json. Contract 1 declares file formats whose previews are produced by the project's own executables (docs/specs/074-project-format-registry.md); contract 2 adds an optional dashboard of grouped actions (docs/specs/075-project-dashboard.md); contract 3 adds an optional array of games the workspace launches (docs/specs/078-project-game-declaration.md). Cross-field rules the service also enforces: default is one of modes; preview is required when modes contains preview; a preview command names ${file}; an entry command names ${file} and ${entry}; format ids are unique; dashboard requires contract 2 and games requires contract 3; group, action and game ids are unique; an action carries only its kind's fields; a game action's game names a declared games record and its args are literal argv without placeholders; script/requires/artifacts/into are root-relative; dashboard env keys are UPPER_SNAKE; game env keys are UPPER_SNAKE and never start with RENGINE_, DYLD_ or LD_; game requires entries and game cwd are root-relative.",
+  "title": "rEngine project declaration, contracts 1, 2, 3 and 4",
+  "description": "Read from <root>/.rengine/project.json. Contract 1 declares file formats whose previews are produced by the project's own executables (docs/specs/074-project-format-registry.md); contract 2 adds an optional dashboard of grouped actions (docs/specs/075-project-dashboard.md); contract 3 adds an optional array of games the workspace launches (docs/specs/078-project-game-declaration.md); contract 4 adds an optional array of devices saying where each target runs, and an optional device on a game record and a dashboard action (docs/specs/081-project-devices.md). Cross-field rules the service also enforces: default is one of modes; preview is required when modes contains preview; a preview command names ${file}; an entry command names ${file} and ${entry}; format ids are unique; dashboard requires contract 2, games requires contract 3, and devices or any device key requires contract 4; group, action, game and device ids are unique; an action carries only its kind's fields; a game action's game names a declared games record and its args are literal argv without placeholders; a device reference names a declared device or the implicit local; local is a reserved id/kind pairing that takes no probe, host or selector; host and selector each carry exactly one of value or env; a probe placeholder must have a declared source; script/requires/artifacts/into are root-relative and requires stays local even on a remote device; dashboard env keys are UPPER_SNAKE; game env keys are UPPER_SNAKE and never start with RENGINE_, DYLD_ or LD_; game requires entries and game cwd are root-relative.",
   "type": "object",
   "required": [
     "contract",
@@ -15,7 +15,8 @@
       "enum": [
         1,
         2,
-        3
+        3,
+        4
       ]
     },
     "project": {
@@ -42,6 +43,15 @@
         "$ref": "#/$defs/game"
       },
       "description": "Games this project can launch, in declaration order. Declaring games requires contract 3, so a reader that predates it answers \"unknown contract\" instead of \"unknown key\". An omitted gameId on the preflight/launch routes selects the first record."
+    },
+    "devices": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/device"
+      },
+      "description": "Devices this project's targets run on, in declaration order. Declaring devices requires contract 4, so a reader that predates it answers \"unknown contract\" instead of \"unknown key\". The id \"local\" is reserved for this machine and is implicit: a target without a device binds to it."
     }
   },
   "$defs": {
@@ -253,7 +263,7 @@
         "kind"
       ],
       "additionalProperties": false,
-      "description": "kind script: script, args, env; kind log: command, filters; kind capture: command, into, format; kind game: game, args (docs/specs/078-project-game-declaration.md). stream and operator are reserved for later contracts.",
+      "description": "kind script: script, args, env; kind log: command, filters; kind capture: command, into, format; kind game: game, args (docs/specs/078-project-game-declaration.md). device is available to every kind under contract 4 and defaults to local. stream and operator are reserved for later contracts.",
       "properties": {
         "id": {
           "$ref": "#/$defs/kebab"
@@ -357,6 +367,14 @@
         },
         "format": {
           "const": "png"
+        },
+        "device": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/kebab"
+            }
+          ],
+          "description": "Contract 4: the id of a device in this declaration's devices array, or the implicit \"local\". Defaults to \"local\". A reference to an undeclared id is a named cross-field error, and the key itself requires contract 4."
         }
       }
     },
@@ -369,7 +387,7 @@
         "surface"
       ],
       "additionalProperties": false,
-      "description": "One game the workspace launches: literal executable candidates, argv, env, working directory, files that must exist, and how its window is presented.",
+      "description": "One game the workspace launches: literal executable candidates, argv, env, working directory, files that must exist, and how its window is presented. Under contract 4 an optional device says where it runs; for a non-local device the executable and cwd live on that device and are never resolved or stat-ed locally.",
       "properties": {
         "id": {
           "type": "string",
@@ -437,6 +455,127 @@
             "external"
           ],
           "description": "embedded streams the game window into the workspace through the cooperative SDL adapter; external opens its own operating-system window and only its PTY output is retained."
+        },
+        "device": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/kebab"
+            }
+          ],
+          "description": "Contract 4: the id of a device in this declaration's devices array, or the implicit \"local\". Defaults to \"local\". A reference to an undeclared id is a named cross-field error, and the key itself requires contract 4."
+        }
+      }
+    },
+    "deviceValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "description": "A literal value, such as an ~/.ssh/config host alias."
+        },
+        "env": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "maxLength": 64,
+          "description": "An UPPER_SNAKE variable read from the sidecar's shell environment at probe time. Unset or empty is an unreachable device naming the variable, never a spawn with an empty argument."
+        }
+      },
+      "description": "Exactly one of value or env; enforced as a cross-field rule so the message names the record."
+    },
+    "probeArgument": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "description": "A literal argv element; the only placeholders are ${host} and ${selector}, and each must have a declared source.",
+      "pattern": "^(?:[^$]|\\$(?!\\{)|\\$\\{(?:host|selector)\\})*$"
+    },
+    "device": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "One place this project's targets run. kind is descriptive: rEngine runs the declared probe and reads its exit status, and holds no ssh or adb knowledge of its own. deviceRequires is reserved for a later contract; requires is always local.",
+      "properties": {
+        "id": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/kebab"
+            }
+          ],
+          "description": "Unique within devices. \"local\" is reserved for the kind local device."
+        },
+        "kind": {
+          "enum": [
+            "local",
+            "ssh",
+            "adb"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Names the device wherever rEngine shows it. Titles are drawn as text in the desktop's own faces: a glyph the installed faces lack falls back to another loaded face and then to a small substitution table, so a symbol outside that set draws as a box."
+        },
+        "host": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/deviceValue"
+            }
+          ],
+          "description": "The ssh endpoint, substituted into the probe as ${host}. Not permitted on the local device."
+        },
+        "selector": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/deviceValue"
+            }
+          ],
+          "description": "Which device, substituted into the probe as ${selector}: an adb serial, or an ssh host alias. Declare it when more than one target can be attached, because a bare adb call aborts with \"more than one device\" at launch rather than at probe. Not permitted on the local device."
+        },
+        "requires": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          },
+          "description": "Root-relative LOCAL files that must exist, checked before the probe. Local by definition even when the device is remote."
+        },
+        "tools": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$",
+            "maxLength": 64
+          },
+          "description": "Names that must be on the local PATH, checked before the probe."
+        },
+        "probe": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/executable"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/probeArgument"
+          },
+          "description": "Bounded, side-effect-light argv answering whether this device is reachable right now: exit 0 is reachable, non-zero or timeout is unreachable with the first stderr line as the reason. Run only on an explicit availability check or refresh, never on a timer. Not read-only: adb get-state and adb devices start the adb server when no daemon is running. Reachability is never launchability. Not permitted on the local device."
+        },
+        "probeTimeoutMs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000,
+          "default": 5000
         }
       }
     }

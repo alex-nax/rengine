@@ -19,7 +19,7 @@ test('declaration discovery reports malformed files visibly and never disables t
   t.after(async () => { await server.close(); await rm(directory, { recursive: true, force: true }); });
   const bad = declaration();
   const cases = {
-    'contract 4': { ...bad, contract: 4 }, 'no formats': { ...bad, formats: [] }, 'missing title': { ...bad, formats: [{ ...bad.formats[0], title: undefined }] },
+    'contract 5': { ...bad, contract: 5 }, 'no formats': { ...bad, formats: [] }, 'missing title': { ...bad, formats: [{ ...bad.formats[0], title: undefined }] },
     'default outside modes': { ...bad, formats: [{ ...bad.formats[0], default: 'text' }] },
     'shell argv[0]': { ...bad, formats: [{ ...bad.formats[0], preview: { kind: 'tree', command: ['node $(x)', '${file}'] } }] },
     'string command': { ...bad, formats: [{ ...bad.formats[0], preview: { kind: 'tree', command: 'node tree ${file}' } }] },

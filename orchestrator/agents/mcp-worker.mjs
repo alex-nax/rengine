@@ -25,7 +25,7 @@ const server = new McpServer({ name: 'rengine-workspace', version: '1.0.0' }, {
   instructions: 'These tools address the project bound when this agent was launched. List sessions before selecting a process. Closing a workspace view retains the process; stop_session explicitly stops it. File reads use disk text unless useDraft is requested.',
 });
 const tool = (name, description, inputSchema, readOnlyHint, action) => server.registerTool(name, {
-  description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script'].includes(name), openWorldHint: ['open_script', 'preview_file', 'dashboard_capture', 'launch_game'].includes(name) },
+  description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script'].includes(name), openWorldHint: ['open_script', 'preview_file', 'dashboard_capture', 'launch_game', 'devices'].includes(name) },
 }, async values => {
   let state;
   try {
@@ -90,7 +90,7 @@ tool('open_script', 'Run a project-relative .sh workflow in a retained interacti
   path: z.string(), args: z.array(z.string()).default([]), desktopId: z.string(), env: z.record(z.string(), z.string()).optional(),
 }, false, async (data, state) => { scriptCapability(state); return call('script-open', { ...data, rootId: context.rootId }); });
 const dashboardCapability = state => { if (state.capabilities.dashboard !== 1) throw new Error('This retained service predates the project dashboard. Update the workspace layer first.'); };
-tool('dashboard_actions', 'List the project’s declared dashboard (.rengine/project.json contract 2): groups and actions with availability (missing required files, PATH tools, or, for a game action, the referenced game’s first preflight issue) computed without running anything. Script actions are run with open_script using the listed script, args and env; log actions start from the dashboard tab and are followed with show_session/session_output; capture actions use dashboard_capture; game actions are launched with launch_game using the listed game id and args.', {}, true,
+tool('dashboard_actions', 'List the project’s declared dashboard (.rengine/project.json contract 2): groups and actions with availability (missing required files, PATH tools, or, for a game action, the referenced game’s first preflight issue) and, under contract 4, its device’s reachability, with the failing half named. Availability composes the device answering with the action’s own local prerequisites; a declared probe is the only thing run. Script actions are run with open_script using the listed script, args and env; log actions start from the dashboard tab and are followed with show_session/session_output; capture actions use dashboard_capture; game actions are launched with launch_game using the listed game id and args.', {}, true,
   async (_values, state) => { dashboardCapability(state); return call(`dashboard?${new URLSearchParams({ rootId: context.rootId })}`); });
 tool('dashboard_capture', 'Run one declared capture action (the project’s own command, no shell, 10 s / 8 MiB) and return its manifest entry: the PNG written under the action’s into directory plus manifest.json. Executes a project executable.', { actionId: z.string() }, false,
   async ({ actionId }, state) => { dashboardCapability(state); return call('dashboard-capture', { rootId: context.rootId, actionId }); });
@@ -133,6 +133,13 @@ tool('preview_file', 'Preview a file registered in the project’s .rengine/proj
   }
   return output;
 });
+const deviceCapability = state => { if (state.capabilities.projectDevices !== 1) throw new Error('This retained service predates project devices (contract 4). Update the workspace layer first.'); };
+tool('devices', 'List the devices the project declares in .rengine/project.json (contract 4, devices): where each target runs, with reachability, when it was checked, the reasons an unreachable device gives, and the games and dashboard actions bound to it. The implicit local device is always listed. Reachability comes from each record’s own declared probe — bounded and side-effect-light rather than read-only, since adb starts its own daemon when none is running — run only on this call, cached briefly, and bypassed by refresh. Reachable means the device answered, never that a target can be launched on it: rEngine does not launch on a remote device, and the project’s own script action owns that.', {
+  refresh: z.boolean().default(false).describe('Bypass the brief probe cache and probe every declared device again.'),
+}, true, async ({ refresh }, state) => {
+  deviceCapability(state);
+  return call(`devices?${new URLSearchParams({ rootId: context.rootId, ...(refresh ? { refresh: '1' } : {}) })}`);
+});
 const gameCapability = state => { if (state.capabilities.projectGame !== 1) throw new Error('This retained service predates per-project game declarations. Update the workspace layer first.'); };
 const launchCapability = state => {
   gameCapability(state);
@@ -140,9 +147,9 @@ const launchCapability = state => {
 };
 const gameSelector = { gameId: z.string().optional().describe('One declared game id; omitted, the first declared game is used.') };
 const gameLauncher = { ...gameSelector, args: z.array(z.string()).optional().describe('Literal argv appended to the declared record’s own args, as a dashboard game action carries.') };
-tool('game_preflight', 'Check one game declared in the project’s .rengine/project.json (contract 3, games): its title, the first resolvable executable candidate, literal args and env, working directory, required files and surface prerequisites, with each problem as a named issue and ready. Runs nothing; an undeclared project reports declared false, and an unknown gameId names the declared ids.', gameSelector, true,
+tool('game_preflight', 'Check one game declared in the project’s .rengine/project.json (contract 3, games): its title, the first resolvable executable candidate, literal args and env, working directory, required files and surface prerequisites, with each problem as a named issue and ready. Under contract 4 it also reports the device the record runs on and its reachability: for a non-local device the executable is NOT looked for on this machine (the candidates and the device are reported instead), while the record’s own requires stay local. An undeclared project reports declared false, and an unknown gameId names the declared ids.', gameSelector, true,
   async ({ gameId }, state) => { gameCapability(state); return call(`game-config?${new URLSearchParams({ rootId: context.rootId, ...(gameId ? { gameId } : {}) })}`); });
-tool('launch_game', 'Launch one game declared in the project’s .rengine/project.json (its own executable with literal args and env, in its declared working directory) or reuse the running session of that same game. Games of one project can run side by side; the same game already running with different arguments is refused rather than reused, so stop it first. embedded games stream into the workspace pane; external games open their own window and retain only their PTY output. Executes a project executable; stop_session ends it.', gameLauncher, false,
+tool('launch_game', 'Launch one game declared in the project’s .rengine/project.json on THIS machine (its own executable with literal args and env, in its declared working directory) or reuse the running session of that same game. Games of one project can run side by side; the same game already running with different arguments is refused rather than reused, so stop it first. embedded games stream into the workspace pane; external games open their own window and retain only their PTY output. A record bound to a non-local device is refused by name, pointing at the project’s own dashboard script action, and nothing is attempted. Executes a project executable; stop_session ends it.', gameLauncher, false,
   async ({ gameId, args }, state) => { launchCapability(state); return call('game', { rootId: context.rootId, ...(gameId ? { gameId } : {}), ...(args ? { args } : {}) }); });
 tool('stop_session', 'Explicitly stop a retained process belonging to the bound project.', { id: z.string() }, false, async ({ id }, state) => {
   ownSession(id, state); return call('stop', { id });

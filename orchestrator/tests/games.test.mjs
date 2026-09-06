@@ -74,7 +74,9 @@ test('contract 3 games arrays validate, earlier contracts stay accepted and game
     assert.match(empty.gamesError, /games needs at least 1 item/); assert.equal(empty.games, undefined);
     const rootCwd = await declare(directory, 'root-cwd', gameDeclaration({ cwd: '' }));
     assert.equal(rootCwd.gamesError, undefined, 'an empty cwd means the project root'); assert.equal(rootCwd.games[0].cwd, '');
-    const four = await declare(directory, 'four', { ...gameDeclaration(), contract: 4 }); assert.match(four.error, /unknown contract 4/); assert.deepEqual(four.formats, []);
+    const four = await declare(directory, 'four', { ...gameDeclaration(), contract: 4 });
+    assert.equal(four.error, undefined, 'contract 4 (spec 081, devices) accepts a games array unchanged'); assert.deepEqual(four.games, [game()]);
+    const above = await declare(directory, 'above', { ...gameDeclaration(), contract: 5 }); assert.match(above.error, /unknown contract 5/); assert.deepEqual(above.formats, []);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
@@ -97,11 +99,17 @@ test('preflight names the undeclared root, the malformed declaration, missing ca
   const malformed = (await preflight(broken)).config;
   assert.equal(malformed.declared, false); assert.equal(malformed.ready, false); assert.equal(malformed.issues.length, 1); assert.match(malformed.issues[0], /surface must be one of/);
   const missing = await preflight(await gameProject(directory, 'missing', gameDeclaration({ executable: ['build/game-a', 'build/game-b'], requires: ['data/present.bin', 'data/absent.bin', 'data/other.rez'], cwd: 'absent-dir' })));
-  assert.equal(missing.config.declared, true); assert.equal(missing.config.ready, false); assert.equal(missing.config.executable, undefined);
+  assert.equal(missing.config.declared, true); assert.equal(missing.config.ready, false); assert.equal(missing.config.executable, null);
   assert.deepEqual(missing.config.issues, ['Game executable not found; expected build/game-a or build/game-b in the selected project.',
     'Required file is missing: data/absent.bin.', 'Required file is missing: data/other.rez.', 'Working directory is missing: absent-dir.']);
   const ready = await preflight(await gameProject(directory, 'ready'));
-  assert.deepEqual(ready.config, { rootId: ready.root.id, declared: true, id: 'fixture-game', title: 'Fixture game', surface: 'external', executable: path.join(ready.root.path, 'tools/game.sh'),
+  /* Contract 4 (spec 081) adds device and candidates to every config; an undeclared record binds to
+     the implicit local device, whose reachability is not measured against anything. */
+  const { device, checkedAt, ...settled } = { ...ready.config, checkedAt: ready.config.device.checkedAt };
+  assert.deepEqual(device, { id: 'local', kind: 'local', title: 'This machine', reachable: true, checkedAt, issues: [] });
+  assert.ok(Date.parse(checkedAt) > 0);
+  assert.deepEqual(settled, { rootId: ready.root.id, declared: true, id: 'fixture-game', title: 'Fixture game', surface: 'external', executable: path.join(ready.root.path, 'tools/game.sh'),
+    candidates: ['build/missing-game', 'tools/game.sh'],
     args: ['--flat', '--width', '640'], env: { FIXTURE_FLAVOUR: 'blue' }, requires: ['data/present.bin'], cwd: ready.root.path, issues: [], ready: true });
   const work = await preflight(await gameProject(directory, 'work', gameDeclaration({ cwd: 'work' })));
   assert.equal(work.config.cwd, path.join(work.root.path, 'work')); assert.equal(work.config.ready, true);

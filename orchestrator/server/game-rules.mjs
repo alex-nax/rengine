@@ -1,4 +1,6 @@
-// Cross-field rules for the contract-3 games array; no imports so formats.mjs and games.mjs share them.
+// Cross-field rules for the contract-3 games array and its contract-4 device binding; only the
+// pure device rules are imported, so formats.mjs and games.mjs still share this without pulling in fs.
+import { deviceKindOf, deviceReferenceRules, LOCAL } from './device-rules.mjs';
 const ENV_KEY = /^[A-Z][A-Z0-9_]*$/, RESERVED = /^(?:RENGINE_|DYLD_|LD_)/;
 export const nameOf = record => typeof record?.id === 'string' && record.id ? ` (${record.id})` : ''; /* see sidecar: record-identity */
 export const rootRelative = value => typeof value === 'string' && value.length > 0 && !value.startsWith('/') && !/^[A-Za-z]:/.test(value) && !value.includes('\\') && !value.split('/').includes('..') && !value.includes('\0');
@@ -17,7 +19,7 @@ export function gameEnvRules(env, where) {
   }
   return errors;
 }
-export function gamesRules(games) {
+export function gamesRules(games, context = {}) {
   if (!Array.isArray(games)) return [];
   const errors = [], seen = new Set();
   games.forEach((game, index) => {
@@ -25,6 +27,13 @@ export function gamesRules(games) {
     const at = `$.games[${index}]`, where = at + nameOf(game);
     if (seen.has(game.id)) errors.push(`${at}.id repeats ${JSON.stringify(game.id)}`); seen.add(game.id);
     errors.push(...gameEnvRules(game.env, `${where}.env`));
+    errors.push(...deviceReferenceRules(game, where, context));
+    /* The embedded surface reserves a local adapter and a local PTY; it cannot describe a window on
+       another machine, and remote launching is outside this contract entirely. */
+    const kind = deviceKindOf(game.device, context);
+    if (game.surface === 'embedded' && kind && kind !== LOCAL) {
+      errors.push(`${where}.surface "embedded" needs the ${LOCAL} device; ${JSON.stringify(game.device)} is a ${kind} device, and rEngine does not launch on a remote device`);
+    }
     (Array.isArray(game.requires) ? game.requires : []).forEach((value, n) => { if (!rootRelative(value)) errors.push(`${where}.requires[${n}] must be root-relative`); });
     if (game.cwd !== undefined && !rootRelativeDirectory(game.cwd)) errors.push(`${where}.cwd must be root-relative`);
   });
