@@ -138,7 +138,7 @@ const launchCapability = state => {
   gameCapability(state);
   if (state.capabilities.projectGameLaunch !== 1) throw new Error('This retained session host predates per-project game declarations and would launch its removed built-in game; game_preflight answers from the declaration. Replacing the session host requires quiescence.');
 };
-const gameSelector ={ gameId: z.string().optional().describe('One declared game id; omitted, the first declared game is used.') };
+const gameSelector = { gameId: z.string().optional().describe('One declared game id; omitted, the first declared game is used.') };
 const gameLauncher = { ...gameSelector, args: z.array(z.string()).optional().describe('Literal argv appended to the declared record’s own args, as a dashboard game action carries.') };
 tool('game_preflight', 'Check one game declared in the project’s .rengine/project.json (contract 3, games): its title, the first resolvable executable candidate, literal args and env, working directory, required files and surface prerequisites, with each problem as a named issue and ready. Runs nothing; an undeclared project reports declared false, and an unknown gameId names the declared ids.', gameSelector, true,
   async ({ gameId }, state) => { gameCapability(state); return call(`game-config?${new URLSearchParams({ rootId: context.rootId, ...(gameId ? { gameId } : {}) })}`); });
