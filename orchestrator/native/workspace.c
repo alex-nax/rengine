@@ -574,6 +574,73 @@ void re_app_project_theme(ReApp *a) {
   re_copy(a->status, sizeof(a->status), message);
 }
 
+/* A select opens a list; it does not step to the next value. Cycling was a placeholder from before
+ * the overlay layer existed, and it hides the choices from anyone who has not memorised them. */
+static bool dropdown_open(const ReApp *a, const char *key) { return !strcmp(a->dropdown, key); }
+static void dropdown_toggle(ReApp *a, mu_Context *ui, const char *key) {
+  if (dropdown_open(a, key)) { a->dropdown[0] = 0; return; }
+  re_copy(a->dropdown, sizeof(a->dropdown), key);
+  a->dropdown_anchor = ui->last_rect;
+}
+static void choose_preset(ReApp *a, int index) {
+  if (index < 0 || index >= RE_PRESET_COUNT) return;
+  a->preset = index;
+  re_draw_theme(re_draw_active(), re_theme_preset_names[index]);
+  a->accent_hue = re_theme_hue();
+  cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "theme", re_theme_preset_names[index]);
+  re_app_action(a, "preferences", j); cJSON_Delete(j);
+}
+static void choose_scheme(ReApp *a, int index) {
+  if (index < 0 || index >= RE_SCHEME_COUNT) return;
+  re_copy(a->scheme, sizeof(a->scheme), re_scheme_names[index]);
+  re_editor_scheme(a->scheme);
+  cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "syntax", a->scheme);
+  re_app_action(a, "preferences", j); cJSON_Delete(j);
+}
+static int current_scheme(const ReApp *a) {
+  const char *name = *a->scheme ? a->scheme : re_scheme_names[0];
+  for (int i = 0; i < RE_SCHEME_COUNT; i++) if (!strcmp(re_scheme_names[i], name)) return i;
+  return 0;
+}
+
+/* The list a select opens. It is built after the surface that holds the select and recorded into the
+ * same overlay buffer, so replay order puts it above; its own container is brought to front so the
+ * pointer agrees with what is drawn. */
+static void dropdown_ui(ReApp *a, mu_Context *ui) {
+  bool theme = dropdown_open(a, "theme");
+  int count = theme ? RE_PRESET_COUNT : RE_SCHEME_COUNT;
+  int current = theme ? a->preset : current_scheme(a);
+  int pad = RE_METRIC_DESIGN_PAD, row = RE_METRIC_DESIGN_ROW, gap = RE_METRIC_DESIGN_GAP;
+  int height = pad + count * (row + 2);
+  int width = re_max(a->dropdown_anchor.w, RE_METRIC_SETTINGS_LABEL_WIDTH);
+  int x = re_min(a->dropdown_anchor.x, a->width - width - pad);
+  int y = a->dropdown_anchor.y + a->dropdown_anchor.h + 2;
+  if (y + height > a->height - pad) y = re_max(pad, a->dropdown_anchor.y - height - 2);
+  mu_Rect rect = mu_rect(re_max(pad, x), y, width, height);
+  a->dropdown_rect = rect;
+  mu_Container *container = mu_get_container(ui, "Dropdown");
+  container->rect = rect;
+  mu_bring_to_front(ui, container);
+  if (!mu_begin_window_ex(ui, "Dropdown", rect, MU_OPT_NOTITLE | MU_OPT_NORESIZE | MU_OPT_NOCLOSE | MU_OPT_NOSCROLL | MU_OPT_NOFRAME)) return;
+  re_ui_overlay_resume();
+  re_ui_popover(rect);
+  for (int i = 0; i < count; i++) {
+    const char *name = theme ? re_theme_preset_names[i] : re_scheme_names[i];
+    const char *title = theme ? re_theme_preset_names[i] : re_scheme_titles[i];
+    mu_layout_row(ui, 1, (int[]){-1}, row);
+    mu_push_id(ui, name, (int)strlen(name));
+    if (re_ui_menu_item(ui, title, theme ? RE_ICON_THEME : RE_ICON_FILE, "", i == current)) {
+      if (theme) choose_preset(a, i); else choose_scheme(a, i);
+      a->dropdown[0] = 0;
+    }
+    re_app_control(a, ui, "dropdown", name, -1);
+    mu_pop_id(ui);
+  }
+  re_ui_overlay_end();
+  mu_end_window(ui);
+  (void)gap;
+}
+
 static void settings_ui(ReApp *a, mu_Context *ui) {
   int pad = RE_METRIC_DESIGN_PAD, row = RE_METRIC_DESIGN_CONTROL_HEIGHT, gap = RE_METRIC_DESIGN_GAP;
   int rows = 10 + (*a->project_theme ? 1 : 0);
@@ -583,22 +650,16 @@ static void settings_ui(ReApp *a, mu_Context *ui) {
   re_ui_heading(ui, "Appearance");
   mu_layout_row(ui, 2, (int[]){RE_METRIC_SETTINGS_LABEL_WIDTH, -1}, row);
   re_ui_label_ex(ui, "Theme", RE_UI_MUTED | RE_UI_SMALL);
-  if (re_ui_button_ex(ui, re_theme_preset_names[a->preset], RE_ICON_THEME, RE_UI_ALIGN_LEFT | RE_UI_CARET)) {
-    a->preset = (a->preset + 1) % RE_PRESET_COUNT;
-    re_draw_theme(re_draw_active(), re_theme_preset_names[a->preset]);
-    cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "theme", re_theme_preset_names[a->preset]);
-    re_app_action(a, "preferences", j); cJSON_Delete(j);
+  if (re_ui_select_ex(ui, re_theme_preset_names[a->preset], RE_ICON_THEME,
+                      RE_UI_ALIGN_LEFT | (dropdown_open(a, "theme") ? RE_UI_ON : 0))) {
+    dropdown_toggle(a, ui, "theme");
   }
   re_app_control(a, ui, "settings", "theme", -1);
   mu_layout_row(ui, 2, (int[]){RE_METRIC_SETTINGS_LABEL_WIDTH, -1}, row);
   re_ui_label_ex(ui, "Syntax", RE_UI_MUTED | RE_UI_SMALL);
-  if (re_ui_button_ex(ui, *a->scheme ? a->scheme : re_scheme_names[0], RE_ICON_FILE, RE_UI_ALIGN_LEFT | RE_UI_CARET)) {
-    int current = 0;
-    for (int i = 0; i < RE_SCHEME_COUNT; i++) if (!strcmp(re_scheme_names[i], *a->scheme ? a->scheme : re_scheme_names[0])) current = i;
-    re_copy(a->scheme, sizeof(a->scheme), re_scheme_names[(current + 1) % RE_SCHEME_COUNT]);
-    re_editor_scheme(a->scheme);
-    cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "syntax", a->scheme);
-    re_app_action(a, "preferences", j); cJSON_Delete(j);
+  if (re_ui_select_ex(ui, re_scheme_titles[current_scheme(a)], RE_ICON_FILE,
+                      RE_UI_ALIGN_LEFT | (dropdown_open(a, "syntax") ? RE_UI_ON : 0))) {
+    dropdown_toggle(a, ui, "syntax");
   }
   re_app_control(a, ui, "settings", "syntax", -1);
   mu_layout_row(ui, 2, (int[]){RE_METRIC_SETTINGS_LABEL_WIDTH, -1}, row);
@@ -731,6 +792,8 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
   if (a->overlay == RE_OVERLAY_SETTINGS) settings_ui(a, ui);
   else if (a->overlay == RE_OVERLAY_ROOTS) roots_menu(a, ui);
   else if (a->overlay == RE_OVERLAY_PANE) pane_menu(a, ui);
+  if (!a->overlay) a->dropdown[0] = 0;          /* a list cannot outlive the surface it opened from */
+  if (*a->dropdown) dropdown_ui(a, ui);
   re_layout_measure(&a->layout, mu_rect(0, RE_METRIC_WORKSPACE_TOP, width, height - RE_METRIC_WORKSPACE_TOP - RE_METRIC_WORKSPACE_STATUS_HEIGHT));
   for (int i = 0; i < RE_TABS; i++) { a->tabs[i].rect = mu_rect(0, 0, 0, 0); a->tabs[i].header = mu_rect(0, 0, 0, 0); }
   for (int n = 0; n < RE_PANES; n++) {
@@ -812,13 +875,24 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
    * control that opened it falls through, so that control's own toggle closes it instead of reopening
    * it on the next frame (spec 080 decision 5). */
   if (a->overlay) {
-    if (e->type == SDL_KEYDOWN && e->key.keysym.sym == SDLK_ESCAPE) { overlay_close(a); return true; }
+    /* Escape closes the top surface: a select's list before the surface that opened it. */
+    if (e->type == SDL_KEYDOWN && e->key.keysym.sym == SDLK_ESCAPE) {
+      if (*a->dropdown) a->dropdown[0] = 0; else overlay_close(a);
+      return true;
+    }
     /* The surface is drawn above every pane, so it owns the pointer over its own rectangle. Without
      * this a terminal beneath it takes the press first and the rows over that terminal look dead,
      * which is exactly how the owner found it: the top rows answered and the lower ones did not. */
     bool pointer = e->type == SDL_MOUSEMOTION || e->type == SDL_MOUSEBUTTONDOWN ||
                    e->type == SDL_MOUSEBUTTONUP || e->type == SDL_MOUSEWHEEL;
-    if (pointer && re_inside(a->overlay_rect, a->mouse_x, a->mouse_y)) return false;
+    bool in_list = *a->dropdown && re_inside(a->dropdown_rect, a->mouse_x, a->mouse_y);
+    /* A press anywhere but the list and the select that opened it closes the list, and then goes on
+     * to whatever it landed on, which may be another control of the same surface. */
+    if (e->type == SDL_MOUSEBUTTONDOWN && *a->dropdown && !in_list &&
+        !re_inside(a->dropdown_anchor, e->button.x, e->button.y)) {
+      a->dropdown[0] = 0;
+    }
+    if (pointer && (in_list || re_inside(a->overlay_rect, a->mouse_x, a->mouse_y))) return false;
     /* An outside press closes the surface and then goes on to whatever it landed on, so choosing
      * another toolbar control takes one click. The opener is excluded, because its own toggle
      * closes the surface and would otherwise reopen it on the same press. */

@@ -77,6 +77,25 @@ setInterval(() => {}, 1000);`);
     });
     assert.equal(ground.surface, card.background, 'the popover draws the card ground');
 
+    // A select opens a list rather than stepping to the next value: every choice is visible, the
+    // live one is marked, and picking one applies it and closes the list.
+    assert.ok(!state.controls.some(c => c.role === 'dropdown'), 'no list is open to begin with');
+    await gui.control('settings', 'theme', -1);
+    const listed = await gui.until(s => s.controls?.some(c => c.role === 'dropdown'), 'the theme list opened');
+    const choices = listed.controls.filter(c => c.role === 'dropdown').map(c => c.key);
+    assert.deepEqual(choices, ['default', 'teal', 'light'], `the list names every preset: ${JSON.stringify(choices)}`);
+    await gui.control('dropdown', 'teal', -1);
+    await gui.until(s => !s.controls?.some(c => c.role === 'dropdown'), 'picking a value closes the list');
+    assert.equal(server.store.state.preferences.theme, 'teal', 'the choice applied and persisted');
+    await gui.command({ op: 'theme', name: 'default' });
+
+    // Escape closes the list first and leaves the surface that opened it.
+    await gui.control('settings', 'syntax', -1);
+    await gui.until(s => s.controls?.some(c => c.key === 'ember'), 'the syntax list opened');
+    await gui.key('Escape');
+    const kept = await gui.until(s => !s.controls?.some(c => c.role === 'dropdown'), 'Escape closed the list');
+    assert.ok(kept.controls.some(c => c.role === 'settings'), 'the popover is still open behind it');
+
     // The check mark has to fit its box. Drawn at the text size it overflowed a 14px checkbox and
     // was cropped to a diagonal stroke that read as a slash, which is how the owner reported it.
     await gui.control('settings', 'vim', -1);

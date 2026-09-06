@@ -37,6 +37,9 @@ static OverlayCommand *record(uint8_t kind, mu_Rect rect, mu_Color color) {
   return c;
 }
 void re_ui_overlay_begin(void) { ui.recording = true; ui.count = 0; }
+/* A select's list is drawn above the surface that holds the select, so it records into the same
+ * buffer without clearing it: the replay order is the stacking order. */
+void re_ui_overlay_resume(void) { ui.recording = true; }
 void re_ui_overlay_end(void) { ui.recording = false; }
 bool re_ui_overlay_pending(void) { return ui.count > 0; }
 void re_ui_overlay_flush(ReDraw *draw) {

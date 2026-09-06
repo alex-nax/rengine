@@ -43,6 +43,8 @@ typedef struct ReApp {
   char project_theme_root[65];               /* the root that offer was probed for */
   mu_Rect overlay_anchor, overlay_rect;      /* the control the surface hangs from, and where it landed */
   mu_Id overlay_opener;                      /* focus returns here when the surface closes */
+  char dropdown[32];                         /* the open select's key, empty when none */
+  mu_Rect dropdown_anchor, dropdown_rect;    /* the select it hangs from, and where it landed */
   bool overlay_restore;
   bool desktop_registered, reload_requested; char desktop_id[65];
   int focus, drag_tab, resize_pane, drag_x, drag_y, mouse_x, mouse_y;

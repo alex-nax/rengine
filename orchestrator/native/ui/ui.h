@@ -40,6 +40,7 @@ void re_ui_begin(ReDraw *draw, double seconds);  /* once per frame, before any c
 /* The one overlay layer (spec 066, spec 080 decision 5). Controls drawn between begin and end are
    recorded rather than emitted, so the flush can place them above microui's replayed commands. */
 void re_ui_overlay_begin(void);
+void re_ui_overlay_resume(void);                /* record a second surface above the first */
 void re_ui_overlay_end(void);
 void re_ui_overlay_flush(ReDraw *draw);          /* after the workspace's own commands */
 bool re_ui_overlay_pending(void);

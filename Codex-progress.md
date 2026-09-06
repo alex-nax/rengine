@@ -1,5 +1,34 @@
 # Progress Log
 
+## Session 33 (macos) — 2026-09-06 — Selects open a list, and one workspace per checkout
+
+The owner noticed that the theme and syntax controls stepped to the next value rather than opening
+one. That was a placeholder of mine from before the overlay layer existed, and it hides every choice
+from anyone who has not memorised them. Both are selects now: the list shows every value with the
+live one marked, built from the same menu-item control the menus card describes, and picking a value
+applies and persists it.
+
+The list is a second surface above the one holding the select. It records into the same overlay
+buffer without clearing it, so replay order is stacking order, and its own container is brought to
+front so the pointer agrees with what is drawn. Spec 080 decision 5 still holds: the list belongs to
+its surface rather than being a peer, it closes with it, and Escape closes the list first and the
+surface second, which is what "closes the top surface" already meant.
+
+Also fixed a defect the nolf-improved session reported after it cost them a live session, which is
+mine because it is in the recipe's template. `orchestrator/templates/project/editor.sh` passed no
+state directory, so every scaffolded project fell back to the shared default and two projects bound
+both their roots into one workspace. The project selector appeared not to switch, and a host restart
+from one checkout took the other project's retained agent with it, because live PTYs belong to the
+host and are never persisted. The launcher now keys the state directory on the checkout's absolute
+path, `--state` still overrides it for deliberate sharing, and the template test asserts both.
+Recorded as KI-046, including that projects scaffolded before this carry the old default.
+
+Commands: `npm test` 61/61, `npm run test:desktop` 26/26, `ctest` 6/6, `python3 tools/design.py
+check`. The desktop suite passed clean this time; KI-045 stands for the intermittent runs.
+
+Remaining unchanged: F69 and the KI-038 Windows repair, the two outstanding sign-off notes, and the
+Escape decision for embedded games, which is with the owner.
+
 ## Session 32 (macos) — 2026-09-06 — The explorer expands in place, and three defects the owner found first
 
 F73 is implemented and gated on macOS. In nested mode a directory row expands in place at the card's
