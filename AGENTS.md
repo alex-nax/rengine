@@ -33,6 +33,7 @@ definitions live under `.claude/skills/`. Keep both aligned when either moves.
 | Repository health audit | `/rengine-audit` | `$rengine-audit` |
 | Spec/doc reconciliation batch | `/rengine-housekeep` | `$rengine-housekeep` |
 | Known-issue → feature promotion batch | `/rengine-ki-promote` | `$rengine-ki-promote` |
+| Integrate a new project with rEngine (no skill yet) | `docs/runbooks/project-integration.md` + `orchestrator/actions/integrate-project.sh` | same runbook and action |
 
 After the one-time layered bootstrap, use root-bound MCP `update_status`/`update_workspace`
 (or `orchestrator/runtime/client.mjs` with the existing context) for routine updates. Select a

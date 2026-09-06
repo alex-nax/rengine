@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "never-overwrite-project-files",
+      "kind": "constraint",
+      "anchor": {
+        "start": 81,
+        "end": 81,
+        "snippet": "re_install() {  # source, root-relative destination, optional mode"
+      },
+      "note": "The wizard runs against a checkout it does not own, so every install is skip-if-present and says so on stderr with the exact relative path the test asserts. This makes the action re-runnable on a partially integrated project: a second run fills only the gaps. Do not add a --force; a project that already owns editor.sh or a declaration is the authority on it.",
+      "refs": [
+        "docs/specs/077-project-integration-recipe.md"
+      ]
+    },
+    {
+      "id": "placeholder-format-record",
+      "kind": "rationale",
+      "anchor": {
+        "start": 103,
+        "end": 103,
+        "snippet": "re_declaration() {"
+      },
+      "note": "The skeleton carries one inert format (match *.example, modes [raw], no command) instead of an empty array because contract 1 and contract 2 both require formats with minItems 1: an empty array would make readDeclaration settle the root as declared-with-error on the first open. Values are validated by regex before they reach printf, which is why the JSON can be emitted without a JSON writer; keep that validation if new fields are added. The game block is written only for contract 2 with both game arguments given.",
+      "refs": [
+        "docs/specs/077-project-integration-recipe.md",
+        "contracts/project-v1.schema.json"
+      ]
+    },
+    {
+      "id": "dry-run-plan-shape",
+      "kind": "constraint",
+      "anchor": {
+        "start": 76,
+        "end": 76,
+        "snippet": "re_do() {  # label, then the literal command; --dry-run prints it instead of running it"
+      },
+      "note": "--dry-run must write nothing at all, so every effect goes through re_do, re_install or re_write_declaration and prints one '+ \u2026' line on stdout while stage logs stay on stderr. The declaration prints '+ write .rengine/project.json' rather than a command because there is no command to name. Stage 1's read-only git checks still run under --dry-run: they are what makes the printed plan trustworthy.",
+      "refs": [
+        "docs/runbooks/project-integration.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/actions/integrate-project.sh",
+    "sha256": "69b8c74e4ea88e037577ddbe6122fdc01c1f8719b380fc831e9f3f3bf1eac2d3",
+    "format": "shell",
+    "format_fingerprint": "0c07404ffdecc7f9c766fddf6b5a92dfedbae0728eaef728c4c42a67f47f7f4a"
+  }
+}

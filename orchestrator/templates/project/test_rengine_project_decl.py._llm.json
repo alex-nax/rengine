@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "pinned-contract-skip-rule",
+      "kind": "rationale",
+      "anchor": {
+        "start": 202,
+        "end": 202,
+        "snippet": "supported = contract.get(\"enum\", [contract[\"const\"]] if \"const\" in contract else [])"
+      },
+      "note": "The pinned tier reads which contracts the pinned schema accepts and skips with that reason when the project declares a newer one, so a consumer can land a contract-2 declaration before the pin carries contract 2 without a red test. The skip disappears by itself at the pin bump, which is the point: the test then starts validating against rEngine's own schema and reader with no edit.",
+      "refs": [
+        "docs/runbooks/project-integration.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/templates/project/test_rengine_project_decl.py",
+    "sha256": "12ebdd4c557c18ccb6d571c68a38564e7aa2f7873c4bb46e29d608fbab0f02e8",
+    "format": "python",
+    "format_fingerprint": "a67a51640399e60d6402a43d48acddd852a615617d5502a24e0e77d080b238af"
+  }
+}

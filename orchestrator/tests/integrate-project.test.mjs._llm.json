@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "contract-two-rules-local-to-the-test",
+      "kind": "rationale",
+      "anchor": {
+        "start": 35,
+        "end": 35,
+        "snippet": "function contractTwoProblems(value, root) {"
+      },
+      "note": "This branch's readDeclaration knows contract 1 only (contract 2 lands on feat/project-dashboard and feat/project-game), so the contract-2 shape is asserted here from specs 075/076 instead. The contract-1 core is still checked through the real reader in the next test, which is what proves the skeleton is not merely self-consistent. When contract 2 merges, replace this function with readDeclaration and keep the same expectations.",
+      "refs": [
+        "docs/specs/077-project-integration-recipe.md"
+      ]
+    },
+    {
+      "id": "file-url-submodule-fallback",
+      "kind": "edge-case",
+      "anchor": {
+        "start": 187,
+        "end": 187,
+        "snippet": "test('the submodule stage pins the requested rEngine commit, or prints exactly that plan', async () => {"
+      },
+      "note": "git refuses file:// submodules since the 2022 hardening unless protocol.file.allow=always, which the test supplies through GIT_CONFIG_* rather than by changing the wizard or any user configuration. Where a git still refuses, the printed plan asserted just above is the whole assertion; that keeps the suite network-free and portable instead of skipping the stage entirely.",
+      "refs": [
+        "docs/evidence/project-integration-recipe-macos-2026-09-06.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/tests/integrate-project.test.mjs",
+    "sha256": "5bbc924110cd718445eb207f2fa0af9b1ca99be4e4cb203d613325a97cd97ddb",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}
