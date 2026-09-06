@@ -240,9 +240,11 @@ int main(void) {
     ReRecorder *r = open_at(root, bounds, "explicit");
     Uint64 now = 0;
     for (int i = 0; i < 5; i++) { paint(i); re_recording_frame(r, pixels, 64, 36, 5000 + i, now); now += 100; }
+    say(r, "the moment just past\n", 250);
     re_recording_toggle(r, now);
     assert(re_recording_state(r) == RE_RECORDING_ACTIVE);
     for (int i = 0; i < 10; i++) { paint(i); re_recording_frame(r, pixels, 64, 36, 5100 + i, now); now += 100; }
+    say(r, "and one inside the window\n", 900);
     re_recording_toggle(r, now);
     drain(r, &now);
     { char *made = segment_path(r, root, ""); keep(made); free(made); }
@@ -251,6 +253,13 @@ int main(void) {
     assert(!strcmp(re_string(manifest, "kind"), "segment"));
     assert(re_number(cJSON_GetObjectItemCaseSensitive(manifest, "video"), "frames") == 10);
     assert(cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(manifest, "ring"), "truncated")));
+    /* The ring's lines are the segment's context, so the mark never discards them. */
+    assert(re_number(cJSON_GetObjectItemCaseSensitive(manifest, "log"), "lines") == 2);
+    char *log_path = segment_path(r, root, "log.jsonl"), *log = read_file(log_path, NULL);
+    assert(log && lines_in(log_path) == 2);
+    assert(strstr(log, "\"atMs\":-250,") && strstr(log, "\"text\":\"the moment just past\""));
+    assert(strstr(log, "\"atMs\":400,") && strstr(log, "\"text\":\"and one inside the window\""));
+    free(log); free(log_path);
     cJSON_Delete(manifest); free(manifest_path);
     re_recording_close(r);
   }

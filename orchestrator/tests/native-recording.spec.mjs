@@ -34,8 +34,25 @@ test('the game tab records a rolling buffer and its toggle commits segments an a
     assert.ok(recording(state).bytes > 0, 'the ring holds encoded keyframes, not raw frames');
     assert.equal(recording(state).segments, 0);
 
+    // The fixture prints a line per key event, so a keystroke into the pane is a real game log line
+    // travelling the whole path the log slice depends on: game stdout, the session host's PTY, the
+    // output event, the desktop's recorder. These are printed BEFORE the segment is marked, which is
+    // where a game's interesting output is: the moment worth recording is always just past.
+    const printed = text => server.sessions.snapshot(game.id, true).output.includes(text);
+    const awaitPrint = async text => { for (let i = 0; i < 150 && !printed(text); i++) await delay(20); assert.ok(printed(text), `the game printed ${text}`); };
+    const tab = state.tabs.find(t => t?.session === game.id);
+    await gui.click(tab.rect[0] + 50, tab.rect[1] - 17);
+    await gui.until(s => s.tabs.some(t => t?.session === game.id && t.captured), 'the pane takes the keyboard');
+    await gui.command({ op: 'key', key: 'W' });
+    await awaitPrint('key 26 1');
+    await gui.key('Escape');   /* releases capture, and the release prints the held key's release */
+    await awaitPrint('key 26 0');
+    state = await gui.until(s => recording(s)?.logLines > 1, "the pane's rolling buffer holds the game's log lines");
+
     await gui.control('recording', 'toggle');
     state = await gui.until(s => recording(s)?.state === 'recording', 'the toggle starts an explicit segment');
+    // Nothing is printed inside the window: a menu, a stall, a frozen frame. The lines that explain
+    // what is on screen are already in the ring, which is the case this segment has to carry.
     await delay(700);
     await gui.control('recording', 'toggle');
     state = await gui.until(s => recording(s)?.segments === 1 && recording(s)?.state === 'ring', 'the toggle stops and commits');
@@ -57,6 +74,8 @@ test('the game tab records a rolling buffer and its toggle commits segments an a
     assert.equal(segment.sessionId, game.id);
     assert.equal(segment.artifacts.keyframes.present, true);
     assert.ok(segment.artifacts.keyframes.count > 0, 'the committed window carries real keyframes');
+    assert.equal(segment.artifacts.log.present, true, 'the committed segment carries the log slice');
+    assert.ok(segment.artifacts.log.lines > 0, 'a segment recorded over a talking game is not a silent one');
     assert.equal(segment.artifacts.audio.present, false);
     assert.equal(segment.artifacts.audio.issue, 'KI-044');
 
@@ -72,6 +91,24 @@ test('the game tab records a rolling buffer and its toggle commits segments an a
     const first = await readFile(path.join(dir, read.keyframes[0].path));
     assert.equal(first.subarray(0, 3).toString('hex'), 'ffd8ff', 'a keyframe is a real JPEG');
     assert.ok(first.length > 200);
+
+    // The point of the feature: a frame and the line printed while it was on screen, on one clock.
+    // The lines the game printed before the mark are what a reader correlates the picture with, so
+    // an explicit segment carries the ring's lines, stamped negative rather than dropped.
+    assert.equal(read.manifest.log.lines, read.log.total, 'the manifest counts the lines the slice holds');
+    assert.ok(read.log.total >= 2, 'a segment over a ring that holds log lines is not a silent one');
+    assert.deepEqual(read.log.lines.map(line => line.text).filter(text => /^key 26 /.test(text)),
+      ['key 26 1', 'key 26 0'], "the slice holds the game's own lines, in order, without terminal control bytes");
+    for (const line of read.log.lines) {
+      assert.equal(typeof line.atMs, 'number', 'every line is stamped on the keyframe clock');
+      assert.match(line.wall, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    }
+    assert.ok(read.log.lines.at(-1).atMs >= read.log.lines[0].atMs, 'the slice is in clock order');
+    assert.ok(read.log.lines.some(line => line.atMs < 0),
+      'a line already on the way in when the segment was marked is kept with a negative atMs');
+    const ringRead = await readRecording(root, fromRing);
+    assert.ok(ringRead.log.total >= read.log.total, 'the ring commit carries the log the ring was holding');
+    assert.ok(ringRead.log.lines.some(line => /^key 26 1$/.test(line.text)), 'both gestures produce the same artifact shape');
 
     await gui.close(); gui = null;
     assert.equal(server.sessions.snapshot(game.id).state, 'running', 'closing the desktop never stops the game');

@@ -234,16 +234,18 @@ static void mint_id(ReRecorder *r, Uint64 now_ms, char *out, size_t size) {
   snprintf(out, size, "%04d%02d%02dT%02d%02d%02dZ-%06x", parts.tm_year + 1900, parts.tm_mon + 1, parts.tm_mday,
            parts.tm_hour, parts.tm_min, parts.tm_sec, suffix & 0xffffff);
 }
-static void write_log(ReRecorder *r, Uint64 from) {
+/* Every line the ring still holds, stamped from the segment's first keyframe: a line printed before
+ * the mark carries a negative atMs rather than being dropped, because the moment a recording is
+ * started for is always just past and its explanation is in the lines already in. */
+static void write_log(ReRecorder *r) {
   char path[2100];
   snprintf(path, sizeof(path), "%s/log.jsonl", r->commit.directory);
   FILE *handle = fopen(path, "wb");
   if (!handle) return;
-  Uint64 origin = r->commit.count ? r->commit.frames[0]->at : from;
+  Uint64 origin = r->commit.frames[0]->at;
   char wall[40];
   for (int i = 0; i < r->line_count; i++) {
     ReLine *line = line_at(r, i);
-    if (line->at < from) continue;
     wall_iso(wall_of(r, line->at), wall, sizeof(wall));
     cJSON *j = cJSON_CreateObject();
     cJSON_AddNumberToObject(j, "atMs", (double)((long long)line->at - (long long)origin));
@@ -285,7 +287,7 @@ static void begin_commit(ReRecorder *r, int kind, Uint64 from, int requested_sec
   }
   re_copy(r->last_segment, sizeof(r->last_segment), c->id);
   snprintf(r->last_path, sizeof(r->last_path), ".cache/recordings/%s", c->id);
-  write_log(r, from);
+  write_log(r);
   char path[2100];
   snprintf(path, sizeof(path), "%s/keyframes.jsonl", c->directory);
   c->index = fopen(path, "wb");
