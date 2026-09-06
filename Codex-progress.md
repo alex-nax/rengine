@@ -33,7 +33,8 @@ and the MCP tool are in files main never touched, and main's only server change 
 preferences for spec 080) does not reach them. `workspace.c` is exactly the reported footprint on
 main's structure: the switcher entry and `views = 5`, the tab icon, the dispatch, and `RE_DEVICES`
 in the two scroll predicates. No id collision: main stops at F74 and spec 080 and KI-043, so F76,
-spec 082 and KI-045/046/047 are all still free. `features.json` appended in place;
+spec 082 and KI-045/046/047 were free at that point — main took F75, spec 081 and KI-044 two
+commits later, which is why this lane renumbered; see below. `features.json` appended in place;
 `docs/roadmap-graph.md` regenerates byte-identical to the merge; `theme.h`/`theme.c` and the design
 mirrors regenerate byte-identical too, so the generated files were not conflict-resolved by hand.
 
@@ -67,22 +68,47 @@ noise, not a regression, and it belongs to the render lane: either widen it to c
 spread or measure something less noisy than a whole-process RSS difference. A third sweep lost the
 same spec to its 420 s timeout under load average 20.6.
 
-**Gates**, re-run in full after the second merge and after a final `git fetch` (`origin/main`
-`a5e6036`). `npm test` **66/66**. `npm run test:desktop` **25/25**, sequential — main's 22, plus
-`native-devices.spec.mjs` 3/3 including the new busy-pane case. Earlier sweeps of the first merge lost
+**A third merge, `5356ece`, and a renumber.** Main advanced twice more during the report: the
+overlay fix (`a5e6036`) and then the game-recording lane (`a749d9a` + `5356ece`), which **took F75,
+spec 081 and KI-044** — the three ids this lane had checked as free two commits earlier. Main is
+pushed and this branch is not, so this lane moved, following `cbfa1ef`: **F75 -> F76**,
+`docs/specs/081-project-devices.md` -> `082-project-devices.md`, **KI-044/045/046 -> KI-045/046/047**,
+and, because main also took session 32, this lane's sessions became **33** (devices) and **34** (this
+merge). Every reference moved with them: the schema description, the sidecar refs, `games.mjs`'s own
+comment, the theme card, both fixtures and the progress log. The renumber is its own commit before
+the merge, so the merge itself is only a union.
+
+Everything the recording lane touches that this lane also touches was a union rather than a choice:
+`RE_DEVICES` joins the tab enum beside `#include "recording.h"`, the worker and the host advertise
+both `recordings: 1` and `projectDevices: 1`, both route modules are imported in `main.mjs` and
+`worker.mjs`, `devices.c` and `recording.c` are both built, the theme card keeps both view notes, and
+the desktop list runs both fixtures. Five sidecars conflicted and are the union of both sides'
+entries, re-anchored and stamped; after that the sidecar diagnostics are **identical, line for line,
+to `origin/main` at `5356ece`** (16 errors, 18 warnings).
+
+One more main-side flake surfaced and was reproduced there before being attributed:
+`native-format-hardening` — main's own new nested-explorer loop, which clicks 64 directories with
+scroll settles — failed once here (`dir3 expanded not reached`) and **2 of 3 isolated runs on
+unmodified `origin/main` at `5356ece`** (`dir56 expanded not reached`, and `slow producer preview
+loaded`). The sweep that follows is a clean 26/26 on this branch.
+
+**Gates**, re-run in full after the third merge and after a final `git fetch` (`origin/main`
+`5356ece`). `npm test` **71/71**. `npm run test:desktop` **26/26**, sequential — 20 fixtures, this
+lane's `native-devices.spec.mjs` 3/3 including the new busy-pane case and the recording lane's own. Earlier sweeps of the first merge lost
 one test each to machine load, never the same one twice, and every class was reproduced on main
 before being attributed there: `native-render`'s memory budget (the numbers are above),
 `native-render` cancelled at its 420 s timeout under load average 20.6, and `native-project-windows`,
 which passes 3/3 in isolation here while `origin/main`'s own sweep at `60d0917` came in at 21/22 with
 `native-game`'s fixture aborted on signal 6. None touches a devices path.
-`ctest --test-dir .cache/desktop` **5/5** (0.95 s). Native build from a **wiped** `.cache/desktop`: **0 warnings, 0 errors** — the
-honest check for the `-Werror` implicit-declaration class of defect. `./init.sh` clean (35 features).
+`ctest --test-dir .cache/desktop` **6/6** (1.13 s, the recording test included). Native build from a **wiped** `.cache/desktop`: **0 warnings, 0 errors** — the
+honest check for the `-Werror` implicit-declaration class of defect. `./init.sh` clean (36 features).
 `python3 tools/design.py check` clean. `python3 tools/features.py validate` clean.
 `RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run test:game-nolf` **1/1**. Sidecars with the
-private index `.cache/sidecars-devices-merge.sqlite`: **17 errors, 20 warnings** — the set that
-predates both lanes (KI-047). `origin/main` at `a5e6036` reports **35 errors**, because its own
-commit shifted `app.c` and `workspace.c` without re-anchoring their sidecars; this branch repairs
-those 18 with `check --fix-anchors` and stamps both files, so it carries no drift of its own. Both live consumer
+private index `.cache/sidecars-devices-merge.sqlite`: **16 errors, 18 warnings**, identical line for
+line to `origin/main` at `5356ece` — the drift that predates both lanes (KI-047). At `a5e6036` main
+reported 35 errors because that commit shifted `app.c` and `workspace.c` without re-anchoring their
+sidecars; this branch repaired those 18 with `check --fix-anchors`, and the recording lane repaired
+the rest on its way in. Both live consumer
 declarations re-read through the merged code: vtmb-vr (contract 3, 1 format, 2 games, 3 dashboard
 groups) and nolf-improved (contract 3, 1 format, 3 games, 3 groups), no errors, `devices` absent in
 both, `projectDevices` reporting each as the implicit local device only, and both files byte-

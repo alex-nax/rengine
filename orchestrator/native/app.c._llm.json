@@ -48,7 +48,7 @@
         "end": 348,
         "snippet": "static void state_loaded(ReApp *a, const cJSON *j) {"
       },
-      "note": "Ordinary layout restoration does not reselect an initial session whose view is already visible: retain the selected editor and pane. Explicit handoff presentation still selects its pending resumed agent so the once-only readiness gate can open. Project windows load/save their own layout namespace and use each session’s original root even when the tree is a different project.",
+      "note": "Ordinary layout restoration does not reselect an initial session whose view is already visible: retain the selected editor and pane. Explicit handoff presentation still selects its pending resumed agent so the once-only readiness gate can open. Project windows load/save their own layout namespace and use each session\u2019s original root even when the tree is a different project.",
       "refs": [
         "docs/specs/069-project-window-dogfooding.md",
         "docs/specs/058-orchestrator-handoff.md"
@@ -189,7 +189,7 @@
         "end": 551,
         "snippet": "  re_recording_sync(a);"
       },
-      "note": "One call a tick owns the whole recorder lifecycle: it creates a recorder for a game tab that has a live surface, closes one whose tab lost its game, commits an open explicit segment when the session snapshot stops saying running, and drains a commit in flight. Putting it on the tick rather than in the tab-opening path means a restored layout, an Attach from the session browser and RENGINE_INITIAL_GAME all reach it without a third place to remember. Session output is routed separately, from the events loop above, because the recorder timestamps a log line when its newline arrives — the only clock it shares with the frames.",
+      "note": "One call a tick owns the whole recorder lifecycle: it creates a recorder for a game tab that has a live surface, closes one whose tab lost its game, commits an open explicit segment when the session snapshot stops saying running, and drains a commit in flight. Putting it on the tick rather than in the tab-opening path means a restored layout, an Attach from the session browser and RENGINE_INITIAL_GAME all reach it without a third place to remember. Session output is routed separately, from the events loop above, because the recorder timestamps a log line when its newline arrives \u2014 the only clock it shares with the frames.",
       "refs": [
         "docs/specs/081-game-recording.md"
       ]
@@ -197,7 +197,7 @@
   ],
   "source": {
     "path": "orchestrator/native/app.c",
-    "sha256": "290df8ca36e70b9d2c901737774c49830343334a2f29f0f14d60dfb5f1135ca8",
+    "sha256": "e0d80d1bb8c73d53b5f4699fc4126227cfe5dee32450ae1f60cb914612290f1a",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }
