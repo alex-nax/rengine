@@ -9,7 +9,7 @@
         "end": 5,
         "snippet": "export function validateSchema(schema, value, root = schema, at = '$') {"
       },
-      "note": "Deliberately a bounded Draft 2020-12 subset (type, const, enum, string/number/array bounds, uniqueItems, properties/required/additionalProperties, items/prefixItems, allOf, local $ref) so the committed contracts stay the machine-readable truth without adding an npm dependency. A keyword outside the subset is silently ignored, so contracts must only use listed keywords; extend the validator and its tests together when a contract needs more. Type mismatches stop deeper checks to avoid cascades.",
+      "note": "Deliberately a bounded Draft 2020-12 subset (type, const, enum, string/number/array bounds, uniqueItems, properties/required/additionalProperties, items/prefixItems, allOf, local $ref) so the committed contracts stay the machine-readable truth without adding an npm dependency. A keyword outside the subset is silently ignored, so contracts must only use listed keywords; extend the validator and its tests together when a contract needs more. Type mismatches stop deeper checks to avoid cascades. Property and required checks use Object.hasOwn so prototype names such as toString are unknown keys, not matches (review finding 2).",
       "refs": [
         "docs/specs/074-project-format-registry.md",
         "contracts/project-v1.schema.json"
@@ -18,7 +18,7 @@
   ],
   "source": {
     "path": "orchestrator/server/schema.mjs",
-    "sha256": "b2725b3f3f90058c3b916c716539e5eb34a7235718f30d174d5037731771722f",
+    "sha256": "80808232c47d08d77894b0a62949b435fe9424b022ea2780f3f1b6589fd9a412",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

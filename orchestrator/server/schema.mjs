@@ -29,9 +29,9 @@ export function validateSchema(schema, value, root = schema, at = '$') {
       item.forEach((element, index) => check(node.prefixItems?.[index] ?? node.items ?? {}, element, `${where}[${index}]`));
     }
     if (item && typeof item === 'object' && !Array.isArray(item)) {
-      for (const key of node.required ?? []) if (!(key in item)) errors.push(`${where} requires ${key}`);
+      for (const key of node.required ?? []) if (!Object.hasOwn(item, key)) errors.push(`${where} requires ${key}`);
       for (const [key, element] of Object.entries(item)) {
-        if (node.properties && key in node.properties) check(node.properties[key], element, `${where}.${key}`);
+        if (node.properties && Object.hasOwn(node.properties, key)) check(node.properties[key], element, `${where}.${key}`);
         else if (node.additionalProperties === false) errors.push(`${where} has unknown key ${key}`);
       }
     }

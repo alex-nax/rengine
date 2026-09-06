@@ -3,11 +3,25 @@
 #include <ctype.h>
 
 struct ReFormatView {
-  int mode, requested; bool chosen;
+  int mode, requested; bool chosen, awaiting;
   char format[65], title[128], entry[1024], command[512], entry_command[512], entry_error[512];
   long long page, entry_page;
   ReHexView *hex, *entry_hex; ReEditor *text, *entry_text; cJSON *preview, *entry_info;
+  uint64_t *expanded; int expanded_count, expanded_capacity; /* owned expansion set; see sidecar: tree-in-microui */
 };
+#define RE_FORMAT_EXPANSIONS 4096
+static uint64_t path_hash(const char *s) { uint64_t h = 1469598103934665603ull; while (*s) { h ^= (unsigned char)*s++; h *= 1099511628211ull; } return h; }
+static int expanded_index(const ReFormatView *v, uint64_t h) { for (int i = 0; i < v->expanded_count; i++) if (v->expanded[i] == h) return i; return -1; }
+static void toggle_expanded(ReFormatView *v, uint64_t h) {
+  int at = expanded_index(v, h);
+  if (at >= 0) { memmove(v->expanded + at, v->expanded + at + 1, (size_t)(v->expanded_count - at - 1) * sizeof(*v->expanded)); v->expanded_count--; return; }
+  if (v->expanded_count >= RE_FORMAT_EXPANSIONS) { memmove(v->expanded, v->expanded + 1, (size_t)(v->expanded_count - 1) * sizeof(*v->expanded)); v->expanded_count--; }
+  if (v->expanded_count >= v->expanded_capacity) {
+    int capacity = re_max(64, v->expanded_capacity * 2); uint64_t *next = realloc(v->expanded, (size_t)capacity * sizeof(*next));
+    if (!next) return; v->expanded = next; v->expanded_capacity = capacity;
+  }
+  v->expanded[v->expanded_count++] = h;
+}
 static const char *const MODE_NAMES[] = {"text", "raw", "preview"};
 static const char *const MODE_LABELS[] = {"Text", "Raw", "Preview"};
 static long long re_llong(const cJSON *j, const char *key) {
@@ -39,10 +53,12 @@ ReFormatView *re_format_open(int mode, bool chosen) {
 void re_format_close(ReFormatView *v) {
   if (!v) return;
   re_hex_close(v->hex); re_hex_close(v->entry_hex); re_editor_close(v->text); re_editor_close(v->entry_text);
-  cJSON_Delete(v->preview); cJSON_Delete(v->entry_info); free(v);
+  cJSON_Delete(v->preview); cJSON_Delete(v->entry_info); free(v->expanded); free(v);
 }
 int re_format_mode(const ReFormatView *v) { return v->mode; }
 bool re_format_chosen(const ReFormatView *v) { return v->chosen; }
+void re_format_await(ReFormatView *v, bool awaiting) { v->awaiting = awaiting; }
+bool re_format_awaiting(const ReFormatView *v) { return v->awaiting; }
 int re_format_requested(const ReFormatView *v) { return v->requested; }
 const char *re_format_mode_name(int mode) { return mode >= RE_MODE_TEXT && mode <= RE_MODE_PREVIEW ? MODE_NAMES[mode] : "pending"; }
 int re_format_mode_from(const char *name) {
@@ -50,7 +66,7 @@ int re_format_mode_from(const char *name) {
   return -1;
 }
 void re_format_set_mode(ReFormatView *v, int mode, bool chosen) {
-  v->mode = v->requested = mode; v->chosen = chosen; v->command[0] = 0; v->page = 0; clear_entry(v);
+  v->mode = v->requested = mode; v->chosen = chosen; v->command[0] = 0; v->page = 0; v->expanded_count = 0; clear_entry(v);
   cJSON_Delete(v->preview); v->preview = NULL; re_editor_close(v->text); v->text = NULL; re_hex_clear(v->hex);
 }
 void re_format_assign(ReFormatView *v, const char *id, const char *title) { re_copy(v->format, sizeof(v->format), id); re_copy(v->title, sizeof(v->title), title); }
@@ -119,21 +135,24 @@ static int count_files(const cJSON *node) {
   return total;
 }
 static int tree_rows(ReFormatView *v, ReApp *a, mu_Context *ui, const cJSON *node, const char *prefix, int depth, int tab, bool entries) {
-  int action = RE_FORMAT_NONE; const cJSON *item = NULL; char path[1024], label[1100];
+  int action = RE_FORMAT_NONE, indent = depth * RE_METRIC_MICROUI_INDENT; const cJSON *item = NULL; char path[1024], label[1100];
   cJSON_ArrayForEach(item, cJSON_GetObjectItemCaseSensitive(node, "dirs")) {
     snprintf(path, sizeof(path), "%s%s%s", prefix, *prefix ? "/" : "", re_string(item, "name"));
-    snprintf(label, sizeof(label), "%s  (%d files)", re_string(item, "name"), count_files(item));
-    mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_FORMAT_ROW_HEIGHT); mu_push_id(ui, path, (int)strlen(path));
-    if (depth >= RE_METRIC_FORMAT_TREE_DEPTH) mu_label(ui, label);
-    else {
-      int open = mu_begin_treenode(ui, label); re_app_control(a, ui, "preview-dir", path, tab);
-      if (open) { int inner = tree_rows(v, a, ui, item, path, depth + 1, tab, entries); if (inner) action = inner; mu_end_treenode(ui); }
-    }
+    uint64_t h = path_hash(path); bool open = expanded_index(v, h) >= 0;
+    snprintf(label, sizeof(label), "%s %s  (%d files)", open ? "v" : ">", re_string(item, "name"), count_files(item));
+    if (indent) { mu_layout_row(ui, 2, (int[]){indent, -1}, RE_METRIC_FORMAT_ROW_HEIGHT); mu_label(ui, ""); }
+    else mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_FORMAT_ROW_HEIGHT);
+    mu_push_id(ui, path, (int)strlen(path));
+    if (mu_button_ex(ui, label, 0, 0) && depth < RE_METRIC_FORMAT_TREE_DEPTH) { toggle_expanded(v, h); open = !open; }
+    re_app_control(a, ui, "preview-dir", path, tab);
+    if (open && depth < RE_METRIC_FORMAT_TREE_DEPTH) { int inner = tree_rows(v, a, ui, item, path, depth + 1, tab, entries); if (inner) action = inner; }
     mu_pop_id(ui);
   }
   cJSON_ArrayForEach(item, cJSON_GetObjectItemCaseSensitive(node, "files")) {
     const char *name = re_string(item, "name"), *file = re_string(item, "path"); char size[32]; size_text(size, sizeof(size), re_llong(item, "size"));
-    mu_layout_row(ui, 2, (int[]){-RE_METRIC_FORMAT_SIZE_WIDTH, -1}, RE_METRIC_FORMAT_ROW_HEIGHT); mu_push_id(ui, file, (int)strlen(file));
+    if (indent) { mu_layout_row(ui, 3, (int[]){indent, -RE_METRIC_FORMAT_SIZE_WIDTH, -1}, RE_METRIC_FORMAT_ROW_HEIGHT); mu_label(ui, ""); }
+    else mu_layout_row(ui, 2, (int[]){-RE_METRIC_FORMAT_SIZE_WIDTH, -1}, RE_METRIC_FORMAT_ROW_HEIGHT);
+    mu_push_id(ui, file, (int)strlen(file));
     if (!entries) mu_label(ui, name);
     else if (mu_button_ex(ui, name, 0, 0)) {
       if (strlen(file) < sizeof(v->entry)) { re_copy(v->entry, sizeof(v->entry), file); v->entry_page = 0; v->entry_error[0] = 0; action = RE_FORMAT_ENTRY; }
@@ -229,7 +248,7 @@ void re_format_inspect(const ReFormatView *v, cJSON *tab) {
         cJSON_AddNumberToObject(item, "dirs", cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(dir, "dirs"))); cJSON_AddNumberToObject(item, "files", cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(dir, "files")));
         cJSON_AddItemToArray(top, item);
       }
-      cJSON_AddNumberToObject(tab, "previewFiles", count_files(tree));
+      cJSON_AddNumberToObject(tab, "previewFiles", count_files(tree)); cJSON_AddNumberToObject(tab, "expandedDirs", v->expanded_count);
     }
     if (v->text) bounded_text(tab, "previewText", v->text);
   }

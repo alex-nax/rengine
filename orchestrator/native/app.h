@@ -12,7 +12,7 @@ typedef struct {
   cJSON *data; ReTerminal *terminal; ReEditor *editor; ReGame *game; ReFormatView *format;
   mu_Rect rect, header; Uint64 edited;
 } ReTab;
-typedef struct { int id, operation, tab, generation, revision; } RePending;
+typedef struct { int id, operation, tab, generation, revision; char root[65]; long timeout; } RePending;
 typedef struct { int first, count, selected, width, tab; } ReTabStrip;
 typedef struct ReApp {
   ReNet *net; ReSocket *events; ReLayout layout;

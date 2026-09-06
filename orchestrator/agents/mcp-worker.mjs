@@ -27,11 +27,12 @@ const server = new McpServer({ name: 'rengine-workspace', version: '1.0.0' }, {
 const tool = (name, description, inputSchema, readOnlyHint, action) => server.registerTool(name, {
   description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script'].includes(name), openWorldHint: ['open_script', 'preview_file'].includes(name) },
 }, async values => {
+  let state;
   try {
-    const state = await scopedState();
+    state = await scopedState();
     const output = await action(values, state);
     return { content: [{ type: 'text', text: JSON.stringify(output) }], structuredContent: output };
-  } catch (error) { return { isError: true, content: [{ type: 'text', text: error.message }] }; }
+  } catch (error) { return { isError: true, content: [{ type: 'text', text: state ? error.message.replaceAll(state.root.path, '<root>') : error.message }] }; }
 });
 const ownSession = (id, state) => {
   const session = state.sessions.find(session => session.id === id);
@@ -98,17 +99,34 @@ tool('session_output', 'Read the bounded tail of a project session output buffer
   return { ...session, output: session.output.slice(-maxCharacters), truncated: session.output.length > maxCharacters };
 });
 const formatCapability = state => { if (state.capabilities.formatRegistry !== 1) throw new Error('This retained service predates the project format registry. Update the workspace layer first.'); };
-tool('preview_file', 'Preview a file registered in the project’s .rengine/project.json by running its declared preview command (the project’s own executable, no shell): returns the sanitized subtree at dir expanded depth levels, or read-only text. With entry, runs the entry command and returns size, SHA-256 and the text when it is UTF-8. Never writes.', {
+const PREVIEW_BUDGET = 32000;
+tool('preview_file', 'Preview a file registered in the project’s .rengine/project.json by running its declared preview command (the project’s own executable, no shell): returns the sanitized subtree at dir expanded depth levels, or read-only text. Wide levels page through offset/limit; the whole reply stays within a 32,000-character budget (depth and limit shrink, truncated/nextOffset say so). With entry, runs the entry command and returns size, SHA-256 and the text when it is UTF-8. Paths are root-relative. Never writes.', {
   path: z.string(), entry: z.string().optional(), dir: z.string().default(''), depth: z.number().int().min(1).max(8).default(1),
-}, false, async ({ path, entry, dir, depth }, state) => {
+  offset: z.number().int().min(0).default(0), limit: z.number().int().min(1).max(1000).default(200),
+}, false, async ({ path, entry, dir, depth, offset, limit }, state) => {
   formatCapability(state);
+  const rootPath = state.root.path, relative = value => typeof value === 'string' && value.startsWith(`${rootPath}/`) ? value.slice(rootPath.length + 1) : value;
   const result = await call('format-preview', { rootId: context.rootId, path, ...(entry !== undefined ? { entry } : {}) });
-  if (result.kind !== 'tree') { const { window, ...rest } = result; if (rest.text?.length > 32000) { rest.text = rest.text.slice(0, 32000); rest.truncated = true; } return rest; }
+  result.command = result.command.map(relative);
+  if (result.kind !== 'tree') { const { window, ...rest } = result; if (rest.text?.length > PREVIEW_BUDGET) { rest.text = rest.text.slice(0, PREVIEW_BUDGET); rest.truncated = true; } return rest; }
   let node = result.tree;
   for (const part of dir.split('/').filter(Boolean)) node = node.dirs.find(x => x.name === part) ?? (() => { throw new Error(`Directory ${dir} is not in the preview tree.`); })();
   const count = n => n.files.length + n.dirs.reduce((sum, d) => sum + count(d), 0);
-  const slice = (n, level) => ({ name: n.name, files: n.files, dirs: n.dirs.map(d => level <= depth ? slice(d, level + 1) : { name: d.name, dirs: d.dirs.length, files: d.files.length }) });
-  return { ...result, dir, depth, totalFiles: count(result.tree), tree: slice(node, 1) };
+  const summary = d => ({ name: d.name, dirs: d.dirs.length, files: d.files.length });
+  const { tree: _tree, ...base } = result;
+  let useDepth = depth, useLimit = limit, output;
+  for (;;) {
+    const slice = (n, level, first) => {
+      const start = first ? offset : 0, files = n.files.slice(start, start + useLimit);
+      return { name: n.name, files, ...(start + files.length < n.files.length ? { moreFiles: n.files.length - start - files.length } : {}),
+        dirs: n.dirs.map(d => level <= useDepth ? slice(d, level + 1, false) : summary(d)) };
+    };
+    const tree = slice(node, 1, true), next = offset + tree.files.length, more = next < node.files.length;
+    output = { ...base, dir, depth: useDepth, offset, limit: useLimit, totalFiles: count(result.tree), truncated: more || useDepth < depth || useLimit < limit, ...(more ? { nextOffset: next } : {}), tree };
+    if (JSON.stringify(output).length <= PREVIEW_BUDGET || (useDepth === 1 && useLimit === 1)) break;
+    if (useDepth > 1) useDepth--; else useLimit = Math.max(1, Math.floor(useLimit / 2));
+  }
+  return output;
 });
 tool('nolf_preflight', 'Check this project for the native NOLF executable, game data and surface prerequisites.', {}, true,
   async () => call(`game-config?${new URLSearchParams({ rootId: context.rootId })}`));

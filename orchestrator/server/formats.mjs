@@ -1,5 +1,6 @@
-import { spawn } from 'node:child_process';
+import { spawn, execFile } from 'node:child_process';
 import { readFile, stat, open, access } from 'node:fs/promises';
+import { setTimeout as delay } from 'node:timers/promises';
 import path from 'node:path';
 import { validateSchema } from './schema.mjs';
 import { fail, hash, resolveInRoot, MAX_TEXT_BYTES } from './store.mjs';
@@ -13,11 +14,12 @@ const MAX_DECLARATION_BYTES = 256 * 1024, MAX_TREE_DEPTH = 64, MAX_TREE_NODES = 
 const PLACEHOLDER = /\$\{(file|entry)\}/g;
 const schema = JSON.parse(await readFile(new URL('../../contracts/project-v1.schema.json', import.meta.url), 'utf8'));
 
-const uses = (spec, name) => spec.command.some(arg => arg.includes(`\${${name}}`));
+const uses = (spec, name) => Array.isArray(spec?.command) && spec.command.some(arg => typeof arg === 'string' && arg.includes(`\${${name}}`));
 function crossRules(value) {
   const errors = [], seen = new Set();
-  for (const [index, format] of (value.formats ?? []).entries()) {
-    if (!format || typeof format !== 'object') continue;
+  if (!Array.isArray(value.formats)) return errors;
+  for (const [index, format] of value.formats.entries()) {
+    if (!format || typeof format !== 'object' || Array.isArray(format)) continue;
     const where = `$.formats[${index}]`;
     if (seen.has(format.id)) errors.push(`${where}.id repeats ${JSON.stringify(format.id)}`); seen.add(format.id);
     if (Array.isArray(format.modes) && !format.modes.includes(format.default)) errors.push(`${where}.default must be one of its modes`);
@@ -39,7 +41,9 @@ export async function readDeclaration(rootPath) {
   try { value = JSON.parse(bytes.toString('utf8')); } catch (error) { return problem(`invalid JSON (${error.message})`); }
   if (!value || typeof value !== 'object' || Array.isArray(value)) return problem('declaration must be a JSON object');
   if (value.contract !== CONTRACT) return problem(`unknown contract ${JSON.stringify(value.contract)}; this rEngine supports contract ${CONTRACT}`);
-  const errors = [...validateSchema(schema, value), ...crossRules(value)];
+  const structural = validateSchema(schema, value);
+  if (structural.length) return problem(structural.slice(0, 3).join('; '));
+  const errors = crossRules(value);
   if (errors.length) return problem(errors.slice(0, 3).join('; '));
   return { declared: true, contract: value.contract, project: value.project,
     formats: value.formats.map(format => ({ ...format, preview: bounded(format.preview), entry: bounded(format.entry) })) };
@@ -61,15 +65,27 @@ async function resolveExecutable(rootPath, argv0) {
   if (process.platform === 'win32') { try { await access(resolved); } catch { try { await access(`${resolved}.exe`); return `${resolved}.exe`; } catch { /* report the declared name */ } } }
   return resolved;
 }
-export async function runCommand(rootPath, spec, values) {
-  const argv = spec.command.map(arg => arg.replace(PLACEHOLDER, (_, key) => values[key]));
-  argv[0] = await resolveExecutable(rootPath, argv[0]);
+function terminate(child) {
+  if (process.platform === 'win32') execFile('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
+  else { try { process.kill(-child.pid, 'SIGKILL'); } catch { try { child.kill('SIGKILL'); } catch { /* already gone */ } } }
+  child.stdout.destroy(); child.stderr.destroy();
+}
+export async function runCommand(root, spec, values) {
+  const file = await resolveInRoot(root, values.file); /* re-confined immediately before spawn; see sidecar: execution-boundary */
+  const argv = spec.command.map(arg => arg.replace(PLACEHOLDER, (_, key) => key === 'file' ? file.absolute : values[key]));
+  argv[0] = await resolveExecutable(root.path, argv[0]);
   const started = Date.now();
   return new Promise((resolve, reject) => {
-    const child = spawn(argv[0], argv.slice(1), { cwd: rootPath, env: shellEnvironment(), stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, shell: false });
+    const child = spawn(argv[0], argv.slice(1), { cwd: root.path, env: shellEnvironment(), stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, shell: false, detached: process.platform !== 'win32' });
     const chunks = []; let size = 0, stderr = '', done = false, timer;
+    const exited = new Promise(settle => child.once('exit', settle));
     const firstLine = () => stderr.split(/\r?\n/).find(line => line.trim())?.trim() ?? '';
-    const finish = (error, value) => { if (done) return; done = true; clearTimeout(timer); if (error) { child.kill('SIGKILL'); reject(error); } else resolve(value); };
+    const finish = (error, value) => {
+      if (done) return; done = true; clearTimeout(timer);
+      if (!error) { resolve(value); return; }
+      if (child.exitCode === null && child.signalCode === null) terminate(child);
+      Promise.race([exited, delay(1000)]).then(() => reject(error));
+    };
     const failure = (message, status) => finish(Object.assign(new Error(message), { status }));
     timer = setTimeout(() => failure(`Command timed out after ${spec.timeoutMs} ms${firstLine() ? `: ${firstLine()}` : ''}`, 504), spec.timeoutMs);
     child.stdout.on('data', chunk => { size += chunk.length; if (size > spec.maxBytes) failure(`Command output exceeded ${spec.maxBytes} bytes.`, 413); else chunks.push(chunk); });
@@ -119,12 +135,12 @@ export async function formatPreview(root, data) {
   if (data.entry !== undefined) {
     if (typeof data.entry !== 'string' || !data.entry.length || data.entry.length > 4096 || data.entry.includes('\0')) fail('Entry must be a bounded string.');
     if (!format.entry) fail(`Format ${format.id} declares no entry command.`, 415);
-    const run = await runCommand(root.path, format.entry, { file: file.absolute, entry: data.entry }), text = decodeText(run.stdout);
+    const run = await runCommand(root, format.entry, { file: file.relative, entry: data.entry }), text = decodeText(run.stdout);
     return { kind: 'entry', ...base, entry: data.entry, command: run.argv, durationMs: run.durationMs, size: run.stdout.length, sha256: hash(run.stdout),
       ...(text !== null ? { text } : {}), window: windowOf(run.stdout, data.offset, data.length) };
   }
   if (!format.preview) fail(`Format ${format.id} declares no preview command.`, 415);
-  const run = await runCommand(root.path, format.preview, { file: file.absolute });
+  const run = await runCommand(root, format.preview, { file: file.relative });
   const result = { kind: format.preview.kind, ...base, command: run.argv, durationMs: run.durationMs, bytes: run.stdout.length };
   if (format.preview.kind === 'text') {
     if (run.stdout.length > MAX_TEXT_BYTES) fail('Preview text exceeds 2 MiB.', 413);
@@ -143,6 +159,8 @@ export async function readBytes(root, { path: relative, offset = 0, length = MAX
   try {
     const info = await handle.stat();
     if (!info.isFile()) fail('Raw view requires a regular file.', 415);
+    const current = await stat((await resolveInRoot(root, relative)).absolute); /* confine what was actually opened */
+    if (current.dev !== info.dev || current.ino !== info.ino) fail('File changed during the read. Refresh to retry.', 409);
     const buffer = Buffer.alloc(Math.max(0, Math.min(length, MAX_RAW_WINDOW, info.size - Math.min(offset, info.size))));
     let read = 0;
     while (read < buffer.length) { const result = await handle.read(buffer, read, buffer.length - read, offset + read); if (!result.bytesRead) break; read += result.bytesRead; }

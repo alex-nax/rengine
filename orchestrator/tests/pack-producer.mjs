@@ -8,7 +8,14 @@ const [verb, file, entry] = process.argv.slice(2);
 const bytes = readFileSync(file);
 if (bytes.subarray(0, 5).toString('latin1') !== 'PACK\0') { process.stderr.write(`pack: not a pack file: ${file}\n`); process.exit(3); }
 const manifest = JSON.parse(bytes.subarray(5).toString('utf8'));
+if (manifest.grandchild) {
+  const { spawn } = await import('node:child_process');
+  const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 60000)'], { stdio: 'inherit' });
+  process.stderr.write(`GRANDCHILD ${child.pid}\n`);
+}
 if (manifest.sleep) await delay(manifest.sleep);
+if (manifest.wide) for (let i = 0; i < manifest.wide; i++) manifest.entries[`dir${String(i).padStart(3, '0')}/file${i}.txt`] = `wide ${i}`;
+if (manifest.flat) for (let i = 0; i < manifest.flat; i++) manifest.entries[`flat/file${String(i).padStart(4, '0')}.txt`] = 'x';
 if (manifest.fail) { process.stderr.write(`${manifest.fail}\nsecond diagnostic line\n`); process.exit(2); }
 if (manifest.bloat) { process.stdout.write(Buffer.alloc(manifest.bloat, 65)); process.exit(0); }
 const data = name => { const value = manifest.entries[name]; return typeof value === 'string' ? Buffer.from(value, 'utf8') : Buffer.from(value.base64, 'base64'); };

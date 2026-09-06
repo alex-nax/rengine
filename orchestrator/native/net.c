@@ -47,7 +47,7 @@ static void configure(CURL *curl) {
   curl_easy_setopt(curl, CURLOPT_PROXY, "");
   curl_easy_setopt(curl, CURLOPT_PROTOCOLS_STR, "http,ws");
   curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 1000L);
-  curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 5000L);
+  curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, RE_NET_DEFAULT_TIMEOUT_MS);
   curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
 }
 static int http_worker(void *userdata) {
@@ -65,6 +65,7 @@ static int http_worker(void *userdata) {
     snprintf(url, sizeof(url), "%s/api/%s", n->url, route);
     snprintf(auth, sizeof(auth), "Authorization: Bearer %s", n->token);
     curl_easy_reset(curl); configure(curl);
+    if (request->timeout > 0) curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, (long)re_min((int)request->timeout, (int)RE_NET_MAX_TIMEOUT_MS));
     struct curl_slist *headers = curl_slist_append(NULL, auth);
     headers = curl_slist_append(headers, "Content-Type: application/json");
     curl_easy_setopt(curl, CURLOPT_URL, url); curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
@@ -99,14 +100,15 @@ void re_net_close(ReNet *n) {
   SDL_WaitThread(n->thread, NULL); clear(&n->requests); clear(&n->responses);
   SDL_DestroyMutex(n->mutex); SDL_DestroyCond(n->ready); free(n); curl_global_cleanup();
 }
-int re_net_request(ReNet *n, const char *route, const cJSON *body) {
+int re_net_request(ReNet *n, const char *route, const cJSON *body) { return re_net_request_within(n, route, body, 0); }
+int re_net_request_within(ReNet *n, const char *route, const cJSON *body, long timeout_ms) {
   if (!n || strlen(route) > 3500) return 0;
   char *text = body ? cJSON_PrintUnformatted(body) : strdup(""); if (!text) return 0;
   size_t a = strlen(route) + 1, b = strlen(text) + 1;
   ReMessage *r = message("", 0); if (!r) { free(text); return 0; }
   free(r->data); r->data = malloc(a + b); r->size = a + b;
   if (!r->data) { free(r); free(text); return 0; }
-  memcpy(r->data, route, a); memcpy(r->data + a, text, b); free(text); r->status = body != NULL;
+  memcpy(r->data, route, a); memcpy(r->data + a, text, b); free(text); r->status = body != NULL; r->timeout = timeout_ms;
   SDL_LockMutex(n->mutex); r->id = ++n->serial; int id = r->id;
   if (!push(&n->requests, r)) { re_message_free(r); id = 0; }
   SDL_CondSignal(n->ready); SDL_UnlockMutex(n->mutex); return id;

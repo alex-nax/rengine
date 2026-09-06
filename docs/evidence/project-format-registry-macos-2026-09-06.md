@@ -70,3 +70,12 @@ sizes, entry header and text render as designed.
 
 Windows is unqualified (KI-014): the `.exe` fallback for relative `argv[0]` is code only.
 Paging an entry re-runs the declared command by design; a cache is a later decision (KI-037).
+
+## Review fixes (fix/format-registry-review, same day)
+
+A Codex read-only review of the merged branch found six defects (treenode pool abort, thrown
+discovery errors that stalled editors, check-then-open confinement, child-only kills, unbounded
+`preview_file` breadth with absolute paths, and a fixed 5 s native deadline). Each was reproduced
+red first: `formats-hardening.test.mjs` (4 tests) and `native-format-hardening.spec.mjs`. After
+the fixes: `npm test` 35 passes, 0 failures, 5.57 s; `npm run test:desktop` 14 passes, 1 failure, 288.49 s (exit 1): the failure is Codex's untouched `native-render.spec.mjs` budget assertion `opengl: resident memory delta 33536 KiB exceeds 32768 KiB`; it passes standalone (1 pass, 171.53 s) and the two format fixtures passed in that full run; a first full run failed the hardening fixture on the restored-tab deadline bug fixed afterwards; CTest 4 passes, 0.64 s.
+The residual confinement window for path-taking producers is documented in spec 074 and KI-037.
