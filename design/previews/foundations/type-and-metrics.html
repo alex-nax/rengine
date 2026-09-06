@@ -1,0 +1,207 @@
+<!-- @dsCard group="Foundations" name="Type and metrics" subtitle="Monospace 16/20 text grid and the layout measurements the C code uses" width="960" height="760" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>rEngine · Type and metrics</title>
+<!-- re:tokens -->
+<style id="re-tokens">
+:root {
+  --re-font-family: "Menlo", "SF Mono", "Consolas", "Courier New", "DejaVu Sans Mono", monospace;
+  --re-font-size: 16px;
+  --re-line-height: 20px;
+  --re-color-canvas: rgb(14, 18, 23);
+  --re-color-surface: rgb(20, 24, 30);
+  --re-color-control: rgb(38, 46, 56);
+  --re-color-control-hover: rgb(52, 68, 78);
+  --re-color-control-active: rgb(59, 86, 86);
+  --re-color-field: rgb(30, 30, 30);
+  --re-color-field-hover: rgb(35, 35, 35);
+  --re-color-field-active: rgb(40, 40, 40);
+  --re-color-border: rgb(25, 25, 25);
+  --re-color-text: rgb(220, 228, 234);
+  --re-color-text-muted: rgb(146, 167, 178);
+  --re-color-text-indicator: rgb(210, 224, 233);
+  --re-color-title-bg: rgb(25, 25, 25);
+  --re-color-title-text: rgb(240, 240, 240);
+  --re-color-panel-bg: rgba(0, 0, 0, 0.000);
+  --re-color-divider: rgb(54, 67, 76);
+  --re-color-selection: rgb(55, 77, 89);
+  --re-color-caret: rgba(150, 210, 185, 0.745);
+  --re-color-terminal-cursor: rgba(145, 205, 181, 0.392);
+  --re-color-indicator: rgb(40, 53, 62);
+  --re-color-scroll-track: rgb(30, 37, 44);
+  --re-color-scroll-thumb: rgb(99, 119, 131);
+  --re-color-scroll-thumb-active: rgb(145, 180, 190);
+  --re-color-list-scroll-track: rgb(43, 43, 43);
+  --re-color-list-scroll-thumb: rgb(30, 30, 30);
+  --re-color-game-backdrop: rgb(0, 0, 0);
+  --re-metric-microui-padding: 5px;
+  --re-metric-microui-spacing: 4px;
+  --re-metric-microui-indent: 24px;
+  --re-metric-microui-title-height: 24px;
+  --re-metric-microui-scrollbar-size: 12px;
+  --re-metric-microui-thumb-size: 8px;
+  --re-metric-microui-control-width: 68px;
+  --re-metric-window-width: 1280px;
+  --re-metric-window-height: 800px;
+  --re-metric-window-min-width: 1050px;
+  --re-metric-window-min-height: 480px;
+  --re-metric-toolbar-height: 78px;
+  --re-metric-toolbar-row-height: 26px;
+  --re-metric-workspace-top: 80px;
+  --re-metric-workspace-status-height: 26px;
+  --re-metric-workspace-status-inset: 8px;
+  --re-metric-workspace-divider: 6px;
+  --re-metric-workspace-pane-minimum: 80px;
+  --re-metric-pane-header-height: 34px;
+  --re-metric-pane-content-top: 35px;
+  --re-metric-pane-root-row-height: 22px;
+  --re-metric-pane-empty-row-height: 24px;
+  --re-metric-tab-width: 158px;
+  --re-metric-tab-height: 26px;
+  --re-metric-tab-top: 4px;
+  --re-metric-tab-inset: 5px;
+  --re-metric-tab-close-width: 22px;
+  --re-metric-tab-nav-width: 24px;
+  --re-metric-tab-title-characters: 11;
+  --re-metric-tree-row-height: 24px;
+  --re-metric-tree-up-width: 55px;
+  --re-metric-sessions-row-height: 26px;
+  --re-metric-sessions-attach-width: 80px;
+  --re-metric-editor-toolbar-height: 26px;
+  --re-metric-editor-inset: 6px;
+  --re-metric-editor-top: 59px;
+  --re-metric-editor-bottom: 85px;
+  --re-metric-editor-caret-width: 2px;
+  --re-metric-editor-error-height: 23px;
+  --re-metric-terminal-inset: 6px;
+  --re-metric-terminal-top: 28px;
+  --re-metric-terminal-bottom: 34px;
+  --re-metric-game-top: 59px;
+  --re-metric-game-bottom: 65px;
+  --re-metric-game-capture-width: 210px;
+  --re-metric-scrollbar-size: 14px;
+  --re-metric-scrollbar-thumb-min: 20px;
+  --re-metric-scrollbar-thumb-inset: 2px;
+}
+</style>
+<!-- /re:tokens -->
+<!-- re:base -->
+<style id="re-base">
+/* Shared preview styling. It mirrors what the native microui renderer can draw: filled rectangles,
+   1px borders, clipped monospace text at one size, and glyph icons. Keep additions drawable in C. */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--re-color-canvas); color: var(--re-color-text);
+  font-family: var(--re-font-family); font-size: var(--re-font-size); line-height: var(--re-line-height);
+  -webkit-font-smoothing: antialiased;
+}
+code, pre { font: inherit; }
+.re-window { background: var(--re-color-surface); box-shadow: 0 0 0 1px var(--re-color-border); }
+.re-row {
+  display: flex; align-items: stretch; gap: var(--re-metric-microui-spacing);
+  height: 26px; padding: 0 var(--re-metric-microui-padding);
+}
+.re-row.tall { height: 24px; }
+.re-row.short { height: 22px; }
+.re-row + .re-row { margin-top: var(--re-metric-microui-spacing); }
+.re-row > .fill { flex: 1 1 auto; min-width: 0; }
+.re-window > .re-row:first-child { margin-top: var(--re-metric-microui-padding); }
+.re-button, .re-label, .re-textbox, .re-checkbox {
+  display: inline-flex; align-items: center; height: 100%;
+  padding: 0 var(--re-metric-microui-padding); white-space: nowrap; overflow: hidden;
+}
+.re-button { justify-content: center; background: var(--re-color-control); box-shadow: 0 0 0 1px var(--re-color-border); cursor: default; }
+.re-button.is-hover, .re-button:hover { background: var(--re-color-control-hover); }
+.re-button.is-active, .re-button:active { background: var(--re-color-control-active); }
+.re-button.left { justify-content: flex-start; }
+.re-textbox { background: var(--re-color-field); box-shadow: 0 0 0 1px var(--re-color-border); }
+.re-textbox.is-focus { background: var(--re-color-field-active); }
+.re-textbox.is-focus::after { content: ""; width: 1px; height: var(--re-line-height); background: var(--re-color-text); margin-left: 1px; }
+.re-textbox .placeholder { color: var(--re-color-text-muted); }
+.re-checkbox { padding-left: 0; gap: var(--re-metric-microui-spacing); }
+.re-checkbox .box {
+  width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--re-color-field); box-shadow: 0 0 0 1px var(--re-color-border);
+}
+.re-scrollbar { position: relative; background: var(--re-color-scroll-track); }
+.re-scrollbar.vertical { width: var(--re-metric-scrollbar-size); }
+.re-scrollbar.horizontal { height: var(--re-metric-scrollbar-size); }
+.re-scrollbar .thumb { position: absolute; background: var(--re-color-scroll-thumb); }
+.re-scrollbar.vertical .thumb { left: var(--re-metric-scrollbar-thumb-inset); right: var(--re-metric-scrollbar-thumb-inset); }
+.re-scrollbar.horizontal .thumb { top: var(--re-metric-scrollbar-thumb-inset); bottom: var(--re-metric-scrollbar-thumb-inset); }
+.re-scrollbar.is-dragging .thumb { background: var(--re-color-scroll-thumb-active); }
+.re-list-scrollbar { position: relative; width: var(--re-metric-microui-scrollbar-size); background: var(--re-color-list-scroll-track); }
+.re-list-scrollbar .thumb { position: absolute; left: 0; right: 0; background: var(--re-color-list-scroll-thumb); }
+.re-divider { background: var(--re-color-divider); }
+.re-status { color: var(--re-color-text-muted); white-space: nowrap; overflow: hidden; }
+.re-cells { margin: 0; white-space: pre; background: var(--re-color-surface); overflow: hidden; }
+.re-cells .sel { background: var(--re-color-selection); }
+.re-cells .caret { position: relative; }
+.re-cells .caret::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--re-metric-editor-caret-width); background: var(--re-color-caret); }
+.re-cells .block { background: var(--re-color-caret); }
+.re-cells .term-cursor { background: var(--re-color-terminal-cursor); }
+.re-cells .bold { font-weight: bold; }
+.re-cells .underline { text-decoration: underline; }
+.re-indicator { background: var(--re-color-indicator); color: var(--re-color-text-indicator); white-space: pre; }
+.re-note { color: var(--re-color-text-muted); font-size: 12px; line-height: 16px; }
+.re-card { padding: 16px; }
+.re-card h1 { font-size: var(--re-font-size); line-height: var(--re-line-height); margin: 0 0 4px; font-weight: normal; }
+.re-card h1 + .re-note { margin-bottom: 12px; }
+.re-sample { margin: 12px 0; }
+.re-palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 10px 20px; }
+.re-swatch { display: flex; gap: 10px; align-items: flex-start; }
+.re-swatch .chip { flex: 0 0 44px; height: 44px; box-shadow: 0 0 0 1px var(--re-color-divider); }
+.re-swatch .meta { min-width: 0; font-size: 13px; line-height: 18px; }
+.re-swatch code { font-size: 12px; color: var(--re-color-text-muted); }
+.re-metrics { border-collapse: collapse; font-size: 13px; line-height: 18px; }
+.re-metrics th, .re-metrics td { text-align: left; vertical-align: top; padding: 4px 12px 4px 0; border-bottom: 1px solid var(--re-color-divider); }
+.re-metrics th { color: var(--re-color-text-muted); font-weight: normal; white-space: nowrap; }
+</style>
+<!-- /re:base -->
+<style>
+.grid { display: inline-block; background: var(--re-color-surface); padding: 0; }
+.grid span { display: inline-block; width: 10px; box-shadow: inset 0 0 0 1px var(--re-color-divider); text-align: center; }
+.styles { display: flex; gap: 24px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<div class="re-card">
+  <h1>Type and metrics</h1>
+  <p class="re-note">One monospace face at 16px on a 20px line. Every glyph occupies one cell (the advance of “M”, about 10px on macOS Menlo). Layout is computed in logical pixels; HiDPI only sharpens glyphs.</p>
+  <div class="re-sample">
+    <pre class="re-cells grid"><span>r</span><span>E</span><span>n</span><span>g</span><span>i</span><span>n</span><span>e</span><span> </span><span>·</span><span> </span><span>1</span><span>6</span><span>/</span><span>2</span><span>0</span><span> </span><span>c</span><span>e</span><span>l</span><span>l</span><span>s</span></pre>
+  </div>
+  <div class="styles">
+    <pre class="re-cells">Regular text</pre>
+    <pre class="re-cells"><span class="bold">Bold overstrike</span></pre>
+    <pre class="re-cells"><span class="underline">Underlined</span></pre>
+    <pre class="re-cells"><span class="sel">Selected</span></pre>
+    <pre class="re-cells"><span class="caret">I</span>nsert caret</pre>
+    <pre class="re-cells"><span class="block">N</span>ormal block</pre>
+    <pre class="re-cells"><span class="term-cursor"> </span> terminal cursor</pre>
+  </div>
+  <p class="re-note">Glyph icons replace vector icons: <code>x</code> close, <code>+</code> checked, <code>&gt;</code> collapsed, <code>v</code> expanded, <code>•</code> selected tab, <code>*</code> dirty, <code>…</code> clipped title, <code>·</code> separator.</p>
+  <div class="re-sample">
+<!-- re:metrics -->
+<table class="re-metrics">
+<tr><th>microui</th><td>padding <b>5px</b>, spacing <b>4px</b>, indent <b>24px</b>, title-height <b>24px</b>, scrollbar-size <b>12px</b>, thumb-size <b>8px</b>, control-width <b>68px</b><br><span class="re-note">Upstream style defaults applied explicitly: content padding, row spacing, tree indent, unused title height, overflow scrollbar and thumb, default control width.</span></td></tr>
+<tr><th>window</th><td>width <b>1280px</b>, height <b>800px</b>, min-width <b>1050px</b>, min-height <b>480px</b><br><span class="re-note">Initial SDL window size and the enforced minimum.</span></td></tr>
+<tr><th>toolbar</th><td>height <b>78px</b>, row-height <b>26px</b><br><span class="re-note">Top window holding two 26px rows of controls.</span></td></tr>
+<tr><th>workspace</th><td>top <b>80px</b>, status-height <b>26px</b>, status-inset <b>8px</b>, divider <b>6px</b>, pane-minimum <b>80px</b><br><span class="re-note">Pane area starts below the toolbar and ends above the status line; splits leave a 6px draggable divider and keep panes at least 80px.</span></td></tr>
+<tr><th>pane</th><td>header-height <b>34px</b>, content-top <b>35px</b>, root-row-height <b>22px</b>, empty-row-height <b>24px</b><br><span class="re-note">Each leaf pane has a 34px header window; content starts at 35px with a 22px root-name row.</span></td></tr>
+<tr><th>tab</th><td>width <b>158px</b>, height <b>26px</b>, top <b>4px</b>, inset <b>5px</b>, close-width <b>22px</b>, nav-width <b>24px</b>, title-characters <b>11</b><br><span class="re-note">Tab cells are 158px wide including a 22px close button; overflow adds 24px previous/next buttons; titles clip after 11 characters.</span></td></tr>
+<tr><th>tree</th><td>row-height <b>24px</b>, up-width <b>55px</b><br><span class="re-note">Directory rows are 24px; the Up button is 55px wide.</span></td></tr>
+<tr><th>sessions</th><td>row-height <b>26px</b>, attach-width <b>80px</b><br><span class="re-note">Session rows are 26px with an 80px Attach button and a Stop button filling the rest.</span></td></tr>
+<tr><th>editor</th><td>toolbar-height <b>26px</b>, inset <b>6px</b>, top <b>59px</b>, bottom <b>85px</b>, caret-width <b>2px</b>, error-height <b>23px</b><br><span class="re-note">Save/Discard/mode/state row, then the buffer inset 6px from the pane, 59px from the content top and 85px above its bottom; a 23px error label sits at the bottom.</span></td></tr>
+<tr><th>terminal</th><td>inset <b>6px</b>, top <b>28px</b>, bottom <b>34px</b><br><span class="re-note">Terminal cells are inset 6px and start 28px below the content top.</span></td></tr>
+<tr><th>game</th><td>top <b>59px</b>, bottom <b>65px</b>, capture-width <b>210px</b><br><span class="re-note">Capture row above a black surface that starts 59px from the content top.</span></td></tr>
+<tr><th>scrollbar</th><td>size <b>14px</b>, thumb-min <b>20px</b>, thumb-inset <b>2px</b><br><span class="re-note">Native terminal/editor bars are 14px wide with a thumb of at least 20px inset 2px.</span></td></tr>
+</table>
+<!-- /re:metrics -->
+  </div>
+</div>
+</body>
+</html>

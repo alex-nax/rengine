@@ -1,4 +1,5 @@
 #include "draw.h"
+#include "theme.h"
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
 
@@ -79,9 +80,9 @@ ReDraw *re_draw_open(SDL_Window *window, const char *font_path) {
   int drawable_width, drawable_height, window_width, window_height;
   SDL_GetRendererOutputSize(d->renderer, &drawable_width, &drawable_height); SDL_GetWindowSize(window, &window_width, &window_height);
   d->density = (float)drawable_width / re_max(1, window_width);
-  d->scale = stbtt_ScaleForPixelHeight(&d->font, 16.0f * d->density);
+  d->scale = stbtt_ScaleForPixelHeight(&d->font, (float)RE_THEME_FONT_SIZE * d->density);
   d->ascent = (int)(ascent * d->scale / d->density + 0.5f);
-  d->line_height = 20;
+  d->line_height = RE_THEME_LINE_HEIGHT;
   stbtt_GetCodepointHMetrics(&d->font, 'M', &advance, &bearing);
   d->cell_width = (int)(advance * d->scale / d->density + 0.5f);
   SDL_SetRenderDrawBlendMode(d->renderer, SDL_BLENDMODE_BLEND);
@@ -95,23 +96,19 @@ void re_draw_close(ReDraw *d) {
 }
 void re_draw_bind(ReDraw *d, mu_Context *ui) {
   mu_init(ui); ui->text_width = text_width; ui->text_height = text_height; ui->style->font = d;
-  ui->style->size.y = d->line_height;
-  ui->style->colors[MU_COLOR_WINDOWBG] = mu_color(20, 24, 30, 255);
-  ui->style->colors[MU_COLOR_BUTTON] = mu_color(38, 46, 56, 255);
-  ui->style->colors[MU_COLOR_BUTTONHOVER] = mu_color(52, 68, 78, 255);
-  ui->style->colors[MU_COLOR_BUTTONFOCUS] = mu_color(59, 86, 86, 255);
-  ui->style->colors[MU_COLOR_TEXT] = mu_color(220, 228, 234, 255);
+  re_theme_apply(ui->style); ui->style->size.y = d->line_height; /* generated palette/metrics; see sidecar: generated-theme */
 }
 void re_draw_begin(ReDraw *d, int w, int h) {
   int dw, dh; SDL_GetRendererOutputSize(d->renderer, &dw, &dh);
   float density = (float)dw / re_max(1, w);
   if (density != d->density) {
     for (int i = 0; i < GLYPH_COUNT; i++) { if (d->glyphs[i].texture) SDL_DestroyTexture(d->glyphs[i].texture); memset(&d->glyphs[i], 0, sizeof(Glyph)); }
-    d->density = density; d->scale = stbtt_ScaleForPixelHeight(&d->font, 16.0f * density);
+    d->density = density; d->scale = stbtt_ScaleForPixelHeight(&d->font, (float)RE_THEME_FONT_SIZE * density);
   }
   SDL_RenderSetLogicalSize(d->renderer, w, h);
   SDL_RenderSetClipRect(d->renderer, NULL);
-  SDL_SetRenderDrawColor(d->renderer, 14, 18, 23, 255); SDL_RenderClear(d->renderer);
+  mu_Color clear = RE_COLOR_CANVAS;
+  SDL_SetRenderDrawColor(d->renderer, clear.r, clear.g, clear.b, clear.a); SDL_RenderClear(d->renderer);
 }
 void re_draw_rect(ReDraw *d, mu_Rect r, mu_Color c) {
   SDL_Rect rect = {r.x, r.y, r.w, r.h};

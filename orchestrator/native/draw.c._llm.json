@@ -5,13 +5,29 @@
       "id": "trusted-fonts-and-density",
       "kind": "rationale",
       "anchor": {
-        "start": 52,
-        "end": 52,
+        "start": 53,
+        "end": 53,
         "snippet": "ReDraw *re_draw_open(SDL_Window *window, const char *font_path) {"
       },
       "note": "stb_truetype only reads trusted OS/user-selected local fonts; it is not used to preview arbitrary project font files. The glyph cache is bounded and rasterizes at drawable density while UI coordinates remain logical. Glyph availability follows the chosen monospace font; automatic font fallback, shaping and full Unicode typography are not claimed.",
       "refs": [
         "docs/specs/056-native-desktop.md"
+      ]
+    },
+    {
+      "id": "generated-theme",
+      "kind": "constraint",
+      "anchor": {
+        "start": 97,
+        "end": 99,
+        "symbol": "re_draw_bind",
+        "snippet": "void re_draw_bind(ReDraw *d, mu_Context *ui) {"
+      },
+      "note": "Colours, microui metrics, the font pixel size and the line height come from orchestrator/native/theme.h, which `python3 tools/design.py generate` derives from design/tokens.json; the same tokens feed the Claude Design preview cards. Edit the tokens and regenerate, never the header: `tools/design.py check` rejects a stale header and any mu_color/vterm_color_rgb literal outside the palette. Applying upstream microui's default slots explicitly here is behaviour-neutral (identical values) and makes every slot designable. The other native files still carry literal colours; replacing them with RE_COLOR_* waits for the in-flight spec 061/062 edits to land so this change does not conflict with that session.",
+      "refs": [
+        "docs/specs/063-design-system-handoff.md",
+        "design/tokens.json",
+        "tools/design.py"
       ]
     }
   ],

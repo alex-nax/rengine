@@ -1,5 +1,42 @@
 # Progress Log
 
+## Session 18 (macos) — 2026-09-06 — Prepare the native UI for Claude Design
+
+**Owner direction and boundary**: The owner asked to prepare the project for Claude Design to
+enhance the UI. Treated as explicit, bounded preparation outside the paused NOLF goal; D28, every
+feature gate and the active goal are unchanged, and no conversation or goal was started. Another
+session's uncommitted spec 061/062 edits (native scroll/desktop-action sources, service, tests,
+package.json) were present throughout and were left untouched and uncommitted.
+
+**Implemented**: Spec 063 defines the single channel between Claude Design's HTML design-system
+projects and the C/microui desktop. `design/tokens.json` (25 colours including the explicit
+upstream microui defaults, typography, 12 metric groups, icon glyphs and UI strings) generates
+`orchestrator/native/theme.h`, `design/tokens.css`, `design/manifest.json` and the managed blocks
+of 13 self-contained `@dsCard` previews: colours, type/metrics and rendering constraints;
+toolbar, pane header and status line; scrollbars; tree, editor, terminal, session browser and
+game views; a 1280×800 workspace screen. `tools/design.py generate|check|import` uses the standard
+library. `draw.c` now applies the generated palette, microui metrics, font size and line height
+and carries a `generated-theme` sidecar constraint. Architecture table row, KI-030 and a design
+README were added. Nothing under `design/` is loaded at runtime.
+
+**Verification**: `python3 tools/design.py check` passes: header, CSS and manifest regenerate
+identically, 13 cards are valid and self-contained, and every native `mu_color`/`vterm_color_rgb`
+literal is a token. Native smoke snapshots from the pre-change binary and the rebuilt binary are
+byte-identical (1280×800 logical, 2560×1600 drawable, cocoa); the PNG was inspected. CTest: three
+passes. Import round trip: changing `--re-color-control` in a scratch copy of the colours card
+moved the token and `RE_COLOR_CONTROL` to (60, 70, 90); tokens were restored and regenerated with a
+passing check. Sidecar validator OK after one anchor repair. Harness gate passes. A read-only
+DesignSync `list_projects` from this session was refused pending `/design-login`, so no sync ran.
+
+**Remaining**: The owner runs `/design-login` in an interactive session and syncs `design/**`
+into a design-system project (create one if absent); pulled cards return through
+`tools/design.py import`. Replace the remaining literal colours in editor, terminal, workspace,
+scroll, main and game sources with `RE_COLOR_*` once specs 061/062 land. No feature row was
+added; spec 063 records a candidate. A Claude Design canvas seeded from `screens/workspace.html`
+is an optional later step. All 15 feature gates remain false.
+Commit: `feat(design): add Claude Design token bridge and preview library`.
+
+---
 ## Session 18 (macos) — 2026-09-06 — System scrolling, visible bars and agent reload
 
 **Owner direction and context**: Remained inside the verified root-bound rEngine agent session

@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "cards": [
+    {
+      "path": "previews/controls/scrollbars.html",
+      "name": "Scrollbars",
+      "group": "Controls",
+      "subtitle": "Native 14px terminal/editor bars (rest and dragging) beside the 12px microui overflow bar",
+      "viewport": {
+        "width": 640,
+        "height": 300
+      }
+    },
+    {
+      "path": "previews/foundations/colors.html",
+      "name": "Colours",
+      "group": "Foundations",
+      "subtitle": "Every native colour token with its role and microui slot",
+      "viewport": {
+        "width": 960,
+        "height": 720
+      }
+    },
+    {
+      "path": "previews/foundations/rendering-constraints.html",
+      "name": "Rendering constraints",
+      "group": "Foundations",
+      "subtitle": "What the C/microui renderer can and cannot draw; read before proposing a change",
+      "viewport": {
+        "width": 960,
+        "height": 560
+      }
+    },
+    {
+      "path": "previews/foundations/type-and-metrics.html",
+      "name": "Type and metrics",
+      "group": "Foundations",
+      "subtitle": "Monospace 16/20 text grid and the layout measurements the C code uses",
+      "viewport": {
+        "width": 960,
+        "height": 760
+      }
+    },
+    {
+      "path": "previews/screens/workspace.html",
+      "name": "Workspace 1280×800",
+      "group": "Screens",
+      "subtitle": "Default window: toolbar, tree beside an editor/terminal split, status line, using the real metrics",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "path": "previews/views/editor.html",
+      "name": "Editor",
+      "group": "Views",
+      "subtitle": "Save/Discard row, mode and draft state, buffer with selection and caret, both scrollbars, error line",
+      "viewport": {
+        "width": 700,
+        "height": 480
+      }
+    },
+    {
+      "path": "previews/views/game.html",
+      "name": "Game tab",
+      "group": "Views",
+      "subtitle": "Capture control and status above the letterboxed live NOLF texture",
+      "viewport": {
+        "width": 700,
+        "height": 440
+      }
+    },
+    {
+      "path": "previews/views/sessions.html",
+      "name": "Session browser",
+      "group": "Views",
+      "subtitle": "Retained process rows with Attach/Stop, followed by recovery drafts",
+      "viewport": {
+        "width": 960,
+        "height": 320
+      }
+    },
+    {
+      "path": "previews/views/terminal.html",
+      "name": "Terminal",
+      "group": "Views",
+      "subtitle": "libvterm cells with ANSI colour, focused cursor, history indicator while scrolled back, native scrollbar",
+      "viewport": {
+        "width": 700,
+        "height": 440
+      }
+    },
+    {
+      "path": "previews/views/tree.html",
+      "name": "Project tree",
+      "group": "Views",
+      "subtitle": "Root row, Up button with the current path, 24px directory/file rows, truncation note",
+      "viewport": {
+        "width": 440,
+        "height": 440
+      }
+    },
+    {
+      "path": "previews/workspace/pane-header.html",
+      "name": "Pane header",
+      "group": "Workspace",
+      "subtitle": "Tab strip states: selected, dirty, clipped title, overflow navigation, empty pane",
+      "viewport": {
+        "width": 760,
+        "height": 300
+      }
+    },
+    {
+      "path": "previews/workspace/status-bar.html",
+      "name": "Status line",
+      "group": "Workspace",
+      "subtitle": "Single muted text line at the window bottom; every message the desktop emits",
+      "viewport": {
+        "width": 1280,
+        "height": 300
+      }
+    },
+    {
+      "path": "previews/workspace/toolbar.html",
+      "name": "Toolbar",
+      "group": "Workspace",
+      "subtitle": "Two microui rows: view actions, root switch, project path, agent CLI",
+      "viewport": {
+        "width": 1280,
+        "height": 120
+      }
+    }
+  ]
+}
