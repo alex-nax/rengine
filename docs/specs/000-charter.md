@@ -158,3 +158,10 @@ adapters and name the renderer a future approved-library candidate. This superse
 blanket “no new renderer” deferral for the workspace only; games keep their own renderers. The
 design source is the Claude Design project pulled into `design/`; requirements, architecture and
 phases are in `066-gpu-rendering.md`.
+
+2026-09-06, renderer inventory corrections (owner decisions during the F58 interview, spec 069):
+F56's dependencies on F34 and F42 were removed because they were qualification gates rather than
+code the draw-list contract needs, and no desktop feature passes yet; F57's criteria and
+description narrow to macOS while the new F62 carries the Windows OpenGL evidence that KI-014
+still blocks; F56 and F57 are marked passing on their recorded macOS evidence. The two-desktop
+requirement is unchanged: it is tracked by F62 and KI-014 instead of hiding finished work.

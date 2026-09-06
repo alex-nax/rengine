@@ -328,11 +328,8 @@
         "microui commands and the owned control layer emit only draw-list commands; pinned upstream microui stays unmodified.",
         "The SDL_Renderer adapter consumes the list; native smoke snapshots stay byte-identical to the pre-change baseline while CTest and the native desktop suite pass."
       ],
-      "passes": false,
-      "dependencies": [
-        34,
-        42
-      ],
+      "passes": true,
+      "dependencies": [],
       "owner_workspace": "rengine",
       "deliverable": "orchestrator/native/render/ contract and reference adapter with evidence",
       "external_references": [],
@@ -345,13 +342,13 @@
       "milestone": "R0",
       "category": "surfaces",
       "priority": "high",
-      "description": "Implement the OpenGL adapter on macOS and Windows behind the draw list.",
+      "description": "Implement the OpenGL adapter on macOS behind the draw list.",
       "acceptance_criteria": [
         "An OpenGL core-profile adapter renders every draw-list primitive through owned, versioned shaders with glyph and icon atlases; backend selection is explicit with SDL_Renderer fallback and is recorded in run evidence.",
-        "Per-primitive and whole-screen snapshot comparisons against the reference adapter pass within a tolerance recorded before the run on both desktops.",
+        "Per-primitive and whole-screen snapshot comparisons against the reference adapter pass within a tolerance recorded before the run on macOS.",
         "Frame time and memory are measured against budgets set beforehand, and the native desktop suite passes on the OpenGL backend."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         56
       ],
@@ -441,6 +438,26 @@
       ],
       "owner_workspace": "rengine",
       "deliverable": "catalog entry, conformance checks and adoption evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 62,
+      "milestone": "R1",
+      "category": "surfaces",
+      "priority": "medium",
+      "description": "Verify the OpenGL adapter on Windows behind the draw list.",
+      "acceptance_criteria": [
+        "The OpenGL adapter builds and starts on the Windows desktop from the authorized source transfer (KI-014), with backend selection and evidence recording as on macOS.",
+        "Per-primitive and whole-screen snapshot comparisons against the reference adapter pass on Windows within the tolerances recorded in spec 068.",
+        "Frame time and memory are measured on Windows against the spec 068 budgets, and the native desktop suite passes there on the OpenGL backend."
+      ],
+      "passes": false,
+      "dependencies": [
+        57
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/evidence for the Windows OpenGL adapter",
       "external_references": [],
       "evidence": []
     }
