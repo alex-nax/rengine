@@ -3,7 +3,7 @@
 
 Three tiers, none of which needs a network or a running orchestrator:
 
-* Structure — always runs. Contract 1 (formats) and contract 2 (game, dashboard) rules.
+* Structure — always runs. Contract 1 (formats), 2 (dashboard) and 3 (games) rules.
 * PinnedContract — validates the declaration with rEngine's own schema and reader from
   third_party/rengine; skips until the pin carries a contract this declaration uses.
 * Behaviour — executes the declared format commands exactly as rEngine does (argv,
@@ -39,7 +39,9 @@ KNOWN_PLACEHOLDERS = {"file", "entry"}
 MODES = {"raw", "preview", "text"}
 PREVIEW_KINDS = {"tree", "text"}
 ACTION_KINDS = {"script", "log", "capture"}
-SURFACES = {"external", "sdl2-interpose"}
+SURFACES = {"external", "embedded"}
+RESERVED_ENV_PREFIXES = ("RENGINE_", "DYLD_", "LD_")
+SHELL_CHARACTERS = "|;&$`"
 SKIP_DIRS = {".git", "node_modules", "third_party", ".cache", "build", "dist"}
 
 
@@ -80,11 +82,14 @@ class Structure(unittest.TestCase):
         self.decl = load()
 
     def test_header(self):
-        self.assertIn(self.decl["contract"], (1, 2))
+        self.assertIn(self.decl["contract"], (1, 2, 3))
         self.assertTrue(self.decl["project"].strip())
         self.assertIsInstance(self.decl["formats"], list)
-        if "dashboard" in self.decl or "game" in self.decl:
-            self.assertEqual(self.decl["contract"], 2, "game and dashboard need contract 2")
+        self.assertNotIn("game", self.decl, "the singular game key was replaced by the games array")
+        if "dashboard" in self.decl:
+            self.assertGreaterEqual(self.decl["contract"], 2, "a dashboard needs contract 2")
+        if "games" in self.decl:
+            self.assertEqual(self.decl["contract"], 3, "a games array needs contract 3")
 
     def test_format_records(self):
         ids = [fmt["id"] for fmt in self.decl["formats"]]
@@ -117,24 +122,33 @@ class Structure(unittest.TestCase):
                 self.assertIsInstance(spec[bound], int)
                 self.assertGreater(spec[bound], 0)
 
-    def test_game_record(self):
-        game = self.decl.get("game")
-        if game is None:
-            self.skipTest("no game declared")
-        self.assertRegex(game["id"], KEBAB)
-        self.assertTrue(game["title"].strip())
-        self.assertLessEqual(len(game["title"]), 32, "the toolbar button label is bounded")
-        self.assertTrue(game["executable"], "declare at least one candidate executable")
-        for candidate in game["executable"]:
-            self.assertTrue(relative_inside_root(candidate), candidate)
-        self.assertIn(game["surface"], SURFACES)
-        for argument in game.get("args", []):
-            self.assertIsInstance(argument, str)
-        for key, value in game.get("env", {}).items():
-            self.assertRegex(key, UPPER_SNAKE)
-            self.assertIsInstance(value, str)
-        for required in game.get("requires", []):
-            self.assertTrue(relative_inside_root(required), required)
+    def test_game_records(self):
+        games = self.decl.get("games")
+        if games is None:
+            self.skipTest("no games declared")
+        self.assertTrue(games, "a declared games array carries at least one target")
+        ids = [game["id"] for game in games]
+        self.assertEqual(len(ids), len(set(ids)), "game ids are unique across the array")
+        for game in games:
+            self.assertRegex(game["id"], KEBAB)
+            self.assertTrue(game["title"].strip())
+            self.assertLessEqual(len(game["title"]), 32, "the toolbar label is bounded")
+            self.assertTrue(1 <= len(game["executable"]) <= 8, "1 to 8 ordered candidates")
+            for candidate in game["executable"]:
+                # argv[0]: absolute as given, root-relative with a separator, or a bare PATH name.
+                self.assertFalse(any(ch in candidate for ch in SHELL_CHARACTERS), candidate)
+                if not os.path.isabs(candidate) and "/" in candidate:
+                    self.assertTrue(relative_inside_root(candidate), candidate)
+            self.assertIn(game["surface"], SURFACES)
+            for argument in game.get("args", []):
+                self.assertIsInstance(argument, str)
+                self.assertNotIn("${", argument, f"{game['id']}: game args are literal argv")
+            for key, value in game.get("env", {}).items():
+                self.assertRegex(key, UPPER_SNAKE)
+                self.assertFalse(key.startswith(RESERVED_ENV_PREFIXES), f"{key} is reserved by the workspace")
+                self.assertIsInstance(value, str)
+            for relative in [*game.get("requires", []), *([game["cwd"]] if "cwd" in game else [])]:
+                self.assertTrue(relative_inside_root(relative), relative)
 
     def test_dashboard_records(self):
         dashboard = self.decl.get("dashboard")

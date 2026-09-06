@@ -5,7 +5,7 @@ RE_ENGINE_ROOT=$(CDPATH= cd -- "$RE_ACTION_DIR/../.." && pwd)
 # shellcheck source=lib/wizard.sh
 source "$RE_ACTION_DIR/lib/wizard.sh"
 RE_TEMPLATES="$RE_ENGINE_ROOT/orchestrator/templates/project"
-RE_PROJECT='' RE_NAME='' RE_URL='' RE_PIN='' RE_CONTRACT=2 RE_DRY=0 RE_SUBMODULE=1
+RE_PROJECT='' RE_NAME='' RE_URL='' RE_PIN='' RE_CONTRACT='' RE_DRY=0 RE_SUBMODULE=1
 RE_GAME_TITLE='' RE_GAME_EXE='' RE_GAME_SURFACE=external
 RE_NAME_RE='^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$'
 RE_TITLE_RE='^[A-Za-z0-9][A-Za-z0-9 ._():+-]{0,31}$'
@@ -25,13 +25,17 @@ docs/runbooks/project-integration.md (spec 077).
   --name NAME             the project name in the declaration and dashboard title
   --rengine-url URL       submodule URL (default: this checkout's origin remote)
   --pin SHA               submodule commit (default: this checkout's HEAD)
-  --contract 1|2          declaration contract to write (default: 2)
-  --game-title TITLE      game toolbar label, at most 32 characters (contract 2)
-  --game-exe REL          root-relative game executable, e.g. build/my-game (contract 2)
-  --game-surface KIND     external (default) or sdl2-interpose
+  --contract 1|2|3        declaration contract to write (default: 3 with a game, else 2)
+  --game-title TITLE      game toolbar label, at most 32 characters (contract 3)
+  --game-exe REL          root-relative game executable, e.g. build/my-game (contract 3)
+  --game-surface KIND     external (default) or embedded
   --no-submodule          skip the submodule stage (offline scaffolding, existing pin)
   --dry-run               print every command as "+ …" and write nothing
   --help                  this text
+
+The game arguments scaffold ONE record in the declaration's "games" array. Further targets
+on the same engine are added by hand from orchestrator/templates/project/project.json, which
+carries the multi-record reference; ids must stay unique across the array.
 
 Missing values are prompted only in a human terminal; supplied arguments run unattended.
 USAGE
@@ -56,14 +60,17 @@ done
 [[ -n "$RE_NAME" ]] || re_ask RE_NAME 'Project name'
 [[ "$RE_PROJECT" == /* && -d "$RE_PROJECT" ]] || { printf 'Provide an existing absolute project directory\n' >&2; exit 2; }
 [[ "$RE_NAME" =~ $RE_NAME_RE ]] || { printf 'Invalid name %s: use letters, digits, space, dot, underscore or dash\n' "$RE_NAME" >&2; exit 2; }
-[[ "$RE_CONTRACT" == 1 || "$RE_CONTRACT" == 2 ]] || { printf 'Contract must be 1 or 2\n' >&2; exit 2; }
 if [[ -n "$RE_GAME_EXE" || -n "$RE_GAME_TITLE" ]]; then
-  [[ "$RE_CONTRACT" == 2 ]] || { printf 'A game block requires --contract 2\n' >&2; exit 2; }
+  [[ -n "$RE_CONTRACT" ]] || RE_CONTRACT=3
+  [[ "$RE_CONTRACT" == 3 ]] || { printf 'A games array requires --contract 3\n' >&2; exit 2; }
   [[ -n "$RE_GAME_EXE" && -n "$RE_GAME_TITLE" ]] || { printf 'Declare both --game-title and --game-exe\n' >&2; exit 2; }
   [[ "$RE_GAME_TITLE" =~ $RE_TITLE_RE ]] || { printf 'Invalid game title: at most 32 plain characters\n' >&2; exit 2; }
   [[ "$RE_GAME_EXE" =~ $RE_PATH_RE && "$RE_GAME_EXE" != *..* ]] || { printf 'The game executable must be a root-relative path\n' >&2; exit 2; }
-  [[ "$RE_GAME_SURFACE" == external || "$RE_GAME_SURFACE" == sdl2-interpose ]] || { printf 'Game surface must be external or sdl2-interpose\n' >&2; exit 2; }
+  [[ "$RE_GAME_SURFACE" != sdl2-interpose ]] || { printf 'Game surface sdl2-interpose is retired: use embedded, which hosts the frames in the game tab through the cooperative SDL adapter\n' >&2; exit 2; }
+  [[ "$RE_GAME_SURFACE" == external || "$RE_GAME_SURFACE" == embedded ]] || { printf 'Game surface must be embedded or external\n' >&2; exit 2; }
 fi
+[[ -n "$RE_CONTRACT" ]] || RE_CONTRACT=2
+[[ "$RE_CONTRACT" == 1 || "$RE_CONTRACT" == 2 || "$RE_CONTRACT" == 3 ]] || { printf 'Contract must be 1, 2 or 3\n' >&2; exit 2; }
 if [[ "$RE_SUBMODULE" == 1 ]]; then
   [[ -n "$RE_URL" ]] || RE_URL=$(git -C "$RE_ENGINE_ROOT" remote get-url origin 2>/dev/null || true)
   [[ -n "$RE_URL" ]] || re_ask RE_URL 'rEngine submodule URL'
@@ -105,11 +112,11 @@ re_declaration() {
   printf '  "formats": [\n    {\n      "id": "example-format",\n'
   printf '      "title": "Example format (replace this record)",\n'
   printf '      "match": ["*.example"],\n      "modes": ["raw"],\n      "default": "raw"\n    }\n  ]'
-  if [[ "$RE_CONTRACT" == 2 && -n "$RE_GAME_EXE" ]]; then
-    printf ',\n  "game": {\n    "id": "%s",\n    "title": "%s",\n' "$(re_game_id)" "$RE_GAME_TITLE"
-    printf '    "executable": [%s],\n    "surface": "%s"\n  }' "$(re_game_candidates)" "$RE_GAME_SURFACE"
+  if [[ "$RE_CONTRACT" == 3 && -n "$RE_GAME_EXE" ]]; then
+    printf ',\n  "games": [\n    {\n      "id": "%s",\n      "title": "%s",\n' "$(re_game_id)" "$RE_GAME_TITLE"
+    printf '      "executable": [%s],\n      "surface": "%s"\n    }\n  ]' "$(re_game_candidates)" "$RE_GAME_SURFACE"
   fi
-  if [[ "$RE_CONTRACT" == 2 ]]; then
+  if [[ "$RE_CONTRACT" != 1 ]]; then
     printf ',\n  "dashboard": {\n    "title": "%s",\n    "groups": [\n' "$RE_NAME"
     printf '      {\n        "id": "quick-start",\n        "title": "Quick start",\n        "actions": [\n'
     printf '          {\n            "id": "editor-check",\n'
@@ -175,6 +182,8 @@ Follow-ups this wizard deliberately leaves to the project:
   3. Replace the placeholder format: write the CLI that produces previews and declare it
      in .rengine/project.json with \${file}/\${entry} argv.
   4. Fill the dashboard groups (quick start, device, distribution) with the project's scripts.
-  5. Run ./editor.sh --check, then ./editor.sh to open the project window.
+  5. Add any further game targets to the "games" array by hand (unique kebab-case ids); the
+     multi-record reference is orchestrator/templates/project/project.json.
+  6. Run ./editor.sh --check, then ./editor.sh to open the project window.
 Recipe: docs/runbooks/project-integration.md
 FOLLOWUPS

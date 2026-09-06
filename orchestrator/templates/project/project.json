@@ -1,5 +1,5 @@
 {
-  "contract": 2,
+  "contract": 3,
   "project": "PROJECT_NAME",
   "formats": [
     {
@@ -22,15 +22,26 @@
       }
     }
   ],
-  "game": {
-    "id": "example-game",
-    "title": "Example game",
-    "executable": ["build/example-game", "build/Release/example-game"],
-    "args": [],
-    "env": {},
-    "requires": [],
-    "surface": "external"
-  },
+  "games": [
+    {
+      "id": "example-game",
+      "title": "Example game",
+      "executable": ["build/example-game", "build/Release/example-game"],
+      "args": ["--flat", "--width", "1280", "--height", "720"],
+      "env": { "EXAMPLE_SKIP_INTRO": "1" },
+      "requires": ["assets/example.pak"],
+      "surface": "embedded"
+    },
+    {
+      "id": "example-game-vr",
+      "title": "Example game (VR)",
+      "executable": ["build/example-game-vr", "build/Release/example-game-vr"],
+      "args": ["--vr"],
+      "cwd": "build",
+      "requires": ["assets/example.pak"],
+      "surface": "external"
+    }
+  ],
   "dashboard": {
     "title": "PROJECT_NAME",
     "groups": [
