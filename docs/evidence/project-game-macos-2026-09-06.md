@@ -181,3 +181,97 @@ disable itself with the same message the moment that binary or
 
 Windows is unqualified (KI-014): the `.exe` fallback and PATH walk are code only. The SDL3
 cooperative surface does not exist; `external` is the supported shape for such consumers (KI-041).
+
+## The dashboard game action, and the toolbar control removed (owner decision, 2026-09-06)
+
+Recorded as F72; spec 078 and spec 075 carry the decision. The reLith consumer launched a game from
+its dashboard and got a terminal tab instead of a game pane, because dashboard launches go through
+`kind: "script"` actions while only the toolbar button reached the game surface — `list_sessions`
+showed `type: "game"` for the button and `type: "terminal"` for the dashboard action. The owner's
+resolution: contract 3's dashboard gains an action `kind: "game"` that names a declared record and
+launches it through the same route the button used, and **the toolbar game control is removed
+entirely** — button, `Games` menu and disabled entries. Configurable toolbar items are a separate
+feature the owner will scope later, so nothing replaces it and no stub button is left. That reverses
+part of `0cf70b6` on this branch; the preflight/launch machinery of `3440ef5` is untouched and is
+what the action now calls.
+
+**What the removal took out.** `workspace.c`: the whole `games_menu` container, the toolbar's
+conditional game column, the `menu_open_before` bookkeeping, the root-change menu reset and the
+pointer-routing exception (`pointer_event` plus the `menu_rect` early return) that the open menu
+needed. `app.c`: `re_app_games`, `re_app_game_entry`, `re_app_games_probe`, `re_app_launch_game`,
+`game_key`, `probe_game`, `game_config_loaded`, the `OP_GAME_CONFIG` operation with its error-path
+branch, the `game_configs` cache with its allocation and free, and the `games` array in
+`re_app_inspect`. `app.h`: the four declarations, the `game_configs` pointer, `menu_root`,
+`menu_rect`, `menu_x`, `menu_raise` and `RePending.game`. `theme.json`: `toolbar.game-width`,
+`games-menu-width`, `games-menu-inset`, the row-1 `<declared game title, or Games for several>`
+string and the whole `games-menu` string list; the toolbar metric note now describes a fixed row.
+
+**Row arithmetic, verified three ways.** The row is now a literal fixed array — ten metric widths
+plus the `-1` filler for the Vim checkbox — passed with `RE_ARRAY_SIZE(widths)`, so no run-time
+count can disagree with the array (the old code decremented `columns` and rewrote `widths[columns-2]`
+when a root declared no games). `python3 tools/design.py generate` regenerated `theme.h` (three
+`#define`s removed) and `design.py check` passes, which is what rejects literal row sizes and stale
+generated output. The native fixture asserts the exact toolbar control list —
+`Tree, Dashboard, Shell, Agent, Manage, Sessions, Split vertical, Split horizontal, Merge pane,
+Add project` (plus `Root`) — and asserts it is unchanged for a root that *does* declare games, which
+is the case the removed column used to alter. The measured geometry in that run has Merge pane at
+x=864 w=95 and no control between it and the Vim checkbox.
+
+**Same game, different arguments.** Two actions may name one record with different `args`
+(vtmb-vr's plain flat launch and its `--newgame` variant). Coalescing stays per `(root, game id)`
+and a differing launch is **refused** with 409 naming both argv, because the declared id is already
+the single identity of a running game session — `launch_game`/`game_preflight` select by it, the
+snapshot carries it, the native tab binding and `RENGINE_INITIAL_GAME` resolve through it. Keying on
+argv instead would put two live sessions under one id with no way for an id-keyed route or tool to
+say which it meant. The rejected option was the silent one: attaching to the running session and
+dropping the caller's arguments, which would hand someone who clicked "new game" the old session
+with no indication why. The in-flight map stores the argv beside the promise, so an identical
+concurrent launch joins the flight and a differing one chains behind it and meets the same refusal
+instead of racing a second spawn — asserted with `Promise.allSettled` in `games.test.mjs`.
+
+**Why `args` is in the contract.** One consumer, not two: vtmb-vr's `--newgame` is a real flag of
+its `src/main.cpp`. The reLith `--world`/`--shells`/`--campaign` modes are *not* engine flags —
+their fast-start script rewrites a `boot_mode` value into a temporary profile copy and passes
+`--profile FILE`. The rule recorded in spec 078: `args` serves a variant expressible as argv; a
+variant needing a different profile or config file belongs in its own `games` record or a `script`
+action.
+
+### Gates, 2026-09-06 (second pass)
+
+- `npm test`: 45 passes, 0 failures, 6.8 s (43 before; the two new tests are the dashboard game
+  action and its worker path). Red first: 2 of 45 failed before the service knew the kind.
+- `npm run test:desktop`: 17 passes, 0 failures, 374.1 s. (18 before: the two toolbar tests of the
+  removed control become one dashboard-driven fixture.)
+- CTest in `.cache/desktop`: 4 passes, 0 failures, 0.77 s.
+- `./init.sh`: passes (31 features). `python3 tools/design.py check`: consistent — 19 design cards,
+  the token mirror and 3 presets, no literal row sizes.
+- Native build: zero warnings under the picky flag set. It caught the mirror image of last session's
+  defect: removing `game[65]` from `RePending` left the aggregate initialiser with an excess `""`
+  that the compiler was assigning into `timeout` (`-Wint-conversion`, `-Wexcess-initializers`).
+- Sidecars, `--index .cache/sidecars-game-action.sqlite`, run sequentially: index, manual entry
+  edits, `check --fix-anchors`, review, `stamp`, `check` — clean for the eleven touched files. Two
+  new entries (`dashboard-rules.mjs#game-reference`, `dashboard.mjs#game-availability`), three
+  removed with the code they described (`app.c#games-preflight-cache`,
+  `workspace.c#declared-game-toolbar`, `workspace.c#games-menu-owns-its-pointer`), and
+  `games.mjs#launch-identity` extended with the refusal decision. The whole-tree check reports the
+  same 18 pre-existing diagnostics in untouched files.
+- Real-NOLF qualification **through a dashboard game action**
+  (`RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run test:game-nolf`): 1 pass, 0 failures, 4.7 s.
+  The fixture now writes a one-action dashboard beside the `games` array, clicks
+  `dashboard-action`/`nolf-flat` in the native workspace and waits for real frames; its
+  `evidence.json` records `"launchedBy": "dashboard game action nolf-flat"` and
+  `"scope": "dashboard-launch/menu/input/restart/Stop"`. This is the regression proving the new path
+  reaches a real game session rather than a terminal.
+- Consumers: `orchestrator/tests/fixtures/vtmb-project.json` is refreshed from the live
+  `/Users/alex/vtmb-vr/.rengine/project.json` (its `formats` entry has since gained `--single` and a
+  `*.vpk` glob; no assertion depends on the command strings, which another agent is editing). It
+  validates with zero schema errors and reads with no `gamesError`/`dashboardError`, as does the
+  same document with its `flat` / `flat-newgame` quick-start actions rewritten to `kind: "game"` on
+  `vtmb-flat`. `/Users/alex/nolf-improved/.rengine/project.json` (contract 2, formats + dashboard,
+  no games) still validates unchanged.
+
+Test-design rule recorded with this work: never assert that a declared executable is a real build
+target by grepping a build config — reLith declares `relith-nolf`/`relith-nolf2` in `cmake.toml` but
+creates `relith-avp2` in `cmake/avp2_game.cmake`, so a config grep produces a false failure for one
+of three targets. The build system is the only authority, and an absent *built* binary is a skip,
+not a failure: rEngine already reports it as a named preflight issue.

@@ -5,19 +5,32 @@
       "id": "shared-cross-rules",
       "kind": "rationale",
       "anchor": {
-        "start": 19,
-        "end": 19,
-        "snippet": "export function dashboardRules(dashboard) {"
+        "start": 22,
+        "end": 22,
+        "snippet": "export function dashboardRules(dashboard, context = {}) {"
       },
-      "note": "Kept free of imports so formats.mjs (reader), dashboard.mjs (runtime) and runtime/scripts.mjs (open_script env) can share the same rules without an ES-module cycle: formats.mjs awaits its schema at top level, and a cycle through dashboard.mjs would deadlock module evaluation. The schema lists every kind's fields as optional on one action object because the validator subset has no oneOf/if; these rules add the per-kind required/forbidden fields, unique ids, root-relative paths and UPPER_SNAKE env keys with the offending JSON path in each message.",
+      "note": "Kept free of imports so formats.mjs (reader), dashboard.mjs (runtime) and runtime/scripts.mjs (open_script env) can share the same rules without an ES-module cycle: formats.mjs awaits its schema at top level, and a cycle through dashboard.mjs would deadlock module evaluation. The schema lists every kind's fields as optional on one action object because the validator subset has no oneOf/if; these rules add the per-kind required/forbidden fields, unique ids, root-relative paths and UPPER_SNAKE env keys with the offending JSON path in each message. The second parameter is the partially built declaration, not another block to validate: formats.mjs settles games before the dashboard, so a game action's reference can be resolved against the accepted array without this module importing games.mjs.",
       "refs": [
         "docs/specs/075-project-dashboard.md"
+      ]
+    },
+    {
+      "id": "game-reference",
+      "kind": "rationale",
+      "anchor": {
+        "start": 24,
+        "end": 24,
+        "snippet": "const declared = context.gamesError ? null : (Array.isArray(context.games) ? context.games : []).map(item => item?.id);"
+      },
+      "note": "Three states, deliberately distinct. An accepted games array yields its ids, so an action naming something else is reported with the id and the declared ids. No games key at all yields an empty list, so the message says the declaration declares no games \u2014 which is the true diagnosis for a game action under contract 2. A failed games block yields null and the reference check is skipped entirely: gamesError already names the real problem, and a derived 'undeclared id' error on top of it would send the reader after the wrong key.",
+      "refs": [
+        "docs/specs/078-project-game-declaration.md"
       ]
     }
   ],
   "source": {
     "path": "orchestrator/server/dashboard-rules.mjs",
-    "sha256": "7116875c939447a745045b4a53b81c71c64b392d95fa604f8a10d8e0325d682d",
+    "sha256": "c8b2a402487656e97e190c1b32315f2b4f22a1d888808ccd0ffc5c7eb292db5d",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

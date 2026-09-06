@@ -1,5 +1,94 @@
 # Progress Log
 
+## Session 27 (macos) — 2026-09-06 — Games launch from a dashboard action; the toolbar game control is removed
+
+**Owner scope**: a decision from the reLith stream, relayed and confirmed. That consumer launched a
+game from its dashboard and got a terminal tab instead of a game pane, because dashboard launches go
+through `kind: "script"` actions while only the toolbar button reached the game surface —
+`list_sessions` showed `type: "game"` for the button and `type: "terminal"` for the action. The
+resolution reverses part of `0cf70b6` on this branch: contract 3's dashboard gains an action
+`kind: "game"` that names a declared record and launches it through the same route the button used,
+and the **toolbar game control is removed entirely** (button, `Games` menu, disabled entries) rather
+than relabelled or hidden behind a flag. Configurable toolbar items are a separate rEngine feature
+the owner will scope later, so nothing replaces it and no stub button is left. The preflight/launch
+machinery of `3440ef5` is untouched and is what the action calls. Same branch `feat/project-game`,
+same spec 078 and KI-041, both amended; new row **F72** (verified free across `origin/main`,
+`origin/feat/integration-recipe` and this branch), and F71's toolbar criterion corrected in place
+with the decision recorded beside it. Pushed to `origin/feat/project-game` after every commit, not
+merged.
+
+**The action**: `{ id, title, kind: "game", game: "<declared id>", args?: [...] }`. `game` is
+required and must name a record in the same declaration's `games` array; an undeclared reference is
+a cross rule reporting the id and the declared ids, landing in `dashboardError` without disabling
+the formats, the `games` array or the workspace. When the `games` block itself failed the reference
+check is **skipped** — `gamesError` already names the real problem and a derived error would send
+the reader after the wrong key. `args` is optional literal argv appended to the record's own, held
+to the record's rules (non-empty, no `${…}`) as a cross rule so script-action `args` keep their
+meaning. Availability is the referenced record's preflight, injected (`games.inspect` on the host, a
+call to the retained host's `game-config` route in the replaceable worker) rather than recomputed,
+so a dashboard row shows exactly the verdict the launch will apply; the action's own
+`requires`/`tools` are checked in addition, and a failing row's label prints the preflight issue as
+the sentence it already is.
+
+**Decided deliberately — the same game with different `args`** (vtmb-vr's plain flat launch and its
+`--newgame` variant). Coalescing **stays per (root, game id)** and a differing launch is **refused**
+with 409 naming both argv. The declared id is already the single identity of a running game session
+(`launch_game`/`game_preflight` select by it, the snapshot carries it, the native tab binding and
+`RENGINE_INITIAL_GAME` resolve through it), so keying on argv would put two live sessions under one
+id with no way for an id-keyed route to say which it meant. The option explicitly avoided is the
+silent one — attaching and dropping the caller's arguments, handing someone who clicked "new game"
+the old session with no indication why. The in-flight map now stores the argv beside the promise: an
+identical concurrent launch joins the flight, a differing one chains behind it and meets the same
+refusal instead of racing a second spawn. Game sessions carry their `args` so the comparison has
+something to compare.
+
+**`args` rationale corrected**: it rests on ONE consumer, not two. vtmb-vr's `--newgame` is a real
+flag of its `src/main.cpp`; reLith's `--world`/`--shells`/`--campaign` are not engine flags at all —
+their fast-start script rewrites a `boot_mode` value into a temporary profile copy and passes
+`--profile FILE`. The rule recorded in spec 078: `args` serves a variant expressible as argv; one
+needing a different profile or config file belongs in its own `games` record or a `script` action.
+
+**Removed**: `workspace.c`'s `games_menu` container, the toolbar's conditional game column, the
+menu bookkeeping and the pointer-routing exception it needed; `app.c`'s `re_app_games`,
+`re_app_game_entry`, `re_app_games_probe`, `re_app_launch_game`, `game_key`, `probe_game`,
+`game_config_loaded`, `OP_GAME_CONFIG` with its error branch, the `game_configs` cache and the
+`games` array in `re_app_inspect`; `app.h`'s declarations, `menu_*` fields and `RePending.game`;
+`theme.json`'s `toolbar.game-width`, `games-menu-width`, `games-menu-inset`, the row-1 game string
+and the `games-menu` string list. Row one is now a literal fixed array of ten metric widths plus the
+`-1` filler passed with `RE_ARRAY_SIZE`, so no run-time count can disagree with it; `theme.h` was
+regenerated and `design.py check` passes, and the native fixture asserts the exact control list for
+a root that *does* declare games — the case the removed column used to alter.
+
+**Verification**: red first — 2 of 45 service tests failed before the service knew the kind. Then
+`npm test` 45 passes / 6.8 s; `npm run test:desktop` 17 passes / 374.1 s (18 before: the two toolbar
+tests become one dashboard-driven fixture); CTest 4 passes / 0.77 s; `./init.sh` (31 features);
+`design.py check` consistent; native build zero warnings — it caught the mirror image of last
+session's defect, removing `game[65]` from `RePending` left an excess `""` the compiler was
+assigning into `timeout`. Sidecars with `--index .cache/sidecars-game-action.sqlite`, run
+sequentially, clean for the eleven touched files: two new entries
+(`dashboard-rules.mjs#game-reference`, `dashboard.mjs#game-availability`), three removed with the
+code they described, `games.mjs#launch-identity` extended; the same 18 pre-existing whole-tree
+diagnostics remain in untouched files.
+`RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run test:game-nolf`: 1 pass / 4.7 s, now launching
+**through the dashboard game action** — the fixture writes a one-action dashboard, clicks
+`dashboard-action`/`nolf-flat` and waits for real frames, and its `evidence.json` records
+`"launchedBy": "dashboard game action nolf-flat"`. That is the regression proving the new path
+reaches a real game session rather than a terminal.
+
+**Consumers**: the vtmb-vr fixture is refreshed from its live declaration (its `formats` entry has
+since gained `--single` and a `*.vpk` glob — another agent is editing that section, and no assertion
+depends on the command strings) and validates with zero errors, as does the same document with its
+`flat`/`flat-newgame` quick-start actions rewritten to `kind: "game"` on `vtmb-flat`, which is the
+shape that consumer is expected to adopt. nolf-improved's live contract-2 document still validates
+unchanged. Neither consumer repository was edited.
+
+**Remaining**: F72 stays `passes: false` until the owner merges `feat/project-game`, runs
+`update_workspace` (workspace, desktop, connector) and sees a real consumer launch from its
+dashboard; the live connector, worker and desktop predate the routes until that layered update. A
+configurable toolbar is unscoped. Windows stays unqualified (KI-014) and the SDL3 cooperative
+surface still does not exist (KI-041). Evidence:
+`docs/evidence/project-game-macos-2026-09-06.md`.
+
 ## Session 26 (macos) — 2026-09-06 — Per-project game declarations reworked to the contract-3 games array
 
 **Owner scope**: an explicit decision minutes after session 25 landed. This lane had implemented

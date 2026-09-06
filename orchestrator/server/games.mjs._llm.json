@@ -5,8 +5,8 @@
       "id": "explicit-host-adapter",
       "kind": "rationale",
       "anchor": {
-        "start": 28,
-        "end": 28,
+        "start": 41,
+        "end": 41,
         "snippet": "export class Games {"
       },
       "note": "Preflight reads the project's own declaration: the selected record is the one whose id matches gameId, or the first declared game when it is omitted; executable candidates resolve in order (absolute, root-relative with a Windows .exe fallback, bare name through the sidecar PATH), each declared requires file is stat'ed without symlink confinement so shared data can be linked in, as the qualification fixtures do, and a declared cwd must be an existing directory; nothing runs. embedded reserves a surface item and injects the macOS adapter (the qualified SDL interposition path); external spawns the plain PTY child so an SDL3/static application opens its own window and only its output is retained. Declared env is layered under the reservation and the adapter, and the reader already rejects RENGINE_/DYLD_/LD_ keys. Windows launch remains an explicit unsupported-integration error until the cooperative surface is wired and proven in that host.",
@@ -18,11 +18,11 @@
       "id": "launch-identity",
       "kind": "constraint",
       "anchor": {
-        "start": 76,
-        "end": 76,
+        "start": 91,
+        "end": 91,
         "snippet": "const key = `${rootId}\u0000${config.id ?? ''}`; /* one launch per root AND declared game; see sidecar: launch-identity */"
       },
-      "note": "A launch is identified by root AND declared game id, not by root alone: contract 3 lets one project declare several games, and the owner's shape is that they run side by side (a flat target and a VR target at once). So concurrent requests coalesce per pair and a reuse only returns a running session whose game id matches. The preflight runs before the coalescing key exists because the key needs the resolved id, which also makes an unknown gameId a 404 rather than a silent default. An undeclared project fails before the reuse lookup so a game session started outside a declaration can never be handed back as \"the project's game\".",
+      "note": "A launch is identified by root AND declared game id, not by root alone: contract 3 lets one project declare several games, and the owner's shape is that they run side by side (a flat target and a VR target at once). So concurrent requests coalesce per pair and a reuse only returns a running session whose game id matches. The preflight runs before the coalescing key exists because the key needs the resolved id, which also makes an unknown gameId a 404 rather than a silent default. An undeclared project fails before the reuse lookup so a game session started outside a declaration can never be handed back as \"the project's game\". The 2026-09-06 owner decision keeps that key when two dashboard actions name the same record with different argv: the declared id stays the single identity of a running game session (launch_game/game_preflight select by it, the snapshot carries it, the native tab binding and RENGINE_INITIAL_GAME resolve through it), so a differing launch is refused with both argv named rather than starting a second session under the same id or, worse, silently attaching and dropping the caller's arguments. The in-flight map therefore stores the argv beside the promise: an identical concurrent launch joins the flight, a differing one chains behind it and meets the same refusal instead of racing a second spawn.",
       "refs": [
         "docs/specs/078-project-game-declaration.md"
       ]
@@ -30,7 +30,7 @@
   ],
   "source": {
     "path": "orchestrator/server/games.mjs",
-    "sha256": "92a6742931e526761705af39fb9fff4ffb68a93156b4f9f75817fc382bdf2b1d",
+    "sha256": "831255c89afe736f2fd1394f64b683bdbe7e538e6bd3340772c1034139ae9ba0",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }
