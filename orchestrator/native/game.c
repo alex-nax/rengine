@@ -24,7 +24,7 @@ void re_game_capture(ReGame *g) {
 }
 void re_game_close(ReGame *g) {
   if (!g) return;
-  re_game_release(g); re_socket_close(g->socket); if (g->texture) SDL_DestroyTexture(g->texture); free(g);
+  re_game_release(g); re_socket_close(g->socket); re_draw_texture_destroy(g->texture); free(g);
 }
 void re_game_tick(ReGame *g, ReDraw *draw) {
   ReMessage *m;
@@ -44,10 +44,10 @@ void re_game_tick(ReGame *g, ReDraw *draw) {
     re_copy(g->status, sizeof(g->status), "Rejected invalid game frame"); re_message_free(m); return;
   }
   if (!g->texture || w != g->width || h != g->height) {
-    if (g->texture) SDL_DestroyTexture(g->texture);
-    g->texture = SDL_CreateTexture(re_draw_renderer(draw), SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, w, h);
+    re_draw_texture_destroy(g->texture);
+    g->texture = re_draw_texture_create(draw, w, h);
   }
-  if (g->texture && SDL_UpdateTexture(g->texture, NULL, m->data + 24, w * 4) == 0) {
+  if (re_draw_texture_update(g->texture, m->data + 24, w * 4)) {
     g->width = w; g->height = h; g->sequence = (int)header[3]; re_copy(g->status, sizeof(g->status), "Live");
   }
   re_message_free(m);
@@ -58,8 +58,7 @@ void re_game_draw(ReGame *g, ReDraw *draw, mu_Rect r) {
   if (g->height * scale > r.h) scale = (double)r.h / g->height;
   int w = (int)(g->width * scale), h = (int)(g->height * scale);
   g->rect = mu_rect(r.x + (r.w - w) / 2, r.y + (r.h - h) / 2, w, h);
-  SDL_Rect dest = {g->rect.x, g->rect.y, w, h};
-  SDL_RenderCopyEx(re_draw_renderer(draw), g->texture, NULL, &dest, 0, NULL, SDL_FLIP_VERTICAL);
+  re_draw_texture(draw, g->texture, g->rect, RE_DRAW_FLIP_Y);
 }
 void re_game_event(ReGame *g, const SDL_Event *e) {
   if (e->type == SDL_KEYDOWN || e->type == SDL_KEYUP) {

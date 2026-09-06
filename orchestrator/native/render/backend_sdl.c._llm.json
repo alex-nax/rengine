@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "reference-identity",
+      "kind": "constraint",
+      "anchor": {
+        "start": 39,
+        "end": 50,
+        "snippet": "static void draw_text(SdlBackend *b, ReColor color, uint8_t face, int size, int x, int y, const char *s, const char *end) {",
+        "symbol": "draw_text"
+      },
+      "note": "Glyph placement reproduces the pre-contract immediate-mode expressions exactly, including float evaluation order and the +2 baseline nudge, and rectangles, clips, texture copies and the clear sequence use the same SDL calls in the same order. Changing any of it changes native snapshots, which F56 requires to stay byte-identical. The glyph cache is keyed by face, size and codepoint and purged when the density changes; the cache layout is invisible to output.",
+      "refs": [
+        "docs/specs/067-draw-list-contract.md"
+      ]
+    },
+    {
+      "id": "reference-approximations",
+      "kind": "rationale",
+      "anchor": {
+        "start": 53,
+        "end": 56,
+        "snippet": "static int corner_inset(int radius, int row) {",
+        "symbol": "corner_inset"
+      },
+      "note": "Rounded fills are per-row spans, outlines are the staircase difference between consecutive rows, shadows are width expanding layers with divided alpha, and rings are stacked outlines. These are deliberately simple rectangle-only constructions so the reference adapter can draw every contract primitive without geometry batching; the GPU adapters (F57 onward) produce anti-aliased results and are compared against this within a recorded tolerance, not required to match it exactly.",
+      "refs": [
+        "docs/specs/066-gpu-rendering.md"
+      ]
+    }
+  ]
+}

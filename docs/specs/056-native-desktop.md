@@ -90,6 +90,10 @@ including replay of the selected real Claude session; see [spec 063](063-termina
 Snapshot reconstruction silences historical query replies; normal close/reload drains queued
 input after releasing held mouse buttons, with a bounded visible cancellation on a busy stream.
 
+Drawing goes through the backend-neutral draw list and the SDL reference adapter of
+[spec 067](067-draw-list-contract.md); views append commands and never name rendering APIs, and
+native snapshots stayed byte-identical across that change.
+
 Native image previews, terminal selection/copy, richer text navigation, service-restart recovery,
 frame/input DPI mapping, actual in-level aiming, resource budgets, packaging and Windows runtime
 proof remain open. No accepted feature is marked passing by this checkpoint. The historical web

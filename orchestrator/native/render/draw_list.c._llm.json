@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "sticky-overflow",
+      "kind": "rationale",
+      "anchor": {
+        "start": 28,
+        "end": 31,
+        "snippet": "static ReCommand *push(ReDrawList *l, uint8_t type) {",
+        "symbol": "push"
+      },
+      "note": "When a limit or allocation fails, the frame keeps its accepted prefix and drops every later command instead of failing the frame, so partial output stays in order and the overflow flag can be reported. Text is copied into the list's arena because views pass per-cell stack buffers; the arena NUL-terminates each run so adapters can hand strings to C APIs directly.",
+      "refs": [
+        "docs/specs/067-draw-list-contract.md"
+      ]
+    }
+  ]
+}

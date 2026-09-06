@@ -121,6 +121,23 @@ limited to those four paths, four files written, remote cursor token verified). 
 gate, graph regeneration and design check pass. Commit:
 `feat(design): record the GPU rendering decision and pull the theming update`.
 
+**Follow-up 4 (same session)**: On owner direction, started F56 although the inventory still
+blocks it behind F34 and F42. Spec 067 defines draw-list contract v1 (`render/draw_list.h`: clip,
+rect, rounded rect with corner mask, frame with inner highlight, shadow, ring, text runs in two
+faces, icons, textures; string arena; sticky overflow with limits) and the adapter interface
+(`render/backend.h`). Fonts moved to `render/font.c`, UTF-8 helpers to `render/utf8.c`, and all SDL
+rendering into `render/backend_sdl.c` as the reference adapter. `draw.c` keeps the `re_draw_*` API as
+a list builder that flushes once per frame on snapshot or end; the game view creates, updates and
+draws its texture through the contract. `tools/design.py check` now fails when a native file above
+the list names SDL rendering, OpenGL, Metal or Vulkan symbols. Verification: native smoke
+snapshots before and after are byte-identical; CTest four passes including the new
+`native_draw_list`; the eight committed native desktop specs pass on the reference adapter
+(50.0 s); sidecars valid; harness gate passes. Evidence:
+`docs/evidence/draw-list-macos-2026-09-06.md`. The other session's uncommitted CMake, main.c and
+app.c edits stayed unstaged; the CMake index entry was built from HEAD plus the new sources and
+test. F56 stays `passes: false` with its evidence recorded; F57 (OpenGL adapter) is next. Commit:
+`feat(native): add the draw-list contract and SDL reference adapter (F56)`.
+
 ---
 ## Session 18 (macos) — 2026-09-06 — System scrolling, visible bars and agent reload
 

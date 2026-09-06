@@ -336,7 +336,9 @@
       "owner_workspace": "rengine",
       "deliverable": "orchestrator/native/render/ contract and reference adapter with evidence",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/draw-list-macos-2026-09-06.md"
+      ]
     },
     {
       "id": 57,

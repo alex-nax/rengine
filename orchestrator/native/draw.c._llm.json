@@ -2,26 +2,13 @@
   "version": 1,
   "entries": [
     {
-      "id": "trusted-fonts-and-density",
-      "kind": "rationale",
-      "anchor": {
-        "start": 52,
-        "end": 52,
-        "snippet": "ReDraw *re_draw_open(SDL_Window *window, const char *font_path) {"
-      },
-      "note": "stb_truetype only reads trusted OS/user-selected local fonts; it is not used to preview arbitrary project font files. The glyph cache is bounded and rasterizes at drawable density while UI coordinates remain logical. Glyph availability follows the chosen monospace font; automatic font fallback, shaping and full Unicode typography are not claimed.",
-      "refs": [
-        "docs/specs/056-native-desktop.md"
-      ]
-    },
-    {
       "id": "generated-theme",
       "kind": "constraint",
       "anchor": {
-        "start": 96,
-        "end": 98,
-        "symbol": "re_draw_bind",
-        "snippet": "void re_draw_bind(ReDraw *d, mu_Context *ui) {"
+        "start": 43,
+        "end": 45,
+        "snippet": "void re_draw_bind(ReDraw *d, mu_Context *ui) {",
+        "symbol": "re_draw_bind"
       },
       "note": "Colours, microui metrics, the font pixel size and the line height come from orchestrator/native/theme.h, which `python3 tools/design.py generate` derives from design/tokens.json; the same tokens feed the Claude Design preview cards. Edit the tokens and regenerate, never the header: `tools/design.py check` rejects a stale header and any mu_color/vterm_color_rgb literal outside the palette. Applying upstream microui's default slots explicitly here is behaviour-neutral (identical values) and makes every slot designable. Every owned native source uses RE_COLOR_* through common.h; `check` fails on any numeric colour literal, so a new colour starts as a token.",
       "refs": [
@@ -29,12 +16,21 @@
         "design/tokens.json",
         "tools/design.py"
       ]
+    },
+    {
+      "id": "deferred-flush",
+      "kind": "constraint",
+      "anchor": {
+        "start": 54,
+        "end": 58,
+        "snippet": "static void flush(ReDraw *d) {",
+        "symbol": "flush"
+      },
+      "note": "The list is flushed exactly once per frame by whichever of re_draw_snapshot or re_draw_end runs first, because main.c snapshots before presenting. Commands execute in append order with the same adapter calls the former immediate-mode path issued; that is what keeps native snapshots byte-identical across the contract change (spec 067). Views must append to the list, never draw directly, and anything above the list must not name graphics-API rendering symbols (tools/design.py check enforces it).",
+      "refs": [
+        "docs/specs/067-draw-list-contract.md",
+        "orchestrator/native/render/draw_list.h"
+      ]
     }
-  ],
-  "source": {
-    "path": "orchestrator/native/draw.c",
-    "sha256": "3415d58860c51eb64e9195b1d52c28ead11ec2b82a6681edcccf02fc907da942",
-    "format": "c",
-    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
-  }
+  ]
 }

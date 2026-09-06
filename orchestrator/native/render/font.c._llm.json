@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "trusted-fonts",
+      "kind": "constraint",
+      "anchor": {
+        "start": 15,
+        "end": 26,
+        "snippet": "static bool load(Face *face, const char *path) {",
+        "symbol": "load"
+      },
+      "note": "stb_truetype only reads trusted local fonts: an explicit path, RENGINE_FONT, RENGINE_UI_FONT or the platform defaults. It is never pointed at arbitrary project files, sizes are bounded to 16 bytes through 32 MiB, and a font that fails stbtt_InitFont is rejected. The UI face aliases the monospace face when none is configured so existing callers render exactly as before. Metrics are computed at the drawable density and rounded the way the former draw.c did (ascent and the advance of M with +0.5), which the reference adapter relies on for byte-identical output. Glyph availability follows the chosen font; no fallback, shaping or full Unicode typography is claimed.",
+      "refs": [
+        "docs/specs/056-native-desktop.md",
+        "docs/specs/067-draw-list-contract.md"
+      ]
+    }
+  ]
+}

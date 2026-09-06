@@ -3,7 +3,7 @@
 #include "draw.h"
 #include "net.h"
 typedef struct {
-  ReSocket *socket; SDL_Texture *texture; int width, height, sequence;
+  ReSocket *socket; ReTexture *texture; int width, height, sequence;
   mu_Rect rect; bool focused, captured; Uint32 buttons; char status[256];
 } ReGame;
 ReGame *re_game_open(ReNet *net, const char *id);

@@ -4,7 +4,8 @@
   generate            write orchestrator/native/theme.h from orchestrator/native/theme.json, refresh the
                       design/tokens.json mirror from design/tokens.css and design/manifest.json from the cards
   check               fail when generated output is stale, a card is malformed or not self-contained, the
-                      token mirror drifts, or a native source hard-codes a colour or layout row size
+                      token mirror drifts, a native source hard-codes a colour or layout row size, or a
+                      file above the draw list uses graphics-API rendering symbols
   resolve [PRESET]    print the design tokens of a preset (default, teal, light) as JSON with colours
                       resolved to sRGB 8-bit, for renderer and theme work
 
@@ -46,6 +47,8 @@ RGB = re.compile(r"rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)\s*(?:[/,]\s*([0-9.]+%?)
 OKLCH = re.compile(r"oklch\(\s*([0-9.]+%?)\s+([0-9.]+)\s+([0-9.]+)(?:deg)?\s*(?:/\s*([0-9.]+%?))?\s*\)")
 LITERAL = re.compile(r"mu_color\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)"
                      r"|vterm_color_rgb\(\s*&\w+\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)")
+RENDER_API = re.compile(r"SDL_Render|SDL_Texture|SDL_CreateRenderer|SDL_DestroyRenderer|SDL_SetTexture|SDL_Vertex|SDL_FRect|SDL_FLIP"
+                        r"|\bgl[A-Z]\w*\(|\bGL_[A-Z]|\bMTL[A-Z]|\bvk[A-Z]\w*\(|\bVK_[A-Z]")
 LAYOUT_ROW = re.compile(r"mu_layout_row\(\s*\w+\s*,\s*\d+\s*,\s*\(int\[\]\)\{([^}]*)\}\s*,\s*([^;]*?)\)\s*;")
 
 
@@ -286,6 +289,18 @@ def native_layout_rows():
     return problems
 
 
+def native_render_layering():
+    problems = []
+    for path in sorted(list(NATIVE.rglob("*.c")) + list(NATIVE.rglob("*.h"))):
+        if path.parent.name == "render" and path.name.startswith("backend_") and path.suffix == ".c":
+            continue
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            match = RENDER_API.search(line)
+            if match:
+                problems.append("%s:%d: %s belongs below the draw list (render/backend_*.c only)" % (rel(path), number, match.group(0)))
+    return problems
+
+
 # ---- commands -----------------------------------------------------------------------------------
 
 def generate():
@@ -319,7 +334,7 @@ def check():
     compare(MANIFEST, manifest_text(cards))
     for name in ["default"] + list(presets):
         resolve_preset(layers, presets, name)
-    problems += native_literals(tokens) + native_layout_rows()
+    problems += native_literals(tokens) + native_layout_rows() + native_render_layering()
     for problem in problems:
         print("ERROR: " + problem)
     if problems:
