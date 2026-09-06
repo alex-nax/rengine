@@ -13,11 +13,24 @@
       "refs": [
         "docs/specs/065-layered-workspace-updates.md"
       ]
+    },
+    {
+      "id": "attach-existing-session",
+      "kind": "rationale",
+      "anchor": {
+        "start": 37,
+        "end": 37,
+        "snippet": "attach(rootId, desktopId, session) {"
+      },
+      "note": "The attach capability is independent of reload. Check root, target availability and pending actions before script creation; send a root-matching retained session snapshot to the native client and require its matching acknowledgement. Attach never owns the PTY. Reload-specific error text remains stable for existing consumers.",
+      "refs": [
+        "docs/specs/071-interactive-script-tabs.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/server/desktops.mjs",
-    "sha256": "6cc52995dda5ef8497c324bdb845ed1afa1e0332a68cd4b1c528e27f53c51e5d",
+    "sha256": "860fb09e1f1e74d59281d759f2fc7092008e52e514a4f46a6586c07518ea70df",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

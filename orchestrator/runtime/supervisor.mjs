@@ -9,6 +9,7 @@ import { request as call } from '../launcher/sidecar.mjs';
 import { authenticated, body, checkConnection, fail, forward, json, tunnel } from './protocol.mjs';
 import { prepareDesktop, snapshotBinary, nativeBinary, launchDesktop } from './desktop.mjs';
 import { probeTools } from './tools.mjs';
+import { windowStore, nativeControl, inspectWindow } from './windows.mjs';
 
 const defaultWorker = fileURLToPath(new URL('./worker.mjs', import.meta.url));
 async function startWorker(host, filename) {
@@ -37,6 +38,7 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
   if (!path.isAbsolute(directory)) fail('Runtime directory must be absolute.');
   const hostState = async () => { const state = await call(host, 'state'); if (state.instance !== host.instance) fail('Original session host is no longer available.'); return state; };
   await hostState(); await mkdir(directory, { recursive: true, mode: 0o700 });
+  const windows = await windowStore(directory);
   let current = await startWorker(host, workerFile), url, active, activeFlight, closing = false, connectorGeneration = 1;
   let recovery = { state: 'idle' }, recoveryFlight, automaticRecoveryUsed = false;
   const retired = new Set(), desktops = new Map(), opens = new Map(), preserved = new Set(), jobs = [];
@@ -89,7 +91,7 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
   };
   const spawnView = record => {
     record.binding.view = randomUUID();
-    const child = launchDesktop(record.binary, instance, record.binding, { inspectUI }); record.child = child;
+    const child = launchDesktop(record.binary, instance, record.binding, { inspectUI }); record.child = child; record.control = nativeControl(child);
     record.diagnostics = ''; child.stderr.on('data', data => { record.diagnostics = (record.diagnostics + data).slice(-8000); });
     if (!inspectUI) child.stdout.resume();
     record.exited = new Promise(resolve => {
@@ -118,10 +120,13 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
   };
   const openView = async data => {
     const state = data.root ? await ownRoot(data.root) : await hostState();
-    for (const key of ['terminal', 'agent', 'game']) if (data[key] && !state.sessions.some(x => x.id === data[key] && x.rootId === data.root)) fail('Initial session belongs to another root.', 403);
-    const same = [...desktops.values()].find(x => x.binding.root === data.root && ['terminal', 'agent', 'game'].every(key => (x.binding[key] ?? '') === (data[key] ?? '')));
+    const linked = data.windowId ? windows.get(data.originRootId, data.windowId) : null;
+    if (linked && (data.root !== linked.projectRootId || data.agent !== linked.agentId)) fail('Project window bindings changed.', 403);
+    for (const key of ['terminal', 'agent', 'game']) if (data[key] && !state.sessions.some(x => x.id === data[key] &&
+      (x.rootId === data.root || (key === 'agent' && linked && x.rootId === linked.originRootId)))) fail('Initial session belongs to another root.', 403);
+    const same = [...desktops.values()].find(x => (x.binding.windowId ?? '') === (data.windowId ?? '') && x.binding.root === data.root && ['terminal', 'agent', 'game'].every(key => (x.binding[key] ?? '') === (data[key] ?? '')));
     if (same) { await waitView(same); return { owner: same.binding.owner, pid: same.child.pid, reused: true }; }
-    const owner = randomUUID(), binding = { root: data.root, terminal: data.terminal, agent: data.agent, game: data.game, resume: data.resume === true, owner };
+    const owner = data.windowId ?? randomUUID(), binding = { windowId: data.windowId, title: linked?.title, root: data.root, terminal: data.terminal, agent: data.agent, game: data.game, resume: data.resume === true, owner };
     const record = { binding, binary: await snapshotBinary(binary, path.join(directory, 'versions', owner)), updating: false };
     desktops.set(owner, record); spawnView(record);
     try { await waitView(record); } catch (error) { record.child.kill(); desktops.delete(owner); throw error; }
@@ -129,7 +134,7 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
   };
   const openDesktop = async data => {
     if (typeof data.root !== 'string') fail('Initial root must be explicit (empty for an empty workspace).');
-    const key = JSON.stringify(['root', 'terminal', 'agent', 'game'].map(name => data[name] ?? ''));
+    const key = JSON.stringify(['windowId', 'root', 'terminal', 'agent', 'game'].map(name => data[name] ?? ''));
     if (!opens.has(key)) opens.set(key, openView(data).finally(() => opens.delete(key)));
     return opens.get(key);
   };
@@ -196,6 +201,38 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
     active = job; jobs.push(job); record.updating = true;
     activeFlight = perform(job, { owner: record.binding.owner }, true); await activeFlight;
   };
+  const windowList = async rootId => {
+    await ownRoot(rootId);
+    return { windows: windows.list(rootId).map(window => ({ ...window, status: desktops.has(window.id) ? 'open' : 'closed', pid: desktops.get(window.id)?.child.pid })) };
+  };
+  const reopenWindow = async window => openDesktop({ root: window.projectRootId, agent: window.agentId, windowId: window.id, originRootId: window.originRootId });
+  const openProject = async data => {
+    const state = await ownRoot(data.rootId);
+    if (!state.sessions.some(x => x.id === data.agentId && x.rootId === data.rootId && x.type === 'agent' && x.state === 'running')) fail('Select a running agent bound to the originating project.', 403);
+    const project = await call(host, 'roots', { path: data.path });
+    if (project.id === data.rootId) fail('Select a different integration project.');
+    const window = await windows.create(data.rootId, project, data.agentId);
+    const opened = await reopenWindow(window);
+    return { ...window, layout: undefined, ...opened };
+  };
+  const windowAction = async data => {
+    await ownRoot(data.rootId); const window = windows.get(data.rootId, data.windowId);
+    if (active || recoveryFlight) fail('Wait for the current workspace update.', 409);
+    if (data.action === 'reopen') return reopenWindow(window);
+    const record = desktops.get(window.id);
+    if (!record) fail('Project window is closed; reopen it explicitly.', 409);
+    if (data.action === 'inspect') return inspectWindow(record, directory, data.screenshot === true);
+    if (data.action === 'focus') return { requested: await record.control({ op: 'control-focus' }) === true };
+    if (data.action !== 'close') fail('Choose inspect, focus, close or reopen.');
+    if (record.closing) fail('Window close is already pending.', 409);
+    record.closing = true; let timer;
+    try {
+      if (await record.control({ op: 'control-close' }) !== true) fail('Native window rejected close.');
+      const code = await Promise.race([record.exited, new Promise(resolve => { timer = setTimeout(() => resolve('timeout'), 7000); })]);
+      if (code !== 0) fail('Window did not finish a normal close; inspect its persistence status.', 409);
+      return { windowId: window.id, status: 'closed', sessionsRetained: true };
+    } finally { record.closing = false; clearTimeout(timer); }
+  };
   const server = http.createServer(async (req, res) => {
     try {
       const target = new URL(req.url, 'http://127.0.0.1');
@@ -203,12 +240,23 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
       if (!authenticated(req, token, url)) fail('Workspace authentication required.', 401);
       if (req.method === 'GET' && target.pathname === '/api/state') {
         const worker = current;
-        try { const state = await call(worker, 'state'); worker.error = null; json(res, 200, state); }
+        try { const state = await call(worker, 'state'); worker.error = null; json(res, 200, { ...state, capabilities: { ...state.capabilities, projectWindows: 1 }, ...(target.searchParams.has('windowId') ? { layout: windows.stateLayout(target.searchParams.get('windowId')) } : {}) }); }
         catch (error) {
           worker.error = error.message;
           const state = await hostState();
-          json(res, 200, { ...state, capabilities: { ...state.capabilities, desktopActions: 1, layeredUpdates: 1 }, workspaceWorkerUnavailable: true });
+          json(res, 200, { ...state, capabilities: { ...state.capabilities, desktopActions: 1, layeredUpdates: 1, projectWindows: 1 }, ...(target.searchParams.has('windowId') ? { layout: windows.stateLayout(target.searchParams.get('windowId')) } : {}), workspaceWorkerUnavailable: true });
         }
+      }
+      else if (req.method === 'POST' && target.pathname === '/api/layout' && target.searchParams.has('windowId')) json(res, 200, await windows.layout(target.searchParams.get('windowId'), (await body(req)).layout));
+      else if (req.method === 'GET' && target.pathname === '/api/project-windows') json(res, 200, await windowList(target.searchParams.get('rootId')));
+      else if (req.method === 'POST' && target.pathname === '/api/project-window-open') json(res, 200, await openProject(await body(req)));
+      else if (req.method === 'POST' && target.pathname === '/api/project-window-action') json(res, 200, await windowAction(await body(req)));
+      else if (req.method === 'POST' && target.pathname === '/api/integration-report') {
+        const data = await body(req); await ownRoot(data.rootId); json(res, 200, await windows.report(data.rootId, data));
+      }
+      else if (req.method === 'GET' && target.pathname === '/api/integration-inbox') {
+        const rootId = target.searchParams.get('rootId'); await ownRoot(rootId);
+        json(res, 200, windows.inbox(rootId, { after: Number(target.searchParams.get('after') ?? 0), windowId: target.searchParams.get('windowId'), projectSide: target.searchParams.get('projectSide') === 'true' }));
       }
       else if (req.method === 'GET' && target.pathname === '/api/update-status') json(res, 200, await status(target.searchParams.get('rootId')));
       else if (req.method === 'GET' && target.pathname === '/api/desktops') json(res, 200, { desktops: (await list(target.searchParams.get('rootId'))).map(publicDesktop) });

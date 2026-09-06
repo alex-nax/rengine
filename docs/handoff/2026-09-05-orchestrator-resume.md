@@ -81,7 +81,27 @@ or conversation. This supersedes the routine service/connector upgrade limitatio
 while preserving low-level migration and OS permission boundaries. Evidence:
 `docs/evidence/layered-updates-macos-2026-09-06.md`.
 
-Start with KI-024. Actual NOLF streams while moved into a narrow pane and back. However the
+The next owner request adds separate project windows, agent inspection and a durable integration
+return channel (spec 069). The terminal action `orchestrator/actions/project-window.sh` adopted
+the original host and opened NOLF on 2026-09-06 without a keyboard restart. The current same-agent
+window is `4c55dec7-f1e5-4626-9286-01e8d37ef8f2`; its project root is NOLF and its agent remains
+bound to rEngine. Use current list/status calls rather than assuming recorded PIDs remain live.
+The original legacy GUI remains attached separately. The production supervisor is now installed;
+this supersedes the prior one-time-bootstrap wait. Do not create another conversation or host.
+
+Read `docs/runbooks/project-window-dogfooding.md`; use window inspection and the context-bound CLI
+from the already loaded connector. One local NOLF-to-rEngine status report was delivered and read.
+Reports are polled durable data, not provider input. Project skills now guide dogfooding, terminal
+wizard authoring and selectively useful sidecar lookup; their evidence is recorded in specs
+069–070 and `docs/evidence/sidecar-efficiency-2026-09-06.md`.
+
+Spec 071 adds root-bound `open_script`/`show_session`. An all-layer update succeeded on the live
+NOLF window, preserving the original coding agents. Its `workspace-status.sh` menu was opened
+in a new retained terminal (`d102f6bd-61d7-4b6a-b14b-bf0bf28afc6a`) and is waiting for human input.
+Do not duplicate or stop that flow incidentally. The actual NOLF-bound agent delivered report #2
+requesting independent pane zoom; it was acknowledged and recorded as KI-036, not implemented.
+
+Return to KI-024 for gameplay integration after these owner-prioritized capabilities. Actual NOLF streams while moved into a narrow pane and back. However the
 latest combined test's `game-input.png` still shows the main menu after Enter; its automated
 assertion checked frames rather than the Single Player title, so the green result is insufficient.
 Evidence is local under `.cache/native-workspace-Mcoemj/`. `game-narrow.png` SHA-256 is

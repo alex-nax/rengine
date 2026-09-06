@@ -5,8 +5,8 @@
       "id": "draft-save-ordering",
       "kind": "rationale",
       "anchor": {
-        "start": 24,
-        "end": 24,
+        "start": 28,
+        "end": 28,
         "snippet": "static void checkpoint(ReApp *a, int tab) {"
       },
       "note": "Drafts and saves go through the same FIFO HTTP worker. Do not checkpoint with a stale base version while Save is in flight. A save acknowledgement updates the baseline without dropping later edits; Discard blocks editing until the replacement file arrives. Closing views retains editor buffers/drafts, and normal GUI exit waits for persistence requests. Native layout stores historical layout data without loading the retired browser renderer.",
@@ -18,8 +18,8 @@
       "id": "tab-strip-reveal-after-layout-change",
       "kind": "rationale",
       "anchor": {
-        "start": 19,
-        "end": 19,
+        "start": 23,
+        "end": 23,
         "snippet": "void re_app_layout_changed(ReApp *a) {"
       },
       "note": "Explicit selection, move, split, collapse and restore-related placement must reveal the selected header. Invalidate each ephemeral strip width on layout changes, including reuse of an old pane index with the same width/count/selected tab; comparing those values alone misses split/merge round trips after scrolling away from the selected tab. Header browsing itself does not call this function, so it can show other tabs without switching content.",
@@ -31,12 +31,13 @@
       "id": "show-resumed-agent",
       "kind": "rationale",
       "anchor": {
-        "start": 147,
-        "end": 147,
-        "snippet": "  if (getenv(\"RENGINE_RESUME_AGENT\")) cJSON_ArrayForEach(session, sessions) {"
+        "start": 130,
+        "end": 130,
+        "snippet": "static void state_loaded(ReApp *a, const cJSON *j) {"
       },
-      "note": "The handoff launcher selects its explicit initial agent after restoring other initial views so the pending bootstrap has visible native content and can cross the readiness gate. Root/session identities remain immutable. A reload of an already running agent selects that same retained view; it sends no continuation prompt.",
+      "note": "Ordinary layout restoration does not reselect an initial session whose view is already visible: retain the selected editor and pane. Explicit handoff presentation still selects its pending resumed agent so the once-only readiness gate can open. Project windows load/save their own layout namespace and use each session\u2019s original root even when the tree is a different project.",
       "refs": [
+        "docs/specs/069-project-window-dogfooding.md",
         "docs/specs/058-orchestrator-handoff.md"
       ]
     },
@@ -44,8 +45,8 @@
       "id": "reattach-retained-streams",
       "kind": "rationale",
       "anchor": {
-        "start": 224,
-        "end": 224,
+        "start": 233,
+        "end": 233,
         "snippet": "if (!strcmp(type, \"connected\")) {"
       },
       "note": "Process at most 128 stream messages per tick so continuous output yields to SDL input and rendering. On connection, refresh initialized workspace state and attach existing terminal IDs without creating sessions or repeating a handoff prompt. Local editor buffers, layout and immutable root/session bindings survive this recovery. Inspection reports each terminal attachment separately: a retained old screen plus a live socket is not proof that a fresh snapshot arrived. Terminal text inspection follows the currently drawn viewport, with historyLines and scrollOffset for native acceptance checks.",
@@ -57,8 +58,8 @@
       "id": "desktop-action-registration",
       "kind": "rationale",
       "anchor": {
-        "start": 203,
-        "end": 203,
+        "start": 211,
+        "end": 211,
         "snippet": "static void register_desktop(ReApp *a) {"
       },
       "note": "Register the current project and retained view bindings only when the same connected service advertises desktopActions version 1. Layout changes refresh these bindings; disconnect clears the ephemeral desktop ID so reconnection registers a new target. Older services receive no unsupported registration. Accept reload only for the assigned ID, reload-capable launcher and non-closing view; enqueue acknowledgement before setting reload_requested. This signals routine acceptance, not persistence/build completion. The native view never replaces its service, launches a CLI, or owns retained processes. Optional owner and per-spawn view stamps let the supervisor verify a newly presented replacement instead of accepting stale registration from its predecessor. They identify native views, not session ownership.",
@@ -70,19 +71,45 @@
       "id": "drain-terminal-input-before-quit",
       "kind": "rationale",
       "anchor": {
-        "start": 257,
-        "end": 257,
+        "start": 273,
+        "end": 273,
         "snippet": "bool re_app_quit(ReApp *a) {"
       },
       "note": "On the first close/reload attempt, release held terminal buttons before teardown. Keep ticking native input/rendering until the connected events socket has handed queued/in-flight output to libcurl, in addition to existing durable draft/layout requirements. An observed native test previously lost the final mouse-up when re_app_close queued it immediately before stopping the stream worker. Bound this send drain to two seconds; cancel close/reload visibly if the stream stays busy. Disconnected output is already discarded, so it does not become a replay queue. Drain is transport completion, not a remote application acknowledgement.",
       "refs": [
         "docs/specs/063-terminal-mouse-reporting.md"
       ]
+    },
+    {
+      "id": "window-layout-binding",
+      "kind": "rationale",
+      "anchor": {
+        "start": 4,
+        "end": 4,
+        "snippet": "static int request(ReApp *a, int operation, int tab, const char *route, const cJSON *body) {"
+      },
+      "note": "A supervisor-supplied window ID scopes only state/layout requests. File/draft/session requests retain their explicit tab root and the legacy desktop keeps its original global layout. Changing project focus never rewrites a tab or MCP binding.",
+      "refs": [
+        "docs/specs/069-project-window-dogfooding.md"
+      ]
+    },
+    {
+      "id": "attach-session-view",
+      "kind": "rationale",
+      "anchor": {
+        "start": 80,
+        "end": 80,
+        "snippet": "static bool session_tab(ReApp *a, const cJSON *session) {"
+      },
+      "note": "A script/session desktop action reuses the normal explicit-root tab path, returning success only when a tab can be allocated/reused. It creates a view, not a process. The worker checks the session root and desktop capability; native acknowledgement is distinct from later script completion.",
+      "refs": [
+        "docs/specs/071-interactive-script-tabs.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/app.c",
-    "sha256": "b65f6358bbecd8ccb7b4c32af2d9ae1b166a0753b66df927495c49e1205f1462",
+    "sha256": "478029bd15398c68a7c34c382aa94bdd81e47df0f651119bf45ad2d04261f9c4",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

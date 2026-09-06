@@ -1,5 +1,44 @@
 # Progress Log
 
+## Session 21 (macos) — 2026-09-06 — Project windows, interactive flows and curated skills
+
+**Owner scope**: NOLF dogfooding needs a separate window with the current agent, inspection and
+management, a return channel for rEngine findings and a reusable routine. The owner also requested
+measuring/bundling llm-sidecar and adapting only the selected wizard skill, then clarified that
+interactive script tabs are a first-class UI before native controls. Specs 069–071 record scope.
+
+**Implemented**: Window layouts persist independently; the NOLF tree and existing rEngine agent
+keep distinct explicit roots. Root-bound MCP/CLI open/list/inspect/focus/close/reopen windows and
+exchange durable reports with retry keys/cursors. Added a reusable shell bootstrap and project
+skills with Codex adapters. open_script/show_session run a project .sh as a retained interactive
+PTY and attach its native tab without restarting coding agents. Production inspection cannot inject
+keystrokes; view attachment failure returns the already-created script session for recovery.
+
+**Real consumer**: The shell routine adopted the existing host without a keyboard restart and
+opened NOLF with the original agent PID 20049. A subsequent agent-operated all-layer update
+succeeded; the interactive workspace-status menu is now waiting in its new tab. Actual NOLF
+report #2 requested pane zoom; acknowledged to that project and recorded as KI-036 for follow-up.
+No game/provider/duplicate goal or conversation was launched. Existing agent/shell sessions remain.
+
+**Verification**: Red MCP discovery for both window and script tools; final service 27 passes
+(4.76 s), native 13 passes (103.92 s), CTest four passes, harness/design/inventory and shell syntax
+pass. Native tests cover same-agent identity, separate selected layouts, draft recovery, reports
+across updates and human-style interactive script input after reattachment. Six skill entrypoints
+validate; bundled sidecar tests: 19 passes. Sidecar corpus output used 59.6% fewer bytes than full
+source reads, but more than targeted excerpts; keep it selective. Excluding generated .cache
+state improves real-workspace lookup and avoids indexing runtime credentials/captures. Full evidence:
+`docs/evidence/project-window-dogfooding-macos-2026-09-06.md` and the sidecar efficiency record.
+
+**Corrections/boundaries**: Fixed a test poll that raced next-request MCP worker replacement and
+preserved reload-specific broker error text. An overlapped sidecar stamp hit SQLite writer
+contention; reran sequentially with a separate session index and recorded cold-index limits. The concurrent OpenGL/F57 commit remains separate.
+No broad feature gate changed here. ShellCheck unavailable; Windows runtime/transfer approval,
+KI-024 gameplay and KI-036 zoom remain outstanding. Original host/supervisor protocol migrations
+still require quiescence. The current older connector uses the CLI fallback; global configuration
+and the user's installed skills were left untouched.
+
+---
+
 ## Session 20 (macos) — 2026-09-06 — Layered workspace updates
 
 **Owner direction**: Add agent-operated updates after one last keyboard bootstrap. Remained in

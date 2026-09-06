@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "interactive-inspection-menu",
+      "kind": "rationale",
+      "anchor": {
+        "start": 16,
+        "end": 16,
+        "snippet": "while true; do"
+      },
+      "note": "This deliberate human-driven menu is a retained terminal UI, not a background polling loop. Each selection makes one read-only context-bound client request; it never performs updates or provider actions. EOF/Ctrl-C exit without pretending completion, and normal finish leaves the terminal log inspectable.",
+      "refs": [
+        "docs/specs/071-interactive-script-tabs.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/actions/workspace-status.sh",
+    "sha256": "384d2927b21f4d00a8f6d487ec39eab0ce9e701876b52f7517cb1b65ff3979cd",
+    "format": "shell",
+    "format_fingerprint": "0c07404ffdecc7f9c766fddf6b5a92dfedbae0728eaef728c4c42a67f47f7f4a"
+  }
+}

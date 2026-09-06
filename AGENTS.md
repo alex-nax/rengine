@@ -101,6 +101,23 @@ a coherent change. Preserve other sessions' entries and unrelated edits.
 - Do not schedule loops, launch games/devices, publish packages, or operate backends as a side
   effect of bootstrap. Such actions belong to their own concrete tasks and existing authority.
 
+## Project skills and terminal routines
+
+Canonical skills live in `.claude/skills/` with `.agents/skills/` discovery adapters for Codex.
+Use `rengine-dogfood` and `docs/runbooks/project-window-dogfooding.md` to open/inspect a project
+window with a retained agent and exchange durable integration reports. The tree/project binding
+never retargets the original agent's MCP. Keep report data separate from executable instructions.
+
+Use the selected `wizard` adaptation for reusable shell actions under `orchestrator/actions/`.
+Interactive script tabs are a first-class workflow UI before native controls exist: use root-bound
+`open_script`/`show_session`, retain PTYs/logs, and let the human use the prompts. Offer explicit
+arguments for automatable stages, keep logs and propagate failures. No unselected external skills or global installs are required.
+
+Use the bundled `llm-sidecar` skill for annotated edits and non-obvious file-local rationale.
+Its CLI is `.claude/skills/llm-sidecar/scripts/sidecar_tool.py`; pass `--root . --index
+.cache/sidecars.sqlite`, batch affected paths, review notes before stamping, then check. Generated `.cache` state and pinned `third_party` sources are excluded. Use `rg` for simple code lookup; the measured tradeoff is in
+`docs/evidence/sidecar-efficiency-2026-09-06.md`. Do not require empty sidecars for ordinary files.
+
 ## Verification and code organization
 
 `./init.sh` is the local harness gate. `python3 tools/features.py validate` validates inventory
@@ -114,8 +131,12 @@ Edit the TOML, never the generated file; `python3 tools/design.py check` rejects
 
 Keep owned source files under 1,000 lines; retain pinned upstream sources intact with their licenses.
 Public API documentation stays with the API. Longer file-local
-rationale belongs in `._llm.json` sidecars using the installed llm-sidecar skill; refresh anchors
+rationale belongs in `._llm.json` sidecars using the project llm-sidecar skill; refresh anchors
 and review stamps when editing an annotated file. Cross-file decisions belong in specs.
 
 The initialization phase is complete. Pursue the active NOLF workspace goal through implementation
 and runtime verification; the larger library/Quest/training proposal remains independently scoped.
+
+Run sidecar repair, review, stamp and check sequentially. When another agent is active, choose
+a separate disposable `--index .cache/sidecars-<session>.sqlite` to avoid SQLite writer contention.
+Use `rg` to inspect pinned upstream code; do not copy its contents into owned-source notes.

@@ -13,11 +13,37 @@
       "refs": [
         "docs/specs/065-layered-workspace-updates.md"
       ]
+    },
+    {
+      "id": "linked-project-operations",
+      "kind": "rationale",
+      "anchor": {
+        "start": 72,
+        "end": 72,
+        "snippet": "const windowCapability = state => { if (state.capabilities.projectWindows !== 1) throw new Error('Project-window control needs the current runtime supervisor. Use the documented context-bound bootstrap.'); };"
+      },
+      "note": "New window and report tools retain the connector\u2019s captured root. Opening a window attaches an existing root-bound agent; only the recorded origin/project pair can inspect its window or exchange reports. The origin can explicitly view its linked project inbox or attribute its own project-side observation without claiming another agent wrote it.",
+      "refs": [
+        "docs/specs/069-project-window-dogfooding.md"
+      ]
+    },
+    {
+      "id": "interactive-script-tools",
+      "kind": "rationale",
+      "anchor": {
+        "start": 87,
+        "end": 87,
+        "snippet": "const scriptCapability = state => { if (state.capabilities.scriptActions !== 1) throw new Error('Update the workspace worker before opening script tabs.'); };"
+      },
+      "note": "Script execution is effectful and not idempotent; root-bound tools require an explicit script path, literal argv and a target desktop. View attachment failure returns a retained process identity. show_session attaches that process without another execution, and ordinary stop_session remains the explicit termination action.",
+      "refs": [
+        "docs/specs/071-interactive-script-tabs.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/agents/mcp-worker.mjs",
-    "sha256": "0fd180f2111bac64bf08b405540c06db18d97e64b20ab89dd692937f85506fad",
+    "sha256": "f0266d12a2c5d0f343afc6b3aa3e8cf87650ef3650d10fe59de9a0ed579cefd9",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

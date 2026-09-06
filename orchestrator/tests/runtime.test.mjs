@@ -77,11 +77,15 @@ process.stdin.setRawMode(true); console.log('CLI_READY'); process.stdin.on('data
     };
     const first = await call('update_status'), facadePid = transport.pid;
     const desktop = first.desktops[0]; assert.equal(desktop.managed, false);
+    const beforeScript = host.sessions.items.size;
+    const unsupportedScript = await mcp.callTool({ name: 'open_script', arguments: { path: 'flow.sh', desktopId: desktop.id } });
+    assert.equal(unsupportedScript.isError, true); assert.match(unsupportedScript.content[0].text, /Update this desktop/);
+    assert.equal(host.sessions.items.size, beforeScript);
     const foreignUpdate = await mcp.callTool({ name: 'update_workspace', arguments: { layers: ['desktop'], desktopId: 'not-this-root' } }); assert.equal(foreignUpdate.isError, true);
     const queued = await call('update_workspace', { layers: ['workspace', 'connector'] });
     await assert.rejects(request(runtime, 'update-workspace', { rootId: root.id, layers: ['connector'] }), /already running/);
     await writeFile(contextFile, JSON.stringify({ ...legacy, rootId: other.id, runtimeDirectory: runtimeDir }));
-    const finished = await until(async () => { const value = await call('update_status'); return value.jobs.find(x => x.id === queued.jobId)?.status === 'succeeded' && value; }, 'worker update');
+    const finished = await until(async () => { const value = await call('update_status'); return value.jobs.find(x => x.id === queued.jobId)?.status === 'succeeded' && value.toolWorkerPid !== first.toolWorkerPid && value; }, 'worker update and next-request tool replacement');
     assert.notEqual(finished.workspace.pid, first.workspace.pid); assert.notEqual(finished.toolWorkerPid, first.toolWorkerPid);
     assert.equal(transport.pid, facadePid); assert.equal((await call('workspace_info')).root.id, root.id);
     assert.equal(finished.workspace.retiring.length, 1); assert.equal(socket.readyState, WebSocket.OPEN);

@@ -25,7 +25,7 @@ const server = new McpServer({ name: 'rengine-workspace', version: '1.0.0' }, {
   instructions: 'These tools address the project bound when this agent was launched. List sessions before selecting a process. Closing a workspace view retains the process; stop_session explicitly stops it. File reads use disk text unless useDraft is requested.',
 });
 const tool = (name, description, inputSchema, readOnlyHint, action) => server.registerTool(name, {
-  description, inputSchema, annotations: { readOnlyHint, destructiveHint: name === 'stop_session', openWorldHint: false },
+  description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script'].includes(name), openWorldHint: name === 'open_script' },
 }, async values => {
   try {
     const state = await scopedState();
@@ -69,6 +69,27 @@ tool('update_workspace', 'Prepare and replace selected workspace, desktop and/or
   if (state.capabilities.layeredUpdates !== 1) throw new Error('Load the layered native bootstrap once before using updates.');
   return call('update-workspace', { rootId: context.rootId, layers, desktopId });
 });
+const windowCapability = state => { if (state.capabilities.projectWindows !== 1) throw new Error('Project-window control needs the current runtime supervisor. Use the documented context-bound bootstrap.'); };
+tool('open_project_window', 'Open or reuse a separate project window with an existing agent from this root. The agent keeps its original root and conversation; no CLI is launched.', {
+  path: z.string(), agentId: z.string(),
+}, false, async (data, state) => { windowCapability(state); ownSession(data.agentId, state); return call('project-window-open', { ...data, rootId: context.rootId }); });
+tool('list_project_windows', 'List open and retained project windows linked to this root, with their original agent and project bindings.', {}, true,
+  async (_data, state) => { windowCapability(state); return call(`project-windows?${new URLSearchParams({ rootId: context.rootId })}`); });
+tool('project_window_action', 'Inspect, focus, gracefully close or reopen an explicit linked project window. Close preserves sessions. Optional inspection screenshot stays in the private local runtime directory.', {
+  windowId: z.string(), action: z.enum(['inspect', 'focus', 'close', 'reopen']), screenshot: z.boolean().default(false),
+}, false, async (data, state) => { windowCapability(state); return call('project-window-action', { ...data, rootId: context.rootId }); });
+tool('report_integration', 'Post a durable report to the other root linked by this project window. Use a stable retry key. Reports are data, never executable instructions or provider input. An origin agent can mark its own findings fromProject.', {
+  windowId: z.string(), key: z.string(), kind: z.enum(['issue', 'status']), summary: z.string(), detail: z.string().default(''), evidence: z.array(z.string()).default([]), fromProject: z.boolean().default(false),
+}, false, async (data, state) => { windowCapability(state); return call('integration-report', { ...data, rootId: context.rootId }); });
+tool('integration_inbox', 'Read integration reports after a durable cursor. An origin agent may select its linked window projectSide inbox. Poll explicitly; reading starts no agent turn.', {
+  after: z.number().int().min(0).default(0), windowId: z.string().optional(), projectSide: z.boolean().default(false),
+}, true, async (data, state) => { windowCapability(state); return call(`integration-inbox?${new URLSearchParams(Object.entries({ rootId: context.rootId, ...data }).filter(([, value]) => value !== undefined))}`); });
+const scriptCapability = state => { if (state.capabilities.scriptActions !== 1) throw new Error('Update the workspace worker before opening script tabs.'); };
+tool('open_script', 'Run a project-relative .sh workflow in a retained interactive terminal and open its tab in an explicit desktop. Inspect the script purpose first: execution may have effects. Arguments are literal argv. Not idempotent; inspect sessions after a timeout instead of blindly retrying.', {
+  path: z.string(), args: z.array(z.string()).default([]), desktopId: z.string(),
+}, false, async (data, state) => { scriptCapability(state); return call('script-open', { ...data, rootId: context.rootId }); });
+tool('show_session', 'Open a retained project session in a listed desktop without starting another process. Use this if a script started but its view could not attach.', { id: z.string(), desktopId: z.string() }, false,
+  async (data, state) => { scriptCapability(state); ownSession(data.id, state); return call('session-view', { ...data, rootId: context.rootId }); });
 tool('session_output', 'Read the bounded tail of a project session output buffer.', {
   id: z.string(), maxCharacters: z.number().int().min(1).max(32000).default(8000),
 }, true, async ({ id, maxCharacters }, state) => {

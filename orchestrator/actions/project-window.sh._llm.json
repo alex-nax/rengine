@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "explicit-project-window-routine",
+      "kind": "rationale",
+      "anchor": {
+        "start": 26,
+        "end": 26,
+        "snippet": "re_wizard 'Open a project with the current agent' 3"
+      },
+      "note": "The terminal routine composes the same context-bound client used by MCP. Resolve helper paths from the script, accept explicit values unattended and ask only for missing human inputs. Bootstrap adopts the original host; opening reuses the existing agent and window. Keep stage logs on stderr and API JSON on stdout.",
+      "refs": [
+        "docs/specs/069-project-window-dogfooding.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/actions/project-window.sh",
+    "sha256": "a23d88d00f843a70534fee36b2422068ec392d586487ce149650909fc629e2e5",
+    "format": "shell",
+    "format_fingerprint": "0c07404ffdecc7f9c766fddf6b5a92dfedbae0728eaef728c4c42a67f47f7f4a"
+  }
+}

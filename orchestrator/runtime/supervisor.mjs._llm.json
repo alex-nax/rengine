@@ -5,19 +5,32 @@
       "id": "prepare-switch-recover",
       "kind": "rationale",
       "anchor": {
-        "start": 136,
-        "end": 136,
+        "start": 141,
+        "end": 141,
         "snippet": "const perform = async (job, desktop, closed = false) => {"
       },
       "note": "Prepare candidate workspace/tool code and a probed immutable native executable before requesting the old view\u2019s normal persistence/drain/exit-75 path. Preserve the previous workspace and binary until the replacement registers with a new view stamp. Failures enter recovering and become failed only after rollback completes; failed recovery is explicit. Keep old streams/HTTP mutations on their existing worker until drained. Serialize explicit updates, permit one automatic workspace crash recovery per explicit generation, and keep host-backed state/update control available if worker recovery fails. Never terminate/relaunch the original PTY host.",
       "refs": [
         "docs/specs/065-layered-workspace-updates.md"
       ]
+    },
+    {
+      "id": "window-owner-and-session-root",
+      "kind": "rationale",
+      "anchor": {
+        "start": 209,
+        "end": 209,
+        "snippet": "const openProject = async data => {"
+      },
+      "note": "Opening an integration window requires a running agent from the originating root and an explicit absolute target directory. A durable window record is the only cross-root initial-agent exception. Repeat opens reuse that identity, closed views reopen their own layout, and graceful close never force-kills a session. The stable supervisor remains the sole writer for layouts/reports while workspace/tool workers can be replaced.",
+      "refs": [
+        "docs/specs/069-project-window-dogfooding.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/runtime/supervisor.mjs",
-    "sha256": "ffbd4fd80515264df6677f4ecb231dd16bc804d33c768dc5d98e883dd951e3d4",
+    "sha256": "646c22e51e7ccc3bcd9bbb03d8140286163a9058a022ed632a25150c5bc6eebe",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

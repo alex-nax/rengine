@@ -30,9 +30,9 @@ export async function prepareDesktop(directory) {
   return binary;
 }
 export function launchDesktop(binary, instance, binding, { inspectUI = false } = {}) {
-  return spawn(binary, inspectUI ? ['--automation'] : [], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: false, env: {
+  return spawn(binary, inspectUI ? ['--automation'] : ['--control'], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: false, env: {
     ...process.env, RENGINE_WORKSPACE_URL: instance.url, RENGINE_WORKSPACE_TOKEN: instance.token,
-    RENGINE_INITIAL_ROOT: binding.root, RENGINE_INITIAL_TERMINAL: binding.terminal ?? '',
+    RENGINE_WINDOW_ID: binding.windowId, RENGINE_WINDOW_TITLE: binding.title, RENGINE_INITIAL_ROOT: binding.root, RENGINE_INITIAL_TERMINAL: binding.terminal ?? '',
     RENGINE_INITIAL_AGENT: binding.agent ?? '', RENGINE_INITIAL_GAME: binding.game ?? '',
     RENGINE_RESUME_AGENT: binding.resume ? '1' : undefined, RENGINE_LAYERED_CHILD: '1',
     RENGINE_CAN_RELOAD: '1', RENGINE_DESKTOP_OWNER: binding.owner, RENGINE_DESKTOP_VIEW: binding.view,

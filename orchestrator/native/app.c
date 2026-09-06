@@ -2,6 +2,10 @@
 
 enum { OP_STATE = 1, OP_LOAD, OP_SAVE, OP_DRAFT, OP_DISCARD, OP_CREATE, OP_ROOT, OP_GENERIC, OP_LAYOUT };
 static int request(ReApp *a, int operation, int tab, const char *route, const cJSON *body) {
+  char scoped[160]; const char *window = getenv("RENGINE_WINDOW_ID");
+  if (window && *window && (!strcmp(route, "state") || !strcmp(route, "layout"))) {
+    snprintf(scoped, sizeof(scoped), "%s?windowId=%s", route, window); route = scoped;
+  }
   for (int i = 0; i < RE_ARRAY_SIZE(a->pending); i++) if (!a->pending[i].id) {
     int id = re_net_request(a->net, route, body);
     if (!id) break;
@@ -73,9 +77,9 @@ int re_app_tab(ReApp *a, int type, const char *root, const char *path, const cha
   }
   re_copy(a->status, sizeof(a->status), "The workspace supports 64 retained views in this build."); return -1;
 }
-static void session_tab(ReApp *a, const cJSON *session) {
-  re_app_tab(a, !strcmp(re_string(session, "type"), "game") ? RE_GAME : RE_TERMINAL,
-    re_string(session, "rootId"), "", re_string(session, "id"), re_string(session, "title"));
+static bool session_tab(ReApp *a, const cJSON *session) {
+  return re_app_tab(a, !strcmp(re_string(session, "type"), "game") ? RE_GAME : RE_TERMINAL,
+    re_string(session, "rootId"), "", re_string(session, "id"), re_string(session, "title")) >= 0;
 }
 static void update_session(ReApp *a, const cJSON *session) {
   if (!a->state || !*re_string(session, "id")) return;
@@ -142,7 +146,11 @@ static void state_loaded(ReApp *a, const cJSON *j) {
   const cJSON *sessions = cJSON_GetObjectItemCaseSensitive(j, "sessions"), *session;
   cJSON_ArrayForEach(session, sessions) {
     const char *id = re_string(session, "id");
-    if ((!strcmp(id, a->initial_terminal) || !strcmp(id, a->initial_agent) || !strcmp(id, a->initial_game)) && !strcmp(re_string(session, "state"), "running")) session_tab(a, session);
+    if ((!strcmp(id, a->initial_terminal) || !strcmp(id, a->initial_agent) || !strcmp(id, a->initial_game)) && !strcmp(re_string(session, "state"), "running")) {
+      bool visible = false;
+      if (restored) for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].used && !strcmp(a->tabs[i].session, id) && re_layout_find(&a->layout, i) >= 0) visible = true;
+      if (!visible) session_tab(a, session);
+    }
   }
   if (getenv("RENGINE_RESUME_AGENT")) cJSON_ArrayForEach(session, sessions) {
     if (!strcmp(re_string(session, "id"), a->initial_agent) && !strcmp(re_string(session, "state"), "running")) session_tab(a, session);
@@ -204,6 +212,7 @@ static void register_desktop(ReApp *a) {
   if (!a->initialized || !a->connected || a->desktop_registered) return;
   if (re_number(cJSON_GetObjectItemCaseSensitive(a->state, "capabilities"), "desktopActions") != 1) return;
   cJSON *j = cJSON_CreateObject(), *roots = cJSON_AddArrayToObject(j, "rootIds"), *sessions = cJSON_AddArrayToObject(j, "sessionIds");
+  cJSON_AddBoolToObject(j, "canAttach", true);
   cJSON_AddStringToObject(j, "type", "desktop-register"); cJSON_AddBoolToObject(j, "canReload", getenv("RENGINE_CAN_RELOAD") != NULL);
   if (getenv("RENGINE_DESKTOP_OWNER") && getenv("RENGINE_DESKTOP_VIEW")) {
     cJSON_AddStringToObject(j, "owner", getenv("RENGINE_DESKTOP_OWNER")); cJSON_AddStringToObject(j, "view", getenv("RENGINE_DESKTOP_VIEW"));
@@ -232,11 +241,18 @@ void re_app_tick(ReApp *a) {
     else if (!strcmp(type, "disconnected")) { a->connected = a->desktop_registered = false; a->desktop_id[0] = 0; re_copy(a->status, sizeof(a->status), "Session connection lost. Reconnecting to retained processes…"); }
     else if (!strcmp(type, "desktop-registered")) re_copy(a->desktop_id, sizeof(a->desktop_id), re_string(j, "id"));
     else if (!strcmp(type, "desktop-action")) {
-      bool accepted = !strcmp(re_string(j, "action"), "reload") && !strcmp(re_string(j, "desktopId"), a->desktop_id) && getenv("RENGINE_CAN_RELOAD") && !a->quitting && !a->reload_requested;
+      bool reload = !strcmp(re_string(j, "action"), "reload"), accepted = false;
+      if (!strcmp(re_string(j, "desktopId"), a->desktop_id) && !a->quitting && !a->reload_requested) {
+        if (reload) accepted = getenv("RENGINE_CAN_RELOAD") != NULL;
+        else if (!strcmp(re_string(j, "action"), "attach-session")) {
+          const cJSON *session = cJSON_GetObjectItemCaseSensitive(j, "session");
+          if (*re_string(session, "id") && *re_string(session, "rootId")) { update_session(a, session); accepted = session_tab(a, session); }
+        }
+      }
       cJSON *reply = cJSON_CreateObject(); cJSON_AddStringToObject(reply, "type", "desktop-action-result");
       cJSON_AddStringToObject(reply, "requestId", re_string(j, "requestId")); cJSON_AddBoolToObject(reply, "accepted", accepted);
       char *text = cJSON_PrintUnformatted(reply); bool sent = text && re_socket_send(a->events, text); free(text); cJSON_Delete(reply);
-      if (accepted && sent) a->reload_requested = true;
+      if (reload && accepted && sent) a->reload_requested = true;
     }
     else if (!strcmp(type, "session")) update_session(a, cJSON_GetObjectItemCaseSensitive(j, "session"));
     else if (!strcmp(type, "error")) re_copy(a->status, sizeof(a->status), re_string(j, "error"));

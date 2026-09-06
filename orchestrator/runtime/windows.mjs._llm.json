@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "durable-root-link",
+      "kind": "rationale",
+      "anchor": {
+        "start": 6,
+        "end": 6,
+        "snippet": "export async function windowStore(directory) {"
+      },
+      "note": "Serialize copy/write/rename/commit so failed writes do not appear accepted in memory. Window links survive GUI closure and constrain report direction to the origin/project pair. Retrying an identical sender/window/key returns its original sequence; changed content rejects. The originating agent may report its own project-side findings, with reportedByRootId retaining actual attribution. Reports are bounded stored data, never fetched references, executable commands or provider prompts.",
+      "refs": [
+        "docs/specs/069-project-window-dogfooding.md"
+      ]
+    },
+    {
+      "id": "private-native-inspection",
+      "kind": "rationale",
+      "anchor": {
+        "start": 77,
+        "end": 77,
+        "snippet": "export function nativeControl(child) {"
+      },
+      "note": "Use negative request IDs so production control replies cannot collide with positive fixture automation IDs. Bound buffered responses and timeouts; process exit rejects pending requests. Inspection strips the global workspace state and writes optional snapshots only to supervisor-chosen local paths. No PTY input or arbitrary command is accepted by this interface.",
+      "refs": [
+        "docs/specs/069-project-window-dogfooding.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/runtime/windows.mjs",
+    "sha256": "b7313a3deb3ab76dc06f91f0a36fe6670a9826979aa28c49db0adff081e4b653",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

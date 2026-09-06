@@ -13,11 +13,24 @@
       "refs": [
         "docs/specs/065-layered-workspace-updates.md"
       ]
+    },
+    {
+      "id": "next-request-worker-observation",
+      "kind": "rationale",
+      "anchor": {
+        "start": 85,
+        "end": 85,
+        "snippet": "const queued = await call('update_workspace', { layers: ['workspace', 'connector'] });"
+      },
+      "note": "An update can finish while an older tool worker is answering update_status. The facade replaces workers between requests, so the acceptance poll waits for both the completed job and a changed tool PID. An immediate PID assertion raced under the larger test suite; no timer or weaker process-identity assertion substitutes for observing replacement.",
+      "refs": [
+        "docs/specs/065-layered-workspace-updates.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/tests/runtime.test.mjs",
-    "sha256": "667030c84633bb55e6f87f9d55aace6e993bb33808253e7c74484a1f43a3a0ec",
+    "sha256": "0a61b142c2fc49499c3ba9aa54becc66c22d04a746186cfc6edcada3a0a746fc",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "mcp-discovery-regression",
+      "kind": "rationale",
+      "anchor": {
+        "start": 10,
+        "end": 10,
+        "snippet": "test('root-bound MCP discovers project windows and durable integration transport', async () => {"
+      },
+      "note": "This real stdio discovery check failed before window tools existed; an isolated host and temporary root suffice, with no native window or provider session.",
+      "refs": [
+        "docs/specs/069-project-window-dogfooding.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/tests/project-windows.test.mjs",
+    "sha256": "f3cdf952f829a02965cec47baa31806509d00420adafd3e256b5557c71c031b5",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

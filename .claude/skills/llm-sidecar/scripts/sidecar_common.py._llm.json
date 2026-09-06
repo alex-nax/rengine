@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "exclude-generated-runtime-state",
+      "kind": "rationale",
+      "anchor": {
+        "start": 21,
+        "end": 21,
+        "snippet": "SKIP_DIRS = {"
+      },
+      "note": "The rEngine adaptation excludes .cache because generated build/runtime/version trees add lookup cost and contain capabilities or captured sessions that are not source knowledge. The original installed tool is unchanged; provenance pins the copied implementation and its cache-exclusion regression. Also exclude pinned third_party source: owned-code rationale queries should not rebuild a large index for upstream graphics headers. Inspect those explicitly with rg. Separate per-session caches avoid concurrent SQLite writers.",
+      "refs": [
+        "docs/specs/070-project-skill-evaluation.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": ".claude/skills/llm-sidecar/scripts/sidecar_common.py",
+    "sha256": "648a6003e28e0d275ba0abd956f1b548c26dc94f2ff01544b7819f45a5aef142",
+    "format": "python",
+    "format_fingerprint": "a67a51640399e60d6402a43d48acddd852a615617d5502a24e0e77d080b238af"
+  }
+}

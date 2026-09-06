@@ -18,8 +18,8 @@
       "id": "native-reload-and-presentation",
       "kind": "rationale",
       "anchor": {
-        "start": 104,
-        "end": 104,
+        "start": 119,
+        "end": 119,
         "snippet": "    re_draw_end(draw);"
       },
       "note": "Only after presentation, for visible non-minimized terminal content, report readiness to the attached session. Cmd/Ctrl+Shift+R consumes the shortcut before terminal/editor/game dispatch. An authenticated desktop action sets the same closing/reload flags after the app tick. Both use normal quit persistence before exit code 75; failed persistence cancels reload and quit. The launcher rebuilds and reconnects; native exit never stops the service or agent. Direct binary launches report the required launcher. microui wheel input uses the shared signed precise accumulator, converting vertical deltas to content offsets without undoing system inversion.",
@@ -33,19 +33,32 @@
       "id": "legacy-launcher-bootstrap",
       "kind": "rationale",
       "anchor": {
-        "start": 41,
-        "end": 41,
+        "start": 43,
+        "end": 43,
         "snippet": "if (!automation && !smoke && getenv(\"RENGINE_CAN_RELOAD\") && !getenv(\"RENGINE_LAYERED_CHILD\")) {"
       },
       "note": "Before SDL or any native worker thread starts, the first new binary reached by the old launcher delegates to the update supervisor. Successful handoff exits this bootstrap process without opening a duplicate window. Managed children suppress delegation; explicit smoke/automation clients keep the direct inspection path. Failure visibly falls back to the retained workspace. No CLI is created or resumed by this bridge.",
       "refs": [
         "docs/specs/065-layered-workspace-updates.md"
       ]
+    },
+    {
+      "id": "restricted-window-control",
+      "kind": "rationale",
+      "anchor": {
+        "start": 89,
+        "end": 89,
+        "snippet": "const char *op = re_string(command, \"op\"); int id = re_number(command, \"id\");"
+      },
+      "note": "Managed production views accept only control-state, control-snapshot, control-focus and control-close over their supervisor-owned stdin pipe. Test keyboard/mouse/text commands remain gated by --automation. Snapshots are taken after drawing; close uses the normal draft/input-drain lifecycle. The supervisor selects private snapshot paths and correlates negative request IDs; these commands never launch/stop agents.",
+      "refs": [
+        "docs/specs/069-project-window-dogfooding.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/main.c",
-    "sha256": "202e9bf94a1c853499dee6c177b4bb131237778db4e0d1204526394685c04984",
+    "sha256": "5b550c7a17fe13f133a5d01054bdbea6302793a9d472e16a87978d1bd3a0cac6",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

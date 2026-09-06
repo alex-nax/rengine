@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "terminal-stage-contract",
+      "kind": "rationale",
+      "anchor": {
+        "start": 13,
+        "end": 13,
+        "snippet": "re_ask() {"
+      },
+      "note": "Preserve scrollback and reliable exit statuses. Missing noninteractive values fail rather than waiting; human reads handle EOF/cancellation and can hide secrets. Variable names are task-specific RE_ names supplied by the script author, and commands run as quoted argv without eval. License and selected-template provenance stay in the bundled wizard skill.",
+      "refs": [
+        "docs/specs/070-project-skill-evaluation.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/actions/lib/wizard.sh",
+    "sha256": "6154e53cc1d8fcd82a9a25d5f002440754c10522b9e816c248346b796ca541ce",
+    "format": "shell",
+    "format_fingerprint": "0c07404ffdecc7f9c766fddf6b5a92dfedbae0728eaef728c4c42a67f47f7f4a"
+  }
+}

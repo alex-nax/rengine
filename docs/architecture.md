@@ -30,6 +30,11 @@ and replaces workspace workers, native views and MCP tool workers independently.
 probing precedes detachment; failures preserve or recover the previous view. Existing streams
 finish through their prior worker. Original host/supervisor protocol migrations require quiescence.
 
+Project windows (spec 069) add explicit origin/project/agent bindings, independent layouts and a
+durable two-root report link. The supervisor is their sole state writer. Its narrow native control
+pipe supports inspection, focus and graceful close; production control does not type into panes.
+Reports are polled data with retry keys and cursors. They never start an agent turn or retarget MCP.
+
 ## Ownership
 
 Charter D24 sets the powered-by minimum: at least one curated capability at a pinned version

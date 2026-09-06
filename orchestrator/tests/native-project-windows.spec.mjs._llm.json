@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "real-window-and-report-consumers",
+      "kind": "rationale",
+      "anchor": {
+        "start": 18,
+        "end": 18,
+        "snippet": "test('project windows retain one agent, isolated layouts, inspection and durable two-root reports', { timeout: 60000 }, async () => {"
+      },
+      "note": "Use two real native windows and an instrumented CLI marked as an agent fixture; do not invoke a provider. MCP/CLI/shell actions prove separate selected layouts, draft retention, root bindings, inspection and round-trip reports across updates/closure/store reload. A production control client rejects test text injection.",
+      "refs": [
+        "docs/specs/069-project-window-dogfooding.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/tests/native-project-windows.spec.mjs",
+    "sha256": "ca89d3d128b250fc69fcdff18bdd22749b46e601c473ff8ea3648127f3179073",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

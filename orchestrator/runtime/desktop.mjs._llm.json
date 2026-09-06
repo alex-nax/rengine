@@ -13,11 +13,24 @@
       "refs": [
         "docs/specs/065-layered-workspace-updates.md"
       ]
+    },
+    {
+      "id": "managed-control-bindings",
+      "kind": "rationale",
+      "anchor": {
+        "start": 32,
+        "end": 32,
+        "snippet": "export function launchDesktop(binary, instance, binding, { inspectUI = false } = {}) {"
+      },
+      "note": "Managed views receive a narrow production control pipe and an optional stable project-window namespace/title. Explicit automation is fixture-only. Native environment bindings identify views, not CLI ownership; attaching the origin agent in a game project preserves its original session root.",
+      "refs": [
+        "docs/specs/069-project-window-dogfooding.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/runtime/desktop.mjs",
-    "sha256": "7b170059a8fccb3a369f46458a725a76e501813f6ba32695e1299f2eb3568d2d",
+    "sha256": "96c764861df2961fcc08ce1ddc0830344f4522b25933959aeb25e68c0adf1fd2",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

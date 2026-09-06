@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "validate-before-pty",
+      "kind": "rationale",
+      "anchor": {
+        "start": 7,
+        "end": 7,
+        "snippet": "export async function openScript(host, desktops, data, state) {"
+      },
+      "note": "Validate an explicitly attached desktop and its capability before spawning, resolve a .sh inside the bound real project root, and pass literal argv to the selected Bash. If attachment fails after creation, return the retained session and error; never automatically restart or kill a script that may already have effects. This launch is intentionally not an idempotent operation.",
+      "refs": [
+        "docs/specs/071-interactive-script-tabs.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/runtime/scripts.mjs",
+    "sha256": "f1bd111fd3cecac7c3cd0066e339cc5d877b167a7be5b583ebceaa5efe8c1c23",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

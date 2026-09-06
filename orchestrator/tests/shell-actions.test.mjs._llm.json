@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "human-and-agent-terminal-paths",
+      "kind": "rationale",
+      "anchor": {
+        "start": 22,
+        "end": 22,
+        "snippet": "test('interactive wizard input hides secrets and Ctrl-C cancels without success', async () => {"
+      },
+      "note": "Verify literal argv, bounded noninteractive failure, propagated command exit status and incomplete stages. Real PTY checks establish hidden input and cancellation without success text; all credentials and prompts are fixtures.",
+      "refs": [
+        "docs/specs/069-project-window-dogfooding.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/tests/shell-actions.test.mjs",
+    "sha256": "bcb7cdcc1dc4aed915fa338e4a83ead226da049f16d4de07ff3d56646dd6a934",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

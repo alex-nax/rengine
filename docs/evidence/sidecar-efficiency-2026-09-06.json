@@ -1,0 +1,88 @@
+{
+  "corpus": {
+    "revision": "ca44dd5",
+    "units": "UTF-8 bytes and wall seconds, not model tokens",
+    "cases": [
+      {
+        "source": "orchestrator/native/terminal.c",
+        "entry": "real-vt-screen",
+        "source_sha256": "4b91d32d491163f5182aa654275be5f0d21d193e4f41411431c34b288917de72",
+        "full_source_bytes": 16231,
+        "raw_sidecar_bytes": 5434,
+        "source_excerpt_bytes": 937,
+        "selected_note_bytes": 761,
+        "tool_json_bytes": 9317,
+        "lookup_seconds": [
+          0.10373066598549485,
+          0.049268709030002356,
+          0.044695749995298684
+        ],
+        "median_seconds": 0.049268709030002356,
+        "diagnostics": [
+          "SOURCE_FINGERPRINT_CHANGED"
+        ]
+      },
+      {
+        "source": "orchestrator/server/store.mjs",
+        "entry": "save-and-draft-order",
+        "source_sha256": "4c6912e8e1d5dd92f559173bc92c92890596eb198bf8323558a23be1589b8290",
+        "full_source_bytes": 8375,
+        "raw_sidecar_bytes": 1472,
+        "source_excerpt_bytes": 816,
+        "selected_note_bytes": 315,
+        "tool_json_bytes": 3839,
+        "lookup_seconds": [
+          0.04580337496008724,
+          0.04685262497514486,
+          0.05060354096349329
+        ],
+        "median_seconds": 0.04685262497514486,
+        "diagnostics": []
+      },
+      {
+        "source": "orchestrator/runtime/supervisor.mjs",
+        "entry": "prepare-switch-recover",
+        "source_sha256": "ffbd4fd80515264df6677f4ecb231dd16bc804d33c768dc5d98e883dd951e3d4",
+        "full_source_bytes": 17404,
+        "raw_sidecar_bytes": 1281,
+        "source_excerpt_bytes": 1099,
+        "selected_note_bytes": 651,
+        "tool_json_bytes": 3829,
+        "lookup_seconds": [
+          0.05663308291696012,
+          0.04704950004816055,
+          0.0464174160733819
+        ],
+        "median_seconds": 0.04704950004816055,
+        "diagnostics": []
+      }
+    ]
+  },
+  "workspace_baseline": {
+    "seconds": 25.41355566692073,
+    "exit_code": 1,
+    "output_bytes": 9168
+  },
+  "workspace_adapted_first": {
+    "seconds": 3.5105758340796456,
+    "exit_code": 1,
+    "output_bytes": 9185
+  },
+  "workspace_adapted_warm": {
+    "seconds": [
+      3.453537250054069,
+      0.06331479200161994,
+      0.06350658310111612
+    ],
+    "median_seconds": 0.06350658310111612,
+    "exit_code": 1,
+    "output_bytes": 9185
+  },
+  "aggregate": {
+    "full_source_bytes": 42010,
+    "tool_json_bytes": 16985,
+    "reduction_vs_full_source_percent": 59.6,
+    "targeted_source_bytes": 2852,
+    "selected_notes_bytes": 1727
+  }
+}

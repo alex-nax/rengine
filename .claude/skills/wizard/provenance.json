@@ -1,0 +1,16 @@
+{
+  "source": "https://github.com/mattpocock/skills/tree/321658273cb1d20b76026717d027d505790106d4/skills/engineering/wizard",
+  "license": "MIT",
+  "files": {
+    "SKILL.md": "bdf31d48211ea559878f95a4f344aeabf8d85897488ba564382bab0b000daac1",
+    "template.sh": "33cbe9dfb1d0e9185b60248a52aabed14bc64785a00cac695e302e739dd6c153",
+    "LICENSE": "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
+  },
+  "adaptations": [
+    "Interactive retained terminal tabs are a first-class UI before native controls",
+    "Reusable orchestrator actions with noninteractive arguments",
+    "Keep scrollback and machine-readable results",
+    "No browser or CI-secret helpers by default",
+    "No related-skill imports or recommendations"
+  ]
+}

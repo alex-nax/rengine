@@ -28,10 +28,11 @@ static void ui_event(mu_Context *ui, const SDL_Event *e) {
   }
 }
 int main(int argc, char **argv) {
-  const char *snapshot = NULL, *font = NULL, *connection = NULL, *renderer = NULL; int smoke = 0; bool automation = false;
+  const char *snapshot = NULL, *font = NULL, *connection = NULL, *renderer = NULL; int smoke = 0; bool automation = false, control = false;
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--smoke-test")) smoke = 3;
     else if (!strcmp(argv[i], "--automation")) automation = true;
+    else if (!strcmp(argv[i], "--control")) control = true;
     else if (!strcmp(argv[i], "--snapshot") && i + 1 < argc) snapshot = argv[++i];
     else if (!strcmp(argv[i], "--font") && i + 1 < argc) font = argv[++i];
     else if (!strcmp(argv[i], "--connection") && i + 1 < argc) connection = argv[++i];
@@ -50,6 +51,9 @@ int main(int argc, char **argv) {
   SDL_Window *window = SDL_CreateWindow(automation ? "rEngine — automated verification" : "rEngine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        RE_METRIC_WINDOW_WIDTH, RE_METRIC_WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | re_draw_window_flags(backend));
   if (!window) { fprintf(stderr, "%s\n", SDL_GetError()); SDL_Quit(); return 1; }
+  if (getenv("RENGINE_WINDOW_TITLE")) {
+    char title[320]; snprintf(title, sizeof(title), "rEngine — %s", getenv("RENGINE_WINDOW_TITLE")); SDL_SetWindowTitle(window, title);
+  }
   SDL_SetWindowMinimumSize(window, RE_METRIC_WINDOW_MIN_WIDTH, RE_METRIC_WINDOW_MIN_HEIGHT);
   ReDraw *draw = re_draw_open(window, font, backend);
   if (!draw) { fprintf(stderr, "%s\n", SDL_GetError()); SDL_DestroyWindow(window); SDL_Quit(); return 1; }
@@ -65,8 +69,8 @@ int main(int argc, char **argv) {
   mu_Context *ui = calloc(1, sizeof(*ui));
   if (!app || !ui) { re_app_close(app); free(ui); re_draw_close(draw); SDL_DestroyWindow(window); SDL_Quit(); return 1; }
   re_draw_bind(draw, ui);
-  if (automation) app->controls = cJSON_CreateArray();
-  Uint32 automation_event = automation ? re_automation_start() : 0;
+  if (automation || control) app->controls = cJSON_CreateArray();
+  Uint32 automation_event = (automation || control) ? re_automation_start() : 0;
   bool running = true, closing = false, reload = false; int frames = 0, result = 0; cJSON *capture = NULL;
   SDL_StartTextInput();
   while (running) {
@@ -82,8 +86,16 @@ int main(int argc, char **argv) {
       }
       else if (automation_event && event.type == automation_event) {
         cJSON *command = event.user.data1;
-        if (!strcmp(re_string(command, "op"), "snapshot")) { cJSON_Delete(capture); capture = command; }
-        else { re_automation_command(app, window, command); cJSON_Delete(command); }
+        const char *op = re_string(command, "op"); int id = re_number(command, "id");
+        if (!strcmp(op, "control-snapshot") || (automation && !strcmp(op, "snapshot"))) { cJSON_Delete(capture); capture = command; }
+        else {
+          if (!strcmp(op, "control-state")) re_automation_reply(id, re_app_inspect(app));
+          else if (!strcmp(op, "control-focus")) { SDL_RestoreWindow(window); SDL_RaiseWindow(window); re_automation_reply(id, cJSON_CreateTrue()); }
+          else if (!strcmp(op, "control-close")) { closing = true; re_automation_reply(id, cJSON_CreateTrue()); }
+          else if (automation) re_automation_command(app, window, command);
+          else re_automation_reply(id, cJSON_CreateString("Unsupported window control operation"));
+          cJSON_Delete(command);
+        }
         continue;
       }
       if (!re_app_event(app, &event, draw)) ui_event(ui, &event);

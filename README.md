@@ -69,6 +69,15 @@ can supply it instead. Original PTY-host and supervisor protocol replacements st
 quiescence. Routine updates preserve the host, CLI and conversation. See
 [layered updates](docs/specs/065-layered-workspace-updates.md).
 
+To open a game project with the current agent, run `orchestrator/actions/project-window.sh`
+with explicit context, project path and retained agent ID. Each project window keeps its own
+layout; root-bound tools inspect/focus/close/reopen it and exchange durable integration reports.
+Agents can open interactive `.sh` flows in new retained tabs with **open_script**, then reattach
+them with **show_session**. The human uses the prompts while the same host retains processes/logs.
+The [dogfooding runbook](docs/runbooks/project-window-dogfooding.md) includes the shell routine,
+MCP tools and older-connector CLI fallback. Project skills for `rengine-dogfood`, `wizard` and
+`llm-sidecar` are available to Codex and Claude without global installs.
+
 Terminal output waits for space in bounded receive queues. A dropped session stream reports
 the loss and reconnects to the same retained processes; disconnected keystrokes are discarded.
 Reattachment uses fresh terminal snapshots without launching another agent. See the

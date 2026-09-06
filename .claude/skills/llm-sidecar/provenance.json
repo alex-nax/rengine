@@ -1,0 +1,19 @@
+{
+  "origin": "owner-provided installed llm-sidecar skill",
+  "snapshot_date": "2026-09-06",
+  "tool_version": "2.0.0",
+  "upstream_files": {
+    "SKILL.md": "02ba9bc373e75d7e58781dd73baefa4406c3ba8c488200cc625dc141cd72389e",
+    "scripts/sidecar_common.py": "9173d086586f8d57ec66a454d612985968f0c95360e3f35e522c15a56955387f",
+    "scripts/sidecar_index.py": "0391ade4575f518665b6ba3b7d9729e2ebf3c1578b1195f27d309a71446c1a51",
+    "scripts/sidecar_tool.py": "274870b9298c04c96056dffba3fc025d8df678b628a54ecac4e64675c009d376",
+    "scripts/sidecar_validation.py": "191c9efeec08067cdabe635df78f19ab5619a3e6a287a2de1624eba5d7518c0b",
+    "scripts/validate_sidecar.py": "53da9850889e3697c98b3b6d1a23b9c6d73fdc52c73b9061e24bf8ca0be16656",
+    "tests/test_sidecar_tool.py": "78222bdf12dea1f03a6f48e199516009251d3e5121aa1479a1437c83b7795ea3"
+  },
+  "adaptations": [
+    "Concise rEngine instructions and project-local index path",
+    "Exclude .cache from source discovery to avoid indexing generated state, runtime credentials and build trees",
+    "Exclude pinned third_party source from owned-code discovery, add both exclusion regressions and keep per-session indexes sequential"
+  ]
+}
