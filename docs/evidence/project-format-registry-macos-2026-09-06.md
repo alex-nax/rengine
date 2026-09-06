@@ -62,7 +62,7 @@ sizes, entry header and text render as designed.
 
 ## Gates
 
-- `npm test`: 31 passes, 4.86 s (the four new format tests: 4.52 s alone).
+- `npm test`: 31 passes, 4.86 s after the service slice; the final gate run after the native slice: 31 passes, 10.76 s (the four new format tests: 4.52 s alone).
 - Native fixture alone: 1 pass, 5.15 s. `npm run test:desktop`: 14 passes, 216.23 s, exit 0.
 - CTest in `.cache/desktop`: 4 passes, 0.74 s. `python3 tools/design.py check`: consistent
   (new `format` metric group generated into `theme.h`). `./init.sh`: passes (24 features).

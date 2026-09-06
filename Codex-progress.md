@@ -25,7 +25,7 @@ text-rejected files, mode persistence in the layout, and inspectable controls. N
 metrics in `theme.json`; `CMakeLists.txt` regenerated from `cmake.toml`.
 
 **Verification**: Service tests failed before the module existed, then `npm test`: 31 passes
-(4.86 s). Native fixture red before wiring, then 1 pass (5.15 s); `npm run test:desktop`:
+(4.86 s; final gate run 10.76 s). Native fixture red before wiring, then 1 pass (5.15 s); `npm run test:desktop`:
 14 passes, 216.23 s, exit 0. CTest 4 passes (0.74 s); design check, `./init.sh`, sidecar check/stamp for eleven
 files pass. Real consumer check against nolf-improved: declaration validates unchanged, tree of
 `nolf/NOLF.REZ` in 69 ms (4,754 files), entries with matching sizes/SHA-256, entry paging, raw
