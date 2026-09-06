@@ -84,12 +84,48 @@ ReFontMetrics re_font_metrics(ReFontSet *fonts, uint8_t face_id, int size, float
   m.advance = (int)(advance * scale / density + 0.5f);
   return m;
 }
+/* Symbols no installed face draws, mapped to the nearest shape that every mono face has. Terminal
+ * programs use these freely; an empty box is worse than a close equivalent — see sidecar: glyph-fallback */
+static uint32_t substitute(uint32_t codepoint) {
+  switch (codepoint) {
+    case 0x23F4: return 0x25C0; /* ⏴ medium left triangle  -> ◀ */
+    case 0x23F5: return 0x25B6; /* ⏵ medium right triangle -> ▶ */
+    case 0x23F6: return 0x25B2; /* ⏶ medium up triangle    -> ▲ */
+    case 0x23F7: return 0x25BC; /* ⏷ medium down triangle  -> ▼ */
+    case 0x23F9: return 0x25A0; /* ⏹ stop                  -> ■ */
+    case 0x23FA: return 0x25CF; /* ⏺ record                -> ● */
+    default: return codepoint;
+  }
+}
+/* The requested face first, then the other loaded faces, then the substitution: a run keeps its own
+ * face wherever it can, and only a glyph nobody has falls back. Advances are unaffected, so the
+ * monospace grid and every adapter's placement stay as they were. */
+static Face *face_for(ReFontSet *fonts, uint8_t face_id, uint32_t codepoint, uint32_t *drawn) {
+  Face *requested = select_face(fonts, face_id);
+  *drawn = codepoint;
+  if (stbtt_FindGlyphIndex(&requested->info, (int)codepoint)) return requested;
+  for (int i = 0; i < RE_FACE_COUNT; i++) {
+    if (!fonts->owned[i] || i == face_id) continue;
+    if (stbtt_FindGlyphIndex(&fonts->faces[i].info, (int)codepoint)) return &fonts->faces[i];
+  }
+  uint32_t near = substitute(codepoint);
+  if (near == codepoint) return requested;
+  *drawn = near;
+  if (stbtt_FindGlyphIndex(&requested->info, (int)near)) return requested;
+  for (int i = 0; i < RE_FACE_COUNT; i++) {
+    if (!fonts->owned[i] || i == face_id) continue;
+    if (stbtt_FindGlyphIndex(&fonts->faces[i].info, (int)near)) return &fonts->faces[i];
+  }
+  *drawn = codepoint;
+  return requested;
+}
 bool re_font_glyph(ReFontSet *fonts, uint8_t face_id, int size, float density, uint32_t codepoint, ReGlyphBitmap *out) {
-  Face *face = select_face(fonts, face_id);
   if (size <= 0) size = 16;
   if (density <= 0) density = 1.0f;
+  uint32_t drawn = codepoint;
+  Face *face = face_for(fonts, face_id, codepoint, &drawn);
   memset(out, 0, sizeof(*out));
-  out->pixels = stbtt_GetCodepointBitmap(&face->info, 0, scale_for(face, size, density), (int)codepoint, &out->w, &out->h, &out->dx, &out->dy);
+  out->pixels = stbtt_GetCodepointBitmap(&face->info, 0, scale_for(face, size, density), (int)drawn, &out->w, &out->h, &out->dx, &out->dy);
   return out->pixels != NULL;
 }
 void re_font_glyph_free(ReGlyphBitmap *glyph) { stbtt_FreeBitmap(glyph->pixels, NULL); glyph->pixels = NULL; }

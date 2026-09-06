@@ -20,8 +20,8 @@
       "id": "pen-parity",
       "kind": "constraint",
       "anchor": {
-        "start": 104,
-        "end": 104,
+        "start": 140,
+        "end": 140,
         "snippet": "ReTextPen re_font_pen(ReFontSet *fonts, uint8_t face_id, int size, float density, int x) {",
         "symbol": "re_font_pen"
       },
@@ -29,6 +29,21 @@
       "refs": [
         "docs/specs/076-design-foundations.md",
         "docs/specs/067-draw-list-contract.md"
+      ]
+    },
+    {
+      "id": "glyph-fallback",
+      "kind": "constraint",
+      "anchor": {
+        "start": 89,
+        "end": 89,
+        "snippet": "static uint32_t substitute(uint32_t codepoint) {",
+        "symbol": "substitute"
+      },
+      "note": "Terminal programs print symbols no installed face carries: Claude Code's status line uses U+23F5, which neither the platform mono face nor the bundled Inter nor any font on a stock macOS install has, so it drew as an empty box. Lookup therefore runs in two stages. First the requested face, then every other loaded face, which covers the ordinary case of a symbol one face has and another lacks and costs nothing when the first face hits. Only a code point nobody has reaches the substitution table, which maps the six media-control shapes to the nearest form every mono face carries. Two boundaries are deliberate: the table is small and shape-preserving rather than a general lookalike map, because a wrong substitution is worse than a box; and advances never change, so the monospace cell grid and the byte-identical placement every adapter depends on are unaffected. Text the desktop does not author, such as a title from a project declaration, gets this best effort and no guarantee \u2014 a surface that needs a guaranteed symbol should use the icon face.",
+      "refs": [
+        "docs/specs/076-design-foundations.md",
+        "orchestrator/native/icons.json"
       ]
     }
   ]

@@ -22,6 +22,22 @@
       "pane": {
         "background": "#242424",
         "divider": "#141414"
+      },
+      "tree": {
+        "height": 22,
+        "background": "#242424",
+        "selected": "#f97c3d",
+        "icon": "#6a6a6a"
+      },
+      "terminal": {
+        "background": "#141414",
+        "foreground": "#c8c8c8",
+        "cursor": "#f97c3d"
+      },
+      "editor": {
+        "background": "#1b1b1b",
+        "gutter": "#6a6a6a",
+        "caret": "#f97c3d"
       }
     },
     "teal": {
@@ -44,6 +60,22 @@
       "pane": {
         "background": "#14181e",
         "divider": "#0e1217"
+      },
+      "tree": {
+        "height": 22,
+        "background": "#14181e",
+        "selected": "#7cd2ae",
+        "icon": "#546874"
+      },
+      "terminal": {
+        "background": "#0e1217",
+        "foreground": "#dce4ea",
+        "cursor": "#7cd2ae"
+      },
+      "editor": {
+        "background": "#11151b",
+        "gutter": "#546874",
+        "caret": "#7cd2ae"
       }
     },
     "light": {
@@ -66,6 +98,22 @@
       "pane": {
         "background": "#eeece7",
         "divider": "#f6f4f0"
+      },
+      "tree": {
+        "height": 22,
+        "background": "#eeece7",
+        "selected": "#cf5604",
+        "icon": "#9a958c"
+      },
+      "terminal": {
+        "background": "#2a2723",
+        "foreground": "#e8e4dc",
+        "cursor": "#cf5604"
+      },
+      "editor": {
+        "background": "#fbfaf7",
+        "gutter": "#9a958c",
+        "caret": "#cf5604"
       }
     }
   }

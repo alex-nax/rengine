@@ -335,6 +335,11 @@
       "token": "ui-info",
       "role": "",
       "native": ""
+    },
+    "editor-gutter-bg": {
+      "token": "editor-gutter-bg",
+      "role": "Line-number column behind the editor's gutter",
+      "native": "re_editor_draw"
     }
   },
   "microui": {
@@ -486,7 +491,8 @@
       "toolbar-pad": 10,
       "separator-height": 16,
       "group-marker": 2,
-      "placeholder-alpha": 60
+      "placeholder-alpha": 60,
+      "editor-gutter": 44
     }
   },
   "metric-notes": {

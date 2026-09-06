@@ -4,9 +4,17 @@
 
 **Owner scope**: reconcile two finished branches onto main and report green before main advances.
 Worktree `.cache/worktrees/merge-verify`, branch `integ/contract-3`, pushed per commit; the `main`
-ref untouched. Base moved twice mid-merge (`8c44250` -> `b6f8b84` -> `776647a`), and the merge was
-restarted from current `origin/main` each time rather than merging main on top, so `theme.h` and
-`theme.c` are generated once from the final `theme.json` instead of being conflict-resolved.
+ref untouched. Base moved four times mid-merge (`8c44250` -> `b6f8b84` -> `776647a` -> `6258be0` ->
+`c8aea10`). While the base was still ahead of any commit of ours the merge was restarted from
+current `origin/main`; once there were commits to keep, main was merged in. Either way `theme.h`
+and `theme.c` are generated from the resolved `theme.json` rather than conflict-resolved, and the
+last regeneration was compared against what the merge produced to prove they agree.
+
+`c8aea10` merged `feat/integration-recipe` into main directly, so this branch's second merge is now
+a redundant path to the same commits and merges clean. It also means `docs/specs/077-editor-syntax.md`
+and `docs/specs/077-project-integration-recipe.md` now **both exist on main** — a spec-number
+collision between the design lane and the recipe lane that predates this branch and needs an owner
+renumber; nothing references the editor-syntax one yet, so it is the cheaper of the two to move.
 
 **`feat/project-game` (299eebe)** conflicted in three files because main's Claude Design series
 rewrote the toolbar underneath it. `workspace.c`: main's card toolbar supersedes our edit, which
@@ -37,11 +45,15 @@ removal would compile and render one gap wrong. `re_app_inspect` now reports the
 game-typed session on its declared surface in a game pane — a terminal instead of a game pane was
 the original report — and records `sessionType`/`surface`/`tabType` in its evidence.
 
-**Gates**: `npm test` 55 passes / 5.9 s; `npm run test:desktop` 18 passes / 318.8 s from a wiped
-`.cache/desktop`, zero warnings; CTest 4 passes / 0.66 s; `./init.sh` (32 features);
-`tools/design.py check` consistent; `tools/features.py validate` clean;
+**Gates** (final run, on `c8aea10`): `npm test` 55 passes / 5.9 s; `npm run test:desktop` 18 passes
+/ 319.8 s from a wiped `.cache/desktop`, zero warnings; CTest 4 passes / 0.65 s; `./init.sh`
+(32 features); `tools/design.py check` consistent; `tools/features.py validate` clean;
 `RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run test:game-nolf` 1 pass / 3.3 s, evidence
-`sessionType: game`, `surface: embedded`, `tabType: 5`, 7 frames. Sidecars refreshed with
+`sessionType: game`, `surface: embedded`, `tabType: 5`, 6 frames. The font-fallback commit changes
+glyph lookup and so could have moved the row the toolbar fixture pins; it did not — the trailing
+cells sit at the same x they did before it (Add project 958, agent 1074, Vim 1202, Theme 1248) and
+the last right edge is still 1270 on a 1280 window. They stay put because the path field absorbs
+the slack, which is the reservation the `6 *` multiplier belongs to. Sidecars refreshed with
 `--index .cache/sidecars-merge.sqlite` run sequentially: the four `workspace.c` anchors and
 `app.c` repaired and stamped, two notes added (`inspect-reports-window-size`,
 `external-game-status-row`); every remaining diagnostic in the tree also exists on `origin/main`.
@@ -832,8 +844,27 @@ click by control record. Owner decision during this round (spec 068 amendment): 
 an absolute 8 ms per scene rather than at-or-below the SDL reference, because the adapters now
 anti-alias shapes the reference draws hard-edged; the ratio against the reference is recorded as
 information. Needless clipping was removed from the controls first, which cut the OpenGL workspace
-median by about a third. F67 stays open: editor, terminal and the session browser remain, and
-the card's per-directory counts need a service field the listing does not carry yet.
+median by about a third. The terminal followed: default cells now resolve against the live theme, so a preset switch restyles
+history the terminal already produced, and every preset's terminal background matches its token
+exactly. Scrollbars became the card's overlay bars with rounded thumbs and rest, hover and accent
+states. The design spec probes the view surfaces per preset too. Evidence
+`docs/evidence/design-views-macos-2026-09-06.md`; suite 17/17, CTest 4/4. F67 stays open on the
+editor's gutter, current-line tint and syntax colours, which still use the pre-design drawing inside
+editor.c, and on the card's per-directory counts, which need a field the file listing does not carry.
+
+**Follow-up 11 (same session)**: owner asked for syntax highlighting tunable with IDE-style presets,
+and reported missing glyphs in the Claude pane. The glyph report was a real defect: Claude Code's
+status line uses U+23F5, which neither Menlo nor Inter nor any font installed on this machine carries,
+so it drew as tofu. Glyph lookup now tries the requested face, then the other loaded faces, then a
+substitution table for the six media-control code points no face has; advances are untouched, so the
+monospace grid and every adapter's placement are unmoved. Spec 077 records the highlighting design:
+nine token roles, a line-based tokeniser with a carry state (`syntax.h`/`syntax.c`, written by an Opus
+subagent against the header, with `native_syntax` under CTest covering every language plus hostile
+input), and four schemes in `syntax.json` resolved per theme preset into a generated table. The editor
+gained the card's 44px gutter with line numbers, the current-line tint, its own background and
+per-character colouring with a per-line carry cache so scrolling is not a rescan. The design spec
+opens a C file and asserts the keyword colour is on screen in the dark and light presets. Suite 17/17,
+CTest 5/5. A scheme is chosen through the automation `syntax` op until the theme panel lands (F68).
 
 **Follow-up 8 (same session)**: F59 on owner direction after a `/grill-me` interview (spec 073;
 charter D31 names `pr0fe@192.168.31.217` as the Windows verification host and authorizes the

@@ -6,6 +6,7 @@
 typedef struct { int cols; VTermScreenCell cells[]; } HistoryLine;
 struct ReTerminal {
   ReSocket *socket; char id[65];
+  mu_Color palette_fg, palette_bg;              /* the theme the vterm defaults were set from */
   VTerm *vt; VTermScreen *screen;
   int cols, rows, sequence; bool attached, presented, waiting_for_view;
   HistoryLine *history[RE_HISTORY_LINES]; int first, count, offset; size_t history_bytes;
@@ -75,6 +76,18 @@ static void resize(ReTerminal *t, int cols, int rows) {
   cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "type", "resize");
   cJSON_AddNumberToObject(j, "cols", cols); cJSON_AddNumberToObject(j, "rows", rows); send(t, j);
 }
+/* vterm keeps its default colours in its own state, so a live preset switch has to push them again. */
+static void apply_palette(ReTerminal *t) {
+  mu_Color text = RE_COLOR_TERMINAL_FG, surface = RE_COLOR_TERMINAL_BG;
+  VTermColor fg, bg;
+  vterm_color_rgb(&fg, text.r, text.g, text.b); vterm_color_rgb(&bg, surface.r, surface.g, surface.b);
+  vterm_state_set_default_colors(vterm_obtain_state(t->vt), &fg, &bg);
+  t->palette_fg = text; t->palette_bg = surface;
+}
+static bool palette_changed(const ReTerminal *t) {
+  mu_Color text = RE_COLOR_TERMINAL_FG, surface = RE_COLOR_TERMINAL_BG;
+  return memcmp(&text, &t->palette_fg, sizeof(text)) || memcmp(&surface, &t->palette_bg, sizeof(surface));
+}
 static bool reset_screen(ReTerminal *t) {
   VTerm *vt = vterm_new(t->rows, t->cols); if (!vt) return false;
   history_clear(t); if (t->vt) vterm_free(t->vt); t->vt = vt;
@@ -82,8 +95,7 @@ static bool reset_screen(ReTerminal *t) {
   vterm_set_utf8(t->vt, 1); t->screen = vterm_obtain_screen(t->vt);
   t->cursor_visible = true; vterm_screen_set_callbacks(t->screen, &callbacks, t);
   vterm_screen_enable_altscreen(t->screen, 1);
-  VTermColor fg, bg; mu_Color text = RE_COLOR_TEXT, surface = RE_COLOR_SURFACE; vterm_color_rgb(&fg, text.r, text.g, text.b); vterm_color_rgb(&bg, surface.r, surface.g, surface.b);
-  vterm_state_set_default_colors(vterm_obtain_state(t->vt), &fg, &bg);
+  apply_palette(t);
   vterm_screen_reset(t->screen, 1); vterm_output_set_callback(t->vt, output, t); return true;
 }
 ReTerminal *re_terminal_open(ReSocket *socket, const char *id, int cols, int rows) {
@@ -226,6 +238,7 @@ void re_terminal_event(ReTerminal *t, const SDL_Event *e) {
   }
 }
 void re_terminal_draw(ReTerminal *t, ReDraw *draw, mu_Rect r, bool focused) {
+  if (palette_changed(t)) apply_palette(t); /* the preset switched under a live terminal */
   mu_Rect track = mu_rect(r.x + re_max(0, r.w - RE_METRIC_SCROLLBAR_SIZE), r.y, RE_METRIC_SCROLLBAR_SIZE, r.h);
   r.w = re_max(0, r.w - RE_METRIC_SCROLLBAR_SIZE);
   int cw = re_draw_cell_width(draw), lh = re_draw_line_height(draw);
@@ -237,9 +250,12 @@ void re_terminal_draw(ReTerminal *t, ReDraw *draw, mu_Rect r, bool focused) {
   for (int row = 0; row < t->rows; row++) for (int col = 0; col < t->cols; col++) {
     VTermScreenCell cell;
     if (!view_cell(t, row, col, &cell)) continue;
+    /* A cell that carries the default colour follows the live theme; only explicit SGR colours are
+     * kept as written, so a preset switch restyles history the terminal already produced. */
+    bool default_fg = VTERM_COLOR_IS_DEFAULT_FG(&cell.fg), default_bg = VTERM_COLOR_IS_DEFAULT_BG(&cell.bg);
     vterm_screen_convert_color_to_rgb(t->screen, &cell.fg); vterm_screen_convert_color_to_rgb(t->screen, &cell.bg);
-    mu_Color fg = mu_color(cell.fg.rgb.red, cell.fg.rgb.green, cell.fg.rgb.blue, 255);
-    mu_Color bg = mu_color(cell.bg.rgb.red, cell.bg.rgb.green, cell.bg.rgb.blue, 255);
+    mu_Color fg = default_fg ? RE_COLOR_TERMINAL_FG : mu_color(cell.fg.rgb.red, cell.fg.rgb.green, cell.fg.rgb.blue, 255);
+    mu_Color bg = default_bg ? RE_COLOR_TERMINAL_BG : mu_color(cell.bg.rgb.red, cell.bg.rgb.green, cell.bg.rgb.blue, 255);
     if (cell.attrs.reverse) { mu_Color temp = fg; fg = bg; bg = temp; }
     int x = r.x + col * cw, y = r.y + row * lh;
     re_draw_rect(draw, mu_rect(x, y, cw * re_max(1, cell.width), lh), bg);
