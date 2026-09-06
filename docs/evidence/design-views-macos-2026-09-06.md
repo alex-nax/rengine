@@ -87,6 +87,15 @@ scheme's keyword colour is on screen in both the dark and light presets, which p
 table and its per-preset override reach the pixels. `docs/evidence/design/editor-syntax.png` shows
 the result.
 
+## Inventory status
+
+The owner signed off on these views on 2026-09-06, and every criterion of F67 is met on macOS with
+the evidence above. F67 nonetheless stays `passes: false`, because it depends on F37 (tree, previews
+and editing) and F54 (the session browser), and both of those require their own exercise on macOS
+*and* Windows, which KI-038 still blocks. The design work is not what is missing; the two features
+whose surfaces it redesigns have never been gated on Windows. F69 carries the Windows card evidence
+and will need the same repair.
+
 ## Not claimed yet
 
 The tree's nested indentation, since the view is a drill-down listing rather than an expanding tree.

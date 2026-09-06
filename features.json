@@ -691,6 +691,26 @@
       "evidence": [
         "docs/evidence/project-game-macos-2026-09-06.md"
       ]
+    },
+    {
+      "id": 73,
+      "milestone": "R2",
+      "category": "design",
+      "priority": "medium",
+      "description": "Expand the project explorer inline while a project stays under a node budget, and drill down beyond it.",
+      "acceptance_criteria": [
+        "A directory expands in place with the card's indentation and caret while the visible node count stays under a recorded budget, and collapses again without reloading its siblings.",
+        "Past the budget the explorer drills down as it does today, and the view says which mode it is in rather than silently changing behaviour.",
+        "Expansion state survives a reload of the same directory, and every existing tree and layout gate still passes."
+      ],
+      "passes": false,
+      "dependencies": [
+        67
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "nested explorer and docs/evidence",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }

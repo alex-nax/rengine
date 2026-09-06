@@ -88,6 +88,8 @@ flowchart TD
   F63 --> F71
   F72["F72: blocked"]
   F71 --> F72
+  F73["F73: blocked"]
+  F67 --> F73
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -124,3 +126,4 @@ flowchart TD
 | F70 | O1 | rengine | passing | Store the project integration recipe as a runbook, a scaffolding wizard, copied templates and a test. |
 | F71 | O1 | rengine | blocked | Declare a project's games in .rengine/project.json (contract 3, games array) and launch any of them from the dashboard, the launcher and generic agent tools. |
 | F72 | O1 | rengine | blocked | Launch a declared game from the project dashboard through an action kind game, and remove the toolbar game control. |
+| F73 | R2 | rengine | blocked | Expand the project explorer inline while a project stays under a node budget, and drill down beyond it. |
