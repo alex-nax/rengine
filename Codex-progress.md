@@ -71,13 +71,23 @@ device with a status pill, **one** reason, and the targets bound to it — an un
 one unreachable device, not four disabled actions each restating it. Probes run only on open or
 Refresh; the tab is deliberately not auto-opened the way the dashboard is.
 
-**Gates.** `npm test` 66/66. `npm run test:desktop` 19/19 including the new
-`native-devices.spec.mjs` 2/2. CTest 5/5. `./init.sh` clean (35 features validated).
+**Gates**, all after a final `git fetch` (origin/main never moved off `94ce2fd`, so the merge was a
+no-op and no conflict with the concurrent F68 draw-list lane arose). `npm test` **66/66**.
+`npm run test:desktop` **20/20**, including the new `native-devices.spec.mjs` 2/2.
+`ctest --test-dir .cache/desktop` **5/5** (0.83 s). `RENGINE_NOLF_ROOT=/Users/alex/nolf-improved
+npm run test:game-nolf` **1/1** — the real NOLF game still renders and accepts menu input with a
+fifth toolbar cell in the switcher. `./init.sh` clean (35 features validated).
 `python3 tools/design.py check` clean. Clean native rebuild with **0** diagnostics from
-`orchestrator/native`. Sidecars clean and stamped for every file this branch touches (pre-existing
+`orchestrator/native` under the picky flag set. Sidecars clean and stamped for every file this branch touches (pre-existing
 drift elsewhere is KI-046, not this lane's). Both live consumer declarations re-read clean and
 unchanged at contract 3: vtmb-vr (1 format, 2 games, 10 actions) and nolf-improved (1 format,
 3 games, 14 actions).
+
+Two pre-existing test expectations moved with the contract rather than around it: the "next unknown
+contract" guards in `formats`/`dashboard`/`games` tests step from 4 to 5 (contract 4 is now real, and
+`games.test.mjs` additionally asserts that a contract-4 declaration accepts a games array unchanged),
+and `native-game-declaration.spec.mjs`, which pins the exact toolbar cell list to prove the game
+control stayed removed, gains `Devices`.
 
 **Remaining.** F75 stays `passes: false`: no consumer declares devices yet and no probe has run
 against a real Quest or SSH host from this branch (KI-044), delivery needs `update_workspace` for
