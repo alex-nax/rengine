@@ -33,6 +33,7 @@ export function validateSchema(schema, value, root = schema, at = '$') {
       for (const [key, element] of Object.entries(item)) {
         if (node.properties && Object.hasOwn(node.properties, key)) check(node.properties[key], element, `${where}.${key}`);
         else if (node.additionalProperties === false) errors.push(`${where} has unknown key ${key}`);
+        else if (node.additionalProperties && typeof node.additionalProperties === 'object') check(node.additionalProperties, element, `${where}.${key}`);
       }
     }
   };

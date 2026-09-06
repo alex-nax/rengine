@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { openScript } from './scripts.mjs';
 import { listFormats, formatPreview, readBytes } from '../server/formats.mjs';
+import { dashboardActions, dashboardRunPayload, dashboardCapture } from '../server/dashboard.mjs';
 import { randomBytes } from 'node:crypto';
 import { WebSocket, WebSocketServer } from 'ws';
 import { Desktops } from '../server/desktops.mjs';
@@ -23,7 +24,7 @@ export async function startWorker(host) {
       if (target.pathname === '/health') { json(res, 200, { protocol: 1, instance: host.instance, worker: process.pid }); return; }
       if (!authenticated(req, token, url)) fail('Workspace authentication required.', 401);
       if (req.method === 'GET' && target.pathname === '/api/state') {
-        const state = await refresh(); json(res, 200, { ...state, capabilities: { ...state.capabilities, desktopActions: 1, layeredUpdates: 1, scriptActions: 1, formatRegistry: 1 } });
+        const state = await refresh(); json(res, 200, { ...state, capabilities: { ...state.capabilities, desktopActions: 1, layeredUpdates: 1, scriptActions: 1, formatRegistry: 1, dashboard: 1 } });
       } else if (req.method === 'POST' && target.pathname === '/api/script-open') {
         const data = await body(req), state = await refresh(); json(res, 200, await openScript(host, desktops, data, state));
       } else if (req.method === 'POST' && target.pathname === '/api/session-view') {
@@ -35,6 +36,13 @@ export async function startWorker(host) {
         const data = await body(req); await refresh(); json(res, 200, await formatPreview(root(data.rootId), data));
       } else if (req.method === 'GET' && target.pathname === '/api/bytes') {
         await refresh(); json(res, 200, await readBytes(root(target.searchParams.get('rootId')), Object.fromEntries(target.searchParams)));
+      } else if (req.method === 'GET' && target.pathname === '/api/dashboard') {
+        await refresh(); json(res, 200, await dashboardActions(root(target.searchParams.get('rootId'))));
+      } else if (req.method === 'POST' && target.pathname === '/api/dashboard-run') {
+        const data = await body(req); await refresh(); const payload = await dashboardRunPayload(root(data.rootId), data.actionId);
+        json(res, 200, { ...await call(host, 'terminal', payload), title: payload.title }); /* the retained host may predate session titles */
+      } else if (req.method === 'POST' && target.pathname === '/api/dashboard-capture') {
+        const data = await body(req); await refresh(); json(res, 200, await dashboardCapture(root(data.rootId), data.actionId));
       } else if (req.method === 'GET' && target.pathname === '/api/desktops') {
         await refresh(); json(res, 200, { desktops: desktops.list(target.searchParams.get('rootId')) });
       } else if (req.method === 'GET' && target.pathname === '/api/runtime-desktops') {

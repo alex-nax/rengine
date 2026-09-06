@@ -53,11 +53,24 @@
       "refs": [
         "docs/specs/058-orchestrator-handoff.md"
       ]
+    },
+    {
+      "id": "optional-session-title",
+      "kind": "rationale",
+      "anchor": {
+        "start": 101,
+        "end": 101,
+        "snippet": "if (title !== undefined && (typeof title !== 'string' || !title.trim() || title.length > 200)) fail('Session title must be a short string.');"
+      },
+      "note": "Dashboard runs name their sessions (Script \u00b7 x.sh, Log \u00b7 title); the option is bounded and optional so every existing caller keeps the derived title. A retained host older than this option ignores the field, which is why the worker also returns the title on its own reply.",
+      "refs": [
+        "docs/specs/075-project-dashboard.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/server/sessions.mjs",
-    "sha256": "a5d3280d0e7f6257cedd156000800c6d2bdfdb67b7f4ecba3937d4f2b9256977",
+    "sha256": "34895ee12329265e52eaefae4a70315c4dec5f8a28d130eed3ebf0d4e164751a",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }
