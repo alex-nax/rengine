@@ -852,7 +852,9 @@
       "external_references": [
         "vtmb-vr scripts/wizards/remote-rengine.sh, the pcvr-bound install action this makes reachable"
       ],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/device-controls-macos-2026-09-07.md"
+      ]
     }
   ]
 }

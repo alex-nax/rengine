@@ -1,5 +1,99 @@
 # Progress Log
 
+## Session 41 (macos) — 2026-09-07 — The Devices tab runs what is bound to each device (F80)
+
+Owner-directed: *"everything should be able to install in devices tab, add proper controls there."*
+The tab already knew exactly which games and actions each device carried — contract 4 gave it
+`games` and `actions` per device — and drew them as one comma-separated line of ids. The whole gap
+was that pressing them was impossible. The case that makes it worth doing is `remote-rengine`: a
+`script` action bound to `pcvr` whose job is to install a headless rEngine on that box, and which
+lived on the Dashboard where nothing says which machine it concerns.
+
+`GET /api/devices` now resolves the project's dashboard actions with the same `dashboardActions` the
+dashboard route uses and files each under the device it names, so a control carries the availability
+that function already composed — the action's own `requires`/`tools` **and** its device's
+reachability, failing half named — instead of a second opinion that can disagree with the Dashboard.
+The ordering is the correctness argument: the device statuses are awaited first, and only then is the
+board resolved, so it reads the probe cache those statuses filled. A listing with controls on it
+costs one probe per device and no more. Never pass `projectDevices`' own options down into that
+resolve — `refresh: true` would delete the keys the statuses just wrote and double every probe. Both
+servers serve it: the retained host and the replaceable worker each already hold a `preflight`.
+
+Pressing a control posts `/api/dashboard-run` (or `/api/dashboard-capture`), the Dashboard's own
+route, so a script opened from Devices lands in a script tab with the same title and arguments. There
+is no second execution path, and a bound game gets no launch control at all: rEngine launches a game
+only through a declared action of kind `game`, and a target on a non-local device is refused by
+design, so a button on that row could only ever refuse. A bound game reports the preflight the launch
+uses, and a remote one reads *Runs there* with its location rather than *Ready*.
+
+The tension worth recording is between two rules that were both already agreed: an unavailable
+control names its first reason, and an unreachable device shows **one** reason rather than one per
+action. It is resolved by naming the first reason **that is not the device's**. A control blocked
+only by its device is drawn disabled and says nothing — the reason is one line above it; one blocked
+by its own prerequisite names that. The same filter runs server-side for a game's `issue`.
+
+**Bootstrap versus gated: gated, and the escape hatch is the declaration.** Tempting to exempt an
+action whose purpose is to make a device usable, and wrong three times over. rEngine cannot tell one
+from another without naming a specific script, which is precisely what the remote-launch refusal was
+built to avoid. The motivating wizard opens with a stage titled *Check this machine can reach the
+box* and aborts when `ssh` fails, so ungating it buys a worse version of the same sentence five
+seconds later. And the contract already says it: an action that does not depend on a device omits
+`device`. Ordering is left as declared for a related reason — with availability composed as it is,
+every action bound to an unreachable device is unavailable together, so "runnable first" would
+reorder nothing where it was meant to help and desynchronise the two panes everywhere else.
+
+Row geometry got its own helper and its own assertion, because this file had just been bitten:
+`5a0bc38` fixed the device row, which asked for `{-1, STATUS_WIDTH}` and pushed its pill past the
+pane. Every new row is `{-KIND_WIDTH, -1}`, and the fixture requires every trailing pill to end at
+the same x as the device row's own status pill, each column to keep one width, and that edge to lie
+inside the pane. Reinstating the defect fails naming `devices-meta:here` and every pill after it.
+`re_ui_clip` was **not** needed: `workspace.c:824` already calls it once after the pane window opens,
+and every control here goes through the `re_ui_*` layer rather than drawing directly.
+
+Sabotages, each red for its own assertion and nothing earlier: the row flip (red at *every trailing
+pill ends where the device row's own does*); restating the device reason per control (3 !== 1 at *no
+bound control restates or paraphrases it*); exempting device-gated actions (red at *install-silent is
+drawn disabled while its device is unreachable*); a press that runs nothing (red at the script
+session); controls claiming availability (true !== false); recomputing the device status per action
+(3 !== 1 probes); filing every action under every device; a remote target reading as ready. Two
+findings from that pass are recorded rather than smoothed over. First, the exact-equality reason
+count did **not** catch the restating sabotage — the restated text wraps the reason rather than
+repeating it verbatim — so the substring count beside it is the load-bearing assertion and both now
+say which is which. Second, the honest render-side-effect sabotage (a probe from inside a control's
+draw) turns the desktop into a refresh storm that hangs the suite rather than failing it, so it could
+not be run to a clean red; the *thirty more frames probed nothing* assertion was instead calibrated
+by making the extra probe happen for real (an explicit Refresh in its place), which turns it red at
+that line with 2 !== 1.
+
+Verified against the live `vtmb-vr` declaration with the Windows box powered off and the headset
+attached — the mixed case the tab exists for. Four runnable controls and a ready `vtmb-flat` under
+`local`; `pcvr` unreachable with its ssh timeout written once, both bound actions (`pcvr` and
+`remote-rengine`) disabled and silent beneath it, `vtmb-vr` reading *runs there*; five runnable
+controls under `quest`. `nolf-improved` is contract 3, reads clean and unchanged, and its fourteen
+actions all appear under the implicit local device. Full listing in
+`docs/evidence/device-controls-macos-2026-09-07.md`.
+
+Commands, from the `feat/device-controls` worktree, built to its own `.cache/desktop` and never the
+shared one: `npm test` 78/78; `npm run test:desktop` 32/32; `ctest` 6/6; `./init.sh`;
+`python3 tools/design.py check`; `python3 tools/features.py validate` 38 features; the real-NOLF
+qualification 1/1 with `RENGINE_NOLF_ROOT=~/nolf-improved`; a native build from a wiped scratch
+directory, **0 warnings, 0 errors**. Sidecars: five refreshed and stamped
+(`devices.c`, `server/devices.mjs`, `server/main.mjs`, `runtime/worker.mjs`, `agents/mcp-worker.mjs`,
+with new `bound-controls`, `controls-run-the-dashboard-route` and `trailing-column-width` entries);
+repo-wide `check` reports 40 diagnostics against 41 on `origin/main`, so this branch removes one more
+than it adds and the rest is pre-existing drift in files no lane here touched.
+
+The first `test:desktop` run in this fresh worktree failed two tests — `native-game` and
+`native-recording` — and it was not KI-045. A worktree cut from `origin/main` has no
+`.cache/native/librengine_surface.dylib`, so the embedded game aborts on launch (signal 6). Running
+`npm run build:surface` first makes both pass, and the full suite is 32/32. Worth knowing before the
+next lane blames a flake: `npm run test:desktop` builds the desktop but not the surface adapter.
+
+F80 is left `passes: false`. Every criterion has evidence, but its prerequisite F76 — the contract-4
+devices work this extends — is itself still unmarked, and the protocol asks for evidence for the
+prerequisite too. Both are the owner's to mark together.
+
+
 ## Session 35 (macos) — 2026-09-06 — Escape reaches the game
 
 The owner approved the recommendation, so Escape now frees the pointer and reaches an embedded game
