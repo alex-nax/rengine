@@ -22,7 +22,7 @@ test('C/microui uses the real tree, Unicode editor and retained PTY through nati
     await gui.command({ op: 'text', text: "printf 'NATIVE_%s_世界\\n' PTY" }); await gui.key('Return');
     await gui.until(s => s.tabs.some(t => t?.session === shell.id && t.text?.includes('NATIVE_PTY_世界')), 'actual PTY output');
     assert.match(server.sessions.snapshot(shell.id, true).output, /NATIVE_PTY_世界/);
-    await gui.click(95, 185);
+    await gui.control('tree-entry', 'example.txt', 0); // by control record: the toolbar and tab strip moved with the design update
     state = await gui.until(s => s.tabs.some(t => t?.type === 2 && t.text === 'first line\nsecond line\n'), 'editor file opened from tree');
     let editor = state.tabs.find(t => t?.type === 2);
     await gui.click(editor.rect[0] + 12, editor.rect[1] + 8);

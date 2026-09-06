@@ -22,6 +22,7 @@ typedef struct ReApp {
   char root[65], initial_terminal[65], initial_agent[65], initial_game[65];
   char project_input[1024], agent[256], status[512];
   bool initialized, connected, vim, layout_dirty, quitting;
+  int width, height, preset;                 /* last laid-out size and the active theme preset */
   bool desktop_registered, reload_requested; char desktop_id[65];
   int focus, drag_tab, resize_pane, drag_x, drag_y, mouse_x, mouse_y;
   Uint64 layout_changed, quit_started;
@@ -32,6 +33,7 @@ void re_app_close(ReApp *app);
 void re_app_tick(ReApp *app);
 void re_app_ui(ReApp *app, mu_Context *ui, int width, int height);
 void re_app_draw(ReApp *app, ReDraw *draw);
+void re_app_status(ReApp *app, ReDraw *draw);   /* the segmented status bar, drawn above every pane */
 bool re_app_event(ReApp *app, const SDL_Event *event, ReDraw *draw);
 bool re_app_quit(ReApp *app);
 cJSON *re_app_inspect(ReApp *app);

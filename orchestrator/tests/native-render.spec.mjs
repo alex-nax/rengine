@@ -13,9 +13,12 @@ import { nativeClient } from './native-client.mjs';
 const run = promisify(execFile);
 // Tolerances and budgets recorded before the run in docs/specs/068-opengl-adapter.md (decisions 5 and 6);
 // specs 072 and 073 gate Metal and Vulkan against the same SDL reference and record GPU-versus-GPU as information.
+// The current-UI scenes gained anti-aliased rounded controls with the design update (spec 076), so
+// they carry the edge-band rule the owner set for the primitives scene instead of a channel limit:
+// the differing fraction stays tight and nothing may differ outside a 2px band of a shape's edge.
 const TOLERANCE = {
-  workspace: ['--max-fraction', '0.001', '--max-delta', '2'],
-  terminal: ['--max-fraction', '0.001', '--max-delta', '2'],
+  workspace: ['--max-fraction', '0.001', '--edge-band', '2'],
+  terminal: ['--max-fraction', '0.001', '--edge-band', '2'],
   primitives: ['--max-fraction', '0.02', '--edge-band', '2'],
 };
 const TERMINAL_CEILING_MS = 8, MEMORY_LIMIT_KB = 32 * 1024;
@@ -55,6 +58,14 @@ async function probe(backend, extraEnv, dir) {
   } catch (error) { return (error.stderr || error.message || 'failed').toString().trim().split('\n').pop(); }
 }
 
+async function resident(pid) {
+  const { stdout } = WIN
+    ? await run('powershell.exe', ['-NoProfile', '-Command', `(Get-Process -Id ${pid}).WorkingSet64 / 1024`])
+    : await run('ps', ['-o', 'rss=', '-p', String(pid)]);
+  return Number(stdout.trim());
+}
+const median = values => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
+
 async function compare(reference, candidate, name) {
   let output;
   try { ({ stdout: output } = await run(PYTHON, ['tools/render_compare.py', reference, candidate, ...TOLERANCE[name], '--json'])); }
@@ -68,7 +79,7 @@ async function capture(project, backend, dir, extraEnv = {}, tag = backend) {
   const root = await server.store.addRoot(project);
   const shell = await server.sessions.terminal({ rootId: root.id, ...SHELL });
   const gui = await nativeClient(server, { root: root.id, terminal: shell.id, env: { RENGINE_RENDERER: backend, ...extraEnv } });
-  const result = { backend, snapshots: {}, stats: {}, rss: 0 };
+  const result = { backend, snapshots: {}, stats: {}, rss: 0, samples: [] };
   try {
     const state = await gui.until(s => s.connected && s.tabs.some(t => t?.type === 1 && t.tree) && s.tabs.some(t => t?.session === shell.id && t.text), `${tag} workspace`);
     assert.equal(state.backend, backend);
@@ -84,6 +95,7 @@ async function capture(project, backend, dir, extraEnv = {}, tag = backend) {
       const file = path.join(dir, `${tag}-${name}.bmp`);
       assert.equal(await gui.command({ op: 'snapshot', path: file }), true);
       result.snapshots[name] = file; result.stats[name] = await gui.command({ op: 'stats' });
+      result.samples.push(await resident(gui.child.pid)); // one sample per scene: a single reading swings by more than the budget
     };
     await scene('workspace');
     server.sessions.input(shell.id, TERMINAL_SCRIPT);
@@ -92,9 +104,8 @@ async function capture(project, backend, dir, extraEnv = {}, tag = backend) {
     assert.equal(await gui.command({ op: 'scene', name: 'primitives' }), true);
     await scene('primitives');
     await gui.command({ op: 'scene', name: '' });
-    result.rss = WIN
-      ? Number((await run('powershell.exe', ['-NoProfile', '-Command', `(Get-Process -Id ${gui.child.pid}).WorkingSet64 / 1024`])).stdout.trim())
-      : Number((await run('ps', ['-o', 'rss=', '-p', String(gui.child.pid)])).stdout.trim());
+    result.samples.push(await resident(gui.child.pid));
+    result.rss = median(result.samples);
   } finally { await gui.close(); await server.close(); }
   return result;
 }
@@ -130,7 +141,8 @@ test('GPU adapters match the SDL reference within the recorded tolerances and bu
     }
     await mkdir('.cache/evidence', { recursive: true });
     const report = { platform: process.platform, backends, unavailable, validation, scenes: {}, memory: { sdlKb: sdl.rss, limitKb: MEMORY_LIMIT_KB } };
-    for (const backend of backends) { report.memory[`${backend}Kb`] = gpu[backend].rss; report.memory[`${backend}LimitKb`] = memoryLimitKb(backend); }
+    report.memory.sdlSamples = sdl.samples;
+    for (const backend of backends) { report.memory[`${backend}Kb`] = gpu[backend].rss; report.memory[`${backend}LimitKb`] = memoryLimitKb(backend); report.memory[`${backend}Samples`] = gpu[backend].samples; }
     for (const name of Object.keys(TOLERANCE)) {
       await copyFile(sdl.snapshots[name], `.cache/evidence/render-${name}-sdl.bmp`);
       const scene = { sdl: sdl.stats[name], compare: {}, cross: {} };

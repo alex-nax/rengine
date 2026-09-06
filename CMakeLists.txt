@@ -92,28 +92,100 @@ target_compile_definitions(rengine_vterm PRIVATE
 set(CMKR_TARGET rengine_vterm)
 target_include_directories(rengine_vterm SYSTEM PUBLIC "${RENGINE_VENDOR}/libvterm/include")
 
-# Target: rengine_desktop_core
-set(rengine_desktop_core_SOURCES
+# Target: rengine_render
+set(rengine_render_SOURCES
 	cmake.toml
-	"orchestrator/native/app.c"
-	"orchestrator/native/dashboard.c"
 	"orchestrator/native/draw.c"
-	"orchestrator/native/editor.c"
-	"orchestrator/native/formatview.c"
-	"orchestrator/native/game.c"
-	"orchestrator/native/hexview.c"
-	"orchestrator/native/layout.c"
-	"orchestrator/native/net.c"
 	"orchestrator/native/render/backend_gl.c"
 	"orchestrator/native/render/backend_sdl.c"
 	"orchestrator/native/render/backend_vk.c"
 	"orchestrator/native/render/draw_list.c"
 	"orchestrator/native/render/font.c"
 	"orchestrator/native/render/utf8.c"
+	"orchestrator/native/theme.c"
+)
+
+add_library(rengine_render STATIC)
+
+target_sources(rengine_render PRIVATE ${rengine_render_SOURCES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${rengine_render_SOURCES})
+
+target_compile_definitions(rengine_render PUBLIC
+	SDL_MAIN_HANDLED
+)
+
+target_compile_features(rengine_render PUBLIC
+	c_std_11
+)
+
+target_include_directories(rengine_render PUBLIC
+	"orchestrator/native"
+)
+
+target_link_libraries(rengine_render PUBLIC
+	SDL2::SDL2
+	rengine_microui
+	rengine_json
+)
+
+set(CMKR_TARGET rengine_render)
+target_include_directories(rengine_render SYSTEM PRIVATE "${RENGINE_VENDOR}/stb" "${RENGINE_VENDOR}")
+target_compile_definitions(rengine_render PRIVATE RENGINE_FONT_DIR="${RENGINE_VENDOR}") # bundled UI and icon faces (spec 076)
+if(NOT MSVC)
+  target_compile_options(rengine_render PRIVATE -Wall -Wextra -Wpedantic)
+  target_link_libraries(rengine_render PUBLIC m)
+endif()
+if(APPLE)
+  # spec 072: the Metal adapter is the one Objective-C file, compiled with ARC and linked to Apple's frameworks.
+  enable_language(OBJC)
+  target_sources(rengine_render PRIVATE orchestrator/native/render/backend_metal.m)
+  set_source_files_properties(orchestrator/native/render/backend_metal.m PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+  target_link_libraries(rengine_render PUBLIC "-framework Metal" "-framework QuartzCore" "-framework Foundation")
+endif()
+
+# Target: rengine_ui
+set(rengine_ui_SOURCES
+	cmake.toml
+	"orchestrator/native/ui/ui.c"
+)
+
+add_library(rengine_ui STATIC)
+
+target_sources(rengine_ui PRIVATE ${rengine_ui_SOURCES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${rengine_ui_SOURCES})
+
+target_compile_features(rengine_ui PUBLIC
+	c_std_11
+)
+
+target_include_directories(rengine_ui PUBLIC
+	"orchestrator/native"
+)
+
+target_link_libraries(rengine_ui PUBLIC
+	rengine_render
+	rengine_microui
+)
+
+set(CMKR_TARGET rengine_ui)
+if(NOT MSVC)
+  target_compile_options(rengine_ui PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+# Target: rengine_desktop_core
+set(rengine_desktop_core_SOURCES
+	cmake.toml
+	"orchestrator/native/app.c"
+	"orchestrator/native/dashboard.c"
+	"orchestrator/native/editor.c"
+	"orchestrator/native/formatview.c"
+	"orchestrator/native/game.c"
+	"orchestrator/native/hexview.c"
+	"orchestrator/native/layout.c"
+	"orchestrator/native/net.c"
 	"orchestrator/native/scene.c"
 	"orchestrator/native/scroll.c"
 	"orchestrator/native/terminal.c"
-	"orchestrator/native/theme.c"
 	"orchestrator/native/workspace.c"
 )
 
@@ -136,6 +208,8 @@ target_include_directories(rengine_desktop_core PUBLIC
 
 target_link_libraries(rengine_desktop_core PUBLIC
 	SDL2::SDL2
+	rengine_ui
+	rengine_render
 	rengine_microui
 	rengine_json
 	rengine_vterm
@@ -144,17 +218,9 @@ target_link_libraries(rengine_desktop_core PUBLIC
 
 set(CMKR_TARGET rengine_desktop_core)
 target_include_directories(rengine_desktop_core SYSTEM PRIVATE "${RENGINE_VENDOR}/stb" "${RENGINE_VENDOR}")
-target_compile_definitions(rengine_desktop_core PRIVATE RENGINE_FONT_DIR="${RENGINE_VENDOR}") # bundled UI and icon faces (spec 076)
 if(NOT MSVC)
   target_compile_options(rengine_desktop_core PRIVATE -Wall -Wextra -Wpedantic)
   target_link_libraries(rengine_desktop_core PUBLIC m)
-endif()
-if(APPLE)
-  # spec 072: the Metal adapter is the one Objective-C file, compiled with ARC and linked to Apple's frameworks.
-  enable_language(OBJC)
-  target_sources(rengine_desktop_core PRIVATE orchestrator/native/render/backend_metal.m)
-  set_source_files_properties(orchestrator/native/render/backend_metal.m PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
-  target_link_libraries(rengine_desktop_core PUBLIC "-framework Metal" "-framework QuartzCore" "-framework Foundation")
 endif()
 
 # Target: rengine

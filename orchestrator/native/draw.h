@@ -28,6 +28,7 @@ ReTexture *re_draw_texture_create(ReDraw *draw, int width, int height);
 bool re_draw_texture_update(ReTexture *texture, const void *rgba, int pitch);
 void re_draw_texture_destroy(ReTexture *texture);
 void re_draw_texture(ReDraw *draw, ReTexture *texture, mu_Rect rect, uint8_t flags);
+int re_draw_text_width(ReDraw *draw, uint8_t face, int size, const char *text, int length); /* logical pixels; -1 measures to the terminator */
 int re_draw_cell_width(const ReDraw *draw);
 int re_draw_line_height(const ReDraw *draw);
 bool re_draw_overflowed(const ReDraw *draw);

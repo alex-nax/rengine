@@ -109,7 +109,12 @@ ReTextPen re_font_pen(ReFontSet *fonts, uint8_t face_id, int size, float density
   pen.advance = re_font_metrics(fonts, face_id, pen.size, pen.density).advance;
   return pen;
 }
-float re_font_pen_x(const ReTextPen *pen) { return pen->mono ? (float)pen->logical * pen->density : pen->drawable; }
+/* Proportional runs land on whole drawable pixels: the glyph bitmaps carry no sub-pixel phase, and
+ * the SDL reference positions its texture rects in logical space, so rounding here is what keeps
+ * all four adapters on the same pixels. */
+float re_font_pen_x(const ReTextPen *pen) {
+  return pen->mono ? (float)pen->logical * pen->density : (float)(int)(pen->drawable + 0.5f);
+}
 void re_font_pen_step(ReTextPen *pen, uint32_t codepoint) {
   if (pen->mono) { pen->logical += pen->advance; return; }
   pen->drawable += glyph_advance(select_face(pen->fonts, pen->face), pen->size, pen->density, codepoint);

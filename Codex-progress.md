@@ -338,6 +338,24 @@ baseline. The macOS default is now OpenGL; Windows keeps SDL and F57 stays unpas
 evidence (KI-014). Evidence: `docs/evidence/opengl-adapter-macos-2026-09-06.md`. Commit:
 `feat(native): add the OpenGL adapter behind the draw list (F57)`.
 
+**Follow-up 9 (same session)**: F60 on owner direction (“we need to update design to the proposed by
+Claude Design, if microui is not enough - we write addition keeping the same compatible contract and
+conventions like in microui lib”) after a `/grill-me` interview: spec 076 records eleven decisions,
+charter D33–D34, and the split of F60 into F60/F67/F68/F69. Landed: `design/tokens.css` is now the
+runtime theme source (theme.json holds bindings, `theme.c` carries every preset, `re_draw_theme`
+switches live); `orchestrator/native/ui` is a separate `rengine_ui` target with owned controls in
+microui's conventions and a transition clock; Inter and Phosphor are pinned as bundled faces with an
+owned symbol-to-icon mapping; the toolbar, tab strip and status bar are redrawn to their cards; the
+renderer became its own `rengine_render` target. Verification: `design.py cards` generates
+`design/cards.json` from the tokens and `native-design.spec.mjs` probes real snapshot pixels across
+all three presets; desktop suite 17/17, CTest 4/4, render comparison passing on all four backends.
+Two measurement corrections were needed and are recorded in the evidence: the current-UI scenes now
+carry the edge-band rule instead of a per-channel limit, because they contain anti-aliased rounded
+controls, and resident memory is the median of four samples because a single reading swings by more
+than the budget. Evidence `docs/evidence/design-foundations-macos-2026-09-06.md`; F60 waits on the
+owner's visual sign-off. rEngine also gained its own `.rengine/project.json` (contract 2) with a BMP
+preview format and nine dashboard actions, verified through the service's readers.
+
 **Follow-up 8 (same session)**: F59 on owner direction after a `/grill-me` interview (spec 073;
 charter D31 names `pr0fe@192.168.31.217` as the Windows verification host and authorizes the
 commits-only transfer KI-014 waited for; D32 sets the Vulkan floor at the Quest 3 maximum, researched

@@ -163,6 +163,10 @@ void re_draw_commands(ReDraw *d, mu_Context *ui) {
   }
   re_draw_clip(d, NULL);
 }
+int re_draw_text_width(ReDraw *d, uint8_t face, int size, const char *text, int length) {
+  if (!d || !text) return 0;
+  return re_font_text_width(d->fonts, face, size, d->density, text, length < 0 ? (int)strlen(text) : length);
+}
 int re_draw_cell_width(const ReDraw *d) { return d->cell_width; }
 int re_draw_line_height(const ReDraw *d) { return d->line_height; }
 bool re_draw_overflowed(const ReDraw *d) { return d->list.overflow; }

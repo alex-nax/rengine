@@ -370,7 +370,7 @@
       "min-height": 480
     },
     "toolbar": {
-      "height": 78,
+      "height": 36,
       "row-height": 26,
       "brand-width": 78,
       "view-width": 75,
@@ -384,11 +384,12 @@
       "path-right": 475,
       "add-width": 95,
       "agent-label-width": 70,
-      "dashboard-width": 100
+      "dashboard-width": 100,
+      "agent-width": 120
     },
     "workspace": {
-      "top": 80,
-      "status-height": 26,
+      "top": 36,
+      "status-height": 22,
       "status-inset": 8,
       "status-text-top": 2,
       "divider": 6,
@@ -396,18 +397,18 @@
       "tree-percent": 23
     },
     "pane": {
-      "header-height": 34,
-      "content-top": 35,
+      "header-height": 28,
+      "content-top": 29,
       "root-row-height": 22,
       "empty-row-height": 24
     },
     "tab": {
-      "width": 158,
+      "width": 170,
       "height": 26,
-      "top": 4,
+      "top": 2,
       "inset": 5,
       "gap": 2,
-      "close-width": 22,
+      "close-width": 24,
       "nav-width": 24,
       "title-characters": 11
     },
@@ -470,6 +471,10 @@
       "refresh-width": 90,
       "artifact-width": 260,
       "note-height": 24
+    },
+    "design": {
+      "focus-width": 2,
+      "transition-ms": 90
     }
   },
   "metric-notes": {

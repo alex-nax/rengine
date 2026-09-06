@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "transition-clock",
+      "kind": "rationale",
+      "anchor": {
+        "start": 16,
+        "end": 16,
+        "snippet": "static float progress(mu_Id id, bool target) {",
+        "symbol": "progress"
+      },
+      "note": "The design asks for 90ms hover and focus transitions, but the desktop's loop is event-driven and draws nothing when nothing happens. The clock is therefore pull-based: a control asks for its own progress toward a target each frame, the value steps by the elapsed time, and any control still moving sets the animating flag. main.c turns that flag into a 16ms wait and one more frame, so an idle workspace still costs nothing. Slots are a fixed table keyed by microui id with a frame stamp; a control that stops being drawn simply loses its slot to the oldest-stamp victim, which is why no allocation or teardown is needed. A slot created this frame starts at its target rather than at zero, so a control that appears under the pointer does not fade in.",
+      "refs": [
+        "docs/specs/076-design-foundations.md"
+      ]
+    },
+    {
+      "id": "draw-order",
+      "kind": "constraint",
+      "anchor": {
+        "start": 65,
+        "end": 65,
+        "snippet": "static void chrome(mu_Rect rect, int opt, float hover, bool focused, bool field) {",
+        "symbol": "chrome"
+      },
+      "note": "These controls draw into the draw list while the UI is being built, whereas microui buffers its own commands and replays them afterwards. Two consequences are load-bearing. First, main.c opens the frame (re_draw_begin) before mu_begin, or the list would be reset after these draws. Second, any microui window that hosts owned controls must carry MU_OPT_NOFRAME and paint its own background through re_ui_panel, because microui's window background would otherwise be replayed on top of them. The toolbar and the pane header follow that rule; pane contents still belong to microui until the views are redrawn.",
+      "refs": [
+        "docs/specs/076-design-foundations.md",
+        "orchestrator/native/workspace.c"
+      ]
+    },
+    {
+      "id": "microui-conventions",
+      "kind": "rationale",
+      "anchor": {
+        "start": 106,
+        "end": 106,
+        "snippet": "static int control(mu_Context *ctx, const char *label, int icon, int opt, bool field) {",
+        "symbol": "control"
+      },
+      "note": "Identity, layout, hover and focus come from microui itself (mu_get_id, mu_layout_next, mu_update_control), so an owned control interleaves with microui's own widgets and inherits its focus and id-stack rules; the return value is microui's MU_RES_* so callers read the same way. That is what makes this an extension rather than a fork, which is the owner's requirement for the library packs. The textbox is the one place that restates microui logic rather than calling it: mu_textbox_raw draws its own frame, text and caret with the mono face, so its editing rules (input append, backspace over UTF-8 continuation bytes, return) are reproduced here while the drawing stays owned.",
+      "refs": [
+        "docs/specs/076-design-foundations.md",
+        "docs/specs/000-charter.md"
+      ]
+    }
+  ]
+}

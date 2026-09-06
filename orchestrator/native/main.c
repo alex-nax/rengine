@@ -1,4 +1,5 @@
 #include "app.h"
+#include "ui/ui.h"
 #include "automation.h"
 
 int re_bootstrap(const char *binary);
@@ -75,7 +76,7 @@ int main(int argc, char **argv) {
   SDL_StartTextInput();
   while (running) {
     SDL_Event event; bool redraw = false;
-    if (SDL_WaitEventTimeout(&event, smoke ? 1 : 250)) do {
+    if (SDL_WaitEventTimeout(&event, smoke ? 1 : re_ui_animating() ? 16 : 250)) do {
       redraw = true;
       if (event.type == SDL_QUIT) closing = true;
       else if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_r &&
@@ -102,12 +103,14 @@ int main(int argc, char **argv) {
     } while (SDL_PollEvent(&event));
     re_app_tick(app);
     if (app->reload_requested) { app->reload_requested = false; closing = reload = true; }
-    if (!redraw && frames && !smoke && !closing) continue;
+    if (!redraw && !re_ui_animating() && frames && !smoke && !closing) continue; /* transitions ask for their own frames */
     int width, height; SDL_GetWindowSize(window, &width, &height);
+    /* The owned controls draw into the list while the UI is built, so the frame opens first and
+     * microui's replayed commands land above them (spec 076). */
+    re_draw_begin(draw, width, height);
     mu_begin(ui); re_app_ui(app, ui, width, height); mu_end(ui);
     if (ui->hover_root != ui->next_hover_root) { SDL_Event settle = {.type = SDL_USEREVENT}; SDL_PushEvent(&settle); }
-    re_draw_begin(draw, width, height); re_draw_commands(draw, ui); re_app_draw(app, draw);
-    re_draw_text(draw, app->status, -1, RE_METRIC_WORKSPACE_STATUS_INSET, height - RE_METRIC_WORKSPACE_STATUS_HEIGHT + RE_METRIC_WORKSPACE_STATUS_TEXT_TOP, RE_COLOR_TEXT_MUTED);
+    re_draw_commands(draw, ui); re_app_draw(app, draw); re_app_status(app, draw);
     if (capture) {
       bool ok = re_draw_snapshot(draw, re_string(capture, "path")); re_automation_reply(re_number(capture, "id"), cJSON_CreateBool(ok)); cJSON_Delete(capture); capture = NULL;
     }

@@ -421,7 +421,9 @@
       "owner_workspace": "rengine",
       "deliverable": "themed native desktop and docs/evidence",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/design-foundations-macos-2026-09-06.md"
+      ]
     },
     {
       "id": 61,

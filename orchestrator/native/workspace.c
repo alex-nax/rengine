@@ -1,5 +1,6 @@
 #include "app.h"
 #include "scene.h"
+#include "ui/ui.h"
 
 static void inspect_rect(ReApp *a, const char *role, const char *key, int tab, mu_Rect r) {
   if (!a->controls || cJSON_GetArraySize(a->controls) >= 512) return;
@@ -23,6 +24,65 @@ static const char *root_name(ReApp *a, const char *id) {
   cJSON_ArrayForEach(root, cJSON_GetObjectItemCaseSensitive(a->state, "roots"))
     if (!strcmp(re_string(root, "id"), id)) return re_string(root, "name");
   return "Missing root";
+}
+static int tab_icon(const ReTab *t) {
+  switch (t->type) {
+    case RE_TREE: return RE_ICON_TREE;
+    case RE_SESSIONS: return RE_ICON_MENU;
+    case RE_DASHBOARD: return RE_ICON_PROJECT;
+    case RE_TERMINAL: return t->game ? RE_ICON_RUN : RE_ICON_SHELL;
+    default: return t->game ? RE_ICON_RUN : RE_ICON_FILE;
+  }
+}
+
+/* The toolbar is one row laid out left to right, so every cell keeps the card's geometry. */
+typedef struct { mu_Context *ui; ReDraw *draw; int x, y, h, right; } ReToolbar;
+
+static ReToolbar toolbar_open(mu_Context *ui, int width) {
+  ReToolbar bar;
+  bar.ui = ui; bar.draw = re_draw_active();
+  bar.h = RE_METRIC_DESIGN_ROW_LG;
+  bar.y = (RE_METRIC_DESIGN_TOOLBAR_HEIGHT - bar.h) / 2;
+  bar.x = RE_METRIC_DESIGN_PAD;
+  bar.right = width - RE_METRIC_DESIGN_PAD;
+  return bar;
+}
+static int toolbar_width(const ReToolbar *bar, const char *label, int icon, int opt) {
+  int size = opt & RE_UI_SMALL ? RE_METRIC_DESIGN_SIZE_SM : RE_METRIC_DESIGN_SIZE;
+  int width = re_draw_text_width(bar->draw, RE_FACE_UI_MEDIUM, size, label, -1) + 2 * RE_METRIC_DESIGN_GAP_LG;
+  if (icon != RE_ICON_UNKNOWN) width += size + RE_METRIC_DESIGN_GAP;
+  if (opt & RE_UI_CARET) width += size + RE_METRIC_DESIGN_GAP;
+  return width;
+}
+static void toolbar_next(ReToolbar *bar, int width, int gap) {
+  bar->x += gap;
+  mu_layout_set_next(bar->ui, mu_rect(bar->x, bar->y, width, bar->h), 0);
+  bar->x += width;
+}
+static int toolbar_cell(ReToolbar *bar, const char *label, int icon, int opt, int gap) {
+  int width = opt & RE_UI_ICON_ONLY ? RE_METRIC_DESIGN_ROW_LG : toolbar_width(bar, label, icon, opt);
+  toolbar_next(bar, width, gap);
+  return re_ui_button_ex(bar->ui, label, icon, opt);
+}
+/* Brand mark: the accent square with the wordmark beside it, as the card draws it. */
+static void toolbar_brand(ReToolbar *bar) {
+  int size = RE_METRIC_DESIGN_SIZE_LG, mark = RE_METRIC_DESIGN_SIZE + RE_METRIC_DESIGN_GAP;
+  mu_Rect box = mu_rect(bar->x, bar->y + (bar->h - mark) / 2, mark, mark);
+  re_draw_rrect(bar->draw, box, RE_COLOR_ACCENT, RE_METRIC_DESIGN_RADIUS, RE_CORNERS_ALL);
+  re_draw_text_face(bar->draw, RE_FACE_UI_SEMIBOLD, RE_METRIC_DESIGN_SIZE_SM, "r", -1,
+                    box.x + (mark - re_draw_text_width(bar->draw, RE_FACE_UI_SEMIBOLD, RE_METRIC_DESIGN_SIZE_SM, "r", -1)) / 2,
+                    box.y + (mark - RE_METRIC_DESIGN_SIZE_SM) / 2 - 1, RE_COLOR_TEXT_ON_ACCENT);
+  bar->x += mark + RE_METRIC_DESIGN_GAP;
+  re_draw_text_face(bar->draw, RE_FACE_UI_SEMIBOLD, size, "rEngine", -1, bar->x, bar->y + (bar->h - size) / 2 - 1, RE_COLOR_TEXT_STRONG);
+  bar->x += re_draw_text_width(bar->draw, RE_FACE_UI_SEMIBOLD, size, "rEngine", -1) + RE_METRIC_DESIGN_PAD;
+}
+static void toolbar_label(ReToolbar *bar, const char *label) {
+  toolbar_next(bar, toolbar_width(bar, label, RE_ICON_UNKNOWN, 0) - RE_METRIC_DESIGN_GAP_LG, RE_METRIC_DESIGN_GAP_LG);
+  re_ui_label_ex(bar->ui, label, RE_UI_MUTED | RE_UI_SMALL);
+}
+static void toolbar_separator(ReToolbar *bar) {
+  toolbar_next(bar, RE_METRIC_DESIGN_GAP_LG + 1, RE_METRIC_DESIGN_GAP);
+  re_ui_separator(bar->ui);
 }
 static void launch_terminal(ReApp *a, bool agent, bool menu) {
   if (!*a->root) { re_copy(a->status, sizeof(a->status), "Add or select a project first."); return; }
@@ -95,7 +155,14 @@ static void editor_ui(ReApp *a, mu_Context *ui, int index, mu_Rect content, mu_R
 }
 static void pane_header(ReApp *a, mu_Context *ui, int n) {
   RePane *p = &a->layout.panes[n]; ReTabStrip *strip = &a->strips[n];
-  if (!p->count) { mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_PANE_EMPTY_ROW_HEIGHT); mu_label(ui, "Empty pane · choose a view above"); return; }
+  ReDraw *draw = re_draw_active();
+  re_ui_panel(draw, mu_rect(p->rect.x, p->rect.y, p->rect.w, RE_METRIC_DESIGN_TABS_HEIGHT), RE_COLOR_TABS_BG);
+  if (!p->count) {
+    int size = RE_METRIC_DESIGN_SIZE;
+    re_draw_text_face(draw, RE_FACE_UI, size, "Empty pane · choose a view above", -1,
+                      p->rect.x + RE_METRIC_DESIGN_PAD, p->rect.y + (RE_METRIC_DESIGN_TABS_HEIGHT - size) / 2 - 1, RE_COLOR_TEXT_MUTED);
+    return;
+  }
   int available = re_max(0, p->rect.w - 2 * RE_METRIC_TAB_INSET), nav = p->count * RE_METRIC_TAB_WIDTH > available ? re_min(RE_METRIC_TAB_NAV_WIDTH, available / 4) : 0;
   available -= 2 * nav;
   int slots = re_max(1, available / RE_METRIC_TAB_WIDTH), cell = re_min(RE_METRIC_TAB_WIDTH, available), selected_tab = p->tabs[p->selected];
@@ -105,23 +172,31 @@ static void pane_header(ReApp *a, mu_Context *ui, int n) {
     if (p->selected >= strip->first + slots) strip->first = p->selected - slots + 1;
   }
   strip->width = p->rect.w; strip->count = p->count; strip->selected = p->selected; strip->tab = selected_tab;
+  int top = p->rect.y + RE_METRIC_TAB_TOP, height = RE_METRIC_DESIGN_TABS_HEIGHT - RE_METRIC_TAB_TOP;
   if (nav) {
-    mu_layout_set_next(ui, mu_rect(p->rect.x + RE_METRIC_TAB_INSET, p->rect.y + RE_METRIC_TAB_TOP, re_max(0, nav - RE_METRIC_TAB_GAP), RE_METRIC_TAB_HEIGHT), 0);
-    if (button(a, ui, "<", "tab-scroll", "previous", n)) strip->first = re_max(0, strip->first - slots);
-    mu_layout_set_next(ui, mu_rect(p->rect.x + p->rect.w - RE_METRIC_TAB_INSET - nav, p->rect.y + RE_METRIC_TAB_TOP, re_max(0, nav - RE_METRIC_TAB_GAP), RE_METRIC_TAB_HEIGHT), 0);
-    if (button(a, ui, ">", "tab-scroll", "next", n)) strip->first = re_min(re_max(0, p->count - slots), strip->first + slots);
+    mu_layout_set_next(ui, mu_rect(p->rect.x + RE_METRIC_TAB_INSET, top, re_max(0, nav - RE_METRIC_TAB_GAP), height), 0);
+    if (re_ui_button_ex(ui, "tab-previous", RE_ICON_CARET_LEFT, RE_UI_GHOST | RE_UI_ICON_ONLY)) strip->first = re_max(0, strip->first - slots);
+    re_app_control(a, ui, "tab-scroll", "previous", n);
+    mu_layout_set_next(ui, mu_rect(p->rect.x + p->rect.w - RE_METRIC_TAB_INSET - nav, top, re_max(0, nav - RE_METRIC_TAB_GAP), height), 0);
+    if (re_ui_button_ex(ui, "tab-next", RE_ICON_COLLAPSED, RE_UI_GHOST | RE_UI_ICON_ONLY)) strip->first = re_min(re_max(0, p->count - slots), strip->first + slots);
+    re_app_control(a, ui, "tab-scroll", "next", n);
   }
   for (int i = strip->first; i < re_min(p->count, strip->first + slots); i++) {
-    int tab = p->tabs[i]; ReTab *t = &a->tabs[tab]; char label[280];
-    const char *end = t->title; int characters = 0;
-    while (*end && characters++ < RE_METRIC_TAB_TITLE_CHARACTERS) re_utf8(&end);
-    snprintf(label, sizeof(label), "%s%.*s%s%s", i == p->selected ? "• " : "", (int)(end - t->title), t->title, *end ? "…" : "", t->dirty ? " *" : "");
-    int close_width = re_min(RE_METRIC_TAB_CLOSE_WIDTH, re_max(0, cell - RE_METRIC_TAB_GAP - RE_METRIC_MICROUI_SPACING));
-    mu_Rect r = mu_rect(p->rect.x + RE_METRIC_TAB_INSET + nav + (i - strip->first) * cell, p->rect.y + RE_METRIC_TAB_TOP, re_max(0, cell - close_width - RE_METRIC_TAB_GAP - RE_METRIC_MICROUI_SPACING), RE_METRIC_TAB_HEIGHT);
-    t->header = r; mu_layout_set_next(ui, r, 0); mu_push_id(ui, &tab, sizeof(tab));
-    if (button(a, ui, label, "tab", "", tab)) { p->selected = i; a->layout.active = n; a->focus = -1; re_app_layout_changed(a); }
-    mu_layout_set_next(ui, mu_rect(r.x + r.w + RE_METRIC_TAB_GAP, r.y, close_width, RE_METRIC_TAB_HEIGHT), 0);
-    bool closed = button(a, ui, "x", "detach", "", tab);
+    int tab = p->tabs[i]; ReTab *t = &a->tabs[tab];
+    int close_width = re_min(RE_METRIC_TAB_CLOSE_WIDTH, re_max(0, cell - RE_METRIC_TAB_GAP));
+    mu_Rect r = mu_rect(p->rect.x + RE_METRIC_TAB_INSET + nav + (i - strip->first) * cell, top,
+                        re_max(0, cell - close_width - RE_METRIC_TAB_GAP), height);
+    t->header = r;
+    /* The tab face is owned drawing; the hit area stays a control so automation and focus work. */
+    re_ui_tab(draw, r, t->title, tab_icon(t), i == p->selected, t->dirty, 0);
+    mu_layout_set_next(ui, r, 0); mu_push_id(ui, &tab, sizeof(tab));
+    if (re_ui_button_ex(ui, "", RE_ICON_UNKNOWN, RE_UI_GHOST | RE_UI_ICON_ONLY | RE_UI_TRANSPARENT)) {
+      p->selected = i; a->layout.active = n; a->focus = -1; re_app_layout_changed(a);
+    }
+    re_app_control(a, ui, "tab", "", tab);
+    mu_layout_set_next(ui, mu_rect(r.x + r.w + RE_METRIC_TAB_GAP, r.y, close_width, height), 0);
+    bool closed = re_ui_button_ex(ui, "close", RE_ICON_CLOSE, RE_UI_GHOST | RE_UI_ICON_ONLY);
+    re_app_control(a, ui, "detach", "", tab);
     if (closed) {
       re_layout_remove(&a->layout, tab); a->focus = -1;
       re_terminal_close(t->terminal); t->terminal = NULL; re_game_close(t->game); t->game = NULL;
@@ -130,47 +205,120 @@ static void pane_header(ReApp *a, mu_Context *ui, int n) {
     mu_pop_id(ui); if (closed) break;
   }
 }
+
+/* The segmented status bar of the card: mode, message, then right-aligned facts. */
+void re_app_status(ReApp *a, ReDraw *draw) {
+  int height = RE_METRIC_DESIGN_STATUS_HEIGHT, size = RE_METRIC_DESIGN_SIZE_SM;
+  int y = a->height - height, text_y = y + (height - size) / 2 - 1, x = RE_METRIC_DESIGN_PAD;
+  re_ui_panel(draw, mu_rect(0, y, a->width, height), RE_COLOR_STATUS_BG);
+  ReTab *focused = a->focus >= 0 && a->focus < RE_TABS ? &a->tabs[a->focus] : NULL;
+  const char *mode = focused && focused->editor && a->vim ? re_editor_mode(focused->editor) : NULL;
+  if (mode && *mode) {
+    int width = re_draw_text_width(draw, RE_FACE_UI_SEMIBOLD, size, mode, -1) + 2 * RE_METRIC_DESIGN_GAP_LG;
+    re_draw_rect(draw, mu_rect(0, y, width, height), RE_COLOR_STATUS_ACCENT_BG);
+    re_draw_text_face(draw, RE_FACE_UI_SEMIBOLD, size, mode, -1, RE_METRIC_DESIGN_GAP_LG, text_y, RE_COLOR_STATUS_ACCENT_FG);
+    x = width + RE_METRIC_DESIGN_PAD;
+  }
+  char facts[256];
+  int sessions = cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(a->state, "sessions"));
+  snprintf(facts, sizeof(facts), "%s · %s · %d session%s", root_name(a, a->root), *a->agent ? a->agent : "no agent",
+           sessions, sessions == 1 ? "" : "s");
+  int facts_width = re_draw_text_width(draw, RE_FACE_UI, size, facts, -1);
+  int right = a->width - RE_METRIC_DESIGN_PAD - facts_width;
+  re_draw_text_face(draw, RE_FACE_UI, size, facts, -1, right, text_y, RE_COLOR_STATUS_FG);
+  re_draw_icon(draw, RE_ICON_AGENT, mu_rect(right - size - RE_METRIC_DESIGN_GAP, y, size, height), RE_COLOR_TEXT_FAINT);
+  mu_Rect clip = mu_rect(x, y, re_max(0, right - x - RE_METRIC_DESIGN_PAD - size), height);
+  re_draw_clip(draw, &clip);
+  re_draw_text_face(draw, RE_FACE_UI, size, a->status, -1, x, text_y, RE_COLOR_STATUS_FG);
+  re_draw_clip(draw, NULL);
+}
+
 void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
   if (a->controls) { cJSON_Delete(a->controls); a->controls = cJSON_CreateArray(); }
   int opts = MU_OPT_NOTITLE | MU_OPT_NORESIZE | MU_OPT_NOCLOSE | MU_OPT_NOSCROLL;
-  mu_get_container(ui, "Toolbar")->rect = mu_rect(0, 0, width, RE_METRIC_TOOLBAR_HEIGHT);
-  if (mu_begin_window_ex(ui, "Toolbar", mu_rect(0, 0, width, RE_METRIC_TOOLBAR_HEIGHT), opts)) {
-    mu_layout_row(ui, 12, (int[]){RE_METRIC_TOOLBAR_BRAND_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH, RE_METRIC_TOOLBAR_DASHBOARD_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH,
-      RE_METRIC_TOOLBAR_MANAGE_WIDTH, RE_METRIC_TOOLBAR_SESSIONS_WIDTH, RE_METRIC_TOOLBAR_SPLIT_VERTICAL_WIDTH, RE_METRIC_TOOLBAR_SPLIT_HORIZONTAL_WIDTH,
-      RE_METRIC_TOOLBAR_MERGE_WIDTH, RE_METRIC_TOOLBAR_GAME_WIDTH, -1}, RE_METRIC_TOOLBAR_ROW_HEIGHT);
-    mu_label(ui, "rEngine");
-    if (button(a, ui, "Tree", "toolbar", "Tree", -1)) { if (*a->root) re_app_tab(a, RE_TREE, a->root, "", "", "Project"); }
-    if (button(a, ui, "Dashboard", "toolbar", "Dashboard", -1)) { if (re_app_dashboard(a, a->root) < 0) re_copy(a->status, sizeof(a->status), "Add or select a project first."); }
-    if (button(a, ui, "Shell", "toolbar", "Shell", -1)) launch_terminal(a, false, false);
-    if (button(a, ui, "Agent", "toolbar", "Agent", -1)) launch_terminal(a, true, false);
-    if (button(a, ui, "Manage", "toolbar", "Manage", -1)) launch_terminal(a, true, true);
-    if (button(a, ui, "Sessions", "toolbar", "Sessions", -1)) re_app_tab(a, RE_SESSIONS, "", "", "", "Sessions");
-    if (button(a, ui, "Split vertical", "toolbar", "Split vertical", -1)) { re_layout_split(&a->layout, a->layout.active, 1); re_app_layout_changed(a); }
-    if (button(a, ui, "Split horizontal", "toolbar", "Split horizontal", -1)) { re_layout_split(&a->layout, a->layout.active, 2); re_app_layout_changed(a); }
-    if (button(a, ui, "Merge pane", "toolbar", "Merge pane", -1)) {
+  a->width = width; a->height = height;
+  re_ui_begin(re_draw_active(), (double)SDL_GetTicks64() / 1000.0); /* one clock for every control's transitions */
+  mu_get_container(ui, "Toolbar")->rect = mu_rect(0, 0, width, RE_METRIC_DESIGN_TOOLBAR_HEIGHT);
+  if (mu_begin_window_ex(ui, "Toolbar", mu_rect(0, 0, width, RE_METRIC_DESIGN_TOOLBAR_HEIGHT), opts | MU_OPT_NOFRAME)) {
+    ReToolbar bar = toolbar_open(ui, width);
+    re_ui_panel(bar.draw, mu_rect(0, 0, width, RE_METRIC_DESIGN_TOOLBAR_HEIGHT), RE_COLOR_TOOLBAR_BG);
+    toolbar_brand(&bar);
+    int views = 4, view_index = 0;
+    struct { const char *label; int icon; } switcher[] = {
+      {"Tree", RE_ICON_TREE}, {"Dashboard", RE_ICON_PROJECT}, {"Shell", RE_ICON_SHELL}, {"Agent", RE_ICON_AGENT} };
+    for (int i = 0; i < views; i++, view_index++) {
+      int opt = RE_UI_GROUP_MIDDLE;
+      if (i == 0) opt = RE_UI_GROUP_FIRST;
+      else if (i == views - 1) opt = RE_UI_GROUP_LAST;
+      if (toolbar_cell(&bar, switcher[i].label, switcher[i].icon, opt, 0)) {
+        if (i == 0) { if (*a->root) re_app_tab(a, RE_TREE, a->root, "", "", "Project"); }
+        else if (i == 1) { if (re_app_dashboard(a, a->root) < 0) re_copy(a->status, sizeof(a->status), "Add or select a project first."); }
+        else launch_terminal(a, i == 3, false);
+      }
+      re_app_control(a, ui, "toolbar", switcher[i].label, -1);
+    }
+    if (toolbar_cell(&bar, "Manage", RE_ICON_UNKNOWN, RE_UI_GHOST, RE_METRIC_DESIGN_GAP)) launch_terminal(a, true, true);
+    re_app_control(a, ui, "toolbar", "Manage", -1);
+    if (toolbar_cell(&bar, "Sessions", RE_ICON_UNKNOWN, RE_UI_GHOST, 0)) re_app_tab(a, RE_SESSIONS, "", "", "", "Sessions");
+    re_app_control(a, ui, "toolbar", "Sessions", -1);
+    toolbar_separator(&bar);
+    if (toolbar_cell(&bar, "Split vertical", RE_ICON_SPLIT_VERTICAL, RE_UI_GHOST | RE_UI_ICON_ONLY, 0)) {
+      re_layout_split(&a->layout, a->layout.active, 1); re_app_layout_changed(a);
+    }
+    re_app_control(a, ui, "toolbar", "Split vertical", -1);
+    if (toolbar_cell(&bar, "Split horizontal", RE_ICON_SPLIT_HORIZONTAL, RE_UI_GHOST | RE_UI_ICON_ONLY, 0)) {
+      re_layout_split(&a->layout, a->layout.active, 2); re_app_layout_changed(a);
+    }
+    re_app_control(a, ui, "toolbar", "Split horizontal", -1);
+    if (toolbar_cell(&bar, "Merge pane", RE_ICON_MERGE_PANE, RE_UI_GHOST | RE_UI_ICON_ONLY, 0)) {
       if (re_layout_collapse(&a->layout, a->layout.active) >= 0) { a->focus = -1; re_app_layout_changed(a); }
       else re_copy(a->status, sizeof(a->status), "This is already the only pane.");
     }
-    if (button(a, ui, "NOLF", "toolbar", "NOLF", -1)) {
-      cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "rootId", a->root); re_app_action(a, "game", j); cJSON_Delete(j);
-    }
-    int vim = a->vim;
-    if (mu_checkbox(ui, "Vim", &vim)) {
-      a->vim = vim != 0;
-      for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].editor) re_editor_vim(a->tabs[i].editor, a->vim);
-      cJSON *j = cJSON_CreateObject(); cJSON_AddBoolToObject(j, "vim", a->vim); re_app_action(a, "preferences", j); cJSON_Delete(j);
-    }
-    mu_layout_row(ui, 5, (int[]){RE_METRIC_TOOLBAR_ROOT_WIDTH, -RE_METRIC_TOOLBAR_PATH_RIGHT, RE_METRIC_TOOLBAR_ADD_WIDTH, RE_METRIC_TOOLBAR_AGENT_LABEL_WIDTH, -1}, RE_METRIC_TOOLBAR_ROW_HEIGHT);
-    if (mu_button(ui, root_name(a, a->root))) {
+    re_app_control(a, ui, "toolbar", "Merge pane", -1);
+    toolbar_separator(&bar);
+    if (toolbar_cell(&bar, root_name(a, a->root), RE_ICON_PROJECT, RE_UI_ALIGN_LEFT | RE_UI_CARET, 0)) {
       cJSON *roots = cJSON_GetObjectItemCaseSensitive(a->state, "roots"); int count = cJSON_GetArraySize(roots);
       for (int i = 0; i < count; i++) if (!strcmp(re_string(cJSON_GetArrayItem(roots, i), "id"), a->root)) {
         re_copy(a->root, sizeof(a->root), re_string(cJSON_GetArrayItem(roots, (i + 1) % count), "id")); break;
       }
     }
-    mu_textbox(ui, a->project_input, sizeof(a->project_input));
+    re_app_control(a, ui, "toolbar", "root", -1);
+    /* The path field takes the slack, as the card's caption describes. */
+    int trailing = toolbar_width(&bar, "Add project", RE_ICON_UNKNOWN, 0) + RE_METRIC_DESIGN_GAP
+                 + toolbar_width(&bar, "Agent", RE_ICON_UNKNOWN, 0) + RE_METRIC_DESIGN_GAP
+                 + RE_METRIC_TOOLBAR_AGENT_WIDTH + RE_METRIC_DESIGN_GAP
+                 + toolbar_width(&bar, "Vim", RE_ICON_UNKNOWN, 0) + RE_METRIC_DESIGN_GAP
+                 + toolbar_width(&bar, "NOLF", RE_ICON_UNKNOWN, 0) + RE_METRIC_DESIGN_GAP
+                 + RE_METRIC_DESIGN_ROW_LG + 3 * RE_METRIC_DESIGN_GAP;
+    toolbar_next(&bar, re_max(RE_METRIC_DESIGN_ROW_LG, bar.right - bar.x - trailing), RE_METRIC_DESIGN_GAP);
+    re_ui_textbox_ex(ui, a->project_input, sizeof(a->project_input), RE_ICON_SEARCH, "Project path or repository URL…", 0);
     re_app_control(a, ui, "textbox", "project", -1);
-    if (button(a, ui, "Add project", "toolbar", "Add project", -1)) { cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "path", a->project_input); re_app_action(a, "roots", j); cJSON_Delete(j); }
-    mu_label(ui, "Agent CLI"); mu_textbox(ui, a->agent, sizeof(a->agent));
+    if (toolbar_cell(&bar, "Add project", RE_ICON_UNKNOWN, 0, RE_METRIC_DESIGN_GAP)) {
+      cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "path", a->project_input); re_app_action(a, "roots", j); cJSON_Delete(j);
+    }
+    re_app_control(a, ui, "toolbar", "Add project", -1);
+    toolbar_label(&bar, "Agent");
+    toolbar_next(&bar, RE_METRIC_TOOLBAR_AGENT_WIDTH, RE_METRIC_DESIGN_GAP);
+    re_ui_textbox_ex(ui, a->agent, sizeof(a->agent), RE_ICON_AGENT, "codex", 0);
+    re_app_control(a, ui, "textbox", "agent", -1);
+    int vim = a->vim;
+    toolbar_next(&bar, toolbar_width(&bar, "Vim", RE_ICON_UNKNOWN, 0), RE_METRIC_DESIGN_GAP);
+    if (re_ui_checkbox(ui, "Vim", &vim)) {
+      a->vim = vim != 0;
+      for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].editor) re_editor_vim(a->tabs[i].editor, a->vim);
+      cJSON *j = cJSON_CreateObject(); cJSON_AddBoolToObject(j, "vim", a->vim); re_app_action(a, "preferences", j); cJSON_Delete(j);
+    }
+    re_app_control(a, ui, "checkbox", "Vim", -1);
+    if (toolbar_cell(&bar, "NOLF", RE_ICON_RUN, RE_UI_GHOST, RE_METRIC_DESIGN_GAP)) {
+      cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "rootId", a->root); re_app_action(a, "game", j); cJSON_Delete(j);
+    }
+    re_app_control(a, ui, "toolbar", "NOLF", -1);
+    if (toolbar_cell(&bar, "Theme", RE_ICON_THEME, RE_UI_GHOST | RE_UI_ICON_ONLY, RE_METRIC_DESIGN_GAP)) {
+      a->preset = (a->preset + 1) % RE_PRESET_COUNT;
+      re_draw_theme(bar.draw, re_theme_preset_names[a->preset]);
+      snprintf(a->status, sizeof(a->status), "Theme preset: %s.", re_theme_preset_names[a->preset]);
+    }
+    re_app_control(a, ui, "toolbar", "Theme", -1);
     mu_end_window(ui);
   }
   re_layout_measure(&a->layout, mu_rect(0, RE_METRIC_WORKSPACE_TOP, width, height - RE_METRIC_WORKSPACE_TOP - RE_METRIC_WORKSPACE_STATUS_HEIGHT));
@@ -179,7 +327,7 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
     RePane *p = &a->layout.panes[n]; if (!p->used || p->axis) continue;
     char title[40]; snprintf(title, sizeof(title), "Pane header %d", n); mu_Rect header = p->rect; header.h = RE_METRIC_PANE_HEADER_HEIGHT;
     mu_get_container(ui, title)->rect = header;
-    if (mu_begin_window_ex(ui, title, header, opts)) {
+    if (mu_begin_window_ex(ui, title, header, opts | MU_OPT_NOFRAME)) { /* the strip is owned drawing */
       pane_header(a, ui, n);
       mu_end_window(ui);
     }
