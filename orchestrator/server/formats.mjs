@@ -5,6 +5,7 @@ import path from 'node:path';
 import { validateSchema } from './schema.mjs';
 import { fail, hash, resolveInRoot, MAX_TEXT_BYTES } from './store.mjs';
 import { shellEnvironment } from './sessions.mjs';
+import { dashboardRules } from './dashboard-rules.mjs';
 import { gameRules } from './game-rules.mjs';
 
 export const CONTRACTS = [1, 2];
@@ -42,17 +43,23 @@ export async function readDeclaration(rootPath) {
   try { value = JSON.parse(bytes.toString('utf8')); } catch (error) { return problem(`invalid JSON (${error.message})`); }
   if (!value || typeof value !== 'object' || Array.isArray(value)) return problem('declaration must be a JSON object');
   if (!CONTRACTS.includes(value.contract)) return problem(`unknown contract ${JSON.stringify(value.contract)}; this rEngine supports contracts ${CONTRACTS.join(' and ')}`);
-  const { game, ...base } = value;
+  const { dashboard, game, ...base } = value;
   const structural = validateSchema(schema, base);
   if (structural.length) return problem(structural.slice(0, 3).join('; '));
   const errors = crossRules(base);
   if (errors.length) return problem(errors.slice(0, 3).join('; '));
   const result = { declared: true, contract: value.contract, project: value.project,
     formats: value.formats.map(format => ({ ...format, preview: bounded(format.preview), entry: bounded(format.entry) })) };
-  if (game === undefined) return result; /* the game block is reported separately so it can never disable the formats; see sidecar: declaration-reporting */
-  if (value.contract < 2) return { ...result, gameError: `.rengine/project.json: game requires contract 2 (declared contract ${value.contract})` };
-  const problems = [...validateSchema(schema.$defs.game, game, schema, '$.game'), ...gameRules(game)];
-  return problems.length ? { ...result, gameError: `.rengine/project.json: ${problems.slice(0, 3).join('; ')}` } : { ...result, game };
+  /* dashboard and game are each reported separately so neither can disable the formats; see sidecar: declaration-reporting */
+  return section(section(result, 'game', game, value.contract), 'dashboard', dashboard, value.contract);
+}
+function section(result, name, block, contract) {
+  if (block === undefined) return result;
+  const key = `${name}Error`;
+  if (contract < 2) return { ...result, [key]: `.rengine/project.json: ${name} requires contract 2 (declared contract ${contract})` };
+  const rules = name === 'game' ? gameRules : dashboardRules;
+  const problems = [...validateSchema(schema.$defs[name], block, schema, `$.${name}`), ...rules(block)];
+  return problems.length ? { ...result, [key]: `.rengine/project.json: ${problems.slice(0, 3).join('; ')}` } : { ...result, [name]: block };
 }
 export async function listFormats(root) { return { rootId: root.id, ...await readDeclaration(root.path) }; }
 
@@ -77,8 +84,8 @@ function terminate(child) {
   child.stdout.destroy(); child.stderr.destroy();
 }
 export async function runCommand(root, spec, values) {
-  const file = await resolveInRoot(root, values.file); /* re-confined immediately before spawn; see sidecar: execution-boundary */
-  const argv = spec.command.map(arg => arg.replace(PLACEHOLDER, (_, key) => key === 'file' ? file.absolute : values[key]));
+  const file = values.file === undefined ? null : await resolveInRoot(root, values.file); /* re-confined immediately before spawn; see sidecar: execution-boundary */
+  const argv = spec.command.map(arg => arg.replace(PLACEHOLDER, (match, key) => key === 'file' ? (file ? file.absolute : match) : values[key] ?? match));
   argv[0] = await resolveExecutable(root.path, argv[0]);
   const started = Date.now();
   return new Promise((resolve, reject) => {

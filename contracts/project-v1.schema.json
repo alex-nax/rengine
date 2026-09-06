@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rengine.local/contracts/project-v1.schema.json",
   "title": "rEngine project declaration, contracts 1 and 2",
-  "description": "Read from <root>/.rengine/project.json. Contract 1 declares file formats whose previews are produced by the project's own executables (docs/specs/074-project-format-registry.md); contract 2 adds an optional game the workspace launches (docs/specs/076-project-game-declaration.md). Cross-field rules the service also enforces: default is one of modes; preview is required when modes contains preview; a preview command names ${file}; an entry command names ${file} and ${entry}; format ids are unique; game requires contract 2; game env keys are UPPER_SNAKE and never start with RENGINE_, DYLD_ or LD_; game requires entries are root-relative.",
+  "description": "Read from <root>/.rengine/project.json. Contract 1 declares file formats whose previews are produced by the project's own executables (docs/specs/074-project-format-registry.md); contract 2 adds an optional dashboard of grouped actions (docs/specs/075-project-dashboard.md) and an optional game the workspace launches (docs/specs/076-project-game-declaration.md). Cross-field rules the service also enforces: default is one of modes; preview is required when modes contains preview; a preview command names ${file}; an entry command names ${file} and ${entry}; format ids are unique; dashboard and game each require contract 2; group and action ids are unique; an action carries only its kind's fields; script/requires/artifacts/into are root-relative; dashboard env keys are UPPER_SNAKE; game env keys are UPPER_SNAKE and never start with RENGINE_, DYLD_ or LD_; game requires entries are root-relative.",
   "type": "object",
   "required": [
     "contract",
@@ -29,6 +29,9 @@
       "items": {
         "$ref": "#/$defs/format"
       }
+    },
+    "dashboard": {
+      "$ref": "#/$defs/dashboard"
     },
     "game": {
       "$ref": "#/$defs/game"
@@ -169,6 +172,171 @@
               "const": "bytes"
             }
           }
+        }
+      }
+    },
+    "kebab": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "maxLength": 64
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "description": "Root-relative; the service rejects absolute paths and .. segments."
+    },
+    "dashboard": {
+      "type": "object",
+      "required": [
+        "title",
+        "groups"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "groups": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/group"
+          }
+        }
+      }
+    },
+    "group": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "actions"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/kebab"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/action"
+          }
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "kind"
+      ],
+      "additionalProperties": false,
+      "description": "kind script: script, args, env; kind log: command, filters; kind capture: command, into, format. stream and operator are reserved for later contracts.",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/kebab"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "kind": {
+          "enum": [
+            "script",
+            "log",
+            "capture"
+          ]
+        },
+        "requires": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          }
+        },
+        "tools": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$",
+            "maxLength": 64
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          }
+        },
+        "script": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "args": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        },
+        "command": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/executable"
+            }
+          ],
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "filters": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "into": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "format": {
+          "const": "png"
         }
       }
     },

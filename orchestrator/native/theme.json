@@ -323,7 +323,8 @@
       "root-width": 170,
       "path-right": 475,
       "add-width": 95,
-      "agent-label-width": 70
+      "agent-label-width": 70,
+      "dashboard-width": 100
     },
     "workspace": {
       "top": 80,
@@ -401,12 +402,20 @@
       "entry-percent": 50,
       "header-height": 22,
       "tree-depth": 10
+    },
+    "dashboard": {
+      "heading-height": 26,
+      "row-height": 26,
+      "description-height": 20,
+      "refresh-width": 90,
+      "artifact-width": 260,
+      "note-height": 24
     }
   },
   "metric-notes": {
     "microui": "Upstream style defaults applied explicitly: content padding, row spacing, tree indent, unused title height, overflow scrollbar and thumb, default control width.",
     "window": "Initial SDL window size and the enforced minimum.",
-    "toolbar": "Top window with two rows. Row one: brand label, three view buttons (Tree, Shell, Agent), Manage, Sessions, Split vertical, Split horizontal, Merge pane, the declared game title (game-width, only when the bound root declares a game in .rengine/project.json), then the Vim checkbox filling the rest. Row two: root button, project path textbox ending path-right from the right edge, Add project, Agent CLI label, agent textbox filling the rest.",
+    "toolbar": "Top window with two rows. Row one: brand label, Tree, the Dashboard button (dashboard-width), the Shell and Agent view buttons, Manage, Sessions, Split vertical, Split horizontal, Merge pane, the declared game title (game-width, only when the bound root declares a game in .rengine/project.json), then the Vim checkbox filling the rest. Row two: root button, project path textbox ending path-right from the right edge, Add project, Agent CLI label, agent textbox filling the rest.",
     "workspace": "Pane area starts below the toolbar and ends above the status line, whose text sits status-text-top below that edge. Splits leave a draggable divider and keep panes at least pane-minimum; a fresh layout gives the tree tree-percent of the width.",
     "pane": "Each leaf pane has a header window; content starts at content-top with a root-name row.",
     "tab": "Tab cells are width wide including the close button, a gap before it and the microui spacing after it; overflow adds nav-width previous/next buttons; titles clip after title-characters.",
@@ -432,6 +441,7 @@
     "toolbar-row-1": [
       "rEngine",
       "Tree",
+      "Dashboard",
       "Shell",
       "Agent",
       "Manage",

@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "availability-without-execution",
+      "kind": "constraint",
+      "anchor": {
+        "start": 22,
+        "end": 22,
+        "snippet": "export async function dashboardActions(root) {"
+      },
+      "note": "Availability is computed by resolving each required file through the root boundary (a symlink escaping the root counts as missing) and by an explicit PATH walk with the same shell environment terminals get (PATHEXT on Windows); nothing is executed and nothing is cached, so a freshly copied pcvr-host.env enables its action on the next refresh. A declaration or dashboard error is returned with empty groups instead of thrown so the tab can render it while formats keep working.",
+      "refs": [
+        "docs/specs/075-project-dashboard.md"
+      ]
+    },
+    {
+      "id": "run-and-capture-boundary",
+      "kind": "constraint",
+      "anchor": {
+        "start": 44,
+        "end": 44,
+        "snippet": "export async function dashboardRunPayload(root, actionId) {"
+      },
+      "note": "Running goes through the retained host's terminal route with a payload built here (bash + resolved script + literal args + env for scripts, the argv itself for logs) so the replaceable worker never spawns PTYs; unavailable actions are refused with the missing items and capture actions are redirected. Captures reuse the format runner (no shell, cwd = root, 10 s / 8 MiB), require the PNG signature before touching disk, create `into` after a lexical boundary check and confine its realpath, then write the image and the manifest through temp-and-rename; a same-millisecond collision gets a numeric suffix. The returned title also overrides the snapshot because a retained host older than the title option labels sessions generically.",
+      "refs": [
+        "docs/specs/075-project-dashboard.md",
+        "docs/specs/074-project-format-registry.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/server/dashboard.mjs",
+    "sha256": "dc103385e2cd66100b6e29dabd578bcbe69d917950d711178223df8c6c12777d",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

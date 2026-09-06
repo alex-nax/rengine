@@ -9,7 +9,7 @@
         "end": 5,
         "snippet": "export function validateSchema(schema, value, root = schema, at = '$') {"
       },
-      "note": "Deliberately a bounded Draft 2020-12 subset (type, const, enum, string/number/array bounds, uniqueItems, properties/required/additionalProperties, items/prefixItems, allOf, local $ref) so the committed contracts stay the machine-readable truth without adding an npm dependency. A keyword outside the subset is silently ignored, so contracts must only use listed keywords; extend the validator and its tests together when a contract needs more. Type mismatches stop deeper checks to avoid cascades. Property and required checks use Object.hasOwn so prototype names such as toString are unknown keys, not matches (review finding 2).",
+      "note": "Deliberately a bounded Draft 2020-12 subset (type, const, enum, string/number/array bounds, uniqueItems, properties/required/additionalProperties, items/prefixItems, allOf, local $ref) so the committed contracts stay the machine-readable truth without adding an npm dependency. A keyword outside the subset is silently ignored, so contracts must only use listed keywords; extend the validator and its tests together when a contract needs more. Type mismatches stop deeper checks to avoid cascades. Property and required checks use Object.hasOwn so prototype names such as toString are unknown keys, not matches (review finding 2). additionalProperties may also be a schema (used for env maps); keys stay unchecked there and cross rules constrain them.",
       "refs": [
         "docs/specs/074-project-format-registry.md",
         "contracts/project-v1.schema.json"

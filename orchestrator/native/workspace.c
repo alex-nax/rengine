@@ -142,7 +142,7 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
   mu_get_container(ui, "Toolbar")->rect = mu_rect(0, 0, width, RE_METRIC_TOOLBAR_HEIGHT);
   if (mu_begin_window_ex(ui, "Toolbar", mu_rect(0, 0, width, RE_METRIC_TOOLBAR_HEIGHT), opts)) {
     const cJSON *game = re_app_game(a, a->root); /* the game column exists only while the bound root declares a game */
-    int widths[] = {RE_METRIC_TOOLBAR_BRAND_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH,
+    int widths[] = {RE_METRIC_TOOLBAR_BRAND_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH, RE_METRIC_TOOLBAR_DASHBOARD_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH,
       RE_METRIC_TOOLBAR_MANAGE_WIDTH, RE_METRIC_TOOLBAR_SESSIONS_WIDTH, RE_METRIC_TOOLBAR_SPLIT_VERTICAL_WIDTH, RE_METRIC_TOOLBAR_SPLIT_HORIZONTAL_WIDTH,
       RE_METRIC_TOOLBAR_MERGE_WIDTH, RE_METRIC_TOOLBAR_GAME_WIDTH, -1};
     int columns = RE_ARRAY_SIZE(widths);
@@ -150,6 +150,7 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
     mu_layout_row(ui, columns, widths, RE_METRIC_TOOLBAR_ROW_HEIGHT);
     mu_label(ui, "rEngine");
     if (button(a, ui, "Tree", "toolbar", "Tree", -1)) { if (*a->root) re_app_tab(a, RE_TREE, a->root, "", "", "Project"); }
+    if (button(a, ui, "Dashboard", "toolbar", "Dashboard", -1)) { if (re_app_dashboard(a, a->root) < 0) re_copy(a->status, sizeof(a->status), "Add or select a project first."); }
     if (button(a, ui, "Shell", "toolbar", "Shell", -1)) launch_terminal(a, false, false);
     if (button(a, ui, "Agent", "toolbar", "Agent", -1)) launch_terminal(a, true, false);
     if (button(a, ui, "Manage", "toolbar", "Manage", -1)) launch_terminal(a, true, true);
@@ -198,7 +199,7 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
     if (!p->count) { mu_get_container(ui, title)->rect = content; continue; }
     int index = p->tabs[p->selected]; ReTab *t = &a->tabs[index];
     bool format_view = t->type == RE_EDITOR && t->format && re_format_scrolls(t->format);
-    int content_opts = t->type == RE_TREE || t->type == RE_SESSIONS || format_view ? opts & ~MU_OPT_NOSCROLL : opts;
+    int content_opts = t->type == RE_TREE || t->type == RE_SESSIONS || t->type == RE_DASHBOARD || format_view ? opts & ~MU_OPT_NOSCROLL : opts;
     if (format_view && re_format_split(t->format)) {
       int h = content.h * RE_METRIC_FORMAT_ENTRY_PERCENT / 100;
       below = mu_rect(content.x + RE_METRIC_EDITOR_INSET, content.y + content.h - h, re_max(0, content.w - 2 * RE_METRIC_EDITOR_INSET), re_max(0, h - RE_METRIC_EDITOR_INSET)); content.h -= h;
@@ -208,6 +209,7 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
       mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_PANE_ROOT_ROW_HEIGHT); mu_label(ui, root_name(a, t->root));
       if (t->type == RE_TREE) tree_ui(a, ui, index);
       else if (t->type == RE_SESSIONS) sessions_ui(a, ui);
+      else if (t->type == RE_DASHBOARD) re_dashboard_ui(a, ui, index);
       else if (t->type == RE_EDITOR) editor_ui(a, ui, index, content, below);
       else if (t->type == RE_TERMINAL) {
         t->rect = mu_rect(content.x + RE_METRIC_TERMINAL_INSET, content.y + RE_METRIC_TERMINAL_TOP, re_max(0, content.w - 2 * RE_METRIC_TERMINAL_INSET), re_max(0, content.h - RE_METRIC_TERMINAL_BOTTOM));
@@ -223,7 +225,7 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
         t->rect = mu_rect(content.x + RE_METRIC_GAME_INSET, content.y + RE_METRIC_GAME_TOP, re_max(0, content.w - 2 * RE_METRIC_GAME_INSET), re_max(0, content.h - RE_METRIC_GAME_BOTTOM));
       }
       mu_end_window(ui);
-      if (a->controls && (t->type == RE_TREE || t->type == RE_SESSIONS || format_view)) {
+      if (a->controls && (t->type == RE_TREE || t->type == RE_SESSIONS || t->type == RE_DASHBOARD || format_view)) {
         mu_Container *container = mu_get_container(ui, title);
         if (container->content_size.y + ui->style->padding * 2 > container->body.h) {
           inspect_rect(a, "scrollbar", "y", index, mu_rect(container->body.x + container->body.w, container->body.y, ui->style->scrollbar_size, container->body.h));

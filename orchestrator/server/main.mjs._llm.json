@@ -5,8 +5,8 @@
       "id": "local-session-capability",
       "kind": "constraint",
       "anchor": {
-        "start": 31,
-        "end": 31,
+        "start": 32,
+        "end": 32,
         "snippet": "export async function startServer({ stateDir, port = 0 } = {}) {"
       },
       "note": "This is a loopback-only desktop service. HTTP and WebSocket requests need the private runtime token and compatible Origin; it is not the Quest pairing protocol. Tokens stay in mode-0600 local state, never tracked files. Slow sockets reconnect to bounded retained output without stopping sessions. The retired browser bundle is not served; a later web client needs separate delivery authorization. State advertises handoff and desktopActions version 1. Presented requires a session attached on that socket. Desktop registration/action acknowledgement use the same authenticated events connection; discovery/reload route through the ephemeral desktop broker. These are local workflow bindings, not protection against an authenticated client deliberately forging readiness or displayed roots.",
@@ -19,11 +19,11 @@
       "id": "format-registry-routes",
       "kind": "rationale",
       "anchor": {
-        "start": 61,
-        "end": 61,
+        "start": 62,
+        "end": 62,
         "snippet": "case '/api/formats': value = await listFormats(store.root(query.get('rootId'))); break;"
       },
-      "note": "The host serves the format registry so a directly connected desktop and the service tests need no supervisor; the replaceable worker serves the same three routes for the live layered runtime whose host predates them. Both advertise formatRegistry: 1. Declared commands run only from format-preview (explicit open/refresh/agent call), never from tree listing. projectGame: 1 tells connectors that game-config/game answer from the per-project declaration; an older host still serves those routes with the removed built-in semantics, which is why the game tools gate on the capability.",
+      "note": "The host serves the format registry so a directly connected desktop and the service tests need no supervisor; the replaceable worker serves the same three routes for the live layered runtime whose host predates them. Both advertise formatRegistry: 1. Declared commands run only from format-preview (explicit open/refresh/agent call), never from tree listing. dashboard: 1 and projectGame: 1 tell connectors that the dashboard routes and that game-config/game answer from the per-project declaration; an older host still serves the game routes with the removed built-in semantics, which is why both tool families gate on their capability.",
       "refs": [
         "docs/specs/074-project-format-registry.md"
       ]
@@ -31,7 +31,7 @@
   ],
   "source": {
     "path": "orchestrator/server/main.mjs",
-    "sha256": "038fc90d6f414d30fdacf8906f24c5b398ea1d02373033ab32dbd826acbf62ae",
+    "sha256": "db762da6ae3c33ec1b77b369883ee4cfac2f584ef8e72b91bd39798dfd03734e",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

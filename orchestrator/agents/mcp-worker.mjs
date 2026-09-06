@@ -25,7 +25,7 @@ const server = new McpServer({ name: 'rengine-workspace', version: '1.0.0' }, {
   instructions: 'These tools address the project bound when this agent was launched. List sessions before selecting a process. Closing a workspace view retains the process; stop_session explicitly stops it. File reads use disk text unless useDraft is requested.',
 });
 const tool = (name, description, inputSchema, readOnlyHint, action) => server.registerTool(name, {
-  description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script'].includes(name), openWorldHint: ['open_script', 'preview_file', 'launch_game'].includes(name) },
+  description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script'].includes(name), openWorldHint: ['open_script', 'preview_file', 'dashboard_capture', 'launch_game'].includes(name) },
 }, async values => {
   let state;
   try {
@@ -86,9 +86,14 @@ tool('integration_inbox', 'Read integration reports after a durable cursor. An o
   after: z.number().int().min(0).default(0), windowId: z.string().optional(), projectSide: z.boolean().default(false),
 }, true, async (data, state) => { windowCapability(state); return call(`integration-inbox?${new URLSearchParams(Object.entries({ rootId: context.rootId, ...data }).filter(([, value]) => value !== undefined))}`); });
 const scriptCapability = state => { if (state.capabilities.scriptActions !== 1) throw new Error('Update the workspace worker before opening script tabs.'); };
-tool('open_script', 'Run a project-relative .sh workflow in a retained interactive terminal and open its tab in an explicit desktop. Inspect the script purpose first: execution may have effects. Arguments are literal argv. Not idempotent; inspect sessions after a timeout instead of blindly retrying.', {
-  path: z.string(), args: z.array(z.string()).default([]), desktopId: z.string(),
+tool('open_script', 'Run a project-relative .sh workflow in a retained interactive terminal and open its tab in an explicit desktop. Inspect the script purpose first: execution may have effects. Arguments are literal argv; env adds UPPER_SNAKE literal variables over the shell environment (dashboard script actions list their script, args and env). Not idempotent; inspect sessions after a timeout instead of blindly retrying.', {
+  path: z.string(), args: z.array(z.string()).default([]), desktopId: z.string(), env: z.record(z.string(), z.string()).optional(),
 }, false, async (data, state) => { scriptCapability(state); return call('script-open', { ...data, rootId: context.rootId }); });
+const dashboardCapability = state => { if (state.capabilities.dashboard !== 1) throw new Error('This retained service predates the project dashboard. Update the workspace layer first.'); };
+tool('dashboard_actions', 'List the project’s declared dashboard (.rengine/project.json contract 2): groups and actions with availability (missing required files or PATH tools) computed without running anything. Script actions are run with open_script using the listed script, args and env; log actions start from the dashboard tab and are followed with show_session/session_output; capture actions use dashboard_capture.', {}, true,
+  async (_values, state) => { dashboardCapability(state); return call(`dashboard?${new URLSearchParams({ rootId: context.rootId })}`); });
+tool('dashboard_capture', 'Run one declared capture action (the project’s own command, no shell, 10 s / 8 MiB) and return its manifest entry: the PNG written under the action’s into directory plus manifest.json. Executes a project executable.', { actionId: z.string() }, false,
+  async ({ actionId }, state) => { dashboardCapability(state); return call('dashboard-capture', { rootId: context.rootId, actionId }); });
 tool('show_session', 'Open a retained project session in a listed desktop without starting another process. Use this if a script started but its view could not attach.', { id: z.string(), desktopId: z.string() }, false,
   async (data, state) => { scriptCapability(state); ownSession(data.id, state); return call('session-view', { ...data, rootId: context.rootId }); });
 tool('session_output', 'Read the bounded tail of a project session output buffer.', {

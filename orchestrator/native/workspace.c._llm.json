@@ -5,8 +5,8 @@
       "id": "native-focus-and-detach",
       "kind": "rationale",
       "anchor": {
-        "start": 252,
-        "end": 252,
+        "start": 254,
+        "end": 254,
         "snippet": "bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {"
       },
       "note": "Pointer focus selects a view without changing its root/session binding. Toolbar focus clears custom editor/terminal/game keyboard routing. Detach never calls Stop. Wheel targets the visible hovered terminal/editor; negotiated terminal reporting gets first refusal before native history. Mouse motion/buttons route to an existing held terminal first, otherwise the hovered visible terminal; layout drags do not become application motion. Hover never changes keyboard focus. Focus loss releases all terminal holds, focus transfer releases the previous terminal, and hidden views release during drawing. Native UI still receives mouse motion to settle microui hover; consumed application buttons are not forwarded to chrome.",
@@ -72,7 +72,7 @@
   ],
   "source": {
     "path": "orchestrator/native/workspace.c",
-    "sha256": "05e45f01269e9c0faf3030ceba697a7ad3fd91f3155004e53e3fabdf946c86ee",
+    "sha256": "ade6edcb99639f667298f91732febf5d9a8df4811b601cf957090a214979c30e",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

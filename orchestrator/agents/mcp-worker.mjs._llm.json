@@ -44,8 +44,8 @@
       "id": "preview-file-tool",
       "kind": "rationale",
       "anchor": {
-        "start": 102,
-        "end": 102,
+        "start": 107,
+        "end": 107,
         "snippet": "const PREVIEW_BUDGET = 32000;"
       },
       "note": "preview_file runs the project's own declared executable, so it is open-world and not read-only even though it never writes. The route returns the whole sanitized tree; the tool slices dir/depth and pages files with offset/limit, then shrinks depth and limit until the serialized reply fits the 32,000-character budget, reporting truncated/nextOffset (review finding 5). Command metadata is made root-relative and the generic tool wrapper replaces the absolute root path in error text with <root>. Entry text is bounded like read_file; the hex window is dropped because agents get size and SHA-256 instead.",
@@ -54,11 +54,24 @@
       ]
     },
     {
+      "id": "dashboard-tools",
+      "kind": "rationale",
+      "anchor": {
+        "start": 92,
+        "end": 92,
+        "snippet": "const dashboardCapability = state => { if (state.capabilities.dashboard !== 1) throw new Error('This retained service predates the project dashboard. Update the workspace layer first.'); };"
+      },
+      "note": "dashboard_actions is read-only (availability only); dashboard_capture is open-world because it runs a project executable and writes files. Script and log actions deliberately get no new tool: scripts go through open_script with the listed script/args/env, logs start from the desktop tab and are followed with show_session/session_output, so process creation stays on the existing audited paths.",
+      "refs": [
+        "docs/specs/075-project-dashboard.md"
+      ]
+    },
+    {
       "id": "declared-game-tools",
       "kind": "rationale",
       "anchor": {
-        "start": 131,
-        "end": 131,
+        "start": 136,
+        "end": 136,
         "snippet": "const gameCapability = state => { if (state.capabilities.projectGame !== 1) throw new Error('This retained service predates per-project game declarations. Update the workspace layer first.'); };"
       },
       "note": "game_preflight and launch_game address only the game the bound project declares in .rengine/project.json; their descriptions name no game, and the connector never carries a built-in executable or data path. launch_game is open-world because it executes the project's own program; it returns the running session when one exists, so agents inspect the returned id rather than assuming a fresh process. Both gate on projectGame: 1 because an older retained host still answers game-config/game with the removed hard-coded semantics.",
@@ -69,7 +82,7 @@
   ],
   "source": {
     "path": "orchestrator/agents/mcp-worker.mjs",
-    "sha256": "28a31f4aa61172463cbbd2d20ebf93b715465475050332c36008cfdd36d5726a",
+    "sha256": "b274f07dc7a64be849aaec2b9e6f3a5ac1a5c2d293ca36d00363de71341caacd",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

@@ -1,6 +1,6 @@
 #include "app.h"
 
-enum { OP_STATE = 1, OP_LOAD, OP_SAVE, OP_DRAFT, OP_DISCARD, OP_CREATE, OP_ROOT, OP_GENERIC, OP_LAYOUT, OP_FORMATS, OP_BYTES, OP_PREVIEW, OP_ENTRY };
+enum { OP_STATE = 1, OP_LOAD, OP_SAVE, OP_DRAFT, OP_DISCARD, OP_CREATE, OP_ROOT, OP_GENERIC, OP_LAYOUT, OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_BYTES, OP_PREVIEW, OP_ENTRY };
 static int request_within(ReApp *a, int operation, int tab, const char *route, const cJSON *body, long timeout) {
   char scoped[160]; const char *window = getenv("RENGINE_WINDOW_ID");
   if (window && *window && (!strcmp(route, "state") || !strcmp(route, "layout"))) {
@@ -58,6 +58,42 @@ static void fetch_formats(ReApp *a, const char *root) {
   }
   free(route);
 }
+static bool listed(const cJSON *array, const char *value) {
+  const cJSON *item = NULL; cJSON_ArrayForEach(item, array) if (cJSON_IsString(item) && !strcmp(item->valuestring, value)) return true; return false;
+}
+static void probe_dashboard(ReApp *a, const char *root) {
+  if (!*root || cJSON_HasObjectItem(a->dashboards, root)) return;
+  char *route = re_net_query("dashboard", root, ""); int id = route ? request(a, OP_DASHBOARD, -1, route, NULL) : 0;
+  if (id) {
+    for (int i = 0; i < RE_ARRAY_SIZE(a->pending); i++) if (a->pending[i].id == id) re_copy(a->pending[i].root, sizeof(a->pending[i].root), root);
+    cJSON_AddItemToObject(a->dashboards, root, cJSON_CreateNull());
+  }
+  free(route);
+}
+int re_app_dashboard(ReApp *a, const char *root) {
+  if (!*root) return -1;
+  if (!listed(a->dashboards_opened, root)) cJSON_AddItemToArray(a->dashboards_opened, cJSON_CreateString(root));
+  return re_app_tab(a, RE_DASHBOARD, root, "", "", "Dashboard");
+}
+void re_app_dashboard_run(ReApp *a, int tab, const char *action, bool capture) {
+  ReTab *t = &a->tabs[tab];
+  cJSON *body = cJSON_CreateObject(); cJSON_AddStringToObject(body, "rootId", t->root); cJSON_AddStringToObject(body, "actionId", action);
+  if (capture) request(a, OP_CAPTURE, tab, "dashboard-capture", body); else request(a, OP_CREATE, -1, "dashboard-run", body);
+  cJSON_Delete(body);
+}
+void re_app_reveal(ReApp *a, const char *root, const char *artifact) {
+  char directory[2048]; re_copy(directory, sizeof(directory), artifact);
+  char *slash = strrchr(directory, '/'); if (slash) *slash = 0; else directory[0] = 0;
+  int tab = -1;
+  for (int i = 0; i < RE_TABS && tab < 0; i++) if (a->tabs[i].used && a->tabs[i].type == RE_TREE && !strcmp(a->tabs[i].root, root)) tab = i;
+  if (tab < 0) tab = re_app_tab(a, RE_TREE, root, "", "", "Project");
+  if (tab < 0) return;
+  ReTab *t = &a->tabs[tab]; re_copy(t->path, sizeof(t->path), directory); re_app_load(a, tab);
+  int pane = re_layout_find(&a->layout, tab);
+  if (pane < 0) re_layout_add(&a->layout, a->layout.active, tab);
+  else { a->layout.active = pane; for (int k = 0; k < a->layout.panes[pane].count; k++) if (a->layout.panes[pane].tabs[k] == tab) a->layout.panes[pane].selected = k; }
+  snprintf(a->status, sizeof(a->status), "Revealed %s in the project tree.", artifact); re_app_layout_changed(a);
+}
 const cJSON *re_app_game(ReApp *a, const char *root) {
   const cJSON *known = formats_for(a, root), *game = known ? cJSON_GetObjectItemCaseSensitive(known, "game") : NULL;
   return cJSON_IsObject(game) && *re_string(game, "title") ? game : NULL;
@@ -83,6 +119,7 @@ const cJSON *re_app_format_record(ReApp *a, ReTab *t) {
 void re_app_load(ReApp *a, int tab) {
   ReTab *t = &a->tabs[tab];
   if (t->type == RE_TREE) { char *route = re_net_query("tree", t->root, t->path); if (route) request(a, OP_LOAD, tab, route, NULL); free(route); return; }
+  if (t->type == RE_DASHBOARD) { char *route = re_net_query("dashboard", t->root, ""); if (route) request(a, OP_LOAD, tab, route, NULL); free(route); return; }
   if (t->type != RE_EDITOR) return;
   if (!t->format || re_format_mode(t->format) == RE_MODE_PENDING) {
     if (!t->format) t->format = re_format_open(RE_MODE_PENDING, false);
@@ -170,6 +207,7 @@ static cJSON *serialize(ReApp *a) {
     cJSON_AddStringToObject(tab, "path", t->path); cJSON_AddStringToObject(tab, "session", t->session); cJSON_AddStringToObject(tab, "title", t->title);
     if (t->format && re_format_mode(t->format) != RE_MODE_PENDING) cJSON_AddStringToObject(tab, "mode", re_format_mode_name(re_format_mode(t->format)));
   }
+  cJSON_AddItemToObject(j, "dashboards", cJSON_Duplicate(a->dashboards_opened, 1));
   return j;
 }
 static bool restore(ReApp *a, const cJSON *j) {
@@ -182,7 +220,7 @@ static bool restore(ReApp *a, const cJSON *j) {
     const cJSON *tab = cJSON_GetArrayItem(tabs, i);
     if (cJSON_IsNull(tab)) { if (re_layout_find(&layout, i) >= 0) return false; continue; }
     int type = re_number(tab, "type");
-    if (type < RE_TREE || type > RE_GAME || strlen(re_string(tab, "root")) > 64 ||
+    if (type < RE_TREE || type > RE_DASHBOARD || strlen(re_string(tab, "root")) > 64 ||
         strlen(re_string(tab, "session")) > 64 || strlen(re_string(tab, "path")) > 2047) return false;
     if (cJSON_HasObjectItem(tab, "mode") && (type != RE_EDITOR || re_format_mode_from(re_string(tab, "mode")) < 0)) return false;
   }
@@ -196,6 +234,8 @@ static bool restore(ReApp *a, const cJSON *j) {
     if (cJSON_HasObjectItem(tab, "mode")) t->format = re_format_open(re_format_mode_from(re_string(tab, "mode")), true);
     re_app_load(a, i);
   }
+  const cJSON *opened = cJSON_GetObjectItemCaseSensitive(j, "dashboards"), *root = NULL;
+  cJSON_ArrayForEach(root, opened) if (cJSON_IsString(root) && strlen(root->valuestring) <= 64 && !listed(a->dashboards_opened, root->valuestring)) cJSON_AddItemToArray(a->dashboards_opened, cJSON_CreateString(root->valuestring));
   a->previous_layout = cJSON_Duplicate(cJSON_GetObjectItemCaseSensitive(j, "previous"), 1); return true;
 }
 static void state_loaded(ReApp *a, const cJSON *j) {
@@ -239,6 +279,15 @@ static void formats_loaded(ReApp *a, const cJSON *j) {
     ReTab *t = &a->tabs[i];
     if (t->used && t->type == RE_EDITOR && t->format && (re_format_mode(t->format) == RE_MODE_PENDING || re_format_awaiting(t->format)) && !strcmp(t->root, root)) re_app_load(a, i);
   }
+  probe_dashboard(a, root);
+}
+static void dashboard_probed(ReApp *a, const cJSON *j) {
+  const char *root = re_string(j, "rootId"); if (!*root) return;
+  cJSON_DeleteItemFromObject(a->dashboards, root); cJSON_AddItemToObject(a->dashboards, root, cJSON_Duplicate(j, 1));
+  if (*re_string(j, "error")) re_copy(a->status, sizeof(a->status), re_string(j, "error"));
+  if (!cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(j, "groups")) || listed(a->dashboards_opened, root)) return;
+  for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].used && a->tabs[i].type == RE_DASHBOARD && !strcmp(a->tabs[i].root, root) && re_layout_find(&a->layout, i) >= 0) return;
+  int active = a->layout.active; re_app_dashboard(a, root); a->layout.active = active; /* auto-open never steals the active pane */
 }
 static bool raw_fallback(ReApp *a, RePending *p, ReTab *t, int status) {
   if (p->operation != OP_LOAD || !t || t->type != RE_EDITOR || status != 400) return false;
@@ -257,6 +306,10 @@ static void response(ReApp *a, ReMessage *m) {
   if (m->status != 200 || !j) {
     const char *error = j ? re_string(j, "error") : m->data; char budget[640];
     if (raw_fallback(a, &p, t, m->status)) { cJSON_Delete(j); return; }
+    if (p.operation == OP_DASHBOARD && *p.root) {
+      cJSON *settled = cJSON_CreateObject(); cJSON_AddStringToObject(settled, "rootId", p.root); cJSON_AddBoolToObject(settled, "declared", true);
+      cJSON_AddStringToObject(settled, "error", error); cJSON_AddArrayToObject(settled, "groups"); dashboard_probed(a, settled); cJSON_Delete(settled); cJSON_Delete(j); return;
+    }
     if (p.operation == OP_FORMATS && *p.root) {
       cJSON *settled = cJSON_CreateObject(); cJSON_AddStringToObject(settled, "rootId", p.root); cJSON_AddBoolToObject(settled, "declared", true);
       cJSON_AddStringToObject(settled, "error", error); cJSON_AddArrayToObject(settled, "formats"); formats_loaded(a, settled); cJSON_Delete(settled); cJSON_Delete(j); return;
@@ -272,6 +325,8 @@ static void response(ReApp *a, ReMessage *m) {
   switch (stale ? 0 : p.operation) {
     case OP_STATE: state_loaded(a, j); break;
     case OP_FORMATS: formats_loaded(a, j); break;
+    case OP_DASHBOARD: dashboard_probed(a, j); break;
+    case OP_CAPTURE: snprintf(a->status, sizeof(a->status), "Captured %s (%d bytes, sha256 %.12s…)", re_string(j, "path"), re_number(j, "size"), re_string(j, "sha256")); t->error[0] = 0; break;
     case OP_LOAD:
       t->discarding = false;
       cJSON_Delete(t->data); t->data = cJSON_Duplicate(j, 1); t->error[0] = 0;
@@ -303,7 +358,7 @@ static void response(ReApp *a, ReMessage *m) {
 }
 ReApp *re_app_open(const char *url, const char *token) {
   ReApp *a = calloc(1, sizeof(*a)); if (!a) return NULL;
-  re_layout_init(&a->layout); a->focus = a->drag_tab = a->resize_pane = -1; a->formats = cJSON_CreateObject();
+  re_layout_init(&a->layout); a->focus = a->drag_tab = a->resize_pane = -1; a->formats = cJSON_CreateObject(); a->dashboards = cJSON_CreateObject(); a->dashboards_opened = cJSON_CreateArray();
   a->net = re_net_open(url, token);
   if (a->net) { a->events = re_socket_open(a->net, "events"); request(a, OP_STATE, -1, "state", NULL); }
   re_copy(a->root, sizeof(a->root), getenv("RENGINE_INITIAL_ROOT"));
@@ -343,7 +398,7 @@ void re_app_tick(ReApp *a) {
       for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].terminal) re_terminal_attach(a->tabs[i].terminal);
     }
     else if (!strcmp(type, "disconnected")) {
-      a->connected = a->desktop_registered = false; a->desktop_id[0] = 0; cJSON_Delete(a->formats); a->formats = cJSON_CreateObject();
+      a->connected = a->desktop_registered = false; a->desktop_id[0] = 0; cJSON_Delete(a->formats); a->formats = cJSON_CreateObject(); cJSON_Delete(a->dashboards); a->dashboards = cJSON_CreateObject();
       re_copy(a->status, sizeof(a->status), "Session connection lost. Reconnecting to retained processes…");
     }
     else if (!strcmp(type, "desktop-registered")) re_copy(a->desktop_id, sizeof(a->desktop_id), re_string(j, "id"));
@@ -401,7 +456,7 @@ void re_app_close(ReApp *a) {
   for (int i = 0; i < RE_TABS; i++) {
     cJSON_Delete(a->tabs[i].data); re_terminal_close(a->tabs[i].terminal); re_editor_close(a->tabs[i].editor); re_game_close(a->tabs[i].game); re_format_close(a->tabs[i].format);
   }
-  re_socket_close(a->events); re_net_close(a->net); cJSON_Delete(a->state); cJSON_Delete(a->previous_layout); cJSON_Delete(a->controls); cJSON_Delete(a->formats); free(a);
+  re_socket_close(a->events); re_net_close(a->net); cJSON_Delete(a->state); cJSON_Delete(a->previous_layout); cJSON_Delete(a->controls); cJSON_Delete(a->formats); cJSON_Delete(a->dashboards); cJSON_Delete(a->dashboards_opened); free(a);
 }
 cJSON *re_app_inspect(ReApp *a) {
   cJSON *j = serialize(a); cJSON_AddStringToObject(j, "status", a->status); cJSON_AddBoolToObject(j, "connected", a->connected); cJSON_AddStringToObject(j, "root", a->root);
@@ -429,6 +484,7 @@ cJSON *re_app_inspect(ReApp *a) {
     if (t->game) { cJSON_AddNumberToObject(tab, "sequence", t->game->sequence); cJSON_AddBoolToObject(tab, "captured", t->game->captured); }
     if (t->type == RE_GAME) cJSON_AddStringToObject(tab, "surface", t->terminal ? "external" : "sdl2-interpose");
     if (t->data && t->type == RE_TREE) cJSON_AddItemToObject(tab, "tree", cJSON_Duplicate(t->data, 1));
+    if (t->data && t->type == RE_DASHBOARD) cJSON_AddItemToObject(tab, "dashboard", cJSON_Duplicate(t->data, 1));
     if (t->format) re_format_inspect(t->format, tab);
   }
   return j;

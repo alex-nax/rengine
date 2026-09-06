@@ -53,6 +53,19 @@
       "refs": [
         "docs/specs/058-orchestrator-handoff.md"
       ]
+    },
+    {
+      "id": "optional-session-title",
+      "kind": "rationale",
+      "anchor": {
+        "start": 102,
+        "end": 102,
+        "snippet": "if (title !== undefined && (typeof title !== 'string' || !title.trim() || title.length > 200)) fail('Session title must be a short string.');"
+      },
+      "note": "Dashboard runs name their sessions (Script \u00b7 x.sh, Log \u00b7 title) and a declared game names its own (<title> \u00b7 <root>); the option is bounded and optional so every existing caller keeps the derived title, which no longer names any game. A game session also carries its declared surface and id so a restored tab picks the live view or the retained-output view. A retained host older than these fields ignores them, which is why the worker also returns the title on its own reply.",
+      "refs": [
+        "docs/specs/075-project-dashboard.md"
+      ]
     }
   ],
   "source": {

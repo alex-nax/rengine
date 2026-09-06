@@ -73,7 +73,7 @@ macOS through MoltenVK: every gate met (`docs/evidence/vulkan-adapter-macos-2026
 build, CTest, smoke, comparisons, frame time and validation met for OpenGL and Vulkan; the Vulkan memory
 delta (54–60 MiB, driver baseline) exceeded the spec 068 ceiling; the owner set a per-platform ceiling
 of 64 MiB for Vulkan on Windows (accepted-criteria correction, charter revision record, KI-039), under
-which the Windows run passes and F59 passes on its macOS and Windows evidence. The desktop suite passes
+which the Windows render run passes (delta 60380 KiB) and F59 passes on its macOS and Windows evidence. The desktop suite passes
 7 of 15 tests on Windows for reasons outside rendering (KI-038), so F62 stays open per decision 10 and
 the Windows default stays SDL per decision 8.
 
