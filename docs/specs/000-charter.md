@@ -173,3 +173,10 @@ the commits-only transfer KI-014 was blocked on; D32 sets the Vulkan floor at th
 researched as 1.3. The open “first Vulkan platform” question is answered: Windows carries the
 criterion, macOS through MoltenVK is the development and evidence path. The OpenGL floor question
 stays open.
+
+2026-09-06, Vulkan memory ceiling on Windows (owner decision after the F59 Windows run, spec 073):
+spec 068 decision 6 is amended to a 64 MiB resident-memory delta for Vulkan on Windows, because the
+NVIDIA Vulkan driver's process baseline sits about 30 MiB above OpenGL's on the same driver DLL while
+the adapter's own allocations were trimmed and the same adapter sits below SDL on macOS; every other
+backend and platform keeps 32 MiB. The Windows default still flips to Vulkan only once F62's suite
+passes there (decision 8).

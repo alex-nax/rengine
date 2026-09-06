@@ -20,6 +20,9 @@ const TOLERANCE = {
 };
 const TERMINAL_CEILING_MS = 8, MEMORY_LIMIT_KB = 32 * 1024;
 const WIN = process.platform === 'win32';
+// Spec 068 decision 6 as amended on 2026-09-06 (spec 073 status): Vulkan on Windows carries the NVIDIA driver's
+// process baseline, so its resident-memory ceiling is 64 MiB there; every other backend keeps 32 MiB.
+const memoryLimitKb = backend => (WIN && backend === 'vulkan' ? 64 * 1024 : MEMORY_LIMIT_KB);
 const PYTHON = WIN ? 'python' : 'python3'; // Windows ships no python3 alias
 const BINARY = process.env.RENGINE_NATIVE_BINARY ?? path.resolve('.cache/desktop/bin', WIN ? 'Release/rengine.exe' : 'rengine');
 const GPU_BACKENDS = process.platform === 'darwin' ? ['opengl', 'metal', 'vulkan'] : ['opengl', 'vulkan'];
@@ -127,7 +130,7 @@ test('GPU adapters match the SDL reference within the recorded tolerances and bu
     }
     await mkdir('.cache/evidence', { recursive: true });
     const report = { platform: process.platform, backends, unavailable, validation, scenes: {}, memory: { sdlKb: sdl.rss, limitKb: MEMORY_LIMIT_KB } };
-    for (const backend of backends) report.memory[`${backend}Kb`] = gpu[backend].rss;
+    for (const backend of backends) { report.memory[`${backend}Kb`] = gpu[backend].rss; report.memory[`${backend}LimitKb`] = memoryLimitKb(backend); }
     for (const name of Object.keys(TOLERANCE)) {
       await copyFile(sdl.snapshots[name], `.cache/evidence/render-${name}-sdl.bmp`);
       const scene = { sdl: sdl.stats[name], compare: {}, cross: {} };
@@ -150,7 +153,7 @@ test('GPU adapters match the SDL reference within the recorded tolerances and bu
           `${backend} ${name}: median ${scene[backend].frameMedianMs.toFixed(3)} ms exceeds the SDL baseline ${scene.sdl.frameMedianMs.toFixed(3)} ms`);
       }
       assert.ok(report.scenes.terminal[backend].frameMedianMs <= TERMINAL_CEILING_MS, `${backend}: terminal scene median exceeds ${TERMINAL_CEILING_MS} ms`);
-      assert.ok(gpu[backend].rss - sdl.rss <= MEMORY_LIMIT_KB, `${backend}: resident memory delta ${gpu[backend].rss - sdl.rss} KiB exceeds ${MEMORY_LIMIT_KB} KiB`);
+      assert.ok(gpu[backend].rss - sdl.rss <= memoryLimitKb(backend), `${backend}: resident memory delta ${gpu[backend].rss - sdl.rss} KiB exceeds ${memoryLimitKb(backend)} KiB`);
     }
     if (validation.vulkan && !validation.vulkan.unavailable) assert.equal(validation.vulkan.messages, 0, `vulkan validation: ${JSON.stringify(validation.vulkan.first)}`);
     if (validation.vulkan?.unavailable) console.log(`render spec: vulkan validation unavailable on this machine (${validation.vulkan.unavailable})`);
