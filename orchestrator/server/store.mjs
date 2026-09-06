@@ -78,8 +78,23 @@ export class WorkspaceStore {
     const entries = (await readdir(file.absolute, { withFileTypes: true }))
       .filter(entry => hidden || !['.git', 'node_modules', '.cache', '.venv'].includes(entry.name))
       .sort((a, b) => Number(b.isDirectory()) - Number(a.isDirectory()) || a.name.localeCompare(b.name));
-    return { path: file.relative, truncated: entries.length > 2000, entries: entries.slice(0, 2000).map(entry => ({
+    const shown = entries.slice(0, 2000);
+    // Direct-child counts, which the tree shows beside a directory. One readdir per subdirectory is
+    // only affordable on a listing small enough to be read at a glance, so a wide directory reports
+    // none rather than paying for hundreds of syscalls nobody asked for.
+    const directories = shown.filter(entry => entry.isDirectory());
+    const counts = new Map();
+    if (directories.length <= 100) {
+      await Promise.all(directories.map(async entry => {
+        try {
+          const children = await readdir(path.join(file.absolute, entry.name), { withFileTypes: true });
+          counts.set(entry.name, children.filter(child => hidden || !['.git', 'node_modules', '.cache', '.venv'].includes(child.name)).length);
+        } catch { /* unreadable or vanished between the two reads: report no count */ }
+      }));
+    }
+    return { path: file.relative, truncated: entries.length > 2000, entries: shown.map(entry => ({
       name: entry.name, path: [file.relative, entry.name].filter(Boolean).join('/'), directory: entry.isDirectory(), symlink: entry.isSymbolicLink(),
+      ...(counts.has(entry.name) ? { children: counts.get(entry.name) } : {}),
     })) };
   }
 
