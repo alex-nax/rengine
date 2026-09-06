@@ -4,6 +4,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "render/utf8.h"
+
+#ifndef RENGINE_FONT_DIR
+#define RENGINE_FONT_DIR "third_party"
+#endif
 
 typedef struct { unsigned char *bytes; stbtt_fontinfo info; int ascent, descent, gap; } Face;
 struct ReFontSet { Face faces[RE_FACE_COUNT]; bool owned[RE_FACE_COUNT]; };
@@ -41,8 +46,20 @@ ReFontSet *re_font_open(const char *mono_path, const char *ui_path) {
   if (!fonts->owned[RE_FACE_MONO]) {
     snprintf(error_text, sizeof(error_text), "Set RENGINE_FONT to a trusted local monospace TTF/TTC font."); free(fonts); return NULL;
   }
-  if (load(&fonts->faces[RE_FACE_UI], ui_path)) fonts->owned[RE_FACE_UI] = true;
-  else fonts->faces[RE_FACE_UI] = fonts->faces[RE_FACE_MONO];
+  /* Bundled faces (spec 076 decisions 5 and 6); each falls back rather than failing the desktop. */
+  static const struct { uint8_t face; const char *file; } bundled[] = {
+    {RE_FACE_UI, RENGINE_FONT_DIR "/inter/Inter-Regular.ttf"},
+    {RE_FACE_UI_MEDIUM, RENGINE_FONT_DIR "/inter/Inter-Medium.ttf"},
+    {RE_FACE_UI_SEMIBOLD, RENGINE_FONT_DIR "/inter/Inter-SemiBold.ttf"},
+    {RE_FACE_ICON, RENGINE_FONT_DIR "/phosphor/Phosphor.ttf"},
+  };
+  for (size_t i = 0; i < sizeof(bundled) / sizeof(bundled[0]); i++) {
+    if (load(&fonts->faces[bundled[i].face], bundled[i].file)) fonts->owned[bundled[i].face] = true;
+  }
+  if (load(&fonts->faces[RE_FACE_UI], ui_path)) fonts->owned[RE_FACE_UI] = true; /* RENGINE_UI_FONT wins over the bundle */
+  for (int i = RE_FACE_UI; i < RE_FACE_COUNT; i++) {
+    if (!fonts->owned[i]) fonts->faces[i] = fonts->faces[i == RE_FACE_UI_MEDIUM || i == RE_FACE_UI_SEMIBOLD ? RE_FACE_UI : RE_FACE_MONO];
+  }
   return fonts;
 }
 void re_font_close(ReFontSet *fonts) {
@@ -76,3 +93,38 @@ bool re_font_glyph(ReFontSet *fonts, uint8_t face_id, int size, float density, u
   return out->pixels != NULL;
 }
 void re_font_glyph_free(ReGlyphBitmap *glyph) { stbtt_FreeBitmap(glyph->pixels, NULL); glyph->pixels = NULL; }
+
+/* The monospace face keeps its integer logical advance, which is what the reference snapshots were
+ * measured with; proportional faces accumulate real advances in drawable space. */
+static float glyph_advance(Face *face, int size, float density, uint32_t codepoint) {
+  int advance, bearing;
+  stbtt_GetCodepointHMetrics(&face->info, (int)codepoint, &advance, &bearing);
+  return (float)advance * scale_for(face, size, density);
+}
+ReTextPen re_font_pen(ReFontSet *fonts, uint8_t face_id, int size, float density, int x) {
+  ReTextPen pen;
+  memset(&pen, 0, sizeof(pen));
+  pen.fonts = fonts; pen.face = face_id; pen.size = size > 0 ? size : 16; pen.density = density > 0 ? density : 1.0f;
+  pen.mono = face_id == RE_FACE_MONO; pen.logical = x; pen.drawable = (float)x * pen.density;
+  pen.advance = re_font_metrics(fonts, face_id, pen.size, pen.density).advance;
+  return pen;
+}
+float re_font_pen_x(const ReTextPen *pen) { return pen->mono ? (float)pen->logical * pen->density : pen->drawable; }
+void re_font_pen_step(ReTextPen *pen, uint32_t codepoint) {
+  if (pen->mono) { pen->logical += pen->advance; return; }
+  pen->drawable += glyph_advance(select_face(pen->fonts, pen->face), pen->size, pen->density, codepoint);
+}
+int re_font_text_width(ReFontSet *fonts, uint8_t face_id, int size, float density, const char *text, int length) {
+  if (!text || length <= 0) return 0;
+  if (size <= 0) size = 16;
+  if (density <= 0) density = 1.0f;
+  if (face_id == RE_FACE_MONO) {
+    int advance = re_font_metrics(fonts, face_id, size, density).advance, count = 0;
+    for (const char *s = text, *end = text + length; *s && s < end; count++) re_utf8(&s);
+    return advance * count;
+  }
+  Face *face = select_face(fonts, face_id);
+  float total = 0;
+  for (const char *s = text, *end = text + length; *s && s < end;) total += glyph_advance(face, size, density, re_utf8(&s));
+  return (int)(total / density + 0.5f);
+}

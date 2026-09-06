@@ -36,10 +36,13 @@ void re_scene_draw(int scene, ReDraw *draw) {
   for (int i = 0; i < 3; i++) re_draw_shadow(draw, mu_rect(90 + i * 150, 250, 100, 50), RE_COLOR_GAME_BACKDROP, 6, 4 + i * 4);
   for (int i = 0; i < 3; i++) re_draw_rrect(draw, mu_rect(90 + i * 150, 250, 100, 50), RE_COLOR_INDICATOR, 6, RE_CORNERS_ALL);
   re_draw_text(draw, "The quick brown fox jumps over 0123456789 · éü", -1, 60, 330, RE_COLOR_TEXT);
-  re_draw_text_face(draw, RE_FACE_UI, 12, "UI face 12px falls back to the mono face", -1, 60, 356, RE_COLOR_TEXT_MUTED);
-  re_draw_text_face(draw, RE_FACE_UI, 13, "UI face 13px", -1, 60, 376, RE_COLOR_TEXT);
+  re_draw_text_face(draw, RE_FACE_UI, 12, "UI face 12px: proportional advances", -1, 60, 356, RE_COLOR_TEXT_MUTED);
+  re_draw_text_face(draw, RE_FACE_UI_MEDIUM, 13, "UI medium 13px", -1, 60, 376, RE_COLOR_TEXT);
+  re_draw_text_face(draw, RE_FACE_UI_SEMIBOLD, 13, "UI semibold 13px", -1, 200, 376, RE_COLOR_TEXT);
   re_draw_text_face(draw, RE_FACE_MONO, 24, "Mono 24px", -1, 60, 398, RE_COLOR_TEXT_INDICATOR);
-  for (int i = 1; i < RE_ICON_COUNT; i++) re_draw_icon(draw, (uint8_t)i, mu_rect(560 + i * 40, 330, 30, 26), i % 2 ? RE_COLOR_CARET : RE_COLOR_TEXT);
+  for (int i = 0; i < RE_ICON_COUNT; i++) {
+    re_draw_icon(draw, (uint8_t)i, mu_rect(560 + (i % 12) * 40, 330 + (i / 12) * 34, 30, 26), i % 2 ? RE_COLOR_CARET : RE_COLOR_TEXT);
+  }
   ReTexture *t = checker(draw);
   re_draw_texture(draw, t, mu_rect(60, 440, 128, 128), 0);
   re_draw_texture(draw, t, mu_rect(220, 440, 128, 128), RE_DRAW_FLIP_Y);

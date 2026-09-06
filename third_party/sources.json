@@ -88,5 +88,25 @@
       "vulkan.h": "20c7e1ac42fe62b3ed526612c52ddfc21e2265f5c69ca9a5e9dd182cc4c8625b",
       "vulkan_core.h": "fb8ef9af80116f26eb4967c83666dff72df8b19e9d0f4191ed64d4627718fa07"
     }
+  },
+  {
+    "name": "inter",
+    "upstream": "https://github.com/rsms/inter",
+    "revision": "release v4.1, extras/ttf static faces only",
+    "files": {
+      "Inter-Regular.ttf": "40d692fce188e4471e2b3cba937be967878f631ad3ebbbdcd587687c7ebe0c82",
+      "Inter-Medium.ttf": "97ad806f526e41546d46365bb3a393145f75b7b1568913db74549ad8b8dba872",
+      "Inter-SemiBold.ttf": "78a843fade9d4612a5567302fb595b56976eb5fcebf4fea5a5912d638bafcde3",
+      "LICENSE.txt": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a"
+    }
+  },
+  {
+    "name": "phosphor-icons",
+    "upstream": "https://github.com/phosphor-icons/web",
+    "revision": "tag v2.1.2, src/regular/Phosphor.ttf; codepoints mapped in orchestrator/native/icons.json",
+    "files": {
+      "Phosphor.ttf": "06b91e022b7ee899a63efced879392a74f0bacbda54e4467e9f663220d173a10",
+      "LICENSE": "687fbe52d0eb5c2353eca27a4037e889145ee0b584d3b1abf67581c4a4a4e47c"
+    }
   }
 ]

@@ -143,6 +143,7 @@ target_link_libraries(rengine_desktop_core PUBLIC
 
 set(CMKR_TARGET rengine_desktop_core)
 target_include_directories(rengine_desktop_core SYSTEM PRIVATE "${RENGINE_VENDOR}/stb" "${RENGINE_VENDOR}")
+target_compile_definitions(rengine_desktop_core PRIVATE RENGINE_FONT_DIR="${RENGINE_VENDOR}") # bundled UI and icon faces (spec 076)
 if(NOT MSVC)
   target_compile_options(rengine_desktop_core PRIVATE -Wall -Wextra -Wpedantic)
   target_link_libraries(rengine_desktop_core PUBLIC m)

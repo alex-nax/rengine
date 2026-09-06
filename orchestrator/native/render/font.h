@@ -12,6 +12,13 @@ void re_font_close(ReFontSet *fonts);
 const char *re_font_error(void);
 bool re_font_has_face(const ReFontSet *fonts, uint8_t face);
 ReFontMetrics re_font_metrics(ReFontSet *fonts, uint8_t face, int size, float density);
+int re_font_text_width(ReFontSet *fonts, uint8_t face, int size, float density, const char *text, int length); /* logical pixels */
+
+/* Text pen: every adapter walks a run the same way, so their snapshots agree — see sidecar: pen-parity */
+typedef struct { ReFontSet *fonts; float density, drawable; int logical, advance, size; uint8_t face; bool mono; } ReTextPen;
+ReTextPen re_font_pen(ReFontSet *fonts, uint8_t face, int size, float density, int x); /* x in logical pixels */
+float re_font_pen_x(const ReTextPen *pen);                                             /* drawable pixels */
+void re_font_pen_step(ReTextPen *pen, uint32_t codepoint);
 bool re_font_glyph(ReFontSet *fonts, uint8_t face, int size, float density, uint32_t codepoint, ReGlyphBitmap *out);
 void re_font_glyph_free(ReGlyphBitmap *glyph);
 #endif

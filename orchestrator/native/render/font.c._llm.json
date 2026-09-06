@@ -5,14 +5,29 @@
       "id": "trusted-fonts",
       "kind": "constraint",
       "anchor": {
-        "start": 15,
-        "end": 26,
+        "start": 20,
+        "end": 20,
         "snippet": "static bool load(Face *face, const char *path) {",
         "symbol": "load"
       },
-      "note": "stb_truetype only reads trusted local fonts: an explicit path, RENGINE_FONT, RENGINE_UI_FONT or the platform defaults. It is never pointed at arbitrary project files, sizes are bounded to 16 bytes through 32 MiB, and a font that fails stbtt_InitFont is rejected. The UI face aliases the monospace face when none is configured so existing callers render exactly as before. Metrics are computed at the drawable density and rounded the way the former draw.c did (ascent and the advance of M with +0.5), which the reference adapter relies on for byte-identical output. Glyph availability follows the chosen font; no fallback, shaping or full Unicode typography is claimed.",
+      "note": "Fonts are read from trusted local paths only: an explicit --font argument, RENGINE_FONT, the platform's own monospace face, or the faces vendored under third_party. Nothing is downloaded and no font is loaded from project data, because a font file is parsed by stb_truetype in-process. The bundled Inter and Phosphor faces (spec 076) are pinned with hashes in third_party/sources.json; a missing bundle degrades to the mono face rather than failing the desktop, so a checkout without the fonts still runs.",
       "refs": [
-        "docs/specs/056-native-desktop.md",
+        "docs/specs/076-design-foundations.md",
+        "third_party/sources.json"
+      ]
+    },
+    {
+      "id": "pen-parity",
+      "kind": "constraint",
+      "anchor": {
+        "start": 104,
+        "end": 104,
+        "snippet": "ReTextPen re_font_pen(ReFontSet *fonts, uint8_t face_id, int size, float density, int x) {",
+        "symbol": "re_font_pen"
+      },
+      "note": "Every adapter walks a text run through this pen, so the SDL reference and the three GPU adapters place glyphs at identical positions and their snapshots can be compared under a tight tolerance. The monospace face keeps the original arithmetic exactly: an integer logical advance accumulated per glyph and multiplied by density at draw time. That is what the F56 to F59 reference snapshots were measured with, and changing it would move every existing baseline. Proportional faces cannot use a single advance, so they accumulate real per-glyph advances in drawable space instead; the two paths are chosen by face id rather than by probing the font, which keeps the rule visible.",
+      "refs": [
+        "docs/specs/076-design-foundations.md",
         "docs/specs/067-draw-list-contract.md"
       ]
     }

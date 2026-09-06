@@ -128,15 +128,16 @@ static Glyph *glyph(MetalBackend *b, uint8_t face, int16_t size, uint32_t cp) {
 static void draw_text(MetalBackend *b, ReColor color, uint8_t face, int size, int x, int y, const char *s, const char *end) {
   ReFontMetrics m = re_font_metrics(b->base.fonts, face, size, b->density);
   float d = b->density, base = (float)(y + m.ascent + 2) * d;
+  ReTextPen pen = re_font_pen(b->base.fonts, face, size, d, x);
   bind(b, NULL);
   while (*s && s < end) {
     uint32_t cp = re_utf8(&s); Glyph *g = glyph(b, face, (int16_t)size, cp);
     if (g->present) {
-      float gx = (float)x * d + (float)g->dx, gy = base + (float)g->dy, radii[4] = {0, 0, 0, 0};
+      float gx = re_font_pen_x(&pen) + (float)g->dx, gy = base + (float)g->dy, radii[4] = {0, 0, 0, 0};
       emit(b, gx, gy, gx + (float)g->w, gy + (float)g->h, (float)g->ax / ATLAS_SIZE, (float)g->ay / ATLAS_SIZE,
            (float)(g->ax + g->w) / ATLAS_SIZE, (float)(g->ay + g->h) / ATLAS_SIZE, color, 0, 0, 0, 0, radii, 0, MODE_COVERAGE);
     }
-    x += m.advance;
+    re_font_pen_step(&pen, cp);
   }
 }
 static void set_clip(MetalBackend *b, const ReCommand *c) {
@@ -203,10 +204,11 @@ static void execute(ReBackend *backend, const ReDrawList *list) {
       case RE_CMD_RING: bind(b, NULL); shape(b, c->rect, c->color, c->radius, c->corners, (float)c->width, MODE_RING, c->width); break;
       case RE_CMD_TEXT: { const char *s = re_draw_list_string(list, c); draw_text(b, c->color, c->face, c->size > 0 ? c->size : 16, c->rect.x, c->rect.y, s, s + c->text_length); break; }
       case RE_CMD_ICON: {
-        static const char *glyphs[RE_ICON_COUNT] = {"?", "x", "+", ">", "v"};
-        const char *s = glyphs[c->icon < RE_ICON_COUNT ? c->icon : RE_ICON_UNKNOWN]; int size = c->size > 0 ? c->size : 16;
-        ReFontMetrics m = re_font_metrics(b->base.fonts, RE_FACE_MONO, size, d);
-        draw_text(b, c->color, RE_FACE_MONO, size, c->rect.x + (c->rect.w - m.advance) / 2, c->rect.y + (c->rect.h - m.line_height) / 2, s, s + strlen(s));
+        char glyph[5]; int size = c->size > 0 ? c->size : 16;
+        int length = re_encode(re_icon_codepoints[c->icon < RE_ICON_COUNT ? c->icon : RE_ICON_UNKNOWN], glyph);
+        ReFontMetrics m = re_font_metrics(b->base.fonts, RE_FACE_ICON, size, d);
+        int width = re_font_text_width(b->base.fonts, RE_FACE_ICON, size, d, glyph, length);
+        draw_text(b, c->color, RE_FACE_ICON, size, c->rect.x + (c->rect.w - width) / 2, c->rect.y + (c->rect.h - m.line_height) / 2, glyph, glyph + length);
         break;
       }
       case RE_CMD_TEXTURE: {

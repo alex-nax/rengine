@@ -12,8 +12,8 @@ typedef struct { uint8_t r, g, b, a; } ReColor;
 typedef struct { int x, y, w, h; } ReRect;
 typedef struct ReTexture ReTexture;
 
-enum { RE_FACE_MONO = 0, RE_FACE_UI = 1, RE_FACE_COUNT = 2 };
-enum { RE_ICON_UNKNOWN = 0, RE_ICON_CLOSE = 1, RE_ICON_CHECK = 2, RE_ICON_COLLAPSED = 3, RE_ICON_EXPANDED = 4, RE_ICON_COUNT = 5 };
+enum { RE_FACE_MONO = 0, RE_FACE_UI = 1, RE_FACE_UI_MEDIUM = 2, RE_FACE_UI_SEMIBOLD = 3, RE_FACE_ICON = 4, RE_FACE_COUNT = 5 };
+#include "render/icons.h" /* generated: RE_ICON_* and their codepoints in the pinned icon face */
 enum { RE_CORNER_TOP_LEFT = 1, RE_CORNER_TOP_RIGHT = 2, RE_CORNER_BOTTOM_RIGHT = 4, RE_CORNER_BOTTOM_LEFT = 8, RE_CORNERS_ALL = 15 };
 enum { RE_CLIP_RESET = 1, RE_DRAW_FLIP_Y = 2 };
 

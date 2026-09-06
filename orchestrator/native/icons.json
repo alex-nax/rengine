@@ -1,0 +1,197 @@
+{
+  "font": {
+    "source": "third_party/phosphor/Phosphor.ttf",
+    "family": "Phosphor",
+    "version": "2.1.2"
+  },
+  "note": "Owned mapping from Claude Design card symbols to the pinned icon font (spec 076 decision 5). Order fixes the RE_ICON_* enum; append new icons, never reorder. `tools/design.py check` fails when a card uses a symbol no entry claims.",
+  "icons": [
+    {
+      "name": "unknown",
+      "symbols": [],
+      "phosphor": "placeholder",
+      "codepoint": "0xe650"
+    },
+    {
+      "name": "close",
+      "symbols": [
+        "✕"
+      ],
+      "phosphor": "x",
+      "codepoint": "0xe4f6"
+    },
+    {
+      "name": "check",
+      "symbols": [],
+      "phosphor": "check",
+      "codepoint": "0xe182"
+    },
+    {
+      "name": "collapsed",
+      "symbols": [
+        "▸",
+        "›"
+      ],
+      "phosphor": "caret-right",
+      "codepoint": "0xe13a"
+    },
+    {
+      "name": "expanded",
+      "symbols": [
+        "▾"
+      ],
+      "phosphor": "caret-down",
+      "codepoint": "0xe136"
+    },
+    {
+      "name": "tree",
+      "symbols": [
+        "⊟"
+      ],
+      "phosphor": "sidebar-simple",
+      "codepoint": "0xec24"
+    },
+    {
+      "name": "shell",
+      "symbols": [
+        "›_"
+      ],
+      "phosphor": "terminal-window",
+      "codepoint": "0xeae8"
+    },
+    {
+      "name": "agent",
+      "symbols": [
+        "◆"
+      ],
+      "phosphor": "diamond",
+      "codepoint": "0xe1ec"
+    },
+    {
+      "name": "split-vertical",
+      "symbols": [
+        "▯▯"
+      ],
+      "phosphor": "columns",
+      "codepoint": "0xe546"
+    },
+    {
+      "name": "split-horizontal",
+      "symbols": [
+        "▭"
+      ],
+      "phosphor": "rows",
+      "codepoint": "0xe5a2"
+    },
+    {
+      "name": "merge-pane",
+      "symbols": [
+        "⊡"
+      ],
+      "phosphor": "selection",
+      "codepoint": "0xe69a"
+    },
+    {
+      "name": "project",
+      "symbols": [
+        "▣"
+      ],
+      "phosphor": "folder",
+      "codepoint": "0xe24a"
+    },
+    {
+      "name": "search",
+      "symbols": [
+        "⌕"
+      ],
+      "phosphor": "magnifying-glass",
+      "codepoint": "0xe30c"
+    },
+    {
+      "name": "theme",
+      "symbols": [
+        "◐",
+        "◑"
+      ],
+      "phosphor": "circle-half",
+      "codepoint": "0xe18c"
+    },
+    {
+      "name": "dirty",
+      "symbols": [
+        "▪",
+        "●"
+      ],
+      "phosphor": "dot",
+      "codepoint": "0xecde"
+    },
+    {
+      "name": "hollow",
+      "symbols": [
+        "▫"
+      ],
+      "phosphor": "dot-outline",
+      "codepoint": "0xece0"
+    },
+    {
+      "name": "add",
+      "symbols": [
+        "+"
+      ],
+      "phosphor": "plus",
+      "codepoint": "0xe3d4"
+    },
+    {
+      "name": "arrow-up",
+      "symbols": [
+        "↑"
+      ],
+      "phosphor": "arrow-up",
+      "codepoint": "0xe08e"
+    },
+    {
+      "name": "caret-up",
+      "symbols": [
+        "▲"
+      ],
+      "phosphor": "caret-up",
+      "codepoint": "0xe13c"
+    },
+    {
+      "name": "caret-left",
+      "symbols": [
+        "‹"
+      ],
+      "phosphor": "caret-left",
+      "codepoint": "0xe138"
+    },
+    {
+      "name": "menu",
+      "symbols": [
+        "≡"
+      ],
+      "phosphor": "list",
+      "codepoint": "0xe2f0"
+    },
+    {
+      "name": "run",
+      "symbols": [
+        "▶"
+      ],
+      "phosphor": "play",
+      "codepoint": "0xe3d0"
+    },
+    {
+      "name": "file",
+      "symbols": [],
+      "phosphor": "file",
+      "codepoint": "0xe230"
+    },
+    {
+      "name": "folder-open",
+      "symbols": [],
+      "phosphor": "folder-open",
+      "codepoint": "0xe256"
+    }
+  ]
+}

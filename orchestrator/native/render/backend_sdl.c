@@ -38,14 +38,15 @@ static Glyph *glyph(SdlBackend *b, uint8_t face, int16_t size, uint32_t codepoin
 /* Text runs reproduce the previous immediate-mode placement exactly — see sidecar: reference-identity */
 static void draw_text(SdlBackend *b, ReColor color, uint8_t face, int size, int x, int y, const char *s, const char *end) {
   ReFontMetrics m = re_font_metrics(b->base.fonts, face, size, b->density);
+  ReTextPen pen = re_font_pen(b->base.fonts, face, size, b->density, x);
   while (*s && s < end) {
     uint32_t cp = re_utf8(&s); Glyph *g = glyph(b, face, (int16_t)size, cp);
     if (g->texture) {
-      SDL_FRect target = {x + g->dx / b->density, y + m.ascent + g->dy / b->density + 2, g->w / b->density, g->h / b->density};
+      SDL_FRect target = {re_font_pen_x(&pen) / b->density + g->dx / b->density, y + m.ascent + g->dy / b->density + 2, g->w / b->density, g->h / b->density};
       SDL_SetTextureColorMod(g->texture, color.r, color.g, color.b);
       SDL_SetTextureAlphaMod(g->texture, color.a); SDL_RenderCopyF(b->renderer, g->texture, NULL, &target);
     }
-    x += m.advance;
+    re_font_pen_step(&pen, cp);
   }
 }
 
@@ -89,11 +90,11 @@ static void outline_rrect(SdlBackend *b, ReRect r, ReColor c, float radius, uint
   span(b, r.x, r.y + rad, 1, r.h - 2 * rad); span(b, r.x + r.w - 1, r.y + rad, 1, r.h - 2 * rad);
 }
 static void draw_icon(SdlBackend *b, const ReCommand *c) {
-  static const char *glyphs[RE_ICON_COUNT] = {"?", "x", "+", ">", "v"};
-  const char *s = glyphs[c->icon < RE_ICON_COUNT ? c->icon : RE_ICON_UNKNOWN];
-  int size = c->size > 0 ? c->size : 16;
-  ReFontMetrics m = re_font_metrics(b->base.fonts, RE_FACE_MONO, size, b->density);
-  draw_text(b, c->color, RE_FACE_MONO, size, c->rect.x + (c->rect.w - m.advance) / 2, c->rect.y + (c->rect.h - m.line_height) / 2, s, s + strlen(s));
+  char glyph[5]; int size = c->size > 0 ? c->size : 16;
+  int length = re_encode(re_icon_codepoints[c->icon < RE_ICON_COUNT ? c->icon : RE_ICON_UNKNOWN], glyph);
+  ReFontMetrics m = re_font_metrics(b->base.fonts, RE_FACE_ICON, size, b->density);
+  int width = re_font_text_width(b->base.fonts, RE_FACE_ICON, size, b->density, glyph, length);
+  draw_text(b, c->color, RE_FACE_ICON, size, c->rect.x + (c->rect.w - width) / 2, c->rect.y + (c->rect.h - m.line_height) / 2, glyph, glyph + length);
 }
 
 static float density(ReBackend *backend, int logical_width) {
