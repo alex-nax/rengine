@@ -1,7 +1,7 @@
 {
-  "version": 1,
+  "version": 2,
   "name": "rEngine native workspace",
-  "source": "Extracted 2026-09-06 from orchestrator/native/*.c and the pinned microui default style. tools/design.py generates orchestrator/native/theme.h and the preview cards from this file.",
+  "source": "Bindings from design/tokens.css to the native theme names. tools/design.py generates orchestrator/native/theme.h and theme.c from these bindings and the token layers, so every preset is compiled in and switches live (spec 076). Metrics below stay literal until a card claims them.",
   "typography": {
     "family": [
       "Menlo",
@@ -13,268 +13,328 @@
     ],
     "size": 16,
     "line-height": 20,
-    "note": "One trusted local monospace font at one size; cell width is the advance of 'M'. Bold is drawn by overstriking one pixel to the right; underline is a 1px rule. No italics, weights or second size exist natively."
+    "note": "One trusted local monospace font for editor and terminal cells; the design's 13/19 mono cell arrives with the terminal card in F67. UI surfaces use the bundled Inter faces at the token sizes."
   },
   "colors": {
     "canvas": {
-      "rgba": [
-        14,
-        18,
-        23,
-        255
-      ],
+      "token": "ui-canvas",
       "role": "Window clear colour behind and between panes",
       "native": "re_draw_begin clear"
     },
     "surface": {
-      "rgba": [
-        20,
-        24,
-        30,
-        255
-      ],
+      "token": "pane-bg",
       "role": "Pane, toolbar, editor and terminal background",
       "native": "MU_COLOR_WINDOWBG, editor buffer, terminal default background"
     },
+    "surface-raised": {
+      "token": "ui-surface-raised",
+      "role": "",
+      "native": ""
+    },
+    "surface-sunken": {
+      "token": "ui-surface-sunken",
+      "role": "",
+      "native": ""
+    },
     "control": {
-      "rgba": [
-        38,
-        46,
-        56,
-        255
-      ],
+      "token": "ui-control",
       "role": "Button and tab resting fill",
       "native": "MU_COLOR_BUTTON"
     },
     "control-hover": {
-      "rgba": [
-        52,
-        68,
-        78,
-        255
-      ],
+      "token": "ui-control-hover",
       "role": "Button and tab under the pointer",
       "native": "MU_COLOR_BUTTONHOVER"
     },
     "control-active": {
-      "rgba": [
-        59,
-        86,
-        86,
-        255
-      ],
+      "token": "ui-control-active",
       "role": "Button and tab while pressed",
       "native": "MU_COLOR_BUTTONFOCUS"
     },
     "field": {
-      "rgba": [
-        30,
-        30,
-        30,
-        255
-      ],
+      "token": "ui-field",
       "role": "Textbox and checkbox fill",
       "native": "MU_COLOR_BASE (upstream default)"
     },
     "field-hover": {
-      "rgba": [
-        35,
-        35,
-        35,
-        255
-      ],
+      "token": "ui-field-hover",
       "role": "Textbox and checkbox under the pointer",
       "native": "MU_COLOR_BASEHOVER (upstream default)"
     },
     "field-active": {
-      "rgba": [
-        40,
-        40,
-        40,
-        255
-      ],
+      "token": "ui-field-hover",
       "role": "Focused textbox or checkbox",
       "native": "MU_COLOR_BASEFOCUS (upstream default)"
     },
     "border": {
-      "rgba": [
-        25,
-        25,
-        25,
-        255
-      ],
+      "token": "ui-border",
       "role": "1px frame around buttons, fields and pane windows",
       "native": "MU_COLOR_BORDER (upstream default)"
     },
+    "border-soft": {
+      "token": "ui-border-soft",
+      "role": "",
+      "native": ""
+    },
+    "highlight": {
+      "token": "ui-highlight",
+      "role": "",
+      "native": ""
+    },
     "text": {
-      "rgba": [
-        220,
-        228,
-        234,
-        255
-      ],
+      "token": "ui-fg",
       "role": "Primary text, editor text, terminal default foreground",
       "native": "MU_COLOR_TEXT, editor text, terminal default foreground"
     },
+    "text-strong": {
+      "token": "ui-fg-strong",
+      "role": "",
+      "native": ""
+    },
     "text-muted": {
-      "rgba": [
-        146,
-        167,
-        178,
-        255
-      ],
+      "token": "ui-fg-muted",
       "role": "Status bar and secondary annotations",
       "native": "status line in main.c"
     },
+    "text-faint": {
+      "token": "ui-fg-faint",
+      "role": "",
+      "native": ""
+    },
     "text-indicator": {
-      "rgba": [
-        210,
-        224,
-        233,
-        255
-      ],
+      "token": "terminal-indicator-fg",
       "role": "Text on the terminal history indicator",
       "native": "terminal scroll indicator"
     },
+    "text-on-accent": {
+      "token": "ui-fg-on-accent",
+      "role": "",
+      "native": ""
+    },
+    "accent": {
+      "token": "ui-accent",
+      "role": "",
+      "native": ""
+    },
+    "accent-hover": {
+      "token": "ui-accent-hover",
+      "role": "",
+      "native": ""
+    },
+    "focus": {
+      "token": "ui-focus",
+      "role": "",
+      "native": ""
+    },
     "title-bg": {
-      "rgba": [
-        25,
-        25,
-        25,
-        255
-      ],
+      "token": "ui-surface-raised",
       "role": "Reserved: microui title bars are disabled in every window",
       "native": "MU_COLOR_TITLEBG (upstream default, unused)"
     },
     "title-text": {
-      "rgba": [
-        240,
-        240,
-        240,
-        255
-      ],
+      "token": "ui-fg-strong",
       "role": "Reserved: microui title text",
       "native": "MU_COLOR_TITLETEXT (upstream default, unused)"
     },
     "panel-bg": {
-      "rgba": [
-        0,
-        0,
-        0,
-        0
-      ],
+      "token": "ui-surface-sunken",
       "role": "Transparent microui panel background",
       "native": "MU_COLOR_PANELBG (upstream default)"
     },
     "divider": {
-      "rgba": [
-        54,
-        67,
-        76,
-        255
-      ],
+      "token": "pane-divider",
       "role": "Draggable 6px split divider between panes",
       "native": "workspace split divider"
     },
+    "divider-hover": {
+      "token": "pane-divider-hover",
+      "role": "",
+      "native": ""
+    },
     "selection": {
-      "rgba": [
-        55,
-        77,
-        89,
-        255
-      ],
+      "token": "ui-selection",
       "role": "Editor selection cells",
       "native": "editor selection"
     },
     "caret": {
-      "rgba": [
-        150,
-        210,
-        185,
-        190
-      ],
+      "token": "editor-caret",
       "role": "Editor caret: 2px bar, or a full cell in Vim NORMAL",
       "native": "editor cursor"
     },
     "terminal-cursor": {
-      "rgba": [
-        145,
-        205,
-        181,
-        100
-      ],
+      "token": "terminal-cursor",
       "role": "Terminal cursor cell while focused and live",
       "native": "terminal cursor"
     },
     "indicator": {
-      "rgba": [
-        40,
-        53,
-        62,
-        255
-      ],
+      "token": "terminal-indicator-bg",
       "role": "Terminal history indicator background",
       "native": "terminal scroll indicator"
     },
     "scroll-track": {
-      "rgba": [
-        30,
-        37,
-        44,
-        255
-      ],
+      "token": "scroll-track",
       "role": "Native terminal and editor scrollbar track",
       "native": "re_scrollbar_draw"
     },
     "scroll-thumb": {
-      "rgba": [
-        99,
-        119,
-        131,
-        255
-      ],
+      "token": "scroll-thumb",
       "role": "Native scrollbar thumb",
       "native": "re_scrollbar_draw"
     },
     "scroll-thumb-active": {
-      "rgba": [
-        145,
-        180,
-        190,
-        255
-      ],
+      "token": "scroll-thumb-hover",
       "role": "Native scrollbar thumb while dragging",
       "native": "re_scrollbar_draw"
     },
     "list-scroll-track": {
-      "rgba": [
-        43,
-        43,
-        43,
-        255
-      ],
+      "token": "scroll-track",
       "role": "microui overflow scrollbar track in tree and session lists",
       "native": "MU_COLOR_SCROLLBASE (upstream default)"
     },
     "list-scroll-thumb": {
-      "rgba": [
-        30,
-        30,
-        30,
-        255
-      ],
+      "token": "scroll-thumb",
       "role": "microui overflow scrollbar thumb",
       "native": "MU_COLOR_SCROLLTHUMB (upstream default)"
     },
     "game-backdrop": {
-      "rgba": [
-        0,
-        0,
-        0,
-        255
-      ],
+      "token": "game-backdrop",
       "role": "Letterbox behind the live game texture",
       "native": "game surface backdrop"
+    },
+    "toolbar-bg": {
+      "token": "toolbar-bg",
+      "role": "",
+      "native": ""
+    },
+    "toolbar-fg": {
+      "token": "toolbar-fg",
+      "role": "",
+      "native": ""
+    },
+    "tabs-bg": {
+      "token": "tabs-bg",
+      "role": "",
+      "native": ""
+    },
+    "tab-fg": {
+      "token": "tab-fg",
+      "role": "",
+      "native": ""
+    },
+    "tab-active-bg": {
+      "token": "tab-active-bg",
+      "role": "",
+      "native": ""
+    },
+    "tab-active-fg": {
+      "token": "tab-active-fg",
+      "role": "",
+      "native": ""
+    },
+    "tab-marker": {
+      "token": "tab-marker",
+      "role": "",
+      "native": ""
+    },
+    "tree-bg": {
+      "token": "tree-bg",
+      "role": "",
+      "native": ""
+    },
+    "tree-fg": {
+      "token": "tree-fg",
+      "role": "",
+      "native": ""
+    },
+    "tree-icon": {
+      "token": "tree-icon",
+      "role": "",
+      "native": ""
+    },
+    "tree-selected-bg": {
+      "token": "tree-selected-bg",
+      "role": "",
+      "native": ""
+    },
+    "tree-selected-fg": {
+      "token": "tree-selected-fg",
+      "role": "",
+      "native": ""
+    },
+    "editor-bg": {
+      "token": "editor-bg",
+      "role": "",
+      "native": ""
+    },
+    "editor-fg": {
+      "token": "editor-fg",
+      "role": "",
+      "native": ""
+    },
+    "editor-gutter-fg": {
+      "token": "editor-gutter-fg",
+      "role": "",
+      "native": ""
+    },
+    "editor-line-bg": {
+      "token": "editor-line-bg",
+      "role": "",
+      "native": ""
+    },
+    "editor-selection": {
+      "token": "editor-selection",
+      "role": "",
+      "native": ""
+    },
+    "terminal-bg": {
+      "token": "terminal-bg",
+      "role": "",
+      "native": ""
+    },
+    "terminal-fg": {
+      "token": "terminal-fg",
+      "role": "",
+      "native": ""
+    },
+    "status-bg": {
+      "token": "status-bg",
+      "role": "",
+      "native": ""
+    },
+    "status-fg": {
+      "token": "status-fg",
+      "role": "",
+      "native": ""
+    },
+    "status-accent-bg": {
+      "token": "status-accent-bg",
+      "role": "",
+      "native": ""
+    },
+    "status-accent-fg": {
+      "token": "status-accent-fg",
+      "role": "",
+      "native": ""
+    },
+    "ok": {
+      "token": "ui-ok",
+      "role": "",
+      "native": ""
+    },
+    "warn": {
+      "token": "ui-warn",
+      "role": "",
+      "native": ""
+    },
+    "err": {
+      "token": "ui-err",
+      "role": "",
+      "native": ""
+    },
+    "info": {
+      "token": "ui-info",
+      "role": "",
+      "native": ""
     }
   },
   "microui": {
@@ -499,5 +559,30 @@
       "This is already the only pane.",
       "Start through npm start to rebuild and reload the desktop."
     ]
+  },
+  "token-metrics": {
+    "toolbar-height": "toolbar-height",
+    "tabs-height": "tabs-height",
+    "status-height": "status-height",
+    "tree-row": "tree-row",
+    "tree-indent": "tree-indent",
+    "row": "ui-row",
+    "row-lg": "ui-row-lg",
+    "pad": "ui-pad",
+    "gap": "ui-gap",
+    "gap-lg": "ui-gap-lg",
+    "radius": "ui-radius",
+    "radius-lg": "ui-radius-lg",
+    "size": "ui-size",
+    "size-sm": "ui-size-sm",
+    "size-lg": "ui-size-lg",
+    "leading": "ui-leading",
+    "leading-sm": "ui-leading-sm",
+    "leading-lg": "ui-leading-lg",
+    "mono-size": "ui-mono-size",
+    "mono-leading": "ui-mono-leading",
+    "scroll-size": "scroll-size",
+    "scroll-inset": "scroll-inset",
+    "pane-divider-size": "pane-divider-size"
   }
 }

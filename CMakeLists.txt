@@ -113,6 +113,7 @@ set(rengine_desktop_core_SOURCES
 	"orchestrator/native/scene.c"
 	"orchestrator/native/scroll.c"
 	"orchestrator/native/terminal.c"
+	"orchestrator/native/theme.c"
 	"orchestrator/native/workspace.c"
 )
 

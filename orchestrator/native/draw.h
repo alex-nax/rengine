@@ -11,6 +11,7 @@ cJSON *re_draw_stats(const ReDraw *draw);
 void re_draw_stats_reset(ReDraw *draw);
 void re_draw_close(ReDraw *draw);
 void re_draw_bind(ReDraw *draw, mu_Context *ui);
+int re_draw_theme(ReDraw *draw, const char *preset); /* live preset switch; index or -1 */
 void re_draw_begin(ReDraw *draw, int width, int height);
 void re_draw_commands(ReDraw *draw, mu_Context *ui);
 void re_draw_end(ReDraw *draw);

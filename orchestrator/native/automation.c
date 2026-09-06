@@ -33,6 +33,12 @@ void re_automation_command(ReApp *app, SDL_Window *window, const cJSON *j) {
     if (draw && cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(j, "reset"))) re_draw_stats_reset(draw);
     re_automation_reply(id, draw ? re_draw_stats(draw) : cJSON_CreateNull()); return;
   }
+  if (!strcmp(op, "theme")) {
+    int index = re_draw_theme(re_draw_active(), re_string(j, "name"));
+    e.type = SDL_WINDOWEVENT; e.window.event = SDL_WINDOWEVENT_EXPOSED; SDL_PushEvent(&e); /* the switch shows on the next frame */
+    re_automation_reply(id, index >= 0 ? cJSON_CreateString(re_theme_preset_names[index]) : cJSON_CreateNull());
+    return;
+  }
   if (!strcmp(op, "scene")) app->scene = re_scene_id(re_string(j, "name"));
   else
   if (!strcmp(op, "text")) {

@@ -14,7 +14,7 @@
 #endif
 
 struct ReDraw {
-  ReBackend *backend; ReFontSet *fonts; ReDrawList list;
+  ReBackend *backend; ReFontSet *fonts; ReDrawList list; mu_Context *ui;
   int cell_width, line_height; float density; bool flushed;
   double build[RE_STAT_FRAMES], execute[RE_STAT_FRAMES]; int stat_count, stat_next; Uint64 frame_start;
 };
@@ -80,8 +80,15 @@ void re_draw_close(ReDraw *d) {
   re_font_close(d->fonts); if (active == d) active = NULL; free(d);
 }
 void re_draw_bind(ReDraw *d, mu_Context *ui) {
+  d->ui = ui;
   mu_init(ui); ui->text_width = text_width; ui->text_height = text_height; ui->style->font = d;
   re_theme_apply(ui->style); ui->style->size.y = d->line_height; /* generated palette/metrics; see sidecar: generated-theme */
+}
+/* A preset assigns the live theme and pushes it back into microui's style; the next frame draws it. */
+int re_draw_theme(ReDraw *d, const char *preset) {
+  int index = re_theme_select(preset);
+  if (index >= 0 && d && d->ui) { re_theme_apply(d->ui->style); d->ui->style->size.y = d->line_height; }
+  return index;
 }
 void re_draw_begin(ReDraw *d, int w, int h) {
   float density = d->backend->ops->density(d->backend, w);
