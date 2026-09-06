@@ -1,5 +1,112 @@
 # Progress Log
 
+## Session 37 (macos) — 2026-09-06 — A cooperative game surface: reserve the surface, inject nothing (F77)
+
+**Owner scope**: give a project whose engine already speaks the surface protocol a workspace game
+pane without any library injection. Worktree `.cache/worktrees/cooperative`, branch
+`feat/cooperative-surface` cut from `origin/feat/devices` at `14746d1` and pushed per commit; the
+`main` ref untouched, `update_workspace` deliberately not run, no consumer repository edited and
+`.cache/worktrees/merge-verify` never touched. Spec 078 **extended** rather than replaced, because
+this is a third value of an existing key.
+
+**The value exists because of a race, not because of tidiness.** `embedded` means three things at
+once: reserve a `Surfaces` item, pass `RENGINE_SURFACE_PORT`/`RENGINE_SURFACE_TOKEN`, and put
+`librengine_surface.dylib` on `DYLD_INSERT_LIBRARIES` so the adapter interposes SDL2 inside the
+game. An SDL3-static consumer cannot have the third: there is no dynamic symbol to interpose.
+vtmb-vr has therefore implemented the client side in its own engine (its F1147). If such a game were
+declared `embedded`, its own connection and the injected one would greet **the same token on the
+same channel**; `Surfaces.accept` keeps the first socket and destroys the second, and both sides
+reconnect after a close, so the surviving producer is whichever wins a restart race — on every
+reconnect, with no error reported anywhere. `surface: "embedded"` plus an `inject: false` flag would
+leave that one typo away, so it is a separate enum value and the regression asserts on the composed
+launch environment: for a cooperative game it carries **no `DYLD_`/`LD_` key at all**.
+
+**No contract bump, and the precedent is now written down.** `games` and `devices` were new *keys*,
+which an older reader rejects by key rather than by version — hence contracts 3 and 4. `surface` is
+a key every contract-3 reader already has, with a closed enum and no default, so an older reader
+answers `$.games[0] (vtmb-flat).surface must be one of "embedded", "external"` and drops the whole
+games array. The audit behind that claim is in the spec: injection is an equality test against
+`embedded` with no default and no truthiness anywhere on the path, so no unknown value can ever be
+injected into; the reservation is an explicit membership test, so an unknown value degrades toward
+`external`, which is *fewer* privileges; and the one genuine fall-through — native
+`re_app_external_session` asking whether a session **is** external — is why a newer server's
+cooperative session renders correctly on a desktop that predates the value. One report did degrade
+and is fixed: the automation snapshot inferred a tab's surface back from its view
+(`t->terminal ? "external" : "embedded"`) and would have called a cooperative tab embedded.
+
+**The native pane needed no change to render the frames.** The only native edit is that report, 13
+insertions in `app.c`; `git diff origin/main --stat -- orchestrator/native/` is that one file, and
+`workspace.c` is untouched.
+
+**The sabotage pass moved two assertions, which is the point of running it.** Every check was broken
+in the specific way it claims to prevent, not merely deleted:
+
+| Sabotage (production code, restored after) | What failed, and what it said |
+| --- | --- |
+| Inject on the cooperative path alone, everything else intact | *no injection variable may reach a cooperative game, or its own connection races an injected one* — printing the composed env with `DYLD_INSERT_LIBRARIES` in it |
+| Widen the adapter/platform gate to cover cooperative | *a cooperative game reports no adapter* |
+| Drop `items.set(session.id, item)` so no viewer can attach | *and the session is bound to that item, or no viewer can attach*: `0 !== 1` |
+| Remove the live frame fan-out to viewers | *the viewer received 1 frame(s) while the server holds 296* |
+| Narrow the local-device rule back to `embedded` only | the `cooperative` case of the devices rule |
+| Widen the shipped `surface` enum with a junk value | *the current reader names all three* |
+| Make the test's predecessor-enum narrowing a no-op | *an older reader refuses cooperative by value, and never treats it as embedded* |
+| Native: treat every non-`embedded` surface as external | *the cooperative pane receives frames* not reached — with `"surface":"external"` and a `game-status` row in the dumped state |
+
+Two of those found real weaknesses. The injection regression **was masked**: held inside the larger
+test, the realistic sabotage tripped the earlier "reports no adapter" assertion first, so the check
+that exists to prevent the race was never the one that spoke. It is now alone in its own test with
+its own launch, and asserts the absence of the injection variable *before* the surface variables, so
+nothing easier can stand in for it. And the viewer check passed with the fan-out removed, because
+attaching replays the latest frame the server already holds; it now requires two frames with
+different sequence numbers.
+
+**The fixture producer, not a consumer binary.** `orchestrator/tests/surface-producer.mjs` reads the
+two variables, greets both channels through the committed `surface-protocol.mjs` encoder, streams
+frames and reports on stdout every injection variable it was handed. The child's report is
+corroboration only and is documented as such: macOS purges `DYLD_*` before a protected interpreter
+starts, which is exactly why the load-bearing assertion reads the environment rEngine composes.
+
+**The consumer shape is verified against a copy; the file is the owner's.** `contracts.test.mjs`
+pins the vtmb-vr declaration with `vtmb-flat` rewritten to `surface: "cooperative"` carrying
+`env: { "VTMB_HIDDEN_WINDOW": "1" }`: it validates structurally, reads back with both records and
+their surfaces, keeps the consumer's own variable intact — `VTMB_HIDDEN_WINDOW` is an ordinary
+UPPER_SNAKE entry that the `RENGINE_`/`DYLD_`/`LD_` reserved-prefix rule does not reach — and the
+same document with a `DYLD_INSERT_LIBRARIES` entry is still refused by name.
+
+**One thing worth knowing before editing `games.mjs`:** it contains a deliberate NUL byte (the
+launch-identity key separator), so git labels it `Bin` in `--stat` and **`grep` silently prints
+nothing** for it. Use `git diff --text` and `python`/`rg` on that file; a `grep` that returns clean
+there is telling you nothing.
+
+**Gates**, after a final `git fetch` (`origin/main` `47405a6`, the devices landing) and a merge of
+it. `npm test` **74/74**. `npm run test:desktop` **31/31**, sequential, 22 fixtures
+including the new `native-cooperative.spec.mjs`. `ctest --test-dir .cache/desktop` **6/6** (0.96 s).
+Native build from a **wiped** `.cache/desktop`: **0 warnings, 0 errors**; `npm run build:surface`
+from a wiped `.cache/native` likewise 0. `./init.sh` clean (37 features). `python3 tools/design.py
+check` clean. `python3 tools/features.py validate` clean, and `docs/roadmap-graph.md` regenerates
+identical to the committed file. `RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run
+test:game-nolf` **1/1** — unchanged, as it must be: NOLF stays `embedded` and its injection
+path is untouched. Sidecars with the private index `.cache/sidecars-cooperative.sqlite`, run
+sequentially: **16 errors, 21 warnings** whole-tree against `origin/main`'s own **17 / 22**, so this
+branch adds no drift and repairs one file's worth; every file it touches is clean and stamped, and
+the residual is the pre-existing set (KI-052).
+
+**Two merges, and a conflict resolution worth flagging.** `origin/feat/devices` at `14746d1` was the
+base; `origin/feat/devices` at `522ea05` and then `origin/main` at `47405a6` (devices
+fast-forwarded) were absorbed. `package.json`'s desktop list conflicted three ways and was resolved
+as the **union** — which restored `native-recording.spec.mjs`: main's `9e52352` *replaced* it with
+`native-explorer.spec.mjs` rather than adding it, so the recording fixture had been off the desktop
+gate since that commit. It passes here. Known issues were renumbered to follow main's landing
+(devices at 050/051/052) and this lane took **KI-053**, clear above. `orchestrator/native/` is one
+file, `app.c`, 13 insertions: `workspace.c` is untouched.
+
+**Remaining.** F77 stays `passes: false` until a real consumer declares `cooperative` (KI-053): the
+owner owns vtmb-vr's `.rengine/project.json` and this repository deliberately did not edit it, so
+the end-to-end claim rests on a fixture that speaks the same protocol. Delivery needs
+`update_workspace` for the worker layer and a desktop reload for the native tab; this lane ran
+neither. `docs/specs/078` still says the contract enum is `[1, 2, 3]` in one paragraph the devices
+lane left behind — spec 082 owns that sentence, so it was not corrected from here.
+
 ## Session 36 (macos) — 2026-09-06 — Merging the devices lane onto the settings popover, the clip fix and the overlay
 
 **Owner scope**: land finished `feat/devices` (`57ab639`) on current main and report green. Worktree
