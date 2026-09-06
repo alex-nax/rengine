@@ -44,6 +44,6 @@ A throwaway git repository scaffolded from a bare `file://` clone of this worktr
   `protocol.file.allow=always` supplied through `GIT_CONFIG_*`; the test falls back to asserting
   the printed plan where a git refuses it.
 - Contract 1 and contract 2 both require at least one format record, so the scaffolded declaration
-  carries an inert `*.example` placeholder rather than an empty `formats` array (KI-040).
+  carries an inert `*.example` placeholder rather than an empty `formats` array (KI-042).
 - The wizard writes nothing under `--dry-run`; the test asserts the scaffolded repository still
   contains only `.git` after such a run.
