@@ -70,8 +70,8 @@
       "id": "composed-availability",
       "kind": "rationale",
       "anchor": {
-        "start": 102,
-        "end": 102,
+        "start": 104,
+        "end": 104,
         "snippet": "export async function targetAvailability(root, declared, target, options = {}) {"
       },
       "note": "Availability composes the device answering with the target's own local prerequisites, and BOTH halves are reported so a reader fixes the right thing: a reachable device with a missing local file reports the file, an unreachable device reports the device, and a target failing both reports both. This replaces the proxy that contracts 1-3 forced on consumers \u2014 tools: [\"adb\"] asks whether a binary is on PATH, which is always true, so six adb actions reported available: true with nothing attached. Every call goes through deviceStatus and therefore through the cache, which is what makes it safe to evaluate per action.",
@@ -82,7 +82,7 @@
   ],
   "source": {
     "path": "orchestrator/server/devices.mjs",
-    "sha256": "3f904aec7863b20df0020c4356a8cb97abbddbddddd07c459e08c677d99db32a",
+    "sha256": "5bad89a3c174c9a25870b7130f03cd89962005e345970722e20a4d6ab13c0b1f",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

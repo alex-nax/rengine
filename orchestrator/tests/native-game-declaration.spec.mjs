@@ -22,8 +22,8 @@ test('a dashboard game action launches the declared game in its own window while
     let state = await gui.until(s => s.connected && s.controls?.some(c => c.role === 'toolbar' && c.key === 'Root'), 'connected toolbar');
     const toolbarKeys = s => s.controls.filter(c => c.role === 'toolbar' && c.tab === -1).map(c => c.key);
     assert.deepEqual(toolbarKeys(state).filter(k => k !== 'Root'),
-      ['Tree', 'Dashboard', 'Shell', 'Agent', 'Manage', 'Sessions', 'Split vertical', 'Split horizontal', 'Merge pane', 'Add project', 'Theme'],
-      'the toolbar is a fixed set of cells with no game control');
+      ['Tree', 'Dashboard', 'Devices', 'Shell', 'Agent', 'Manage', 'Sessions', 'Split vertical', 'Split horizontal', 'Merge pane', 'Add project', 'Theme'],
+      'the toolbar is a fixed set of cells with no game control (Devices joined it in spec 081)');
     assert.equal(state.games, undefined, 'the desktop no longer publishes a toolbar game list');
 
     /* Removing the game cell also frees the width and the gap it reserved, and a half-done removal
