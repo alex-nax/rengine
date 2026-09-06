@@ -390,7 +390,7 @@
         "The Vulkan adapter renders every draw-list primitive with the same snapshot comparisons and measurements as the OpenGL adapter on Windows.",
         "Backend selection, fallback and evidence recording match the OpenGL adapter; additional platforms record their own evidence."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         57
       ],

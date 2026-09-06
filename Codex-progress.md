@@ -358,9 +358,12 @@ added in `cmake.toml`). Windows results (`docs/evidence/opengl-adapter-windows-2
 OpenGL and Vulkan pixel-identical to each other and within tolerance against SDL, both below the SDL
 median, Vulkan validation clean on the NVIDIA driver, smoke snapshots of all backends byte-identical;
 OpenGL memory +24–28 MiB, Vulkan +54–60 MiB after the allocation trim (`b0a6d4b`) against the 32 MiB
-ceiling (KI-039, owner decision pending); the suite passes 7 of 15 there on either backend (KI-038:
+ceiling; the owner then amended that budget to 64 MiB for Vulkan on Windows (charter revision record,
+spec 068 amendment, KI-039 closed) because the NVIDIA driver's process baseline sits about 30 MiB above
+OpenGL's on the same DLL, and the Windows render run passes under it, so **F59 passes**. The suite passes
+7 of 15 there on either backend (KI-038:
 layered-update unlink, symlink fixture, tree scroll, four terminal specs; fixed on the way: `_spawnv`
-quoting, DLL copies, `python`, the game fixture path, `--test-force-exit`). F59 and F62 stay open.
+quoting, DLL copies, `python`, the game fixture path, `--test-force-exit`). F62 stays open on its suite criterion.
 
 **Follow-up 7 (same session)**: F58 on owner direction after a `/grill-me` interview (spec 072;
 inventory corrections committed first as `b119a3e`). `render/backend_metal.m` is the one
