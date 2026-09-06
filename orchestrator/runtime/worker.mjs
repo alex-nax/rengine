@@ -2,6 +2,7 @@ import http from 'node:http';
 import { openScript } from './scripts.mjs';
 import { listFormats, formatPreview, readBytes } from '../server/formats.mjs';
 import { dashboardAction, dashboardActions, dashboardRunPayload, dashboardCapture } from '../server/dashboard.mjs';
+import { inspectGame } from '../server/games.mjs';
 import { randomBytes } from 'node:crypto';
 import { WebSocket, WebSocketServer } from 'ws';
 import { Desktops } from '../server/desktops.mjs';
@@ -18,16 +19,24 @@ export async function startWorker(host) {
   const snapshot = id => bindings.sessions.find(x => x.id === id) ?? fail('Unknown session.', 404);
   const desktops = new Desktops({ root }, { snapshot });
   const refresh = async () => { const state = await call(host, 'state'); if (state.instance !== host.instance) fail('Session host identity changed.'); bindings = state; return state; };
-  /* Games live on the retained host: preflight and launch are its routes, so a host without the
-     projectGame capability says so instead of quietly opening a terminal. */
-  const preflight = (rootId, gameId) => call(host, `game-config?${new URLSearchParams({ rootId, ...(gameId ? { gameId } : {}) })}`);
+  /* Preflight runs here, from this checkout, exactly as the dashboard does; only the launch needs
+     the retained host, which owns the PTY and the embedded surface. See sidecar: game-routes. */
+  const preflight = (rootId, gameId) => inspectGame(root(rootId), gameId);
+  const capabilities = ({ projectGameLaunch, ...rest }) => ({ ...rest, desktopActions: 1, layeredUpdates: 1, scriptActions: 1,
+    formatRegistry: 1, dashboard: 1, projectGame: 1, ...(rest.projectGame === 1 ? { projectGameLaunch: 1 } : {}) });
+  const launch = payload => {
+    if (bindings.capabilities?.projectGame !== 1) {
+      fail('This retained session host predates per-project game declarations and would launch its removed built-in game; game_preflight answers from the declaration. Replacing the session host requires quiescence.', 409);
+    }
+    return call(host, 'game', payload);
+  };
   const server = http.createServer(async (req, res) => {
     try {
       const target = new URL(req.url, 'http://127.0.0.1');
       if (target.pathname === '/health') { json(res, 200, { protocol: 1, instance: host.instance, worker: process.pid }); return; }
       if (!authenticated(req, token, url)) fail('Workspace authentication required.', 401);
       if (req.method === 'GET' && target.pathname === '/api/state') {
-        const state = await refresh(); json(res, 200, { ...state, capabilities: { ...state.capabilities, desktopActions: 1, layeredUpdates: 1, scriptActions: 1, formatRegistry: 1, dashboard: 1 } });
+        const state = await refresh(); json(res, 200, { ...state, capabilities: capabilities(state.capabilities) });
       } else if (req.method === 'POST' && target.pathname === '/api/script-open') {
         const data = await body(req), state = await refresh(); json(res, 200, await openScript(host, desktops, data, state));
       } else if (req.method === 'POST' && target.pathname === '/api/session-view') {
@@ -39,12 +48,17 @@ export async function startWorker(host) {
         const data = await body(req); await refresh(); json(res, 200, await formatPreview(root(data.rootId), data));
       } else if (req.method === 'GET' && target.pathname === '/api/bytes') {
         await refresh(); json(res, 200, await readBytes(root(target.searchParams.get('rootId')), Object.fromEntries(target.searchParams)));
+      } else if (req.method === 'GET' && target.pathname === '/api/game-config') {
+        await refresh(); json(res, 200, await preflight(target.searchParams.get('rootId'), target.searchParams.get('gameId') ?? undefined));
+      } else if (req.method === 'POST' && target.pathname === '/api/game') {
+        const data = await body(req); await refresh();
+        json(res, 200, await launch({ rootId: data.rootId, ...(data.gameId === undefined ? {} : { gameId: data.gameId }), ...(data.args === undefined ? {} : { args: data.args }) }));
       } else if (req.method === 'GET' && target.pathname === '/api/dashboard') {
         await refresh(); json(res, 200, await dashboardActions(root(target.searchParams.get('rootId')), preflight));
       } else if (req.method === 'POST' && target.pathname === '/api/dashboard-run') {
         const data = await body(req); await refresh();
         const selected = root(data.rootId), action = await dashboardAction(selected, data.actionId, preflight);
-        if (action.kind === 'game') { json(res, 200, await call(host, 'game', { rootId: selected.id, gameId: action.game, args: action.args ?? [] })); return; }
+        if (action.kind === 'game') { json(res, 200, await launch({ rootId: selected.id, gameId: action.game, args: action.args ?? [] })); return; }
         const payload = await dashboardRunPayload(selected, action);
         json(res, 200, { ...await call(host, 'terminal', payload), title: payload.title }); /* the retained host may predate session titles */
       } else if (req.method === 'POST' && target.pathname === '/api/dashboard-capture') {

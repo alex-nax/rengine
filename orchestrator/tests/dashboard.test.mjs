@@ -211,6 +211,8 @@ test('the replaceable worker runs a dashboard game action through the retained h
   t.after(async () => { await runtime?.close(); await host.close(); await rm(directory, { recursive: true, force: true }); });
   const rootPath = await gameProject(directory, 'launcher', launcherDeclaration()), root = await host.store.addRoot(rootPath);
   runtime = await startRuntime({ host, directory: path.join(directory, 'runtime') });
+  const state = await request(runtime, 'state');
+  assert.equal(state.capabilities.projectGame, 1); assert.equal(state.capabilities.projectGameLaunch, 1, 'this host launches from the declaration too');
   const listed = await request(runtime, `dashboard?${new URLSearchParams({ rootId: root.id })}`);
   const actions = Object.fromEntries(listed.groups.flatMap(g => g.actions).map(a => [a.id, a]));
   assert.equal(actions.play.available, true);
@@ -219,5 +221,9 @@ test('the replaceable worker runs a dashboard game action through the retained h
   assert.equal(session.type, 'game'); assert.equal(session.game, 'fixture-game');
   await waitOutput(host, session.id, 'FIXTURE_GAME_STARTED args=--flat --width 640 --newgame');
   assert.equal(host.sessions.snapshot(session.id).rootId, root.id, 'the game session lives on the retained host');
-  await host.sessions.stop(session.id);
+  assert.equal((await request(runtime, 'game', { rootId: root.id, args: ['--newgame'] })).id, session.id, 'the worker game route reaches the same launch');
+  const beside = await request(runtime, 'game', { rootId: root.id, gameId: 'fixture-second' });
+  assert.equal(beside.game, 'fixture-second'); assert.equal(beside.type, 'game');
+  await assert.rejects(request(runtime, 'game', { rootId: root.id, gameId: 'fixture-absent' }), /Game executable not found/);
+  for (const id of [session.id, beside.id]) await host.sessions.stop(id);
 });
