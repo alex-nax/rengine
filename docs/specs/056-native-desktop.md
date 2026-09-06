@@ -100,7 +100,8 @@ Metal adapter of [spec 072](072-metal-adapter.md), with the OpenGL 3.3 core adap
 stays on it until verified there.
 
 Registered project formats open in a read-only raw hex view or a preview produced by the project's own
-declared command, with a persisted mode switch; see [spec 074](074-project-format-registry.md).
+declared command, with a persisted mode switch; see [spec 074](074-project-format-registry.md). A root declaring a
+contract-2 dashboard gets a Dashboard tab of grouped, availability-checked actions; see [spec 075](075-project-dashboard.md).
 Native image previews, terminal selection/copy, richer text navigation, service-restart recovery,
 frame/input DPI mapping, actual in-level aiming, resource budgets, packaging and Windows runtime
 proof remain open. No accepted feature is marked passing by this checkpoint. The historical web

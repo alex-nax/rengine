@@ -502,6 +502,49 @@
       "deliverable": "orchestrator/native/formatview.c, hexview.c, native-format-registry.spec.mjs and evidence",
       "external_references": [],
       "evidence": []
+    },
+    {
+      "id": 65,
+      "milestone": "O1",
+      "category": "editor",
+      "priority": "medium",
+      "description": "Declare a project dashboard (contract 2) and serve its actions, availability and captures.",
+      "acceptance_criteria": [
+        "contracts/project-v1.schema.json accepts contract 1 and 2; contract 2 adds an optional dashboard of groups and actions (kind script, log or capture with their fields, requires/tools/artifacts) with unknown keys, unknown kinds, mixed-kind fields, duplicate ids, non-root-relative paths and bad env keys rejected by name, structural errors before cross rules; a bad dashboard is reported without disabling the formats section; the copied nolf-improved merged document validates with zero errors.",
+        "The dashboard route computes per-action availability (missing required files inside the root boundary, tools absent from the sidecar PATH) without running anything; dashboard-run creates the retained script or log session with literal args and env merged over the shell environment and refuses unavailable actions; dashboard-capture runs the command once under contract-1 bounds, requires the PNG signature, writes <into>/<timestamp>.png and appends to manifest.json inside the root, rejecting non-PNG output and escaping directories.",
+        "Host and replaceable worker serve the routes; MCP dashboard_actions lists availability read-only, dashboard_capture returns the manifest entry, open_script accepts env; service tests fail before the reader knows contract 2 and cover every rule above."
+      ],
+      "passes": false,
+      "dependencies": [
+        63
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/075-project-dashboard.md, contracts/project-v1.schema.json (contract 2), orchestrator/server/dashboard.mjs and tests",
+      "external_references": [
+        "nolf-improved docs/specs/feature-1615-project-dashboard.md"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 66,
+      "milestone": "O1",
+      "category": "editor",
+      "priority": "medium",
+      "description": "Render the project dashboard as a native tab with runnable actions.",
+      "acceptance_criteria": [
+        "A Dashboard tab per declared root opens from the toolbar and automatically once when a bound root declares a dashboard and the layout holds none; groups are sections, each available action is a button with its title and description, an unavailable action is a label naming the first missing item.",
+        "A script action opens its retained session as a script tab with its args and env, a log action opens a terminal tab, a capture action runs the capture and shows the written path in the status line, artifacts reveal their path in the project tree, and a declaration error renders in the tab without disabling the workspace.",
+        "A native fixture drives auto-open, groups, the disabled action, the script tab output, the capture file and manifest, artifact reveal, close, restart and toolbar reopen through real SDL events; the owner verifies the real nolf-improved dashboard after its staged section moves into project.json and a layered update."
+      ],
+      "passes": false,
+      "dependencies": [
+        65,
+        64
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "orchestrator/native/dashboard.c, native-dashboard.spec.mjs and evidence",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }
