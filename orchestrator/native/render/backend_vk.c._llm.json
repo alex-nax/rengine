@@ -5,8 +5,8 @@
       "id": "shared-shading",
       "kind": "rationale",
       "anchor": {
-        "start": 331,
-        "end": 331,
+        "start": 329,
+        "end": 329,
         "snippet": "static void draw_text(VkBackend *b, ReColor color, uint8_t face, int size, int x, int y, const char *s, const char *end) {",
         "symbol": "draw_text"
       },
@@ -21,8 +21,8 @@
       "id": "frame-lifecycle",
       "kind": "constraint",
       "anchor": {
-        "start": 360,
-        "end": 360,
+        "start": 358,
+        "end": 358,
         "snippet": "static float density(ReBackend *backend, int logical_width) {",
         "symbol": "density"
       },
@@ -35,8 +35,8 @@
       "id": "glyph-prepass",
       "kind": "edge-case",
       "anchor": {
-        "start": 233,
-        "end": 233,
+        "start": 231,
+        "end": 231,
         "snippet": "static int glyph_prepare(VkBackend *b, Frame *f, uint8_t face, int16_t size, uint32_t cp) {",
         "symbol": "glyph_prepare"
       },

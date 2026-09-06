@@ -17,12 +17,12 @@
 #define ATLAS_SIZE 2048
 #define GLYPH_SLOTS 4096
 #define GLYPH_PROBES 8
-#define CHUNK_VERTICES 65536
+#define CHUNK_VERTICES 16384 /* 0.94 MiB per chunk; chains grow to the largest frame seen */
 #define FRAMES 2
 #define MAX_IMAGES 8
 #define MAX_REGIONS 1024
 #define TEXTURE_SETS 256
-#define STAGING_SIZE ((VkDeviceSize)ATLAS_SIZE * ATLAS_SIZE + 65536)
+#define STAGING_SIZE ((VkDeviceSize)1 << 20) /* glyph uploads per frame; a fuller atlas takes more frames */
 enum { MODE_SOLID = 0, MODE_FILL = 1, MODE_RING = 2, MODE_SHADOW = 3, MODE_COVERAGE = 4, MODE_RGBA = 5 };
 enum { PREPARE_OK, PREPARE_ATLAS_FULL, PREPARE_FRAME_FULL };
 
@@ -205,8 +205,6 @@ static bool swapchain_create(VkBackend *b) {
     VkSemaphoreCreateInfo si = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
     CHECK(b->vk.vkCreateSemaphore(b->device, &si, NULL, &b->finished[i]), "vkCreateSemaphore");
   }
-  VkDeviceSize needed = (VkDeviceSize)extent.width * extent.height * 4;
-  if (b->readback.size < needed) { buffer_destroy(b, &b->readback); if (!buffer_create(b, &b->readback, needed, VK_BUFFER_USAGE_TRANSFER_DST_BIT)) return false; }
   return true;
 }
 static bool swapchain_recreate(VkBackend *b) {
@@ -463,6 +461,8 @@ static void present(ReBackend *backend) {
 static bool snapshot(ReBackend *backend, const char *path) {
   VkBackend *b = (VkBackend *)backend; Frame *f = &b->frames[b->frame];
   if (!b->recording || b->submitted) return false;
+  VkDeviceSize needed = (VkDeviceSize)b->extent.width * b->extent.height * 4; /* allocated on the first snapshot only */
+  if (b->readback.size < needed) { b->vk.vkDeviceWaitIdle(b->device); buffer_destroy(b, &b->readback); if (!buffer_create(b, &b->readback, needed, VK_BUFFER_USAGE_TRANSFER_DST_BIT)) return false; }
   end_rendering(b);
   image_barrier(b, b->images[b->image_index], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
                 VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT);
@@ -676,7 +676,7 @@ static bool open_frames(VkBackend *b) {
     CHECK(b->vk.vkCreateFence(b->device, &fi, NULL, &f->fence), "vkCreateFence");
     VkSemaphoreCreateInfo si = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
     CHECK(b->vk.vkCreateSemaphore(b->device, &si, NULL, &f->acquired), "vkCreateSemaphore");
-    if (!buffer_create(b, &f->staging, STAGING_SIZE, VK_BUFFER_USAGE_TRANSFER_SRC_BIT) || !chunk_next(b, &f->chunks)) return false;
+    if (!buffer_create(b, &f->staging, STAGING_SIZE, VK_BUFFER_USAGE_TRANSFER_SRC_BIT)) return false; /* vertex chunks are created on first use */
   }
   return true;
 }
