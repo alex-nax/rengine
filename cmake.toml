@@ -1,0 +1,146 @@
+# rEngine build definition for cmkr (https://cmkr.build). Every CMakeLists.txt in this repository
+# is generated from a cmake.toml by the pinned bootstrap in cmake/cmkr.cmake; edit the TOML, never
+# the generated file. Targets mirror docs/specs/056-native-desktop.md and spec 067/068.
+
+[cmake]
+version = "3.24"
+cmkr-include = "cmake/cmkr.cmake"
+
+[project]
+name = "rengine"
+version = "0.1.0"
+languages = ["C"]
+cmake-after = """
+include(CTest)
+find_package(SDL2 2.32.10 EXACT CONFIG REQUIRED)
+include(orchestrator/native/curl.cmake)
+set(RENGINE_VENDOR "${PROJECT_SOURCE_DIR}/third_party")
+find_program(RENGINE_NODE_EXECUTABLE NAMES node REQUIRED)
+file(TO_CMAKE_PATH "${RENGINE_NODE_EXECUTABLE}" RENGINE_NODE_PATH)
+"""
+
+[conditions]
+testing = "BUILD_TESTING"
+not-msvc = "NOT MSVC"
+msvc = "MSVC"
+
+# --- pinned upstream libraries (third_party/sources.json) ---
+
+[target.rengine_microui]
+type = "static"
+sources = ["third_party/microui/microui.c"]
+cmake-after = """
+target_include_directories(rengine_microui SYSTEM PUBLIC "${RENGINE_VENDOR}/microui")
+"""
+
+[target.rengine_json]
+type = "static"
+sources = ["third_party/cjson/cJSON.c"]
+cmake-after = """
+target_include_directories(rengine_json SYSTEM PUBLIC "${RENGINE_VENDOR}/cjson")
+"""
+
+[target.rengine_vterm]
+type = "static"
+sources = ["third_party/libvterm/src/*.c"]
+private-compile-definitions = ["_CRT_SECURE_NO_WARNINGS"]
+cmake-after = """
+target_include_directories(rengine_vterm SYSTEM PUBLIC "${RENGINE_VENDOR}/libvterm/include")
+"""
+
+# --- owned desktop code ---
+
+[target.rengine_desktop_core]
+type = "static"
+sources = [
+  "orchestrator/native/draw.c", "orchestrator/native/layout.c", "orchestrator/native/net.c",
+  "orchestrator/native/terminal.c", "orchestrator/native/editor.c", "orchestrator/native/app.c",
+  "orchestrator/native/workspace.c", "orchestrator/native/game.c", "orchestrator/native/scroll.c",
+  "orchestrator/native/scene.c",
+  "orchestrator/native/render/utf8.c", "orchestrator/native/render/draw_list.c",
+  "orchestrator/native/render/font.c", "orchestrator/native/render/backend_sdl.c",
+  "orchestrator/native/render/backend_gl.c",
+]
+include-directories = ["orchestrator/native"]
+link-libraries = ["SDL2::SDL2", "rengine_microui", "rengine_json", "rengine_vterm", "CURL::libcurl"]
+compile-features = ["c_std_11"]
+compile-definitions = ["SDL_MAIN_HANDLED"]
+cmake-after = """
+target_include_directories(rengine_desktop_core SYSTEM PRIVATE "${RENGINE_VENDOR}/stb" "${RENGINE_VENDOR}")
+if(NOT MSVC)
+  target_compile_options(rengine_desktop_core PRIVATE -Wall -Wextra -Wpedantic)
+  target_link_libraries(rengine_desktop_core PUBLIC m)
+endif()
+"""
+
+[target.rengine]
+type = "executable"
+sources = ["orchestrator/native/main.c", "orchestrator/native/automation.c", "orchestrator/native/bootstrap.c"]
+private-link-libraries = ["rengine_desktop_core"]
+cmake-after = """
+target_compile_definitions(rengine PRIVATE RENGINE_NODE="${RENGINE_NODE_PATH}"
+  RENGINE_BOOTSTRAP="${PROJECT_SOURCE_DIR}/orchestrator/runtime/bootstrap.mjs")
+set_target_properties(rengine PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+if(WIN32)
+  add_custom_command(TARGET rengine POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine>)
+endif()
+"""
+
+# --- CTest executables (BUILD_TESTING); -UNDEBUG keeps their assertions live in release builds ---
+
+[target.rengine_layout_test]
+condition = "testing"
+type = "executable"
+sources = ["orchestrator/native/tests/layout_test.c"]
+private-link-libraries = ["rengine_desktop_core"]
+cmake-after = """
+if(MSVC)
+  target_compile_options(rengine_layout_test PRIVATE /UNDEBUG)
+else()
+  target_compile_options(rengine_layout_test PRIVATE -UNDEBUG)
+endif()
+add_test(NAME native_layout COMMAND rengine_layout_test)
+"""
+
+[target.rengine_editor_test]
+condition = "testing"
+type = "executable"
+sources = ["orchestrator/native/tests/editor_test.c"]
+private-link-libraries = ["rengine_desktop_core"]
+cmake-after = """
+if(MSVC)
+  target_compile_options(rengine_editor_test PRIVATE /UNDEBUG)
+else()
+  target_compile_options(rengine_editor_test PRIVATE -UNDEBUG)
+endif()
+add_test(NAME native_editor COMMAND rengine_editor_test)
+"""
+
+[target.rengine_terminal_test]
+condition = "testing"
+type = "executable"
+sources = ["orchestrator/native/tests/terminal_test.c"]
+private-link-libraries = ["rengine_desktop_core"]
+cmake-after = """
+if(MSVC)
+  target_compile_options(rengine_terminal_test PRIVATE /UNDEBUG)
+else()
+  target_compile_options(rengine_terminal_test PRIVATE -UNDEBUG)
+endif()
+add_test(NAME native_terminal COMMAND rengine_terminal_test)
+"""
+
+[target.rengine_draw_list_test]
+condition = "testing"
+type = "executable"
+sources = ["orchestrator/native/tests/draw_list_test.c"]
+private-link-libraries = ["rengine_desktop_core"]
+cmake-after = """
+if(MSVC)
+  target_compile_options(rengine_draw_list_test PRIVATE /UNDEBUG)
+else()
+  target_compile_options(rengine_draw_list_test PRIVATE -UNDEBUG)
+endif()
+add_test(NAME native_draw_list COMMAND rengine_draw_list_test)
+"""

@@ -130,7 +130,8 @@ game simulation or require the training stack to launch a game.
 | `templates/` (future) | Minimal agent-neutral project harness and optional native wrappers |
 | `orchestrator/` | Desktop UI, launcher, retained session service and acceptance tests; live game integration in progress |
 | `design/` | Claude Design source: three-layer `tokens.css` with presets, component styles and preview cards; `tools/design.py` mirrors, validates and resolves them; never a runtime dependency (specs 064 and 066) |
-| `orchestrator/native/render/` (future) | Draw-list contract, renderer core and API adapters; introduced with F56's first complete artifact (spec 066) |
+| `orchestrator/native/render/` | Draw-list contract, fonts and the SDL and OpenGL adapters (specs 067–068) |
+| `cmake.toml`, `adapters/sdl2/cmake.toml`, `cmake/cmkr.cmake` | Build definitions and the pinned cmkr bootstrap that generates every committed `CMakeLists.txt` |
 
 Do not create empty runtime modules to imply progress. Introduce each directory with its first
 complete artifact. Broad design rationale lives here or in a spec; file-local notes use sidecars.

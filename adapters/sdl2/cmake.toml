@@ -1,0 +1,46 @@
+# Cooperative SDL game-surface adapter and its fixture, built separately from the desktop
+# (`npm run build:surface`). Generated CMakeLists.txt; edit this file (see the root cmake.toml).
+
+[cmake]
+version = "3.20"
+cmkr-include = "../../cmake/cmkr.cmake"
+
+[project]
+name = "rengine_sdl_surface"
+languages = ["CXX"]
+cmake-after = """
+find_package(SDL2 2.32.10 EXACT CONFIG REQUIRED)
+"""
+
+[find-package.OpenGL]
+required = true
+
+[find-package.Threads]
+required = true
+
+[target.rengine_surface]
+type = "shared"
+sources = ["surface.cpp"]
+private-compile-definitions = ["RENGINE_SURFACE_BUILD"]
+private-compile-features = ["cxx_std_17"]
+private-link-libraries = ["SDL2::SDL2", "OpenGL::GL", "Threads::Threads"]
+cmake-after = """
+if(APPLE)
+  target_sources(rengine_surface PRIVATE interpose_macos.cpp)
+  target_compile_options(rengine_surface PRIVATE -Wno-deprecated-declarations)
+elseif(WIN32)
+  target_link_libraries(rengine_surface PRIVATE ws2_32)
+endif()
+# The fixture's source lives with the orchestrator tests, outside this project directory, which
+# cmkr's source grouping cannot express; it is declared here as plain CMake instead.
+add_executable(rengine_surface_fixture ../../orchestrator/tests/surface_fixture.cpp)
+target_compile_features(rengine_surface_fixture PRIVATE cxx_std_17)
+target_link_libraries(rengine_surface_fixture PRIVATE SDL2::SDL2 OpenGL::GL)
+if(APPLE)
+  target_compile_options(rengine_surface_fixture PRIVATE -Wno-deprecated-declarations)
+elseif(WIN32)
+  target_include_directories(rengine_surface_fixture PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+  target_link_libraries(rengine_surface_fixture PRIVATE rengine_surface SDL2::SDL2main)
+endif()
+"""
+

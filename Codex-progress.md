@@ -184,6 +184,16 @@ baseline. The macOS default is now OpenGL; Windows keeps SDL and F57 stays unpas
 evidence (KI-014). Evidence: `docs/evidence/opengl-adapter-macos-2026-09-06.md`. Commit:
 `feat(native): add the OpenGL adapter behind the draw list (F57)`.
 
+**Follow-up 6 (same session)**: On owner direction the build moved to cmkr as in nolf-improved:
+`cmake.toml` at the root defines every native target and CTest entry, `adapters/sdl2/cmake.toml`
+the surface adapter and its fixture, and `cmake/cmkr.cmake` (tag v0.2.46, copied verbatim)
+bootstraps cmkr into the build directory on first configure and regenerates the committed
+`CMakeLists.txt` files; the hand-written native CMake file is gone and `tools/design.py check`
+rejects hand-edited build files. Verified after regeneration: the same targets and four CTest
+entries, default and `--renderer sdl` smoke snapshots byte-identical to their baselines, the surface
+adapter and fixture rebuilt and the game spec passing. Commit:
+`build: generate CMakeLists.txt from cmake.toml with pinned cmkr`.
+
 ---
 ## Session 18 (macos) — 2026-09-06 — System scrolling, visible bars and agent reload
 

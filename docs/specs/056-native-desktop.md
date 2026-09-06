@@ -60,7 +60,9 @@ and game detach/reattach/Stop through the session browser. See the
 [combined evidence](../evidence/native-workspace-macos-2026-09-05.md).
 
 Owned UI/layout/editor/terminal/transport code is C11. Dependencies are pinned in
-`third_party/sources.json` and `orchestrator/native/curl.cmake`; SDL2 is required at 2.32.10.
+`third_party/sources.json` and `orchestrator/native/curl.cmake`; SDL2 is required at 2.32.10. Build
+files are generated from `cmake.toml` by the pinned cmkr bootstrap (`cmake/cmkr.cmake`); the
+committed `CMakeLists.txt` files are outputs, never edited by hand.
 The executable has no Node or browser integration. The development launcher and retained process
 service still require Node; GUI migration does not claim that service has been rewritten in C.
 
