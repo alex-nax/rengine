@@ -26,11 +26,13 @@ byte-identical (1280×800 logical, 2560×1600 drawable, cocoa); the PNG was insp
 passes. Import round trip: changing `--re-color-control` in a scratch copy of the colours card
 moved the token and `RE_COLOR_CONTROL` to (60, 70, 90); tokens were restored and regenerated with a
 passing check. Sidecar validator OK after one anchor repair. Harness gate passes. A read-only
-DesignSync `list_projects` from this session was refused pending `/design-login`, so no sync ran.
+DesignSync `list_projects` was refused until the owner ran `/design-login`; it then listed no
+projects. On the owner's go-ahead: created design-system project “rEngine native workspace”
+(`9e977c1b-7cbd-4a89-90a4-5524771712d7`), verified its type, locked a plan limited to `design/**`
+(writes only), uploaded 18 files from disk and confirmed the remote listing matches the bundle.
 
-**Remaining**: The owner runs `/design-login` in an interactive session and syncs `design/**`
-into a design-system project (create one if absent); pulled cards return through
-`tools/design.py import`. Replace the remaining literal colours in editor, terminal, workspace,
+**Remaining**: Cards edited in Claude Design return through `tools/design.py import`; later
+syncs reuse the same project with a per-run plan limited to `design/**`. Replace the remaining literal colours in editor, terminal, workspace,
 scroll, main and game sources with `RE_COLOR_*` once specs 061/062 land. No feature row was
 added; spec 064 records a candidate. A Claude Design canvas seeded from `screens/workspace.html`
 is an optional later step. All 15 feature gates remain false.

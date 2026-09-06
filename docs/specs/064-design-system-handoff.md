@@ -29,16 +29,17 @@ pulled back into the tokens and rebuilt into the C desktop without a browser run
   it; anything else is renderer work with its own spec.
 - Syncing uses Claude Design's incremental design-system tool with a per-run plan. The plan lists
   `design/**` paths only; no other repository content is uploaded. The design credential belongs
-  to the owner's interactive `/design-login`; agent sessions do not hold it, and this session's
-  read attempt was refused for that reason.
+  to the owner's interactive `/design-login`; an agent session's read attempt was refused until the
+  owner authorized it. The first push on 2026-09-06 created the design-system project
+  “rEngine native workspace” (`9e977c1b-7cbd-4a89-90a4-5524771712d7`) with 18 files.
 - Standard library only for the tool. Generated C stays within the owned line limit and the
   pinned upstream sources remain untouched.
 
 ## Round trip
 
 1. Owner runs `/design-login` in an interactive Claude Code session, then asks to sync `design/`
-   into a design-system project (create one if none exists). Review the plan: writes are
-   `design/**`, deletes are none for the first push.
+   into the existing design-system project. Review the plan: writes are `design/**`; deletes
+   only for cards removed locally.
 2. Edit in Claude Design: token values in a card's `:root` block, or the card markup.
 3. Pull an edited card back into `design/previews/...`, then run
    `python3 tools/design.py import design/previews/<group>/<card>.html`. Changed tokens are

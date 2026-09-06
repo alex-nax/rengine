@@ -20,4 +20,5 @@ python3 tools/design.py import design/previews/foundations/colors.html   # pull 
 ```
 
 Sync to Claude Design from an interactive Claude Code session: run `/design-login`, then ask to
-sync this directory into a design-system project. Only `design/**` belongs in the plan.
+sync this directory into the design-system project “rEngine native workspace”
+(`9e977c1b-7cbd-4a89-90a4-5524771712d7`). Only `design/**` belongs in the plan.
