@@ -158,9 +158,9 @@ test('dashboard game actions preflight through their record, launch a game sessi
     'game without game': [board(d => { delete d.groups[0].actions[0].game; }), /game requires game/],
     'game with a script field': [board(d => { d.groups[0].actions[0].script = 'hello.sh'; }), /script is not a game field/],
     'game with a command field': [board(d => { d.groups[0].actions[0].command = ['adb']; }), /command is not a game field/],
-    'placeholder in args': [board(d => { d.groups[0].actions[1].args = ['${file}']; }), /actions\[1\]\.args\[0\]/],
+    'placeholder in args': [board(d => { d.groups[0].actions[1].args = ['${file}']; }), /actions\[1\] \(play-newgame\)\.args\[0\]/],
     'undeclared reference': [board(d => { d.groups[0].actions[0].game = 'fixture-nowhere'; }),
-      /actions\[0\]\.game references undeclared game id "fixture-nowhere"; this declaration declares fixture-game, fixture-second, fixture-absent/],
+      /actions\[0\] \(play\)\.game references undeclared game id "fixture-nowhere"; this declaration declares fixture-game, fixture-second, fixture-absent/],
   };
   for (const [label, [document, pattern]] of Object.entries(rejections)) {
     const result = await declare(label.replaceAll(/[^a-z0-9]/g, '-'), document);

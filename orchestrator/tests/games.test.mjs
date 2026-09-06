@@ -55,8 +55,8 @@ test('contract 3 games arrays validate, earlier contracts stay accepted and game
       'bad id': [{ id: 'Fixture Game' }, /id does not match/],
       'escaping requires': [{ requires: ['../secret.env'] }, /requires\[0\] must be root-relative/],
       'absolute requires': [{ requires: ['/etc/hosts'] }, /requires\[0\] must be root-relative/],
-      'escaping cwd': [{ cwd: '../elsewhere' }, /games\[0\]\.cwd must be root-relative/],
-      'absolute cwd': [{ cwd: '/tmp' }, /games\[0\]\.cwd must be root-relative/],
+      'escaping cwd': [{ cwd: '../elsewhere' }, /games\[0\] \(fixture-game\)\.cwd must be root-relative/],
+      'absolute cwd': [{ cwd: '/tmp' }, /games\[0\] \(fixture-game\)\.cwd must be root-relative/],
       'missing surface': [{ surface: undefined }, /requires surface/],
     };
     for (const [label, [extra, pattern]] of Object.entries(cases)) {

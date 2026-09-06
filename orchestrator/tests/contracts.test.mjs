@@ -102,3 +102,42 @@ test('the real consumer declarations validate through the reconciled contract', 
     assert.equal(two.dashboard.title, 'reLith'); assert.equal(two.games, undefined); assert.equal(two.gamesError, undefined);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
+
+/* Fail-whole plus the removed toolbar (spec 078) makes this message the only recovery path: it has
+   to name the record a human greps for, not only the index they would have to count out. */
+test('a declaration error names the offending record by id and says how much the report hides', async () => {
+  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-error-ids-')));
+  try {
+    const base = declaration();
+    const badFormat = await declare(directory, 'format', { ...base, formats: [{ ...base.formats[0], modes: ['raw'], default: 'preview' }] });
+    assert.match(badFormat.error, /\$\.formats\[0\] \(fixture-pack\)\.default must be one of its modes/);
+    assert.deepEqual(badFormat.formats, [], 'a format cross-rule error still fails the section whole');
+
+    const badGame = await declare(directory, 'game', { ...base, contract: 3, games: [game({ cwd: '../elsewhere' })] });
+    assert.match(badGame.gamesError, /\$\.games\[0\] \(fixture-game\)\.cwd must be root-relative/);
+
+    const board = groups => ({ ...base, contract: 2, dashboard: { title: 'Fixture', groups } });
+    const shot = (extra = {}) => ({ id: 'shot', title: 'Screenshot', kind: 'capture', command: ['tools/shot.sh'], into: '/tmp/captures', format: 'png', ...extra });
+    const group = (actions, extra = {}) => board([{ id: 'device', title: 'Device', actions, ...extra }]);
+
+    const action = await declare(directory, 'action', group([shot()]));
+    assert.match(action.dashboardError, /\$\.dashboard\.groups\[0\]\.actions\[0\] \(shot\)\.into must be root-relative/);
+
+    const anonymous = await declare(directory, 'anonymous', group([shot({ id: undefined })]));
+    assert.match(anonymous.dashboardError, /\$\.dashboard\.groups\[0\] \(device\)\.actions\[0\]\.into must be root-relative/, 'an unnamed action is placed by its group');
+    assert.ok(!/undefined/.test(anonymous.dashboardError), 'a missing id is never printed as undefined');
+
+    const nameless = await declare(directory, 'nameless', group([shot({ id: undefined })], { id: undefined }));
+    assert.match(nameless.dashboardError, /\$\.dashboard\.groups\[0\]\.actions\[0\]\.into must be root-relative/, 'with no id anywhere the bare path stands alone');
+
+    const duplicate = await declare(directory, 'duplicate', group([shot({ into: '.cache/captures' }), shot({ into: '.cache/captures' })]));
+    assert.match(duplicate.dashboardError, /\$\.dashboard\.groups\[0\]\.actions\[1\]\.id repeats "shot"/, 'a duplicate id names the occurrence by index, never by the id it repeats');
+
+    const counted = async (name, count) => (await declare(directory, name, group(Array.from({ length: count }, (_, i) => shot({ id: `shot-${i}` }))))).dashboardError;
+    const three = await counted('three', 3);
+    assert.match(three, /\(shot-0\).+\(shot-1\).+\(shot-2\)/); assert.ok(!/more/.test(three), 'a report that hides nothing says nothing');
+    assert.match(await counted('four', 4), /; and 1 more problem$/);
+    const five = await counted('five', 5);
+    assert.match(five, /; and 2 more problems$/); assert.ok(!/shot-3/.test(five), 'the report stays bounded at three problems');
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
