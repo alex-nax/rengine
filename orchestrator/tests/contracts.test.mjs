@@ -67,6 +67,24 @@ test('the real consumer declarations validate through the reconciled contract', 
     assert.equal(matchFormat(read.formats, 'PACK000.VPK')?.id, 'troika-vpk', 'the glob is case-insensitive');
     assert.equal(matchFormat(read.formats, 'pack000.txt'), null);
 
+    /* The shape vtmb-vr is expected to adopt: its two quick-start script actions become game
+       actions on the record they already declare, the variant carrying only extra literal argv. */
+    const asGameActions = structuredClone(vtmb);
+    const quickStart = asGameActions.dashboard.groups.find(group => group.id === 'quick-start');
+    quickStart.actions[0] = { id: 'flat', title: 'Flat desktop: main menu', kind: 'game', game: 'vtmb-flat' };
+    quickStart.actions[1] = { id: 'flat-newgame', title: 'Flat desktop: new game', kind: 'game', game: 'vtmb-flat', args: ['--newgame'] };
+    assert.deepEqual(validateSchema(schema, asGameActions), [], 'game actions over the declared records validate');
+    const rewritten = await declare(directory, 'vtmb-game-actions', asGameActions);
+    assert.equal(rewritten.dashboardError, undefined); assert.equal(rewritten.gamesError, undefined);
+    assert.deepEqual(rewritten.dashboard.groups[0].actions.slice(0, 2).map(a => [a.kind, a.game, a.args]),
+      [['game', 'vtmb-flat', undefined], ['game', 'vtmb-flat', ['--newgame']]]);
+    const stray = structuredClone(asGameActions);
+    stray.dashboard.groups[0].actions[0].game = 'vtmb-nowhere';
+    const unknown = await declare(directory, 'vtmb-stray', stray);
+    assert.match(unknown.dashboardError, /references undeclared game id "vtmb-nowhere"; this declaration declares vtmb-flat, vtmb-vr/);
+    assert.deepEqual(unknown.games.map(x => x.id), ['vtmb-flat', 'vtmb-vr'], 'the games array survives a bad reference');
+    assert.equal(unknown.formats[0].id, 'troika-vpk');
+
     const nolf = fixture('nolf-project.json');
     assert.deepEqual(validateSchema(schema, nolf), [], 'the contract-1 nolf-improved declaration is unchanged and valid');
     const first = await declare(directory, 'nolf', nolf);

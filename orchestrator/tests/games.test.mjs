@@ -165,6 +165,7 @@ test('declared games launch in their own window, run side by side and expose gen
   assert.equal(tools.find(x => x.name === 'game_preflight').annotations.readOnlyHint, true);
   assert.equal(tools.find(x => x.name === 'launch_game').annotations.openWorldHint, true);
   for (const name of ['game_preflight', 'launch_game']) assert.ok(tools.find(x => x.name === name).inputSchema.properties?.gameId, `${name} takes an optional gameId`);
+  assert.ok(tools.find(x => x.name === 'launch_game').inputSchema.properties?.args, 'launch_game takes the optional args of a dashboard game action');
   const preflight = await client.callTool({ name: 'game_preflight', arguments: {} });
   assert.equal(preflight.isError, undefined); assert.equal(preflight.structuredContent.ready, true); assert.equal(preflight.structuredContent.title, 'Fixture game');
   const selected = await client.callTool({ name: 'game_preflight', arguments: { gameId: 'fixture-absent' } });
@@ -178,4 +179,21 @@ test('declared games launch in their own window, run side by side and expose gen
   const again = await request(server, 'game', { rootId: root.id });
   assert.notEqual(again.id, session.id, 'a stopped game launches afresh'); await waitOutput(server, again.id, 'FIXTURE_GAME_STARTED');
   await server.sessions.stop(again.id); assert.equal(await waitExit(server, again.id), 'exited');
+
+  /* Optional literal argv appended to the record's own, and the deliberate refusal when a second
+     launch of the SAME declared game asks for different arguments (spec 078). */
+  for (const bad of [['${file}'], [''], ['ok', 7], Array.from({ length: 65 }, (_, i) => `--flag-${i}`)]) {
+    await assert.rejects(request(server, 'game', { rootId: root.id, args: bad }), /argument/i, JSON.stringify(bad));
+  }
+  const variant = await request(server, 'game', { rootId: root.id, args: ['--newgame'] });
+  assert.deepEqual(variant.args, ['--flat', '--width', '640', '--newgame']);
+  await waitOutput(server, variant.id, 'FIXTURE_GAME_STARTED args=--flat --width 640 --newgame');
+  assert.equal((await request(server, 'game', { rootId: root.id, args: ['--newgame'] })).id, variant.id, 'the same argv reuses');
+  await assert.rejects(request(server, 'game', { rootId: root.id }),
+    /Fixture game is already running with different arguments \(--flat --width 640 --newgame\); stop it in Sessions before launching it with --flat --width 640\./);
+  const concurrent = await Promise.allSettled([request(server, 'game', { rootId: root.id, args: ['--newgame'] }), request(server, 'game', { rootId: root.id, args: ['--other'] })]);
+  assert.equal(concurrent[0].status, 'fulfilled'); assert.equal(concurrent[0].value.id, variant.id);
+  assert.equal(concurrent[1].status, 'rejected', 'a concurrent differing launch is refused, never a second spawn');
+  assert.equal((await request(server, 'state')).sessions.filter(x => x.type === 'game' && x.state === 'running').length, 1);
+  await server.sessions.stop(variant.id); assert.equal(await waitExit(server, variant.id), 'exited');
 });

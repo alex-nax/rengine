@@ -16,6 +16,7 @@ import { hash } from '../server/store.mjs';
 import { redImage } from './image-fixtures.mjs';
 import { declaration } from './format-fixtures.mjs';
 import { contract2, dashboard, dashboardProject } from './dashboard-fixtures.mjs';
+import { game, gameActions, gameProject, launcherDeclaration } from './game-fixtures.mjs';
 
 const schema = JSON.parse(readFileSync('contracts/project-v1.schema.json', 'utf8'));
 const nolf = JSON.parse(readFileSync('orchestrator/tests/fixtures/nolf-merged-project.json', 'utf8'));
@@ -139,4 +140,84 @@ test('the replaceable worker and the MCP tools expose the dashboard', { timeout:
   assert.equal(JSON.parse(await readFile(path.join(rootPath, '.cache/captures/manifest.json'), 'utf8')).length, 2);
   assert.match((await call('dashboard_capture', { actionId: 'hello' })).text, /capture action/);
   const badEnv = await call('open_script', { path: 'hello.sh', desktopId: 'none', env: { 'bad-key': 'x' } }); assert.equal(badEnv.isError, true); assert.match(badEnv.text, /env/);
+});
+
+test('dashboard game actions preflight through their record, launch a game session and refuse a conflicting relaunch', { timeout: 40000 }, async t => {
+  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-dashboard-game-')));
+  const server = await startServer({ stateDir: path.join(directory, 'state') });
+  t.after(async () => { await server.close(); await rm(directory, { recursive: true, force: true }); });
+  const board = (edit, base = launcherDeclaration()) => { const doc = structuredClone(base); edit(doc.dashboard); return doc; };
+  const declare = async (name, document) => {
+    const root = path.join(directory, name); await mkdir(path.join(root, '.rengine'), { recursive: true });
+    await writeFile(path.join(root, '.rengine/project.json'), JSON.stringify(document)); return readDeclaration(root);
+  };
+  const good = await declare('good', launcherDeclaration());
+  assert.equal(good.dashboardError, undefined); assert.equal(good.gamesError, undefined);
+  assert.deepEqual(good.dashboard.groups[0].actions.map(a => a.game), ['fixture-game', 'fixture-game', 'fixture-second', 'fixture-absent', 'fixture-second']);
+  const rejections = {
+    'game without game': [board(d => { delete d.groups[0].actions[0].game; }), /game requires game/],
+    'game with a script field': [board(d => { d.groups[0].actions[0].script = 'hello.sh'; }), /script is not a game field/],
+    'game with a command field': [board(d => { d.groups[0].actions[0].command = ['adb']; }), /command is not a game field/],
+    'placeholder in args': [board(d => { d.groups[0].actions[1].args = ['${file}']; }), /actions\[1\]\.args\[0\]/],
+    'undeclared reference': [board(d => { d.groups[0].actions[0].game = 'fixture-nowhere'; }),
+      /actions\[0\]\.game references undeclared game id "fixture-nowhere"; this declaration declares fixture-game, fixture-second, fixture-absent/],
+  };
+  for (const [label, [document, pattern]] of Object.entries(rejections)) {
+    const result = await declare(label.replaceAll(/[^a-z0-9]/g, '-'), document);
+    assert.equal(result.error, undefined, `${label}: formats stay valid`);
+    assert.match(result.dashboardError ?? '', pattern, label);
+    assert.equal(result.dashboard, undefined, label);
+    assert.deepEqual(result.games?.map(g => g.id), ['fixture-game', 'fixture-second', 'fixture-absent'], `${label}: the games array survives`);
+  }
+  const noGames = await declare('no-games', { ...contract2(), dashboard: gameActions() });
+  assert.match(noGames.dashboardError, /references undeclared game id "fixture-game"; this declaration declares no games/);
+  const brokenGames = await declare('broken-games', launcherDeclaration([game({ surface: 'wayland' })]));
+  assert.match(brokenGames.gamesError, /surface/);
+  assert.equal(brokenGames.dashboardError, undefined, 'a failed games array is named once, not twice');
+  assert.equal(brokenGames.dashboard.groups[0].actions.length, 5);
+
+  const rootPath = await gameProject(directory, 'launcher', launcherDeclaration()), root = await server.store.addRoot(rootPath);
+  const listed = await request(server, `dashboard?${new URLSearchParams({ rootId: root.id })}`);
+  const actions = Object.fromEntries(listed.groups.flatMap(g => g.actions).map(a => [a.id, a]));
+  assert.equal(actions.play.available, true); assert.deepEqual(actions.play.missing, []);
+  assert.equal(actions['play-newgame'].available, true); assert.deepEqual(actions['play-newgame'].args, ['--newgame']);
+  assert.equal(actions['play-absent'].available, false);
+  assert.deepEqual(actions['play-absent'].missing, [{ type: 'game', name: 'Game executable not found; expected build/absent-game in the selected project.' }]);
+  assert.equal(actions['play-needs-tool'].available, false);
+  assert.deepEqual(actions['play-needs-tool'].missing, [{ type: 'tools', name: 'definitely-missing-tool-9f' }], "the action's own tools are checked too");
+  await assert.rejects(request(server, 'dashboard-run', { rootId: root.id, actionId: 'play-absent' }), /Game executable not found/);
+
+  const session = await request(server, 'dashboard-run', { rootId: root.id, actionId: 'play' });
+  assert.equal(session.type, 'game'); assert.equal(session.game, 'fixture-game'); assert.equal(session.surface, 'external');
+  assert.equal(session.title, 'Fixture game · launcher'); assert.deepEqual(session.args, ['--flat', '--width', '640']);
+  await waitOutput(server, session.id, 'FIXTURE_GAME_STARTED args=--flat --width 640');
+  assert.equal((await request(server, 'dashboard-run', { rootId: root.id, actionId: 'play' })).id, session.id, 'the same action reuses its session');
+  await assert.rejects(request(server, 'dashboard-run', { rootId: root.id, actionId: 'play-newgame' }),
+    /Fixture game is already running with different arguments \(--flat --width 640\); stop it in Sessions before launching it with --flat --width 640 --newgame\./);
+  const beside = await request(server, 'dashboard-run', { rootId: root.id, actionId: 'play-second' });
+  assert.notEqual(beside.id, session.id); assert.equal(beside.game, 'fixture-second');
+  await server.sessions.stop(session.id);
+  for (let i = 0; i < 150 && server.sessions.snapshot(session.id).state !== 'exited'; i++) await delay(20);
+  const variant = await request(server, 'dashboard-run', { rootId: root.id, actionId: 'play-newgame' });
+  assert.notEqual(variant.id, session.id); assert.deepEqual(variant.args, ['--flat', '--width', '640', '--newgame']);
+  await waitOutput(server, variant.id, 'FIXTURE_GAME_STARTED args=--flat --width 640 --newgame');
+  for (const id of [beside.id, variant.id]) await server.sessions.stop(id);
+});
+
+test('the replaceable worker runs a dashboard game action through the retained host', { timeout: 30000 }, async t => {
+  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-dashboard-game-runtime-')));
+  const host = await startServer({ stateDir: path.join(directory, 'host') });
+  let runtime;
+  t.after(async () => { await runtime?.close(); await host.close(); await rm(directory, { recursive: true, force: true }); });
+  const rootPath = await gameProject(directory, 'launcher', launcherDeclaration()), root = await host.store.addRoot(rootPath);
+  runtime = await startRuntime({ host, directory: path.join(directory, 'runtime') });
+  const listed = await request(runtime, `dashboard?${new URLSearchParams({ rootId: root.id })}`);
+  const actions = Object.fromEntries(listed.groups.flatMap(g => g.actions).map(a => [a.id, a]));
+  assert.equal(actions.play.available, true);
+  assert.deepEqual(actions['play-absent'].missing, [{ type: 'game', name: 'Game executable not found; expected build/absent-game in the selected project.' }]);
+  const session = await request(runtime, 'dashboard-run', { rootId: root.id, actionId: 'play-newgame' });
+  assert.equal(session.type, 'game'); assert.equal(session.game, 'fixture-game');
+  await waitOutput(host, session.id, 'FIXTURE_GAME_STARTED args=--flat --width 640 --newgame');
+  assert.equal(host.sessions.snapshot(session.id).rootId, root.id, 'the game session lives on the retained host');
+  await host.sessions.stop(session.id);
 });
