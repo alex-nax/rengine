@@ -1,7 +1,10 @@
 #include "app.h"
 #include "editor.h"
 
-enum { OP_STATE = 1, OP_LOAD, OP_SAVE, OP_DRAFT, OP_DISCARD, OP_CREATE, OP_ROOT, OP_GENERIC, OP_LAYOUT, OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_BYTES, OP_PREVIEW, OP_ENTRY, OP_EXPAND };
+/* Operations at or above OP_BYTES belong to a format view and carry its mode in `revision`;
+ * everything else must sort below it, or the request path reads a format that is not there. */
+enum { OP_STATE = 1, OP_LOAD, OP_SAVE, OP_DRAFT, OP_DISCARD, OP_CREATE, OP_ROOT, OP_GENERIC, OP_LAYOUT, OP_EXPAND,
+       OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_BYTES, OP_PREVIEW, OP_ENTRY };
 static int request_within(ReApp *a, int operation, int tab, const char *route, const cJSON *body, long timeout) {
   char scoped[160]; const char *window = getenv("RENGINE_WINDOW_ID");
   if (window && *window && (!strcmp(route, "state") || !strcmp(route, "layout"))) {
@@ -35,29 +38,35 @@ static cJSON *file_body(ReTab *t, bool draft) {
 /* ---- nested explorer -------------------------------------------------------------------------
  * The pool is flat and searched linearly: it holds at most RE_TREE_EXPANSIONS entries, a person
  * cannot open more branches than that by hand, and a flat scan keeps the collapse rules readable. */
+/* An empty ancestor names no directory, so nothing is under it. Returning true here once made a
+ * collapse take every open branch, because the caller's path had already been cleared. */
 static bool under(const char *path, const char *ancestor) {
   size_t n = strlen(ancestor);
-  if (!n) return true;                       /* the tab's own directory is everyone's ancestor */
+  if (!n) return false;
   return !strncmp(path, ancestor, n) && path[n] == '/';
 }
+/* A slot is free when it names no directory; the pool starts zeroed, so an empty path is the marker
+ * rather than the tab index, which would make tab 0 indistinguishable from an unused slot. */
+static bool taken(const ReExpansion *e) { return e->path[0] != 0; }
 int re_app_expanded(ReApp *a, int tab, const char *path) {
+  if (!*path) return -1;
   for (int i = 0; i < RE_TREE_EXPANSIONS; i++) {
     ReExpansion *e = &a->expansions[i];
-    if (e->tab == tab && e->generation == a->tabs[tab].generation && !strcmp(e->path, path)) return i;
+    if (taken(e) && e->tab == tab && e->generation == a->tabs[tab].generation && !strcmp(e->path, path)) return i;
   }
   return -1;
 }
 static void release(ReApp *a, int slot) {
   cJSON_Delete(a->expansions[slot].data);
-  a->expansions[slot] = (ReExpansion){-1, 0, {0}, NULL, 0};
+  memset(&a->expansions[slot], 0, sizeof(a->expansions[slot]));
 }
 void re_app_expansions_clear(ReApp *a, int tab) {
-  for (int i = 0; i < RE_TREE_EXPANSIONS; i++) if (a->expansions[i].tab == tab) release(a, i);
+  for (int i = 0; i < RE_TREE_EXPANSIONS; i++) if (taken(&a->expansions[i]) && a->expansions[i].tab == tab) release(a, i);
 }
 void re_app_collapse(ReApp *a, int tab, const char *path) {
   for (int i = 0; i < RE_TREE_EXPANSIONS; i++) {
     ReExpansion *e = &a->expansions[i];
-    if (e->tab != tab) continue;
+    if (!taken(e) || e->tab != tab) continue;
     if (!strcmp(e->path, path) || under(e->path, path)) release(a, i);   /* a branch closes whole */
   }
 }
@@ -66,7 +75,7 @@ int re_app_tree_rows(ReApp *a, int tab) {
   int rows = cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(t->data, "entries"));
   for (int i = 0; i < RE_TREE_EXPANSIONS; i++) {
     ReExpansion *e = &a->expansions[i];
-    if (e->tab == tab && e->generation == t->generation)
+    if (taken(e) && e->tab == tab && e->generation == t->generation)
       rows += cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(e->data, "entries"));
   }
   return rows;
@@ -85,7 +94,7 @@ static void enforce_row_cap(ReApp *a, int tab, const char *opening) {
     int oldest = -1;
     for (int i = 0; i < RE_TREE_EXPANSIONS; i++) {
       ReExpansion *e = &a->expansions[i];
-      if (e->tab != tab || e->generation != a->tabs[tab].generation || !e->data) continue;
+      if (!taken(e) || e->tab != tab || e->generation != a->tabs[tab].generation || !e->data) continue;
       if (protected_branch(a, tab, i, opening)) continue;
       if (oldest < 0 || e->opened < a->expansions[oldest].opened) oldest = i;
     }
@@ -97,8 +106,12 @@ static void enforce_row_cap(ReApp *a, int tab, const char *opening) {
                *opening ? opening : "another folder");
       return;
     }
-    snprintf(a->status, sizeof(a->status), "Collapsed %s to stay within the explorer's row limit.", a->expansions[oldest].path);
-    re_app_collapse(a, tab, a->expansions[oldest].path);
+    /* Copy first: collapsing frees the slot this path lives in, and the branch test would then be
+     * comparing against a cleared buffer. */
+    char closing[sizeof(a->expansions[0].path)];
+    re_copy(closing, sizeof(closing), a->expansions[oldest].path);
+    snprintf(a->status, sizeof(a->status), "Collapsed %s to stay within the explorer's row limit.", closing);
+    re_app_collapse(a, tab, closing);
   }
 }
 void re_app_expand(ReApp *a, int tab, const char *path) {
@@ -108,12 +121,13 @@ void re_app_expand(ReApp *a, int tab, const char *path) {
     re_copy(t->error, sizeof(t->error), "Folder path exceeds the view limit."); return;
   }
   int slot = -1;
-  for (int i = 0; i < RE_TREE_EXPANSIONS; i++) if (a->expansions[i].tab < 0 || !a->expansions[i].data) {
-    if (a->expansions[i].tab < 0) { slot = i; break; }
+  for (int i = 0; i < RE_TREE_EXPANSIONS; i++) if (!taken(&a->expansions[i])) { slot = i; break; }
+  if (slot < 0) {
+    snprintf(a->status, sizeof(a->status), "Close a folder before opening another; the explorer holds %d at once.", RE_TREE_EXPANSIONS);
+    return;
   }
-  if (slot < 0) { enforce_row_cap(a, tab, path); for (int i = 0; i < RE_TREE_EXPANSIONS; i++) if (a->expansions[i].tab < 0) { slot = i; break; } }
-  if (slot < 0) { re_copy(a->status, sizeof(a->status), "Close a folder before opening another; the explorer holds 48 at once."); return; }
-  a->expansions[slot] = (ReExpansion){tab, t->generation, {0}, NULL, SDL_GetTicks64()};
+  memset(&a->expansions[slot], 0, sizeof(a->expansions[slot]));
+  a->expansions[slot].tab = tab; a->expansions[slot].generation = t->generation; a->expansions[slot].opened = SDL_GetTicks64();
   re_copy(a->expansions[slot].path, sizeof(a->expansions[slot].path), path);
   char *route = re_net_query("tree", t->root, path);
   if (route) { request_slot(a, OP_EXPAND, tab, route, slot); free(route); }
@@ -258,6 +272,9 @@ int re_app_tab(ReApp *a, int type, const char *root, const char *path, const cha
     ReTab *t = &a->tabs[i];
     if (t->used && t->type == type && !strcmp(t->root, root) && !strcmp(t->path, path) && !strcmp(t->session, session)) {
       open_view(a, t);
+      /* Choosing the view a person already has open is the refresh gesture for a directory. The
+       * expansions are keyed by path and survive it, as spec 080 decision 10 requires. */
+      if (type == RE_TREE) re_app_load(a, i);
       int pane = re_layout_find(&a->layout, i);
       if (pane < 0) re_layout_add(&a->layout, a->layout.active, i);
       else { a->layout.active = pane; for (int k = 0; k < a->layout.panes[pane].count; k++) if (a->layout.panes[pane].tabs[k] == i) a->layout.panes[pane].selected = k; }
@@ -578,6 +595,7 @@ cJSON *re_app_inspect(ReApp *a) {
   /* The settings a person can change, so a test and a second window can read what this one holds. */
   cJSON_AddBoolToObject(j, "vim", a->vim); cJSON_AddBoolToObject(j, "explorerNested", a->explorer_nested);
   cJSON_AddStringToObject(j, "scheme", a->scheme); cJSON_AddNumberToObject(j, "accentHue", a->accent_hue);
+  cJSON_AddStringToObject(j, "themePath", a->theme_path);
   cJSON_AddNumberToObject(j, "overlay", a->overlay);
   cJSON *tabs = cJSON_GetObjectItemCaseSensitive(j, "tabs");
   for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].used) {

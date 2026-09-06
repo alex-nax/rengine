@@ -11,13 +11,18 @@ static void inspect_rect(ReApp *a, const char *role, const char *key, int tab, m
   cJSON_AddNumberToObject(j, "tab", tab); cJSON_AddItemToObject(j, "rect", cJSON_CreateIntArray((int[]){r.x, r.y, r.w, r.h}, 4));
   cJSON_AddItemToArray(a->controls, j);
 }
-void re_app_control(ReApp *a, mu_Context *ui, const char *role, const char *key, int tab) {
+/* A control is recorded at the part of it a person could actually reach: its rectangle clipped to
+ * the container being built. A row scrolled out of view records nothing. */
+static void control_clipped(ReApp *a, mu_Context *ui, const char *role, const char *key, int tab, mu_Rect r) {
   if (!a->controls) return;
-  mu_Rect r = ui->last_rect, clip = mu_get_clip_rect(ui);
+  mu_Rect clip = mu_get_clip_rect(ui);
   int x = re_max(r.x, clip.x), y = re_max(r.y, clip.y);
   int right = re_min(r.x + r.w, clip.x + clip.w), bottom = re_min(r.y + r.h, clip.y + clip.h);
   if (right <= x || bottom <= y) return;
   inspect_rect(a, role, key, tab, mu_rect(x, y, right - x, bottom - y));
+}
+void re_app_control(ReApp *a, mu_Context *ui, const char *role, const char *key, int tab) {
+  control_clipped(a, ui, role, key, tab, ui->last_rect);
 }
 static const char *root_name(ReApp *a, const char *id) {
   const cJSON *root = NULL;
@@ -139,19 +144,23 @@ static void tree_rows(ReApp *a, mu_Context *ui, int index, const cJSON *entries,
     re_app_control(a, ui, "tree-entry", path, index);
     mu_Rect caret = mu_rect(row.x + RE_METRIC_DESIGN_ICON_GAP + depth * RE_METRIC_DESIGN_TREE_INDENT,
                             row.y, RE_METRIC_DESIGN_SIZE, row.h);
-    if (nested) inspect_rect(a, "tree-drill", path, index, caret);
+    if (nested) control_clipped(a, ui, "tree-drill", path, index, caret);
     mu_pop_id(ui);
     if (clicked) {
       if (strlen(path) >= sizeof(t->path)) { re_copy(t->error, sizeof(t->error), "File path exceeds the view limit."); continue; }
-      re_copy(t->selected, sizeof(t->selected), path);
       bool on_caret = nested && re_inside(caret, ui->mouse_pos.x, ui->mouse_pos.y);
-      if (nested && !on_caret) re_app_expand(a, index, path);
+      if (nested && !on_caret) { re_app_expand(a, index, path); slot = re_app_expanded(a, index, path); }
       else if (directory) {
         re_app_expansions_clear(a, index);     /* a new root is a new tree */
         re_copy(t->path, sizeof(t->path), path); t->selected[0] = 0;
         re_app_load(a, index); re_app_layout_changed(a);
         continue;
-      } else re_app_tab(a, RE_EDITOR, t->root, path, "", name);
+      } else {
+        /* The selection is the file being worked on, not whichever folder was last toggled. It is
+         * what decides which branch the row cap must not close under (spec 080 decision 8). */
+        re_copy(t->selected, sizeof(t->selected), path);
+        re_app_tab(a, RE_EDITOR, t->root, path, "", name);
+      }
     }
     if (slot >= 0) {
       const cJSON *children = cJSON_GetObjectItemCaseSensitive(a->expansions[slot].data, "entries");

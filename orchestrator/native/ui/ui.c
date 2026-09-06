@@ -49,7 +49,7 @@ void re_ui_overlay_flush(ReDraw *draw) {
       case OVERLAY_RING: re_draw_ring(draw, c->rect, c->color, c->radius, c->width); break;
       case OVERLAY_SHADOW: re_draw_shadow(draw, c->rect, c->color, c->radius, c->width); break;
       case OVERLAY_TEXT: re_draw_text_face(draw, c->face, c->size, c->text, -1, c->rect.x, c->rect.y, c->color); break;
-      case OVERLAY_ICON: re_draw_icon(draw, c->icon, c->rect, c->color); break;
+      case OVERLAY_ICON: re_draw_icon_sized(draw, c->icon, c->size, c->rect, c->color); break;
       case OVERLAY_GRADIENT: re_draw_gradient(draw, c->rect, c->color, c->secondary, c->radius, c->corners, c->axis); break;
       case OVERLAY_CLIP: re_draw_clip(draw, &c->rect); break;
       case OVERLAY_UNCLIP: re_draw_clip(draw, NULL); break;
@@ -122,11 +122,14 @@ static void ui_gradient(mu_Rect rect, mu_Color from, mu_Color to, float radius, 
   }
   re_draw_gradient(ui.draw, rect, from, to, radius, corners, axis);
 }
-static void ui_icon(uint8_t icon, mu_Rect rect, mu_Color color) {
+/* A mark inside a small box is drawn at the box's size, not the text size: the check in a 14px
+ * checkbox was rendered at 16px, which cropped it to a diagonal stroke that read as a slash. */
+static void ui_icon_sized(uint8_t icon, int size, mu_Rect rect, mu_Color color) {
   apply_scissor();
-  if (ui.recording) { OverlayCommand *c = record(OVERLAY_ICON, rect, color); if (c) c->icon = icon; return; }
-  re_draw_icon(ui.draw, icon, rect, color);
+  if (ui.recording) { OverlayCommand *c = record(OVERLAY_ICON, rect, color); if (c) { c->icon = icon; c->size = size; } return; }
+  re_draw_icon_sized(ui.draw, icon, size, rect, color);
 }
+static void ui_icon(uint8_t icon, mu_Rect rect, mu_Color color) { ui_icon_sized(icon, RE_THEME_FONT_SIZE, rect, color); }
 static void emit_clip(const mu_Rect *rect) {
   if (ui.recording) { if (rect) record(OVERLAY_CLIP, *rect, mu_color(0, 0, 0, 0)); else record(OVERLAY_UNCLIP, mu_rect(0, 0, 0, 0), mu_color(0, 0, 0, 0)); return; }
   re_draw_clip(ui.draw, rect);
@@ -358,7 +361,7 @@ int re_ui_checkbox_ex(mu_Context *ctx, const char *label, int *state, int opt) {
   mu_Color fill = *state ? mix(RE_COLOR_ACCENT, RE_COLOR_ACCENT_HOVER, hover) : mix(RE_COLOR_FIELD, RE_COLOR_FIELD_HOVER, hover);
   ui_rrect(box, fill, RE_METRIC_DESIGN_RADIUS, RE_CORNERS_ALL);
   ui_frame(box, RE_COLOR_BORDER, RE_COLOR_HIGHLIGHT, RE_METRIC_DESIGN_RADIUS);
-  if (*state) ui_icon(RE_ICON_CHECK, box, RE_COLOR_TEXT_ON_ACCENT);
+  if (*state) ui_icon_sized(RE_ICON_CHECK, side - RE_METRIC_DESIGN_GAP, box, RE_COLOR_TEXT_ON_ACCENT);
   if (ctx->focus == id) ui_ring(box, RE_COLOR_FOCUS, RE_METRIC_DESIGN_RADIUS + RE_METRIC_DESIGN_FOCUS_WIDTH, RE_METRIC_DESIGN_FOCUS_WIDTH);
   if (label) {
     ui_text(label_face(opt), size, label, box.x + side + RE_METRIC_DESIGN_ICON_GAP,
@@ -409,7 +412,7 @@ int re_ui_menu_item(mu_Context *ctx, const char *label, int icon, const char *hi
     ui_rrect(rect, fill, RE_METRIC_DESIGN_RADIUS, RE_CORNERS_ALL);
   }
   mu_Color ink = mix(RE_COLOR_TEXT, RE_COLOR_TEXT_ON_ACCENT, hover);
-  if (marked) ui_icon(RE_ICON_CHECK, mu_rect(rect.x + gap, rect.y, icon_width, rect.h), hover > 0.5f ? ink : RE_COLOR_ACCENT);
+  if (marked) ui_icon_sized(RE_ICON_CHECK, icon_width, mu_rect(rect.x + gap, rect.y, icon_width, rect.h), hover > 0.5f ? ink : RE_COLOR_ACCENT);
   else if (icon >= 0) ui_icon((uint8_t)icon, mu_rect(rect.x + gap, rect.y, icon_width, rect.h), hover > 0.5f ? ink : RE_COLOR_TEXT_MUTED);
   ui_text(RE_FACE_UI, size, label, rect.x + gap + icon_width + gap, rect.y + (rect.h - size) / 2 - 1, ink);
   if (hint && *hint) {
