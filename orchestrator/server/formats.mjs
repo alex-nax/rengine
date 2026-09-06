@@ -5,8 +5,9 @@ import path from 'node:path';
 import { validateSchema } from './schema.mjs';
 import { fail, hash, resolveInRoot, MAX_TEXT_BYTES } from './store.mjs';
 import { shellEnvironment } from './sessions.mjs';
+import { gameRules } from './game-rules.mjs';
 
-export const CONTRACT = 1;
+export const CONTRACTS = [1, 2];
 export const DEFAULT_TIMEOUT_MS = 10000;
 export const DEFAULT_MAX_BYTES = 4 * 1024 * 1024;
 export const MAX_RAW_WINDOW = 64 * 1024;
@@ -40,13 +41,18 @@ export async function readDeclaration(rootPath) {
   let value;
   try { value = JSON.parse(bytes.toString('utf8')); } catch (error) { return problem(`invalid JSON (${error.message})`); }
   if (!value || typeof value !== 'object' || Array.isArray(value)) return problem('declaration must be a JSON object');
-  if (value.contract !== CONTRACT) return problem(`unknown contract ${JSON.stringify(value.contract)}; this rEngine supports contract ${CONTRACT}`);
-  const structural = validateSchema(schema, value);
+  if (!CONTRACTS.includes(value.contract)) return problem(`unknown contract ${JSON.stringify(value.contract)}; this rEngine supports contracts ${CONTRACTS.join(' and ')}`);
+  const { game, ...base } = value;
+  const structural = validateSchema(schema, base);
   if (structural.length) return problem(structural.slice(0, 3).join('; '));
-  const errors = crossRules(value);
+  const errors = crossRules(base);
   if (errors.length) return problem(errors.slice(0, 3).join('; '));
-  return { declared: true, contract: value.contract, project: value.project,
+  const result = { declared: true, contract: value.contract, project: value.project,
     formats: value.formats.map(format => ({ ...format, preview: bounded(format.preview), entry: bounded(format.entry) })) };
+  if (game === undefined) return result; /* the game block is reported separately so it can never disable the formats; see sidecar: declaration-reporting */
+  if (value.contract < 2) return { ...result, gameError: `.rengine/project.json: game requires contract 2 (declared contract ${value.contract})` };
+  const problems = [...validateSchema(schema.$defs.game, game, schema, '$.game'), ...gameRules(game)];
+  return problems.length ? { ...result, gameError: `.rengine/project.json: ${problems.slice(0, 3).join('; ')}` } : { ...result, game };
 }
 export async function listFormats(root) { return { rootId: root.id, ...await readDeclaration(root.path) }; }
 

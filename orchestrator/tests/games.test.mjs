@@ -52,7 +52,7 @@ test('contract 2 game declarations validate, contract 1 stays accepted and game 
       const result = await declare(directory, label.replaceAll(/[^a-z0-9]/g, '-'), gameDeclaration(extra));
       assert.equal(result.error, undefined, `${label}: formats stay valid`); assert.match(result.gameError ?? '', pattern, label); assert.equal(result.game, undefined, label);
     }
-    const three = await declare(directory, 'three', gameDeclaration({}, { ...declaration(), contract: 3 })); assert.match(three.error, /unknown contract 3/); assert.deepEqual(three.formats, []);
+    const three = await declare(directory, 'three', { ...gameDeclaration(), contract: 3 }); assert.match(three.error, /unknown contract 3/); assert.deepEqual(three.formats, []);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
@@ -71,9 +71,9 @@ test('preflight names the undeclared root, the malformed declaration, missing ca
   await writeFile(path.join(broken, '.rengine/project.json'), JSON.stringify(gameDeclaration({ surface: 'wayland' })));
   const malformed = (await preflight(broken)).config;
   assert.equal(malformed.declared, false); assert.equal(malformed.ready, false); assert.equal(malformed.issues.length, 1); assert.match(malformed.issues[0], /surface must be one of/);
-  const missing = await preflight(await gameProject(directory, 'missing', gameDeclaration({ executable: ['build/game-a', 'build/game-b'], requires: ['data/present.bin', 'data/absent.bin', 'nolf/absent.rez'] })));
+  const missing = await preflight(await gameProject(directory, 'missing', gameDeclaration({ executable: ['build/game-a', 'build/game-b'], requires: ['data/present.bin', 'data/absent.bin', 'data/other.rez'] })));
   assert.equal(missing.config.declared, true); assert.equal(missing.config.ready, false); assert.equal(missing.config.executable, undefined);
-  assert.deepEqual(missing.config.issues, ['Game executable not found; expected build/game-a or build/game-b in the selected project.', 'Required file is missing: data/absent.bin.', 'Required file is missing: nolf/absent.rez.']);
+  assert.deepEqual(missing.config.issues, ['Game executable not found; expected build/game-a or build/game-b in the selected project.', 'Required file is missing: data/absent.bin.', 'Required file is missing: data/other.rez.']);
   const ready = await preflight(await gameProject(directory, 'ready'));
   assert.deepEqual(ready.config, { rootId: ready.root.id, declared: true, id: 'fixture-game', title: 'Fixture game', surface: 'external', executable: path.join(ready.root.path, 'tools/game.sh'),
     args: ['--flat', '--width', '640'], env: { FIXTURE_FLAVOUR: 'blue' }, requires: ['data/present.bin'], cwd: ready.root.path, issues: [], ready: true });

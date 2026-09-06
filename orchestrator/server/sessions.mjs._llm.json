@@ -45,8 +45,8 @@
       "id": "one-retained-handoff",
       "kind": "rationale",
       "anchor": {
-        "start": 91,
-        "end": 91,
+        "start": 92,
+        "end": 92,
         "snippet": "  async terminal(options) {"
       },
       "note": "Serialize handoff creation per project, then reuse a running session by canonical root and exact conversation UUID. Snapshot the validated manifest privately before spawning; editing the original while its pane is waiting must not retarget an existing session. A fresh unique readiness path prevents stale releases. Presentation releases only a live waiting bootstrap; input is rejected while waiting. Reload and view detach retain both waiting and running sessions. A later explicit launch after Stop/exit creates a fresh gated PTY.",
@@ -57,7 +57,7 @@
   ],
   "source": {
     "path": "orchestrator/server/sessions.mjs",
-    "sha256": "a5d3280d0e7f6257cedd156000800c6d2bdfdb67b7f4ecba3937d4f2b9256977",
+    "sha256": "bef6b64c8398240a9a8d97d8d8298b3f33822315dfe8fb8867e5e6c4ea4a8bfa",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

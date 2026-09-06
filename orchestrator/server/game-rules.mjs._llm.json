@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "reserved-env-prefixes",
+      "kind": "constraint",
+      "anchor": {
+        "start": 2,
+        "end": 2,
+        "snippet": "const ENV_KEY = /^[A-Z][A-Z0-9_]*$/, RESERVED = /^(?:RENGINE_|DYLD_|LD_)/;"
+      },
+      "note": "RENGINE_, DYLD_ and LD_ keys are rejected when the declaration is read, not merely overridden at launch: a project must not be able to re-point the surface reservation, the workspace connection or library injection through the workspace, and a silent override would hide the mistake. The launch still layers the reservation and adapter over declared env as defence in depth. Kept import-free so formats.mjs and games.mjs share it without a cycle.",
+      "refs": [
+        "docs/specs/076-project-game-declaration.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/server/game-rules.mjs",
+    "sha256": "b3c98154d1727405ede03d4793eb7bb3ec25b7cf5ba37acb03b5e83be83e35e2",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

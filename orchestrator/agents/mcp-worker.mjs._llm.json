@@ -52,11 +52,24 @@
       "refs": [
         "docs/specs/074-project-format-registry.md"
       ]
+    },
+    {
+      "id": "declared-game-tools",
+      "kind": "rationale",
+      "anchor": {
+        "start": 131,
+        "end": 131,
+        "snippet": "const gameCapability = state => { if (state.capabilities.projectGame !== 1) throw new Error('This retained service predates per-project game declarations. Update the workspace layer first.'); };"
+      },
+      "note": "game_preflight and launch_game address only the game the bound project declares in .rengine/project.json; their descriptions name no game, and the connector never carries a built-in executable or data path. launch_game is open-world because it executes the project's own program; it returns the running session when one exists, so agents inspect the returned id rather than assuming a fresh process. Both gate on projectGame: 1 because an older retained host still answers game-config/game with the removed hard-coded semantics.",
+      "refs": [
+        "docs/specs/076-project-game-declaration.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/agents/mcp-worker.mjs",
-    "sha256": "965969589e45678d4b5ee1aefd9fe7b8f1d419cbdc2f6f75d0608eabaa0c0a4f",
+    "sha256": "28a31f4aa61172463cbbd2d20ebf93b715465475050332c36008cfdd36d5726a",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

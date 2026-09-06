@@ -3,9 +3,28 @@ import { constants } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fail } from './store.mjs';
+import { shellEnvironment } from './sessions.mjs';
+import { readDeclaration } from './formats.mjs';
 import { Surfaces } from './surfaces.mjs';
 
 const nativeDirectory = fileURLToPath(new URL('../../.cache/native/', import.meta.url));
+export const UNDECLARED = 'This project declares no game in .rengine/project.json (contract 2).';
+async function executableAt(file) {
+  try { await access(file, constants.X_OK); return (await stat(file)).isFile(); } catch { return false; }
+}
+export async function resolveCandidate(rootPath, candidate, environment = shellEnvironment()) {
+  const suffixes = process.platform === 'win32' ? ['', '.exe'] : [''];
+  if (path.isAbsolute(candidate) || /[\\/]/.test(candidate)) {
+    const resolved = path.resolve(rootPath, candidate);
+    for (const suffix of suffixes) if (await executableAt(`${resolved}${suffix}`)) return `${resolved}${suffix}`;
+    return null;
+  }
+  const pathKey = Object.keys(environment).find(key => key.toUpperCase() === 'PATH');
+  for (const directory of (environment[pathKey] ?? '').split(path.delimiter).filter(Boolean)) {
+    for (const suffix of suffixes) { const file = path.join(directory, `${candidate}${suffix}`); if (await executableAt(file)) return file; }
+  }
+  return null;
+}
 export class Games {
   constructor(store, sessions, surfaces) { this.store = store; this.sessions = sessions; this.surfaces = surfaces; this.items = new Map(); this.launches = new Map(); }
   static async open(store, sessions) {
@@ -20,21 +39,28 @@ export class Games {
   }
   async inspect(rootId) {
     const root = this.store.root(rootId);
-    const candidates = process.platform === 'win32' ? ['build/Release/relith-nolf.exe', 'build/relith-nolf.exe'] : ['build/relith-nolf'];
+    const declared = await readDeclaration(root.path);
+    const unready = issue => ({ rootId, declared: false, args: [], cwd: root.path, issues: [issue], ready: false });
+    if (!declared.declared) return unready(UNDECLARED);
+    if (declared.error) return unready(declared.error);
+    if (declared.gameError) return unready(declared.gameError);
+    if (!declared.game) return unready(UNDECLARED);
+    const { game } = declared, issues = [];
     let executable;
-    for (const relative of candidates) {
-      try { const file = await this.store.resolve(rootId, relative); await access(file.absolute, constants.X_OK); executable = file.absolute; break; }
-      catch (error) { if (!['ENOENT', 'EACCES'].includes(error.code)) throw error; }
+    for (const candidate of game.executable) { const found = await resolveCandidate(root.path, candidate); if (found) { executable = found; break; } }
+    if (!executable) issues.push(`Game executable not found; expected ${game.executable.join(' or ')} in the selected project.`);
+    for (const relative of game.requires ?? []) {
+      try { if (!(await stat(path.join(root.path, relative))).isFile()) throw new Error(); }
+      catch { issues.push(`Required file is missing: ${relative}.`); }
     }
-    const issues = [];
-    if (!executable) issues.push(`Build NOLF first; expected ${candidates.join(' or ')} in the selected project.`);
-    try { if (!(await stat(path.join(root.path, 'nolf/NOLF.REZ'))).isFile()) throw new Error(); }
-    catch { issues.push('NOLF data is missing: expected nolf/NOLF.REZ in the selected project.'); }
-    const adapter = path.join(nativeDirectory, 'librengine_surface.dylib');
-    if (process.platform === 'darwin') {
-      try { await access(adapter); } catch { issues.push('Build the native surface first: npm run build:surface'); }
-    } else issues.push('The cooperative SDL surface needs host integration and qualification on this platform.');
-    return { rootId, executable, adapter, args: ['--flat', '--game', 'nolf', '--width', '1280', '--height', '720'], cwd: root.path, issues, ready: issues.length === 0 };
+    const config = { rootId, declared: true, id: game.id, title: game.title, surface: game.surface, executable, args: game.args ?? [], env: game.env ?? {}, requires: game.requires ?? [], cwd: root.path };
+    if (game.surface === 'sdl2-interpose') {
+      config.adapter = path.join(nativeDirectory, 'librengine_surface.dylib');
+      if (process.platform === 'darwin') {
+        try { await access(config.adapter); } catch { issues.push('Build the native surface first: npm run build:surface'); }
+      } else issues.push('The cooperative SDL surface needs host integration and qualification on this platform.');
+    }
+    return { ...config, issues, ready: issues.length === 0 };
   }
   async launch(rootId) {
     if (this.launches.has(rootId)) return this.launches.get(rootId);
@@ -46,11 +72,12 @@ export class Games {
     if (existing) return existing;
     const config = await this.inspect(rootId);
     if (!config.ready) fail(config.issues.join('\n'), 409);
+    const root = this.store.root(rootId);
+    const base = { rootId, type: 'game', command: config.executable, args: config.args, title: `${config.title} · ${root.name}`, surface: config.surface, game: config.id };
+    if (config.surface !== 'sdl2-interpose') return this.sessions.terminal({ ...base, env: config.env });
     const { item, env } = this.surfaces.reserve();
     try {
-      const session = await this.sessions.terminal({ rootId, type: 'game', command: config.executable, args: config.args,
-        env: { ...env, DYLD_INSERT_LIBRARIES: [config.adapter, process.env.DYLD_INSERT_LIBRARIES].filter(Boolean).join(':'),
-          RELITH_HIDDEN_WINDOW: '1', RELITH_SKIP_INTRO: '1' } });
+      const session = await this.sessions.terminal({ ...base, env: { ...config.env, ...env, DYLD_INSERT_LIBRARIES: [config.adapter, process.env.DYLD_INSERT_LIBRARIES].filter(Boolean).join(':') } });
       item.id = session.id; this.items.set(session.id, item);
       return session;
     } catch (error) { this.surfaces.remove(item); throw error; }

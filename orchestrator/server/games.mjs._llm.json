@@ -5,16 +5,19 @@
       "id": "explicit-host-adapter",
       "kind": "rationale",
       "anchor": {
-        "start": 9,
-        "end": 9,
+        "start": 28,
+        "end": 28,
         "snippet": "export class Games {"
       },
-      "note": "Preflight names the actual NOLF executable/data and its own checkout cwd. Concurrent launch requests are coalesced per root; later requests reattach to a running game. The current macOS path qualifies SDL interposition against the existing development build. Windows launch remains an explicit unsupported-integration error until the cooperative surface is wired and proven in that host; source portability is not a passing platform gate."
+      "note": "Preflight reads the project's own declaration: executable candidates resolve in order (absolute, root-relative with a Windows .exe fallback, bare name through the sidecar PATH) and each declared requires file is stat'ed without symlink confinement so shared data can be linked in, as the qualification fixtures do; nothing runs. Concurrent launch requests are coalesced per root and later requests reattach to a running game. sdl2-interpose reserves a surface item and injects the macOS adapter (the qualified SDL interposition path); external spawns the plain PTY child so an SDL3/static application opens its own window and only its output is retained. Declared env is layered under the reservation and the adapter, and the reader already rejects RENGINE_/DYLD_/LD_ keys. Windows launch remains an explicit unsupported-integration error until the cooperative surface is wired and proven in that host.",
+      "refs": [
+        "docs/specs/076-project-game-declaration.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/server/games.mjs",
-    "sha256": "170300dd259bedffec6190cfcc667cd5c5f5ab0a90e7c90d13c400a011a15478",
+    "sha256": "cdbd74f98b17bb3359bf176a92f2392d07a48201321a1454c160ccd3c5fbf136",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

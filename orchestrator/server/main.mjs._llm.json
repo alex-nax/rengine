@@ -23,7 +23,7 @@
         "end": 61,
         "snippet": "case '/api/formats': value = await listFormats(store.root(query.get('rootId'))); break;"
       },
-      "note": "The host serves the format registry so a directly connected desktop and the service tests need no supervisor; the replaceable worker serves the same three routes for the live layered runtime whose host predates them. Both advertise formatRegistry: 1. Declared commands run only from format-preview (explicit open/refresh/agent call), never from tree listing.",
+      "note": "The host serves the format registry so a directly connected desktop and the service tests need no supervisor; the replaceable worker serves the same three routes for the live layered runtime whose host predates them. Both advertise formatRegistry: 1. Declared commands run only from format-preview (explicit open/refresh/agent call), never from tree listing. projectGame: 1 tells connectors that game-config/game answer from the per-project declaration; an older host still serves those routes with the removed built-in semantics, which is why the game tools gate on the capability.",
       "refs": [
         "docs/specs/074-project-format-registry.md"
       ]
@@ -31,7 +31,7 @@
   ],
   "source": {
     "path": "orchestrator/server/main.mjs",
-    "sha256": "65ce1a46306d8bdfc8b63133e7cb7e00ecc7ee07a56864ca96e79e90791b697f",
+    "sha256": "038fc90d6f414d30fdacf8906f24c5b398ea1d02373033ab32dbd826acbf62ae",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

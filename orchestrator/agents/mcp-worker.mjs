@@ -25,7 +25,7 @@ const server = new McpServer({ name: 'rengine-workspace', version: '1.0.0' }, {
   instructions: 'These tools address the project bound when this agent was launched. List sessions before selecting a process. Closing a workspace view retains the process; stop_session explicitly stops it. File reads use disk text unless useDraft is requested.',
 });
 const tool = (name, description, inputSchema, readOnlyHint, action) => server.registerTool(name, {
-  description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script'].includes(name), openWorldHint: ['open_script', 'preview_file'].includes(name) },
+  description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script'].includes(name), openWorldHint: ['open_script', 'preview_file', 'launch_game'].includes(name) },
 }, async values => {
   let state;
   try {
@@ -128,10 +128,11 @@ tool('preview_file', 'Preview a file registered in the project’s .rengine/proj
   }
   return output;
 });
-tool('nolf_preflight', 'Check this project for the native NOLF executable, game data and surface prerequisites.', {}, true,
-  async () => call(`game-config?${new URLSearchParams({ rootId: context.rootId })}`));
-tool('launch_nolf', 'Launch this project’s real flat NOLF game or reuse its running game session.', {}, false,
-  async () => call('game', { rootId: context.rootId }));
+const gameCapability = state => { if (state.capabilities.projectGame !== 1) throw new Error('This retained service predates per-project game declarations. Update the workspace layer first.'); };
+tool('game_preflight', 'Check the game declared in the project’s .rengine/project.json (contract 2): its title, the first resolvable executable candidate, literal args and env, required files and surface prerequisites, with each problem as a named issue and ready. Runs nothing; an undeclared project reports declared false.', {}, true,
+  async (_values, state) => { gameCapability(state); return call(`game-config?${new URLSearchParams({ rootId: context.rootId })}`); });
+tool('launch_game', 'Launch the game declared in the project’s .rengine/project.json (its own executable with literal args and env, cwd = project root) or reuse the running game session of this project. sdl2-interpose games stream into the workspace pane; external games open their own window and retain only their PTY output. Executes a project executable; stop_session ends it.', {}, false,
+  async (_values, state) => { gameCapability(state); return call('game', { rootId: context.rootId }); });
 tool('stop_session', 'Explicitly stop a retained process belonging to the bound project.', { id: z.string() }, false, async ({ id }, state) => {
   ownSession(id, state); return call('stop', { id });
 });

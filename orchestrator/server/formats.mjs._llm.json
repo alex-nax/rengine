@@ -5,8 +5,8 @@
       "id": "tree-sanitization",
       "kind": "rationale",
       "anchor": {
-        "start": 111,
-        "end": 111,
+        "start": 117,
+        "end": 117,
         "snippet": "function sanitizeTree(value) {"
       },
       "note": "Only name/dirs/files with name/path/size survive; producer extras (relith-rez offset/time/type) are dropped so the native client and agents see one shape. Depth 64 and 200,000 nodes bound recursion and memory below the 4 MiB stdout default; a malformed node fails the whole preview rather than showing a partial tree.",
@@ -18,11 +18,11 @@
       "id": "declaration-reporting",
       "kind": "constraint",
       "anchor": {
-        "start": 34,
-        "end": 34,
+        "start": 35,
+        "end": 35,
         "snippet": "export async function readDeclaration(rootPath) {"
       },
-      "note": "A malformed, oversized or unknown-contract declaration is returned as { declared: true, error, formats: [] } rather than thrown: the listing route shows it and the workspace, editor and other roots keep working. Structural (schema) problems are reported before cross-field rules run, and the cross-field pass guards every shape it touches, because a thrown TypeError here surfaced as a 500 that left native editors waiting (review finding 2). Only the first three problems are reported to keep the status line readable.",
+      "note": "A malformed, oversized or unknown-contract declaration is returned as { declared: true, error, formats: [] } rather than thrown: the listing route shows it and the workspace, editor and other roots keep working. Structural (schema) problems are reported before cross-field rules run, and the cross-field pass guards every shape it touches, because a thrown TypeError here surfaced as a 500 that left native editors waiting (review finding 2). Only the first three problems are reported to keep the status line readable. Contract 2's game block is split off before the schema pass and validated separately: a bad game is reported as gameError beside intact formats so a typo in the game block can never disable previews (the same isolation spec 075 gives the dashboard); a game under contract 1 is reported and ignored.",
       "refs": [
         "docs/specs/074-project-format-registry.md"
       ]
@@ -31,8 +31,8 @@
       "id": "execution-boundary",
       "kind": "constraint",
       "anchor": {
-        "start": 73,
-        "end": 73,
+        "start": 79,
+        "end": 79,
         "snippet": "export async function runCommand(root, spec, values) {"
       },
       "note": "The runner takes the root record and a root-relative file and re-confines it through resolveInRoot immediately before the spawn, passing that resolved path; it never trusts a caller-supplied absolute path. Argv is literal after substituting only ${file}/${entry}; no shell, stdin closed, cwd = root, the sidecar's shell environment. The child is its own POSIX process group, so timeout and oversized output kill the whole tree (taskkill /T /F on Windows), close the pipes and wait for the exit before rejecting (review finding 4). The window between this resolution and the producer's own open cannot be closed for a path-taking executable; spec 074 and KI-037 state it.",
@@ -44,8 +44,8 @@
       "id": "raw-read-confinement",
       "kind": "constraint",
       "anchor": {
-        "start": 154,
-        "end": 154,
+        "start": 160,
+        "end": 160,
         "snippet": "export async function readBytes(root, { path: relative, offset = 0, length = MAX_RAW_WINDOW }) {"
       },
       "note": "Open first, then fstat the handle, then confine a fresh resolution of the same relative path and require the same dev/inode as the opened handle; a swap between resolution and open is reported as a 409 rather than served. Node has no frealpath, so inode identity is the strongest confinement of what was actually opened.",
@@ -56,7 +56,7 @@
   ],
   "source": {
     "path": "orchestrator/server/formats.mjs",
-    "sha256": "43993833b73dc20fa64367a372c243152da6277d286a09da7b641a32ba12b5df",
+    "sha256": "d6d58ecc0af94f1d676678a8c78865cca304adc45508cd5a85fa20e5c7fc28ce",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }
