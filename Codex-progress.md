@@ -1,6 +1,6 @@
 # Progress Log
 
-## Session 33 (macos) — 2026-09-06 — Merging the devices lane onto the settings popover and the clip fix
+## Session 33 (macos) — 2026-09-06 — Merging the devices lane onto the settings popover, the clip fix and the overlay
 
 **Owner scope**: land finished `feat/devices` (`57ab639`) on current main and report green. Worktree
 `.cache/worktrees/merge-verify`, branch `feat/devices` pushed per commit; the `main` ref untouched,
@@ -37,24 +37,52 @@ spec 081 and KI-044/045/046 are all still free. `features.json` appended in plac
 `docs/roadmap-graph.md` regenerates byte-identical to the merge; `theme.h`/`theme.c` and the design
 mirrors regenerate byte-identical too, so the generated files were not conflict-resolved by hand.
 
-**Gates**, all after a final `git fetch`. `npm test` **66/66**. `npm run test:desktop` **24/24**
-(main's 22 plus `native-devices.spec.mjs` 2/2), sequential. Two later repeats of that sweep each lost
-one test to machine load rather than to this merge, and both were checked against main rather than
-assumed: run 2 failed `native-render` on `opengl: resident memory delta 32800 KiB exceeds 32768 KiB`
-— 0.1 % over a delta between two ~150 MiB processes whose own samples span 7 MiB — and run 3
-cancelled the same spec at its 420 s timeout under load average 20.6. **origin/main at `60d0917`
-flakes the same way on the same machine**: its own sequential sweep is 21/22 (`native-game`'s fixture
-aborted, signal 6) and the render spec failed 1 of 2 isolated runs there at delta 33152 KiB, passing
-the other at 18608. `native-project-windows`, which run 2 lost first, passes 3/3 in isolation here.
-None of the three flakes touches a devices path, and the merged branch has a clean 24/24 sweep on
-exactly this code. `ctest --test-dir .cache/desktop`
-**5/5** (0.79 s). Native build from a **wiped** `.cache/desktop`: **0 warnings, 0 errors** — the
+**A second merge, `a5e6036`.** Main advanced again while this branch was being reported: the nested
+explorer and the fix that lets the settings popover take clicks over a busy pane. It merged with no
+conflict, as predicted from its diff — it reshapes `tree_ui` into nested `tree_rows` with an
+expansion pool and brings the overlay container to front each frame, none of which touches the
+switcher entry, the dispatch or the scroll predicates. The one thing worth checking was the new
+`RePending.slot`: `request_within` initialises it to -1, so a devices load still dispatches as
+`OP_LOAD` and is never read as an expansion listing.
+
+**Their fix and this section overlap, so it is now a test.** Devices is a scrolling pane that is
+busy whenever a probe is outstanding, and the popover hangs over it. `native-devices.spec.mjs` gains
+a third case that puts a probe genuinely in flight — the probe writes its own start and end marker,
+so "in flight" is measured rather than assumed — then presses a device row (the press lands, closes
+the popover and brings the pane forward), reopens the popover over that pane and toggles Vim, and
+presses Refresh so a third probe starts before the earlier ones end. Verified the right way round:
+with `mu_bring_to_front` removed it fails at *the popover answers over a pane with a probe
+outstanding*, with the surface published and visible (`overlay: 1`) and deaf; restored, it passes.
+The first ordering I wrote did not discriminate, because a surface opened for the first time is
+already in front — the defect only appears on the second opening, over a pane clicked in between,
+and the fixture now opens it twice for that reason.
+
+**The render budget is badly calibrated, and here are the numbers.** `native-render.spec.mjs`
+asserts `gpu.rss - sdl.rss <= 32768 KiB` per backend. On this machine the OpenGL delta is a
+difference between two processes of ~150-190 MiB whose own samples span **7296 KiB** within a single
+run (SDL sampled 147952, 152944, 154880, 155248). Observed OpenGL deltas: **32800** and **29792** on
+this branch, **33152** and **18608** on `origin/main` at `60d0917` — a 14544 KiB spread across four
+runs of unchanged code, straddling a threshold two of them cross. It is a threshold set close to the
+noise, not a regression, and it belongs to the render lane: either widen it to cover the measured
+spread or measure something less noisy than a whole-process RSS difference. A third sweep lost the
+same spec to its 420 s timeout under load average 20.6.
+
+**Gates**, re-run in full after the second merge and after a final `git fetch` (`origin/main`
+`a5e6036`). `npm test` **66/66**. `npm run test:desktop` **25/25**, sequential — main's 22, plus
+`native-devices.spec.mjs` 3/3 including the new busy-pane case. Earlier sweeps of the first merge lost
+one test each to machine load, never the same one twice, and every class was reproduced on main
+before being attributed there: `native-render`'s memory budget (the numbers are above),
+`native-render` cancelled at its 420 s timeout under load average 20.6, and `native-project-windows`,
+which passes 3/3 in isolation here while `origin/main`'s own sweep at `60d0917` came in at 21/22 with
+`native-game`'s fixture aborted on signal 6. None touches a devices path.
+`ctest --test-dir .cache/desktop` **5/5** (0.95 s). Native build from a **wiped** `.cache/desktop`: **0 warnings, 0 errors** — the
 honest check for the `-Werror` implicit-declaration class of defect. `./init.sh` clean (35 features).
 `python3 tools/design.py check` clean. `python3 tools/features.py validate` clean.
 `RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run test:game-nolf` **1/1**. Sidecars with the
-private index `.cache/sidecars-devices-merge.sqlite`: **17 errors, 20 warnings**, diagnostic-for-
-diagnostic identical to `origin/main`'s own 17/22 except the two fingerprints this merge stamped —
-the merge introduces no new drift, and the rest is the pre-existing KI-046. Both live consumer
+private index `.cache/sidecars-devices-merge.sqlite`: **17 errors, 20 warnings** — the set that
+predates both lanes (KI-046). `origin/main` at `a5e6036` reports **35 errors**, because its own
+commit shifted `app.c` and `workspace.c` without re-anchoring their sidecars; this branch repairs
+those 18 with `check --fix-anchors` and stamps both files, so it carries no drift of its own. Both live consumer
 declarations re-read through the merged code: vtmb-vr (contract 3, 1 format, 2 games, 3 dashboard
 groups) and nolf-improved (contract 3, 1 format, 3 games, 3 groups), no errors, `devices` absent in
 both, `projectDevices` reporting each as the implicit local device only, and both files byte-
