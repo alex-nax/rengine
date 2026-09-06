@@ -111,6 +111,17 @@ test('the wizard scaffolds a contract 2 declaration, launcher and test that sati
   assert.match(result.stdout, /editor\.sh --check/);
 });
 
+test('the reference template declaration follows the same contract 2 rules', async () => {
+  const templates = path.join(ENGINE, 'orchestrator/templates/project');
+  const template = JSON.parse(await readFile(path.join(templates, 'project.json'), 'utf8'));
+  const { problems, scripts } = contractTwoProblems(template, templates);
+  assert.deepEqual(problems, []);
+  assert.equal(template.contract, 2);
+  assert.ok(scripts.some(script => script.endsWith('editor.sh')), scripts);
+  for (const file of ['editor.sh', 'project.json', 'test_rengine_project_decl.py', 'README.md'])
+    assert.equal((await stat(path.join(templates, file))).isFile(), true, file);
+});
+
 test('the same skeleton at contract 1 without game or dashboard is read by this branch', async () => {
   const root = await repository();
   await wizard(['--project', root, '--name', 'contract-one', '--contract', '1', '--no-submodule']);
