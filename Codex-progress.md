@@ -1,5 +1,50 @@
 # Progress Log
 
+## Session 25 (macos) — 2026-09-06 — Project integration recipe
+
+**Owner scope**: "for next rengine integrations or new projects we should have this recipe stored
+and later adapted in the orchestrator interface." Branch `feat/integration-recipe` (worktree
+`.cache/worktrees/integration-recipe`, base `43bbb80`; not merged, not pushed). Generalised from
+what nolf-improved did on 2026-09-06 (its rEngine submodule, `editor.sh`, REZ format registration
+and dashboard features) and what the vtmb-vr lane is doing now; both consumer checkouts were read
+only, never modified.
+
+**Landed**: spec `077-project-integration-recipe.md` (scope, recipe, ownership split, what a
+wizard may automate versus what stays a project decision). `docs/runbooks/project-integration.md`
+— prerequisites, submodule pin/bump policy, the `editor.sh` launching point, the contract-2
+`.rengine/project.json`, the three test tiers a consumer keeps and how to register them, skills and
+CLAUDE/AGENTS wiring, the cross-vendor review gate, opening the project window, layered updates,
+owner-verified consumer gates, plus the nolf-improved and vtmb-vr instances as tables and what the
+Add project button should automate. `orchestrator/actions/integrate-project.sh` — a five-stage
+wizard in the `lib/wizard.sh` conventions (verify the repository and that the remote advertises the
+pin, add and pin `third_party/rengine`, install `editor.sh`, write the declaration, copy the
+declaration test) that never overwrites, prints a plan under `--dry-run` and prompts only on a TTY.
+`orchestrator/templates/project/` — `editor.sh`, the reference contract-2 `project.json`, a generic
+`test_rengine_project_decl.py` (structure always, pinned schema when the pin carries the declared
+contract, behaviour when the CLI is built) and a README naming each destination; no template names
+a game or a format.
+
+**Verification**: `orchestrator/tests/integrate-project.test.mjs` was red for all seven checks
+before the action existed. Final `npm test` 43/43, exit 0 (70 s); the new file alone 8/8 (9.2 s);
+`bash -n` clean on both scripts; `./init.sh` and `python3 tools/design.py check` pass; sidecars
+repaired/reviewed/stamped/checked with a private index. A manual end-to-end run scaffolded a
+throwaway repository from a bare `file://` clone of this worktree: the submodule pinned at the
+requested SHA, `./editor.sh --check` reported `SDL2 2.32.10` and `cmake 3.31.2` out of the pinned
+tree, and the copied Python test passed with both pinned-contract checks skipping with
+`pinned rEngine supports contract [1]; this declaration is contract 2`. Evidence:
+`docs/evidence/project-integration-recipe-macos-2026-09-06.md`.
+
+**Remaining**: KI-039 — the Add project button should run this recipe natively (spec 002/071);
+until then the wizard runs in a script tab. Both contracts require at least one format record, so
+the scaffold writes an inert `*.example` placeholder; relaxing `formats` to `minItems: 0` for
+contract 2 belongs to the dashboard/game lanes. F68 is recorded as passing on the automated
+evidence above; no native or contract code changed. IDs: F68 and KI-039 were chosen after reading
+main, the dashboard worktree (F65–F66, KI-038) and `feat/project-game`, leaving F67 to that lane;
+`features.json`, `known-issues.md`, `docs/roadmap-graph.md` and `Codex-progress.md` will conflict
+with the concurrent lanes and are append-only here.
+
+---
+
 ## Session 23 (macos) — 2026-09-06 — Format registry review fixes
 
 **Owner scope**: `feat/format-registry` merged to main as `f38db49` and running on the live desktop;

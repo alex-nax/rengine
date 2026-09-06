@@ -69,6 +69,7 @@ flowchart TD
   F63["F63: ready"]
   F64["F64: blocked"]
   F63 --> F64
+  F68["F68: passing"]
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -97,3 +98,4 @@ flowchart TD
 | F62 | R1 | rengine | ready | Verify the OpenGL adapter on Windows behind the draw list. |
 | F63 | O1 | rengine | ready | Register project file formats through a versioned declaration and run their bounded preview commands. |
 | F64 | O1 | rengine | blocked | Open registered formats in the native editor with raw hex and preview modes. |
+| F68 | O1 | rengine | passing | Store the project integration recipe as a runbook, a scaffolding wizard, copied templates and a test. |
