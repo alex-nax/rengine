@@ -61,7 +61,7 @@ function section(result, name, block, contract) {
   if (block === undefined) return result;
   const { minimum, rules, node } = SECTIONS[name], key = `${name}Error`;
   if (contract < minimum) return { ...result, [key]: `.rengine/project.json: ${name} requires contract ${minimum} (declared contract ${contract})` };
-  const problems = [...validateSchema(node(), block, schema, `$.${name}`), ...rules(block)];
+  const problems = [...validateSchema(node(), block, schema, `$.${name}`), ...rules(block, result)]; /* games is settled first, so dashboard rules can resolve game references */
   return problems.length ? { ...result, [key]: `.rengine/project.json: ${problems.slice(0, 3).join('; ')}` } : { ...result, [name]: block };
 }
 export async function listFormats(root) { return { rootId: root.id, ...await readDeclaration(root.path) }; }

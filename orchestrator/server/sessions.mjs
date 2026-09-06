@@ -79,9 +79,9 @@ export class Sessions extends EventEmitter {
   }
 
   snapshot(id, includeOutput = false) {
-    const { id: sessionId, rootId, type, agent, handoff, released, title, surface, game, pid, state, exitCode, signal, createdAt, endedAt, cols, rows, sequence, output } = this.get(id);
+    const { id: sessionId, rootId, type, agent, handoff, released, title, surface, game, args, pid, state, exitCode, signal, createdAt, endedAt, cols, rows, sequence, output } = this.get(id);
     return { id: sessionId, rootId, type, agent, title, pid, state, exitCode, signal, createdAt, endedAt, cols, rows, sequence,
-      ...(type === 'game' ? { surface, game } : {}),
+      ...(type === 'game' ? { surface, game, args: args ?? [] } : {}),
       ...(handoff ? { handoff: { sessionId: handoff.sessionId, checkpoint: handoff.checkpoint }, waitingForView: !released } : {}),
       ...(includeOutput ? { output } : {}) };
   }
@@ -141,7 +141,7 @@ export class Sessions extends EventEmitter {
     if (typeof file !== 'string' || !Array.isArray(argv) || argv.some(arg => typeof arg !== 'string')) fail('Invalid executable or arguments.');
     const child = pty.spawn(file, argv, { name: 'xterm-256color', cols, rows, cwd: workingDirectory,
       env: shellEnvironment({ ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents') }) });
-    const item = { id, rootId, type, handoff, gate, released: false, ...(type === 'agent' ? { agent: agent ?? '' } : {}), ...(type === 'game' ? { surface, game } : {}),
+    const item = { id, rootId, type, handoff, gate, released: false, ...(type === 'agent' ? { agent: agent ?? '' } : {}), ...(type === 'game' ? { surface, game, args: argv } : {}),
       title: title ?? (type === 'agent' ? `${agent || 'Choose agent'} · ${root.name}` : `${type === 'game' ? 'Game' : 'Terminal'} · ${root.name}`),
       pid: child.pid, child, state: 'running', createdAt: Date.now(), cols, rows, output: '', sequence: 0 };
     this.items.set(item.id, item);
