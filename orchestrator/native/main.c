@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
     mu_begin(ui); re_app_ui(app, ui, width, height); mu_end(ui);
     if (ui->hover_root != ui->next_hover_root) { SDL_Event settle = {.type = SDL_USEREVENT}; SDL_PushEvent(&settle); }
     re_draw_begin(draw, width, height); re_draw_commands(draw, ui); re_app_draw(app, draw);
-    re_draw_text(draw, app->status, -1, 8, height - 24, mu_color(146, 167, 178, 255));
+    re_draw_text(draw, app->status, -1, 8, height - 24, RE_COLOR_TEXT_MUTED);
     if (capture) {
       bool ok = re_draw_snapshot(draw, re_string(capture, "path")); re_automation_reply(re_number(capture, "id"), cJSON_CreateBool(ok)); cJSON_Delete(capture); capture = NULL;
     }

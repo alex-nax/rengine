@@ -210,15 +210,15 @@ void re_editor_event(ReEditor *e, const SDL_Event *event, mu_Rect r, int cw, int
 void re_editor_draw(ReEditor *e, ReDraw *draw, mu_Rect r, bool focused) {
   e->cw = re_draw_cell_width(draw); e->lh = re_draw_line_height(draw);
   r = viewport(e, r, e->cw, e->lh);
-  re_draw_clip(draw, &r); re_draw_rect(draw, r, mu_color(20, 24, 30, 255));
+  re_draw_clip(draw, &r); re_draw_rect(draw, r, RE_COLOR_SURFACE);
   int row = 0, col = 0, selection_a = re_min(e->state.select_start, e->state.select_end), selection_b = re_max(e->state.select_start, e->state.select_end);
   for (int i = 0; i <= e->length; i++) {
     int x = r.x + (col - e->horizontal) * e->cw, y = r.y + (row - e->scroll) * e->lh;
     if (y >= r.y + r.h) break;
     if (row >= e->scroll) {
-      if (i >= selection_a && i < selection_b) re_draw_rect(draw, mu_rect(x, y, e->cw, e->lh), mu_color(55, 77, 89, 255));
-      if (focused && i == e->state.cursor) re_draw_rect(draw, mu_rect(x, y, e->vim && !e->insert ? e->cw : 2, e->lh), mu_color(150, 210, 185, 190));
-      if (i < e->length && e->text[i] != '\n' && e->text[i] != '\t') { char text[5]; re_encode(e->text[i], text); re_draw_text(draw, text, -1, x, y, mu_color(220, 228, 234, 255)); }
+      if (i >= selection_a && i < selection_b) re_draw_rect(draw, mu_rect(x, y, e->cw, e->lh), RE_COLOR_SELECTION);
+      if (focused && i == e->state.cursor) re_draw_rect(draw, mu_rect(x, y, e->vim && !e->insert ? e->cw : 2, e->lh), RE_COLOR_CARET);
+      if (i < e->length && e->text[i] != '\n' && e->text[i] != '\t') { char text[5]; re_encode(e->text[i], text); re_draw_text(draw, text, -1, x, y, RE_COLOR_TEXT); }
     }
     if (i < e->length && e->text[i] == '\n') { row++; col = 0; } else col += i < e->length && e->text[i] == '\t' ? 4 : 1;
   }

@@ -3,7 +3,8 @@
 
   generate        write orchestrator/native/theme.h, design/tokens.css and design/manifest.json, and
                   refresh the managed blocks inside design/previews/**/*.html
-  check           fail when a generated artifact, a preview block or a native colour literal drifts
+  check           fail when a generated artifact or a preview block drifts, or when a native
+                  source hard-codes a colour instead of using an RE_COLOR_* constant
   import FILE...  apply token values from a preview's :root block (for example a card pulled back
                   from Claude Design) to tokens.json, then regenerate
 
@@ -200,15 +201,15 @@ def manifest_text(cards):
 
 
 def native_literals(tokens):
-    palette = {tuple(color["rgba"]) for color in tokens["colors"].values()}
     problems = []
     for path in sorted(NATIVE.glob("*.c")):
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             for match in LITERAL.finditer(line):
                 groups = match.groups()
-                rgba = tuple(int(v) for v in groups[:4]) if groups[0] is not None else tuple(int(v) for v in groups[4:]) + (255,)
-                if rgba not in palette:
-                    problems.append("%s:%d: colour %s is not a design token" % (path.relative_to(ROOT).as_posix(), number, list(rgba)))
+                rgba = [int(v) for v in groups[:4]] if groups[0] is not None else [int(v) for v in groups[4:]] + [255]
+                names = [name for name, color in tokens["colors"].items() if color["rgba"] == rgba]
+                hint = "use RE_COLOR_%s" % macro(names[0]) if names else "add a token to design/tokens.json and use its RE_COLOR_* constant"
+                problems.append("%s:%d: hard-coded colour %s; %s" % (path.relative_to(ROOT).as_posix(), number, rgba, hint))
     return problems
 
 
@@ -244,7 +245,7 @@ def check():
         print("ERROR: " + problem)
     if problems:
         return 1
-    print("Design tokens, native theme, %d preview cards and native colour literals are consistent." % len(cards))
+    print("Design tokens, native theme and %d preview cards are consistent; native sources use theme constants only." % len(cards))
     return 0
 
 

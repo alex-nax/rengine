@@ -78,7 +78,7 @@ ReTerminal *re_terminal_open(ReSocket *socket, const char *id, int cols, int row
   vterm_set_utf8(t->vt, 1); t->screen = vterm_obtain_screen(t->vt);
   t->cursor_visible = true; vterm_screen_set_callbacks(t->screen, &callbacks, t);
   vterm_screen_enable_altscreen(t->screen, 1);
-  VTermColor fg, bg; vterm_color_rgb(&fg, 220, 228, 234); vterm_color_rgb(&bg, 20, 24, 30);
+  VTermColor fg, bg; mu_Color text = RE_COLOR_TEXT, surface = RE_COLOR_SURFACE; vterm_color_rgb(&fg, text.r, text.g, text.b); vterm_color_rgb(&bg, surface.r, surface.g, surface.b);
   vterm_state_set_default_colors(vterm_obtain_state(t->vt), &fg, &bg);
   vterm_screen_reset(t->screen, 1); vterm_output_set_callback(t->vt, output, t);
   re_terminal_attach(t); return t;
@@ -194,13 +194,13 @@ void re_terminal_draw(ReTerminal *t, ReDraw *draw, mu_Rect r, bool focused) {
   }
   if (focused && !t->offset && t->cursor_visible) {
     VTermPos cursor; vterm_state_get_cursorpos(vterm_obtain_state(t->vt), &cursor);
-    re_draw_rect(draw, mu_rect(r.x + cursor.col * cw, r.y + cursor.row * lh, cw, lh), mu_color(145, 205, 181, 100));
+    re_draw_rect(draw, mu_rect(r.x + cursor.col * cw, r.y + cursor.row * lh, cw, lh), RE_COLOR_TERMINAL_CURSOR);
   }
   if (t->offset) {
     char label[96]; snprintf(label, sizeof(label), "%d lines above live · Shift+End", t->offset);
     int width = re_min(r.w, (int)strlen(label) * cw);
-    re_draw_rect(draw, mu_rect(r.x + r.w - width, r.y + r.h - lh, width, lh), mu_color(40, 53, 62, 255));
-    re_draw_text(draw, label, -1, r.x + r.w - width, r.y + r.h - lh, mu_color(210, 224, 233, 255));
+    re_draw_rect(draw, mu_rect(r.x + r.w - width, r.y + r.h - lh, width, lh), RE_COLOR_INDICATOR);
+    re_draw_text(draw, label, -1, r.x + r.w - width, r.y + r.h - lh, RE_COLOR_TEXT_INDICATOR);
   }
   re_draw_clip(draw, NULL);
   re_scrollbar_draw(&t->scrollbar, draw);

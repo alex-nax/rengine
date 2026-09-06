@@ -46,10 +46,10 @@ bool re_scrollbar_event(ReScrollbar *bar, const SDL_Event *event) {
 }
 void re_scrollbar_draw(const ReScrollbar *bar, ReDraw *draw) {
   if (!bar->track.w || !bar->track.h) return;
-  re_draw_rect(draw, bar->track, mu_color(30, 37, 44, 255));
+  re_draw_rect(draw, bar->track, RE_COLOR_SCROLL_TRACK);
   mu_Rect thumb = bar->thumb;
   if (bar->horizontal) { thumb.y += 2; thumb.h -= 4; } else { thumb.x += 2; thumb.w -= 4; }
-  re_draw_rect(draw, thumb, bar->dragging ? mu_color(145, 180, 190, 255) : mu_color(99, 119, 131, 255));
+  re_draw_rect(draw, thumb, bar->dragging ? RE_COLOR_SCROLL_THUMB_ACTIVE : RE_COLOR_SCROLL_THUMB);
 }
 void re_scrollbar_inspect(const ReScrollbar *bar, cJSON *array) {
   if (!bar->track.w || !bar->track.h) return;

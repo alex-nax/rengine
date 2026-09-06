@@ -38,6 +38,15 @@ added; spec 064 records a candidate. A Claude Design canvas seeded from `screens
 is an optional later step. All 15 feature gates remain false.
 Commit: `feat(design): add Claude Design token bridge and preview library`.
 
+**Follow-up (same session)**: On owner direction, replaced every remaining `mu_color` and
+`vterm_color_rgb` literal in the editor, terminal, workspace, scroll, main and game sources with
+`RE_COLOR_*`; `common.h` now includes `theme.h`, and `tools/design.py check` fails on any numeric
+colour literal. Baseline and post-change native smoke snapshots of the same tree are byte-identical;
+CTest: three passes; sidecar anchors valid; harness gate passes. The other session's uncommitted
+terminal mouse-reporting edits in terminal.c and workspace.c stayed unstaged: those index entries
+were built from HEAD plus the substitutions only. Commit:
+`refactor(native): draw every colour through the generated theme constants`.
+
 ---
 ## Session 18 (macos) — 2026-09-06 — System scrolling, visible bars and agent reload
 

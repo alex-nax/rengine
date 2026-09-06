@@ -20,7 +20,8 @@ pulled back into the tokens and rebuilt into the C desktop without a browser run
   `python3 tools/design.py generate` derives `orchestrator/native/theme.h`, `design/tokens.css`,
   `design/manifest.json` and the managed `re:tokens`/`re:base`/`re:palette`/`re:metrics` blocks
   inside every preview. `check` rejects hand edits to generated output and any
-  `mu_color`/`vterm_color_rgb` literal in `orchestrator/native/*.c` outside the palette.
+  numeric `mu_color`/`vterm_color_rgb` literal in `orchestrator/native/*.c`; native sources use
+  the generated `RE_COLOR_*` constants only.
 - Preview cards are self-contained HTML with an `@dsCard` first line and no external URLs. The
   `:root` token block is the machine-readable channel back to the repository. Markup changes made
   in Claude Design are proposals for C implementation, not automatically applied behaviour.
@@ -51,8 +52,8 @@ pulled back into the tokens and rebuilt into the C desktop without a browser run
 ## Verification for this preparation
 
 - `python3 tools/design.py check` passes: header, CSS and manifest regenerate identically, all
-  13 cards carry valid card markers and fresh managed blocks, and every native colour literal is
-  a token. `./init.sh` and the sidecar validator pass.
+  13 cards carry valid card markers and fresh managed blocks, and no native source hard-codes a
+  colour. `./init.sh` and the sidecar validator pass.
 - `draw.c` consumes the generated header. A native smoke snapshot taken with the previous binary
   and with the rebuilt one must be identical; CTest native tests must pass. Results are recorded
   in `Codex-progress.md`, Session 18.
@@ -61,9 +62,9 @@ pulled back into the tokens and rebuilt into the C desktop without a browser run
 
 ## Deferred and open
 
-- Replacing the remaining literal colours in editor, terminal, workspace, scroll, main and game
-  sources with `RE_COLOR_*` waits until the in-flight spec 061/062 edits to those files are
-  committed, so this change does not collide with that session. `check` already guards them.
+- Every owned native source uses `RE_COLOR_*` since 2026-09-06, after specs 061/062 landed;
+  snapshots before and after that change were byte-identical. Layout metrics in C still use
+  literals that match the `RE_METRIC_*` values; moving them onto the header is a later refactor.
 - No feature row is added. If the owner wants UI enhancement tracked as work, a candidate row
   is “Apply an owner-approved Claude Design token/markup proposal to the native desktop with
   before/after native evidence on macOS”, depending on F32 and this spec.

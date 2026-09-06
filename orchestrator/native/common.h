@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "microui.h"
+#include "theme.h"
 #include "cJSON.h"
 
 #define RE_ARRAY_SIZE(a) ((int)(sizeof(a) / sizeof((a)[0])))

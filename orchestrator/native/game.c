@@ -53,7 +53,7 @@ void re_game_tick(ReGame *g, ReDraw *draw) {
   re_message_free(m);
 }
 void re_game_draw(ReGame *g, ReDraw *draw, mu_Rect r) {
-  re_draw_rect(draw, r, mu_color(0, 0, 0, 255)); if (!g->texture || r.w < 1 || r.h < 1) return;
+  re_draw_rect(draw, r, RE_COLOR_GAME_BACKDROP); if (!g->texture || r.w < 1 || r.h < 1) return;
   double scale = (double)r.w / g->width;
   if (g->height * scale > r.h) scale = (double)r.h / g->height;
   int w = (int)(g->width * scale), h = (int)(g->height * scale);

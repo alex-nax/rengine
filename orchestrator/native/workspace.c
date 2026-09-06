@@ -209,7 +209,7 @@ void re_app_draw(ReApp *a, ReDraw *draw) {
     if (t->game) re_game_draw(t->game, draw, t->rect);
   }
   for (int n = 0; n < RE_PANES; n++) if (a->layout.panes[n].used && a->layout.panes[n].axis)
-    re_draw_rect(draw, a->layout.panes[n].divider, mu_color(54, 67, 76, 255));
+    re_draw_rect(draw, a->layout.panes[n].divider, RE_COLOR_DIVIDER);
 }
 bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
   if (e->type == SDL_MOUSEMOTION) { a->mouse_x = e->motion.x; a->mouse_y = e->motion.y; }
