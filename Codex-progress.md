@@ -1,6 +1,6 @@
 # Progress Log
 
-## Session 34 (macos) — 2026-09-06 — Merging the devices lane onto the settings popover, the clip fix and the overlay
+## Session 36 (macos) — 2026-09-06 — Merging the devices lane onto the settings popover, the clip fix and the overlay
 
 **Owner scope**: land finished `feat/devices` (`57ab639`) on current main and report green. Worktree
 `.cache/worktrees/merge-verify`, branch `feat/devices` pushed per commit; the `main` ref untouched,
@@ -78,7 +78,8 @@ whatever had just landed (045/046/047, then 046/047/048) and collided again each
 was taking an id roughly as fast as a gate sweep runs; the block above main's highest (046 at
 `a5b3f2f`) leaves a gap on purpose, and a gap costs nothing. F76 and spec 082 were re-checked against
 `a5b3f2f` and are still free,
-and, because main also took session 32, this lane's sessions became **33** (devices) and **34** (this
+and, because main kept taking session numbers too (two 32s of its own, then 33), this lane's
+sessions take the same deliberate gap as the known issues: **35** (devices) and **36** (this
 merge). Every reference moved with them: the schema description, the sidecar refs, `games.mjs`'s own
 comment, the theme card, both fixtures and the progress log. The renumber is its own commit before
 the merge, so the merge itself is only a union.
@@ -119,11 +120,11 @@ groups) and nolf-improved (contract 3, 1 format, 3 games, 3 groups), no errors, 
 both, `projectDevices` reporting each as the implicit local device only, and both files byte-
 unchanged.
 
-**Remaining** is what session 33 left: F76 stays `passes: false` until a consumer declares devices
+**Remaining** is what session 35 left: F76 stays `passes: false` until a consumer declares devices
 and a probe runs against a real Quest or SSH host (KI-050), delivery needs `update_workspace` plus a
 desktop reload, and the dashboard still pays one probe per device per listing (KI-051).
 
-## Session 33 (macos) — 2026-09-06 — Devices: where a declared target actually runs (contract 4, F76)
+## Session 35 (macos) — 2026-09-06 — Devices: where a declared target actually runs (contract 4, F76)
 
 **Owner scope**: give a project a way to say WHERE each target runs, probe reachability, and report
 availability in those terms. Worktree `.cache/worktrees/merge-verify`, branch `feat/devices` cut
@@ -216,6 +217,35 @@ control stayed removed, gains `Devices`.
 against a real Quest or SSH host from this branch (KI-050), delivery needs `update_workspace` for
 the worker layer plus a desktop reload for the native section, and the dashboard now pays one probe
 per device per listing (KI-051).
+## Session 33 (macos) — 2026-09-06 — Selects open a list, and one workspace per checkout
+
+The owner noticed that the theme and syntax controls stepped to the next value rather than opening
+one. That was a placeholder of mine from before the overlay layer existed, and it hides every choice
+from anyone who has not memorised them. Both are selects now: the list shows every value with the
+live one marked, built from the same menu-item control the menus card describes, and picking a value
+applies and persists it.
+
+The list is a second surface above the one holding the select. It records into the same overlay
+buffer without clearing it, so replay order is stacking order, and its own container is brought to
+front so the pointer agrees with what is drawn. Spec 080 decision 5 still holds: the list belongs to
+its surface rather than being a peer, it closes with it, and Escape closes the list first and the
+surface second, which is what "closes the top surface" already meant.
+
+Also fixed a defect the nolf-improved session reported after it cost them a live session, which is
+mine because it is in the recipe's template. `orchestrator/templates/project/editor.sh` passed no
+state directory, so every scaffolded project fell back to the shared default and two projects bound
+both their roots into one workspace. The project selector appeared not to switch, and a host restart
+from one checkout took the other project's retained agent with it, because live PTYs belong to the
+host and are never persisted. The launcher now keys the state directory on the checkout's absolute
+path, `--state` still overrides it for deliberate sharing, and the template test asserts both.
+Recorded as KI-046, including that projects scaffolded before this carry the old default.
+
+Commands: `npm test` 61/61, `npm run test:desktop` 26/26, `ctest` 6/6, `python3 tools/design.py
+check`. The desktop suite passed clean this time; KI-045 stands for the intermittent runs.
+
+Remaining unchanged: F69 and the KI-038 Windows repair, the two outstanding sign-off notes, and the
+Escape decision for embedded games, which is with the owner.
+
 ## Session 32 (macos) — 2026-09-06 — The explorer expands in place, and three defects the owner found first
 
 F73 is implemented and gated on macOS. In nested mode a directory row expands in place at the card's

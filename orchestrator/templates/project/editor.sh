@@ -20,6 +20,7 @@ MODE=launch
 DRY=0
 REBUILD=0
 LAUNCH_ARGS=()
+STATE_GIVEN=0
 
 usage() {
     cat <<'USAGE'
@@ -36,7 +37,7 @@ options
   --dry-run          print every command instead of running it (combines with any mode)
   --rebuild          re-run npm ci and both native builds even if their outputs exist
   --agent NAME       codex | claude | gemini | opencode | EXEC (default: saved preference / menu)
-  --state DIR        sidecar state directory (default: rEngine's ~/.local/state/rengine)
+  --state DIR        sidecar state directory (default: one per checkout, see below)
   --launch-game      also open this project's declared game in a game tab
   --no-agent         open without an agent pane
   -h, --help         this text
@@ -51,6 +52,7 @@ while [ $# -gt 0 ]; do
         --rebuild) REBUILD=1 ;;
         --agent|--state)
             [ $# -ge 2 ] || { echo "editor.sh: $1 needs a value" >&2; exit 2; }
+            [ "$1" = --state ] && STATE_GIVEN=1
             LAUNCH_ARGS+=("$1" "$2"); shift ;;
         --launch-game|--no-agent|--inspect-ui) LAUNCH_ARGS+=("$1") ;;
         -h|--help) usage; exit 0 ;;
@@ -59,6 +61,17 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
+
+# One workspace per checkout. The sidecar's default state directory is shared, so two projects
+# scaffolded from this template would bind both their roots into a single workspace: the project
+# selector would appear not to switch, and a host restart from one checkout would take the other
+# project's retained sessions with it, because live PTYs belong to the host and are never persisted.
+# The path is keyed on this checkout's absolute path so two clones of the same project stay apart;
+# pass --state explicitly when sharing one workspace is what you actually want.
+if [ "$STATE_GIVEN" = 0 ]; then
+    ROOT_HASH="$(printf '%s' "$ROOT" | (command -v shasum >/dev/null 2>&1 && shasum -a 256 || sha256sum) | cut -c1-12)"
+    LAUNCH_ARGS+=(--state "${XDG_STATE_HOME:-$HOME/.local/state}/rengine/$(basename "$ROOT")-$ROOT_HASH")
+fi
 
 log() { printf '[editor] %s\n' "$*" >&2; }
 run() {

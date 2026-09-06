@@ -84,6 +84,10 @@ test('the wizard scaffolds a contract 3 declaration, launcher and test that sati
   assert.equal((await stat(path.join(root, 'tests/test_rengine_project_decl.py'))).isFile(), true);
   const template = await readFile(path.join(root, 'editor.sh'), 'utf8');
   assert.doesNotMatch(template, /nolf|vtmb|relith|troika/i, 'templates must not name a specific consumer');
+  // Two scaffolded projects sharing the sidecar's default state directory put both their roots in
+  // one workspace, and a host restart from one checkout then took the other's retained sessions.
+  assert.match(template, /--state/, 'the launcher passes a state directory');
+  assert.match(template, /basename "\$ROOT"/, 'and keys it on this checkout rather than sharing one');
   assert.match(result.stdout, /editor\.sh --check/);
 });
 
