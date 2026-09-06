@@ -48,7 +48,7 @@
         "end": 207,
         "snippet": "if (!strcmp(type, \"connected\")) {"
       },
-      "note": "Process at most 128 stream messages per tick so continuous output yields to SDL input and rendering. On connection, refresh initialized workspace state and attach existing terminal IDs without creating sessions or repeating a handoff prompt. Local editor buffers, layout and immutable root/session bindings survive this recovery. Inspection reports each terminal attachment separately: a retained old screen plus a live socket is not proof that a fresh snapshot arrived.",
+      "note": "Process at most 128 stream messages per tick so continuous output yields to SDL input and rendering. On connection, refresh initialized workspace state and attach existing terminal IDs without creating sessions or repeating a handoff prompt. Local editor buffers, layout and immutable root/session bindings survive this recovery. Inspection reports each terminal attachment separately: a retained old screen plus a live socket is not proof that a fresh snapshot arrived. Terminal text inspection follows the currently drawn viewport, with historyLines and scrollOffset for native acceptance checks.",
       "refs": [
         "docs/specs/059-native-terminal-recovery.md"
       ]
@@ -56,7 +56,7 @@
   ],
   "source": {
     "path": "orchestrator/native/app.c",
-    "sha256": "f365dff6957ce5125bbdfc19a88f00f1c878c6c118135cfc1c730c1eea702c4c",
+    "sha256": "30a62304fa48e0a7a89cc8034d14415ddb4e28bfd40447990b2dbba655d9b76f",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

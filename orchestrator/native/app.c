@@ -254,7 +254,11 @@ cJSON *re_app_inspect(ReApp *a) {
     cJSON_AddBoolToObject(tab, "dirty", t->dirty); cJSON_AddBoolToObject(tab, "conflict", t->conflict); cJSON_AddStringToObject(tab, "error", t->error);
     char *text = t->terminal ? re_terminal_text(t->terminal) : t->editor ? re_editor_text(t->editor) : NULL;
     if (text) { cJSON_AddStringToObject(tab, "text", text); free(text); }
-    if (t->terminal) cJSON_AddBoolToObject(tab, "attached", re_terminal_ready(t->terminal));
+    if (t->terminal) {
+      cJSON_AddBoolToObject(tab, "attached", re_terminal_ready(t->terminal));
+      ReTerminalScroll scroll = re_terminal_scroll_state(t->terminal);
+      cJSON_AddNumberToObject(tab, "historyLines", scroll.lines); cJSON_AddNumberToObject(tab, "scrollOffset", scroll.offset);
+    }
     if (t->editor) cJSON_AddStringToObject(tab, "mode", re_editor_mode(t->editor));
     if (t->game) { cJSON_AddNumberToObject(tab, "sequence", t->game->sequence); cJSON_AddBoolToObject(tab, "captured", t->game->captured); }
     if (t->data && t->type == RE_TREE) cJSON_AddItemToObject(tab, "tree", cJSON_Duplicate(t->data, 1));

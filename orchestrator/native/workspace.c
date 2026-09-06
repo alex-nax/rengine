@@ -202,6 +202,14 @@ void re_app_draw(ReApp *a, ReDraw *draw) {
     re_draw_rect(draw, a->layout.panes[n].divider, mu_color(54, 67, 76, 255));
 }
 bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
+  if (e->type == SDL_MOUSEMOTION) { a->mouse_x = e->motion.x; a->mouse_y = e->motion.y; }
+  if (e->type == SDL_MOUSEBUTTONDOWN || e->type == SDL_MOUSEBUTTONUP) { a->mouse_x = e->button.x; a->mouse_y = e->button.y; }
+  if (e->type == SDL_MOUSEWHEEL && !a->quitting) {
+    for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].terminal && re_inside(a->tabs[i].rect, a->mouse_x, a->mouse_y)) {
+      re_terminal_event(a->tabs[i].terminal, e); return true;
+    }
+    if (a->focus >= 0 && a->tabs[a->focus].terminal) return false;
+  }
   int previous_focus = a->focus;
   if (e->type == SDL_MOUSEBUTTONDOWN && e->button.button == SDL_BUTTON_LEFT) {
     a->resize_pane = re_layout_hit(&a->layout, e->button.x, e->button.y, true);

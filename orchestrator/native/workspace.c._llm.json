@@ -9,7 +9,7 @@
         "end": 204,
         "snippet": "bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {"
       },
-      "note": "Pointer focus selects a view without changing its root/session binding. Toolbar focus clears custom editor/terminal/game keyboard routing. Moving a tab keeps its identity. Detaching closes terminal/game display resources but never calls Stop; retained process management belongs to the explicit Sessions controls.",
+      "note": "Pointer focus selects a view without changing its root/session binding. Toolbar focus clears custom editor/terminal/game keyboard routing. Moving a tab keeps its identity. Detaching closes terminal/game display resources but never calls Stop; retained process management belongs to the explicit Sessions controls. Wheel events route to the visible terminal under the latest pointer position and are consumed there, without changing keyboard focus. A focused terminal must not scroll when the pointer is over another view; then leave the event for that view/UI.",
       "refs": [
         "docs/specs/056-native-desktop.md"
       ]
@@ -43,7 +43,7 @@
   ],
   "source": {
     "path": "orchestrator/native/workspace.c",
-    "sha256": "12b930b2d422b00fcc0d792b8529f59bbab0e931448768110024786ad79fdefa",
+    "sha256": "eb00b10ee1da7cb62f4879de34e1509daabf0d57c6711d8a27af185c450de018",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

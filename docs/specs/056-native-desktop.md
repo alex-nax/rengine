@@ -78,7 +78,11 @@ Session-stream backpressure and reconnection to the same authenticated endpoint 
 macOS checks with fresh terminal snapshots and retained PIDs; see [spec 059](059-native-terminal-recovery.md).
 A changed service identity/address still requires explicit launcher reconnection.
 
-Native image previews, terminal scrollback/selection, richer text navigation, service-restart recovery,
+Primary-screen terminal history now supports pointer/keyboard scrolling with bounded storage;
+see [spec 060](060-native-terminal-scrollback.md). New output preserves the viewed rows, and
+native reload reconstructs available history from the same retained process.
+
+Native image previews, terminal selection/copy, richer text navigation, service-restart recovery,
 frame/input DPI mapping, actual in-level aiming, resource budgets, packaging and Windows runtime
 proof remain open. No accepted feature is marked passing by this checkpoint. The historical web
 prototype and its browser-specific tests were retired; version `916a204` retains that history.

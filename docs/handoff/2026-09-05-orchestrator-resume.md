@@ -28,7 +28,7 @@ and supplies this checkpoint, not a scheduler migration. If it remains paused, c
 user-authorized work as the resumed CLI turn and leave scheduler controls with the user.
 
 All 15 feature gates remain false. `features.json` criteria have not changed. Read the newest
-`Codex-progress.md` entry, `known-issues.md`, specs 055–059 and architecture before choosing the
+`Codex-progress.md` entry, `known-issues.md`, specs 055–060 and architecture before choosing the
 next bounded fix. Check `RENGINE_ORCHESTRATOR_SESSION`, then the MCP workspace/session identity
 for `/Users/alex/rengine`; its session must be the running root-bound agent. The environment
 marker is context, not a security boundary. Confirm the MCP connection before continuing edits.
@@ -49,6 +49,11 @@ requires a verified orchestrator session; the external repair did not remove tha
 
 ## Next investigation
 
+The next real launch on 2026-09-06 again verified its running agent environment and root-bound
+MCP. The owner then prioritized missing terminal scrolling; spec 060 implements bounded native
+history. Cmd/Ctrl+Shift+R loads it while retaining this CLI. Wheel/trackpad and Shift+PageUp/
+PageDown browse; Shift+End returns to live output. No new conversation is needed for that reload.
+
 Start with KI-024. Actual NOLF streams while moved into a narrow pane and back. However the
 latest combined test's `game-input.png` still shows the main menu after Enter; its automated
 assertion checked frames rather than the Single Player title, so the green result is insufficient.
@@ -64,7 +69,7 @@ image while allowing keyboard focus, and clamping the release of a button held i
 Preserve relative delta/capture semantics. The speculative regression and debug inspection
 started before the owner's pause were withdrawn; no unimplemented test is left in the suite.
 
-Later gaps remain previews, terminal scrollback/selection, editor/Vim breadth, service-restart/failure
+Later gaps remain previews, terminal selection/copy, editor/Vim breadth, service-restart/failure
 recovery, gameplay aiming/DPI, packaging/resources and Windows proof. Basic Ctrl+Home editor
 behavior also needs qualification; do not infer insertion position from retained-text checks.
 

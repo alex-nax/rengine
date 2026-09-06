@@ -5,11 +5,11 @@
       "id": "real-vt-screen",
       "kind": "rationale",
       "anchor": {
-        "start": 46,
-        "end": 46,
+        "start": 97,
+        "end": 97,
         "snippet": "void re_terminal_message(ReTerminal *t, const cJSON *j) {"
       },
-      "note": "Only attached snapshot/output bytes from the selected retained PTY feed libvterm. Sequence gaps request a fresh snapshot instead of replaying a launch command. The terminal emulator supplies key/control encoding and screen state; it is not a plain output log. Scrollback, selection, cursor properties and complete CLI/font/resize behavior remain separate qualification work. Disconnection clears attached/presented state and input stays disabled until a fresh snapshot arrives. A retained old screen is not an attachment acknowledgement; reconnection must call attach on the same ID.",
+      "note": "Only attached snapshot/output bytes from the selected retained PTY feed libvterm. Sequence gaps request a fresh snapshot instead of replaying a launch command. The terminal emulator supplies key/control encoding and screen state; it is not a plain output log. Primary-screen scrollback now uses the pinned upstream callbacks; selection and complete CLI/font/resize behavior remain separate qualification work. Disconnection clears attached/presented state and input stays disabled until a fresh snapshot arrives. A retained old screen is not an attachment acknowledgement; reconnection must call attach on the same ID.",
       "refs": [
         "docs/specs/056-native-desktop.md",
         "docs/specs/059-native-terminal-recovery.md"
@@ -19,19 +19,45 @@
       "id": "ready-after-attached-snapshot",
       "kind": "rationale",
       "anchor": {
-        "start": 41,
-        "end": 41,
+        "start": 92,
+        "end": 92,
         "snippet": "void re_terminal_presented(ReTerminal *t) {"
       },
       "note": "Only an attached snapshot explicitly waitingForView needs the presented message. Ordinary terminals and older services receive no new readiness traffic. Attachment sequence recovery resets local presentation state but never spawns or resumes a CLI; the retained service releases each handoff gate once.",
       "refs": [
         "docs/specs/058-orchestrator-handoff.md"
       ]
+    },
+    {
+      "id": "bounded-primary-screen-history",
+      "kind": "rationale",
+      "anchor": {
+        "start": 24,
+        "end": 24,
+        "snippet": "static int history_push(int cols, const VTermScreenCell *cells, void *user) {"
+      },
+      "note": "Store the actual evicted libvterm cells with their original column count in a ring capped at 2,000 rows and 8 MiB including each line header. Increment a nonzero viewing offset as output pushes rows so the same text stays visible; oldest-row eviction limits that guarantee. Pop newest rows on upstream height growth, padding missing cells with width 1 so libvterm resize iteration advances. History retains old widths and is clipped/padded rather than reflowed. libvterm excludes alternate-screen scrolling from push callbacks; changing alternate-screen mode returns the view to live. Fresh attached snapshots reset both screen and history before replay to avoid duplicates. This is view-owned memory; the sidecar raw-output retention bounds reconstruction after detach/reload.",
+      "refs": [
+        "docs/specs/060-native-terminal-scrollback.md"
+      ]
+    },
+    {
+      "id": "scrolling-and-visible-text",
+      "kind": "rationale",
+      "anchor": {
+        "start": 117,
+        "end": 117,
+        "snippet": "void re_terminal_event(ReTerminal *t, const SDL_Event *e) {"
+      },
+      "note": "Wheel input accumulates fractional deltas, honors flipped direction and scrolls three rows per unit. Shift+PageUp/PageDown/Home/End are local history navigation on the primary screen; ordinary keys retain terminal encoding and return to live only when sending input. Browsing remains usable after disconnection without queuing input. Drawing and inspection read the same history/live cell mapping; hide the live cursor while browsing and respect cursor visibility. The position label is a visual indicator, not an interactive control.",
+      "refs": [
+        "docs/specs/060-native-terminal-scrollback.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/terminal.c",
-    "sha256": "e7a332f3d477aefd32edf1f208a631c2d72f1a0bc4bbea8c948bd5e606f5e787",
+    "sha256": "af6244b04036712892b28e34de3b07dc00c067799b9b5fe4302933147a53fc07",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

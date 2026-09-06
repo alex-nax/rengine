@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "history-boundaries",
+      "kind": "rationale",
+      "anchor": {
+        "start": 26,
+        "end": 26,
+        "snippet": "int main(void) {"
+      },
+      "note": "Drive the real pinned terminal parser through attached/output messages with contiguous sequences. Assertions cover fractional/flipped wheel behavior, stable viewed text under new output, primary/alternate isolation, explicit CSI 3 J history clearing, line and byte caps and fresh-snapshot replacement. Native desktop tests separately cover real PTYs, rendered colors, focus routing, resize and retained-process restart.",
+      "refs": [
+        "docs/specs/060-native-terminal-scrollback.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/tests/terminal_test.c",
+    "sha256": "f6dc0f8d0e5174c76be57c492e186b8d621dd2242786474986d9aac21f2b99c1",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

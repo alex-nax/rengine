@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "real-pty-scroll-acceptance",
+      "kind": "rationale",
+      "anchor": {
+        "start": 10,
+        "end": 10,
+        "snippet": "test('native terminals scroll retained PTY history and return to the live prompt', { timeout: 45000 }, async () => {"
+      },
+      "note": "The fixture writes actual ANSI/Unicode rows through a PTY; native wheel/key events must expose older rendered cells and return to executed input. Direct fixture input m only stimulates asynchronous output while the GUI reads history. Alternate-screen output must not enter primary history. Resize and move the terminal, focus a second real shell, then hover-scroll the first while keyboard input still executes in the second. GUI restart rebuilds history from the same retained process. Optional local ended-Codex byte replay verifies scrolling actual CLI redraw output without starting a coding agent. All fixture processes are isolated and cleaned up; recordings and screenshots remain ignored local evidence.",
+      "refs": [
+        "docs/specs/060-native-terminal-scrollback.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/tests/native-terminal-scroll.spec.mjs",
+    "sha256": "9c33dba4e99cb8d84d695a1e2854d668391f9ca45412bc0f9301af67307e29a4",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

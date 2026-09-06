@@ -1,5 +1,40 @@
 # Progress Log
 
+## Session 17 (macos) — 2026-09-06 — Scroll the running agent pane
+
+**Environment and steering**: Verified `RENGINE_ORCHESTRATOR_SESSION` identifying
+`a0de60fe-eac8-4e75-8ea8-fe8f4aa3c83a`, root-bound MCP workspace/session identity and running
+agent PID 20049 before continuing. Harness and 20 service tests passed. During KI-024 read-only
+investigation the owner reported missing scrolling in the active agent pane, so prioritized
+spec 060/F36. No game or sibling files were edited and no duplicate conversation/goal started.
+
+**Implemented**: Primary-screen libvterm history in a 2,000-row/8 MiB ring; mouse/trackpad and
+Shift+PageUp/PageDown/Home/End navigation; reading position held under new output; typing returns
+to live. Wheel targets the hovered terminal without changing keyboard focus. Alternate-screen
+output stays separate; cursor visibility and the history position indicator follow the view.
+Resize callbacks restore recent rows; attachment/reload rebuilds available history from the same
+retained PTY. Headers and build-list additions need no extra file-local rationale; substantive
+terminal/routing/test rationale is recorded in reviewed sidecars.
+
+**Verification**: The pre-fix native PTY/wheel regression failed to reveal earlier rows. Final
+native scroll checks pass across continued output, alternate screen, resize, pane movement,
+hover/focus isolation and GUI restart with the same PIDs. Replaying actual ended Codex output
+also scrolls and returns to live (5.55 s), without a provider run. Final desktop suite: six
+passes, 39.54 s. CTest: three passes, 0.56 s, including history clearing and line/byte limits.
+Service baseline: 20 passes, 4.29 s. Screenshots inspected: early colored history and actual CLI
+history render; the selected font still lacks CJK glyphs. Harness/metadata/diff checks pass.
+See `docs/evidence/native-terminal-scroll-macos-2026-09-06.md`. Local recordings remain ignored.
+
+**Remaining**: The owner can load this build with Cmd/Ctrl+Shift+R while retaining this CLI.
+All 15 feature gates remain false. KI-024 still needs a real menu-state oracle; source inspection
+also found NOLF's main folder intentionally starts with selection -1, so Enter alone must not
+be assumed to select Single Player. Establish selection deliberately and distinguish that from
+letterbox routing before changing input. Terminal selection/copy, history reflow and Windows
+remain open; existing Windows transfer and optional service-migration boundaries persist.
+Commit: `feat(native): add bounded terminal scrollback and pointer navigation`.
+
+---
+
 ## Session 16 (macos) — 2026-09-06 — Repair shared terminal freeze during resume
 
 **Owner direction and environment**: The exact real conversation resumed in the native pane.

@@ -59,6 +59,12 @@ the loss and reconnects to the same retained processes; disconnected keystrokes 
 Reattachment uses fresh terminal snapshots without launching another agent. See the
 [terminal recovery checks](docs/specs/059-native-terminal-recovery.md).
 
+Scroll over a terminal or agent pane with the mouse/trackpad. **Shift+PageUp/PageDown** browse
+history; **Shift+Home/End** jump to oldest/live output. New output preserves your reading position;
+typing returns to the live prompt. Each view retains up to 2,000 rows/8 MiB, rebuilt from the
+sidecar's bounded output after reload. Full-screen alternate applications retain their own screen.
+See [terminal scrollback](docs/specs/060-native-terminal-scrollback.md) for current limits.
+
 To resume a specific Codex conversation inside an agent pane, use
 `npm start -- --handoff /path/to/handoff.json`. The version-1 manifest contains `project`
 (relative to the manifest), `sessionId` (the exact local Codex UUID), and `checkpoint`

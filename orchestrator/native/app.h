@@ -21,7 +21,7 @@ typedef struct {
   char root[65], initial_terminal[65], initial_agent[65], initial_game[65];
   char project_input[1024], agent[256], status[512];
   bool initialized, connected, vim, layout_dirty, quitting;
-  int focus, drag_tab, resize_pane, drag_x, drag_y;
+  int focus, drag_tab, resize_pane, drag_x, drag_y, mouse_x, mouse_y;
   Uint64 layout_changed;
 } ReApp;
 ReApp *re_app_open(const char *url, const char *token);
