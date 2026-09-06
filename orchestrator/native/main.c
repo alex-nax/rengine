@@ -28,27 +28,30 @@ static void ui_event(mu_Context *ui, const SDL_Event *e) {
   }
 }
 int main(int argc, char **argv) {
-  const char *snapshot = NULL, *font = NULL, *connection = NULL; int smoke = 0; bool automation = false;
+  const char *snapshot = NULL, *font = NULL, *connection = NULL, *renderer = NULL; int smoke = 0; bool automation = false;
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--smoke-test")) smoke = 3;
     else if (!strcmp(argv[i], "--automation")) automation = true;
     else if (!strcmp(argv[i], "--snapshot") && i + 1 < argc) snapshot = argv[++i];
     else if (!strcmp(argv[i], "--font") && i + 1 < argc) font = argv[++i];
     else if (!strcmp(argv[i], "--connection") && i + 1 < argc) connection = argv[++i];
-    else if (!strcmp(argv[i], "--help")) { puts("rengine [--connection sidecar.json] [--font FILE] [--smoke-test --snapshot FILE.bmp] [--automation]\nAutomation accepts local stdin test events only when explicitly enabled."); return 0; }
+    else if (!strcmp(argv[i], "--renderer") && i + 1 < argc) renderer = argv[++i];
+    else if (!strcmp(argv[i], "--help")) { puts("rengine [--connection sidecar.json] [--font FILE] [--renderer opengl|sdl] [--smoke-test --snapshot FILE.bmp] [--automation]\nAutomation accepts local stdin test events only when explicitly enabled."); return 0; }
     else { fprintf(stderr, "Unknown or incomplete option: %s\n", argv[i]); return 2; }
   }
   if (!automation && !smoke && getenv("RENGINE_CAN_RELOAD") && !getenv("RENGINE_LAYERED_CHILD")) {
     if (re_bootstrap(argv[0]) == 0) return 0;
     fprintf(stderr, "Layered bootstrap failed; opening the retained workspace with the legacy launcher.\n");
   }
+  const char *backend = re_draw_select(renderer);
+  if (!backend) { fprintf(stderr, "Unknown renderer '%s'; use opengl or sdl.\n", renderer ? renderer : ""); return 2; }
   SDL_SetMainReady();
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) { fprintf(stderr, "%s\n", SDL_GetError()); return 1; }
   SDL_Window *window = SDL_CreateWindow(automation ? "rEngine — automated verification" : "rEngine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                       RE_METRIC_WINDOW_WIDTH, RE_METRIC_WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+                                       RE_METRIC_WINDOW_WIDTH, RE_METRIC_WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | re_draw_window_flags(backend));
   if (!window) { fprintf(stderr, "%s\n", SDL_GetError()); SDL_Quit(); return 1; }
   SDL_SetWindowMinimumSize(window, RE_METRIC_WINDOW_MIN_WIDTH, RE_METRIC_WINDOW_MIN_HEIGHT);
-  ReDraw *draw = re_draw_open(window, font);
+  ReDraw *draw = re_draw_open(window, font, backend);
   if (!draw) { fprintf(stderr, "%s\n", SDL_GetError()); SDL_DestroyWindow(window); SDL_Quit(); return 1; }
   cJSON *descriptor = NULL;
   if (connection) {
@@ -99,7 +102,7 @@ int main(int argc, char **argv) {
     frames++;
     if (smoke && frames >= smoke) {
       if (snapshot && !re_draw_snapshot(draw, snapshot)) { fprintf(stderr, "%s\n", SDL_GetError()); result = 1; }
-      printf("Native microui frame rendered: %dx%d, renderer=%s\n", width, height, SDL_GetCurrentVideoDriver()); closing = true;
+      printf("Native microui frame rendered: %dx%d, renderer=%s, backend=%s\n", width, height, SDL_GetCurrentVideoDriver(), re_draw_backend(draw)); closing = true;
     }
     re_draw_end(draw);
     if (!closing && !(SDL_GetWindowFlags(window) & (SDL_WINDOW_HIDDEN | SDL_WINDOW_MINIMIZED))) {

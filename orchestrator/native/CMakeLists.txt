@@ -12,9 +12,9 @@ target_include_directories(rengine_vterm SYSTEM PUBLIC "${RENGINE_VENDOR}/libvte
 target_compile_definitions(rengine_vterm PRIVATE _CRT_SECURE_NO_WARNINGS)
 
 add_library(rengine_desktop_core STATIC draw.c layout.c net.c terminal.c editor.c app.c workspace.c game.c scroll.c
-  render/utf8.c render/draw_list.c render/font.c render/backend_sdl.c)
+  render/utf8.c render/draw_list.c render/font.c render/backend_sdl.c render/backend_gl.c scene.c)
 target_include_directories(rengine_desktop_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_include_directories(rengine_desktop_core SYSTEM PRIVATE "${RENGINE_VENDOR}/stb")
+target_include_directories(rengine_desktop_core SYSTEM PRIVATE "${RENGINE_VENDOR}/stb" "${RENGINE_VENDOR}")
 target_link_libraries(rengine_desktop_core PUBLIC SDL2::SDL2 rengine_microui rengine_json rengine_vterm CURL::libcurl)
 target_compile_features(rengine_desktop_core PUBLIC c_std_11)
 target_compile_definitions(rengine_desktop_core PUBLIC SDL_MAIN_HANDLED)

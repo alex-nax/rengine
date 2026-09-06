@@ -1,4 +1,5 @@
 #include "automation.h"
+#include "scene.h"
 static Uint32 automation_event;
 static int read_commands(void *unused) {
   (void)unused; char line[16384];
@@ -22,7 +23,18 @@ void re_automation_reply(int id, cJSON *result) {
 }
 void re_automation_command(ReApp *app, SDL_Window *window, const cJSON *j) {
   const char *op = re_string(j, "op"); int id = re_number(j, "id"); SDL_Event e = {0};
-  if (!strcmp(op, "state")) { re_automation_reply(id, re_app_inspect(app)); return; }
+  if (!strcmp(op, "state")) {
+    cJSON *state = re_app_inspect(app); ReDraw *draw = re_draw_active();
+    if (draw) cJSON_AddStringToObject(state, "backend", re_draw_backend(draw));
+    re_automation_reply(id, state); return;
+  }
+  if (!strcmp(op, "stats")) {
+    ReDraw *draw = re_draw_active();
+    if (draw && cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(j, "reset"))) re_draw_stats_reset(draw);
+    re_automation_reply(id, draw ? re_draw_stats(draw) : cJSON_CreateNull()); return;
+  }
+  if (!strcmp(op, "scene")) app->scene = re_scene_id(re_string(j, "name"));
+  else
   if (!strcmp(op, "text")) {
     const char *s = re_string(j, "text");
     while (*s) {

@@ -5,8 +5,8 @@
       "id": "generated-theme",
       "kind": "constraint",
       "anchor": {
-        "start": 43,
-        "end": 45,
+        "start": 61,
+        "end": 63,
         "snippet": "void re_draw_bind(ReDraw *d, mu_Context *ui) {",
         "symbol": "re_draw_bind"
       },
@@ -21,8 +21,8 @@
       "id": "deferred-flush",
       "kind": "constraint",
       "anchor": {
-        "start": 54,
-        "end": 58,
+        "start": 72,
+        "end": 76,
         "snippet": "static void flush(ReDraw *d) {",
         "symbol": "flush"
       },

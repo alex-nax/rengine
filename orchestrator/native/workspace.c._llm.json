@@ -5,8 +5,8 @@
       "id": "native-focus-and-detach",
       "kind": "rationale",
       "anchor": {
-        "start": 216,
-        "end": 216,
+        "start": 218,
+        "end": 218,
         "snippet": "bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {"
       },
       "note": "Pointer focus selects a view without changing its root/session binding. Toolbar focus clears custom editor/terminal/game keyboard routing. Detach never calls Stop. Wheel targets the visible hovered terminal/editor; negotiated terminal reporting gets first refusal before native history. Mouse motion/buttons route to an existing held terminal first, otherwise the hovered visible terminal; layout drags do not become application motion. Hover never changes keyboard focus. Focus loss releases all terminal holds, focus transfer releases the previous terminal, and hidden views release during drawing. Native UI still receives mouse motion to settle microui hover; consumed application buttons are not forwarded to chrome.",
@@ -20,8 +20,8 @@
       "id": "inspection-control-geometry",
       "kind": "rationale",
       "anchor": {
-        "start": 9,
-        "end": 9,
+        "start": 10,
+        "end": 10,
         "snippet": "static void inspect_control(ReApp *a, mu_Context *ui, const char *role, const char *key, int tab) {"
       },
       "note": "Only explicit automation allocates the controls array. Record at most 512 visible control rectangles per rendered frame, preserving actual microui actions and tab/session identity. Ordinary widgets are clipped to their container. Upstream overflow scrollbar geometry is outside the content clip and is read directly from the container after mu_end_window; do not consult the popped clip stack there. Production rendering allocates none of this metadata. Tests use ordinary SDL pointer/wheel events to reach controls; they cannot bypass scrolling or call button handlers by name.",
@@ -34,8 +34,8 @@
       "id": "bounded-tab-strip",
       "kind": "rationale",
       "anchor": {
-        "start": 74,
-        "end": 74,
+        "start": 75,
+        "end": 75,
         "snippet": "static void pane_header(ReApp *a, mu_Context *ui, int n) {"
       },
       "note": "Visible tab slots and previous/next controls fit the measured pane header; only displayed tabs receive hit rectangles. Strip offsets are ephemeral and can browse away from the selected content without retargeting it. Explicit layout changes invalidate the cached width to reveal the selected tab even when pane indices are reused. Drops choose insertion boundaries from visible header midpoints, then adjust for removal when source and destination are the same pane. Root/session identity stays on ReTab.",

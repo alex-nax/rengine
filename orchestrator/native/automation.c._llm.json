@@ -5,8 +5,8 @@
       "id": "opt-in-native-acceptance",
       "kind": "rationale",
       "anchor": {
-        "start": 12,
-        "end": 12,
+        "start": 13,
+        "end": 13,
         "snippet": "Uint32 re_automation_start(void) {"
       },
       "note": "Only explicit test-mode startup creates the stdin reader. Commands enqueue ordinary SDL key/mouse/text/focus events and expose read-only state/rendered snapshots. Pointer commands can set modifier state and wheel commands carry signed precise deltas plus inversion metadata to exercise production mouse reporting. It does not start a network listener or replace real file/session/game operations with fixtures. Tests clean their owned process; this remains separate from the agent desktop-action protocol.",

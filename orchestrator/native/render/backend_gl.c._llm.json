@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "sdf-shapes",
+      "kind": "rationale",
+      "anchor": {
+        "start": 34,
+        "end": 51,
+        "snippet": "static const char *fragment_source =",
+        "symbol": "fragment_source"
+      },
+      "note": "One program serves every command: mode 0 is a plain quad (rects, frame highlight) with no feather so current-UI scenes stay pixel-exact against the SDL reference; modes 1-3 evaluate a rounded-box signed distance in drawable pixels with a one-pixel feather (fill), an outer-minus-inner band (ring, also the 1px frame border) and a smoothstep falloff over the shadow width; mode 4 samples the coverage atlas, mode 5 an RGBA texture. Per-corner radii come from the corner mask so tabs can round only their top. This is the anti-aliased behaviour the owner chose in spec 068; Metal and Vulkan reuse the same shader logic.",
+      "refs": [
+        "docs/specs/068-opengl-adapter.md"
+      ]
+    },
+    {
+      "id": "reference-parity",
+      "kind": "constraint",
+      "anchor": {
+        "start": 94,
+        "end": 113,
+        "snippet": "static Glyph *glyph(GlBackend *b, uint8_t face, int16_t size, uint32_t cp) {",
+        "symbol": "glyph"
+      },
+      "note": "Glyph quads land at x*density+dx and (y+ascent+2)*density+dy, which is exactly where the SDL reference's float rectangle scales to at integer density, and the atlas is sampled with GL_NEAREST at texel-aligned coordinates, so text is compared under the tight current-UI tolerance. The atlas is a single 2048² R8 texture packed on shelves; when it fills, the batch is flushed and the atlas repacked from scratch instead of growing, keeping memory bounded. Blending uses separate alpha factors to reproduce SDL_BLENDMODE_BLEND. Changing any of this changes the comparison numbers in the evidence.",
+      "refs": [
+        "docs/specs/068-opengl-adapter.md",
+        "orchestrator/native/render/backend_sdl.c._llm.json"
+      ]
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 #include "app.h"
+#include "scene.h"
 
 static void inspect_rect(ReApp *a, const char *role, const char *key, int tab, mu_Rect r) {
   if (!a->controls || cJSON_GetArraySize(a->controls) >= 512) return;
@@ -212,6 +213,7 @@ void re_app_draw(ReApp *a, ReDraw *draw) {
   }
   for (int n = 0; n < RE_PANES; n++) if (a->layout.panes[n].used && a->layout.panes[n].axis)
     re_draw_rect(draw, a->layout.panes[n].divider, RE_COLOR_DIVIDER);
+  if (a->scene) re_scene_draw(a->scene, draw);
 }
 bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
   if (e->type == SDL_MOUSEMOTION) { a->mouse_x = e->motion.x; a->mouse_y = e->motion.y; }

@@ -55,5 +55,15 @@
       "src/vterm.c": "f8620e99da940d9c49c8d58dccd161aeaad45c5c6c3950f5289e6e4f77be85ac",
       "src/vterm_internal.h": "d283425a4bc343d351f858dfd32840320f25701fbbca06eb44d0d2040bf6e7e9"
     }
+  },
+  {
+    "name": "glad",
+    "upstream": "https://github.com/Dav1dde/glad",
+    "revision": "glad2 2.0.8 generator, reproducible bundled gl.xml",
+    "generator": "uvx --from glad2==2.0.8 glad --reproducible --api gl:core=3.3 --extensions '' --out-path DIR c --header-only",
+    "files": {
+      "gl.h": "11c76a7fdb13ae4a0483e8eecca76f567fcd4f7e03ddb6e2b2c38a33d38a9227",
+      "LICENSE": "cbb325cd4ac5bd06717ffa34a322b984f9d285e4c67c8ca1b7380d6ef08c2a77"
+    }
   }
 ]

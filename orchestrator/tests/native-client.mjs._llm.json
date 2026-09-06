@@ -7,7 +7,7 @@
       "anchor": {
         "start": 7,
         "end": 7,
-        "snippet": "export async function nativeClient(instance, { root = '', terminal = '', agent = '', game = '' } = {}) {"
+        "snippet": "export async function nativeClient(instance, { root = '', terminal = '', agent = '', game = '', env: extra = {} } = {}) {"
       },
       "note": "Runs the actual C executable or bridges the ordinary npm launcher with inherited stdin/stdout. Build output is retained as diagnostics rather than mistaken for RPC responses. Pointer movement and down/up are separated so microui sees real frame boundaries; control lookup reads clipped geometry and then clicks through SDL, never invokes application actions. GUI close preserves retained service processes until the test explicitly stops them. The Windows multi-config executable path matches the launcher; Windows execution remains unqualified.",
       "refs": [

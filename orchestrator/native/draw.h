@@ -3,7 +3,12 @@
 #include "common.h"
 #include "render/draw_list.h"
 typedef struct ReDraw ReDraw;
-ReDraw *re_draw_open(SDL_Window *window, const char *font);
+const char *re_draw_select(const char *name);            /* argument > RENGINE_RENDERER > platform default; NULL if unknown */
+Uint32 re_draw_window_flags(const char *backend);        /* call before SDL_CreateWindow */
+ReDraw *re_draw_open(SDL_Window *window, const char *font, const char *backend);
+ReDraw *re_draw_active(void);
+cJSON *re_draw_stats(const ReDraw *draw);
+void re_draw_stats_reset(ReDraw *draw);
 void re_draw_close(ReDraw *draw);
 void re_draw_bind(ReDraw *draw, mu_Context *ui);
 void re_draw_begin(ReDraw *draw, int width, int height);

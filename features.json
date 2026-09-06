@@ -358,7 +358,9 @@
       "owner_workspace": "rengine",
       "deliverable": "OpenGL adapter and docs/evidence per desktop",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/opengl-adapter-macos-2026-09-06.md"
+      ]
     },
     {
       "id": 58,

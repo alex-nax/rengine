@@ -24,6 +24,7 @@ typedef struct {
   bool desktop_registered, reload_requested; char desktop_id[65];
   int focus, drag_tab, resize_pane, drag_x, drag_y, mouse_x, mouse_y;
   Uint64 layout_changed, quit_started;
+  int scene;
 } ReApp;
 ReApp *re_app_open(const char *url, const char *token);
 void re_app_close(ReApp *app);

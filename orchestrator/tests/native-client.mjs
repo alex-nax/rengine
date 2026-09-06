@@ -4,11 +4,11 @@ import { createInterface } from 'node:readline';
 import { setTimeout as delay } from 'node:timers/promises';
 import path from 'node:path';
 
-export async function nativeClient(instance, { root = '', terminal = '', agent = '', game = '' } = {}) {
+export async function nativeClient(instance, { root = '', terminal = '', agent = '', game = '', env: extra = {} } = {}) {
   const executable = process.env.RENGINE_NATIVE_BINARY ?? path.resolve('.cache/desktop/bin', process.platform === 'win32' ? 'Release/rengine.exe' : 'rengine');
   const child = spawn(executable, ['--automation'], { stdio: ['pipe', 'pipe', 'pipe'], env: {
     ...process.env, RENGINE_WORKSPACE_URL: instance.url, RENGINE_WORKSPACE_TOKEN: instance.token,
-    RENGINE_INITIAL_ROOT: root, RENGINE_INITIAL_TERMINAL: terminal, RENGINE_INITIAL_AGENT: agent, RENGINE_INITIAL_GAME: game,
+    RENGINE_INITIAL_ROOT: root, RENGINE_INITIAL_TERMINAL: terminal, RENGINE_INITIAL_AGENT: agent, RENGINE_INITIAL_GAME: game, ...extra,
   } });
   return nativeBridge(child);
 }

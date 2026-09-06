@@ -164,6 +164,26 @@ app.c edits stayed unstaged; the CMake index entry was built from HEAD plus the 
 test. F56 stays `passes: false` with its evidence recorded; F57 (OpenGL adapter) is next. Commit:
 `feat(native): add the draw-list contract and SDL reference adapter (F56)`.
 
+**Follow-up 5 (same session)**: F57 on owner direction after a `/grill-me` interview (spec 068
+records eight attributed decisions; against the recommendation the owner chose OpenGL as the macOS
+default on pass, a non-zero exit instead of a fallback, and vendored, pinned glad). The skills
+grill-me, rengine-continue, rengine-audit, rengine-housekeep and rengine-ki-promote were copied and
+adapted from nolf-improved with Codex adapters (commit ee744b1). `render/backend_gl.c` is an OpenGL
+3.3 core adapter behind the draw list: one batched program (solid, signed-distance fill, ring and
+shadow, coverage atlas, RGBA texture), a 2048² glyph atlas that repacks when full, scissor clips and
+`glReadPixels` snapshots. Selection is `--renderer opengl|sdl` or `RENGINE_RENDERER`; the smoke line
+and automation `state` report `backend=`; automation gained `stats` and `scene`; `scene.c` draws
+every primitive; `tools/render_compare.py` applies the recorded tolerances;
+`native-render.spec.mjs` captures both backends from separate server state with stable text and
+is part of `npm run test:desktop`. Results: workspace and terminal scenes pixel-identical to the
+SDL reference; primitives 0.80% differing, all within the 2px band (the per-channel limit inside
+the band was dropped by owner decision after measuring 139); OpenGL medians 0.297/0.411/0.491 ms
+against SDL 0.663/1.990/1.413 ms; resident memory +20.3 MiB of 32; the eight committed native specs
+pass on OpenGL (50.7 s); CTest four passes; `--renderer sdl` stays byte-identical to the F56
+baseline. The macOS default is now OpenGL; Windows keeps SDL and F57 stays unpassed until Windows
+evidence (KI-014). Evidence: `docs/evidence/opengl-adapter-macos-2026-09-06.md`. Commit:
+`feat(native): add the OpenGL adapter behind the draw list (F57)`.
+
 ---
 ## Session 18 (macos) — 2026-09-06 — System scrolling, visible bars and agent reload
 

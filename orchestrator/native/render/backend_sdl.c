@@ -148,6 +148,7 @@ static void execute(ReBackend *backend, const ReDrawList *list) {
       default: break;
     }
   }
+  SDL_RenderFlush(b->renderer); /* submit queued commands so execute measures the same work as the GPU adapters */
 }
 static void present(ReBackend *backend) { SDL_RenderPresent(((SdlBackend *)backend)->renderer); }
 static bool snapshot(ReBackend *backend, const char *path) {

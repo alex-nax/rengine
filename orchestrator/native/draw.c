@@ -1,10 +1,20 @@
 #include "draw.h"
 #include "render/backend_sdl.h"
+#include "render/backend_gl.h"
+
+#define RE_STAT_FRAMES 120
+#ifdef __APPLE__
+#define RE_DEFAULT_BACKEND "opengl" /* spec 068 decision 2: OpenGL passed its macOS gates on 2026-09-06 */
+#else
+#define RE_DEFAULT_BACKEND "sdl"    /* Windows keeps SDL until it has its own evidence (KI-014) */
+#endif
 
 struct ReDraw {
   ReBackend *backend; ReFontSet *fonts; ReDrawList list;
   int cell_width, line_height; float density; bool flushed;
+  double build[RE_STAT_FRAMES], execute[RE_STAT_FRAMES]; int stat_count, stat_next; Uint64 frame_start;
 };
+static ReDraw *active;
 
 static ReColor color_of(mu_Color c) { return re_color(c.r, c.g, c.b, c.a); }
 static ReRect rect_of(mu_Rect r) { return re_rect(r.x, r.y, r.w, r.h); }
@@ -21,24 +31,32 @@ static void measure(ReDraw *d) {
   ReFontMetrics m = re_font_metrics(d->fonts, RE_FACE_MONO, RE_THEME_FONT_SIZE, d->density);
   d->cell_width = m.advance; d->line_height = RE_THEME_LINE_HEIGHT;
 }
-ReDraw *re_draw_open(SDL_Window *window, const char *font_path) {
+const char *re_draw_select(const char *name) {
+  const char *choice = name && *name ? name : getenv("RENGINE_RENDERER");
+  if (!choice || !*choice) choice = RE_DEFAULT_BACKEND;
+  if (!strcmp(choice, "opengl")) return "opengl";
+  return !strcmp(choice, "sdl") ? "sdl" : NULL;
+}
+Uint32 re_draw_window_flags(const char *backend) { return backend && !strcmp(backend, "opengl") ? re_backend_gl_window_flags() : 0; }
+ReDraw *re_draw_active(void) { return active; }
+ReDraw *re_draw_open(SDL_Window *window, const char *font_path, const char *backend) {
   ReDraw *d = calloc(1, sizeof(*d));
   if (!d) return NULL;
   d->fonts = re_font_open(font_path, getenv("RENGINE_UI_FONT"));
   if (!d->fonts) { SDL_SetError("%s", re_font_error()); free(d); return NULL; }
-  d->backend = re_backend_sdl_open(window, d->fonts);
+  d->backend = backend && !strcmp(backend, "opengl") ? re_backend_gl_open(window, d->fonts) : re_backend_sdl_open(window, d->fonts);
   if (!d->backend) { re_font_close(d->fonts); free(d); return NULL; }
   re_draw_list_init(&d->list);
   int width, height; SDL_GetWindowSize(window, &width, &height);
   d->density = d->backend->ops->density(d->backend, width);
-  measure(d);
+  measure(d); active = d;
   return d;
 }
 void re_draw_close(ReDraw *d) {
   if (!d) return;
   re_draw_list_free(&d->list);
   if (d->backend) d->backend->ops->close(d->backend);
-  re_font_close(d->fonts); free(d);
+  re_font_close(d->fonts); if (active == d) active = NULL; free(d);
 }
 void re_draw_bind(ReDraw *d, mu_Context *ui) {
   mu_init(ui); ui->text_width = text_width; ui->text_height = text_height; ui->style->font = d;
@@ -48,14 +66,34 @@ void re_draw_begin(ReDraw *d, int w, int h) {
   float density = d->backend->ops->density(d->backend, w);
   if (density != d->density) { d->density = density; measure(d); }
   re_draw_list_reset(&d->list, w, h, density, color_of(RE_COLOR_CANVAS));
-  d->flushed = false;
+  d->flushed = false; d->frame_start = SDL_GetPerformanceCounter();
 }
 /* Every frame flushes once; snapshot and end share it — see sidecar: deferred-flush */
 static void flush(ReDraw *d) {
   if (d->flushed) return;
   d->flushed = true;
+  Uint64 started = SDL_GetPerformanceCounter();
   if (d->backend->ops->begin(d->backend, &d->list)) d->backend->ops->execute(d->backend, &d->list);
+  if (d->frame_start) {
+    double ms = 1000.0 / (double)SDL_GetPerformanceFrequency();
+    d->build[d->stat_next] = (double)(started - d->frame_start) * ms; d->execute[d->stat_next] = (double)(SDL_GetPerformanceCounter() - started) * ms;
+    d->stat_next = (d->stat_next + 1) % RE_STAT_FRAMES; if (d->stat_count < RE_STAT_FRAMES) d->stat_count++;
+  }
 }
+static double median(const double *values, int count) {
+  double sorted[RE_STAT_FRAMES]; memcpy(sorted, values, sizeof(double) * (size_t)count);
+  for (int i = 1; i < count; i++) { double v = sorted[i]; int j = i; while (j > 0 && sorted[j - 1] > v) { sorted[j] = sorted[j - 1]; j--; } sorted[j] = v; }
+  return !count ? 0 : count % 2 ? sorted[count / 2] : (sorted[count / 2 - 1] + sorted[count / 2]) / 2;
+}
+cJSON *re_draw_stats(const ReDraw *d) {
+  double frames[RE_STAT_FRAMES];
+  for (int i = 0; i < d->stat_count; i++) frames[i] = d->build[i] + d->execute[i];
+  cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "backend", d->backend->ops->name); cJSON_AddNumberToObject(j, "frames", d->stat_count);
+  cJSON_AddNumberToObject(j, "buildMedianMs", median(d->build, d->stat_count)); cJSON_AddNumberToObject(j, "executeMedianMs", median(d->execute, d->stat_count));
+  cJSON_AddNumberToObject(j, "frameMedianMs", median(frames, d->stat_count)); cJSON_AddNumberToObject(j, "commands", (double)d->list.count);
+  cJSON_AddBoolToObject(j, "overflow", d->list.overflow); return j;
+}
+void re_draw_stats_reset(ReDraw *d) { d->stat_count = d->stat_next = 0; }
 void re_draw_end(ReDraw *d) { flush(d); d->backend->ops->present(d->backend); }
 bool re_draw_snapshot(ReDraw *d, const char *path) { flush(d); return d->backend->ops->snapshot(d->backend, path); }
 
