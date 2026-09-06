@@ -11,6 +11,8 @@ struct ReTerminal {
   HistoryLine *history[RE_HISTORY_LINES]; int first, count, offset; size_t history_bytes;
   float wheel; bool alternate, cursor_visible;
   ReScrollbar scrollbar;
+  mu_Rect content; int cw, lh, mouse_mode, mouse_buttons;
+  float mouse_wheel_x, mouse_wheel_y; bool mute_output;
 };
 static size_t line_bytes(int cols) { return sizeof(HistoryLine) + (size_t)cols * sizeof(VTermScreenCell); }
 static void blank_cell(ReTerminal *t, VTermScreenCell *cell) {
@@ -44,6 +46,7 @@ static int property(VTermProp prop, VTermValue *value, void *user) {
   ReTerminal *t = user;
   if (prop == VTERM_PROP_ALTSCREEN) { t->alternate = value->boolean; t->offset = 0; t->wheel = 0; }
   if (prop == VTERM_PROP_CURSORVISIBLE) t->cursor_visible = value->boolean;
+  if (prop == VTERM_PROP_MOUSE) { t->mouse_mode = value->number; t->mouse_wheel_x = t->mouse_wheel_y = 0; }
   return 1;
 }
 static const VTermScreenCallbacks callbacks = {
@@ -61,7 +64,8 @@ static void send(ReTerminal *t, cJSON *j) {
   if (bytes) re_socket_send(t->socket, bytes); free(bytes); cJSON_Delete(j);
 }
 static void output(const char *bytes, size_t size, void *user) {
-  ReTerminal *t = user; char *text = malloc(size + 1); if (!text) return;
+  ReTerminal *t = user; if (t->mute_output) return;
+  char *text = malloc(size + 1); if (!text) return;
   memcpy(text, bytes, size); text[size] = 0;
   cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "type", "input"); cJSON_AddStringToObject(j, "data", text);
   free(text); send(t, j);
@@ -71,23 +75,34 @@ static void resize(ReTerminal *t, int cols, int rows) {
   cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "type", "resize");
   cJSON_AddNumberToObject(j, "cols", cols); cJSON_AddNumberToObject(j, "rows", rows); send(t, j);
 }
-ReTerminal *re_terminal_open(ReSocket *socket, const char *id, int cols, int rows) {
-  ReTerminal *t = calloc(1, sizeof(*t)); if (!t) return NULL;
-  t->socket = socket; re_copy(t->id, sizeof(t->id), id); t->cols = cols; t->rows = rows;
-  t->vt = vterm_new(rows, cols); if (!t->vt) { free(t); return NULL; }
+static bool reset_screen(ReTerminal *t) {
+  VTerm *vt = vterm_new(t->rows, t->cols); if (!vt) return false;
+  history_clear(t); if (t->vt) vterm_free(t->vt); t->vt = vt;
+  t->mouse_mode = 0; t->alternate = false;
   vterm_set_utf8(t->vt, 1); t->screen = vterm_obtain_screen(t->vt);
   t->cursor_visible = true; vterm_screen_set_callbacks(t->screen, &callbacks, t);
   vterm_screen_enable_altscreen(t->screen, 1);
   VTermColor fg, bg; mu_Color text = RE_COLOR_TEXT, surface = RE_COLOR_SURFACE; vterm_color_rgb(&fg, text.r, text.g, text.b); vterm_color_rgb(&bg, surface.r, surface.g, surface.b);
   vterm_state_set_default_colors(vterm_obtain_state(t->vt), &fg, &bg);
-  vterm_screen_reset(t->screen, 1); vterm_output_set_callback(t->vt, output, t);
+  vterm_screen_reset(t->screen, 1); vterm_output_set_callback(t->vt, output, t); return true;
+}
+ReTerminal *re_terminal_open(ReSocket *socket, const char *id, int cols, int rows) {
+  ReTerminal *t = calloc(1, sizeof(*t)); if (!t) return NULL;
+  t->socket = socket; re_copy(t->id, sizeof(t->id), id); t->cols = cols; t->rows = rows;
+  if (!reset_screen(t)) { free(t); return NULL; }
   re_terminal_attach(t); return t;
 }
-void re_terminal_close(ReTerminal *t) { if (t) { history_clear(t); vterm_free(t->vt); free(t); } }
+void re_terminal_close(ReTerminal *t) { if (t) { re_terminal_release(t); history_clear(t); vterm_free(t->vt); free(t); } }
 bool re_terminal_ready(ReTerminal *t) { return t && t->attached; }
 ReTerminalScroll re_terminal_scroll_state(ReTerminal *t) { return (ReTerminalScroll){t->count, t->offset, t->history_bytes}; }
 void re_terminal_scrollbars(ReTerminal *t, cJSON *array) { re_scrollbar_inspect(&t->scrollbar, array); }
+void re_terminal_inspect_mouse(ReTerminal *t, cJSON *object) {
+  cJSON_AddNumberToObject(object, "mouseMode", t->mouse_mode);
+  cJSON_AddItemToObject(object, "cellSize", cJSON_CreateIntArray((int[]){t->cw, t->lh}, 2));
+  cJSON_AddItemToObject(object, "terminalSize", cJSON_CreateIntArray((int[]){t->cols, t->rows}, 2));
+}
 void re_terminal_attach(ReTerminal *t) {
+  re_terminal_release(t);
   t->attached = t->presented = false;
   cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "type", "attach"); send(t, j);
 }
@@ -98,15 +113,17 @@ void re_terminal_presented(ReTerminal *t) {
 }
 void re_terminal_message(ReTerminal *t, const cJSON *j) {
   const char *type = re_string(j, "type");
-  if (!strcmp(type, "disconnected")) t->attached = t->presented = false;
+  if (!strcmp(type, "disconnected")) { t->attached = t->presented = false; re_terminal_release(t); }
   else if (!strcmp(type, "attached")) {
     const cJSON *s = cJSON_GetObjectItemCaseSensitive(j, "session");
     if (strcmp(re_string(s, "id"), t->id)) return;
+    re_terminal_release(t); t->attached = false;
     t->waiting_for_view = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(s, "waitingForView"));
     int cols = re_number(s, "cols"), rows = re_number(s, "rows");
-    if (cols >= 2 && cols <= 500 && rows >= 2 && rows <= 300) { t->cols = cols; t->rows = rows; vterm_set_size(t->vt, rows, cols); }
-    vterm_screen_reset(t->screen, 1); history_clear(t);
-    const char *text = re_string(s, "output"); vterm_input_write(t->vt, text, strlen(text));
+    if (cols >= 2 && cols <= 500 && rows >= 2 && rows <= 300) { t->cols = cols; t->rows = rows; }
+    if (!reset_screen(t)) return;
+    const char *text = re_string(s, "output"); t->mute_output = true;
+    vterm_input_write(t->vt, text, strlen(text)); t->mute_output = false;
     t->sequence = re_number(s, "sequence"); t->attached = true;
   } else if (!strcmp(type, "output") && !strcmp(re_string(j, "id"), t->id) && t->attached) {
     int sequence = re_number(j, "sequence");
@@ -116,8 +133,48 @@ void re_terminal_message(ReTerminal *t, const cJSON *j) {
   }
   vterm_screen_flush_damage(t->screen);
 }
+static VTermModifier modifiers(SDL_Keymod mod) {
+  return (VTermModifier)(((mod & KMOD_SHIFT) ? VTERM_MOD_SHIFT : 0) |
+    ((mod & KMOD_ALT) ? VTERM_MOD_ALT : 0) | ((mod & KMOD_CTRL) ? VTERM_MOD_CTRL : 0));
+}
+bool re_terminal_mouse_held(ReTerminal *t) { return t && t->mouse_buttons; }
+void re_terminal_release(ReTerminal *t) {
+  if (!t) return;
+  t->mute_output = !t->attached;
+  for (int button = 1; button <= 3; button++) if (t->mouse_buttons & (1 << button)) vterm_mouse_button(t->vt, button, false, VTERM_MOD_NONE);
+  if (t->mouse_buttons) SDL_CaptureMouse(SDL_FALSE);
+  t->mouse_buttons = 0; t->mouse_wheel_x = t->mouse_wheel_y = 0; t->mute_output = false;
+}
+bool re_terminal_mouse(ReTerminal *t, const SDL_Event *e, int x, int y) {
+  if (!t || !t->attached || !t->cw || !t->lh || t->scrollbar.dragging) return false;
+  bool inside = re_inside(t->content, x, y);
+  int button = e->type == SDL_MOUSEBUTTONDOWN || e->type == SDL_MOUSEBUTTONUP ?
+    (e->button.button == SDL_BUTTON_LEFT ? 1 : e->button.button == SDL_BUTTON_MIDDLE ? 2 : e->button.button == SDL_BUTTON_RIGHT ? 3 : 0) : 0;
+  bool release = e->type == SDL_MOUSEBUTTONUP && button && (t->mouse_buttons & (1 << button));
+  if (!release && (!t->mouse_mode || t->offset || (!inside && !t->mouse_buttons))) return false;
+  SDL_Keymod mod = SDL_GetModState(); VTermModifier vm = modifiers(mod);
+  if (e->type == SDL_MOUSEWHEEL && (!inside || ((mod & KMOD_SHIFT) && !t->alternate))) return false;
+  if (e->type == SDL_MOUSEBUTTONDOWN && (!inside || !button)) return false;
+  if (e->type == SDL_MOUSEBUTTONUP && !release) return false;
+  int col = re_max(0, re_min(t->cols - 1, (x - t->content.x) / t->cw));
+  int row = re_max(0, re_min(t->rows - 1, (y - t->content.y) / t->lh));
+  vterm_mouse_move(t->vt, row, col, vm);
+  if (button) {
+    bool down = e->type == SDL_MOUSEBUTTONDOWN;
+    vterm_mouse_button(t->vt, button, down, vm);
+    if (down) t->mouse_buttons |= 1 << button; else t->mouse_buttons &= ~(1 << button);
+    SDL_CaptureMouse(t->mouse_buttons ? SDL_TRUE : SDL_FALSE);
+  } else if (e->type == SDL_MOUSEWHEEL) {
+    int vertical = re_wheel_steps(&t->mouse_wheel_y, &e->wheel, false, 1);
+    int horizontal = re_wheel_steps(&t->mouse_wheel_x, &e->wheel, true, 1);
+    for (int i = 0; i < abs(vertical); i++) vterm_mouse_button(t->vt, vertical > 0 ? 4 : 5, true, vm);
+    for (int i = 0; i < abs(horizontal); i++) vterm_mouse_button(t->vt, horizontal > 0 ? 7 : 6, true, vm);
+  }
+  return true;
+}
 void re_terminal_event(ReTerminal *t, const SDL_Event *e) {
   if (!t) return;
+  if (e->type == SDL_WINDOWEVENT && e->window.event == SDL_WINDOWEVENT_FOCUS_LOST) re_terminal_release(t);
   if (re_scrollbar_event(&t->scrollbar, e)) { t->offset = re_max(0, t->count - t->scrollbar.value); t->wheel = 0; return; }
   if (e->type == SDL_MOUSEWHEEL) {
     if (t->alternate) return;
@@ -142,8 +199,7 @@ void re_terminal_event(ReTerminal *t, const SDL_Event *e) {
   }
   if (e->type != SDL_KEYDOWN) return;
   SDL_Keymod mod = (SDL_Keymod)e->key.keysym.mod;
-  VTermModifier vm = (VTermModifier)(((mod & KMOD_SHIFT) ? VTERM_MOD_SHIFT : 0) |
-    ((mod & KMOD_ALT) ? VTERM_MOD_ALT : 0) | ((mod & KMOD_CTRL) ? VTERM_MOD_CTRL : 0));
+  VTermModifier vm = modifiers(mod);
   SDL_Keycode key = e->key.keysym.sym;
   if (key == SDLK_v && ((mod & KMOD_GUI) || ((mod & KMOD_CTRL) && (mod & KMOD_SHIFT)))) {
     t->offset = 0; t->wheel = 0;
@@ -174,6 +230,7 @@ void re_terminal_draw(ReTerminal *t, ReDraw *draw, mu_Rect r, bool focused) {
   r.w = re_max(0, r.w - RE_SCROLLBAR_SIZE);
   int cw = re_draw_cell_width(draw), lh = re_draw_line_height(draw);
   int cols = re_max(2, re_min(500, r.w / cw)), rows = re_max(2, re_min(300, r.h / lh));
+  t->cw = cw; t->lh = lh; t->content = mu_rect(r.x, r.y, re_min(r.w, cols * cw), re_min(r.h, rows * lh));
   if (t->attached && (cols != t->cols || rows != t->rows)) resize(t, cols, rows);
   re_scrollbar_set(&t->scrollbar, track, t->rows + (t->alternate ? 0 : t->count), t->rows, t->count - t->offset, false);
   re_draw_clip(draw, &r);

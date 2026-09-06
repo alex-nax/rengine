@@ -85,6 +85,10 @@ wheel direction and visible native terminal/editor scrollbars are covered by [sp
 Agents can request the same native reload through root-bound MCP discovery and an explicit desktop
 ID; [spec 062](062-agent-desktop-actions.md) separates acceptance from build completion. Existing
 retained services/connectors require an explicit upgrade to load this action protocol.
+Negotiated terminal mouse reporting now covers fullscreen app clicks, hover/drag and wheel,
+including replay of the selected real Claude session; see [spec 063](063-terminal-mouse-reporting.md).
+Snapshot reconstruction silences historical query replies; normal close/reload drains queued
+input after releasing held mouse buttons, with a bounded visible cancellation on a busy stream.
 
 Native image previews, terminal selection/copy, richer text navigation, service-restart recovery,
 frame/input DPI mapping, actual in-level aiming, resource budgets, packaging and Windows runtime

@@ -252,7 +252,17 @@ void re_app_tick(ReApp *a) {
   }
 }
 bool re_app_quit(ReApp *a) {
+  if (!a->quitting) {
+    a->quit_started = SDL_GetTicks64();
+    for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].terminal) re_terminal_release(a->tabs[i].terminal);
+  }
   a->quitting = true; re_app_tick(a);
+  if (re_socket_pending(a->events)) {
+    if (SDL_GetTicks64() - a->quit_started >= 2000) {
+      a->quitting = false; re_copy(a->status, sizeof(a->status), "Terminal input is still sending. Retry close or reload after it settles.");
+    }
+    return false;
+  }
   for (int i = 0; i < RE_ARRAY_SIZE(a->pending); i++) if (a->pending[i].id) return false;
   for (int i = 0; i < RE_TABS; i++) {
     ReTab *t = &a->tabs[i];
@@ -286,6 +296,7 @@ cJSON *re_app_inspect(ReApp *a) {
     if (t->terminal || t->editor) {
       cJSON *bars = cJSON_AddArrayToObject(tab, "scrollbars");
       if (t->terminal) re_terminal_scrollbars(t->terminal, bars); else re_editor_scrollbars(t->editor, bars);
+      if (t->terminal) re_terminal_inspect_mouse(t->terminal, tab);
     }
     if (t->game) { cJSON_AddNumberToObject(tab, "sequence", t->game->sequence); cJSON_AddBoolToObject(tab, "captured", t->game->captured); }
     if (t->data && t->type == RE_TREE) cJSON_AddItemToObject(tab, "tree", cJSON_Duplicate(t->data, 1));

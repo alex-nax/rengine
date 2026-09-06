@@ -28,7 +28,7 @@ and supplies this checkpoint, not a scheduler migration. If it remains paused, c
 user-authorized work as the resumed CLI turn and leave scheduler controls with the user.
 
 All 15 feature gates remain false. `features.json` criteria have not changed. Read the newest
-`Codex-progress.md` entry, `known-issues.md`, specs 055–062 and architecture before choosing the
+`Codex-progress.md` entry, `known-issues.md`, specs 055–063 and architecture before choosing the
 next bounded fix. Check `RENGINE_ORCHESTRATOR_SESSION`, then the MCP workspace/session identity
 for `/Users/alex/rengine`; its session must be the running root-bound agent. The environment
 marker is context, not a security boundary. Confirm the MCP connection before continuing edits.
@@ -63,6 +63,14 @@ loading service/MCP code requires separate explicit session management. A target
 was denied by macOS Accessibility, so this agent has not verified a live desktop reload from that
 attempt. No OS permission settings, conversation or retained processes were replaced. See
 `docs/evidence/native-scroll-controls-actions-macos-2026-09-06.md`.
+
+The next owner report prioritized unclickable/unscrollable Claude fullscreen UI in the existing
+`/rc` session. Spec 063 adds negotiated terminal mouse reporting, balanced releases and precise
+cell mapping. Private replay of that Claude stream qualifies SGR click/wheel packets after
+reattachment, without operating its live conversation or Remote Control connection. Historical
+queries no longer fill the input queue during reconstruction; live queries still receive replies.
+The tested native build loads with Cmd/Ctrl+Shift+R and retains the current sessions. Existing
+service/MCP upgrade and OS shortcut-permission limits remain as recorded above.
 
 Start with KI-024. Actual NOLF streams while moved into a narrow pane and back. However the
 latest combined test's `game-input.png` still shows the main menu after Enter; its automated

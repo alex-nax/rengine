@@ -33,7 +33,7 @@
   ],
   "source": {
     "path": "orchestrator/native/draw.c",
-    "sha256": "deb5bd18d9277b2ea268a2ebccd6eeb313aea4ef5621fc58d3d3554b39cb8cf3",
+    "sha256": "3415d58860c51eb64e9195b1d52c28ead11ec2b82a6681edcccf02fc907da942",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

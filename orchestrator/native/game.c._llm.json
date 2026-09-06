@@ -17,7 +17,7 @@
   ],
   "source": {
     "path": "orchestrator/native/game.c",
-    "sha256": "bf73e27b0cc5c59ebfc361879d11e7bc044e6f9db7729a71ac751a9eec429f89",
+    "sha256": "798e996f3fef14691059358db06d5d7759a8c62bd798860f937cf9752aca730a",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

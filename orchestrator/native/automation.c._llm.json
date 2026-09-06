@@ -9,17 +9,18 @@
         "end": 12,
         "snippet": "Uint32 re_automation_start(void) {"
       },
-      "note": "Only explicit test-mode startup creates the stdin reader. Commands enqueue ordinary SDL key/mouse/text events and expose read-only state/rendered snapshots. Wheel commands carry precise X/Y plus inversion metadata to exercise the production input path. It does not start a network listener or replace file/session/game operations with fixtures. Tests close stdin and their owned process; this is not the agent desktop-action protocol.",
+      "note": "Only explicit test-mode startup creates the stdin reader. Commands enqueue ordinary SDL key/mouse/text/focus events and expose read-only state/rendered snapshots. Pointer commands can set modifier state and wheel commands carry signed precise deltas plus inversion metadata to exercise production mouse reporting. It does not start a network listener or replace real file/session/game operations with fixtures. Tests clean their owned process; this remains separate from the agent desktop-action protocol.",
       "refs": [
         "docs/specs/056-native-desktop.md",
         "docs/specs/061-pane-scroll-controls.md",
-        "docs/specs/062-agent-desktop-actions.md"
+        "docs/specs/062-agent-desktop-actions.md",
+        "docs/specs/063-terminal-mouse-reporting.md"
       ]
     }
   ],
   "source": {
     "path": "orchestrator/native/automation.c",
-    "sha256": "45f8c175eb5eb40bed28ef670265054f1f3c52a064a77d4911f9fad03ec496e0",
+    "sha256": "1280ed4c2c89fa6d76031a4bc946a3263c048630e25fc0ca18702432802e6a4f",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

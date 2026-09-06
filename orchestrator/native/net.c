@@ -12,7 +12,7 @@ struct ReNet {
 struct ReSocket {
   char url[512];
   SDL_mutex *mutex; SDL_cond *space; SDL_Thread *thread; SDL_atomic_t stop, connected;
-  Queue outgoing, incoming; ReMessage *frame;
+  Queue outgoing, incoming; ReMessage *frame; bool sending;
 };
 static bool push(Queue *q, ReMessage *m) {
   if (q->count >= RE_NET_QUEUE || m->size > RE_NET_BYTES - q->bytes) return false;
@@ -136,14 +136,17 @@ static void socket_stream(ReSocket *s, CURL *curl) {
   CURLcode code;
   ReMessage *incoming = message("", 0), *outgoing = NULL; size_t sent = 0; bool binary = false;
   while (incoming && !SDL_AtomicGet(&s->stop)) {
-    if (!outgoing) { SDL_LockMutex(s->mutex); outgoing = pop(&s->outgoing); SDL_UnlockMutex(s->mutex); sent = 0; }
+    if (!outgoing) { SDL_LockMutex(s->mutex); outgoing = pop(&s->outgoing); s->sending = outgoing != NULL; SDL_UnlockMutex(s->mutex); sent = 0; }
     if (outgoing) {
       size_t amount = 0;
       code = curl_ws_send(curl, outgoing->data + sent, outgoing->size - sent, &amount,
                           sent ? 0 : (curl_off_t)outgoing->size, CURLWS_TEXT | CURLWS_OFFSET);
       sent += amount;
       if (code != CURLE_OK && code != CURLE_AGAIN) break;
-      if (sent == outgoing->size) { re_message_free(outgoing); outgoing = NULL; }
+      if (sent == outgoing->size) {
+        re_message_free(outgoing); outgoing = NULL;
+        SDL_LockMutex(s->mutex); s->sending = false; SDL_UnlockMutex(s->mutex); wake();
+      }
     }
     char buffer[65536]; size_t count = 0; const struct curl_ws_frame *meta = NULL;
     code = curl_ws_recv(curl, buffer, sizeof(buffer), &count, &meta);
@@ -171,7 +174,7 @@ static int socket_worker(void *userdata) {
         socket_received(s, message("{\"type\":\"connected\"}", 20), false); socket_stream(s, curl);
       }
     }
-    SDL_LockMutex(s->mutex); SDL_AtomicSet(&s->connected, 0); clear(&s->outgoing); SDL_UnlockMutex(s->mutex);
+    SDL_LockMutex(s->mutex); SDL_AtomicSet(&s->connected, 0); s->sending = false; clear(&s->outgoing); SDL_UnlockMutex(s->mutex);
     if (curl) curl_easy_cleanup(curl);
     if (SDL_AtomicGet(&s->stop)) break;
     socket_received(s, message("{\"type\":\"disconnected\"}", 23), false);
@@ -191,6 +194,10 @@ bool re_socket_send(ReSocket *s, const char *text) {
   ReMessage *m = message(text, strlen(text)); if (!m) return false;
   SDL_LockMutex(s->mutex); bool ok = SDL_AtomicGet(&s->connected) && push(&s->outgoing, m); SDL_UnlockMutex(s->mutex);
   if (!ok) re_message_free(m); return ok;
+}
+bool re_socket_pending(ReSocket *s) {
+  if (!s) return false;
+  SDL_LockMutex(s->mutex); bool pending = SDL_AtomicGet(&s->connected) && (s->outgoing.count || s->sending); SDL_UnlockMutex(s->mutex); return pending;
 }
 ReMessage *re_socket_poll(ReSocket *s) {
   if (!s) return NULL;

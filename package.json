@@ -14,7 +14,7 @@
     "build:surface": "cmake -S adapters/sdl2 -B .cache/native -DCMAKE_BUILD_TYPE=Release && cmake --build .cache/native --config Release",
     "start": "node orchestrator/launch.mjs",
     "resume": "node orchestrator/launch.mjs --handoff .cache/handoff/current.json --state .cache/orchestrator-development",
-    "test:desktop": "npm run build && node --test --test-concurrency=1 orchestrator/tests/native.spec.mjs orchestrator/tests/native-game.spec.mjs orchestrator/tests/native-layout.spec.mjs orchestrator/tests/native-handoff.spec.mjs orchestrator/tests/native-terminal-recovery.spec.mjs orchestrator/tests/native-terminal-scroll.spec.mjs orchestrator/tests/native-scrollbars.spec.mjs",
+    "test:desktop": "npm run build && node --test --test-concurrency=1 orchestrator/tests/native.spec.mjs orchestrator/tests/native-game.spec.mjs orchestrator/tests/native-layout.spec.mjs orchestrator/tests/native-handoff.spec.mjs orchestrator/tests/native-terminal-recovery.spec.mjs orchestrator/tests/native-terminal-scroll.spec.mjs orchestrator/tests/native-scrollbars.spec.mjs orchestrator/tests/native-terminal-mouse.spec.mjs",
     "test:nolf": "npm run build && node --test orchestrator/tests/native-nolf.spec.mjs",
     "test:workspace": "node --test orchestrator/tests/native-workspace.spec.mjs"
   },

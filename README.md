@@ -74,6 +74,11 @@ microui bars. Drag the thumb or click a custom bar track to page. Wheel input fo
 pane without changing keyboard focus. See [pane scroll controls](docs/specs/061-pane-scroll-controls.md)
 and [terminal scrollback](docs/specs/060-native-terminal-scrollback.md) for current limits.
 
+Applications that request terminal mouse reporting, including Claude fullscreen, receive clicks,
+hover/drag and wheel events in their own screen. **Shift+wheel** browses local primary-screen
+history; ordinary shells keep native scrolling. Reload retains the process and restores its mouse
+mode without answering historical terminal queries again. See [terminal mouse support](docs/specs/063-terminal-mouse-reporting.md).
+
 To resume a specific Codex conversation inside an agent pane, use
 `npm start -- --handoff /path/to/handoff.json`. The version-1 manifest contains `project`
 (relative to the manifest), `sessionId` (the exact local Codex UUID), and `checkpoint`

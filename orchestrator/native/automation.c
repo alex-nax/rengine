@@ -39,17 +39,23 @@ void re_automation_command(ReApp *app, SDL_Window *window, const cJSON *j) {
     e.key.keysym.sym = SDL_GetKeyFromName(re_string(j, "key")); e.key.keysym.scancode = SDL_GetScancodeFromKey(e.key.keysym.sym);
     e.key.keysym.mod = (Uint16)re_number(j, "mod"); SDL_PushEvent(&e);
   } else if (!strcmp(op, "button")) {
+    if (cJSON_HasObjectItem(j, "mod")) SDL_SetModState((SDL_Keymod)re_number(j, "mod"));
     e.type = cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(j, "down")) ? SDL_MOUSEBUTTONUP : SDL_MOUSEBUTTONDOWN;
     e.button.button = (Uint8)re_max(1, re_number(j, "button")); e.button.x = re_number(j, "x"); e.button.y = re_number(j, "y"); SDL_PushEvent(&e);
   } else if (!strcmp(op, "motion")) {
+    if (cJSON_HasObjectItem(j, "mod")) SDL_SetModState((SDL_Keymod)re_number(j, "mod"));
     e.type = SDL_MOUSEMOTION; e.motion.x = re_number(j, "x"); e.motion.y = re_number(j, "y");
     e.motion.xrel = re_number(j, "dx"); e.motion.yrel = re_number(j, "dy"); SDL_PushEvent(&e);
   } else if (!strcmp(op, "wheel")) {
+    if (cJSON_HasObjectItem(j, "mod")) SDL_SetModState((SDL_Keymod)re_number(j, "mod"));
     e.type = SDL_MOUSEWHEEL; e.wheel.x = re_number(j, "x"); e.wheel.y = re_number(j, "y");
     const cJSON *x = cJSON_GetObjectItemCaseSensitive(j, "preciseX"), *y = cJSON_GetObjectItemCaseSensitive(j, "preciseY");
     e.wheel.preciseX = cJSON_IsNumber(x) ? (float)x->valuedouble : (float)e.wheel.x;
     e.wheel.preciseY = cJSON_IsNumber(y) ? (float)y->valuedouble : (float)e.wheel.y;
     e.wheel.direction = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(j, "flipped")) ? SDL_MOUSEWHEEL_FLIPPED : SDL_MOUSEWHEEL_NORMAL;
+    SDL_PushEvent(&e);
+  } else if (!strcmp(op, "focus")) {
+    e.type = SDL_WINDOWEVENT; e.window.event = cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(j, "focused")) ? SDL_WINDOWEVENT_FOCUS_LOST : SDL_WINDOWEVENT_FOCUS_GAINED;
     SDL_PushEvent(&e);
   } else if (!strcmp(op, "resize")) SDL_SetWindowSize(window, re_max(1050, re_number(j, "width")), re_max(480, re_number(j, "height")));
   else if (!strcmp(op, "quit")) { e.type = SDL_QUIT; SDL_PushEvent(&e); }

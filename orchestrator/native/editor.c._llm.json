@@ -30,7 +30,7 @@
   ],
   "source": {
     "path": "orchestrator/native/editor.c",
-    "sha256": "8c5061ecada827738ffbdf6bf51667b281db8b1a302ccd6efd239118b5f0fef2",
+    "sha256": "3c80d3cc6e356f167c6d442a8ced004c736467d6ddf04f46b6e14dfe0da97bf0",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

@@ -17,6 +17,7 @@ void re_message_free(ReMessage *message);
 char *re_net_query(const char *route, const char *root, const char *path);
 ReSocket *re_socket_open(ReNet *net, const char *route);
 bool re_socket_send(ReSocket *socket, const char *text);
+bool re_socket_pending(ReSocket *socket);
 ReMessage *re_socket_poll(ReSocket *socket);
 ReMessage *re_socket_frame(ReSocket *socket);
 void re_socket_close(ReSocket *socket);

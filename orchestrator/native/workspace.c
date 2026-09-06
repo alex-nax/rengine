@@ -203,7 +203,7 @@ void re_app_draw(ReApp *a, ReDraw *draw) {
       re_game_tick(t->game, draw);
       if (t->rect.w <= 0 && (t->game->captured || t->game->focused)) re_game_release(t->game);
     }
-    if (t->rect.w <= 0 || t->rect.h <= 0) continue;
+    if (t->rect.w <= 0 || t->rect.h <= 0) { if (t->terminal) re_terminal_release(t->terminal); continue; }
     if (t->terminal) re_terminal_draw(t->terminal, draw, t->rect, a->focus == i);
     if (t->editor) re_editor_draw(t->editor, draw, t->rect, a->focus == i);
     if (t->game) re_game_draw(t->game, draw, t->rect);
@@ -217,7 +217,7 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
   if (e->type == SDL_MOUSEWHEEL && !a->quitting) {
     for (int i = 0; i < RE_TABS; i++) if ((a->tabs[i].terminal || a->tabs[i].editor) && re_inside(a->tabs[i].rect, a->mouse_x, a->mouse_y)) {
       ReTab *t = &a->tabs[i];
-      if (t->terminal) re_terminal_event(t->terminal, e);
+      if (t->terminal) { if (!re_terminal_mouse(t->terminal, e, a->mouse_x, a->mouse_y)) re_terminal_event(t->terminal, e); }
       else re_editor_event(t->editor, e, t->rect, re_draw_cell_width(draw), re_draw_line_height(draw));
       return true;
     }
@@ -261,6 +261,7 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
     a->drag_tab = a->resize_pane = -1;
   }
   if (e->type == SDL_WINDOWEVENT && e->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+    for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].terminal) re_terminal_release(a->tabs[i].terminal);
     if (a->focus >= 0) {
       ReTab *t = &a->tabs[a->focus];
       if (t->terminal) re_terminal_event(t->terminal, e);
@@ -269,6 +270,15 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
     a->focus = -1;
   }
   if (previous_focus >= 0 && previous_focus != a->focus && a->tabs[previous_focus].game) re_game_release(a->tabs[previous_focus].game);
+  if (previous_focus >= 0 && previous_focus != a->focus && a->tabs[previous_focus].terminal) re_terminal_release(a->tabs[previous_focus].terminal);
+  if (!a->quitting && a->drag_tab < 0 && a->resize_pane < 0 && (e->type == SDL_MOUSEMOTION || e->type == SDL_MOUSEBUTTONDOWN || e->type == SDL_MOUSEBUTTONUP)) {
+    for (int pass = 0; pass < 2; pass++) for (int i = 0; i < RE_TABS; i++) {
+      ReTab *t = &a->tabs[i];
+      if (t->terminal && (pass == 0 ? re_terminal_mouse_held(t->terminal) : re_inside(t->rect, a->mouse_x, a->mouse_y))) {
+        if (re_terminal_mouse(t->terminal, e, a->mouse_x, a->mouse_y)) return e->type != SDL_MOUSEMOTION;
+      }
+    }
+  }
   if (a->focus < 0 || a->quitting) return false;
   ReTab *t = &a->tabs[a->focus];
   if (t->discarding) return true;

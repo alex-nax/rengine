@@ -65,11 +65,24 @@
       "refs": [
         "docs/specs/062-agent-desktop-actions.md"
       ]
+    },
+    {
+      "id": "drain-terminal-input-before-quit",
+      "kind": "rationale",
+      "anchor": {
+        "start": 254,
+        "end": 254,
+        "snippet": "bool re_app_quit(ReApp *a) {"
+      },
+      "note": "On the first close/reload attempt, release held terminal buttons before teardown. Keep ticking native input/rendering until the connected events socket has handed queued/in-flight output to libcurl, in addition to existing durable draft/layout requirements. An observed native test previously lost the final mouse-up when re_app_close queued it immediately before stopping the stream worker. Bound this send drain to two seconds; cancel close/reload visibly if the stream stays busy. Disconnected output is already discarded, so it does not become a replay queue. Drain is transport completion, not a remote application acknowledgement.",
+      "refs": [
+        "docs/specs/063-terminal-mouse-reporting.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/app.c",
-    "sha256": "4cd81beec778a51773d415ce94e2141ba5c16cf40607c12509ad87198cfe5137",
+    "sha256": "2dc0b1fe069888b4cc530c056ccf0b8787092738a1bf222cce22b4c44d01e3e0",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

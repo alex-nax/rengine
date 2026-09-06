@@ -23,7 +23,7 @@ typedef struct {
   bool initialized, connected, vim, layout_dirty, quitting;
   bool desktop_registered, reload_requested; char desktop_id[65];
   int focus, drag_tab, resize_pane, drag_x, drag_y, mouse_x, mouse_y;
-  Uint64 layout_changed;
+  Uint64 layout_changed, quit_started;
 } ReApp;
 ReApp *re_app_open(const char *url, const char *token);
 void re_app_close(ReApp *app);

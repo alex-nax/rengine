@@ -5,8 +5,8 @@
       "id": "bounded-native-transport",
       "kind": "rationale",
       "anchor": {
-        "start": 163,
-        "end": 163,
+        "start": 166,
+        "end": 166,
         "snippet": "static int socket_worker(void *userdata) {"
       },
       "note": "Each HTTP/WS worker owns its curl handle. SDL mutexes protect queues capped at 128 messages and 16 MiB; binary game frames replace one latest slot. Text reception waits for capacity instead of terminating the worker on overload. Poll signals capacity, shutdown broadcasts, and timed waits keep the SDL consumer awake. On failure, discard unsent outgoing messages, reject sends while disconnected and retry the same authenticated endpoint after 500 ms. Never discover a different service identity or launch a process here. HTTP work stays off the UI thread. This client accepts only an authenticated 127.0.0.1 service URL, disables proxies and redirects, and builds libcurl without TLS. The later Quest/web remote transport must not reuse this local-only assumption.",
@@ -14,11 +14,24 @@
         "docs/specs/056-native-desktop.md",
         "docs/specs/059-native-terminal-recovery.md"
       ]
+    },
+    {
+      "id": "outgoing-drain-observation",
+      "kind": "rationale",
+      "anchor": {
+        "start": 198,
+        "end": 198,
+        "snippet": "bool re_socket_pending(ReSocket *s) {"
+      },
+      "note": "The GUI may need to send a held-button release before closing its stream. Track the current outgoing message under the same mutex as the queue, including the interval after pop and partial writes, so an empty queue alone cannot report drained. Clear sending only when the full message is handed to libcurl or the connection fails; wake the UI when sending finishes. The caller bounds its wait and cancels close/reload on timeout. This does not acknowledge application processing or change the policy of dropping unsent data on disconnect.",
+      "refs": [
+        "docs/specs/063-terminal-mouse-reporting.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/net.c",
-    "sha256": "e9634198bd8f5a7d41479e4bcacd6cc061dc1ea01819aed725d6e613eac3305f",
+    "sha256": "d810b0ecc9a4611fc43b43c5b9fdc1120a5ff3621b7b344f40bf6d6076ee4bb5",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

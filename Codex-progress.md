@@ -1,5 +1,49 @@
 # Progress Log
 
+## Session 19 (macos) — 2026-09-06 — Repair Claude fullscreen mouse interaction
+
+**Owner direction and context**: The owner prioritized the existing Claude `/rc` pane, where
+items could not be clicked and scrolling did nothing. Verified the current orchestrator session
+and root-bound MCP, preserving Claude PID 92674, Codex PID 20049 and original shells 33500/39735.
+Private read-only Claude output shows alternate screen plus tracking 1000/1002/1003 and SGR 1006.
+No provider prompt, Remote Control change, duplicate conversation/goal or sibling edit.
+
+**Implemented**: Spec 063/F36 adds negotiated libvterm mouse buttons, hover/drag and precise signed
+wheel, with logical cell mapping and native scrollbar/history precedence. Hover preserves keyboard
+focus; held releases remain bound across pointer exit, focus loss, hide and detach. Snapshot replay
+recreates the emulator and silences historical query responses that otherwise fill the outgoing
+queue. Live queries still reply. Normal GUI close/reload releases buttons and drains queued and
+in-flight stream sends before teardown, canceling visibly after two seconds if still busy. Pinned
+upstream sources remain unchanged; headers/build declarations need no extra file-local notes.
+
+**Verification**: The native click regression failed before the fix (8.71 s); a later regression
+proved GUI close dropped the final held release (6.83 s). Final native desktop suite: eight passes,
+48.00 s; CTest: three passes, 0.58 s; service/MCP: 21 passes, 4.41 s. Actual recorded Claude replay
+passes (9.03 s), with no repeated historical query replies, SGR click/wheel delivery after same-PTY
+reattachment and a working new live cursor query. Native checks also cover tracking modes, legacy
+X10, modifiers, both screens, resize/pane movement, keyboard-focus isolation and final release.
+Screenshots inspected; narrow static replay is protocol evidence, not live Claude layout proof.
+Harness/inventory, source sizes/links, reviewed sidecars and diff checks pass. Full evidence:
+`docs/evidence/native-terminal-mouse-macos-2026-09-06.md`.
+
+**Environment findings**: Sandboxed service tests lacked loopback access; an unrestricted baseline
+also inherited the real handoff into a temporary launcher fixture (20 passes/one failure). Tests
+pass with only RENGINE_HANDOFF_FILE/GATE removed from test-child environments; KI-031 records the
+fixture isolation gap. A transient missing-static-archive build failed once; the archive existed
+on inspection and one sequential rerun passed. No cause is claimed; failed logs remain local.
+The concurrent theme substitutions in b86f953 are included in the final tested build. Reviewed
+and refreshed five stale source fingerprints from that commit; their notes still match the code.
+Assigned this session's mouse issue KI-032 to preserve the concurrently committed design KI-030.
+
+**Remaining and handoff**: The current Claude/agent/shell PIDs remain running. Cmd/Ctrl+Shift+R
+loads the tested native build. The retained service/connector upgrade boundary and prior OS
+shortcut-permission denial remain; no live GUI reload or live Claude menu action was claimed.
+All 15 feature gates stay false. Return to KI-024 after owner-prioritized terminal repairs;
+Windows, broader terminal clipboard/hyperlink/keyboard compatibility and optional service migration
+remain independently scoped. Commit: `fix(native): forward negotiated terminal mouse input`.
+
+---
+
 ## Session 18 (macos) — 2026-09-06 — Prepare the native UI for Claude Design
 
 **Owner direction and boundary**: The owner asked to prepare the project for Claude Design to

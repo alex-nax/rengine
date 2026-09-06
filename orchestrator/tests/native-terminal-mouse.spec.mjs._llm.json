@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "real-mouse-consumer-and-private-replay",
+      "kind": "rationale",
+      "anchor": {
+        "start": 10,
+        "end": 10,
+        "snippet": "test('native terminals deliver negotiated mouse clicks and wheel scrolling to fullscreen applications', { timeout: 45000 }, async () => {"
+      },
+      "note": "Use a real PTY program with clickable item and application-owned scroll state, driven through native SDL input. Record negotiated SGR and legacy X10 packets to assert cell coordinates, tracking modes, modifiers, horizontal wheel, balanced off-pane/focus/GUI-close releases, old-history suppression and root/focus preservation after pane movement. Read native cell/grid inspection rather than the lagging service state for coordinate targets. Optional RENGINE_MOUSE_REPLAY names an ignored private JSON snapshot of an actual Claude session; replay its escape sequences in this isolated program, reattach, assert historical queries emit no replies, then verify SGR click/wheel packets and live query responses. This does not launch another provider conversation, operate Remote Control or assert live Claude menu outcomes. Static recorded output at a different pane size is protocol evidence, not a faithful resized Claude layout.",
+      "refs": [
+        "docs/specs/063-terminal-mouse-reporting.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/tests/native-terminal-mouse.spec.mjs",
+    "sha256": "39cefb794efb1fd4850ab66d44e3d3ab1245b921621011586bf7e8bf7e01cfc9",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

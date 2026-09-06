@@ -9,10 +9,11 @@
         "end": 214,
         "snippet": "bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {"
       },
-      "note": "Pointer focus selects a view without changing its root/session binding. Toolbar focus clears custom editor/terminal/game keyboard routing. Moving a tab keeps its identity. Detaching closes terminal/game display resources but never calls Stop; retained process management belongs to explicit Sessions controls. Wheel events route to the visible terminal or editor under the latest pointer position without changing keyboard focus. Lists receive microui wheel input; a focused game receives wheel only over its image view. Focus loss releases custom scrollbar capture before clearing focus.",
+      "note": "Pointer focus selects a view without changing its root/session binding. Toolbar focus clears custom editor/terminal/game keyboard routing. Detach never calls Stop. Wheel targets the visible hovered terminal/editor; negotiated terminal reporting gets first refusal before native history. Mouse motion/buttons route to an existing held terminal first, otherwise the hovered visible terminal; layout drags do not become application motion. Hover never changes keyboard focus. Focus loss releases all terminal holds, focus transfer releases the previous terminal, and hidden views release during drawing. Native UI still receives mouse motion to settle microui hover; consumed application buttons are not forwarded to chrome.",
       "refs": [
         "docs/specs/056-native-desktop.md",
-        "docs/specs/061-pane-scroll-controls.md"
+        "docs/specs/061-pane-scroll-controls.md",
+        "docs/specs/063-terminal-mouse-reporting.md"
       ]
     },
     {
@@ -45,7 +46,7 @@
   ],
   "source": {
     "path": "orchestrator/native/workspace.c",
-    "sha256": "9163c6a13894cf442e0234c37df6bf07c4b82fb3776857ed5931a1c4cfe5cdbd",
+    "sha256": "aebab4123d988baeef5478687f4d63b576f61adfdb4c28b1f85dad7fa1943f9a",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }
