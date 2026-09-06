@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import { mkdtemp, mkdir, writeFile, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -7,10 +8,12 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { startServer } from '../server/main.mjs';
+import { startRuntime } from '../runtime/supervisor.mjs';
+import { forward, json, tunnel } from '../runtime/protocol.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { readDeclaration } from '../server/formats.mjs';
 import { declaration } from './format-fixtures.mjs';
-import { absent, game, gameDeclaration, gameProject, gamesDeclaration, second } from './game-fixtures.mjs';
+import { absent, game, gameDeclaration, gameProject, gamesDeclaration, launcherDeclaration, second } from './game-fixtures.mjs';
 
 const declare = async (directory, name, document) => {
   const root = path.join(directory, name); await mkdir(path.join(root, '.rengine'), { recursive: true });
@@ -196,4 +199,69 @@ test('declared games launch in their own window, run side by side and expose gen
   assert.equal(concurrent[1].status, 'rejected', 'a concurrent differing launch is refused, never a second spawn');
   assert.equal((await request(server, 'state')).sessions.filter(x => x.type === 'game' && x.state === 'running').length, 1);
   await server.sessions.stop(variant.id); assert.equal(await waitExit(server, variant.id), 'exited');
+});
+
+/* The live retained session host predates the declaration: it advertises only handoff and answers
+   game-config with the removed built-in NOLF config for any root and any gameId. */
+const BUILT_IN = 'Build NOLF first; expected build/relith-nolf in the selected project.';
+async function retainedHost(server) {
+  const proxy = http.createServer(async (req, res) => {
+    const target = new URL(req.url, 'http://127.0.0.1');
+    if (target.pathname === '/api/state') { const state = await request(server, 'state'); json(res, 200, { ...state, capabilities: { handoff: 1 } }); }
+    else if (target.pathname === '/api/game-config') {
+      json(res, 200, { rootId: target.searchParams.get('rootId'), args: ['--flat', '--game', 'nolf', '--width', '1280', '--height', '720'], issues: [BUILT_IN], ready: false });
+    } else if (target.pathname === '/api/game') json(res, 409, { error: BUILT_IN });
+    else forward(req, res, server);
+  });
+  proxy.on('upgrade', (req, socket, head) => tunnel(req, socket, head, server, () => {}));
+  await new Promise(resolve => proxy.listen(0, '127.0.0.1', resolve));
+  return { url: `http://127.0.0.1:${proxy.address().port}`, token: server.token, instance: server.instance, pid: process.pid,
+    close: () => new Promise(resolve => { proxy.close(resolve); proxy.closeAllConnections(); }) };
+}
+
+test('the replaceable worker serves preflight from the declaration above a host that predates it', { timeout: 40000 }, async t => {
+  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-game-retained-')));
+  const host = await startServer({ stateDir: path.join(directory, 'host') });
+  let retained, runtime, client;
+  t.after(async () => { await client?.close(); await runtime?.close(); await retained?.close(); await host.close(); await rm(directory, { recursive: true, force: true }); });
+  const rootPath = await gameProject(directory, 'launcher', launcherDeclaration()), root = await host.store.addRoot(rootPath);
+  retained = await retainedHost(host);
+  const stale = await request(retained, 'state');
+  assert.equal(stale.capabilities.projectGame, undefined, 'the retained host predates the declaration');
+  assert.equal((await request(retained, `game-config?${new URLSearchParams({ rootId: root.id, gameId: 'fixture-second' })}`)).issues[0], BUILT_IN);
+  runtime = await startRuntime({ host: retained, directory: path.join(directory, 'runtime') });
+
+  /* A routine workspace update must light the capability up: the worker serves the route itself. */
+  const state = await request(runtime, 'state');
+  assert.equal(state.capabilities.projectGame, 1, 'the worker advertises the game routes it serves');
+  assert.equal(state.capabilities.projectGameLaunch, undefined, 'launching still belongs to the retained host');
+  const first = await request(runtime, `game-config?${new URLSearchParams({ rootId: root.id })}`);
+  assert.equal(first.id, 'fixture-game'); assert.equal(first.title, 'Fixture game'); assert.equal(first.ready, true);
+  assert.deepEqual(first.args, ['--flat', '--width', '640'], 'the declared argv, not the removed built-in');
+  const chosen = await request(runtime, `game-config?${new URLSearchParams({ rootId: root.id, gameId: 'fixture-second' })}`);
+  assert.equal(chosen.id, 'fixture-second'); assert.equal(chosen.ready, true);
+  const failing = await request(runtime, `game-config?${new URLSearchParams({ rootId: root.id, gameId: 'fixture-absent' })}`);
+  assert.deepEqual(failing.issues, ['Game executable not found; expected build/absent-game in the selected project.']);
+  await assert.rejects(request(runtime, `game-config?${new URLSearchParams({ rootId: root.id, gameId: 'nope' })}`), /Unknown gameId "nope"/);
+
+  const listed = await request(runtime, `dashboard?${new URLSearchParams({ rootId: root.id })}`);
+  const actions = Object.fromEntries(listed.groups.flatMap(g => g.actions).map(a => [a.id, a]));
+  assert.equal(actions.play.available, true, 'availability comes from the declaration, not the removed built-in');
+  assert.deepEqual(actions['play-absent'].missing, [{ type: 'game', name: 'Game executable not found; expected build/absent-game in the selected project.' }]);
+
+  /* Launching is the host's: it owns the PTY and the embedded surface reservation. Refused by name
+     rather than forwarded into the removed built-in game. */
+  await assert.rejects(request(runtime, 'game', { rootId: root.id }), /retained session host predates/);
+  await assert.rejects(request(runtime, 'dashboard-run', { rootId: root.id, actionId: 'play' }), /retained session host predates/);
+
+  const context = path.join(directory, 'context.json');
+  await writeFile(context, JSON.stringify({ url: retained.url, token: retained.token, instance: retained.instance, rootId: root.id, runtimeDirectory: path.join(directory, 'runtime') }), { mode: 0o600 });
+  client = new Client({ name: 'retained-game-proof', version: '1' });
+  await client.connect(new StdioClientTransport({ command: process.execPath, args: [path.resolve('orchestrator/agents/mcp.mjs'), '--context', context], stderr: 'pipe' }));
+  const preflight = await client.callTool({ name: 'game_preflight', arguments: { gameId: 'fixture-second' } });
+  assert.equal(preflight.isError, undefined, preflight.content?.[0]?.text);
+  assert.equal(preflight.structuredContent.id, 'fixture-second'); assert.equal(preflight.structuredContent.ready, true);
+  const launch = await client.callTool({ name: 'launch_game', arguments: {} });
+  assert.equal(launch.isError, true); assert.match(launch.content[0].text, /retained session host predates/);
+  assert.doesNotMatch(launch.content[0].text, /Update the workspace layer first/, 'the workspace layer is no longer the fix');
 });
