@@ -5,8 +5,8 @@
       "id": "local-session-capability",
       "kind": "constraint",
       "anchor": {
-        "start": 32,
-        "end": 32,
+        "start": 33,
+        "end": 33,
         "snippet": "export async function startServer({ stateDir, port = 0 } = {}) {"
       },
       "note": "This is a loopback-only desktop service. HTTP and WebSocket requests need the private runtime token and compatible Origin; it is not the Quest pairing protocol. Tokens stay in mode-0600 local state, never tracked files. Slow sockets reconnect to bounded retained output without stopping sessions. The retired browser bundle is not served; a later web client needs separate delivery authorization. State advertises handoff and desktopActions version 1. Presented requires a session attached on that socket. Desktop registration/action acknowledgement use the same authenticated events connection; discovery/reload route through the ephemeral desktop broker. These are local workflow bindings, not protection against an authenticated client deliberately forging readiness or displayed roots.",
@@ -19,8 +19,8 @@
       "id": "format-registry-routes",
       "kind": "rationale",
       "anchor": {
-        "start": 63,
-        "end": 63,
+        "start": 64,
+        "end": 64,
         "snippet": "case '/api/formats': value = await listFormats(store.root(query.get('rootId'))); break;"
       },
       "note": "The host serves the format registry so a directly connected desktop and the service tests need no supervisor; the replaceable worker serves the same three routes for the live layered runtime whose host predates them. Both advertise formatRegistry: 1. Declared commands run only from format-preview (explicit open/refresh/agent call), never from tree listing. dashboard: 1 and projectGame: 1 tell connectors that the dashboard routes and that game-config answer from the per-project declaration; projectGameLaunch: 1 says the same of the launch, and the host advertises it because it both preflights and spawns. The workspace worker advertises projectGame on its own (it serves game-config from its checkout) but mirrors projectGameLaunch from the host, whose Sessions and Surfaces own the spawn: an older host still launches the removed built-in game, so that half is refused by name rather than forwarded. game-config and game take an optional gameId selecting one declared game; omitted, both use the first declared record, which is what the launcher and an agent calling the tool without arguments get.",
@@ -31,7 +31,7 @@
   ],
   "source": {
     "path": "orchestrator/server/main.mjs",
-    "sha256": "ff3fae9e789a5507f53bf6d086357a938097a9397e709a724f437e7a758b6de3",
+    "sha256": "169bfe16a227198f0ab7118ca3deeca6a925c296b5dc755112da5be532886d0e",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

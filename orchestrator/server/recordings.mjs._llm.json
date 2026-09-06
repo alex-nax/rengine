@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "incomplete-is-a-fact",
+      "kind": "rationale",
+      "anchor": {
+        "start": 28,
+        "end": 28,
+        "snippet": "async function readManifest(root, id) {"
+      },
+      "note": "A segment directory whose manifest is missing, unparsable or a version this workspace does not read is reported in the listing as an error entry rather than dropped. The store is written by a live desktop that can be closed mid-drain, so an unfinished commit is a normal state and hiding it would leave a reader wondering where the disk space went. Only a directory that has vanished between the readdir and the read is reported as no longer present. readRecording is stricter, because a caller asked for that one: a missing directory is 404 and an unreadable manifest is 409.",
+      "refs": [
+        "docs/specs/081-game-recording.md"
+      ]
+    },
+    {
+      "id": "no-store-writes",
+      "kind": "constraint",
+      "anchor": {
+        "start": 69,
+        "end": 69,
+        "snippet": "export async function listRecordings(root, options = {}) {"
+      },
+      "note": "This module only reads. The desktop writes segments directly to the project root it already has open, so no route uploads keyframe bytes through the service, and the routes stay a pure filesystem walk that the replaceable worker can serve from its own checkout. Ids are validated against a single-path-segment pattern before they reach the filesystem, and every path handed back is root-relative so a keyframe is fetched the way every other asset in this workspace is.",
+      "refs": [
+        "docs/specs/081-game-recording.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/server/recordings.mjs",
+    "sha256": "5299fe57408566ce084b66909ccfbfee7136035ceffe323d298693aa00379e7c",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

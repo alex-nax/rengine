@@ -5,8 +5,8 @@
       "id": "root-path-binding",
       "kind": "constraint",
       "anchor": {
-        "start": 10,
-        "end": 10,
+        "start": 13,
+        "end": 13,
         "snippet": "export async function resolveInRoot(root, relative = '', allowMissing = false) {"
       },
       "note": "Resolve paths using their stored root and real paths, including symlink targets. Roots identify distinct worktrees; a focused tree never supplies an implicit file root. File API confinement is separate from shell/agent OS access. Exported as a plain function so the replaceable workspace worker's format registry (spec 074) applies the identical root/symlink boundary without a store instance.",
@@ -19,8 +19,8 @@
       "id": "save-and-draft-order",
       "kind": "rationale",
       "anchor": {
-        "start": 120,
-        "end": 120,
+        "start": 138,
+        "end": 138,
         "snippet": "async saveText({ rootId, path: relative, text, version }) {"
       },
       "note": "Serialize saves per canonical file, check the disk hash before and after staging, and retain the draft on conflicts. Rename preserves a whole file version. This is not an OS-level compare-and-swap against arbitrary external writers; power-loss durability and draft checkpoint scheduling still require qualification.",
@@ -31,7 +31,7 @@
   ],
   "source": {
     "path": "orchestrator/server/store.mjs",
-    "sha256": "d3f4f53a9377d9eabd66c8e0d869010af0b43798d2d9c981d247bbb8edbd541d",
+    "sha256": "12bd35134e039f6ee909f1f461589f6d0226c6a3ff782d471be089e4c797731a",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }
