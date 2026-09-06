@@ -18,8 +18,8 @@
       "id": "linked-project-operations",
       "kind": "rationale",
       "anchor": {
-        "start": 72,
-        "end": 72,
+        "start": 73,
+        "end": 73,
         "snippet": "const windowCapability = state => { if (state.capabilities.projectWindows !== 1) throw new Error('Project-window control needs the current runtime supervisor. Use the documented context-bound bootstrap.'); };"
       },
       "note": "New window and report tools retain the connector\u2019s captured root. Opening a window attaches an existing root-bound agent; only the recorded origin/project pair can inspect its window or exchange reports. The origin can explicitly view its linked project inbox or attribute its own project-side observation without claiming another agent wrote it.",
@@ -31,8 +31,8 @@
       "id": "interactive-script-tools",
       "kind": "rationale",
       "anchor": {
-        "start": 87,
-        "end": 87,
+        "start": 88,
+        "end": 88,
         "snippet": "const scriptCapability = state => { if (state.capabilities.scriptActions !== 1) throw new Error('Update the workspace worker before opening script tabs.'); };"
       },
       "note": "Script execution is effectful and not idempotent; root-bound tools require an explicit script path, literal argv and a target desktop. View attachment failure returns a retained process identity. show_session attaches that process without another execution, and ordinary stop_session remains the explicit termination action.",
@@ -44,11 +44,11 @@
       "id": "preview-file-tool",
       "kind": "rationale",
       "anchor": {
-        "start": 100,
-        "end": 100,
-        "snippet": "const formatCapability = state => { if (state.capabilities.formatRegistry !== 1) throw new Error('This retained service predates the project format registry. Update the workspace layer first.'); };"
+        "start": 102,
+        "end": 102,
+        "snippet": "const PREVIEW_BUDGET = 32000;"
       },
-      "note": "preview_file runs the project's own declared executable, so it is open-world and not read-only even though it never writes. The route returns the whole sanitized tree; the tool slices dir/depth locally so an agent walks a 4,000-entry archive level by level instead of receiving 600 KB. Entry text is bounded like read_file; the hex window is dropped because agents get size and SHA-256 instead.",
+      "note": "preview_file runs the project's own declared executable, so it is open-world and not read-only even though it never writes. The route returns the whole sanitized tree; the tool slices dir/depth and pages files with offset/limit, then shrinks depth and limit until the serialized reply fits the 32,000-character budget, reporting truncated/nextOffset (review finding 5). Command metadata is made root-relative and the generic tool wrapper replaces the absolute root path in error text with <root>. Entry text is bounded like read_file; the hex window is dropped because agents get size and SHA-256 instead.",
       "refs": [
         "docs/specs/074-project-format-registry.md"
       ]
@@ -56,7 +56,7 @@
   ],
   "source": {
     "path": "orchestrator/agents/mcp-worker.mjs",
-    "sha256": "6ac97642e9b7048d16fc8e74874df6838b58be0837904d9381b67e6bfb4f8edb",
+    "sha256": "965969589e45678d4b5ee1aefd9fe7b8f1d419cbdc2f6f75d0608eabaa0c0a4f",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

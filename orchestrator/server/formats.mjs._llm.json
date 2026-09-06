@@ -2,14 +2,27 @@
   "version": 1,
   "entries": [
     {
+      "id": "tree-sanitization",
+      "kind": "rationale",
+      "anchor": {
+        "start": 111,
+        "end": 111,
+        "snippet": "function sanitizeTree(value) {"
+      },
+      "note": "Only name/dirs/files with name/path/size survive; producer extras (relith-rez offset/time/type) are dropped so the native client and agents see one shape. Depth 64 and 200,000 nodes bound recursion and memory below the 4 MiB stdout default; a malformed node fails the whole preview rather than showing a partial tree.",
+      "refs": [
+        "docs/specs/074-project-format-registry.md"
+      ]
+    },
+    {
       "id": "declaration-reporting",
       "kind": "constraint",
       "anchor": {
-        "start": 32,
-        "end": 32,
+        "start": 34,
+        "end": 34,
         "snippet": "export async function readDeclaration(rootPath) {"
       },
-      "note": "A malformed, oversized or unknown-contract declaration is returned as { declared: true, error, formats: [] } rather than thrown: the listing route shows it and the workspace, editor and other roots keep working. Only the first three schema problems are reported to keep the status line readable. Defaults for timeoutMs/maxBytes are filled here so every consumer sees the effective bounds.",
+      "note": "A malformed, oversized or unknown-contract declaration is returned as { declared: true, error, formats: [] } rather than thrown: the listing route shows it and the workspace, editor and other roots keep working. Structural (schema) problems are reported before cross-field rules run, and the cross-field pass guards every shape it touches, because a thrown TypeError here surfaced as a 500 that left native editors waiting (review finding 2). Only the first three problems are reported to keep the status line readable.",
       "refs": [
         "docs/specs/074-project-format-registry.md"
       ]
@@ -18,24 +31,24 @@
       "id": "execution-boundary",
       "kind": "constraint",
       "anchor": {
-        "start": 64,
-        "end": 64,
-        "snippet": "export async function runCommand(rootPath, spec, values) {"
+        "start": 73,
+        "end": 73,
+        "snippet": "export async function runCommand(root, spec, values) {"
       },
-      "note": "Argv is literal after substituting only ${file}/${entry}; there is no shell, stdin is closed, cwd is the project root and the environment is the sidecar's shell environment (same PATH augmentation as terminals). Timeout and oversized stdout kill the child with SIGKILL so a hung producer never holds the request open; the first non-empty stderr line is carried in the error message because the pane and the agent show that text. Output is never cached: paging an entry re-runs the command, which is the honest reading of 'commands run only on explicit open or refresh'.",
+      "note": "The runner takes the root record and a root-relative file and re-confines it through resolveInRoot immediately before the spawn, passing that resolved path; it never trusts a caller-supplied absolute path. Argv is literal after substituting only ${file}/${entry}; no shell, stdin closed, cwd = root, the sidecar's shell environment. The child is its own POSIX process group, so timeout and oversized output kill the whole tree (taskkill /T /F on Windows), close the pipes and wait for the exit before rejecting (review finding 4). The window between this resolution and the producer's own open cannot be closed for a path-taking executable; spec 074 and KI-037 state it.",
       "refs": [
         "docs/specs/074-project-format-registry.md"
       ]
     },
     {
-      "id": "tree-sanitization",
-      "kind": "rationale",
+      "id": "raw-read-confinement",
+      "kind": "constraint",
       "anchor": {
-        "start": 95,
-        "end": 95,
-        "snippet": "function sanitizeTree(value) {"
+        "start": 154,
+        "end": 154,
+        "snippet": "export async function readBytes(root, { path: relative, offset = 0, length = MAX_RAW_WINDOW }) {"
       },
-      "note": "Only name/dirs/files with name/path/size survive; producer extras (relith-rez offset/time/type) are dropped so the native client and agents see one shape. Depth 64 and 200,000 nodes bound recursion and memory below the 4 MiB stdout default; a malformed node fails the whole preview rather than showing a partial tree.",
+      "note": "Open first, then fstat the handle, then confine a fresh resolution of the same relative path and require the same dev/inode as the opened handle; a swap between resolution and open is reported as a 409 rather than served. Node has no frealpath, so inode identity is the strongest confinement of what was actually opened.",
       "refs": [
         "docs/specs/074-project-format-registry.md"
       ]
@@ -43,7 +56,7 @@
   ],
   "source": {
     "path": "orchestrator/server/formats.mjs",
-    "sha256": "7538b27f3a6c179dd2b4d369c64cce55d6c7260a03720a4e2c3a7f260c8e5ca5",
+    "sha256": "43993833b73dc20fa64367a372c243152da6277d286a09da7b641a32ba12b5df",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }
