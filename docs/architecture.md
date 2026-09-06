@@ -129,7 +129,7 @@ game simulation or require the training stack to launch a game.
 | `docs/source-inventory.json` | Dated read-only inspection metadata; not dependency pins |
 | `docs/features.proposed.json` | Review inventory until owner review activates `features.json` |
 | `docs/integration-plan.md` | Host-owned migration sequence and required evidence |
-| `contracts/` (future) | Versioned schemas and fixtures justified by the first consumers |
+| `contracts/` | Versioned schemas justified by their first consumers: `project-v1.schema.json` is the project declaration nolf-improved validates against (spec 074) |
 | `catalog/` (future) | Curated entries and conformance evidence |
 | `adapters/` (future) | Development-tool adapters; runtime glue usually stays with the host |
 | `templates/` (future) | Minimal agent-neutral project harness and optional native wrappers |

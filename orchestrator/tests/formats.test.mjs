@@ -11,21 +11,7 @@ import { startRuntime } from '../runtime/supervisor.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { readDeclaration, matchFormat, MAX_RAW_WINDOW } from '../server/formats.mjs';
 
-export const producer = path.resolve('orchestrator/tests/pack-producer.mjs');
-export const pack = manifest => Buffer.concat([Buffer.from('PACK\0', 'latin1'), Buffer.from(JSON.stringify(manifest))]);
-export const declaration = (extra = {}) => ({ contract: 1, project: 'fixture', formats: [{
-  id: 'fixture-pack', title: 'Fixture pack', match: ['*.pack'], modes: ['raw', 'preview'], default: 'raw',
-  preview: { kind: 'tree', command: [process.execPath, producer, 'tree', '${file}'], timeoutMs: 4000, maxBytes: 65536 },
-  entry: { kind: 'bytes', command: [process.execPath, producer, 'cat', '${file}', '${entry}'], timeoutMs: 4000, maxBytes: 65536 },
-  ...extra,
-}] });
-export const entries = { 'readme.txt': 'hello pack\n', 'Worlds/t01.dat': { base64: Buffer.from([0, 1, 2, 255, 254, 253]).toString('base64') }, 'Worlds/sub/model.abc': 'ABC model', 'odd $(name).txt': 'literal' };
-export async function project(directory, name, extra) {
-  const root = path.join(directory, name); await mkdir(path.join(root, '.rengine'), { recursive: true });
-  if (extra !== null) await writeFile(path.join(root, '.rengine/project.json'), JSON.stringify(declaration(extra)));
-  await writeFile(path.join(root, 'sample.pack'), pack({ entries }));
-  return root;
-}
+import { producer, pack, declaration, entries, project } from './format-fixtures.mjs';
 
 test('declaration discovery reports malformed files visibly and never disables the root', async t => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-formats-decl-')));

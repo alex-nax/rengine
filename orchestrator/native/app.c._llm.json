@@ -5,8 +5,8 @@
       "id": "draft-save-ordering",
       "kind": "rationale",
       "anchor": {
-        "start": 28,
-        "end": 28,
+        "start": 29,
+        "end": 29,
         "snippet": "static void checkpoint(ReApp *a, int tab) {"
       },
       "note": "Drafts and saves go through the same FIFO HTTP worker. Do not checkpoint with a stale base version while Save is in flight. A save acknowledgement updates the baseline without dropping later edits; Discard blocks editing until the replacement file arrives. Closing views retains editor buffers/drafts, and normal GUI exit waits for persistence requests. Native layout stores historical layout data without loading the retired browser renderer.",
@@ -18,8 +18,8 @@
       "id": "tab-strip-reveal-after-layout-change",
       "kind": "rationale",
       "anchor": {
-        "start": 23,
-        "end": 23,
+        "start": 24,
+        "end": 24,
         "snippet": "void re_app_layout_changed(ReApp *a) {"
       },
       "note": "Explicit selection, move, split, collapse and restore-related placement must reveal the selected header. Invalidate each ephemeral strip width on layout changes, including reuse of an old pane index with the same width/count/selected tab; comparing those values alone misses split/merge round trips after scrolling away from the selected tab. Header browsing itself does not call this function, so it can show other tabs without switching content.",
@@ -31,8 +31,8 @@
       "id": "show-resumed-agent",
       "kind": "rationale",
       "anchor": {
-        "start": 130,
-        "end": 130,
+        "start": 180,
+        "end": 180,
         "snippet": "static void state_loaded(ReApp *a, const cJSON *j) {"
       },
       "note": "Ordinary layout restoration does not reselect an initial session whose view is already visible: retain the selected editor and pane. Explicit handoff presentation still selects its pending resumed agent so the once-only readiness gate can open. Project windows load/save their own layout namespace and use each session\u2019s original root even when the tree is a different project.",
@@ -45,8 +45,8 @@
       "id": "reattach-retained-streams",
       "kind": "rationale",
       "anchor": {
-        "start": 233,
-        "end": 233,
+        "start": 310,
+        "end": 310,
         "snippet": "if (!strcmp(type, \"connected\")) {"
       },
       "note": "Process at most 128 stream messages per tick so continuous output yields to SDL input and rendering. On connection, refresh initialized workspace state and attach existing terminal IDs without creating sessions or repeating a handoff prompt. Local editor buffers, layout and immutable root/session bindings survive this recovery. Inspection reports each terminal attachment separately: a retained old screen plus a live socket is not proof that a fresh snapshot arrived. Terminal text inspection follows the currently drawn viewport, with historyLines and scrollOffset for native acceptance checks.",
@@ -58,8 +58,8 @@
       "id": "desktop-action-registration",
       "kind": "rationale",
       "anchor": {
-        "start": 211,
-        "end": 211,
+        "start": 288,
+        "end": 288,
         "snippet": "static void register_desktop(ReApp *a) {"
       },
       "note": "Register the current project and retained view bindings only when the same connected service advertises desktopActions version 1. Layout changes refresh these bindings; disconnect clears the ephemeral desktop ID so reconnection registers a new target. Older services receive no unsupported registration. Accept reload only for the assigned ID, reload-capable launcher and non-closing view; enqueue acknowledgement before setting reload_requested. This signals routine acceptance, not persistence/build completion. The native view never replaces its service, launches a CLI, or owns retained processes. Optional owner and per-spawn view stamps let the supervisor verify a newly presented replacement instead of accepting stale registration from its predecessor. They identify native views, not session ownership.",
@@ -71,8 +71,8 @@
       "id": "drain-terminal-input-before-quit",
       "kind": "rationale",
       "anchor": {
-        "start": 273,
-        "end": 273,
+        "start": 353,
+        "end": 353,
         "snippet": "bool re_app_quit(ReApp *a) {"
       },
       "note": "On the first close/reload attempt, release held terminal buttons before teardown. Keep ticking native input/rendering until the connected events socket has handed queued/in-flight output to libcurl, in addition to existing durable draft/layout requirements. An observed native test previously lost the final mouse-up when re_app_close queued it immediately before stopping the stream worker. Bound this send drain to two seconds; cancel close/reload visibly if the stream stays busy. Disconnected output is already discarded, so it does not become a replay queue. Drain is transport completion, not a remote application acknowledgement.",
@@ -97,19 +97,45 @@
       "id": "attach-session-view",
       "kind": "rationale",
       "anchor": {
-        "start": 80,
-        "end": 80,
+        "start": 127,
+        "end": 127,
         "snippet": "static bool session_tab(ReApp *a, const cJSON *session) {"
       },
       "note": "A script/session desktop action reuses the normal explicit-root tab path, returning success only when a tab can be allocated/reused. It creates a view, not a process. The worker checks the session root and desktop capability; native acknowledgement is distinct from later script completion.",
       "refs": [
         "docs/specs/071-interactive-script-tabs.md"
       ]
+    },
+    {
+      "id": "format-mode-decision",
+      "kind": "rationale",
+      "anchor": {
+        "start": 61,
+        "end": 61,
+        "snippet": "void re_app_load(ReApp *a, int tab) {"
+      },
+      "note": "An editor tab decides its mode once the root's format list is known: a pending view waits for the formats response (fetched once per connection and after a root is added) instead of guessing, a match takes the declared default, no match drops the view so plain text files keep the unchanged editor path. Raw pages through the bytes route; preview posts format-preview and names the declared command before the reply so a failure still shows what ran. Persisted modes restore as chosen so the automatic raw fallback never overrides a user choice.",
+      "refs": [
+        "docs/specs/074-project-format-registry.md"
+      ]
+    },
+    {
+      "id": "raw-fallback-and-staleness",
+      "kind": "edge-case",
+      "anchor": {
+        "start": 221,
+        "end": 221,
+        "snippet": "static bool raw_fallback(ReApp *a, RePending *p, ReTab *t, int status) {"
+      },
+      "note": "Only a 400 from the text read (binary, invalid UTF-8, legacy line endings, over 2 MiB) flips an unchosen text tab to raw; 404/403/409 stay visible errors. Mode switches bump the tab generation and format replies also carry the mode they were requested for, so a reply from a previous mode is dropped rather than painted into the wrong view. Leaving text mode requires a clean buffer and closes the editor so hidden text can never receive keystrokes or checkpoints.",
+      "refs": [
+        "docs/specs/074-project-format-registry.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/app.c",
-    "sha256": "478029bd15398c68a7c34c382aa94bdd81e47df0f651119bf45ad2d04261f9c4",
+    "sha256": "53b13e8c7e96fb2825085a8472b565cc8c29e26a265db74db87c312efac549c8",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }
