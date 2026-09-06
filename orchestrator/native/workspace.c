@@ -41,17 +41,18 @@ typedef struct { mu_Context *ui; ReDraw *draw; int x, y, h, right; } ReToolbar;
 static ReToolbar toolbar_open(mu_Context *ui, int width) {
   ReToolbar bar;
   bar.ui = ui; bar.draw = re_draw_active();
-  bar.h = RE_METRIC_DESIGN_ROW_LG;
+  bar.h = RE_METRIC_DESIGN_CONTROL_HEIGHT;
   bar.y = (RE_METRIC_DESIGN_TOOLBAR_HEIGHT - bar.h) / 2;
-  bar.x = RE_METRIC_DESIGN_PAD;
-  bar.right = width - RE_METRIC_DESIGN_PAD;
+  bar.x = RE_METRIC_DESIGN_TOOLBAR_PAD;
+  bar.right = width - RE_METRIC_DESIGN_TOOLBAR_PAD;
   return bar;
 }
 static int toolbar_width(const ReToolbar *bar, const char *label, int icon, int opt) {
   int size = opt & RE_UI_SMALL ? RE_METRIC_DESIGN_SIZE_SM : RE_METRIC_DESIGN_SIZE;
-  int width = re_draw_text_width(bar->draw, RE_FACE_UI_MEDIUM, size, label, -1) + 2 * RE_METRIC_DESIGN_GAP_LG;
-  if (icon != RE_ICON_UNKNOWN) width += size + RE_METRIC_DESIGN_GAP;
-  if (opt & RE_UI_CARET) width += size + RE_METRIC_DESIGN_GAP;
+  int pad = opt & RE_UI_FIELD_PAD ? RE_METRIC_DESIGN_FIELD_PAD : RE_METRIC_DESIGN_CONTROL_PAD;
+  int width = re_draw_text_width(bar->draw, RE_FACE_UI_MEDIUM, size, label, -1) + 2 * pad;
+  if (icon != RE_ICON_UNKNOWN) width += size + RE_METRIC_DESIGN_ICON_GAP;
+  if (opt & RE_UI_CARET) width += size + RE_METRIC_DESIGN_ICON_GAP;
   return width;
 }
 static void toolbar_next(ReToolbar *bar, int width, int gap) {
@@ -60,29 +61,31 @@ static void toolbar_next(ReToolbar *bar, int width, int gap) {
   bar->x += width;
 }
 static int toolbar_cell(ReToolbar *bar, const char *label, int icon, int opt, int gap) {
-  int width = opt & RE_UI_ICON_ONLY ? RE_METRIC_DESIGN_ROW_LG : toolbar_width(bar, label, icon, opt);
+  int width = opt & RE_UI_ICON_ONLY ? RE_METRIC_DESIGN_ICON_BUTTON : toolbar_width(bar, label, icon, opt);
   toolbar_next(bar, width, gap);
   return re_ui_button_ex(bar->ui, label, icon, opt);
 }
 /* Brand mark: the accent square with the wordmark beside it, as the card draws it. */
 static void toolbar_brand(ReToolbar *bar) {
-  int size = RE_METRIC_DESIGN_SIZE_LG, mark = RE_METRIC_DESIGN_SIZE + RE_METRIC_DESIGN_GAP;
+  int size = RE_METRIC_DESIGN_SIZE_LG, mark = RE_METRIC_DESIGN_BRAND_MARK;
   mu_Rect box = mu_rect(bar->x, bar->y + (bar->h - mark) / 2, mark, mark);
-  re_draw_rrect(bar->draw, box, RE_COLOR_ACCENT, RE_METRIC_DESIGN_RADIUS, RE_CORNERS_ALL);
+  re_draw_rrect(bar->draw, box, RE_COLOR_ACCENT, RE_METRIC_DESIGN_BRAND_RADIUS, RE_CORNERS_ALL);
   re_draw_text_face(bar->draw, RE_FACE_UI_SEMIBOLD, RE_METRIC_DESIGN_SIZE_SM, "r", -1,
                     box.x + (mark - re_draw_text_width(bar->draw, RE_FACE_UI_SEMIBOLD, RE_METRIC_DESIGN_SIZE_SM, "r", -1)) / 2,
                     box.y + (mark - RE_METRIC_DESIGN_SIZE_SM) / 2 - 1, RE_COLOR_TEXT_ON_ACCENT);
-  bar->x += mark + RE_METRIC_DESIGN_GAP;
+  bar->x += mark + RE_METRIC_DESIGN_GAP_LG;
   re_draw_text_face(bar->draw, RE_FACE_UI_SEMIBOLD, size, "rEngine", -1, bar->x, bar->y + (bar->h - size) / 2 - 1, RE_COLOR_TEXT_STRONG);
-  bar->x += re_draw_text_width(bar->draw, RE_FACE_UI_SEMIBOLD, size, "rEngine", -1) + RE_METRIC_DESIGN_PAD;
+  bar->x += re_draw_text_width(bar->draw, RE_FACE_UI_SEMIBOLD, size, "rEngine", -1);
 }
 static void toolbar_label(ReToolbar *bar, const char *label) {
-  toolbar_next(bar, toolbar_width(bar, label, RE_ICON_UNKNOWN, 0) - RE_METRIC_DESIGN_GAP_LG, RE_METRIC_DESIGN_GAP_LG);
+  int width = re_draw_text_width(bar->draw, RE_FACE_UI, RE_METRIC_DESIGN_SIZE_SM, label, -1);
+  toolbar_next(bar, width, RE_METRIC_DESIGN_GAP_LG);
   re_ui_label_ex(bar->ui, label, RE_UI_MUTED | RE_UI_SMALL);
 }
 static void toolbar_separator(ReToolbar *bar) {
-  toolbar_next(bar, RE_METRIC_DESIGN_GAP_LG + 1, RE_METRIC_DESIGN_GAP);
+  toolbar_next(bar, 1, RE_METRIC_DESIGN_GAP_LG + RE_METRIC_DESIGN_GAP);
   re_ui_separator(bar->ui);
+  bar->x += RE_METRIC_DESIGN_GAP;
 }
 static void launch_terminal(ReApp *a, bool agent, bool menu) {
   if (!*a->root) { re_copy(a->status, sizeof(a->status), "Add or select a project first."); return; }
@@ -183,18 +186,20 @@ static void pane_header(ReApp *a, mu_Context *ui, int n) {
   }
   for (int i = strip->first; i < re_min(p->count, strip->first + slots); i++) {
     int tab = p->tabs[i]; ReTab *t = &a->tabs[tab];
-    int close_width = re_min(RE_METRIC_TAB_CLOSE_WIDTH, re_max(0, cell - RE_METRIC_TAB_GAP));
+    /* The close control sits inside the tab, as the card draws it. */
+    int close_width = re_min(RE_METRIC_DESIGN_ICON_BUTTON, re_max(0, cell / 3));
     mu_Rect r = mu_rect(p->rect.x + RE_METRIC_TAB_INSET + nav + (i - strip->first) * cell, top,
-                        re_max(0, cell - close_width - RE_METRIC_TAB_GAP), height);
+                        re_max(0, cell - RE_METRIC_TAB_GAP), height);
+    mu_Rect close = mu_rect(r.x + r.w - close_width - RE_METRIC_DESIGN_GAP, r.y + (r.h - close_width) / 2, close_width, close_width);
     t->header = r;
-    /* The tab face is owned drawing; the hit area stays a control so automation and focus work. */
-    re_ui_tab(draw, r, t->title, tab_icon(t), i == p->selected, t->dirty, 0);
+    /* The tab face is owned drawing; the hit areas stay controls so automation and focus work. */
+    re_ui_tab(draw, r, t->title, tab_icon(t), i == p->selected, t->dirty, close_width + RE_METRIC_DESIGN_GAP);
     mu_layout_set_next(ui, r, 0); mu_push_id(ui, &tab, sizeof(tab));
     if (re_ui_button_ex(ui, "", RE_ICON_UNKNOWN, RE_UI_GHOST | RE_UI_ICON_ONLY | RE_UI_TRANSPARENT)) {
       p->selected = i; a->layout.active = n; a->focus = -1; re_app_layout_changed(a);
     }
     re_app_control(a, ui, "tab", "", tab);
-    mu_layout_set_next(ui, mu_rect(r.x + r.w + RE_METRIC_TAB_GAP, r.y, close_width, height), 0);
+    mu_layout_set_next(ui, close, 0);
     bool closed = re_ui_button_ex(ui, "close", RE_ICON_CLOSE, RE_UI_GHOST | RE_UI_ICON_ONLY);
     re_app_control(a, ui, "detach", "", tab);
     if (closed) {
@@ -243,40 +248,42 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
     ReToolbar bar = toolbar_open(ui, width);
     re_ui_panel(bar.draw, mu_rect(0, 0, width, RE_METRIC_DESIGN_TOOLBAR_HEIGHT), RE_COLOR_TOOLBAR_BG);
     toolbar_brand(&bar);
-    int views = 4, view_index = 0;
+    int views = 4, view_index = 0, group_left = 0;
     struct { const char *label; int icon; } switcher[] = {
       {"Tree", RE_ICON_TREE}, {"Dashboard", RE_ICON_PROJECT}, {"Shell", RE_ICON_SHELL}, {"Agent", RE_ICON_AGENT} };
     for (int i = 0; i < views; i++, view_index++) {
       int opt = RE_UI_GROUP_MIDDLE;
       if (i == 0) opt = RE_UI_GROUP_FIRST;
       else if (i == views - 1) opt = RE_UI_GROUP_LAST;
-      if (toolbar_cell(&bar, switcher[i].label, switcher[i].icon, opt, 0)) {
+      if (!i) group_left = bar.x + RE_METRIC_DESIGN_GAP_LG;
+      if (toolbar_cell(&bar, switcher[i].label, switcher[i].icon, opt, i ? 0 : RE_METRIC_DESIGN_GAP_LG)) {
         if (i == 0) { if (*a->root) re_app_tab(a, RE_TREE, a->root, "", "", "Project"); }
         else if (i == 1) { if (re_app_dashboard(a, a->root) < 0) re_copy(a->status, sizeof(a->status), "Add or select a project first."); }
         else launch_terminal(a, i == 3, false);
       }
       re_app_control(a, ui, "toolbar", switcher[i].label, -1);
     }
-    if (toolbar_cell(&bar, "Manage", RE_ICON_UNKNOWN, RE_UI_GHOST, RE_METRIC_DESIGN_GAP)) launch_terminal(a, true, true);
+    re_draw_ring(bar.draw, mu_rect(group_left, bar.y, bar.x - group_left, bar.h), RE_COLOR_BORDER, RE_METRIC_DESIGN_RADIUS, 1);
+    if (toolbar_cell(&bar, "Manage", RE_ICON_UNKNOWN, RE_UI_GHOST, RE_METRIC_DESIGN_GAP_LG)) launch_terminal(a, true, true);
     re_app_control(a, ui, "toolbar", "Manage", -1);
-    if (toolbar_cell(&bar, "Sessions", RE_ICON_UNKNOWN, RE_UI_GHOST, 0)) re_app_tab(a, RE_SESSIONS, "", "", "", "Sessions");
+    if (toolbar_cell(&bar, "Sessions", RE_ICON_UNKNOWN, RE_UI_GHOST, RE_METRIC_DESIGN_GAP_LG)) re_app_tab(a, RE_SESSIONS, "", "", "", "Sessions");
     re_app_control(a, ui, "toolbar", "Sessions", -1);
     toolbar_separator(&bar);
-    if (toolbar_cell(&bar, "Split vertical", RE_ICON_SPLIT_VERTICAL, RE_UI_GHOST | RE_UI_ICON_ONLY, 0)) {
+    if (toolbar_cell(&bar, "Split vertical", RE_ICON_SPLIT_VERTICAL, RE_UI_GHOST | RE_UI_ICON_ONLY, RE_METRIC_DESIGN_GAP_LG)) {
       re_layout_split(&a->layout, a->layout.active, 1); re_app_layout_changed(a);
     }
     re_app_control(a, ui, "toolbar", "Split vertical", -1);
-    if (toolbar_cell(&bar, "Split horizontal", RE_ICON_SPLIT_HORIZONTAL, RE_UI_GHOST | RE_UI_ICON_ONLY, 0)) {
+    if (toolbar_cell(&bar, "Split horizontal", RE_ICON_SPLIT_HORIZONTAL, RE_UI_GHOST | RE_UI_ICON_ONLY, RE_METRIC_DESIGN_GAP_LG)) {
       re_layout_split(&a->layout, a->layout.active, 2); re_app_layout_changed(a);
     }
     re_app_control(a, ui, "toolbar", "Split horizontal", -1);
-    if (toolbar_cell(&bar, "Merge pane", RE_ICON_MERGE_PANE, RE_UI_GHOST | RE_UI_ICON_ONLY, 0)) {
+    if (toolbar_cell(&bar, "Merge pane", RE_ICON_MERGE_PANE, RE_UI_GHOST | RE_UI_ICON_ONLY, RE_METRIC_DESIGN_GAP_LG)) {
       if (re_layout_collapse(&a->layout, a->layout.active) >= 0) { a->focus = -1; re_app_layout_changed(a); }
       else re_copy(a->status, sizeof(a->status), "This is already the only pane.");
     }
     re_app_control(a, ui, "toolbar", "Merge pane", -1);
     toolbar_separator(&bar);
-    if (toolbar_cell(&bar, root_name(a, a->root), RE_ICON_PROJECT, RE_UI_ALIGN_LEFT | RE_UI_CARET, 0)) {
+    if (toolbar_cell(&bar, root_name(a, a->root), RE_ICON_PROJECT, RE_UI_ALIGN_LEFT | RE_UI_CARET, RE_METRIC_DESIGN_GAP_LG)) {
       cJSON *roots = cJSON_GetObjectItemCaseSensitive(a->state, "roots"); int count = cJSON_GetArraySize(roots);
       for (int i = 0; i < count; i++) if (!strcmp(re_string(cJSON_GetArrayItem(roots, i), "id"), a->root)) {
         re_copy(a->root, sizeof(a->root), re_string(cJSON_GetArrayItem(roots, (i + 1) % count), "id")); break;
@@ -284,36 +291,39 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
     }
     re_app_control(a, ui, "toolbar", "root", -1);
     /* The path field takes the slack, as the card's caption describes. */
-    int trailing = toolbar_width(&bar, "Add project", RE_ICON_UNKNOWN, 0) + RE_METRIC_DESIGN_GAP
-                 + toolbar_width(&bar, "Agent", RE_ICON_UNKNOWN, 0) + RE_METRIC_DESIGN_GAP
-                 + RE_METRIC_TOOLBAR_AGENT_WIDTH + RE_METRIC_DESIGN_GAP
-                 + toolbar_width(&bar, "Vim", RE_ICON_UNKNOWN, 0) + RE_METRIC_DESIGN_GAP
-                 + toolbar_width(&bar, "NOLF", RE_ICON_UNKNOWN, 0) + RE_METRIC_DESIGN_GAP
-                 + RE_METRIC_DESIGN_ROW_LG + 3 * RE_METRIC_DESIGN_GAP;
-    toolbar_next(&bar, re_max(RE_METRIC_DESIGN_ROW_LG, bar.right - bar.x - trailing), RE_METRIC_DESIGN_GAP);
+    int trailing = toolbar_width(&bar, "Add project", RE_ICON_UNKNOWN, 0)
+                 + re_draw_text_width(bar.draw, RE_FACE_UI, RE_METRIC_DESIGN_SIZE_SM, "Agent", -1)
+                 + RE_METRIC_TOOLBAR_AGENT_WIDTH
+                 + RE_METRIC_DESIGN_CHECKBOX_BOX + RE_METRIC_DESIGN_ICON_GAP
+                 + re_draw_text_width(bar.draw, RE_FACE_UI_MEDIUM, RE_METRIC_DESIGN_SIZE, "Vim", -1)
+                 + toolbar_width(&bar, "NOLF", RE_ICON_RUN, 0)
+                 + RE_METRIC_DESIGN_ICON_BUTTON
+                 + 7 * RE_METRIC_DESIGN_GAP_LG;
+    toolbar_next(&bar, re_max(RE_METRIC_DESIGN_ICON_BUTTON, bar.right - bar.x - trailing), RE_METRIC_DESIGN_GAP_LG);
     re_ui_textbox_ex(ui, a->project_input, sizeof(a->project_input), RE_ICON_SEARCH, "Project path or repository URL…", 0);
     re_app_control(a, ui, "textbox", "project", -1);
-    if (toolbar_cell(&bar, "Add project", RE_ICON_UNKNOWN, 0, RE_METRIC_DESIGN_GAP)) {
+    if (toolbar_cell(&bar, "Add project", RE_ICON_UNKNOWN, 0, RE_METRIC_DESIGN_GAP_LG)) {
       cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "path", a->project_input); re_app_action(a, "roots", j); cJSON_Delete(j);
     }
     re_app_control(a, ui, "toolbar", "Add project", -1);
     toolbar_label(&bar, "Agent");
-    toolbar_next(&bar, RE_METRIC_TOOLBAR_AGENT_WIDTH, RE_METRIC_DESIGN_GAP);
+    toolbar_next(&bar, RE_METRIC_TOOLBAR_AGENT_WIDTH, RE_METRIC_DESIGN_GAP_LG);
     re_ui_textbox_ex(ui, a->agent, sizeof(a->agent), RE_ICON_AGENT, "codex", 0);
     re_app_control(a, ui, "textbox", "agent", -1);
     int vim = a->vim;
-    toolbar_next(&bar, toolbar_width(&bar, "Vim", RE_ICON_UNKNOWN, 0), RE_METRIC_DESIGN_GAP);
+    toolbar_next(&bar, RE_METRIC_DESIGN_CHECKBOX_BOX + RE_METRIC_DESIGN_ICON_GAP
+      + re_draw_text_width(bar.draw, RE_FACE_UI_MEDIUM, RE_METRIC_DESIGN_SIZE, "Vim", -1), RE_METRIC_DESIGN_GAP_LG);
     if (re_ui_checkbox(ui, "Vim", &vim)) {
       a->vim = vim != 0;
       for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].editor) re_editor_vim(a->tabs[i].editor, a->vim);
       cJSON *j = cJSON_CreateObject(); cJSON_AddBoolToObject(j, "vim", a->vim); re_app_action(a, "preferences", j); cJSON_Delete(j);
     }
     re_app_control(a, ui, "checkbox", "Vim", -1);
-    if (toolbar_cell(&bar, "NOLF", RE_ICON_RUN, RE_UI_GHOST, RE_METRIC_DESIGN_GAP)) {
+    if (toolbar_cell(&bar, "NOLF", RE_ICON_RUN, RE_UI_GHOST, RE_METRIC_DESIGN_GAP_LG)) {
       cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "rootId", a->root); re_app_action(a, "game", j); cJSON_Delete(j);
     }
     re_app_control(a, ui, "toolbar", "NOLF", -1);
-    if (toolbar_cell(&bar, "Theme", RE_ICON_THEME, RE_UI_GHOST | RE_UI_ICON_ONLY, RE_METRIC_DESIGN_GAP)) {
+    if (toolbar_cell(&bar, "Theme", RE_ICON_THEME, RE_UI_GHOST | RE_UI_ICON_ONLY, RE_METRIC_DESIGN_GAP_LG)) {
       a->preset = (a->preset + 1) % RE_PRESET_COUNT;
       re_draw_theme(bar.draw, re_theme_preset_names[a->preset]);
       snprintf(a->status, sizeof(a->status), "Theme preset: %s.", re_theme_preset_names[a->preset]);

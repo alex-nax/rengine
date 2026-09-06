@@ -73,16 +73,25 @@ static void chrome(mu_Rect rect, int opt, float hover, bool focused, bool field)
   else if (opt & RE_UI_GHOST) { rest = mu_color(rest.r, rest.g, rest.b, 0); }
   if (opt & RE_UI_DISABLED) over = rest;
   re_draw_rrect(ui.draw, rect, mix(rest, over, hover), radius, corners);
-  if (!(opt & RE_UI_GHOST) || hover > 0) re_draw_frame(ui.draw, rect, RE_COLOR_BORDER, RE_COLOR_HIGHLIGHT, radius);
+  bool grouped = (opt & (RE_UI_GROUP_FIRST | RE_UI_GROUP_MIDDLE | RE_UI_GROUP_LAST)) != 0;
+  if (grouped) {
+    /* The group carries one border; members only rule the seam between them. */
+    if (!(opt & RE_UI_GROUP_FIRST)) re_draw_rect(ui.draw, mu_rect(rect.x, rect.y, 1, rect.h), RE_COLOR_BORDER);
+    if (opt & RE_UI_ON) {
+      re_draw_rect(ui.draw, mu_rect(rect.x, rect.y + rect.h - RE_METRIC_DESIGN_GROUP_MARKER, rect.w, RE_METRIC_DESIGN_GROUP_MARKER), RE_COLOR_ACCENT);
+    }
+  } else if (!(opt & RE_UI_GHOST) || hover > 0) {
+    re_draw_frame(ui.draw, rect, RE_COLOR_BORDER, RE_COLOR_HIGHLIGHT, radius);
+  }
   if (focused) re_ui_focus_ring(ui.draw, rect, radius);
 }
 
-/* Icon, label and trailing caret inside a control's box. */
+/* Icon, label and trailing caret inside a control's box, at the card's paddings and gaps. */
 static void contents(mu_Rect rect, const char *label, int icon, int opt, mu_Color color) {
   if (opt & RE_UI_TRANSPARENT) return;
-  int size = label_size(opt), pad = RE_METRIC_DESIGN_GAP_LG / 2 + RE_METRIC_DESIGN_GAP;
-  int icon_box = icon != RE_ICON_UNKNOWN ? size + RE_METRIC_DESIGN_GAP : 0;
-  int caret_box = opt & RE_UI_CARET ? size : 0;
+  int size = label_size(opt), pad = opt & RE_UI_FIELD_PAD ? RE_METRIC_DESIGN_FIELD_PAD : RE_METRIC_DESIGN_CONTROL_PAD;
+  int icon_box = icon != RE_ICON_UNKNOWN ? size + RE_METRIC_DESIGN_ICON_GAP : 0;
+  int caret_box = opt & RE_UI_CARET ? size + RE_METRIC_DESIGN_ICON_GAP : 0;
   int width = label ? re_draw_text_width(ui.draw, label_face(opt), size, label, -1) : 0;
   int text_y = rect.y + (rect.h - size) / 2 - 1, x;
   if (opt & RE_UI_ICON_ONLY) {
@@ -140,12 +149,12 @@ int re_ui_textbox_ex(mu_Context *ctx, char *buffer, int size, int icon, const ch
   }
   float hover = progress(id, ctx->hover == id);
   bool focused = ctx->focus == id;
-  chrome(rect, opt & ~(RE_UI_PRIMARY | RE_UI_ON), hover, focused, true);
-  int text_size = label_size(opt), pad = RE_METRIC_DESIGN_GAP_LG / 2 + RE_METRIC_DESIGN_GAP;
+  chrome(rect, (opt & ~(RE_UI_PRIMARY | RE_UI_ON)) | RE_UI_FIELD_PAD, hover, focused, true);
+  int text_size = label_size(opt), pad = RE_METRIC_DESIGN_FIELD_PAD;
   int x = rect.x + pad, text_y = rect.y + (rect.h - text_size) / 2 - 1;
   if (icon != RE_ICON_UNKNOWN) {
     re_draw_icon(ui.draw, (uint8_t)icon, mu_rect(x, rect.y, text_size, rect.h), RE_COLOR_TEXT_FAINT);
-    x += text_size + RE_METRIC_DESIGN_GAP;
+    x += text_size + RE_METRIC_DESIGN_ICON_GAP;
   }
   mu_Rect clip = mu_rect(rect.x, rect.y, rect.w - pad, rect.h);
   re_draw_clip(ui.draw, &clip);
@@ -164,8 +173,8 @@ int re_ui_textbox_ex(mu_Context *ctx, char *buffer, int size, int icon, const ch
 int re_ui_checkbox_ex(mu_Context *ctx, const char *label, int *state, int opt) {
   mu_Rect rect = mu_layout_next(ctx);
   mu_Id id = mu_get_id(ctx, &state, sizeof(state));
-  int res = 0, size = label_size(opt);
-  mu_Rect box = mu_rect(rect.x, rect.y + (rect.h - size) / 2, size, size);
+  int res = 0, size = label_size(opt), side = RE_METRIC_DESIGN_CHECKBOX_BOX;
+  mu_Rect box = mu_rect(rect.x, rect.y + (rect.h - side) / 2, side, side);
   mu_update_control(ctx, id, rect, 0);
   if (ctx->mouse_pressed == MU_MOUSE_LEFT && ctx->focus == id) { res |= MU_RES_CHANGE; *state = !*state; }
   float hover = progress(id, ctx->hover == id);
@@ -175,7 +184,7 @@ int re_ui_checkbox_ex(mu_Context *ctx, const char *label, int *state, int opt) {
   if (*state) re_draw_icon(ui.draw, RE_ICON_CHECK, box, RE_COLOR_TEXT_ON_ACCENT);
   if (ctx->focus == id) re_ui_focus_ring(ui.draw, box, RE_METRIC_DESIGN_RADIUS);
   if (label) {
-    re_draw_text_face(ui.draw, label_face(opt), size, label, -1, box.x + size + RE_METRIC_DESIGN_GAP,
+    re_draw_text_face(ui.draw, label_face(opt), size, label, -1, box.x + side + RE_METRIC_DESIGN_ICON_GAP,
                       rect.y + (rect.h - size) / 2 - 1, label_color(opt, hover));
   }
   return res;
@@ -216,11 +225,11 @@ void re_ui_label_ex(mu_Context *ctx, const char *label, int opt) {
 
 void re_ui_separator(mu_Context *ctx) {
   mu_Rect rect = mu_layout_next(ctx);
-  re_draw_rect(ui.draw, mu_rect(rect.x + rect.w / 2, rect.y + RE_METRIC_DESIGN_GAP, 1, rect.h - 2 * RE_METRIC_DESIGN_GAP), RE_COLOR_BORDER_SOFT);
+  int height = RE_METRIC_DESIGN_SEPARATOR_HEIGHT;
+  re_draw_rect(ui.draw, mu_rect(rect.x + rect.w / 2, rect.y + (rect.h - height) / 2, 1, height), RE_COLOR_BORDER_SOFT);
 }
 
-void re_ui_tab(ReDraw *draw, mu_Rect rect, const char *label, int icon, bool active, bool dirty, double seconds) {
-  (void)seconds;
+void re_ui_tab(ReDraw *draw, mu_Rect rect, const char *label, int icon, bool active, bool dirty, int reserve) {
   int size = RE_METRIC_DESIGN_SIZE, pad = RE_METRIC_DESIGN_GAP_LG;
   uint8_t corners = RE_CORNER_TOP_LEFT | RE_CORNER_TOP_RIGHT;
   if (active) {
@@ -234,7 +243,8 @@ void re_ui_tab(ReDraw *draw, mu_Rect rect, const char *label, int icon, bool act
     re_draw_icon(draw, RE_ICON_DIRTY, mu_rect(x, rect.y, size, rect.h), RE_COLOR_ACCENT);
     x += size;
   }
-  mu_Rect clip = mu_rect(rect.x, rect.y, rect.w - pad, rect.h);
+  /* The title stops before the close control rather than running under it. */
+  mu_Rect clip = mu_rect(rect.x, rect.y, re_max(0, rect.w - pad - reserve), rect.h);
   re_draw_clip(draw, &clip);
   re_draw_text_face(draw, active ? RE_FACE_UI_SEMIBOLD : RE_FACE_UI_MEDIUM, size, label, -1, x, rect.y + (rect.h - size) / 2 - 1, color);
   re_draw_clip(draw, NULL);

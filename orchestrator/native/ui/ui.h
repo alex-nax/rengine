@@ -33,6 +33,7 @@ enum {                          /* opt flags; microui's MU_OPT_* still apply whe
   RE_UI_GROUP_MIDDLE = 1 << 12, /* square both ends */
   RE_UI_GROUP_LAST = 1 << 13,   /* round only the trailing corners */
   RE_UI_TRANSPARENT = 1 << 14,  /* hit area only: the caller drew the face itself */
+  RE_UI_FIELD_PAD = 1 << 15,    /* the card's field padding rather than a button's */
 };
 
 void re_ui_begin(ReDraw *draw, double seconds);  /* once per frame, before any control */
@@ -49,7 +50,7 @@ void re_ui_separator(mu_Context *ctx);           /* vertical rule inside a row *
 
 /* Surfaces the workspace draws around its own content. */
 void re_ui_panel(ReDraw *draw, mu_Rect rect, mu_Color fill);                      /* flat fill, no radius */
-void re_ui_tab(ReDraw *draw, mu_Rect rect, const char *label, int icon, bool active, bool dirty, double seconds);
+void re_ui_tab(ReDraw *draw, mu_Rect rect, const char *label, int icon, bool active, bool dirty, int reserve); /* reserve: room kept at the right edge, for the close control */
 void re_ui_focus_ring(ReDraw *draw, mu_Rect rect, float radius);
 
 #define re_ui_button(ctx, label) re_ui_button_ex(ctx, label, RE_ICON_UNKNOWN, 0)

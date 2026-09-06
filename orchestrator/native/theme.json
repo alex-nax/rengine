@@ -474,7 +474,18 @@
     },
     "design": {
       "focus-width": 2,
-      "transition-ms": 90
+      "transition-ms": 90,
+      "control-height": 24,
+      "control-pad": 10,
+      "field-pad": 8,
+      "icon-gap": 6,
+      "icon-button": 22,
+      "checkbox-box": 14,
+      "brand-mark": 16,
+      "brand-radius": 4,
+      "toolbar-pad": 10,
+      "separator-height": 16,
+      "group-marker": 2
     }
   },
   "metric-notes": {
@@ -489,7 +500,8 @@
     "editor": "Save, Discard and mode column widths in the toolbar row; the buffer is inset from the pane, starts at top and ends bottom above the pane bottom; the error label sits error-inset above the bottom; caret width and tab cells for text layout.",
     "terminal": "Terminal cells are inset and start at top below the content top; bottom is the space kept below the cells.",
     "game": "Capture row above a black surface inset from the pane that starts at top.",
-    "scrollbar": "Native terminal/editor bars: width, minimum thumb length and the thumb inset from the track edges."
+    "scrollbar": "Native terminal/editor bars: width, minimum thumb length and the thumb inset from the track edges.",
+    "design": "Card constants from design/base.css that tokens.css does not name; every other design metric is a token binding under token-metrics."
   },
   "icons": {
     "close": "x",
