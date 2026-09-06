@@ -234,6 +234,17 @@ exactly what a reader correlating a crash with a picture needs to see:
 {"atMs":118,"wall":"2026-09-06T20:45:12.458Z","text":"LoadWorld Worlds\\t01s01"}
 ```
 
+**The slice is every line the ring still holds, for both gestures.** Only the keyframes are windowed
+by an explicit segment's mark; the log is not, and this is the one place the two streams are
+deliberately asymmetric. The reason is the same one the ring exists for: the interesting moment is
+always just past, so at the instant a person reaches for the toggle the lines that explain what is on
+screen have **already been printed**. Windowing them away leaves a segment whose log is empty exactly
+when it matters — a menu, a stall, a frozen frame, any span the game spends silent — which is the
+defect corrected on 2026-09-06 after a committed nolf-improved segment came back with
+`"log": { "lines": 0 }` beside 46 good keyframes (see *Defect: the windowed log slice*). The ring's
+own `seconds` and 2 MiB line budget already bound how far back the slice reaches, the manifest states
+that bound in `ring`, and the negative `atMs` tells a reader which lines precede the window.
+
 `manifest.json` (version 1):
 
 ```json
@@ -313,10 +324,12 @@ generated `RE_METRIC_*` / `RE_COLOR_*` constants, as `tools/design.py check` req
    drains over several ticks and its manifest appears only at the end; a session exit during an open
    explicit recording commits it, and the stopped ring then keeps nothing further; a close during a
    drain finishes it; frames are sampled at the declared rate rather than the pane's; log lines are
-   stripped of ANSI and stamped on the frame clock; the downscale flips the surface's bottom-up rows
-   so the image is the right way up; encoded output starts with the JPEG signature. Each run works in
-   its own tree and removes it, because the ids are deterministic and a leftover segment from an
-   aborted run would otherwise answer an assertion about what this run wrote.
+   stripped of ANSI and stamped on the frame clock; **an explicit segment carries the lines the ring
+   held before its mark, with a negative `atMs`, alongside the lines printed inside the window**; the
+   downscale flips the surface's bottom-up rows so the image is the right way up; encoded output
+   starts with the JPEG signature. Each run works in its own tree and removes it, because the ids are
+   deterministic and a leftover segment from an aborted run would otherwise answer an assertion about
+   what this run wrote.
 2. **Store and routes (service tests):** `listRecordings` orders newest first, bounds the listing,
    reports a manifest-less directory and a malformed manifest as `error` entries rather than dropping
    them, and never escapes the root; `readRecording` returns the manifest, a bounded log tail and a
@@ -328,10 +341,14 @@ generated `RE_METRIC_*` / `RE_COLOR_*` constants, as `tools/design.py check` req
    name with the workspace-layer remedy.
 3. **The toggle (native fixture, `native-recording.spec.mjs`, in `test:desktop`):** a real
    `rengine_surface_fixture` game session streams real frames into a pane; the recording row appears
-   with its controls; `recording`/`toggle` starts and the inspected state becomes `recording`;
-   pressing it again commits, and the committed directory on disk carries a manifest whose keyframe
-   count matches the inspected count, JPEG files that are JPEGs, and a log slice; `recording`/`commit`
-   writes a second segment from the ring; `recordings_list` through the service then lists both.
+   with its controls; the game's own printed lines reach the inspected `logLines` over the whole live
+   path (game stdout, the host's PTY, the output event, the recorder); `recording`/`toggle` starts and
+   the inspected state becomes `recording`; pressing it again commits, and the committed directory on
+   disk carries a manifest whose keyframe count matches the inspected count, JPEG files that are
+   JPEGs, and a log slice that holds those lines in order with their `atMs` and `wall` — including a
+   segment marked over a **silent** window, whose slice is the ring's lines at a negative `atMs`;
+   `recording`/`commit` writes a second segment from the ring; `recordings_list` through the service
+   then lists both.
 4. `npm test`, `npm run test:desktop`, CTest in `.cache/desktop`, `./init.sh`,
    `python3 tools/features.py validate`, `python3 tools/design.py check` and sidecar validation pass;
    the native build has zero warnings.
@@ -341,3 +358,33 @@ sourced from the pinned stb revision; no game is named anywhere in this code; no
 no audio capture in this slice (KI-044); `external` game surfaces get no recording control; Windows
 stays unqualified (KI-014); passing waits on the owner's live verification after a layered update, as
 F71/F72/F74 do.
+
+## Defect: the windowed log slice (2026-09-06)
+
+The first real segment this feature committed — `20260906T201912Z-45e037` in nolf-improved, 46 good
+keyframes over 5,120 ms of the game's main menu — carried `"log": { "lines": 0, "bytes": 0 }` and a
+zero-byte `log.jsonl`, while the session's retained output was full of ordinary lines. Half the
+artifact was missing, and it cost a diagnosis: a rendering symptom could not be put beside any line,
+because there were none.
+
+The design was right and the implementation was not. `write_log` filtered the ring's lines with
+`if (line->at < from) continue;`, `from` being the explicit segment's mark, which discards every line
+printed before the toggle. A menu holds still, so nothing was printed inside those five seconds and
+nothing survived the filter. A ring commit passes `from = 0` and was never affected, which is why the
+other gesture looked healthy. The filter also made the negative `atMs` this spec asks for unreachable
+for anything beyond the sub-frame sampling lead, even though `write_log` computed its origin from the
+first keyframe precisely to produce it.
+
+Two lenses missed it. The unit test asserted the negative `atMs` against a **ring** commit, where
+`from` is 0 and the filter cannot fire — a check standing in for the thing it claimed to verify. The
+native fixture asserted keyframes, JPEG bytes and the manifest, and never once looked at `log.jsonl`;
+it was also not in `test:desktop`, so nothing ran it in a gate. Both are corrected here: the unit test
+now marks a segment over lines printed before it and asserts both signs of `atMs`, the fixture drives
+the game's own printed lines through the whole live path and reads the committed slice back, and the
+fixture is in `test:desktop`.
+
+Still open, filed as **KI-047**: `truncated` is reported for essentially every explicit segment,
+because it is derived from `dropped_lead > 0` and the first sampled frame is practically never on the
+same millisecond as the mark — the segment above says `"truncated": true, "droppedLeadMs": 29` with a
+ring nowhere near its bounds. That is a separate misreport in the same manifest; the fix belongs with
+`requestedStartMs`, which this implementation does not write either.

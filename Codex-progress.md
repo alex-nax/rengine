@@ -1,5 +1,69 @@
 # Progress Log
 
+## Session 38 (macos) — 2026-09-06 — The log slice a committed segment never carried
+
+The first real segment F75 wrote came back half empty. `20260906T201912Z-45e037` in nolf-improved:
+46 good keyframes over 5,120 ms, `"log": { "lines": 0, "bytes": 0 }`, a zero-byte `log.jsonl`, and
+a session whose retained output was full of ordinary lines. The whole point of the feature is a
+frame beside the line printed while it was on screen, and it had already cost a diagnosis — a
+rendering symptom that could not be correlated with any log line, because there were none.
+
+Four candidates were on the table. The router in `recording.c` matching a game tab by session id,
+the host filtering its event stream per desktop, `evict()` dropping lines against the frame budget,
+and `write_log`'s `from`. The first three are clean and I ruled them out rather than assuming:
+`sessions.mjs` broadcasts every output event to every `/events` client unconditionally and has since
+the route existed; `worker.mjs` and `tunnel()` pass frames through byte for byte, so neither proxy
+hop filters; the line ring is bounded by the ring's own seconds and a separate 2 MiB budget that
+never touches the video bytes; and a fixture run showed the desktop's own `logLines` rising as a
+real game printed, so lines do reach the recorder over the whole live path.
+
+It was the fourth. `write_log` skipped every line with `line->at < from`, `from` being the explicit
+segment's mark, so a start/stop kept only what the game printed inside its own window. That segment
+was recorded over the main menu — a still screen prints nothing — while the lines that explained the
+picture sat in the ring immediately before the mark. A ring commit passes `from = 0`, so the other
+gesture never showed the fault. The filter also made the negative `atMs` spec 081 asks for
+unreachable beyond the sampling lead, even though `write_log` computed its origin from the first
+keyframe precisely to produce it.
+
+The slice is now every line the ring still holds, for both gestures; only the keyframes are windowed
+by the mark. The ring's `seconds` and line budget already bound how far back it reaches, the manifest
+states that bound, and a pre-mark line says so with a negative `atMs`. Spec 081 is amended: the rule
+is stated where it was ambiguous, criterion 1 and criterion 3 name it, and the defect is recorded
+with why both existing lenses missed it.
+
+Both lenses were proxy assertions. The unit test asserted the negative `atMs` against a *ring*
+commit, where `from` is 0 and the filter cannot fire. The native fixture asserted keyframes, JPEG
+bytes and the manifest and never opened `log.jsonl` — and, as session 34 found from the other
+direction, it had dropped out of `test:desktop` entirely, so no gate ran it at all. That half is
+already fixed on main and `suite-coverage.test.mjs` now guards it; I rebased onto that rather than
+repeating the edit. The assertions are mine: the unit test marks a segment over lines printed before
+it and asserts both signs of `atMs`, and the fixture drives the game's own printed lines through game
+stdout, the host's PTY, the output event and the recorder, then reads the committed slice back. Both
+fail on the previous implementation and pass on this one; the C test fails in 0.28 s.
+
+KI-054 is new and left open: `truncated` is set from `dropped_lead > 0`, so it is true for
+practically every explicit segment — that segment reports `"truncated": true, "droppedLeadMs": 29`
+with a ring that had evicted nothing. Spec 081 reserves the flag for a recording that outruns the
+ring and pairs it with a `requestedStartMs` this implementation does not write. A separate misreport
+in the same manifest, deliberately not folded into this fix.
+
+I gated the branch twice, because main moved under it while I worked: first at its base `a5b3f2f`,
+then rebased onto `e051ebf`, which had already taken the devices and cooperative lanes and the
+suite-membership fix. Rebased numbers: `npm test` 77/77 in 7.05 s; `ctest` in `.cache/desktop` 6/6
+in 0.99 s, `native_recording` in 0.18 s; `npm run test:desktop` **31/31 in 351 s**; `./init.sh`,
+`python3 tools/features.py validate` (37 features) and `python3 tools/design.py check` pass; the
+native build has zero warnings and the `recording.c` sidecar carries the new rule, stamped clean.
+At the base the same suite was 26 of 27 in 341 s, the odd one out being `native-project-windows`
+on its layout comparison, which passed alone in 12.5 s — the KI-045 pattern, and green on the
+rebased run.
+
+The desktop suite was busy with the other lane for most of this session, so both windowed runs
+waited for it rather than competing for the GPU.
+
+F75 stays blocked on the owner's live verification after a layered update, unchanged by this.
+The repo-wide `sidecar_tool.py check` is still not clean, for the reasons KI-052 already records;
+none of those files are in this change, and `recording.c`'s own sidecar is stamped.
+
 ## Session 34 (macos) — 2026-09-06 — A fixture that left, and four regressions that proved nothing
 
 The peer session reported that `9e52352` dropped `native-recording.spec.mjs` from the desktop suite.

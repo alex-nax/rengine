@@ -44,11 +44,24 @@
       "id": "commit-drain",
       "kind": "rationale",
       "anchor": {
-        "start": 258,
-        "end": 258,
+        "start": 260,
+        "end": 260,
         "snippet": "static void begin_commit(ReRecorder *r, int kind, Uint64 from, int requested_seconds, Uint64 now_ms, int after) {"
       },
       "note": "A commit is a job that drains over ticks, not a synchronous write, because a full ring is over a thousand files and writing them in one frame is a visible freeze. The manifest is written last, so a directory without one is an unfinished commit and the reader lists it as exactly that. The state to return to afterwards is carried on the job (after): a stop-and-commit returns to rolling, a commit forced by the game exiting returns to stopped and clears the ring. Closing the recorder drains what is in flight first \u2014 the job is bounded by the ring, so that loop always terminates \u2014 which is what keeps a commit from being lost when the tab or the desktop closes.",
+      "refs": [
+        "docs/specs/081-game-recording.md"
+      ]
+    },
+    {
+      "id": "log-slice-is-the-ring",
+      "kind": "constraint",
+      "anchor": {
+        "start": 240,
+        "end": 240,
+        "snippet": "static void write_log(ReRecorder *r) {"
+      },
+      "note": "The log slice is every line the ring still holds, for both gestures: only the keyframes are windowed by an explicit segment's mark. Filtering lines by that mark (line->at < from) is what made the first real committed segment report zero log lines beside 46 good keyframes \u2014 a menu prints nothing, so a five-second window over a silent span kept nothing, while the lines that explained the picture sat in the ring just before it. A ring commit passed from = 0 and so never showed the fault. The origin is the first committed keyframe, which is what gives a pre-mark line a negative atMs; the ring's own seconds and 2 MiB line budget already bound how far back the slice reaches. begin_commit returns before this is called when the slice has no frames, so frames[0] is always there.",
       "refs": [
         "docs/specs/081-game-recording.md"
       ]
@@ -56,7 +69,7 @@
   ],
   "source": {
     "path": "orchestrator/native/recording.c",
-    "sha256": "e3d2ecfcf184f7fedd8bb47424bc73f78ce33c960624cffce09fa0e7b6585fb6",
+    "sha256": "77c21a9887be8ef1083b9c69e1c5ebaf444e385bf0180f261ac98bb830e206eb",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }
