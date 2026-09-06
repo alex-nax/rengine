@@ -618,6 +618,30 @@
       "evidence": []
     },
     {
+      "id": 70,
+      "milestone": "O1",
+      "category": "integration",
+      "priority": "medium",
+      "description": "Store the project integration recipe as a runbook, a scaffolding wizard, copied templates and a test.",
+      "acceptance_criteria": [
+        "docs/runbooks/project-integration.md carries the ordered recipe with runnable commands (prerequisites, submodule pin policy, editor.sh launching point, contract-3 .rengine/project.json, the tests a consumer keeps and how to register them, skills/AGENTS wiring, the cross-vendor review gate, opening the project window, layered updates, owner-verified consumer gates, pin bumps), the nolf-improved and vtmb-vr instances as tables, and what the orchestrator UI will automate.",
+        "orchestrator/actions/integrate-project.sh follows the lib/wizard.sh conventions and scaffolds a consumer in five stages (verify the repository and the advertised pin, pin third_party/rengine, install editor.sh, write .rengine/project.json, copy the declaration test); explicit arguments run unattended, missing values prompt only on a TTY, existing files are reported and skipped, --dry-run prints the plan and writes nothing, and the follow-ups it leaves to the project are printed.",
+        "orchestrator/templates/project/ holds editor.sh, the reference project.json, the generic test_rengine_project_decl.py and a README naming each destination, none of them naming a specific game or format; orchestrator/tests/integrate-project.test.mjs scaffolds a temporary git repository and asserts the declared structure through the shipped schema and cross-rule modules, the contract-1 core through readDeclaration, the launcher dry runs, the copied Python test, skip-never-overwrite, an empty --dry-run and the pinned submodule."
+      ],
+      "passes": true,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/077-project-integration-recipe.md, docs/runbooks/project-integration.md, orchestrator/actions/integrate-project.sh, orchestrator/templates/project/ and orchestrator/tests/integrate-project.test.mjs",
+      "external_references": [
+        "nolf-improved docs/specs/feature-1700-rengine-submodule.md",
+        "nolf-improved docs/specs/feature-1703-editor-launcher.md",
+        "nolf-improved docs/findings/rengine-format-registry-codex-review-2026-09-06.md"
+      ],
+      "evidence": [
+        "docs/evidence/project-integration-recipe-macos-2026-09-06.md"
+      ]
+    },
+    {
       "id": 71,
       "milestone": "O1",
       "category": "surfaces",
