@@ -110,6 +110,7 @@
 #define RE_METRIC_DESIGN_SEPARATOR_HEIGHT 16
 #define RE_METRIC_DESIGN_GROUP_MARKER 2
 #define RE_METRIC_DESIGN_PLACEHOLDER_ALPHA 60
+#define RE_METRIC_DESIGN_EDITOR_GUTTER 44
 #define RE_METRIC_DESIGN_GAP 4
 #define RE_METRIC_DESIGN_GAP_LG 8
 #define RE_METRIC_DESIGN_LEADING 16
@@ -198,6 +199,7 @@ typedef struct {
   mu_Color warn;
   mu_Color err;
   mu_Color info;
+  mu_Color editor_gutter_bg;
 } ReTheme;
 enum { RE_PRESET_DEFAULT = 0, RE_PRESET_TEAL = 1, RE_PRESET_LIGHT = 2, RE_PRESET_COUNT = 3 };
 extern ReTheme re_theme;                                   /* the live theme; presets assign it whole */
@@ -269,4 +271,5 @@ void re_theme_apply(mu_Style *style);                      /* pushes the live th
 #define RE_COLOR_WARN re_theme.warn
 #define RE_COLOR_ERR re_theme.err
 #define RE_COLOR_INFO re_theme.info
+#define RE_COLOR_EDITOR_GUTTER_BG re_theme.editor_gutter_bg
 #endif

@@ -103,6 +103,19 @@ void re_editor_vim(ReEditor *e, bool enabled) { e->vim = enabled; e->insert = !e
 void re_editor_readonly(ReEditor *e, bool enabled) { e->readonly = enabled; }
 const char *re_editor_mode(const ReEditor *e) { return !e->vim ? "Edit" : e->insert ? "Vim INSERT" : "Vim NORMAL"; }
 void re_editor_scrollbars(ReEditor *e, cJSON *array) { re_scrollbar_inspect(&e->vertical, array); re_scrollbar_inspect(&e->horizontal_bar, array); }
+/* Line numbers, right-aligned in the gutter, with the caret's line brought forward. */
+static void gutter_numbers(ReEditor *e, ReDraw *draw, mu_Rect outer, mu_Rect body, int caret_row) {
+  int width = body.x - outer.x - RE_METRIC_DESIGN_GAP;
+  if (width <= 0) return;
+  for (int row = e->scroll; row < e->line_count; row++) {
+    int y = body.y + (row - e->scroll) * e->lh;
+    if (y >= body.y + body.h) break;
+    char number[16]; snprintf(number, sizeof(number), "%d", row + 1);
+    int text_width = re_draw_text_width(draw, RE_FACE_MONO, RE_THEME_FONT_SIZE, number, -1);
+    re_draw_text(draw, number, -1, outer.x + re_max(0, width - text_width), y,
+                 row == caret_row ? RE_COLOR_TEXT : RE_COLOR_EDITOR_GUTTER_FG);
+  }
+}
 static mu_Rect viewport(ReEditor *e, mu_Rect r, int cw, int lh) {
   if (e->extent_revision != e->revision) {
     e->line_count = 1; e->longest_line = 0; int col = 0;
@@ -113,6 +126,9 @@ static mu_Rect viewport(ReEditor *e, mu_Rect r, int cw, int lh) {
     e->extent_revision = e->revision;
   }
   mu_Rect body = r;
+  /* The card's 44px gutter is part of the editor, so text, clicks and scrollbars all sit right of it. */
+  int gutter = re_min(RE_METRIC_DESIGN_EDITOR_GUTTER, body.w / 3);
+  body.x += gutter; body.w = re_max(0, body.w - gutter);
   bool vertical = e->line_count > re_max(1, body.h / lh);
   bool horizontal = e->longest_line + 1 > re_max(1, (body.w - (vertical ? RE_METRIC_SCROLLBAR_SIZE : 0)) / cw);
   if (horizontal) body.h = re_max(0, body.h - RE_METRIC_SCROLLBAR_SIZE);
@@ -211,8 +227,18 @@ void re_editor_event(ReEditor *e, const SDL_Event *event, mu_Rect r, int cw, int
 }
 void re_editor_draw(ReEditor *e, ReDraw *draw, mu_Rect r, bool focused) {
   e->cw = re_draw_cell_width(draw); e->lh = re_draw_line_height(draw);
+  mu_Rect outer = r;
   r = viewport(e, r, e->cw, e->lh);
-  re_draw_clip(draw, &r); re_draw_rect(draw, r, RE_COLOR_SURFACE);
+  re_draw_rect(draw, outer, RE_COLOR_EDITOR_BG);
+  re_draw_rect(draw, mu_rect(outer.x, outer.y, re_max(0, r.x - outer.x), outer.h), RE_COLOR_EDITOR_GUTTER_BG);
+  int caret_row = 0;
+  for (int i = 0; i < e->state.cursor && i < e->length; i++) if (e->text[i] == '\n') caret_row++;
+  if (caret_row >= e->scroll) {
+    int y = r.y + (caret_row - e->scroll) * e->lh;
+    if (y < r.y + r.h) re_draw_rect(draw, mu_rect(r.x, y, r.w, e->lh), RE_COLOR_EDITOR_LINE_BG);
+  }
+  gutter_numbers(e, draw, outer, r, caret_row);
+  re_draw_clip(draw, &r);
   int row = 0, col = 0, selection_a = re_min(e->state.select_start, e->state.select_end), selection_b = re_max(e->state.select_start, e->state.select_end);
   for (int i = 0; i <= e->length; i++) {
     int x = r.x + (col - e->horizontal) * e->cw, y = r.y + (row - e->scroll) * e->lh;
@@ -220,7 +246,7 @@ void re_editor_draw(ReEditor *e, ReDraw *draw, mu_Rect r, bool focused) {
     if (row >= e->scroll) {
       if (i >= selection_a && i < selection_b) re_draw_rect(draw, mu_rect(x, y, e->cw, e->lh), RE_COLOR_SELECTION);
       if (focused && i == e->state.cursor) re_draw_rect(draw, mu_rect(x, y, e->vim && !e->insert ? e->cw : RE_METRIC_EDITOR_CARET_WIDTH, e->lh), RE_COLOR_CARET);
-      if (i < e->length && e->text[i] != '\n' && e->text[i] != '\t') { char text[5]; re_encode(e->text[i], text); re_draw_text(draw, text, -1, x, y, RE_COLOR_TEXT); }
+      if (i < e->length && e->text[i] != '\n' && e->text[i] != '\t') { char text[5]; re_encode(e->text[i], text); re_draw_text(draw, text, -1, x, y, RE_COLOR_EDITOR_FG); }
     }
     if (i < e->length && e->text[i] == '\n') { row++; col = 0; } else col += i < e->length && e->text[i] == '\t' ? RE_METRIC_EDITOR_TAB_CELLS : 1;
   }
