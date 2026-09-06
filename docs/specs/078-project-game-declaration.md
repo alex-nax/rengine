@@ -120,10 +120,13 @@ The toolbar's game control follows the declaration count:
 - **Several**: a `Games` button that opens a menu window below the toolbar listing every declared
   game by title. A game whose preflight is ready is a button that launches it; a game whose
   preflight fails is a **disabled label** reading `<title> — unavailable: <first issue>`, mirroring
-  how the dashboard lane disables an action with unmet `requires`/`tools`. This matters on the
-  development machine immediately: vtmb-vr declares a VR target that does not build on macOS, so
-  its entry must say why rather than launch nothing. The menu re-preflights every declared game
-  when it is opened, so a build makes an entry available without reconnecting.
+  how the dashboard lane disables an action with unmet `requires`/`tools`. This matters as soon as
+  a project declares a target it cannot build everywhere — vtmb-vr declares a VR target beside its
+  flat one — so a missing executable or required file names itself instead of the entry launching
+  nothing. (Measured on this machine on 2026-09-06, both vtmb-vr entries preflight ready:
+  `build/vtmb-vr` is present from an earlier build, so nothing is disabled there today; the
+  disabled path is proven by the fixture's always-missing `fixture-absent`.) The menu re-preflights
+  every declared game when it is opened, so a build makes an entry available without reconnecting.
 
 The menu is a root container drawn after the panes, positioned and sized from generated metrics,
 and while it is open the mouse events inside it are not routed to the view underneath. All widths

@@ -62,7 +62,10 @@ KI-041.
 workspace, desktop and connector layers, and verifies the two consumers' declarations in the live
 window; an SDL3 cooperative surface is its own spec; Windows unqualified (KI-014). A long
 unavailable-issue string clips at the games menu's right edge like every other long label in this
-desktop; the full text is in the preflight and the inspect payload.
+desktop; the full text is in the preflight and the inspect payload. One correction to the brief:
+the vtmb-vr VR entry was expected to be the live disabled example, but `build/vtmb-vr` exists on
+this machine as a Mach-O arm64 binary from 2026-08-23, so both vtmb-vr entries preflight ready and
+the disabled path is proven by the fixture's always-missing record instead.
 
 ---
 

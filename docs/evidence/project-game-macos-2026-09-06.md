@@ -146,6 +146,15 @@ declarations, copied verbatim into `orchestrator/tests/fixtures/`:
 - `nolf-project.json`: the earlier contract-1 document, still valid, with no games and no
   dashboard; `nolf/NOLF.REZ` matches `lithtech-rez`.
 
+Preflighting the live vtmb-vr root through the service (nothing run) returns no `error`,
+`gamesError` or `dashboardError` and **both** games ready, so the menu rows there read `VtMB` and
+`VtMB (VR)`. The brief for this session expected the VR entry to be the disabled example because
+it does not build on macOS; on this checkout `build/vtmb-vr` is a Mach-O arm64 binary dated
+2026-08-23, so it resolves and the entry is launchable. The disabled path is therefore proven by
+the fixture's always-missing `fixture-absent`, not by the real consumer; the vtmb-vr entry will
+disable itself with the same message the moment that binary or
+`gamedata/Vampire/pack000.vpk` is absent.
+
 ## Gates
 
 - `npm test`: 43 passes, 0 failures, 6.0 s.
