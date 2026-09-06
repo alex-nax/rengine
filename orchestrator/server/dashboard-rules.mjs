@@ -3,6 +3,9 @@ const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/, ENV_KEY = /^[A-Z][A-Z0-9_]*$/, SHELL
 const KIND_FIELDS = { script: ['script', 'args', 'env'], log: ['command', 'filters'], capture: ['command', 'into', 'format'], game: ['game', 'args'] };
 const KIND_REQUIRED = { script: ['script'], log: ['command'], capture: ['command', 'into', 'format'], game: ['game'] };
 const PLACEHOLDER = /\$\{/;
+/* Records are named by their own id where they have one, else by the nearest named ancestor, so the
+   message is something to grep for and not an index to count out. See sidecar: record-identity. */
+export const nameOf = record => typeof record?.id === 'string' && record.id ? ` (${record.id})` : '';
 export const rootRelative = value => typeof value === 'string' && value.length > 0 && !value.startsWith('/') && !/^[A-Za-z]:/.test(value) && !value.includes('\\') && !value.split('/').includes('..') && !value.includes('\0');
 
 export function envRules(env, where = 'env') {
@@ -25,12 +28,12 @@ export function dashboardRules(dashboard, context = {}) {
   if (!dashboard || typeof dashboard !== 'object' || !Array.isArray(dashboard.groups)) return errors;
   dashboard.groups.forEach((group, g) => {
     if (!group || typeof group !== 'object') return;
-    const gw = `$.dashboard.groups[${g}]`;
-    if (groups.has(group.id)) errors.push(`${gw}.id repeats ${JSON.stringify(group.id)}`); groups.add(group.id);
+    const gp = `$.dashboard.groups[${g}]`, gw = gp + nameOf(group);
+    if (groups.has(group.id)) errors.push(`${gp}.id repeats ${JSON.stringify(group.id)}`); groups.add(group.id);
     (Array.isArray(group.actions) ? group.actions : []).forEach((action, i) => {
       if (!action || typeof action !== 'object') return;
-      const where = `${gw}.actions[${i}]`, kind = action.kind;
-      if (actions.has(action.id)) errors.push(`${where}.id repeats ${JSON.stringify(action.id)}`); actions.add(action.id);
+      const ap = `${gp}.actions[${i}]`, where = nameOf(action) ? ap + nameOf(action) : `${gw}.actions[${i}]`, kind = action.kind;
+      if (actions.has(action.id)) errors.push(`${ap}.id repeats ${JSON.stringify(action.id)}`); actions.add(action.id);
       if (!KIND_FIELDS[kind]) return;
       for (const field of Object.keys(KIND_FIELDS).flatMap(k => KIND_FIELDS[k])) if (field in action && !KIND_FIELDS[kind].includes(field)) errors.push(`${where}.${field} is not a ${kind} field`);
       for (const field of KIND_REQUIRED[kind]) if (!(field in action)) errors.push(`${where}: ${kind} requires ${field}`);
