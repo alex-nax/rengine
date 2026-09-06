@@ -45,4 +45,4 @@ group headings, action buttons with kind/description lines, unavailable labels, 
   and sidecar check/stamp for twelve sources pass.
 
 Windows stays unqualified (KI-014). Steps 2 (log overlay) and 3 (image display) are deferred
-by owner decision (KI-038).
+by owner decision (KI-040).
