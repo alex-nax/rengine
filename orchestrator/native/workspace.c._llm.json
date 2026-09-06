@@ -19,8 +19,8 @@
       "id": "format-tab-layout",
       "kind": "rationale",
       "anchor": {
-        "start": 230,
-        "end": 230,
+        "start": 263,
+        "end": 263,
         "snippet": "static void editor_ui(ReApp *a, mu_Context *ui, int index, mu_Rect content, mu_Rect below) {"
       },
       "note": "A format-aware editor tab draws the mode toolbar first; text mode keeps the Save/Discard row below it and shifts the buffer down by one row, raw and text previews take the whole content area as a draw-list rect, and a tree preview lives inside the scrollable microui window with the selected entry drawn in the reserved lower split. Actions returned by the view are performed after drawing so request/mode changes never interleave with layout. The third root container per pane is avoided on purpose: the entry area is a draw-list rect, not another microui window (upstream's 32-root limit).",
@@ -32,8 +32,8 @@
       "id": "bounded-tab-strip",
       "kind": "rationale",
       "anchor": {
-        "start": 258,
-        "end": 258,
+        "start": 291,
+        "end": 291,
         "snippet": "static void pane_header(ReApp *a, mu_Context *ui, int n) {"
       },
       "note": "Visible tab slots and previous/next controls fit the measured pane header; only displayed tabs receive hit rectangles. Strip offsets are ephemeral and can browse away from the selected content without retargeting it. Explicit layout changes invalidate the cached width to reveal the selected tab even when pane indices are reused. Drops choose insertion boundaries from visible header midpoints, then adjust for removal when source and destination are the same pane. Root/session identity stays on ReTab.",
@@ -45,8 +45,8 @@
       "id": "one-overlay",
       "kind": "rationale",
       "anchor": {
-        "start": 384,
-        "end": 413,
+        "start": 417,
+        "end": 446,
         "symbol": "overlay_open",
         "snippet": "static void overlay_open(ReApp *a, mu_Context *ui, int kind) {"
       },
@@ -59,8 +59,8 @@
       "id": "offered-not-applied",
       "kind": "constraint",
       "anchor": {
-        "start": 496,
-        "end": 519,
+        "start": 534,
+        "end": 557,
         "symbol": "project_theme_probe",
         "snippet": "static void project_theme_probe(ReApp *a) {"
       },
@@ -74,8 +74,8 @@
       "id": "view-switcher-indices",
       "kind": "constraint",
       "anchor": {
-        "start": 620,
-        "end": 620,
+        "start": 658,
+        "end": 658,
         "snippet": "{\"Tree\", RE_ICON_TREE}, {\"Dashboard\", RE_ICON_PROJECT}, {\"Devices\", RE_ICON_MENU}, {\"Shell\", RE_ICON_SHELL}, {\"Agent\", RE_ICON_AGENT} };"
       },
       "note": "The view switcher is a fixed table walked by index, and the click handler branches on that same index \u2014 so inserting an entry is not a one-line change: `views` must match the table length and every later branch must be re-numbered. Devices was inserted at index 2, which moved the terminal/agent branch from `i == 3` to `i == 4`. Getting that wrong opens a shell where the user asked for an agent, silently, because both branches call launch_terminal. The group ring is drawn once around the whole run using GROUP_FIRST/LAST, so the first and last entries must stay first and last.",
@@ -87,8 +87,8 @@
       "id": "external-game-status-row",
       "kind": "rationale",
       "anchor": {
-        "start": 720,
-        "end": 720,
+        "start": 758,
+        "end": 758,
         "snippet": "      } else if (t->type == RE_GAME && t->terminal) {"
       },
       "note": "An external game runs in its own window, so its tab has no frame surface to draw: it shows the retained PTY output with a status row above it, and the row reads the session's live state rather than the tab's, because the process can exit while the tab stays open. The rect is still set from the game insets so the terminal below occupies the same area an embedded surface would. This branch must precede the t->game one \u2014 an external tab has a terminal and no game surface. Without it surface \"external\" has no view at all, which is what the vtmb-vr consumer declares for both of its games."
@@ -97,8 +97,8 @@
       "id": "native-focus-and-detach",
       "kind": "rationale",
       "anchor": {
-        "start": 759,
-        "end": 759,
+        "start": 797,
+        "end": 797,
         "snippet": "bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {"
       },
       "note": "Pointer focus selects a view without changing its root/session binding. Toolbar focus clears custom editor/terminal/game keyboard routing. Detach never calls Stop. Wheel targets the visible hovered terminal/editor; negotiated terminal reporting gets first refusal before native history. Mouse motion/buttons route to an existing held terminal first, otherwise the hovered visible terminal; layout drags do not become application motion. Hover never changes keyboard focus. Focus loss releases all terminal holds, focus transfer releases the previous terminal, and hidden views release during drawing. Native UI still receives mouse motion to settle microui hover; consumed application buttons are not forwarded to chrome.",
@@ -111,7 +111,7 @@
   ],
   "source": {
     "path": "orchestrator/native/workspace.c",
-    "sha256": "a25cc8af962eedcd5201a28054fcf6b599d6381c05d373f65de0e4a5e0ee77b5",
+    "sha256": "8913c44daf4e4b0d4c221adfe1d0d5b646b64ea92dca68bbeb060684808f55fd",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

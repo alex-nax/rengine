@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm, realpath, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { startServer } from '../server/main.mjs';
 import { nativeClient } from './native-client.mjs';
-import { answering, counted, deviceProject, devicesDeclaration, localGame, remoteGame, silent, thisMachine } from './device-fixtures.mjs';
+import { answering, counted, deviceProject, devicesDeclaration, localGame, remoteGame, silent, slow, thisMachine } from './device-fixtures.mjs';
 
 const RE_DEVICES = 7;
 
@@ -115,6 +116,82 @@ test('the devices section names a project that declares none, and survives a ser
     assert.deepEqual(tab.devices.devices.map(x => x.id), ['local'], 'the implicit local device is listed without being declared');
     assert.equal(tab.devices.devices[0].reachable, true);
     assert.deepEqual(tab.devices.devices[0].games, ['local-target']);
+  } finally {
+    await gui?.close(); await server?.close(); await rm(directory, { recursive: true, force: true });
+  }
+});
+
+/* Spec 080's overlay fix and this section overlap here: the section is a scrolling pane that is
+   busy whenever a probe is outstanding, and the popover hangs over it. Both halves are asserted
+   while a probe is genuinely in flight — the probe records its own start and end, so "in flight"
+   is measured rather than assumed. */
+test('the devices section answers a click while a probe is in flight, and the popover takes precedence over it', { timeout: 90000 }, async () => {
+  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-native-devices-busy-')));
+  let server, gui;
+  try {
+    const project = await deviceProject(directory, 'project', devicesDeclaration([thisMachine(), slow(), answering()]));
+    server = await startServer({ stateDir: path.join(directory, 'state') });
+    const root = await server.store.addRoot(project);
+    gui = await nativeClient(server, { root: root.id });
+    const count = async name => {
+      try { return (await readFile(path.join(project, name), 'utf8')).length; } catch { return 0; }
+    };
+    const inFlight = async () => await count('probe-started.txt') > await count('probe-ended.txt');
+
+    await gui.until(s => s.connected, 'the desktop connects');
+    await gui.control('toolbar', 'Devices');
+    let state = await gui.until(s => {
+      const i = s.tabs.findIndex(t => t?.type === RE_DEVICES && t.devices?.devices?.length === 3);
+      return i >= 0 && s.controls.some(c => c.tab === i && c.role === 'devices-refresh');
+    }, 'the devices tab draws its rows');
+    const view = state.tabs.findIndex(t => t?.type === RE_DEVICES);
+    assert.equal(await count('probe-started.txt'), 1, 'opening the section probed the slow device once');
+
+    // Refresh puts a probe back in flight; everything below happens inside that window.
+    await gui.control('devices-refresh', '', view);
+    while (await count('probe-started.txt') < 2) await delay(50);
+    assert.equal(await inFlight(), true, 'the second probe is outstanding');
+
+    // A press on a device row while the probe runs: the click lands, and it brings this pane to the
+    // front of microui's container order. The popover has to be opened once first, because a surface
+    // opened for the first time is already in front — the defect only appears on the second opening,
+    // over a pane that was clicked in between.
+    state = await gui.command({ op: 'state' });
+    const rowOf = s => s.controls.find(c => c.tab === view && c.role.startsWith('devices-') && c.role !== 'devices-refresh');
+    assert.ok(rowOf(state), 'a device row is addressable while the probe runs');
+    const press = async () => { const r = rowOf(await gui.command({ op: 'state' }));
+      await gui.click(r.rect[0] + Math.round(r.rect[2] / 2), r.rect[1] + Math.round(r.rect[3] / 2)); };
+    await gui.control('toolbar', 'Settings', -1);
+    await gui.until(s => s.controls?.some(c => c.role === 'settings' && c.key === 'vim'), 'the popover opens over the busy section');
+    await press();
+    await gui.until(s => !s.controls?.some(c => c.role === 'settings'), 'the row press reached the busy pane and closed the popover');
+    assert.ok(rowOf(await gui.command({ op: 'state' })), 'the section still draws its rows after the press');
+
+    // Reopened over the pane that press brought forward: without spec 080's fix the surface stays
+    // visible and deaf, because microui routes the mouse to the frontmost container.
+    const vimBefore = (await gui.command({ op: 'state' })).vim;
+    await gui.control('toolbar', 'Settings', -1);
+    await gui.until(s => s.controls?.some(c => c.role === 'settings' && c.key === 'vim'), 'the popover reopens');
+    assert.equal(await inFlight(), true, 'still in flight while the popover is open');
+    await gui.control('settings', 'vim', -1);
+    await gui.until(s => s.vim !== vimBefore, 'the popover answers over a pane with a probe outstanding');
+
+    // A press back on a device row closes it again and continues to the section beneath it.
+    await press();
+    await gui.until(s => !s.controls?.some(c => c.role === 'settings'), 'the row press closed the popover');
+    assert.equal(await inFlight(), true, 'the row press happened while the probe was still outstanding');
+
+    // And the section's own control still answers: a third probe starts before the second ends.
+    await gui.control('devices-refresh', '', view);
+    while (await count('probe-started.txt') < 3) await delay(50);
+    assert.equal(await count('probe-ended.txt') < 3, true, 'the third probe started before the earlier ones ended');
+
+    // The section settles and still lists every device, so nothing above was left half-drawn.
+    state = await gui.until(s => s.tabs[view]?.devices?.devices?.length === 3 && s.tabs[view].devices.refreshed === true,
+      'the section settles after the overlapping refreshes');
+    assert.deepEqual(state.tabs[view].devices.devices.map(x => x.id), ['local', 'slow-box', 'answering-box']);
+    assert.equal(state.tabs[view].devices.devices.find(x => x.id === 'slow-box').reachable, true);
+    assert.ok(state.controls.some(c => c.tab === view && c.role === 'devices-refresh'), 'the refresh control survives');
   } finally {
     await gui?.close(); await server?.close(); await rm(directory, { recursive: true, force: true });
   }

@@ -12,6 +12,9 @@ export const answering = (extra = {}) => ({ id: 'answering-box', kind: 'ssh', ti
 export const silent = (extra = {}) => ({ id: 'silent-box', kind: 'ssh', title: 'Silent box', probe: ['tools/probe-fail.sh'], ...extra });
 export const stalling = (extra = {}) => ({ id: 'stalling-box', kind: 'ssh', title: 'Stalling box', probe: ['tools/probe-hang.sh'], probeTimeoutMs: 400, ...extra });
 export const counted = (extra = {}) => ({ id: 'counted-box', kind: 'ssh', title: 'Counted box', probe: ['tools/probe-count.sh'], ...extra });
+/* A probe that records when it starts and when it ends, so a test can prove a click landed WHILE
+   one was outstanding rather than after it settled. */
+export const slow = (extra = {}) => ({ id: 'slow-box', kind: 'ssh', title: 'Slow box', probe: ['tools/probe-slow.sh'], probeTimeoutMs: 20000, ...extra });
 export const headset = (extra = {}) => ({
   id: 'headset', kind: 'adb', title: 'Fixture headset', selector: { env: SERIAL },
   probe: ['tools/probe-echo.sh', '-s', '${selector}', 'get-state'], ...extra,
@@ -41,6 +44,7 @@ const SCRIPTS = {
      process-group kill takes it with the script. */
   'tools/probe-hang.sh': '#!/bin/bash\n( sleep 2; echo alive > probe-survivor.txt ) &\nsleep 30\n',
   'tools/probe-count.sh': '#!/bin/bash\nprintf "x" >> probe-count.txt\nexit 0\n',
+  'tools/probe-slow.sh': '#!/bin/bash\nprintf "x" >> probe-started.txt\nsleep 3\nprintf "x" >> probe-ended.txt\nexit 0\n',
 };
 
 export async function deviceProject(directory, name, document = devicesDeclaration([answering()])) {
