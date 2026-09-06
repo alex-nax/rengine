@@ -80,7 +80,7 @@ never overwritten, so the wizard is safe to re-run on a partially integrated pro
 
 Decisions the wizard must not make: which formats a project registers and which CLI produces them;
 what belongs in the dashboard groups; how many game targets one engine exposes and whether each
-runs `external` or `embedded`; how the declaration test is registered with the project's own runner
+runs `external`, `embedded` or `cooperative`; how the declaration test is registered with the project's own runner
 (ctest, pytest, a make target); the pin bump cadence; and the wording of the CLAUDE/AGENTS line.
 The wizard prints each of these as a follow-up instead of guessing. The game arguments are
 single-valued for the same reason the placeholder format is: the wizard scaffolds one of each and

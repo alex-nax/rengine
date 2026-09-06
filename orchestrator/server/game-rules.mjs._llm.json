@@ -18,8 +18,8 @@
       "id": "working-directory",
       "kind": "constraint",
       "anchor": {
-        "start": 7,
-        "end": 7,
+        "start": 12,
+        "end": 12,
         "snippet": "export const rootRelativeDirectory = value => value === '' || rootRelative(value); /* \"\" is the project root; see sidecar: working-directory */"
       },
       "note": "cwd is the one declared path where the empty string is meaningful: it names the project root, which is also the default when the key is absent, so a declaration can state the root explicitly without a special token. Everything else is the same confinement every declared path gets (no absolute path, no drive letter, no backslash, no \"..\" segment, no NUL), and spawnTerminal re-checks the resolved directory against the root before spawning, so a reader change alone can never widen where a game runs.",
@@ -31,19 +31,29 @@
       "id": "record-identity",
       "kind": "rationale",
       "anchor": {
-        "start": 5,
-        "end": 5,
+        "start": 10,
+        "end": 10,
         "snippet": "export const nameOf = record => typeof record?.id === 'string' && record.id ? ` (${record.id})` : ''; /* see sidecar: record-identity */"
       },
       "note": "Duplicated from dashboard-rules.mjs on purpose, exactly as rootRelative is: both rule modules stay import-free so the reader and the runtime can share them without an ES-module cycle. It appends the record's own id to the JSON path so a gamesError says which record is wrong ($.games[1] (vtmb-vr).cwd must be root-relative) instead of asking the reader to count array entries; the duplicate-id error keeps the bare path because the index is what identifies the repeating occurrence. The reasoning behind naming records at all is in spec 078: each section fails whole, so the message is the recovery path.",
       "refs": [
         "docs/specs/078-project-game-declaration.md"
       ]
+    },
+    {
+      "id": "pane-surfaces",
+      "kind": "rationale",
+      "anchor": {
+        "start": 8,
+        "end": 8,
+        "snippet": "export const PANE_SURFACES = ['embedded', 'cooperative'];"
+      },
+      "note": "Named once because two different questions are asked about the same set and they must not drift: 'does this reserve a workspace surface' (games.mjs start) and 'must this be on the local device' (the rule below). A pane is on this machine and the protocol is loopback, so neither embedded nor cooperative can describe a window on another one; the message quotes the record's own surface so a third value added later says its own name rather than 'embedded'. Deliberately NOT used for the injection decision in games.mjs, which stays an equality test against 'embedded' -- see that file's cooperative-injection note for why widening it recreates a two-producer race."
     }
   ],
   "source": {
     "path": "orchestrator/server/game-rules.mjs",
-    "sha256": "f9b369180ce565d30ad5b93af508a7d6ab9ce3421078a1e2c7b5fa2d7301fa04",
+    "sha256": "9738457b965ee2d3d44a55e81af609357df40102da6c69239719536f0ed54018",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

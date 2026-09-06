@@ -270,7 +270,7 @@ Same caveat: the `games` array below is the shape this project is adopting, not 
 | Piece | Value |
 | --- | --- |
 | Formats | `troika-vpk` over the project's own `build/vtmb-vpk` CLI (Troika VPK archives) |
-| Games (adopting) | Two targets today, both `external`: `build/vtmb` (flat) and the Windows-only `build/vtmb-vr`. `external` is forced, not chosen — the project links SDL3 statically and the adapter interposes SDL2, so neither build can be `embedded`. Further Source-engine titles would be added as further records on the same engine |
+| Games (adopting) | Two targets today, both `external`: `build/vtmb` (flat) and the Windows-only `build/vtmb-vr`. Neither can be `embedded` — the project links SDL3 statically, so there is no dynamic SDL2 symbol for the adapter to interpose. That is what `cooperative` exists for (spec 078, F77): the engine implements the surface protocol itself, and the flat target moves to a workspace pane by declaring that value, with no injection and nothing for rEngine to interpose. Further Source-engine titles would be added as further records on the same engine |
 | Dashboard | `quick-start`, `device`, `distribution` |
 | Notes | Same submodule/`editor.sh`/declaration-test shape; the second consumer is the check that the recipe is a recipe and not a description of one project, and its two targets are the check that `games` is genuinely an array |
 

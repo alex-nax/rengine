@@ -19,8 +19,8 @@
       "id": "file-url-submodule-fallback",
       "kind": "edge-case",
       "anchor": {
-        "start": 168,
-        "end": 168,
+        "start": 172,
+        "end": 172,
         "snippet": "test('the submodule stage pins the requested rEngine commit, or prints exactly that plan', async () => {"
       },
       "note": "git refuses file:// submodules since the 2022 hardening unless protocol.file.allow=always, which the test supplies through GIT_CONFIG_* rather than by changing the wizard or any user configuration. Where a git still refuses, the printed plan asserted just above is the whole assertion; that keeps the suite network-free and portable instead of skipping the stage entirely.",
@@ -31,7 +31,7 @@
   ],
   "source": {
     "path": "orchestrator/tests/integrate-project.test.mjs",
-    "sha256": "7d88e4045dd10bc6f685cf18ae5f3c544755e723ef5c9329f6565a3a4281be77",
+    "sha256": "53505772d6796d8e3f7a93c6a8ca678ed911783a5f768764c50542c181fe4ba8",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }
