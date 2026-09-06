@@ -2,7 +2,7 @@
 
 The recipe nolf-improved followed on 2026-09-06 and vtmb-vr is following now, generalised. It
 takes a game project from "no rEngine" to "opens in a project window with its own formats,
-dashboard and game, and keeps tests that prove the declaration still works". Spec: `077`.
+dashboard and game targets, and keeps tests that prove the declaration still works". Spec: `077`.
 rEngine owns the contracts, the editor, the tabs and the execution boundary; the project owns its
 declarations, its CLIs, its scripts and its tests.
 
@@ -19,8 +19,10 @@ It verifies the project is a git repository and that the remote advertises the p
 `third_party/rengine` at that pin, installs `editor.sh`, writes `.rengine/project.json` and copies
 the declaration test, then prints the follow-ups. `--dry-run` prints the plan and writes nothing;
 `--no-submodule` skips the pin stage; `--contract 1` writes a formats-only declaration; existing
-files are reported and skipped. Everything below is what that command does, why, and the parts it
-deliberately leaves to a human.
+files are reported and skipped. The game arguments scaffold **one** record in the declaration's
+`games` array (at `contract: 3`); further targets on the same engine are added by hand from the
+multi-record reference in `orchestrator/templates/project/project.json`. Everything below is what
+that command does, why, and the parts it deliberately leaves to a human.
 
 ## 1. Prerequisites
 
@@ -78,20 +80,26 @@ the project's `git status` stays clean. State defaults to rEngine's `~/.local/st
 
 ## 4. Declare the project: `.rengine/project.json`
 
-Contract 2 = contract 1 (`contract`, `project`, `formats`) plus an optional `game` and an optional
-`dashboard`. The full reference is `orchestrator/templates/project/project.json`; the rules are
-specs 074 (formats), 075 (dashboard) and 076 (game).
+The contracts nest: contract 1 is `contract`, `project` and `formats`; contract 2 adds an optional
+`dashboard`; contract 3 adds an optional `games` array. Declare the lowest contract that carries
+what you write, and a declaration that carries `games` **must** say `contract: 3`. There is no
+singular `game` key. The full reference is `orchestrator/templates/project/project.json`; the rules
+are specs 074 (formats), 075 (dashboard) and 078 (game targets).
 
 ```json
 {
-  "contract": 2,
+  "contract": 3,
   "project": "my-project",
   "formats": [
     { "id": "my-archive", "title": "My archive", "match": ["*.pak"], "modes": ["raw", "preview"], "default": "raw",
       "preview": { "kind": "tree", "command": ["build/my-cli", "--json", "tree", "${file}"], "timeoutMs": 10000, "maxBytes": 4194304 },
       "entry":   { "kind": "bytes", "command": ["build/my-cli", "cat", "${file}", "${entry}"], "timeoutMs": 10000, "maxBytes": 16777216 } }
   ],
-  "game": { "id": "my-game", "title": "My game", "executable": ["build/my-game"], "args": [], "env": {}, "requires": [], "surface": "external" },
+  "games": [
+    { "id": "my-game", "title": "My game", "executable": ["build/my-game", "build/Release/my-game"],
+      "args": ["--flat"], "env": { "MY_SKIP_INTRO": "1" }, "cwd": "build", "requires": ["data/my.pak"], "surface": "embedded" },
+    { "id": "my-game-vr", "title": "My game (VR)", "executable": ["build/my-game-vr"], "surface": "external" }
+  ],
   "dashboard": { "title": "My project", "groups": [ { "id": "quick-start", "title": "Quick start", "actions": [
     { "id": "editor-check", "title": "Editor prerequisites (editor.sh --check)", "kind": "script", "script": "editor.sh", "args": ["--check"] } ] } ] }
 }
@@ -105,11 +113,34 @@ Rules that bite:
   root-relative when it contains a separator, or a bare PATH name; it may not contain
   ``| ; & $ ` ``. Bounds default to 10 s / 4 MiB and are capped at 600 s / 64 MiB. Globs match the
   **base name**, case-insensitively. Unknown keys are rejected, so a typo cannot silently disable
-  a mode. Both contracts require **at least one** format record: a project with no format yet
-  declares the inert placeholder the wizard writes (KI-040).
-- **Game**: `title` is the toolbar button label (≤ 32 characters), `executable` is a list of
-  root-relative candidates, `surface` is `external` (its own window, the tab shows stdout, Stop
-  works) or `sdl2-interpose` (live frames in the pane through the macOS SDL2 interposer).
+  a mode. Every contract requires **at least one** format record: a project with no format yet
+  declares the inert placeholder the wizard writes (KI-042).
+- **Games** is an **array** of launch targets, so one engine can expose several — a flat build, a
+  VR build, a second title on the same runtime. Per record:
+  - `id` — kebab-case, at most 64 characters, **unique across the array**. It is what the session
+    carries and what `game_preflight`/`launch_game` name.
+  - `title` — 1–32 characters, the toolbar label. One game gives a button with that label; several
+    give a menu, and an entry whose preflight fails renders disabled with its first issue named.
+    No games declared means no game control at all.
+  - `executable` — 1–8 candidates **in order**; the first that exists and is executable wins, so a
+    single record covers `build/…` and `build/Release/…`. Each is resolved like a format `argv[0]`:
+    absolute as given, relative to the project root when it contains a separator (`.exe` is also
+    tried on Windows), or a bare name through PATH. Never a shell expression — ``| ; & $ ` ``
+    are rejected.
+  - `args` — literal argv, 0–64 strings, no interpolation at all: `${…}` is rejected, unlike a
+    format command. There is no shell, so quoting and globs are not expanded either.
+  - `env` — optional, added over the sidecar's shell environment. Keys match `^[A-Z][A-Z0-9_]*$`
+    and values are literal strings; keys beginning `RENGINE_`, `DYLD_` or `LD_` are reserved for
+    the workspace and rejected **by name**, because those are what the surface reservation uses.
+  - `cwd` — optional root-relative directory the process starts in; the default is the project root.
+  - `requires` — optional root-relative files that must exist. Each missing one is a named
+    preflight issue, so a target with no data yet reports why instead of failing at launch.
+  - `surface` — `embedded` (the game's frames are hosted in a game tab through the cooperative SDL
+    adapter) or `external` (the game opens its own operating-system window; rEngine starts the
+    session and tracks it, and the tab carries its output with Stop). Pick `external` for anything
+    the adapter cannot interpose — a statically linked or non-SDL2 runtime, or a Windows-only build.
+  - rEngine names no game anywhere: the tools are `game_preflight(gameId?)` and `launch_game(gameId?)`,
+    both defaulting to the first declared target.
 - **Dashboard**: kebab-case group and action ids, unique across the dashboard. `script` actions
   name a root-relative `.sh` inside the root and get a retained script tab (`open_script` rules,
   spec 071) with literal `args` and `UPPER_SNAKE` `env`; `log` actions run a literal argv in a
@@ -127,7 +158,7 @@ and needs no network and no running orchestrator:
 
 | Tier | Runs | Checks |
 | --- | --- | --- |
-| Structure | always | contract, format records, placeholders, argv shape, bounds, the `game` block, dashboard ids/kinds/paths, and that every declared script exists and passes `bash -n` |
+| Structure | always | contract, format records, placeholders, argv shape, bounds, every `games` record (unique ids, candidate resolution, literal args, reserved env prefixes, root-relative `cwd`/`requires`), dashboard ids/kinds/paths, and that every declared script exists and passes `bash -n` |
 | PinnedContract | when `third_party/rengine` carries the schema **and** its schema accepts the declared contract, otherwise skips with the reason | rEngine's own `validateSchema` accepts the declaration and rejects a typo key and an unknown contract; `readDeclaration`/`matchFormat` read it without error |
 | Behaviour | per format, when the declared executable is built and a matching file exists | runs the declared command exactly as rEngine does (substituted argv, cwd = root, no shell) and checks the tree/text shape, the entry bytes and the declared bounds |
 
@@ -191,8 +222,9 @@ it up through the `connector` layer.
 
 The consumer's feature stays open until the owner verifies it **in the real window**: the format
 opens in its declared default mode and the preview shows the archive; the dashboard lists the
-groups and a quick-start action opens its script tab; the game button starts the game on its
-declared surface. Automated declaration tests are necessary, never sufficient — they prove the
+groups and a quick-start action opens its script tab; the game control lists every declared target
+and starts each on its declared surface. Automated declaration tests are necessary, never
+sufficient — they prove the
 declaration is well-formed and its commands run, not that the pane looks right.
 
 ## 11. When the pin bumps
@@ -204,16 +236,20 @@ declaration is well-formed and its commands run, not that the pane looks right.
 4. Re-run the declaration test: the PinnedContract tier now validates against the newer schema, and
    a contract the previous pin could not read stops skipping.
 5. Move anything the new contract absorbs — for example a staged `.rengine/dashboard.json` merges
-   into `project.json` with `contract: 2` once the pin carries the dashboard.
+   into `project.json` with `contract: 2` once the pin carries the dashboard, and a single `game`
+   object becomes a one-record `games` array at `contract: 3` once the pin carries game targets.
 
 ## Worked instance — nolf-improved (reLith), 2026-09-06
+
+The formats, dashboard and tests below are live; the `games` array is **the shape this project is
+adopting** for contract 3, not a verified running state — one engine, three declared targets.
 
 | Piece | Value |
 | --- | --- |
 | Specs | `feature-1700-rengine-submodule.md` (pin policy), `feature-1703-editor-launcher.md`, `feature-1704-rez-format-registration.md`, `feature-1705-project-dashboard.md` |
 | Submodule | `third_party/rengine`, private SSH remote, pinned per commit; not built by the project's CMake |
 | Formats | `lithtech-rez` — `*.rez`, modes `raw`+`preview`, default `raw`, preview `build/relith-rez --json tree ${file}` (tree), entry `build/relith-rez cat ${file} ${entry}` (16 MiB bound) |
-| Game | `build/relith-nolf`, `sdl2-interpose` (live frames in the pane) |
+| Games (adopting) | Three targets on the one LithTech engine, all `embedded`: `relith-nolf` (NOLF), `relith-avp2` (AVP2), `relith-nolf2` (NOLF 2). Each is its own record with its own title, args and `requires`; the toolbar shows a menu because there is more than one |
 | Dashboard | `quick-start` (Quest RELEASE/DEBUG, PCVR over SSH, AVP2 flat, `editor.sh --check`), `distribution` (`make-dist.sh` → `dist/…`), `device` (`adb logcat` log, `adb exec-out screencap` capture into `.cache/captures/quest`, deploy, push data) |
 | Tests | `tests/test_editor_launcher.py`, `tests/test_rengine_project_decl.py`, `tests/test_rengine_dashboard_decl.py`, all registered with ctest |
 | Review gate | `docs/findings/rengine-format-registry-codex-review-2026-09-06.md` — codex read-only, 6 findings, fixed on a branch before the pin moved |
@@ -221,12 +257,14 @@ declaration is well-formed and its commands run, not that the pane looks right.
 
 ## Worked instance — vtmb-vr (reSource), in progress 2026-09-06
 
+Same caveat: the `games` array below is the shape this project is adopting, not verified live state.
+
 | Piece | Value |
 | --- | --- |
 | Formats | `troika-vpk` over the project's own `build/vtmb-vpk` CLI (Troika VPK archives) |
-| Game | `build/vtmb`, surface `external` — it opens its own window; the tab carries stdout and Stop |
+| Games (adopting) | Two targets today, both `external`: `build/vtmb` (flat) and the Windows-only `build/vtmb-vr`. `external` is forced, not chosen — the project links SDL3 statically and the adapter interposes SDL2, so neither build can be `embedded`. Further Source-engine titles would be added as further records on the same engine |
 | Dashboard | `quick-start`, `device`, `distribution` |
-| Notes | Same submodule/`editor.sh`/declaration-test shape; the second consumer is the check that the recipe is a recipe and not a description of one project |
+| Notes | Same submodule/`editor.sh`/declaration-test shape; the second consumer is the check that the recipe is a recipe and not a description of one project, and its two targets are the check that `games` is genuinely an array |
 
 ## What the orchestrator UI will automate
 
@@ -236,9 +274,9 @@ answers the prompts and reads the follow-ups (spec 071 — interactive scripts a
 workflow UI before native controls exist).
 
 The toolbar's **Add project** button should run exactly this: pick a directory, ask for the name
-and the optional game, run the same stages in a script tab, and open the project window on the
-result. Native controls come after that — a declaration editor that writes `formats`, `game` and
-`dashboard` rows through the schema, a pin-bump action that re-runs the consumer's declaration
-test, and a review-gate reminder before the pin moves. That work is tracked as F70 with KI-040;
+and the optional first game target, run the same stages in a script tab, and open the project window
+on the result. Native controls come after that — a declaration editor that writes `formats`, `games`
+and `dashboard` rows through the schema, a pin-bump action that re-runs the consumer's declaration
+test, and a review-gate reminder before the pin moves. That work is tracked as F70 with KI-042;
 until it lands, the button opens a window on an already-integrated project only, and this runbook
 is the path for everything else.
