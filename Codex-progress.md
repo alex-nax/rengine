@@ -1,5 +1,89 @@
 # Progress Log
 
+## Session 31 (macos) — 2026-09-06 — Devices: where a declared target actually runs (contract 4, F75)
+
+**Owner scope**: give a project a way to say WHERE each target runs, probe reachability, and report
+availability in those terms. Worktree `.cache/worktrees/merge-verify`, branch `feat/devices` cut
+from `origin/main` at `94ce2fd` and pushed per commit; the `main` ref untouched, `update_workspace`
+deliberately not run, no consumer repository edited. Spec `docs/specs/081-project-devices.md` (080
+was already taken by the settings popover).
+
+**The defect is a proxy, not a message.** The reported symptom was `game_preflight` for vtmb-vr's
+`vtmb-vr` target answering *"Game executable not found; expected build/vtmb-vr or
+build/Release/vtmb-vr in the selected project."* — every word true and the conclusion impossible,
+because that target is `condition = "windows"` and can never be built on this Mac. But the deeper
+defect is that contracts 1-3 gate a remote target on `tools: ["adb"]` or `["ssh"]`, which asks
+whether a binary is on this machine's PATH, not whether the device is there. Measured in
+`nolf-improved/.rengine/project.json`: **8 of 14 dashboard actions are device actions** (6 adb, 2
+ssh), and `adb`/`ssh` are always on that PATH, so all 8 report `available: true` with the headset
+unplugged and the Windows rig off. Only vtmb-vr saw the sharper message because only vtmb-vr has
+promoted a remote target to a game record; any consumer that does inherits it immediately, which is
+why the local-stat rule is in the contract rather than in an implementation.
+
+**Contract 4.** `contract` becomes an enum of 1..4. A top-level `devices` array (1-8 records:
+`id`, `kind` local|ssh|adb, `title`, optional `host`/`selector`/`requires`/`tools`/`probe`/
+`probeTimeoutMs`) plus an optional `device` on a game record and a dashboard action, defaulting to
+`local`. Declaring the array **or any `device` key** under contract 3 is rejected by *version*
+(`devices requires contract 4 (declared contract 3)`), never by unknown key — the key is accepted
+structurally by the schema precisely so the error can name the contract to update to instead of
+telling an operator to delete it. `local` is implicit and reserved: at most one, id and kind must
+agree, and it takes no `probe`/`host`/`selector`.
+
+**Four shape corrections from the second consumer, all adopted.** (1) Devices need a **selector**,
+not only a host: with two Android targets attached a bare `adb` call aborts with *more than one
+device*, and it aborts at launch rather than at probe — corroborated by that project's own
+`fast-start-quest.sh:23-25`. `${host}` and `${selector}` are the two placeholder sources, and a
+probe naming one whose source is undeclared is a named error. (2) A probe is **bounded and
+side-effect-light, not read-only**: `adb get-state`/`adb devices` start the adb server. No surface
+or tool description claims otherwise. (3) A green probe is **reachability, never launchability** —
+`ssh host true` succeeds while the launch cannot, because a logon session has no window station and
+so no GL context; availability never claims more. (4) **`requires` stays LOCAL** on a device and a
+target alike, because the Quest data push names the local archive it is pushing; `deviceRequires`
+is reserved and unimplemented.
+
+**The rule that matters.** A target on a non-local device is never resolved or stat-ed against the
+local filesystem: no executable resolution, no `cwd` stat, no embedded-surface check — only its own
+(local) `requires`. The regression proves the rule rather than the symptom: it places the
+executable **on** the local disk and asserts it is still unresolved, so it cannot pass by the file
+merely being absent. `Game executable not found` no longer appears for such a target; the device,
+its reachability and `build/... on <device>, not on this machine` do.
+
+**Probes** run under the same `runCommand` boundary as every other declared command (no shell, cwd
+the root, shell environment, stdin closed, 64 KiB output, default 5000 ms capped at 60000, killed
+as a **process group** on timeout — the fixture proves that with a backgrounded writer that never
+runs). Exit 0 is reachable; otherwise the first stderr line is the reason. An unset or empty
+`env` is unreachable **by name, without a spawn**. Device `requires`/`tools` short-circuit before
+the probe. Results are cached **15 s** per root/device/resolved-argv **with in-flight coalescing** —
+a TTL alone is useless here because `dashboardActions` resolves its actions concurrently, so six
+adb probes would all start before any result existed.
+
+**Out of scope on purpose.** `launch_game` on a non-local device refuses by name and points at the
+project's own dashboard script actions bound to that device — derived from the declaration, so
+rEngine still names no specific script. The refusal is issued by the **worker**, from its own
+preflight, before anything reaches the retained host (the KI-043 lesson); `Games.start` refuses
+again for a direct caller.
+
+**Surfaces.** `GET /api/devices?rootId[&refresh=1]` is served by the replaceable workspace worker,
+which advertises `projectDevices: 1`; a read-only (openWorld) MCP `devices` tool is gated on it, and
+`game_preflight`/`dashboard_actions` report device-derived availability with the failing half named.
+Native: a Devices section on the view switcher, on the owned `re_ui_*` control layer, listing each
+device with a status pill, **one** reason, and the targets bound to it — an unattached headset is
+one unreachable device, not four disabled actions each restating it. Probes run only on open or
+Refresh; the tab is deliberately not auto-opened the way the dashboard is.
+
+**Gates.** `npm test` 66/66. `npm run test:desktop` 19/19 including the new
+`native-devices.spec.mjs` 2/2. CTest 5/5. `./init.sh` clean (35 features validated).
+`python3 tools/design.py check` clean. Clean native rebuild with **0** diagnostics from
+`orchestrator/native`. Sidecars clean and stamped for every file this branch touches (pre-existing
+drift elsewhere is KI-046, not this lane's). Both live consumer declarations re-read clean and
+unchanged at contract 3: vtmb-vr (1 format, 2 games, 10 actions) and nolf-improved (1 format,
+3 games, 14 actions).
+
+**Remaining.** F75 stays `passes: false`: no consumer declares devices yet and no probe has run
+against a real Quest or SSH host from this branch (KI-044), delivery needs `update_workspace` for
+the worker layer plus a desktop reload for the native section, and the dashboard now pays one probe
+per device per listing (KI-045).
+
 ## Session 30 (macos) — 2026-09-06 — The game routes the workspace layer could not deliver
 
 **Owner scope**: fix the defect that makes the newly-merged per-project game capability unreachable
