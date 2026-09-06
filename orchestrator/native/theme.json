@@ -485,7 +485,8 @@
       "brand-radius": 4,
       "toolbar-pad": 10,
       "separator-height": 16,
-      "group-marker": 2
+      "group-marker": 2,
+      "placeholder-alpha": 60
     }
   },
   "metric-notes": {

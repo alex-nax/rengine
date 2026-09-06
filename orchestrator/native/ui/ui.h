@@ -47,6 +47,9 @@ int re_ui_checkbox_ex(mu_Context *ctx, const char *label, int *state, int opt);
 int re_ui_slider_ex(mu_Context *ctx, float *value, float low, float high, int opt);
 void re_ui_label_ex(mu_Context *ctx, const char *label, int opt);
 void re_ui_separator(mu_Context *ctx);           /* vertical rule inside a row */
+/* One row of a list or tree: hover highlight, selection fill, an icon, an ellipsised name and a
+   faint right-aligned meta column. `depth` indents by the tree indent token. */
+int re_ui_row_ex(mu_Context *ctx, const char *name, int icon, const char *meta, int depth, int opt);
 
 /* Surfaces the workspace draws around its own content. */
 void re_ui_panel(ReDraw *draw, mu_Rect rect, mu_Color fill);                      /* flat fill, no radius */

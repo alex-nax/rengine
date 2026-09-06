@@ -356,6 +356,20 @@ than the budget. Evidence `docs/evidence/design-foundations-macos-2026-09-06.md`
 snapshots and confirmed the tolerance amendment, so **F60 passes**. rEngine also gained its own `.rengine/project.json` (contract 2) with a BMP
 preview format and nine dashboard actions, verified through the service's readers.
 
+**Follow-up 10 (same session)**: owner review of the new toolbar (“some paddings and margins should be
+adjusted”, “close x should be inside tab indicator”, “suggested prompt should have lower opacity”) and
+a request to take up the project explorer, which starts F67. The card stylesheet fixes constants the
+tokens do not name, so they became design metrics with their source noted, and the toolbar now uses a
+uniform 8px rhythm with 10px edge padding, 24px controls, a bordered segmented group with an accent
+bar under the active member, and separators with their own margins. The tab close moved inside the
+tab, which is also what the overflow arithmetic expects. The project explorer is rebuilt on the
+control layer: a path bar with the root and the path within it, and 22px rows with icon, ellipsised
+name and a right-aligned meta column that marks unsaved drafts and symlinks. Panes now paint their own
+background so views can draw their own faces; the pane root row stays for every view except the
+explorer, which shows the root in its path bar. Placeholders take a lower alpha than typed input.
+Suite 17/17 after each change. F67 stays open: editor, terminal and the session browser remain, and
+the card's per-directory counts need a service field the listing does not carry yet.
+
 **Follow-up 8 (same session)**: F59 on owner direction after a `/grill-me` interview (spec 073;
 charter D31 names `pr0fe@192.168.31.217` as the Windows verification host and authorizes the
 commits-only transfer KI-014 waited for; D32 sets the Vulkan floor at the Quest 3 maximum, researched

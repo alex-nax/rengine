@@ -163,7 +163,10 @@ int re_ui_textbox_ex(mu_Context *ctx, char *buffer, int size, int icon, const ch
     re_draw_text_face(ui.draw, RE_FACE_UI, text_size, buffer, -1, x, text_y, RE_COLOR_TEXT);
     if (focused) re_draw_rect(ui.draw, mu_rect(x + width + 1, text_y, RE_METRIC_EDITOR_CARET_WIDTH, text_size), RE_COLOR_CARET);
   } else if (placeholder) {
-    re_draw_text_face(ui.draw, RE_FACE_UI, text_size, placeholder, -1, x, text_y, RE_COLOR_TEXT_FAINT);
+    /* A suggestion is not content: it sits below the faint role's own weight so it never reads as typed text. */
+    mu_Color ghost = RE_COLOR_TEXT_FAINT;
+    ghost.a = (unsigned char)((int)ghost.a * RE_METRIC_DESIGN_PLACEHOLDER_ALPHA / 100);
+    re_draw_text_face(ui.draw, RE_FACE_UI, text_size, placeholder, -1, x, text_y, ghost);
     if (focused) re_draw_rect(ui.draw, mu_rect(x, text_y, RE_METRIC_EDITOR_CARET_WIDTH, text_size), RE_COLOR_CARET);
   }
   re_draw_clip(ui.draw, NULL);
@@ -213,6 +216,42 @@ int re_ui_slider_ex(mu_Context *ctx, float *value, float low, float high, int op
   re_draw_shadow(ui.draw, thumb, RE_COLOR_CANVAS, (float)knob / 2, 2);
   re_draw_rrect(ui.draw, thumb, mix(RE_COLOR_TEXT, RE_COLOR_TEXT_STRONG, hover), (float)knob / 2, RE_CORNERS_ALL);
   if (ctx->focus == id) re_ui_focus_ring(ui.draw, thumb, (float)knob / 2);
+  return res;
+}
+
+int re_ui_row_ex(mu_Context *ctx, const char *name, int icon, const char *meta, int depth, int opt) {
+  mu_Rect rect = mu_layout_next(ctx);
+  mu_Id id = mu_get_id(ctx, name, (int)strlen(name));
+  int res = 0, size = label_size(opt), pad = RE_METRIC_DESIGN_ICON_GAP;
+  if (!(opt & RE_UI_DISABLED)) {
+    mu_update_control(ctx, id, rect, 0);
+    if (ctx->mouse_pressed == MU_MOUSE_LEFT && ctx->focus == id) res |= MU_RES_SUBMIT;
+  }
+  float hover = progress(id, ctx->hover == id);
+  if (opt & RE_UI_ON) re_draw_rrect(ui.draw, rect, RE_COLOR_TREE_SELECTED_BG, RE_METRIC_DESIGN_RADIUS, RE_CORNERS_ALL);
+  else if (hover > 0) {
+    mu_Color highlight = RE_COLOR_HIGHLIGHT;
+    highlight.a = (unsigned char)((float)highlight.a * hover);
+    re_draw_rrect(ui.draw, rect, highlight, RE_METRIC_DESIGN_RADIUS, RE_CORNERS_ALL);
+  }
+  int x = rect.x + pad + depth * RE_METRIC_DESIGN_TREE_INDENT, text_y = rect.y + (rect.h - size) / 2 - 1;
+  mu_Color color = opt & RE_UI_ON ? RE_COLOR_TREE_SELECTED_FG : opt & RE_UI_MUTED ? RE_COLOR_TEXT_MUTED : RE_COLOR_TREE_FG;
+  if (icon != RE_ICON_UNKNOWN) {
+    re_draw_icon(ui.draw, (uint8_t)icon, mu_rect(x, rect.y, size, rect.h), opt & RE_UI_ON ? color : RE_COLOR_TREE_ICON);
+    x += size + RE_METRIC_DESIGN_ICON_GAP;
+  }
+  int meta_width = meta && *meta ? re_draw_text_width(ui.draw, RE_FACE_UI, RE_METRIC_DESIGN_SIZE_SM, meta, -1) : 0;
+  if (meta_width) {
+    re_draw_text_face(ui.draw, RE_FACE_UI, RE_METRIC_DESIGN_SIZE_SM, meta, -1, rect.x + rect.w - pad - meta_width,
+                      rect.y + (rect.h - RE_METRIC_DESIGN_SIZE_SM) / 2 - 1, RE_COLOR_TEXT_FAINT);
+    meta_width += RE_METRIC_DESIGN_ICON_GAP;
+  }
+  mu_Rect clip = mu_rect(rect.x, rect.y, re_max(0, rect.w - pad - meta_width - (x - rect.x)), rect.h);
+  clip.x = x;
+  re_draw_clip(ui.draw, &clip);
+  re_draw_text_face(ui.draw, label_face(opt), size, name, -1, x, text_y, color);
+  re_draw_clip(ui.draw, NULL);
+  if (ctx->focus == id) re_ui_focus_ring(ui.draw, rect, RE_METRIC_DESIGN_RADIUS);
   return res;
 }
 

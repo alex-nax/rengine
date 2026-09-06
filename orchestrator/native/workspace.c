@@ -93,28 +93,62 @@ static void launch_terminal(ReApp *a, bool agent, bool menu) {
   if (agent) { cJSON_AddStringToObject(j, "type", "agent"); cJSON_AddStringToObject(j, "agent", a->agent); cJSON_AddStringToObject(j, "action", menu || !*a->agent ? "menu" : "launch"); }
   re_app_action(a, "terminal", j); cJSON_Delete(j);
 }
+/* A file already open with unsaved edits shows the card's modified marker. */
+static const char *entry_meta(ReApp *a, const ReTab *t, const cJSON *entry, const char *path) {
+  if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(entry, "symlink"))) return "link";
+  for (int i = 0; i < RE_TABS; i++) {
+    const ReTab *open = &a->tabs[i];
+    if (open->dirty && open->type == RE_EDITOR && !strcmp(open->root, t->root) && !strcmp(open->path, path)) return "M";
+  }
+  return "";
+}
 static void tree_ui(ReApp *a, mu_Context *ui, int index) {
   ReTab *t = &a->tabs[index];
-  mu_layout_row(ui, 2, (int[]){RE_METRIC_TREE_UP_WIDTH, -1}, RE_METRIC_TREE_ROW_HEIGHT);
-  if (mu_button(ui, "Up")) {
+  ReDraw *draw = re_draw_active();
+  /* Path bar: up, then the root and the path within it, as the card shows. */
+  mu_layout_row(ui, 2, (int[]){RE_METRIC_DESIGN_ICON_BUTTON, -1}, RE_METRIC_DESIGN_ROW);
+  if (re_ui_button_ex(ui, "Up", RE_ICON_ARROW_UP, RE_UI_GHOST | RE_UI_ICON_ONLY | (*t->path ? 0 : RE_UI_DISABLED))) {
     char *slash = strrchr(t->path, '/'); if (slash) *slash = 0; else t->path[0] = 0;
     re_app_load(a, index); re_app_layout_changed(a);
   }
-  mu_label(ui, *t->path ? t->path : root_name(a, t->root));
-  if (!t->data) { mu_text(ui, *t->error ? t->error : "Loading files…"); return; }
+  re_app_control(a, ui, "tree-up", "", index);
+  mu_Rect path_rect = mu_layout_next(ui);
+  int size = RE_METRIC_DESIGN_SIZE, text_y = path_rect.y + (path_rect.h - size) / 2 - 1;
+  const char *root = root_name(a, t->root);
+  int root_width = re_draw_text_width(draw, RE_FACE_UI_MEDIUM, size, root, -1);
+  re_draw_text_face(draw, RE_FACE_UI_MEDIUM, size, root, -1, path_rect.x, text_y, RE_COLOR_TEXT);
+  if (*t->path) {
+    char rest[1024]; snprintf(rest, sizeof(rest), "/%s", t->path);
+    mu_Rect clip = mu_rect(path_rect.x + root_width, path_rect.y, re_max(0, path_rect.w - root_width), path_rect.h);
+    re_draw_clip(draw, &clip);
+    re_draw_text_face(draw, RE_FACE_UI, size, rest, -1, path_rect.x + root_width, text_y, RE_COLOR_TEXT_MUTED);
+    re_draw_clip(draw, NULL);
+  }
+  if (!t->data) {
+    mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_DESIGN_TREE_ROW);
+    re_ui_label_ex(ui, *t->error ? t->error : "Loading files…", RE_UI_MUTED);
+    return;
+  }
   const cJSON *entry = NULL;
   cJSON_ArrayForEach(entry, cJSON_GetObjectItemCaseSensitive(t->data, "entries")) {
-    mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_TREE_ROW_HEIGHT);
+    mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_DESIGN_TREE_ROW);
     const char *name = re_string(entry, "name"), *path = re_string(entry, "path");
     bool directory = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(entry, "directory"));
-    char label[1024]; snprintf(label, sizeof(label), "%s %s", directory ? ">" : " ", name);
-    if (button(a, ui, label, "tree-entry", path, index)) {
+    const char *meta = entry_meta(a, t, entry, path);
+    int opt = strcmp(meta, "M") ? 0 : RE_UI_STRONG;
+    if (re_ui_row_ex(ui, name, directory ? RE_ICON_COLLAPSED : RE_ICON_HOLLOW, meta, 0, opt)) {
+      re_app_control(a, ui, "tree-entry", path, index);
       if (strlen(path) >= sizeof(t->path)) { re_copy(t->error, sizeof(t->error), "File path exceeds the view limit."); continue; }
       if (directory) { re_copy(t->path, sizeof(t->path), path); re_app_load(a, index); re_app_layout_changed(a); }
       else re_app_tab(a, RE_EDITOR, t->root, path, "", name);
+      continue;
     }
+    re_app_control(a, ui, "tree-entry", path, index);
   }
-  if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(t->data, "truncated"))) mu_text(ui, "Showing the first 2,000 directory entries.");
+  if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(t->data, "truncated"))) {
+    mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_DESIGN_TREE_ROW);
+    re_ui_label_ex(ui, "Showing the first 2,000 directory entries.", RE_UI_MUTED | RE_UI_SMALL);
+  }
 }
 static void sessions_ui(ReApp *a, mu_Context *ui) {
   const cJSON *session = NULL;
@@ -352,8 +386,10 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
       below = mu_rect(content.x + RE_METRIC_EDITOR_INSET, content.y + content.h - h, re_max(0, content.w - 2 * RE_METRIC_EDITOR_INSET), re_max(0, h - RE_METRIC_EDITOR_INSET)); content.h -= h;
     }
     mu_get_container(ui, title)->rect = content;
-    if (mu_begin_window_ex(ui, title, content, content_opts)) {
-      mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_PANE_ROOT_ROW_HEIGHT); mu_label(ui, root_name(a, t->root));
+    re_ui_panel(re_draw_active(), content, RE_COLOR_SURFACE); /* the window is frameless so views can draw their own faces */
+    if (mu_begin_window_ex(ui, title, content, content_opts | MU_OPT_NOFRAME)) {
+      /* The explorer shows the root in its own path bar; every other view keeps this row. */
+      if (t->type != RE_TREE) { mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_PANE_ROOT_ROW_HEIGHT); re_ui_label_ex(ui, root_name(a, t->root), RE_UI_MUTED); }
       if (t->type == RE_TREE) tree_ui(a, ui, index);
       else if (t->type == RE_SESSIONS) sessions_ui(a, ui);
       else if (t->type == RE_DASHBOARD) re_dashboard_ui(a, ui, index);
