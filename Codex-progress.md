@@ -1,5 +1,53 @@
 # Progress Log
 
+## Session 34 (macos) — 2026-09-06 — A fixture that left, and four regressions that proved nothing
+
+The peer session reported that `9e52352` dropped `native-recording.spec.mjs` from the desktop suite.
+I verified it against my own commit rather than taking it on trust, and it is mine: the stash
+conflict on the single-line `test:desktop` script was resolved by taking whichever side contained
+the new entry, which discarded the other side's addition. The recording fixture stopped running and
+the report stayed green, because a suite says nothing about what it is no longer being asked. The
+peer's union resolution had already restored it.
+
+`orchestrator/tests/suite-coverage.test.mjs` closes the class. Every spec in the tree must be run by
+an npm script or listed in an explicit allowlist with its reason, so removing one becomes a visible
+edit in a reviewed file instead of a deletion inside a long single line, and the allowlist is checked
+for rot in the same test. Verified by reproducing the exact edit: it fails and names the spec that
+left. The audit it enabled found two specs no script runs, both correctly excluded and now recorded
+with reasons — one needs an environment variable naming a trusted project with a real agent CLI, the
+other a separately built surface fixture.
+
+Separately, I ran the peer's sabotage rule over every regression added today, breaking each
+implementation in the specific way the test claims to catch. Eight failed correctly. One did not:
+the accent slider's track is drawn as twelve segments, and the assertion counted distinct colours
+across the whole track, so a gradient primitive that ignored its second stop still produced twelve
+colours and a green suite. It now samples inside a single segment, where nothing but interpolation
+can differ, and fails when the stop is ignored. That case is structural rather than careless — the
+control under test masked the failure of the thing under test, and every assertion was correct.
+
+The refinement worth keeping: removing the fix and watching it go red is necessary and nowhere near
+sufficient. Deleting the whole slider would have turned that test red while teaching nothing about
+gradients. The sabotage has to be the failure the test claims to prevent. Recorded with all six
+cases, including two more from the peer's cooperative lane and their higher-stakes example, in
+`docs/evidence/blind-regressions-2026-09-06.md` and KI-047.
+
+The recipe follow-on also landed: the launcher gains `--print-state`, which resolves the workspace
+directory before any prerequisite check so it answers from a bare checkout, and the recipe test now
+scaffolds two projects and asserts they land in different directories. One project on its own looks
+correct whichever directory it picks, which is why the original single-instance test could not see
+the defect.
+
+Whether the sabotage rule becomes standing guidance in `AGENTS.md` is with the owner. A peer asking
+me to change a project instruction file is not authority to change it, and agreement between two
+agents is exactly when that step is easiest to skip.
+
+Commands: `npm test` 77/77, `npm run test:desktop` 31/31, `ctest` 6/6, `python3 tools/design.py
+check`, `python3 tools/features.py validate`, on `origin/main` at 84958f8.
+
+Remaining: F69 and the KI-038 Windows repair; the Escape decision for embedded games, which the
+owner has not answered and which is worth landing before their next orchestrator restart; and the
+two outstanding sign-off notes.
+
 ## Session 37 (macos) — 2026-09-06 — A cooperative game surface: reserve the surface, inject nothing (F77)
 
 **Owner scope**: give a project whose engine already speaks the surface protocol a workspace game

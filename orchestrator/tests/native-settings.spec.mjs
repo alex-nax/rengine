@@ -122,10 +122,20 @@ setInterval(() => {}, 1000);`);
     await gui.control('settings', 'vim', -1);
     await gui.until(s => s.vim === false, 'and it clears again');
 
-    // The accent slider's track is a gradient: many distinct colours along one row.
+    // The accent slider's track is a gradient. Counting distinct colours across the whole track
+    // proves nothing: it is drawn as twelve segments, so a primitive that ignored its second stop
+    // would still show twelve colours. The assertion has to look inside one segment, where only
+    // interpolation can produce a difference.
     const track = await scan(file, accent.rect, 14);
     evidence.track = track;
     assert.ok(new Set(track).size >= 8, `the accent track ramps through hues: ${JSON.stringify(track)}`);
+    const segment = Math.floor(accent.rect[2] / 12);
+    const within = await probe(file, {
+      near: [accent.rect[0] + 2, accent.rect[1] + Math.round(accent.rect[3] / 2)],
+      far: [accent.rect[0] + segment - 2, accent.rect[1] + Math.round(accent.rect[3] / 2)],
+    });
+    assert.notEqual(within.near, within.far,
+      `the ramp interpolates inside one segment rather than stepping between them: ${JSON.stringify(within)}`);
 
     // A hue change applies immediately and persists as a workspace preference.
     await gui.click(accent.rect[0] + Math.round(accent.rect[2] * 0.75), accent.rect[1] + Math.round(accent.rect[3] / 2));

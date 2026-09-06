@@ -91,6 +91,34 @@ test('the wizard scaffolds a contract 3 declaration, launcher and test that sati
   assert.match(result.stdout, /editor\.sh --check/);
 });
 
+// One project on its own looks correct whichever workspace directory it picks, so a template test
+// that scaffolds once cannot see this defect. Two projects sharing a directory bound both their
+// roots into a single workspace, and a host restart from one checkout killed the other's retained
+// agent, because live PTYs belong to the host and are never persisted (KI-046).
+test('two scaffolded projects do not share one workspace', async () => {
+  const roots = [await repository(), await repository()];
+  for (const [index, root] of roots.entries()) {
+    await wizard(['--project', root, '--name', `sample-${index}`, '--no-submodule',
+      '--game-title', 'Sample game', '--game-exe', 'build/sample-game', '--game-surface', 'external']);
+  }
+  const directories = [];
+  for (const root of roots) {
+    const { stdout } = await execute(bashPath(), [path.join(root, 'editor.sh'), '--print-state'],
+      { encoding: 'utf8', timeout: 60000 });
+    directories.push(stdout.trim());
+  }
+  assert.notEqual(directories[0], directories[1], `each checkout gets its own workspace: ${JSON.stringify(directories)}`);
+  for (const directory of directories) {
+    assert.ok(directory.length > 0, 'the launcher resolves a state directory');
+    assert.notEqual(path.basename(directory), 'rengine',
+      `the shared default is what put two projects in one workspace: ${directory}`);
+  }
+  // An explicit --state still wins, so sharing one workspace stays possible on purpose.
+  const { stdout: shared } = await execute(bashPath(), [path.join(roots[0], 'editor.sh'), '--print-state', '--state', '/tmp/rengine-shared'],
+    { encoding: 'utf8', timeout: 60000 });
+  assert.equal(shared.trim(), '/tmp/rengine-shared', 'an explicit state directory overrides the per-checkout default');
+});
+
 test('the reference template declaration follows the same contract rules and shows the games array', async () => {
   const templates = path.join(ENGINE, 'orchestrator/templates/project');
   const template = JSON.parse(await readFile(path.join(templates, 'project.json'), 'utf8'));

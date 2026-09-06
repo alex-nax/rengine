@@ -21,6 +21,7 @@ DRY=0
 REBUILD=0
 LAUNCH_ARGS=()
 STATE_GIVEN=0
+PRINT_STATE=0
 
 usage() {
     cat <<'USAGE'
@@ -38,6 +39,7 @@ options
   --rebuild          re-run npm ci and both native builds even if their outputs exist
   --agent NAME       codex | claude | gemini | opencode | EXEC (default: saved preference / menu)
   --state DIR        sidecar state directory (default: one per checkout, see below)
+  --print-state      print the workspace state directory this checkout will use, then exit
   --launch-game      also open this project's declared game in a game tab
   --no-agent         open without an agent pane
   -h, --help         this text
@@ -55,6 +57,7 @@ while [ $# -gt 0 ]; do
             [ "$1" = --state ] && STATE_GIVEN=1
             LAUNCH_ARGS+=("$1" "$2"); shift ;;
         --launch-game|--no-agent|--inspect-ui) LAUNCH_ARGS+=("$1") ;;
+        --print-state) PRINT_STATE=1 ;;
         -h|--help) usage; exit 0 ;;
         --) shift; [ $# -eq 0 ] || LAUNCH_ARGS+=("$@"); break ;;
         *) echo "editor.sh: unknown option '$1'" >&2; usage >&2; exit 2 ;;
@@ -70,7 +73,22 @@ done
 # pass --state explicitly when sharing one workspace is what you actually want.
 if [ "$STATE_GIVEN" = 0 ]; then
     ROOT_HASH="$(printf '%s' "$ROOT" | (command -v shasum >/dev/null 2>&1 && shasum -a 256 || sha256sum) | cut -c1-12)"
-    LAUNCH_ARGS+=(--state "${XDG_STATE_HOME:-$HOME/.local/state}/rengine/$(basename "$ROOT")-$ROOT_HASH")
+    STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/rengine/$(basename "$ROOT")-$ROOT_HASH"
+    LAUNCH_ARGS+=(--state "$STATE_DIR")
+fi
+
+# --print-state answers before any prerequisite check, so the directory can be read from a bare
+# checkout. It is also what lets a test compare two scaffolded projects, which is the only way to
+# see this defect: one project on its own looks correct whichever directory it picks.
+if [ "$PRINT_STATE" = 1 ]; then
+    index=0
+    for arg in "${LAUNCH_ARGS[@]}"; do
+        index=$((index + 1))
+        [ "$arg" = --state ] && { printf '%s\n' "${LAUNCH_ARGS[$index]}"; exit 0; }
+    done
+    # No --state means the sidecar's own shared default, which is the state this flag exists to
+    # make visible: it is correct-looking for one project and wrong for two.
+    printf '%s\n' "$HOME/.local/state/rengine"; exit 0
 fi
 
 log() { printf '[editor] %s\n' "$*" >&2; }
