@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "declaration-reporting",
+      "kind": "constraint",
+      "anchor": {
+        "start": 32,
+        "end": 32,
+        "snippet": "export async function readDeclaration(rootPath) {"
+      },
+      "note": "A malformed, oversized or unknown-contract declaration is returned as { declared: true, error, formats: [] } rather than thrown: the listing route shows it and the workspace, editor and other roots keep working. Only the first three schema problems are reported to keep the status line readable. Defaults for timeoutMs/maxBytes are filled here so every consumer sees the effective bounds.",
+      "refs": [
+        "docs/specs/074-project-format-registry.md"
+      ]
+    },
+    {
+      "id": "execution-boundary",
+      "kind": "constraint",
+      "anchor": {
+        "start": 64,
+        "end": 64,
+        "snippet": "export async function runCommand(rootPath, spec, values) {"
+      },
+      "note": "Argv is literal after substituting only ${file}/${entry}; there is no shell, stdin is closed, cwd is the project root and the environment is the sidecar's shell environment (same PATH augmentation as terminals). Timeout and oversized stdout kill the child with SIGKILL so a hung producer never holds the request open; the first non-empty stderr line is carried in the error message because the pane and the agent show that text. Output is never cached: paging an entry re-runs the command, which is the honest reading of 'commands run only on explicit open or refresh'.",
+      "refs": [
+        "docs/specs/074-project-format-registry.md"
+      ]
+    },
+    {
+      "id": "tree-sanitization",
+      "kind": "rationale",
+      "anchor": {
+        "start": 95,
+        "end": 95,
+        "snippet": "function sanitizeTree(value) {"
+      },
+      "note": "Only name/dirs/files with name/path/size survive; producer extras (relith-rez offset/time/type) are dropped so the native client and agents see one shape. Depth 64 and 200,000 nodes bound recursion and memory below the 4 MiB stdout default; a malformed node fails the whole preview rather than showing a partial tree.",
+      "refs": [
+        "docs/specs/074-project-format-registry.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/server/formats.mjs",
+    "sha256": "7538b27f3a6c179dd2b4d369c64cce55d6c7260a03720a4e2c3a7f260c8e5ca5",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

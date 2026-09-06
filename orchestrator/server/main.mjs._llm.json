@@ -5,8 +5,8 @@
       "id": "local-session-capability",
       "kind": "constraint",
       "anchor": {
-        "start": 30,
-        "end": 30,
+        "start": 31,
+        "end": 31,
         "snippet": "export async function startServer({ stateDir, port = 0 } = {}) {"
       },
       "note": "This is a loopback-only desktop service. HTTP and WebSocket requests need the private runtime token and compatible Origin; it is not the Quest pairing protocol. Tokens stay in mode-0600 local state, never tracked files. Slow sockets reconnect to bounded retained output without stopping sessions. The retired browser bundle is not served; a later web client needs separate delivery authorization. State advertises handoff and desktopActions version 1. Presented requires a session attached on that socket. Desktop registration/action acknowledgement use the same authenticated events connection; discovery/reload route through the ephemeral desktop broker. These are local workflow bindings, not protection against an authenticated client deliberately forging readiness or displayed roots.",
@@ -14,11 +14,24 @@
         "docs/specs/055-nolf-workspace-goal.md",
         "docs/specs/062-agent-desktop-actions.md"
       ]
+    },
+    {
+      "id": "format-registry-routes",
+      "kind": "rationale",
+      "anchor": {
+        "start": 61,
+        "end": 61,
+        "snippet": "case '/api/formats': value = await listFormats(store.root(query.get('rootId'))); break;"
+      },
+      "note": "The host serves the format registry so a directly connected desktop and the service tests need no supervisor; the replaceable worker serves the same three routes for the live layered runtime whose host predates them. Both advertise formatRegistry: 1. Declared commands run only from format-preview (explicit open/refresh/agent call), never from tree listing.",
+      "refs": [
+        "docs/specs/074-project-format-registry.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/server/main.mjs",
-    "sha256": "eed6e3a2c83732c8738e60479e78b6035cfa51a6d96af5de183a0a5da997cefe",
+    "sha256": "65ce1a46306d8bdfc8b63133e7cb7e00ecc7ee07a56864ca96e79e90791b697f",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

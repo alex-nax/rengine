@@ -102,6 +102,16 @@
 #define RE_METRIC_SCROLLBAR_SIZE 14
 #define RE_METRIC_SCROLLBAR_THUMB_MIN 20
 #define RE_METRIC_SCROLLBAR_THUMB_INSET 2
+#define RE_METRIC_FORMAT_TOOLBAR_HEIGHT 26
+#define RE_METRIC_FORMAT_MODE_WIDTH 75
+#define RE_METRIC_FORMAT_ACTION_WIDTH 90
+#define RE_METRIC_FORMAT_PAGE_WIDTH 70
+#define RE_METRIC_FORMAT_ROW_ADVANCE 30
+#define RE_METRIC_FORMAT_ROW_HEIGHT 22
+#define RE_METRIC_FORMAT_SIZE_WIDTH 110
+#define RE_METRIC_FORMAT_ENTRY_PERCENT 50
+#define RE_METRIC_FORMAT_HEADER_HEIGHT 22
+#define RE_METRIC_FORMAT_TREE_DEPTH 10
 /* Applies the palette and microui metrics; the font pointer and size.y stay runtime values. */
 static inline void re_theme_apply(mu_Style *style) {
   style->colors[MU_COLOR_TEXT] = RE_COLOR_TEXT;

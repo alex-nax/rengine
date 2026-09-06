@@ -462,6 +462,46 @@
       "deliverable": "docs/evidence for the Windows OpenGL adapter",
       "external_references": [],
       "evidence": []
+    },
+    {
+      "id": 63,
+      "milestone": "O1",
+      "category": "editor",
+      "priority": "medium",
+      "description": "Register project file formats through a versioned declaration and run their bounded preview commands.",
+      "acceptance_criteria": [
+        "contracts/project-v1.schema.json defines contract 1 (formats with id, title, case-insensitive match globs, modes, default, literal argv preview/entry commands with ${file}/${entry} placeholders and timeoutMs/maxBytes bounds); the service rejects unknown contracts, shell-style argv[0], unknown placeholders, missing keys and non-array commands, and reports a malformed declaration visibly without disabling the root.",
+        "Formats, preview (tree/text), entry (size, SHA-256, text when UTF-8 without NUL, hex window) and raw byte-window routes run declared commands only on explicit requests, inside the authenticated root boundary, with cwd = project root, the shell environment, no shell, and fail with stderr's first line on non-zero exit, timeout or oversized output; the host and the replaceable workspace worker both serve them.",
+        "The root-bound MCP tool preview_file returns the parsed subtree or text and entry facts through the identical command; service tests exercise host, worker and MCP paths with a temporary project producer, and the nolf-improved declaration with relith-rez is recorded as a real consumer check."
+      ],
+      "passes": false,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/074-project-format-registry.md, contracts/project-v1.schema.json, orchestrator/server/formats.mjs and its tests",
+      "external_references": [
+        "nolf-improved docs/specs/feature-1614-rez-format-registration.md"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 64,
+      "milestone": "O1",
+      "category": "editor",
+      "priority": "medium",
+      "description": "Open registered formats in the native editor with raw hex and preview modes.",
+      "acceptance_criteria": [
+        "A tab whose file name matches a registered format opens in the declared default mode with a visible switch among its modes; raw is a read-only hex view (offset, 16 bytes per row, ASCII column) over a bounded paged window and is the fallback for every file the text read rejects; the chosen mode survives GUI restart.",
+        "Preview shows a collapsible tree with sizes for kind tree and a read-only text pane for kind text; selecting a tree file with an entry command shows its bytes read-only as text or hex; a failing command shows stderr's first line, names the command and offers Retry; Save and drafts stay text-only.",
+        "A native fixture drives open, mode switching, tree expansion, entry selection, restart, failure and unregistered-binary fallback through real SDL events; the owner verifies nolf/NOLF.REZ in the real project window after a layered update."
+      ],
+      "passes": false,
+      "dependencies": [
+        63
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "orchestrator/native/formatview.c, hexview.c, native-format-registry.spec.mjs and evidence",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }

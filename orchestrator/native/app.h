@@ -4,20 +4,21 @@
 #include "terminal.h"
 #include "editor.h"
 #include "game.h"
+#include "formatview.h"
 enum { RE_TREE = 1, RE_EDITOR, RE_TERMINAL, RE_SESSIONS, RE_GAME };
 typedef struct {
   bool used, dirty, conflict, discarding; int type, generation, saved, checkpoint, checkpoint_flight;
   char root[65], session[65], path[2048], title[256], version[65], error[512];
-  cJSON *data; ReTerminal *terminal; ReEditor *editor; ReGame *game;
+  cJSON *data; ReTerminal *terminal; ReEditor *editor; ReGame *game; ReFormatView *format;
   mu_Rect rect, header; Uint64 edited;
 } ReTab;
 typedef struct { int id, operation, tab, generation, revision; } RePending;
 typedef struct { int first, count, selected, width, tab; } ReTabStrip;
-typedef struct {
+typedef struct ReApp {
   ReNet *net; ReSocket *events; ReLayout layout;
   ReTab tabs[RE_TABS]; RePending pending[128];
   ReTabStrip strips[RE_PANES];
-  cJSON *state, *previous_layout, *controls;
+  cJSON *state, *previous_layout, *controls, *formats;
   char root[65], initial_terminal[65], initial_agent[65], initial_game[65];
   char project_input[1024], agent[256], status[512];
   bool initialized, connected, vim, layout_dirty, quitting;
@@ -36,6 +37,10 @@ bool re_app_quit(ReApp *app);
 cJSON *re_app_inspect(ReApp *app);
 int re_app_tab(ReApp *app, int type, const char *root, const char *path, const char *session, const char *title);
 void re_app_load(ReApp *app, int tab);
+void re_app_load_entry(ReApp *app, int tab);
+void re_app_mode(ReApp *app, int tab, int mode);
+const cJSON *re_app_format_record(ReApp *app, ReTab *tab);
+void re_app_control(ReApp *app, mu_Context *ui, const char *role, const char *key, int tab);
 void re_app_save(ReApp *app, int tab);
 void re_app_discard(ReApp *app, int tab);
 void re_app_action(ReApp *app, const char *route, const cJSON *body);

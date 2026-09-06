@@ -25,7 +25,7 @@ const server = new McpServer({ name: 'rengine-workspace', version: '1.0.0' }, {
   instructions: 'These tools address the project bound when this agent was launched. List sessions before selecting a process. Closing a workspace view retains the process; stop_session explicitly stops it. File reads use disk text unless useDraft is requested.',
 });
 const tool = (name, description, inputSchema, readOnlyHint, action) => server.registerTool(name, {
-  description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script'].includes(name), openWorldHint: name === 'open_script' },
+  description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script'].includes(name), openWorldHint: ['open_script', 'preview_file'].includes(name) },
 }, async values => {
   try {
     const state = await scopedState();
@@ -96,6 +96,19 @@ tool('session_output', 'Read the bounded tail of a project session output buffer
   ownSession(id, state);
   const session = await call(`session?${new URLSearchParams({ id })}`);
   return { ...session, output: session.output.slice(-maxCharacters), truncated: session.output.length > maxCharacters };
+});
+const formatCapability = state => { if (state.capabilities.formatRegistry !== 1) throw new Error('This retained service predates the project format registry. Update the workspace layer first.'); };
+tool('preview_file', 'Preview a file registered in the project’s .rengine/project.json by running its declared preview command (the project’s own executable, no shell): returns the sanitized subtree at dir expanded depth levels, or read-only text. With entry, runs the entry command and returns size, SHA-256 and the text when it is UTF-8. Never writes.', {
+  path: z.string(), entry: z.string().optional(), dir: z.string().default(''), depth: z.number().int().min(1).max(8).default(1),
+}, false, async ({ path, entry, dir, depth }, state) => {
+  formatCapability(state);
+  const result = await call('format-preview', { rootId: context.rootId, path, ...(entry !== undefined ? { entry } : {}) });
+  if (result.kind !== 'tree') { const { window, ...rest } = result; if (rest.text?.length > 32000) { rest.text = rest.text.slice(0, 32000); rest.truncated = true; } return rest; }
+  let node = result.tree;
+  for (const part of dir.split('/').filter(Boolean)) node = node.dirs.find(x => x.name === part) ?? (() => { throw new Error(`Directory ${dir} is not in the preview tree.`); })();
+  const count = n => n.files.length + n.dirs.reduce((sum, d) => sum + count(d), 0);
+  const slice = (n, level) => ({ name: n.name, files: n.files, dirs: n.dirs.map(d => level <= depth ? slice(d, level + 1) : { name: d.name, dirs: d.dirs.length, files: d.files.length }) });
+  return { ...result, dir, depth, totalFiles: count(result.tree), tree: slice(node, 1) };
 });
 tool('nolf_preflight', 'Check this project for the native NOLF executable, game data and surface prerequisites.', {}, true,
   async () => call(`game-config?${new URLSearchParams({ rootId: context.rootId })}`));

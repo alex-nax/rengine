@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { openScript } from './scripts.mjs';
+import { listFormats, formatPreview, readBytes } from '../server/formats.mjs';
 import { randomBytes } from 'node:crypto';
 import { WebSocket, WebSocketServer } from 'ws';
 import { Desktops } from '../server/desktops.mjs';
@@ -22,12 +23,18 @@ export async function startWorker(host) {
       if (target.pathname === '/health') { json(res, 200, { protocol: 1, instance: host.instance, worker: process.pid }); return; }
       if (!authenticated(req, token, url)) fail('Workspace authentication required.', 401);
       if (req.method === 'GET' && target.pathname === '/api/state') {
-        const state = await refresh(); json(res, 200, { ...state, capabilities: { ...state.capabilities, desktopActions: 1, layeredUpdates: 1, scriptActions: 1 } });
+        const state = await refresh(); json(res, 200, { ...state, capabilities: { ...state.capabilities, desktopActions: 1, layeredUpdates: 1, scriptActions: 1, formatRegistry: 1 } });
       } else if (req.method === 'POST' && target.pathname === '/api/script-open') {
         const data = await body(req), state = await refresh(); json(res, 200, await openScript(host, desktops, data, state));
       } else if (req.method === 'POST' && target.pathname === '/api/session-view') {
         const data = await body(req); await refresh();
         json(res, 200, await desktops.attach(data.rootId, data.desktopId, snapshot(data.id)));
+      } else if (req.method === 'GET' && target.pathname === '/api/formats') {
+        await refresh(); json(res, 200, await listFormats(root(target.searchParams.get('rootId'))));
+      } else if (req.method === 'POST' && target.pathname === '/api/format-preview') {
+        const data = await body(req); await refresh(); json(res, 200, await formatPreview(root(data.rootId), data));
+      } else if (req.method === 'GET' && target.pathname === '/api/bytes') {
+        await refresh(); json(res, 200, await readBytes(root(target.searchParams.get('rootId')), Object.fromEntries(target.searchParams)));
       } else if (req.method === 'GET' && target.pathname === '/api/desktops') {
         await refresh(); json(res, 200, { desktops: desktops.list(target.searchParams.get('rootId')) });
       } else if (req.method === 'GET' && target.pathname === '/api/runtime-desktops') {

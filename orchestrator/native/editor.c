@@ -8,7 +8,7 @@ struct ReEditor {
   uint32_t *text; int length, capacity, revision;
   STB_TexteditState state;
   int scroll, horizontal, cw, lh;
-  bool vim, insert, dragging; char pending, ignore_text;
+  bool vim, insert, dragging, readonly; char pending, ignore_text;
   ReScrollbar vertical, horizontal_bar; float wheel_x, wheel_y;
   int extent_revision, line_count, longest_line;
 };
@@ -30,7 +30,7 @@ struct ReEditor {
 #define KEY_PAGEDOWN (KEY_BASE + 14)
 
 static bool insert_chars(ReEditor *e, int at, const uint32_t *text, int length) {
-  if (length < 0 || e->length > 2 * 1024 * 1024 - length) return false;
+  if (e->readonly || length < 0 || e->length > 2 * 1024 * 1024 - length) return false;
   int needed = e->length + length;
   if (needed > e->capacity) {
     int capacity = re_max(needed, re_max(256, e->capacity * 2));
@@ -41,6 +41,7 @@ static bool insert_chars(ReEditor *e, int at, const uint32_t *text, int length) 
   memcpy(e->text + at, text, (size_t)length * sizeof(*text)); e->length += length; e->revision++; return true;
 }
 static void delete_chars(ReEditor *e, int at, int length) {
+  if (e->readonly) return;
   memmove(e->text + at, e->text + at + length, (size_t)(e->length - at - length) * sizeof(*e->text));
   e->length -= length; e->revision++;
 }
@@ -99,6 +100,7 @@ char *re_editor_text(ReEditor *e) {
 }
 int re_editor_revision(const ReEditor *e) { return e->revision; }
 void re_editor_vim(ReEditor *e, bool enabled) { e->vim = enabled; e->insert = !enabled; e->pending = 0; }
+void re_editor_readonly(ReEditor *e, bool enabled) { e->readonly = enabled; }
 const char *re_editor_mode(const ReEditor *e) { return !e->vim ? "Edit" : e->insert ? "Vim INSERT" : "Vim NORMAL"; }
 void re_editor_scrollbars(ReEditor *e, cJSON *array) { re_scrollbar_inspect(&e->vertical, array); re_scrollbar_inspect(&e->horizontal_bar, array); }
 static mu_Rect viewport(ReEditor *e, mu_Rect r, int cw, int lh) {

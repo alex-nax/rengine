@@ -1,5 +1,47 @@
 # Progress Log
 
+## Session 22 (macos) — 2026-09-06 — Project format registry
+
+**Owner scope**: `*.rez` files in nolf-improved open in the editor with a raw hex mode by default
+and a Preview mode showing the archive's contents (owner direction 2026-09-06, lane authorized
+from the orchestrator session). Implemented generically as spec 074: a project declares formats
+and the executables that produce their previews; rEngine owns the contract, execution boundary,
+hex view and modes. Worked on `feat/format-registry` in `.cache/worktrees/format-registry`
+because Codex holds an uncommitted Vulkan adapter (spec 073) on the main tree; not merged, not
+pushed. Inventory rows F63 (contract/service/MCP) and F64 (native modes) added; graph regenerated.
+
+**Implemented**: `contracts/project-v1.schema.json` (contract 1) with a bounded Draft 2020-12
+subset validator; `orchestrator/server/formats.mjs` reads `<root>/.rengine/project.json`, reports
+malformed declarations visibly without disabling the root, matches case-insensitive globs and runs
+literal argv commands (`${file}`/`${entry}` only, cwd = root, shell environment, no shell, SIGKILL
+on timeout/oversize, stderr's first line on failure). Routes `formats`, `format-preview`
+(tree/text/entry with size, SHA-256, text when UTF-8, hex window) and `bytes` are served by the
+host and the replaceable workspace worker (`formatRegistry: 1`); `resolveInRoot` is the shared
+boundary. MCP `preview_file` slices the tree by dir/depth and is marked open-world. Native:
+`hexview.c` (64 KiB window, 16 bytes per row, ASCII column, paging), `formatview.c` (mode switch,
+microui treenode tree with sizes, entry split, refresh/retry, read-only text via a new editor
+read-only flag), app/workspace wiring with pending-mode decisions, automatic raw fallback for
+text-rejected files, mode persistence in the layout, and inspectable controls. New `format`
+metrics in `theme.json`; `CMakeLists.txt` regenerated from `cmake.toml`.
+
+**Verification**: Service tests failed before the module existed, then `npm test`: 31 passes
+(4.86 s; final gate run 10.76 s). Native fixture red before wiring, then 1 pass (5.15 s); `npm run test:desktop`:
+14 passes, 216.23 s, exit 0. CTest 4 passes (0.74 s); design check, `./init.sh`, sidecar check/stamp for eleven
+files pass. Real consumer check against nolf-improved: declaration validates unchanged, tree of
+`nolf/NOLF.REZ` in 69 ms (4,754 files), entries with matching sizes/SHA-256, entry paging, raw
+window of the 618 MB archive, failing entry with relith-rez's stderr, and `preview_file` at
+6.4 KB per slice. Evidence: `docs/evidence/project-format-registry-macos-2026-09-06.md`.
+
+**Remaining**: Owner merges `feat/format-registry` into main after Codex's tree settles, runs
+`update_workspace` (workspace, desktop, connector) so the live window and connector load the
+routes and tool, then verifies `nolf/NOLF.REZ` opens raw and previews in the real project window;
+F63/F64 stay false until that judgment. Deviations from the nolf-improved proposal are additive:
+optional `dir`/`depth` on `preview_file`, hex `window` and `offset/length` paging on entries,
+`bytes` route for raw windows; the declaration needs no change. KI-037 records Windows `.exe`
+resolution, entry re-run cost and the treenode pool bound.
+
+---
+
 ## Session 21 (macos) — 2026-09-06 — Project windows, interactive flows and curated skills
 
 **Owner scope**: NOLF dogfooding needs a separate window with the current agent, inspection and

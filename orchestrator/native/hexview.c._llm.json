@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "bounded-window",
+      "kind": "constraint",
+      "anchor": {
+        "start": 11,
+        "end": 11,
+        "snippet": "bool re_hex_set(ReHexView *v, const char *hex, long long base, long long size) {"
+      },
+      "note": "The view holds one 64 KiB window decoded from the service's hex string; base and size are 64-bit so offsets into multi-hundred-megabyte archives are exact while the window itself stays small enough to embed in the struct. Rows are formatted on demand (offset, 8+8 byte groups, printable ASCII with dots) and the first row is exposed for inspection so fixtures assert bytes, not pixels.",
+      "refs": [
+        "docs/specs/074-project-format-registry.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/hexview.c",
+    "sha256": "765b6f776aeb11d59601d3fc1a25f0689645b0b6017e4be356bc8ce044e60ff7",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

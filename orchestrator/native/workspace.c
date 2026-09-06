@@ -7,7 +7,7 @@ static void inspect_rect(ReApp *a, const char *role, const char *key, int tab, m
   cJSON_AddNumberToObject(j, "tab", tab); cJSON_AddItemToObject(j, "rect", cJSON_CreateIntArray((int[]){r.x, r.y, r.w, r.h}, 4));
   cJSON_AddItemToArray(a->controls, j);
 }
-static void inspect_control(ReApp *a, mu_Context *ui, const char *role, const char *key, int tab) {
+void re_app_control(ReApp *a, mu_Context *ui, const char *role, const char *key, int tab) {
   if (!a->controls) return;
   mu_Rect r = ui->last_rect, clip = mu_get_clip_rect(ui);
   int x = re_max(r.x, clip.x), y = re_max(r.y, clip.y);
@@ -16,7 +16,7 @@ static void inspect_control(ReApp *a, mu_Context *ui, const char *role, const ch
   inspect_rect(a, role, key, tab, mu_rect(x, y, right - x, bottom - y));
 }
 static int button(ReApp *a, mu_Context *ui, const char *label, const char *role, const char *key, int tab) {
-  int result = mu_button(ui, label); inspect_control(a, ui, role, key, tab); return result;
+  int result = mu_button(ui, label); re_app_control(a, ui, role, key, tab); return result;
 }
 static const char *root_name(ReApp *a, const char *id) {
   const cJSON *root = NULL;
@@ -71,6 +71,27 @@ static void sessions_ui(ReApp *a, mu_Context *ui) {
     char label[2300]; snprintf(label, sizeof(label), "%s · %s", root_name(a, re_string(draft, "rootId")), re_string(draft, "path"));
     if (mu_button_ex(ui, label, 0, 0)) re_app_tab(a, RE_EDITOR, re_string(draft, "rootId"), re_string(draft, "path"), "", re_string(draft, "path"));
   }
+}
+static void editor_ui(ReApp *a, mu_Context *ui, int index, mu_Rect content, mu_Rect below) {
+  ReTab *t = &a->tabs[index]; int mode = t->format ? re_format_mode(t->format) : RE_MODE_TEXT, action = RE_FORMAT_NONE, top = RE_METRIC_EDITOR_TOP;
+  if (t->format && mode != RE_MODE_PENDING) { action = re_format_ui(t->format, a, ui, re_app_format_record(a, t), index, t->error); top += RE_METRIC_FORMAT_ROW_ADVANCE; }
+  if (mode == RE_MODE_TEXT || mode == RE_MODE_PENDING) {
+    mu_layout_row(ui, 4, (int[]){RE_METRIC_EDITOR_SAVE_WIDTH, RE_METRIC_EDITOR_DISCARD_WIDTH, RE_METRIC_EDITOR_MODE_WIDTH, -1}, RE_METRIC_EDITOR_TOOLBAR_HEIGHT);
+    if (button(a, ui, "Save", "save", "", index)) re_app_save(a, index);
+    if (button(a, ui, "Discard", "discard", "", index)) re_app_discard(a, index);
+    mu_label(ui, t->editor ? re_editor_mode(t->editor) : "Loading…");
+    mu_label(ui, t->conflict ? "Conflict: draft preserved" : t->dirty ? "Unsaved · local draft" : "Saved");
+    t->rect = mu_rect(content.x + RE_METRIC_EDITOR_INSET, content.y + top, re_max(0, content.w - 2 * RE_METRIC_EDITOR_INSET), re_max(0, content.h - RE_METRIC_EDITOR_BOTTOM - (top - RE_METRIC_EDITOR_TOP)));
+    if (*t->error) {
+      mu_layout_set_next(ui, mu_rect(content.x + RE_METRIC_EDITOR_INSET, content.y + content.h - RE_METRIC_EDITOR_ERROR_HEIGHT - RE_METRIC_EDITOR_ERROR_INSET, content.w - 2 * RE_METRIC_EDITOR_INSET, RE_METRIC_EDITOR_ERROR_HEIGHT), 0); mu_label(ui, t->error);
+    }
+  } else if (mode == RE_MODE_RAW || !re_format_scrolls(t->format)) {
+    t->rect = mu_rect(content.x + RE_METRIC_EDITOR_INSET, content.y + RE_METRIC_EDITOR_TOP, re_max(0, content.w - 2 * RE_METRIC_EDITOR_INSET), re_max(0, content.h - RE_METRIC_EDITOR_BOTTOM));
+  } else t->rect = below;
+  if (action == RE_FORMAT_MODE) re_app_mode(a, index, re_format_requested(t->format));
+  else if (action == RE_FORMAT_LOAD) { t->error[0] = 0; re_app_load(a, index); }
+  else if (action == RE_FORMAT_ENTRY) re_app_load_entry(a, index);
+  else if (action == RE_FORMAT_PAGE) { if (*re_format_entry(t->format)) re_app_load_entry(a, index); else re_app_load(a, index); }
 }
 static void pane_header(ReApp *a, mu_Context *ui, int n) {
   RePane *p = &a->layout.panes[n]; ReTabStrip *strip = &a->strips[n];
@@ -146,7 +167,7 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
       }
     }
     mu_textbox(ui, a->project_input, sizeof(a->project_input));
-    inspect_control(a, ui, "textbox", "project", -1);
+    re_app_control(a, ui, "textbox", "project", -1);
     if (button(a, ui, "Add project", "toolbar", "Add project", -1)) { cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "path", a->project_input); re_app_action(a, "roots", j); cJSON_Delete(j); }
     mu_label(ui, "Agent CLI"); mu_textbox(ui, a->agent, sizeof(a->agent));
     mu_end_window(ui);
@@ -162,26 +183,22 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
       mu_end_window(ui);
     }
     snprintf(title, sizeof(title), "Pane content %d", n);
-    mu_Rect content = mu_rect(p->rect.x, p->rect.y + RE_METRIC_PANE_CONTENT_TOP, p->rect.w, re_max(0, p->rect.h - RE_METRIC_PANE_CONTENT_TOP));
-    mu_get_container(ui, title)->rect = content;
-    if (!p->count) continue;
+    mu_Rect content = mu_rect(p->rect.x, p->rect.y + RE_METRIC_PANE_CONTENT_TOP, p->rect.w, re_max(0, p->rect.h - RE_METRIC_PANE_CONTENT_TOP)), below = mu_rect(0, 0, 0, 0);
+    if (!p->count) { mu_get_container(ui, title)->rect = content; continue; }
     int index = p->tabs[p->selected]; ReTab *t = &a->tabs[index];
-    int content_opts = t->type == RE_TREE || t->type == RE_SESSIONS ? opts & ~MU_OPT_NOSCROLL : opts;
+    bool format_view = t->type == RE_EDITOR && t->format && re_format_scrolls(t->format);
+    int content_opts = t->type == RE_TREE || t->type == RE_SESSIONS || format_view ? opts & ~MU_OPT_NOSCROLL : opts;
+    if (format_view && re_format_split(t->format)) {
+      int h = content.h * RE_METRIC_FORMAT_ENTRY_PERCENT / 100;
+      below = mu_rect(content.x + RE_METRIC_EDITOR_INSET, content.y + content.h - h, re_max(0, content.w - 2 * RE_METRIC_EDITOR_INSET), re_max(0, h - RE_METRIC_EDITOR_INSET)); content.h -= h;
+    }
+    mu_get_container(ui, title)->rect = content;
     if (mu_begin_window_ex(ui, title, content, content_opts)) {
       mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_PANE_ROOT_ROW_HEIGHT); mu_label(ui, root_name(a, t->root));
       if (t->type == RE_TREE) tree_ui(a, ui, index);
       else if (t->type == RE_SESSIONS) sessions_ui(a, ui);
-      else if (t->type == RE_EDITOR) {
-        mu_layout_row(ui, 4, (int[]){RE_METRIC_EDITOR_SAVE_WIDTH, RE_METRIC_EDITOR_DISCARD_WIDTH, RE_METRIC_EDITOR_MODE_WIDTH, -1}, RE_METRIC_EDITOR_TOOLBAR_HEIGHT);
-        if (button(a, ui, "Save", "save", "", index)) re_app_save(a, index);
-        if (button(a, ui, "Discard", "discard", "", index)) re_app_discard(a, index);
-        mu_label(ui, t->editor ? re_editor_mode(t->editor) : "Loading…");
-        mu_label(ui, t->conflict ? "Conflict: draft preserved" : t->dirty ? "Unsaved · local draft" : "Saved");
-        t->rect = mu_rect(content.x + RE_METRIC_EDITOR_INSET, content.y + RE_METRIC_EDITOR_TOP, re_max(0, content.w - 2 * RE_METRIC_EDITOR_INSET), re_max(0, content.h - RE_METRIC_EDITOR_BOTTOM));
-        if (*t->error) {
-          mu_layout_set_next(ui, mu_rect(content.x + RE_METRIC_EDITOR_INSET, content.y + content.h - RE_METRIC_EDITOR_ERROR_HEIGHT - RE_METRIC_EDITOR_ERROR_INSET, content.w - 2 * RE_METRIC_EDITOR_INSET, RE_METRIC_EDITOR_ERROR_HEIGHT), 0); mu_label(ui, t->error);
-        }
-      } else if (t->type == RE_TERMINAL) {
+      else if (t->type == RE_EDITOR) editor_ui(a, ui, index, content, below);
+      else if (t->type == RE_TERMINAL) {
         t->rect = mu_rect(content.x + RE_METRIC_TERMINAL_INSET, content.y + RE_METRIC_TERMINAL_TOP, re_max(0, content.w - 2 * RE_METRIC_TERMINAL_INSET), re_max(0, content.h - RE_METRIC_TERMINAL_BOTTOM));
       } else if (t->game) {
         mu_layout_row(ui, 2, (int[]){RE_METRIC_GAME_CAPTURE_WIDTH, -1}, RE_METRIC_GAME_ROW_HEIGHT);
@@ -190,7 +207,7 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
         t->rect = mu_rect(content.x + RE_METRIC_GAME_INSET, content.y + RE_METRIC_GAME_TOP, re_max(0, content.w - 2 * RE_METRIC_GAME_INSET), re_max(0, content.h - RE_METRIC_GAME_BOTTOM));
       }
       mu_end_window(ui);
-      if (a->controls && (t->type == RE_TREE || t->type == RE_SESSIONS)) {
+      if (a->controls && (t->type == RE_TREE || t->type == RE_SESSIONS || format_view)) {
         mu_Container *container = mu_get_container(ui, title);
         if (container->content_size.y + ui->style->padding * 2 > container->body.h) {
           inspect_rect(a, "scrollbar", "y", index, mu_rect(container->body.x + container->body.w, container->body.y, ui->style->scrollbar_size, container->body.h));
@@ -209,6 +226,7 @@ void re_app_draw(ReApp *a, ReDraw *draw) {
     if (t->rect.w <= 0 || t->rect.h <= 0) { if (t->terminal) re_terminal_release(t->terminal); continue; }
     if (t->terminal) re_terminal_draw(t->terminal, draw, t->rect, a->focus == i);
     if (t->editor) re_editor_draw(t->editor, draw, t->rect, a->focus == i);
+    else if (t->format) re_format_draw(t->format, draw, t->rect, a->focus == i);
     if (t->game) re_game_draw(t->game, draw, t->rect);
   }
   for (int n = 0; n < RE_PANES; n++) if (a->layout.panes[n].used && a->layout.panes[n].axis)
@@ -219,10 +237,11 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
   if (e->type == SDL_MOUSEMOTION) { a->mouse_x = e->motion.x; a->mouse_y = e->motion.y; }
   if (e->type == SDL_MOUSEBUTTONDOWN || e->type == SDL_MOUSEBUTTONUP) { a->mouse_x = e->button.x; a->mouse_y = e->button.y; }
   if (e->type == SDL_MOUSEWHEEL && !a->quitting) {
-    for (int i = 0; i < RE_TABS; i++) if ((a->tabs[i].terminal || a->tabs[i].editor) && re_inside(a->tabs[i].rect, a->mouse_x, a->mouse_y)) {
+    for (int i = 0; i < RE_TABS; i++) if ((a->tabs[i].terminal || a->tabs[i].editor || a->tabs[i].format) && re_inside(a->tabs[i].rect, a->mouse_x, a->mouse_y)) {
       ReTab *t = &a->tabs[i];
       if (t->terminal) { if (!re_terminal_mouse(t->terminal, e, a->mouse_x, a->mouse_y)) re_terminal_event(t->terminal, e); }
-      else re_editor_event(t->editor, e, t->rect, re_draw_cell_width(draw), re_draw_line_height(draw));
+      else if (t->editor) re_editor_event(t->editor, e, t->rect, re_draw_cell_width(draw), re_draw_line_height(draw));
+      else re_format_event(t->format, e, t->rect, re_draw_cell_width(draw), re_draw_line_height(draw));
       return true;
     }
     if (a->focus >= 0 && a->tabs[a->focus].game && re_inside(a->tabs[a->focus].rect, a->mouse_x, a->mouse_y)) {
@@ -270,6 +289,7 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
       ReTab *t = &a->tabs[a->focus];
       if (t->terminal) re_terminal_event(t->terminal, e);
       if (t->editor) re_editor_event(t->editor, e, t->rect, re_draw_cell_width(draw), re_draw_line_height(draw));
+      else if (t->format) re_format_event(t->format, e, t->rect, re_draw_cell_width(draw), re_draw_line_height(draw));
     }
     a->focus = -1;
   }
@@ -291,7 +311,8 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
     int before = re_editor_revision(t->editor);
     re_editor_event(t->editor, e, t->rect, re_draw_cell_width(draw), re_draw_line_height(draw));
     if (before != re_editor_revision(t->editor)) { t->edited = SDL_GetTicks64(); t->dirty = true; }
-  } else if (t->terminal) re_terminal_event(t->terminal, e);
+  } else if (t->format) re_format_event(t->format, e, t->rect, re_draw_cell_width(draw), re_draw_line_height(draw));
+  else if (t->terminal) re_terminal_event(t->terminal, e);
   else if (t->game) re_game_event(t->game, e);
-  return (t->editor || t->terminal || t->game) && (e->type == SDL_KEYDOWN || e->type == SDL_KEYUP || e->type == SDL_TEXTINPUT);
+  return (t->editor || t->terminal || t->game || t->format) && (e->type == SDL_KEYDOWN || e->type == SDL_KEYUP || e->type == SDL_TEXTINPUT);
 }

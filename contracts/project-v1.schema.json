@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rengine.local/contracts/project-v1.schema.json",
+  "title": "rEngine project declaration, contract 1",
+  "description": "Read from <root>/.rengine/project.json. Declares file formats whose previews are produced by the project's own executables (docs/specs/074-project-format-registry.md). Cross-field rules the service also enforces: default is one of modes; preview is required when modes contains preview; a preview command names ${file}; an entry command names ${file} and ${entry}; format ids are unique.",
+  "type": "object",
+  "required": ["contract", "project", "formats"],
+  "additionalProperties": false,
+  "properties": {
+    "contract": { "const": 1 },
+    "project": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "formats": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/format" }
+    }
+  },
+  "$defs": {
+    "mode": { "enum": ["raw", "preview", "text"] },
+    "argument": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "description": "A literal argv element; the only placeholders are ${file} and ${entry}.",
+      "pattern": "^(?:[^$]|\\$(?!\\{)|\\$\\{(?:file|entry)\\})*$"
+    },
+    "executable": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "description": "argv[0]: absolute, project-relative with a separator, or a bare PATH name. Never a shell expression.",
+      "pattern": "^[^|;&$`]+$"
+    },
+    "command": {
+      "type": "object",
+      "required": ["kind", "command"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["tree", "text", "bytes"] },
+        "command": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "prefixItems": [{ "$ref": "#/$defs/executable" }],
+          "items": { "$ref": "#/$defs/argument" }
+        },
+        "timeoutMs": { "type": "integer", "minimum": 1, "maximum": 600000, "default": 10000 },
+        "maxBytes": { "type": "integer", "minimum": 1, "maximum": 67108864, "default": 4194304 }
+      }
+    },
+    "format": {
+      "type": "object",
+      "required": ["id", "title", "match", "modes", "default"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 64 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "match": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256, "description": "Case-insensitive shell glob on the file name (*, ?, [...])." }
+        },
+        "modes": { "type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": true, "items": { "$ref": "#/$defs/mode" } },
+        "default": { "$ref": "#/$defs/mode" },
+        "preview": {
+          "allOf": [{ "$ref": "#/$defs/command" }],
+          "properties": { "kind": { "enum": ["tree", "text"] } }
+        },
+        "entry": {
+          "allOf": [{ "$ref": "#/$defs/command" }],
+          "properties": { "kind": { "const": "bytes" } }
+        }
+      }
+    }
+  }
+}
