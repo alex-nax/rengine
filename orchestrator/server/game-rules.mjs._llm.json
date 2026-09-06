@@ -13,11 +13,24 @@
       "refs": [
         "docs/specs/078-project-game-declaration.md"
       ]
+    },
+    {
+      "id": "working-directory",
+      "kind": "constraint",
+      "anchor": {
+        "start": 4,
+        "end": 4,
+        "snippet": "export const rootRelativeDirectory = value => value === '' || rootRelative(value); /* \"\" is the project root; see sidecar: working-directory */"
+      },
+      "note": "cwd is the one declared path where the empty string is meaningful: it names the project root, which is also the default when the key is absent, so a declaration can state the root explicitly without a special token. Everything else is the same confinement every declared path gets (no absolute path, no drive letter, no backslash, no \"..\" segment, no NUL), and spawnTerminal re-checks the resolved directory against the root before spawning, so a reader change alone can never widen where a game runs.",
+      "refs": [
+        "docs/specs/078-project-game-declaration.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/server/game-rules.mjs",
-    "sha256": "b3c98154d1727405ede03d4793eb7bb3ec25b7cf5ba37acb03b5e83be83e35e2",
+    "sha256": "6db0e0afa4003233a22d16d3c787e4afbe5b94e07de13b5b8f1eeba1444a0511",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

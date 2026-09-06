@@ -62,7 +62,7 @@
         "end": 102,
         "snippet": "if (title !== undefined && (typeof title !== 'string' || !title.trim() || title.length > 200)) fail('Session title must be a short string.');"
       },
-      "note": "Dashboard runs name their sessions (Script \u00b7 x.sh, Log \u00b7 title) and a declared game names its own (<title> \u00b7 <root>); the option is bounded and optional so every existing caller keeps the derived title, which no longer names any game. A game session also carries its declared surface and id so a restored tab picks the live view or the retained-output view. A retained host older than these fields ignores them, which is why the worker also returns the title on its own reply.",
+      "note": "Dashboard runs name their sessions (Script \u00b7 x.sh, Log \u00b7 title) and a declared game names its own (<title> \u00b7 <root>); the option is bounded and optional so every existing caller keeps the derived title, which no longer names any game. A game session also carries its declared surface and id so a restored tab picks the live view or the retained-output view. A retained host older than these fields ignores them, which is why the worker also returns the title on its own reply. A declared cwd travels the same way and is re-confined here: the resolved directory must be the root or inside it, so the working directory of a launched game can never be widened by a reader change alone.",
       "refs": [
         "docs/specs/075-project-dashboard.md"
       ]
@@ -70,7 +70,7 @@
   ],
   "source": {
     "path": "orchestrator/server/sessions.mjs",
-    "sha256": "bef6b64c8398240a9a8d97d8d8298b3f33822315dfe8fb8867e5e6c4ea4a8bfa",
+    "sha256": "cf7c094f0874f085c56d378bace1c855dfa2bf75a98ec4e277d1b897eeaeaaf0",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

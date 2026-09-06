@@ -1,5 +1,71 @@
 # Progress Log
 
+## Session 26 (macos) — 2026-09-06 — Per-project game declarations reworked to the contract-3 games array
+
+**Owner scope**: an explicit decision minutes after session 25 landed. This lane had implemented
+"contract 2 + optional root object `game`"; the owner's nolf-improved session had independently
+proposed an ARRAY under a contract bump (recorded there as F1615). The owner adopted the array
+superset, **without** that proposal's deprecated `nolf_preflight`/`launch_nolf` aliases. Same
+branch `feat/project-game`, same spec 078, same row F71 and known issue KI-041 — nothing
+renumbered; pushed to `origin/feat/project-game` after every commit, not merged.
+
+**Decided contract**: `contract` becomes the enum 1|2|3. Contract 3 = contract 2 plus the optional
+root key `games`, 1–16 records with unique kebab-case ids. The singular `game` is REMOVED outright
+with no alias — nothing had shipped it to a user, so there is no migration path to keep. Declaring
+`games` requires `contract: 3`, which is the point of the bump: an older reader answers *unknown
+contract 3* instead of *unknown key games*. New per-record `cwd` (root-relative, `""` = the project
+root, re-confined in `spawnTerminal`); `surface` `sdl2-interpose` renamed `embedded` everywhere
+including its platform-support message; `env` kept against the sibling proposal because NOLF's own
+launch needs `RELITH_HIDDEN_WINDOW`/`RELITH_SKIP_INTRO`.
+
+**Implemented**: `game-rules.mjs` gains unique-id and root-relative-`cwd` rules; `formats.mjs`
+gets one `SECTIONS` table so each optional block declares the contract it needs (dashboard 2,
+games 3) and reports `gamesError`/`dashboardError` independently of each other and of the formats.
+`game-config`, `POST /api/game`, `game_preflight` and `launch_game` take an optional `gameId`
+defaulting to the first declared game, with a 404 naming the declared ids for an unknown one.
+**Reuse is per game id, not per root** (the decision this lane had to make): a launch coalesces and
+reuses on the (root, game id) pair, so vtmb-vr can run its flat and VR targets at once; an
+undeclared project fails before the reuse lookup so a foreign game session can never be handed
+back. Native: the toolbar shows nothing without games, the declared title for one, and a `Games`
+button for several that opens a menu window below the toolbar (anchored at the control, clamped
+inside the window, drawn after the panes and owning its own pointer events). A ready entry is a
+left-aligned button; a failing one is a disabled label reading `<title> — unavailable: <first
+issue>`, mirroring the dashboard lane's unavailable action. Entries are preflighted per game id,
+cached, and re-preflighted whenever the menu opens, so a build makes an entry available without
+reconnecting; `re_app_inspect` exposes the rendered rows.
+
+**Verification**: red first — 6 of 43 service tests failed before the reader knew `games`. Then
+`npm test` 43 passes / 6.0 s; `npm run test:desktop` 18 passes / 310.3 s (the new multi-game menu
+test is the eighteenth); CTest 4 passes / 0.91 s; `./init.sh` (30 features); `design.py check`
+consistent; native build from a wiped `.cache/desktop` with zero warnings; sidecar
+index/repair/review/stamp/check clean for the nine touched files with `--index
+.cache/sidecars-contract3.sqlite`, four new entries added, and the same 18 pre-existing whole-tree
+diagnostics as on main in files this session did not touch.
+`RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run test:game-nolf`: 1 pass / 3.26 s, through a
+contract-3 declaration whose `games` array holds the NOLF record with `surface: "embedded"`.
+The clean rebuild caught a real defect: adding `game[65]` to `RePending` made the existing
+aggregate initialiser consume the `timeout` argument into the new array — fixed.
+
+**Consumers**: `contract2.test.mjs` is renamed `contracts.test.mjs` and pins both real
+declarations verbatim — vtmb-vr's live contract-3 document (formats + `vtmb-flat`/`vtmb-vr`, both
+`external`, + the reSource dashboard) and nolf-improved's live contract-2 document (formats +
+dashboard, no games), which still validates unchanged — plus a contract-1 document and the
+rejection of `games` under contract 2. `formats.test.mjs` and `dashboard.test.mjs` moved their
+unknown-contract case from 3 to 4.
+Evidence: `docs/evidence/project-game-macos-2026-09-06.md`; KI-041 records what stays open.
+
+**No new collisions**: `origin/main` holds F32–F69, specs through 076 and KI ids through KI-040;
+`origin/feat/integration-recipe` adds F70, spec 077 and KI-042. This lane keeps F71, spec 078 and
+KI-041.
+
+**Remaining**: owner merges `feat/project-game` into main, pushes, runs `update_workspace` with the
+workspace, desktop and connector layers, and verifies the two consumers' declarations in the live
+window; an SDL3 cooperative surface is its own spec; Windows unqualified (KI-014). A long
+unavailable-issue string clips at the games menu's right edge like every other long label in this
+desktop; the full text is in the preflight and the inspect payload.
+
+---
+
 ## Session 25 (macos) — 2026-09-06 — Per-project game declaration and the contract-2 reconciliation
 
 **Owner scope**: explicit direction (overriding the AGENTS.md pause note): remove the toolbar's

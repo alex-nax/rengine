@@ -118,4 +118,4 @@ flowchart TD
 | F67 | R2 | rengine | blocked | Implement the Claude Design update for the tree, editor, terminal and session browser. |
 | F68 | R2 | rengine | blocked | Implement the Claude Design menus, theme panel and theme files. |
 | F69 | R2 | rengine | blocked | Record Windows card evidence for the Claude Design update. |
-| F71 | O1 | rengine | blocked | Declare a project's game in .rengine/project.json (contract 2) and launch it from a title-labelled toolbar button, the launcher and generic agent tools. |
+| F71 | O1 | rengine | blocked | Declare a project's games in .rengine/project.json (contract 3, games array) and launch any of them from the toolbar, the launcher and generic agent tools. |
