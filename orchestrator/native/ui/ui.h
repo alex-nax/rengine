@@ -37,6 +37,12 @@ enum {                          /* opt flags; microui's MU_OPT_* still apply whe
 };
 
 void re_ui_begin(ReDraw *draw, double seconds);  /* once per frame, before any control */
+/* The one overlay layer (spec 066, spec 080 decision 5). Controls drawn between begin and end are
+   recorded rather than emitted, so the flush can place them above microui's replayed commands. */
+void re_ui_overlay_begin(void);
+void re_ui_overlay_end(void);
+void re_ui_overlay_flush(ReDraw *draw);          /* after the workspace's own commands */
+bool re_ui_overlay_pending(void);
 bool re_ui_animating(void);                      /* a transition is still running: schedule another frame */
 
 /* Controls. `icon` is an RE_ICON_* value or RE_ICON_UNKNOWN for none. */
@@ -45,6 +51,9 @@ int re_ui_select_ex(mu_Context *ctx, const char *label, int icon, int opt);
 int re_ui_textbox_ex(mu_Context *ctx, char *buffer, int size, int icon, const char *placeholder, int opt);
 int re_ui_checkbox_ex(mu_Context *ctx, const char *label, int *state, int opt);
 int re_ui_slider_ex(mu_Context *ctx, float *value, float low, float high, int opt);
+int re_ui_hue_slider(mu_Context *ctx, float *hue);          /* 0-360 degrees; the track is a gradient */
+int re_ui_menu_item(mu_Context *ctx, const char *label, int icon, const char *hint, bool marked);
+void re_ui_menu_separator(mu_Context *ctx);
 void re_ui_label_ex(mu_Context *ctx, const char *label, int opt);
 void re_ui_separator(mu_Context *ctx);           /* vertical rule inside a row */
 /* One row of a list or tree: hover highlight, selection fill, an icon, an ellipsised name and a
@@ -56,8 +65,13 @@ void re_ui_pill(mu_Context *ctx, const char *label, int kind);
 
 /* Surfaces the workspace draws around its own content. */
 void re_ui_panel(ReDraw *draw, mu_Rect rect, mu_Color fill);                      /* flat fill, no radius */
+void re_ui_clip(mu_Context *ctx);            /* clip direct drawing to the container being built */
+void re_ui_end(ReDraw *draw);                /* clears the build's clip before the panes draw */
 void re_ui_tab(ReDraw *draw, mu_Rect rect, const char *label, int icon, bool active, bool dirty, int reserve); /* reserve: room kept at the right edge, for the close control */
 void re_ui_focus_ring(ReDraw *draw, mu_Rect rect, float radius);
+/* The overlay's ground: a shadow, a rounded fill and a border. Call inside the overlay layer. */
+void re_ui_popover(mu_Rect rect);
+void re_ui_heading(mu_Context *ctx, const char *text);   /* a section heading inside a popover */
 
 #define re_ui_button(ctx, label) re_ui_button_ex(ctx, label, RE_ICON_UNKNOWN, 0)
 #define re_ui_select(ctx, label) re_ui_select_ex(ctx, label, RE_ICON_UNKNOWN, RE_UI_CARET | RE_UI_ALIGN_LEFT)

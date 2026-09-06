@@ -588,14 +588,21 @@
         "Theme files in the card's format override all three token layers and import and export through the popover's path field; a project root's theme is offered and applied only on explicit activation, remembered per root.",
         "Every existing desktop behaviour gate still passes on the GPU backend."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         60
       ],
       "owner_workspace": "rengine",
       "deliverable": "themed overlays, theme files and docs/evidence",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "orchestrator/tests/native-settings.spec.mjs: the popover carries the five settings, the accent track ramps through more than eight hues, a hue change persists and re-tints the brand, Escape and an outside press close the top surface, opening a menu closes the popover and the reverse, the pane menu runs its rows and the shortcut it prints does the same thing.",
+        "orchestrator/tests/native-settings.spec.mjs: a theme file setting the palette ramp, a semantic role and a view token reaches the view that reads it; the project theme is not applied until it is chosen, is remembered per root and returns on the next desktop; export writes the card's format and imports back.",
+        "orchestrator/tests/native-design.spec.mjs and design/cards.json: the popover ground, hover, separator and hint come from the generated card reference.",
+        "orchestrator/tests/native-scrollbars.spec.mjs: scrolling a view repaints no pixel above it (the clip correction found while building this).",
+        ".cache/evidence/settings-popover.json, .cache/evidence/settings-popover.bmp, .cache/evidence/settings-menu.bmp",
+        "Gates on macOS 2026-09-06: npm test 56/56, npm run test:desktop 22/22, CTest 5/5, python3 tools/design.py check, the cross-backend render comparison including the new gradient in the primitives scene."
+      ]
     },
     {
       "id": 69,

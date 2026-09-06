@@ -2,6 +2,7 @@
  * orchestrator/native/theme.json. Edit the tokens or the bindings, never this file. */
 #ifndef RENGINE_THEME_H
 #define RENGINE_THEME_H
+#include <stdint.h>
 #include "microui.h"
 #define RE_THEME_FONT_SIZE 16
 #define RE_THEME_LINE_HEIGHT 20
@@ -116,6 +117,8 @@
 #define RE_METRIC_DESIGN_GROUP_MARKER 2
 #define RE_METRIC_DESIGN_PLACEHOLDER_ALPHA 60
 #define RE_METRIC_DESIGN_EDITOR_GUTTER 44
+#define RE_METRIC_SETTINGS_WIDTH 280
+#define RE_METRIC_SETTINGS_LABEL_WIDTH 84
 #define RE_METRIC_DESIGN_GAP 4
 #define RE_METRIC_DESIGN_GAP_LG 8
 #define RE_METRIC_DESIGN_LEADING 16
@@ -213,6 +216,25 @@ extern const ReTheme re_theme_presets[RE_PRESET_COUNT];
 extern const char *const re_theme_preset_names[RE_PRESET_COUNT];
 int re_theme_select(const char *name);                     /* preset index, or -1 when unknown */
 void re_theme_apply(mu_Style *style);                      /* pushes the live theme into microui's style */
+
+/* The accent hue is the one token a person can move at runtime (spec 080). Each preset lists the
+ * colours that follow it with the oklch lightness, chroma and alpha to rebuild them at a new hue. */
+typedef struct { uint16_t index; float lightness, chroma; uint8_t alpha; } ReAccentSlot;
+#define RE_THEME_COLOR_COUNT 65
+extern const ReAccentSlot *const re_theme_accent_slots[RE_PRESET_COUNT];
+extern const int re_theme_accent_counts[RE_PRESET_COUNT];
+extern const float re_theme_accent_hues[RE_PRESET_COUNT];   /* each preset's own hue, in degrees */
+float re_theme_hue(void);                                  /* the live accent hue */
+void re_theme_hue_set(float hue);                          /* re-tints every accent-derived colour */
+mu_Color re_theme_swatch(float hue);                       /* --re-accent at a hue, for the slider track */
+mu_Color re_theme_from_oklch(float lightness, float chroma, float hue, unsigned char alpha);
+
+/* The token graph, one entry per token per preset, values left unexpanded so a theme file can
+ * override a token in any of the three layers and everything below it follows (charter D34). */
+typedef struct { const char *name, *value; } ReToken;
+extern const ReToken *const re_theme_tokens[RE_PRESET_COUNT];
+extern const int re_theme_token_counts[RE_PRESET_COUNT];
+extern const char *const re_theme_field_tokens[RE_THEME_COLOR_COUNT];  /* the token each colour binds */
 #define RE_COLOR_CANVAS re_theme.canvas
 #define RE_COLOR_SURFACE re_theme.surface
 #define RE_COLOR_SURFACE_RAISED re_theme.surface_raised

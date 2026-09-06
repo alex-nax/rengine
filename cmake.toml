@@ -55,7 +55,7 @@ target_include_directories(rengine_vterm SYSTEM PUBLIC "${RENGINE_VENDOR}/libvte
 [target.rengine_render]
 type = "static"
 sources = [
-  "orchestrator/native/theme.c", "orchestrator/native/draw.c",
+  "orchestrator/native/theme.c", "orchestrator/native/theme_file.c", "orchestrator/native/draw.c",
   "orchestrator/native/render/utf8.c", "orchestrator/native/render/draw_list.c",
   "orchestrator/native/render/font.c", "orchestrator/native/render/backend_sdl.c",
   "orchestrator/native/render/backend_gl.c", "orchestrator/native/render/backend_vk.c",
@@ -100,8 +100,7 @@ sources = [
   "orchestrator/native/app.c",
   "orchestrator/native/workspace.c", "orchestrator/native/game.c", "orchestrator/native/scroll.c",
   "orchestrator/native/scene.c", "orchestrator/native/hexview.c", "orchestrator/native/formatview.c",
-  "orchestrator/native/dashboard.c",
-    "orchestrator/native/devices.c",
+  "orchestrator/native/dashboard.c", "orchestrator/native/devices.c",
 ]
 include-directories = ["orchestrator/native"]
 link-libraries = ["SDL2::SDL2", "rengine_ui", "rengine_render", "rengine_microui", "rengine_json", "rengine_vterm", "CURL::libcurl"]

@@ -1,6 +1,6 @@
 # Progress Log
 
-## Session 31 (macos) — 2026-09-06 — Devices: where a declared target actually runs (contract 4, F75)
+## Session 32 (macos) — 2026-09-06 — Devices: where a declared target actually runs (contract 4, F75)
 
 **Owner scope**: give a project a way to say WHERE each target runs, probe reachability, and report
 availability in those terms. Worktree `.cache/worktrees/merge-verify`, branch `feat/devices` cut
@@ -93,6 +93,53 @@ control stayed removed, gains `Devices`.
 against a real Quest or SSH host from this branch (KI-044), delivery needs `update_workspace` for
 the worker layer plus a desktop reload for the native section, and the dashboard now pays one probe
 per device per listing (KI-045).
+## Session 31 (macos) — 2026-09-06 — Settings, menus, a gradient in the contract, and a clip nobody had
+
+F68 is complete. Settings live in their own popover opened from the toolbar, carrying the theme
+preset, the syntax scheme, the accent hue, Vim mode and the explorer's mode; Vim left the toolbar as
+spec 080 decision 4 requires, and the trailing-cell fixture measures the same right edge. The project
+cell and a right press on a tab strip open menus on the same overlay layer, drawn from the menus card
+with its accent hover, mono keyboard hints and separators. Those hints name shortcuts the workspace
+now serves, so a menu never prints a key that does nothing. Escape closes the top surface, an outside
+press closes it and continues to whatever it landed on, and focus returns to the opener. The
+workspace holds one overlay kind rather than a flag per surface, which makes "opening one closes the
+other" structural instead of a rule to remember.
+
+The accent slider needed the gradient the owner chose over a texture during the F60 interview, and
+it did not exist. It is now command 10 of the draw-list contract, which takes it to version 2: two
+stops, an axis, and the rrect's radius and corner mask. The ramp is not left to each adapter.
+`re_gradient_sample` in the header is its definition and all four adapters step through it, which is
+what lets the cross-backend comparison treat a gradient like any other primitive; the primitives
+scene draws it on both axes so that comparison covers it. The slider's track is twelve ramps between
+neighbouring hues, each stop taken from the preset's own accent lightness and chroma, so the colour
+under the thumb is the accent the workspace will take. `tools/design.py` now emits the accent recipe
+per preset, so moving the hue re-resolves every accent-derived colour at runtime, and returning the
+hue to a preset's own value restores the baked table exactly rather than recomputing it.
+
+Theme files resolve against a token graph the generator emits per preset with values left
+unexpanded, so a file that sets a palette entry moves every semantic and view token that reads it.
+That is the three-layer reach charter D34 asks for, in the card's `[theme "name"]` format. Metrics
+and font families stay compiled in and are counted and named in the status line rather than dropped
+in silence. A root's theme lives at `.rengine/theme.conf`, is read only while the popover is open,
+and is applied only on a click, remembered per root.
+
+The peer session reported, from the owner's screenshot, that scrolled content painted over the
+toolbar. It was a real defect on main, not the work in flight: owned controls draw into the list
+while the interface is built and that path never saw microui's clip, so nothing bounded them and the
+scrollbar work simply gave those lists somewhere to scroll to. Every control now takes its
+container's clip, one that narrows its own intersects rather than replaces, and panels and popovers
+clear it because they are drawn outside any container. The regression test asserts the invariant
+rather than the symptom: scrolling a view may not change one pixel above it. I verified it the right
+way round — with the fix removed it fails and names the pixels.
+
+Commands: `npm test` 56/56, `npm run test:desktop` 22/22, `ctest` 5/5, `python3 tools/design.py
+check`, `python3 tools/features.py validate`, `./init.sh`, and the cross-backend render comparison
+with the gradient in the primitives scene. Evidence in `.cache/evidence/settings-popover.json` and
+the two snapshots beside it.
+
+Remaining: F73 (the nested explorer, whose toggle this feature was blocking), F69 and the KI-038
+Windows suite repair, which also unblocks F37, F54, F62 and F67. The owner's sign-off notes for F60
+and F67 are still outstanding; both were signed off "with notes" and the notes never arrived.
 
 ## Session 30 (macos) — 2026-09-06 — The game routes the workspace layer could not deliver
 
@@ -1027,7 +1074,7 @@ and reported missing glyphs in the Claude pane. The glyph report was a real defe
 status line uses U+23F5, which neither Menlo nor Inter nor any font installed on this machine carries,
 so it drew as tofu. Glyph lookup now tries the requested face, then the other loaded faces, then a
 substitution table for the six media-control code points no face has; advances are untouched, so the
-monospace grid and every adapter's placement are unmoved. Spec 077 records the highlighting design:
+monospace grid and every adapter's placement are unmoved. Spec 079 records the highlighting design:
 nine token roles, a line-based tokeniser with a carry state (`syntax.h`/`syntax.c`, written by an Opus
 subagent against the header, with `native_syntax` under CTest covering every language plus hostile
 input), and four schemes in `syntax.json` resolved per theme preset into a generated table. The editor

@@ -33,7 +33,7 @@ test('toolbar, tab strip, status bar and the views match their Claude Design car
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-native-design-'));
   const project = path.join(dir, 'project'); await mkdir(project);
   await writeFile(path.join(project, 'design.txt'), 'design check\n');
-  // A source file so the editor's syntax colours can be asserted on screen (spec 077).
+  // A source file so the editor's syntax colours can be asserted on screen (spec 079).
   await writeFile(path.join(project, 'sample.c'), 'void render(void) {\n  if (ready) return;\n}\n');
   const server = await startServer({ stateDir: path.join(dir, 'state') });
   const root = await server.store.addRoot(project);
@@ -94,7 +94,7 @@ test('toolbar, tab strip, status bar and the views match their Claude Design car
 
     // Syntax colours: open a C file and look for the scheme's keyword colour in the code column,
     // in a dark preset and the light one, which proves the generated table and its per-preset
-    // override both reach the screen (spec 077).
+    // override both reach the screen (spec 079).
     await gui.control('tree-entry', 'sample.c', state.tabs.findIndex(t => t?.type === 1));
     const opened = await gui.until(s => s.tabs.some(t => t?.type === 2 && t.text?.includes('render')), 'source file open');
     const editor = opened.tabs.find(t => t?.type === 2);

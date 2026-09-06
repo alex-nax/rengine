@@ -1,4 +1,4 @@
-/* Line-based syntax spans for the editor (spec 077).
+/* Line-based syntax spans for the editor (spec 079).
  *
  * The editor draws one line at a time and must colour it without re-reading the file, so a language
  * is tokenised per line with a small carry state that survives to the next line: block comments and

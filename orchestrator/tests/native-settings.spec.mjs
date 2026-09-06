@@ -1,0 +1,208 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, rm, mkdir, writeFile, readFile, copyFile } from 'node:fs/promises';
+import path from 'node:path';
+import { tmpdir } from 'node:os';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { setTimeout as delay } from 'node:timers/promises';
+import { startServer } from '../server/main.mjs';
+import { nativeClient } from './native-client.mjs';
+
+const run = promisify(execFile);
+const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
+const LOGICAL_WIDTH = 1280;
+const reference = JSON.parse(await readFile('design/cards.json', 'utf8'));
+
+async function probe(file, probes) {
+  const args = [file, '--logical-width', String(LOGICAL_WIDTH),
+    ...Object.entries(probes).map(([name, [x, y]]) => `${name}=${x},${y}`)];
+  const { stdout } = await run(PYTHON, ['tools/bmp_probe.py', ...args]);
+  return JSON.parse(stdout);
+}
+
+// Colours along the middle of a rect, one sample every `step` logical pixels.
+async function scan(file, [x, y, w, h], step = 12) {
+  const points = {};
+  for (let i = 0; x + 6 + i * step < x + w - 6; i++) points[`p${i}`] = [x + 6 + i * step, y + Math.round(h / 2)];
+  return Object.values(await probe(file, points));
+}
+
+test('the settings popover and the menus are one overlay layer that matches the menus card', { timeout: 180000 }, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'rengine-settings-'));
+  const project = path.join(dir, 'project'); await mkdir(project);
+  await writeFile(path.join(project, 'settings.txt'), 'settings check\n');
+  const server = await startServer({ stateDir: path.join(dir, 'state') });
+  const root = await server.store.addRoot(project);
+  const gui = await nativeClient(server, { root: root.id });
+  const evidence = {};
+  try {
+    await gui.until(s => s.connected && s.tabs.some(t => t?.type === 1 && t.tree), 'workspace');
+    const card = reference.presets.default.popover;
+
+    // The popover opens from the toolbar and draws the card's raised ground.
+    await gui.control('toolbar', 'Settings', -1);
+    let state = await gui.until(s => s.controls?.some(c => c.role === 'settings' && c.key === 'accent'), 'settings popover');
+    const settings = state.controls.filter(c => c.role === 'settings').map(c => c.key);
+    for (const key of ['theme', 'syntax', 'accent', 'vim', 'explorer']) {
+      assert.ok(settings.includes(key), `the popover carries ${key}: ${JSON.stringify(settings)}`);
+    }
+    for (const key of ['theme-path', 'import', 'export']) {
+      assert.ok(settings.includes(key), `the popover carries the theme-file ${key}`);
+    }
+    const accent = state.controls.find(c => c.key === 'accent');
+    const file = path.join(dir, 'settings.bmp');
+    assert.equal(await gui.command({ op: 'snapshot', path: file }), true);
+    const ground = await probe(file, {
+      // Just below the accent row, inside the popover and clear of every control.
+      surface: [accent.rect[0] + accent.rect[2] - 4, accent.rect[1] + accent.rect[3] + 6],
+    });
+    assert.equal(ground.surface, card.background, 'the popover draws the card ground');
+
+    // The accent slider's track is a gradient: many distinct colours along one row.
+    const track = await scan(file, accent.rect, 14);
+    evidence.track = track;
+    assert.ok(new Set(track).size >= 8, `the accent track ramps through hues: ${JSON.stringify(track)}`);
+
+    // A hue change applies immediately and persists as a workspace preference.
+    await gui.click(accent.rect[0] + Math.round(accent.rect[2] * 0.75), accent.rect[1] + Math.round(accent.rect[3] / 2));
+    await delay(150);
+    const hue = server.store.state.preferences.accentHue;
+    assert.equal(typeof hue, 'number', 'the hue persists');
+    assert.ok(hue > 180, `the hue followed the click: ${hue}`);
+    const tinted = path.join(dir, 'settings-tinted.bmp');
+    assert.equal(await gui.command({ op: 'snapshot', path: tinted }), true);
+    const brand = await probe(tinted, { brand: [12, Math.round(reference.presets.default.toolbar.height / 2)] });
+    assert.notEqual(brand.brand, reference.presets.default.toolbar.brand, 'the brand mark took the new hue');
+    evidence.hue = { accentHue: hue, brand: brand.brand };
+
+    // Escape closes the top surface.
+    await gui.key('Escape');
+    await gui.until(s => !s.controls?.some(c => c.role === 'settings'), 'popover closed by Escape');
+
+    // Opening the project menu is the one overlay; opening settings again closes it.
+    await gui.control('toolbar', 'Root', -1);
+    state = await gui.until(s => s.controls?.some(c => c.role === 'menu-root'), 'project menu');
+    assert.ok(!state.controls.some(c => c.role === 'settings'), 'the menu replaced the popover');
+    const menu = path.join(dir, 'menu.bmp');
+    assert.equal(await gui.command({ op: 'snapshot', path: menu }), true);
+    const row = state.controls.find(c => c.role === 'menu-root');
+    const separator = await probe(menu, { ground: [row.rect[0] + row.rect[2] - 6, row.rect[1] + 2] });
+    assert.equal(separator.ground, card.background, 'the menu draws on the same raised ground');
+
+    await gui.control('toolbar', 'Settings', -1);
+    state = await gui.until(s => s.controls?.some(c => c.role === 'settings'), 'settings replaced the menu');
+    assert.ok(!state.controls.some(c => c.role === 'menu-root'), 'only one overlay is open at a time');
+
+    // A press outside closes it.
+    await gui.click(Math.round(LOGICAL_WIDTH / 2), 400);
+    await gui.until(s => !s.controls?.some(c => c.role === 'settings'), 'popover closed by an outside click');
+
+    // The pane context menu opens on a right press in a tab strip and runs its commands.
+    const tab = (await gui.until(s => s.tabs.some(t => t?.header), 'a tab')).tabs.find(t => t?.header);
+    const panes = (await gui.until(s => s.layout?.panes, 'panes')).layout.panes.filter(Boolean).length;
+    await gui.command({ op: 'motion', x: tab.header[0] + tab.header[2] + 20, y: tab.header[1] + 4 });
+    await gui.command({ op: 'button', button: 3, x: tab.header[0] + tab.header[2] + 20, y: tab.header[1] + 4, down: true });
+    await gui.command({ op: 'button', button: 3, x: tab.header[0] + tab.header[2] + 20, y: tab.header[1] + 4, down: false });
+    state = await gui.until(s => s.controls?.some(c => c.role === 'menu-pane'), 'pane menu');
+    const rows = state.controls.filter(c => c.role === 'menu-pane').map(c => c.key);
+    assert.deepEqual(rows, ['Split vertical', 'Split horizontal', 'Merge pane', 'New shell here', 'New agent session', 'Close view']);
+    await gui.control('menu-pane', 'Split vertical', -1);
+    await gui.until(s => s.layout.panes.filter(Boolean).length > panes, 'the menu split the pane');
+
+    // The same command answers its printed shortcut.
+    const after = (await gui.until(s => s.layout?.panes, 'panes')).layout.panes.filter(Boolean).length;
+    await gui.key('Backspace', 1024);   // KMOD_LGUI
+    await gui.until(s => s.layout.panes.filter(Boolean).length < after, 'the merge shortcut ran');
+
+    await mkdir('.cache/evidence', { recursive: true });
+    await writeFile('.cache/evidence/settings-popover.json', JSON.stringify(evidence, null, 2));
+    await copyFile(file, '.cache/evidence/settings-popover.bmp');
+    await copyFile(menu, '.cache/evidence/settings-menu.bmp');
+  } finally {
+    await gui.close(); await server.close(); await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('a theme file overrides all three token layers and a project theme is offered, not applied', { timeout: 180000 }, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'rengine-theme-file-'));
+  const project = path.join(dir, 'project'); await mkdir(project);
+  await mkdir(path.join(project, '.rengine'));
+  // Layer 1 (the palette ramp), layer 2 (a semantic role) and layer 3 (a view token) in one file.
+  await writeFile(path.join(project, '.rengine', 'theme.conf'),
+    '[theme "harbour"]\naccent-hue = 200\ngray = #05070a #0a0f14 #101820 #16202b #1d2b38 #263a4a #31485c #5b7183 #8ea3b3 #c3d2dc #edf3f7\nui-fg-strong = #ffffff\nterminal-bg = #01030a\n');
+  const server = await startServer({ stateDir: path.join(dir, 'state') });
+  const root = await server.store.addRoot(project);
+  let gui = await nativeClient(server, { root: root.id });
+  try {
+    await gui.until(s => s.connected && s.tabs.some(t => t?.type === 1 && t.tree), 'workspace');
+    const before = path.join(dir, 'before.bmp');
+    assert.equal(await gui.command({ op: 'snapshot', path: before }), true);
+    const plain = await probe(before, { pane: [40, 300] });
+    assert.equal(plain.pane, reference.presets.default.tree.background, 'the project theme is not applied on its own');
+
+    // The offer appears in the popover and applies on one click.
+    await gui.control('toolbar', 'Settings', -1);
+    await gui.until(s => s.controls?.some(c => c.key === 'project-theme'), 'the project theme is offered');
+    await gui.control('settings', 'project-theme', -1);
+    await delay(250);
+    const after = path.join(dir, 'after.bmp');
+    assert.equal(await gui.command({ op: 'snapshot', path: after }), true);
+    const themed = await probe(after, { pane: [40, 300] });
+    assert.equal(themed.pane, '#16202b', 'the palette layer reached the view that reads it');
+    assert.equal(server.store.state.preferences.themes[root.id], 'harbour', 'the activation is remembered for this root');
+
+    // It comes back on the next desktop for the same root, without being asked again.
+    await gui.close();
+    gui = await nativeClient(server, { root: root.id });
+    await gui.until(s => s.connected && s.tabs.some(t => t?.type === 1 && t.tree), 'second desktop');
+    const again = path.join(dir, 'again.bmp');
+    assert.equal(await gui.command({ op: 'snapshot', path: again }), true);
+    assert.equal((await probe(again, { pane: [40, 300] })).pane, '#16202b', 'the remembered theme returns');
+
+    // Export writes the card's format back out, and the file it writes reads back in.
+    await gui.control('toolbar', 'Settings', -1);
+    await gui.until(s => s.controls?.some(c => c.key === 'theme-path'), 'the theme-file field');
+    await gui.control('settings', 'theme-path', -1);
+    await gui.command({ op: 'text', text: 'exported.conf' });
+    await delay(120);
+    await gui.control('settings', 'export', -1);
+    await delay(200);
+    const exported = await readFile(path.join(project, 'exported.conf'), 'utf8');
+    assert.match(exported, /^\[theme "/, 'the export carries the card header');
+    assert.match(exported, /ui-accent = #/, 'the export names tokens without their layer prefix');
+    assert.match(exported, /terminal-bg = #01030a/, 'the export carries the applied view colour');
+    await gui.control('settings', 'import', -1);
+    const state = await gui.until(s => s.status?.includes('applied'), 'the export imports again');
+    assert.ok(state.status.includes('applied'), state.status);
+  } finally {
+    await gui.close(); await server.close(); await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('settings reach a second window through the workspace preferences', { timeout: 180000 }, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'rengine-settings-two-'));
+  const project = path.join(dir, 'project'); await mkdir(project);
+  await writeFile(path.join(project, 'a.txt'), 'two windows\n');
+  const server = await startServer({ stateDir: path.join(dir, 'state') });
+  const root = await server.store.addRoot(project);
+  const first = await nativeClient(server, { root: root.id });
+  let second;
+  try {
+    await first.until(s => s.connected, 'first window');
+    await first.control('toolbar', 'Settings', -1);
+    await first.until(s => s.controls?.some(c => c.role === 'settings' && c.key === 'vim'), 'popover');
+    await first.control('settings', 'vim', -1);
+    await first.control('settings', 'explorer', -1);
+    await delay(200);
+    assert.equal(server.store.state.preferences.vim, true, 'Vim persisted');
+    assert.equal(server.store.state.preferences.explorer, 'nested', 'the explorer mode persisted');
+    second = await nativeClient(server, { root: root.id });
+    const state = await second.until(s => s.connected && s.vim !== undefined, 'second window');
+    assert.equal(state.vim, true, 'the second window opens with Vim on');
+    assert.equal(state.explorerNested, true, 'the second window opens in nested mode');
+  } finally {
+    if (second) await second.close();
+    await first.close(); await server.close(); await rm(dir, { recursive: true, force: true });
+  }
+});

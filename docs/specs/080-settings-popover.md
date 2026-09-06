@@ -61,8 +61,42 @@ desktop does not have yet. That reshapes two features, so both corrections are r
   the same workspace.
 - The committed desktop suite, the renderer comparison and the trailing-cell fixture keep passing.
 
+## What shipped (F68, 2026-09-06)
+
+The popover carries the five settings of decision 4 with the accent slider drawn by the new
+gradient primitive, and Vim left the toolbar as decision 4 requires. The project cell and a right
+press on a tab strip open menus on the same overlay layer, with the card's accent hover, its mono
+keyboard hints and its separators; those hints name shortcuts the workspace now serves, so a menu
+never advertises a key that does nothing. Escape closes the top surface, an outside press closes it
+and continues to whatever it landed on, and focus returns to the control that opened it.
+
+Two things grew beyond the popover. The gradient became command 10 of the draw-list contract, which
+takes it to version 2: two stops, an axis, and the rrect's radius and corner mask, with the ramp
+defined by `re_gradient_sample` in the header so every adapter steps through the same stops and the
+cross-backend comparison treats it like any other primitive. The primitives scene draws it on both
+axes so that comparison covers it.
+
+Theme files resolve against a token graph the generator now emits per preset, with values left
+unexpanded, so a file that sets a palette entry moves every semantic and view token that reads it.
+That is the three-layer reach charter D34 asks for. A root's theme lives at `.rengine/theme.conf`,
+is read only while the popover is open, and is applied only on a click, remembered per root.
+
+## Correction found while building this
+
+Owned controls draw into the list while the interface is built, and that path never saw microui's
+clip. Nothing bounded them, so a scrolled explorer painted its rows and its path bar over the tab
+strip and the toolbar; the owner reported it against the live desktop. Every control now takes its
+container's clip, a control that narrows its own intersects rather than replaces, and panels and
+popovers clear it because they are drawn outside any container. The invariant is asserted in
+`orchestrator/tests/native-scrollbars.spec.mjs`: scrolling a view may not change one pixel above it.
+
 ## Deferred
 
 Keyboard navigation of the popover beyond Escape, per-project setting overrides, and a settings
 search. Theme files that reach outside the workspace state directory and a project root are out of
 scope for the path field.
+
+A theme file may also set metrics and font families, as the card shows, and those stay compiled in:
+the generated header turns them into macros so layout arithmetic folds at build time. Such keys are
+counted and named in the status line rather than dropped in silence. Making them live means moving
+the layout metrics into the same runtime table as the colours, which is its own piece of work.

@@ -54,4 +54,9 @@ void re_scene_draw(int scene, ReDraw *draw) {
   re_draw_clip(draw, NULL);
   re_draw_frame(draw, mu_rect(60, 590, 800, 60), RE_COLOR_DIVIDER, RE_COLOR_SCROLL_THUMB_ACTIVE, 0);
   re_draw_ring(draw, mu_rect(880, 120, 30, 30), RE_COLOR_SCROLL_THUMB, 15, 3);
+  /* The version-2 gradient, both axes and with and without rounded ends, so every adapter's ramp is
+   * compared against the reference the same way the other primitives are (spec 080). */
+  re_draw_gradient(draw, mu_rect(60, 662, 400, 20), RE_COLOR_ACCENT, RE_COLOR_INFO, 10, RE_CORNERS_ALL, RE_GRADIENT_HORIZONTAL);
+  re_draw_gradient(draw, mu_rect(490, 662, 120, 20), RE_COLOR_OK, RE_COLOR_ERR, 0, 0, RE_GRADIENT_HORIZONTAL);
+  re_draw_gradient(draw, mu_rect(640, 640, 40, 42), RE_COLOR_WARN, RE_COLOR_CANVAS, 6, RE_CORNERS_ALL, RE_GRADIENT_VERTICAL);
 }

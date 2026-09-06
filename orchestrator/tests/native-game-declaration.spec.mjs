@@ -22,7 +22,7 @@ test('a dashboard game action launches the declared game in its own window while
     let state = await gui.until(s => s.connected && s.controls?.some(c => c.role === 'toolbar' && c.key === 'Root'), 'connected toolbar');
     const toolbarKeys = s => s.controls.filter(c => c.role === 'toolbar' && c.tab === -1).map(c => c.key);
     assert.deepEqual(toolbarKeys(state).filter(k => k !== 'Root'),
-      ['Tree', 'Dashboard', 'Devices', 'Shell', 'Agent', 'Manage', 'Sessions', 'Split vertical', 'Split horizontal', 'Merge pane', 'Add project', 'Theme'],
+      ['Tree', 'Dashboard', 'Devices', 'Shell', 'Agent', 'Manage', 'Sessions', 'Split vertical', 'Split horizontal', 'Merge pane', 'Add project', 'Settings'],
       'the toolbar is a fixed set of cells with no game control (Devices joined it in spec 081)');
     assert.equal(state.games, undefined, 'the desktop no longer publishes a toolbar game list');
 
@@ -33,11 +33,14 @@ test('a dashboard game action launches the declared game in its own window while
     const bar = state.controls.filter(c => c.tab === -1 && ['toolbar', 'textbox', 'checkbox'].includes(c.role))
       .map(c => ({ key: c.key, left: c.rect[0], right: c.rect[0] + c.rect[2] })).sort((x, y) => x.left - y.left);
     assert.equal(bar[0].key, 'Tree', 'the switcher opens the row, after the drawn brand mark');
-    assert.equal(bar.at(-1).key, 'Theme', 'the theme toggle is the last cell now that the game cell is gone');
+    assert.equal(bar.at(-1).key, 'Settings', 'the settings toggle is the last cell now that the game cell is gone');
     assert.equal(bar.at(-1).right, state.width - pad, `the row adds up to the window width: ${JSON.stringify(bar)}`);
     for (let i = 1; i < bar.length; i++) assert.ok(bar[i].left >= bar[i - 1].right, `cells do not overlap: ${bar[i - 1].key}/${bar[i].key}`);
 
+    // The root cell opens the project menu now, and the menu names the root (spec 080 decision 2).
     await gui.control('toolbar', 'Root');
+    await gui.until(s => s.controls?.some(c => c.role === 'menu-root' && c.key === 'declared'), 'the project menu');
+    await gui.control('menu-root', 'declared');
     state = await gui.until(s => s.root === declared.id && s.tabs.some(t => t?.type === 6 && t.root === declared.id && t.dashboard?.groups?.length === 1),
       'the declared root opens its dashboard');
     const board = state.tabs.findIndex(t => t?.type === 6 && t.root === declared.id);

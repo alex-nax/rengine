@@ -19,14 +19,28 @@
       "id": "reference-approximations",
       "kind": "rationale",
       "anchor": {
-        "start": 53,
-        "end": 56,
+        "start": 54,
+        "end": 57,
         "snippet": "static int corner_inset(int radius, int row) {",
         "symbol": "corner_inset"
       },
       "note": "Rounded fills are per-row spans, outlines are the staircase difference between consecutive rows, shadows are width expanding layers with divided alpha, and rings are stacked outlines. These are deliberately simple rectangle-only constructions so the reference adapter can draw every contract primitive without geometry batching; the GPU adapters (F57 onward) produce anti-aliased results and are compared against this within a recorded tolerance, not required to match it exactly.",
       "refs": [
         "docs/specs/066-gpu-rendering.md"
+      ]
+    },
+    {
+      "id": "gradient-reference",
+      "kind": "rationale",
+      "anchor": {
+        "start": 78,
+        "end": 100,
+        "symbol": "fill_gradient",
+        "snippet": "static void fill_gradient(SdlBackend *b, const ReCommand *c) {"
+      },
+      "note": "The reference walks the ramp one logical pixel at a time and fills a single span for each stop, taking its colour from the shared sampler so the GPU adapters can be compared against it. The rounded ends reuse the circle inset fill_rrect already computes: the inset at row i is by symmetry the inset at column i, so a horizontal ramp reads the same table transposed and needs no second approximation to drift from.",
+      "refs": [
+        "orchestrator/native/render/draw_list.h"
       ]
     }
   ]

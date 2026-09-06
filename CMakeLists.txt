@@ -103,6 +103,7 @@ set(rengine_render_SOURCES
 	"orchestrator/native/render/font.c"
 	"orchestrator/native/render/utf8.c"
 	"orchestrator/native/theme.c"
+	"orchestrator/native/theme_file.c"
 )
 
 add_library(rengine_render STATIC)

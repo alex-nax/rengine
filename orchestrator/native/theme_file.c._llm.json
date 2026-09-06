@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "token-graph-resolution",
+      "kind": "rationale",
+      "anchor": {
+        "start": 76,
+        "end": 105,
+        "symbol": "expand",
+        "snippet": "static bool expand(const char *expression, char *out, size_t size, int depth) {"
+      },
+      "note": "Charter D34 lets a theme file override any of the three token layers, which only works if the runtime knows the chains rather than the baked colours. tools/design.py therefore emits the token graph per preset with values left unexpanded, and this expands var() the way the stylesheet does. A file that sets a palette entry moves every semantic and view token that reads it, without the generator or this file listing which those are. Fallbacks after a comma are parsed and ignored: the token always exists, because the table is complete by construction. The depth limit is a guard against a file that points two tokens at each other, not a design limit.",
+      "refs": [
+        "docs/specs/000-charter.md",
+        "docs/specs/080-settings-popover.md"
+      ]
+    },
+    {
+      "id": "unapplied-keys",
+      "kind": "constraint",
+      "anchor": {
+        "start": 162,
+        "end": 200,
+        "symbol": "re_theme_file_apply",
+        "snippet": "bool re_theme_file_apply(const char *text, char *message, size_t size) {"
+      },
+      "note": "Metrics and font families are compiled in: the header turns them into macros so layout arithmetic stays constant-folded. A theme file may still set them, as the card shows, and they are counted and reported in the message rather than dropped in silence, because a person who wrote tabs-height into a file and saw nothing happen would reasonably conclude the file did not load. Making them live means moving the layout metrics into the same runtime table as the colours, which is a separate piece of work and is recorded as deferred in spec 080.",
+      "refs": [
+        "docs/specs/080-settings-popover.md",
+        "design/previews/foundations/theme-architecture.html"
+      ]
+    }
+  ]
+}

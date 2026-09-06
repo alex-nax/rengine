@@ -111,6 +111,7 @@ int main(int argc, char **argv) {
     mu_begin(ui); re_app_ui(app, ui, width, height); mu_end(ui);
     if (ui->hover_root != ui->next_hover_root) { SDL_Event settle = {.type = SDL_USEREVENT}; SDL_PushEvent(&settle); }
     re_draw_commands(draw, ui); re_app_draw(app, draw); re_app_status(app, draw);
+    re_ui_overlay_flush(draw); /* the one overlay layer sits above every pane (spec 080) */
     if (capture) {
       bool ok = re_draw_snapshot(draw, re_string(capture, "path")); re_automation_reply(re_number(capture, "id"), cJSON_CreateBool(ok)); cJSON_Delete(capture); capture = NULL;
     }

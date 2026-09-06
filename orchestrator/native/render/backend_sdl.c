@@ -73,6 +73,29 @@ static void fill_rrect(SdlBackend *b, ReRect r, ReColor c, float radius, uint8_t
   }
   span(b, r.x, r.y + rad, r.w, r.h - 2 * rad);
 }
+/* The reference ramp. One span per logical pixel along the axis, inset by the same circle maths
+ * fill_rrect uses so a rounded track keeps its ends — see sidecar: gradient-reference */
+static void fill_gradient(SdlBackend *b, const ReCommand *c) {
+  ReRect r = c->rect;
+  if (r.w <= 0 || r.h <= 0) return;
+  int rad = c->corners ? clamp_radius(r, c->radius) : 0;
+  bool vertical = (c->flags & RE_GRADIENT_VERTICAL) != 0;
+  int steps = vertical ? r.h : r.w;
+  for (int i = 0; i < steps; i++) {
+    set_color(b, re_gradient_sample(c->color, c->secondary, i, steps));
+    int near = i < rad ? corner_inset(rad, i) : 0, far = i >= steps - rad ? corner_inset(rad, steps - 1 - i) : 0;
+    int lead = near > far ? near : far;
+    if (vertical) {
+      int left = (i < rad ? (c->corners & RE_CORNER_TOP_LEFT) : (i >= r.h - rad ? (c->corners & RE_CORNER_BOTTOM_LEFT) : 0)) ? lead : 0;
+      int right = (i < rad ? (c->corners & RE_CORNER_TOP_RIGHT) : (i >= r.h - rad ? (c->corners & RE_CORNER_BOTTOM_RIGHT) : 0)) ? lead : 0;
+      span(b, r.x + left, r.y + i, r.w - left - right, 1);
+    } else {
+      int top = (i < rad ? (c->corners & RE_CORNER_TOP_LEFT) : (i >= r.w - rad ? (c->corners & RE_CORNER_TOP_RIGHT) : 0)) ? lead : 0;
+      int bottom = (i < rad ? (c->corners & RE_CORNER_BOTTOM_LEFT) : (i >= r.w - rad ? (c->corners & RE_CORNER_BOTTOM_RIGHT) : 0)) ? lead : 0;
+      span(b, r.x + i, r.y + top, 1, r.h - top - bottom);
+    }
+  }
+}
 static void outline_rrect(SdlBackend *b, ReRect r, ReColor c, float radius, uint8_t corners) {
   set_color(b, c); int rad = clamp_radius(r, radius);
   if (r.w <= 0 || r.h <= 0) return;
@@ -121,6 +144,7 @@ static void execute(ReBackend *backend, const ReDrawList *list) {
         break;
       case RE_CMD_RECT: { SDL_Rect rect = sdl_rect(c->rect); set_color(b, c->color); SDL_RenderFillRect(b->renderer, &rect); break; }
       case RE_CMD_RRECT: fill_rrect(b, c->rect, c->color, c->radius, c->corners); break;
+      case RE_CMD_GRADIENT: fill_gradient(b, c); break;
       case RE_CMD_FRAME: {
         outline_rrect(b, c->rect, c->color, c->radius, c->corners);
         int rad = clamp_radius(c->rect, c->radius);
