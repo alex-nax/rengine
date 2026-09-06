@@ -237,6 +237,9 @@ SURFACES = {
     "tabs": {"height": "tabs-height", "background": "tabs-bg", "active": "tab-active-bg", "marker": "tab-marker"},
     "status": {"height": "status-height", "background": "status-bg", "accent": "status-accent-bg"},
     "pane": {"background": "pane-bg", "divider": "pane-divider"},
+    "tree": {"height": "tree-row", "background": "tree-bg", "selected": "tree-selected-bg", "icon": "tree-icon"},
+    "terminal": {"background": "terminal-bg", "foreground": "terminal-fg", "cursor": "terminal-cursor"},
+    "editor": {"background": "editor-bg", "gutter": "editor-gutter-fg", "caret": "editor-caret"},
 }
 
 

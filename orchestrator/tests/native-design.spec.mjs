@@ -23,7 +23,7 @@ async function probe(file, probes) {
   return JSON.parse(stdout);
 }
 
-test('toolbar, tab strip and status bar match their Claude Design cards', { timeout: 180000 }, async () => {
+test('toolbar, tab strip, status bar and the views match their Claude Design cards', { timeout: 180000 }, async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-native-design-'));
   const project = path.join(dir, 'project'); await mkdir(project);
   await writeFile(path.join(project, 'design.txt'), 'design check\n');
@@ -56,6 +56,9 @@ test('toolbar, tab strip and status bar match their Claude Design cards', { time
         statusMid: [Math.round(LOGICAL_WIDTH / 2), -Math.round(surfaces.status.height / 2)],
         statusLastRow: [Math.round(LOGICAL_WIDTH / 2), -1],
         aboveStatus: [Math.round(LOGICAL_WIDTH / 2), -(surfaces.status.height + 2)],
+        // Views: the explorer pane on the left and the terminal pane on the right.
+        tree: [40, 300],
+        terminal: [700, 300],
       });
       report.presets[name] = { expected: surfaces, measured: colours };
       assert.equal(colours.brand, surfaces.toolbar.brand, `${name}: the brand mark uses the accent`);
@@ -66,6 +69,8 @@ test('toolbar, tab strip and status bar match their Claude Design cards', { time
       assert.equal(colours.statusMid, surfaces.status.background, `${name}: status bar background`);
       assert.equal(colours.statusLastRow, surfaces.status.background, `${name}: the status bar reaches the bottom edge`);
       assert.notEqual(colours.aboveStatus, surfaces.status.background, `${name}: the status bar is ${surfaces.status.height}px tall`);
+      assert.equal(colours.tree, surfaces.tree.background, `${name}: the explorer draws on the tree background`);
+      assert.equal(colours.terminal, surfaces.terminal.background, `${name}: the terminal draws on the terminal background`);
     }
     assert.equal(await gui.command({ op: 'theme', name: 'default' }), 'default');
 

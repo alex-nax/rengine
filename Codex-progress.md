@@ -374,8 +374,13 @@ click by control record. Owner decision during this round (spec 068 amendment): 
 an absolute 8 ms per scene rather than at-or-below the SDL reference, because the adapters now
 anti-alias shapes the reference draws hard-edged; the ratio against the reference is recorded as
 information. Needless clipping was removed from the controls first, which cut the OpenGL workspace
-median by about a third. F67 stays open: editor, terminal and the session browser remain, and
-the card's per-directory counts need a service field the listing does not carry yet.
+median by about a third. The terminal followed: default cells now resolve against the live theme, so a preset switch restyles
+history the terminal already produced, and every preset's terminal background matches its token
+exactly. Scrollbars became the card's overlay bars with rounded thumbs and rest, hover and accent
+states. The design spec probes the view surfaces per preset too. Evidence
+`docs/evidence/design-views-macos-2026-09-06.md`; suite 17/17, CTest 4/4. F67 stays open on the
+editor's gutter, current-line tint and syntax colours, which still use the pre-design drawing inside
+editor.c, and on the card's per-directory counts, which need a field the file listing does not carry.
 
 **Follow-up 8 (same session)**: F59 on owner direction after a `/grill-me` interview (spec 073;
 charter D31 names `pr0fe@192.168.31.217` as the Windows verification host and authorizes the
