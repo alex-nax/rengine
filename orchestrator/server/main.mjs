@@ -10,6 +10,7 @@ import { Sessions } from './sessions.mjs';
 import { Games } from './games.mjs';
 import { readImage } from './images.mjs';
 import { Desktops } from './desktops.mjs';
+import { listFormats, formatPreview, readBytes } from './formats.mjs';
 
 const authorized = (value, token) => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value) && timingSafeEqual(Buffer.from(value), Buffer.from(token));
 
@@ -47,7 +48,7 @@ export async function startServer({ stateDir, port = 0 } = {}) {
         let value;
         if (request.method === 'GET') {
           switch (target.pathname) {
-            case '/api/state': value = { instance, capabilities: { handoff: 1, desktopActions: 1 }, roots: store.state.roots, layout: store.state.layout, preferences: store.state.preferences,
+            case '/api/state': value = { instance, capabilities: { handoff: 1, desktopActions: 1, formatRegistry: 1 }, roots: store.state.roots, layout: store.state.layout, preferences: store.state.preferences,
               drafts: Object.values(store.state.drafts).map(({ rootId, path, updatedAt }) => ({ rootId, path, updatedAt })), sessions: sessions.list() }; break;
             case '/api/tree': value = await store.list(query.get('rootId'), query.get('path') ?? '', query.get('hidden') === 'true'); break;
             case '/api/file': value = await store.readText(query.get('rootId'), query.get('path')); break;
@@ -57,6 +58,8 @@ export async function startServer({ stateDir, port = 0 } = {}) {
                 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
               response.end(image.bytes); return;
             }
+            case '/api/formats': value = await listFormats(store.root(query.get('rootId'))); break;
+            case '/api/bytes': value = await readBytes(store.root(query.get('rootId')), Object.fromEntries(query)); break;
             case '/api/session': value = sessions.snapshot(query.get('id'), true); break;
             case '/api/desktops': value = { desktops: desktops.list(query.get('rootId')) }; break;
             case '/api/game-config': value = await games.inspect(query.get('rootId')); break;
@@ -72,6 +75,7 @@ export async function startServer({ stateDir, port = 0 } = {}) {
             case '/api/discard': await store.discardDraft(data.rootId, data.path); value = { ok: true }; break;
             case '/api/layout': await store.saveLayout(data.layout); value = { ok: true }; break;
             case '/api/preferences': value = await store.preferences(data); break;
+            case '/api/format-preview': value = await formatPreview(store.root(data.rootId), data); break;
             case '/api/terminal':
               if (data.type && !['terminal', 'agent'].includes(data.type)) fail('Use the game adapter to launch a game.');
               value = await sessions.terminal(data); break;

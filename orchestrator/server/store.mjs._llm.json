@@ -5,13 +5,14 @@
       "id": "root-path-binding",
       "kind": "constraint",
       "anchor": {
-        "start": 61,
-        "end": 61,
-        "snippet": "async resolve(rootId, relative = '', allowMissing = false) {"
+        "start": 10,
+        "end": 10,
+        "snippet": "export async function resolveInRoot(root, relative = '', allowMissing = false) {"
       },
-      "note": "Resolve paths using their stored root and real paths, including symlink targets. Roots identify distinct worktrees; a focused tree never supplies an implicit file root. File API confinement is separate from shell/agent OS access.",
+      "note": "Resolve paths using their stored root and real paths, including symlink targets. Roots identify distinct worktrees; a focused tree never supplies an implicit file root. File API confinement is separate from shell/agent OS access. Exported as a plain function so the replaceable workspace worker's format registry (spec 074) applies the identical root/symlink boundary without a store instance.",
       "refs": [
-        "docs/specs/055-nolf-workspace-goal.md"
+        "docs/specs/055-nolf-workspace-goal.md",
+        "docs/specs/074-project-format-registry.md"
       ]
     },
     {
@@ -30,7 +31,7 @@
   ],
   "source": {
     "path": "orchestrator/server/store.mjs",
-    "sha256": "4c6912e8e1d5dd92f559173bc92c92890596eb198bf8323558a23be1589b8290",
+    "sha256": "d3f4f53a9377d9eabd66c8e0d869010af0b43798d2d9c981d247bbb8edbd541d",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

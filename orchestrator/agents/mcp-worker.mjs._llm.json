@@ -39,11 +39,24 @@
       "refs": [
         "docs/specs/071-interactive-script-tabs.md"
       ]
+    },
+    {
+      "id": "preview-file-tool",
+      "kind": "rationale",
+      "anchor": {
+        "start": 100,
+        "end": 100,
+        "snippet": "const formatCapability = state => { if (state.capabilities.formatRegistry !== 1) throw new Error('This retained service predates the project format registry. Update the workspace layer first.'); };"
+      },
+      "note": "preview_file runs the project's own declared executable, so it is open-world and not read-only even though it never writes. The route returns the whole sanitized tree; the tool slices dir/depth locally so an agent walks a 4,000-entry archive level by level instead of receiving 600 KB. Entry text is bounded like read_file; the hex window is dropped because agents get size and SHA-256 instead.",
+      "refs": [
+        "docs/specs/074-project-format-registry.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/agents/mcp-worker.mjs",
-    "sha256": "f0266d12a2c5d0f343afc6b3aa3e8cf87650ef3650d10fe59de9a0ed579cefd9",
+    "sha256": "6ac97642e9b7048d16fc8e74874df6838b58be0837904d9381b67e6bfb4f8edb",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

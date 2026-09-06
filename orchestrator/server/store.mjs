@@ -7,6 +7,19 @@ export const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 export function fail(message, status = 400) { const error = new Error(message); error.status = status; throw error; }
 const key = (rootId, file) => JSON.stringify([rootId, file]);
 const within = (root, file) => { const rel = path.relative(root, file); return rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel); };
+export async function resolveInRoot(root, relative = '', allowMissing = false) {
+  if (typeof relative !== 'string' || relative.includes('\0') || path.isAbsolute(relative)) fail('Use a path relative to its project root.');
+  const target = path.resolve(root.path, relative);
+  if (!within(root.path, target)) fail('File is outside the selected project root.', 403);
+  let resolved;
+  try { resolved = await realpath(target); }
+  catch (error) {
+    if (!allowMissing || error.code !== 'ENOENT') throw error;
+    resolved = path.join(await realpath(path.dirname(target)), path.basename(target));
+  }
+  if (!within(root.path, resolved)) fail('Symlink points outside the selected project root.', 403);
+  return { absolute: resolved, relative: path.relative(root.path, resolved).split(path.sep).join('/') };
+}
 
 export class WorkspaceStore {
   static async open(directory) {
@@ -58,20 +71,7 @@ export class WorkspaceStore {
     return root;
   }
 
-  async resolve(rootId, relative = '', allowMissing = false) {
-    const root = this.root(rootId);
-    if (typeof relative !== 'string' || relative.includes('\0') || path.isAbsolute(relative)) fail('Use a path relative to its project root.');
-    const target = path.resolve(root.path, relative);
-    if (!within(root.path, target)) fail('File is outside the selected project root.', 403);
-    let resolved;
-    try { resolved = await realpath(target); }
-    catch (error) {
-      if (!allowMissing || error.code !== 'ENOENT') throw error;
-      resolved = path.join(await realpath(path.dirname(target)), path.basename(target));
-    }
-    if (!within(root.path, resolved)) fail('Symlink points outside the selected project root.', 403);
-    return { absolute: resolved, relative: path.relative(root.path, resolved).split(path.sep).join('/') };
-  }
+  resolve(rootId, relative = '', allowMissing = false) { return resolveInRoot(this.root(rootId), relative, allowMissing); }
 
   async list(rootId, relative = '', hidden = false) {
     const file = await this.resolve(rootId, relative);

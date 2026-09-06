@@ -66,6 +66,9 @@ flowchart TD
   F59 --> F61
   F62["F62: ready"]
   F57 --> F62
+  F63["F63: ready"]
+  F64["F64: blocked"]
+  F63 --> F64
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -92,3 +95,5 @@ flowchart TD
 | F60 | R2 | rengine | blocked | Implement the Claude Design theming update on the GPU renderer. |
 | F61 | R3 | rengine | blocked | Make the renderer a curated capability with one game adopting it through an adapter. |
 | F62 | R1 | rengine | ready | Verify the OpenGL adapter on Windows behind the draw list. |
+| F63 | O1 | rengine | ready | Register project file formats through a versioned declaration and run their bounded preview commands. |
+| F64 | O1 | rengine | blocked | Open registered formats in the native editor with raw hex and preview modes. |
