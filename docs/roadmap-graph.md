@@ -69,6 +69,11 @@ flowchart TD
   F63["F63: ready"]
   F64["F64: blocked"]
   F63 --> F64
+  F65["F65: blocked"]
+  F63 --> F65
+  F66["F66: blocked"]
+  F65 --> F66
+  F64 --> F66
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -97,3 +102,5 @@ flowchart TD
 | F62 | R1 | rengine | ready | Verify the OpenGL adapter on Windows behind the draw list. |
 | F63 | O1 | rengine | ready | Register project file formats through a versioned declaration and run their bounded preview commands. |
 | F64 | O1 | rengine | blocked | Open registered formats in the native editor with raw hex and preview modes. |
+| F65 | O1 | rengine | blocked | Declare a project dashboard (contract 2) and serve its actions, availability and captures. |
+| F66 | O1 | rengine | blocked | Render the project dashboard as a native tab with runnable actions. |

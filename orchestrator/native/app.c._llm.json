@@ -31,8 +31,8 @@
       "id": "show-resumed-agent",
       "kind": "rationale",
       "anchor": {
-        "start": 189,
-        "end": 189,
+        "start": 229,
+        "end": 229,
         "snippet": "static void state_loaded(ReApp *a, const cJSON *j) {"
       },
       "note": "Ordinary layout restoration does not reselect an initial session whose view is already visible: retain the selected editor and pane. Explicit handoff presentation still selects its pending resumed agent so the once-only readiness gate can open. Project windows load/save their own layout namespace and use each session\u2019s original root even when the tree is a different project.",
@@ -45,8 +45,8 @@
       "id": "reattach-retained-streams",
       "kind": "rationale",
       "anchor": {
-        "start": 324,
-        "end": 324,
+        "start": 379,
+        "end": 379,
         "snippet": "if (!strcmp(type, \"connected\")) {"
       },
       "note": "Process at most 128 stream messages per tick so continuous output yields to SDL input and rendering. On connection, refresh initialized workspace state and attach existing terminal IDs without creating sessions or repeating a handoff prompt. Local editor buffers, layout and immutable root/session bindings survive this recovery. Inspection reports each terminal attachment separately: a retained old screen plus a live socket is not proof that a fresh snapshot arrived. Terminal text inspection follows the currently drawn viewport, with historyLines and scrollOffset for native acceptance checks.",
@@ -58,8 +58,8 @@
       "id": "desktop-action-registration",
       "kind": "rationale",
       "anchor": {
-        "start": 302,
-        "end": 302,
+        "start": 357,
+        "end": 357,
         "snippet": "static void register_desktop(ReApp *a) {"
       },
       "note": "Register the current project and retained view bindings only when the same connected service advertises desktopActions version 1. Layout changes refresh these bindings; disconnect clears the ephemeral desktop ID so reconnection registers a new target. Older services receive no unsupported registration. Accept reload only for the assigned ID, reload-capable launcher and non-closing view; enqueue acknowledgement before setting reload_requested. This signals routine acceptance, not persistence/build completion. The native view never replaces its service, launches a CLI, or owns retained processes. Optional owner and per-spawn view stamps let the supervisor verify a newly presented replacement instead of accepting stale registration from its predecessor. They identify native views, not session ownership.",
@@ -71,8 +71,8 @@
       "id": "drain-terminal-input-before-quit",
       "kind": "rationale",
       "anchor": {
-        "start": 367,
-        "end": 367,
+        "start": 422,
+        "end": 422,
         "snippet": "bool re_app_quit(ReApp *a) {"
       },
       "note": "On the first close/reload attempt, release held terminal buttons before teardown. Keep ticking native input/rendering until the connected events socket has handed queued/in-flight output to libcurl, in addition to existing durable draft/layout requirements. An observed native test previously lost the final mouse-up when re_app_close queued it immediately before stopping the stream worker. Bound this send drain to two seconds; cancel close/reload visibly if the stream stays busy. Disconnected output is already discarded, so it does not become a replay queue. Drain is transport completion, not a remote application acknowledgement.",
@@ -97,8 +97,8 @@
       "id": "attach-session-view",
       "kind": "rationale",
       "anchor": {
-        "start": 136,
-        "end": 136,
+        "start": 173,
+        "end": 173,
         "snippet": "static bool session_tab(ReApp *a, const cJSON *session) {"
       },
       "note": "A script/session desktop action reuses the normal explicit-root tab path, returning success only when a tab can be allocated/reused. It creates a view, not a process. The worker checks the session root and desktop capability; native acknowledgement is distinct from later script completion.",
@@ -110,8 +110,8 @@
       "id": "raw-fallback-and-staleness",
       "kind": "edge-case",
       "anchor": {
-        "start": 230,
-        "end": 230,
+        "start": 279,
+        "end": 279,
         "snippet": "static bool raw_fallback(ReApp *a, RePending *p, ReTab *t, int status) {"
       },
       "note": "Only a 400 from the text read (binary, invalid UTF-8, legacy line endings, over 2 MiB) flips an unchosen text tab to raw; 404/403/409 stay visible errors. Mode switches bump the tab generation and format replies also carry the mode they were requested for, so a reply from a previous mode is dropped rather than painted into the wrong view. Leaving text mode requires a clean buffer and closes the editor so hidden text can never receive keystrokes or checkpoints. A failed formats request settles its root as declared-with-error through the same formats_loaded path, so pending text tabs open normally and the status line shows the problem instead of waiting on a null placeholder forever (review finding 2); a transport timeout on a preview/entry request names the declared budget.",
@@ -123,19 +123,32 @@
       "id": "format-mode-decision",
       "kind": "rationale",
       "anchor": {
-        "start": 68,
-        "end": 68,
+        "start": 104,
+        "end": 104,
         "snippet": "void re_app_load(ReApp *a, int tab) {"
       },
       "note": "An editor tab decides its mode once the root's format list is known: a pending view waits for the formats response (fetched once per connection and after a root is added) instead of guessing, a match takes the declared default, no match drops the view so plain text files keep the unchanged editor path. Raw pages through the bytes route; preview posts format-preview with a per-request deadline of the declared timeoutMs plus transport overhead (review finding 6) and names the declared command before the reply so a failure still shows what ran. Persisted modes restore as chosen so the automatic raw fallback never overrides a user choice.",
       "refs": [
         "docs/specs/074-project-format-registry.md"
       ]
+    },
+    {
+      "id": "dashboard-auto-open",
+      "kind": "rationale",
+      "anchor": {
+        "start": 271,
+        "end": 271,
+        "snippet": "static void dashboard_probed(ReApp *a, const cJSON *j) {"
+      },
+      "note": "Each root is probed once per connection after its format list arrives; a dashboard with groups opens a tab automatically only when the persisted layout records no earlier auto-open for that root and no dashboard tab is in the layout, and it never changes the active pane. A failed probe settles like a failed formats request so nothing waits on a null placeholder. Run requests reuse OP_CREATE so the returned session becomes a tab exactly like the toolbar's Shell; captures report the written path in the status line; reveal retargets the root's existing tree tab (or creates one) to the artifact's directory and selects it.",
+      "refs": [
+        "docs/specs/075-project-dashboard.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/app.c",
-    "sha256": "79a0ea555f06f43fc3fdd30e5f864ed6a9199b0dc6f797008113da2644f8924d",
+    "sha256": "a5f325c2175bdc346c644c44bf37b40db59c61b788456fe88cf6a854c77a9c2a",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

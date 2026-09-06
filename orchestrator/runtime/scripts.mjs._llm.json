@@ -5,19 +5,32 @@
       "id": "validate-before-pty",
       "kind": "rationale",
       "anchor": {
-        "start": 7,
-        "end": 7,
+        "start": 8,
+        "end": 8,
         "snippet": "export async function openScript(host, desktops, data, state) {"
       },
       "note": "Validate an explicitly attached desktop and its capability before spawning, resolve a .sh inside the bound real project root, and pass literal argv to the selected Bash. If attachment fails after creation, return the retained session and error; never automatically restart or kill a script that may already have effects. This launch is intentionally not an idempotent operation.",
       "refs": [
         "docs/specs/071-interactive-script-tabs.md"
       ]
+    },
+    {
+      "id": "script-env",
+      "kind": "constraint",
+      "anchor": {
+        "start": 11,
+        "end": 11,
+        "snippet": "const envProblems = envRules(data.env); if (envProblems.length) fail(`Script env: ${envProblems[0]}`);"
+      },
+      "note": "env is validated before the desktop target so an agent sees the precise env problem even without a desktop; keys are UPPER_SNAKE literals merged over the shell environment by the host, matching dashboard script actions so open_script can reproduce one exactly.",
+      "refs": [
+        "docs/specs/075-project-dashboard.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/runtime/scripts.mjs",
-    "sha256": "f1bd111fd3cecac7c3cd0066e339cc5d877b167a7be5b583ebceaa5efe8c1c23",
+    "sha256": "991b6c09902542ceb35134d5ed1eecc42347bdc331be249f8f071597050cd02e",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }
