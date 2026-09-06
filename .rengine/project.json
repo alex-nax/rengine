@@ -1,0 +1,213 @@
+{
+  "contract": 2,
+  "project": "rEngine",
+  "formats": [
+    {
+      "id": "bmp-snapshot",
+      "title": "Desktop snapshot (BMP)",
+      "match": [
+        "*.bmp"
+      ],
+      "modes": [
+        "raw",
+        "preview"
+      ],
+      "default": "preview",
+      "preview": {
+        "kind": "text",
+        "command": [
+          "python3",
+          "tools/bmp_info.py",
+          "${file}"
+        ],
+        "timeoutMs": 30000,
+        "maxBytes": 65536
+      }
+    }
+  ],
+  "dashboard": {
+    "title": "rEngine workspace",
+    "groups": [
+      {
+        "id": "verify",
+        "title": "Verify",
+        "actions": [
+          {
+            "id": "harness-gate",
+            "title": "Harness gate",
+            "description": "init.sh: inventory validation, shader check and whitespace checks.",
+            "kind": "script",
+            "script": "orchestrator/actions/verify.sh",
+            "args": [
+              "harness"
+            ],
+            "requires": [
+              "init.sh",
+              "tools/features.py"
+            ],
+            "tools": [
+              "python3"
+            ]
+          },
+          {
+            "id": "design-guards",
+            "title": "Design and shader guards",
+            "description": "Regeneration drift, colour literals, layering and the committed SPIR-V.",
+            "kind": "script",
+            "script": "orchestrator/actions/verify.sh",
+            "args": [
+              "design"
+            ],
+            "requires": [
+              "tools/design.py",
+              "tools/shaders.py",
+              "design/tokens.css"
+            ],
+            "tools": [
+              "python3"
+            ]
+          },
+          {
+            "id": "native-tests",
+            "title": "Native unit tests",
+            "description": "Builds the desktop and runs CTest: layout, editor, terminal and draw list.",
+            "kind": "script",
+            "script": "orchestrator/actions/verify.sh",
+            "args": [
+              "ctest"
+            ],
+            "requires": [
+              "cmake.toml",
+              "package.json"
+            ],
+            "tools": [
+              "node",
+              "cmake",
+              "ctest"
+            ]
+          },
+          {
+            "id": "desktop-suite",
+            "title": "Native desktop suite",
+            "description": "The committed end-to-end specs; honours RENGINE_RENDERER.",
+            "kind": "script",
+            "script": "orchestrator/actions/verify.sh",
+            "args": [
+              "desktop"
+            ],
+            "requires": [
+              "package.json",
+              "orchestrator/tests/native.spec.mjs"
+            ],
+            "tools": [
+              "node"
+            ]
+          },
+          {
+            "id": "inventory",
+            "title": "Inventory status",
+            "description": "features.json validation, milestone status and the next ready feature.",
+            "kind": "script",
+            "script": "orchestrator/actions/verify.sh",
+            "args": [
+              "features"
+            ],
+            "requires": [
+              "features.json",
+              "tools/features.py"
+            ],
+            "tools": [
+              "python3"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "renderer",
+        "title": "Renderer",
+        "actions": [
+          {
+            "id": "render-comparison",
+            "title": "Compare every backend",
+            "description": "SDL reference against the GPU adapters under the recorded tolerances and budgets.",
+            "kind": "script",
+            "script": "orchestrator/actions/verify.sh",
+            "args": [
+              "render"
+            ],
+            "requires": [
+              "orchestrator/tests/native-render.spec.mjs",
+              "tools/render_compare.py"
+            ],
+            "tools": [
+              "node",
+              "python3"
+            ],
+            "artifacts": [
+              ".cache/evidence/render-compare.json"
+            ]
+          },
+          {
+            "id": "smoke-capture",
+            "title": "Capture the desktop frame",
+            "description": "Runs the smoke frame on the default backend and files the PNG with a manifest.",
+            "kind": "capture",
+            "command": [
+              "bash",
+              "orchestrator/actions/smoke-capture.sh"
+            ],
+            "into": ".cache/evidence/captures",
+            "format": "png",
+            "requires": [
+              "orchestrator/actions/smoke-capture.sh",
+              "tools/bmp_to_png.py"
+            ],
+            "tools": [
+              "bash",
+              "python3"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "workspace",
+        "title": "Workspace",
+        "actions": [
+          {
+            "id": "workspace-status",
+            "title": "Workspace status",
+            "description": "Interactive: project windows, the integration inbox and update status.",
+            "kind": "script",
+            "script": "orchestrator/actions/workspace-status.sh",
+            "requires": [
+              "orchestrator/actions/workspace-status.sh"
+            ],
+            "tools": [
+              "node"
+            ]
+          },
+          {
+            "id": "progress-log",
+            "title": "Recent sessions",
+            "description": "The head of the shared progress log, which every session prepends to.",
+            "kind": "log",
+            "command": [
+              "head",
+              "-120",
+              "Codex-progress.md"
+            ],
+            "requires": [
+              "Codex-progress.md"
+            ],
+            "filters": [
+              "Session",
+              "Owner scope",
+              "Implemented",
+              "Follow-up"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
