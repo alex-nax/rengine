@@ -1,10 +1,9 @@
 import http from 'node:http';
 import { openScript } from './scripts.mjs';
-import { listFormats, formatPreview, readBytes } from '../server/formats.mjs';
+import { listFormats, formatPreview, readBytes, readDeclaration } from '../server/formats.mjs';
 import { dashboardAction, dashboardActions, dashboardRunPayload, dashboardCapture } from '../server/dashboard.mjs';
 import { inspectGame } from '../server/games.mjs';
 import { projectDevices } from '../server/devices.mjs';
-import { readDeclaration } from '../server/formats.mjs';
 import { randomBytes } from 'node:crypto';
 import { WebSocket, WebSocketServer } from 'ws';
 import { Desktops } from '../server/desktops.mjs';
