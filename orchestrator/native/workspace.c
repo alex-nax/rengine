@@ -96,13 +96,15 @@ static void launch_terminal(ReApp *a, bool agent, bool menu) {
   if (agent) { cJSON_AddStringToObject(j, "type", "agent"); cJSON_AddStringToObject(j, "agent", a->agent); cJSON_AddStringToObject(j, "action", menu || !*a->agent ? "menu" : "launch"); }
   re_app_action(a, "terminal", j); cJSON_Delete(j);
 }
-/* A file already open with unsaved edits shows the card's modified marker. */
-static const char *entry_meta(ReApp *a, const ReTab *t, const cJSON *entry, const char *path) {
-  if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(entry, "symlink"))) return "link";
+/* The card's meta column: a directory's direct-child count, an unsaved draft, or a symlink. */
+static const char *entry_meta(ReApp *a, const ReTab *t, const cJSON *entry, const char *path, char *buffer, size_t size) {
   for (int i = 0; i < RE_TABS; i++) {
     const ReTab *open = &a->tabs[i];
     if (open->dirty && open->type == RE_EDITOR && !strcmp(open->root, t->root) && !strcmp(open->path, path)) return "M";
   }
+  if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(entry, "symlink"))) return "link";
+  const cJSON *children = cJSON_GetObjectItemCaseSensitive(entry, "children");
+  if (cJSON_IsNumber(children)) { snprintf(buffer, size, "%d", (int)children->valuedouble); return buffer; }
   return "";
 }
 static void tree_ui(ReApp *a, mu_Context *ui, int index) {
@@ -139,7 +141,7 @@ static void tree_ui(ReApp *a, mu_Context *ui, int index) {
     mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_DESIGN_TREE_ROW);
     const char *name = re_string(entry, "name"), *path = re_string(entry, "path");
     bool directory = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(entry, "directory"));
-    const char *meta = entry_meta(a, t, entry, path);
+    char meta_text[16]; const char *meta = entry_meta(a, t, entry, path, meta_text, sizeof(meta_text));
     int opt = strcmp(meta, "M") ? 0 : RE_UI_STRONG;
     if (re_ui_row_ex(ui, name, directory ? RE_ICON_COLLAPSED : RE_ICON_HOLLOW, meta, 0, opt)) {
       re_app_control(a, ui, "tree-entry", path, index);

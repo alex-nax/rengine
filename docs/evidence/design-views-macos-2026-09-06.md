@@ -62,7 +62,7 @@ Resident memory medians: SDL 165616 KiB, OpenGL 185168 KiB, Metal 144192 KiB, Vu
 | Overlay scrollbars with rounded thumbs in every scrollable view, with rest, hover and dragging states | Met: the shared bar carries all three states and every view inherits it |
 | Every existing desktop behaviour gate still passes on the GPU backend | Met: 17 of 17 |
 
-## Syntax highlighting (spec 077)
+## Syntax highlighting (spec 079)
 
 The editor colours code through an owned line-based tokeniser (`syntax.h`, `syntax.c`) with a carry
 state for block context, covering the C family, Python, JavaScript and TypeScript, JSON, Markdown,
@@ -87,9 +87,20 @@ scheme's keyword colour is on screen in both the dark and light presets, which p
 table and its per-preset override reach the pixels. `docs/evidence/design/editor-syntax.png` shows
 the result.
 
+## Inventory status
+
+The owner signed off on these views on 2026-09-06, and every criterion of F67 is met on macOS with
+the evidence above. F67 nonetheless stays `passes: false`, because it depends on F37 (tree, previews
+and editing) and F54 (the session browser), and both of those require their own exercise on macOS
+*and* Windows, which KI-038 still blocks. The design work is not what is missing; the two features
+whose surfaces it redesigns have never been gated on Windows. F69 carries the Windows card evidence
+and will need the same repair.
+
 ## Not claimed yet
 
-The card's per-directory counts in the explorer, which need a field the file listing does not carry,
-and the tree's nested indentation, since the view is a drill-down listing rather than an expanding
-tree. Choosing a syntax scheme from the interface belongs with the theme panel in F68; today a
+The tree's nested indentation, since the view is a drill-down listing rather than an expanding tree.
+The card's per-directory counts are now shown: the listing reports a directory's direct children and
+the explorer draws the number in the meta column (`design/explorer-counts.png`). Counting costs one
+directory read per subdirectory, so a listing wider than 100 directories reports no counts rather
+than paying for hundreds of syscalls; that bound is in the service, not the view. Choosing a syntax scheme from the interface belongs with the theme panel in F68; today a
 scheme is selected through the automation `syntax` op.
