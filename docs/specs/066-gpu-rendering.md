@@ -80,7 +80,7 @@ owned controls ───┘     text run, icon, texture, ring     and icon atlas
 | F57 | R0 | OpenGL adapter on macOS (evidence landed 2026-09-06, spec 068; Windows evidence is F62). Per-primitive snapshot tests (radius, frame, shadow, text, icon, ring) and whole-screen comparisons against the reference within a recorded tolerance; frame time and memory measured against budgets set beforehand; explicit backend switch with fallback. |
 | F58 | R1 | Metal adapter on macOS with the same comparisons and measurements (landed 2026-09-06, spec 072; pixel-identical to OpenGL and the macOS default). |
 | F59 | R1 | Vulkan adapter on Windows, with the same comparisons and measurements; other platforms when targeted. |
-| F60 | R2 | The theming update on the GPU renderer: tokens.css presets generate the runtime theme, the redesigned toolbar, tabs, tree, editor, terminal, status bar, session browser, menus and theme panel match their Claude Design cards, theme files import and export, and every existing behaviour gate still passes. |
+| F60 | R2 | Foundations of the theming update on the GPU renderer (narrowed 2026-09-06, spec 076; F67–F69 carry the rest): tokens.css presets generate the runtime theme, the redesigned toolbar, tabs, tree, editor, terminal, status bar, session browser, menus and theme panel match their Claude Design cards, theme files import and export, and every existing behaviour gate still passes. |
 | F61 | R3 | Rendering library candidacy: catalog entry with the library-quality record, conformance checks, and one game adopting the renderer through an adapter with evidence. |
 
 Windows evidence needs the authorized source transfer (KI-014). Each phase records evidence per
@@ -97,10 +97,13 @@ platform; no phase marks an earlier feature passing.
 
 ## Open questions for the owner
 
-- Icon set: which licensed font or atlas, and whether cards should switch from Unicode symbols to
-  its glyph names.
-- UI font policy: system sans as designed, or a bundled face for identical rendering on both desktops.
-- Owned control layer over pristine microui, as proposed here, versus the fork the design mentions.
+- ~~Icon set~~: pinned Bootstrap Icons rasterised as a third face; cards keep their Unicode symbols
+  and a generated table maps them to icon names (spec 076 decision 5).
+- ~~UI font policy~~: bundled Inter in Regular, Medium and SemiBold, overridable by a theme file
+  (spec 076 decision 6).
+- ~~Owned control layer versus a fork~~: owned additions in microui's conventions, joining the library
+  packs (charter D33, spec 076 decision 1).
 - OpenGL floor (3.3 core versus 4.1). The first Vulkan platform is answered in spec 073 (D31–D32).
 - Whether R0 may start before desktop v0 (F48) closes, or waits for it.
-- The hue gradient in the theme panel: gradient primitive, texture, or a discrete swatch row only.
+- ~~The hue gradient~~: a draw-list gradient primitive with up to eight sRGB stops, list version 2
+  (spec 076 decision 7).
