@@ -2,14 +2,27 @@
   "version": 1,
   "entries": [
     {
+      "id": "preflight-relocation",
+      "kind": "rationale",
+      "anchor": {
+        "start": 44,
+        "end": 44,
+        "snippet": "export async function inspectGame(root, gameId) {"
+      },
+      "note": "Preflight is exported as a free function taking the root record, not a Games method, because it reads only the declaration, the filesystem and root.id/root.path \u2014 no session, surface or store state. That is what lets the replaceable workspace worker answer GET /api/game-config from its own checkout above a retained session host that predates contract 3, exactly as dashboard.mjs is already consumed from both processes. Games.inspect is now a one-line delegation, so the host and the worker run the same body and there is no second copy of the checks to drift. Launch stays a method: it needs Sessions and Surfaces, which are the host's process state. One consequence worth knowing: a bare executable candidate resolves through the calling process's PATH, so it is the worker's environment that answers when the worker serves the route.",
+      "refs": [
+        "docs/specs/078-project-game-declaration.md"
+      ]
+    },
+    {
       "id": "explicit-host-adapter",
       "kind": "rationale",
       "anchor": {
-        "start": 41,
-        "end": 41,
+        "start": 78,
+        "end": 78,
         "snippet": "export class Games {"
       },
-      "note": "Preflight reads the project's own declaration: the selected record is the one whose id matches gameId, or the first declared game when it is omitted; executable candidates resolve in order (absolute, root-relative with a Windows .exe fallback, bare name through the sidecar PATH), each declared requires file is stat'ed without symlink confinement so shared data can be linked in, as the qualification fixtures do, and a declared cwd must be an existing directory; nothing runs. embedded reserves a surface item and injects the macOS adapter (the qualified SDL interposition path); external spawns the plain PTY child so an SDL3/static application opens its own window and only its output is retained. Declared env is layered under the reservation and the adapter, and the reader already rejects RENGINE_/DYLD_/LD_ keys. Windows launch remains an explicit unsupported-integration error until the cooperative surface is wired and proven in that host.",
+      "note": "Preflight (inspectGame, above) reads the project's own declaration: the selected record is the one whose id matches gameId, or the first declared game when it is omitted; executable candidates resolve in order (absolute, root-relative with a Windows .exe fallback, bare name through the sidecar PATH), each declared requires file is stat'ed without symlink confinement so shared data can be linked in, as the qualification fixtures do, and a declared cwd must be an existing directory; nothing runs. embedded reserves a surface item and injects the macOS adapter (the qualified SDL interposition path); external spawns the plain PTY child so an SDL3/static application opens its own window and only its output is retained. Declared env is layered under the reservation and the adapter, and the reader already rejects RENGINE_/DYLD_/LD_ keys. Windows launch remains an explicit unsupported-integration error until the cooperative surface is wired and proven in that host.",
       "refs": [
         "docs/specs/078-project-game-declaration.md"
       ]
@@ -18,8 +31,8 @@
       "id": "launch-identity",
       "kind": "constraint",
       "anchor": {
-        "start": 91,
-        "end": 91,
+        "start": 95,
+        "end": 95,
         "snippet": "const key = `${rootId}\u0000${config.id ?? ''}`; /* one launch per root AND declared game; see sidecar: launch-identity */"
       },
       "note": "A launch is identified by root AND declared game id, not by root alone: contract 3 lets one project declare several games, and the owner's shape is that they run side by side (a flat target and a VR target at once). So concurrent requests coalesce per pair and a reuse only returns a running session whose game id matches. The preflight runs before the coalescing key exists because the key needs the resolved id, which also makes an unknown gameId a 404 rather than a silent default. An undeclared project fails before the reuse lookup so a game session started outside a declaration can never be handed back as \"the project's game\". The 2026-09-06 owner decision keeps that key when two dashboard actions name the same record with different argv: the declared id stays the single identity of a running game session (launch_game/game_preflight select by it, the snapshot carries it, the native tab binding and RENGINE_INITIAL_GAME resolve through it), so a differing launch is refused with both argv named rather than starting a second session under the same id or, worse, silently attaching and dropping the caller's arguments. The in-flight map therefore stores the argv beside the promise: an identical concurrent launch joins the flight, a differing one chains behind it and meets the same refusal instead of racing a second spawn.",
@@ -30,7 +43,7 @@
   ],
   "source": {
     "path": "orchestrator/server/games.mjs",
-    "sha256": "831255c89afe736f2fd1394f64b683bdbe7e538e6bd3340772c1034139ae9ba0",
+    "sha256": "fae5255250fc01562cd830d016bd2a95e5fbf19b091c8e713a41d30e9ba45811",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

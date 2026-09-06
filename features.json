@@ -691,6 +691,31 @@
       "evidence": [
         "docs/evidence/project-game-macos-2026-09-06.md"
       ]
+    },
+    {
+      "id": 73,
+      "milestone": "O1",
+      "category": "surfaces",
+      "priority": "high",
+      "description": "Serve the declaration-backed game preflight from the replaceable workspace worker, so a routine layered update delivers the per-project game capability.",
+      "acceptance_criteria": [
+        "orchestrator/server/games.mjs exports inspectGame(root, gameId) — the single body Games.inspect delegates to — and orchestrator/runtime/worker.mjs serves GET /api/game-config from it, so the dashboard's game-action availability and game_preflight both answer from the project's own declaration above a retained session host that predates contract 3; the worker advertises projectGame: 1 beside dashboard: 1 and a layered workspace update alone lights the MCP guard up.",
+        "Launching stays with the session host, which owns Sessions (PTY), the embedded Surfaces reservation and the session-id map behind /surface, and whose /api/terminal refuses type game; the worker advertises projectGameLaunch only by mirroring the host's own projectGame, refuses POST /api/game and the game branch of /api/dashboard-run by name above an older host instead of forwarding into the removed built-in game, and launch_game gates on projectGameLaunch with that message. supervisor.mjs claims neither capability in its workspaceWorkerUnavailable fallback, where the host answers.",
+        "A regression drives a worker above a proxy that advertises only handoff: 1 and answers game-config with the removed built-in NOLF config: it asserts capabilities.projectGame is 1 and projectGameLaunch absent, that game-config returns each declared record (including an unknown gameId 404 naming the declared ids), that the dashboard marks a declared game available, that both launch paths and launch_game refuse by name, and that game_preflight through the real MCP connector answers from the declaration; the merged-host path keeps projectGameLaunch: 1 and launches through the worker's game route unchanged. npm test, npm run test:desktop, CTest, ./init.sh, design.py check, features.py validate and RENGINE_NOLF_ROOT=... npm run test:game-nolf pass, and both live consumer declarations re-validate through the fixed code. Passing waits on the owner's live verification after update_workspace, as F71/F72 do."
+      ],
+      "passes": false,
+      "dependencies": [
+        71,
+        72
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/078-project-game-declaration.md (layered-update asymmetry), orchestrator/server/games.mjs and main.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, orchestrator/tests/games.test.mjs and dashboard.test.mjs",
+      "external_references": [
+        "vtmb-vr and nolf-improved .rengine/project.json declarations"
+      ],
+      "evidence": [
+        "docs/evidence/worker-game-routes-macos-2026-09-06.md"
+      ]
     }
   ]
 }

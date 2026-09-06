@@ -191,6 +191,67 @@ twice is idempotent, and the in-flight coalescing map keys on (root, game id) wi
 argv beside it: an identical concurrent launch joins the flight, a differing one waits for it and
 then meets the same refusal instead of racing a second spawn.
 
+### Who serves the routes: the layered-update asymmetry (defect, 2026-09-06)
+
+**The general lesson first, because it outlives this feature: a capability that only the retained
+session host serves cannot be delivered by a layered update.** The capability flag an MCP connector
+gates on is read out of `/api/state`, and the replaceable workspace worker can only ever advertise
+what it actually answers. Everything it forwards belongs to the host, whose code is whatever process
+was started before the merge — so forwarding is not merely "the capability stays off until the host
+is replaced", it is "old code answers, with the semantics the merge deleted". Whenever a route is
+added, decide explicitly which process serves it, and give the worker the routes it *can* serve.
+
+**What went wrong.** As first merged, the worker imported `dashboard.mjs` and answered
+`/api/dashboard` and `/api/dashboard-run` itself — so `dashboard: 1` appeared the moment the worker
+was replaced — but `game-config` and `game` were forwarded to the host and `projectGame` was never
+advertised. On the live workspace every `game_preflight`/`launch_game` call answered *"This retained
+service predates per-project game declarations. Update the workspace layer first."*, and no number
+of `update_workspace` calls could change it: the capability was the host's to give. Probed directly,
+the retained host (capabilities `{handoff: 1}`, the process from before this lane) answered
+`GET /api/game-config?rootId=<vtmb-vr>&gameId=vtmb-flat` with **HTTP 200** and the removed built-in
+config — `args: ["--flat","--game","nolf","--width","1280","--height","720"]`, `issues: ["Build NOLF
+first; expected build/relith-nolf in the selected project."]` — for that root and for every
+`gameId`. The dashboard's game actions inherited that: their availability comes from the same
+preflight, so both of vtmb-vr's flat entries rendered unavailable with a NOLF issue. Replacing the
+host requires quiescence, which stops the retained PTYs, so the fix had to remove the dependency
+rather than schedule a restart.
+
+**What now serves what.** Preflight is a pure read of the declaration, the filesystem and the root
+record, so it is exported from `games.mjs` as `inspectGame(root, gameId)` — one body, called by
+`Games.inspect` in the host and directly by the worker, never a second copy of the checks. The
+worker serves `GET /api/game-config` and advertises `projectGame: 1` beside `dashboard: 1`, so a
+routine workspace update lights it up.
+
+**Launching stays with the host, and that is structural, not a shortcut.** Creating a game session
+needs `Sessions` (node-pty ownership and the retained output the session browser reattaches to),
+`Surfaces.reserve()` and the session-id → surface-item map that the host's `/surface` upgrade reads
+for an `embedded` game — nolf-improved declares three embedded records — and the host's
+`/api/terminal` deliberately refuses `type: "game"` ("Use the game adapter to launch a game."), so
+there is no host primitive a worker could compose a game session out of. The worker therefore
+forwards `POST /api/game` and the `game` branch of `/api/dashboard-run` as before, and the capability
+is split so the advertisement stays honest:
+
+- `projectGame: 1` — game-config answers from the declaration. The worker advertises it itself.
+- `projectGameLaunch: 1` — the launch answers from the declaration too. The host advertises it
+  because it does both; the worker **mirrors the host's own `projectGame`** rather than claiming it.
+
+Above a host that predates the declaration the worker refuses the launch by name — *"This retained
+session host predates per-project game declarations and would launch its removed built-in game;
+game_preflight answers from the declaration. Replacing the session host requires quiescence."* —
+instead of forwarding into deleted semantics, and `launch_game` gates on `projectGameLaunch` so the
+agent is told the truth (replace the host) instead of being sent to update the workspace layer again.
+
+`supervisor.mjs` needs no capability change. Its worker path (`/api/state`, the `current` worker)
+passes the worker's set through and adds only `projectWindows: 1`; its `workspaceWorkerUnavailable`
+fallback reads host state and adds only what the supervisor itself serves (`desktopActions`,
+`layeredUpdates`, `projectWindows`) — adding `projectGame` there would claim declaration-backed
+routes while the host is the one answering, the exact mistake this section records. `dashboard` and
+`formatRegistry` are absent from that fallback for the same reason.
+
+One deliberate behaviour difference: a bare executable candidate resolves through the PATH of
+whichever process answers, so the worker's environment now decides it for a layered runtime. That is
+the newer environment and matches where the rest of the worker's filesystem work already happens.
+
 ## Dashboard game actions (contract 3)
 
 Spec 075's dashboard action kinds become `script | log | capture | game`. A `game` action:
@@ -217,9 +278,10 @@ Spec 075's dashboard action kinds become `script | log | capture | game`. A `gam
   the record's, and `description`/`artifacts` keep their meaning.
 - Running one goes through `POST /api/dashboard-run`, which for this kind calls the launch above
   and returns the **game** session snapshot, so `embedded` streams into a pane and `external` opens
-  its own window with its output retained. The replaceable worker serves the action by calling the
-  retained host's game route, so a host that predates `projectGame: 1` reports that rather than
-  silently opening a terminal.
+  its own window with its output retained. The replaceable worker computes the action's availability
+  from its own preflight and runs the launch through the retained host's game route, so a host that
+  predates `projectGameLaunch: 1` is refused by name rather than opening a terminal or the removed
+  built-in game (see the asymmetry section above).
 
 **Why `args` is in the contract at all.** One consumer needs it: vtmb-vr's dashboard has a plain
 flat launch and a `--newgame` variant, and `--newgame` is a real flag of its `src/main.cpp`. The
@@ -265,9 +327,12 @@ executable) launches or reuses one game session and additionally takes the optio
 dashboard game action, so an agent can reproduce a listed game action exactly. `dashboard_actions`
 lists game actions with their `game` id and `args` beside the other kinds. Both game tools take an
 optional `gameId` and default to the
-first declared game; neither description names a game. Both require the host capability
-`projectGame: 1`; an older retained host is told to update the workspace layer. The live connector
-predates the tools and picks them up only through a layered `connector` update.
+first declared game; neither description names a game. `game_preflight` requires `projectGame: 1`,
+which the replaceable workspace worker advertises for the route it serves itself, so a layered
+workspace update is enough. `launch_game` additionally requires `projectGameLaunch: 1`, which only a
+session host answering from the declaration can offer; above an older host it is refused by name and
+told that replacing the session host requires quiescence, not another workspace update. The live
+connector predates the tools and picks them up only through a layered `connector` update.
 
 ## Qualification of the real consumers
 

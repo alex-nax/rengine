@@ -1,5 +1,75 @@
 # Progress Log
 
+## Session 30 (macos) — 2026-09-06 — The game routes the workspace layer could not deliver
+
+**Owner scope**: fix the defect that makes the newly-merged per-project game capability unreachable
+on a live workspace. Worktree `.cache/worktrees/merge-verify`, branch `fix/worker-game-routes` cut
+from `origin/main` at `f42bdea` and pushed per commit; the `main` ref untouched, `update_workspace`
+deliberately not run from here, no other worktree or consumer repository edited.
+
+**The defect.** Everything merged that day worked in isolation and failed through the live runtime:
+every MCP game tool answered *"This retained service predates per-project game declarations. Update
+the workspace layer first."*, and repeated `update_workspace` calls changed nothing. The cause is an
+asymmetry in `orchestrator/runtime/worker.mjs`. Dashboard routes are **served** by the replaceable
+workspace worker — it imports `dashboard.mjs` and answers `/api/dashboard` and `/api/dashboard-run`
+— which is why `dashboard: 1` lights up the moment the worker is replaced. Game routes were
+**forwarded** to the retained session host, and `projectGame` was never advertised, so that
+capability was only ever the host's to give. Probed with its own token, the retained host
+(`capabilities: {handoff: 1}`, the process from before this lane) answered
+`GET /api/game-config?rootId=<vtmb-vr>&gameId=vtmb-flat` with **HTTP 200** and the removed built-in
+config — `args: ["--flat","--game","nolf","--width","1280","--height","720"]`, `issues: ["Build NOLF
+first; expected build/relith-nolf in the selected project."]` — for that root and for every
+`gameId`. So forwarding did not merely fail to advertise; it returned wrong answers from deleted
+code, which also rendered both of vtmb-vr's flat dashboard entries unavailable with a NOLF issue.
+**The general lesson, now in spec 078 and KI-043: a capability served only by the retained host
+cannot be delivered by a layered update.**
+
+**The fix (F73).** `games.mjs` exports `inspectGame(root, gameId)` — the same body, `Games.inspect`
+reduced to a one-line delegation — because preflight reads only the declaration, the filesystem and
+`root.id`/`root.path`. The worker calls it, serves `GET /api/game-config`, and advertises
+`projectGame: 1` beside `dashboard: 1`, so a routine workspace update delivers it.
+
+**Only preflight moved, and that was decided by reading the code.** Creating a game session needs
+`Sessions` (node-pty ownership and the retained output the session browser reattaches to),
+`Surfaces.reserve()` and the session-id → surface-item map the host's `/surface` upgrade reads for
+an `embedded` game — nolf-improved now declares three embedded records — and the host's
+`/api/terminal` refuses `type: "game"` by design, in the merged code and in the retained host alike,
+so there is no primitive a worker could compose a game session out of. Rather than claim a
+capability the worker cannot deliver, the flag is split: `projectGame` (game-config from the
+declaration) is advertised by the worker itself, `projectGameLaunch` (the launch too) is advertised
+by the host and only **mirrored** by the worker from the host's own `projectGame`. Above an older
+host the worker refuses `POST /api/game` and the `game` branch of `/api/dashboard-run` by name
+instead of forwarding into the built-in game, and `launch_game` gates on `projectGameLaunch` with a
+message that names the real fix (replace the session host, which requires quiescence) rather than
+sending the agent to update the workspace layer again. `supervisor.mjs` needs no change: its worker
+path passes the worker's set through, and its `workspaceWorkerUnavailable` fallback claims only what
+the supervisor itself serves — adding `projectGame` there would claim declaration-backed routes
+while the host is the one answering, which is this defect a second time.
+
+**Failing check first**, per AGENTS.md: `games.test.mjs` drives the real supervisor and worker above
+a proxy that advertises only `handoff: 1` and answers `game-config` with the built-in NOLF config.
+Red at `capabilities.projectGame` (`undefined !== 1`) in `658fec8`, green in `192d842`, and it also
+pins the declared records, the unknown-`gameId` 404, dashboard availability from the declaration,
+both refused launch paths, and `game_preflight` answering through the real MCP connector while
+`launch_game` reports the host limit. `dashboard.test.mjs` pins the merged-host path.
+
+**Gates**: `npm test` 56/56 (6.4 s); `npm run test:desktop` 18/18 sequential (337.1 s);
+`ctest --test-dir .cache/desktop` 5/5 (1.04 s); a clean `cmake` configure + Release build, exit 0
+with **0 warnings**; `./init.sh` green; `tools/design.py check` (19 cards, mirror, 3 presets);
+`tools/features.py validate` (33 features); `RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run
+test:game-nolf` 1/1 (4.9 s) — real NOLF renders and takes menu input through a dashboard game
+action. Both live consumer declarations re-validate through the fixed code: vtmb-vr's `vtmb-flat`
+ready with `build/vtmb` and `vtmb-vr` unavailable naming its executable, nolf-improved's three
+embedded records all ready. Evidence:
+`docs/evidence/worker-game-routes-macos-2026-09-06.md`. Sidecars refreshed sequentially on a private
+index (`.cache/sidecars-worker-game.sqlite`); the remaining repo-wide drift is in
+`orchestrator/native/**` and `tests/native-client.mjs`, untouched here and owned by the other lanes.
+
+**Remaining**: F73 stays `passes: false` with F71/F72 until the owner verifies the live workspace
+after `update_workspace`. Launching a declared game there still needs the session host replaced
+(quiescence, which stops the retained PTYs); preflight and dashboard availability do not. Windows
+stays unqualified (KI-014).
+
 ## Session 29 (macos) — 2026-09-06 — Merging contract 3 and the integration recipe onto the card toolbar
 
 **Owner scope**: reconcile two finished branches onto main and report green before main advances.

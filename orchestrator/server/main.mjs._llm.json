@@ -23,7 +23,7 @@
         "end": 63,
         "snippet": "case '/api/formats': value = await listFormats(store.root(query.get('rootId'))); break;"
       },
-      "note": "The host serves the format registry so a directly connected desktop and the service tests need no supervisor; the replaceable worker serves the same three routes for the live layered runtime whose host predates them. Both advertise formatRegistry: 1. Declared commands run only from format-preview (explicit open/refresh/agent call), never from tree listing. dashboard: 1 and projectGame: 1 tell connectors that the dashboard routes and that game-config/game answer from the per-project declaration; an older host still serves the game routes with the removed built-in semantics, which is why both tool families gate on their capability. game-config and game take an optional gameId selecting one declared game; omitted, both use the first declared record, which is what the launcher and an agent calling the tool without arguments get.",
+      "note": "The host serves the format registry so a directly connected desktop and the service tests need no supervisor; the replaceable worker serves the same three routes for the live layered runtime whose host predates them. Both advertise formatRegistry: 1. Declared commands run only from format-preview (explicit open/refresh/agent call), never from tree listing. dashboard: 1 and projectGame: 1 tell connectors that the dashboard routes and that game-config answer from the per-project declaration; projectGameLaunch: 1 says the same of the launch, and the host advertises it because it both preflights and spawns. The workspace worker advertises projectGame on its own (it serves game-config from its checkout) but mirrors projectGameLaunch from the host, whose Sessions and Surfaces own the spawn: an older host still launches the removed built-in game, so that half is refused by name rather than forwarded. game-config and game take an optional gameId selecting one declared game; omitted, both use the first declared record, which is what the launcher and an agent calling the tool without arguments get.",
       "refs": [
         "docs/specs/074-project-format-registry.md"
       ]
@@ -31,7 +31,7 @@
   ],
   "source": {
     "path": "orchestrator/server/main.mjs",
-    "sha256": "56cbd00dba7f83349e631a9c2f52d5bcf18b06ba326ed1cda6a28537e3f7fa15",
+    "sha256": "ff3fae9e789a5507f53bf6d086357a938097a9397e709a724f437e7a758b6de3",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

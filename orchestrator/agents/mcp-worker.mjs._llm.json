@@ -74,7 +74,7 @@
         "end": 136,
         "snippet": "const gameCapability = state => { if (state.capabilities.projectGame !== 1) throw new Error('This retained service predates per-project game declarations. Update the workspace layer first.'); };"
       },
-      "note": "game_preflight and launch_game address only the games the bound project declares in .rengine/project.json; their descriptions name no game, and the connector never carries a built-in executable or data path. Both take an optional gameId and default to the first declared record, so a single-game project needs no argument while a multi-game one is addressed explicitly and an unknown id is answered with the declared ids. launch_game is open-world because it executes the project's own program; it returns the running session of that same game id when one exists, so agents inspect the returned id rather than assuming a fresh process, and two declared games of one project can be running at once. The removed nolf_preflight/launch_nolf have no alias: nothing had shipped them to a user.",
+      "note": "game_preflight and launch_game address only the games the bound project declares in .rengine/project.json; their descriptions name no game, and the connector never carries a built-in executable or data path. Both take an optional gameId and default to the first declared record, so a single-game project needs no argument while a multi-game one is addressed explicitly and an unknown id is answered with the declared ids. launch_game is open-world because it executes the project's own program; it returns the running session of that same game id when one exists, so agents inspect the returned id rather than assuming a fresh process, and two declared games of one project can be running at once. The removed nolf_preflight/launch_nolf have no alias: nothing had shipped them to a user. The two tools gate on two capabilities, because the workspace layer can deliver only one of them: game_preflight needs projectGame, which the replaceable worker advertises for the route it serves itself, while launch_game needs projectGameLaunch, which only a session host that answers from the declaration can offer \u2014 replacing that host requires quiescence, so the refusal names it instead of telling the agent to update the workspace layer again.",
       "refs": [
         "docs/specs/078-project-game-declaration.md"
       ]
@@ -82,7 +82,7 @@
   ],
   "source": {
     "path": "orchestrator/agents/mcp-worker.mjs",
-    "sha256": "fc0e2e11b3a7c863b13b5e37ae31e54e527a62741157c5bde9ceaa46f0c38ac5",
+    "sha256": "ffcb1053d0fe0ac7bb84a075ec2302f08b641f85fe648ccf1bdb047d9198807c",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

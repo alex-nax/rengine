@@ -5,8 +5,8 @@
       "id": "legacy-host-adapter",
       "kind": "rationale",
       "anchor": {
-        "start": 11,
-        "end": 11,
+        "start": 12,
+        "end": 12,
         "snippet": "export async function startWorker(host) {"
       },
       "note": "The original host remains the sole session and durable-state authority. This process forwards its APIs/PTY/game streams and supplies desktop actions even when that host predates them. Desktop registration is intercepted and validated against current host roots/sessions; other frames retain their order and binary/text kind. Existing streams can outlive a newer HTTP worker generation. Closing this worker only closes its views/proxies, never the host or its PTYs.",
@@ -18,8 +18,8 @@
       "id": "script-view-consumer",
       "kind": "rationale",
       "anchor": {
-        "start": 32,
-        "end": 32,
+        "start": 41,
+        "end": 41,
         "snippet": "const data = await body(req), state = await refresh(); json(res, 200, await openScript(host, desktops, data, state));"
       },
       "note": "Script launch and session-view actions live in the replaceable worker above the retained host. Only this worker\u2019s connected desktop broker can attach a view; a desktop still connected through an older worker needs a native update first, not a duplicate process.",
@@ -31,19 +31,33 @@
       "id": "format-registry-worker",
       "kind": "rationale",
       "anchor": {
-        "start": 36,
-        "end": 36,
+        "start": 45,
+        "end": 45,
         "snippet": "} else if (req.method === 'GET' && target.pathname === '/api/formats') {"
       },
       "note": "Format listing, preview/entry execution and raw byte windows are answered here instead of being forwarded, so a retained host that predates spec 074 still gains them through a workspace-layer update. Roots come from the refreshed host state; the boundary is store.mjs resolveInRoot, identical to the host's.",
       "refs": [
         "docs/specs/074-project-format-registry.md"
       ]
+    },
+    {
+      "id": "game-routes",
+      "kind": "rationale",
+      "anchor": {
+        "start": 24,
+        "end": 24,
+        "snippet": "const preflight = (rootId, gameId) => inspectGame(root(rootId), gameId);"
+      },
+      "note": "The general rule this file keeps learning: a capability that only the retained host serves cannot be delivered by a layered update, because the capability flag comes from the host's own state. dashboard and formatRegistry are advertised here because the routes are served here; game-config was forwarded, so projectGame could never appear on a live workspace no matter how often update_workspace ran, and the forwarded answers came from the removed built-in game (one hard-coded config for every root and every gameId). Preflight now runs from this checkout through inspectGame, and projectGame is advertised beside dashboard. Launch is the deliberate exception: creating a game session needs the host's Sessions (PTY ownership), its Surfaces reservation for an embedded game and the session-id map behind its /surface upgrade, and its /api/terminal refuses type \"game\" by design \u2014 so it stays forwarded and is advertised as its own projectGameLaunch, mirrored from the host's own projectGame. Above an older host the launch is refused by name rather than forwarded into the built-in game.",
+      "refs": [
+        "docs/specs/078-project-game-declaration.md",
+        "docs/specs/065-layered-workspace-updates.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/runtime/worker.mjs",
-    "sha256": "a01b03244c7a348f8dbe6958a8f9cc72cc1465eccd53e722c8da87c82c7a0b66",
+    "sha256": "77aebcd5529dd702bc5b017e65808fdac34e2fd5b6f4f739b82d6c5ee5f730b5",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

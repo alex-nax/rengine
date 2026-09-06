@@ -61,9 +61,11 @@ route returns the error with empty groups, and the tab renders the message.
   returns that entry plus `path` and `manifest` (root-relative). Non-PNG output, a failing
   command, a timeout or oversized output fail with stderr's first line and write nothing.
 - Host and replaceable worker both serve the routes (`dashboard: 1` capability); the worker
-  creates sessions through the retained host's `terminal` route, which already merges `env`, and
-  runs a `game` action through the retained host's game route, so a host without `projectGame: 1`
-  says so instead of quietly opening a terminal.
+  creates sessions through the retained host's `terminal` route, which already merges `env`. A
+  `game` action's availability comes from the worker's own preflight (`projectGame: 1`, served
+  there since the spec-078 asymmetry fix), while the launch itself goes through the retained host's
+  game route, so a host without `projectGameLaunch: 1` is refused by name instead of quietly
+  opening a terminal or the removed built-in game.
 
 ## Agents
 
