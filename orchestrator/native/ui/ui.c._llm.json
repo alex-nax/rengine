@@ -5,8 +5,8 @@
       "id": "transition-clock",
       "kind": "rationale",
       "anchor": {
-        "start": 155,
-        "end": 155,
+        "start": 158,
+        "end": 158,
         "snippet": "static float progress(mu_Id id, bool target) {",
         "symbol": "progress"
       },
@@ -19,8 +19,8 @@
       "id": "overlay-layer",
       "kind": "rationale",
       "anchor": {
-        "start": 42,
-        "end": 60,
+        "start": 45,
+        "end": 63,
         "symbol": "re_ui_overlay_flush",
         "snippet": "void re_ui_overlay_flush(ReDraw *draw) {"
       },
@@ -33,8 +33,8 @@
       "id": "draw-order",
       "kind": "constraint",
       "anchor": {
-        "start": 239,
-        "end": 239,
+        "start": 242,
+        "end": 242,
         "snippet": "static void chrome(mu_Rect rect, int opt, float hover, bool focused, bool field) {",
         "symbol": "chrome"
       },
@@ -48,8 +48,8 @@
       "id": "control-scissor",
       "kind": "history",
       "anchor": {
-        "start": 75,
-        "end": 80,
+        "start": 78,
+        "end": 83,
         "symbol": "apply_scissor",
         "snippet": "static void apply_scissor(void) {"
       },
@@ -63,8 +63,8 @@
       "id": "microui-conventions",
       "kind": "rationale",
       "anchor": {
-        "start": 289,
-        "end": 289,
+        "start": 292,
+        "end": 292,
         "snippet": "static int control(mu_Context *ctx, const char *label, int icon, int opt, bool field) {",
         "symbol": "control"
       },
@@ -78,8 +78,8 @@
       "id": "clip-cost",
       "kind": "perf",
       "anchor": {
-        "start": 178,
-        "end": 184,
+        "start": 181,
+        "end": 187,
         "symbol": "text_clipped",
         "snippet": "static void text_clipped(uint8_t face, int size, const char *text, int x, int y, mu_Color color, mu_Rect box) {"
       },
@@ -92,8 +92,8 @@
       "id": "menu-item",
       "kind": "rationale",
       "anchor": {
-        "start": 402,
-        "end": 427,
+        "start": 405,
+        "end": 430,
         "symbol": "re_ui_menu_item",
         "snippet": "int re_ui_menu_item(mu_Context *ctx, const char *label, int icon, const char *hint, bool marked) {"
       },
@@ -107,8 +107,8 @@
       "id": "hue-track",
       "kind": "rationale",
       "anchor": {
-        "start": 435,
-        "end": 465,
+        "start": 438,
+        "end": 468,
         "symbol": "re_ui_hue_slider",
         "snippet": "int re_ui_hue_slider(mu_Context *ctx, float *hue) {"
       },

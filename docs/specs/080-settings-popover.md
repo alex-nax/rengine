@@ -120,6 +120,19 @@ Three more, each found by the owner or by a gate rather than by reading:
   decide that an operation belongs to a format view; it then read a format the explorer does not
   have. The enum now records that boundary in a comment, and `re_format_mode` tolerates no view.
 
+## Selects open a list (2026-09-06)
+
+The owner noticed that the theme and syntax controls stepped to the next value instead of opening
+one. Cycling was a placeholder from before the overlay layer existed, and it hides the choices from
+anyone who has not memorised them. Both are now selects that open a list of every value with the
+live one marked, drawn from the same menu-item control as the menus card.
+
+The list is a second surface above the one that holds the select. It records into the same overlay
+buffer without clearing it, so replay order is stacking order, and its own microui container is
+brought to front so the pointer agrees with what is drawn. That does not weaken decision 5: the
+list belongs to its surface rather than being a peer of it, closes with it, and Escape closes the
+list first and the surface second, which is what "closes the top surface" already said.
+
 ## Deferred
 
 Keyboard navigation of the popover beyond Escape, per-project setting overrides, and a settings
