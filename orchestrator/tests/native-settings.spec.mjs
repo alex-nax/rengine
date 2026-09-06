@@ -14,6 +14,14 @@ const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
 const LOGICAL_WIDTH = 1280;
 const reference = JSON.parse(await readFile('design/cards.json', 'utf8'));
 
+// Counts pixels of an exact colour in a region: a glyph only carries its colour where a stem
+// fully covers a pixel, so a mark is asserted over an area rather than at a point.
+async function find(file, region, colour) {
+  const { stdout } = await run(PYTHON, ['tools/bmp_find.py', file, '--logical-width', String(LOGICAL_WIDTH),
+    '--region', region.join(','), '--colour', colour]);
+  return JSON.parse(stdout).count;
+}
+
 async function probe(file, probes) {
   const args = [file, '--logical-width', String(LOGICAL_WIDTH),
     ...Object.entries(probes).map(([name, [x, y]]) => `${name}=${x},${y}`)];
@@ -68,6 +76,32 @@ setInterval(() => {}, 1000);`);
       surface: [accent.rect[0] + accent.rect[2] - 4, accent.rect[1] + accent.rect[3] + 6],
     });
     assert.equal(ground.surface, card.background, 'the popover draws the card ground');
+
+    // The check mark has to fit its box. Drawn at the text size it overflowed a 14px checkbox and
+    // was cropped to a diagonal stroke that read as a slash, which is how the owner reported it.
+    await gui.control('settings', 'vim', -1);
+    const checked = await gui.until(s => s.vim === true, 'Vim checked');
+    await gui.command({ op: 'motion', x: accent.rect[0] + 4, y: accent.rect[1] - 20 });   // clear the hover
+    await delay(200);
+    const ticked = path.join(dir, 'checkbox.bmp');
+    assert.equal(await gui.command({ op: 'snapshot', path: ticked }), true);
+    const box = checked.controls.find(c => c.key === 'vim').rect;
+    const side = 14, top = box[1] + Math.round((box[3] - side) / 2), lead = top - box[1];
+    const density = 2;   // the snapshot is at drawable resolution; bmp_find scales the region
+    // The mark displaces some of the accent fill, and the box's own corners stay filled: a mark
+    // drawn at the text size reaches them, which is what cropped it into a diagonal stroke.
+    const filled = await find(ticked, [box[0], top, side, side], card.hover);
+    assert.ok(filled > 0 && filled < side * side * density * density, `the mark is drawn inside the box: ${filled}`);
+    const corners = await probe(ticked, {
+      lower: [box[0] + 3, top + side - 3],
+      upper: [box[0] + side - 3, top + 3],
+    });
+    assert.deepEqual(corners, { lower: card.hover, upper: card.hover },
+      `the mark keeps clear of the box's corners: ${JSON.stringify(corners)}`);
+    assert.equal(await find(ticked, [box[0], box[1], side, lead], card.background), side * lead * density * density,
+      'no part of the mark sits above its box');
+    await gui.control('settings', 'vim', -1);
+    await gui.until(s => s.vim === false, 'and it clears again');
 
     // The accent slider's track is a gradient: many distinct colours along one row.
     const track = await scan(file, accent.rect, 14);
@@ -187,7 +221,9 @@ test('a theme file overrides all three token layers and a project theme is offer
     await gui.until(s => s.controls?.some(c => c.key === 'theme-path'), 'the theme-file field');
     await gui.control('settings', 'theme-path', -1);
     await gui.command({ op: 'text', text: 'exported.conf' });
-    await delay(120);
+    // Wait for the field to actually hold it: the text goes to whatever has focus, so asserting on
+    // the desktop's own state removes the race between the click landing and the typing arriving.
+    await gui.until(s => s.themePath === 'exported.conf', 'the path field took the text');
     await gui.control('settings', 'export', -1);
     await delay(200);
     const exported = await readFile(path.join(project, 'exported.conf'), 'utf8');

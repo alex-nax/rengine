@@ -81,7 +81,24 @@ unexpanded, so a file that sets a palette entry moves every semantic and view to
 That is the three-layer reach charter D34 asks for. A root's theme lives at `.rengine/theme.conf`,
 is read only while the popover is open, and is applied only on a click, remembered per root.
 
-## Correction found while building this
+## What shipped (F73, 2026-09-06)
+
+The explorer's mode is the setting of decision 1 and nothing else changes it. In nested mode a
+directory row expands in place at the card's indentation, the caret glyph drills in, and a branch
+collapses whole. In flat mode the view drills down as it always has.
+
+The cap is on loaded rows, because rows are what a person scrolls and what the desktop lays out.
+Reaching it collapses the least-recently-expanded branch and says which one in the status line.
+A branch is protected when the directory being opened sits under it, or when the selected file
+does. The selection is the file being worked on rather than whichever folder was last toggled:
+toggling a folder would otherwise clear the very protection decision 8 asks for. When every branch
+is protected the expansion is refused, again in the status line, and nothing already open closes.
+
+Expansion state lives on the tab, keyed by path, and survives a reload of the same directory.
+Choosing the explorer in the toolbar is now that reload. Drilling in or moving up starts a new tree
+and clears the expansions, because the paths beneath a different root mean something else.
+
+## Corrections found while building this
 
 Owned controls draw into the list while the interface is built, and that path never saw microui's
 clip. Nothing bounded them, so a scrolled explorer painted its rows and its path bar over the tab
@@ -89,6 +106,19 @@ strip and the toolbar; the owner reported it against the live desktop. Every con
 container's clip, a control that narrows its own intersects rather than replaces, and panels and
 popovers clear it because they are drawn outside any container. The invariant is asserted in
 `orchestrator/tests/native-scrollbars.spec.mjs`: scrolling a view may not change one pixel above it.
+
+Three more, each found by the owner or by a gate rather than by reading:
+
+- The popover is drawn above every pane but the pointer was still offered to the panes first, so a
+  terminal running a program with mouse reporting claimed the press and the rows over it looked
+  dead. An open overlay now owns the pointer over its own rectangle. The fixture matters: a plain
+  shell does not claim the press, so the test only means something with mouse reporting on.
+- A mark inside a small box was drawn at the text size. The check in a 14px checkbox came out
+  cropped to a diagonal stroke that reads as a slash. Icons now take a size, and the assertion is
+  that the mark keeps clear of the box's corners.
+- The new expansion request sorted above `OP_BYTES`, which is the boundary the request path uses to
+  decide that an operation belongs to a format view; it then read a format the explorer does not
+  have. The enum now records that boundary in a comment, and `re_format_mode` tolerates no view.
 
 ## Deferred
 

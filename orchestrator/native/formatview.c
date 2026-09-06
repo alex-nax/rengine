@@ -55,7 +55,7 @@ void re_format_close(ReFormatView *v) {
   re_hex_close(v->hex); re_hex_close(v->entry_hex); re_editor_close(v->text); re_editor_close(v->entry_text);
   cJSON_Delete(v->preview); cJSON_Delete(v->entry_info); free(v->expanded); free(v);
 }
-int re_format_mode(const ReFormatView *v) { return v->mode; }
+int re_format_mode(const ReFormatView *v) { return v ? v->mode : RE_MODE_PENDING; }   /* a view without a format has no mode */
 bool re_format_chosen(const ReFormatView *v) { return v->chosen; }
 void re_format_await(ReFormatView *v, bool awaiting) { v->awaiting = awaiting; }
 bool re_format_awaiting(const ReFormatView *v) { return v->awaiting; }

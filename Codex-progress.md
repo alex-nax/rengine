@@ -213,6 +213,59 @@ control stayed removed, gains `Devices`.
 against a real Quest or SSH host from this branch (KI-046), delivery needs `update_workspace` for
 the worker layer plus a desktop reload for the native section, and the dashboard now pays one probe
 per device per listing (KI-047).
+## Session 32 (macos) — 2026-09-06 — The explorer expands in place, and three defects the owner found first
+
+F73 is implemented and gated on macOS. In nested mode a directory row expands in place at the card's
+indentation, the caret glyph drills in so the old behaviour stays reachable, and a branch collapses
+whole. Flat mode is unchanged. The mode is the setting from spec 080 decision 1 and nothing infers it.
+
+The row cap is the interesting part. It counts rows rather than branches, because rows are what a
+person scrolls, and it is enforced when a listing arrives, since the size of a directory is not known
+before that. Reaching it collapses the least-recently-expanded branch and names it in the status line.
+A branch is protected when the directory being opened sits under it or when the selected file does,
+and the selection is the file being worked on rather than whichever folder was last toggled — the
+first version updated the selection on every folder click, which quietly cancelled the protection the
+rule exists to provide. When every branch is protected the expansion is refused, also in the status
+line, and nothing already open closes. `orchestrator/tests/native-explorer.spec.mjs` drives all four
+criteria against the real desktop.
+
+The row is not marked passing. F73 depends on F67, which is signed off but waits on the Windows card
+evidence blocked by KI-038, so the inventory keeps `passes: false` and the macOS verification is
+recorded in `docs/evidence/nested-explorer-macos-2026-09-06.md`.
+
+Three defects arrived from the owner and one peer rather than from reading code, and all three are
+worth writing down because none would have been caught by the gates as they stood:
+
+- The settings popover would not take clicks over a pane running an agent CLI. The surface is drawn
+  above every pane but the pointer was still offered to the panes first, and a terminal with mouse
+  reporting on claims the press and returns. The rows above that terminal's rectangle worked, which
+  made it look like two broken controls rather than a layer that stops at a boundary. An open overlay
+  now owns the pointer over its own rectangle. The regression only means something with a fixture
+  that enables mouse reporting; a plain shell does not claim the press and the test passes either way.
+- The check mark in a checkbox was drawn at the text size, so a 14px box cropped it to a diagonal
+  stroke that reads as a slash. Icons now take a size, and the assertion is that the mark keeps clear
+  of the box's corners, which is what an oversized glyph reaches first.
+- Scrolled views painted over the toolbar, reported by the peer session from the owner's screen. That
+  one was a class rather than a bug: owned controls never saw microui's clip, and the scrollbar work
+  simply gave those lists somewhere to scroll to. Fixed in the control layer, so every view was
+  covered by one change.
+
+The three added defects of my own making are in the spec: an operation number that sorted above the
+format-view boundary and read a format the explorer does not have, a collapse that passed a pointer
+into the slot it then cleared, and a pool whose free marker made tab 0 indistinguishable from an
+unused slot.
+
+Commands: `npm test` 61/61, `ctest` 6/6, `python3 tools/design.py check`, `python3
+tools/features.py validate`, and `npm run test:desktop` 26/26 on two of five runs. The other three
+dropped one or two different tests to an automation timeout, each passing when rerun alone, and the
+committed baseline `a5e6036` dropped three the same way, so this is environmental. Recorded as KI-045
+rather than left as folklore, because a single red run here should not read as a regression.
+
+Remaining: F69 and the KI-038 Windows suite repair, which unblocks F37, F54, F62, F67 and with them
+F73. The owner's sign-off notes for F60 and F67 are still outstanding. Two peer sessions have raised
+work for the owner to decide: Escape never reaches an embedded game because the pane consumes it as
+the capture-release gesture, and requests for game recording and per-project chrome identity.
+
 ## Session 32 (macos) — 2026-09-06 — A game pane that remembers the last two minutes
 
 F75 implements the recording the owner asked for directly: a game pane keeps a rolling buffer while
