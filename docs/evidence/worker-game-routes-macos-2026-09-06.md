@@ -78,16 +78,18 @@ path: `projectGameLaunch: 1` and the worker's `game` route launching and reusing
 
 ## Gates
 
+Final sweep, run after `git fetch origin` and `git merge origin/main` (`f42bdea`, already contained).
+
 | Gate | Result |
 | --- | --- |
-| `npm test` | 56 pass, 0 fail, 6.4 s |
-| `npm run test:desktop` (sequential) | 18 pass, 0 fail, 337.1 s |
-| `ctest --test-dir .cache/desktop --output-on-failure` | 5 pass, 0 fail, 1.04 s |
+| `npm test` | 56 pass, 0 fail, 7.2 s |
+| `npm run test:desktop` (sequential) | 18 pass, 0 fail, 354.5 s |
+| `ctest --test-dir .cache/desktop --output-on-failure` | 5 pass, 0 fail, 0.08 s |
 | Clean native build (fresh `cmake` configure + Release build) | exit 0, **0 warnings** |
 | `./init.sh` | passed (33 features validated, Vulkan shader header matches) |
 | `python3 tools/design.py check` | 19 design cards, token mirror and 3 presets consistent |
 | `python3 tools/features.py validate` | 33 features, types, evidence and dependency graph |
-| `RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run test:game-nolf` | 1 pass, 0 fail, 4.9 s — real NOLF renders and takes menu input through a dashboard game action |
+| `RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run test:game-nolf` | 1 pass, 0 fail, 4.86 s — real NOLF renders and takes menu input through a dashboard game action |
 
 ## Both live consumer declarations through the fixed code
 

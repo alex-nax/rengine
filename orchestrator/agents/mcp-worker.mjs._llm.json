@@ -82,7 +82,7 @@
   ],
   "source": {
     "path": "orchestrator/agents/mcp-worker.mjs",
-    "sha256": "ffcb1053d0fe0ac7bb84a075ec2302f08b641f85fe648ccf1bdb047d9198807c",
+    "sha256": "9b21fdbb824e111ce16b52ecdd935c939c5eccb5da2b6d3aace258ea84bf439d",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

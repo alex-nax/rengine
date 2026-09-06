@@ -53,11 +53,12 @@ pins the declared records, the unknown-`gameId` 404, dashboard availability from
 both refused launch paths, and `game_preflight` answering through the real MCP connector while
 `launch_game` reports the host limit. `dashboard.test.mjs` pins the merged-host path.
 
-**Gates**: `npm test` 56/56 (6.4 s); `npm run test:desktop` 18/18 sequential (337.1 s);
-`ctest --test-dir .cache/desktop` 5/5 (1.04 s); a clean `cmake` configure + Release build, exit 0
+**Gates**, re-run after `git fetch origin` + `git merge origin/main` (`f42bdea`, already
+contained): `npm test` 56/56 (7.2 s); `npm run test:desktop` 18/18 sequential (354.5 s);
+`ctest --test-dir .cache/desktop` 5/5 (0.08 s); a clean `cmake` configure + Release build, exit 0
 with **0 warnings**; `./init.sh` green; `tools/design.py check` (19 cards, mirror, 3 presets);
 `tools/features.py validate` (33 features); `RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run
-test:game-nolf` 1/1 (4.9 s) — real NOLF renders and takes menu input through a dashboard game
+test:game-nolf` 1/1 (4.86 s) — real NOLF renders and takes menu input through a dashboard game
 action. Both live consumer declarations re-validate through the fixed code: vtmb-vr's `vtmb-flat`
 ready with `build/vtmb` and `vtmb-vr` unavailable naming its executable, nolf-improved's three
 embedded records all ready. Evidence:
