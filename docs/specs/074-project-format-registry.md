@@ -37,11 +37,20 @@ boundary (traversal and external symlinks rejected); `${entry}` is the tree entr
 as one literal argument. `argv[0]` resolves: absolute as given; containing a separator relative to
 the project root (a `.exe` suffix is tried on Windows); a bare name through the sidecar's PATH.
 The child runs with cwd = project root, the sidecar's shell environment (`shellEnvironment`), no
-shell, stdin closed. It is killed on `timeoutMs` or when stdout exceeds `maxBytes`; a non-zero
-exit, a timeout, an oversized output, an unparseable tree or invalid UTF-8 text fail with stderr's
-first line (or the reason) and the substituted argv so the pane and the agent name what ran. No
-output is cached across requests; paging an entry re-runs its command. A project's executables
-can have effects, as with `open_script`: the pane names the command it ran.
+shell, stdin closed, in its own process group on POSIX. On `timeoutMs` or when stdout exceeds
+`maxBytes` the whole group is killed (`taskkill /T /F` on Windows), its pipes are closed and the
+request waits for the exit; a non-zero exit, a timeout, an oversized output, an unparseable tree
+or invalid UTF-8 text fail with stderr's first line (or the reason) and the substituted argv so
+the pane and the agent name what ran. No output is cached across requests; paging an entry
+re-runs its command. A project's executables can have effects, as with `open_script`: the pane
+names the command it ran.
+
+Confinement is check-then-use by nature: `${file}` is re-resolved through the root boundary
+immediately before the spawn and that resolved path is what the producer receives, and a raw
+read opens the handle first, then confines a fresh resolution of the same path to the opened
+inode. A producer that takes a path cannot be handed a descriptor, so the window between the
+final resolution and the producer's own open cannot be closed; it is accepted for the single-user
+loopback sidecar and recorded in KI-037.
 
 Routes (host and replaceable worker, capability `formatRegistry: 1`):
 
@@ -67,19 +76,28 @@ It is also the automatic fallback for every file the text read rejects with a co
 registered or not; an explicit mode choice is never overridden. `preview` for `kind` `tree` shows
 a collapsible tree with sizes; selecting a file when an `entry` command exists shows that entry
 below the tree, read-only, as text when it is UTF-8 without NUL and otherwise as hex. `kind`
-`text` shows a read-only text pane. `text` is the existing editor. A failing command shows
-stderr's first line and a Retry; Refresh re-runs the command. Preview and raw are read-only:
+`text` shows a read-only text pane. `text` is the existing editor. Directory expansion state
+belongs to the view (a bounded set keyed by path), never to microui's shared treenode pool, so
+any number of open directories is safe. A failing command shows stderr's first line and a Retry;
+Refresh re-runs the command. The desktop's HTTP deadline for a preview or entry request is the
+declared `timeoutMs` plus two seconds of transport, and a transport timeout names that budget.
+A failed or malformed discovery settles the root as declared-with-error: text files open
+normally and the status line shows the problem. Preview and raw are read-only:
 Save, Discard and drafts apply to text mode only. The chosen mode persists with the layout and
 survives GUI restart; the format list for a root is fetched once per connection and after a root
 is added. Mode buttons, page controls, tree rows and Retry are inspectable controls.
 
 ## Agents
 
-`preview_file` (`path`, optional `entry`, `dir`, `depth`) runs the identical declared command
-through the bound root and returns the sanitized subtree at `dir` to `depth` levels (default 1,
-at most 8) or the text; with `entry` it returns size and SHA-256 plus the text when UTF-8. It is
-marked open-world because it executes the project's own program; it never writes. The live
-connector predates the tool and picks it up only through a layered `connector` update.
+`preview_file` (`path`, optional `entry`, `dir`, `depth`, `offset`, `limit`) runs the identical
+declared command through the bound root and returns the sanitized subtree at `dir` to `depth`
+levels (default 1, at most 8) or the text; with `entry` it returns size and SHA-256 plus the text
+when UTF-8. Wide levels page through `offset`/`limit` (default 200, at most 1,000; `nextOffset`
+continues) and the whole reply stays within a 32,000-character budget by shrinking depth, then
+limit, with `truncated` saying so. Command metadata and paths are root-relative and error text
+has the absolute root replaced by `<root>`. It is marked open-world because it executes the
+project's own program; it never writes. The live connector predates the tool and picks it up
+only through a layered `connector` update.
 
 ## Acceptance and verification
 
@@ -88,11 +106,15 @@ connector predates the tool and picks it up only through a layered `connector` u
    outside modes), case-insensitive globs, placeholder substitution with a literal `$(…)` entry,
    root boundary, tree/text/entry results, hex windows, timeout, oversized output and non-zero
    exit with stderr's first line, through the host, the replaceable worker and the MCP tool, using
-   a temporary project with a small script producer and no dependency on nolf-improved.
+   a temporary project with a small script producer and no dependency on nolf-improved; the
+   hardening tests add structurally broken declarations and prototype-named keys, the runner's
+   own re-validation of `${file}`, a grandchild surviving a timeout, and the tool's budget,
+   pagination and path redaction.
 2. A native fixture opens a declared binary file in raw mode, switches to preview, expands the
    tree, opens one entry, switches back, restores its mode after GUI restart, surfaces a failing
    command with Retry, and falls back to hex for an undeclared binary file while text files keep
-   the editor and Save.
+   the editor and Save; the hardening fixture expands 64 directories, opens a text file under a
+   malformed declaration and completes a 6 s producer inside its declared 10 s budget.
 3. One recorded check runs the real nolf-improved declaration with `build/relith-rez` on
    `nolf/NOLF.REZ` through the same service and tool paths.
 4. `npm test`, `npm run test:desktop`, CTest, `./init.sh`, design check and sidecar validation pass.

@@ -1,5 +1,43 @@
 # Progress Log
 
+## Session 23 (macos) — 2026-09-06 — Format registry review fixes
+
+**Owner scope**: `feat/format-registry` merged to main as `f38db49` and running on the live desktop;
+a Codex read-only review requested six changes, fixed on `fix/format-registry-review` (worktree
+`.cache/worktrees/format-registry`, base `f38db49`; not merged, not pushed). Red test first for
+each finding, then the fix.
+
+**Fixed**: (1) directory expansion no longer touches microui's 48-slot treenode pool, whose
+`mu_pool_init` aborts on the 49th open node in one frame; the view owns a hashed-path expansion
+set and rows are plain buttons with a spacer indent. (2) `readDeclaration` reports structural
+schema problems before the cross-field pass (which now guards every shape), `validateSchema`
+uses `Object.hasOwn` so prototype names are unknown keys, and a failed formats request settles the
+root as declared-with-error natively so text editors open and the status line shows the problem.
+(3) `runCommand` takes the root record and re-confines `${file}` immediately before the spawn;
+raw reads open first and require the opened inode to match a fresh confined resolution; the
+residual path-taking window is stated in spec 074 and KI-037. (4) producers run in their own
+POSIX process group and timeout/oversize kill the group (`taskkill /T /F` on Windows), close
+the pipes and await the exit. (5) `preview_file` budgets the serialized reply at 32,000 chars,
+pages files with `offset`/`limit`, reports `truncated`/`nextOffset`, returns root-relative
+command metadata and redacts the absolute root from tool errors. (6) the native HTTP deadline is
+per request: preview/entry requests use the declared `timeoutMs` plus two seconds of transport
+and a transport timeout names that budget.
+
+**Verification**: `formats-hardening.test.mjs` (4 tests) and `native-format-hardening.spec.mjs`
+were red first (thrown TypeError, runner accepting an absolute path, grandchild alive after the
+timeout, no offset/limit; the wide tree stalled and the 6 s producer failed the 5 s deadline).
+Final: `npm test`: 35 passes, 0 failures, 5.57 s; `npm run test:desktop`: 14 passes, 1 failure, 288.49 s (exit 1): the failure is Codex's untouched `native-render.spec.mjs` budget assertion `opengl: resident memory delta 33536 KiB exceeds 32768 KiB`; it passes standalone (1 pass, 171.53 s) and the two format fixtures passed in that full run; a first full run failed the hardening fixture on the restored-tab deadline bug fixed afterwards (15 fixtures, including the
+64-directory expansion, a text file under a malformed declaration and a 6 s producer inside its
+10 s budget); CTest 4 passes (0.64 s); inventory validate (24), `./init.sh`, design check and
+sidecar check/stamp for nine sources pass. KI-037 and spec 074 corrected where the review proved
+them wrong.
+
+**Remaining**: the transport-timeout message with the declared budget is not exercised by a
+test (no fixture can stall the loopback service); Windows `.exe` resolution stays untested
+(KI-014). Owner merges the branch, runs the layered update again and re-verifies the real window.
+
+---
+
 ## Session 22 (macos) — 2026-09-06 — Project format registry
 
 **Owner scope**: `*.rez` files in nolf-improved open in the editor with a raw hex mode by default
