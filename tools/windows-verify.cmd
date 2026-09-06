@@ -1,6 +1,6 @@
 @echo off
 rem Windows verification stages for the native desktop (docs/runbooks/windows-verification.md).
-rem Usage: windows-verify.cmd setup|build|render|suite <backend>|ctest|smoke   (run from a scheduled task in the console session)
+rem Usage: windows-verify.cmd setup|build|surface|render|suite <backend>|ctest|smoke   (run from a scheduled task in the console session)
 setlocal EnableDelayedExpansion
 set "STAGE=%~1"
 if "%STAGE%"=="" set "STAGE=render"
@@ -32,6 +32,7 @@ if "%STAGE%"=="render" goto :render
 if "%STAGE%"=="suite" goto :suite
 if "%STAGE%"=="ctest" goto :ctest
 if "%STAGE%"=="smoke" goto :smoke
+if "%STAGE%"=="surface" goto :surface
 echo unknown stage %STAGE%
 set "CODE=2"
 goto :done
@@ -52,7 +53,15 @@ set "CODE=%ERRORLEVEL%"
 goto :done
 :suite
 set "RENGINE_RENDERER=%~2"
-call npm run test:desktop
+rem The same file list as package.json test:desktop, with --test-force-exit: a spec process stays alive after its tests on Windows.
+call npm run build
+set "CODE=%ERRORLEVEL%"
+if not "%CODE%"=="0" goto :done
+call node -e "const s=require('./package.json').scripts['test:desktop'].split('&&').pop().trim().split(/\s+/);s.splice(2,0,'--test-force-exit');const r=require('child_process').spawnSync(process.execPath,s.slice(1),{stdio:'inherit'});process.exit(r.status??1)"
+set "CODE=%ERRORLEVEL%"
+goto :done
+:surface
+cmake -S adapters\sdl2 -B .cache\native -DCMAKE_BUILD_TYPE=Release && cmake --build .cache\native --config Release
 set "CODE=%ERRORLEVEL%"
 goto :done
 :ctest

@@ -78,4 +78,6 @@ if(APPLE)
 elseif(WIN32)
   target_include_directories(rengine_surface_fixture PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
   target_link_libraries(rengine_surface_fixture PRIVATE rengine_surface SDL2::SDL2main)
+  add_custom_command(TARGET rengine_surface_fixture POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_surface_fixture>)
 endif()

@@ -14,7 +14,9 @@ test('native game texture streams real SDL frames and releases controls on nativ
     server = await startServer({ stateDir: path.join(dir, 'state') });
     const root = await server.store.addRoot(dir);
     const { item, env } = server.games.surfaces.reserve();
-    const game = await server.sessions.terminal({ rootId: root.id, type: 'game', command: path.resolve('.cache/native/rengine_surface_fixture'), args: ['interactive'],
+    // The fixture links the surface adapter directly on Windows (multi-config build under Release); macOS interposes the dylib.
+    const fixture = path.resolve(process.platform === 'win32' ? '.cache/native/Release/rengine_surface_fixture.exe' : '.cache/native/rengine_surface_fixture');
+    const game = await server.sessions.terminal({ rootId: root.id, type: 'game', command: fixture, args: ['interactive'],
       env: { ...env, DYLD_INSERT_LIBRARIES: path.resolve('.cache/native/librengine_surface.dylib') } });
     item.id = game.id; server.games.items.set(game.id, item);
     gui = await nativeClient(server, { root: root.id, game: game.id });

@@ -3,7 +3,7 @@
 Scope: the macOS development and evidence path of F59 ([spec 073](../specs/073-vulkan-adapter.md)
 decision 2) on macOS 15.7.3, Apple M3 Max, SDL 2.32.10 with `SDL_WINDOW_VULKAN`, Homebrew Vulkan
 loader 1.4.328 with MoltenVK 1.4.0 (device API 1.3.323), validation layers 1.4.357 from Homebrew,
-1280×800 logical / 2560×1600 drawable, tree at `038759f` plus this change. The F59 criterion is
+1280×800 logical / 2560×1600 drawable, tree at `b0a6d4b` (the adapter after its allocation trim). The F59 criterion is
 carried by the Windows evidence; this run shows the adapter meets the same gates on a second
 platform. The gate is the SDL reference adapter (spec 068 decisions 5 and 6).
 
@@ -15,16 +15,16 @@ with `tools/render_compare.py` under the spec 068 tolerances.
 
 | Scene | Vulkan vs SDL differing pixels | Max channel Δ | Outside 2px band | SDL median ms | OpenGL median ms | Metal median ms | Vulkan median ms | Commands |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Default workspace (tree, shell prompt) | 0 of 4096000 (0.000%) | 0 | n/a | 1.832 | 1.231 | 1.401 | 0.846 | 4028 |
-| Terminal with 40 coloured rows | 0 of 4096000 (0.000%) | 0 | n/a | 3.115 | 1.469 | 1.673 | 1.110 | 5258 |
-| Primitives scene (all contract commands) | 32786 of 4096000 (0.800%) | 139 | 0 | 2.825 | 1.561 | 1.675 | 0.462 | 5299 |
+| Default workspace (tree, shell prompt) | 0 of 4096000 (0.000%) | 0 | n/a | 1.889 | 0.838 | 0.815 | 0.207 | 4028 |
+| Terminal with 40 coloured rows | 0 of 4096000 (0.000%) | 0 | n/a | 1.179 | 0.423 | 0.530 | 0.263 | 5258 |
+| Primitives scene (all contract commands) | 32786 of 4096000 (0.800%) | 139 | 0 | 3.114 | 0.447 | 0.559 | 0.295 | 5299 |
 
 Vulkan is pixel-identical to OpenGL and to Metal on every scene (0 differing pixels in each
 cross-comparison), so the three GPU adapters share one set of numbers against the reference.
 Medians cover 40 event-driven frames per scene after a stats reset; frame time is list build plus
 adapter execute with the frame's commands recorded, excluding present and vsync. Resident memory:
-SDL 162048 KiB, OpenGL 179728 KiB, Metal 142672 KiB, Vulkan 143456 KiB; the Vulkan delta against SDL is
--18592 KiB against the 32768 KiB limit.
+SDL 162272 KiB, OpenGL 182592 KiB, Metal 143664 KiB, Vulkan 143952 KiB; the Vulkan delta against SDL is
+-18320 KiB against the 32768 KiB limit.
 
 ## Validation-layer run (spec 073 decision 9)
 
