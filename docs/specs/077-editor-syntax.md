@@ -43,6 +43,13 @@ and how the owner's selectable schemes work, because that goes past what the car
 - The committed desktop suite and the renderer comparison keep passing; colouring adds no geometry,
   so the existing editor and terminal gates are unchanged.
 
+## Status, 2026-09-06
+
+Landed with F67's views. The tokeniser covers the eight languages with `native_syntax` under CTest;
+the editor colours characters from spans with a per-line carry cache; four schemes generate into
+`render/syntax_theme.h` and the design spec asserts the keyword colour on screen in the dark and
+light presets. Evidence is recorded in `docs/evidence/design-views-macos-2026-09-06.md`.
+
 ## Deferred
 
 Choosing a scheme from the interface belongs with the theme panel (F68); until then a scheme is

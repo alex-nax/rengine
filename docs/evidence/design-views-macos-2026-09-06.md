@@ -40,7 +40,7 @@ terminal only reached it once default cells started resolving against the live t
 | Check | Result |
 | --- | --- |
 | Native desktop suite, including the design spec | 17 tests passed |
-| CTest | 4 passed |
+| CTest, including the new syntax tokeniser tests | 5 passed |
 | Renderer comparison across all four backends | passes; every scene under the 8 ms ceiling |
 | `python3 tools/design.py check` | passes |
 
@@ -62,8 +62,34 @@ Resident memory medians: SDL 165616 KiB, OpenGL 185168 KiB, Metal 144192 KiB, Vu
 | Overlay scrollbars with rounded thumbs in every scrollable view, with rest, hover and dragging states | Met: the shared bar carries all three states and every view inherits it |
 | Every existing desktop behaviour gate still passes on the GPU backend | Met: 17 of 17 |
 
+## Syntax highlighting (spec 077)
+
+The editor colours code through an owned line-based tokeniser (`syntax.h`, `syntax.c`) with a carry
+state for block context, covering the C family, Python, JavaScript and TypeScript, JSON, Markdown,
+shell and CMake. Nine token roles map to four selectable schemes in `orchestrator/native/syntax.json`,
+resolved per theme preset into a generated table; the Claude Design scheme is the default and comes
+from the editor card.
+
+| Role | default preset | light preset |
+| --- | --- | --- |
+| Keyword | #c1a9ee | #643b9a |
+| Function | #66cfe1 | #006283 |
+| String | #91c985 | #357426 |
+| Number | #f6ab6b | #b45000 |
+| Comment | #6a6a6a | #9a958c |
+
+`orchestrator/native/tests/syntax_test.c` runs under CTest as `native_syntax`: each language's
+keywords, strings, numbers, comments and calls, the block-comment carry across lines, unterminated
+strings, capacity truncation, state determinism, language detection including bare file names, and
+robustness cases (NULL and negative lengths, embedded NUL bytes, 4 KB lines of punctuation, quotes
+and backticks, multi-byte UTF-8). The design spec additionally opens a C file and asserts the
+scheme's keyword colour is on screen in both the dark and light presets, which proves the generated
+table and its per-preset override reach the pixels. `docs/evidence/design/editor-syntax.png` shows
+the result.
+
 ## Not claimed yet
 
-The editor's gutter, current-line tint and syntax colours; the card's per-directory counts in the
-explorer, which need a field the file listing does not carry; and the tree's nested indentation,
-since the view is a drill-down listing rather than an expanding tree.
+The card's per-directory counts in the explorer, which need a field the file listing does not carry,
+and the tree's nested indentation, since the view is a drill-down listing rather than an expanding
+tree. Choosing a syntax scheme from the interface belongs with the theme panel in F68; today a
+scheme is selected through the automation `syntax` op.

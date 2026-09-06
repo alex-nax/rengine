@@ -382,6 +382,20 @@ states. The design spec probes the view surfaces per preset too. Evidence
 editor's gutter, current-line tint and syntax colours, which still use the pre-design drawing inside
 editor.c, and on the card's per-directory counts, which need a field the file listing does not carry.
 
+**Follow-up 11 (same session)**: owner asked for syntax highlighting tunable with IDE-style presets,
+and reported missing glyphs in the Claude pane. The glyph report was a real defect: Claude Code's
+status line uses U+23F5, which neither Menlo nor Inter nor any font installed on this machine carries,
+so it drew as tofu. Glyph lookup now tries the requested face, then the other loaded faces, then a
+substitution table for the six media-control code points no face has; advances are untouched, so the
+monospace grid and every adapter's placement are unmoved. Spec 077 records the highlighting design:
+nine token roles, a line-based tokeniser with a carry state (`syntax.h`/`syntax.c`, written by an Opus
+subagent against the header, with `native_syntax` under CTest covering every language plus hostile
+input), and four schemes in `syntax.json` resolved per theme preset into a generated table. The editor
+gained the card's 44px gutter with line numbers, the current-line tint, its own background and
+per-character colouring with a per-line carry cache so scrolling is not a rescan. The design spec
+opens a C file and asserts the keyword colour is on screen in the dark and light presets. Suite 17/17,
+CTest 5/5. A scheme is chosen through the automation `syntax` op until the theme panel lands (F68).
+
 **Follow-up 8 (same session)**: F59 on owner direction after a `/grill-me` interview (spec 073;
 charter D31 names `pr0fe@192.168.31.217` as the Windows verification host and authorizes the
 commits-only transfer KI-014 waited for; D32 sets the Vulkan floor at the Quest 3 maximum, researched
