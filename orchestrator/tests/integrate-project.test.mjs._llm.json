@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "shipped-rules-never-restated",
+      "kind": "constraint",
+      "anchor": {
+        "start": 42,
+        "end": 42,
+        "snippet": "function declarationProblems(value, root) {"
+      },
+      "note": "Never restate a contract rule here. An earlier revision re-implemented the contract-2 shape in this file and drifted from the shipped rules in two directions at once: it rejected legal executable candidates and accepted env keys the service refuses. The helper now calls validateSchema over the committed contract plus the shared cross-rule modules, so this test cannot disagree with the service. The one thing it still states is the cross rule the reader owns and neither module checks: a dashboard needs contract 2 and a games array needs contract 3. While the committed schema predates contract 3 the helper validates the core with the games array removed and lists the uncovered tier instead of inventing rules for it; when the game lane lands its schema and game-rules.mjs the other branch is taken automatically and nothing here changes.",
+      "refs": [
+        "docs/specs/077-project-integration-recipe.md",
+        "contracts/project-v1.schema.json"
+      ]
+    },
+    {
+      "id": "file-url-submodule-fallback",
+      "kind": "edge-case",
+      "anchor": {
+        "start": 168,
+        "end": 168,
+        "snippet": "test('the submodule stage pins the requested rEngine commit, or prints exactly that plan', async () => {"
+      },
+      "note": "git refuses file:// submodules since the 2022 hardening unless protocol.file.allow=always, which the test supplies through GIT_CONFIG_* rather than by changing the wizard or any user configuration. Where a git still refuses, the printed plan asserted just above is the whole assertion; that keeps the suite network-free and portable instead of skipping the stage entirely.",
+      "refs": [
+        "docs/evidence/project-integration-recipe-macos-2026-09-06.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/tests/integrate-project.test.mjs",
+    "sha256": "7d88e4045dd10bc6f685cf18ae5f3c544755e723ef5c9329f6565a3a4281be77",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

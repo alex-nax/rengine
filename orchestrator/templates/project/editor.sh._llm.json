@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "missing-submodule-under-dry-run",
+      "kind": "edge-case",
+      "anchor": {
+        "start": 159,
+        "end": 159,
+        "snippet": "if [ -d \"$RENGINE\" ]; then"
+      },
+      "note": "A freshly scaffolded project can have no third_party/rengine yet (the wizard's --no-submodule path), so the bootstrap section cannot cd into it unconditionally: under --dry-run it prints the cd and keeps printing the plan, and otherwise it names the submodule command to run. The three build steps below are then evaluated in the project root, which only matters without --rebuild.",
+      "refs": [
+        "docs/runbooks/project-integration.md"
+      ]
+    },
+    {
+      "id": "empty-array-expansion-on-bash-3",
+      "kind": "constraint",
+      "anchor": {
+        "start": 180,
+        "end": 180,
+        "snippet": "if [ ${#LAUNCH_ARGS[@]} -gt 0 ]; then"
+      },
+      "note": "macOS ships bash 3.2, where expanding an empty array under set -u aborts the script, so the launch is branched instead of interpolating \"${LAUNCH_ARGS[@]}\" unconditionally. Same reason for the guarded BREW_MISSING and PROBLEMS expansions above. Keep this template runnable on /bin/bash.",
+      "refs": [
+        "docs/specs/077-project-integration-recipe.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/templates/project/editor.sh",
+    "sha256": "0dba93bbe92af41f71cce0365822f0ceb4d5c0ffb314adef27111a87066c2261",
+    "format": "shell",
+    "format_fingerprint": "0c07404ffdecc7f9c766fddf6b5a92dfedbae0728eaef728c4c42a67f47f7f4a"
+  }
+}
