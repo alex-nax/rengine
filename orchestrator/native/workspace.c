@@ -386,6 +386,7 @@ void re_app_status(ReApp *a, ReDraw *draw) {
 enum { RE_COMMAND_SPLIT_VERTICAL = 0, RE_COMMAND_SPLIT_HORIZONTAL, RE_COMMAND_MERGE,
        RE_COMMAND_SHELL, RE_COMMAND_AGENT, RE_COMMAND_CLOSE_VIEW };
 #if defined(__APPLE__)
+#define RE_PLATFORM_MODIFIER         KMOD_GUI
 #define RE_SHORTCUT_SPLIT_VERTICAL   "Cmd \\"
 #define RE_SHORTCUT_SPLIT_HORIZONTAL "Cmd Shift \\"
 #define RE_SHORTCUT_MERGE            "Cmd Backspace"
@@ -393,6 +394,7 @@ enum { RE_COMMAND_SPLIT_VERTICAL = 0, RE_COMMAND_SPLIT_HORIZONTAL, RE_COMMAND_ME
 #define RE_SHORTCUT_CLOSE            "Cmd W"
 #define RE_SHORTCUT_RELEASE          "Cmd ."
 #else
+#define RE_PLATFORM_MODIFIER         KMOD_CTRL
 #define RE_SHORTCUT_SPLIT_VERTICAL   "Ctrl \\"
 #define RE_SHORTCUT_SPLIT_HORIZONTAL "Ctrl Shift \\"
 #define RE_SHORTCUT_MERGE            "Ctrl Backspace"
@@ -901,6 +903,12 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
       a->dropdown[0] = 0;
     }
     if (pointer && (in_list || re_inside(a->overlay_rect, a->mouse_x, a->mouse_y))) return false;
+    /* The surface on top owns the keyboard too. Letting keys through meant a menu could sit visibly
+     * over a terminal while every keystroke typed into the live shell beneath it. Returning false
+     * hands them to the interface layer, which is what the popover's own text field needs, rather
+     * than clearing pane focus here: focus is released in this handler's own bookkeeping below, and
+     * changing it from the build would skip that. */
+    if (e->type == SDL_KEYDOWN || e->type == SDL_KEYUP || e->type == SDL_TEXTINPUT) return false;
     /* An outside press closes the surface and then goes on to whatever it landed on, so choosing
      * another toolbar control takes one click. The opener is excluded, because its own toggle
      * closes the surface and would otherwise reopen it on the same press. */
@@ -910,8 +918,10 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
     }
   }
   /* A press with the platform modifier runs a workspace command before any pane sees the key, so the
-   * hints the menu prints are the keys that work. */
-  if (e->type == SDL_KEYDOWN && (e->key.keysym.mod & (KMOD_GUI | KMOD_CTRL)) && !a->quitting) {
+   * hints the menu prints are the keys that work. The modifier is the platform's own and not either
+   * of them: accepting Ctrl on macOS took Ctrl+W, Ctrl+\\ and Ctrl+Backspace away from every shell in
+   * a pane, which are delete-word, SIGQUIT and delete-word again, while the menu promised Cmd. */
+  if (e->type == SDL_KEYDOWN && (e->key.keysym.mod & RE_PLATFORM_MODIFIER) && !a->quitting) {
     bool shift = (e->key.keysym.mod & KMOD_SHIFT) != 0;
     switch (e->key.keysym.sym) {
       case SDLK_BACKSLASH: run_command(a, shift ? RE_COMMAND_SPLIT_HORIZONTAL : RE_COMMAND_SPLIT_VERTICAL); return true;
