@@ -223,6 +223,21 @@ baseline. The macOS default is now OpenGL; Windows keeps SDL and F57 stays unpas
 evidence (KI-014). Evidence: `docs/evidence/opengl-adapter-macos-2026-09-06.md`. Commit:
 `feat(native): add the OpenGL adapter behind the draw list (F57)`.
 
+**Follow-up 7 (same session)**: F58 on owner direction after a `/grill-me` interview (spec 072;
+inventory corrections committed first as `b119a3e`). `render/backend_metal.m` is the one
+Objective-C file (ARC, `SDL_WINDOW_METAL`, SDL's Metal view, MSL compiled from an embedded string,
+the OpenGL adapter's shading, atlas and batching ported), `cmake.toml` enables Objective-C on Apple
+only, `draw.c` selects `metal`, the layering guard scans `.m` files, and the render spec captures
+`sdl`, `opengl` and `metal`, gating both GPU adapters against SDL and recording Metal-versus-OpenGL.
+The first spec run failed on every scene for both GPU adapters with identical pixels between them:
+the login shell's asynchronous prompt moved between captures, so the spec now starts `bash --norc`
+with a fixed prompt. Results: Metal pixel-identical to OpenGL on every scene, 0 differing pixels on
+the current-UI scenes, primitives 0.8% inside the band, Metal medians below SDL on every scene,
+memory below SDL; suite on `RENGINE_RENDERER=metal` 13 of 13 tests across twelve spec files; CTest 4/4; smoke snapshots of
+all three backends byte-identical; macOS default flipped to Metal. Evidence
+`docs/evidence/metal-adapter-macos-2026-09-06.md`; F58 passes. Commit:
+`feat(native): add the Metal adapter behind the draw list (F58)`.
+
 **Follow-up 6 (same session)**: On owner direction the build moved to cmkr as in nolf-improved:
 `cmake.toml` at the root defines every native target and CTest entry, `adapters/sdl2/cmake.toml`
 the surface adapter and its fixture, and `cmake/cmkr.cmake` (tag v0.2.46, copied verbatim)

@@ -143,6 +143,13 @@ if(NOT MSVC)
   target_compile_options(rengine_desktop_core PRIVATE -Wall -Wextra -Wpedantic)
   target_link_libraries(rengine_desktop_core PUBLIC m)
 endif()
+if(APPLE)
+  # spec 072: the Metal adapter is the one Objective-C file, compiled with ARC and linked to Apple's frameworks.
+  enable_language(OBJC)
+  target_sources(rengine_desktop_core PRIVATE orchestrator/native/render/backend_metal.m)
+  set_source_files_properties(orchestrator/native/render/backend_metal.m PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+  target_link_libraries(rengine_desktop_core PUBLIC "-framework Metal" "-framework QuartzCore" "-framework Foundation")
+endif()
 
 # Target: rengine
 set(rengine_SOURCES

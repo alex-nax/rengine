@@ -77,8 +77,8 @@ owned controls ───┘     text run, icon, texture, ring     and icon atlas
 | Feature | Milestone | Deliverable and gate |
 | --- | --- | --- |
 | F56 | R0 | Draw-list contract and the SDL_Renderer reference adapter. Native smoke snapshots stay byte-identical to the pre-change baseline; CTest and the native desktop suite pass. |
-| F57 | R0 | OpenGL adapter on macOS and Windows (macOS evidence landed 2026-09-06, spec 068; Windows open). Per-primitive snapshot tests (radius, frame, shadow, text, icon, ring) and whole-screen comparisons against the reference within a recorded tolerance; frame time and memory measured against budgets set beforehand; explicit backend switch with fallback. |
-| F58 | R1 | Metal adapter on macOS with the same comparisons and measurements. |
+| F57 | R0 | OpenGL adapter on macOS (evidence landed 2026-09-06, spec 068; Windows evidence is F62). Per-primitive snapshot tests (radius, frame, shadow, text, icon, ring) and whole-screen comparisons against the reference within a recorded tolerance; frame time and memory measured against budgets set beforehand; explicit backend switch with fallback. |
+| F58 | R1 | Metal adapter on macOS with the same comparisons and measurements (landed 2026-09-06, spec 072; pixel-identical to OpenGL and the macOS default). |
 | F59 | R1 | Vulkan adapter on Windows, with the same comparisons and measurements; other platforms when targeted. |
 | F60 | R2 | The theming update on the GPU renderer: tokens.css presets generate the runtime theme, the redesigned toolbar, tabs, tree, editor, terminal, status bar, session browser, menus and theme panel match their Claude Design cards, theme files import and export, and every existing behaviour gate still passes. |
 | F61 | R3 | Rendering library candidacy: catalog entry with the library-quality record, conformance checks, and one game adopting the renderer through an adapter with evidence. |

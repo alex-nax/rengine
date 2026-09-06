@@ -10,27 +10,39 @@ import { startServer } from '../server/main.mjs';
 import { nativeClient } from './native-client.mjs';
 
 const run = promisify(execFile);
-// Tolerances and budgets recorded before the run in docs/specs/068-opengl-adapter.md (decisions 5 and 6).
+// Tolerances and budgets recorded before the run in docs/specs/068-opengl-adapter.md (decisions 5 and 6);
+// spec 072 gates Metal against the same SDL reference and records Metal-versus-OpenGL as information.
 const TOLERANCE = {
   workspace: ['--max-fraction', '0.001', '--max-delta', '2'],
   terminal: ['--max-fraction', '0.001', '--max-delta', '2'],
   primitives: ['--max-fraction', '0.02', '--edge-band', '2'],
 };
 const TERMINAL_CEILING_MS = 8, MEMORY_LIMIT_KB = 32 * 1024;
+const GPU_BACKENDS = process.platform === 'darwin' ? ['opengl', 'metal'] : ['opengl'];
 const TERMINAL_SCRIPT = "for i in $(seq 1 40); do printf '\\033[3%dm%03d\\033[0m row of the render scene with colour and text\\n' $((i % 7 + 1)) $i; done; printf 'RENDER_DONE\\n'\n";
 
-// Each backend gets its own server state so the second run cannot restore the first run's retained views.
+async function compare(reference, candidate, name) {
+  let output;
+  try { ({ stdout: output } = await run('python3', ['tools/render_compare.py', reference, candidate, ...TOLERANCE[name], '--json'])); }
+  catch (error) { output = error.stdout; if (!output) throw error; }
+  return JSON.parse(output);
+}
+
+// Each backend gets its own server state so a later run cannot restore an earlier run's retained views.
 async function capture(project, backend, dir) {
   const server = await startServer({ stateDir: path.join(dir, `state-${backend}`) });
   const root = await server.store.addRoot(project);
-  const shell = await server.sessions.terminal({ rootId: root.id });
+  // A plain shell with a fixed prompt: the login shell's asynchronous prompt segments redraw after the
+  // stable-text wait and made the SDL capture disagree with the GPU captures on prompt and scrollbar pixels.
+  const shell = await server.sessions.terminal({ rootId: root.id, ...(process.platform === 'win32'
+    ? { command: 'cmd.exe', args: [] } : { command: '/bin/bash', args: ['--noprofile', '--norc'], env: { PS1: 'render$ ' } }) });
   const gui = await nativeClient(server, { root: root.id, terminal: shell.id, env: { RENGINE_RENDERER: backend } });
   const result = { backend, snapshots: {}, stats: {}, rss: 0 };
   try {
     const state = await gui.until(s => s.connected && s.tabs.some(t => t?.type === 1 && t.tree) && s.tabs.some(t => t?.session === shell.id && t.text), `${backend} workspace`);
     assert.equal(state.backend, backend);
     const scene = async name => {
-      // Wait for the view text to stop changing so both backends capture the same terminal rows.
+      // Wait for the view text to stop changing so every backend captures the same terminal rows.
       let previous = null;
       for (let stable = 0; stable < 10;) {
         const current = JSON.stringify((await gui.command({ op: 'state' })).tabs.map(t => t?.text ?? null));
@@ -54,32 +66,40 @@ async function capture(project, backend, dir) {
   return result;
 }
 
-test('OpenGL adapter matches the SDL reference within the recorded tolerances and budgets', { timeout: 150000 }, async () => {
+test('GPU adapters match the SDL reference within the recorded tolerances and budgets', { timeout: 240000 }, async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-native-render-'));
   const project = path.join(dir, 'project'); await mkdir(project);
   await writeFile(path.join(project, 'render.txt'), 'render scene\n');
   try {
     const sdl = await capture(project, 'sdl', dir);
-    const opengl = await capture(project, 'opengl', dir);
+    const gpu = {};
+    for (const backend of GPU_BACKENDS) gpu[backend] = await capture(project, backend, dir);
     await mkdir('.cache/evidence', { recursive: true });
-    const report = { scenes: {}, memory: { sdlKb: sdl.rss, openglKb: opengl.rss, deltaKb: opengl.rss - sdl.rss, limitKb: MEMORY_LIMIT_KB } };
+    const report = { backends: GPU_BACKENDS, scenes: {}, memory: { sdlKb: sdl.rss, limitKb: MEMORY_LIMIT_KB } };
+    for (const backend of GPU_BACKENDS) report.memory[`${backend}Kb`] = gpu[backend].rss;
     for (const name of Object.keys(TOLERANCE)) {
       await copyFile(sdl.snapshots[name], `.cache/evidence/render-${name}-sdl.bmp`);
-      await copyFile(opengl.snapshots[name], `.cache/evidence/render-${name}-opengl.bmp`);
-      let output;
-      try { ({ stdout: output } = await run('python3', ['tools/render_compare.py', sdl.snapshots[name], opengl.snapshots[name], ...TOLERANCE[name], '--json'])); }
-      catch (error) { output = error.stdout; if (!output) throw error; }
-      report.scenes[name] = { compare: JSON.parse(output), sdl: sdl.stats[name], opengl: opengl.stats[name] };
+      const scene = { sdl: sdl.stats[name], compare: {}, cross: {} };
+      for (const backend of GPU_BACKENDS) {
+        await copyFile(gpu[backend].snapshots[name], `.cache/evidence/render-${name}-${backend}.bmp`);
+        scene[backend] = gpu[backend].stats[name];
+        scene.compare[backend] = await compare(sdl.snapshots[name], gpu[backend].snapshots[name], name);
+      }
+      if (GPU_BACKENDS.length === 2) scene.cross['opengl-vs-metal'] = await compare(gpu.opengl.snapshots[name], gpu.metal.snapshots[name], name);
+      report.scenes[name] = scene;
     }
     await writeFile('.cache/evidence/render-compare.json', JSON.stringify(report, null, 2));
-    for (const name of Object.keys(TOLERANCE)) {
-      assert.deepEqual(report.scenes[name].compare.failures, [], `${name}: ${JSON.stringify(report.scenes[name].compare)}`);
-      assert.ok(!opengl.stats[name].overflow, `${name}: the OpenGL draw list overflowed`);
-      assert.ok(opengl.stats[name].frameMedianMs <= sdl.stats[name].frameMedianMs,
-        `${name}: OpenGL median ${opengl.stats[name].frameMedianMs.toFixed(3)} ms exceeds the SDL baseline ${sdl.stats[name].frameMedianMs.toFixed(3)} ms`);
+    for (const backend of GPU_BACKENDS) {
+      for (const name of Object.keys(TOLERANCE)) {
+        const scene = report.scenes[name];
+        assert.deepEqual(scene.compare[backend].failures, [], `${backend} ${name}: ${JSON.stringify(scene.compare[backend])}`);
+        assert.ok(!scene[backend].overflow, `${backend} ${name}: the draw list overflowed`);
+        assert.ok(scene[backend].frameMedianMs <= scene.sdl.frameMedianMs,
+          `${backend} ${name}: median ${scene[backend].frameMedianMs.toFixed(3)} ms exceeds the SDL baseline ${scene.sdl.frameMedianMs.toFixed(3)} ms`);
+      }
+      assert.ok(report.scenes.terminal[backend].frameMedianMs <= TERMINAL_CEILING_MS, `${backend}: terminal scene median exceeds ${TERMINAL_CEILING_MS} ms`);
+      assert.ok(gpu[backend].rss - sdl.rss <= MEMORY_LIMIT_KB, `${backend}: resident memory delta ${gpu[backend].rss - sdl.rss} KiB exceeds ${MEMORY_LIMIT_KB} KiB`);
     }
-    assert.ok(opengl.stats.terminal.frameMedianMs <= TERMINAL_CEILING_MS, `terminal scene median ${opengl.stats.terminal.frameMedianMs} ms exceeds ${TERMINAL_CEILING_MS} ms`);
-    assert.ok(opengl.rss - sdl.rss <= MEMORY_LIMIT_KB, `resident memory delta ${opengl.rss - sdl.rss} KiB exceeds ${MEMORY_LIMIT_KB} KiB`);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

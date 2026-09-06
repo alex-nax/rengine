@@ -95,8 +95,9 @@ input after releasing held mouse buttons, with a bounded visible cancellation on
 Drawing goes through the backend-neutral draw list and the SDL reference adapter of
 [spec 067](067-draw-list-contract.md); views append commands and never name rendering APIs, and
 native snapshots stayed byte-identical across that change. On macOS the default backend is the
-OpenGL 3.3 core adapter of [spec 068](068-opengl-adapter.md); `--renderer sdl` keeps the reference
-path, and Windows stays on it until verified there.
+Metal adapter of [spec 072](072-metal-adapter.md), with the OpenGL 3.3 core adapter of
+[spec 068](068-opengl-adapter.md) selectable; `--renderer sdl` keeps the reference path, and Windows
+stays on it until verified there.
 
 Native image previews, terminal selection/copy, richer text navigation, service-restart recovery,
 frame/input DPI mapping, actual in-level aiming, resource budgets, packaging and Windows runtime

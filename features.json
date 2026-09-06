@@ -369,14 +369,16 @@
         "The Metal adapter renders every draw-list primitive with the same snapshot comparisons and measurements as the OpenGL adapter on macOS.",
         "Backend selection, fallback and evidence recording match the OpenGL adapter."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         57
       ],
       "owner_workspace": "rengine",
       "deliverable": "Metal adapter and docs/evidence",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/metal-adapter-macos-2026-09-06.md"
+      ]
     },
     {
       "id": 59,

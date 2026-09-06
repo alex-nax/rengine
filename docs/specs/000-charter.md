@@ -159,7 +159,7 @@ blanket “no new renderer” deferral for the workspace only; games keep their 
 design source is the Claude Design project pulled into `design/`; requirements, architecture and
 phases are in `066-gpu-rendering.md`.
 
-2026-09-06, renderer inventory corrections (owner decisions during the F58 interview, spec 069):
+2026-09-06, renderer inventory corrections (owner decisions during the F58 interview, spec 072):
 F56's dependencies on F34 and F42 were removed because they were qualification gates rather than
 code the draw-list contract needs, and no desktop feature passes yet; F57's criteria and
 description narrow to macOS while the new F62 carries the Windows OpenGL evidence that KI-014

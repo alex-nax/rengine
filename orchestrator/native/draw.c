@@ -1,10 +1,13 @@
 #include "draw.h"
 #include "render/backend_sdl.h"
 #include "render/backend_gl.h"
+#ifdef __APPLE__
+#include "render/backend_metal.h"
+#endif
 
 #define RE_STAT_FRAMES 120
 #ifdef __APPLE__
-#define RE_DEFAULT_BACKEND "opengl" /* spec 068 decision 2: OpenGL passed its macOS gates on 2026-09-06 */
+#define RE_DEFAULT_BACKEND "metal" /* spec 072 decision 2; OpenGL stays selectable */
 #else
 #define RE_DEFAULT_BACKEND "sdl"    /* Windows keeps SDL until it has its own evidence (KI-014) */
 #endif
@@ -35,15 +38,28 @@ const char *re_draw_select(const char *name) {
   const char *choice = name && *name ? name : getenv("RENGINE_RENDERER");
   if (!choice || !*choice) choice = RE_DEFAULT_BACKEND;
   if (!strcmp(choice, "opengl")) return "opengl";
+#ifdef __APPLE__
+  if (!strcmp(choice, "metal")) return "metal";
+#endif
   return !strcmp(choice, "sdl") ? "sdl" : NULL;
 }
-Uint32 re_draw_window_flags(const char *backend) { return backend && !strcmp(backend, "opengl") ? re_backend_gl_window_flags() : 0; }
+Uint32 re_draw_window_flags(const char *backend) {
+  if (backend && !strcmp(backend, "opengl")) return re_backend_gl_window_flags();
+#ifdef __APPLE__
+  if (backend && !strcmp(backend, "metal")) return re_backend_metal_window_flags();
+#endif
+  return 0;
+}
 ReDraw *re_draw_active(void) { return active; }
 ReDraw *re_draw_open(SDL_Window *window, const char *font_path, const char *backend) {
   ReDraw *d = calloc(1, sizeof(*d));
   if (!d) return NULL;
   d->fonts = re_font_open(font_path, getenv("RENGINE_UI_FONT"));
   if (!d->fonts) { SDL_SetError("%s", re_font_error()); free(d); return NULL; }
+#ifdef __APPLE__
+  if (backend && !strcmp(backend, "metal")) d->backend = re_backend_metal_open(window, d->fonts);
+  else
+#endif
   d->backend = backend && !strcmp(backend, "opengl") ? re_backend_gl_open(window, d->fonts) : re_backend_sdl_open(window, d->fonts);
   if (!d->backend) { re_font_close(d->fonts); free(d); return NULL; }
   re_draw_list_init(&d->list);

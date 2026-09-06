@@ -52,7 +52,7 @@ flowchart TD
   F56["F56: passing"]
   F57["F57: passing"]
   F56 --> F57
-  F58["F58: ready"]
+  F58["F58: passing"]
   F57 --> F58
   F59["F59: ready"]
   F57 --> F59
@@ -87,7 +87,7 @@ flowchart TD
 | F55 | O6 | rengine | blocked | Launch the NOLF orchestrator with live game, project tree, editor and preferred agent CLI onboarding. |
 | F56 | R0 | rengine | passing | Define the backend-neutral draw list and the SDL_Renderer reference adapter for the desktop. |
 | F57 | R0 | rengine | passing | Implement the OpenGL adapter on macOS behind the draw list. |
-| F58 | R1 | rengine | ready | Implement the Metal adapter on macOS behind the draw list. |
+| F58 | R1 | rengine | passing | Implement the Metal adapter on macOS behind the draw list. |
 | F59 | R1 | rengine | ready | Implement the Vulkan adapter on Windows, extending to other platforms when they are targeted. |
 | F60 | R2 | rengine | blocked | Implement the Claude Design theming update on the GPU renderer. |
 | F61 | R3 | rengine | blocked | Make the renderer a curated capability with one game adopting it through an adapter. |

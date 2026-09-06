@@ -48,7 +48,7 @@ RGB = re.compile(r"rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)\s*(?:[/,]\s*([0-9.]+%?)
 OKLCH = re.compile(r"oklch\(\s*([0-9.]+%?)\s+([0-9.]+)\s+([0-9.]+)(?:deg)?\s*(?:/\s*([0-9.]+%?))?\s*\)")
 LITERAL = re.compile(r"mu_color\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)"
                      r"|vterm_color_rgb\(\s*&\w+\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)")
-RENDER_API = re.compile(r"SDL_Render|SDL_Texture|SDL_CreateRenderer|SDL_DestroyRenderer|SDL_SetTexture|SDL_Vertex|SDL_FRect|SDL_FLIP"
+RENDER_API = re.compile(r"SDL_Render|SDL_Texture|SDL_CreateRenderer|SDL_DestroyRenderer|SDL_SetTexture|SDL_Vertex|SDL_FRect|SDL_FLIP|SDL_Metal|CAMetal"
                         r"|\bgl[A-Z]\w*\(|\bGL_[A-Z]|\bMTL[A-Z]|\bvk[A-Z]\w*\(|\bVK_[A-Z]")
 LAYOUT_ROW = re.compile(r"mu_layout_row\(\s*\w+\s*,\s*\d+\s*,\s*\(int\[\]\)\{([^}]*)\}\s*,\s*([^;]*?)\)\s*;")
 
@@ -307,13 +307,13 @@ def native_build_files():
 
 def native_render_layering():
     problems = []
-    for path in sorted(list(NATIVE.rglob("*.c")) + list(NATIVE.rglob("*.h"))):
-        if path.parent.name == "render" and path.name.startswith("backend_") and path.suffix == ".c":
+    for path in sorted(list(NATIVE.rglob("*.c")) + list(NATIVE.rglob("*.h")) + list(NATIVE.rglob("*.m"))):
+        if path.parent.name == "render" and path.name.startswith("backend_") and path.suffix in (".c", ".m"):
             continue
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             match = RENDER_API.search(line)
             if match:
-                problems.append("%s:%d: %s belongs below the draw list (render/backend_*.c only)" % (rel(path), number, match.group(0)))
+                problems.append("%s:%d: %s belongs below the draw list (render/backend_*.c or .m only)" % (rel(path), number, match.group(0)))
     return problems
 
 
