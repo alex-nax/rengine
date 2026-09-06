@@ -581,11 +581,11 @@
       "milestone": "R2",
       "category": "design",
       "priority": "high",
-      "description": "Implement the Claude Design menus, theme panel and theme files.",
+      "description": "Implement the Claude Design menus, the settings popover and theme files.",
       "acceptance_criteria": [
-        "Menus and popovers match their cards on macOS as one overlay layer with a shadow, keyboard hints and separators.",
-        "The theme panel matches its card, including the accent hue slider drawn with the draw-list gradient primitive.",
-        "Theme files in the card's format override all three token layers, import and export from the theme panel, and a project root's theme is offered and applied only on explicit activation, remembered per root.",
+        "Menus and popovers match their cards on macOS as one overlay layer with a shadow, keyboard hints and separators; opening one closes the other, and Escape or an outside click closes the top surface.",
+        "A settings popover opens from the toolbar and carries the theme preset, the accent hue slider drawn with the draw-list gradient primitive, the syntax scheme, Vim mode and the explorer's mode; every setting persists as a workspace preference and applies immediately.",
+        "Theme files in the card's format override all three token layers and import and export through the popover's path field; a project root's theme is offered and applied only on explicit activation, remembered per root.",
         "Every existing desktop behaviour gate still passes on the GPU backend."
       ],
       "passes": false,
@@ -697,15 +697,17 @@
       "milestone": "R2",
       "category": "design",
       "priority": "medium",
-      "description": "Expand the project explorer inline while a project stays under a node budget, and drill down beyond it.",
+      "description": "Let the project explorer expand directories in place, chosen by setting, with a bounded loaded-row cap.",
       "acceptance_criteria": [
-        "A directory expands in place with the card's indentation and caret while the visible node count stays under a recorded budget, and collapses again without reloading its siblings.",
-        "Past the budget the explorer drills down as it does today, and the view says which mode it is in rather than silently changing behaviour.",
+        "With the explorer set to nested, a directory expands in place with the card's indentation and caret and collapses again without reloading its siblings; a click on the caret drills in and makes that directory the root.",
+        "With the explorer set to flat, the view drills down as it does today; the setting decides the mode and nothing changes it behind the person using it.",
+        "A cap on loaded rows collapses the least-recently-expanded directory, never one that is an ancestor of the directory being opened or on the selected path, and refuses that expansion with a status line when every candidate is protected.",
         "Expansion state survives a reload of the same directory, and every existing tree and layout gate still passes."
       ],
       "passes": false,
       "dependencies": [
-        67
+        67,
+        68
       ],
       "owner_workspace": "rengine",
       "deliverable": "nested explorer and docs/evidence",

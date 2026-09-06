@@ -192,3 +192,11 @@ against the recommendation. F60 narrows to the foundations plus toolbar, tab str
 F67 takes the views, F68 the menus, theme panel and theme files, F69 the Windows card evidence.
 F60's dependencies on F37 and F54 move to F67 with the surfaces they describe; F60 keeps F57.
 The two-desktop requirement is unchanged: it is tracked by F69 and KI-038.
+
+2026-09-06, settings interview (spec 080): the explorer's nested-versus-flat behaviour becomes an
+explicit setting rather than an automatic threshold, replacing the answer given one round earlier;
+settings live in their own popover opened from the toolbar; F68's theme panel is dropped, so the
+popover is the only appearance surface and theme files are imported and exported from it. Both are
+accepted-criteria corrections, recorded on F68 and F73, and F73 now depends on F68 because the
+toggle needs the surface. The single-overlay rule of spec 066 is unchanged: one overlay at a time.
+
