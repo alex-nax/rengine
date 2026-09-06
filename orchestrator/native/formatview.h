@@ -10,6 +10,8 @@ ReFormatView *re_format_open(int mode, bool chosen);
 void re_format_close(ReFormatView *view);
 int re_format_mode(const ReFormatView *view);
 bool re_format_chosen(const ReFormatView *view);
+void re_format_await(ReFormatView *view, bool awaiting); /* waiting for the root's format list */
+bool re_format_awaiting(const ReFormatView *view);
 int re_format_requested(const ReFormatView *view);
 const char *re_format_mode_name(int mode);
 int re_format_mode_from(const char *name);

@@ -1,21 +1,25 @@
 #include "app.h"
 
 enum { OP_STATE = 1, OP_LOAD, OP_SAVE, OP_DRAFT, OP_DISCARD, OP_CREATE, OP_ROOT, OP_GENERIC, OP_LAYOUT, OP_FORMATS, OP_BYTES, OP_PREVIEW, OP_ENTRY };
-static int request(ReApp *a, int operation, int tab, const char *route, const cJSON *body) {
+static int request_within(ReApp *a, int operation, int tab, const char *route, const cJSON *body, long timeout) {
   char scoped[160]; const char *window = getenv("RENGINE_WINDOW_ID");
   if (window && *window && (!strcmp(route, "state") || !strcmp(route, "layout"))) {
     snprintf(scoped, sizeof(scoped), "%s?windowId=%s", route, window); route = scoped;
   }
   for (int i = 0; i < RE_ARRAY_SIZE(a->pending); i++) if (!a->pending[i].id) {
-    int id = re_net_request(a->net, route, body);
+    int id = re_net_request_within(a->net, route, body, timeout);
     if (!id) break;
     a->pending[i] = (RePending){id, operation, tab, tab >= 0 ? a->tabs[tab].generation : 0,
-      tab >= 0 && a->tabs[tab].editor ? re_editor_revision(a->tabs[tab].editor) : 0};
+      tab >= 0 && a->tabs[tab].editor ? re_editor_revision(a->tabs[tab].editor) : 0, "", timeout};
     if (operation >= OP_BYTES && tab >= 0) a->pending[i].revision = re_format_mode(a->tabs[tab].format);
+    if (tab >= 0) re_copy(a->pending[i].root, sizeof(a->pending[i].root), a->tabs[tab].root);
     return id;
   }
   re_copy(a->status, sizeof(a->status), "Workspace request queue is full; retry when pending work completes."); return 0;
 }
+static int request(ReApp *a, int operation, int tab, const char *route, const cJSON *body) { return request_within(a, operation, tab, route, body, 0); }
+/* Declared producer budget plus transport overhead; the service enforces the declared bound itself. */
+static long command_deadline(const cJSON *spec) { int declared = re_number(spec, "timeoutMs"); return declared > 0 ? declared + 2000L : 0; }
 static cJSON *file_body(ReTab *t, bool draft) {
   cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "rootId", t->root); cJSON_AddStringToObject(j, "path", t->path);
   char *text = re_editor_text(t->editor); cJSON_AddStringToObject(j, "text", text ? text : ""); free(text);
@@ -47,8 +51,11 @@ static const cJSON *formats_for(ReApp *a, const char *root) {
 }
 static void fetch_formats(ReApp *a, const char *root) {
   if (!*root || cJSON_IsNull(cJSON_GetObjectItemCaseSensitive(a->formats, root))) return;
-  char *route = re_net_query("formats", root, "");
-  if (route && request(a, OP_FORMATS, -1, route, NULL)) { cJSON_DeleteItemFromObject(a->formats, root); cJSON_AddItemToObject(a->formats, root, cJSON_CreateNull()); }
+  char *route = re_net_query("formats", root, ""); int id = route ? request(a, OP_FORMATS, -1, route, NULL) : 0;
+  if (id) {
+    for (int i = 0; i < RE_ARRAY_SIZE(a->pending); i++) if (a->pending[i].id == id) re_copy(a->pending[i].root, sizeof(a->pending[i].root), root);
+    cJSON_DeleteItemFromObject(a->formats, root); cJSON_AddItemToObject(a->formats, root, cJSON_CreateNull());
+  }
   free(route);
 }
 const cJSON *re_app_format_record(ReApp *a, ReTab *t) {
@@ -71,22 +78,24 @@ void re_app_load(ReApp *a, int tab) {
   }
   int mode = t->format ? re_format_mode(t->format) : RE_MODE_TEXT;
   if (mode == RE_MODE_TEXT) { char *route = re_net_query("file", t->root, t->path); if (route) request(a, OP_LOAD, tab, route, NULL); free(route); return; }
+  if (!formats_for(a, t->root)) { re_format_await(t->format, true); fetch_formats(a, t->root); return; } /* restored tabs need the declared budget and modes */
+  re_format_await(t->format, false);
   const cJSON *record = re_app_format_record(a, t);
   if (mode == RE_MODE_RAW) {
     char *query = re_net_query("bytes", t->root, t->path), route[3600];
     if (query) { snprintf(route, sizeof(route), "%s&offset=%lld&length=%d", query, re_format_offset(t->format, false), RE_HEX_WINDOW); request(a, OP_BYTES, tab, route, NULL); }
     free(query); return;
   }
-  re_format_name_command(t->format, cJSON_GetObjectItemCaseSensitive(record, "preview"), false);
+  const cJSON *spec = cJSON_GetObjectItemCaseSensitive(record, "preview"); re_format_name_command(t->format, spec, false);
   cJSON *body = cJSON_CreateObject(); cJSON_AddStringToObject(body, "rootId", t->root); cJSON_AddStringToObject(body, "path", t->path);
-  request(a, OP_PREVIEW, tab, "format-preview", body); cJSON_Delete(body);
+  request_within(a, OP_PREVIEW, tab, "format-preview", body, command_deadline(spec)); cJSON_Delete(body);
 }
 void re_app_load_entry(ReApp *a, int tab) {
   ReTab *t = &a->tabs[tab]; if (!t->format || !*re_format_entry(t->format)) return;
-  re_format_name_command(t->format, cJSON_GetObjectItemCaseSensitive(re_app_format_record(a, t), "entry"), true);
+  const cJSON *spec = cJSON_GetObjectItemCaseSensitive(re_app_format_record(a, t), "entry"); re_format_name_command(t->format, spec, true);
   cJSON *body = cJSON_CreateObject(); cJSON_AddStringToObject(body, "rootId", t->root); cJSON_AddStringToObject(body, "path", t->path);
   cJSON_AddStringToObject(body, "entry", re_format_entry(t->format)); cJSON_AddNumberToObject(body, "offset", (double)re_format_offset(t->format, true));
-  cJSON_AddNumberToObject(body, "length", RE_HEX_WINDOW); request(a, OP_ENTRY, tab, "format-preview", body); cJSON_Delete(body);
+  cJSON_AddNumberToObject(body, "length", RE_HEX_WINDOW); request_within(a, OP_ENTRY, tab, "format-preview", body, command_deadline(spec)); cJSON_Delete(body);
 }
 void re_app_mode(ReApp *a, int tab, int mode) {
   ReTab *t = &a->tabs[tab]; if (!t->format || mode < RE_MODE_TEXT || mode > RE_MODE_PREVIEW) return;
@@ -215,7 +224,7 @@ static void formats_loaded(ReApp *a, const cJSON *j) {
   if (*re_string(j, "error")) re_copy(a->status, sizeof(a->status), re_string(j, "error"));
   for (int i = 0; i < RE_TABS; i++) {
     ReTab *t = &a->tabs[i];
-    if (t->used && t->type == RE_EDITOR && t->format && re_format_mode(t->format) == RE_MODE_PENDING && !strcmp(t->root, root)) re_app_load(a, i);
+    if (t->used && t->type == RE_EDITOR && t->format && (re_format_mode(t->format) == RE_MODE_PENDING || re_format_awaiting(t->format)) && !strcmp(t->root, root)) re_app_load(a, i);
   }
 }
 static bool raw_fallback(ReApp *a, RePending *p, ReTab *t, int status) {
@@ -233,8 +242,13 @@ static void response(ReApp *a, ReMessage *m) {
   if (p.operation == OP_DRAFT && t) t->checkpoint_flight = 0;
   cJSON *j = cJSON_ParseWithLength(m->data, m->size);
   if (m->status != 200 || !j) {
-    const char *error = j ? re_string(j, "error") : m->data;
+    const char *error = j ? re_string(j, "error") : m->data; char budget[640];
     if (raw_fallback(a, &p, t, m->status)) { cJSON_Delete(j); return; }
+    if (p.operation == OP_FORMATS && *p.root) {
+      cJSON *settled = cJSON_CreateObject(); cJSON_AddStringToObject(settled, "rootId", p.root); cJSON_AddBoolToObject(settled, "declared", true);
+      cJSON_AddStringToObject(settled, "error", error); cJSON_AddArrayToObject(settled, "formats"); formats_loaded(a, settled); cJSON_Delete(settled); cJSON_Delete(j); return;
+    }
+    if (!m->status && p.timeout > 0) { snprintf(budget, sizeof(budget), "%s · no reply within %ld ms (declared timeoutMs %ld plus transport)", error, p.timeout, p.timeout - 2000L); error = budget; }
     re_copy(a->status, sizeof(a->status), error);
     if (p.operation == OP_ENTRY && t && t->format) re_format_entry_failed(t->format, error);
     else if (t) { t->discarding = false; re_copy(t->error, sizeof(t->error), error); if (m->status == 409) t->conflict = true; }
@@ -377,7 +391,7 @@ void re_app_close(ReApp *a) {
   re_socket_close(a->events); re_net_close(a->net); cJSON_Delete(a->state); cJSON_Delete(a->previous_layout); cJSON_Delete(a->controls); cJSON_Delete(a->formats); free(a);
 }
 cJSON *re_app_inspect(ReApp *a) {
-  cJSON *j = serialize(a); cJSON_AddStringToObject(j, "status", a->status); cJSON_AddBoolToObject(j, "connected", a->connected);
+  cJSON *j = serialize(a); cJSON_AddStringToObject(j, "status", a->status); cJSON_AddBoolToObject(j, "connected", a->connected); cJSON_AddStringToObject(j, "root", a->root);
   if (a->controls) cJSON_AddItemToObject(j, "controls", cJSON_Duplicate(a->controls, 1));
   cJSON_AddItemToObject(j, "state", cJSON_Duplicate(a->state, 1)); cJSON_AddNumberToObject(j, "focus", a->focus);
   cJSON *tabs = cJSON_GetObjectItemCaseSensitive(j, "tabs");

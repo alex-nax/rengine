@@ -18,8 +18,8 @@
       "id": "glob-parity",
       "kind": "constraint",
       "anchor": {
-        "start": 66,
-        "end": 66,
+        "start": 82,
+        "end": 82,
         "snippet": "bool re_format_glob(const char *g, const char *s) {"
       },
       "note": "Mirrors the service matcher (case-insensitive *, ? and [...] with ! negation on the base name) so the client's default-mode decision agrees with the server's format choice; keep both in step when extending the glob subset.",
@@ -32,11 +32,11 @@
       "id": "tree-in-microui",
       "kind": "rationale",
       "anchor": {
-        "start": 121,
-        "end": 121,
+        "start": 137,
+        "end": 137,
         "snippet": "static int tree_rows(ReFormatView *v, ReApp *a, mu_Context *ui, const cJSON *node, const char *prefix, int depth, int tab, bool entries) {"
       },
-      "note": "Directories use upstream treenodes keyed by their joined path (siblings may repeat names at different levels); expanded state lives in microui's 48-slot pool, which is enough for archive browsing. Depth is capped by RE_METRIC_FORMAT_TREE_DEPTH because each level pushes two ids onto microui's 32-entry id stack. Files become left-aligned buttons only when the format declares an entry command; otherwise they are labels so a click cannot promise bytes the project cannot produce.",
+      "note": "Directory rows are plain left-aligned buttons keyed by their joined path; expansion lives in the view's own hashed-path set (bounded, oldest dropped past 4,096) and never in microui's 48-slot treenode pool, whose mu_pool_init aborts once every slot was touched in one frame (review finding 1: NOLF.REZ's TEX alone has 22 subdirectories). Indentation is a spacer column, so no ids accumulate on the id stack; RE_METRIC_FORMAT_TREE_DEPTH only bounds recursion and label paths. Files become buttons only when the format declares an entry command; otherwise they are labels so a click cannot promise bytes the project cannot produce.",
       "refs": [
         "docs/specs/074-project-format-registry.md"
       ]
@@ -44,7 +44,7 @@
   ],
   "source": {
     "path": "orchestrator/native/formatview.c",
-    "sha256": "00dd417bcd1b262897f8eb367949fa8fd3a5e45526b88bf0d3de12be2ef86d5d",
+    "sha256": "1fd551ccc84c5723f7f6234c56068444b2da40412914eed2d3146608a271c8b2",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

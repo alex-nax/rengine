@@ -5,8 +5,8 @@
       "id": "bounded-native-transport",
       "kind": "rationale",
       "anchor": {
-        "start": 166,
-        "end": 166,
+        "start": 168,
+        "end": 168,
         "snippet": "static int socket_worker(void *userdata) {"
       },
       "note": "Each HTTP/WS worker owns its curl handle. SDL mutexes protect queues capped at 128 messages and 16 MiB; binary game frames replace one latest slot. Text reception waits for capacity instead of terminating the worker on overload. Poll signals capacity, shutdown broadcasts, and timed waits keep the SDL consumer awake. On failure, discard unsent outgoing messages, reject sends while disconnected and retry the same authenticated endpoint after 500 ms. Never discover a different service identity or launch a process here. HTTP work stays off the UI thread. This client accepts only an authenticated 127.0.0.1 service URL, disables proxies and redirects, and builds libcurl without TLS. The later Quest/web remote transport must not reuse this local-only assumption.",
@@ -19,19 +19,32 @@
       "id": "outgoing-drain-observation",
       "kind": "rationale",
       "anchor": {
-        "start": 198,
-        "end": 198,
+        "start": 200,
+        "end": 200,
         "snippet": "bool re_socket_pending(ReSocket *s) {"
       },
       "note": "The GUI may need to send a held-button release before closing its stream. Track the current outgoing message under the same mutex as the queue, including the interval after pop and partial writes, so an empty queue alone cannot report drained. Clear sending only when the full message is handed to libcurl or the connection fails; wake the UI when sending finishes. The caller bounds its wait and cancels close/reload on timeout. This does not acknowledge application processing or change the policy of dropping unsent data on disconnect.",
       "refs": [
         "docs/specs/063-terminal-mouse-reporting.md"
       ]
+    },
+    {
+      "id": "per-request-deadline",
+      "kind": "constraint",
+      "anchor": {
+        "start": 104,
+        "end": 104,
+        "snippet": "int re_net_request_within(ReNet *n, const char *route, const cJSON *body, long timeout_ms) {"
+      },
+      "note": "The 5 s default deadline suits state/file/tree traffic, but a declared preview budget of up to 600 s must not be cut short by the transport; each queued request carries its own timeout (0 = default) that the worker applies per curl handle, capped at the schema maximum plus overhead. Callers that know a declared budget (format previews and entries) pass it plus two seconds.",
+      "refs": [
+        "docs/specs/074-project-format-registry.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/net.c",
-    "sha256": "d810b0ecc9a4611fc43b43c5b9fdc1120a5ff3621b7b344f40bf6d6076ee4bb5",
+    "sha256": "a6f8d203792923d27a57614ee7804fed1fab8dc0265316c9403babb76cdfc00a",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }
