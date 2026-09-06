@@ -1,0 +1,61 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, rm, realpath, readFile, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
+import { startServer } from '../server/main.mjs';
+import { nativeClient } from './native-client.mjs';
+import { dashboardProject } from './dashboard-fixtures.mjs';
+import { redImage } from './image-fixtures.mjs';
+
+test('the dashboard tab opens for a declared root, runs script and capture actions and reveals artifacts', { timeout: 90000 }, async () => {
+  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-native-dashboard-')));
+  let server, gui;
+  try {
+    const project = await dashboardProject(directory, 'project');
+    server = await startServer({ stateDir: path.join(directory, 'state') });
+    const root = await server.store.addRoot(project);
+    gui = await nativeClient(server, { root: root.id });
+    let state = await gui.until(s => s.connected && s.tabs.some(t => t?.type === 6 && t.dashboard?.groups?.length === 2), 'dashboard opens automatically');
+    const board = state.tabs.findIndex(t => t?.type === 6), tab = state.tabs[board];
+    assert.equal(tab.dashboard.title, 'Fixture'); assert.equal(tab.title, 'Dashboard'); assert.equal(tab.root, root.id);
+    assert.deepEqual(tab.dashboard.groups.map(g => g.id), ['build', 'device']);
+    const action = id => tab.dashboard.groups.flatMap(g => g.actions).find(a => a.id === id);
+    assert.equal(action('needs-file').available, false); assert.equal(action('needs-file').missing[0].name, 'missing.env');
+    assert.ok(state.controls.some(c => c.tab === board && c.role === 'dashboard-action' && c.key === 'hello'));
+    assert.ok(state.controls.some(c => c.tab === board && c.role === 'dashboard-unavailable' && c.key === 'needs-file'), 'unavailable action is a label, not a button');
+    assert.ok(!state.controls.some(c => c.tab === board && c.role === 'dashboard-action' && c.key === 'needs-file'));
+    assert.ok(state.controls.some(c => c.tab === board && c.role === 'dashboard-artifact' && c.key === 'dist/out.txt'));
+    await mkdir('.cache/evidence', { recursive: true });
+    assert.equal(await gui.command({ op: 'snapshot', path: path.resolve('.cache/evidence/dashboard.bmp') }), true);
+    await gui.control('dashboard-action', 'hello', board);
+    state = await gui.until(s => s.tabs.some(t => t?.type === 3 && t.title === 'Script · hello.sh' && t.text?.includes('HELLO ARG=--fast ENV=RELEASE PWD_OK=yes')), 'script action opens its retained session with args and env');
+    const scriptTab = state.tabs.find(t => t?.type === 3 && t.title === 'Script · hello.sh');
+    assert.equal(server.sessions.snapshot(scriptTab.session).rootId, root.id);
+    await gui.control('tab', '', board);
+    await gui.control('dashboard-action', 'shot', board);
+    state = await gui.until(s => /Captured \.cache\/captures\/\S+\.png/.test(s.status), 'capture action reports the written path');
+    const written = /Captured (\.cache\/captures\/\S+\.png)/.exec(state.status)[1];
+    assert.deepEqual(await readFile(path.join(project, written)), redImage);
+    const manifest = JSON.parse(await readFile(path.join(project, '.cache/captures/manifest.json'), 'utf8'));
+    assert.equal(manifest.length, 1); assert.equal(manifest[0].action, 'shot'); assert.equal(manifest[0].file, path.basename(written));
+    await gui.control('dashboard-artifact', 'dist/out.txt', board);
+    state = await gui.until(s => { const i = s.tabs.findIndex(t => t?.type === 1 && t.path === 'dist' && t.tree?.entries?.some(e => e.name === 'out.txt')); return i >= 0 && s.layout.panes.some(p => p?.tabs?.[p.selected] === i); }, 'artifact reveals its directory in the selected tree');
+    assert.match(state.status, /Revealed dist\/out\.txt/);
+    await gui.control('tab', '', board);
+    await gui.control('detach', '', board);
+    await gui.until(s => !s.layout.panes.some(p => p?.tabs?.includes(board)), 'dashboard tab closed'); await delay(400);
+    await gui.close(); gui = null;
+    gui = await nativeClient(server, { root: root.id });
+    state = await gui.until(s => s.connected && s.tabs.some(t => t?.type === 1 && t.tree), 'restored layout');
+    await delay(600); state = await gui.command({ op: 'state' });
+    assert.ok(!state.layout.panes.some(p => p?.tabs?.some(i => state.tabs[i]?.type === 6)), 'a closed dashboard is not reopened automatically');
+    await gui.control('toolbar', 'Dashboard');
+    state = await gui.until(s => s.layout.panes.some(p => p?.tabs?.some(i => s.tabs[i]?.type === 6)) && s.tabs.some(t => t?.type === 6 && t.dashboard?.groups?.length === 2), 'toolbar reopens the dashboard');
+    assert.equal(server.sessions.snapshot(scriptTab.session).pid, scriptTab.pid ?? server.sessions.snapshot(scriptTab.session).pid);
+    assert.ok((await stat(path.join(project, written))).size > 0);
+  } finally {
+    await gui?.close(); await server?.close(); await rm(directory, { recursive: true, force: true });
+  }
+});
