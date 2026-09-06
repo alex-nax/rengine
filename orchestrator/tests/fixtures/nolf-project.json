@@ -1,0 +1,25 @@
+{
+  "contract": 1,
+  "project": "nolf-improved",
+  "formats": [
+    {
+      "id": "lithtech-rez",
+      "title": "LithTech REZ archive",
+      "match": ["*.rez"],
+      "modes": ["raw", "preview"],
+      "default": "raw",
+      "preview": {
+        "kind": "tree",
+        "command": ["build/relith-rez", "--json", "tree", "${file}"],
+        "timeoutMs": 10000,
+        "maxBytes": 4194304
+      },
+      "entry": {
+        "kind": "bytes",
+        "command": ["build/relith-rez", "cat", "${file}", "${entry}"],
+        "timeoutMs": 10000,
+        "maxBytes": 16777216
+      }
+    }
+  ]
+}

@@ -45,8 +45,8 @@
       "id": "one-retained-handoff",
       "kind": "rationale",
       "anchor": {
-        "start": 91,
-        "end": 91,
+        "start": 92,
+        "end": 92,
         "snippet": "  async terminal(options) {"
       },
       "note": "Serialize handoff creation per project, then reuse a running session by canonical root and exact conversation UUID. Snapshot the validated manifest privately before spawning; editing the original while its pane is waiting must not retarget an existing session. A fresh unique readiness path prevents stale releases. Presentation releases only a live waiting bootstrap; input is rejected while waiting. Reload and view detach retain both waiting and running sessions. A later explicit launch after Stop/exit creates a fresh gated PTY.",
@@ -58,11 +58,11 @@
       "id": "optional-session-title",
       "kind": "rationale",
       "anchor": {
-        "start": 101,
-        "end": 101,
+        "start": 102,
+        "end": 102,
         "snippet": "if (title !== undefined && (typeof title !== 'string' || !title.trim() || title.length > 200)) fail('Session title must be a short string.');"
       },
-      "note": "Dashboard runs name their sessions (Script \u00b7 x.sh, Log \u00b7 title); the option is bounded and optional so every existing caller keeps the derived title. A retained host older than this option ignores the field, which is why the worker also returns the title on its own reply.",
+      "note": "Dashboard runs name their sessions (Script \u00b7 x.sh, Log \u00b7 title) and a declared game names its own (<title> \u00b7 <root>); the option is bounded and optional so every existing caller keeps the derived title, which no longer names any game. A game session also carries its declared surface and id so a restored tab picks the live view or the retained-output view. A retained host older than these fields ignores them, which is why the worker also returns the title on its own reply. A declared cwd travels the same way and is re-confined here: the resolved directory must be the root or inside it, so the working directory of a launched game can never be widened by a reader change alone.",
       "refs": [
         "docs/specs/075-project-dashboard.md"
       ]
@@ -70,7 +70,7 @@
   ],
   "source": {
     "path": "orchestrator/server/sessions.mjs",
-    "sha256": "34895ee12329265e52eaefae4a70315c4dec5f8a28d130eed3ebf0d4e164751a",
+    "sha256": "0aa004d511793f1752eb6910864fa0287851734b29493cb66255604b0911948a",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

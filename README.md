@@ -38,9 +38,14 @@ MCP configuration. The combined macOS check boots installed Codex 0.153.4 throug
 verifies `/mcp` reports rEngine connected with eight tools in the native terminal. Existing agent
 settings and credentials stay with the agent.
 
-NOLF uses the selected project's existing `build/relith-nolf`, `nolf/NOLF.REZ`, configuration and
-save directory. Omit `--launch-game` to launch it later from the NOLF button. The macOS adapter
-streams live frames into a native texture; Windows host wiring remains pending.
+A project declares its games in `.rengine/project.json` (contract 3, `games`: 1–16 records of
+executable candidates, literal args and env, a working directory, required files, and a
+`surface`); the toolbar shows nothing for a project without games, a button labelled with the
+declared title for one, and a `Games` menu for several, in which a game that fails its preflight
+is disabled and names the reason. `--launch-game` performs the same preflight. `embedded` games
+stream live frames into a native texture through the macOS adapter; `external` games open their
+own window and keep only their output in the workspace. Windows host wiring remains pending.
+See `docs/specs/078-project-game-declaration.md`.
 
 Closing views detaches them; use **Sessions** to reattach or explicitly **Stop** a process.
 Use the tab-strip arrows when a pane fills up. Drag onto a tab to reorder, or into another pane
@@ -124,13 +129,14 @@ builds the executable is under `bin/Release`. The GUI uses a trusted system mono
 ```sh
 npm test
 npm run test:desktop
-RENGINE_NOLF_ROOT=/absolute/checkout npm run test:nolf
+RENGINE_NOLF_ROOT=/absolute/checkout npm run test:game-nolf
 RENGINE_NOLF_ROOT=/absolute/checkout npm run test:workspace
 ```
 
-Desktop GUI tests run sequentially to avoid competing for native mouse capture. NOLF qualification
-copies the executable and links only asset archives into an ignored runtime directory, preserving
-the original project's saves/configuration. Native `--inspect-ui` automation uses process stdin;
+Desktop GUI tests run sequentially to avoid competing for native mouse capture. The NOLF
+qualification of the `embedded` surface copies the executable, links only asset archives into
+an ignored runtime directory and writes the game declaration there, preserving the original
+project's saves/configuration. Native `--inspect-ui` automation uses process stdin;
 normal launches expose no UI debugging endpoint. See [native evidence](docs/evidence/native-desktop-macos-2026-09-05.md).
 The [combined qualification](docs/evidence/native-workspace-macos-2026-09-05.md) exercises the normal
 launcher, installed Codex, real source tree, isolated Save/conflict checks, draft/process recovery

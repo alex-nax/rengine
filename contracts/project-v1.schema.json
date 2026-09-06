@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rengine.local/contracts/project-v1.schema.json",
-  "title": "rEngine project declaration, contracts 1 and 2",
-  "description": "Read from <root>/.rengine/project.json. Contract 1 declares file formats whose previews are produced by the project's own executables (docs/specs/074-project-format-registry.md); contract 2 adds an optional dashboard of grouped actions (docs/specs/075-project-dashboard.md). Cross-field rules the service also enforces: default is one of modes; preview is required when modes contains preview; a preview command names ${file}; an entry command names ${file} and ${entry}; format ids are unique; dashboard requires contract 2; group and action ids are unique; an action carries only its kind's fields; script/requires/artifacts/into are root-relative; env keys are UPPER_SNAKE.",
+  "title": "rEngine project declaration, contracts 1, 2 and 3",
+  "description": "Read from <root>/.rengine/project.json. Contract 1 declares file formats whose previews are produced by the project's own executables (docs/specs/074-project-format-registry.md); contract 2 adds an optional dashboard of grouped actions (docs/specs/075-project-dashboard.md); contract 3 adds an optional array of games the workspace launches (docs/specs/078-project-game-declaration.md). Cross-field rules the service also enforces: default is one of modes; preview is required when modes contains preview; a preview command names ${file}; an entry command names ${file} and ${entry}; format ids are unique; dashboard requires contract 2 and games requires contract 3; group, action and game ids are unique; an action carries only its kind's fields; a game action's game names a declared games record and its args are literal argv without placeholders; script/requires/artifacts/into are root-relative; dashboard env keys are UPPER_SNAKE; game env keys are UPPER_SNAKE and never start with RENGINE_, DYLD_ or LD_; game requires entries and game cwd are root-relative.",
   "type": "object",
   "required": [
     "contract",
@@ -14,7 +14,8 @@
     "contract": {
       "enum": [
         1,
-        2
+        2,
+        3
       ]
     },
     "project": {
@@ -32,6 +33,15 @@
     },
     "dashboard": {
       "$ref": "#/$defs/dashboard"
+    },
+    "games": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/game"
+      },
+      "description": "Games this project can launch, in declaration order. Declaring games requires contract 3, so a reader that predates it answers \"unknown contract\" instead of \"unknown key\". An omitted gameId on the preflight/launch routes selects the first record."
     }
   },
   "$defs": {
@@ -241,7 +251,7 @@
         "kind"
       ],
       "additionalProperties": false,
-      "description": "kind script: script, args, env; kind log: command, filters; kind capture: command, into, format. stream and operator are reserved for later contracts.",
+      "description": "kind script: script, args, env; kind log: command, filters; kind capture: command, into, format; kind game: game, args (docs/specs/078-project-game-declaration.md). stream and operator are reserved for later contracts.",
       "properties": {
         "id": {
           "$ref": "#/$defs/kebab"
@@ -260,8 +270,17 @@
           "enum": [
             "script",
             "log",
-            "capture"
+            "capture",
+            "game"
           ]
+        },
+        "game": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/kebab"
+            }
+          ],
+          "description": "kind game only: the id of a record in this declaration's games array. A reference to an undeclared id is a named cross-field error."
         },
         "requires": {
           "type": "array",
@@ -292,6 +311,7 @@
         "args": {
           "type": "array",
           "maxItems": 64,
+          "description": "kind script: literal argv after the script. kind game: literal argv appended to the referenced record's own args, without ${...} placeholders (enforced as a cross-field rule so script args keep their meaning).",
           "items": {
             "type": "string",
             "minLength": 1,
@@ -334,6 +354,86 @@
         },
         "format": {
           "const": "png"
+        }
+      }
+    },
+    "game": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "executable",
+        "surface"
+      ],
+      "additionalProperties": false,
+      "description": "One game the workspace launches: literal executable candidates, argv, env, working directory, files that must exist, and how its window is presented.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "maxLength": 64,
+          "description": "Unique within games; carried on the session as game and used as the gameId selector."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Toolbar button label with one declared game, menu-entry label with several; the session title is \"<title> · <root name>\"."
+        },
+        "executable": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/executable"
+          },
+          "description": "Candidates in order; the first that exists and is executable wins. Resolved like a format argv[0]."
+        },
+        "args": {
+          "type": "array",
+          "maxItems": 64,
+          "default": [],
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^(?:[^$]|\\$(?!\\{))*$",
+            "description": "A literal argv element; no placeholders."
+          }
+        },
+        "env": {
+          "type": "object",
+          "maxProperties": 64,
+          "propertyNames": {
+            "pattern": "^[A-Z][A-Z0-9_]*$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "description": "Literal variables added over the shell environment. Keys starting RENGINE_, DYLD_ or LD_ are reserved and rejected."
+        },
+        "cwd": {
+          "type": "string",
+          "maxLength": 1024,
+          "description": "Root-relative working directory for the launched process; \"\" or an absent key means the project root. No absolute path, no \"..\" segment, no backslash."
+        },
+        "requires": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "description": "Root-relative regular file that must exist; each missing one is a named preflight issue."
+          }
+        },
+        "surface": {
+          "enum": [
+            "embedded",
+            "external"
+          ],
+          "description": "embedded streams the game window into the workspace through the cooperative SDL adapter; external opens its own operating-system window and only its PTY output is retained."
         }
       }
     }

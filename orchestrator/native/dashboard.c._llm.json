@@ -17,7 +17,7 @@
   ],
   "source": {
     "path": "orchestrator/native/dashboard.c",
-    "sha256": "ecf1c8d1073b5459d6d3dc26c9b7645022a1a9b1e6ed823fee7b43b81455f85b",
+    "sha256": "cdaf7bf30a26e2e50d673e3cefadbb06b2f9ffda406dd80fca1547ac641ed33e",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

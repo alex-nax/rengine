@@ -18,7 +18,7 @@ test('wide trees, malformed declarations and slow producers never take the deskt
       preview: { kind: 'tree', command: [process.execPath, producer, 'tree', '${file}'], timeoutMs: 10000, maxBytes: 4194304 } })));
     await writeFile(path.join(project, 'wide.pack'), pack({ entries: {}, wide: 64 }));
     await writeFile(path.join(project, 'slow.pack'), pack({ entries: { 'late.txt': 'late' }, sleep: 6000 }));
-    await writeFile(path.join(broken, '.rengine/project.json'), JSON.stringify({ ...declaration(), formats: {} }));
+    await writeFile(path.join(broken, '.rengine/project.json'), JSON.stringify(declaration({ modes: ['raw'], default: 'preview' })));
     await writeFile(path.join(broken, 'note.txt'), 'still a text file\n');
     server = await startServer({ stateDir: path.join(directory, 'state') });
     const root = await server.store.addRoot(project), brokenRoot = await server.store.addRoot(broken);
@@ -63,6 +63,9 @@ test('wide trees, malformed declarations and slow producers never take the deskt
     await gui.control('tree-entry', 'note.txt');
     state = await gui.until(s => s.tabs.some(t => t?.path === 'note.txt' && t.text === 'still a text file\n' && t.formatMode === undefined), 'text file opens under a malformed declaration');
     assert.match(state.status, /project\.json/, 'status line names the declaration problem');
+    const named = state.status.indexOf('(fixture-pack)');
+    assert.ok(named > 0, `status line names the offending record: ${state.status}`);
+    assert.ok(named < 100, 'the id is early enough to survive the single-line status row (159 columns at the default width, 8 px cell)');
     assert.ok(state.controls.some(c => c.role === 'save'));
   } finally {
     await gui?.close(); await server?.close(); await rm(directory, { recursive: true, force: true });

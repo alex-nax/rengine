@@ -84,6 +84,12 @@ static void toolbar_separator(ReToolbar *bar) {
   re_ui_separator(bar->ui);
   bar->x += RE_METRIC_DESIGN_GAP;
 }
+static bool session_running(ReApp *a, const char *id) {
+  const cJSON *session = NULL;
+  cJSON_ArrayForEach(session, cJSON_GetObjectItemCaseSensitive(a->state, "sessions"))
+    if (!strcmp(re_string(session, "id"), id)) return !strcmp(re_string(session, "state"), "running");
+  return false;
+}
 static void launch_terminal(ReApp *a, bool agent, bool menu) {
   if (!*a->root) { re_copy(a->status, sizeof(a->status), "Add or select a project first."); return; }
   cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "rootId", a->root);
@@ -370,16 +376,15 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
         re_copy(a->root, sizeof(a->root), re_string(cJSON_GetArrayItem(roots, (i + 1) % count), "id")); break;
       }
     }
-    re_app_control(a, ui, "toolbar", "root", -1);
+    re_app_control(a, ui, "toolbar", "Root", -1);
     /* The path field takes the slack, as the card's caption describes. */
     int trailing = toolbar_width(&bar, "Add project", RE_ICON_UNKNOWN, 0)
                  + re_draw_text_width(bar.draw, RE_FACE_UI, RE_METRIC_DESIGN_SIZE_SM, "Agent", -1)
                  + RE_METRIC_TOOLBAR_AGENT_WIDTH
                  + RE_METRIC_DESIGN_CHECKBOX_BOX + RE_METRIC_DESIGN_ICON_GAP
                  + re_draw_text_width(bar.draw, RE_FACE_UI_MEDIUM, RE_METRIC_DESIGN_SIZE, "Vim", -1)
-                 + toolbar_width(&bar, "NOLF", RE_ICON_RUN, 0)
                  + RE_METRIC_DESIGN_ICON_BUTTON
-                 + 7 * RE_METRIC_DESIGN_GAP_LG;
+                 + 6 * RE_METRIC_DESIGN_GAP_LG;
     toolbar_next(&bar, re_max(RE_METRIC_DESIGN_ICON_BUTTON, bar.right - bar.x - trailing), RE_METRIC_DESIGN_GAP_LG);
     re_ui_textbox_ex(ui, a->project_input, sizeof(a->project_input), RE_ICON_SEARCH, "Project path or repository URL…", 0);
     re_app_control(a, ui, "textbox", "project", -1);
@@ -400,10 +405,6 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
       cJSON *j = cJSON_CreateObject(); cJSON_AddBoolToObject(j, "vim", a->vim); re_app_action(a, "preferences", j); cJSON_Delete(j);
     }
     re_app_control(a, ui, "checkbox", "Vim", -1);
-    if (toolbar_cell(&bar, "NOLF", RE_ICON_RUN, RE_UI_GHOST, RE_METRIC_DESIGN_GAP_LG)) {
-      cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "rootId", a->root); re_app_action(a, "game", j); cJSON_Delete(j);
-    }
-    re_app_control(a, ui, "toolbar", "NOLF", -1);
     if (toolbar_cell(&bar, "Theme", RE_ICON_THEME, RE_UI_GHOST | RE_UI_ICON_ONLY, RE_METRIC_DESIGN_GAP_LG)) {
       a->preset = (a->preset + 1) % RE_PRESET_COUNT;
       re_draw_theme(bar.draw, re_theme_preset_names[a->preset]);
@@ -443,6 +444,11 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
       else if (t->type == RE_EDITOR) editor_ui(a, ui, index, content, below);
       else if (t->type == RE_TERMINAL) {
         t->rect = mu_rect(content.x + RE_METRIC_TERMINAL_INSET, content.y + RE_METRIC_TERMINAL_TOP, re_max(0, content.w - 2 * RE_METRIC_TERMINAL_INSET), re_max(0, content.h - RE_METRIC_TERMINAL_BOTTOM));
+      } else if (t->type == RE_GAME && t->terminal) {
+        bool running = session_running(a, t->session);
+        mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_GAME_ROW_HEIGHT);
+        mu_label(ui, running ? "Running in its own window" : "Game exited · reattach or Stop in Sessions"); re_app_control(a, ui, "game-status", running ? "running" : "exited", index);
+        t->rect = mu_rect(content.x + RE_METRIC_GAME_INSET, content.y + RE_METRIC_GAME_TOP, re_max(0, content.w - 2 * RE_METRIC_GAME_INSET), re_max(0, content.h - RE_METRIC_GAME_BOTTOM));
       } else if (t->game) {
         mu_layout_row(ui, 2, (int[]){RE_METRIC_GAME_CAPTURE_WIDTH, -1}, RE_METRIC_GAME_ROW_HEIGHT);
         if (mu_button(ui, t->game->captured ? "Captured · Esc releases" : "Capture mouse")) { re_game_capture(t->game); a->focus = index; }

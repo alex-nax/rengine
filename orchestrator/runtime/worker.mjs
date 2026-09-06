@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { openScript } from './scripts.mjs';
 import { listFormats, formatPreview, readBytes } from '../server/formats.mjs';
-import { dashboardActions, dashboardRunPayload, dashboardCapture } from '../server/dashboard.mjs';
+import { dashboardAction, dashboardActions, dashboardRunPayload, dashboardCapture } from '../server/dashboard.mjs';
 import { randomBytes } from 'node:crypto';
 import { WebSocket, WebSocketServer } from 'ws';
 import { Desktops } from '../server/desktops.mjs';
@@ -18,6 +18,9 @@ export async function startWorker(host) {
   const snapshot = id => bindings.sessions.find(x => x.id === id) ?? fail('Unknown session.', 404);
   const desktops = new Desktops({ root }, { snapshot });
   const refresh = async () => { const state = await call(host, 'state'); if (state.instance !== host.instance) fail('Session host identity changed.'); bindings = state; return state; };
+  /* Games live on the retained host: preflight and launch are its routes, so a host without the
+     projectGame capability says so instead of quietly opening a terminal. */
+  const preflight = (rootId, gameId) => call(host, `game-config?${new URLSearchParams({ rootId, ...(gameId ? { gameId } : {}) })}`);
   const server = http.createServer(async (req, res) => {
     try {
       const target = new URL(req.url, 'http://127.0.0.1');
@@ -37,12 +40,15 @@ export async function startWorker(host) {
       } else if (req.method === 'GET' && target.pathname === '/api/bytes') {
         await refresh(); json(res, 200, await readBytes(root(target.searchParams.get('rootId')), Object.fromEntries(target.searchParams)));
       } else if (req.method === 'GET' && target.pathname === '/api/dashboard') {
-        await refresh(); json(res, 200, await dashboardActions(root(target.searchParams.get('rootId'))));
+        await refresh(); json(res, 200, await dashboardActions(root(target.searchParams.get('rootId')), preflight));
       } else if (req.method === 'POST' && target.pathname === '/api/dashboard-run') {
-        const data = await body(req); await refresh(); const payload = await dashboardRunPayload(root(data.rootId), data.actionId);
+        const data = await body(req); await refresh();
+        const selected = root(data.rootId), action = await dashboardAction(selected, data.actionId, preflight);
+        if (action.kind === 'game') { json(res, 200, await call(host, 'game', { rootId: selected.id, gameId: action.game, args: action.args ?? [] })); return; }
+        const payload = await dashboardRunPayload(selected, action);
         json(res, 200, { ...await call(host, 'terminal', payload), title: payload.title }); /* the retained host may predate session titles */
       } else if (req.method === 'POST' && target.pathname === '/api/dashboard-capture') {
-        const data = await body(req); await refresh(); json(res, 200, await dashboardCapture(root(data.rootId), data.actionId));
+        const data = await body(req); await refresh(); json(res, 200, await dashboardCapture(root(data.rootId), data.actionId, preflight));
       } else if (req.method === 'GET' && target.pathname === '/api/desktops') {
         await refresh(); json(res, 200, { desktops: desktops.list(target.searchParams.get('rootId')) });
       } else if (req.method === 'GET' && target.pathname === '/api/runtime-desktops') {

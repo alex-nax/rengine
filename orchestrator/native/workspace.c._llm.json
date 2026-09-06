@@ -5,8 +5,8 @@
       "id": "native-focus-and-detach",
       "kind": "rationale",
       "anchor": {
-        "start": 238,
-        "end": 238,
+        "start": 249,
+        "end": 249,
         "snippet": "bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {"
       },
       "note": "Pointer focus selects a view without changing its root/session binding. Toolbar focus clears custom editor/terminal/game keyboard routing. Detach never calls Stop. Wheel targets the visible hovered terminal/editor; negotiated terminal reporting gets first refusal before native history. Mouse motion/buttons route to an existing held terminal first, otherwise the hovered visible terminal; layout drags do not become application motion. Hover never changes keyboard focus. Focus loss releases all terminal holds, focus transfer releases the previous terminal, and hidden views release during drawing. Native UI still receives mouse motion to settle microui hover; consumed application buttons are not forwarded to chrome.",
@@ -34,8 +34,8 @@
       "id": "bounded-tab-strip",
       "kind": "rationale",
       "anchor": {
-        "start": 96,
-        "end": 96,
+        "start": 102,
+        "end": 102,
         "snippet": "static void pane_header(ReApp *a, mu_Context *ui, int n) {"
       },
       "note": "Visible tab slots and previous/next controls fit the measured pane header; only displayed tabs receive hit rectangles. Strip offsets are ephemeral and can browse away from the selected content without retargeting it. Explicit layout changes invalidate the cached width to reveal the selected tab even when pane indices are reused. Drops choose insertion boundaries from visible header midpoints, then adjust for removal when source and destination are the same pane. Root/session identity stays on ReTab.",
@@ -47,8 +47,8 @@
       "id": "format-tab-layout",
       "kind": "rationale",
       "anchor": {
-        "start": 75,
-        "end": 75,
+        "start": 81,
+        "end": 81,
         "snippet": "static void editor_ui(ReApp *a, mu_Context *ui, int index, mu_Rect content, mu_Rect below) {"
       },
       "note": "A format-aware editor tab draws the mode toolbar first; text mode keeps the Save/Discard row below it and shifts the buffer down by one row, raw and text previews take the whole content area as a draw-list rect, and a tree preview lives inside the scrollable microui window with the selected entry drawn in the reserved lower split. Actions returned by the view are performed after drawing so request/mode changes never interleave with layout. The third root container per pane is avoided on purpose: the entry area is a draw-list rect, not another microui window (upstream's 32-root limit).",
@@ -59,7 +59,7 @@
   ],
   "source": {
     "path": "orchestrator/native/workspace.c",
-    "sha256": "98538f2991adaa8eaa8496edc49ece5d8b726f8a957b3c4effc4c77765ecb150",
+    "sha256": "e9f8cd899d0b4d3501407a4f4e11a73b03c41cff6afeeed8d53a25f0d4953011",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }
