@@ -63,6 +63,11 @@ projection scaled by density.
 
 ## Deferred
 
+Amendment 2026-09-06 (owner decision during F60, spec 076): the decision 5 tolerances for the
+current-UI scenes drop the per-channel limit in favour of the same 2px edge band the primitives
+scene uses, because those scenes now contain anti-aliased rounded controls; the 0.1% differing
+fraction is unchanged.
+
 Amendment 2026-09-06 (owner decision during F59, spec 073): the decision 6 resident-memory ceiling is
 64 MiB above the SDL reference for Vulkan on Windows, where the NVIDIA driver's process baseline sits
 about 30 MiB above OpenGL's before the adapter draws anything; every other backend and platform keeps

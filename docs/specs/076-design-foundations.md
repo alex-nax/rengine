@@ -61,6 +61,15 @@ slider and theme files. F69 repeats the card evidence on Windows.
 - Evidence: `docs/evidence/design-foundations-macos-<date>.md`, including the full native snapshots
   for the owner's visual sign-off.
 
+## Status, 2026-09-06
+
+Every gate met on macOS and the owner signed off on the card snapshots, so F60 passes
+(`docs/evidence/design-foundations-macos-2026-09-06.md`). Two measurement decisions were taken
+during the run and confirmed by the owner: the workspace and terminal comparison scenes carry the
+edge-band rule of spec 068 decision 5 rather than a per-channel limit, because they now contain
+anti-aliased rounded controls; and the render spec's resident memory is the median of four samples,
+because a single reading swings by more than the budget it is compared against.
+
 ## Deferred
 
 Windows card evidence (F69). Nested overlays, gradients beyond the accent slider, and any card that

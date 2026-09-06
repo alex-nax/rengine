@@ -56,7 +56,7 @@ flowchart TD
   F57 --> F58
   F59["F59: passing"]
   F57 --> F59
-  F60["F60: ready"]
+  F60["F60: passing"]
   F57 --> F60
   F61["F61: ready"]
   F57 --> F61
@@ -76,7 +76,7 @@ flowchart TD
   F60 --> F67
   F37 --> F67
   F54 --> F67
-  F68["F68: blocked"]
+  F68["F68: ready"]
   F60 --> F68
   F69["F69: blocked"]
   F60 --> F69
@@ -106,7 +106,7 @@ flowchart TD
 | F57 | R0 | rengine | passing | Implement the OpenGL adapter on macOS behind the draw list. |
 | F58 | R1 | rengine | passing | Implement the Metal adapter on macOS behind the draw list. |
 | F59 | R1 | rengine | passing | Implement the Vulkan adapter on Windows, extending to other platforms when they are targeted. |
-| F60 | R2 | rengine | ready | Implement the Claude Design foundations on the GPU renderer: theme generation, the owned control layer, toolbar, tab strip and status bar. |
+| F60 | R2 | rengine | passing | Implement the Claude Design foundations on the GPU renderer: theme generation, the owned control layer, toolbar, tab strip and status bar. |
 | F61 | R3 | rengine | ready | Make the renderer a curated capability with one game adopting it through an adapter. |
 | F62 | R1 | rengine | ready | Verify the OpenGL adapter on Windows behind the draw list. |
 | F63 | O1 | rengine | ready | Register project file formats through a versioned declaration and run their bounded preview commands. |
@@ -114,5 +114,5 @@ flowchart TD
 | F65 | O1 | rengine | blocked | Declare a project dashboard (contract 2) and serve its actions, availability and captures. |
 | F66 | O1 | rengine | blocked | Render the project dashboard as a native tab with runnable actions. |
 | F67 | R2 | rengine | blocked | Implement the Claude Design update for the tree, editor, terminal and session browser. |
-| F68 | R2 | rengine | blocked | Implement the Claude Design menus, theme panel and theme files. |
+| F68 | R2 | rengine | ready | Implement the Claude Design menus, theme panel and theme files. |
 | F69 | R2 | rengine | blocked | Record Windows card evidence for the Claude Design update. |

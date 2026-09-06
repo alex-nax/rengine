@@ -46,7 +46,8 @@ snapshots are `design/foundations-default.png`, `-teal.png` and `-light.png` bes
 | Primitives | 32227 | 0 | 2.699 | 0.557 / 0.593 / 0.330 |
 
 The current-UI scenes now contain anti-aliased rounded controls, so they carry the edge-band rule
-the owner set for the primitives scene rather than a per-channel limit: the differing fraction stays
+the owner set for the primitives scene rather than a per-channel limit (confirmed by the owner on
+2026-09-06, recorded as an amendment in spec 068): the differing fraction stays
 at 0.1% and nothing may differ outside a 2px band of a shape's edge. Every differing pixel in both
 scenes is an anti-aliased edge, and the three GPU adapters stay identical to each other.
 

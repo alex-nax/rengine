@@ -352,8 +352,8 @@ all three presets; desktop suite 17/17, CTest 4/4, render comparison passing on 
 Two measurement corrections were needed and are recorded in the evidence: the current-UI scenes now
 carry the edge-band rule instead of a per-channel limit, because they contain anti-aliased rounded
 controls, and resident memory is the median of four samples because a single reading swings by more
-than the budget. Evidence `docs/evidence/design-foundations-macos-2026-09-06.md`; F60 waits on the
-owner's visual sign-off. rEngine also gained its own `.rengine/project.json` (contract 2) with a BMP
+than the budget. Evidence `docs/evidence/design-foundations-macos-2026-09-06.md`; the owner signed off on the card
+snapshots and confirmed the tolerance amendment, so **F60 passes**. rEngine also gained its own `.rengine/project.json` (contract 2) with a BMP
 preview format and nine dashboard actions, verified through the service's readers.
 
 **Follow-up 8 (same session)**: F59 on owner direction after a `/grill-me` interview (spec 073;

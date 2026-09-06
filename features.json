@@ -414,7 +414,7 @@
         "The toolbar, tab strip and status bar match their Claude Design cards on macOS: a generated card reference asserts geometry and resolved colours per state in a native snapshot test, and the full snapshots are recorded as evidence.",
         "Every existing desktop behaviour gate still passes on the GPU backend."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         57
       ],
