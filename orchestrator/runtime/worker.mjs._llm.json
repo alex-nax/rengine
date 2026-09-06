@@ -5,8 +5,8 @@
       "id": "legacy-host-adapter",
       "kind": "rationale",
       "anchor": {
-        "start": 12,
-        "end": 12,
+        "start": 13,
+        "end": 13,
         "snippet": "export async function startWorker(host) {"
       },
       "note": "The original host remains the sole session and durable-state authority. This process forwards its APIs/PTY/game streams and supplies desktop actions even when that host predates them. Desktop registration is intercepted and validated against current host roots/sessions; other frames retain their order and binary/text kind. Existing streams can outlive a newer HTTP worker generation. Closing this worker only closes its views/proxies, never the host or its PTYs.",
@@ -18,8 +18,8 @@
       "id": "script-view-consumer",
       "kind": "rationale",
       "anchor": {
-        "start": 41,
-        "end": 41,
+        "start": 42,
+        "end": 42,
         "snippet": "const data = await body(req), state = await refresh(); json(res, 200, await openScript(host, desktops, data, state));"
       },
       "note": "Script launch and session-view actions live in the replaceable worker above the retained host. Only this worker\u2019s connected desktop broker can attach a view; a desktop still connected through an older worker needs a native update first, not a duplicate process.",
@@ -31,8 +31,8 @@
       "id": "format-registry-worker",
       "kind": "rationale",
       "anchor": {
-        "start": 45,
-        "end": 45,
+        "start": 46,
+        "end": 46,
         "snippet": "} else if (req.method === 'GET' && target.pathname === '/api/formats') {"
       },
       "note": "Format listing, preview/entry execution and raw byte windows are answered here instead of being forwarded, so a retained host that predates spec 074 still gains them through a workspace-layer update. Roots come from the refreshed host state; the boundary is store.mjs resolveInRoot, identical to the host's.",
@@ -44,8 +44,8 @@
       "id": "game-routes",
       "kind": "rationale",
       "anchor": {
-        "start": 24,
-        "end": 24,
+        "start": 25,
+        "end": 25,
         "snippet": "const preflight = (rootId, gameId) => inspectGame(root(rootId), gameId);"
       },
       "note": "The general rule this file keeps learning: a capability that only the retained host serves cannot be delivered by a layered update, because the capability flag comes from the host's own state. dashboard and formatRegistry are advertised here because the routes are served here; game-config was forwarded, so projectGame could never appear on a live workspace no matter how often update_workspace ran, and the forwarded answers came from the removed built-in game (one hard-coded config for every root and every gameId). Preflight now runs from this checkout through inspectGame, and projectGame is advertised beside dashboard. Launch is the deliberate exception: creating a game session needs the host's Sessions (PTY ownership), its Surfaces reservation for an embedded game and the session-id map behind its /surface upgrade, and its /api/terminal refuses type \"game\" by design \u2014 so it stays forwarded and is advertised as its own projectGameLaunch, mirrored from the host's own projectGame. Above an older host the launch is refused by name rather than forwarded into the built-in game.",
@@ -53,11 +53,24 @@
         "docs/specs/078-project-game-declaration.md",
         "docs/specs/065-layered-workspace-updates.md"
       ]
+    },
+    {
+      "id": "recording-routes",
+      "kind": "rationale",
+      "anchor": {
+        "start": 57,
+        "end": 57,
+        "snippet": "      } else if (req.method === 'GET' && target.pathname === '/api/recordings') {"
+      },
+      "note": "Both recording routes are answered here, from this checkout, and never forwarded: reading committed segments is a filesystem walk over a project root with no session, PTY or surface state behind it. That is the whole reason the capability is deliverable by a layered workspace update, which is the lesson KI-043 and spec 078 paid for \u2014 a route only the retained session host can answer cannot be delivered without quiescence. recordings: 1 is therefore advertised unconditionally here, unlike projectGameLaunch, which is mirrored from the host because the host is the one that can honour it.",
+      "refs": [
+        "docs/specs/081-game-recording.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/runtime/worker.mjs",
-    "sha256": "77aebcd5529dd702bc5b017e65808fdac34e2fd5b6f4f739b82d6c5ee5f730b5",
+    "sha256": "75ff80ca54af13811cfc850e4b1ebe03534b74b2ba9b19421ccb6494d93be35c",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

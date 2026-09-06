@@ -745,6 +745,29 @@
       "evidence": [
         "docs/evidence/worker-game-routes-macos-2026-09-06.md"
       ]
+    },
+    {
+      "id": 75,
+      "milestone": "O1",
+      "category": "surfaces",
+      "priority": "high",
+      "description": "Record a live game pane: a rolling buffer by default, a toggle on the game tab that commits a segment from the ring or from an explicit start/stop, and committed segments queryable over MCP as timestamped keyframes, a log slice and a manifest on one clock.",
+      "acceptance_criteria": [
+        "The ring holds JPEG keyframes encoded as they arrive, never raw frames, through third_party/stb/stb_image_write.h pinned at the stb revision third_party/sources.json already records; orchestrator/native/recording.c bounds it by seconds AND bytes with defaults 120 s / 64 MiB / 10 fps / 640 px / quality 70, read from the validated workspace preference recording and clamped again in the desktop, and the game tab's row shows the bound it actually applied. rengine_recording_test (CTest native_recording) covers both bounds, the declared sample rate, the bottom-up-to-top-down flip, commit-last-N, explicit start/stop, an explicit segment that outruns the ring reporting truncated with droppedLeadMs, a commit draining over ticks with its manifest written last, a session exit committing an open segment, and a close finishing a drain.",
+        "A segment is <root>/.cache/recordings/<id>/ with a self-ignoring .gitignore, manifest.json (version 1, written last so an incomplete commit is not listed), keyframes.jsonl, keyframes/NNNNNN.jpg and log.jsonl; every keyframe and every log line carries atMs, an absolute wall time and, for keyframes, the game frame sequence, so an agent can put a frame beside the line printed while it was on screen. Audio is a declared slot naming capture-mcp and KI-044 rather than a silent omission; no second audio stack and no video container are built here.",
+        "orchestrator/server/recordings.mjs serves listRecordings/readRecording as a pure filesystem read; the session host and the replaceable workspace worker both answer GET /api/recordings and GET /api/recording from it and both advertise recordings: 1, so a layered workspace update alone delivers the capability (spec 078's asymmetry, KI-043) and supervisor.mjs claims nothing; recordings_list and recording_read are read-only MCP tools gated by that flag with the workspace-layer remedy. A native fixture (native-recording.spec.mjs, in test:desktop) drives the toggle against a real frame stream, commits both gestures and reads the committed segment back. npm test, npm run test:desktop, CTest, ./init.sh, design.py check, features.py validate and sidecar validation pass with zero native warnings. Passing waits on the owner's live verification after a layered update, as F71/F72/F74 do."
+      ],
+      "passes": false,
+      "dependencies": [
+        71,
+        74
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/081-game-recording.md, orchestrator/native/recording.c and jpeg.c, orchestrator/server/recordings.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, orchestrator/native/tests/recording_test.c, orchestrator/tests/recordings.test.mjs and native-recording.spec.mjs",
+      "external_references": [
+        "capture-mcp (per-app audio and transcription) — KI-044"
+      ],
+      "evidence": []
     }
   ]
 }

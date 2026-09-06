@@ -335,6 +335,7 @@ static void pane_header(ReApp *a, mu_Context *ui, int n) {
     re_app_control(a, ui, "detach", "", tab);
     if (closed) {
       re_layout_remove(&a->layout, tab); a->focus = -1;
+      re_recording_close(t->recorder); t->recorder = NULL;
       re_terminal_close(t->terminal); t->terminal = NULL; re_game_close(t->game); t->game = NULL;
       t->header = mu_rect(0, 0, 0, 0); re_app_layout_changed(a);
     }
@@ -393,6 +394,7 @@ static void close_view(ReApp *a) {
   if (!p->count) { re_copy(a->status, sizeof(a->status), "This pane has no view to close."); return; }
   int tab = p->tabs[p->selected]; ReTab *t = &a->tabs[tab];
   re_layout_remove(&a->layout, tab); a->focus = -1;
+  re_recording_close(t->recorder); t->recorder = NULL;
   re_terminal_close(t->terminal); t->terminal = NULL; re_game_close(t->game); t->game = NULL;
   t->header = mu_rect(0, 0, 0, 0); re_app_layout_changed(a);
 }
@@ -758,9 +760,12 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
         mu_label(ui, running ? "Running in its own window" : "Game exited · reattach or Stop in Sessions"); re_app_control(a, ui, "game-status", running ? "running" : "exited", index);
         t->rect = mu_rect(content.x + RE_METRIC_GAME_INSET, content.y + RE_METRIC_GAME_TOP, re_max(0, content.w - 2 * RE_METRIC_GAME_INSET), re_max(0, content.h - RE_METRIC_GAME_BOTTOM));
       } else if (t->game) {
-        mu_layout_row(ui, 2, (int[]){RE_METRIC_GAME_CAPTURE_WIDTH, -1}, RE_METRIC_GAME_ROW_HEIGHT);
+        /* One row: the capture control, then the recording toggle, the ring commit and the status
+           (spec 081). The game rectangle below it keeps its metrics. */
+        mu_layout_row(ui, 4, (int[]){RE_METRIC_GAME_CAPTURE_WIDTH, RE_METRIC_RECORDING_TOGGLE_WIDTH,
+                                     RE_METRIC_RECORDING_COMMIT_WIDTH, -1}, RE_METRIC_GAME_ROW_HEIGHT);
         if (mu_button(ui, t->game->captured ? "Captured · Esc releases" : "Capture mouse")) { re_game_capture(t->game); a->focus = index; }
-        mu_label(ui, t->game->status);
+        re_recording_ui(a, ui, index);
         t->rect = mu_rect(content.x + RE_METRIC_GAME_INSET, content.y + RE_METRIC_GAME_TOP, re_max(0, content.w - 2 * RE_METRIC_GAME_INSET), re_max(0, content.h - RE_METRIC_GAME_BOTTOM));
       }
       mu_end_window(ui);

@@ -48,6 +48,14 @@ cmake-after = """
 target_include_directories(rengine_vterm SYSTEM PUBLIC "${RENGINE_VENDOR}/libvterm/include")
 """
 
+[target.rengine_jpeg]
+type = "static"
+sources = ["orchestrator/native/jpeg.c"]
+cmake-after = """
+target_include_directories(rengine_jpeg PRIVATE "${PROJECT_SOURCE_DIR}/orchestrator/native")
+target_include_directories(rengine_jpeg SYSTEM PRIVATE "${RENGINE_VENDOR}/stb") # pinned stb_image_write (spec 081)
+"""
+
 # --- owned desktop code ---
 
 # --- renderer and controls: their own targets, so the library boundary is real (charter D30, D33) ---
@@ -100,10 +108,10 @@ sources = [
   "orchestrator/native/app.c",
   "orchestrator/native/workspace.c", "orchestrator/native/game.c", "orchestrator/native/scroll.c",
   "orchestrator/native/scene.c", "orchestrator/native/hexview.c", "orchestrator/native/formatview.c",
-  "orchestrator/native/dashboard.c",
+  "orchestrator/native/dashboard.c", "orchestrator/native/recording.c",
 ]
 include-directories = ["orchestrator/native"]
-link-libraries = ["SDL2::SDL2", "rengine_ui", "rengine_render", "rengine_microui", "rengine_json", "rengine_vterm", "CURL::libcurl"]
+link-libraries = ["SDL2::SDL2", "rengine_ui", "rengine_render", "rengine_microui", "rengine_json", "rengine_vterm", "rengine_jpeg", "CURL::libcurl"]
 compile-features = ["c_std_11"]
 compile-definitions = ["SDL_MAIN_HANDLED"]
 cmake-after = """
@@ -217,5 +225,24 @@ add_test(NAME native_syntax COMMAND rengine_syntax_test)
 if(WIN32)
   add_custom_command(TARGET rengine_syntax_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
     $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_syntax_test>)
+endif()
+"""
+
+[target.rengine_recording_test]
+condition = "testing"
+type = "executable"
+sources = ["orchestrator/native/tests/recording_test.c"]
+private-link-libraries = ["rengine_desktop_core"]
+cmake-after = """
+target_compile_definitions(rengine_recording_test PRIVATE RENGINE_TEST_TMP="${CMAKE_BINARY_DIR}/recording-test")
+if(MSVC)
+  target_compile_options(rengine_recording_test PRIVATE /UNDEBUG)
+else()
+  target_compile_options(rengine_recording_test PRIVATE -UNDEBUG)
+endif()
+add_test(NAME native_recording COMMAND rengine_recording_test)
+if(WIN32)
+  add_custom_command(TARGET rengine_recording_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_recording_test>)
 endif()
 """

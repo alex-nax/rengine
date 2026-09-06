@@ -92,6 +92,21 @@ target_compile_definitions(rengine_vterm PRIVATE
 set(CMKR_TARGET rengine_vterm)
 target_include_directories(rengine_vterm SYSTEM PUBLIC "${RENGINE_VENDOR}/libvterm/include")
 
+# Target: rengine_jpeg
+set(rengine_jpeg_SOURCES
+	cmake.toml
+	"orchestrator/native/jpeg.c"
+)
+
+add_library(rengine_jpeg STATIC)
+
+target_sources(rengine_jpeg PRIVATE ${rengine_jpeg_SOURCES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${rengine_jpeg_SOURCES})
+
+set(CMKR_TARGET rengine_jpeg)
+target_include_directories(rengine_jpeg PRIVATE "${PROJECT_SOURCE_DIR}/orchestrator/native")
+target_include_directories(rengine_jpeg SYSTEM PRIVATE "${RENGINE_VENDOR}/stb") # pinned stb_image_write (spec 081)
+
 # Target: rengine_render
 set(rengine_render_SOURCES
 	cmake.toml
@@ -184,6 +199,7 @@ set(rengine_desktop_core_SOURCES
 	"orchestrator/native/hexview.c"
 	"orchestrator/native/layout.c"
 	"orchestrator/native/net.c"
+	"orchestrator/native/recording.c"
 	"orchestrator/native/scene.c"
 	"orchestrator/native/scroll.c"
 	"orchestrator/native/syntax.c"
@@ -215,6 +231,7 @@ target_link_libraries(rengine_desktop_core PUBLIC
 	rengine_microui
 	rengine_json
 	rengine_vterm
+	rengine_jpeg
 	CURL::libcurl
 )
 
@@ -423,6 +440,41 @@ if(BUILD_TESTING) # testing
 	if(WIN32)
 	  add_custom_command(TARGET rengine_syntax_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
 	    $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_syntax_test>)
+	endif()
+
+endif()
+# Target: rengine_recording_test
+if(BUILD_TESTING) # testing
+	set(rengine_recording_test_SOURCES
+		cmake.toml
+		"orchestrator/native/tests/recording_test.c"
+	)
+
+	add_executable(rengine_recording_test)
+
+	target_sources(rengine_recording_test PRIVATE ${rengine_recording_test_SOURCES})
+	source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${rengine_recording_test_SOURCES})
+
+	target_link_libraries(rengine_recording_test PRIVATE
+		rengine_desktop_core
+	)
+
+	get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
+	if(NOT CMKR_VS_STARTUP_PROJECT)
+		set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT rengine_recording_test)
+	endif()
+
+	set(CMKR_TARGET rengine_recording_test)
+	target_compile_definitions(rengine_recording_test PRIVATE RENGINE_TEST_TMP="${CMAKE_BINARY_DIR}/recording-test")
+	if(MSVC)
+	  target_compile_options(rengine_recording_test PRIVATE /UNDEBUG)
+	else()
+	  target_compile_options(rengine_recording_test PRIVATE -UNDEBUG)
+	endif()
+	add_test(NAME native_recording COMMAND rengine_recording_test)
+	if(WIN32)
+	  add_custom_command(TARGET rengine_recording_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+	    $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_recording_test>)
 	endif()
 
 endif()
