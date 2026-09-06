@@ -85,6 +85,8 @@ flowchart TD
   F62 --> F69
   F71["F71: blocked"]
   F63 --> F71
+  F72["F72: blocked"]
+  F71 --> F72
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -118,4 +120,5 @@ flowchart TD
 | F67 | R2 | rengine | blocked | Implement the Claude Design update for the tree, editor, terminal and session browser. |
 | F68 | R2 | rengine | blocked | Implement the Claude Design menus, theme panel and theme files. |
 | F69 | R2 | rengine | blocked | Record Windows card evidence for the Claude Design update. |
-| F71 | O1 | rengine | blocked | Declare a project's games in .rengine/project.json (contract 3, games array) and launch any of them from the toolbar, the launcher and generic agent tools. |
+| F71 | O1 | rengine | blocked | Declare a project's games in .rengine/project.json (contract 3, games array) and launch any of them from the dashboard, the launcher and generic agent tools. |
+| F72 | O1 | rengine | blocked | Launch a declared game from the project dashboard through an action kind game, and remove the toolbar game control. |
