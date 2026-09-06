@@ -24,7 +24,7 @@ code, which also rendered both of vtmb-vr's flat dashboard entries unavailable w
 **The general lesson, now in spec 078 and KI-043: a capability served only by the retained host
 cannot be delivered by a layered update.**
 
-**The fix (F73).** `games.mjs` exports `inspectGame(root, gameId)` — the same body, `Games.inspect`
+**The fix (F74).** `games.mjs` exports `inspectGame(root, gameId)` — the same body, `Games.inspect`
 reduced to a one-line delegation — because preflight reads only the declaration, the filesystem and
 `root.id`/`root.path`. The worker calls it, serves `GET /api/game-config`, and advertises
 `projectGame: 1` beside `dashboard: 1`, so a routine workspace update delivers it.
@@ -66,7 +66,12 @@ embedded records all ready. Evidence:
 index (`.cache/sidecars-worker-game.sqlite`); the remaining repo-wide drift is in
 `orchestrator/native/**` and `tests/native-client.mjs`, untouched here and owned by the other lanes.
 
-**Remaining**: F73 stays `passes: false` with F71/F72 until the owner verifies the live workspace
+**Feature id**: F73 was free on `origin/main` (`f42bdea`) and was taken here first, then released:
+the concurrent design lane's *unpushed* local `main` (`67959f9`) already commits F73 for the project
+explorer's in-place expansion. This work is **F74**, renumbered before push so the owner's next main
+advance carries no collision. Verify ids against the tip that is about to move, not only the pushed one.
+
+**Remaining**: F74 stays `passes: false` with F71/F72 until the owner verifies the live workspace
 after `update_workspace`. Launching a declared game there still needs the session host replaced
 (quiescence, which stops the retained PTYs); preflight and dashboard availability do not. Windows
 stays unqualified (KI-014).

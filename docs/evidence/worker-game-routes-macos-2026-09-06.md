@@ -1,6 +1,6 @@
 # The layered-update asymmetry in the game routes — macOS, 2026-09-06
 
-F73, spec 078 (section *Who serves the routes: the layered-update asymmetry*). Branch
+F74, spec 078 (section *Who serves the routes: the layered-update asymmetry*). Branch
 `fix/worker-game-routes` in the `.cache/worktrees/merge-verify` worktree, cut from `origin/main`
 at `f42bdea`. No live orchestrator, sidecar, connector, agent session or real game window was
 replaced; `update_workspace` was not run from here.
