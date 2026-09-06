@@ -74,7 +74,7 @@ a coherent change. Preserve other sessions' entries and unrelated edits.
   client of workspace services, never a dependency of native tools or games (charter D26–D27).
 - Rendering moves to full GPU rendering behind a graphics-API adapter boundary, OpenGL first,
   then Metal, then Vulkan (charter D29); SDL_Renderer is the interim reference path. The renderer
-  is a candidate curated library (D30) and never a mandatory game dependency. Spec 065 owns the
+  is a candidate curated library (D30) and never a mandatory game dependency. Spec 066 owns the
   draw-list contract; keep upstream microui pristine and add controls in an owned layer.
 - Honor the training project's held-out-data and grader boundaries. Recording a run does not
   authorize training, data export, or model creation.

@@ -9,7 +9,7 @@
                       resolved to sRGB 8-bit, for renderer and theme work
 
 Two sources exist on purpose: the shipping desktop draws from the interim theme.json (spec 064) until the
-GPU renderer lands (spec 065); the Claude Design project owns design/tokens.css. Standard library only.
+GPU renderer lands (spec 066); the Claude Design project owns design/tokens.css. Standard library only.
 """
 import json
 import math

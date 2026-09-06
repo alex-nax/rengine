@@ -135,14 +135,14 @@ bounded follow-ups. Calendar dates and effort estimates await the selected proof
 - Adoption-record format for the confirmed pinned-capability minimum and independent upgrades.
 - infra-vr's product relationship and the meaning of the two streams.
 - In-game inference scope, training data boundaries and automation authority.
-- Renderer details (spec 065): icon set and license, UI font policy, owned control layer versus a
+- Renderer details (spec 066): icon set and license, UI font policy, owned control layer versus a
   microui fork, OpenGL floor, first Vulkan platform, and whether R0 starts before F48.
 
 ## Expansion requires a consumer need
 
 A common ECS, universal game object model, package-hosting service, general distributed
 scheduler, custom model runtime or training cluster has no approved deliverable here. The workspace
-renderer is the exception since D29 (spec 065): a workspace deliverable and library candidate, never
+renderer is the exception since D29 (spec 066): a workspace deliverable and library candidate, never
 a renderer imposed on games.
 The workspace/basic editor is now explicitly requested; its earlier blanket deferral is superseded.
 Curating implementation for a specific rendering or ECS need remains possible without selecting

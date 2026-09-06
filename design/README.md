@@ -2,7 +2,7 @@
 
 The Claude Design project “rEngine native workspace” (`9e977c1b-7cbd-4a89-90a4-5524771712d7`) is the
 authority for this directory; pull edited files back verbatim. Nothing here is loaded at runtime.
-Boundaries: [spec 064](../docs/specs/064-design-system-handoff.md); rendering plan: [spec 065](../docs/specs/065-gpu-rendering.md).
+Boundaries: [spec 064](../docs/specs/064-design-system-handoff.md); rendering plan: [spec 066](../docs/specs/066-gpu-rendering.md).
 
 | Path | Role |
 | --- | --- |

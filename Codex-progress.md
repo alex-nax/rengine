@@ -108,7 +108,8 @@ to contain none of its hunks. Commit:
 and set the direction: full GPU rendering behind graphics-API adapters, OpenGL first, then Metal and
 Vulkan, with the renderer as a future approved-library candidate. Recorded as charter D29–D30, an
 AGENTS boundary, architecture constraint 15, roadmap milestones R0–R3, features F56–F61 (blocked
-behind existing desktop features) and spec 065. Pulled the theming update verbatim: three-layer
+behind existing desktop features) and spec 066 (renumbered from 065 after the other session's
+untracked 065 appeared). Pulled the theming update verbatim: three-layer
 `tokens.css` with default/teal/light presets, rewritten `base.css`, `styles.css`, six new cards and
 thirteen rewritten cards. `tools/design.py` now parses the layered CSS, mirrors it into
 `tokens.json`, resolves presets to sRGB with oklch conversion and validates cards that link
