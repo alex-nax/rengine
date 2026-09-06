@@ -7,11 +7,16 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { bashPath } from '../server/sessions.mjs';
 import { readDeclaration } from '../server/formats.mjs';
+import { validateSchema } from '../server/schema.mjs';
+import { dashboardRules } from '../server/dashboard-rules.mjs';
 
 const execute = promisify(execFile);
 const ENGINE = path.resolve();
 const ACTION = path.join(ENGINE, 'orchestrator/actions/integrate-project.sh');
-const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const SCHEMA = JSON.parse(await readFile(path.join(ENGINE, 'contracts/project-v1.schema.json'), 'utf8'));
+const CONTRACTS = new Set(SCHEMA.properties.contract.enum ?? []);
+const gameRules = await import('../server/game-rules.mjs').then(module => module.gameRules, () => null);
+const knowsGames = CONTRACTS.has(3) && Boolean(SCHEMA.properties.games);
 const cleanup = [];
 
 test.after(async () => { for (const directory of cleanup) await rm(directory, { recursive: true, force: true }); });
@@ -30,62 +35,30 @@ const printed = output => output.split('\n').filter(line => line.startsWith('+ '
 const declarationOf = async root => JSON.parse(await readFile(path.join(root, '.rengine/project.json'), 'utf8'));
 const missing = async file => { try { await stat(file); return false; } catch { return true; } };
 
-/** The contract-2 rules of specs 074/075/076, applied here because this branch's reader knows
- * contract 1 only; the reader itself checks the contract-1 core in its own test below. */
-function contractTwoProblems(value, root) {
-  const problems = [], literal = list => Array.isArray(list) && list.every(item => typeof item === 'string' && item.length);
-  if (![1, 2].includes(value.contract)) problems.push('contract must be 1 or 2');
-  if (typeof value.project !== 'string' || !value.project.length) problems.push('project must be a non-empty name');
-  if (!Array.isArray(value.formats) || !value.formats.length) problems.push('formats must be a non-empty array');
-  for (const format of value.formats ?? []) {
-    if (!KEBAB.test(format.id ?? '')) problems.push(`format id ${JSON.stringify(format.id)} is not kebab-case`);
-    if (!Array.isArray(format.modes) || !format.modes.includes(format.default)) problems.push(`${format.id}: default must be one of modes`);
-    if (format.modes?.includes('preview') && !format.preview) problems.push(`${format.id}: preview mode needs a preview command`);
-    for (const key of ['preview', 'entry']) if (format[key] && !literal(format[key].command)) problems.push(`${format.id}.${key}.command must be literal argv`);
+/** Validate a scaffolded declaration with the rules this checkout actually ships — the committed
+ * contract through validateSchema plus the shared cross-rule modules — instead of restating them.
+ * `games` (contract 3) is owned by the game lane, so while the committed schema predates it the
+ * core is still validated for real and the games tier is reported as uncovered here. */
+function declarationProblems(value, root) {
+  const problems = [], uncovered = [];
+  let subject = value;
+  if (!CONTRACTS.has(value.contract) || (value.games !== undefined && !knowsGames)) {
+    subject = { ...value, contract: Math.min(value.contract, Math.max(...CONTRACTS)) };
+    delete subject.games;
+    uncovered.push('games');
   }
-  if (value.game !== undefined) {
-    const game = value.game;
-    if (!KEBAB.test(game.id ?? '')) problems.push('game.id must be kebab-case');
-    if (typeof game.title !== 'string' || !game.title.length || game.title.length > 32) problems.push('game.title must be 1..32 characters');
-    if (!literal(game.executable) || !game.executable.length) problems.push('game.executable must be a non-empty list of paths');
-    for (const candidate of game.executable ?? [])
-      if (path.isAbsolute(candidate) || candidate.split('/').includes('..')) problems.push(`game.executable ${candidate} must be root-relative`);
-    if (!['external', 'sdl2-interpose'].includes(game.surface)) problems.push('game.surface must be external or sdl2-interpose');
-    if (game.args !== undefined && !literal(game.args)) problems.push('game.args must be literal argv');
-    for (const [key, item] of Object.entries(game.env ?? {}))
-      if (!/^[A-Z][A-Z0-9_]*$/.test(key) || typeof item !== 'string') problems.push(`game.env ${key} must be UPPER_SNAKE with a literal value`);
-  }
-  if (value.dashboard !== undefined) {
-    if (value.contract !== 2) problems.push('a dashboard requires contract 2');
-    const dashboard = value.dashboard, actions = new Set(), groups = new Set();
-    if (typeof dashboard.title !== 'string' || !dashboard.title.length) problems.push('dashboard.title is required');
-    if (!Array.isArray(dashboard.groups) || !dashboard.groups.length) problems.push('dashboard.groups must be a non-empty array');
-    for (const group of dashboard.groups ?? []) {
-      if (!KEBAB.test(group.id ?? '')) problems.push(`dashboard group id ${JSON.stringify(group.id)} is not kebab-case`);
-      if (groups.has(group.id)) problems.push(`duplicate dashboard group ${group.id}`);
-      groups.add(group.id);
-      if (typeof group.title !== 'string' || !group.title.length) problems.push(`group ${group.id} needs a title`);
-      if (!Array.isArray(group.actions) || !group.actions.length) problems.push(`group ${group.id} needs actions`);
-      for (const action of group.actions ?? []) {
-        if (!KEBAB.test(action.id ?? '')) problems.push(`action id ${JSON.stringify(action.id)} is not kebab-case`);
-        if (actions.has(action.id)) problems.push(`duplicate action ${action.id}`);
-        actions.add(action.id);
-        if (typeof action.title !== 'string' || !action.title.length) problems.push(`action ${action.id} needs a title`);
-        if (!['script', 'log', 'capture'].includes(action.kind)) problems.push(`action ${action.id} has an unknown kind`);
-        if (action.kind === 'script') {
-          if (typeof action.script !== 'string' || !action.script.endsWith('.sh') || path.isAbsolute(action.script) || action.script.split('/').includes('..'))
-            problems.push(`action ${action.id}: script must be a root-relative .sh path`);
-          if (action.args !== undefined && !literal(action.args)) problems.push(`action ${action.id}: args must be literal argv`);
-          if (action.command !== undefined) problems.push(`action ${action.id}: script actions carry no command`);
-        }
-        if (action.kind !== 'script' && !literal(action.command)) problems.push(`action ${action.id}: command must be literal argv`);
-      }
-    }
-  }
-  return { problems, scripts: (value.dashboard?.groups ?? []).flatMap(group => group.actions.filter(action => action.kind === 'script').map(action => path.join(root, action.script))) };
+  problems.push(...validateSchema(SCHEMA, subject));
+  problems.push(...dashboardRules(value.dashboard));
+  if (gameRules) problems.push(...gameRules(value.games ?? []));
+  else uncovered.push('game-rules.mjs');
+  if (value.dashboard !== undefined && value.contract < 2) problems.push('a dashboard requires contract 2');
+  if (value.games !== undefined && value.contract !== 3) problems.push('a games array requires contract 3');
+  const scripts = (value.dashboard?.groups ?? []).flatMap(group =>
+    group.actions.filter(action => action.kind === 'script').map(action => path.join(root, action.script)));
+  return { problems, scripts, uncovered };
 }
 
-test('the wizard scaffolds a contract 2 declaration, launcher and test that satisfy the contract rules', async () => {
+test('the wizard scaffolds a contract 3 declaration, launcher and test that satisfy the contract rules', async () => {
   const root = await repository();
   const result = await wizard(['--project', root, '--name', 'sample-project', '--no-submodule',
     '--game-title', 'Sample game', '--game-exe', 'build/sample-game', '--game-surface', 'external']);
@@ -93,12 +66,15 @@ test('the wizard scaffolds a contract 2 declaration, launcher and test that sati
   assert.match(result.stderr, /Completed 5 stages/);
 
   const declaration = await declarationOf(root);
-  assert.equal(declaration.contract, 2);
+  assert.equal(declaration.contract, 3);
   assert.equal(declaration.project, 'sample-project');
-  const { problems, scripts } = contractTwoProblems(declaration, root);
+  const { problems, scripts } = declarationProblems(declaration, root);
   assert.deepEqual(problems, []);
-  assert.equal(declaration.game.surface, 'external');
-  assert.ok(declaration.game.executable.includes('build/sample-game'), declaration.game.executable);
+  assert.equal(declaration.game, undefined, 'the singular game key does not exist');
+  assert.equal(declaration.games.length, 1, 'the wizard scaffolds one target; further targets are added by hand');
+  assert.deepEqual([declaration.games[0].id, declaration.games[0].title, declaration.games[0].surface],
+    ['sample-game', 'Sample game', 'external']);
+  assert.ok(declaration.games[0].executable.includes('build/sample-game'), declaration.games[0].executable);
   const check = declaration.dashboard.groups.flatMap(group => group.actions).find(action => action.id === 'editor-check');
   assert.deepEqual([check.kind, check.script, check.args], ['script', 'editor.sh', ['--check']]);
   for (const script of scripts) assert.equal((await stat(script)).isFile(), true, script);
@@ -111,23 +87,26 @@ test('the wizard scaffolds a contract 2 declaration, launcher and test that sati
   assert.match(result.stdout, /editor\.sh --check/);
 });
 
-test('the reference template declaration follows the same contract 2 rules', async () => {
+test('the reference template declaration follows the same contract rules and shows the games array', async () => {
   const templates = path.join(ENGINE, 'orchestrator/templates/project');
   const template = JSON.parse(await readFile(path.join(templates, 'project.json'), 'utf8'));
-  const { problems, scripts } = contractTwoProblems(template, templates);
+  const { problems, scripts } = declarationProblems(template, templates);
   assert.deepEqual(problems, []);
-  assert.equal(template.contract, 2);
+  assert.equal(template.contract, 3);
+  assert.ok(Array.isArray(template.games) && template.games.length > 1, 'the reference shows several targets on one engine');
+  assert.deepEqual([...new Set(template.games.map(game => game.surface))].sort(), ['embedded', 'external']);
+  assert.equal(new Set(template.games.map(game => game.id)).size, template.games.length, 'game ids are unique');
   assert.ok(scripts.some(script => script.endsWith('editor.sh')), scripts);
   for (const file of ['editor.sh', 'project.json', 'test_rengine_project_decl.py', 'README.md'])
     assert.equal((await stat(path.join(templates, file))).isFile(), true, file);
 });
 
-test('the same skeleton at contract 1 without game or dashboard is read by this branch', async () => {
+test('the same skeleton at contract 1 without games or dashboard is read by the shipped reader', async () => {
   const root = await repository();
   await wizard(['--project', root, '--name', 'contract-one', '--contract', '1', '--no-submodule']);
   const declaration = await declarationOf(root);
   assert.equal(declaration.contract, 1);
-  assert.equal(declaration.game, undefined);
+  assert.equal(declaration.games, undefined);
   assert.equal(declaration.dashboard, undefined);
 
   const read = await readDeclaration(root);
@@ -156,7 +135,9 @@ test('the scaffolded launcher bootstraps the pinned tree and never launches unde
 
 test('the copied declaration test passes on the scaffold it was written for', async t => {
   try { await execute('python3', ['--version']); } catch { return t.skip('python3 is unavailable'); }
-  for (const [name, extra] of [['python-contract-two', []], ['python-contract-one', ['--contract', '1']]]) {
+  const cases = [['python-contract-two', []], ['python-contract-one', ['--contract', '1']],
+    ['python-contract-three', ['--game-title', 'Sample game', '--game-exe', 'build/sample-game', '--game-surface', 'embedded']]];
+  for (const [name, extra] of cases) {
     const root = await repository();
     await wizard(['--project', root, '--name', name, '--no-submodule', ...extra]);
     const result = await execute('python3', [path.join(root, 'tests/test_rengine_project_decl.py'), '--root', root, '--rengine', ENGINE],
@@ -218,4 +199,19 @@ test('the wizard refuses unknown options, missing values and a non-repository pr
     error => /git repository/.test(error.stderr));
   await assert.rejects(wizard(['--project', plain, '--name', 'bad surface/', '--no-submodule'], { timeout: 30000 }),
     error => error.code === 2 && /name/.test(error.stderr));
+});
+
+test('the wizard rejects the retired sdl2-interpose surface by naming embedded, and holds the contract-3 rules', async () => {
+  const root = await repository();
+  const game = ['--game-title', 'Sample game', '--game-exe', 'build/sample-game'];
+  await assert.rejects(wizard(['--project', root, '--name', 'retired-surface', '--no-submodule', ...game,
+    '--game-surface', 'sdl2-interpose'], { timeout: 30000 }),
+    error => error.code === 2 && /sdl2-interpose/.test(error.stderr) && /embedded/.test(error.stderr));
+  await assert.rejects(wizard(['--project', root, '--name', 'unknown-surface', '--no-submodule', ...game,
+    '--game-surface', 'window'], { timeout: 30000 }),
+    error => error.code === 2 && /embedded/.test(error.stderr) && /external/.test(error.stderr));
+  await assert.rejects(wizard(['--project', root, '--name', 'wrong-contract', '--no-submodule', ...game,
+    '--contract', '2'], { timeout: 30000 }),
+    error => error.code === 2 && /contract 3/.test(error.stderr));
+  assert.equal(await missing(path.join(root, '.rengine/project.json')), true, 'a rejected run writes nothing');
 });

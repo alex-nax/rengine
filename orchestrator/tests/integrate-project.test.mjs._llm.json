@@ -2,24 +2,25 @@
   "version": 1,
   "entries": [
     {
-      "id": "contract-two-rules-local-to-the-test",
-      "kind": "rationale",
+      "id": "shipped-rules-never-restated",
+      "kind": "constraint",
       "anchor": {
-        "start": 35,
-        "end": 35,
-        "snippet": "function contractTwoProblems(value, root) {"
+        "start": 42,
+        "end": 42,
+        "snippet": "function declarationProblems(value, root) {"
       },
-      "note": "This branch's readDeclaration knows contract 1 only (contract 2 lands on feat/project-dashboard and feat/project-game), so the contract-2 shape is asserted here from specs 075/076 instead. The contract-1 core is still checked through the real reader in the next test, which is what proves the skeleton is not merely self-consistent. When contract 2 merges, replace this function with readDeclaration and keep the same expectations.",
+      "note": "Never restate a contract rule here. An earlier revision re-implemented the contract-2 shape in this file and drifted from the shipped rules in two directions at once: it rejected legal executable candidates and accepted env keys the service refuses. The helper now calls validateSchema over the committed contract plus the shared cross-rule modules, so this test cannot disagree with the service. The one thing it still states is the cross rule the reader owns and neither module checks: a dashboard needs contract 2 and a games array needs contract 3. While the committed schema predates contract 3 the helper validates the core with the games array removed and lists the uncovered tier instead of inventing rules for it; when the game lane lands its schema and game-rules.mjs the other branch is taken automatically and nothing here changes.",
       "refs": [
-        "docs/specs/077-project-integration-recipe.md"
+        "docs/specs/077-project-integration-recipe.md",
+        "contracts/project-v1.schema.json"
       ]
     },
     {
       "id": "file-url-submodule-fallback",
       "kind": "edge-case",
       "anchor": {
-        "start": 187,
-        "end": 187,
+        "start": 168,
+        "end": 168,
         "snippet": "test('the submodule stage pins the requested rEngine commit, or prints exactly that plan', async () => {"
       },
       "note": "git refuses file:// submodules since the 2022 hardening unless protocol.file.allow=always, which the test supplies through GIT_CONFIG_* rather than by changing the wizard or any user configuration. Where a git still refuses, the printed plan asserted just above is the whole assertion; that keeps the suite network-free and portable instead of skipping the stage entirely.",
