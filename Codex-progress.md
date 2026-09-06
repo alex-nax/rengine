@@ -1,6 +1,6 @@
 # Progress Log
 
-## Session 34 (macos) — 2026-09-06 — Merging the devices lane onto the settings popover, the clip fix and the overlay
+## Session 36 (macos) — 2026-09-06 — Merging the devices lane onto the settings popover, the clip fix and the overlay
 
 **Owner scope**: land finished `feat/devices` (`57ab639`) on current main and report green. Worktree
 `.cache/worktrees/merge-verify`, branch `feat/devices` pushed per commit; the `main` ref untouched,
@@ -72,10 +72,14 @@ same spec to its 420 s timeout under load average 20.6.
 overlay fix (`a5e6036`) and then the game-recording lane (`a749d9a` + `5356ece`), which **took F75,
 spec 081 and KI-044** — the three ids this lane had checked as free two commits earlier. Main is
 pushed and this branch is not, so this lane moved, following `cbfa1ef`: **F75 -> F76**,
-`docs/specs/081-project-devices.md` -> `082-project-devices.md`, **KI-044/045/046 -> KI-045/046/047**
-(and one commit later again to **KI-046/047/048**, when main's next commit took 045 for the flakiness
-issue this report had asked for),
-and, because main also took session 32, this lane's sessions became **33** (devices) and **34** (this
+`docs/specs/081-project-devices.md` -> `082-project-devices.md`, and the known issues out of the
+contested range entirely: **KI-044/045/046 -> KI-050/051/052**. The first two attempts packed against
+whatever had just landed (045/046/047, then 046/047/048) and collided again each time, because main
+was taking an id roughly as fast as a gate sweep runs; the block above main's highest (046 at
+`a5b3f2f`) leaves a gap on purpose, and a gap costs nothing. F76 and spec 082 were re-checked against
+`a5b3f2f` and are still free,
+and, because main kept taking session numbers too (two 32s of its own, then 33), this lane's
+sessions take the same deliberate gap as the known issues: **35** (devices) and **36** (this
 merge). Every reference moved with them: the schema description, the sidecar refs, `games.mjs`'s own
 comment, the theme card, both fixtures and the progress log. The renumber is its own commit before
 the merge, so the merge itself is only a union.
@@ -94,20 +98,30 @@ scroll settles — failed once here (`dir3 expanded not reached`) and **2 of 3 i
 unmodified `origin/main` at `5356ece`** (`dir56 expanded not reached`, and `slow producer preview
 loaded`). The sweep that follows is a clean 26/26 on this branch.
 
-**Gates**, re-run in full after the third merge and after a final `git fetch` (`origin/main`
-`5356ece`). `npm test` **71/71**. `npm run test:desktop` **26/26**, sequential — 20 fixtures, this
-lane's `native-devices.spec.mjs` 3/3 including the new busy-pane case and the recording lane's own. Earlier sweeps of the first merge lost
+**A fourth and fifth merge, `9e52352` and `a5b3f2f`.** Main advanced twice more: the in-place
+explorer, then selects that open a list instead of cycling, plus one state directory per scaffolded
+project. Neither collided in `workspace.c` — the dropdown machinery sits with the settings surface,
+the explorer work is in the tree rows, and this lane's switcher entry, tab icon, dispatch and two
+scroll predicates came through both untouched. Both merges were unions in `known-issues.md`,
+`package.json`, the progress log and the sidecars.
+
+**Gates**, re-run after the fifth merge and after a final `git fetch` (`origin/main` `a5b3f2f`),
+proportionately to what it touched — `workspace.c` and the recipe template, so the full desktop
+suite, the unit tests, the design check and a wiped-cache build; the NOLF qualification and the
+consumer declarations were verified at `522ea05` minutes earlier and have no relationship to a
+selects widget. `npm test` **71/71**. `npm run test:desktop` **29/29**, sequential — 20 fixtures,
+this lane's `native-devices.spec.mjs` 3/3 including the busy-pane case, beside four lanes' own. Earlier sweeps of the first merge lost
 one test each to machine load, never the same one twice, and every class was reproduced on main
 before being attributed there: `native-render`'s memory budget (the numbers are above),
 `native-render` cancelled at its 420 s timeout under load average 20.6, and `native-project-windows`,
 which passes 3/3 in isolation here while `origin/main`'s own sweep at `60d0917` came in at 21/22 with
 `native-game`'s fixture aborted on signal 6. None touches a devices path.
-`ctest --test-dir .cache/desktop` **6/6** (1.13 s, the recording test included). Native build from a **wiped** `.cache/desktop`: **0 warnings, 0 errors** — the
+`ctest --test-dir .cache/desktop` **6/6** (0.96 s, the recording test included). Native build from a **wiped** `.cache/desktop`: **0 warnings, 0 errors** — the
 honest check for the `-Werror` implicit-declaration class of defect. `./init.sh` clean (36 features).
 `python3 tools/design.py check` clean. `python3 tools/features.py validate` clean.
 `RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run test:game-nolf` **1/1**. Sidecars with the
 private index `.cache/sidecars-devices-merge.sqlite`: **16 errors, 18 warnings**, identical line for
-line to `origin/main` at `5356ece` — the drift that predates both lanes (KI-048). At `a5e6036` main
+line to `origin/main` at `5356ece` — the drift that predates both lanes (KI-052). At `a5e6036` main
 reported 35 errors because that commit shifted `app.c` and `workspace.c` without re-anchoring their
 sidecars; this branch repaired those 18 with `check --fix-anchors`, and the recording lane repaired
 the rest on its way in. Both live consumer
@@ -116,11 +130,11 @@ groups) and nolf-improved (contract 3, 1 format, 3 games, 3 groups), no errors, 
 both, `projectDevices` reporting each as the implicit local device only, and both files byte-
 unchanged.
 
-**Remaining** is what session 33 left: F76 stays `passes: false` until a consumer declares devices
-and a probe runs against a real Quest or SSH host (KI-046), delivery needs `update_workspace` plus a
-desktop reload, and the dashboard still pays one probe per device per listing (KI-047).
+**Remaining** is what session 35 left: F76 stays `passes: false` until a consumer declares devices
+and a probe runs against a real Quest or SSH host (KI-050), delivery needs `update_workspace` plus a
+desktop reload, and the dashboard still pays one probe per device per listing (KI-051).
 
-## Session 33 (macos) — 2026-09-06 — Devices: where a declared target actually runs (contract 4, F76)
+## Session 35 (macos) — 2026-09-06 — Devices: where a declared target actually runs (contract 4, F76)
 
 **Owner scope**: give a project a way to say WHERE each target runs, probe reachability, and report
 availability in those terms. Worktree `.cache/worktrees/merge-verify`, branch `feat/devices` cut
@@ -199,7 +213,7 @@ npm run test:game-nolf` **1/1** — the real NOLF game still renders and accepts
 fifth toolbar cell in the switcher. `./init.sh` clean (35 features validated).
 `python3 tools/design.py check` clean. Clean native rebuild with **0** diagnostics from
 `orchestrator/native` under the picky flag set. Sidecars clean and stamped for every file this branch touches (pre-existing
-drift elsewhere is KI-048, not this lane's). Both live consumer declarations re-read clean and
+drift elsewhere is KI-052, not this lane's). Both live consumer declarations re-read clean and
 unchanged at contract 3: vtmb-vr (1 format, 2 games, 10 actions) and nolf-improved (1 format,
 3 games, 14 actions).
 
@@ -210,9 +224,9 @@ and `native-game-declaration.spec.mjs`, which pins the exact toolbar cell list t
 control stayed removed, gains `Devices`.
 
 **Remaining.** F76 stays `passes: false`: no consumer declares devices yet and no probe has run
-against a real Quest or SSH host from this branch (KI-046), delivery needs `update_workspace` for
+against a real Quest or SSH host from this branch (KI-050), delivery needs `update_workspace` for
 the worker layer plus a desktop reload for the native section, and the dashboard now pays one probe
-per device per listing (KI-047).
+per device per listing (KI-051).
 ## Session 33 (macos) — 2026-09-06 — Selects open a list, and one workspace per checkout
 
 The owner noticed that the theme and syntax controls stepped to the next value rather than opening
