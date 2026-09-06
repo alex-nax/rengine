@@ -1,6 +1,6 @@
 {
   "default": "design",
-  "note": "Syntax colour schemes (spec 077). The design scheme is the editor card's palette; the others exist because the owner asked for IDE-style choice. Values are CSS colours resolved by tools/design.py, so oklch and var(--token) both work; `presets` overrides a scheme for a named theme preset.",
+  "note": "Syntax colour schemes (spec 079). The design scheme is the editor card's palette; the others exist because the owner asked for IDE-style choice. Values are CSS colours resolved by tools/design.py, so oklch and var(--token) both work; `presets` overrides a scheme for a named theme preset.",
   "schemes": {
     "design": {
       "title": "Claude Design",

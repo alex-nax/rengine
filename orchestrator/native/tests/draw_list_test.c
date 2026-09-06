@@ -39,7 +39,9 @@ int main(void) {
   ReTexture fake = {NULL, 4, 4};
   assert(re_draw_list_texture(&list, &fake, re_rect(7, 7, 4, 4), RE_DRAW_FLIP_Y));
   assert(re_draw_list_texture(&list, NULL, re_rect(0, 0, 1, 1), 0) && list.count == 9);
-  assert(re_draw_list_clip(&list, NULL) && list.count == 10);
+  assert(re_draw_list_gradient(&list, re_rect(0, 0, 20, 8), re_color(10, 20, 30, 255), re_color(210, 220, 230, 128),
+                               4.0f, RE_CORNERS_ALL, RE_GRADIENT_VERTICAL) && list.count == 10);
+  assert(re_draw_list_clip(&list, NULL) && list.count == 11);
 
   const ReCommand *c = list.commands;
   assert(c[0].type == RE_CMD_CLIP && c[0].rect.w == 30 && !(c[0].flags & RE_CLIP_RESET));
@@ -52,13 +54,24 @@ int main(void) {
   assert(c[6].type == RE_CMD_RING && c[6].width == 2);
   assert(c[7].type == RE_CMD_ICON && c[7].icon == RE_ICON_CLOSE && c[7].size == 16);
   assert(c[8].type == RE_CMD_TEXTURE && c[8].texture == &fake && (c[8].flags & RE_DRAW_FLIP_Y));
-  assert(c[9].type == RE_CMD_CLIP && (c[9].flags & RE_CLIP_RESET));
+  assert(c[9].type == RE_CMD_GRADIENT && c[9].color.r == 10 && c[9].secondary.a == 128);
+  assert(c[9].radius == 4.0f && c[9].corners == RE_CORNERS_ALL && c[9].flags == RE_GRADIENT_VERTICAL);
+  assert(c[10].type == RE_CMD_CLIP && (c[10].flags & RE_CLIP_RESET));
+
+  /* Every adapter steps a ramp through this sampler, so the stops are part of the contract. */
+  ReColor from = re_color(0, 0, 0, 255), to = re_color(100, 200, 40, 55);
+  assert(re_gradient_sample(from, to, 0, 8).r == 0 && re_gradient_sample(from, to, 7, 8).r == 100);
+  assert(re_gradient_sample(from, to, 7, 8).a == 55 && re_gradient_sample(from, to, 0, 8).a == 255);
+  assert(re_gradient_sample(from, to, -3, 8).g == 0 && re_gradient_sample(from, to, 99, 8).g == 200);
+  assert(re_gradient_sample(from, to, 0, 1).b == 0 && re_gradient_sample(from, to, 0, 0).b == 0);
+  ReColor middle = re_gradient_sample(from, to, 4, 9);
+  assert(middle.r == 50 && middle.g == 100 && middle.b == 20);
   assert(strcmp(re_draw_list_string(&list, &c[1]), "") == 0);
 
   Recorder recorder; memset(&recorder, 0, sizeof(recorder)); recorder.base.ops = &recorder_ops;
   assert(recorder.base.ops->begin(&recorder.base, &list));
   recorder.base.ops->execute(&recorder.base, &list);
-  assert(recorder.executed == 10 && recorder.counts[RE_CMD_CLIP] == 2 && recorder.counts[RE_CMD_TEXT] == 1 && recorder.counts[RE_CMD_TEXTURE] == 1);
+  assert(recorder.executed == 11 && recorder.counts[RE_CMD_GRADIENT] == 1 && recorder.counts[RE_CMD_CLIP] == 2 && recorder.counts[RE_CMD_TEXT] == 1 && recorder.counts[RE_CMD_TEXTURE] == 1);
   assert(recorder.base.ops->density(&recorder.base, 100) == 2.0f);
 
   size_t capacity = list.capacity;

@@ -140,6 +140,9 @@ void re_draw_rrect(ReDraw *d, mu_Rect r, mu_Color c, float radius, uint8_t corne
 void re_draw_frame(ReDraw *d, mu_Rect r, mu_Color border, mu_Color highlight, float radius) { re_draw_list_frame(&d->list, rect_of(r), color_of(border), color_of(highlight), radius); }
 void re_draw_shadow(ReDraw *d, mu_Rect r, mu_Color c, float radius, int width) { re_draw_list_shadow(&d->list, rect_of(r), color_of(c), radius, width); }
 void re_draw_ring(ReDraw *d, mu_Rect r, mu_Color c, float radius, int width) { re_draw_list_ring(&d->list, rect_of(r), color_of(c), radius, width); }
+void re_draw_gradient(ReDraw *d, mu_Rect r, mu_Color from, mu_Color to, float radius, uint8_t corners, uint8_t axis) {
+  re_draw_list_gradient(&d->list, rect_of(r), color_of(from), color_of(to), radius, corners, axis);
+}
 void re_draw_icon(ReDraw *d, uint8_t icon, mu_Rect r, mu_Color c) { re_draw_list_icon(&d->list, icon, RE_THEME_FONT_SIZE, rect_of(r), color_of(c)); }
 
 ReTexture *re_draw_texture_create(ReDraw *d, int width, int height) { return d->backend->ops->texture_create(d->backend, width, height); }

@@ -82,3 +82,53 @@ process.stdin.on('data', data => console.log('INPUT_' + data.toString('hex')));`
     assert.equal(server.sessions.snapshot(session.id).pid, session.pid);
   } finally { await gui?.close(); await server?.close(); await rm(directory, { recursive: true, force: true }); }
 });
+
+// A scrolled view used to paint over the surfaces above it: the explorer's rows and its path bar
+// reached the tab strip and the toolbar, because owned controls draw straight into the list and
+// never saw microui's clip. The control layer now takes the container's clip (spec 080).
+test('a scrolled view stays inside its pane', { timeout: 60000 }, async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-view-clip-'));
+  let server, gui;
+  try {
+    for (let i = 0; i < 120; i++) await writeFile(path.join(directory, `entry-${String(i).padStart(3, '0')}.txt`), 'x\n');
+    server = await startServer({ stateDir: path.join(directory, 'state') });
+    const root = await server.store.addRoot(directory);
+    gui = await nativeClient(server, { root: root.id });
+    const reference = JSON.parse(await readFile('design/cards.json', 'utf8')).presets.default;
+    const state = await gui.until(s => s.connected && s.tabs.some(t => t?.type === 1 && t.tree?.entries?.length > 100), 'a long explorer');
+    const tree = state.tabs.find(t => t?.type === 1);
+    const { execFile } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const run = promisify(execFile);
+    const python = process.platform === 'win32' ? 'python' : 'python3';
+
+    // Every row of the toolbar and the tab strip, across the explorer's width.
+    const points = {};
+    for (let x = 4; x < 280; x += 8) {
+      for (let y = 1; y < reference.toolbar.height + reference.tabs.height - 1; y += 3) points[`p_${x}_${y}`] = [x, y];
+    }
+    const band = async label => {
+      const file = path.join(directory, `${label}.bmp`);
+      assert.equal(await gui.command({ op: 'snapshot', path: file }), true);
+      const { stdout } = await run(python, ['tools/bmp_probe.py', file, '--logical-width', '1280',
+        ...Object.entries(points).map(([name, [x, y]]) => `${name}=${x},${y}`)]);
+      return JSON.parse(stdout);
+    };
+    const before = await band('before');
+
+    // Scrolling the explorer must not change one pixel above it.
+    await gui.command({ op: 'motion', x: tree.header[0] + 40, y: 300 });
+    for (let i = 0; i < 12; i++) await gui.command({ op: 'wheel', x: 0, y: -3 });
+    await delay(250);
+    const scrolled = await gui.command({ op: 'state' });
+    assert.ok(scrolled.controls.some(c => c.role === 'tree-entry'), 'the explorer still lists entries');
+    const after = await band('after');
+
+    const moved = Object.keys(before).filter(name => before[name] !== after[name]);
+    assert.deepEqual(moved, [], `scrolling the explorer repainted the surfaces above it at ${JSON.stringify(moved.slice(0, 8))}`);
+  } finally {
+    if (gui) await gui.close();
+    if (server) await server.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});

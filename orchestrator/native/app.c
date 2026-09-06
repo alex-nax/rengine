@@ -1,4 +1,5 @@
 #include "app.h"
+#include "editor.h"
 
 enum { OP_STATE = 1, OP_LOAD, OP_SAVE, OP_DRAFT, OP_DISCARD, OP_CREATE, OP_ROOT, OP_GENERIC, OP_LAYOUT, OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_BYTES, OP_PREVIEW, OP_ENTRY };
 static int request_within(ReApp *a, int operation, int tab, const char *route, const cJSON *body, long timeout) {
@@ -242,6 +243,17 @@ static void state_loaded(ReApp *a, const cJSON *j) {
   a->initialized = true;
   const cJSON *preferences = cJSON_GetObjectItemCaseSensitive(j, "preferences");
   a->vim = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(preferences, "vim")); re_copy(a->agent, sizeof(a->agent), re_string(preferences, "agent"));
+  /* Settings follow the workspace, so a second window and a restart agree (spec 080 decision 6). */
+  a->explorer_nested = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(preferences, "explorer"))
+    || !strcmp(re_string(preferences, "explorer"), "nested");
+  if (*re_string(preferences, "syntax")) { re_copy(a->scheme, sizeof(a->scheme), re_string(preferences, "syntax")); re_editor_scheme(a->scheme); }
+  if (*re_string(preferences, "theme")) { int index = re_draw_theme(re_draw_active(), re_string(preferences, "theme")); if (index >= 0) a->preset = index; }
+  /* The hue rides on top of the preset, so it is applied after the preset has been selected. */
+  const cJSON *hue = cJSON_GetObjectItemCaseSensitive(preferences, "accentHue");
+  a->accent_hue = cJSON_IsNumber(hue) ? (float)hue->valuedouble : re_theme_accent_hues[a->preset];
+  re_theme_hue_set(a->accent_hue);
+  if (!*a->root) re_copy(a->root, sizeof(a->root), re_string(cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(j, "roots"), 0), "id"));
+  re_app_project_theme(a);
   if (!*a->root) re_copy(a->root, sizeof(a->root), re_string(cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(j, "roots"), 0), "id"));
   const cJSON *old = cJSON_GetObjectItemCaseSensitive(j, "layout");
   bool restored = restore(a, old);
@@ -459,6 +471,10 @@ cJSON *re_app_inspect(ReApp *a) {
   if (a->controls) cJSON_AddItemToObject(j, "controls", cJSON_Duplicate(a->controls, 1));
   cJSON_AddItemToObject(j, "state", cJSON_Duplicate(a->state, 1)); cJSON_AddNumberToObject(j, "focus", a->focus);
   cJSON_AddNumberToObject(j, "width", a->width); cJSON_AddNumberToObject(j, "height", a->height);
+  /* The settings a person can change, so a test and a second window can read what this one holds. */
+  cJSON_AddBoolToObject(j, "vim", a->vim); cJSON_AddBoolToObject(j, "explorerNested", a->explorer_nested);
+  cJSON_AddStringToObject(j, "scheme", a->scheme); cJSON_AddNumberToObject(j, "accentHue", a->accent_hue);
+  cJSON_AddNumberToObject(j, "overlay", a->overlay);
   cJSON *tabs = cJSON_GetObjectItemCaseSensitive(j, "tabs");
   for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].used) {
     cJSON *tab = cJSON_GetArrayItem(tabs, i); ReTab *t = &a->tabs[i];

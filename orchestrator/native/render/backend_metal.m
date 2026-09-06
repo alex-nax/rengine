@@ -99,6 +99,28 @@ static void shape(MetalBackend *b, ReRect r, ReColor c, float radius, uint8_t co
   emit(b, x0, y0, x1, y1, 0, 0, 0, 0, c, cx, cy, hw, hh, radii, w * d, mode);
 }
 
+/* A ramp is one quad per logical pixel carrying the whole rect's shape, so the SDF still rounds the
+ * ends while each strip takes its own stop from the shared sampler — see sidecar: gradient-strips */
+static void gradient(MetalBackend *b, const ReCommand *c) {
+  ReRect r = c->rect;
+  if (r.w <= 0 || r.h <= 0) return;
+  float d = b->density;
+  uint8_t corners = c->corners;
+  float radii[4] = {corners & RE_CORNER_TOP_LEFT ? c->radius * d : 0, corners & RE_CORNER_TOP_RIGHT ? c->radius * d : 0,
+                    corners & RE_CORNER_BOTTOM_RIGHT ? c->radius * d : 0, corners & RE_CORNER_BOTTOM_LEFT ? c->radius * d : 0};
+  float cx = (float)r.x * d + (float)r.w * d / 2, cy = (float)r.y * d + (float)r.h * d / 2;
+  float hw = (float)r.w * d / 2, hh = (float)r.h * d / 2;
+  int mode = c->radius > 0 && corners ? MODE_FILL : MODE_SOLID;
+  bool vertical = (c->flags & RE_GRADIENT_VERTICAL) != 0;
+  int steps = vertical ? r.h : r.w;
+  for (int i = 0; i < steps; i++) {
+    ReColor stop = re_gradient_sample(c->color, c->secondary, i, steps);
+    float x0 = (float)(vertical ? r.x : r.x + i) * d, x1 = (float)(vertical ? r.x + r.w : r.x + i + 1) * d;
+    float y0 = (float)(vertical ? r.y + i : r.y) * d, y1 = (float)(vertical ? r.y + i + 1 : r.y + r.h) * d;
+    emit(b, x0, y0, x1, y1, 0, 0, 0, 0, stop, cx, cy, hw, hh, radii, 0, mode);
+  }
+}
+
 static void atlas_reset(MetalBackend *b) { memset(b->glyphs, 0, sizeof(b->glyphs)); b->shelf_x = b->shelf_y = b->shelf_h = 0; }
 static bool atlas_place(MetalBackend *b, int w, int h, int *x, int *y) {
   if (b->shelf_x + w + 1 > ATLAS_SIZE) { b->shelf_y += b->shelf_h + 1; b->shelf_x = 0; b->shelf_h = 0; }
@@ -193,6 +215,7 @@ static void execute(ReBackend *backend, const ReDrawList *list) {
       case RE_CMD_CLIP: set_clip(b, c); break;
       case RE_CMD_RECT: bind(b, NULL); shape(b, c->rect, c->color, 0, 0, 0, MODE_SOLID, 0); break;
       case RE_CMD_RRECT: bind(b, NULL); shape(b, c->rect, c->color, c->radius, c->corners, 0, c->radius > 0 && c->corners ? MODE_FILL : MODE_SOLID, 0); break;
+      case RE_CMD_GRADIENT: bind(b, NULL); gradient(b, c); break;
       case RE_CMD_FRAME:
         bind(b, NULL); shape(b, c->rect, c->color, c->radius, c->corners, 1, MODE_RING, 0);
         if (c->secondary.a) {

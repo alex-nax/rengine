@@ -55,7 +55,7 @@ target_include_directories(rengine_vterm SYSTEM PUBLIC "${RENGINE_VENDOR}/libvte
 [target.rengine_render]
 type = "static"
 sources = [
-  "orchestrator/native/theme.c", "orchestrator/native/draw.c",
+  "orchestrator/native/theme.c", "orchestrator/native/theme_file.c", "orchestrator/native/draw.c",
   "orchestrator/native/render/utf8.c", "orchestrator/native/render/draw_list.c",
   "orchestrator/native/render/font.c", "orchestrator/native/render/backend_sdl.c",
   "orchestrator/native/render/backend_gl.c", "orchestrator/native/render/backend_vk.c",

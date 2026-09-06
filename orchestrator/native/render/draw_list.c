@@ -43,6 +43,11 @@ bool re_draw_list_rrect(ReDrawList *l, ReRect rect, ReColor color, float radius,
   ReCommand *c = push(l, RE_CMD_RRECT); if (!c) return false;
   c->rect = rect; c->color = color; c->radius = radius; c->corners = corners; return true;
 }
+bool re_draw_list_gradient(ReDrawList *l, ReRect rect, ReColor from, ReColor to, float radius, uint8_t corners, uint8_t axis) {
+  ReCommand *c = push(l, RE_CMD_GRADIENT); if (!c) return false;
+  c->rect = rect; c->color = from; c->secondary = to; c->radius = radius; c->corners = corners;
+  c->flags = axis == RE_GRADIENT_VERTICAL ? RE_GRADIENT_VERTICAL : RE_GRADIENT_HORIZONTAL; return true;
+}
 bool re_draw_list_frame(ReDrawList *l, ReRect rect, ReColor border, ReColor highlight, float radius) {
   ReCommand *c = push(l, RE_CMD_FRAME); if (!c) return false;
   c->rect = rect; c->color = border; c->secondary = highlight; c->radius = radius; c->corners = RE_CORNERS_ALL; return true;

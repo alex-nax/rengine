@@ -5,8 +5,8 @@
       "id": "transition-clock",
       "kind": "rationale",
       "anchor": {
-        "start": 16,
-        "end": 16,
+        "start": 152,
+        "end": 152,
         "snippet": "static float progress(mu_Id id, bool target) {",
         "symbol": "progress"
       },
@@ -16,11 +16,25 @@
       ]
     },
     {
+      "id": "overlay-layer",
+      "kind": "rationale",
+      "anchor": {
+        "start": 42,
+        "end": 60,
+        "symbol": "re_ui_overlay_flush",
+        "snippet": "void re_ui_overlay_flush(ReDraw *draw) {"
+      },
+      "note": "Owned controls draw into the list while the user interface is built, which is right for a workspace that microui then replays over, and wrong for a surface that must sit above every pane. Rather than give the popover a second drawing path, the same primitives record into a fixed buffer between re_ui_overlay_begin and re_ui_overlay_end, and the frame replays them after the panes and the status bar. One buffer, not a stack: spec 080 decision 5 allows one overlay at a time, and the workspace holds a single overlay kind rather than a flag per surface, so \"opening one closes the other\" is structural instead of a rule to remember. The flush clears the clip when it replayed anything, because a recorded clip would otherwise outlive the frame.",
+      "refs": [
+        "docs/specs/080-settings-popover.md"
+      ]
+    },
+    {
       "id": "draw-order",
       "kind": "constraint",
       "anchor": {
-        "start": 65,
-        "end": 65,
+        "start": 236,
+        "end": 236,
         "snippet": "static void chrome(mu_Rect rect, int opt, float hover, bool focused, bool field) {",
         "symbol": "chrome"
       },
@@ -31,11 +45,26 @@
       ]
     },
     {
+      "id": "control-scissor",
+      "kind": "history",
+      "anchor": {
+        "start": 75,
+        "end": 80,
+        "symbol": "apply_scissor",
+        "snippet": "static void apply_scissor(void) {"
+      },
+      "note": "Owned controls draw straight into the draw list at build time and so never saw microui's clip. Nothing bounded them, and once the explorer and the dashboard could scroll, their rows and path bars painted over the tab strip and the toolbar; the owner reported it as content drawn above its pane. Every control now takes its container's clip before drawing, the primitives emit it lazily so an unchanged clip costs nothing, and a control that narrows its own clip intersects with the container's rather than replacing it. A panel or a popover clears the scissor instead, because both are drawn outside any container and the popover's shadow deliberately reaches past its window. The regression test is in orchestrator/tests/native-scrollbars.spec.mjs: it samples every row of the toolbar and the tab strip, scrolls the explorer and requires that no pixel above the pane changed.",
+      "refs": [
+        "orchestrator/tests/native-scrollbars.spec.mjs",
+        "docs/specs/080-settings-popover.md"
+      ]
+    },
+    {
       "id": "microui-conventions",
       "kind": "rationale",
       "anchor": {
-        "start": 106,
-        "end": 106,
+        "start": 286,
+        "end": 286,
         "snippet": "static int control(mu_Context *ctx, const char *label, int icon, int opt, bool field) {",
         "symbol": "control"
       },
@@ -43,6 +72,50 @@
       "refs": [
         "docs/specs/076-design-foundations.md",
         "docs/specs/000-charter.md"
+      ]
+    },
+    {
+      "id": "clip-cost",
+      "kind": "perf",
+      "anchor": {
+        "start": 175,
+        "end": 181,
+        "symbol": "text_clipped",
+        "snippet": "static void text_clipped(uint8_t face, int size, const char *text, int x, int y, mu_Color color, mu_Rect box) {"
+      },
+      "note": "A clip command breaks an adapter's batch and sets a scissor, so text that already fits its box is drawn without one. The check costs a width measurement, which the control has usually taken anyway, and it keeps ordinary rows of a long list to a single batch.",
+      "refs": [
+        "docs/specs/067-draw-list-contract.md"
+      ]
+    },
+    {
+      "id": "menu-item",
+      "kind": "rationale",
+      "anchor": {
+        "start": 399,
+        "end": 424,
+        "symbol": "re_ui_menu_item",
+        "snippet": "int re_ui_menu_item(mu_Context *ctx, const char *label, int icon, const char *hint, bool marked) {"
+      },
+      "note": "The menus card fills a hovered row with the accent and flips its text to the on-accent ink, rather than tinting a selection colour. The icon, the check mark and the keyboard hint follow the same ink past the halfway point of the transition, so a row never shows accent-coloured glyphs on an accent ground. The hint is drawn in the mono face at the small size, as the card does, and is right-aligned by measurement rather than by a reserved column, so a row without a hint has no gap.",
+      "refs": [
+        "design/previews/controls/menus.html",
+        "docs/specs/080-settings-popover.md"
+      ]
+    },
+    {
+      "id": "hue-track",
+      "kind": "rationale",
+      "anchor": {
+        "start": 432,
+        "end": 462,
+        "symbol": "re_ui_hue_slider",
+        "snippet": "int re_ui_hue_slider(mu_Context *ctx, float *hue) {"
+      },
+      "note": "The accent hue is the one token a person moves at runtime, and this is the only place a gradient appears (spec 076 decision 7, spec 080). The track is twelve ramps between neighbouring hues rather than one two-stop gradient, because a hue wheel is not a straight line in any colour space; twelve segments keep the error under a shade while staying twelve commands. Each stop comes from re_theme_swatch, which is the preset's own accent lightness and chroma at that hue, so the colour under the thumb is literally the accent the workspace will take. Only the first and last segments round their outer corners, which is what makes the strip read as one pill.",
+      "refs": [
+        "docs/specs/076-design-foundations.md",
+        "docs/specs/080-settings-popover.md"
       ]
     }
   ]

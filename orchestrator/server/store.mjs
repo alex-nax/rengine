@@ -167,10 +167,30 @@ export class WorkspaceStore {
 
   async preferences(values) {
     if (!values || typeof values !== 'object') fail('Invalid preferences.');
-    const { agent, vim } = values;
+    // The desktop's settings live here so a second window and a restarted desktop agree (spec 080).
+    const { agent, vim, theme, syntax, explorer, accentHue, themes } = values;
     if (agent !== undefined && (typeof agent !== 'string' || agent.length > 256)) fail('Invalid agent preference.');
     if (vim !== undefined && typeof vim !== 'boolean') fail('Invalid Vim preference.');
-    this.state.preferences = { ...this.state.preferences, ...(agent !== undefined ? { agent } : {}), ...(vim !== undefined ? { vim } : {}) };
+    for (const [key, value] of [['theme', theme], ['syntax', syntax], ['explorer', explorer]]) {
+      if (value !== undefined && (typeof value !== 'string' || !/^[a-z][a-z0-9-]{0,63}$/.test(value))) fail(`Invalid ${key} preference.`);
+    }
+    if (accentHue !== undefined && (typeof accentHue !== 'number' || !Number.isFinite(accentHue) || accentHue < 0 || accentHue >= 360)) {
+      fail('Invalid accent hue preference.');
+    }
+    // A project theme is remembered per root, so the entry survives reopening that project (spec 080).
+    if (themes !== undefined) {
+      if (typeof themes !== 'object' || !themes || Array.isArray(themes)) fail('Invalid project theme preference.');
+      const entries = Object.entries(themes);
+      if (entries.length > 64) fail('Too many project themes.');
+      for (const [root, name] of entries) {
+        if (typeof root !== 'string' || root.length > 64 || typeof name !== 'string' || name.length > 64) fail('Invalid project theme preference.');
+      }
+    }
+    this.state.preferences = { ...this.state.preferences,
+      ...(agent !== undefined ? { agent } : {}), ...(vim !== undefined ? { vim } : {}),
+      ...(theme !== undefined ? { theme } : {}), ...(syntax !== undefined ? { syntax } : {}),
+      ...(explorer !== undefined ? { explorer } : {}), ...(accentHue !== undefined ? { accentHue } : {}),
+      ...(themes !== undefined ? { themes: { ...this.state.preferences.themes, ...themes } } : {}) };
     await this.persist();
     return this.state.preferences;
   }

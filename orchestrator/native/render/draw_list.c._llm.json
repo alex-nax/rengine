@@ -14,6 +14,21 @@
       "refs": [
         "docs/specs/067-draw-list-contract.md"
       ]
+    },
+    {
+      "id": "gradient-in-the-contract",
+      "kind": "rationale",
+      "anchor": {
+        "start": 46,
+        "end": 50,
+        "symbol": "re_draw_list_gradient",
+        "snippet": "bool re_draw_list_gradient(ReDrawList *l, ReRect rect, ReColor from, ReColor to, float radius, uint8_t corners, uint8_t axis) {"
+      },
+      "note": "The owner chose a gradient primitive over a texture during the F60 interview (spec 076 decision 7), which took the draw-list contract to version 2. The command carries two stops, the axis in flags, and the same radius and corner mask an rrect takes, so a rounded track needs no separate shape. The ramp itself is not left to each adapter: re_gradient_sample in the header is the definition, and every adapter steps through it, which is what lets the cross-backend comparison treat a gradient like any other primitive.",
+      "refs": [
+        "docs/specs/067-draw-list-contract.md",
+        "docs/specs/076-design-foundations.md"
+      ]
     }
   ]
 }

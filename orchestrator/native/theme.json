@@ -493,6 +493,10 @@
       "group-marker": 2,
       "placeholder-alpha": 60,
       "editor-gutter": 44
+    },
+    "settings": {
+      "width": 280,
+      "label-width": 84
     }
   },
   "metric-notes": {

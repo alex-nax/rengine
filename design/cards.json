@@ -39,6 +39,14 @@
         "gutter": "#6a6a6a",
         "caret": "#f97c3d"
       },
+      "popover": {
+        "height": 22,
+        "background": "#2d2d2d",
+        "hover": "#f97c3d",
+        "hoverInk": "#21110a",
+        "separator": "#383838",
+        "hint": "#6a6a6a"
+      },
       "syntax": {
         "keyword": "#c1a9ee",
         "string": "#91c985",
@@ -84,6 +92,14 @@
         "gutter": "#546874",
         "caret": "#7cd2ae"
       },
+      "popover": {
+        "height": 22,
+        "background": "#1c222a",
+        "hover": "#7cd2ae",
+        "hoverInk": "#071a13",
+        "separator": "#36434c",
+        "hint": "#546874"
+      },
       "syntax": {
         "keyword": "#c1a9ee",
         "string": "#91c985",
@@ -128,6 +144,14 @@
         "background": "#fbfaf7",
         "gutter": "#9a958c",
         "caret": "#cf5604"
+      },
+      "popover": {
+        "height": 22,
+        "background": "#e6e3dd",
+        "hover": "#cf5604",
+        "hoverInk": "#ffffff",
+        "separator": "#f4f2ee",
+        "hint": "#9a958c"
       },
       "syntax": {
         "keyword": "#643b9a",

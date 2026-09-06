@@ -4,7 +4,7 @@ Date: 2026-09-06. Status: started on owner direction (“start on the renderer c
 while the inventory still lists F56 as blocked behind F34 and F42; it cannot pass until those do.
 Parent: [GPU rendering](066-gpu-rendering.md), charter D29–D30, architecture constraint 15.
 
-## Contract (version 1)
+## Contract (version 2)
 
 `orchestrator/native/render/draw_list.h` is the boundary. It includes only C standard headers.
 
@@ -19,6 +19,14 @@ Parent: [GPU rendering](066-gpu-rendering.md), charter D29–D30, architecture c
   `RE_FACE_MONO` or `RE_FACE_UI` at a pixel `size`, positioned by the top-left of its line box),
   `ICON` (a glyph from the bundled icon set centred in a rect, tinted), and `TEXTURE` (a
   backend-owned RGBA8 image drawn into a rect, optionally flipped vertically).
+- Version 2 adds `GRADIENT`: a two-stop ramp across a rect along one axis, with the same radius and
+  corner mask an `RRECT` takes, so a rounded track needs no separate shape. The ramp is not left to
+  the adapter. `re_gradient_sample` in the header is its definition, one stop per logical pixel
+  along the axis, and every adapter steps through it, which keeps a gradient comparable across
+  backends like any other primitive. The owner chose a primitive over a texture during the F60
+  interview (spec 076 decision 7); it exists for the accent hue slider of spec 080.
+- A version 1 adapter meets version 2 by handling one added command. Producers that never emit a
+  gradient are unaffected, and the command numbers of version 1 are unchanged.
 - Text bytes are copied into the list's own arena, so callers may pass stack buffers. Every run
   is NUL-terminated in the arena; `re_draw_list_string` returns it.
 - Limits default to 1,048,576 commands and 16 MiB of text per frame. Exceeding a limit or failing

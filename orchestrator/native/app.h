@@ -23,11 +23,24 @@ typedef struct ReApp {
   char project_input[1024], agent[256], status[512];
   bool initialized, connected, vim, layout_dirty, quitting;
   int width, height, preset;                 /* last laid-out size and the active theme preset */
+  bool explorer_nested;                      /* the explorer's mode (spec 080) */
+  int overlay;                               /* RE_OVERLAY_*: one overlay at a time (spec 080 decision 5) */
+  char scheme[32];                           /* syntax colour scheme */
+  float accent_hue;                          /* live accent hue in degrees; 0 means the preset's own */
+  char theme_path[1024];                     /* the popover's theme-file path field (spec 080) */
+  char project_theme[64], project_theme_path[1200];  /* the theme this root offers, if it carries one */
+  char project_theme_root[65];               /* the root that offer was probed for */
+  mu_Rect overlay_anchor, overlay_rect;      /* the control the surface hangs from, and where it landed */
+  mu_Id overlay_opener;                      /* focus returns here when the surface closes */
+  bool overlay_restore;
   bool desktop_registered, reload_requested; char desktop_id[65];
   int focus, drag_tab, resize_pane, drag_x, drag_y, mouse_x, mouse_y;
   Uint64 layout_changed, quit_started;
   int scene;
 } ReApp;
+/* The overlay layer. Opening one closes the other, so the kind is a single value (spec 080). */
+enum { RE_OVERLAY_NONE = 0, RE_OVERLAY_SETTINGS, RE_OVERLAY_ROOTS, RE_OVERLAY_PANE };
+
 ReApp *re_app_open(const char *url, const char *token);
 void re_app_close(ReApp *app);
 void re_app_tick(ReApp *app);
@@ -35,6 +48,8 @@ void re_app_ui(ReApp *app, mu_Context *ui, int width, int height);
 void re_app_draw(ReApp *app, ReDraw *draw);
 void re_app_status(ReApp *app, ReDraw *draw);   /* the segmented status bar, drawn above every pane */
 bool re_app_event(ReApp *app, const SDL_Event *event, ReDraw *draw);
+/* Applies this root's theme file when a person has already activated it for that root (D34). */
+void re_app_project_theme(ReApp *app);
 bool re_app_quit(ReApp *app);
 cJSON *re_app_inspect(ReApp *app);
 int re_app_tab(ReApp *app, int type, const char *root, const char *path, const char *session, const char *title);
