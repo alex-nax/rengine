@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, mkdir, writeFile, copyFile } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir, writeFile, copyFile, readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFile } from 'node:child_process';
@@ -11,15 +12,44 @@ import { nativeClient } from './native-client.mjs';
 
 const run = promisify(execFile);
 // Tolerances and budgets recorded before the run in docs/specs/068-opengl-adapter.md (decisions 5 and 6);
-// spec 072 gates Metal against the same SDL reference and records Metal-versus-OpenGL as information.
+// specs 072 and 073 gate Metal and Vulkan against the same SDL reference and record GPU-versus-GPU as information.
 const TOLERANCE = {
   workspace: ['--max-fraction', '0.001', '--max-delta', '2'],
   terminal: ['--max-fraction', '0.001', '--max-delta', '2'],
   primitives: ['--max-fraction', '0.02', '--edge-band', '2'],
 };
 const TERMINAL_CEILING_MS = 8, MEMORY_LIMIT_KB = 32 * 1024;
-const GPU_BACKENDS = process.platform === 'darwin' ? ['opengl', 'metal'] : ['opengl'];
-const TERMINAL_SCRIPT = "for i in $(seq 1 40); do printf '\\033[3%dm%03d\\033[0m row of the render scene with colour and text\\n' $((i % 7 + 1)) $i; done; printf 'RENDER_DONE\\n'\n";
+const WIN = process.platform === 'win32';
+const BINARY = process.env.RENGINE_NATIVE_BINARY ?? path.resolve('.cache/desktop/bin', WIN ? 'Release/rengine.exe' : 'rengine');
+const GPU_BACKENDS = process.platform === 'darwin' ? ['opengl', 'metal', 'vulkan'] : ['opengl', 'vulkan'];
+const TERMINAL_SCRIPT = WIN
+  ? "1..40 | % { ('{0}[3{1}m{2:D3}{0}[0m row of the render scene with colour and text' -f [char]27, ($_ % 7 + 1), $_) }; 'RENDER_DONE'\r\n"
+  : "for i in $(seq 1 40); do printf '\\033[3%dm%03d\\033[0m row of the render scene with colour and text\\n' $((i % 7 + 1)) $i; done; printf 'RENDER_DONE\\n'\n";
+// A plain shell with a fixed prompt: the login shell's asynchronous prompt segments redraw after the
+// stable-text wait and made the SDL capture disagree with the GPU captures on prompt and scrollbar pixels.
+const SHELL = WIN ? { command: 'powershell.exe', args: ['-NoLogo', '-NoProfile'] } : { command: '/bin/bash', args: ['--noprofile', '--norc'], env: { PS1: 'render$ ' } };
+
+// SDL honours SDL_VULKAN_LIBRARY; on macOS the Homebrew loader (with MoltenVK) lives outside the default search path.
+function vulkanEnv() {
+  if (process.platform !== 'darwin') return {};
+  const env = {};
+  const loader = ['/opt/homebrew/lib/libvulkan.1.dylib', '/usr/local/lib/libvulkan.1.dylib'].find(p => existsSync(p));
+  if (loader && !process.env.SDL_VULKAN_LIBRARY) env.SDL_VULKAN_LIBRARY = loader;
+  const layers = ['/opt/homebrew/share/vulkan/explicit_layer.d', '/usr/local/share/vulkan/explicit_layer.d'].find(p => existsSync(p));
+  if (layers && !process.env.VK_LAYER_PATH) env.VK_LAYER_PATH = layers;
+  // Homebrew's layer manifest names its library by bare filename, which dyld only finds with a library path.
+  const layerLib = ['/opt/homebrew/lib', '/usr/local/lib'].find(p => existsSync(path.join(p, 'libVkLayer_khronos_validation.dylib')));
+  if (layerLib && !process.env.DYLD_LIBRARY_PATH) env.DYLD_LIBRARY_PATH = layerLib;
+  return env;
+}
+// Spec 073 decision 11: probe once, record 'unavailable' with the reason instead of failing on machines without a loader or layer.
+async function probe(backend, extraEnv, dir) {
+  const file = path.join(dir, `probe-${backend}.bmp`);
+  try {
+    await run(BINARY, ['--renderer', backend, '--smoke-test', '--snapshot', file], { env: { ...process.env, ...extraEnv, RENGINE_RENDERER: '' } });
+    return null;
+  } catch (error) { return (error.stderr || error.message || 'failed').toString().trim().split('\n').pop(); }
+}
 
 async function compare(reference, candidate, name) {
   let output;
@@ -29,17 +59,14 @@ async function compare(reference, candidate, name) {
 }
 
 // Each backend gets its own server state so a later run cannot restore an earlier run's retained views.
-async function capture(project, backend, dir) {
-  const server = await startServer({ stateDir: path.join(dir, `state-${backend}`) });
+async function capture(project, backend, dir, extraEnv = {}, tag = backend) {
+  const server = await startServer({ stateDir: path.join(dir, `state-${tag}`) });
   const root = await server.store.addRoot(project);
-  // A plain shell with a fixed prompt: the login shell's asynchronous prompt segments redraw after the
-  // stable-text wait and made the SDL capture disagree with the GPU captures on prompt and scrollbar pixels.
-  const shell = await server.sessions.terminal({ rootId: root.id, ...(process.platform === 'win32'
-    ? { command: 'cmd.exe', args: [] } : { command: '/bin/bash', args: ['--noprofile', '--norc'], env: { PS1: 'render$ ' } }) });
-  const gui = await nativeClient(server, { root: root.id, terminal: shell.id, env: { RENGINE_RENDERER: backend } });
+  const shell = await server.sessions.terminal({ rootId: root.id, ...SHELL });
+  const gui = await nativeClient(server, { root: root.id, terminal: shell.id, env: { RENGINE_RENDERER: backend, ...extraEnv } });
   const result = { backend, snapshots: {}, stats: {}, rss: 0 };
   try {
-    const state = await gui.until(s => s.connected && s.tabs.some(t => t?.type === 1 && t.tree) && s.tabs.some(t => t?.session === shell.id && t.text), `${backend} workspace`);
+    const state = await gui.until(s => s.connected && s.tabs.some(t => t?.type === 1 && t.tree) && s.tabs.some(t => t?.session === shell.id && t.text), `${tag} workspace`);
     assert.equal(state.backend, backend);
     const scene = async name => {
       // Wait for the view text to stop changing so every backend captures the same terminal rows.
@@ -50,46 +77,69 @@ async function capture(project, backend, dir) {
       }
       await gui.command({ op: 'stats', reset: true });
       for (let i = 0; i < 40; i++) { await gui.command({ op: 'state' }); await delay(16); }
-      const file = path.join(dir, `${backend}-${name}.bmp`);
+      const file = path.join(dir, `${tag}-${name}.bmp`);
       assert.equal(await gui.command({ op: 'snapshot', path: file }), true);
       result.snapshots[name] = file; result.stats[name] = await gui.command({ op: 'stats' });
     };
     await scene('workspace');
     server.sessions.input(shell.id, TERMINAL_SCRIPT);
-    await gui.until(s => s.tabs.some(t => t?.session === shell.id && t.text?.includes('RENDER_DONE')), `${backend} terminal output`);
+    await gui.until(s => s.tabs.some(t => t?.session === shell.id && t.text?.includes('RENDER_DONE')), `${tag} terminal output`);
     await scene('terminal');
     assert.equal(await gui.command({ op: 'scene', name: 'primitives' }), true);
     await scene('primitives');
     await gui.command({ op: 'scene', name: '' });
-    result.rss = Number((await run('ps', ['-o', 'rss=', '-p', String(gui.child.pid)])).stdout.trim());
+    result.rss = WIN
+      ? Number((await run('powershell.exe', ['-NoProfile', '-Command', `(Get-Process -Id ${gui.child.pid}).WorkingSet64 / 1024`])).stdout.trim())
+      : Number((await run('ps', ['-o', 'rss=', '-p', String(gui.child.pid)])).stdout.trim());
   } finally { await gui.close(); await server.close(); }
   return result;
 }
 
-test('GPU adapters match the SDL reference within the recorded tolerances and budgets', { timeout: 240000 }, async () => {
+test('GPU adapters match the SDL reference within the recorded tolerances and budgets', { timeout: 420000 }, async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-native-render-'));
   const project = path.join(dir, 'project'); await mkdir(project);
   await writeFile(path.join(project, 'render.txt'), 'render scene\n');
   try {
+    const envFor = backend => (backend === 'vulkan' ? vulkanEnv() : {});
+    const unavailable = {};
+    const backends = [];
+    for (const backend of GPU_BACKENDS) {
+      const reason = backend === 'vulkan' ? await probe(backend, envFor(backend), dir) : null;
+      if (reason) unavailable[backend] = reason; else backends.push(backend);
+    }
     const sdl = await capture(project, 'sdl', dir);
     const gpu = {};
-    for (const backend of GPU_BACKENDS) gpu[backend] = await capture(project, backend, dir);
+    for (const backend of backends) gpu[backend] = await capture(project, backend, dir, envFor(backend));
+    // Spec 073 decision 9: one validation-layer run of the Vulkan backend; every message is a failure.
+    const validation = {};
+    if (backends.includes('vulkan')) {
+      const log = path.join(dir, 'vulkan-validation.log');
+      const reason = await probe('vulkan', { ...vulkanEnv(), RENGINE_VULKAN_VALIDATION: '1', RENGINE_VULKAN_VALIDATION_LOG: log }, dir);
+      if (reason) validation.vulkan = { unavailable: reason };
+      else {
+        await capture(project, 'vulkan', dir, { ...vulkanEnv(), RENGINE_VULKAN_VALIDATION: '1', RENGINE_VULKAN_VALIDATION_LOG: log }, 'vulkan-validation');
+        const text = existsSync(log) ? await readFile(log, 'utf8') : '';
+        const messages = text.split('\n').filter(Boolean);
+        validation.vulkan = { messages: messages.length, first: messages.slice(0, 5) };
+      }
+    }
     await mkdir('.cache/evidence', { recursive: true });
-    const report = { backends: GPU_BACKENDS, scenes: {}, memory: { sdlKb: sdl.rss, limitKb: MEMORY_LIMIT_KB } };
-    for (const backend of GPU_BACKENDS) report.memory[`${backend}Kb`] = gpu[backend].rss;
+    const report = { platform: process.platform, backends, unavailable, validation, scenes: {}, memory: { sdlKb: sdl.rss, limitKb: MEMORY_LIMIT_KB } };
+    for (const backend of backends) report.memory[`${backend}Kb`] = gpu[backend].rss;
     for (const name of Object.keys(TOLERANCE)) {
       await copyFile(sdl.snapshots[name], `.cache/evidence/render-${name}-sdl.bmp`);
       const scene = { sdl: sdl.stats[name], compare: {}, cross: {} };
-      for (const backend of GPU_BACKENDS) {
+      for (const backend of backends) {
         await copyFile(gpu[backend].snapshots[name], `.cache/evidence/render-${name}-${backend}.bmp`);
         scene[backend] = gpu[backend].stats[name];
         scene.compare[backend] = await compare(sdl.snapshots[name], gpu[backend].snapshots[name], name);
       }
-      if (GPU_BACKENDS.length === 2) scene.cross['opengl-vs-metal'] = await compare(gpu.opengl.snapshots[name], gpu.metal.snapshots[name], name);
+      for (let i = 0; i < backends.length; i++) for (let j = i + 1; j < backends.length; j++)
+        scene.cross[`${backends[i]}-vs-${backends[j]}`] = await compare(gpu[backends[i]].snapshots[name], gpu[backends[j]].snapshots[name], name);
       report.scenes[name] = scene;
     }
     await writeFile('.cache/evidence/render-compare.json', JSON.stringify(report, null, 2));
-    for (const backend of GPU_BACKENDS) {
+    for (const backend of backends) {
       for (const name of Object.keys(TOLERANCE)) {
         const scene = report.scenes[name];
         assert.deepEqual(scene.compare[backend].failures, [], `${backend} ${name}: ${JSON.stringify(scene.compare[backend])}`);
@@ -100,6 +150,9 @@ test('GPU adapters match the SDL reference within the recorded tolerances and bu
       assert.ok(report.scenes.terminal[backend].frameMedianMs <= TERMINAL_CEILING_MS, `${backend}: terminal scene median exceeds ${TERMINAL_CEILING_MS} ms`);
       assert.ok(gpu[backend].rss - sdl.rss <= MEMORY_LIMIT_KB, `${backend}: resident memory delta ${gpu[backend].rss - sdl.rss} KiB exceeds ${MEMORY_LIMIT_KB} KiB`);
     }
+    if (validation.vulkan && !validation.vulkan.unavailable) assert.equal(validation.vulkan.messages, 0, `vulkan validation: ${JSON.stringify(validation.vulkan.first)}`);
+    for (const [backend, reason] of Object.entries(unavailable)) console.log(`render spec: ${backend} unavailable on this machine (${reason})`);
+    if (validation.vulkan?.unavailable) console.log(`render spec: vulkan validation unavailable on this machine (${validation.vulkan.unavailable})`);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

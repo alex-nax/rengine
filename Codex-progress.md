@@ -223,6 +223,24 @@ baseline. The macOS default is now OpenGL; Windows keeps SDL and F57 stays unpas
 evidence (KI-014). Evidence: `docs/evidence/opengl-adapter-macos-2026-09-06.md`. Commit:
 `feat(native): add the OpenGL adapter behind the draw list (F57)`.
 
+**Follow-up 8 (same session)**: F59 on owner direction after a `/grill-me` interview (spec 073;
+charter D31 names `pr0fe@192.168.31.217` as the Windows verification host and authorizes the
+commits-only transfer KI-014 waited for; D32 sets the Vulkan floor at the Quest 3 maximum, researched
+as 1.3). `render/backend_vk.c` (Vulkan 1.3 core, dynamic rendering, entry points through SDL,
+vendored Vulkan-Headers v1.4.328, SPIR-V committed by `tools/shaders.py` from owned GLSL, a glyph
+pre-pass because transfers are illegal inside a rendering scope, two frames in flight) lands behind
+`--renderer vulkan` on every platform; macOS keeps Metal as default and uses Homebrew's loader with
+MoltenVK as the development path. The render spec now captures `sdl`, `opengl`, `metal`, `vulkan`,
+probes for a missing loader, and repeats the Vulkan capture under `VK_LAYER_KHRONOS_validation`;
+the first validated run found an HDR colour-space pick and a missing shader-demote feature, both
+fixed. macOS results: Vulkan pixel-identical to OpenGL and Metal on every scene, below the SDL
+median everywhere, memory below SDL, 0 validation messages, suite 13 of 13 on
+`RENGINE_RENDERER=vulkan`, CTest 4/4. Evidence `docs/evidence/vulkan-adapter-macos-2026-09-06.md`.
+Windows bring-up started per the runbook `docs/runbooks/windows-verification.md`: SDL2 2.32.10 dev
+files and the LunarG SDK 1.4.357 installed, the pre-Vulkan HEAD builds with MSVC and its SDL and
+OpenGL smoke snapshots are byte-identical; CTest editor/terminal binaries lacked `SDL2.dll` (copy
+added in `cmake.toml`). Windows render/suite results follow in the next commit.
+
 **Follow-up 7 (same session)**: F58 on owner direction after a `/grill-me` interview (spec 072;
 inventory corrections committed first as `b119a3e`). `render/backend_metal.m` is the one
 Objective-C file (ARC, `SDL_WINDOW_METAL`, SDL's Metal view, MSL compiled from an embedded string,

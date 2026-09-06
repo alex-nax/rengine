@@ -1,6 +1,7 @@
 #include "draw.h"
 #include "render/backend_sdl.h"
 #include "render/backend_gl.h"
+#include "render/backend_vk.h"
 #ifdef __APPLE__
 #include "render/backend_metal.h"
 #endif
@@ -41,6 +42,7 @@ const char *re_draw_select(const char *name) {
 #ifdef __APPLE__
   if (!strcmp(choice, "metal")) return "metal";
 #endif
+  if (!strcmp(choice, "vulkan")) return "vulkan";
   return !strcmp(choice, "sdl") ? "sdl" : NULL;
 }
 Uint32 re_draw_window_flags(const char *backend) {
@@ -48,6 +50,7 @@ Uint32 re_draw_window_flags(const char *backend) {
 #ifdef __APPLE__
   if (backend && !strcmp(backend, "metal")) return re_backend_metal_window_flags();
 #endif
+  if (backend && !strcmp(backend, "vulkan")) return re_backend_vk_window_flags();
   return 0;
 }
 ReDraw *re_draw_active(void) { return active; }
@@ -60,6 +63,8 @@ ReDraw *re_draw_open(SDL_Window *window, const char *font_path, const char *back
   if (backend && !strcmp(backend, "metal")) d->backend = re_backend_metal_open(window, d->fonts);
   else
 #endif
+  if (backend && !strcmp(backend, "vulkan")) d->backend = re_backend_vk_open(window, d->fonts);
+  else
   d->backend = backend && !strcmp(backend, "opengl") ? re_backend_gl_open(window, d->fonts) : re_backend_sdl_open(window, d->fonts);
   if (!d->backend) { re_font_close(d->fonts); free(d); return NULL; }
   re_draw_list_init(&d->list);

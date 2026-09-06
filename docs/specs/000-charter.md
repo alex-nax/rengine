@@ -36,6 +36,8 @@ Date: 2026-09-05. Status: **interview in progress; recommendations are not owner
 | D28 | Pause broader development here; resume the same agent conversation through the native orchestrator after prerequisites, with desktop reload retaining the agent. | Owner's 2026-09-05 orchestrator handoff/pause request; implementation and limits in spec 058 |
 | D29 | The desktop renderer moves to full GPU rendering behind a graphics-API adapter boundary: OpenGL first, then Metal, then Vulkan. The theming update designed in Claude Design is implemented on that renderer, not on SDL_Renderer. | Owner: “For the future - we want full gpu rendering. We will have adapters for different graphical APIs, - first OpenGL, then Metal and Vulkan”, 2026-09-06; requirements and phases in spec 066 |
 | D30 | The rendering implementation is a candidate approved rendering library for the curated base once it meets the library-quality record and the D24 adoption rules; games adopt it through adapters and are never required to. | Owner: “This rendering implementation can be our approved rendering library in future”, 2026-09-06 |
+| D31 | The Windows verification host for rEngine is `pr0fe@192.168.31.217`; source transfer to it is authorized as commits only, into an isolated checkout, never the working tree. This resolves the approval KI-014 waited for. | Owner: “for windows verification use ssh pr0fe@192.168.31.217 machine”, 2026-09-06; method in spec 073 |
+| D32 | The Vulkan adapter's floor is the maximum Vulkan version Quest 3 supports, which is Vulkan 1.3 (Quest 3 driver v837 reports 1.3.295). | Owner: “We need to have the same maximum that Quest 3 supports”, 2026-09-06; research in spec 073 |
 | D31 | Support opening/managing a separate integration-project window with the current retained agent, inspection and a return channel for rEngine findings, with a reusable agent routine. | Owner's NOLF dogfooding request, 2026-09-06; spec 069 |
 | D32 | Measure llm-sidecar usefulness before bundling it as a project skill; adapt only the selected wizard skill for orchestrator terminal actions without references to unselected skills. | Owner's skill evaluation and wizard-selection requests, 2026-09-06; spec 070 |
 
@@ -165,3 +167,9 @@ code the draw-list contract needs, and no desktop feature passes yet; F57's crit
 description narrow to macOS while the new F62 carries the Windows OpenGL evidence that KI-014
 still blocks; F56 and F57 are marked passing on their recorded macOS evidence. The two-desktop
 requirement is unchanged: it is tracked by F62 and KI-014 instead of hiding finished work.
+
+2026-09-06, Vulkan interview (spec 073): D31 names the Windows verification host and authorizes
+the commits-only transfer KI-014 was blocked on; D32 sets the Vulkan floor at the Quest 3 maximum,
+researched as 1.3. The open “first Vulkan platform” question is answered: Windows carries the
+criterion, macOS through MoltenVK is the development and evidence path. The OpenGL floor question
+stays open.

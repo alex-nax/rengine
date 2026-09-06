@@ -103,6 +103,7 @@ set(rengine_desktop_core_SOURCES
 	"orchestrator/native/net.c"
 	"orchestrator/native/render/backend_gl.c"
 	"orchestrator/native/render/backend_sdl.c"
+	"orchestrator/native/render/backend_vk.c"
 	"orchestrator/native/render/draw_list.c"
 	"orchestrator/native/render/font.c"
 	"orchestrator/native/render/utf8.c"
@@ -210,6 +211,10 @@ if(BUILD_TESTING) # testing
 	  target_compile_options(rengine_layout_test PRIVATE -UNDEBUG)
 	endif()
 	add_test(NAME native_layout COMMAND rengine_layout_test)
+	if(WIN32)
+	  add_custom_command(TARGET rengine_layout_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+	    $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_layout_test>)
+	endif()
 
 endif()
 # Target: rengine_editor_test
@@ -240,6 +245,10 @@ if(BUILD_TESTING) # testing
 	  target_compile_options(rengine_editor_test PRIVATE -UNDEBUG)
 	endif()
 	add_test(NAME native_editor COMMAND rengine_editor_test)
+	if(WIN32)
+	  add_custom_command(TARGET rengine_editor_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+	    $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_editor_test>)
+	endif()
 
 endif()
 # Target: rengine_terminal_test
@@ -270,6 +279,10 @@ if(BUILD_TESTING) # testing
 	  target_compile_options(rengine_terminal_test PRIVATE -UNDEBUG)
 	endif()
 	add_test(NAME native_terminal COMMAND rengine_terminal_test)
+	if(WIN32)
+	  add_custom_command(TARGET rengine_terminal_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+	    $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_terminal_test>)
+	endif()
 
 endif()
 # Target: rengine_draw_list_test
@@ -300,5 +313,9 @@ if(BUILD_TESTING) # testing
 	  target_compile_options(rengine_draw_list_test PRIVATE -UNDEBUG)
 	endif()
 	add_test(NAME native_draw_list COMMAND rengine_draw_list_test)
+	if(WIN32)
+	  add_custom_command(TARGET rengine_draw_list_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+	    $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_draw_list_test>)
+	endif()
 
 endif()

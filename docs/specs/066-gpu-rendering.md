@@ -101,6 +101,6 @@ platform; no phase marks an earlier feature passing.
   its glyph names.
 - UI font policy: system sans as designed, or a bundled face for identical rendering on both desktops.
 - Owned control layer over pristine microui, as proposed here, versus the fork the design mentions.
-- OpenGL floor (3.3 core versus 4.1) and the first Vulkan platform.
+- OpenGL floor (3.3 core versus 4.1). The first Vulkan platform is answered in spec 073 (D31–D32).
 - Whether R0 may start before desktop v0 (F48) closes, or waits for it.
 - The hue gradient in the theme panel: gradient primitive, texture, or a discrete swatch row only.
