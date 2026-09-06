@@ -58,6 +58,9 @@ flowchart TD
   Workspace[Tab and pane workspace] --> Sessions[Terminal, game and tool sessions]
   Sessions --> HostAdapters[Project and surface adapters]
   Workspace --> AgentLaunch[CLI selection and MCP bootstrap]
+  Workspace --> DrawList[Backend-neutral draw list]
+  DrawList --> Renderer[Renderer core and API adapters: OpenGL, Metal, Vulkan]
+  Catalog -. may describe .-> Renderer
 ```
 
 The engine may build selected library source, but libraries must not import its internals.
@@ -101,6 +104,11 @@ game simulation or require the training stack to launch a game.
 14. Desktop presentation uses C and microui without an embedded browser runtime. Web delivery is
     a separate client. Neither client nor its tooling service is required to run a game or consume
     a curated library. Measure memory, CPU, frame and input costs at each boundary.
+15. Desktop drawing goes through a backend-neutral draw list consumed by graphics-API adapters:
+    OpenGL first, then Metal, then Vulkan, with SDL_Renderer as the interim reference. Nothing
+    above the draw list includes an API header. The renderer may become a curated library only
+    through the library-quality record and D24 adoption rules; a game adopts it through its own
+    adapter and can revert without workspace changes (spec 065).
 
 ## Initial files and future placement
 
@@ -116,7 +124,8 @@ game simulation or require the training stack to launch a game.
 | `adapters/` (future) | Development-tool adapters; runtime glue usually stays with the host |
 | `templates/` (future) | Minimal agent-neutral project harness and optional native wrappers |
 | `orchestrator/` | Desktop UI, launcher, retained session service and acceptance tests; live game integration in progress |
-| `design/` | Design tokens and self-contained Claude Design preview cards; `tools/design.py` generates the native theme header from them; never a runtime dependency (spec 064) |
+| `design/` | Claude Design source: three-layer `tokens.css` with presets, component styles and preview cards; `tools/design.py` mirrors, validates and resolves them; never a runtime dependency (specs 064–065) |
+| `orchestrator/native/render/` (future) | Draw-list contract, renderer core and API adapters; introduced with F56's first complete artifact (spec 065) |
 
 Do not create empty runtime modules to imply progress. Introduce each directory with its first
 complete artifact. Broad design rationale lives here or in a spec; file-local notes use sidecars.

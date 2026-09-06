@@ -1,0 +1,36 @@
+<!-- @dsCard group="Controls" viewport="560x300" name="Menus & popovers" subtitle="Context menu, keyboard hints, separators; the one overlay layer with a shadow" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>rEngine · Menus</title>
+<link rel="stylesheet" href="../../styles.css">
+<style>.wrap{display:flex;gap:32px;align-items:flex-start}</style>
+</head>
+<body>
+<div class="re-card">
+  <h1>Menus & popovers</h1>
+  <p class="re-note">Raised surface, 6px radius, one soft shadow. Hover fills with the accent; keyboard hints stay mono.</p>
+  <div class="wrap" style="margin-top:16px">
+    <div class="re-popover">
+      <div class="re-menu-item"><span class="re-icon">▯▯</span>Split vertical<span class="kbd">⌘ \</span></div>
+      <div class="re-menu-item is-hover"><span class="re-icon">▭</span>Split horizontal<span class="kbd">⌘ ⇧ \</span></div>
+      <div class="re-menu-item"><span class="re-icon">⊡</span>Merge pane<span class="kbd">⌘ ⌫</span></div>
+      <div class="re-menu-sep"></div>
+      <div class="re-menu-item"><span class="re-icon">›_</span>New shell here<span class="kbd">⌘ T</span></div>
+      <div class="re-menu-item"><span class="re-icon">◆</span>New agent session</div>
+      <div class="re-menu-sep"></div>
+      <div class="re-menu-item"><span class="re-icon">✕</span>Close view<span class="kbd">⌘ W</span></div>
+    </div>
+    <div class="re-popover" style="min-width:220px">
+      <div class="re-row" style="padding:2px 4px 6px"><span class="re-kicker">Agent CLI</span></div>
+      <div class="re-menu-item"><span class="re-icon" style="color:var(--ui-accent)">●</span>codex<span class="kbd">default</span></div>
+      <div class="re-menu-item"><span class="re-icon"> </span>claude</div>
+      <div class="re-menu-item"><span class="re-icon"> </span>aider</div>
+      <div class="re-menu-sep"></div>
+      <div class="re-menu-item"><span class="re-icon">+</span>Add command…</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

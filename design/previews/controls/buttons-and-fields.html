@@ -1,0 +1,33 @@
+<!-- @dsCard group="Controls" viewport="760x440" name="Buttons & fields" subtitle="Ghost, standard, primary and grouped buttons; text fields, selects, checkboxes, sliders; every interaction state" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>rEngine · Buttons & fields</title>
+<link rel="stylesheet" href="../../styles.css">
+<style>
+.grid{display:grid;grid-template-columns:120px 1fr;gap:10px 16px;align-items:center}
+.grid .re-kicker{align-self:center}
+.demo{display:flex;gap:8px;align-items:center;height:22px}
+.demo .re-textbox{width:170px}.demo .re-select{width:150px}.demo .re-slider{width:160px}
+.state{font-size:var(--ui-size-sm);color:var(--ui-fg-faint);margin-left:2px}
+</style>
+</head>
+<body>
+<div class="re-card">
+  <h1>Buttons & fields</h1>
+  <p class="re-note">22px controls on a 4px grid, 3px radius, 1px border plus a 1px inner highlight. State is carried by fill, never by size. Focus is a 2px accent ring outside the border.</p>
+  <div class="grid" style="margin-top:16px">
+    <span class="re-kicker">Standard</span><div class="demo"><span class="re-button">Rest</span><span class="re-button is-hover">Hover</span><span class="re-button is-active">Pressed</span><span class="re-button is-focus">Focus</span><span class="re-button is-disabled">Disabled</span></div>
+    <span class="re-kicker">Primary</span><div class="demo"><span class="re-button primary">Save</span><span class="re-button primary is-hover">Hover</span><span class="state">One per row at most; commits or attaches.</span></div>
+    <span class="re-kicker">Ghost</span><div class="demo"><span class="re-button ghost">Manage</span><span class="re-button ghost is-hover">Hover</span><span class="re-button ghost is-on">Selected</span><span class="re-button ghost icon"><span class="re-icon">✕</span></span><span class="re-button ghost icon danger"><span class="re-icon">✕</span></span><span class="state">Icon-only ghost, and its destructive hover.</span></div>
+    <span class="re-kicker">Segmented</span><div class="demo"><span class="re-group"><span class="re-button is-on"><span class="re-icon">⊟</span>Tree</span><span class="re-button"><span class="re-icon">›_</span>Shell</span><span class="re-button"><span class="re-icon">◆</span>Agent</span></span><span class="state">Exclusive views; accent underline marks the current one.</span></div>
+    <span class="re-kicker">Text field</span><div class="demo"><span class="re-textbox"><span class="placeholder">Placeholder…</span></span><span class="re-textbox is-focus">codex</span><span class="re-textbox"><span class="re-icon">⌕</span>HUD</span></div>
+    <span class="re-kicker">Select</span><div class="demo"><span class="re-button re-select"><span>nolf-improved</span></span><span class="re-button re-select is-hover"><span>codex</span></span></div>
+    <span class="re-kicker">Checkbox</span><div class="demo"><span class="re-checkbox"><span class="box"></span>Vim keys</span><span class="re-checkbox is-on"><span class="box"></span>Vim keys</span></div>
+    <span class="re-kicker">Slider</span><div class="demo"><span class="re-slider"><span class="fill" style="width:62%"></span><span class="knob" style="left:62%"></span></span><span class="re-textbox" style="width:56px">13 px</span></div>
+    <span class="re-kicker">Colour</span><div class="demo"><span class="re-swatch-btn" style="background:var(--ui-accent)"></span><span class="re-swatch-btn" style="background:var(--ui-surface)"></span><span class="re-swatch-btn" style="background:var(--ui-fg)"></span><span class="re-textbox" style="width:90px">#E08A2E</span></div>
+  </div>
+</div>
+</body>
+</html>

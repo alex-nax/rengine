@@ -1,0 +1,52 @@
+<!-- @dsCard group="Foundations" viewport="960x520" name="Theme architecture" subtitle="Three token layers; what a user theme file overrides and how far it can go" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>rEngine · Theme architecture</title>
+<link rel="stylesheet" href="../../styles.css">
+<style>
+.layers{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.layer{padding:14px;border-radius:var(--ui-radius-lg);background:var(--ui-surface);border:1px solid var(--ui-border)}
+.layer h3{margin:0 0 4px;font-size:var(--ui-size-lg);font-weight:600;color:var(--ui-fg-strong)}
+.layer p{margin:0 0 10px;color:var(--ui-fg-muted)}
+.layer code{display:block;font-size:var(--ui-size-sm);line-height:16px;color:var(--ui-fg);background:var(--editor-bg);padding:8px 10px;border-radius:var(--ui-radius);white-space:pre}
+.layer code i{color:var(--ui-fg-faint);font-style:normal}
+.arrow{display:flex;align-items:center;justify-content:center;color:var(--ui-fg-faint)}
+.file{margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+</style>
+</head>
+<body>
+<div class="re-card">
+  <h1>Theme architecture</h1>
+  <p class="re-note">A theme is a plain file of variable overrides. Changing the ramp restyles everything; re-mapping a role restyles one class of surface; a per-view token restyles one region. Users stop at whichever depth they need.</p>
+  <div class="layers">
+    <div class="layer"><span class="re-kicker">Layer 1</span><h3>Palette</h3><p>11-step neutral ramp, an accent hue, four semantic hues.</p><code>--re-gray-0 … --re-gray-10
+--re-accent-hue: 45
+--re-accent: oklch(.72 .17 <i>hue</i>)
+--re-ok / --re-warn / --re-err</code></div>
+    <div class="layer"><span class="re-kicker">Layer 2</span><h3>Semantic roles</h3><p>Surfaces, controls, text, borders, selection, focus, radius, fonts, sizes.</p><code>--ui-surface: var(--re-gray-3)
+--ui-control: var(--re-gray-5)
+--ui-fg: var(--re-gray-9)
+--ui-radius: 3px
+--ui-font / --ui-mono / --ui-size</code></div>
+    <div class="layer"><span class="re-kicker">Layer 3</span><h3>Per view</h3><p>Toolbar, tabs, tree, editor, terminal, status, scrollbars. Inherit by default.</p><code>--tab-marker: var(--ui-accent)
+--editor-bg: var(--re-gray-2)
+--terminal-bg: var(--re-gray-1)
+--status-accent-bg: var(--ui-accent)
+--tree-row: 22px</code></div>
+  </div>
+  <div class="file">
+    <div class="layer"><span class="re-kicker">theme file · minimal</span><h3>Tint only</h3><code>[theme "sunset"]
+accent-hue = 25</code><p style="margin-top:8px">Everything else inherits. This is the 30-second theme.</p></div>
+    <div class="layer"><span class="re-kicker">theme file · deep</span><h3>Editor-style</h3><code>[theme "editor-grey"]
+gray = #0a0a0a #111 #161616 #1e1e1e #262626 #2f2f2f #3c3c3c #6b6b6b #9c9c9c #cfcfcf #f2f2f2
+accent-hue = 45
+ui-radius = 2px
+ui-font = "Segoe UI"
+tabs-height = 26px
+status-accent-bg = var(--ui-control)</code></div>
+  </div>
+</div>
+</body>
+</html>

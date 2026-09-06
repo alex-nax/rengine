@@ -1,209 +1,33 @@
-<!-- @dsCard group="Views" name="Project tree" subtitle="Root row, Up button with the current path, 24px directory/file rows, truncation note" width="440" height="440" -->
+<!-- @dsCard group="Views" viewport="440x440" name="Project tree" subtitle="Root header, path, nested rows with glyph icons, selection and dirty/count meta, hover" -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <title>rEngine · Project tree</title>
-<!-- re:tokens -->
-<style id="re-tokens">
-:root {
-  --re-font-family: "Menlo", "SF Mono", "Consolas", "Courier New", "DejaVu Sans Mono", monospace;
-  --re-font-size: 16px;
-  --re-line-height: 20px;
-  --re-color-canvas: rgb(14, 18, 23);
-  --re-color-surface: rgb(20, 24, 30);
-  --re-color-control: rgb(38, 46, 56);
-  --re-color-control-hover: rgb(52, 68, 78);
-  --re-color-control-active: rgb(59, 86, 86);
-  --re-color-field: rgb(30, 30, 30);
-  --re-color-field-hover: rgb(35, 35, 35);
-  --re-color-field-active: rgb(40, 40, 40);
-  --re-color-border: rgb(25, 25, 25);
-  --re-color-text: rgb(220, 228, 234);
-  --re-color-text-muted: rgb(146, 167, 178);
-  --re-color-text-indicator: rgb(210, 224, 233);
-  --re-color-title-bg: rgb(25, 25, 25);
-  --re-color-title-text: rgb(240, 240, 240);
-  --re-color-panel-bg: rgba(0, 0, 0, 0.000);
-  --re-color-divider: rgb(54, 67, 76);
-  --re-color-selection: rgb(55, 77, 89);
-  --re-color-caret: rgba(150, 210, 185, 0.745);
-  --re-color-terminal-cursor: rgba(145, 205, 181, 0.392);
-  --re-color-indicator: rgb(40, 53, 62);
-  --re-color-scroll-track: rgb(30, 37, 44);
-  --re-color-scroll-thumb: rgb(99, 119, 131);
-  --re-color-scroll-thumb-active: rgb(145, 180, 190);
-  --re-color-list-scroll-track: rgb(43, 43, 43);
-  --re-color-list-scroll-thumb: rgb(30, 30, 30);
-  --re-color-game-backdrop: rgb(0, 0, 0);
-  --re-metric-microui-padding: 5px;
-  --re-metric-microui-spacing: 4px;
-  --re-metric-microui-indent: 24px;
-  --re-metric-microui-title-height: 24px;
-  --re-metric-microui-scrollbar-size: 12px;
-  --re-metric-microui-thumb-size: 8px;
-  --re-metric-microui-control-width: 68px;
-  --re-metric-window-width: 1280px;
-  --re-metric-window-height: 800px;
-  --re-metric-window-min-width: 1050px;
-  --re-metric-window-min-height: 480px;
-  --re-metric-toolbar-height: 78px;
-  --re-metric-toolbar-row-height: 26px;
-  --re-metric-toolbar-brand-width: 78px;
-  --re-metric-toolbar-view-width: 75px;
-  --re-metric-toolbar-manage-width: 80px;
-  --re-metric-toolbar-sessions-width: 95px;
-  --re-metric-toolbar-split-vertical-width: 120px;
-  --re-metric-toolbar-split-horizontal-width: 125px;
-  --re-metric-toolbar-merge-width: 95px;
-  --re-metric-toolbar-game-width: 85px;
-  --re-metric-toolbar-root-width: 170px;
-  --re-metric-toolbar-path-right: 475px;
-  --re-metric-toolbar-add-width: 95px;
-  --re-metric-toolbar-agent-label-width: 70px;
-  --re-metric-workspace-top: 80px;
-  --re-metric-workspace-status-height: 26px;
-  --re-metric-workspace-status-inset: 8px;
-  --re-metric-workspace-status-text-top: 2px;
-  --re-metric-workspace-divider: 6px;
-  --re-metric-workspace-pane-minimum: 80px;
-  --re-metric-workspace-tree-percent: 23%;
-  --re-metric-pane-header-height: 34px;
-  --re-metric-pane-content-top: 35px;
-  --re-metric-pane-root-row-height: 22px;
-  --re-metric-pane-empty-row-height: 24px;
-  --re-metric-tab-width: 158px;
-  --re-metric-tab-height: 26px;
-  --re-metric-tab-top: 4px;
-  --re-metric-tab-inset: 5px;
-  --re-metric-tab-gap: 2px;
-  --re-metric-tab-close-width: 22px;
-  --re-metric-tab-nav-width: 24px;
-  --re-metric-tab-title-characters: 11;
-  --re-metric-tree-row-height: 24px;
-  --re-metric-tree-up-width: 55px;
-  --re-metric-sessions-row-height: 26px;
-  --re-metric-sessions-actions-width: 155px;
-  --re-metric-sessions-attach-width: 80px;
-  --re-metric-sessions-heading-height: 24px;
-  --re-metric-editor-toolbar-height: 26px;
-  --re-metric-editor-save-width: 65px;
-  --re-metric-editor-discard-width: 80px;
-  --re-metric-editor-mode-width: 130px;
-  --re-metric-editor-inset: 6px;
-  --re-metric-editor-top: 59px;
-  --re-metric-editor-bottom: 85px;
-  --re-metric-editor-caret-width: 2px;
-  --re-metric-editor-error-height: 23px;
-  --re-metric-editor-error-inset: 2px;
-  --re-metric-editor-tab-cells: 4;
-  --re-metric-terminal-inset: 6px;
-  --re-metric-terminal-top: 28px;
-  --re-metric-terminal-bottom: 34px;
-  --re-metric-game-row-height: 26px;
-  --re-metric-game-capture-width: 210px;
-  --re-metric-game-inset: 6px;
-  --re-metric-game-top: 59px;
-  --re-metric-game-bottom: 65px;
-  --re-metric-scrollbar-size: 14px;
-  --re-metric-scrollbar-thumb-min: 20px;
-  --re-metric-scrollbar-thumb-inset: 2px;
-}
-</style>
-<!-- /re:tokens -->
-<!-- re:base -->
-<style id="re-base">
-/* Shared preview styling. It mirrors what the native microui renderer can draw: filled rectangles,
-   1px borders, clipped monospace text at one size, and glyph icons. Keep additions drawable in C. */
-*, *::before, *::after { box-sizing: border-box; }
-html, body { margin: 0; }
-body {
-  background: var(--re-color-canvas); color: var(--re-color-text);
-  font-family: var(--re-font-family); font-size: var(--re-font-size); line-height: var(--re-line-height);
-  -webkit-font-smoothing: antialiased;
-}
-code, pre { font: inherit; }
-.re-window { background: var(--re-color-surface); box-shadow: 0 0 0 1px var(--re-color-border); }
-.re-row {
-  display: flex; align-items: stretch; gap: var(--re-metric-microui-spacing);
-  height: 26px; padding: 0 var(--re-metric-microui-padding);
-}
-.re-row.tall { height: 24px; }
-.re-row.short { height: 22px; }
-.re-row + .re-row { margin-top: var(--re-metric-microui-spacing); }
-.re-row > .fill { flex: 1 1 auto; min-width: 0; }
-.re-window > .re-row:first-child { margin-top: var(--re-metric-microui-padding); }
-.re-button, .re-label, .re-textbox, .re-checkbox {
-  display: inline-flex; align-items: center; height: 100%;
-  padding: 0 var(--re-metric-microui-padding); white-space: nowrap; overflow: hidden;
-}
-.re-button { justify-content: center; background: var(--re-color-control); box-shadow: 0 0 0 1px var(--re-color-border); cursor: default; }
-.re-button.is-hover, .re-button:hover { background: var(--re-color-control-hover); }
-.re-button.is-active, .re-button:active { background: var(--re-color-control-active); }
-.re-button.left { justify-content: flex-start; }
-.re-textbox { background: var(--re-color-field); box-shadow: 0 0 0 1px var(--re-color-border); }
-.re-textbox.is-focus { background: var(--re-color-field-active); }
-.re-textbox.is-focus::after { content: ""; width: 1px; height: var(--re-line-height); background: var(--re-color-text); margin-left: 1px; }
-.re-textbox .placeholder { color: var(--re-color-text-muted); }
-.re-checkbox { padding-left: 0; gap: var(--re-metric-microui-spacing); }
-.re-checkbox .box {
-  width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
-  background: var(--re-color-field); box-shadow: 0 0 0 1px var(--re-color-border);
-}
-.re-scrollbar { position: relative; background: var(--re-color-scroll-track); }
-.re-scrollbar.vertical { width: var(--re-metric-scrollbar-size); }
-.re-scrollbar.horizontal { height: var(--re-metric-scrollbar-size); }
-.re-scrollbar .thumb { position: absolute; background: var(--re-color-scroll-thumb); }
-.re-scrollbar.vertical .thumb { left: var(--re-metric-scrollbar-thumb-inset); right: var(--re-metric-scrollbar-thumb-inset); }
-.re-scrollbar.horizontal .thumb { top: var(--re-metric-scrollbar-thumb-inset); bottom: var(--re-metric-scrollbar-thumb-inset); }
-.re-scrollbar.is-dragging .thumb { background: var(--re-color-scroll-thumb-active); }
-.re-list-scrollbar { position: relative; width: var(--re-metric-microui-scrollbar-size); background: var(--re-color-list-scroll-track); }
-.re-list-scrollbar .thumb { position: absolute; left: 0; right: 0; background: var(--re-color-list-scroll-thumb); }
-.re-divider { background: var(--re-color-divider); }
-.re-status { color: var(--re-color-text-muted); white-space: nowrap; overflow: hidden; }
-.re-cells { margin: 0; white-space: pre; background: var(--re-color-surface); overflow: hidden; }
-.re-cells .sel { background: var(--re-color-selection); }
-.re-cells .caret { position: relative; }
-.re-cells .caret::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--re-metric-editor-caret-width); background: var(--re-color-caret); }
-.re-cells .block { background: var(--re-color-caret); }
-.re-cells .term-cursor { background: var(--re-color-terminal-cursor); }
-.re-cells .bold { font-weight: bold; }
-.re-cells .underline { text-decoration: underline; }
-.re-indicator { background: var(--re-color-indicator); color: var(--re-color-text-indicator); white-space: pre; }
-.re-note { color: var(--re-color-text-muted); font-size: 12px; line-height: 16px; }
-.re-card { padding: 16px; }
-.re-card h1 { font-size: var(--re-font-size); line-height: var(--re-line-height); margin: 0 0 4px; font-weight: normal; }
-.re-card h1 + .re-note { margin-bottom: 12px; }
-.re-sample { margin: 12px 0; }
-.re-palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 10px 20px; }
-.re-swatch { display: flex; gap: 10px; align-items: flex-start; }
-.re-swatch .chip { flex: 0 0 44px; height: 44px; box-shadow: 0 0 0 1px var(--re-color-divider); }
-.re-swatch .meta { min-width: 0; font-size: 13px; line-height: 18px; }
-.re-swatch code { font-size: 12px; color: var(--re-color-text-muted); }
-.re-metrics { border-collapse: collapse; font-size: 13px; line-height: 18px; }
-.re-metrics th, .re-metrics td { text-align: left; vertical-align: top; padding: 4px 12px 4px 0; border-bottom: 1px solid var(--re-color-divider); }
-.re-metrics th { color: var(--re-color-text-muted); font-weight: normal; white-space: nowrap; }
-</style>
-<!-- /re:base -->
-<style>
-.pane { width: 400px; margin: 16px; padding-bottom: 5px; }
-.up { width: var(--re-metric-tree-up-width); }
-.re-row.entry { height: var(--re-metric-tree-row-height); }
-.re-row.entry .re-button { width: 100%; justify-content: flex-start; }
-</style>
+<link rel="stylesheet" href="../../styles.css">
+<style>.re-pane{left:8px;top:8px;width:424px;height:424px}.tree-head{border-bottom:1px solid var(--ui-border)}</style>
 </head>
 <body>
-<div class="re-window pane">
-  <div class="re-row short"><span class="re-label fill">nolf-improved</span></div>
-  <div class="re-row tall"><span class="re-button up">Up</span><span class="re-label fill">src/Game</span></div>
-  <div class="re-row entry"><span class="re-button">&gt; ClientShell</span></div>
-  <div class="re-row entry"><span class="re-button is-hover">&gt; ObjectDLL</span></div>
-  <div class="re-row entry"><span class="re-button">&gt; Shared</span></div>
-  <div class="re-row entry"><span class="re-button">&nbsp; CMakeLists.txt</span></div>
-  <div class="re-row entry"><span class="re-button">&nbsp; README.md</span></div>
-  <div class="re-row entry"><span class="re-button">&nbsp; version.h</span></div>
-  <div class="re-row tall"><span class="re-label fill">Showing the first 2,000 directory entries.</span></div>
+<div class="re-pane">
+  <div class="re-tabs"><span class="re-tab is-active"><span class="re-icon">⊟</span><span class="title">Project</span><span class="close">✕</span></span></div>
+  <div class="re-content">
+    <div class="re-row tree-head"><span class="re-label strong fill">nolf-improved</span><span class="re-button ghost icon" title="Up"><span class="re-icon">↑</span></span><span class="re-button ghost icon" title="Collapse all"><span class="re-icon">⊟</span></span></div>
+    <div class="re-row" style="height:20px"><span class="re-path fill">~/dev/nolf-improved/<b>src</b></span></div>
+    <div class="re-tree">
+      <div class="re-tree-row"><span class="re-icon">▾</span><span class="name">Game</span><span class="meta">42</span></div>
+      <div class="re-tree-row d1"><span class="re-icon">▾</span><span class="name">ClientShell</span></div>
+      <div class="re-tree-row d2 is-selected"><span class="re-icon">▪</span><span class="name">HUD.cpp</span><span class="meta">M</span></div>
+      <div class="re-tree-row d2"><span class="re-icon">▪</span><span class="name">HUD.h</span></div>
+      <div class="re-tree-row d2 is-hover"><span class="re-icon">▪</span><span class="name">Menu.cpp</span></div>
+      <div class="re-tree-row d2"><span class="re-icon">▪</span><span class="name">VeryLongFileNameThatDoesNotFitTheColumn.cpp</span></div>
+      <div class="re-tree-row d1"><span class="re-icon">▸</span><span class="name">Shared</span></div>
+      <div class="re-tree-row"><span class="re-icon">▸</span><span class="name">Engine</span><span class="meta">118</span></div>
+      <div class="re-tree-row"><span class="re-icon">▸</span><span class="name">Tools</span><span class="meta">9</span></div>
+      <div class="re-tree-row"><span class="re-icon">▫</span><span class="name">CMakeLists.txt</span></div>
+      <div class="re-tree-row"><span class="re-icon">▫</span><span class="name">README.md</span></div>
+    </div>
+    <p class="re-note" style="padding:12px 10px;font-size:var(--ui-size-sm)">Long names ellipsize; the full path shows in the status bar on hover. Counts are direct children; M marks an unsaved draft.</p>
+  </div>
 </div>
-<p class="re-note" style="margin: 0 16px">Every entry is a full-width microui button. Directories carry a leading “&gt;”, files a space. Clicking a file opens an editor tab bound to this root; the tree never scrolls horizontally.</p>
 </body>
 </html>

@@ -1,51 +1,66 @@
 #!/usr/bin/env python3
-"""Bridge design/tokens.json to the native theme header and the Claude Design preview library.
+"""Bridge the desktop's theme source and the Claude Design system project.
 
-  generate        write orchestrator/native/theme.h, design/tokens.css and design/manifest.json, and
-                  refresh the managed blocks inside design/previews/**/*.html
-  check           fail when a generated artifact or a preview block drifts, or when a native
-                  source hard-codes a colour or a layout row size instead of an RE_COLOR_*/RE_METRIC_* constant
-  import FILE...  apply token values from a preview's :root block (for example a card pulled back
-                  from Claude Design) to tokens.json, then regenerate
+  generate            write orchestrator/native/theme.h from orchestrator/native/theme.json, refresh the
+                      design/tokens.json mirror from design/tokens.css and design/manifest.json from the cards
+  check               fail when generated output is stale, a card is malformed or not self-contained, the
+                      token mirror drifts, or a native source hard-codes a colour or layout row size
+  resolve [PRESET]    print the design tokens of a preset (default, teal, light) as JSON with colours
+                      resolved to sRGB 8-bit, for renderer and theme work
 
-Boundaries and rationale: docs/specs/064-design-system-handoff.md. Standard library only.
+Two sources exist on purpose: the shipping desktop draws from the interim theme.json (spec 064) until the
+GPU renderer lands (spec 065); the Claude Design project owns design/tokens.css. Standard library only.
 """
 import json
+import math
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DESIGN = ROOT / "design"
-TOKENS = DESIGN / "tokens.json"
-BASE_CSS = DESIGN / "base.css"
 TOKENS_CSS = DESIGN / "tokens.css"
+TOKENS_JSON = DESIGN / "tokens.json"
+STYLES_CSS = DESIGN / "styles.css"
+BASE_CSS = DESIGN / "base.css"
 MANIFEST = DESIGN / "manifest.json"
 PREVIEWS = DESIGN / "previews"
 NATIVE = ROOT / "orchestrator" / "native"
+NATIVE_THEME = NATIVE / "theme.json"
 THEME_H = NATIVE / "theme.h"
 MICROUI = ["text", "border", "windowbg", "titlebg", "titletext", "panelbg", "button", "buttonhover",
            "buttonfocus", "base", "basehover", "basefocus", "scrollbase", "scrollthumb"]
 MICROUI_METRICS = ["padding", "spacing", "indent", "title-height", "scrollbar-size", "thumb-size", "control-width"]
-REQUIRED_BLOCKS = ("tokens", "base")
-OPTIONAL_BLOCKS = ("palette", "metrics")
+LAYERS = ("palette", "semantic", "views")
 NAME = re.compile(r"[a-z][a-z0-9-]*")
 CARD = re.compile(r'^<!-- @dsCard((?:\s+[a-z]+="[^"]*")+)\s*-->\s*$')
 ATTR = re.compile(r'([a-z]+)="([^"]*)"')
+LINK = re.compile(r'<link\s+rel="stylesheet"\s+href="([^"]*)"\s*>')
+EXTERNAL = re.compile(r"""(?:src|href)\s*=\s*["']?\s*(?:https?:)?//|@import\s+url\(\s*["']?(?:https?:)?//|url\(\s*["']?\s*(?:https?:)?//""")
+BLOCK = re.compile(r'(:root|\[data-theme="([a-z0-9-]+)"\])\s*\{([^}]*)\}')
+DECLARATION = re.compile(r"(--[a-z0-9-]+)\s*:\s*([^;]+);")
+COMMENT = re.compile(r"/\*.*?\*/", re.S)
+VAR = re.compile(r"var\((--[a-z0-9-]+)\)")
+HEX = re.compile(r"#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})")
+RGB = re.compile(r"rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)\s*(?:[/,]\s*([0-9.]+%?))?\s*\)")
+OKLCH = re.compile(r"oklch\(\s*([0-9.]+%?)\s+([0-9.]+)\s+([0-9.]+)(?:deg)?\s*(?:/\s*([0-9.]+%?))?\s*\)")
 LITERAL = re.compile(r"mu_color\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)"
                      r"|vterm_color_rgb\(\s*&\w+\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)")
-DECLARATION = re.compile(r"--re-(color|metric|font-size|line-height)(?:-([a-z0-9-]+))?\s*:\s*([^;]+);")
-COLOR = re.compile(r"rgba?\(\s*(\d+)\s*[, ]\s*(\d+)\s*[, ]\s*(\d+)\s*(?:[,/]\s*([0-9.]+%?))?\s*\)")
 LAYOUT_ROW = re.compile(r"mu_layout_row\(\s*\w+\s*,\s*\d+\s*,\s*\(int\[\]\)\{([^}]*)\}\s*,\s*([^;]*?)\)\s*;")
-EXTERNAL = re.compile(r"""(?:src|href)\s*=\s*["']?\s*(?:https?:)?//|@import|url\(\s*["']?\s*(?:https?:)?//""")
 
 
 def is_int(value):
     return isinstance(value, int) and not isinstance(value, bool)
 
 
-def load_tokens():
-    tokens = json.loads(TOKENS.read_text(encoding="utf-8"))
+def rel(path):
+    return path.relative_to(ROOT).as_posix()
+
+
+# ---- interim native theme (theme.json v1) -> theme.h --------------------------------------------
+
+def load_native_theme():
+    tokens = json.loads(NATIVE_THEME.read_text(encoding="utf-8"))
     errors = []
     colors = tokens.get("colors", {})
     for name, color in colors.items():
@@ -70,40 +85,9 @@ def load_tokens():
     for key in ("size", "line-height"):
         if not is_int(typography.get(key)) or typography[key] <= 0:
             errors.append("typography.%s needs a positive integer" % key)
-    if not isinstance(typography.get("family"), list) or not typography["family"]:
-        errors.append("typography.family needs a non-empty list")
     if errors:
-        raise SystemExit("\n".join("ERROR: tokens.json: " + e for e in errors))
+        raise SystemExit("\n".join("ERROR: theme.json: " + e for e in errors))
     return tokens
-
-
-def dump_tokens(tokens):
-    text = json.dumps(tokens, indent=2, ensure_ascii=False)
-    scalar = r'(?:"[^"\n]*"|-?\d+)'
-    return re.sub(r"\[\s*(%s(?:,\s*%s)*)\s*\]" % (scalar, scalar),
-                  lambda m: "[" + re.sub(r",\s*", ", ", m.group(1)) + "]", text) + "\n"
-
-
-def css_color(rgba):
-    r, g, b, a = rgba
-    return "rgb(%d, %d, %d)" % (r, g, b) if a == 255 else "rgba(%d, %d, %d, %.3f)" % (r, g, b, a / 255)
-
-
-def css_metric(key, value):
-    if key.endswith("characters") or key.endswith("cells"):
-        return "%d" % value
-    return "%d%%" % value if key.endswith("percent") else "%dpx" % value
-
-
-def tokens_css(tokens):
-    typography = tokens["typography"]
-    family = ", ".join(f if re.fullmatch(r"[a-z-]+", f) else '"%s"' % f for f in typography["family"])
-    lines = [":root {", "  --re-font-family: %s;" % family, "  --re-font-size: %dpx;" % typography["size"],
-             "  --re-line-height: %dpx;" % typography["line-height"]]
-    lines += ["  --re-color-%s: %s;" % (name, css_color(color["rgba"])) for name, color in tokens["colors"].items()]
-    for group, values in tokens["metrics"].items():
-        lines += ["  --re-metric-%s-%s: %s;" % (group, key, css_metric(key, value)) for key, value in values.items()]
-    return "\n".join(lines + ["}"]) + "\n"
 
 
 def macro(*parts):
@@ -111,7 +95,7 @@ def macro(*parts):
 
 
 def theme_header(tokens):
-    out = ["/* Generated by `python3 tools/design.py generate` from design/tokens.json. Edit the tokens, not this file. */",
+    out = ["/* Generated by `python3 tools/design.py generate` from orchestrator/native/theme.json. Edit the tokens, not this file. */",
            "#ifndef RENGINE_THEME_H", "#define RENGINE_THEME_H", '#include "microui.h"',
            "#define RE_THEME_FONT_SIZE %d" % tokens["typography"]["size"],
            "#define RE_THEME_LINE_HEIGHT %d" % tokens["typography"]["line-height"]]
@@ -127,72 +111,132 @@ def theme_header(tokens):
     return "\n".join(out) + "\n"
 
 
-def escape(text):
-    return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+# ---- design tokens (tokens.css, three :root layers plus [data-theme] presets) --------------------
+
+def parse_tokens_css():
+    text = COMMENT.sub("", TOKENS_CSS.read_text(encoding="utf-8"))
+    layers, presets, roots = {}, {}, 0
+    for match in BLOCK.finditer(text):
+        selector, theme, body = match.groups()
+        declarations = {key: value.strip() for key, value in DECLARATION.findall(body)}
+        if selector == ":root":
+            if roots < len(LAYERS):
+                layers[LAYERS[roots]] = declarations
+            roots += 1
+        else:
+            presets[theme] = declarations
+    if roots != len(LAYERS):
+        raise SystemExit("ERROR: tokens.css must contain exactly three :root blocks (palette, semantic, views); found %d" % roots)
+    return layers, presets
 
 
-def palette_html(tokens):
-    rows = []
-    for name, color in tokens["colors"].items():
-        rows.append('<div class="re-swatch"><div class="chip" style="background: var(--re-color-%s)"></div>'
-                    '<div class="meta"><b>%s</b> <code>--re-color-%s</code> · %s<br><span class="re-note">%s%s</span></div></div>'
-                    % (name, name, name, css_color(color["rgba"]), escape(color.get("role", "")),
-                       " · native: " + escape(color["native"]) if color.get("native") else ""))
-    return '<div class="re-palette">\n' + "\n".join(rows) + "\n</div>\n"
+def mirror_tokens(layers, presets):
+    current = json.loads(TOKENS_JSON.read_text(encoding="utf-8")) if TOKENS_JSON.exists() else {}
+    mirrored = {"version": 2}
+    for key in ("name", "source"):
+        if key in current:
+            mirrored[key] = current[key]
+    layer_json = current.get("layers", {})
+    mirrored["layers"] = {name: {**{k: v for k, v in layer_json.get(name, {}).items() if k != "tokens"}, "tokens": layers[name]}
+                          for name in LAYERS}
+    mirrored["presets"] = {"default": {}, **presets}
+    for key, value in current.items():
+        if key not in mirrored:
+            mirrored[key] = value
+    return json.dumps(mirrored, indent=2, ensure_ascii=False) + "\n"
 
 
-def metrics_html(tokens):
-    notes = tokens.get("metric-notes", {})
-    rows = []
-    for group, values in tokens["metrics"].items():
-        cells = ", ".join("%s <b>%s</b>" % (key, css_metric(key, value)) for key, value in values.items())
-        rows.append("<tr><th>%s</th><td>%s<br><span class=\"re-note\">%s</span></td></tr>" % (group, cells, escape(notes.get(group, ""))))
-    return '<table class="re-metrics">\n' + "\n".join(rows) + "\n</table>\n"
+def oklch_to_rgb(lightness, chroma, hue):
+    a, b = chroma * math.cos(math.radians(hue)), chroma * math.sin(math.radians(hue))
+    l_ = (lightness + 0.3963377774 * a + 0.2158037573 * b) ** 3
+    m_ = (lightness - 0.1055613458 * a - 0.0638541728 * b) ** 3
+    s_ = (lightness - 0.0894841775 * a - 1.2914855480 * b) ** 3
+    linear = (4.0767416621 * l_ - 3.3077115913 * m_ + 0.2309699292 * s_,
+              -1.2684380046 * l_ + 2.6097574011 * m_ - 0.3413193965 * s_,
+              -0.0041960863 * l_ - 0.7034186147 * m_ + 1.7076147010 * s_)
+    def gamma(x):
+        x = min(1.0, max(0.0, x))
+        return 12.92 * x if x <= 0.0031308 else 1.055 * x ** (1 / 2.4) - 0.055
+    return [round(gamma(v) * 255) for v in linear]
 
 
-def blocks_for(tokens):
-    return {"tokens": "<style id=\"re-tokens\">\n%s</style>" % tokens_css(tokens),
-            "base": "<style id=\"re-base\">\n%s</style>" % BASE_CSS.read_text(encoding="utf-8"),
-            "palette": palette_html(tokens), "metrics": metrics_html(tokens)}
+def alpha_byte(text):
+    if text is None:
+        return 255
+    return round(float(text[:-1]) * 2.55) if text.endswith("%") else round(float(text) * 255)
 
 
-def render_preview(text, blocks):
-    for name in REQUIRED_BLOCKS + OPTIONAL_BLOCKS:
-        pattern = re.compile(r"<!-- re:%s -->.*?<!-- /re:%s -->" % (name, name), re.S)
-        count = len(pattern.findall(text))
-        if count > 1 or (count == 0 and name in REQUIRED_BLOCKS):
-            return None
-        text = pattern.sub(lambda _: "<!-- re:%s -->\n%s\n<!-- /re:%s -->" % (name, blocks[name].rstrip("\n"), name), text)
-    return text
+def parse_css_color(value):
+    value = value.strip()
+    if value == "transparent":
+        return [0, 0, 0, 0]
+    match = HEX.fullmatch(value)
+    if match:
+        digits = match.group(1)
+        if len(digits) <= 4:
+            digits = "".join(d * 2 for d in digits)
+        rgba = [int(digits[i:i + 2], 16) for i in range(0, len(digits), 2)]
+        return rgba if len(rgba) == 4 else rgba + [255]
+    match = RGB.fullmatch(value)
+    if match:
+        return [int(match.group(1)), int(match.group(2)), int(match.group(3)), alpha_byte(match.group(4))]
+    match = OKLCH.fullmatch(value)
+    if match:
+        lightness = float(match.group(1)[:-1]) / 100 if match.group(1).endswith("%") else float(match.group(1))
+        return oklch_to_rgb(lightness, float(match.group(2)), float(match.group(3))) + [alpha_byte(match.group(4))]
+    return None
 
 
-def collect_cards(blocks, write):
+def resolve_preset(layers, presets, name):
+    values = {}
+    for layer in LAYERS:
+        values.update(layers[layer])
+    if name != "default":
+        if name not in presets:
+            raise SystemExit("ERROR: unknown preset %r; presets: default, %s" % (name, ", ".join(presets)))
+        values.update(presets[name])
+
+    def expand(token, stack):
+        if token not in values:
+            raise SystemExit("ERROR: %s references undefined %s" % (stack[-1] if stack else "preset", token))
+        if token in stack:
+            raise SystemExit("ERROR: token cycle through %s" % token)
+        return VAR.sub(lambda m: expand(m.group(1), stack + (token,)), values[token])
+
+    resolved = {}
+    for token in values:
+        text = expand(token, ())
+        color = parse_css_color(text)
+        resolved[token] = {"value": text, "rgba": color} if color else {"value": text}
+    return resolved
+
+
+# ---- cards ------------------------------------------------------------------------------------
+
+def collect_cards():
     cards, problems = [], []
     for path in sorted(PREVIEWS.rglob("*.html")):
-        rel = path.relative_to(DESIGN).as_posix()
+        relative = path.relative_to(DESIGN).as_posix()
         text = path.read_text(encoding="utf-8")
         match = CARD.match(text.split("\n", 1)[0])
         attrs = dict(ATTR.findall(match.group(1))) if match else {}
         if "group" not in attrs or "name" not in attrs:
-            problems.append('%s: first line must be <!-- @dsCard group="…" name="…" … -->' % rel)
+            problems.append('%s: first line must be <!-- @dsCard group="…" name="…" … -->' % relative)
             continue
-        rendered = render_preview(text, blocks)
-        if rendered is None:
-            problems.append("%s: needs exactly one re:tokens and one re:base block and at most one of each optional block" % rel)
-            continue
-        if EXTERNAL.search(rendered):
-            problems.append("%s: previews must be self-contained; remove external URLs" % rel)
-        if len(rendered.encode("utf-8")) > 256 * 1024:
-            problems.append("%s: exceeds the 256 KiB sync limit" % rel)
-        if rendered != text:
-            if write:
-                path.write_text(rendered, encoding="utf-8")
-            else:
-                problems.append("%s: managed blocks are stale (run generate)" % rel)
-        card = {"path": rel, "name": attrs["name"], "group": attrs["group"]}
+        expected = "../" * (len(path.relative_to(DESIGN).parts) - 1) + "styles.css"
+        links = LINK.findall(text)
+        if links != [expected]:
+            problems.append("%s: needs exactly one stylesheet link to %s (found %s)" % (relative, expected, links or "none"))
+        if EXTERNAL.search(text):
+            problems.append("%s: previews must be self-contained; remove external URLs" % relative)
+        if len(text.encode("utf-8")) > 256 * 1024:
+            problems.append("%s: exceeds the 256 KiB sync limit" % relative)
+        card = {"path": relative, "name": attrs["name"], "group": attrs["group"]}
         if attrs.get("subtitle"):
             card["subtitle"] = attrs["subtitle"]
-        viewport = {key: int(attrs[key]) for key in ("width", "height") if attrs.get(key, "").isdigit()}
+        size = re.fullmatch(r"(\d+)x(\d+)", attrs.get("viewport", ""))
+        viewport = {"width": int(size.group(1)), "height": int(size.group(2))} if size else \
+            {key: int(attrs[key]) for key in ("width", "height") if attrs.get(key, "").isdigit()}
         if viewport:
             card["viewport"] = viewport
         cards.append(card)
@@ -203,6 +247,19 @@ def manifest_text(cards):
     return json.dumps({"version": 1, "cards": cards}, indent=2, ensure_ascii=False) + "\n"
 
 
+def stylesheet_problems():
+    problems = []
+    text = STYLES_CSS.read_text(encoding="utf-8") if STYLES_CSS.exists() else ""
+    for name in ("tokens.css", "base.css"):
+        if '@import url("%s");' % name not in text:
+            problems.append("design/styles.css must import %s" % name)
+        if not (DESIGN / name).exists():
+            problems.append("design/%s is missing" % name)
+    return problems
+
+
+# ---- native guards ------------------------------------------------------------------------------
+
 def native_literals(tokens):
     problems = []
     for path in sorted(NATIVE.glob("*.c")):
@@ -211,8 +268,8 @@ def native_literals(tokens):
                 groups = match.groups()
                 rgba = [int(v) for v in groups[:4]] if groups[0] is not None else [int(v) for v in groups[4:]] + [255]
                 names = [name for name, color in tokens["colors"].items() if color["rgba"] == rgba]
-                hint = "use RE_COLOR_%s" % macro(names[0]) if names else "add a token to design/tokens.json and use its RE_COLOR_* constant"
-                problems.append("%s:%d: hard-coded colour %s; %s" % (path.relative_to(ROOT).as_posix(), number, rgba, hint))
+                hint = "use RE_COLOR_%s" % macro(names[0]) if names else "add a token to theme.json and use its RE_COLOR_* constant"
+                problems.append("%s:%d: hard-coded colour %s; %s" % (rel(path), number, rgba, hint))
     return problems
 
 
@@ -225,111 +282,57 @@ def native_layout_rows():
             literal = [v for v in values if re.fullmatch(r"-?\d+", v) and v != "-1"]
             if literal:
                 line = text.count("\n", 0, match.start()) + 1
-                problems.append("%s:%d: layout row uses literal %s; use RE_METRIC_* from theme.h"
-                                % (path.relative_to(ROOT).as_posix(), line, ", ".join(literal)))
+                problems.append("%s:%d: layout row uses literal %s; use RE_METRIC_* from theme.h" % (rel(path), line, ", ".join(literal)))
     return problems
 
 
+# ---- commands -----------------------------------------------------------------------------------
+
 def generate():
-    tokens = load_tokens()
-    blocks = blocks_for(tokens)
+    tokens = load_native_theme()
+    layers, presets = parse_tokens_css()
     THEME_H.write_text(theme_header(tokens), encoding="utf-8")
-    TOKENS_CSS.write_text(tokens_css(tokens), encoding="utf-8")
-    cards, problems = collect_cards(blocks, write=True)
+    TOKENS_JSON.write_text(mirror_tokens(layers, presets), encoding="utf-8")
+    cards, problems = collect_cards()
     MANIFEST.write_text(manifest_text(cards), encoding="utf-8")
+    problems += stylesheet_problems()
     for problem in problems:
         print("ERROR: " + problem)
-    print("Generated theme.h, tokens.css, manifest.json and %d preview cards." % len(cards))
+    print("Generated theme.h, the tokens.json mirror and manifest.json for %d cards (%d presets: default, %s)."
+          % (len(cards), len(presets) + 1, ", ".join(presets)))
     return 1 if problems else 0
 
 
 def check():
-    tokens = load_tokens()
-    blocks = blocks_for(tokens)
+    tokens = load_native_theme()
+    layers, presets = parse_tokens_css()
     problems = []
 
     def compare(path, expected):
         if not path.exists() or path.read_text(encoding="utf-8") != expected:
-            problems.append("%s is stale or missing (run generate)" % path.relative_to(ROOT).as_posix())
+            problems.append("%s is stale or missing (run generate)" % rel(path))
 
     compare(THEME_H, theme_header(tokens))
-    compare(TOKENS_CSS, tokens_css(tokens))
-    cards, card_problems = collect_cards(blocks, write=False)
-    problems += card_problems
+    compare(TOKENS_JSON, mirror_tokens(layers, presets))
+    cards, card_problems = collect_cards()
+    problems += card_problems + stylesheet_problems()
     compare(MANIFEST, manifest_text(cards))
+    for name in ["default"] + list(presets):
+        resolve_preset(layers, presets, name)
     problems += native_literals(tokens) + native_layout_rows()
     for problem in problems:
         print("ERROR: " + problem)
     if problems:
         return 1
-    print("Design tokens, native theme and %d preview cards are consistent; native sources use theme constants only." % len(cards))
+    print("Native theme, %d design cards, the token mirror and %d presets are consistent; native sources use theme constants only."
+          % (len(cards), len(presets) + 1))
     return 0
 
 
-def parse_color(value):
-    match = COLOR.fullmatch(value.strip())
-    if not match:
-        return None
-    r, g, b, alpha = match.groups()
-    if alpha is None:
-        a = 255
-    elif alpha.endswith("%"):
-        a = round(float(alpha[:-1]) * 2.55)
-    else:
-        a = round(float(alpha) * 255) if float(alpha) <= 1 else None
-    rgba = [int(r), int(g), int(b), a]
-    return rgba if a is not None and all(0 <= v <= 255 for v in rgba) else None
-
-
-def split_metric(tokens, name):
-    for group, values in tokens["metrics"].items():
-        if name.startswith(group + "-") and name[len(group) + 1:] in values:
-            return group, name[len(group) + 1:]
-    return None
-
-
-def import_previews(paths):
-    tokens = load_tokens()
-    changes, warnings = [], []
-    for file in paths:
-        text = Path(file).read_text(encoding="utf-8")
-        root = re.search(r":root\s*\{(.*?)\}", text, re.S)
-        if not root:
-            warnings.append("%s: no :root block found" % file)
-            continue
-        for kind, name, raw in DECLARATION.findall(root.group(1)):
-            value = raw.strip()
-            number = re.fullmatch(r"(\d+)(?:px|%)?", value)
-            if kind == "color":
-                rgba = parse_color(value)
-                if name not in tokens["colors"] or rgba is None:
-                    warnings.append("%s: ignored --re-color-%s: %s" % (file, name, value))
-                elif tokens["colors"][name]["rgba"] != rgba:
-                    changes.append("colour %s: %s -> %s" % (name, tokens["colors"][name]["rgba"], rgba))
-                    tokens["colors"][name]["rgba"] = rgba
-            elif kind == "metric":
-                target = split_metric(tokens, name)
-                if not target or not number:
-                    warnings.append("%s: ignored --re-metric-%s: %s" % (file, name, value))
-                elif tokens["metrics"][target[0]][target[1]] != int(number.group(1)):
-                    changes.append("metric %s.%s: %d -> %s" % (target[0], target[1], tokens["metrics"][target[0]][target[1]], number.group(1)))
-                    tokens["metrics"][target[0]][target[1]] = int(number.group(1))
-            else:
-                key = "size" if kind == "font-size" else "line-height"
-                if not number or int(number.group(1)) <= 0:
-                    warnings.append("%s: ignored --re-%s: %s" % (file, kind, value))
-                elif tokens["typography"][key] != int(number.group(1)):
-                    changes.append("typography %s: %d -> %s" % (key, tokens["typography"][key], number.group(1)))
-                    tokens["typography"][key] = int(number.group(1))
-    for warning in warnings:
-        print("WARNING: " + warning)
-    for change in changes:
-        print("Changed " + change)
-    if changes:
-        TOKENS.write_text(dump_tokens(tokens), encoding="utf-8")
-    else:
-        print("No token changes found.")
-    return generate()
+def resolve(name):
+    layers, presets = parse_tokens_css()
+    print(json.dumps({"preset": name, "tokens": resolve_preset(layers, presets, name)}, indent=2, ensure_ascii=False))
+    return 0
 
 
 def main(argv):
@@ -338,8 +341,8 @@ def main(argv):
         return generate()
     if command == "check" and len(argv) == 2:
         return check()
-    if command == "import" and len(argv) > 2:
-        return import_previews(argv[2:])
+    if command == "resolve" and len(argv) in (2, 3):
+        return resolve(argv[2] if len(argv) == 3 else "default")
     print(__doc__.strip())
     return 2
 

@@ -104,6 +104,20 @@ workspace/app/terminal entries were rebuilt from that HEAD plus the substitution
 to contain none of its hunks. Commit:
 `refactor(native): take layout metrics from the generated theme header`.
 
+**Follow-up 3 (same session)**: The owner reported Claude Design updates that need rendering work
+and set the direction: full GPU rendering behind graphics-API adapters, OpenGL first, then Metal and
+Vulkan, with the renderer as a future approved-library candidate. Recorded as charter D29–D30, an
+AGENTS boundary, architecture constraint 15, roadmap milestones R0–R3, features F56–F61 (blocked
+behind existing desktop features) and spec 065. Pulled the theming update verbatim: three-layer
+`tokens.css` with default/teal/light presets, rewritten `base.css`, `styles.css`, six new cards and
+thirteen rewritten cards. `tools/design.py` now parses the layered CSS, mirrors it into
+`tokens.json`, resolves presets to sRGB with oklch conversion and validates cards that link
+`styles.css`; the interim native source moved to `orchestrator/native/theme.json` and `theme.h` is
+unchanged. `check` found `--terminal-cursor` referencing an undefined `--ui-accent-dim`; fixed
+locally to `--re-accent-dim` (push pending), and the mirror now follows the CSS font stacks. Harness
+gate, graph regeneration and design check pass. Commit:
+`feat(design): record the GPU rendering decision and pull the theming update`.
+
 ---
 ## Session 18 (macos) — 2026-09-06 — System scrolling, visible bars and agent reload
 

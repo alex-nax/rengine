@@ -3,7 +3,7 @@
   "project": "rengine",
   "created": "2026-09-05",
   "review_status": "approved",
-  "review_record": "docs/specs/055-nolf-workspace-goal.md \u2014 owner active implementation goal, 2026-09-05",
+  "review_record": "docs/specs/055-nolf-workspace-goal.md — owner active implementation goal, 2026-09-05",
   "features": [
     {
       "id": 32,
@@ -314,6 +314,129 @@
       ],
       "owner_workspace": "rengine",
       "deliverable": "launchable workspace and docs/evidence/nolf-workspace.md",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 56,
+      "milestone": "R0",
+      "category": "surfaces",
+      "priority": "high",
+      "description": "Define the backend-neutral draw list and the SDL_Renderer reference adapter for the desktop.",
+      "acceptance_criteria": [
+        "A versioned draw-list contract covers clip, rounded alpha rectangles, frames with inner highlight, shadows, text runs in two faces, tinted icons, focus rings and game textures in logical pixels with a density factor; nothing above it includes a graphics-API header.",
+        "microui commands and the owned control layer emit only draw-list commands; pinned upstream microui stays unmodified.",
+        "The SDL_Renderer adapter consumes the list; native smoke snapshots stay byte-identical to the pre-change baseline while CTest and the native desktop suite pass."
+      ],
+      "passes": false,
+      "dependencies": [
+        34,
+        42
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "orchestrator/native/render/ contract and reference adapter with evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 57,
+      "milestone": "R0",
+      "category": "surfaces",
+      "priority": "high",
+      "description": "Implement the OpenGL adapter on macOS and Windows behind the draw list.",
+      "acceptance_criteria": [
+        "An OpenGL core-profile adapter renders every draw-list primitive through owned, versioned shaders with glyph and icon atlases; backend selection is explicit with SDL_Renderer fallback and is recorded in run evidence.",
+        "Per-primitive and whole-screen snapshot comparisons against the reference adapter pass within a tolerance recorded before the run on both desktops.",
+        "Frame time and memory are measured against budgets set beforehand, and the native desktop suite passes on the OpenGL backend."
+      ],
+      "passes": false,
+      "dependencies": [
+        56
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "OpenGL adapter and docs/evidence per desktop",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 58,
+      "milestone": "R1",
+      "category": "surfaces",
+      "priority": "medium",
+      "description": "Implement the Metal adapter on macOS behind the draw list.",
+      "acceptance_criteria": [
+        "The Metal adapter renders every draw-list primitive with the same snapshot comparisons and measurements as the OpenGL adapter on macOS.",
+        "Backend selection, fallback and evidence recording match the OpenGL adapter."
+      ],
+      "passes": false,
+      "dependencies": [
+        57
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "Metal adapter and docs/evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 59,
+      "milestone": "R1",
+      "category": "surfaces",
+      "priority": "medium",
+      "description": "Implement the Vulkan adapter on Windows, extending to other platforms when they are targeted.",
+      "acceptance_criteria": [
+        "The Vulkan adapter renders every draw-list primitive with the same snapshot comparisons and measurements as the OpenGL adapter on Windows.",
+        "Backend selection, fallback and evidence recording match the OpenGL adapter; additional platforms record their own evidence."
+      ],
+      "passes": false,
+      "dependencies": [
+        57
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "Vulkan adapter and docs/evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 60,
+      "milestone": "R2",
+      "category": "design",
+      "priority": "high",
+      "description": "Implement the Claude Design theming update on the GPU renderer.",
+      "acceptance_criteria": [
+        "design/tokens.css layers and presets generate the runtime theme; default, teal and light switch live, and theme files import and export.",
+        "Toolbar, tab strips, tree, editor, terminal, status bar, session browser, menus and theme panel match their Claude Design cards in native snapshot comparisons on macOS and Windows.",
+        "Every existing desktop behaviour gate still passes on the GPU backend."
+      ],
+      "passes": false,
+      "dependencies": [
+        57,
+        37,
+        54
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "themed native desktop and docs/evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 61,
+      "milestone": "R3",
+      "category": "host-adoption",
+      "priority": "medium",
+      "description": "Make the renderer a curated capability with one game adopting it through an adapter.",
+      "acceptance_criteria": [
+        "A catalog entry carries the library-quality record: contract, pinned dependencies, measured resource behaviour and conformance checks.",
+        "One game adopts the renderer through its own adapter with passing integration checks and can revert without workspace changes.",
+        "The renderer stays optional for games and curated libraries; no umbrella runtime is required."
+      ],
+      "passes": false,
+      "dependencies": [
+        57,
+        58,
+        59
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "catalog entry, conformance checks and adoption evidence",
       "external_references": [],
       "evidence": []
     }

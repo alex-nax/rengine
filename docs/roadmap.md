@@ -80,6 +80,10 @@ shell or terminal-only app does not complete it. F43 is a real host-owned game i
 | O4 — optional native XR control | F46–F47 | Native runtime compatibility and real session-specific Operator proof; no assumed Unity scene support. |
 | Q0–Q2 — Quest 2D client | F49–F52 | Delivery decision, paired desktop link, real editor/terminal access and live game stream on a headset with each desktop sidecar. |
 | A0 — external-app feasibility | F53 | Finite Mac/Windows app matrix for capture/control and optional Windows reparenting, with honest view-only/interactive limitations. |
+| R0 — GPU renderer core and OpenGL | F56–F57 | Backend-neutral draw list with the SDL_Renderer reference adapter, then an OpenGL adapter matching it on both desktops within recorded tolerance and measured budgets. |
+| R1 — Metal and Vulkan adapters | F58–F59 | Each adapter matches the reference on its platform with the same comparisons and measurements. |
+| R2 — theming update on the GPU renderer | F60 | The Claude Design cards are matched natively with presets, theme files and live reload; existing gates stay green. |
+| R3 — rendering library candidacy | F61 | Library-quality record, conformance checks and one game adoption through an adapter. |
 
 The O/Q/A names identify independent branches; their numbers do not override dependency order.
 F32 is independently selectable ahead of the broader library-charter feature F1. The owner
@@ -131,11 +135,15 @@ bounded follow-ups. Calendar dates and effort estimates await the selected proof
 - Adoption-record format for the confirmed pinned-capability minimum and independent upgrades.
 - infra-vr's product relationship and the meaning of the two streams.
 - In-game inference scope, training data boundaries and automation authority.
+- Renderer details (spec 065): icon set and license, UI font policy, owned control layer versus a
+  microui fork, OpenGL floor, first Vulkan platform, and whether R0 starts before F48.
 
 ## Expansion requires a consumer need
 
-A new renderer, common ECS, universal game object model, package-hosting service, general
-distributed scheduler, custom model runtime or training cluster has no approved deliverable here.
+A common ECS, universal game object model, package-hosting service, general distributed
+scheduler, custom model runtime or training cluster has no approved deliverable here. The workspace
+renderer is the exception since D29 (spec 065): a workspace deliverable and library candidate, never
+a renderer imposed on games.
 The workspace/basic editor is now explicitly requested; its earlier blanket deferral is superseded.
 Curating implementation for a specific rendering or ECS need remains possible without selecting
 it for every project.

@@ -1,225 +1,51 @@
-<!-- @dsCard group="Foundations" name="Colours" subtitle="Every native colour token with its role and microui slot" width="960" height="720" -->
+<!-- @dsCard group="Foundations" viewport="960x720" name="Colours" subtitle="Palette, semantic roles and the same roles under the teal and light presets" -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <title>rEngine · Colours</title>
-<!-- re:tokens -->
-<style id="re-tokens">
-:root {
-  --re-font-family: "Menlo", "SF Mono", "Consolas", "Courier New", "DejaVu Sans Mono", monospace;
-  --re-font-size: 16px;
-  --re-line-height: 20px;
-  --re-color-canvas: rgb(14, 18, 23);
-  --re-color-surface: rgb(20, 24, 30);
-  --re-color-control: rgb(38, 46, 56);
-  --re-color-control-hover: rgb(52, 68, 78);
-  --re-color-control-active: rgb(59, 86, 86);
-  --re-color-field: rgb(30, 30, 30);
-  --re-color-field-hover: rgb(35, 35, 35);
-  --re-color-field-active: rgb(40, 40, 40);
-  --re-color-border: rgb(25, 25, 25);
-  --re-color-text: rgb(220, 228, 234);
-  --re-color-text-muted: rgb(146, 167, 178);
-  --re-color-text-indicator: rgb(210, 224, 233);
-  --re-color-title-bg: rgb(25, 25, 25);
-  --re-color-title-text: rgb(240, 240, 240);
-  --re-color-panel-bg: rgba(0, 0, 0, 0.000);
-  --re-color-divider: rgb(54, 67, 76);
-  --re-color-selection: rgb(55, 77, 89);
-  --re-color-caret: rgba(150, 210, 185, 0.745);
-  --re-color-terminal-cursor: rgba(145, 205, 181, 0.392);
-  --re-color-indicator: rgb(40, 53, 62);
-  --re-color-scroll-track: rgb(30, 37, 44);
-  --re-color-scroll-thumb: rgb(99, 119, 131);
-  --re-color-scroll-thumb-active: rgb(145, 180, 190);
-  --re-color-list-scroll-track: rgb(43, 43, 43);
-  --re-color-list-scroll-thumb: rgb(30, 30, 30);
-  --re-color-game-backdrop: rgb(0, 0, 0);
-  --re-metric-microui-padding: 5px;
-  --re-metric-microui-spacing: 4px;
-  --re-metric-microui-indent: 24px;
-  --re-metric-microui-title-height: 24px;
-  --re-metric-microui-scrollbar-size: 12px;
-  --re-metric-microui-thumb-size: 8px;
-  --re-metric-microui-control-width: 68px;
-  --re-metric-window-width: 1280px;
-  --re-metric-window-height: 800px;
-  --re-metric-window-min-width: 1050px;
-  --re-metric-window-min-height: 480px;
-  --re-metric-toolbar-height: 78px;
-  --re-metric-toolbar-row-height: 26px;
-  --re-metric-toolbar-brand-width: 78px;
-  --re-metric-toolbar-view-width: 75px;
-  --re-metric-toolbar-manage-width: 80px;
-  --re-metric-toolbar-sessions-width: 95px;
-  --re-metric-toolbar-split-vertical-width: 120px;
-  --re-metric-toolbar-split-horizontal-width: 125px;
-  --re-metric-toolbar-merge-width: 95px;
-  --re-metric-toolbar-game-width: 85px;
-  --re-metric-toolbar-root-width: 170px;
-  --re-metric-toolbar-path-right: 475px;
-  --re-metric-toolbar-add-width: 95px;
-  --re-metric-toolbar-agent-label-width: 70px;
-  --re-metric-workspace-top: 80px;
-  --re-metric-workspace-status-height: 26px;
-  --re-metric-workspace-status-inset: 8px;
-  --re-metric-workspace-status-text-top: 2px;
-  --re-metric-workspace-divider: 6px;
-  --re-metric-workspace-pane-minimum: 80px;
-  --re-metric-workspace-tree-percent: 23%;
-  --re-metric-pane-header-height: 34px;
-  --re-metric-pane-content-top: 35px;
-  --re-metric-pane-root-row-height: 22px;
-  --re-metric-pane-empty-row-height: 24px;
-  --re-metric-tab-width: 158px;
-  --re-metric-tab-height: 26px;
-  --re-metric-tab-top: 4px;
-  --re-metric-tab-inset: 5px;
-  --re-metric-tab-gap: 2px;
-  --re-metric-tab-close-width: 22px;
-  --re-metric-tab-nav-width: 24px;
-  --re-metric-tab-title-characters: 11;
-  --re-metric-tree-row-height: 24px;
-  --re-metric-tree-up-width: 55px;
-  --re-metric-sessions-row-height: 26px;
-  --re-metric-sessions-actions-width: 155px;
-  --re-metric-sessions-attach-width: 80px;
-  --re-metric-sessions-heading-height: 24px;
-  --re-metric-editor-toolbar-height: 26px;
-  --re-metric-editor-save-width: 65px;
-  --re-metric-editor-discard-width: 80px;
-  --re-metric-editor-mode-width: 130px;
-  --re-metric-editor-inset: 6px;
-  --re-metric-editor-top: 59px;
-  --re-metric-editor-bottom: 85px;
-  --re-metric-editor-caret-width: 2px;
-  --re-metric-editor-error-height: 23px;
-  --re-metric-editor-error-inset: 2px;
-  --re-metric-editor-tab-cells: 4;
-  --re-metric-terminal-inset: 6px;
-  --re-metric-terminal-top: 28px;
-  --re-metric-terminal-bottom: 34px;
-  --re-metric-game-row-height: 26px;
-  --re-metric-game-capture-width: 210px;
-  --re-metric-game-inset: 6px;
-  --re-metric-game-top: 59px;
-  --re-metric-game-bottom: 65px;
-  --re-metric-scrollbar-size: 14px;
-  --re-metric-scrollbar-thumb-min: 20px;
-  --re-metric-scrollbar-thumb-inset: 2px;
-}
+<link rel="stylesheet" href="../../styles.css">
+<style>
+.ramp{display:grid;grid-template-columns:repeat(11,1fr);gap:4px;margin-top:8px}
+.ramp div{height:36px;border-radius:var(--ui-radius);box-shadow:inset 0 0 0 1px rgb(255 255 255 / .06);position:relative}
+.ramp div span{position:absolute;left:0;right:0;bottom:-16px;text-align:center;font-size:10px;color:var(--ui-fg-faint);font-family:var(--ui-mono)}
+.themes{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.theme{padding:12px;border-radius:var(--ui-radius-lg);background:var(--ui-canvas);border:1px solid var(--ui-border);color:var(--ui-fg);font-family:var(--ui-font)}
+.theme .bar{display:flex;gap:4px;margin:8px 0}.theme .bar div{flex:1;height:22px;border-radius:var(--ui-radius);box-shadow:0 0 0 1px var(--ui-border)}
+.theme .re-row{padding:0;gap:6px}
 </style>
-<!-- /re:tokens -->
-<!-- re:base -->
-<style id="re-base">
-/* Shared preview styling. It mirrors what the native microui renderer can draw: filled rectangles,
-   1px borders, clipped monospace text at one size, and glyph icons. Keep additions drawable in C. */
-*, *::before, *::after { box-sizing: border-box; }
-html, body { margin: 0; }
-body {
-  background: var(--re-color-canvas); color: var(--re-color-text);
-  font-family: var(--re-font-family); font-size: var(--re-font-size); line-height: var(--re-line-height);
-  -webkit-font-smoothing: antialiased;
-}
-code, pre { font: inherit; }
-.re-window { background: var(--re-color-surface); box-shadow: 0 0 0 1px var(--re-color-border); }
-.re-row {
-  display: flex; align-items: stretch; gap: var(--re-metric-microui-spacing);
-  height: 26px; padding: 0 var(--re-metric-microui-padding);
-}
-.re-row.tall { height: 24px; }
-.re-row.short { height: 22px; }
-.re-row + .re-row { margin-top: var(--re-metric-microui-spacing); }
-.re-row > .fill { flex: 1 1 auto; min-width: 0; }
-.re-window > .re-row:first-child { margin-top: var(--re-metric-microui-padding); }
-.re-button, .re-label, .re-textbox, .re-checkbox {
-  display: inline-flex; align-items: center; height: 100%;
-  padding: 0 var(--re-metric-microui-padding); white-space: nowrap; overflow: hidden;
-}
-.re-button { justify-content: center; background: var(--re-color-control); box-shadow: 0 0 0 1px var(--re-color-border); cursor: default; }
-.re-button.is-hover, .re-button:hover { background: var(--re-color-control-hover); }
-.re-button.is-active, .re-button:active { background: var(--re-color-control-active); }
-.re-button.left { justify-content: flex-start; }
-.re-textbox { background: var(--re-color-field); box-shadow: 0 0 0 1px var(--re-color-border); }
-.re-textbox.is-focus { background: var(--re-color-field-active); }
-.re-textbox.is-focus::after { content: ""; width: 1px; height: var(--re-line-height); background: var(--re-color-text); margin-left: 1px; }
-.re-textbox .placeholder { color: var(--re-color-text-muted); }
-.re-checkbox { padding-left: 0; gap: var(--re-metric-microui-spacing); }
-.re-checkbox .box {
-  width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
-  background: var(--re-color-field); box-shadow: 0 0 0 1px var(--re-color-border);
-}
-.re-scrollbar { position: relative; background: var(--re-color-scroll-track); }
-.re-scrollbar.vertical { width: var(--re-metric-scrollbar-size); }
-.re-scrollbar.horizontal { height: var(--re-metric-scrollbar-size); }
-.re-scrollbar .thumb { position: absolute; background: var(--re-color-scroll-thumb); }
-.re-scrollbar.vertical .thumb { left: var(--re-metric-scrollbar-thumb-inset); right: var(--re-metric-scrollbar-thumb-inset); }
-.re-scrollbar.horizontal .thumb { top: var(--re-metric-scrollbar-thumb-inset); bottom: var(--re-metric-scrollbar-thumb-inset); }
-.re-scrollbar.is-dragging .thumb { background: var(--re-color-scroll-thumb-active); }
-.re-list-scrollbar { position: relative; width: var(--re-metric-microui-scrollbar-size); background: var(--re-color-list-scroll-track); }
-.re-list-scrollbar .thumb { position: absolute; left: 0; right: 0; background: var(--re-color-list-scroll-thumb); }
-.re-divider { background: var(--re-color-divider); }
-.re-status { color: var(--re-color-text-muted); white-space: nowrap; overflow: hidden; }
-.re-cells { margin: 0; white-space: pre; background: var(--re-color-surface); overflow: hidden; }
-.re-cells .sel { background: var(--re-color-selection); }
-.re-cells .caret { position: relative; }
-.re-cells .caret::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--re-metric-editor-caret-width); background: var(--re-color-caret); }
-.re-cells .block { background: var(--re-color-caret); }
-.re-cells .term-cursor { background: var(--re-color-terminal-cursor); }
-.re-cells .bold { font-weight: bold; }
-.re-cells .underline { text-decoration: underline; }
-.re-indicator { background: var(--re-color-indicator); color: var(--re-color-text-indicator); white-space: pre; }
-.re-note { color: var(--re-color-text-muted); font-size: 12px; line-height: 16px; }
-.re-card { padding: 16px; }
-.re-card h1 { font-size: var(--re-font-size); line-height: var(--re-line-height); margin: 0 0 4px; font-weight: normal; }
-.re-card h1 + .re-note { margin-bottom: 12px; }
-.re-sample { margin: 12px 0; }
-.re-palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 10px 20px; }
-.re-swatch { display: flex; gap: 10px; align-items: flex-start; }
-.re-swatch .chip { flex: 0 0 44px; height: 44px; box-shadow: 0 0 0 1px var(--re-color-divider); }
-.re-swatch .meta { min-width: 0; font-size: 13px; line-height: 18px; }
-.re-swatch code { font-size: 12px; color: var(--re-color-text-muted); }
-.re-metrics { border-collapse: collapse; font-size: 13px; line-height: 18px; }
-.re-metrics th, .re-metrics td { text-align: left; vertical-align: top; padding: 4px 12px 4px 0; border-bottom: 1px solid var(--re-color-divider); }
-.re-metrics th { color: var(--re-color-text-muted); font-weight: normal; white-space: nowrap; }
-</style>
-<!-- /re:base -->
 </head>
 <body>
 <div class="re-card">
   <h1>Colours</h1>
-  <p class="re-note">Solid RGB with alpha only on the two cursors. The palette below is generated from design/tokens.json; edit a value in the :root block of this card and run <code>python3 tools/design.py import</code> to move it into the tokens and the native theme header.</p>
-<!-- re:palette -->
-<div class="re-palette">
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-canvas)"></div><div class="meta"><b>canvas</b> <code>--re-color-canvas</code> · rgb(14, 18, 23)<br><span class="re-note">Window clear colour behind and between panes · native: re_draw_begin clear</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-surface)"></div><div class="meta"><b>surface</b> <code>--re-color-surface</code> · rgb(20, 24, 30)<br><span class="re-note">Pane, toolbar, editor and terminal background · native: MU_COLOR_WINDOWBG, editor buffer, terminal default background</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-control)"></div><div class="meta"><b>control</b> <code>--re-color-control</code> · rgb(38, 46, 56)<br><span class="re-note">Button and tab resting fill · native: MU_COLOR_BUTTON</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-control-hover)"></div><div class="meta"><b>control-hover</b> <code>--re-color-control-hover</code> · rgb(52, 68, 78)<br><span class="re-note">Button and tab under the pointer · native: MU_COLOR_BUTTONHOVER</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-control-active)"></div><div class="meta"><b>control-active</b> <code>--re-color-control-active</code> · rgb(59, 86, 86)<br><span class="re-note">Button and tab while pressed · native: MU_COLOR_BUTTONFOCUS</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-field)"></div><div class="meta"><b>field</b> <code>--re-color-field</code> · rgb(30, 30, 30)<br><span class="re-note">Textbox and checkbox fill · native: MU_COLOR_BASE (upstream default)</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-field-hover)"></div><div class="meta"><b>field-hover</b> <code>--re-color-field-hover</code> · rgb(35, 35, 35)<br><span class="re-note">Textbox and checkbox under the pointer · native: MU_COLOR_BASEHOVER (upstream default)</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-field-active)"></div><div class="meta"><b>field-active</b> <code>--re-color-field-active</code> · rgb(40, 40, 40)<br><span class="re-note">Focused textbox or checkbox · native: MU_COLOR_BASEFOCUS (upstream default)</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-border)"></div><div class="meta"><b>border</b> <code>--re-color-border</code> · rgb(25, 25, 25)<br><span class="re-note">1px frame around buttons, fields and pane windows · native: MU_COLOR_BORDER (upstream default)</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-text)"></div><div class="meta"><b>text</b> <code>--re-color-text</code> · rgb(220, 228, 234)<br><span class="re-note">Primary text, editor text, terminal default foreground · native: MU_COLOR_TEXT, editor text, terminal default foreground</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-text-muted)"></div><div class="meta"><b>text-muted</b> <code>--re-color-text-muted</code> · rgb(146, 167, 178)<br><span class="re-note">Status bar and secondary annotations · native: status line in main.c</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-text-indicator)"></div><div class="meta"><b>text-indicator</b> <code>--re-color-text-indicator</code> · rgb(210, 224, 233)<br><span class="re-note">Text on the terminal history indicator · native: terminal scroll indicator</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-title-bg)"></div><div class="meta"><b>title-bg</b> <code>--re-color-title-bg</code> · rgb(25, 25, 25)<br><span class="re-note">Reserved: microui title bars are disabled in every window · native: MU_COLOR_TITLEBG (upstream default, unused)</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-title-text)"></div><div class="meta"><b>title-text</b> <code>--re-color-title-text</code> · rgb(240, 240, 240)<br><span class="re-note">Reserved: microui title text · native: MU_COLOR_TITLETEXT (upstream default, unused)</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-panel-bg)"></div><div class="meta"><b>panel-bg</b> <code>--re-color-panel-bg</code> · rgba(0, 0, 0, 0.000)<br><span class="re-note">Transparent microui panel background · native: MU_COLOR_PANELBG (upstream default)</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-divider)"></div><div class="meta"><b>divider</b> <code>--re-color-divider</code> · rgb(54, 67, 76)<br><span class="re-note">Draggable 6px split divider between panes · native: workspace split divider</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-selection)"></div><div class="meta"><b>selection</b> <code>--re-color-selection</code> · rgb(55, 77, 89)<br><span class="re-note">Editor selection cells · native: editor selection</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-caret)"></div><div class="meta"><b>caret</b> <code>--re-color-caret</code> · rgba(150, 210, 185, 0.745)<br><span class="re-note">Editor caret: 2px bar, or a full cell in Vim NORMAL · native: editor cursor</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-terminal-cursor)"></div><div class="meta"><b>terminal-cursor</b> <code>--re-color-terminal-cursor</code> · rgba(145, 205, 181, 0.392)<br><span class="re-note">Terminal cursor cell while focused and live · native: terminal cursor</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-indicator)"></div><div class="meta"><b>indicator</b> <code>--re-color-indicator</code> · rgb(40, 53, 62)<br><span class="re-note">Terminal history indicator background · native: terminal scroll indicator</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-scroll-track)"></div><div class="meta"><b>scroll-track</b> <code>--re-color-scroll-track</code> · rgb(30, 37, 44)<br><span class="re-note">Native terminal and editor scrollbar track · native: re_scrollbar_draw</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-scroll-thumb)"></div><div class="meta"><b>scroll-thumb</b> <code>--re-color-scroll-thumb</code> · rgb(99, 119, 131)<br><span class="re-note">Native scrollbar thumb · native: re_scrollbar_draw</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-scroll-thumb-active)"></div><div class="meta"><b>scroll-thumb-active</b> <code>--re-color-scroll-thumb-active</code> · rgb(145, 180, 190)<br><span class="re-note">Native scrollbar thumb while dragging · native: re_scrollbar_draw</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-list-scroll-track)"></div><div class="meta"><b>list-scroll-track</b> <code>--re-color-list-scroll-track</code> · rgb(43, 43, 43)<br><span class="re-note">microui overflow scrollbar track in tree and session lists · native: MU_COLOR_SCROLLBASE (upstream default)</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-list-scroll-thumb)"></div><div class="meta"><b>list-scroll-thumb</b> <code>--re-color-list-scroll-thumb</code> · rgb(30, 30, 30)<br><span class="re-note">microui overflow scrollbar thumb · native: MU_COLOR_SCROLLTHUMB (upstream default)</span></div></div>
-<div class="re-swatch"><div class="chip" style="background: var(--re-color-game-backdrop)"></div><div class="meta"><b>game-backdrop</b> <code>--re-color-game-backdrop</code> · rgb(0, 0, 0)<br><span class="re-note">Letterbox behind the live game texture · native: game surface backdrop</span></div></div>
-</div>
-<!-- /re:palette -->
+  <p class="re-note">One neutral ramp and one accent hue generate the whole interface. A theme replaces the ramp (layer 1) or re-maps roles (layer 2); nothing in the views references a raw colour.</p>
+  <h2>Layer 1 · neutral ramp</h2>
+  <div class="ramp"><div style="background:var(--re-gray-0)"><span>0</span></div><div style="background:var(--re-gray-1)"><span>1</span></div><div style="background:var(--re-gray-2)"><span>2</span></div><div style="background:var(--re-gray-3)"><span>3</span></div><div style="background:var(--re-gray-4)"><span>4</span></div><div style="background:var(--re-gray-5)"><span>5</span></div><div style="background:var(--re-gray-6)"><span>6</span></div><div style="background:var(--re-gray-7)"><span>7</span></div><div style="background:var(--re-gray-8)"><span>8</span></div><div style="background:var(--re-gray-9)"><span>9</span></div><div style="background:var(--re-gray-10)"><span>10</span></div></div>
+  <h2 style="margin-top:32px">Layer 1 · accent & semantics</h2>
+  <div class="re-palette">
+    <div class="re-swatch"><div class="chip" style="background:var(--ui-accent)"></div><div class="meta"><b>accent</b> · selection marker, focus, primary button<br><code>oklch(0.72 0.17 hue)</code></div></div>
+    <div class="re-swatch"><div class="chip" style="background:var(--ui-ok)"></div><div class="meta"><b>ok</b> · connected, saved<br><code>oklch(0.72 0.14 150)</code></div></div>
+    <div class="re-swatch"><div class="chip" style="background:var(--ui-warn)"></div><div class="meta"><b>warn</b> · compiler warnings<br><code>oklch(0.80 0.15 85)</code></div></div>
+    <div class="re-swatch"><div class="chip" style="background:var(--ui-err)"></div><div class="meta"><b>err</b> · errors, destructive hover<br><code>oklch(0.66 0.18 25)</code></div></div>
+  </div>
+  <h2>Layer 2 · roles</h2>
+  <div class="re-palette">
+    <div class="re-swatch"><div class="chip" style="background:var(--ui-canvas)"></div><div class="meta"><b>canvas</b> · behind panes<br><code>--ui-canvas → gray-1</code></div></div>
+    <div class="re-swatch"><div class="chip" style="background:var(--ui-surface)"></div><div class="meta"><b>surface</b> · panes, toolbar<br><code>--ui-surface → gray-3</code></div></div>
+    <div class="re-swatch"><div class="chip" style="background:var(--ui-surface-raised)"></div><div class="meta"><b>surface-raised</b> · popovers, status<br><code>--ui-surface-raised → gray-4</code></div></div>
+    <div class="re-swatch"><div class="chip" style="background:var(--ui-control)"></div><div class="meta"><b>control</b> · buttons at rest<br><code>--ui-control → gray-5</code></div></div>
+    <div class="re-swatch"><div class="chip" style="background:var(--ui-field)"></div><div class="meta"><b>field</b> · text inputs, checkboxes<br><code>--ui-field → gray-1</code></div></div>
+    <div class="re-swatch"><div class="chip" style="background:var(--ui-border)"></div><div class="meta"><b>border</b> · 1px frames<br><code>--ui-border → gray-0</code></div></div>
+    <div class="re-swatch"><div class="chip" style="background:var(--ui-fg)"></div><div class="meta"><b>fg</b> · primary text<br><code>--ui-fg → gray-9</code></div></div>
+    <div class="re-swatch"><div class="chip" style="background:var(--ui-fg-muted)"></div><div class="meta"><b>fg-muted</b> · secondary, status<br><code>--ui-fg-muted → gray-8</code></div></div>
+    <div class="re-swatch"><div class="chip" style="background:var(--ui-selection)"></div><div class="meta"><b>selection</b> · editor & tree selection<br><code>--ui-selection → accent / 22%</code></div></div>
+  </div>
+  <h2>Presets · same roles, different values</h2>
+  <div class="themes">
+    <div class="theme"><span class="re-kicker">Default</span><div class="bar"><div style="background:var(--ui-surface)"></div><div style="background:var(--ui-control)"></div><div style="background:var(--ui-accent)"></div></div><div class="re-row"><span class="re-button">Button</span><span class="re-button primary">Save</span><span class="re-textbox fill">field</span></div></div>
+    <div class="theme" data-theme="teal"><span class="re-kicker">Teal (original)</span><div class="bar"><div style="background:var(--ui-surface)"></div><div style="background:var(--ui-control)"></div><div style="background:var(--ui-accent)"></div></div><div class="re-row"><span class="re-button">Button</span><span class="re-button primary">Save</span><span class="re-textbox fill">field</span></div></div>
+    <div class="theme" data-theme="light"><span class="re-kicker">Light / paper</span><div class="bar"><div style="background:var(--ui-surface)"></div><div style="background:var(--ui-control)"></div><div style="background:var(--ui-accent)"></div></div><div class="re-row"><span class="re-button">Button</span><span class="re-button primary">Save</span><span class="re-textbox fill">field</span></div></div>
+  </div>
 </div>
 </body>
 </html>

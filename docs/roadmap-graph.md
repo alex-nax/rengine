@@ -49,6 +49,23 @@ flowchart TD
   F40 --> F55
   F41 --> F55
   F48 --> F55
+  F56["F56: blocked"]
+  F34 --> F56
+  F42 --> F56
+  F57["F57: blocked"]
+  F56 --> F57
+  F58["F58: blocked"]
+  F57 --> F58
+  F59["F59: blocked"]
+  F57 --> F59
+  F60["F60: blocked"]
+  F57 --> F60
+  F37 --> F60
+  F54 --> F60
+  F61["F61: blocked"]
+  F57 --> F61
+  F58 --> F61
+  F59 --> F61
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -68,3 +85,9 @@ flowchart TD
 | F48 | O5 | rengine | blocked | Complete the first desktop workflow with a terminal, editor, session browser and flat game tab. |
 | F54 | O1 | rengine | blocked | Provide the session browser for inspecting, reattaching and explicitly stopping sessions. |
 | F55 | O6 | rengine | blocked | Launch the NOLF orchestrator with live game, project tree, editor and preferred agent CLI onboarding. |
+| F56 | R0 | rengine | blocked | Define the backend-neutral draw list and the SDL_Renderer reference adapter for the desktop. |
+| F57 | R0 | rengine | blocked | Implement the OpenGL adapter on macOS and Windows behind the draw list. |
+| F58 | R1 | rengine | blocked | Implement the Metal adapter on macOS behind the draw list. |
+| F59 | R1 | rengine | blocked | Implement the Vulkan adapter on Windows, extending to other platforms when they are targeted. |
+| F60 | R2 | rengine | blocked | Implement the Claude Design theming update on the GPU renderer. |
+| F61 | R3 | rengine | blocked | Make the renderer a curated capability with one game adopting it through an adapter. |

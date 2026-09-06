@@ -1,9 +1,9 @@
-<!-- @dsCard group="Screens" viewport="1280x800" name="Workspace 1280×800" subtitle="Default window: toolbar, project tree beside an editor/terminal split, status bar. Default theme." -->
+<!-- @dsCard group="Screens" viewport="1280x800" name="Theme panel" subtitle="In-app customization: presets, accent, neutrals, density, radius, fonts; import/export a theme file" -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>rEngine · Workspace</title>
+<title>rEngine · Theme panel</title>
 <link rel="stylesheet" href="../../styles.css">
 <style>
 .screen{position:relative;width:1280px;height:800px;overflow:hidden;background:var(--ui-canvas)}
@@ -16,10 +16,31 @@
 .tree-head{border-bottom:1px solid var(--ui-border)}
 .err{display:flex;align-items:center;gap:8px;position:absolute;left:0;right:0;bottom:0;height:22px;padding:0 10px;background:var(--ui-surface);border-top:1px solid var(--ui-border);font-size:var(--ui-size-sm);color:var(--ui-fg-muted)}
 .err .re-icon{color:var(--ui-warn)}
+
+.panel{position:absolute;right:8px;top:40px;width:360px;padding:0;z-index:2}
+.panel .head{display:flex;align-items:center;gap:8px;height:34px;padding:0 12px;border-bottom:1px solid var(--ui-border)}
+.panel .head b{font-weight:600;color:var(--ui-fg-strong)}
+.panel .body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:12px}
+.panel .field{display:grid;grid-template-columns:96px 1fr;align-items:center;gap:8px;min-height:22px}
+.panel .field .re-kicker{text-transform:none;letter-spacing:0;font-size:var(--ui-size);font-weight:400;color:var(--ui-fg-muted)}
+.panel .ctl{display:flex;align-items:center;gap:6px;height:22px}
+.panel .ctl .re-slider{flex:1}.panel .ctl .re-textbox{width:56px;flex:none}.panel .ctl .re-select{flex:1}
+.presets{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.preset{border-radius:var(--ui-radius);border:1px solid var(--ui-border);overflow:hidden;background:var(--ui-canvas);position:relative;height:56px}
+.preset .t{position:absolute;left:0;right:0;top:0;height:8px;background:var(--ui-surface)}
+.preset .s{position:absolute;left:6px;right:6px;top:14px;height:22px;border-radius:2px;background:var(--ui-surface);border:1px solid var(--ui-border)}
+.preset .a{position:absolute;left:12px;top:20px;width:20px;height:10px;border-radius:2px;background:var(--ui-accent)}
+.preset .n{position:absolute;left:0;right:0;bottom:0;height:16px;font-size:10px;line-height:16px;text-align:center;color:var(--ui-fg-muted);background:var(--ui-surface-raised)}
+.preset.is-on{box-shadow:0 0 0 2px var(--ui-accent)}
+.hues{display:flex;gap:4px}.hues span{width:18px;height:18px;border-radius:3px;box-shadow:inset 0 0 0 1px rgb(0 0 0 / .3)}.hues span.is-on{box-shadow:0 0 0 2px var(--ui-fg-strong)}
+.hue{height:8px;border-radius:4px;flex:1;background:linear-gradient(90deg,oklch(.72 .17 0),oklch(.72 .17 60),oklch(.72 .17 120),oklch(.72 .17 180),oklch(.72 .17 240),oklch(.72 .17 300),oklch(.72 .17 360));position:relative}
+.hue .knob{position:absolute;top:-3px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:var(--ui-fg-strong);box-shadow:var(--ui-shadow-sm)}
+.panel .foot{display:flex;gap:4px;padding:10px 12px;border-top:1px solid var(--ui-border);background:var(--ui-surface)}
+.panel .foot .re-button{height:22px;padding:0 8px}
 </style>
 </head>
 <body>
-<div class="screen" data-screen-label="Workspace">
+<div class="screen" data-screen-label="Theme panel">
   <div class="re-toolbar">
     <span class="re-brand"><span class="mark">r</span>rEngine</span>
     <span class="re-group"><span class="re-button is-on"><span class="re-icon">⊟</span>Tree</span><span class="re-button"><span class="re-icon">›_</span>Shell</span><span class="re-button"><span class="re-icon">◆</span>Agent</span></span>
@@ -106,6 +127,29 @@
         </div>
       </div>
     </div>
+  </div>
+
+<div class="re-popover panel">
+    <div class="head"><span class="re-icon">◐</span><b>Appearance</b><span class="re-label muted" style="margin-left:auto;font-size:var(--ui-size-sm)">theme: Default · unsaved</span></div>
+    <div class="body">
+      <div class="presets">
+        <div class="preset is-on"><div class="t"></div><div class="s"></div><div class="a"></div><div class="n">Default</div></div>
+        <div class="preset" data-theme="teal"><div class="t"></div><div class="s"></div><div class="a"></div><div class="n">Teal</div></div>
+        <div class="preset" data-theme="light"><div class="t"></div><div class="s"></div><div class="a"></div><div class="n">Light</div></div>
+        <div class="preset" style="display:flex;align-items:center;justify-content:center;color:var(--ui-fg-faint)"><span class="re-icon">+</span></div>
+      </div>
+      <div class="field"><span class="re-kicker">Accent</span><div class="ctl"><span class="hue"><span class="knob" style="left:12%"></span></span><span class="re-textbox">45°</span></div></div>
+      <div class="field"><span class="re-kicker"></span><div class="hues"><span style="background:oklch(.72 .17 25)"></span><span class="is-on" style="background:oklch(.72 .17 45)"></span><span style="background:oklch(.72 .17 85)"></span><span style="background:oklch(.72 .17 150)"></span><span style="background:oklch(.72 .17 200)"></span><span style="background:oklch(.72 .17 250)"></span><span style="background:oklch(.72 .17 300)"></span><span style="background:oklch(.72 .17 340)"></span></div></div>
+      <div class="field"><span class="re-kicker">Neutrals</span><div class="ctl"><span class="re-group" style="flex:1"><span class="re-button is-on" style="flex:1">Dark</span><span class="re-button" style="flex:1">Dim</span><span class="re-button" style="flex:1">Light</span></span></div></div>
+      <div class="field"><span class="re-kicker">Contrast</span><div class="ctl"><span class="re-slider"><span class="fill" style="width:50%"></span><span class="knob" style="left:50%"></span></span><span class="re-textbox">1.0</span></div></div>
+      <div class="field"><span class="re-kicker">Density</span><div class="ctl"><span class="re-group" style="flex:1"><span class="re-button is-on" style="flex:1">Compact</span><span class="re-button" style="flex:1">Default</span><span class="re-button" style="flex:1">Roomy</span></span></div></div>
+      <div class="field"><span class="re-kicker">Corner radius</span><div class="ctl"><span class="re-slider"><span class="fill" style="width:50%"></span><span class="knob" style="left:50%"></span></span><span class="re-textbox">3 px</span></div></div>
+      <div class="field"><span class="re-kicker">UI font</span><div class="ctl"><span class="re-button re-select"><span>System</span></span><span class="re-textbox">12 px</span></div></div>
+      <div class="field"><span class="re-kicker">Code font</span><div class="ctl"><span class="re-button re-select"><span>SF Mono</span></span><span class="re-textbox">13 px</span></div></div>
+      <div class="field"><span class="re-kicker">Tab marker</span><div class="ctl"><span class="re-group" style="flex:1"><span class="re-button is-on" style="flex:1">Accent</span><span class="re-button" style="flex:1">Raised</span><span class="re-button" style="flex:1">None</span></span></div></div>
+      <div class="field"><span class="re-kicker">Live preview</span><span class="re-checkbox is-on"><span class="box"></span>Apply while editing</span></div>
+    </div>
+    <div class="foot"><span class="re-button ghost">Import</span><span class="re-button ghost">Export</span><span class="re-button ghost icon" title="Edit theme file"><span class="re-icon">›_</span></span><span class="spacer" style="flex:1"></span><span class="re-button">Reset</span><span class="re-button primary">Save theme</span></div>
   </div>
 
   <div class="re-status">

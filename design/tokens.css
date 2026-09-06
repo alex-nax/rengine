@@ -1,103 +1,97 @@
+/* rEngine tokens — three layers. Users theme by overriding layer 1 (palette) or layer 2 (semantic);
+   layer 3 (per-view) normally inherits. A theme file is just a block of these variables. */
+
+/* ── Layer 1 · palette ─────────────────────────────────────────── */
 :root {
-  --re-font-family: "Menlo", "SF Mono", "Consolas", "Courier New", "DejaVu Sans Mono", monospace;
-  --re-font-size: 16px;
-  --re-line-height: 20px;
-  --re-color-canvas: rgb(14, 18, 23);
-  --re-color-surface: rgb(20, 24, 30);
-  --re-color-control: rgb(38, 46, 56);
-  --re-color-control-hover: rgb(52, 68, 78);
-  --re-color-control-active: rgb(59, 86, 86);
-  --re-color-field: rgb(30, 30, 30);
-  --re-color-field-hover: rgb(35, 35, 35);
-  --re-color-field-active: rgb(40, 40, 40);
-  --re-color-border: rgb(25, 25, 25);
-  --re-color-text: rgb(220, 228, 234);
-  --re-color-text-muted: rgb(146, 167, 178);
-  --re-color-text-indicator: rgb(210, 224, 233);
-  --re-color-title-bg: rgb(25, 25, 25);
-  --re-color-title-text: rgb(240, 240, 240);
-  --re-color-panel-bg: rgba(0, 0, 0, 0.000);
-  --re-color-divider: rgb(54, 67, 76);
-  --re-color-selection: rgb(55, 77, 89);
-  --re-color-caret: rgba(150, 210, 185, 0.745);
-  --re-color-terminal-cursor: rgba(145, 205, 181, 0.392);
-  --re-color-indicator: rgb(40, 53, 62);
-  --re-color-scroll-track: rgb(30, 37, 44);
-  --re-color-scroll-thumb: rgb(99, 119, 131);
-  --re-color-scroll-thumb-active: rgb(145, 180, 190);
-  --re-color-list-scroll-track: rgb(43, 43, 43);
-  --re-color-list-scroll-thumb: rgb(30, 30, 30);
-  --re-color-game-backdrop: rgb(0, 0, 0);
-  --re-metric-microui-padding: 5px;
-  --re-metric-microui-spacing: 4px;
-  --re-metric-microui-indent: 24px;
-  --re-metric-microui-title-height: 24px;
-  --re-metric-microui-scrollbar-size: 12px;
-  --re-metric-microui-thumb-size: 8px;
-  --re-metric-microui-control-width: 68px;
-  --re-metric-window-width: 1280px;
-  --re-metric-window-height: 800px;
-  --re-metric-window-min-width: 1050px;
-  --re-metric-window-min-height: 480px;
-  --re-metric-toolbar-height: 78px;
-  --re-metric-toolbar-row-height: 26px;
-  --re-metric-toolbar-brand-width: 78px;
-  --re-metric-toolbar-view-width: 75px;
-  --re-metric-toolbar-manage-width: 80px;
-  --re-metric-toolbar-sessions-width: 95px;
-  --re-metric-toolbar-split-vertical-width: 120px;
-  --re-metric-toolbar-split-horizontal-width: 125px;
-  --re-metric-toolbar-merge-width: 95px;
-  --re-metric-toolbar-game-width: 85px;
-  --re-metric-toolbar-root-width: 170px;
-  --re-metric-toolbar-path-right: 475px;
-  --re-metric-toolbar-add-width: 95px;
-  --re-metric-toolbar-agent-label-width: 70px;
-  --re-metric-workspace-top: 80px;
-  --re-metric-workspace-status-height: 26px;
-  --re-metric-workspace-status-inset: 8px;
-  --re-metric-workspace-status-text-top: 2px;
-  --re-metric-workspace-divider: 6px;
-  --re-metric-workspace-pane-minimum: 80px;
-  --re-metric-workspace-tree-percent: 23%;
-  --re-metric-pane-header-height: 34px;
-  --re-metric-pane-content-top: 35px;
-  --re-metric-pane-root-row-height: 22px;
-  --re-metric-pane-empty-row-height: 24px;
-  --re-metric-tab-width: 158px;
-  --re-metric-tab-height: 26px;
-  --re-metric-tab-top: 4px;
-  --re-metric-tab-inset: 5px;
-  --re-metric-tab-gap: 2px;
-  --re-metric-tab-close-width: 22px;
-  --re-metric-tab-nav-width: 24px;
-  --re-metric-tab-title-characters: 11;
-  --re-metric-tree-row-height: 24px;
-  --re-metric-tree-up-width: 55px;
-  --re-metric-sessions-row-height: 26px;
-  --re-metric-sessions-actions-width: 155px;
-  --re-metric-sessions-attach-width: 80px;
-  --re-metric-sessions-heading-height: 24px;
-  --re-metric-editor-toolbar-height: 26px;
-  --re-metric-editor-save-width: 65px;
-  --re-metric-editor-discard-width: 80px;
-  --re-metric-editor-mode-width: 130px;
-  --re-metric-editor-inset: 6px;
-  --re-metric-editor-top: 59px;
-  --re-metric-editor-bottom: 85px;
-  --re-metric-editor-caret-width: 2px;
-  --re-metric-editor-error-height: 23px;
-  --re-metric-editor-error-inset: 2px;
-  --re-metric-editor-tab-cells: 4;
-  --re-metric-terminal-inset: 6px;
-  --re-metric-terminal-top: 28px;
-  --re-metric-terminal-bottom: 34px;
-  --re-metric-game-row-height: 26px;
-  --re-metric-game-capture-width: 210px;
-  --re-metric-game-inset: 6px;
-  --re-metric-game-top: 59px;
-  --re-metric-game-bottom: 65px;
-  --re-metric-scrollbar-size: 14px;
-  --re-metric-scrollbar-thumb-min: 20px;
-  --re-metric-scrollbar-thumb-inset: 2px;
+  --re-gray-0: #0d0d0d; --re-gray-1: #141414; --re-gray-2: #1b1b1b; --re-gray-3: #242424;
+  --re-gray-4: #2d2d2d; --re-gray-5: #383838; --re-gray-6: #474747; --re-gray-7: #6a6a6a;
+  --re-gray-8: #9a9a9a; --re-gray-9: #c8c8c8; --re-gray-10: #ececec;
+  --re-accent-hue: 45; /* @kind other */
+  --re-accent: oklch(0.72 0.17 var(--re-accent-hue));
+  --re-accent-strong: oklch(0.78 0.18 var(--re-accent-hue));
+  --re-accent-dim: oklch(0.72 0.17 var(--re-accent-hue) / 0.22);
+  --re-accent-ink: oklch(0.2 0.03 var(--re-accent-hue));
+  --re-ok: oklch(0.72 0.14 150); --re-warn: oklch(0.8 0.15 85); --re-err: oklch(0.66 0.18 25); --re-info: oklch(0.72 0.12 240);
+}
+
+/* ── Layer 2 · semantic ────────────────────────────────────────── */
+:root {
+  --ui-canvas: var(--re-gray-1);
+  --ui-surface: var(--re-gray-3);
+  --ui-surface-raised: var(--re-gray-4);
+  --ui-surface-sunken: var(--re-gray-2);
+  --ui-control: var(--re-gray-5);
+  --ui-control-hover: var(--re-gray-6);
+  --ui-control-active: var(--re-gray-4);
+  --ui-field: var(--re-gray-1);
+  --ui-field-hover: var(--re-gray-2);
+  --ui-border: var(--re-gray-0);
+  --ui-border-soft: var(--re-gray-5);
+  --ui-highlight: rgb(255 255 255 / 0.05);
+  --ui-fg: var(--re-gray-9);
+  --ui-fg-strong: var(--re-gray-10);
+  --ui-fg-muted: var(--re-gray-8);
+  --ui-fg-faint: var(--re-gray-7);
+  --ui-fg-on-accent: var(--re-accent-ink);
+  --ui-accent: var(--re-accent);
+  --ui-accent-hover: var(--re-accent-strong);
+  --ui-selection: var(--re-accent-dim);
+  --ui-focus: var(--re-accent);
+  --ui-ok: var(--re-ok); --ui-warn: var(--re-warn); --ui-err: var(--re-err); --ui-info: var(--re-info);
+  --ui-shadow: 0 6px 20px rgb(0 0 0 / 0.5), 0 0 0 1px var(--ui-border);
+  --ui-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --ui-radius: 3px; --ui-radius-lg: 6px;
+  --ui-font: -apple-system, "Segoe UI", system-ui, sans-serif;
+  --ui-mono: "SF Mono", "Menlo", "Consolas", ui-monospace, monospace; /* @kind font */
+  --ui-size: 12px; --ui-leading: 16px;
+  --ui-size-sm: 11px; --ui-leading-sm: 14px;
+  --ui-size-lg: 13px; --ui-leading-lg: 18px;
+  --ui-mono-size: 13px; --ui-mono-leading: 19px;
+  --ui-row: 22px; --ui-row-lg: 26px; --ui-pad: 8px; --ui-gap: 4px; --ui-gap-lg: 8px;
+  --ui-transition: 90ms ease-out; /* @kind other */
+}
+
+/* ── Layer 3 · per-view (inherits semantic; override individually) ─ */
+:root {
+  --toolbar-bg: var(--ui-surface); --toolbar-height: 36px; --toolbar-fg: var(--ui-fg);
+  --tabs-bg: var(--ui-surface-sunken); --tabs-height: 28px; --tab-bg: transparent; --tab-fg: var(--ui-fg-muted);
+  --tab-active-bg: var(--ui-surface); --tab-active-fg: var(--ui-fg-strong); --tab-marker: var(--ui-accent);
+  --pane-bg: var(--ui-surface); --pane-divider: var(--ui-canvas); --pane-divider-size: 4px; --pane-divider-hover: var(--ui-accent);
+  --tree-bg: var(--ui-surface); --tree-row: 22px; --tree-indent: 14px; --tree-fg: var(--ui-fg); --tree-icon: var(--ui-fg-faint);
+  --tree-selected-bg: var(--ui-selection); --tree-selected-fg: var(--ui-fg-strong);
+  --editor-bg: var(--re-gray-2); --editor-fg: var(--ui-fg); --editor-gutter-fg: var(--ui-fg-faint); --editor-gutter-bg: var(--re-gray-2);
+  --editor-line-bg: rgb(255 255 255 / 0.03); --editor-selection: var(--ui-selection); --editor-caret: var(--ui-accent);
+  --terminal-bg: var(--re-gray-1); --terminal-fg: var(--ui-fg); --terminal-cursor: var(--re-accent-dim);
+  --terminal-indicator-bg: var(--ui-surface-raised); --terminal-indicator-fg: var(--ui-fg-strong);
+  --status-bg: var(--ui-surface-raised); --status-height: 22px; --status-fg: var(--ui-fg-muted); --status-accent-bg: var(--ui-accent); --status-accent-fg: var(--ui-fg-on-accent);
+  --scroll-track: transparent; --scroll-thumb: var(--re-gray-6); --scroll-thumb-hover: var(--re-gray-7); --scroll-size: 10px; --scroll-inset: 2px;
+  --game-backdrop: #000;
+}
+
+/* ── Theme · teal (the original rEngine look, kept as a preset) ─── */
+[data-theme="teal"] {
+  --re-gray-0: rgb(10 13 17); --re-gray-1: rgb(14 18 23); --re-gray-2: rgb(17 21 27); --re-gray-3: rgb(20 24 30);
+  --re-gray-4: rgb(28 34 42); --re-gray-5: rgb(38 46 56); --re-gray-6: rgb(52 68 78); --re-gray-7: rgb(84 104 116);
+  --re-gray-8: rgb(146 167 178); --re-gray-9: rgb(220 228 234); --re-gray-10: rgb(240 244 247);
+  --re-accent-hue: 165; /* @kind other */
+  --re-accent: oklch(0.8 0.1 var(--re-accent-hue)); --re-accent-strong: oklch(0.86 0.1 var(--re-accent-hue));
+  --re-accent-dim: oklch(0.8 0.1 var(--re-accent-hue) / 0.25); --re-accent-ink: oklch(0.2 0.03 var(--re-accent-hue));
+  --ui-border-soft: rgb(54 67 76);
+}
+
+/* ── Theme · light / paper ──────────────────────────────────────── */
+[data-theme="light"] {
+  --re-gray-0: #c9c6c0; --re-gray-1: #f6f4f0; --re-gray-2: #fbfaf7; --re-gray-3: #eeece7;
+  --re-gray-4: #e6e3dd; --re-gray-5: #f4f2ee; --re-gray-6: #dedad3; --re-gray-7: #9a958c;
+  --re-gray-8: #6d675e; --re-gray-9: #2a2723; --re-gray-10: #141210;
+  --re-accent-hue: 45; /* @kind other */
+  --re-accent: oklch(0.6 0.17 var(--re-accent-hue)); --re-accent-strong: oklch(0.55 0.18 var(--re-accent-hue));
+  --re-accent-dim: oklch(0.6 0.17 var(--re-accent-hue) / 0.2); --re-accent-ink: #fff;
+  --ui-highlight: rgb(255 255 255 / 0.6);
+  --ui-control-active: var(--re-gray-6);
+  --ui-shadow: 0 6px 20px rgb(40 30 10 / 0.18), 0 0 0 1px var(--ui-border);
+  --ui-shadow-sm: 0 1px 2px rgb(40 30 10 / 0.15);
+  --editor-line-bg: rgb(0 0 0 / 0.03);
+  --scroll-thumb: #c4bfb6; --scroll-thumb-hover: #a8a299;
+  --terminal-bg: #2a2723; --terminal-fg: #e8e4dc; --terminal-indicator-bg: #3a362f; --terminal-indicator-fg: #f2efe9;
 }

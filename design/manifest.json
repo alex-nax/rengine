@@ -2,10 +2,30 @@
   "version": 1,
   "cards": [
     {
+      "path": "previews/controls/buttons-and-fields.html",
+      "name": "Buttons & fields",
+      "group": "Controls",
+      "subtitle": "Ghost, standard, primary and grouped buttons; text fields, selects, checkboxes, sliders; every interaction state",
+      "viewport": {
+        "width": 760,
+        "height": 440
+      }
+    },
+    {
+      "path": "previews/controls/menus.html",
+      "name": "Menus & popovers",
+      "group": "Controls",
+      "subtitle": "Context menu, keyboard hints, separators; the one overlay layer with a shadow",
+      "viewport": {
+        "width": 560,
+        "height": 300
+      }
+    },
+    {
       "path": "previews/controls/scrollbars.html",
       "name": "Scrollbars",
       "group": "Controls",
-      "subtitle": "Native 14px terminal/editor bars (rest and dragging) beside the 12px microui overflow bar",
+      "subtitle": "10px overlay bars with rounded thumbs: rest, hover and dragging (accent)",
       "viewport": {
         "width": 640,
         "height": 300
@@ -15,7 +35,7 @@
       "path": "previews/foundations/colors.html",
       "name": "Colours",
       "group": "Foundations",
-      "subtitle": "Every native colour token with its role and microui slot",
+      "subtitle": "Palette, semantic roles and the same roles under the teal and light presets",
       "viewport": {
         "width": 960,
         "height": 720
@@ -23,29 +43,69 @@
     },
     {
       "path": "previews/foundations/rendering-constraints.html",
-      "name": "Rendering constraints",
+      "name": "Rendering primitives",
       "group": "Foundations",
-      "subtitle": "What the C/microui renderer can and cannot draw; read before proposing a change",
+      "subtitle": "What the renderer draws after the theming update, and what is still out of scope",
       "viewport": {
         "width": 960,
         "height": 560
       }
     },
     {
-      "path": "previews/foundations/type-and-metrics.html",
-      "name": "Type and metrics",
+      "path": "previews/foundations/theme-architecture.html",
+      "name": "Theme architecture",
       "group": "Foundations",
-      "subtitle": "Monospace 16/20 text grid and the layout measurements the C code uses",
+      "subtitle": "Three token layers; what a user theme file overrides and how far it can go",
       "viewport": {
         "width": 960,
-        "height": 760
+        "height": 520
+      }
+    },
+    {
+      "path": "previews/foundations/type-and-metrics.html",
+      "name": "Type & metrics",
+      "group": "Foundations",
+      "subtitle": "UI sans at 11/12/13, mono cells at 13/19, the 4px grid and the layout constants",
+      "viewport": {
+        "width": 960,
+        "height": 720
+      }
+    },
+    {
+      "path": "previews/screens/theme-panel.html",
+      "name": "Theme panel",
+      "group": "Screens",
+      "subtitle": "In-app customization: presets, accent, neutrals, density, radius, fonts; import/export a theme file",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "path": "previews/screens/workspace-light.html",
+      "name": "Workspace · light",
+      "group": "Screens",
+      "subtitle": "Same screen under the light/paper preset; only palette variables change",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "path": "previews/screens/workspace-teal.html",
+      "name": "Workspace · teal",
+      "group": "Screens",
+      "subtitle": "Same screen under the original teal preset, kept for users who liked it",
+      "viewport": {
+        "width": 1280,
+        "height": 800
       }
     },
     {
       "path": "previews/screens/workspace.html",
       "name": "Workspace 1280×800",
       "group": "Screens",
-      "subtitle": "Default window: toolbar, tree beside an editor/terminal split, status line, using the real metrics",
+      "subtitle": "Default window: toolbar, project tree beside an editor/terminal split, status bar. Default theme.",
       "viewport": {
         "width": 1280,
         "height": 800
@@ -55,7 +115,7 @@
       "path": "previews/views/editor.html",
       "name": "Editor",
       "group": "Views",
-      "subtitle": "Save/Discard row, mode and draft state, buffer with selection and caret, both scrollbars, error line",
+      "subtitle": "Breadcrumb bar with draft state and Save/Discard, gutter, current line, selection, caret, diagnostics line",
       "viewport": {
         "width": 700,
         "height": 480
@@ -65,7 +125,7 @@
       "path": "previews/views/game.html",
       "name": "Game tab",
       "group": "Views",
-      "subtitle": "Capture control and status above the letterboxed live NOLF texture",
+      "subtitle": "Capture controls and frame stats above the letterboxed live texture",
       "viewport": {
         "width": 700,
         "height": 440
@@ -75,17 +135,17 @@
       "path": "previews/views/sessions.html",
       "name": "Session browser",
       "group": "Views",
-      "subtitle": "Retained process rows with Attach/Stop, followed by recovery drafts",
+      "subtitle": "Retained processes with live state, Attach/Stop, then recovery drafts",
       "viewport": {
         "width": 960,
-        "height": 320
+        "height": 340
       }
     },
     {
       "path": "previews/views/terminal.html",
       "name": "Terminal",
       "group": "Views",
-      "subtitle": "libvterm cells with ANSI colour, focused cursor, history indicator while scrolled back, native scrollbar",
+      "subtitle": "libvterm cells with ANSI colour, focused cursor, history indicator while scrolled back, overlay scrollbar",
       "viewport": {
         "width": 700,
         "height": 440
@@ -95,7 +155,7 @@
       "path": "previews/views/tree.html",
       "name": "Project tree",
       "group": "Views",
-      "subtitle": "Root row, Up button with the current path, 24px directory/file rows, truncation note",
+      "subtitle": "Root header, path, nested rows with glyph icons, selection and dirty/count meta, hover",
       "viewport": {
         "width": 440,
         "height": 440
@@ -105,7 +165,7 @@
       "path": "previews/workspace/pane-header.html",
       "name": "Pane header",
       "group": "Workspace",
-      "subtitle": "Tab strip states: selected, dirty, clipped title, overflow navigation, empty pane",
+      "subtitle": "Tab strip states: active, hover, dirty, ellipsized title, overflow navigation, empty pane",
       "viewport": {
         "width": 760,
         "height": 300
@@ -113,9 +173,9 @@
     },
     {
       "path": "previews/workspace/status-bar.html",
-      "name": "Status line",
+      "name": "Status bar",
       "group": "Workspace",
-      "subtitle": "Single muted text line at the window bottom; every message the desktop emits",
+      "subtitle": "22px segmented bar: mode segment in accent, message, cursor and session facts on the right",
       "viewport": {
         "width": 1280,
         "height": 300
@@ -125,10 +185,10 @@
       "path": "previews/workspace/toolbar.html",
       "name": "Toolbar",
       "group": "Workspace",
-      "subtitle": "Two microui rows: view actions, root switch, project path, agent CLI",
+      "subtitle": "Single 36px row: brand, view switcher, pane actions, project switcher and path, agent CLI, Vim, theme",
       "viewport": {
         "width": 1280,
-        "height": 120
+        "height": 160
       }
     }
   ]

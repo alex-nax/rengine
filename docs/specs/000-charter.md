@@ -34,6 +34,8 @@ Date: 2026-09-05. Status: **interview in progress; recommendations are not owner
 | D26 | Use microui with C for the desktop GUI; remove Electron. | Owner: “no electron, use microui with c instead for gui”, 2026-09-05; supersedes the earlier implementation stack |
 | D27 | Avoid heavyweight application runtimes such as Electron. A web interface follows later as a separate client. | Owner: “We never use such overhead in runtime such as electron … later we would have web interface though”, 2026-09-05 |
 | D28 | Pause broader development here; resume the same agent conversation through the native orchestrator after prerequisites, with desktop reload retaining the agent. | Owner's 2026-09-05 orchestrator handoff/pause request; implementation and limits in spec 058 |
+| D29 | The desktop renderer moves to full GPU rendering behind a graphics-API adapter boundary: OpenGL first, then Metal, then Vulkan. The theming update designed in Claude Design is implemented on that renderer, not on SDL_Renderer. | Owner: “For the future - we want full gpu rendering. We will have adapters for different graphical APIs, - first OpenGL, then Metal and Vulkan”, 2026-09-06; requirements and phases in spec 065 |
+| D30 | The rendering implementation is a candidate approved rendering library for the curated base once it meets the library-quality record and the D24 adoption rules; games adopt it through adapters and are never required to. | Owner: “This rendering implementation can be our approved rendering library in future”, 2026-09-06 |
 
 D07 establishes the product direction. The claim that engines are becoming obsolete is the owner's
 thesis, not a verified industry-wide conclusion. The implementation question here is how rEngine
@@ -148,3 +150,9 @@ the named library.
 2026-09-05, library/adoption answer: D23 selects iklib. D24 sets verified pinned capability
 adoption as the powered-by minimum, with optional IDE/shared harness. The “GO” answers those two
 presented recommendations; the complete feature proposal still needs concrete roadmap review.
+
+2026-09-06, rendering answer: D29–D30 select full GPU rendering with OpenGL, Metal and Vulkan
+adapters and name the renderer a future approved-library candidate. This supersedes the roadmap's
+blanket “no new renderer” deferral for the workspace only; games keep their own renderers. The
+design source is the Claude Design project pulled into `design/`; requirements, architecture and
+phases are in `065-gpu-rendering.md`.
