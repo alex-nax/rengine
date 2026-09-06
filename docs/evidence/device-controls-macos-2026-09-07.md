@@ -62,3 +62,41 @@ implicit `local` device, and its fourteen actions all appear under it as runnabl
 dispatches by kind — exactly the Dashboard's path, not a copy of it. The native fixture presses a
 `script` action from the Devices tab and requires the retained session that appears to be titled
 `Script · say.sh` and to have printed the action's declared argument, which only that route produces.
+
+## Two findings from the sabotage pass, recorded as they happened
+
+**A reason count that passed while the defect was present.** The first assertion on *one reason, not
+one per control* counts reasons exactly equal to the device's own sentence. It did **not** catch the
+sabotage that restates the device reason under every bound control, because the restated line wraps
+the reason (`Unavailable: missing device Silent box (silent-box) is not reachable: …`) rather than
+repeating it verbatim. The substring count beside it — every reason naming `silent-box`, expected
+once — is the load-bearing assertion, and it caught it at 3 !== 1. Both are now labelled for what
+they actually check. This is the blind-assertion shape this repository has now met six times, and it
+surfaced from sabotaging rather than from reading the test.
+
+**A sabotage whose failure mode is a livelock, not a red.** The honest sabotage for *drawing a
+control probes nothing* is a probe issued from inside a control's draw. Doing that turns the desktop
+into a refresh storm — every frame requests a refresh, every refresh redraws — and the suite hangs
+instead of failing; a modulo-limited variant (a probe every tenth frame, which is the forbidden
+*timer*) hangs it too. The assertion therefore could not be driven red by sabotaging the code. It was
+calibrated instead by making the extra probe happen for real: replacing the thirty idle frames with an
+explicit Refresh turns it red at *thirty more frames of the same section probed nothing*, 2 !== 1. So
+the assertion is live and correctly wired to the probe counter; what remains unproven is only that the
+specific code path could produce that count, and the reason is written down rather than glossed.
+
+## The input seam, after merging 1a9c591
+
+`origin/main` gained *give the shell back its control chords, and the menu its keyboard* while this
+branch was gating. A Devices control is a focusable control in a pane, so two questions sit exactly
+between the lanes and neither fixture asked them: can a control take a chord the workspace owns, and
+can one act on a key an open menu wants. Added to `native-devices.spec.mjs`:
+
+- the platform chord (`Cmd`/`Ctrl` + `T`) pressed with the pointer over a runnable Devices control
+  opens a shell rather than running the control — sabotaged by swallowing `SDLK_t` in the chord
+  dispatch, which fails at *the platform chord opened a shell over the Devices section*;
+- `Return`, `Space`, a letter and typed text over the section start nothing, because a control here
+  submits on a mouse press and holds no keyboard focus — sabotaged by making a control fire on
+  `MU_KEY_RETURN`, which fails at *typing over the section started nothing*, 3 !== 1;
+- a popover opened over the section stays open under typing, changes no setting, starts nothing on
+  the device beneath it, still answers its own control, and leaves the section running when it is
+  actually pressed.

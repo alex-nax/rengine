@@ -885,6 +885,7 @@
         "A bound game draws its preflight state and carries no launch control; a target on a non-local device never reads ready and names where it runs instead, since launch_game refuses it by design.",
         "A bootstrap-shaped action -- one whose purpose is to make a device usable -- is gated exactly like every other action bound to that device and is not reordered; the decision and its reasoning are recorded in spec 082.",
         "Every new row's leading column reserves its trailing pill's width, asserted rather than eyeballed: every trailing pill ends at the same x as the device row's own status pill, each column keeps one width, and that edge lies inside the pane.",
+        "A key pressed over the Devices section reaches the workspace and an open menu, never a bound control: the platform chord opens a shell rather than running the control under the pointer, Return/Space/typing start nothing because a control submits on a mouse press and holds no keyboard focus, and a popover over the section stays open, changes nothing beneath it and leaves the section working.",
         "npm test, npm run test:desktop, CTest, ./init.sh, python3 tools/design.py check, features.py validate and the sidecar check pass, and both live consumer declarations still validate."
       ],
       "passes": false,
@@ -892,7 +893,7 @@
         76
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/082-project-devices.md, orchestrator/server/{devices,main}.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, orchestrator/native/{devices.c,theme.json,theme.h}, orchestrator/tests/{devices.test.mjs,native-devices.spec.mjs}",
+      "deliverable": "docs/specs/082-project-devices.md, orchestrator/server/{devices,main}.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, orchestrator/native/{devices.c,theme.json,theme.h}, orchestrator/tests/{devices.test.mjs,native-devices.spec.mjs} (input seam merged with 1a9c591)",
       "external_references": [
         "vtmb-vr scripts/wizards/remote-rengine.sh, the pcvr-bound install action this makes reachable"
       ],

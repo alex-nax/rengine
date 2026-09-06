@@ -93,6 +93,42 @@ F80 is left `passes: false`. Every criterion has evidence, but its prerequisite 
 devices work this extends — is itself still unmarked, and the protocol asks for evidence for the
 prerequisite too. Both are the owner's to mark together.
 
+**Merged `origin/main` at `1a9c591`** — *give the shell back its control chords, and the menu its
+keyboard*, which landed while this branch was gating. Three conflicts, all from both lanes appending
+to the same tail: that lane took F78/F79 for specs 083 and 084, this one took F80, so keeping both
+sides in id order was the whole resolution — taking a number with a gap rather than the next free one
+is why there was nothing to renumber. Both progress entries kept; the graph regenerated rather than
+resolved by hand.
+
+The seam between the two changes is worth a fixture and neither lane would have written it alone: a
+Devices control is a focusable control in a pane, and that commit restores chords to the shell and
+the keyboard to menus. `native-devices.spec.mjs` now asserts that the platform chord pressed with the
+pointer over a runnable control opens a shell rather than running the control; that `Return`, `Space`
+and typing over the section start nothing, because a control here submits on a mouse press and holds
+no keyboard focus; and that a popover over the section stays open under typing, changes nothing
+beneath it, and leaves the section working afterwards. Two more sabotages, each red for its own line:
+swallowing `SDLK_t` in the chord dispatch fails at *the platform chord opened a shell over the Devices
+section*, and making a control fire on `MU_KEY_RETURN` fails at *typing over the section started
+nothing*, 3 !== 1. Reading the routing rather than only testing it: chords run before any pane sees
+the key, so they are unaffected by which tab is selected; a Devices tab never takes `a->focus` (its
+`rect` stays zero), so a plain key falls through to the interface layer where no control holds focus.
+
+Re-gated proportionately after the merge, since that commit is input routing: `npm test` 78/78,
+`npm run test:desktop` 35/35, `ctest` 6/6, `python3 tools/design.py check`, `python3
+tools/features.py validate` at 40 features, and a native build from a wiped scratch directory with 0
+warnings. Sidecars re-checked against the new base: 40 diagnostics on this branch against 41 on
+`origin/main` at `1a9c591`; the only one touching a file this lane owns is `workspace.c._llm.json`,
+which arrived unstamped from that commit and is theirs to stamp. The real-NOLF qualification and the
+consumer declarations were verified minutes earlier and have no relationship to control chords, so
+they were not re-run.
+
+The owner has powered the Windows box down until morning, so `pcvr` is genuinely unreachable and
+every control bound to it — the `pcvr` launch script and the `remote-rengine` install wizard — will
+render disabled with the box's one reason on the row above them. That is the state the tab opens to,
+and it is the first time the composed availability path has had a truly down device behind it rather
+than a fixture. It is also exactly the case the gated-not-exempt decision was made for: the wizard is
+visible, beside the device it acts on, and honest about why it cannot run yet.
+
 ## Session 35 (macos) — 2026-09-07 — Two chords the shell wanted back, and two specs
 
 The key sweep I commissioned to check F-keys and Tab found those were fine and found something
