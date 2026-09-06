@@ -107,12 +107,37 @@ export async function targetAvailability(root, declared, target, options = {}) {
   const status = await deviceStatus(root, device, options);
   return { device: status, missing: status.reachable ? [] : status.issues.map(name => ({ type: 'device', name })) };
 }
+const boundTo = (target, id) => (target?.device ?? LOCAL) === id;
 export function boundTargets(declared, id) {
-  const bound = target => (target?.device ?? LOCAL) === id;
   return {
-    games: (Array.isArray(declared?.games) ? declared.games : []).filter(bound).map(game => game.id),
-    actions: (declared?.dashboard?.groups ?? []).flatMap(group => group.actions ?? []).filter(bound).map(action => action.id),
+    games: (Array.isArray(declared?.games) ? declared.games : []).filter(game => boundTo(game, id)).map(game => game.id),
+    actions: (declared?.dashboard?.groups ?? []).flatMap(group => group.actions ?? []).filter(action => boundTo(action, id)).map(action => action.id),
   };
+}
+/* The controls a device's targets become in the Devices tab. Availability is NOT recomputed here:
+   `options.resolve` is the caller's own dashboardActions, which already composes each action's
+   local prerequisites with its device's reachability, and a game's state is the same preflight the
+   launch uses. Both run after every device status above, so they read the probe cache those filled
+   and a control costs no probe of its own. See sidecar: bound-controls. */
+async function boundControls(root, declared, statuses, options) {
+  if (typeof options.resolve !== 'function') return null;
+  const board = await options.resolve();
+  const actions = (board.groups ?? []).flatMap(group => group.actions ?? []);
+  const records = Array.isArray(declared?.games) ? declared.games : [];
+  const games = new Map();
+  for (const game of records) {
+    let config = null;
+    try { config = typeof options.preflight === 'function' ? await options.preflight(root.id, game.id) : null; }
+    catch (error) { games.set(game.id, { id: game.id, title: game.title, ready: false, remote: false, issue: error.message, location: '' }); continue; }
+    /* A reason the device already carries is dropped rather than restated: an unreachable device is
+       one reason on one row, never the same sentence under every target bound to it. */
+    const carried = new Set(statuses.get(game.device ?? LOCAL)?.issues ?? []);
+    games.set(game.id, {
+      id: game.id, title: game.title, ready: Boolean(config?.ready), remote: Boolean(config?.refusal),
+      issue: (config?.issues ?? []).find(issue => !carried.has(issue)) ?? '', location: config?.location ?? '',
+    });
+  }
+  return { actions, games, records };
 }
 export async function projectDevices(root, declared, options = {}) {
   const base = { rootId: root.id, declared: declared.declared };
@@ -120,11 +145,22 @@ export async function projectDevices(root, declared, options = {}) {
   if (declared.error) return { ...base, error: declared.error, devices: [] };
   if (declared.devicesError) return { ...base, contract: declared.contract, error: declared.devicesError, devices: [] };
   const records = declaredDevices(declared);
-  const devices = await Promise.all(records.map(async device => ({
-    ...await deviceStatus(root, device, options),
+  const resolved = await Promise.all(records.map(device => deviceStatus(root, device, options)));
+  const statuses = new Map(records.map((device, index) => [device.id, resolved[index]]));
+  const bound = await boundControls(root, declared, statuses, options);
+  const devices = records.map((device, index) => ({
+    ...resolved[index],
     declared: Array.isArray(declared.devices) && declared.devices.some(item => item.id === device.id),
     probed: !isLocal(device) && Array.isArray(device.probe),
     ...boundTargets(declared, device.id),
-  })));
+    /* A resolved action carries the device RECORD in `device`, not the declared id, and an action
+       naming an undeclared device carries none — so it lands under no device, exactly as its id
+       does in `actions` above. */
+    ...(bound ? {
+      controls: bound.actions.filter(action => action.device?.id === device.id)
+        .map(({ id, title, kind, available, missing }) => ({ id, title, kind, available, missing })),
+      targets: bound.records.filter(game => boundTo(game, device.id)).map(game => bound.games.get(game.id)),
+    } : {}),
+  }));
   return { ...base, contract: declared.contract, refreshed: Boolean(options.refresh), devices };
 }

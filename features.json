@@ -3,7 +3,7 @@
   "project": "rengine",
   "created": "2026-09-05",
   "review_status": "approved",
-  "review_record": "docs/specs/055-nolf-workspace-goal.md — owner active implementation goal, 2026-09-05",
+  "review_record": "docs/specs/055-nolf-workspace-goal.md \u2014 owner active implementation goal, 2026-09-05",
   "features": [
     {
       "id": 32,
@@ -658,8 +658,8 @@
       "description": "Declare a project's games in .rengine/project.json (contract 3, games array) and launch any of them from the dashboard, the launcher and generic agent tools.",
       "acceptance_criteria": [
         "contracts/project-v1.schema.json accepts contracts 1 and 2 unchanged and contract 3 with an optional games array (1-16 records of id, title, executable candidates, literal args, env, cwd, requires, surface embedded or external) beside the optional dashboard of spec 075; declaring games requires contract 3, so an older reader answers unknown contract rather than unknown key; a bad games array is reported as gamesError by name without disabling the formats or the dashboard; duplicate ids, a 17th record, bad or reserved env keys, placeholders in args, more than 8 executables, unknown surfaces and keys, shell argv[0] and escaping requires/cwd paths are rejected.",
-        "game-config and game_preflight take an optional gameId (default: the first declared game; an unknown id names the declared ids) and report declared, title, surface, the first resolvable executable, args, env, cwd, requires, named issues (undeclared root, malformed declaration, missing candidates, each missing required file, a missing cwd, surface prerequisites) and ready without running anything; game, launch_game, the toolbar control and --launch-game reuse the running session of that root AND game id, or spawn it with the declared cwd and env, reserving a surface only for embedded; the session carries title <title> · <root name>, surface and game, and one root can run several declared games at once.",
-        "No specific game is named in server, native, agent, theme or package-script code and no nolf_* tool alias remains; an external game tab shows the retained output with a running/exited status row; service tests and a native fixture drive all of the above; the real-NOLF qualification runs through a written contract-3 declaration; the owner verifies the real consumers after a layered workspace/desktop/connector update. (Corrected 2026-09-06 by owner decision, recorded in spec 078 and Codex-progress session 27: the toolbar game control this criterion originally required — absent without games, a title button for one, a Games menu for several — was built in 0cf70b6 and then removed outright, because dashboard launches reached only a terminal tab. Launching moved to the dashboard game action of F72; a configurable toolbar is a later, separately scoped feature.)"
+        "game-config and game_preflight take an optional gameId (default: the first declared game; an unknown id names the declared ids) and report declared, title, surface, the first resolvable executable, args, env, cwd, requires, named issues (undeclared root, malformed declaration, missing candidates, each missing required file, a missing cwd, surface prerequisites) and ready without running anything; game, launch_game, the toolbar control and --launch-game reuse the running session of that root AND game id, or spawn it with the declared cwd and env, reserving a surface only for embedded; the session carries title <title> \u00b7 <root name>, surface and game, and one root can run several declared games at once.",
+        "No specific game is named in server, native, agent, theme or package-script code and no nolf_* tool alias remains; an external game tab shows the retained output with a running/exited status row; service tests and a native fixture drive all of the above; the real-NOLF qualification runs through a written contract-3 declaration; the owner verifies the real consumers after a layered workspace/desktop/connector update. (Corrected 2026-09-06 by owner decision, recorded in spec 078 and Codex-progress session 27: the toolbar game control this criterion originally required \u2014 absent without games, a title button for one, a Games menu for several \u2014 was built in 0cf70b6 and then removed outright, because dashboard launches reached only a terminal tab. Launching moved to the dashboard game action of F72; a configurable toolbar is a later, separately scoped feature.)"
       ],
       "passes": false,
       "dependencies": [
@@ -734,7 +734,7 @@
       "priority": "high",
       "description": "Serve the declaration-backed game preflight from the replaceable workspace worker, so a routine layered update delivers the per-project game capability.",
       "acceptance_criteria": [
-        "orchestrator/server/games.mjs exports inspectGame(root, gameId) — the single body Games.inspect delegates to — and orchestrator/runtime/worker.mjs serves GET /api/game-config from it, so the dashboard's game-action availability and game_preflight both answer from the project's own declaration above a retained session host that predates contract 3; the worker advertises projectGame: 1 beside dashboard: 1 and a layered workspace update alone lights the MCP guard up.",
+        "orchestrator/server/games.mjs exports inspectGame(root, gameId) \u2014 the single body Games.inspect delegates to \u2014 and orchestrator/runtime/worker.mjs serves GET /api/game-config from it, so the dashboard's game-action availability and game_preflight both answer from the project's own declaration above a retained session host that predates contract 3; the worker advertises projectGame: 1 beside dashboard: 1 and a layered workspace update alone lights the MCP guard up.",
         "Launching stays with the session host, which owns Sessions (PTY), the embedded Surfaces reservation and the session-id map behind /surface, and whose /api/terminal refuses type game; the worker advertises projectGameLaunch only by mirroring the host's own projectGame, refuses POST /api/game and the game branch of /api/dashboard-run by name above an older host instead of forwarding into the removed built-in game, and launch_game gates on projectGameLaunch with that message. supervisor.mjs claims neither capability in its workspaceWorkerUnavailable fallback, where the host answers.",
         "A regression drives a worker above a proxy that advertises only handoff: 1 and answers game-config with the removed built-in NOLF config: it asserts capabilities.projectGame is 1 and projectGameLaunch absent, that game-config returns each declared record (including an unknown gameId 404 naming the declared ids), that the dashboard marks a declared game available, that both launch paths and launch_game refuse by name, and that game_preflight through the real MCP connector answers from the declaration; the merged-host path keeps projectGameLaunch: 1 and launches through the worker's game route unchanged. npm test, npm run test:desktop, CTest, ./init.sh, design.py check, features.py validate and RENGINE_NOLF_ROOT=... npm run test:game-nolf pass, and both live consumer declarations re-validate through the fixed code. Passing waits on the owner's live verification after update_workspace, as F71/F72 do."
       ],
@@ -771,7 +771,7 @@
       "owner_workspace": "rengine",
       "deliverable": "docs/specs/081-game-recording.md, orchestrator/native/recording.c and jpeg.c, orchestrator/server/recordings.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, orchestrator/native/tests/recording_test.c, orchestrator/tests/recordings.test.mjs and native-recording.spec.mjs",
       "external_references": [
-        "capture-mcp (per-app audio and transcription) — KI-044"
+        "capture-mcp (per-app audio and transcription) \u2014 KI-044"
       ],
       "evidence": []
     },
@@ -824,6 +824,33 @@
       "deliverable": "docs/specs/078-project-game-declaration.md, contracts/project-v1.schema.json, orchestrator/server/{game-rules,games}.mjs, orchestrator/native/app.c, orchestrator/actions/integrate-project.sh, orchestrator/templates/project/test_rengine_project_decl.py, docs/runbooks/project-integration.md, orchestrator/tests/{cooperative.test.mjs,surface-producer.mjs,game-fixtures.mjs,native-cooperative.spec.mjs}",
       "external_references": [
         "vtmb-vr F1147 (the consumer's own surface-protocol client, src/platform/workspace_surface.cpp)"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 80,
+      "milestone": "O1",
+      "category": "surfaces",
+      "priority": "high",
+      "description": "Actionable Devices tab: each device's bound dashboard actions render as controls that run from there through the dashboard's own route, carrying the availability dashboardActions already computed, and each bound game reports the preflight the launch uses -- replacing the inert comma-separated list of target ids.",
+      "acceptance_criteria": [
+        "GET /api/devices resolves the project's dashboard actions once, with the same dashboardActions the dashboard route uses, and files each under the device it names: per device a controls array of {id, title, kind, available, missing} in declaration order and a targets array of {id, title, ready, remote, issue, location} for bound game records, beside the existing games/actions id lists, which keep their shape. Both the retained host and the replaceable worker serve it. A layer that omits the arrays still draws the old Targets line.",
+        "Availability is carried, never recomputed: a listing with controls on it costs one probe per device and no more, because resolution runs after the device statuses in the same request and reads the cache they filled. Drawing a control issues no request; probes stay on open and Refresh.",
+        "The Devices tab runs a control through POST /api/dashboard-run (or /api/dashboard-capture), the route the Dashboard tab uses, so a script action opened from Devices lands in a script tab with its declared arguments and no second execution path exists. An unavailable action is drawn disabled.",
+        "An action blocked only by its device restates nothing -- the device's single reason stays on the device row -- while one blocked by its own requires/tools/preflight names that first, as the dashboard tab does. A device with nothing bound says so.",
+        "A bound game draws its preflight state and carries no launch control; a target on a non-local device never reads ready and names where it runs instead, since launch_game refuses it by design.",
+        "A bootstrap-shaped action -- one whose purpose is to make a device usable -- is gated exactly like every other action bound to that device and is not reordered; the decision and its reasoning are recorded in spec 082.",
+        "Every new row's leading column reserves its trailing pill's width, asserted rather than eyeballed: every trailing pill ends at the same x as the device row's own status pill, each column keeps one width, and that edge lies inside the pane.",
+        "npm test, npm run test:desktop, CTest, ./init.sh, python3 tools/design.py check, features.py validate and the sidecar check pass, and both live consumer declarations still validate."
+      ],
+      "passes": false,
+      "dependencies": [
+        76
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/082-project-devices.md, orchestrator/server/{devices,main}.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, orchestrator/native/{devices.c,theme.json,theme.h}, orchestrator/tests/{devices.test.mjs,native-devices.spec.mjs}",
+      "external_references": [
+        "vtmb-vr scripts/wizards/remote-rengine.sh, the pcvr-bound install action this makes reachable"
       ],
       "evidence": []
     }

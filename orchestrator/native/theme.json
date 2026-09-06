@@ -484,6 +484,7 @@
       "reason-height": 20,
       "refresh-width": 90,
       "status-width": 120,
+      "kind-width": 110,
       "note-height": 24
     },
     "design": {

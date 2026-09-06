@@ -396,3 +396,77 @@ test('launch_game refuses a non-local device by name and points at the project�
     assert.equal(localConfig.refusal, undefined, 'a local record is launched, never refused');
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
+
+/* Spec 082, "Controls on the device". The listing that draws the Devices tab carries the actions
+   bound to each device with the availability dashboardActions already computed, so the tab renders
+   controls rather than a comma-separated list of ids — and resolving them costs no probe of its
+   own, because the statuses above filled the cache they read. */
+test('a device listing carries the controls bound to it, with the dashboard’s own availability and no second probe', async () => {
+  const directory = await scratch('device-controls');
+  try {
+    forgetProbes();
+    const document = {
+      ...devicesDeclaration([counted(), silent(), answering()]),
+      games: [localGame(), remoteGame({ device: 'counted-box' })],
+      dashboard: { title: 'Board', groups: [
+        { id: 'boot', title: 'Boot', actions: [
+          /* An action whose whole purpose is to make the silent box usable. */
+          { id: 'install-silent', title: 'Install rEngine on the silent box', kind: 'script', script: 'tools/probe-ok.sh', device: 'silent-box' },
+          { id: 'on-counted', title: 'On counted', kind: 'script', script: 'tools/probe-ok.sh', device: 'counted-box' },
+          { id: 'needs-file', title: 'Needs a local file', kind: 'script', script: 'tools/probe-ok.sh', device: 'counted-box', requires: ['data/absent.bin'] },
+          { id: 'here', title: 'Runs here', kind: 'script', script: 'tools/probe-ok.sh' },
+        ] },
+      ] },
+    };
+    const project = await deviceProject(directory, 'project', document);
+    const root = asRoot('controls-root', project);
+    const declared = await readDeclaration(project);
+    const preflight = (rootId, gameId) => inspectGame(root, gameId);
+    const listing = await projectDevices(root, declared, { resolve: () => dashboardActions(root, preflight), preflight });
+    const of = id => listing.devices.find(device => device.id === id);
+    const control = (device, id) => of(device).controls.find(item => item.id === id);
+
+    assert.equal((await readFile(path.join(project, 'probe-count.txt'), 'utf8')).length, 1,
+      'the listing and every control on it cost one probe of the counted device');
+
+    /* Availability is not recomputed here: every control carries the dashboard's own verdict. */
+    const board = await dashboardActions(root, preflight);
+    const declaredAction = id => board.groups.flatMap(group => group.actions).find(action => action.id === id);
+    for (const [device, id] of [['silent-box', 'install-silent'], ['counted-box', 'on-counted'], ['counted-box', 'needs-file'], ['local', 'here']]) {
+      assert.equal(control(device, id).available, declaredAction(id).available, `${id} carries the dashboard's availability`);
+      assert.deepEqual(control(device, id).missing, declaredAction(id).missing, `${id} carries the dashboard's reasons`);
+      assert.equal(control(device, id).title, declaredAction(id).title);
+      assert.equal(control(device, id).kind, declaredAction(id).kind);
+    }
+    assert.deepEqual(of('counted-box').controls.map(item => item.id), ['on-counted', 'needs-file'],
+      'a device carries its own controls in declaration order and no other device’s');
+    assert.deepEqual(of('local').controls.map(item => item.id), ['here']);
+
+    /* Bootstrap versus gated: the action that exists to make the silent box usable is gated on that
+       box exactly like every other action bound to it, and says so with the device's own reason. */
+    assert.equal(control('silent-box', 'install-silent').available, false);
+    assert.deepEqual(control('silent-box', 'install-silent').missing.map(item => item.type), ['device']);
+    /* An action blocked by its OWN prerequisite names that first, ahead of the device. */
+    assert.deepEqual(control('counted-box', 'needs-file').missing.map(item => item.type), ['requires']);
+
+    /* A bound game carries its preflight state, and a reason only when it is the game's own: the
+       device's single reason stays on the device row rather than being restated per target. */
+    assert.deepEqual(of('local').targets.map(item => item.id), ['local-target']);
+    assert.equal(of('local').targets[0].ready, false);
+    assert.match(of('local').targets[0].issue, /Game executable not found/);
+    assert.equal(of('local').targets[0].remote, false);
+    const remote = of('counted-box').targets[0];
+    assert.equal(remote.id, 'remote-target');
+    assert.equal(remote.remote, true, 'rEngine does not launch on a remote device, so the row never reads ready');
+    assert.match(remote.location, /on Counted box \(counted-box\), not on this machine/);
+
+    /* A device with nothing bound says so, in the payload as well as on the row. */
+    assert.deepEqual(of('answering-box').controls, []);
+    assert.deepEqual(of('answering-box').targets, []);
+
+    /* A caller that asks for no controls still gets the contract-4 listing exactly as before. */
+    const plain = await projectDevices(root, declared);
+    assert.equal(plain.devices[0].controls, undefined);
+    assert.deepEqual(plain.devices.map(item => item.id), listing.devices.map(item => item.id));
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});

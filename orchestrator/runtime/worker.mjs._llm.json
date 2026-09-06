@@ -71,8 +71,8 @@
       "id": "recording-routes",
       "kind": "rationale",
       "anchor": {
-        "start": 69,
-        "end": 69,
+        "start": 70,
+        "end": 70,
         "snippet": "      } else if (req.method === 'GET' && target.pathname === '/api/recordings') {"
       },
       "note": "Both recording routes are answered here, from this checkout, and never forwarded: reading committed segments is a filesystem walk over a project root with no session, PTY or surface state behind it. That is the whole reason the capability is deliverable by a layered workspace update, which is the lesson KI-043 and spec 078 paid for \u2014 a route only the retained session host can answer cannot be delivered without quiescence. recordings: 1 is therefore advertised unconditionally here, unlike projectGameLaunch, which is mirrored from the host because the host is the one that can honour it.",
@@ -83,7 +83,7 @@
   ],
   "source": {
     "path": "orchestrator/runtime/worker.mjs",
-    "sha256": "ff5ac048432a55c1063573a7314515e1790c5dbd93b461ec0bc367e8ae269948",
+    "sha256": "2d4cbc99c19d60df86288a784418ef53a385e77b6df1e8fab408d71d56d10d7d",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

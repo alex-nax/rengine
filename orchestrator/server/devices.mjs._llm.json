@@ -78,11 +78,24 @@
       "refs": [
         "docs/specs/082-project-devices.md"
       ]
+    },
+    {
+      "id": "bound-controls",
+      "kind": "rationale",
+      "anchor": {
+        "start": 122,
+        "end": 122,
+        "snippet": "async function boundControls(root, declared, statuses, options) {"
+      },
+      "note": "Ordering here is the whole correctness argument. The device statuses above are awaited FIRST, and only then is options.resolve() called, so dashboardActions reads the probe cache those statuses filled instead of probing again: a listing that carries controls costs exactly one probe per device, which is what the 15 s TTL and the in-flight coalescing were built for. Never pass this function's own options (which may carry refresh: true) down into resolve \u2014 that deletes the cache keys the statuses just wrote and doubles every probe. Availability is CARRIED, never recomputed: dashboardActions has already composed each action's own requires/tools with its device's reachability and named the failing half, and a second computation here would be a second opinion that can disagree with the dashboard. A resolved action carries the device RECORD in `device`, not the declared id, which is why the filter reads action.device?.id \u2014 an earlier draft compared against the raw id and silently filed every action under nobody. An action naming an undeclared device carries no record and lands under no device, matching what boundTargets already does with its id. A game's `issue` is filtered against the device's own issues so an unreachable device stays one reason on one row rather than the same sentence under every target bound to it.",
+      "refs": [
+        "docs/specs/082-project-devices.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/server/devices.mjs",
-    "sha256": "5bad89a3c174c9a25870b7130f03cd89962005e345970722e20a4d6ab13c0b1f",
+    "sha256": "ad7b86dccb4a8a65b6f6c840ff96698a3f56fc665ae5c2fb1446af5d70286057",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

@@ -252,6 +252,102 @@ surface argument for the whole feature: a Quest that is not attached is one unre
 a reason, not four separately disabled actions each restating it. Metrics and colours go through the
 generated `RE_METRIC_*`/`RE_COLOR_*` constants; `python3 tools/design.py check` must pass.
 
+## Controls on the device
+
+Date: 2026-09-07. Owner-directed: *"everything should be able to install in devices tab, add proper
+controls there."* The section above gave the tab everything except the ability to act. It knows
+exactly which games and actions each device carries — it drew them as one comma-separated line of
+ids — so the whole gap was that pressing them was impossible. The motivating case is the second
+consumer's install wizard: a `script` action bound to `pcvr` whose job is to install a headless
+rEngine on that box. It belongs beside the device it acts on, not three tabs away.
+
+### A control runs through the route the dashboard already uses
+
+`POST /api/dashboard-run` (and `/api/dashboard-capture` for a capture action) stays the single
+execution path. The Devices tab calls the same `re_app_dashboard_run` the Dashboard tab calls, so a
+`script` action opened from Devices lands in a script tab exactly as it does from the Dashboard,
+with the same session title, arguments and environment, and a `game` action launches through the
+same `launch()` the dashboard route uses. **No second execution path is introduced**, and nothing
+about a control is decided in the native layer.
+
+### Availability is carried, never recomputed
+
+`GET /api/devices` now resolves the project's dashboard actions with the same `dashboardActions`
+the dashboard route uses and files each one under the device it names, so every control carries the
+`available`/`missing` pair that function already composed — the action's own `requires`/`tools`
+**and** its device's reachability, with the failing half named. Resolution runs **after** every
+device status in the same request, so it reads the probe cache those filled: a listing with
+controls on it costs exactly the probes the listing already cost, and one probe per device.
+
+Per device the listing gains two arrays beside the existing `games`/`actions` id lists, which keep
+their shape:
+
+- `controls`: `{ id, title, kind, available, missing }` for each bound dashboard action, in
+  declaration order — the same order the Dashboard shows them in, so the two panes read alike.
+- `targets`: `{ id, title, ready, remote, issue, location }` for each bound game record. `ready` is
+  the preflight the launch itself uses; `remote` is true when that preflight carries a refusal, so
+  a target that runs on another machine is never drawn as *Ready*; `issue` is the first preflight
+  issue **that the device row does not already carry**.
+
+A workspace layer that predates these arrays omits them, and the native section falls back to the
+old *Targets: …* line rather than drawing an empty device (spec 065).
+
+### One reason, still
+
+The tension is real: an unavailable control names its first reason, as the Dashboard does, and an
+unreachable device shows **one** reason rather than one per bound action. It is resolved by naming
+the first reason *that is not the device's*. A control blocked only by its device is drawn disabled
+and says nothing — the reason is on the device row, one line above it. A control blocked by its own
+prerequisite (a missing file, a tool off `PATH`, a game preflight issue) names that, because the
+device row does not carry it. The same rule applies to a bound game's `issue`, filtered server-side
+against the device's own `issues`.
+
+### Games are reported here, not launched here
+
+A bound game draws its preflight state and no launch control. rEngine launches a game only through
+a declared dashboard action of kind `game` — which is one of the controls above whenever the
+declaration binds one to this device — so the Devices tab adds no launch surface of its own. The
+honesty argument is the same one that produced this contract: a game bound to a non-local device is
+refused by `launch_game` by design, so a launch button on that row could only ever refuse.
+
+### Bootstrap versus gated: gated, and the escape hatch is the declaration
+
+A bootstrap-shaped action — one whose purpose is to make a device usable — is **not** exempted from
+its device's reachability, and is not reordered ahead of anything. Three reasons, recorded because
+the alternative is attractive:
+
+1. **rEngine cannot tell one from another.** Nothing in the declaration says *this action makes the
+   device usable*, and inferring it from an id or a title would be rEngine naming a specific script
+   — the thing the remote-launch refusal was carefully built to avoid.
+2. **The motivating action genuinely needs the device.** The consumer's
+   `scripts/wizards/remote-rengine.sh` opens with a stage titled *Check this machine can reach the
+   box* and aborts when `ssh` fails. Ungating it would replace one measured *the box is not
+   answering* with a script that discovers the same fact several seconds later and worse.
+3. **The contract already has the escape hatch.** An action that can run while a device is down is,
+   by definition, an action that does not depend on that device — and it expresses that by omitting
+   `device` (or naming `local`). An exemption flag would let a declaration claim otherwise, and
+   rEngine would be enabling a control it has just been told cannot work.
+
+Ordering is left as declared for the same reason: with availability composed as it is, every action
+bound to an unreachable device is unavailable together, so a *runnable first* sort would reorder
+nothing on the device it was meant to help and would desynchronise the Devices and Dashboard panes
+everywhere else. What the tab does instead is put the action **where the operator looks for it** —
+next to the device it acts on, disabled, with the device's single reason on the row above — so the
+next move (power the box on, press Refresh, press the wizard) is one pane.
+
+### Probes, and the row geometry
+
+Probes still run only when the view is opened and when Refresh is pressed. Drawing a control issues
+no request, and a control is never a probe: the section renders from the payload it already holds.
+
+Every new row is a leading control plus a trailing fixed-width pill, and **the leading column
+reserves the trailing one's width** — `{-RE_METRIC_DEVICES_KIND_WIDTH, -1}`, never
+`{-1, …_WIDTH}`. A negative width in microui fills to the right edge, so a leading `-1` consumes the
+whole row and pushes the pill past the pane, which is the defect `5a0bc38` fixed on the device row
+itself. It is asserted rather than eyeballed: every trailing pill in the section must end at the
+same x as the device row's own status pill, each column must keep one width (a pill pushed out of
+the container is recorded clipped, or not at all), and that edge must lie inside the pane.
+
 ## Acceptance criteria
 
 1. `contract` accepts 1, 2, 3 and 4; contracts 1–3 read exactly as before, and both live consumer
@@ -276,6 +372,19 @@ generated `RE_METRIC_*`/`RE_COLOR_*` constants; `python3 tools/design.py check` 
 9. `launch_game` on a non-local device refuses with a message naming the device and the project's
    own script actions bound to it, and attempts nothing.
 10. A native fixture drives the Devices section, including the unreachable case with one reason.
+
+11. Each device's bound dashboard actions render as controls in the Devices tab and run through
+    `POST /api/dashboard-run` / `/api/dashboard-capture` — the dashboard's own route, with a script
+    action landing in a script tab with its declared arguments — and no second execution path exists.
+12. A control's availability is the one `dashboardActions` computed, carried rather than recomputed:
+    a listing with controls costs one probe per device and no more, and an action unavailable for
+    its own prerequisite names it while one blocked only by its device names nothing, leaving the
+    device's single reason on the device row. A device with nothing bound says so.
+13. A bound game reports the preflight the launch uses and carries no launch control; a target on a
+    non-local device never reads ready and says where it runs instead.
+14. A bootstrap-shaped action is gated exactly like every other action bound to the same device, and
+    every new row's leading column reserves its trailing pill's width, asserted against the device
+    row's own pill rather than eyeballed.
 
 Tests use temporary projects with small script producers. No test depends on a real Quest or a
 reachable SSH host, and no test probes the owner's actual machines.
