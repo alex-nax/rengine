@@ -24,7 +24,7 @@ test('game launch prerequisites fail before creating shell or agent sessions', {
   await assert.rejects(run(process.execPath, ['orchestrator/launch.mjs', '--launch-game', '--state', directory]), /requires --project/);
   await assert.rejects(readFile(path.join(directory, 'sidecar.json')), { code: 'ENOENT' });
   instance = await ensureSidecar(directory);
-  await assert.rejects(run(process.execPath, ['orchestrator/launch.mjs', '--project', directory, '--launch-game', '--state', directory]), /declares no game in \.rengine\/project\.json/);
+  await assert.rejects(run(process.execPath, ['orchestrator/launch.mjs', '--project', directory, '--launch-game', '--state', directory]), /declares no games in \.rengine\/project\.json/);
   assert.deepEqual((await request(instance, 'state')).sessions, []);
 });
 

@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 import { startServer } from '../server/main.mjs';
 import { nativeClient } from './native-client.mjs';
-import { gameProject } from './game-fixtures.mjs';
+import { absent, game, gameProject, gamesDeclaration, second } from './game-fixtures.mjs';
 
 test('the toolbar shows the declared game only, launches it in its own window and stops it from Sessions', { timeout: 60000 }, async () => {
   const dir = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-native-game-decl-')));
@@ -21,8 +21,9 @@ test('the toolbar shows the declared game only, launches it in its own window an
     for (let i = 0; i < 5; i++) { state = await gui.command({ op: 'state' }); assert.equal(gameButton(state), undefined, 'no game button for an undeclared root'); await delay(100); }
     await gui.control('toolbar', 'Root');
     state = await gui.until(s => s.root === declared.id && gameButton(s), 'declared title on the toolbar after switching roots');
-    const vim = state.controls.find(c => c.role === 'toolbar' && c.key === 'Merge pane');
-    assert.ok(gameButton(state).rect[0] > vim.rect[0], 'the game button follows Merge pane');
+    const merge = state.controls.find(c => c.role === 'toolbar' && c.key === 'Merge pane');
+    assert.ok(gameButton(state).rect[0] > merge.rect[0], 'the game button follows Merge pane');
+    assert.equal(state.controls.find(c => c.role === 'toolbar' && c.key === 'Games'), undefined, 'a single game needs no menu');
     await gui.control('toolbar', 'Fixture game');
     state = await gui.until(s => s.state.sessions.some(x => x.type === 'game' && x.state === 'running'), 'game session launched from the toolbar');
     const session = state.state.sessions.find(x => x.type === 'game');
@@ -42,6 +43,47 @@ test('the toolbar shows the declared game only, launches it in its own window an
     await gui.control('tab', '', index);
     await gui.until(s => s.controls.some(c => c.role === 'game-status' && c.key === 'exited' && c.tab === index), 'exited status row');
     assert.equal(server.sessions.snapshot(session.id).state, 'exited');
+    await gui.close(); gui = null;
+  } finally { await gui?.close(); await server?.close(); await rm(dir, { recursive: true, force: true }); }
+});
+
+test('several declared games open a menu whose unavailable entry names its first issue', { timeout: 60000 }, async () => {
+  const dir = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-native-games-menu-')));
+  let server, gui;
+  try {
+    server = await startServer({ stateDir: path.join(dir, 'state') });
+    const many = await server.store.addRoot(await gameProject(dir, 'many', gamesDeclaration([game(), absent(), second()])));
+    gui = await nativeClient(server, { root: many.id });
+    let state = await gui.until(s => s.connected && s.controls?.some(c => c.role === 'toolbar' && c.key === 'Games'), 'a Games menu button for several declared games');
+    assert.equal(state.controls.find(c => c.role === 'toolbar' && c.key === 'Fixture game'), undefined, 'no per-title button when several games are declared');
+    assert.equal(state.controls.find(c => c.role === 'game'), undefined, 'the menu is closed until it is opened');
+
+    await gui.control('toolbar', 'Games');
+    state = await gui.until(s => s.controls.some(c => c.role === 'game' && c.key === 'fixture-game')
+      && s.controls.some(c => c.role === 'game-unavailable' && c.key === 'fixture-absent')
+      && s.controls.some(c => c.role === 'game' && c.key === 'fixture-second'), 'every declared game listed, the failing one disabled');
+    assert.deepEqual(state.games.map(x => [x.id, x.title, x.ready]),
+      [['fixture-game', 'Fixture game', true], ['fixture-absent', 'Fixture absent', false], ['fixture-second', 'Fixture second', true]]);
+    assert.equal(state.games.find(x => x.id === 'fixture-absent').label,
+      'Fixture absent — unavailable: Game executable not found; expected build/absent-game in the selected project.');
+    assert.equal(state.games.find(x => x.id === 'fixture-second').label, 'Fixture second');
+    await mkdir('.cache/evidence', { recursive: true });
+    assert.equal(await gui.command({ op: 'snapshot', path: path.resolve('.cache/evidence/native-games-menu.bmp') }), true);
+
+    await gui.control('game', 'fixture-second');
+    state = await gui.until(s => s.state.sessions.some(x => x.type === 'game' && x.game === 'fixture-second' && x.state === 'running'), 'the chosen game launched');
+    const chosen = state.state.sessions.find(x => x.game === 'fixture-second');
+    assert.equal(chosen.title, 'Fixture second · many'); assert.equal(chosen.surface, 'external');
+    assert.equal(state.controls.find(c => c.role === 'game'), undefined, 'choosing an entry closes the menu');
+    state = await gui.until(s => s.tabs.some(t => t?.session === chosen.id && t.text?.includes('FIXTURE_SECOND_STARTED')), 'the chosen game output in its tab');
+
+    await gui.control('toolbar', 'Games'); await gui.control('game', 'fixture-second'); await delay(500);
+    state = await gui.command({ op: 'state' });
+    assert.equal(state.state.sessions.filter(x => x.type === 'game').length, 1, 'choosing the same game again reuses its session');
+    await gui.control('toolbar', 'Games'); await gui.control('game', 'fixture-game');
+    state = await gui.until(s => s.state.sessions.filter(x => x.type === 'game' && x.state === 'running').length === 2, 'a second declared game runs beside the first');
+    assert.deepEqual(state.state.sessions.filter(x => x.type === 'game').map(x => x.game).sort(), ['fixture-game', 'fixture-second']);
+    for (const item of state.state.sessions.filter(x => x.type === 'game')) await server.sessions.stop(item.id);
     await gui.close(); gui = null;
   } finally { await gui?.close(); await server?.close(); await rm(dir, { recursive: true, force: true }); }
 });
