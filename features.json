@@ -390,7 +390,7 @@
         "The Vulkan adapter renders every draw-list primitive with the same snapshot comparisons and measurements as the OpenGL adapter on Windows.",
         "Backend selection, fallback and evidence recording match the OpenGL adapter; additional platforms record their own evidence."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         57
       ],
@@ -407,17 +407,16 @@
       "milestone": "R2",
       "category": "design",
       "priority": "high",
-      "description": "Implement the Claude Design theming update on the GPU renderer.",
+      "description": "Implement the Claude Design foundations on the GPU renderer: theme generation, the owned control layer, toolbar, tab strip and status bar.",
       "acceptance_criteria": [
-        "design/tokens.css layers and presets generate the runtime theme; default, teal and light switch live, and theme files import and export.",
-        "Toolbar, tab strips, tree, editor, terminal, status bar, session browser, menus and theme panel match their Claude Design cards in native snapshot comparisons on macOS and Windows.",
+        "design/tokens.css layers and presets generate the runtime theme, and the default, teal and light presets switch live on the GPU backend.",
+        "An owned control library over pristine microui provides the design's buttons, selects, fields, checkboxes, sliders, separators, focus ring and transition clock in microui's conventions, as its own build target with no workspace dependencies.",
+        "The toolbar, tab strip and status bar match their Claude Design cards on macOS: a generated card reference asserts geometry and resolved colours per state in a native snapshot test, and the full snapshots are recorded as evidence.",
         "Every existing desktop behaviour gate still passes on the GPU backend."
       ],
       "passes": false,
       "dependencies": [
-        57,
-        37,
-        54
+        57
       ],
       "owner_workspace": "rengine",
       "deliverable": "themed native desktop and docs/evidence",
@@ -509,7 +508,115 @@
       "evidence": []
     },
     {
+      "id": 65,
+      "milestone": "O1",
+      "category": "editor",
+      "priority": "medium",
+      "description": "Declare a project dashboard (contract 2) and serve its actions, availability and captures.",
+      "acceptance_criteria": [
+        "contracts/project-v1.schema.json accepts contract 1 and 2; contract 2 adds an optional dashboard of groups and actions (kind script, log or capture with their fields, requires/tools/artifacts) with unknown keys, unknown kinds, mixed-kind fields, duplicate ids, non-root-relative paths and bad env keys rejected by name, structural errors before cross rules; a bad dashboard is reported without disabling the formats section; the copied nolf-improved merged document validates with zero errors.",
+        "The dashboard route computes per-action availability (missing required files inside the root boundary, tools absent from the sidecar PATH) without running anything; dashboard-run creates the retained script or log session with literal args and env merged over the shell environment and refuses unavailable actions; dashboard-capture runs the command once under contract-1 bounds, requires the PNG signature, writes <into>/<timestamp>.png and appends to manifest.json inside the root, rejecting non-PNG output and escaping directories.",
+        "Host and replaceable worker serve the routes; MCP dashboard_actions lists availability read-only, dashboard_capture returns the manifest entry, open_script accepts env; service tests fail before the reader knows contract 2 and cover every rule above."
+      ],
+      "passes": false,
+      "dependencies": [
+        63
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/075-project-dashboard.md, contracts/project-v1.schema.json (contract 2), orchestrator/server/dashboard.mjs and tests",
+      "external_references": [
+        "nolf-improved docs/specs/feature-1615-project-dashboard.md"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 66,
+      "milestone": "O1",
+      "category": "editor",
+      "priority": "medium",
+      "description": "Render the project dashboard as a native tab with runnable actions.",
+      "acceptance_criteria": [
+        "A Dashboard tab per declared root opens from the toolbar and automatically once when a bound root declares a dashboard and the layout holds none; groups are sections, each available action is a button with its title and description, an unavailable action is a label naming the first missing item.",
+        "A script action opens its retained session as a script tab with its args and env, a log action opens a terminal tab, a capture action runs the capture and shows the written path in the status line, artifacts reveal their path in the project tree, and a declaration error renders in the tab without disabling the workspace.",
+        "A native fixture drives auto-open, groups, the disabled action, the script tab output, the capture file and manifest, artifact reveal, close, restart and toolbar reopen through real SDL events; the owner verifies the real nolf-improved dashboard after its staged section moves into project.json and a layered update."
+      ],
+      "passes": false,
+      "dependencies": [
+        65,
+        64
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "orchestrator/native/dashboard.c, native-dashboard.spec.mjs and evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 67,
+      "milestone": "R2",
+      "category": "design",
+      "priority": "high",
+      "description": "Implement the Claude Design update for the tree, editor, terminal and session browser.",
+      "acceptance_criteria": [
+        "The tree, editor, terminal and session browser match their Claude Design cards on macOS under the generated card reference, including the editor breadcrumb bar, gutter, current-line tint and syntax colours, the terminal cell metrics, and the session table's state pills.",
+        "Overlay scrollbars with rounded thumbs replace the current bars in every scrollable view, with rest, hover and dragging states.",
+        "Every existing desktop behaviour gate still passes on the GPU backend."
+      ],
+      "passes": false,
+      "dependencies": [
+        60,
+        37,
+        54
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "themed views and docs/evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
       "id": 68,
+      "milestone": "R2",
+      "category": "design",
+      "priority": "high",
+      "description": "Implement the Claude Design menus, theme panel and theme files.",
+      "acceptance_criteria": [
+        "Menus and popovers match their cards on macOS as one overlay layer with a shadow, keyboard hints and separators.",
+        "The theme panel matches its card, including the accent hue slider drawn with the draw-list gradient primitive.",
+        "Theme files in the card's format override all three token layers, import and export from the theme panel, and a project root's theme is offered and applied only on explicit activation, remembered per root.",
+        "Every existing desktop behaviour gate still passes on the GPU backend."
+      ],
+      "passes": false,
+      "dependencies": [
+        60
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "themed overlays, theme files and docs/evidence",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 69,
+      "milestone": "R2",
+      "category": "design",
+      "priority": "high",
+      "description": "Record Windows card evidence for the Claude Design update.",
+      "acceptance_criteria": [
+        "The card reference assertions for every surface covered by F60, F67 and F68 pass on the Windows desktop.",
+        "Native snapshots of those surfaces on Windows are recorded as evidence alongside the macOS set."
+      ],
+      "passes": false,
+      "dependencies": [
+        60,
+        67,
+        68,
+        62
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/evidence for the Windows design update",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 70,
       "milestone": "O1",
       "category": "integration",
       "priority": "medium",

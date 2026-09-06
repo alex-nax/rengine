@@ -97,7 +97,8 @@ export class Sessions extends EventEmitter {
     finally { if (this.handoffFlights.get(key) === flight) this.handoffFlights.delete(key); }
   }
 
-  async spawnTerminal({ rootId, type = 'terminal', agent, action = 'launch', command, args, handoffFile, cols = 100, rows = 30, env = {} }) {
+  async spawnTerminal({ rootId, type = 'terminal', agent, action = 'launch', command, args, handoffFile, cols = 100, rows = 30, env = {}, title }) {
+    if (title !== undefined && (typeof title !== 'string' || !title.trim() || title.length > 200)) fail('Session title must be a short string.');
     const root = this.store.root(rootId);
     const id = randomUUID(); let handoff, gate;
     env = shellEnvironment({ ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents'),
@@ -138,7 +139,7 @@ export class Sessions extends EventEmitter {
     const child = pty.spawn(file, argv, { name: 'xterm-256color', cols, rows, cwd: root.path,
       env: shellEnvironment({ ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents') }) });
     const item = { id, rootId, type, handoff, gate, released: false, ...(type === 'agent' ? { agent: agent ?? '' } : {}),
-      title: type === 'agent' ? `${agent || 'Choose agent'} · ${root.name}` : `${type === 'game' ? 'NOLF' : 'Terminal'} · ${root.name}`,
+      title: title ?? (type === 'agent' ? `${agent || 'Choose agent'} · ${root.name}` : `${type === 'game' ? 'NOLF' : 'Terminal'} · ${root.name}`),
       pid: child.pid, child, state: 'running', createdAt: Date.now(), cols, rows, output: '', sequence: 0 };
     this.items.set(item.id, item);
     child.onData(data => {

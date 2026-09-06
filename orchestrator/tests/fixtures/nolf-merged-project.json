@@ -1,0 +1,214 @@
+{
+  "contract": 2,
+  "project": "nolf-improved",
+  "formats": [
+    {
+      "id": "lithtech-rez",
+      "title": "LithTech REZ archive",
+      "match": [
+        "*.rez"
+      ],
+      "modes": [
+        "raw",
+        "preview"
+      ],
+      "default": "raw",
+      "preview": {
+        "kind": "tree",
+        "command": [
+          "build/relith-rez",
+          "--json",
+          "tree",
+          "${file}"
+        ],
+        "timeoutMs": 10000,
+        "maxBytes": 4194304
+      },
+      "entry": {
+        "kind": "bytes",
+        "command": [
+          "build/relith-rez",
+          "cat",
+          "${file}",
+          "${entry}"
+        ],
+        "timeoutMs": 10000,
+        "maxBytes": 16777216
+      }
+    }
+  ],
+  "dashboard": {
+    "title": "reLith",
+    "groups": [
+      {
+        "id": "quick-start",
+        "title": "Quick start",
+        "actions": [
+          {
+            "id": "quest",
+            "title": "Quest: build, install, launch (RELEASE)",
+            "description": "Builds the APK, refreshes it on the connected Quest when stale, launches NOLF. Device runtime settings stay in /sdcard/nolf/relith_env.cfg.",
+            "kind": "script",
+            "script": "fast-start-quest.sh",
+            "env": {
+              "BUILD_TYPE": "RELEASE"
+            },
+            "tools": [
+              "adb"
+            ]
+          },
+          {
+            "id": "quest-debug",
+            "title": "Quest: build, install, launch (DEBUG, -O0 + debuggable)",
+            "kind": "script",
+            "script": "fast-start-quest.sh",
+            "env": {
+              "BUILD_TYPE": "DEBUG"
+            },
+            "tools": [
+              "adb"
+            ]
+          },
+          {
+            "id": "pcvr",
+            "title": "PCVR: start on the Windows box over SSH",
+            "description": "Ships the .bat helpers and invokes the dispatcher; needs pcvr-host.env (gitignored, copy pcvr-host.env.example).",
+            "kind": "script",
+            "script": "fast-start-pcvr.sh",
+            "requires": [
+              "pcvr-host.env"
+            ],
+            "tools": [
+              "ssh"
+            ]
+          },
+          {
+            "id": "avp2-flat",
+            "title": "AVP2 flat: main menu",
+            "kind": "script",
+            "script": "avp2-fast-start.sh",
+            "requires": [
+              "build/relith-avp2"
+            ]
+          },
+          {
+            "id": "avp2-world",
+            "title": "AVP2 flat: m1s1 free camera",
+            "kind": "script",
+            "script": "avp2-fast-start.sh",
+            "args": [
+              "--world"
+            ],
+            "requires": [
+              "build/relith-avp2"
+            ]
+          },
+          {
+            "id": "avp2-pc",
+            "title": "AVP2 flat on the Windows box over SSH",
+            "kind": "script",
+            "script": "avp2-fast-start-pc.sh",
+            "requires": [
+              "pcvr-host.env"
+            ],
+            "tools": [
+              "ssh"
+            ]
+          },
+          {
+            "id": "editor-check",
+            "title": "Editor prerequisites (editor.sh --check)",
+            "kind": "script",
+            "script": "editor.sh",
+            "args": [
+              "--check"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "distribution",
+        "title": "Distribution",
+        "actions": [
+          {
+            "id": "dist-quest",
+            "title": "Build the Quest bundle",
+            "description": "APK a user sideloads plus manual-install instructions and third-party notices, in dist/relith-nolf-quest.",
+            "kind": "script",
+            "script": "make-dist.sh",
+            "artifacts": [
+              "dist/relith-nolf-quest"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "device",
+        "title": "Quest device",
+        "actions": [
+          {
+            "id": "quest-log",
+            "title": "Log stream (relith-nolf)",
+            "kind": "log",
+            "command": [
+              "adb",
+              "logcat",
+              "-v",
+              "time",
+              "-s",
+              "relith-nolf"
+            ],
+            "filters": [
+              "ERROR",
+              "WARN",
+              "[perf",
+              "[cine]",
+              "crash"
+            ],
+            "tools": [
+              "adb"
+            ]
+          },
+          {
+            "id": "quest-screen",
+            "title": "Headset screenshot",
+            "description": "One PNG per capture into .cache/captures/quest with manifest.json; the agent reads the manifest.",
+            "kind": "capture",
+            "command": [
+              "adb",
+              "exec-out",
+              "screencap",
+              "-p"
+            ],
+            "into": ".cache/captures/quest",
+            "format": "png",
+            "tools": [
+              "adb"
+            ]
+          },
+          {
+            "id": "quest-deploy",
+            "title": "Deploy debug APK and launch",
+            "kind": "script",
+            "script": "scripts/deploy-quest.sh",
+            "tools": [
+              "adb"
+            ]
+          },
+          {
+            "id": "quest-data",
+            "title": "Push game data to the headset",
+            "kind": "script",
+            "script": "scripts/copy-data-to-quest.sh",
+            "requires": [
+              "nolf/NOLF.REZ"
+            ],
+            "tools": [
+              "adb"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

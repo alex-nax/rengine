@@ -1,4 +1,4 @@
-# Project integration recipe (F68) — macOS, 2026-09-06
+# Project integration recipe (F70) — macOS, 2026-09-06
 
 Branch `feat/integration-recipe` off `43bbb80`, worktree `.cache/worktrees/integration-recipe`.
 Documentation and shell/JS tooling only: no native code, no service route, no contract change.

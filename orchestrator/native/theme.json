@@ -323,7 +323,8 @@
       "root-width": 170,
       "path-right": 475,
       "add-width": 95,
-      "agent-label-width": 70
+      "agent-label-width": 70,
+      "dashboard-width": 100
     },
     "workspace": {
       "top": 80,
@@ -401,6 +402,14 @@
       "entry-percent": 50,
       "header-height": 22,
       "tree-depth": 10
+    },
+    "dashboard": {
+      "heading-height": 26,
+      "row-height": 26,
+      "description-height": 20,
+      "refresh-width": 90,
+      "artifact-width": 260,
+      "note-height": 24
     }
   },
   "metric-notes": {

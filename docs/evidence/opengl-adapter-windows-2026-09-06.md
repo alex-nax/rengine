@@ -3,7 +3,7 @@
 Scope: F62 ([spec 073](../specs/073-vulkan-adapter.md) decision 3; adapter from [spec 068](../specs/068-opengl-adapter.md)).
 Host: Windows 11 Pro 26200, NVIDIA GeForce RTX 4070 Ti SUPER (driver 591.86), Visual Studio 2026
 Community 18.6 (MSVC 19.51), CMake 4.2.3, SDL 2.32.10 development files, Node 24.15, 1280×800 logical and
-drawable (no high-DPI scaling on this display), builds `35e73dc`–`eb88c92` in the isolated checkout
+drawable (no high-DPI scaling on this display), builds `35e73dc`–`5ccadaf` in the isolated checkout
 `C:\Users\pr0fe\rengine` fed by git bundle (charter D31, runbook
 `docs/runbooks/windows-verification.md`). GUI stages ran in the console session through a scheduled
 task; the terminal scene used PowerShell with its default prompt.
@@ -15,14 +15,13 @@ task; the terminal scene used PowerShell with its default prompt.
 
 | Scene | OpenGL vs SDL differing pixels | Max channel Δ | Outside 2px band | SDL median ms | OpenGL median ms | Commands |
 | --- | --- | --- | --- | --- | --- | --- |
-| Default workspace (tree, shell prompt) | 0 of 1024000 (0.000%) | 0 | n/a | 1.473 | 0.434 | 3520 |
-| Terminal with 40 coloured rows | 0 of 1024000 (0.000%) | 0 | n/a | 0.826 | 0.522 | 4879 |
-| Primitives scene (all contract commands) | 8079 of 1024000 (0.789%) | 139 | 0 | 1.019 | 0.537 | 4920 |
+| Default workspace (tree, shell prompt) | 0 of 1024000 (0.000%) | 0 | n/a | 0.613 | 0.398 | 3520 |
+| Terminal with 40 coloured rows | 0 of 1024000 (0.000%) | 0 | n/a | 0.856 | 0.539 | 4879 |
+| Primitives scene (all contract commands) | 8079 of 1024000 (0.789%) | 139 | 0 | 1.040 | 0.553 | 4920 |
 
 Medians cover 40 event-driven frames per scene after a stats reset; frame time is list build plus
 adapter execute with submission flushed, excluding present and vsync. Resident memory (working set):
-SDL 63708 KiB, OpenGL 91936 KiB, delta 28228 KiB against the 32768 KiB limit (24–28 MiB across
-three runs). OpenGL and Vulkan are pixel-identical on every scene on this host.
+SDL 64876 KiB, OpenGL 87808 KiB, delta 22932 KiB against the 32768 KiB limit (22–28 MiB across four runs). OpenGL and Vulkan are pixel-identical on every scene on this host.
 
 ## Other checks
 

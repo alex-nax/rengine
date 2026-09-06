@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "rows-without-pools",
+      "kind": "rationale",
+      "anchor": {
+        "start": 3,
+        "end": 3,
+        "snippet": "static void action_row(ReApp *a, mu_Context *ui, int tab, const cJSON *action) {"
+      },
+      "note": "Every row is a plain button or label under a per-action id push, so no shared microui pool is involved (the treenode pool abort of spec 074's review must not recur). Unavailable actions are labels, never buttons, so a click cannot request something the service would refuse; the first missing item is named inline. Clicks hand off to app.c (run/capture/reveal) which owns every request; the tab's data is the service listing itself, refreshed on demand.",
+      "refs": [
+        "docs/specs/075-project-dashboard.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/dashboard.c",
+    "sha256": "ecf1c8d1073b5459d6d3dc26c9b7645022a1a9b1e6ed823fee7b43b81455f85b",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

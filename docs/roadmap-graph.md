@@ -54,13 +54,11 @@ flowchart TD
   F56 --> F57
   F58["F58: passing"]
   F57 --> F58
-  F59["F59: ready"]
+  F59["F59: passing"]
   F57 --> F59
-  F60["F60: blocked"]
+  F60["F60: ready"]
   F57 --> F60
-  F37 --> F60
-  F54 --> F60
-  F61["F61: blocked"]
+  F61["F61: ready"]
   F57 --> F61
   F58 --> F61
   F59 --> F61
@@ -69,7 +67,23 @@ flowchart TD
   F63["F63: ready"]
   F64["F64: blocked"]
   F63 --> F64
-  F68["F68: passing"]
+  F65["F65: blocked"]
+  F63 --> F65
+  F66["F66: blocked"]
+  F65 --> F66
+  F64 --> F66
+  F67["F67: blocked"]
+  F60 --> F67
+  F37 --> F67
+  F54 --> F67
+  F68["F68: blocked"]
+  F60 --> F68
+  F69["F69: blocked"]
+  F60 --> F69
+  F67 --> F69
+  F68 --> F69
+  F62 --> F69
+  F70["F70: passing"]
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -92,10 +106,15 @@ flowchart TD
 | F56 | R0 | rengine | passing | Define the backend-neutral draw list and the SDL_Renderer reference adapter for the desktop. |
 | F57 | R0 | rengine | passing | Implement the OpenGL adapter on macOS behind the draw list. |
 | F58 | R1 | rengine | passing | Implement the Metal adapter on macOS behind the draw list. |
-| F59 | R1 | rengine | ready | Implement the Vulkan adapter on Windows, extending to other platforms when they are targeted. |
-| F60 | R2 | rengine | blocked | Implement the Claude Design theming update on the GPU renderer. |
-| F61 | R3 | rengine | blocked | Make the renderer a curated capability with one game adopting it through an adapter. |
+| F59 | R1 | rengine | passing | Implement the Vulkan adapter on Windows, extending to other platforms when they are targeted. |
+| F60 | R2 | rengine | ready | Implement the Claude Design foundations on the GPU renderer: theme generation, the owned control layer, toolbar, tab strip and status bar. |
+| F61 | R3 | rengine | ready | Make the renderer a curated capability with one game adopting it through an adapter. |
 | F62 | R1 | rengine | ready | Verify the OpenGL adapter on Windows behind the draw list. |
 | F63 | O1 | rengine | ready | Register project file formats through a versioned declaration and run their bounded preview commands. |
 | F64 | O1 | rengine | blocked | Open registered formats in the native editor with raw hex and preview modes. |
-| F68 | O1 | rengine | passing | Store the project integration recipe as a runbook, a scaffolding wizard, copied templates and a test. |
+| F65 | O1 | rengine | blocked | Declare a project dashboard (contract 2) and serve its actions, availability and captures. |
+| F66 | O1 | rengine | blocked | Render the project dashboard as a native tab with runnable actions. |
+| F67 | R2 | rengine | blocked | Implement the Claude Design update for the tree, editor, terminal and session browser. |
+| F68 | R2 | rengine | blocked | Implement the Claude Design menus, theme panel and theme files. |
+| F69 | R2 | rengine | blocked | Record Windows card evidence for the Claude Design update. |
+| F70 | O1 | rengine | passing | Store the project integration recipe as a runbook, a scaffolding wizard, copied templates and a test. |

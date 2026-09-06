@@ -44,19 +44,32 @@
       "id": "preview-file-tool",
       "kind": "rationale",
       "anchor": {
-        "start": 102,
-        "end": 102,
+        "start": 107,
+        "end": 107,
         "snippet": "const PREVIEW_BUDGET = 32000;"
       },
       "note": "preview_file runs the project's own declared executable, so it is open-world and not read-only even though it never writes. The route returns the whole sanitized tree; the tool slices dir/depth and pages files with offset/limit, then shrinks depth and limit until the serialized reply fits the 32,000-character budget, reporting truncated/nextOffset (review finding 5). Command metadata is made root-relative and the generic tool wrapper replaces the absolute root path in error text with <root>. Entry text is bounded like read_file; the hex window is dropped because agents get size and SHA-256 instead.",
       "refs": [
         "docs/specs/074-project-format-registry.md"
       ]
+    },
+    {
+      "id": "dashboard-tools",
+      "kind": "rationale",
+      "anchor": {
+        "start": 92,
+        "end": 92,
+        "snippet": "const dashboardCapability = state => { if (state.capabilities.dashboard !== 1) throw new Error('This retained service predates the project dashboard. Update the workspace layer first.'); };"
+      },
+      "note": "dashboard_actions is read-only (availability only); dashboard_capture is open-world because it runs a project executable and writes files. Script and log actions deliberately get no new tool: scripts go through open_script with the listed script/args/env, logs start from the desktop tab and are followed with show_session/session_output, so process creation stays on the existing audited paths.",
+      "refs": [
+        "docs/specs/075-project-dashboard.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/agents/mcp-worker.mjs",
-    "sha256": "965969589e45678d4b5ee1aefd9fe7b8f1d419cbdc2f6f75d0608eabaa0c0a4f",
+    "sha256": "a4460d5ce9382fc9de48d7af14f4aee5d179df9bd336feae51a5738783574645",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

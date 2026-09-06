@@ -96,6 +96,7 @@ target_include_directories(rengine_vterm SYSTEM PUBLIC "${RENGINE_VENDOR}/libvte
 set(rengine_desktop_core_SOURCES
 	cmake.toml
 	"orchestrator/native/app.c"
+	"orchestrator/native/dashboard.c"
 	"orchestrator/native/draw.c"
 	"orchestrator/native/editor.c"
 	"orchestrator/native/formatview.c"

@@ -5,8 +5,8 @@
       "id": "legacy-host-adapter",
       "kind": "rationale",
       "anchor": {
-        "start": 10,
-        "end": 10,
+        "start": 11,
+        "end": 11,
         "snippet": "export async function startWorker(host) {"
       },
       "note": "The original host remains the sole session and durable-state authority. This process forwards its APIs/PTY/game streams and supplies desktop actions even when that host predates them. Desktop registration is intercepted and validated against current host roots/sessions; other frames retain their order and binary/text kind. Existing streams can outlive a newer HTTP worker generation. Closing this worker only closes its views/proxies, never the host or its PTYs.",
@@ -18,8 +18,8 @@
       "id": "script-view-consumer",
       "kind": "rationale",
       "anchor": {
-        "start": 28,
-        "end": 28,
+        "start": 29,
+        "end": 29,
         "snippet": "const data = await body(req), state = await refresh(); json(res, 200, await openScript(host, desktops, data, state));"
       },
       "note": "Script launch and session-view actions live in the replaceable worker above the retained host. Only this worker\u2019s connected desktop broker can attach a view; a desktop still connected through an older worker needs a native update first, not a duplicate process.",
@@ -31,8 +31,8 @@
       "id": "format-registry-worker",
       "kind": "rationale",
       "anchor": {
-        "start": 32,
-        "end": 32,
+        "start": 33,
+        "end": 33,
         "snippet": "} else if (req.method === 'GET' && target.pathname === '/api/formats') {"
       },
       "note": "Format listing, preview/entry execution and raw byte windows are answered here instead of being forwarded, so a retained host that predates spec 074 still gains them through a workspace-layer update. Roots come from the refreshed host state; the boundary is store.mjs resolveInRoot, identical to the host's.",
@@ -43,7 +43,7 @@
   ],
   "source": {
     "path": "orchestrator/runtime/worker.mjs",
-    "sha256": "f9fd94adb5c904d8011d664a54e5c2a9b4eab1b2860e23bbdd733ec89b558cc4",
+    "sha256": "402b01e153ef07627097f9d49816db37814ed550ff0c59d572d58a76a2f8e9ad",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

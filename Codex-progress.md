@@ -37,12 +37,44 @@ tree, and the copied Python test passed with both pinned-contract checks skippin
 **Remaining**: KI-040 — the Add project button should run this recipe natively (spec 002/071);
 until then the wizard runs in a script tab. Both contracts require at least one format record, so
 the scaffold writes an inert `*.example` placeholder; relaxing `formats` to `minItems: 0` for
-contract 2 belongs to the dashboard/game lanes. F68 is recorded as passing on the automated
-evidence above; no native or contract code changed. IDs: F68 and KI-040 were chosen after rebasing
+contract 2 belongs to the dashboard/game lanes. F70 is recorded as passing on the automated
+evidence above; no native or contract code changed. IDs: F70 and KI-040 were chosen after rebasing
 onto main — which advanced by three Windows-renderer commits during the session and took KI-038 and
 KI-039 — and after reading the dashboard worktree (F65–F66) and `feat/project-game`, leaving F67 to
 that lane. `features.json`, `known-issues.md`, `docs/roadmap-graph.md` and `Codex-progress.md` may
 still conflict with the concurrent contract lanes and are append-only here.
+## Session 24 (macos) — 2026-09-06 — Project dashboard (contract 2, step 1)
+
+**Owner scope**: after the format-registry review fixes, the second brief: a project dashboard
+declared in `.rengine/project.json` (contract 2 = contract 1 plus an optional `dashboard`),
+rendered as a tab of grouped actions; log filtering (step 2) and image display (step 3) deferred,
+`stream`/`operator` reserved. Branch `feat/project-dashboard` from `2b04926` (review-fix tip; main
+had moved to `35e73dc` without it, so no rebase yet); not merged, not pushed. Spec 075, rows F65/F66.
+
+**Implemented**: `contracts/project-v1.schema.json` accepts contracts 1 and 2 with `dashboard`
+definitions; the validator subset gains schema-valued `additionalProperties`; `readDeclaration`
+validates the contract-1 part first and the dashboard separately (`dashboard`/`dashboardError`) so
+a bad dashboard never disables previews; `dashboard-rules.mjs` holds the shared cross rules (unique
+ids, per-kind fields, root-relative paths, UPPER_SNAKE env). `dashboard.mjs` computes availability
+by root-bounded stat and a PATH walk without running anything, builds script/log session payloads
+(bash + resolved script + literal args + env; the argv for logs) that the host's `terminal` route
+creates, and runs captures under 10 s / 8 MiB requiring the PNG signature, writing
+`<into>/<timestamp>.png` and `manifest.json` atomically inside the root. Routes `dashboard`,
+`dashboard-run`, `dashboard-capture` on host and worker (`dashboard: 1`); `open_script` accepts
+`env`; MCP `dashboard_actions` (read-only) and `dashboard_capture` (open-world). Native: tab type
+`RE_DASHBOARD`, toolbar button, one-time auto-open per root persisted in the layout, group
+sections, buttons for available actions and labels naming the first missing item otherwise,
+run/capture/reveal handled in app.c, `dashboard.c` owns the rows (no microui pools).
+
+**Verification**: service tests red (merged document rejected, routes 404) then green; native
+fixture red (no dashboard tab) then green. Final: `npm test` 38 passes, 0 failures, 5.86 s; `npm run test:desktop`
+16 passes, 0 failures, 330.91 s, exit 0 (two background attempts were killed at the turn boundary and produced no result; this is the complete foreground run); CTest 4 passes, 0.65 s; inventory validate (26), `./init.sh`, design check, sidecar
+check/stamp for twelve sources. The nolf-improved merged document validates with zero errors.
+Evidence: `docs/evidence/project-dashboard-macos-2026-09-06.md`; KI-040 records the deferrals.
+
+**Remaining**: owner merges `fix/format-registry-review` then this branch, runs the layered
+update, and verifies the real dashboard once nolf-improved moves its staged section into
+`project.json`; steps 2 and 3 are separate specs; Windows unqualified.
 
 ---
 
@@ -369,9 +401,12 @@ added in `cmake.toml`). Windows results (`docs/evidence/opengl-adapter-windows-2
 OpenGL and Vulkan pixel-identical to each other and within tolerance against SDL, both below the SDL
 median, Vulkan validation clean on the NVIDIA driver, smoke snapshots of all backends byte-identical;
 OpenGL memory +24–28 MiB, Vulkan +54–60 MiB after the allocation trim (`b0a6d4b`) against the 32 MiB
-ceiling (KI-039, owner decision pending); the suite passes 7 of 15 there on either backend (KI-038:
+ceiling; the owner then amended that budget to 64 MiB for Vulkan on Windows (charter revision record,
+spec 068 amendment, KI-039 closed) because the NVIDIA driver's process baseline sits about 30 MiB above
+OpenGL's on the same DLL, and the Windows render run passes under it, so **F59 passes**. The suite passes
+7 of 15 there on either backend (KI-038:
 layered-update unlink, symlink fixture, tree scroll, four terminal specs; fixed on the way: `_spawnv`
-quoting, DLL copies, `python`, the game fixture path, `--test-force-exit`). F59 and F62 stay open.
+quoting, DLL copies, `python`, the game fixture path, `--test-force-exit`). F62 stays open on its suite criterion.
 
 **Follow-up 7 (same session)**: F58 on owner direction after a `/grill-me` interview (spec 072;
 inventory corrections committed first as `b119a3e`). `render/backend_metal.m` is the one

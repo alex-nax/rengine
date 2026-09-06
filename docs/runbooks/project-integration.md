@@ -239,6 +239,6 @@ The toolbar's **Add project** button should run exactly this: pick a directory, 
 and the optional game, run the same stages in a script tab, and open the project window on the
 result. Native controls come after that — a declaration editor that writes `formats`, `game` and
 `dashboard` rows through the schema, a pin-bump action that re-runs the consumer's declaration
-test, and a review-gate reminder before the pin moves. That work is tracked as F68 with KI-040;
+test, and a review-gate reminder before the pin moves. That work is tracked as F70 with KI-040;
 until it lands, the button opens a window on an already-integrated project only, and this runbook
 is the path for everything else.

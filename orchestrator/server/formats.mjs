@@ -5,8 +5,9 @@ import path from 'node:path';
 import { validateSchema } from './schema.mjs';
 import { fail, hash, resolveInRoot, MAX_TEXT_BYTES } from './store.mjs';
 import { shellEnvironment } from './sessions.mjs';
+import { dashboardRules } from './dashboard-rules.mjs';
 
-export const CONTRACT = 1;
+export const CONTRACTS = [1, 2];
 export const DEFAULT_TIMEOUT_MS = 10000;
 export const DEFAULT_MAX_BYTES = 4 * 1024 * 1024;
 export const MAX_RAW_WINDOW = 64 * 1024;
@@ -40,13 +41,18 @@ export async function readDeclaration(rootPath) {
   let value;
   try { value = JSON.parse(bytes.toString('utf8')); } catch (error) { return problem(`invalid JSON (${error.message})`); }
   if (!value || typeof value !== 'object' || Array.isArray(value)) return problem('declaration must be a JSON object');
-  if (value.contract !== CONTRACT) return problem(`unknown contract ${JSON.stringify(value.contract)}; this rEngine supports contract ${CONTRACT}`);
-  const structural = validateSchema(schema, value);
+  if (!CONTRACTS.includes(value.contract)) return problem(`unknown contract ${JSON.stringify(value.contract)}; this rEngine supports contracts ${CONTRACTS.join(' and ')}`);
+  const { dashboard, ...base } = value;
+  const structural = validateSchema(schema, base);
   if (structural.length) return problem(structural.slice(0, 3).join('; '));
-  const errors = crossRules(value);
+  const errors = crossRules(base);
   if (errors.length) return problem(errors.slice(0, 3).join('; '));
-  return { declared: true, contract: value.contract, project: value.project,
+  const result = { declared: true, contract: value.contract, project: value.project,
     formats: value.formats.map(format => ({ ...format, preview: bounded(format.preview), entry: bounded(format.entry) })) };
+  if (dashboard === undefined) return result; /* the dashboard is reported separately so it can never disable the formats; see sidecar: declaration-reporting */
+  if (value.contract < 2) return { ...result, dashboardError: `.rengine/project.json: dashboard requires contract 2 (declared contract ${value.contract})` };
+  const problems = [...validateSchema(schema.$defs.dashboard, dashboard, schema, '$.dashboard'), ...dashboardRules(dashboard)];
+  return problems.length ? { ...result, dashboardError: `.rengine/project.json: ${problems.slice(0, 3).join('; ')}` } : { ...result, dashboard };
 }
 export async function listFormats(root) { return { rootId: root.id, ...await readDeclaration(root.path) }; }
 
@@ -71,8 +77,8 @@ function terminate(child) {
   child.stdout.destroy(); child.stderr.destroy();
 }
 export async function runCommand(root, spec, values) {
-  const file = await resolveInRoot(root, values.file); /* re-confined immediately before spawn; see sidecar: execution-boundary */
-  const argv = spec.command.map(arg => arg.replace(PLACEHOLDER, (_, key) => key === 'file' ? file.absolute : values[key]));
+  const file = values.file === undefined ? null : await resolveInRoot(root, values.file); /* re-confined immediately before spawn; see sidecar: execution-boundary */
+  const argv = spec.command.map(arg => arg.replace(PLACEHOLDER, (match, key) => key === 'file' ? (file ? file.absolute : match) : values[key] ?? match));
   argv[0] = await resolveExecutable(root.path, argv[0]);
   const started = Date.now();
   return new Promise((resolve, reject) => {

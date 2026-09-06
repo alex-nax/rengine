@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "shared-cross-rules",
+      "kind": "rationale",
+      "anchor": {
+        "start": 19,
+        "end": 19,
+        "snippet": "export function dashboardRules(dashboard) {"
+      },
+      "note": "Kept free of imports so formats.mjs (reader), dashboard.mjs (runtime) and runtime/scripts.mjs (open_script env) can share the same rules without an ES-module cycle: formats.mjs awaits its schema at top level, and a cycle through dashboard.mjs would deadlock module evaluation. The schema lists every kind's fields as optional on one action object because the validator subset has no oneOf/if; these rules add the per-kind required/forbidden fields, unique ids, root-relative paths and UPPER_SNAKE env keys with the offending JSON path in each message.",
+      "refs": [
+        "docs/specs/075-project-dashboard.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/server/dashboard-rules.mjs",
+    "sha256": "7116875c939447a745045b4a53b81c71c64b392d95fa604f8a10d8e0325d682d",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}
