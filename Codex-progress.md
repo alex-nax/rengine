@@ -1,5 +1,61 @@
 # Progress Log
 
+## Session 29 (macos) — 2026-09-06 — Merging contract 3 and the integration recipe onto the card toolbar
+
+**Owner scope**: reconcile two finished branches onto main and report green before main advances.
+Worktree `.cache/worktrees/merge-verify`, branch `integ/contract-3`, pushed per commit; the `main`
+ref untouched. Base moved twice mid-merge (`8c44250` -> `b6f8b84` -> `776647a`), and the merge was
+restarted from current `origin/main` each time rather than merging main on top, so `theme.h` and
+`theme.c` are generated once from the final `theme.json` instead of being conflict-resolved.
+
+**`feat/project-game` (299eebe)** conflicted in three files because main's Claude Design series
+rewrote the toolbar underneath it. `workspace.c`: main's card toolbar supersedes our edit, which
+removed the game column from a `mu_layout_row` that no longer exists; `session_running()` and the
+`RE_GAME && t->terminal` branch that gives an external game its status row, its `game-status`
+control and its rect are ported onto the rewritten file — without that branch `surface: "external"`
+has no view, and vtmb-vr declares both of its games external. **Main's rewritten toolbar still
+carried the NOLF cell**, so spec 078's removal still had work here: the cell, its
+`re_app_action(a, "game", …)` by rootId — the last caller of the old single-game route — its
+control record, its width in `trailing` and its one leading gap (`7 *` -> `6 *`, one per cell after
+the path field: field, Add project, Agent label, agent field, Vim, Theme). Main registers the
+root-cycle control as `"root"` and the fixture drives `"Root"`; ours kept. `theme.json` unioned
+(main's `design` note, our longer `game` note); `toolbar.game-width` and the games-menu metrics and
+strings are gone and nothing names them. `package.json` unioned to 17 desktop specs, keeping the
+`test:nolf` -> `test:game-nolf` rename.
+
+**`feat/integration-recipe` (2ba3db3)** conflicted only in the four inventory files both lanes
+append to. `features.json` took F70 beside F71/F72 as a 24-line insertion with nothing removed —
+built from the merge-1 tree, not the merge base, because the recipe branch forked before main's F60
+evidence landed and carries the older copy of that record. `docs/roadmap-graph.md` is generated, so
+it was regenerated. No id collides: F70/F71/F72, specs 077/078, KI-041/KI-042.
+
+**A gap the merge had to close**: nothing pinned the toolbar row's geometry, so a half-done cell
+removal would compile and render one gap wrong. `re_app_inspect` now reports the window size and
+`native-game-declaration.spec.mjs` asserts the last cell's right edge lands on the toolbar padding
+(measured: Theme at x=1248 w=22 -> 1270 = 1280 - 10). It also expects main's Theme cell in the row.
+`native-nolf.spec.mjs` now fails rather than logs if a dashboard game action returns anything but a
+game-typed session on its declared surface in a game pane — a terminal instead of a game pane was
+the original report — and records `sessionType`/`surface`/`tabType` in its evidence.
+
+**Gates**: `npm test` 55 passes / 5.9 s; `npm run test:desktop` 18 passes / 318.8 s from a wiped
+`.cache/desktop`, zero warnings; CTest 4 passes / 0.66 s; `./init.sh` (32 features);
+`tools/design.py check` consistent; `tools/features.py validate` clean;
+`RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run test:game-nolf` 1 pass / 3.3 s, evidence
+`sessionType: game`, `surface: embedded`, `tabType: 5`, 7 frames. Sidecars refreshed with
+`--index .cache/sidecars-merge.sqlite` run sequentially: the four `workspace.c` anchors and
+`app.c` repaired and stamped, two notes added (`inspect-reports-window-size`,
+`external-game-status-row`); every remaining diagnostic in the tree also exists on `origin/main`.
+Both consumer declarations re-read fresh through the merged reader: vtmb-vr contract 3,
+`troika-vpk`, `vtmb-flat`/`vtmb-vr` both external, dashboard `reSource`; nolf-improved contract 2,
+`lithtech-rez`, dashboard `reLith`; no `error`/`gamesError`/`dashboardError` on either.
+
+**Left as found**: `native-game.spec.mjs` aborts in a fresh worktree until `npm run build:surface`
+has produced `.cache/native/` — a prerequisite `test:desktop` does not run, not a regression; it
+passes once built. Both lanes numbered their sessions from the same base, so the entries below
+carry two Session 25 and two Session 26 headings, all 2026-09-06; kept as each lane wrote them.
+
+---
+
 ## Session 28 (macos) — 2026-09-06 — Declaration errors name the offending record
 
 **Why now**: the reLith consumer session reported the consequence of session 27's toolbar removal.

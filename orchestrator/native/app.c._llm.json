@@ -157,11 +157,21 @@
       "refs": [
         "docs/specs/078-project-game-declaration.md"
       ]
+    },
+    {
+      "id": "inspect-reports-window-size",
+      "kind": "rationale",
+      "anchor": {
+        "start": 457,
+        "end": 457,
+        "snippet": "cJSON *re_app_inspect(ReApp *a) {"
+      },
+      "note": "Inspection reports the window size beside the control rectangles so a fixture can check that a row of controls adds up to it. The toolbar lays its cells out left to right with explicit rects and reserves the trailing cells' widths and gaps before sizing the path field, so adding or removing a cell without correcting that reservation still compiles and only renders one gap wrong. native-game-declaration.spec.mjs pins it: the last cell's right edge must land on the toolbar padding. The size is the drawn logical size re_app_ui was last called with, not the SDL window's pixels, so it matches the rects it is compared against on a HiDPI display."
     }
   ],
   "source": {
     "path": "orchestrator/native/app.c",
-    "sha256": "161a13bbe0f5742a1672cd2668bd6adc08ab59d1ce53628da24903f629c9a767",
+    "sha256": "cadcbc8f82ccd11ac3fc00f48438362f5c6e1aca5384dc2c3594b404288efc04",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }
