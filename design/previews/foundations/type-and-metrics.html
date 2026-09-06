@@ -49,11 +49,25 @@
   --re-metric-window-min-height: 480px;
   --re-metric-toolbar-height: 78px;
   --re-metric-toolbar-row-height: 26px;
+  --re-metric-toolbar-brand-width: 78px;
+  --re-metric-toolbar-view-width: 75px;
+  --re-metric-toolbar-manage-width: 80px;
+  --re-metric-toolbar-sessions-width: 95px;
+  --re-metric-toolbar-split-vertical-width: 120px;
+  --re-metric-toolbar-split-horizontal-width: 125px;
+  --re-metric-toolbar-merge-width: 95px;
+  --re-metric-toolbar-game-width: 85px;
+  --re-metric-toolbar-root-width: 170px;
+  --re-metric-toolbar-path-right: 475px;
+  --re-metric-toolbar-add-width: 95px;
+  --re-metric-toolbar-agent-label-width: 70px;
   --re-metric-workspace-top: 80px;
   --re-metric-workspace-status-height: 26px;
   --re-metric-workspace-status-inset: 8px;
+  --re-metric-workspace-status-text-top: 2px;
   --re-metric-workspace-divider: 6px;
   --re-metric-workspace-pane-minimum: 80px;
+  --re-metric-workspace-tree-percent: 23%;
   --re-metric-pane-header-height: 34px;
   --re-metric-pane-content-top: 35px;
   --re-metric-pane-root-row-height: 22px;
@@ -62,25 +76,35 @@
   --re-metric-tab-height: 26px;
   --re-metric-tab-top: 4px;
   --re-metric-tab-inset: 5px;
+  --re-metric-tab-gap: 2px;
   --re-metric-tab-close-width: 22px;
   --re-metric-tab-nav-width: 24px;
   --re-metric-tab-title-characters: 11;
   --re-metric-tree-row-height: 24px;
   --re-metric-tree-up-width: 55px;
   --re-metric-sessions-row-height: 26px;
+  --re-metric-sessions-actions-width: 155px;
   --re-metric-sessions-attach-width: 80px;
+  --re-metric-sessions-heading-height: 24px;
   --re-metric-editor-toolbar-height: 26px;
+  --re-metric-editor-save-width: 65px;
+  --re-metric-editor-discard-width: 80px;
+  --re-metric-editor-mode-width: 130px;
   --re-metric-editor-inset: 6px;
   --re-metric-editor-top: 59px;
   --re-metric-editor-bottom: 85px;
   --re-metric-editor-caret-width: 2px;
   --re-metric-editor-error-height: 23px;
+  --re-metric-editor-error-inset: 2px;
+  --re-metric-editor-tab-cells: 4;
   --re-metric-terminal-inset: 6px;
   --re-metric-terminal-top: 28px;
   --re-metric-terminal-bottom: 34px;
+  --re-metric-game-row-height: 26px;
+  --re-metric-game-capture-width: 210px;
+  --re-metric-game-inset: 6px;
   --re-metric-game-top: 59px;
   --re-metric-game-bottom: 65px;
-  --re-metric-game-capture-width: 210px;
   --re-metric-scrollbar-size: 14px;
   --re-metric-scrollbar-thumb-min: 20px;
   --re-metric-scrollbar-thumb-inset: 2px;
@@ -189,16 +213,16 @@ code, pre { font: inherit; }
 <table class="re-metrics">
 <tr><th>microui</th><td>padding <b>5px</b>, spacing <b>4px</b>, indent <b>24px</b>, title-height <b>24px</b>, scrollbar-size <b>12px</b>, thumb-size <b>8px</b>, control-width <b>68px</b><br><span class="re-note">Upstream style defaults applied explicitly: content padding, row spacing, tree indent, unused title height, overflow scrollbar and thumb, default control width.</span></td></tr>
 <tr><th>window</th><td>width <b>1280px</b>, height <b>800px</b>, min-width <b>1050px</b>, min-height <b>480px</b><br><span class="re-note">Initial SDL window size and the enforced minimum.</span></td></tr>
-<tr><th>toolbar</th><td>height <b>78px</b>, row-height <b>26px</b><br><span class="re-note">Top window holding two 26px rows of controls.</span></td></tr>
-<tr><th>workspace</th><td>top <b>80px</b>, status-height <b>26px</b>, status-inset <b>8px</b>, divider <b>6px</b>, pane-minimum <b>80px</b><br><span class="re-note">Pane area starts below the toolbar and ends above the status line; splits leave a 6px draggable divider and keep panes at least 80px.</span></td></tr>
-<tr><th>pane</th><td>header-height <b>34px</b>, content-top <b>35px</b>, root-row-height <b>22px</b>, empty-row-height <b>24px</b><br><span class="re-note">Each leaf pane has a 34px header window; content starts at 35px with a 22px root-name row.</span></td></tr>
-<tr><th>tab</th><td>width <b>158px</b>, height <b>26px</b>, top <b>4px</b>, inset <b>5px</b>, close-width <b>22px</b>, nav-width <b>24px</b>, title-characters <b>11</b><br><span class="re-note">Tab cells are 158px wide including a 22px close button; overflow adds 24px previous/next buttons; titles clip after 11 characters.</span></td></tr>
-<tr><th>tree</th><td>row-height <b>24px</b>, up-width <b>55px</b><br><span class="re-note">Directory rows are 24px; the Up button is 55px wide.</span></td></tr>
-<tr><th>sessions</th><td>row-height <b>26px</b>, attach-width <b>80px</b><br><span class="re-note">Session rows are 26px with an 80px Attach button and a Stop button filling the rest.</span></td></tr>
-<tr><th>editor</th><td>toolbar-height <b>26px</b>, inset <b>6px</b>, top <b>59px</b>, bottom <b>85px</b>, caret-width <b>2px</b>, error-height <b>23px</b><br><span class="re-note">Save/Discard/mode/state row, then the buffer inset 6px from the pane, 59px from the content top and 85px above its bottom; a 23px error label sits at the bottom.</span></td></tr>
-<tr><th>terminal</th><td>inset <b>6px</b>, top <b>28px</b>, bottom <b>34px</b><br><span class="re-note">Terminal cells are inset 6px and start 28px below the content top.</span></td></tr>
-<tr><th>game</th><td>top <b>59px</b>, bottom <b>65px</b>, capture-width <b>210px</b><br><span class="re-note">Capture row above a black surface that starts 59px from the content top.</span></td></tr>
-<tr><th>scrollbar</th><td>size <b>14px</b>, thumb-min <b>20px</b>, thumb-inset <b>2px</b><br><span class="re-note">Native terminal/editor bars are 14px wide with a thumb of at least 20px inset 2px.</span></td></tr>
+<tr><th>toolbar</th><td>height <b>78px</b>, row-height <b>26px</b>, brand-width <b>78px</b>, view-width <b>75px</b>, manage-width <b>80px</b>, sessions-width <b>95px</b>, split-vertical-width <b>120px</b>, split-horizontal-width <b>125px</b>, merge-width <b>95px</b>, game-width <b>85px</b>, root-width <b>170px</b>, path-right <b>475px</b>, add-width <b>95px</b>, agent-label-width <b>70px</b><br><span class="re-note">Top window with two rows. Row one: brand label, three view buttons (Tree, Shell, Agent), Manage, Sessions, Split vertical, Split horizontal, Merge pane, NOLF, then the Vim checkbox filling the rest. Row two: root button, project path textbox ending path-right from the right edge, Add project, Agent CLI label, agent textbox filling the rest.</span></td></tr>
+<tr><th>workspace</th><td>top <b>80px</b>, status-height <b>26px</b>, status-inset <b>8px</b>, status-text-top <b>2px</b>, divider <b>6px</b>, pane-minimum <b>80px</b>, tree-percent <b>23%</b><br><span class="re-note">Pane area starts below the toolbar and ends above the status line, whose text sits status-text-top below that edge. Splits leave a draggable divider and keep panes at least pane-minimum; a fresh layout gives the tree tree-percent of the width.</span></td></tr>
+<tr><th>pane</th><td>header-height <b>34px</b>, content-top <b>35px</b>, root-row-height <b>22px</b>, empty-row-height <b>24px</b><br><span class="re-note">Each leaf pane has a header window; content starts at content-top with a root-name row.</span></td></tr>
+<tr><th>tab</th><td>width <b>158px</b>, height <b>26px</b>, top <b>4px</b>, inset <b>5px</b>, gap <b>2px</b>, close-width <b>22px</b>, nav-width <b>24px</b>, title-characters <b>11</b><br><span class="re-note">Tab cells are width wide including the close button, a gap before it and the microui spacing after it; overflow adds nav-width previous/next buttons; titles clip after title-characters.</span></td></tr>
+<tr><th>tree</th><td>row-height <b>24px</b>, up-width <b>55px</b><br><span class="re-note">Directory rows and the Up button with its width.</span></td></tr>
+<tr><th>sessions</th><td>row-height <b>26px</b>, actions-width <b>155px</b>, attach-width <b>80px</b>, heading-height <b>24px</b><br><span class="re-note">Session rows reserve actions-width on the right for Attach (attach-width) and Stop; the Recovery drafts heading row is heading-height.</span></td></tr>
+<tr><th>editor</th><td>toolbar-height <b>26px</b>, save-width <b>65px</b>, discard-width <b>80px</b>, mode-width <b>130px</b>, inset <b>6px</b>, top <b>59px</b>, bottom <b>85px</b>, caret-width <b>2px</b>, error-height <b>23px</b>, error-inset <b>2px</b>, tab-cells <b>4</b><br><span class="re-note">Save, Discard and mode column widths in the toolbar row; the buffer is inset from the pane, starts at top and ends bottom above the pane bottom; the error label sits error-inset above the bottom; caret width and tab cells for text layout.</span></td></tr>
+<tr><th>terminal</th><td>inset <b>6px</b>, top <b>28px</b>, bottom <b>34px</b><br><span class="re-note">Terminal cells are inset and start at top below the content top; bottom is the space kept below the cells.</span></td></tr>
+<tr><th>game</th><td>row-height <b>26px</b>, capture-width <b>210px</b>, inset <b>6px</b>, top <b>59px</b>, bottom <b>65px</b><br><span class="re-note">Capture row above a black surface inset from the pane that starts at top.</span></td></tr>
+<tr><th>scrollbar</th><td>size <b>14px</b>, thumb-min <b>20px</b>, thumb-inset <b>2px</b><br><span class="re-note">Native terminal/editor bars: width, minimum thumb length and the thumb inset from the track edges.</span></td></tr>
 </table>
 <!-- /re:metrics -->
   </div>

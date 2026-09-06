@@ -71,8 +71,8 @@ static void measure(ReLayout *l, int n, mu_Rect r) {
   RePane *p = &l->panes[n]; p->rect = r;
   if (!p->axis) return;
   int extent = p->axis == 1 ? r.w : r.h;
-  int gap = re_min(6, re_max(0, extent));
-  int available = re_max(0, extent - gap), minimum = re_min(80, available / 2);
+  int gap = re_min(RE_METRIC_WORKSPACE_DIVIDER, re_max(0, extent));
+  int available = re_max(0, extent - gap), minimum = re_min(RE_METRIC_WORKSPACE_PANE_MINIMUM, available / 2);
   int first = re_max(minimum, re_min((int)(available * p->ratio), available - minimum));
   mu_Rect a = r, b = r; p->divider = r;
   if (p->axis == 1) {

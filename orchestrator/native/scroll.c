@@ -19,7 +19,7 @@ void re_scrollbar_set(ReScrollbar *bar, mu_Rect track, int total, int page, int 
   if (!bar->maximum || track.w <= 0 || track.h <= 0) { bar->track = bar->thumb = mu_rect(0, 0, 0, 0); release(bar); return; }
   bar->track = bar->thumb = track;
   int length = horizontal ? track.w : track.h;
-  int thumb = re_min(length, re_max(20, (int)((int64_t)length * bar->page / bar->total)));
+  int thumb = re_min(length, re_max(RE_METRIC_SCROLLBAR_THUMB_MIN, (int)((int64_t)length * bar->page / bar->total)));
   int offset = (int)((int64_t)bar->value * (length - thumb) / bar->maximum);
   if (horizontal) { bar->thumb.x += offset; bar->thumb.w = thumb; }
   else { bar->thumb.y += offset; bar->thumb.h = thumb; }
@@ -48,7 +48,7 @@ void re_scrollbar_draw(const ReScrollbar *bar, ReDraw *draw) {
   if (!bar->track.w || !bar->track.h) return;
   re_draw_rect(draw, bar->track, RE_COLOR_SCROLL_TRACK);
   mu_Rect thumb = bar->thumb;
-  if (bar->horizontal) { thumb.y += 2; thumb.h -= 4; } else { thumb.x += 2; thumb.w -= 4; }
+  if (bar->horizontal) { thumb.y += RE_METRIC_SCROLLBAR_THUMB_INSET; thumb.h -= 2 * RE_METRIC_SCROLLBAR_THUMB_INSET; } else { thumb.x += RE_METRIC_SCROLLBAR_THUMB_INSET; thumb.w -= 2 * RE_METRIC_SCROLLBAR_THUMB_INSET; }
   re_draw_rect(draw, thumb, bar->dragging ? RE_COLOR_SCROLL_THUMB_ACTIVE : RE_COLOR_SCROLL_THUMB);
 }
 void re_scrollbar_inspect(const ReScrollbar *bar, cJSON *array) {

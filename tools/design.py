@@ -4,7 +4,7 @@
   generate        write orchestrator/native/theme.h, design/tokens.css and design/manifest.json, and
                   refresh the managed blocks inside design/previews/**/*.html
   check           fail when a generated artifact or a preview block drifts, or when a native
-                  source hard-codes a colour instead of using an RE_COLOR_* constant
+                  source hard-codes a colour or a layout row size instead of an RE_COLOR_*/RE_METRIC_* constant
   import FILE...  apply token values from a preview's :root block (for example a card pulled back
                   from Claude Design) to tokens.json, then regenerate
 
@@ -36,6 +36,7 @@ LITERAL = re.compile(r"mu_color\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*
                      r"|vterm_color_rgb\(\s*&\w+\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)")
 DECLARATION = re.compile(r"--re-(color|metric|font-size|line-height)(?:-([a-z0-9-]+))?\s*:\s*([^;]+);")
 COLOR = re.compile(r"rgba?\(\s*(\d+)\s*[, ]\s*(\d+)\s*[, ]\s*(\d+)\s*(?:[,/]\s*([0-9.]+%?))?\s*\)")
+LAYOUT_ROW = re.compile(r"mu_layout_row\(\s*\w+\s*,\s*\d+\s*,\s*\(int\[\]\)\{([^}]*)\}\s*,\s*([^;]*?)\)\s*;")
 EXTERNAL = re.compile(r"""(?:src|href)\s*=\s*["']?\s*(?:https?:)?//|@import|url\(\s*["']?\s*(?:https?:)?//""")
 
 
@@ -89,7 +90,9 @@ def css_color(rgba):
 
 
 def css_metric(key, value):
-    return "%d" % value if key.endswith("characters") else "%dpx" % value
+    if key.endswith("characters") or key.endswith("cells"):
+        return "%d" % value
+    return "%d%%" % value if key.endswith("percent") else "%dpx" % value
 
 
 def tokens_css(tokens):
@@ -213,6 +216,20 @@ def native_literals(tokens):
     return problems
 
 
+def native_layout_rows():
+    problems = []
+    for path in sorted(NATIVE.glob("*.c")):
+        text = path.read_text(encoding="utf-8")
+        for match in LAYOUT_ROW.finditer(text):
+            values = [v.strip() for v in match.group(1).split(",")] + [match.group(2).strip()]
+            literal = [v for v in values if re.fullmatch(r"-?\d+", v) and v != "-1"]
+            if literal:
+                line = text.count("\n", 0, match.start()) + 1
+                problems.append("%s:%d: layout row uses literal %s; use RE_METRIC_* from theme.h"
+                                % (path.relative_to(ROOT).as_posix(), line, ", ".join(literal)))
+    return problems
+
+
 def generate():
     tokens = load_tokens()
     blocks = blocks_for(tokens)
@@ -240,7 +257,7 @@ def check():
     cards, card_problems = collect_cards(blocks, write=False)
     problems += card_problems
     compare(MANIFEST, manifest_text(cards))
-    problems += native_literals(tokens)
+    problems += native_literals(tokens) + native_layout_rows()
     for problem in problems:
         print("ERROR: " + problem)
     if problems:
@@ -282,7 +299,7 @@ def import_previews(paths):
             continue
         for kind, name, raw in DECLARATION.findall(root.group(1)):
             value = raw.strip()
-            number = re.fullmatch(r"(\d+)(?:px)?", value)
+            number = re.fullmatch(r"(\d+)(?:px|%)?", value)
             if kind == "color":
                 rgba = parse_color(value)
                 if name not in tokens["colors"] or rgba is None:

@@ -226,8 +226,8 @@ void re_terminal_event(ReTerminal *t, const SDL_Event *e) {
   }
 }
 void re_terminal_draw(ReTerminal *t, ReDraw *draw, mu_Rect r, bool focused) {
-  mu_Rect track = mu_rect(r.x + re_max(0, r.w - RE_SCROLLBAR_SIZE), r.y, RE_SCROLLBAR_SIZE, r.h);
-  r.w = re_max(0, r.w - RE_SCROLLBAR_SIZE);
+  mu_Rect track = mu_rect(r.x + re_max(0, r.w - RE_METRIC_SCROLLBAR_SIZE), r.y, RE_METRIC_SCROLLBAR_SIZE, r.h);
+  r.w = re_max(0, r.w - RE_METRIC_SCROLLBAR_SIZE);
   int cw = re_draw_cell_width(draw), lh = re_draw_line_height(draw);
   int cols = re_max(2, re_min(500, r.w / cw)), rows = re_max(2, re_min(300, r.h / lh));
   t->cw = cw; t->lh = lh; t->content = mu_rect(r.x, r.y, re_min(r.w, cols * cw), re_min(r.h, rows * lh));

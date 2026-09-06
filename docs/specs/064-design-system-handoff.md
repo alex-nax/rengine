@@ -20,8 +20,9 @@ pulled back into the tokens and rebuilt into the C desktop without a browser run
   `python3 tools/design.py generate` derives `orchestrator/native/theme.h`, `design/tokens.css`,
   `design/manifest.json` and the managed `re:tokens`/`re:base`/`re:palette`/`re:metrics` blocks
   inside every preview. `check` rejects hand edits to generated output and any
-  numeric `mu_color`/`vterm_color_rgb` literal in `orchestrator/native/*.c`; native sources use
-  the generated `RE_COLOR_*` constants only.
+  numeric `mu_color`/`vterm_color_rgb` literal in `orchestrator/native/*.c` and any numeric size
+  in a `mu_layout_row` call; native sources use the generated `RE_COLOR_*` and `RE_METRIC_*`
+  constants.
 - Preview cards are self-contained HTML with an `@dsCard` first line and no external URLs. The
   `:root` token block is the machine-readable channel back to the repository. Markup changes made
   in Claude Design are proposals for C implementation, not automatically applied behaviour.
@@ -62,9 +63,10 @@ pulled back into the tokens and rebuilt into the C desktop without a browser run
 
 ## Deferred and open
 
-- Every owned native source uses `RE_COLOR_*` since 2026-09-06, after specs 061/062 landed;
-  snapshots before and after that change were byte-identical. Layout metrics in C still use
-  literals that match the `RE_METRIC_*` values; moving them onto the header is a later refactor.
+- Every owned native source uses `RE_COLOR_*` and `RE_METRIC_*` since 2026-09-06; smoke
+  snapshots before and after each change were byte-identical and the native desktop suite
+  passed. Pixel arithmetic that is not a design decision (glyph baseline nudge, drag threshold,
+  timers, capacity limits) intentionally stays literal.
 - No feature row is added. If the owner wants UI enhancement tracked as work, a candidate row
   is “Apply an owner-approved Claude Design token/markup proposal to the native desktop with
   before/after native evidence on macOS”, depending on F32 and this spec.

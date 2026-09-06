@@ -39,9 +39,9 @@ int main(int argc, char **argv) {
   SDL_SetMainReady();
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) { fprintf(stderr, "%s\n", SDL_GetError()); return 1; }
   SDL_Window *window = SDL_CreateWindow(automation ? "rEngine — automated verification" : "rEngine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                       1280, 800, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+                                       RE_METRIC_WINDOW_WIDTH, RE_METRIC_WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
   if (!window) { fprintf(stderr, "%s\n", SDL_GetError()); SDL_Quit(); return 1; }
-  SDL_SetWindowMinimumSize(window, 1050, 480);
+  SDL_SetWindowMinimumSize(window, RE_METRIC_WINDOW_MIN_WIDTH, RE_METRIC_WINDOW_MIN_HEIGHT);
   ReDraw *draw = re_draw_open(window, font);
   if (!draw) { fprintf(stderr, "%s\n", SDL_GetError()); SDL_DestroyWindow(window); SDL_Quit(); return 1; }
   cJSON *descriptor = NULL;
@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
     mu_begin(ui); re_app_ui(app, ui, width, height); mu_end(ui);
     if (ui->hover_root != ui->next_hover_root) { SDL_Event settle = {.type = SDL_USEREVENT}; SDL_PushEvent(&settle); }
     re_draw_begin(draw, width, height); re_draw_commands(draw, ui); re_app_draw(app, draw);
-    re_draw_text(draw, app->status, -1, 8, height - 24, RE_COLOR_TEXT_MUTED);
+    re_draw_text(draw, app->status, -1, RE_METRIC_WORKSPACE_STATUS_INSET, height - RE_METRIC_WORKSPACE_STATUS_HEIGHT + RE_METRIC_WORKSPACE_STATUS_TEXT_TOP, RE_COLOR_TEXT_MUTED);
     if (capture) {
       bool ok = re_draw_snapshot(draw, re_string(capture, "path")); re_automation_reply(re_number(capture, "id"), cJSON_CreateBool(ok)); cJSON_Delete(capture); capture = NULL;
     }

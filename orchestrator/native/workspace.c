@@ -31,7 +31,7 @@ static void launch_terminal(ReApp *a, bool agent, bool menu) {
 }
 static void tree_ui(ReApp *a, mu_Context *ui, int index) {
   ReTab *t = &a->tabs[index];
-  mu_layout_row(ui, 2, (int[]){55, -1}, 24);
+  mu_layout_row(ui, 2, (int[]){RE_METRIC_TREE_UP_WIDTH, -1}, RE_METRIC_TREE_ROW_HEIGHT);
   if (mu_button(ui, "Up")) {
     char *slash = strrchr(t->path, '/'); if (slash) *slash = 0; else t->path[0] = 0;
     re_app_load(a, index); re_app_layout_changed(a);
@@ -40,7 +40,7 @@ static void tree_ui(ReApp *a, mu_Context *ui, int index) {
   if (!t->data) { mu_text(ui, *t->error ? t->error : "Loading files…"); return; }
   const cJSON *entry = NULL;
   cJSON_ArrayForEach(entry, cJSON_GetObjectItemCaseSensitive(t->data, "entries")) {
-    mu_layout_row(ui, 1, (int[]){-1}, 24);
+    mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_TREE_ROW_HEIGHT);
     const char *name = re_string(entry, "name"), *path = re_string(entry, "path");
     bool directory = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(entry, "directory"));
     char label[1024]; snprintf(label, sizeof(label), "%s %s", directory ? ">" : " ", name);
@@ -57,14 +57,14 @@ static void sessions_ui(ReApp *a, mu_Context *ui) {
   cJSON_ArrayForEach(session, cJSON_GetObjectItemCaseSensitive(a->state, "sessions")) {
     const char *id = re_string(session, "id"), *root = re_string(session, "rootId");
     mu_push_id(ui, id, (int)strlen(id));
-    mu_layout_row(ui, 3, (int[]){-155, 80, -1}, 26);
+    mu_layout_row(ui, 3, (int[]){-RE_METRIC_SESSIONS_ACTIONS_WIDTH, RE_METRIC_SESSIONS_ATTACH_WIDTH, -1}, RE_METRIC_SESSIONS_ROW_HEIGHT);
     char label[1024]; snprintf(label, sizeof(label), "%s · %s · %s · PID %d", re_string(session, "title"), root_name(a, root), re_string(session, "state"), re_number(session, "pid"));
     mu_label(ui, label);
     if (button(a, ui, "Attach", "attach", id, -1)) re_app_tab(a, !strcmp(re_string(session, "type"), "game") ? RE_GAME : RE_TERMINAL, root, "", id, re_string(session, "title"));
     if (button(a, ui, "Stop", "stop", id, -1)) { cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "id", id); re_app_action(a, "stop", j); cJSON_Delete(j); }
     mu_pop_id(ui);
   }
-  mu_layout_row(ui, 1, (int[]){-1}, 24); mu_label(ui, "Recovery drafts");
+  mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_SESSIONS_HEADING_HEIGHT); mu_label(ui, "Recovery drafts");
   const cJSON *draft = NULL;
   cJSON_ArrayForEach(draft, cJSON_GetObjectItemCaseSensitive(a->state, "drafts")) {
     char label[2300]; snprintf(label, sizeof(label), "%s · %s", root_name(a, re_string(draft, "rootId")), re_string(draft, "path"));
@@ -73,10 +73,10 @@ static void sessions_ui(ReApp *a, mu_Context *ui) {
 }
 static void pane_header(ReApp *a, mu_Context *ui, int n) {
   RePane *p = &a->layout.panes[n]; ReTabStrip *strip = &a->strips[n];
-  if (!p->count) { mu_layout_row(ui, 1, (int[]){-1}, 24); mu_label(ui, "Empty pane · choose a view above"); return; }
-  int available = re_max(0, p->rect.w - 10), nav = p->count * 158 > available ? re_min(24, available / 4) : 0;
+  if (!p->count) { mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_PANE_EMPTY_ROW_HEIGHT); mu_label(ui, "Empty pane · choose a view above"); return; }
+  int available = re_max(0, p->rect.w - 2 * RE_METRIC_TAB_INSET), nav = p->count * RE_METRIC_TAB_WIDTH > available ? re_min(RE_METRIC_TAB_NAV_WIDTH, available / 4) : 0;
   available -= 2 * nav;
-  int slots = re_max(1, available / 158), cell = re_min(158, available), selected_tab = p->tabs[p->selected];
+  int slots = re_max(1, available / RE_METRIC_TAB_WIDTH), cell = re_min(RE_METRIC_TAB_WIDTH, available), selected_tab = p->tabs[p->selected];
   strip->first = re_max(0, re_min(strip->first, p->count - slots));
   if (strip->width != p->rect.w || strip->count != p->count || strip->selected != p->selected || strip->tab != selected_tab) {
     if (p->selected < strip->first) strip->first = p->selected;
@@ -84,21 +84,21 @@ static void pane_header(ReApp *a, mu_Context *ui, int n) {
   }
   strip->width = p->rect.w; strip->count = p->count; strip->selected = p->selected; strip->tab = selected_tab;
   if (nav) {
-    mu_layout_set_next(ui, mu_rect(p->rect.x + 5, p->rect.y + 4, re_max(0, nav - 2), 26), 0);
+    mu_layout_set_next(ui, mu_rect(p->rect.x + RE_METRIC_TAB_INSET, p->rect.y + RE_METRIC_TAB_TOP, re_max(0, nav - RE_METRIC_TAB_GAP), RE_METRIC_TAB_HEIGHT), 0);
     if (button(a, ui, "<", "tab-scroll", "previous", n)) strip->first = re_max(0, strip->first - slots);
-    mu_layout_set_next(ui, mu_rect(p->rect.x + p->rect.w - 5 - nav, p->rect.y + 4, re_max(0, nav - 2), 26), 0);
+    mu_layout_set_next(ui, mu_rect(p->rect.x + p->rect.w - RE_METRIC_TAB_INSET - nav, p->rect.y + RE_METRIC_TAB_TOP, re_max(0, nav - RE_METRIC_TAB_GAP), RE_METRIC_TAB_HEIGHT), 0);
     if (button(a, ui, ">", "tab-scroll", "next", n)) strip->first = re_min(re_max(0, p->count - slots), strip->first + slots);
   }
   for (int i = strip->first; i < re_min(p->count, strip->first + slots); i++) {
     int tab = p->tabs[i]; ReTab *t = &a->tabs[tab]; char label[280];
     const char *end = t->title; int characters = 0;
-    while (*end && characters++ < 11) re_utf8(&end);
+    while (*end && characters++ < RE_METRIC_TAB_TITLE_CHARACTERS) re_utf8(&end);
     snprintf(label, sizeof(label), "%s%.*s%s%s", i == p->selected ? "• " : "", (int)(end - t->title), t->title, *end ? "…" : "", t->dirty ? " *" : "");
-    int close_width = re_min(22, re_max(0, cell - 6));
-    mu_Rect r = mu_rect(p->rect.x + 5 + nav + (i - strip->first) * cell, p->rect.y + 4, re_max(0, cell - close_width - 6), 26);
+    int close_width = re_min(RE_METRIC_TAB_CLOSE_WIDTH, re_max(0, cell - RE_METRIC_TAB_GAP - RE_METRIC_MICROUI_SPACING));
+    mu_Rect r = mu_rect(p->rect.x + RE_METRIC_TAB_INSET + nav + (i - strip->first) * cell, p->rect.y + RE_METRIC_TAB_TOP, re_max(0, cell - close_width - RE_METRIC_TAB_GAP - RE_METRIC_MICROUI_SPACING), RE_METRIC_TAB_HEIGHT);
     t->header = r; mu_layout_set_next(ui, r, 0); mu_push_id(ui, &tab, sizeof(tab));
     if (button(a, ui, label, "tab", "", tab)) { p->selected = i; a->layout.active = n; a->focus = -1; re_app_layout_changed(a); }
-    mu_layout_set_next(ui, mu_rect(r.x + r.w + 2, r.y, close_width, 26), 0);
+    mu_layout_set_next(ui, mu_rect(r.x + r.w + RE_METRIC_TAB_GAP, r.y, close_width, RE_METRIC_TAB_HEIGHT), 0);
     bool closed = button(a, ui, "x", "detach", "", tab);
     if (closed) {
       re_layout_remove(&a->layout, tab); a->focus = -1;
@@ -111,9 +111,11 @@ static void pane_header(ReApp *a, mu_Context *ui, int n) {
 void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
   if (a->controls) { cJSON_Delete(a->controls); a->controls = cJSON_CreateArray(); }
   int opts = MU_OPT_NOTITLE | MU_OPT_NORESIZE | MU_OPT_NOCLOSE | MU_OPT_NOSCROLL;
-  mu_get_container(ui, "Toolbar")->rect = mu_rect(0, 0, width, 78);
-  if (mu_begin_window_ex(ui, "Toolbar", mu_rect(0, 0, width, 78), opts)) {
-    mu_layout_row(ui, 11, (int[]){78, 75, 75, 75, 80, 95, 120, 125, 95, 85, -1}, 26);
+  mu_get_container(ui, "Toolbar")->rect = mu_rect(0, 0, width, RE_METRIC_TOOLBAR_HEIGHT);
+  if (mu_begin_window_ex(ui, "Toolbar", mu_rect(0, 0, width, RE_METRIC_TOOLBAR_HEIGHT), opts)) {
+    mu_layout_row(ui, 11, (int[]){RE_METRIC_TOOLBAR_BRAND_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH,
+      RE_METRIC_TOOLBAR_MANAGE_WIDTH, RE_METRIC_TOOLBAR_SESSIONS_WIDTH, RE_METRIC_TOOLBAR_SPLIT_VERTICAL_WIDTH, RE_METRIC_TOOLBAR_SPLIT_HORIZONTAL_WIDTH,
+      RE_METRIC_TOOLBAR_MERGE_WIDTH, RE_METRIC_TOOLBAR_GAME_WIDTH, -1}, RE_METRIC_TOOLBAR_ROW_HEIGHT);
     mu_label(ui, "rEngine");
     if (button(a, ui, "Tree", "toolbar", "Tree", -1)) { if (*a->root) re_app_tab(a, RE_TREE, a->root, "", "", "Project"); }
     if (button(a, ui, "Shell", "toolbar", "Shell", -1)) launch_terminal(a, false, false);
@@ -135,7 +137,7 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
       for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].editor) re_editor_vim(a->tabs[i].editor, a->vim);
       cJSON *j = cJSON_CreateObject(); cJSON_AddBoolToObject(j, "vim", a->vim); re_app_action(a, "preferences", j); cJSON_Delete(j);
     }
-    mu_layout_row(ui, 5, (int[]){170, -475, 95, 70, -1}, 26);
+    mu_layout_row(ui, 5, (int[]){RE_METRIC_TOOLBAR_ROOT_WIDTH, -RE_METRIC_TOOLBAR_PATH_RIGHT, RE_METRIC_TOOLBAR_ADD_WIDTH, RE_METRIC_TOOLBAR_AGENT_LABEL_WIDTH, -1}, RE_METRIC_TOOLBAR_ROW_HEIGHT);
     if (mu_button(ui, root_name(a, a->root))) {
       cJSON *roots = cJSON_GetObjectItemCaseSensitive(a->state, "roots"); int count = cJSON_GetArraySize(roots);
       for (int i = 0; i < count; i++) if (!strcmp(re_string(cJSON_GetArrayItem(roots, i), "id"), a->root)) {
@@ -148,43 +150,43 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
     mu_label(ui, "Agent CLI"); mu_textbox(ui, a->agent, sizeof(a->agent));
     mu_end_window(ui);
   }
-  re_layout_measure(&a->layout, mu_rect(0, 80, width, height - 106));
+  re_layout_measure(&a->layout, mu_rect(0, RE_METRIC_WORKSPACE_TOP, width, height - RE_METRIC_WORKSPACE_TOP - RE_METRIC_WORKSPACE_STATUS_HEIGHT));
   for (int i = 0; i < RE_TABS; i++) { a->tabs[i].rect = mu_rect(0, 0, 0, 0); a->tabs[i].header = mu_rect(0, 0, 0, 0); }
   for (int n = 0; n < RE_PANES; n++) {
     RePane *p = &a->layout.panes[n]; if (!p->used || p->axis) continue;
-    char title[40]; snprintf(title, sizeof(title), "Pane header %d", n); mu_Rect header = p->rect; header.h = 34;
+    char title[40]; snprintf(title, sizeof(title), "Pane header %d", n); mu_Rect header = p->rect; header.h = RE_METRIC_PANE_HEADER_HEIGHT;
     mu_get_container(ui, title)->rect = header;
     if (mu_begin_window_ex(ui, title, header, opts)) {
       pane_header(a, ui, n);
       mu_end_window(ui);
     }
     snprintf(title, sizeof(title), "Pane content %d", n);
-    mu_Rect content = mu_rect(p->rect.x, p->rect.y + 35, p->rect.w, re_max(0, p->rect.h - 35));
+    mu_Rect content = mu_rect(p->rect.x, p->rect.y + RE_METRIC_PANE_CONTENT_TOP, p->rect.w, re_max(0, p->rect.h - RE_METRIC_PANE_CONTENT_TOP));
     mu_get_container(ui, title)->rect = content;
     if (!p->count) continue;
     int index = p->tabs[p->selected]; ReTab *t = &a->tabs[index];
     int content_opts = t->type == RE_TREE || t->type == RE_SESSIONS ? opts & ~MU_OPT_NOSCROLL : opts;
     if (mu_begin_window_ex(ui, title, content, content_opts)) {
-      mu_layout_row(ui, 1, (int[]){-1}, 22); mu_label(ui, root_name(a, t->root));
+      mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_PANE_ROOT_ROW_HEIGHT); mu_label(ui, root_name(a, t->root));
       if (t->type == RE_TREE) tree_ui(a, ui, index);
       else if (t->type == RE_SESSIONS) sessions_ui(a, ui);
       else if (t->type == RE_EDITOR) {
-        mu_layout_row(ui, 4, (int[]){65, 80, 130, -1}, 26);
+        mu_layout_row(ui, 4, (int[]){RE_METRIC_EDITOR_SAVE_WIDTH, RE_METRIC_EDITOR_DISCARD_WIDTH, RE_METRIC_EDITOR_MODE_WIDTH, -1}, RE_METRIC_EDITOR_TOOLBAR_HEIGHT);
         if (button(a, ui, "Save", "save", "", index)) re_app_save(a, index);
         if (button(a, ui, "Discard", "discard", "", index)) re_app_discard(a, index);
         mu_label(ui, t->editor ? re_editor_mode(t->editor) : "Loading…");
         mu_label(ui, t->conflict ? "Conflict: draft preserved" : t->dirty ? "Unsaved · local draft" : "Saved");
-        t->rect = mu_rect(content.x + 6, content.y + 59, re_max(0, content.w - 12), re_max(0, content.h - 85));
+        t->rect = mu_rect(content.x + RE_METRIC_EDITOR_INSET, content.y + RE_METRIC_EDITOR_TOP, re_max(0, content.w - 2 * RE_METRIC_EDITOR_INSET), re_max(0, content.h - RE_METRIC_EDITOR_BOTTOM));
         if (*t->error) {
-          mu_layout_set_next(ui, mu_rect(content.x + 6, content.y + content.h - 25, content.w - 12, 23), 0); mu_label(ui, t->error);
+          mu_layout_set_next(ui, mu_rect(content.x + RE_METRIC_EDITOR_INSET, content.y + content.h - RE_METRIC_EDITOR_ERROR_HEIGHT - RE_METRIC_EDITOR_ERROR_INSET, content.w - 2 * RE_METRIC_EDITOR_INSET, RE_METRIC_EDITOR_ERROR_HEIGHT), 0); mu_label(ui, t->error);
         }
       } else if (t->type == RE_TERMINAL) {
-        t->rect = mu_rect(content.x + 6, content.y + 28, re_max(0, content.w - 12), re_max(0, content.h - 34));
+        t->rect = mu_rect(content.x + RE_METRIC_TERMINAL_INSET, content.y + RE_METRIC_TERMINAL_TOP, re_max(0, content.w - 2 * RE_METRIC_TERMINAL_INSET), re_max(0, content.h - RE_METRIC_TERMINAL_BOTTOM));
       } else if (t->game) {
-        mu_layout_row(ui, 2, (int[]){210, -1}, 26);
+        mu_layout_row(ui, 2, (int[]){RE_METRIC_GAME_CAPTURE_WIDTH, -1}, RE_METRIC_GAME_ROW_HEIGHT);
         if (mu_button(ui, t->game->captured ? "Captured · Esc releases" : "Capture mouse")) { re_game_capture(t->game); a->focus = index; }
         mu_label(ui, t->game->status);
-        t->rect = mu_rect(content.x + 6, content.y + 59, re_max(0, content.w - 12), re_max(0, content.h - 65));
+        t->rect = mu_rect(content.x + RE_METRIC_GAME_INSET, content.y + RE_METRIC_GAME_TOP, re_max(0, content.w - 2 * RE_METRIC_GAME_INSET), re_max(0, content.h - RE_METRIC_GAME_BOTTOM));
       }
       mu_end_window(ui);
       if (a->controls && (t->type == RE_TREE || t->type == RE_SESSIONS)) {
@@ -247,7 +249,7 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
       int pane = re_layout_hit(&a->layout, e->button.x, e->button.y, false);
       if (pane >= 0) {
         RePane *target = &a->layout.panes[pane]; int index = target->count;
-        if (e->button.y < target->rect.y + 34) {
+        if (e->button.y < target->rect.y + RE_METRIC_PANE_HEADER_HEIGHT) {
           for (int i = 0; i < target->count; i++) {
             mu_Rect r = a->tabs[target->tabs[i]].header; if (r.w <= 0) continue;
             index = i; if (e->button.x < r.x + r.w / 2) break; index = i + 1;

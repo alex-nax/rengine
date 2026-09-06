@@ -106,25 +106,25 @@ static mu_Rect viewport(ReEditor *e, mu_Rect r, int cw, int lh) {
     e->line_count = 1; e->longest_line = 0; int col = 0;
     for (int i = 0; i < e->length; i++) {
       if (e->text[i] == '\n') { e->line_count++; col = 0; }
-      else { col += e->text[i] == '\t' ? 4 : 1; e->longest_line = re_max(e->longest_line, col); }
+      else { col += e->text[i] == '\t' ? RE_METRIC_EDITOR_TAB_CELLS : 1; e->longest_line = re_max(e->longest_line, col); }
     }
     e->extent_revision = e->revision;
   }
   mu_Rect body = r;
   bool vertical = e->line_count > re_max(1, body.h / lh);
-  bool horizontal = e->longest_line + 1 > re_max(1, (body.w - (vertical ? RE_SCROLLBAR_SIZE : 0)) / cw);
-  if (horizontal) body.h = re_max(0, body.h - RE_SCROLLBAR_SIZE);
+  bool horizontal = e->longest_line + 1 > re_max(1, (body.w - (vertical ? RE_METRIC_SCROLLBAR_SIZE : 0)) / cw);
+  if (horizontal) body.h = re_max(0, body.h - RE_METRIC_SCROLLBAR_SIZE);
   vertical = e->line_count > re_max(1, body.h / lh);
-  if (vertical) body.w = re_max(0, body.w - RE_SCROLLBAR_SIZE);
-  re_scrollbar_set(&e->vertical, mu_rect(body.x + body.w, body.y, vertical ? RE_SCROLLBAR_SIZE : 0, body.h), e->line_count, re_max(1, body.h / lh), e->scroll, false);
-  re_scrollbar_set(&e->horizontal_bar, mu_rect(body.x, body.y + body.h, body.w, horizontal ? RE_SCROLLBAR_SIZE : 0), e->longest_line + 1, re_max(1, body.w / cw), e->horizontal, true);
+  if (vertical) body.w = re_max(0, body.w - RE_METRIC_SCROLLBAR_SIZE);
+  re_scrollbar_set(&e->vertical, mu_rect(body.x + body.w, body.y, vertical ? RE_METRIC_SCROLLBAR_SIZE : 0, body.h), e->line_count, re_max(1, body.h / lh), e->scroll, false);
+  re_scrollbar_set(&e->horizontal_bar, mu_rect(body.x, body.y + body.h, body.w, horizontal ? RE_METRIC_SCROLLBAR_SIZE : 0), e->longest_line + 1, re_max(1, body.w / cw), e->horizontal, true);
   e->scroll = e->vertical.value; e->horizontal = e->horizontal_bar.value; return body;
 }
 static void key(ReEditor *e, int k) { stb_textedit_key(e, &e->state, k); }
 static void follow_cursor(ReEditor *e, int rows, int cols) {
   int row = 0, column = 0;
   for (int i = 0; i < e->state.cursor; i++) {
-    if (e->text[i] == '\n') { row++; column = 0; } else column += e->text[i] == '\t' ? 4 : 1;
+    if (e->text[i] == '\n') { row++; column = 0; } else column += e->text[i] == '\t' ? RE_METRIC_EDITOR_TAB_CELLS : 1;
   }
   if (row < e->scroll) e->scroll = row;
   if (row >= e->scroll + rows) e->scroll = row - rows + 1;
@@ -217,10 +217,10 @@ void re_editor_draw(ReEditor *e, ReDraw *draw, mu_Rect r, bool focused) {
     if (y >= r.y + r.h) break;
     if (row >= e->scroll) {
       if (i >= selection_a && i < selection_b) re_draw_rect(draw, mu_rect(x, y, e->cw, e->lh), RE_COLOR_SELECTION);
-      if (focused && i == e->state.cursor) re_draw_rect(draw, mu_rect(x, y, e->vim && !e->insert ? e->cw : 2, e->lh), RE_COLOR_CARET);
+      if (focused && i == e->state.cursor) re_draw_rect(draw, mu_rect(x, y, e->vim && !e->insert ? e->cw : RE_METRIC_EDITOR_CARET_WIDTH, e->lh), RE_COLOR_CARET);
       if (i < e->length && e->text[i] != '\n' && e->text[i] != '\t') { char text[5]; re_encode(e->text[i], text); re_draw_text(draw, text, -1, x, y, RE_COLOR_TEXT); }
     }
-    if (i < e->length && e->text[i] == '\n') { row++; col = 0; } else col += i < e->length && e->text[i] == '\t' ? 4 : 1;
+    if (i < e->length && e->text[i] == '\n') { row++; col = 0; } else col += i < e->length && e->text[i] == '\t' ? RE_METRIC_EDITOR_TAB_CELLS : 1;
   }
   re_draw_clip(draw, NULL);
   re_scrollbar_draw(&e->vertical, draw); re_scrollbar_draw(&e->horizontal_bar, draw);

@@ -135,7 +135,7 @@ static void state_loaded(ReApp *a, const cJSON *j) {
   if (!restored) {
     a->previous_layout = cJSON_Duplicate(old, 1);
     if (*a->root) {
-      int right = re_layout_split(&a->layout, 0, 1); a->layout.panes[0].ratio = 0.23f;
+      int right = re_layout_split(&a->layout, 0, 1); a->layout.panes[0].ratio = RE_METRIC_WORKSPACE_TREE_PERCENT / 100.0f;
       a->layout.active = a->layout.panes[0].child[0]; re_app_tab(a, RE_TREE, a->root, "", "", "Project"); a->layout.active = right;
     }
   }

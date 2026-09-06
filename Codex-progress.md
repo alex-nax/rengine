@@ -91,6 +91,19 @@ terminal mouse-reporting edits in terminal.c and workspace.c stayed unstaged: th
 were built from HEAD plus the substitutions only. Commit:
 `refactor(native): draw every colour through the generated theme constants`.
 
+**Follow-up 2 (same session)**: On owner direction, moved the layout metrics onto the header.
+Window size and minimum, toolbar rows and column widths, workspace top, status line, divider,
+pane minimum and tree share, pane header and rows, tab-strip geometry, tree/session/editor/
+terminal/game rows and insets, caret width, editor tab cells and native scrollbar sizes now come
+from `RE_METRIC_*`; `tokens.json` gained 24 keys and `RE_SCROLLBAR_SIZE` was retired. `check`
+also fails on numeric sizes in `mu_layout_row` calls, and the preview cards use the same
+variables. Baseline and post-change smoke snapshots are byte-identical; CTest: three passes; the
+seven committed native desktop specs pass (40.8 s); harness gate passes. The other session
+committed its mouse-reporting work (`3c12fea`) while this was staged, so the shared
+workspace/app/terminal entries were rebuilt from that HEAD plus the substitutions and verified
+to contain none of its hunks. Commit:
+`refactor(native): take layout metrics from the generated theme header`.
+
 ---
 ## Session 18 (macos) — 2026-09-06 — System scrolling, visible bars and agent reload
 

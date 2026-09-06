@@ -49,11 +49,25 @@
   --re-metric-window-min-height: 480px;
   --re-metric-toolbar-height: 78px;
   --re-metric-toolbar-row-height: 26px;
+  --re-metric-toolbar-brand-width: 78px;
+  --re-metric-toolbar-view-width: 75px;
+  --re-metric-toolbar-manage-width: 80px;
+  --re-metric-toolbar-sessions-width: 95px;
+  --re-metric-toolbar-split-vertical-width: 120px;
+  --re-metric-toolbar-split-horizontal-width: 125px;
+  --re-metric-toolbar-merge-width: 95px;
+  --re-metric-toolbar-game-width: 85px;
+  --re-metric-toolbar-root-width: 170px;
+  --re-metric-toolbar-path-right: 475px;
+  --re-metric-toolbar-add-width: 95px;
+  --re-metric-toolbar-agent-label-width: 70px;
   --re-metric-workspace-top: 80px;
   --re-metric-workspace-status-height: 26px;
   --re-metric-workspace-status-inset: 8px;
+  --re-metric-workspace-status-text-top: 2px;
   --re-metric-workspace-divider: 6px;
   --re-metric-workspace-pane-minimum: 80px;
+  --re-metric-workspace-tree-percent: 23%;
   --re-metric-pane-header-height: 34px;
   --re-metric-pane-content-top: 35px;
   --re-metric-pane-root-row-height: 22px;
@@ -62,25 +76,35 @@
   --re-metric-tab-height: 26px;
   --re-metric-tab-top: 4px;
   --re-metric-tab-inset: 5px;
+  --re-metric-tab-gap: 2px;
   --re-metric-tab-close-width: 22px;
   --re-metric-tab-nav-width: 24px;
   --re-metric-tab-title-characters: 11;
   --re-metric-tree-row-height: 24px;
   --re-metric-tree-up-width: 55px;
   --re-metric-sessions-row-height: 26px;
+  --re-metric-sessions-actions-width: 155px;
   --re-metric-sessions-attach-width: 80px;
+  --re-metric-sessions-heading-height: 24px;
   --re-metric-editor-toolbar-height: 26px;
+  --re-metric-editor-save-width: 65px;
+  --re-metric-editor-discard-width: 80px;
+  --re-metric-editor-mode-width: 130px;
   --re-metric-editor-inset: 6px;
   --re-metric-editor-top: 59px;
   --re-metric-editor-bottom: 85px;
   --re-metric-editor-caret-width: 2px;
   --re-metric-editor-error-height: 23px;
+  --re-metric-editor-error-inset: 2px;
+  --re-metric-editor-tab-cells: 4;
   --re-metric-terminal-inset: 6px;
   --re-metric-terminal-top: 28px;
   --re-metric-terminal-bottom: 34px;
+  --re-metric-game-row-height: 26px;
+  --re-metric-game-capture-width: 210px;
+  --re-metric-game-inset: 6px;
   --re-metric-game-top: 59px;
   --re-metric-game-bottom: 65px;
-  --re-metric-game-capture-width: 210px;
   --re-metric-scrollbar-size: 14px;
   --re-metric-scrollbar-thumb-min: 20px;
   --re-metric-scrollbar-thumb-inset: 2px;
@@ -164,21 +188,25 @@ code, pre { font: inherit; }
 <style>
 .screen { position: relative; width: 1280px; height: 800px; overflow: hidden; }
 .toolbar { position: absolute; left: 0; top: 0; width: 1280px; height: var(--re-metric-toolbar-height); }
-.w78 { width: 78px; } .w75 { width: 75px; } .w80 { width: 80px; } .w95 { width: 95px; } .w120 { width: 120px; }
-.w125 { width: 125px; } .w85 { width: 85px; } .w170 { width: 170px; } .w70 { width: 70px; } .w475 { width: 475px; }
+.brand { width: var(--re-metric-toolbar-brand-width); } .view { width: var(--re-metric-toolbar-view-width); }
+.manage { width: var(--re-metric-toolbar-manage-width); } .sessions { width: var(--re-metric-toolbar-sessions-width); }
+.split-v { width: var(--re-metric-toolbar-split-vertical-width); } .split-h { width: var(--re-metric-toolbar-split-horizontal-width); }
+.merge { width: var(--re-metric-toolbar-merge-width); } .game { width: var(--re-metric-toolbar-game-width); }
+.root { width: var(--re-metric-toolbar-root-width); } .add { width: var(--re-metric-toolbar-add-width); } .agent-label { width: var(--re-metric-toolbar-agent-label-width); }
+.agent { width: calc(var(--re-metric-toolbar-path-right) - var(--re-metric-toolbar-add-width) - var(--re-metric-toolbar-agent-label-width) - 3 * var(--re-metric-microui-spacing)); }
 .pane { position: absolute; }
 .header { position: relative; height: var(--re-metric-pane-header-height); }
 .tab, .close { position: absolute; top: var(--re-metric-tab-top); height: var(--re-metric-tab-height); }
-.tab { width: 130px; justify-content: flex-start; }
+.tab { width: calc(var(--re-metric-tab-width) - var(--re-metric-tab-close-width) - var(--re-metric-tab-gap) - var(--re-metric-microui-spacing)); justify-content: flex-start; }
 .close { width: var(--re-metric-tab-close-width); }
 .content { position: absolute; left: 0; right: 0; top: var(--re-metric-pane-content-top); bottom: 0; }
 .divider { position: absolute; }
-.buffer { position: absolute; left: 6px; right: 6px; top: 59px; bottom: 85px; display: grid; grid-template-columns: 1fr var(--re-metric-scrollbar-size); }
+.buffer { position: absolute; left: var(--re-metric-editor-inset); right: var(--re-metric-editor-inset); top: var(--re-metric-editor-top); bottom: var(--re-metric-editor-bottom); display: grid; grid-template-columns: 1fr var(--re-metric-scrollbar-size); }
 .buffer .re-cells { grid-column: 1; } .buffer .re-scrollbar { grid-column: 2; }
-.cells { position: absolute; left: 6px; right: 6px; top: 28px; bottom: 6px; display: grid; grid-template-columns: 1fr var(--re-metric-scrollbar-size); }
+.cells { position: absolute; left: var(--re-metric-terminal-inset); right: var(--re-metric-terminal-inset); top: var(--re-metric-terminal-top); bottom: var(--re-metric-terminal-inset); display: grid; grid-template-columns: 1fr var(--re-metric-scrollbar-size); }
 .cells .re-cells { grid-column: 1; } .cells .re-scrollbar { grid-column: 2; }
-.re-row.entry { height: 24px; } .re-row.entry .re-button { width: 100%; justify-content: flex-start; }
-.status { position: absolute; left: var(--re-metric-workspace-status-inset); bottom: 4px; }
+.re-row.entry { height: var(--re-metric-tree-row-height); } .re-row.entry .re-button { width: 100%; justify-content: flex-start; }
+.status { position: absolute; left: var(--re-metric-workspace-status-inset); top: calc(100% - var(--re-metric-workspace-status-height) + var(--re-metric-workspace-status-text-top)); }
 .green { color: rgb(120, 200, 140); } .blue { color: rgb(120, 170, 230); }
 </style>
 </head>
@@ -186,14 +214,14 @@ code, pre { font: inherit; }
 <div class="screen">
   <div class="re-window toolbar">
     <div class="re-row">
-      <span class="re-label w78">rEngine</span><span class="re-button w75">Tree</span><span class="re-button w75">Shell</span><span class="re-button w75">Agent</span>
-      <span class="re-button w80">Manage</span><span class="re-button w95">Sessions</span><span class="re-button w120">Split vertical</span>
-      <span class="re-button w125">Split horizontal</span><span class="re-button w95">Merge pane</span><span class="re-button w85">NOLF</span>
+      <span class="re-label brand">rEngine</span><span class="re-button view">Tree</span><span class="re-button view">Shell</span><span class="re-button view">Agent</span>
+      <span class="re-button manage">Manage</span><span class="re-button sessions">Sessions</span><span class="re-button split-v">Split vertical</span>
+      <span class="re-button split-h">Split horizontal</span><span class="re-button merge">Merge pane</span><span class="re-button game">NOLF</span>
       <span class="re-checkbox fill"><span class="box"></span>Vim</span>
     </div>
     <div class="re-row">
-      <span class="re-button w170">nolf-improved</span><span class="re-textbox fill"></span><span class="re-button w95">Add project</span>
-      <span class="re-label w70">Agent CLI</span><span class="re-textbox w475">codex</span>
+      <span class="re-button root">nolf-improved</span><span class="re-textbox fill"></span><span class="re-button add">Add project</span>
+      <span class="re-label agent-label">Agent CLI</span><span class="re-textbox agent">codex</span>
     </div>
   </div>
 
@@ -202,7 +230,7 @@ code, pre { font: inherit; }
     <div class="re-window header"><span class="re-button tab is-active" style="left: 5px">• Project</span><span class="re-button close" style="left: 137px">x</span></div>
     <div class="re-window content">
       <div class="re-row short"><span class="re-label fill">nolf-improved</span></div>
-      <div class="re-row tall"><span class="re-button" style="width: 55px">Up</span><span class="re-label fill">src</span></div>
+      <div class="re-row tall"><span class="re-button" style="width: var(--re-metric-tree-up-width)">Up</span><span class="re-label fill">src</span></div>
       <div class="re-row entry"><span class="re-button">&gt; Game</span></div>
       <div class="re-row entry"><span class="re-button">&gt; Engine</span></div>
       <div class="re-row entry"><span class="re-button">&gt; Tools</span></div>
@@ -220,7 +248,7 @@ code, pre { font: inherit; }
     </div>
     <div class="re-window content">
       <div class="re-row short"><span class="re-label fill">nolf-improved</span></div>
-      <div class="re-row"><span class="re-button" style="width: 65px">Save</span><span class="re-button" style="width: 80px">Discard</span><span class="re-label" style="width: 130px">Edit</span><span class="re-label fill">Unsaved · local draft</span></div>
+      <div class="re-row"><span class="re-button" style="width: var(--re-metric-editor-save-width)">Save</span><span class="re-button" style="width: var(--re-metric-editor-discard-width)">Discard</span><span class="re-label" style="width: var(--re-metric-editor-mode-width)">Edit</span><span class="re-label fill">Unsaved · local draft</span></div>
       <div class="buffer">
 <pre class="re-cells">void CHUDMgr::Render()
 {

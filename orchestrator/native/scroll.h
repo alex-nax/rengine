@@ -1,7 +1,6 @@
 #ifndef RENGINE_SCROLL_H
 #define RENGINE_SCROLL_H
 #include "draw.h"
-#define RE_SCROLLBAR_SIZE 14
 typedef struct {
   mu_Rect track, thumb; int total, page, value, maximum, grab; bool horizontal, dragging;
 } ReScrollbar;
