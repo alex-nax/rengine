@@ -5,12 +5,13 @@
 #include "editor.h"
 #include "game.h"
 #include "formatview.h"
+#include "recording.h"
 enum { RE_TREE = 1, RE_EDITOR, RE_TERMINAL, RE_SESSIONS, RE_GAME, RE_DASHBOARD };
 typedef struct {
   bool used, dirty, conflict, discarding; int type, generation, saved, checkpoint, checkpoint_flight;
   char root[65], session[65], path[2048], title[256], version[65], error[512];
   char selected[1024];                       /* the last row opened here; its branch is never collapsed */
-  cJSON *data; ReTerminal *terminal; ReEditor *editor; ReGame *game; ReFormatView *format;
+  cJSON *data; ReTerminal *terminal; ReEditor *editor; ReGame *game; ReFormatView *format; ReRecorder *recorder;
   mu_Rect rect, header; Uint64 edited;
 } ReTab;
 typedef struct { int id, operation, tab, generation, revision, slot; char root[65]; long timeout; } RePending;

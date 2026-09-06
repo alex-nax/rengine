@@ -5,19 +5,32 @@
       "id": "native-game-input",
       "kind": "rationale",
       "anchor": {
-        "start": 63,
-        "end": 63,
+        "start": 65,
+        "end": 65,
         "snippet": "void re_game_event(ReGame *g, const SDL_Event *e) {"
       },
       "note": "The separate game adapter consumes SDL scancodes and input events. Native relative capture belongs to this desktop process; first Escape releases capture and all held controls, while a later Escape is delivered to the game. Ignore mouse-up events for buttons never pressed in the game, such as the Capture mouse toolbar click. Current absolute coordinates still follow frame dimensions: logical/drawable game DPI mapping remains unqualified and must be extended explicitly.",
       "refs": [
         "docs/specs/056-native-desktop.md"
       ]
+    },
+    {
+      "id": "recording-frame-sink",
+      "kind": "rationale",
+      "anchor": {
+        "start": 46,
+        "end": 46,
+        "snippet": "  if (g->sink) g->sink(g->sink_user, (const unsigned char *)m->data + 24, w, h, (int)header[3]);"
+      },
+      "note": "The sink runs on the validated frame, before the texture update and before the message is freed, so the recorder sees exactly the frames the pane accepts and never opens a second stream. It sits after the header check on purpose: a rejected frame is not a frame. It runs even when the texture update fails, because a frame that could not be uploaded is still a frame that happened and is often the one worth having. The recorder samples at its own declared rate, so this callback is cheap on most frames \u2014 the socket already keeps only the newest binary message, so the pane sees the display rate, not the game's.",
+      "refs": [
+        "docs/specs/081-game-recording.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/game.c",
-    "sha256": "798e996f3fef14691059358db06d5d7759a8c62bd798860f937cf9752aca730a",
+    "sha256": "2d4e2403240224504e5554998fe5d65a083879add9da50d519dd1a6f39212db7",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

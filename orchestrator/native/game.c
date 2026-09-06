@@ -43,6 +43,7 @@ void re_game_tick(ReGame *g, ReDraw *draw) {
   if (header[0] != 0x31464752 || w < 1 || w > 1920 || h < 1 || h > 1080 || header[5] || header[4] != (uint32_t)(w * h * 4) || m->size != 24 + (size_t)header[4]) {
     re_copy(g->status, sizeof(g->status), "Rejected invalid game frame"); re_message_free(m); return;
   }
+  if (g->sink) g->sink(g->sink_user, (const unsigned char *)m->data + 24, w, h, (int)header[3]);
   if (!g->texture || w != g->width || h != g->height) {
     re_draw_texture_destroy(g->texture);
     g->texture = re_draw_texture_create(draw, w, h);
@@ -52,6 +53,7 @@ void re_game_tick(ReGame *g, ReDraw *draw) {
   }
   re_message_free(m);
 }
+void re_game_sink(ReGame *g, ReGameFrame sink, void *user) { if (g) { g->sink = sink; g->sink_user = user; } }
 void re_game_draw(ReGame *g, ReDraw *draw, mu_Rect r) {
   re_draw_rect(draw, r, RE_COLOR_GAME_BACKDROP); if (!g->texture || r.w < 1 || r.h < 1) return;
   double scale = (double)r.w / g->width;
