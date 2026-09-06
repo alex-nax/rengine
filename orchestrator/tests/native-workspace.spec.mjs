@@ -8,13 +8,18 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { nativeBridge } from './native-client.mjs';
 import { request } from '../launcher/sidecar.mjs';
 
-test('normal launcher opens native NOLF, source tree, editor, shell and installed Codex together', { timeout: 120000 }, async () => {
+test('normal launcher opens the declared NOLF game, source tree, editor, shell and installed Codex together', { timeout: 120000 }, async () => {
   assert.equal(process.platform, 'darwin', 'This qualification uses the macOS NOLF adapter.');
   assert.ok(process.env.RENGINE_NOLF_ROOT, 'Set RENGINE_NOLF_ROOT to an actual built NOLF checkout.');
   const source = path.resolve(process.env.RENGINE_NOLF_ROOT);
   const directory = await mkdtemp(path.resolve('.cache/native-workspace-'));
   const project = path.join(directory, 'runtime'), stateDir = path.join(directory, 'state');
-  for (const sub of ['build', 'nolf/Custom', 'assets']) await mkdir(path.join(project, sub), { recursive: true });
+  for (const sub of ['build', 'nolf/Custom', 'assets', '.rengine']) await mkdir(path.join(project, sub), { recursive: true });
+  await writeFile(path.join(project, '.rengine/project.json'), JSON.stringify({ contract: 2, project: 'nolf-improved qualification',
+    formats: [{ id: 'lithtech-rez', title: 'LithTech REZ archive', match: ['*.rez'], modes: ['raw'], default: 'raw' }],
+    game: { id: 'nolf-flat', title: 'NOLF', executable: ['build/relith-nolf', 'build/Release/relith-nolf'], args: ['--flat', '--game', 'nolf', '--width', '1280', '--height', '720'],
+      env: { RELITH_HIDDEN_WINDOW: '1', RELITH_SKIP_INTRO: '1' }, requires: ['nolf/NOLF.REZ'], surface: 'sdl2-interpose' } }));
+
   await copyFile(path.join(source, 'build/relith-nolf'), path.join(project, 'build/relith-nolf'), constants.COPYFILE_FICLONE);
   for (const sub of ['nolf', 'nolf/Custom', 'assets']) for (const entry of await readdir(path.join(source, sub), { withFileTypes: true })) {
     if (entry.isFile() && /\.rez$/i.test(entry.name)) await symlink(path.join(source, sub, entry.name), path.join(project, sub, entry.name));

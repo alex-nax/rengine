@@ -7,12 +7,17 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { startServer } from '../server/main.mjs';
 import { nativeClient } from './native-client.mjs';
 
-test('actual NOLF renders and accepts menu input in the C/microui workspace', { timeout: 60000 }, async () => {
+test('the declared NOLF game renders and accepts menu input in the C/microui workspace', { timeout: 60000 }, async () => {
   assert.equal(process.platform, 'darwin', 'This check currently qualifies the macOS game adapter.');
   assert.ok(process.env.RENGINE_NOLF_ROOT, 'Set RENGINE_NOLF_ROOT to an actual built NOLF checkout.');
   const source = path.resolve(process.env.RENGINE_NOLF_ROOT);
   const directory = await mkdtemp(path.resolve('.cache/native-nolf-'));
-  for (const sub of ['build', 'nolf/Custom', 'assets']) await mkdir(path.join(directory, sub), { recursive: true });
+  for (const sub of ['build', 'nolf/Custom', 'assets', '.rengine']) await mkdir(path.join(directory, sub), { recursive: true });
+  await writeFile(path.join(directory, '.rengine/project.json'), JSON.stringify({ contract: 2, project: 'nolf-improved qualification',
+    formats: [{ id: 'lithtech-rez', title: 'LithTech REZ archive', match: ['*.rez'], modes: ['raw'], default: 'raw' }],
+    game: { id: 'nolf-flat', title: 'NOLF', executable: ['build/relith-nolf', 'build/Release/relith-nolf'], args: ['--flat', '--game', 'nolf', '--width', '1280', '--height', '720'],
+      env: { RELITH_HIDDEN_WINDOW: '1', RELITH_SKIP_INTRO: '1' }, requires: ['nolf/NOLF.REZ'], surface: 'sdl2-interpose' } }));
+
   await copyFile(path.join(source, 'build/relith-nolf'), path.join(directory, 'build/relith-nolf'), constants.COPYFILE_FICLONE);
   for (const sub of ['nolf', 'nolf/Custom', 'assets']) for (const entry of await readdir(path.join(source, sub), { withFileTypes: true })) {
     if (entry.isFile() && /\.rez$/i.test(entry.name)) await symlink(path.join(source, sub, entry.name), path.join(directory, sub, entry.name));
