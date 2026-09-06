@@ -738,6 +738,33 @@
       "evidence": [
         "docs/evidence/worker-game-routes-macos-2026-09-06.md"
       ]
+    },
+    {
+      "id": 75,
+      "milestone": "O1",
+      "category": "surfaces",
+      "priority": "high",
+      "description": "Contract 4 devices: a project declares where each target runs, rEngine probes reachability under the declared-command boundary and reports availability in those terms, replacing the tools-on-PATH proxy and the local executable stat for non-local targets.",
+      "acceptance_criteria": [
+        "contract accepts 1, 2, 3 and 4; contract 4 adds the optional top-level devices array (1-8 records of id, kind local|ssh|adb, title, optional host/selector each exactly one of value|env, requires, tools, probe, probeTimeoutMs) and an optional device on a game record and a dashboard action defaulting to local. Declaring devices, or any device key, under contract 3 is rejected by version naming requires contract 4 and the declared contract, never by unknown key; contracts 1-3 read unchanged and both live consumer declarations (vtmb-vr, nolf-improved) still read clean.",
+        "Device rules are named cross-field errors: unique kebab ids, the reserved local id/kind pairing with at most one local device and no probe/host/selector on it, exactly one of value|env on host and selector, a probe placeholder whose source is not declared, and an unknown device reference on a game or action listing the declared ids and local.",
+        "A target bound to a non-local device is never resolved or stat-ed against the local filesystem: inspectGame reports the device, its reachability and the target's own (still local) requires, names where the executable lives, and the message Game executable not found no longer appears for it. Availability composes device reachability with the target's own requires/tools and names the failing half.",
+        "Probes run under the same execution boundary as every other declared command (no shell, cwd the project root, shell environment, stdin closed, bounded output, default 5000 ms capped at 60000, killed as a process group on timeout) and only on an explicit availability check or refresh, never on a timer or during tree listing. Exit 0 is reachable; non-zero or timeout is unreachable with the first stderr line as the reason; a missing or empty host/selector env is unreachable by name without a spawn; device requires/tools short-circuit before the probe.",
+        "Probe results are cached per root, device and resolved argv for 15 s with in-flight coalescing so one dashboard listing probes each device once, and an explicit refresh bypasses the cache.",
+        "GET /api/devices?rootId[&refresh] is served by the replaceable workspace worker, which advertises projectDevices: 1 (spec 078 / KI-043: a capability served only by the retained host cannot be delivered by a layered update); a read-only MCP devices tool is gated on it and game_preflight/dashboard_actions report device-derived availability. launch_game on a non-local device refuses by name, naming the project's own script actions bound to that device, and attempts nothing.",
+        "A native Devices section lists declared devices with status, a manual refresh and the targets bound to each, showing one reason for an unreachable device rather than repeating it per action, through the owned control layer and generated RE_METRIC_*/RE_COLOR_* constants. npm test, npm run test:desktop, CTest, ./init.sh, python3 tools/design.py check, features.py validate and the sidecar check pass, and a native fixture covers the Devices section including the unreachable case."
+      ],
+      "passes": false,
+      "dependencies": [
+        74
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/081-project-devices.md, contracts/project-v1.schema.json, orchestrator/server/{device-rules,devices,formats,games,dashboard}.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, orchestrator/native/{devices.c,devices.h,app.c,workspace.c,theme.json}, orchestrator/tests/{devices.test.mjs,device-fixtures.mjs,native-devices.spec.mjs}",
+      "external_references": [
+        "vtmb-vr/docs/specs/feature-1146-device-targets.md (consumer proposal)",
+        "vtmb-vr and nolf-improved .rengine/project.json declarations"
+      ],
+      "evidence": []
     }
   ]
 }
