@@ -78,7 +78,7 @@
         "end": 620,
         "snippet": "{\"Tree\", RE_ICON_TREE}, {\"Dashboard\", RE_ICON_PROJECT}, {\"Devices\", RE_ICON_MENU}, {\"Shell\", RE_ICON_SHELL}, {\"Agent\", RE_ICON_AGENT} };"
       },
-      "note": "The view switcher is a fixed table walked by index, and the click handler branches on that same index — so inserting an entry is not a one-line change: `views` must match the table length and every later branch must be re-numbered. Devices was inserted at index 2, which moved the terminal/agent branch from `i == 3` to `i == 4`. Getting that wrong opens a shell where the user asked for an agent, silently, because both branches call launch_terminal. The group ring is drawn once around the whole run using GROUP_FIRST/LAST, so the first and last entries must stay first and last.",
+      "note": "The view switcher is a fixed table walked by index, and the click handler branches on that same index \u2014 so inserting an entry is not a one-line change: `views` must match the table length and every later branch must be re-numbered. Devices was inserted at index 2, which moved the terminal/agent branch from `i == 3` to `i == 4`. Getting that wrong opens a shell where the user asked for an agent, silently, because both branches call launch_terminal. The group ring is drawn once around the whole run using GROUP_FIRST/LAST, so the first and last entries must stay first and last.",
       "refs": [
         "docs/specs/081-project-devices.md"
       ]
@@ -91,7 +91,7 @@
         "end": 720,
         "snippet": "      } else if (t->type == RE_GAME && t->terminal) {"
       },
-      "note": "An external game runs in its own window, so its tab has no frame surface to draw: it shows the retained PTY output with a status row above it, and the row reads the session's live state rather than the tab's, because the process can exit while the tab stays open. The rect is still set from the game insets so the terminal below occupies the same area an embedded surface would. This branch must precede the t->game one — an external tab has a terminal and no game surface. Without it surface \"external\" has no view at all, which is what the vtmb-vr consumer declares for both of its games."
+      "note": "An external game runs in its own window, so its tab has no frame surface to draw: it shows the retained PTY output with a status row above it, and the row reads the session's live state rather than the tab's, because the process can exit while the tab stays open. The rect is still set from the game insets so the terminal below occupies the same area an embedded surface would. This branch must precede the t->game one \u2014 an external tab has a terminal and no game surface. Without it surface \"external\" has no view at all, which is what the vtmb-vr consumer declares for both of its games."
     },
     {
       "id": "native-focus-and-detach",
@@ -111,7 +111,7 @@
   ],
   "source": {
     "path": "orchestrator/native/workspace.c",
-    "sha256": "f4d435e62859b0ead3fbc9b9e83f9058790f35b15d0cccc962fcd833cafb3ae0",
+    "sha256": "a25cc8af962eedcd5201a28054fcf6b599d6381c05d373f65de0e4a5e0ee77b5",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

@@ -1,5 +1,60 @@
 # Progress Log
 
+## Session 33 (macos) — 2026-09-06 — Merging the devices lane onto the settings popover and the clip fix
+
+**Owner scope**: land finished `feat/devices` (`57ab639`) on current main and report green. Worktree
+`.cache/worktrees/merge-verify`, branch `feat/devices` pushed per commit; the `main` ref untouched,
+`update_workspace` not run, no consumer repository and no other worktree edited. Base was `60d0917`
+throughout — fetched before the merge and again before the final gate run, and it never moved.
+
+**Main owns the control layer, so main's shape wins.** F68 reshaped the toolbar underneath this
+lane: the Vim checkbox moved into a settings popover, the theme button became Settings, the project
+cell opens a menu rather than cycling roots, and every owned control now takes its container's clip.
+Five files conflicted. `package.json`: the desktop list is unioned, keeping main's `native-settings`
+and this lane's `native-devices`, 19 fixtures. `native-game-declaration.spec.mjs`: main's cell list
+with `Devices` inserted at index 2 — the trailing assertion still names `Settings` as the last cell
+and still measures it landing on the toolbar padding, which is main's invariant, not this lane's.
+`Codex-progress.md`: both entries kept, this lane's renumbered to 32 because main's F68 entry had
+already taken 31. The two sidecars (`app.c`, `workspace.c`) are the union of both sides' entries —
+this lane added `devices-route` and `view-switcher-indices`, main added `one-overlay` and
+`offered-not-applied`, and no note on either side was edited — re-anchored against the merged
+sources and stamped.
+
+**The Devices section needed no clip of its own.** `devices.c` lays out through `re_ui_*` controls
+only and never calls `re_draw_*` inside the container, so it inherits the `re_ui_clip(ui)` the pane
+content window already takes; the section is in the case main's fix covers for free. The pixel
+regression that samples the toolbar and tab strip across the explorer's width compares before-scroll
+against after-scroll rather than against a golden image, so a fifth switcher cell moves both samples
+identically and it needs no change: it passed untouched.
+
+**Everything the lane owns merged clean, and was checked rather than assumed**: the contract, the
+schema, `devices` rules, the probe with its 15 s cache and in-flight coalescing, the worker routes
+and the MCP tool are in files main never touched, and main's only server change (`store.mjs`
+preferences for spec 080) does not reach them. `workspace.c` is exactly the reported footprint on
+main's structure: the switcher entry and `views = 5`, the tab icon, the dispatch, and `RE_DEVICES`
+in the two scroll predicates. No id collision: main stops at F74 and spec 080 and KI-043, so F75,
+spec 081 and KI-044/045/046 are all still free. `features.json` appended in place;
+`docs/roadmap-graph.md` regenerates byte-identical to the merge; `theme.h`/`theme.c` and the design
+mirrors regenerate byte-identical too, so the generated files were not conflict-resolved by hand.
+
+**Gates**, all after a final `git fetch`. `npm test` **66/66**. `npm run test:desktop` **24/24**
+(main's 22 plus `native-devices.spec.mjs` 2/2), sequential. `ctest --test-dir .cache/desktop`
+**5/5** (0.79 s). Native build from a **wiped** `.cache/desktop`: **0 warnings, 0 errors** — the
+honest check for the `-Werror` implicit-declaration class of defect. `./init.sh` clean (35 features).
+`python3 tools/design.py check` clean. `python3 tools/features.py validate` clean.
+`RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run test:game-nolf` **1/1**. Sidecars with the
+private index `.cache/sidecars-devices-merge.sqlite`: **17 errors, 20 warnings**, diagnostic-for-
+diagnostic identical to `origin/main`'s own 17/22 except the two fingerprints this merge stamped —
+the merge introduces no new drift, and the rest is the pre-existing KI-046. Both live consumer
+declarations re-read through the merged code: vtmb-vr (contract 3, 1 format, 2 games, 3 dashboard
+groups) and nolf-improved (contract 3, 1 format, 3 games, 3 groups), no errors, `devices` absent in
+both, `projectDevices` reporting each as the implicit local device only, and both files byte-
+unchanged.
+
+**Remaining** is what session 32 left: F75 stays `passes: false` until a consumer declares devices
+and a probe runs against a real Quest or SSH host (KI-044), delivery needs `update_workspace` plus a
+desktop reload, and the dashboard still pays one probe per device per listing (KI-045).
+
 ## Session 32 (macos) — 2026-09-06 — Devices: where a declared target actually runs (contract 4, F75)
 
 **Owner scope**: give a project a way to say WHERE each target runs, probe reachability, and report
@@ -93,6 +148,7 @@ control stayed removed, gains `Devices`.
 against a real Quest or SSH host from this branch (KI-044), delivery needs `update_workspace` for
 the worker layer plus a desktop reload for the native section, and the dashboard now pays one probe
 per device per listing (KI-045).
+
 ## Session 31 (macos) — 2026-09-06 — Settings, menus, a gradient in the contract, and a clip nobody had
 
 F68 is complete. Settings live in their own popover opened from the toolbar, carrying the theme
