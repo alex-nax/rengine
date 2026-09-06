@@ -98,15 +98,25 @@ scroll settles — failed once here (`dir3 expanded not reached`) and **2 of 3 i
 unmodified `origin/main` at `5356ece`** (`dir56 expanded not reached`, and `slow producer preview
 loaded`). The sweep that follows is a clean 26/26 on this branch.
 
-**Gates**, re-run in full after the third merge and after a final `git fetch` (`origin/main`
-`5356ece`). `npm test` **71/71**. `npm run test:desktop` **26/26**, sequential — 20 fixtures, this
-lane's `native-devices.spec.mjs` 3/3 including the new busy-pane case and the recording lane's own. Earlier sweeps of the first merge lost
+**A fourth and fifth merge, `9e52352` and `a5b3f2f`.** Main advanced twice more: the in-place
+explorer, then selects that open a list instead of cycling, plus one state directory per scaffolded
+project. Neither collided in `workspace.c` — the dropdown machinery sits with the settings surface,
+the explorer work is in the tree rows, and this lane's switcher entry, tab icon, dispatch and two
+scroll predicates came through both untouched. Both merges were unions in `known-issues.md`,
+`package.json`, the progress log and the sidecars.
+
+**Gates**, re-run after the fifth merge and after a final `git fetch` (`origin/main` `a5b3f2f`),
+proportionately to what it touched — `workspace.c` and the recipe template, so the full desktop
+suite, the unit tests, the design check and a wiped-cache build; the NOLF qualification and the
+consumer declarations were verified at `522ea05` minutes earlier and have no relationship to a
+selects widget. `npm test` **71/71**. `npm run test:desktop` **29/29**, sequential — 20 fixtures,
+this lane's `native-devices.spec.mjs` 3/3 including the busy-pane case, beside four lanes' own. Earlier sweeps of the first merge lost
 one test each to machine load, never the same one twice, and every class was reproduced on main
 before being attributed there: `native-render`'s memory budget (the numbers are above),
 `native-render` cancelled at its 420 s timeout under load average 20.6, and `native-project-windows`,
 which passes 3/3 in isolation here while `origin/main`'s own sweep at `60d0917` came in at 21/22 with
 `native-game`'s fixture aborted on signal 6. None touches a devices path.
-`ctest --test-dir .cache/desktop` **6/6** (1.13 s, the recording test included). Native build from a **wiped** `.cache/desktop`: **0 warnings, 0 errors** — the
+`ctest --test-dir .cache/desktop` **6/6** (0.96 s, the recording test included). Native build from a **wiped** `.cache/desktop`: **0 warnings, 0 errors** — the
 honest check for the `-Werror` implicit-declaration class of defect. `./init.sh` clean (36 features).
 `python3 tools/design.py check` clean. `python3 tools/features.py validate` clean.
 `RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run test:game-nolf` **1/1**. Sidecars with the
