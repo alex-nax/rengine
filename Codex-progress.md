@@ -1,5 +1,97 @@
 # Progress Log
 
+## Session 32 (macos) — 2026-09-06 — A game pane that remembers the last two minutes
+
+F75 implements the recording the owner asked for directly: a game pane keeps a rolling buffer while
+it is live, a toggle on the game tab commits a segment — either the last N seconds from the ring or
+an explicit start/stop — and committed segments are queryable over MCP. Spec 081 settles the four
+constraints that actually decide the design, and three of them ruled something out.
+
+The ring cannot hold raw frames and the encoding cannot wait for the commit, because by then the
+frames are gone. At the surface protocol's own limit a 1280×720 RGBA frame is 3.69 MB: 26 GB for a
+two-minute ring at 60 fps, still 1.1 GB downscaled to 640×360 at 10 fps, and about 400 MB if the
+downscaled rows are deflated through `node:zlib`. JPEG at 640×360 quality 70 is ~60 MB, which is the
+only one of those a person would leave switched on. `third_party/` had no image writer, so
+`stb_image_write.h` is pinned into the existing `third_party/stb` entry at the stb revision
+`sources.json` already records — no new upstream, no new licence, the same convention every other
+vendored file follows — and it is compiled in its own `rengine_jpeg` target with `STBI_WRITE_NO_STDIO`,
+like microui and cJSON, so the picky warning set stays on owned code only. No video container is
+written: MJPEG-in-AVI needs no dependency but nothing in these gates can decode it, so claiming it
+plays would be a proxy assertion. The keyframe strip is the human artifact and the spec carries the
+one `ffmpeg` line a person can run against files rEngine already wrote.
+
+An agent cannot watch a video, so the machine artifact is a manifest that indexes timestamped
+keyframes and a timestamped log slice on **one clock**. Every keyframe and every log line carries
+`atMs` from the segment start, an absolute `wall` time, and — for keyframes — the game's own frame
+`sequence`, which the pane was already stamping. Wall clock is derived from the monotonic clock and a
+single epoch sample taken at open rather than sampled per artifact, so the three can never disagree,
+and the whole recorder is deterministic under test. A log line is stamped when its newline reaches the
+desktop; that is stated as the approximation it is, and it is the only clock shared with the frames.
+
+The ring lives in the desktop, and that is forced rather than convenient. The encoder is a C header,
+and a Node-side ring would have to encode inside the retained session host — the one process a layered
+update cannot replace. That is KI-043's lesson from spec 078, and it decides the read side too:
+`recordings.mjs` is a pure filesystem walk, so the **worker serves `GET /api/recordings` and
+`/api/recording` from its own checkout** and advertises `recordings: 1` unconditionally, the host
+serves the same two routes from the same module, nothing is forwarded, and `supervisor.mjs` claims
+nothing. A regression drives the worker above a proxy host advertising only `handoff: 1` and answering
+`/api/recording*` with 404: the routes still answer, from the worker. `recordings_list` and
+`recording_read` gate on that flag and name the remedy that this time actually works.
+
+Audio is the constraint that could not be closed here, and it is not silently dropped. A game's sound
+goes to the system output device and never passes through the workspace, which sees a frame socket and
+a PTY. capture-mcp already does per-app audio, chunked, timestamped and transcribed; driving it from
+the desktop would make an unpinned tool at a `~/...` path a runtime requirement and would need screen
+and microphone consent granted to rEngine rather than to the tool the owner already trusts with it. So
+every manifest carries `audio: { present: false, provider: "capture-mcp", reason, issue }`,
+`recording_read` reports it verbatim, and **KI-044** holds the integration: an optional per-project
+audio provider whose transcript chunks land beside the keyframes on the same clock. Recording an
+`external` game — its own OS window, no frame stream — is the same problem and is deferred with it.
+
+Two implementation choices are worth keeping. Committing is a **drain** of at most 24 keyframes a tick
+with the manifest written **last**, so a full ring lands in under a second without a freeze and a
+directory with no manifest is exactly what it looks like: an unfinished commit, which the listing
+reports as an error entry rather than hiding. That is what makes "an in-flight commit is not lost"
+real — a game session that exits mid-recording commits what it has, and closing the tab or the desktop
+drains what is in flight first. And an explicit recording is stored in the **same** ring rather than a
+second unbounded buffer, so a forgotten toggle cannot fill the disk; if it outruns the ring the segment
+starts where the ring does and says `truncated` with `droppedLeadMs`.
+
+The controls went into the game tab's **existing** row rather than a new one. A second row would push
+the game rectangle down and silently retarget the pointer coordinates `native-game.spec.mjs` clicks —
+a green suite measuring the wrong pixels.
+
+Two checks were verified by breaking them rather than by watching them pass. Removing the bottom-up
+flip fails the orientation assertion; writing the manifest during the drain fails the "no manifest yet"
+assertion. The second attempt also exposed a real defect in the test itself: ids are deterministic on
+purpose, so a leftover segment from the aborted run answered the next run's assertion. Each run now
+works in its own tree and removes it.
+
+Gates, all from this worktree on branch `feat/game-recording`: `npm test` 61 tests, 61 pass, 0 fail,
+10,947 ms. `npm run test:desktop` 23 tests, 23 pass, 0 fail, 418,659 ms, the new
+`native-recording.spec.mjs` at 3,768 ms. CTest in `.cache/desktop` 6/6 in 0.13 s, including the new
+`native_recording` at 0.05 s. `./init.sh`, `python3 tools/features.py validate` (35 features) and
+`python3 tools/design.py check` clean; the native build reports zero warnings and zero errors;
+sidecar `check` clean for every touched file after `--fix-anchors` and `stamp`.
+
+The first desktop run was **not** clean and the reason is worth recording: 21 of 23 with
+`native-format-registry` missing its stderr line and `native-render` timing out at its full 420 s
+budget. Load average was 20 with another session's `ctest -LE slow -j8` and its own
+`rengine --automation` on the same GPU. Re-run on a quiet machine: 23/23. Neither spec touches a game
+pane, so nothing in this change could have moved their pixels — but the honest evidence is the second
+run, not an argument about the first. Check `pgrep -x ctest` before the windowed suite, not only
+before CTest.
+
+Not mine, recorded rather than fixed: sidecar anchors across the repository are drifted at main tip —
+verified against a pristine `a5e6036` checkout, where `app.c`, `editor.c`, `draw.c` and others report
+the same `ANCHOR_DRIFTED` lines before any change of mine. `native-client.mjs` and
+`native-scrollbars.spec.mjs` carry unreviewed fingerprints there too. A repository-wide anchor repair
+belongs in its own housekeeping pass, not inside this one.
+
+F75 stays `passes: false`: like F71/F72/F74 it waits on the owner's live verification after a layered
+`update_workspace`, since only the desktop layer carries the recorder and only the workspace layer
+carries the routes.
+
 ## Session 31 (macos) — 2026-09-06 — Settings, menus, a gradient in the contract, and a clip nobody had
 
 F68 is complete. Settings live in their own popover opened from the toolbar, carrying the theme
