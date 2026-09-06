@@ -50,6 +50,9 @@ void re_ui_separator(mu_Context *ctx);           /* vertical rule inside a row *
 /* One row of a list or tree: hover highlight, selection fill, an icon, an ellipsised name and a
    faint right-aligned meta column. `depth` indents by the tree indent token. */
 int re_ui_row_ex(mu_Context *ctx, const char *name, int icon, const char *meta, int depth, int opt);
+/* A state pill: a dot in the semantic hue and the label beside it, on a faint rounded ground. */
+enum { RE_UI_PILL_NEUTRAL = 0, RE_UI_PILL_OK, RE_UI_PILL_WARN, RE_UI_PILL_ERR, RE_UI_PILL_INFO };
+void re_ui_pill(mu_Context *ctx, const char *label, int kind);
 
 /* Surfaces the workspace draws around its own content. */
 void re_ui_panel(ReDraw *draw, mu_Rect rect, mu_Color fill);                      /* flat fill, no radius */

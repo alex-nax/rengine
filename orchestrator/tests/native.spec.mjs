@@ -36,8 +36,7 @@ test('C/microui uses the real tree, Unicode editor and retained PTY through nati
     await gui.command({ op: 'text', text: 'conflicting draft' }); await gui.key('S', 0xc0);
     state = await gui.until(s => s.tabs.some(t => t?.type === 2 && t.conflict && t.dirty), 'external conflict');
     assert.equal(await readFile(path.join(project, 'example.txt'), 'utf8'), 'external edit\n');
-    editor = state.tabs.find(t => t?.type === 2);
-    await gui.click(editor.rect[0] + 95, editor.rect[1] - 17);
+    await gui.control('discard', '', state.tabs.findIndex(t => t?.type === 2)); // by control record: the editor's actions are right-aligned now
     state = await gui.until(s => s.tabs.some(t => t?.type === 2 && t.text === 'external edit\n' && !t.dirty), 'explicit Discard');
     editor = state.tabs.find(t => t?.type === 2);
     await gui.click(editor.rect[0] + 12, editor.rect[1] + 8);

@@ -63,6 +63,12 @@ projection scaled by density.
 
 ## Deferred
 
+Amendment 2026-09-06 (owner decision during F67, spec 076): decision 6's frame-time budget becomes an
+absolute ceiling of 8 ms per scene per adapter, and the ratio against the SDL reference is recorded as
+information. The at-or-below-the-reference rule assumed byte-identical output; the redesign ended that,
+because the GPU adapters anti-alias shapes the reference draws as hard-edged spans. Memory keeps its
+per-platform ceilings.
+
 Amendment 2026-09-06 (owner decision during F60, spec 076): the decision 5 tolerances for the
 current-UI scenes drop the per-channel limit in favour of the same 2px edge band the primitives
 scene uses, because those scenes now contain anti-aliased rounded controls; the 0.1% differing

@@ -21,7 +21,11 @@ const TOLERANCE = {
   terminal: ['--max-fraction', '0.001', '--edge-band', '2'],
   primitives: ['--max-fraction', '0.02', '--edge-band', '2'],
 };
-const TERMINAL_CEILING_MS = 8, MEMORY_LIMIT_KB = 32 * 1024;
+// Frame time is gated on an absolute ceiling per scene, which is what a 60Hz workspace needs; the
+// SDL comparison stays in the report as information. Spec 068 decision 6 as amended on 2026-09-06
+// (spec 076): the adapters now anti-alias shapes the reference draws hard-edged, so the old
+// at-or-below-the-reference rule no longer compares like with like.
+const SCENE_CEILING_MS = 8, MEMORY_LIMIT_KB = 32 * 1024;
 const WIN = process.platform === 'win32';
 // Spec 068 decision 6 as amended on 2026-09-06 (spec 073 status): Vulkan on Windows carries the NVIDIA driver's
 // process baseline, so its resident-memory ceiling is 64 MiB there; every other backend keeps 32 MiB.
@@ -150,6 +154,7 @@ test('GPU adapters match the SDL reference within the recorded tolerances and bu
         await copyFile(gpu[backend].snapshots[name], `.cache/evidence/render-${name}-${backend}.bmp`);
         scene[backend] = gpu[backend].stats[name];
         scene.compare[backend] = await compare(sdl.snapshots[name], gpu[backend].snapshots[name], name);
+        scene.compare[backend].versusReference = Number((scene[backend].frameMedianMs / sdl.stats[name].frameMedianMs).toFixed(3));
       }
       for (let i = 0; i < backends.length; i++) for (let j = i + 1; j < backends.length; j++)
         scene.cross[`${backends[i]}-vs-${backends[j]}`] = await compare(gpu[backends[i]].snapshots[name], gpu[backends[j]].snapshots[name], name);
@@ -161,10 +166,9 @@ test('GPU adapters match the SDL reference within the recorded tolerances and bu
         const scene = report.scenes[name];
         assert.deepEqual(scene.compare[backend].failures, [], `${backend} ${name}: ${JSON.stringify(scene.compare[backend])}`);
         assert.ok(!scene[backend].overflow, `${backend} ${name}: the draw list overflowed`);
-        assert.ok(scene[backend].frameMedianMs <= scene.sdl.frameMedianMs,
-          `${backend} ${name}: median ${scene[backend].frameMedianMs.toFixed(3)} ms exceeds the SDL baseline ${scene.sdl.frameMedianMs.toFixed(3)} ms`);
+        assert.ok(scene[backend].frameMedianMs <= SCENE_CEILING_MS,
+          `${backend} ${name}: median ${scene[backend].frameMedianMs.toFixed(3)} ms exceeds the ${SCENE_CEILING_MS} ms ceiling`);
       }
-      assert.ok(report.scenes.terminal[backend].frameMedianMs <= TERMINAL_CEILING_MS, `${backend}: terminal scene median exceeds ${TERMINAL_CEILING_MS} ms`);
       assert.ok(gpu[backend].rss - sdl.rss <= memoryLimitKb(backend), `${backend}: resident memory delta ${gpu[backend].rss - sdl.rss} KiB exceeds ${memoryLimitKb(backend)} KiB`);
     }
     if (validation.vulkan && !validation.vulkan.unavailable) assert.equal(validation.vulkan.messages, 0, `vulkan validation: ${JSON.stringify(validation.vulkan.first)}`);

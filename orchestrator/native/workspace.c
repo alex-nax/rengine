@@ -16,9 +16,6 @@ void re_app_control(ReApp *a, mu_Context *ui, const char *role, const char *key,
   if (right <= x || bottom <= y) return;
   inspect_rect(a, role, key, tab, mu_rect(x, y, right - x, bottom - y));
 }
-static int button(ReApp *a, mu_Context *ui, const char *label, const char *role, const char *key, int tab) {
-  int result = mu_button(ui, label); re_app_control(a, ui, role, key, tab); return result;
-}
 static const char *root_name(ReApp *a, const char *id) {
   const cJSON *root = NULL;
   cJSON_ArrayForEach(root, cJSON_GetObjectItemCaseSensitive(a->state, "roots"))
@@ -119,10 +116,12 @@ static void tree_ui(ReApp *a, mu_Context *ui, int index) {
   re_draw_text_face(draw, RE_FACE_UI_MEDIUM, size, root, -1, path_rect.x, text_y, RE_COLOR_TEXT);
   if (*t->path) {
     char rest[1024]; snprintf(rest, sizeof(rest), "/%s", t->path);
+    int rest_width = re_draw_text_width(draw, RE_FACE_UI, size, rest, -1);
     mu_Rect clip = mu_rect(path_rect.x + root_width, path_rect.y, re_max(0, path_rect.w - root_width), path_rect.h);
-    re_draw_clip(draw, &clip);
-    re_draw_text_face(draw, RE_FACE_UI, size, rest, -1, path_rect.x + root_width, text_y, RE_COLOR_TEXT_MUTED);
-    re_draw_clip(draw, NULL);
+    bool fits = rest_width <= clip.w;
+    if (!fits) re_draw_clip(draw, &clip);
+    re_draw_text_face(draw, RE_FACE_UI, size, rest, -1, clip.x, text_y, RE_COLOR_TEXT_MUTED);
+    if (!fits) re_draw_clip(draw, NULL);
   }
   if (!t->data) {
     mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_DESIGN_TREE_ROW);
@@ -150,34 +149,82 @@ static void tree_ui(ReApp *a, mu_Context *ui, int index) {
     re_ui_label_ex(ui, "Showing the first 2,000 directory entries.", RE_UI_MUTED | RE_UI_SMALL);
   }
 }
+/* A session's state maps to the card's semantic dot. */
+static int session_pill(const char *state) {
+  if (!strcmp(state, "running")) return RE_UI_PILL_OK;
+  if (!strcmp(state, "stopping")) return RE_UI_PILL_WARN;
+  if (!strcmp(state, "exited")) return RE_UI_PILL_NEUTRAL;
+  return RE_UI_PILL_INFO;
+}
+static void sessions_columns(mu_Context *ui, const char *first, const char *second, const char *third) {
+  mu_layout_row(ui, 4, (int[]){-RE_METRIC_SESSIONS_ACTIONS_WIDTH - RE_METRIC_SESSIONS_STATE_WIDTH, RE_METRIC_SESSIONS_STATE_WIDTH,
+                               RE_METRIC_SESSIONS_ATTACH_WIDTH, -1}, RE_METRIC_DESIGN_ROW);
+  re_ui_label_ex(ui, first, RE_UI_MUTED | RE_UI_SMALL);
+  re_ui_label_ex(ui, second, RE_UI_MUTED | RE_UI_SMALL);
+  re_ui_label_ex(ui, third, RE_UI_MUTED | RE_UI_SMALL);
+  re_ui_label_ex(ui, "", RE_UI_MUTED | RE_UI_SMALL);
+}
 static void sessions_ui(ReApp *a, mu_Context *ui) {
+  sessions_columns(ui, "Session", "State", "");
   const cJSON *session = NULL;
   cJSON_ArrayForEach(session, cJSON_GetObjectItemCaseSensitive(a->state, "sessions")) {
     const char *id = re_string(session, "id"), *root = re_string(session, "rootId");
+    const char *state = re_string(session, "state"), *type = re_string(session, "type");
     mu_push_id(ui, id, (int)strlen(id));
-    mu_layout_row(ui, 3, (int[]){-RE_METRIC_SESSIONS_ACTIONS_WIDTH, RE_METRIC_SESSIONS_ATTACH_WIDTH, -1}, RE_METRIC_SESSIONS_ROW_HEIGHT);
-    char label[1024]; snprintf(label, sizeof(label), "%s · %s · %s · PID %d", re_string(session, "title"), root_name(a, root), re_string(session, "state"), re_number(session, "pid"));
-    mu_label(ui, label);
-    if (button(a, ui, "Attach", "attach", id, -1)) re_app_tab(a, !strcmp(re_string(session, "type"), "game") ? RE_GAME : RE_TERMINAL, root, "", id, re_string(session, "title"));
-    if (button(a, ui, "Stop", "stop", id, -1)) { cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "id", id); re_app_action(a, "stop", j); cJSON_Delete(j); }
+    mu_layout_row(ui, 4, (int[]){-RE_METRIC_SESSIONS_ACTIONS_WIDTH - RE_METRIC_SESSIONS_STATE_WIDTH, RE_METRIC_SESSIONS_STATE_WIDTH,
+                                 RE_METRIC_SESSIONS_ATTACH_WIDTH, -1}, RE_METRIC_SESSIONS_ROW_HEIGHT);
+    char label[1024]; snprintf(label, sizeof(label), "%s · %s", re_string(session, "title"), root_name(a, root));
+    re_ui_row_ex(ui, label, !strcmp(type, "agent") ? RE_ICON_AGENT : !strcmp(type, "game") ? RE_ICON_RUN : RE_ICON_SHELL, "", 0, RE_UI_DISABLED);
+    char pill[64]; snprintf(pill, sizeof(pill), "%s · %d", state, re_number(session, "pid"));
+    re_ui_pill(ui, pill, session_pill(state));
+    if (re_ui_button_ex(ui, "Attach", RE_ICON_UNKNOWN, RE_UI_SMALL)) {
+      re_app_tab(a, !strcmp(type, "game") ? RE_GAME : RE_TERMINAL, root, "", id, re_string(session, "title"));
+    }
+    re_app_control(a, ui, "attach", id, -1);
+    if (re_ui_button_ex(ui, "Stop", RE_ICON_UNKNOWN, RE_UI_GHOST | RE_UI_SMALL)) {
+      cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "id", id); re_app_action(a, "stop", j); cJSON_Delete(j);
+    }
+    re_app_control(a, ui, "stop", id, -1);
     mu_pop_id(ui);
   }
-  mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_SESSIONS_HEADING_HEIGHT); mu_label(ui, "Recovery drafts");
+  mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_SESSIONS_HEADING_HEIGHT);
+  re_ui_label_ex(ui, "Recovery drafts", RE_UI_STRONG);
   const cJSON *draft = NULL;
   cJSON_ArrayForEach(draft, cJSON_GetObjectItemCaseSensitive(a->state, "drafts")) {
-    char label[2300]; snprintf(label, sizeof(label), "%s · %s", root_name(a, re_string(draft, "rootId")), re_string(draft, "path"));
-    if (mu_button_ex(ui, label, 0, 0)) re_app_tab(a, RE_EDITOR, re_string(draft, "rootId"), re_string(draft, "path"), "", re_string(draft, "path"));
+    mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_DESIGN_TREE_ROW);
+    const char *path = re_string(draft, "path");
+    char label[2300]; snprintf(label, sizeof(label), "%s · %s", root_name(a, re_string(draft, "rootId")), path);
+    if (re_ui_row_ex(ui, label, RE_ICON_DIRTY, "draft", 0, 0)) {
+      re_app_tab(a, RE_EDITOR, re_string(draft, "rootId"), path, "", path);
+    }
   }
+}
+/* "Game/ClientShell/HUD.cpp" reads as "Game / ClientShell / HUD.cpp" in the card. */
+static void breadcrumb(char *out, size_t size, const char *path) {
+  size_t used = 0;
+  for (const char *s = path; *s && used + 4 < size; s++) {
+    if (*s == '/') { out[used++] = ' '; out[used++] = '/'; out[used++] = ' '; }
+    else out[used++] = *s;
+  }
+  out[used] = 0;
+  if (!used && size) re_copy(out, size, "Untitled");
 }
 static void editor_ui(ReApp *a, mu_Context *ui, int index, mu_Rect content, mu_Rect below) {
   ReTab *t = &a->tabs[index]; int mode = t->format ? re_format_mode(t->format) : RE_MODE_TEXT, action = RE_FORMAT_NONE, top = RE_METRIC_EDITOR_TOP;
   if (t->format && mode != RE_MODE_PENDING) { action = re_format_ui(t->format, a, ui, re_app_format_record(a, t), index, t->error); top += RE_METRIC_FORMAT_ROW_ADVANCE; }
   if (mode == RE_MODE_TEXT || mode == RE_MODE_PENDING) {
-    mu_layout_row(ui, 4, (int[]){RE_METRIC_EDITOR_SAVE_WIDTH, RE_METRIC_EDITOR_DISCARD_WIDTH, RE_METRIC_EDITOR_MODE_WIDTH, -1}, RE_METRIC_EDITOR_TOOLBAR_HEIGHT);
-    if (button(a, ui, "Save", "save", "", index)) re_app_save(a, index);
-    if (button(a, ui, "Discard", "discard", "", index)) re_app_discard(a, index);
-    mu_label(ui, t->editor ? re_editor_mode(t->editor) : "Loading…");
-    mu_label(ui, t->conflict ? "Conflict: draft preserved" : t->dirty ? "Unsaved · local draft" : "Saved");
+    /* Breadcrumb, state, then the actions on the right, as the editor card lays them out. */
+    mu_layout_row(ui, 4, (int[]){-RE_METRIC_EDITOR_SAVE_WIDTH - RE_METRIC_EDITOR_DISCARD_WIDTH - RE_METRIC_EDITOR_MODE_WIDTH,
+                                 RE_METRIC_EDITOR_MODE_WIDTH, RE_METRIC_EDITOR_DISCARD_WIDTH, RE_METRIC_EDITOR_SAVE_WIDTH},
+                  RE_METRIC_EDITOR_TOOLBAR_HEIGHT);
+    char crumbs[1100]; breadcrumb(crumbs, sizeof(crumbs), t->path);
+    re_ui_label_ex(ui, crumbs, RE_UI_MUTED);
+    re_ui_pill(ui, t->conflict ? "conflict" : t->dirty ? "unsaved draft" : t->editor ? re_editor_mode(t->editor) : "loading",
+               t->conflict ? RE_UI_PILL_ERR : t->dirty ? RE_UI_PILL_WARN : RE_UI_PILL_NEUTRAL);
+    if (re_ui_button_ex(ui, "Discard", RE_ICON_UNKNOWN, RE_UI_GHOST)) re_app_discard(a, index);
+    re_app_control(a, ui, "discard", "", index);
+    if (re_ui_button_ex(ui, "Save", RE_ICON_UNKNOWN, t->dirty ? RE_UI_PRIMARY : 0)) re_app_save(a, index);
+    re_app_control(a, ui, "save", "", index);
     t->rect = mu_rect(content.x + RE_METRIC_EDITOR_INSET, content.y + top, re_max(0, content.w - 2 * RE_METRIC_EDITOR_INSET), re_max(0, content.h - RE_METRIC_EDITOR_BOTTOM - (top - RE_METRIC_EDITOR_TOP)));
     if (*t->error) {
       mu_layout_set_next(ui, mu_rect(content.x + RE_METRIC_EDITOR_INSET, content.y + content.h - RE_METRIC_EDITOR_ERROR_HEIGHT - RE_METRIC_EDITOR_ERROR_INSET, content.w - 2 * RE_METRIC_EDITOR_INSET, RE_METRIC_EDITOR_ERROR_HEIGHT), 0); mu_label(ui, t->error);

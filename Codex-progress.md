@@ -367,7 +367,14 @@ control layer: a path bar with the root and the path within it, and 22px rows wi
 name and a right-aligned meta column that marks unsaved drafts and symlinks. Panes now paint their own
 background so views can draw their own faces; the pane root row stays for every view except the
 explorer, which shows the root in its path bar. Placeholders take a lower alpha than typed input.
-Suite 17/17 after each change. F67 stays open: editor, terminal and the session browser remain, and
+Suite 17/17 after each change. The session browser became the card's table with state pills, the editor
+gained its breadcrumb bar with a state pill and right-aligned actions, and the microui button helper
+retired because every surface now uses the control layer. Two specs that clicked fixed coordinates now
+click by control record. Owner decision during this round (spec 068 amendment): frame time is gated on
+an absolute 8 ms per scene rather than at-or-below the SDL reference, because the adapters now
+anti-alias shapes the reference draws hard-edged; the ratio against the reference is recorded as
+information. Needless clipping was removed from the controls first, which cut the OpenGL workspace
+median by about a third. F67 stays open: editor, terminal and the session browser remain, and
 the card's per-directory counts need a service field the listing does not carry yet.
 
 **Follow-up 8 (same session)**: F59 on owner direction after a `/grill-me` interview (spec 073;

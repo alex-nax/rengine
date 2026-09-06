@@ -420,7 +420,8 @@
       "row-height": 26,
       "actions-width": 155,
       "attach-width": 80,
-      "heading-height": 24
+      "heading-height": 24,
+      "state-width": 150
     },
     "editor": {
       "toolbar-height": 26,

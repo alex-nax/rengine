@@ -2,6 +2,9 @@
 #include "theme.h"
 #include <string.h>
 
+static int re_min_int(int a, int b) { return a < b ? a : b; }
+static int re_max_int(int a, int b) { return a > b ? a : b; }
+
 /* Hover and focus move over RE_METRIC_DESIGN_TRANSITION_MS; the table is fixed and frame-stamped,
  * so a control that stops being drawn simply loses its slot — see sidecar: transition-clock */
 #define RE_UI_TRANSITIONS 256
@@ -32,6 +35,16 @@ static float progress(mu_Id id, bool target) {
   }
   if (slot->value != goal) ui.animating = true;
   return slot->value;
+}
+
+/* Clipping breaks the adapters' batches and sets a scissor, so text that fits is drawn unclipped
+ * — see sidecar: clip-cost */
+static void text_clipped(uint8_t face, int size, const char *text, int x, int y, mu_Color color, mu_Rect box) {
+  int width = re_draw_text_width(ui.draw, face, size, text, -1);
+  if (x + width <= box.x + box.w) { re_draw_text_face(ui.draw, face, size, text, -1, x, y, color); return; }
+  re_draw_clip(ui.draw, &box);
+  re_draw_text_face(ui.draw, face, size, text, -1, x, y, color);
+  re_draw_clip(ui.draw, NULL);
 }
 
 static mu_Color mix(mu_Color a, mu_Color b, float t) {
@@ -156,20 +169,20 @@ int re_ui_textbox_ex(mu_Context *ctx, char *buffer, int size, int icon, const ch
     re_draw_icon(ui.draw, (uint8_t)icon, mu_rect(x, rect.y, text_size, rect.h), RE_COLOR_TEXT_FAINT);
     x += text_size + RE_METRIC_DESIGN_ICON_GAP;
   }
-  mu_Rect clip = mu_rect(rect.x, rect.y, rect.w - pad, rect.h);
-  re_draw_clip(ui.draw, &clip);
+  mu_Rect box = mu_rect(rect.x, rect.y, rect.w - pad, rect.h);
   if (*buffer) {
     int width = re_draw_text_width(ui.draw, RE_FACE_UI, text_size, buffer, -1);
-    re_draw_text_face(ui.draw, RE_FACE_UI, text_size, buffer, -1, x, text_y, RE_COLOR_TEXT);
-    if (focused) re_draw_rect(ui.draw, mu_rect(x + width + 1, text_y, RE_METRIC_EDITOR_CARET_WIDTH, text_size), RE_COLOR_CARET);
+    text_clipped(RE_FACE_UI, text_size, buffer, x, text_y, RE_COLOR_TEXT, box);
+    if (focused && x + width + 1 + RE_METRIC_EDITOR_CARET_WIDTH <= box.x + box.w) {
+      re_draw_rect(ui.draw, mu_rect(x + width + 1, text_y, RE_METRIC_EDITOR_CARET_WIDTH, text_size), RE_COLOR_CARET);
+    }
   } else if (placeholder) {
     /* A suggestion is not content: it sits below the faint role's own weight so it never reads as typed text. */
     mu_Color ghost = RE_COLOR_TEXT_FAINT;
     ghost.a = (unsigned char)((int)ghost.a * RE_METRIC_DESIGN_PLACEHOLDER_ALPHA / 100);
-    re_draw_text_face(ui.draw, RE_FACE_UI, text_size, placeholder, -1, x, text_y, ghost);
+    text_clipped(RE_FACE_UI, text_size, placeholder, x, text_y, ghost, box);
     if (focused) re_draw_rect(ui.draw, mu_rect(x, text_y, RE_METRIC_EDITOR_CARET_WIDTH, text_size), RE_COLOR_CARET);
   }
-  re_draw_clip(ui.draw, NULL);
   return res;
 }
 
@@ -246,13 +259,23 @@ int re_ui_row_ex(mu_Context *ctx, const char *name, int icon, const char *meta, 
                       rect.y + (rect.h - RE_METRIC_DESIGN_SIZE_SM) / 2 - 1, RE_COLOR_TEXT_FAINT);
     meta_width += RE_METRIC_DESIGN_ICON_GAP;
   }
-  mu_Rect clip = mu_rect(rect.x, rect.y, re_max(0, rect.w - pad - meta_width - (x - rect.x)), rect.h);
-  clip.x = x;
-  re_draw_clip(ui.draw, &clip);
-  re_draw_text_face(ui.draw, label_face(opt), size, name, -1, x, text_y, color);
-  re_draw_clip(ui.draw, NULL);
+  text_clipped(label_face(opt), size, name, x, text_y, color,
+               mu_rect(x, rect.y, re_max(0, rect.x + rect.w - pad - meta_width - x), rect.h));
   if (ctx->focus == id) re_ui_focus_ring(ui.draw, rect, RE_METRIC_DESIGN_RADIUS);
   return res;
+}
+
+void re_ui_pill(mu_Context *ctx, const char *label, int kind) {
+  mu_Rect rect = mu_layout_next(ctx);
+  int size = RE_METRIC_DESIGN_SIZE_SM, dot = RE_METRIC_DESIGN_GAP + 1, pad = RE_METRIC_DESIGN_ICON_GAP;
+  int width = re_draw_text_width(ui.draw, RE_FACE_UI_MEDIUM, size, label, -1) + dot + pad * 3;
+  mu_Rect box = mu_rect(rect.x, rect.y + (rect.h - RE_METRIC_DESIGN_ROW) / 2, re_min_int(width, rect.w), RE_METRIC_DESIGN_ROW);
+  mu_Color hue = kind == RE_UI_PILL_OK ? RE_COLOR_OK : kind == RE_UI_PILL_WARN ? RE_COLOR_WARN
+               : kind == RE_UI_PILL_ERR ? RE_COLOR_ERR : kind == RE_UI_PILL_INFO ? RE_COLOR_INFO : RE_COLOR_TEXT_FAINT;
+  re_draw_rrect(ui.draw, box, RE_COLOR_FIELD, RE_METRIC_DESIGN_RADIUS, RE_CORNERS_ALL);
+  re_draw_rrect(ui.draw, mu_rect(box.x + pad, box.y + (box.h - dot) / 2, dot, dot), hue, (float)dot / 2, RE_CORNERS_ALL);
+  text_clipped(RE_FACE_UI_MEDIUM, size, label, box.x + pad + dot + pad, box.y + (box.h - size) / 2 - 1, RE_COLOR_TEXT_MUTED,
+               mu_rect(box.x, box.y, re_max_int(0, box.w - pad), box.h));
 }
 
 void re_ui_label_ex(mu_Context *ctx, const char *label, int opt) {
@@ -283,8 +306,6 @@ void re_ui_tab(ReDraw *draw, mu_Rect rect, const char *label, int icon, bool act
     x += size;
   }
   /* The title stops before the close control rather than running under it. */
-  mu_Rect clip = mu_rect(rect.x, rect.y, re_max(0, rect.w - pad - reserve), rect.h);
-  re_draw_clip(draw, &clip);
-  re_draw_text_face(draw, active ? RE_FACE_UI_SEMIBOLD : RE_FACE_UI_MEDIUM, size, label, -1, x, rect.y + (rect.h - size) / 2 - 1, color);
-  re_draw_clip(draw, NULL);
+  text_clipped(active ? RE_FACE_UI_SEMIBOLD : RE_FACE_UI_MEDIUM, size, label, x, rect.y + (rect.h - size) / 2 - 1, color,
+               mu_rect(rect.x, rect.y, re_max(0, rect.w - pad - reserve), rect.h));
 }
