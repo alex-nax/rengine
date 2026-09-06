@@ -38,6 +38,8 @@ Date: 2026-09-05. Status: **interview in progress; recommendations are not owner
 | D30 | The rendering implementation is a candidate approved rendering library for the curated base once it meets the library-quality record and the D24 adoption rules; games adopt it through adapters and are never required to. | Owner: “This rendering implementation can be our approved rendering library in future”, 2026-09-06 |
 | D31 | The Windows verification host for rEngine is `pr0fe@192.168.31.217`; source transfer to it is authorized as commits only, into an isolated checkout, never the working tree. This resolves the approval KI-014 waited for. | Owner: “for windows verification use ssh pr0fe@192.168.31.217 machine”, 2026-09-06; method in spec 073 |
 | D32 | The Vulkan adapter's floor is the maximum Vulkan version Quest 3 supports, which is Vulkan 1.3 (Quest 3 driver v837 reports 1.3.295). | Owner: “We need to have the same maximum that Quest 3 supports”, 2026-09-06; research in spec 073 |
+| D33 | Controls the design needs beyond pinned microui are owned additions written in microui's conventions, never a fork, and they join the curated library packs as their own capability. | Owner: “if microui is not enough - we write addition keeping the same compatible contract and conventions like in microui lib - these extensions will be also part of our library packs”, 2026-09-06; design in spec 076 |
+| D34 | A theme file may override all three token layers and a project root may carry one, but a project's theme is offered rather than applied: the workspace's appearance never changes because a repository was opened. | Owner decisions during the F60 interview, 2026-09-06 (spec 076 decisions 8–9) |
 | D31 | Support opening/managing a separate integration-project window with the current retained agent, inspection and a return channel for rEngine findings, with a reusable agent routine. | Owner's NOLF dogfooding request, 2026-09-06; spec 069 |
 | D32 | Measure llm-sidecar usefulness before bundling it as a project skill; adapt only the selected wizard skill for orchestrator terminal actions without references to unselected skills. | Owner's skill evaluation and wizard-selection requests, 2026-09-06; spec 070 |
 
@@ -180,3 +182,13 @@ NVIDIA Vulkan driver's process baseline sits about 30 MiB above OpenGL's on the 
 the adapter's own allocations were trimmed and the same adapter sits below SDL on macOS; every other
 backend and platform keeps 32 MiB. The Windows default still flips to Vulkan only once F62's suite
 passes there (decision 8).
+
+2026-09-06, design update interview (spec 076): D33 answers spec 066's open control-layer question
+with owned additions over pristine microui, and D34 sets the reach and trust of theme files. The
+remaining open questions from spec 066 are answered there too: icons are pinned Bootstrap Icons
+rasterised as a third face, the UI face is bundled Inter in three weights, and the hue gradient
+becomes a draw-list primitive (list version 2) rather than a texture, at the owner's decision
+against the recommendation. F60 narrows to the foundations plus toolbar, tab strip and status bar;
+F67 takes the views, F68 the menus, theme panel and theme files, F69 the Windows card evidence.
+F60's dependencies on F37 and F54 move to F67 with the surfaces they describe; F60 keeps F57.
+The two-desktop requirement is unchanged: it is tracked by F69 and KI-038.
