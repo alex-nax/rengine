@@ -20,6 +20,7 @@ const TOLERANCE = {
 };
 const TERMINAL_CEILING_MS = 8, MEMORY_LIMIT_KB = 32 * 1024;
 const WIN = process.platform === 'win32';
+const PYTHON = WIN ? 'python' : 'python3'; // Windows ships no python3 alias
 const BINARY = process.env.RENGINE_NATIVE_BINARY ?? path.resolve('.cache/desktop/bin', WIN ? 'Release/rengine.exe' : 'rengine');
 const GPU_BACKENDS = process.platform === 'darwin' ? ['opengl', 'metal', 'vulkan'] : ['opengl', 'vulkan'];
 const TERMINAL_SCRIPT = WIN
@@ -53,7 +54,7 @@ async function probe(backend, extraEnv, dir) {
 
 async function compare(reference, candidate, name) {
   let output;
-  try { ({ stdout: output } = await run('python3', ['tools/render_compare.py', reference, candidate, ...TOLERANCE[name], '--json'])); }
+  try { ({ stdout: output } = await run(PYTHON, ['tools/render_compare.py', reference, candidate, ...TOLERANCE[name], '--json'])); }
   catch (error) { output = error.stdout; if (!output) throw error; }
   return JSON.parse(output);
 }
@@ -107,6 +108,7 @@ test('GPU adapters match the SDL reference within the recorded tolerances and bu
       const reason = backend === 'vulkan' ? await probe(backend, envFor(backend), dir) : null;
       if (reason) unavailable[backend] = reason; else backends.push(backend);
     }
+    for (const [backend, reason] of Object.entries(unavailable)) console.log(`render spec: ${backend} unavailable on this machine (${reason})`);
     const sdl = await capture(project, 'sdl', dir);
     const gpu = {};
     for (const backend of backends) gpu[backend] = await capture(project, backend, dir, envFor(backend));
@@ -151,7 +153,6 @@ test('GPU adapters match the SDL reference within the recorded tolerances and bu
       assert.ok(gpu[backend].rss - sdl.rss <= MEMORY_LIMIT_KB, `${backend}: resident memory delta ${gpu[backend].rss - sdl.rss} KiB exceeds ${MEMORY_LIMIT_KB} KiB`);
     }
     if (validation.vulkan && !validation.vulkan.unavailable) assert.equal(validation.vulkan.messages, 0, `vulkan validation: ${JSON.stringify(validation.vulkan.first)}`);
-    for (const [backend, reason] of Object.entries(unavailable)) console.log(`render spec: ${backend} unavailable on this machine (${reason})`);
     if (validation.vulkan?.unavailable) console.log(`render spec: vulkan validation unavailable on this machine (${validation.vulkan.unavailable})`);
   } finally {
     await rm(dir, { recursive: true, force: true });

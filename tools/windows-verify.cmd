@@ -9,7 +9,11 @@ set "LOGDIR=C:\Users\pr0fe\rengine-logs"
 if not exist "%LOGDIR%" mkdir "%LOGDIR%"
 set "LOGNAME=%STAGE%"
 if not "%~2"=="" set "LOGNAME=%STAGE%-%~2"
-set "LOG=%LOGDIR%\%LOGNAME%.log"
+rem One log per run: a leftover process from a failed run can hold the previous file open.
+set "STAMP=%DATE:~-4%%DATE:~4,2%%DATE:~7,2%-%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%"
+set "STAMP=%STAMP: =0%"
+set "LOG=%LOGDIR%\%LOGNAME%-%STAMP%.log"
+> "%LOGDIR%\%LOGNAME%.latest" echo %LOG%
 call :main %* > "%LOG%" 2>&1
 exit /b %ERRORLEVEL%
 
@@ -43,7 +47,7 @@ goto :done
 call npm run build
 set "CODE=%ERRORLEVEL%"
 if not "%CODE%"=="0" goto :done
-call node --test orchestrator\tests\native-render.spec.mjs
+call node --test --test-reporter=tap --test-force-exit orchestrator\tests\native-render.spec.mjs
 set "CODE=%ERRORLEVEL%"
 goto :done
 :suite
