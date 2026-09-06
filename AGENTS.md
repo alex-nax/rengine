@@ -20,6 +20,20 @@ pause. A later explicit owner direction can change this boundary.
 orchestrator goal authorizes the implementation scope in `docs/specs/055-nolf-workspace-goal.md`
 and its active `features.json` rows. No additional review export is required for that scope.
 
+## Agent entry points
+
+Natural-language matching works; explicit invocation is `/skill-name` in Claude Code and
+`$skill-name` in Codex. Codex discovers the adapters under `.agents/skills/`; the canonical
+definitions live under `.claude/skills/`. Keep both aligned when either moves.
+
+| Workflow | Claude Code | Codex |
+| --- | --- | --- |
+| Design interview before a wide-design-space feature | `/grill-me` | `$grill-me` |
+| Feature session (spec, failing check, implement, evidence, log, commit) | `/rengine-continue` | `$rengine-continue` |
+| Repository health audit | `/rengine-audit` | `$rengine-audit` |
+| Spec/doc reconciliation batch | `/rengine-housekeep` | `$rengine-housekeep` |
+| Known-issue → feature promotion batch | `/rengine-ki-promote` | `$rengine-ki-promote` |
+
 ## Sources of truth
 
 - `docs/specs/000-charter.md`: attributed decisions and unanswered design questions.
