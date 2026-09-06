@@ -21,3 +21,5 @@ Rules for these files:
 - `editor.sh` reads its CMake and SDL2 requirements out of the pinned tree, so a pin bump moves
   the prerequisite check with it. Do not hard-code versions here.
 - The wizard never overwrites an existing file; a project that already owns one of these keeps it.
+
+Titles you declare (formats, dashboard groups and actions, games) are drawn as text in the desktop's own faces. A glyph those faces lack falls back to another loaded face and then to a small substitution table, so a symbol outside that set draws as a box. Expect the fallback rather than relying on it: a title that must show a symbol should say it in words, because icons are chosen by the desktop rather than by a declaration.

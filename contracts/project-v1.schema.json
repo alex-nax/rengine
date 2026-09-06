@@ -127,7 +127,8 @@
         "title": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 128
+          "maxLength": 128,
+          "description": "Titles are drawn as text in the desktop's own faces: a glyph the installed faces lack falls back to another loaded face and then to a small substitution table, so a symbol outside that set draws as a box. Expect the fallback rather than relying on it; a guaranteed symbol needs an icon, not text."
         },
         "match": {
           "type": "array",
@@ -231,7 +232,8 @@
         "title": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 128
+          "maxLength": 128,
+          "description": "Titles are drawn as text in the desktop's own faces: a glyph the installed faces lack falls back to another loaded face and then to a small substitution table, so a symbol outside that set draws as a box. Expect the fallback rather than relying on it; a guaranteed symbol needs an icon, not text."
         },
         "actions": {
           "type": "array",
@@ -259,7 +261,8 @@
         "title": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 160
+          "maxLength": 160,
+          "description": "Titles are drawn as text in the desktop's own faces: a glyph the installed faces lack falls back to another loaded face and then to a small substitution table, so a symbol outside that set draws as a box. Expect the fallback rather than relying on it; a guaranteed symbol needs an icon, not text."
         },
         "description": {
           "type": "string",
@@ -378,7 +381,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 32,
-          "description": "Toolbar button label with one declared game, menu-entry label with several; the session title is \"<title> · <root name>\"."
+          "description": "Toolbar button label with one declared game, menu-entry label with several; the session title is \"<title> · <root name>\". Titles are drawn as text in the desktop's own faces: a glyph the installed faces lack falls back to another loaded face and then to a small substitution table, so a symbol outside that set draws as a box. Expect the fallback rather than relying on it; a guaranteed symbol needs an icon, not text."
         },
         "executable": {
           "type": "array",
