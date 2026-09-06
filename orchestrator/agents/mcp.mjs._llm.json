@@ -5,29 +5,32 @@
       "id": "immutable-root-instance",
       "kind": "rationale",
       "anchor": {
-        "start": 14,
-        "end": 14,
-        "snippet": "const scopedState = async () => {"
+        "start": 12,
+        "end": 12,
+        "snippet": "const filename = process.argv[index + 1], context = JSON.parse(await readFile(filename, 'utf8'));"
       },
-      "note": "The context is read once at startup. Every tool checks the same sidecar instance and filters to the original root before reading a file or operating on a session. An agent cannot retarget by submitting another root ID or by following later GUI focus changes. Text/log output is bounded; SDK errors preserve failure instead of synthesizing empty success. This binding does not confine the coding CLI\u2019s independent OS tools."
+      "note": "Capture the context once in the stable stdio facade. Replacement tool workers receive that exact snapshot through their private environment, so editing the context file or changing native focus cannot retarget an existing CLI. The worker performs root/session checks for every tool; this does not confine the CLI\u2019s independent OS tools.",
+      "refs": [
+        "docs/specs/065-layered-workspace-updates.md"
+      ]
     },
     {
       "id": "explicit-desktop-action",
       "kind": "rationale",
       "anchor": {
-        "start": 52,
-        "end": 52,
-        "snippet": "const desktopCapability = state => {"
+        "start": 44,
+        "end": 44,
+        "snippet": "server.setRequestHandler(CallToolRequestSchema, request => queued(client => client.callTool(request.params)));"
       },
-      "note": "Require the original service instance and desktopActions version 1 before discovery or reload. Reload accepts only an explicit listed ID, scoped by the immutable bound root; it does not infer focus or expose arbitrary actions/commands. The result says accepted, not build completion. A retained older service produces a clear upgrade error instead of a hidden replacement that would strand live sessions. Loading service/MCP code is separate from native desktop reload.",
+      "note": "Serialize tool calls across worker replacement so a live request is never replayed. Prepare and list a candidate before swapping; failure keeps a working predecessor. A changed supervisor connector generation loads new tool code between requests and notifies tools/list_changed. A crashed tool worker is recreated on the next request. The original outer transport and CLI remain alive. A connector loaded before this facade cannot gain it retroactively; the bound runtime CLI is the authorized update fallback.",
       "refs": [
-        "docs/specs/062-agent-desktop-actions.md"
+        "docs/specs/065-layered-workspace-updates.md"
       ]
     }
   ],
   "source": {
     "path": "orchestrator/agents/mcp.mjs",
-    "sha256": "0af5c1b43c28b37565200cd63981492e2d7c9b9f3e201641460efe7797e5b016",
+    "sha256": "578195f9ab8ce57e4af7ff95a8625f4ad044e75bcc49c108bd8c48123ee4e2c9",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

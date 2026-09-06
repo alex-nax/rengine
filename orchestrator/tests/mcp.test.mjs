@@ -27,6 +27,8 @@ test('real MCP stdio tools keep files and sessions bound to the original project
   assert.ok(tools.tools.some(tool => tool.name === 'workspace_info'));
   assert.ok(tools.tools.some(tool => tool.name === 'list_desktops'));
   assert.ok(tools.tools.some(tool => tool.name === 'reload_desktop'));
+  assert.ok(tools.tools.some(tool => tool.name === 'update_workspace'));
+  assert.ok(tools.tools.some(tool => tool.name === 'update_status'));
   const info = await client.callTool({ name: 'workspace_info', arguments: {} });
   assert.equal(info.isError, undefined);
   assert.equal(JSON.parse(info.content[0].text).root.id, a.id);

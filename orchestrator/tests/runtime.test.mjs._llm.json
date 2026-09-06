@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "legacy-and-failure-consumers",
+      "kind": "rationale",
+      "anchor": {
+        "start": 37,
+        "end": 37,
+        "snippet": "test('layered workspace and MCP replacement retain a legacy host and active PTY streams', { timeout: 40000 }, async () => {"
+      },
+      "note": "Use real PTY, WS, worker processes and MCP stdio against a host facade that lacks desktop actions. Prove immutable context across worker restart, unchanged invocation/PID/input, retained old streams, failed JS candidates, bounded workspace/tool crash recovery and private descriptor rejection. The separate cold-start test proves one supervisor under concurrent discovery. All processes/state belong to isolated fixtures; no live coding provider or owner session is operated.",
+      "refs": [
+        "docs/specs/065-layered-workspace-updates.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/tests/runtime.test.mjs",
+    "sha256": "667030c84633bb55e6f87f9d55aace6e993bb33808253e7c74484a1f43a3a0ec",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

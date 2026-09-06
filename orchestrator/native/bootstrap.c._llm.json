@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "native-process-handoff",
+      "kind": "rationale",
+      "anchor": {
+        "start": 10,
+        "end": 10,
+        "snippet": "int re_bootstrap(const char *binary) {"
+      },
+      "note": "The launcher has already saved/detached the previous view. Spawn the explicitly configured Node/helper with an argv vector and inherited private connection environment, before SDL creates threads. POSIX fork/exec and Windows spawn avoid shell expansion; credentials never enter arguments. The helper serializes supervisor discovery, adopts the original host and initial view bindings, and returns only after native registration. No required home path or second CLI is introduced.",
+      "refs": [
+        "docs/specs/065-layered-workspace-updates.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/bootstrap.c",
+    "sha256": "bcbd4038f6b7d2ba4b98a5d7c00e60bebe3ddc282faac65c3ca138d870c29f07",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

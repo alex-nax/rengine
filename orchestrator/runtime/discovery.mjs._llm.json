@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "instance-bound-startup-ownership",
+      "kind": "rationale",
+      "anchor": {
+        "start": 29,
+        "end": 29,
+        "snippet": "export async function ensureRuntime(host, { initial, binary, directory = runtimeDirectory(host) } = {}) {"
+      },
+      "note": "Private discovery is keyed by the original workspace instance under this explicit development checkout. Validate host URL/token/instance and the live supervisor capability before reuse. Exclusive startup ownership transfers to the spawned PID; only a dead owner permits stale-lock removal. Wait for initialization, share concurrent opens and refuse a second supervisor when an alive one is unavailable. Bootstrap does not rewrite existing agent contexts or replace the retained sidecar descriptor.",
+      "refs": [
+        "docs/specs/065-layered-workspace-updates.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/runtime/discovery.mjs",
+    "sha256": "5da54a3f55e6f0f4bcae5d0cb00ea57b5c15cac1ca0d142878b00ed44c34e6ab",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

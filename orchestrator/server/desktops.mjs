@@ -16,12 +16,13 @@ export class Desktops {
         for (const [id, request] of this.pending) if (request.desktop === desktop) this.finish(id, new Error('Desktop disconnected before acknowledging reload.'));
       });
     }
-    Object.assign(desktop, { rootIds, sessionIds, canReload: data.canReload === true });
+    Object.assign(desktop, { rootIds, sessionIds, canReload: data.canReload === true,
+      ...(typeof data.owner === 'string' && typeof data.view === 'string' ? { owner: data.owner.slice(0, 64), view: data.view.slice(0, 64) } : {}) });
     socket.send(JSON.stringify({ type: 'desktop-registered', id: desktop.id }));
   }
   list(rootId) {
     this.store.root(rootId);
-    return [...this.clients.values()].filter(x => x.rootIds.includes(rootId)).map(({ id, rootIds, sessionIds, canReload }) => ({ id, rootIds, sessionIds, canReload }));
+    return [...this.clients.values()].filter(x => x.rootIds.includes(rootId)).map(({ socket, ...desktop }) => desktop);
   }
   reload(rootId, desktopId) {
     this.store.root(rootId);

@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "probe-without-provider-session",
+      "kind": "rationale",
+      "anchor": {
+        "start": 9,
+        "end": 9,
+        "snippet": "const filename = path.join(directory, `tool-probe-${randomUUID()}.json`);"
+      },
+      "note": "Start a candidate MCP tool implementation with a private immutable root/host context, check required tools and the actual workspace_info binding, then close it. This is an MCP protocol probe, not a coding agent/provider conversation. The supervisor publishes a connector generation only after this check; facades then replace their tool worker between requests.",
+      "refs": [
+        "docs/specs/065-layered-workspace-updates.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/runtime/tools.mjs",
+    "sha256": "de1af77b32b8dd89e78ab567ce3c3c573885a44105b696900a170c3edb1667e6",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

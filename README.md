@@ -50,14 +50,24 @@ State defaults to `~/.local/state/rengine`; `--state DIR` isolates a workspace. 
 only on Save. Recovery drafts are checkpointed locally and flushed before normal GUI exit.
 The initial native Vim subset and current limits are in the [native desktop spec](docs/specs/056-native-desktop.md).
 
-**Cmd/Ctrl+Shift+R** flushes drafts/layout, rebuilds the C desktop and reconnects to the same
-running sessions. A build failure leaves those sessions retained; rerun the launch command after
-fixing it. Reload covers the desktop; it does not replace a running service or coding agent.
-Agents can call **list_desktops**, then **reload_desktop** with an explicit returned ID to run
-the same routine through the root-bound MCP connector. The response confirms acceptance; list
-again after rebuilding to observe the replacement desktop. This needs a service advertising
-`desktopActions: 1` and the updated connector. Existing retained services need a separate explicit
-upgrade; native reload keeps them running. See [agent desktop actions](docs/specs/062-agent-desktop-actions.md).
+**Cmd/Ctrl+Shift+R** installs the layered supervisor once when upgrading an older running
+launcher. Subsequent launches reuse it. Agents use **update_status** and **update_workspace**
+to prepare and replace workspace, desktop and MCP tool workers while retaining live sessions.
+Select a desktop ID from **list_desktops** for desktop updates; **reload_desktop** selects only
+that layer. Poll the returned job until it succeeds or finishes recovery. Build/start failures
+keep or restore the previous desktop and its recovery drafts.
+
+An already loaded older connector can use the same actions without restarting its agent:
+
+```sh
+node orchestrator/runtime/client.mjs status --context /absolute/path/to/context.json
+node orchestrator/runtime/client.mjs update --context /absolute/path/to/context.json --desktop <listed-id> --layers workspace,desktop,connector
+```
+
+The context is the agent's existing generated integration file; `RENGINE_WORKSPACE_CONTEXT`
+can supply it instead. Original PTY-host and supervisor protocol replacements still require
+quiescence. Routine updates preserve the host, CLI and conversation. See
+[layered updates](docs/specs/065-layered-workspace-updates.md).
 
 Terminal output waits for space in bounded receive queues. A dropped session stream reports
 the loss and reconnects to the same retained processes; disconnected keystrokes are discarded.

@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "capability-preserving-proxy",
+      "kind": "rationale",
+      "anchor": {
+        "start": 4,
+        "end": 4,
+        "snippet": "export function checkConnection(value) {"
+      },
+      "note": "Accept loopback HTTP capabilities with a fixed workspace instance. Proxies replace authorization for their known upstream and check client Origin before removing it. Reject absolute/network-path request targets instead of forwarding credentials elsewhere. Preserve HTTP/WS bytes, status and backpressure without retries of mutations. Request/stream completion callbacks govern worker retirement; token/identity data stays in private runtime descriptors.",
+      "refs": [
+        "docs/specs/065-layered-workspace-updates.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/runtime/protocol.mjs",
+    "sha256": "7ed4684824ab7fef8141c8d912d117acf08370ed756424046c3377b4f6c116a7",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

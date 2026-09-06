@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "prepare-switch-recover",
+      "kind": "rationale",
+      "anchor": {
+        "start": 136,
+        "end": 136,
+        "snippet": "const perform = async (job, desktop, closed = false) => {"
+      },
+      "note": "Prepare candidate workspace/tool code and a probed immutable native executable before requesting the old view\u2019s normal persistence/drain/exit-75 path. Preserve the previous workspace and binary until the replacement registers with a new view stamp. Failures enter recovering and become failed only after rollback completes; failed recovery is explicit. Keep old streams/HTTP mutations on their existing worker until drained. Serialize explicit updates, permit one automatic workspace crash recovery per explicit generation, and keep host-backed state/update control available if worker recovery fails. Never terminate/relaunch the original PTY host.",
+      "refs": [
+        "docs/specs/065-layered-workspace-updates.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/runtime/supervisor.mjs",
+    "sha256": "ffbd4fd80515264df6677f4ecb231dd16bc804d33c768dc5d98e883dd951e3d4",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

@@ -205,6 +205,9 @@ static void register_desktop(ReApp *a) {
   if (re_number(cJSON_GetObjectItemCaseSensitive(a->state, "capabilities"), "desktopActions") != 1) return;
   cJSON *j = cJSON_CreateObject(), *roots = cJSON_AddArrayToObject(j, "rootIds"), *sessions = cJSON_AddArrayToObject(j, "sessionIds");
   cJSON_AddStringToObject(j, "type", "desktop-register"); cJSON_AddBoolToObject(j, "canReload", getenv("RENGINE_CAN_RELOAD") != NULL);
+  if (getenv("RENGINE_DESKTOP_OWNER") && getenv("RENGINE_DESKTOP_VIEW")) {
+    cJSON_AddStringToObject(j, "owner", getenv("RENGINE_DESKTOP_OWNER")); cJSON_AddStringToObject(j, "view", getenv("RENGINE_DESKTOP_VIEW"));
+  }
   if (*a->root) cJSON_AddItemToArray(roots, cJSON_CreateString(a->root));
   for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].used) {
     ReTab *t = &a->tabs[i];

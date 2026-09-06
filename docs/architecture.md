@@ -25,6 +25,11 @@ the desktop while the service retains the same sessions. The handoff capability 
 in service state; old services cannot silently launch an ungated continuation. Agent conversation
 resumption and the calling application's goal scheduler remain separate responsibilities.
 
+The [layered supervisor](specs/065-layered-workspace-updates.md) retains the original PTY host
+and replaces workspace workers, native views and MCP tool workers independently. Preparing and
+probing precedes detachment; failures preserve or recover the previous view. Existing streams
+finish through their prior worker. Original host/supervisor protocol migrations require quiescence.
+
 ## Ownership
 
 Charter D24 sets the powered-by minimum: at least one curated capability at a pinned version

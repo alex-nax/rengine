@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "adopt-existing-bindings",
+      "kind": "rationale",
+      "anchor": {
+        "start": 10,
+        "end": 10,
+        "snippet": "const state = await request(host, 'state'); host.instance = state.instance;"
+      },
+      "note": "Recover the original instance by authenticating the inherited loopback connection. Pass only the already selected root/session IDs into serialized supervisor startup; no terminal/agent/game launch endpoint is called. An empty workspace still gets a native view. The old launcher exits after delegation while the independent host and its CLI processes remain alive.",
+      "refs": [
+        "docs/specs/065-layered-workspace-updates.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/runtime/bootstrap.mjs",
+    "sha256": "aa9464d2965a5e13ad6d56db9d335f38e014a815cabd9ebd7938b0fa560c3174",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "old-connector-update-fallback",
+      "kind": "rationale",
+      "anchor": {
+        "start": 17,
+        "end": 17,
+        "snippet": "const context = JSON.parse(await readFile(filename, 'utf8'));"
+      },
+      "note": "An already running pre-facade MCP connector cannot load new tools in place. This agent-facing CLI uses its existing context and the same authenticated root-bound supervisor actions without restarting that CLI. Desktop updates require an explicit listed ID; status and completion are observable separately from acceptance. Observation timeout never cancels or repeats the update. Neither path alters handoff/scheduler state.",
+      "refs": [
+        "docs/specs/065-layered-workspace-updates.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/runtime/client.mjs",
+    "sha256": "634a98324ac7e1a591acd6d64f800f95606a8b9b0bfd211fd77c31762ebbc2fa",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

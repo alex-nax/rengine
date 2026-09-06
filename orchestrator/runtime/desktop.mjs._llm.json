@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "immutable-native-candidates",
+      "kind": "rationale",
+      "anchor": {
+        "start": 24,
+        "end": 24,
+        "snippet": "export async function prepareDesktop(directory) {"
+      },
+      "note": "Build through the shared lock, copy the executable (and Windows runtime files) into a private generation, then render a real smoke frame without workspace credentials or initial sessions. A managed view uses explicit inherited bindings and its own spawn stamp. Keeping the previous executable separate from mutable build output allows automatic restoration after a failed replacement. The native build/helper paths are development inputs; installable resource relocation and Windows runtime qualification remain separate.",
+      "refs": [
+        "docs/specs/065-layered-workspace-updates.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/runtime/desktop.mjs",
+    "sha256": "7b170059a8fccb3a369f46458a725a76e501813f6ba32695e1299f2eb3568d2d",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

@@ -15,8 +15,8 @@ CLI trust/login/MCP error must be resolved visibly; never select `--last` as a s
 The CLI runs in the sidecar-owned PTY displayed by the native C/microui pane. Closing the window
 detaches it. Cmd+Shift+R on macOS / Ctrl+Shift+R on Windows saves drafts/layout, rebuilds the
 desktop and reattaches the same live agent without another prompt. Use Sessions → Stop to end
-a process. Reload does not hot-replace service code; a service restart requires explicit session
-management, followed by another launch of the same handoff to resume the conversation.
+a process. Spec 065 adds agent-operated workspace/UI/MCP updates above the retained PTY host. Original
+host and supervisor protocol replacement still requires explicit session management.
 
 ## Goal and current checkpoint
 
@@ -27,7 +27,7 @@ controlled by the calling application; the repository mechanism resumes the CLI 
 and supplies this checkpoint, not a scheduler migration. If it remains paused, continue the
 user-authorized work as the resumed CLI turn and leave scheduler controls with the user.
 
-All 15 feature gates remain false. `features.json` criteria have not changed. Read the newest
+Consult the current `features.json` for gate status; later renderer work has its own evidence. Read the newest
 `Codex-progress.md` entry, `known-issues.md`, specs 055–063 and architecture before choosing the
 next bounded fix. Check `RENGINE_ORCHESTRATOR_SESSION`, then the MCP workspace/session identity
 for `/Users/alex/rengine`; its session must be the running root-bound agent. The environment
@@ -71,6 +71,15 @@ reattachment, without operating its live conversation or Remote Control connecti
 queries no longer fill the input queue during reconstruction; live queries still receive replies.
 The tested native build loads with Cmd/Ctrl+Shift+R and retains the current sessions. Existing
 service/MCP upgrade and OS shortcut-permission limits remain as recorded above.
+
+The owner then requested layered updates. Spec 065 is implemented and passes real native/MCP
+fixtures: prepared updates, rollback, dirty draft recovery, old-launcher adoption, concurrent
+startup and retained CLI input/PIDs. The production supervisor was not installed at the last
+2026-09-06 check. One native keyboard reload installs it; afterward use update_workspace or the
+context-bound runtime/client.mjs fallback from this same CLI. Do not restart the original host
+or conversation. This supersedes the routine service/connector upgrade limitation recorded above,
+while preserving low-level migration and OS permission boundaries. Evidence:
+`docs/evidence/layered-updates-macos-2026-09-06.md`.
 
 Start with KI-024. Actual NOLF streams while moved into a narrow pane and back. However the
 latest combined test's `game-input.png` still shows the main menu after Enter; its automated

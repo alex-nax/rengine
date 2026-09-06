@@ -1,6 +1,8 @@
 #include "app.h"
 #include "automation.h"
 
+int re_bootstrap(const char *binary);
+
 static void ui_event(mu_Context *ui, const SDL_Event *e) {
   if (e->type == SDL_MOUSEMOTION) mu_input_mousemove(ui, e->motion.x, e->motion.y);
   if (e->type == SDL_MOUSEBUTTONDOWN || e->type == SDL_MOUSEBUTTONUP) {
@@ -35,6 +37,10 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "--connection") && i + 1 < argc) connection = argv[++i];
     else if (!strcmp(argv[i], "--help")) { puts("rengine [--connection sidecar.json] [--font FILE] [--smoke-test --snapshot FILE.bmp] [--automation]\nAutomation accepts local stdin test events only when explicitly enabled."); return 0; }
     else { fprintf(stderr, "Unknown or incomplete option: %s\n", argv[i]); return 2; }
+  }
+  if (!automation && !smoke && getenv("RENGINE_CAN_RELOAD") && !getenv("RENGINE_LAYERED_CHILD")) {
+    if (re_bootstrap(argv[0]) == 0) return 0;
+    fprintf(stderr, "Layered bootstrap failed; opening the retained workspace with the legacy launcher.\n");
   }
   SDL_SetMainReady();
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) { fprintf(stderr, "%s\n", SDL_GetError()); return 1; }

@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "root-bound-replaceable-tools",
+      "kind": "rationale",
+      "anchor": {
+        "start": 16,
+        "end": 16,
+        "snippet": "const scopedState = async () => {"
+      },
+      "note": "Tool implementation lives in a replaceable process behind the stable facade. Resolve only a validated runtime descriptor for the original host, retain the original root and reject foreign sessions/desktops before each operation. Probe/update/status never launches a coding conversation. The existing eight-tool connector can remain running while an agent uses runtime/client.mjs with its original context.",
+      "refs": [
+        "docs/specs/065-layered-workspace-updates.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/agents/mcp-worker.mjs",
+    "sha256": "0fd180f2111bac64bf08b405540c06db18d97e64b20ab89dd692937f85506fad",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

@@ -34,6 +34,11 @@ definitions live under `.claude/skills/`. Keep both aligned when either moves.
 | Spec/doc reconciliation batch | `/rengine-housekeep` | `$rengine-housekeep` |
 | Known-issue → feature promotion batch | `/rengine-ki-promote` | `$rengine-ki-promote` |
 
+After the one-time layered bootstrap, use root-bound MCP `update_status`/`update_workspace`
+(or `orchestrator/runtime/client.mjs` with the existing context) for routine updates. Select a
+listed desktop explicitly and wait for completion. Keep the original PTY host and CLI alive;
+see spec 065 for the low-level migration boundary.
+
 ## Sources of truth
 
 - `docs/specs/000-charter.md`: attributed decisions and unanswered design questions.

@@ -5,8 +5,8 @@
       "id": "native-view-lifetime",
       "kind": "rationale",
       "anchor": {
-        "start": 28,
-        "end": 28,
+        "start": 30,
+        "end": 30,
         "snippet": "int main(int argc, char **argv) {"
       },
       "note": "The C desktop owns only native views, renderer resources and service connections. Normal exit waits for durable draft/layout requests before detaching. The event-driven loop schedules one settling frame when microui next_hover_root differs from hover_root; without it the first click after entering another container can miss because hover is computed from the previous frame. Static workspaces do not repaint continuously. --automation allocates optional inspection metadata and is a local testing seam, not a production remote-control endpoint. Automation windows have a distinct title so a visible regression fixture is distinguishable from the owner's workspace.",
@@ -18,8 +18,8 @@
       "id": "native-reload-and-presentation",
       "kind": "rationale",
       "anchor": {
-        "start": 98,
-        "end": 98,
+        "start": 104,
+        "end": 104,
         "snippet": "    re_draw_end(draw);"
       },
       "note": "Only after presentation, for visible non-minimized terminal content, report readiness to the attached session. Cmd/Ctrl+Shift+R consumes the shortcut before terminal/editor/game dispatch. An authenticated desktop action sets the same closing/reload flags after the app tick. Both use normal quit persistence before exit code 75; failed persistence cancels reload and quit. The launcher rebuilds and reconnects; native exit never stops the service or agent. Direct binary launches report the required launcher. microui wheel input uses the shared signed precise accumulator, converting vertical deltas to content offsets without undoing system inversion.",
@@ -28,11 +28,24 @@
         "docs/specs/062-agent-desktop-actions.md",
         "docs/specs/061-pane-scroll-controls.md"
       ]
+    },
+    {
+      "id": "legacy-launcher-bootstrap",
+      "kind": "rationale",
+      "anchor": {
+        "start": 41,
+        "end": 41,
+        "snippet": "if (!automation && !smoke && getenv(\"RENGINE_CAN_RELOAD\") && !getenv(\"RENGINE_LAYERED_CHILD\")) {"
+      },
+      "note": "Before SDL or any native worker thread starts, the first new binary reached by the old launcher delegates to the update supervisor. Successful handoff exits this bootstrap process without opening a duplicate window. Managed children suppress delegation; explicit smoke/automation clients keep the direct inspection path. Failure visibly falls back to the retained workspace. No CLI is created or resumed by this bridge.",
+      "refs": [
+        "docs/specs/065-layered-workspace-updates.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/main.c",
-    "sha256": "d41fa1cba284feefd754899da0d5ce9d5f3afde691879f2cbb023046f6733a74",
+    "sha256": "202e9bf94a1c853499dee6c177b4bb131237778db4e0d1204526394685c04984",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

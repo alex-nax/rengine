@@ -1,5 +1,31 @@
 # Progress Log
 
+## Session 20 (macos) — 2026-09-06 — Layered workspace updates
+
+**Owner direction**: Add agent-operated updates after one last keyboard bootstrap. Remained in
+the verified root-bound rEngine CLI; preserved the original host, agents and shell PIDs.
+
+**Implemented**: Spec 065 adds a private supervisor, replaceable workspace workers, immutable
+native candidates with prepare/probe/rollback, a stable MCP facade with replaceable tool workers,
+and a context-bound CLI fallback for the already loaded connector. Legacy native bootstrap adopts
+the original host, deduplicates concurrent launches and creates no extra CLI. Updates report
+acceptance separately from completion/recovery. Worker crash recovery retains sessions; original
+host/supervisor protocol changes still require quiescence.
+
+**Verification**: Failing MCP discovery before implementation; final service 23 passes (4.66 s),
+native 11 passes (64.53 s), CTest four passes (0.05 s), harness/inventory pass. Native fixtures cover
+dirty drafts, failed build/start recovery, old-launcher bootstrap and retained PID/input/invocation.
+Evidence: `docs/evidence/layered-updates-macos-2026-09-06.md`. Concurrent F56 changes are preserved;
+its initially failing draw-list test passes after that session's commit. Renumbered its duplicate
+KI-031 design entry to KI-034, preserving the existing fixture KI-031 and all issue text.
+
+**Remaining**: Production one-time adoption is not claimed; Windows runtime remains unqualified.
+The owner next requested NOLF project-window management, inspection, a durable rEngine return
+channel and a reusable agent routine. Continue that scope without a duplicate conversation or
+goal. Earlier Windows transfer approval and OS shortcut-permission boundaries remain intact.
+
+---
+
 ## Session 19 (macos) — 2026-09-06 — Repair Claude fullscreen mouse interaction
 
 **Owner direction and context**: The owner prioritized the existing Claude `/rc` pane, where

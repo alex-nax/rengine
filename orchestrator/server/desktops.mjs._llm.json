@@ -9,15 +9,15 @@
         "end": 4,
         "snippet": "export class Desktops {"
       },
-      "note": "A desktop ID belongs to one authenticated events socket, is refreshed on reconnect, and is never persisted as session ownership. Re-registration updates declared roots/session bindings without changing that connection identity. Validate sessions against declared roots. Require explicit root-associated target, advertised reload support and one pending action; only the same socket can acknowledge its request. Bound waits and reject disconnection. Accepted means the native routine was queued, not that draft flush or rebuild succeeded. The service sends a narrow action and never executes an arbitrary command or replaces a retained process.",
+      "note": "A desktop ID belongs to one authenticated events socket, is refreshed on reconnect, and is never persisted as session ownership. Re-registration updates declared roots/session bindings without changing that connection identity. Validate sessions against declared roots. Require explicit root-associated target, advertised reload support and one pending action; only the same socket can acknowledge its request. Bound waits and reject disconnection. Accepted means the native routine was queued, not that draft flush or rebuild succeeded. The service sends a narrow action and never executes an arbitrary command or replaces a retained process. Optional bounded owner/view strings correlate a supervised native child and its individual spawn. These remain declarations on an authenticated socket, not OS-level confinement or permission to retarget a session.",
       "refs": [
-        "docs/specs/062-agent-desktop-actions.md"
+        "docs/specs/065-layered-workspace-updates.md"
       ]
     }
   ],
   "source": {
     "path": "orchestrator/server/desktops.mjs",
-    "sha256": "6bb88189e6a19ebb7355d12319efc55aef8d7f864e3a67bc49ea09d556c94281",
+    "sha256": "6cc52995dda5ef8497c324bdb845ed1afa1e0332a68cd4b1c528e27f53c51e5d",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

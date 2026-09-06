@@ -5,19 +5,19 @@
       "id": "explicit-native-build",
       "kind": "rationale",
       "anchor": {
-        "start": 6,
-        "end": 6,
-        "snippet": "const args = ['-S', root, '-B', build, '-DCMAKE_BUILD_TYPE=Release'];"
+        "start": 8,
+        "end": 8,
+        "snippet": "const args = ['-S', root, '-B', build, '-DCMAKE_BUILD_TYPE=Release', `-DRENGINE_NODE_EXECUTABLE=${process.execPath}`];"
       },
-      "note": "The development launcher builds the CMake native desktop. First configure verifies and fetches the pinned libcurl archive; subsequent builds reuse CMake state. SDL2 is an explicit exact-version prerequisite. No Electron or browser bundle is built, and application startup never downloads GUI dependencies silently outside this declared build step.",
+      "note": "The development build selects its existing system Node executable explicitly for the native bootstrap bridge. CMake still verifies/fetches the pinned libcurl archive on first configure and requires the exact SDL2 prerequisite; no Electron or browser bundle is built. An exclusive build lock prevents cooperating launch/update builders from writing the same archive or executable concurrently. Only a proven dead PID releases stale ownership; a live or malformed lock times out visibly. Building alone never starts workspace services or a game.",
       "refs": [
-        "docs/specs/056-native-desktop.md"
+        "docs/specs/065-layered-workspace-updates.md"
       ]
     }
   ],
   "source": {
     "path": "orchestrator/build.mjs",
-    "sha256": "debc384550462d3694ef42eec92df2b6f02092946bce2394758c3ed8531a55a0",
+    "sha256": "7d419d601ed2152f4dba7f5c83622480fe61c50cd215f07795a5e96ad7ec6855",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

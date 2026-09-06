@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "native-bootstrap-consumer",
+      "kind": "rationale",
+      "anchor": {
+        "start": 13,
+        "end": 13,
+        "snippet": "test('the existing launcher reaches native bootstrap once, then CLI actions replace the managed desktop', { timeout: 60000 }, async () => {"
+      },
+      "note": "Run the existing launcher and new native executable through the real detached-supervisor bootstrap, then request the next update through the bound CLI. Repeated/concurrent launches reuse a single native view and one original CLI invocation. A separate empty-workspace case must create no terminal or agent. Cleanup stops only fixture supervisor/view processes before closing its fixture host; no OS shortcut injection or live owner session is used.",
+      "refs": [
+        "docs/specs/065-layered-workspace-updates.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/tests/native-bootstrap.spec.mjs",
+    "sha256": "059d5c2e119f0146c8a9f38f280b7121a0697de9051177699a41fc620fc659e5",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

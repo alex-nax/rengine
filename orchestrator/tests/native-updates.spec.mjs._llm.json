@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "real-native-update-and-rollback",
+      "kind": "rationale",
+      "anchor": {
+        "start": 16,
+        "end": 16,
+        "snippet": "test('MCP prepares native updates, recovers drafts and rolls back failures with one retained CLI', { timeout: 90000 }, async () => {"
+      },
+      "note": "Drive actual SDL/microui input with a dirty editor and one instrumented CLI. Use MCP to prepare/switch all layers, inject build/start failures and verify completed rollback, then exercise the old-connector CLI and keyboard recovery. Crash only the fixture\u2019s workspace worker and observe native re-registration without changing the GUI or PTY PID. Accumulate fixture input bytes because PTY read chunk boundaries are arbitrary.",
+      "refs": [
+        "docs/specs/065-layered-workspace-updates.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/tests/native-updates.spec.mjs",
+    "sha256": "1797375b67a66c1f02838c04a8b08d1fd53516f30e1336bee3fe5bfc52d2203c",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}
