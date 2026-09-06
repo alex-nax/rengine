@@ -9,14 +9,24 @@ enum { RE_TREE = 1, RE_EDITOR, RE_TERMINAL, RE_SESSIONS, RE_GAME, RE_DASHBOARD }
 typedef struct {
   bool used, dirty, conflict, discarding; int type, generation, saved, checkpoint, checkpoint_flight;
   char root[65], session[65], path[2048], title[256], version[65], error[512];
+  char selected[1024];                       /* the last row opened here; its branch is never collapsed */
   cJSON *data; ReTerminal *terminal; ReEditor *editor; ReGame *game; ReFormatView *format;
   mu_Rect rect, header; Uint64 edited;
 } ReTab;
-typedef struct { int id, operation, tab, generation, revision; char root[65]; long timeout; } RePending;
+typedef struct { int id, operation, tab, generation, revision, slot; char root[65]; long timeout; } RePending;
+/* Nested explorer rows (spec 080 decisions 7-10). One entry per directory expanded in place; the
+ * pool is shared across tabs so a person with one deep tree is not limited by a per-tab quota. */
+#define RE_TREE_EXPANSIONS 48
+typedef struct {
+  int tab, generation;       /* the tab that opened it; -1 when the slot is free */
+  char path[1024];           /* directory path within that tab's root */
+  cJSON *data;               /* its listing, NULL while the request is in flight */
+  Uint64 opened;             /* when it was expanded, for the least-recently-expanded rule */
+} ReExpansion;
 typedef struct { int first, count, selected, width, tab; } ReTabStrip;
 typedef struct ReApp {
   ReNet *net; ReSocket *events; ReLayout layout;
-  ReTab tabs[RE_TABS]; RePending pending[128];
+  ReTab tabs[RE_TABS]; RePending pending[128]; ReExpansion expansions[RE_TREE_EXPANSIONS];
   ReTabStrip strips[RE_PANES];
   cJSON *state, *previous_layout, *controls, *formats, *dashboards, *dashboards_opened;
   char root[65], initial_terminal[65], initial_agent[65], initial_game[65];
@@ -50,6 +60,14 @@ void re_app_status(ReApp *app, ReDraw *draw);   /* the segmented status bar, dra
 bool re_app_event(ReApp *app, const SDL_Event *event, ReDraw *draw);
 /* Applies this root's theme file when a person has already activated it for that root (D34). */
 void re_app_project_theme(ReApp *app);
+
+/* The explorer's nested mode. `re_app_expanded` returns the expansion index for a directory or -1;
+ * expanding requests the listing, collapsing drops it and every expansion beneath it. */
+int re_app_expanded(ReApp *app, int tab, const char *path);
+void re_app_expand(ReApp *app, int tab, const char *path);
+void re_app_collapse(ReApp *app, int tab, const char *path);
+void re_app_expansions_clear(ReApp *app, int tab);
+int re_app_tree_rows(ReApp *app, int tab);   /* rows loaded for this tab, root listing included */
 bool re_app_quit(ReApp *app);
 cJSON *re_app_inspect(ReApp *app);
 int re_app_tab(ReApp *app, int type, const char *root, const char *path, const char *session, const char *title);

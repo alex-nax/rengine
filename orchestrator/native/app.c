@@ -1,7 +1,7 @@
 #include "app.h"
 #include "editor.h"
 
-enum { OP_STATE = 1, OP_LOAD, OP_SAVE, OP_DRAFT, OP_DISCARD, OP_CREATE, OP_ROOT, OP_GENERIC, OP_LAYOUT, OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_BYTES, OP_PREVIEW, OP_ENTRY };
+enum { OP_STATE = 1, OP_LOAD, OP_SAVE, OP_DRAFT, OP_DISCARD, OP_CREATE, OP_ROOT, OP_GENERIC, OP_LAYOUT, OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_BYTES, OP_PREVIEW, OP_ENTRY, OP_EXPAND };
 static int request_within(ReApp *a, int operation, int tab, const char *route, const cJSON *body, long timeout) {
   char scoped[160]; const char *window = getenv("RENGINE_WINDOW_ID");
   if (window && *window && (!strcmp(route, "state") || !strcmp(route, "layout"))) {
@@ -11,7 +11,7 @@ static int request_within(ReApp *a, int operation, int tab, const char *route, c
     int id = re_net_request_within(a->net, route, body, timeout);
     if (!id) break;
     a->pending[i] = (RePending){id, operation, tab, tab >= 0 ? a->tabs[tab].generation : 0,
-      tab >= 0 && a->tabs[tab].editor ? re_editor_revision(a->tabs[tab].editor) : 0, "", timeout};
+      tab >= 0 && a->tabs[tab].editor ? re_editor_revision(a->tabs[tab].editor) : 0, -1, "", timeout};
     if (operation >= OP_BYTES && tab >= 0) a->pending[i].revision = re_format_mode(a->tabs[tab].format);
     if (tab >= 0) re_copy(a->pending[i].root, sizeof(a->pending[i].root), a->tabs[tab].root);
     return id;
@@ -19,6 +19,12 @@ static int request_within(ReApp *a, int operation, int tab, const char *route, c
   re_copy(a->status, sizeof(a->status), "Workspace request queue is full; retry when pending work completes."); return 0;
 }
 static int request(ReApp *a, int operation, int tab, const char *route, const cJSON *body) { return request_within(a, operation, tab, route, body, 0); }
+/* Expansion loads name the slot their listing belongs to, so two folders opened at once land right. */
+static int request_slot(ReApp *a, int operation, int tab, const char *route, int slot) {
+  int id = request_within(a, operation, tab, route, NULL, 0);
+  if (id) for (int i = 0; i < RE_ARRAY_SIZE(a->pending); i++) if (a->pending[i].id == id) { a->pending[i].slot = slot; break; }
+  return id;
+}
 /* Declared producer budget plus transport overhead; the service enforces the declared bound itself. */
 static long command_deadline(const cJSON *spec) { int declared = re_number(spec, "timeoutMs"); return declared > 0 ? declared + 2000L : 0; }
 static cJSON *file_body(ReTab *t, bool draft) {
@@ -26,6 +32,94 @@ static cJSON *file_body(ReTab *t, bool draft) {
   char *text = re_editor_text(t->editor); cJSON_AddStringToObject(j, "text", text ? text : ""); free(text);
   cJSON_AddStringToObject(j, draft ? "baseVersion" : "version", t->version); return j;
 }
+/* ---- nested explorer -------------------------------------------------------------------------
+ * The pool is flat and searched linearly: it holds at most RE_TREE_EXPANSIONS entries, a person
+ * cannot open more branches than that by hand, and a flat scan keeps the collapse rules readable. */
+static bool under(const char *path, const char *ancestor) {
+  size_t n = strlen(ancestor);
+  if (!n) return true;                       /* the tab's own directory is everyone's ancestor */
+  return !strncmp(path, ancestor, n) && path[n] == '/';
+}
+int re_app_expanded(ReApp *a, int tab, const char *path) {
+  for (int i = 0; i < RE_TREE_EXPANSIONS; i++) {
+    ReExpansion *e = &a->expansions[i];
+    if (e->tab == tab && e->generation == a->tabs[tab].generation && !strcmp(e->path, path)) return i;
+  }
+  return -1;
+}
+static void release(ReApp *a, int slot) {
+  cJSON_Delete(a->expansions[slot].data);
+  a->expansions[slot] = (ReExpansion){-1, 0, {0}, NULL, 0};
+}
+void re_app_expansions_clear(ReApp *a, int tab) {
+  for (int i = 0; i < RE_TREE_EXPANSIONS; i++) if (a->expansions[i].tab == tab) release(a, i);
+}
+void re_app_collapse(ReApp *a, int tab, const char *path) {
+  for (int i = 0; i < RE_TREE_EXPANSIONS; i++) {
+    ReExpansion *e = &a->expansions[i];
+    if (e->tab != tab) continue;
+    if (!strcmp(e->path, path) || under(e->path, path)) release(a, i);   /* a branch closes whole */
+  }
+}
+int re_app_tree_rows(ReApp *a, int tab) {
+  ReTab *t = &a->tabs[tab];
+  int rows = cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(t->data, "entries"));
+  for (int i = 0; i < RE_TREE_EXPANSIONS; i++) {
+    ReExpansion *e = &a->expansions[i];
+    if (e->tab == tab && e->generation == t->generation)
+      rows += cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(e->data, "entries"));
+  }
+  return rows;
+}
+/* The cap is on rows, not on branches, because rows are what a person scrolls and what the desktop
+ * lays out. Reaching it collapses the least-recently-expanded branch rather than refusing to open
+ * (decision 7), and never one the opened directory or the selected row sits under (decision 8). */
+static bool protected_branch(ReApp *a, int tab, int slot, const char *opening) {
+  ReExpansion *e = &a->expansions[slot];
+  ReTab *t = &a->tabs[tab];
+  if (!strcmp(e->path, opening) || under(opening, e->path)) return true;
+  return *t->selected && (!strcmp(e->path, t->selected) || under(t->selected, e->path));
+}
+static void enforce_row_cap(ReApp *a, int tab, const char *opening) {
+  while (re_app_tree_rows(a, tab) > RE_METRIC_TREE_ROW_CAP) {
+    int oldest = -1;
+    for (int i = 0; i < RE_TREE_EXPANSIONS; i++) {
+      ReExpansion *e = &a->expansions[i];
+      if (e->tab != tab || e->generation != a->tabs[tab].generation || !e->data) continue;
+      if (protected_branch(a, tab, i, opening)) continue;
+      if (oldest < 0 || e->opened < a->expansions[oldest].opened) oldest = i;
+    }
+    if (oldest < 0) {
+      int self = re_app_expanded(a, tab, opening);
+      if (self >= 0) release(a, self);
+      snprintf(a->status, sizeof(a->status),
+               "The explorer is at its row limit and every open folder is on the path you are using; close one to open %s.",
+               *opening ? opening : "another folder");
+      return;
+    }
+    snprintf(a->status, sizeof(a->status), "Collapsed %s to stay within the explorer's row limit.", a->expansions[oldest].path);
+    re_app_collapse(a, tab, a->expansions[oldest].path);
+  }
+}
+void re_app_expand(ReApp *a, int tab, const char *path) {
+  ReTab *t = &a->tabs[tab];
+  if (re_app_expanded(a, tab, path) >= 0) { re_app_collapse(a, tab, path); return; }
+  if (strlen(path) >= sizeof(a->expansions[0].path)) {
+    re_copy(t->error, sizeof(t->error), "Folder path exceeds the view limit."); return;
+  }
+  int slot = -1;
+  for (int i = 0; i < RE_TREE_EXPANSIONS; i++) if (a->expansions[i].tab < 0 || !a->expansions[i].data) {
+    if (a->expansions[i].tab < 0) { slot = i; break; }
+  }
+  if (slot < 0) { enforce_row_cap(a, tab, path); for (int i = 0; i < RE_TREE_EXPANSIONS; i++) if (a->expansions[i].tab < 0) { slot = i; break; } }
+  if (slot < 0) { re_copy(a->status, sizeof(a->status), "Close a folder before opening another; the explorer holds 48 at once."); return; }
+  a->expansions[slot] = (ReExpansion){tab, t->generation, {0}, NULL, SDL_GetTicks64()};
+  re_copy(a->expansions[slot].path, sizeof(a->expansions[slot].path), path);
+  char *route = re_net_query("tree", t->root, path);
+  if (route) { request_slot(a, OP_EXPAND, tab, route, slot); free(route); }
+  else release(a, slot);
+}
+
 void re_app_layout_changed(ReApp *a) {
   a->desktop_registered = false;
   a->layout_dirty = true; a->layout_changed = SDL_GetTicks64();
@@ -335,6 +429,13 @@ static void response(ReApp *a, ReMessage *m) {
     case OP_FORMATS: formats_loaded(a, j); break;
     case OP_DASHBOARD: dashboard_probed(a, j); break;
     case OP_CAPTURE: snprintf(a->status, sizeof(a->status), "Captured %s (%d bytes, sha256 %.12s…)", re_string(j, "path"), re_number(j, "size"), re_string(j, "sha256")); t->error[0] = 0; break;
+    case OP_EXPAND: {
+      ReExpansion *e = p.slot >= 0 && p.slot < RE_TREE_EXPANSIONS ? &a->expansions[p.slot] : NULL;
+      if (!e || e->tab != p.tab || e->generation != p.generation) break;   /* collapsed while in flight */
+      cJSON_Delete(e->data); e->data = cJSON_Duplicate(j, 1);
+      enforce_row_cap(a, p.tab, e->path);
+      break;
+    }
     case OP_LOAD:
       t->discarding = false;
       cJSON_Delete(t->data); t->data = cJSON_Duplicate(j, 1); t->error[0] = 0;
