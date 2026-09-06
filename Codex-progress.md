@@ -38,7 +38,16 @@ spec 081 and KI-044/045/046 are all still free. `features.json` appended in plac
 mirrors regenerate byte-identical too, so the generated files were not conflict-resolved by hand.
 
 **Gates**, all after a final `git fetch`. `npm test` **66/66**. `npm run test:desktop` **24/24**
-(main's 22 plus `native-devices.spec.mjs` 2/2), sequential. `ctest --test-dir .cache/desktop`
+(main's 22 plus `native-devices.spec.mjs` 2/2), sequential. Two later repeats of that sweep each lost
+one test to machine load rather than to this merge, and both were checked against main rather than
+assumed: run 2 failed `native-render` on `opengl: resident memory delta 32800 KiB exceeds 32768 KiB`
+— 0.1 % over a delta between two ~150 MiB processes whose own samples span 7 MiB — and run 3
+cancelled the same spec at its 420 s timeout under load average 20.6. **origin/main at `60d0917`
+flakes the same way on the same machine**: its own sequential sweep is 21/22 (`native-game`'s fixture
+aborted, signal 6) and the render spec failed 1 of 2 isolated runs there at delta 33152 KiB, passing
+the other at 18608. `native-project-windows`, which run 2 lost first, passes 3/3 in isolation here.
+None of the three flakes touches a devices path, and the merged branch has a clean 24/24 sweep on
+exactly this code. `ctest --test-dir .cache/desktop`
 **5/5** (0.79 s). Native build from a **wiped** `.cache/desktop`: **0 warnings, 0 errors** — the
 honest check for the `-Werror` implicit-declaration class of defect. `./init.sh` clean (35 features).
 `python3 tools/design.py check` clean. `python3 tools/features.py validate` clean.
