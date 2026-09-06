@@ -12,7 +12,9 @@ at display width, not retrospectively reflowed. Drop oldest rows at the limits.
 
 Mouse/trackpad vertical scrolling addresses the visible terminal beneath the pointer without
 changing keyboard focus/root/session bindings. Respect precise fractional wheel motion and
-flipped direction. Shift+PageUp/PageDown navigate by a viewport; Shift+Home/End select oldest/live.
+system direction using delivered signed deltas; [spec 061](061-pane-scroll-controls.md) corrects
+the original double inversion and adds draggable bars. Shift+PageUp/PageDown navigate by a viewport;
+Shift+Home/End select oldest/live.
 Unmodified keys retain their PTY semantics. A visible position indicator appears while browsing;
 the live cursor is hidden there. New primary-screen output preserves the viewed rows until
 they age out. Text or a key sent to the PTY returns to live output. Alternate-screen applications

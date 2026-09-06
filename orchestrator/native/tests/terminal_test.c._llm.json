@@ -9,15 +9,16 @@
         "end": 26,
         "snippet": "int main(void) {"
       },
-      "note": "Drive the real pinned terminal parser through attached/output messages with contiguous sequences. Assertions cover fractional/flipped wheel behavior, stable viewed text under new output, primary/alternate isolation, explicit CSI 3 J history clearing, line and byte caps and fresh-snapshot replacement. Native desktop tests separately cover real PTYs, rendered colors, focus routing, resize and retained-process restart.",
+      "note": "Drive the real pinned terminal parser through attached/output messages with contiguous sequences. Assertions cover signed fractional wheel behavior, stable viewed text under new output, primary/alternate isolation, CSI 3 J history clearing, line/byte caps and fresh-snapshot replacement. The old FLIPPED assertion was corrected after the owner report and pinned Cocoa source confirmed inversion is already in the deltas; the corrected test failed before the fix. Both-axis scrollbar endpoints use a million-unit range to exercise wide multiplication and out-of-track drag/release. Native desktop tests separately verify actual pointer actions, PTYs, rendered colors, focus routing, resize and retained-process restart.",
       "refs": [
-        "docs/specs/060-native-terminal-scrollback.md"
+        "docs/specs/060-native-terminal-scrollback.md",
+        "docs/specs/061-pane-scroll-controls.md"
       ]
     }
   ],
   "source": {
     "path": "orchestrator/native/tests/terminal_test.c",
-    "sha256": "f6dc0f8d0e5174c76be57c492e186b8d621dd2242786474986d9aac21f2b99c1",
+    "sha256": "a81d9c60d9a3e4a3a08644604b80532579c1e1f3372c3d102967fe8527cd2a0b",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

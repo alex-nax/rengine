@@ -24,6 +24,21 @@ static void expect(ReTerminal *t, const char *needle, bool present) {
   assert(!!strstr(text, needle) == present); free(text);
 }
 int main(void) {
+  for (int axis = 0; axis < 2; axis++) {
+    ReScrollbar bar = {0}; mu_Rect track = axis ? mu_rect(20, 20, 100, 14) : mu_rect(20, 20, 14, 100);
+    re_scrollbar_set(&bar, track, 1000000, 10, 0, axis != 0);
+    SDL_Event event = {.type = SDL_MOUSEBUTTONDOWN}; event.button.button = SDL_BUTTON_LEFT;
+    event.button.x = event.button.y = 25;
+    assert(re_scrollbar_event(&bar, &event) && bar.dragging);
+    event.type = SDL_MOUSEMOTION; event.motion.x = event.motion.y = 500;
+    assert(re_scrollbar_event(&bar, &event) && bar.value == 999990);
+    event.motion.x = event.motion.y = -500;
+    assert(re_scrollbar_event(&bar, &event) && bar.value == 0);
+    event.type = SDL_MOUSEBUTTONUP; event.button.button = SDL_BUTTON_LEFT;
+    assert(re_scrollbar_event(&bar, &event) && !bar.dragging);
+    re_scrollbar_set(&bar, track, 2, 10, 100, axis != 0);
+    assert(!bar.track.w && !bar.track.h && bar.value == 0);
+  }
   ReTerminal *t = re_terminal_open(NULL, "test", 40, 6); assert(t);
   attach(t, 40, 6, "");
   char line[80];
@@ -33,7 +48,9 @@ int main(void) {
   re_terminal_event(t, &wheel); assert(re_terminal_scroll_state(t).offset == 0);
   re_terminal_event(t, &wheel); assert(re_terminal_scroll_state(t).offset == 1);
   wheel.wheel.preciseY = 1; wheel.wheel.direction = SDL_MOUSEWHEEL_FLIPPED;
-  re_terminal_event(t, &wheel); assert(re_terminal_scroll_state(t).offset == 0);
+  re_terminal_event(t, &wheel); assert(re_terminal_scroll_state(t).offset == 4);
+  wheel.wheel.preciseY = -1;
+  re_terminal_event(t, &wheel); assert(re_terminal_scroll_state(t).offset == 1);
   key(t, SDLK_HOME); expect(t, "ROW_000 café 世界", true);
   char *before = re_terminal_text(t); output(t, "NEW_OUTPUT\r\n"); char *after = re_terminal_text(t);
   assert(!strcmp(before, after)); free(before); free(after);

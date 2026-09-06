@@ -1,5 +1,44 @@
 # Progress Log
 
+## Session 18 (macos) — 2026-09-06 — System scrolling, visible bars and agent reload
+
+**Owner direction and context**: Remained inside the verified root-bound rEngine agent session
+`a0de60fe-eac8-4e75-8ea8-fe8f4aa3c83a`, PID 20049. The owner requested trackpad direction matching
+system settings, scrollbars on scrollable panes, and agent invocation of Cmd/Ctrl+Shift+R through
+MCP. Prioritized specs 061–062 without a duplicate conversation/goal or game/sibling edits.
+
+**Implemented**: Removed the extra FLIPPED negation that undid Cocoa's system-adjusted deltas;
+shared signed precise accumulation now covers terminal/editor/microui input. Added native
+terminal history and two-axis editor bars with thumb dragging, track paging and clamped ranges.
+Tree/session lists retain upstream microui bars. Wheel follows hovered content without retargeting
+keyboard focus or project bindings. Added authenticated ephemeral desktop discovery and explicit
+root-bound MCP reload, with capability/version checks, bounded acknowledgement and stale/foreign/
+unsupported-target rejection. The action enters the existing durable native quit/rebuild path;
+it reports acceptance separately from build success and retains processes without another prompt.
+
+**Verification**: Corrected direction assertion failed before implementation (exit 134); actual
+MCP tool discovery failed before the new actions existed. Final `npm run test:desktop`: seven
+passes, 41.12 s; CTest: three passes, 0.62 s; `npm test`: 21 passes, 4.30 s. Real MCP stdio plus
+normal native launcher prove dirty draft recovery, replacement desktop ID, unchanged instrumented
+CLI PID and one invocation across keyboard and MCP reloads. Native pointer tests cover terminal/
+editor endpoints, both axes, track paging, precise inverted events, tree overflow, unchanged
+editor bytes and no unintended PTY input. Screenshots inspected. Harness/inventory, reviewed
+sidecars and diff checks pass. Headers, build declarations and straightforward broker/MCP test
+assertions need no additional file-local notes. Evidence:
+`docs/evidence/native-scroll-controls-actions-macos-2026-09-06.md`.
+
+**Live rollout and remaining**: The retained service/connector still predate desktopActions
+version 1; a fresh connector reports this limitation without replacing the service. A targeted
+shortcut attempt against verified production desktop PID 62416 was denied by macOS Accessibility
+(error 1002, osascript cannot send keystrokes). No OS settings or retained processes were changed;
+the native build is ready for Cmd/Ctrl+Shift+R. Agent actions become available after explicit
+service/connector upgrade. Current agent and original shell PIDs remain running. All 15 feature
+gates remain false. KI-024 menu-state qualification is next; preserve the known initial NOLF
+selection -1 finding, Windows transfer approval boundary and optional service-migration decision.
+Commit: `feat(orchestrator): add system scrolling, pane bars and MCP reload`.
+
+---
+
 ## Session 17 (macos) — 2026-09-06 — Scroll the running agent pane
 
 **Environment and steering**: Verified `RENGINE_ORCHESTRATOR_SESSION` identifying

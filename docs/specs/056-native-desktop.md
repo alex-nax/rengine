@@ -80,7 +80,11 @@ A changed service identity/address still requires explicit launcher reconnection
 
 Primary-screen terminal history now supports pointer/keyboard scrolling with bounded storage;
 see [spec 060](060-native-terminal-scrollback.md). New output preserves the viewed rows, and
-native reload reconstructs available history from the same retained process.
+native reload reconstructs available history from the same retained process. System-configured
+wheel direction and visible native terminal/editor scrollbars are covered by [spec 061](061-pane-scroll-controls.md).
+Agents can request the same native reload through root-bound MCP discovery and an explicit desktop
+ID; [spec 062](062-agent-desktop-actions.md) separates acceptance from build completion. Existing
+retained services/connectors require an explicit upgrade to load this action protocol.
 
 Native image previews, terminal selection/copy, richer text navigation, service-restart recovery,
 frame/input DPI mapping, actual in-level aiming, resource budgets, packaging and Windows runtime

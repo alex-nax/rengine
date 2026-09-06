@@ -8,7 +8,10 @@ static void ui_event(mu_Context *ui, const SDL_Event *e) {
     if (e->type == SDL_MOUSEBUTTONDOWN) mu_input_mousedown(ui, e->button.x, e->button.y, b);
     else mu_input_mouseup(ui, e->button.x, e->button.y, b);
   }
-  if (e->type == SDL_MOUSEWHEEL) mu_input_scroll(ui, -e->wheel.x * 30, -e->wheel.y * 30);
+  if (e->type == SDL_MOUSEWHEEL) {
+    static float wheel_x, wheel_y;
+    mu_input_scroll(ui, re_wheel_steps(&wheel_x, &e->wheel, true, 30), -re_wheel_steps(&wheel_y, &e->wheel, false, 30));
+  }
   if (e->type == SDL_TEXTINPUT && strlen(ui->input_text) + strlen(e->text.text) < sizeof(ui->input_text)) mu_input_text(ui, e->text.text);
   if (e->type == SDL_KEYDOWN || e->type == SDL_KEYUP) {
     int key = 0;
@@ -77,6 +80,7 @@ int main(int argc, char **argv) {
       if (!re_app_event(app, &event, draw)) ui_event(ui, &event);
     } while (SDL_PollEvent(&event));
     re_app_tick(app);
+    if (app->reload_requested) { app->reload_requested = false; closing = reload = true; }
     if (!redraw && frames && !smoke && !closing) continue;
     int width, height; SDL_GetWindowSize(window, &width, &height);
     mu_begin(ui); re_app_ui(app, ui, width, height); mu_end(ui);

@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "ephemeral-reload-targets",
+      "kind": "rationale",
+      "anchor": {
+        "start": 4,
+        "end": 4,
+        "snippet": "export class Desktops {"
+      },
+      "note": "A desktop ID belongs to one authenticated events socket, is refreshed on reconnect, and is never persisted as session ownership. Re-registration updates declared roots/session bindings without changing that connection identity. Validate sessions against declared roots. Require explicit root-associated target, advertised reload support and one pending action; only the same socket can acknowledge its request. Bound waits and reject disconnection. Accepted means the native routine was queued, not that draft flush or rebuild succeeded. The service sends a narrow action and never executes an arbitrary command or replaces a retained process.",
+      "refs": [
+        "docs/specs/062-agent-desktop-actions.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/server/desktops.mjs",
+    "sha256": "6bb88189e6a19ebb7355d12319efc55aef8d7f864e3a67bc49ea09d556c94281",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

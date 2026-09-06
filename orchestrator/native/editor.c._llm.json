@@ -5,19 +5,32 @@
       "id": "native-editor-scope",
       "kind": "rationale",
       "anchor": {
-        "start": 112,
-        "end": 112,
+        "start": 134,
+        "end": 134,
         "snippet": "static void vim_key(ReEditor *e, SDL_Keycode k) {"
       },
       "note": "The native buffer stores Unicode codepoints and delegates selection/edit/undo mechanics to pristine stb_textedit. Vim is the explicitly documented initial subset, not full Vim emulation. A mode-changing i/a/o key also generates SDL_TEXTINPUT in a real window; ignore that initiating character once so entering insert mode does not insert the command itself. Storage converts back to UTF-8 through the service, which enforces encoded byte and line-ending policies.",
       "refs": [
         "docs/specs/056-native-desktop.md"
       ]
+    },
+    {
+      "id": "viewport-scroll-extents",
+      "kind": "rationale",
+      "anchor": {
+        "start": 104,
+        "end": 104,
+        "snippet": "static mu_Rect viewport(ReEditor *e, mu_Rect r, int cw, int lh) {"
+      },
+      "note": "Cache line count and longest visual line by buffer revision, counting tabs as four columns to match drawing. Account for each overflow bar consuming space on the other axis, then clamp offsets after edits/resizes. Include one cursor column at the longest line. Bar input is handled before text selection, wheel uses signed precise deltas, and focus loss cancels both bar capture and selection dragging. Navigation never increments the document revision.",
+      "refs": [
+        "docs/specs/061-pane-scroll-controls.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/editor.c",
-    "sha256": "1c8e33f049fdbcd635a85f81a7c464b3a053ab7ea163622460e5574f2ef8a51c",
+    "sha256": "8c5061ecada827738ffbdf6bf51667b281db8b1a302ccd6efd239118b5f0fef2",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

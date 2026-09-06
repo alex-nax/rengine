@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "system-delta-and-thumb-mapping",
+      "kind": "rationale",
+      "anchor": {
+        "start": 4,
+        "end": 4,
+        "snippet": "int re_wheel_steps(float *remainder, const SDL_MouseWheelEvent *event, bool horizontal, float scale) {"
+      },
+      "note": "SDL 2.32.10 Cocoa emits already system-adjusted signed deltas and labels inversion separately; do not negate FLIPPED for workspace content. Preserve subunit motion, reset residual on a direction change, reject nonfinite values and bound extreme per-event input. Scrollbar geometry maps total/page/value onto a minimum-20px thumb. Use 64-bit intermediates for proportional sizes and drag endpoints, clamp outside-track motion, and release capture on mouse-up/focus-loss/no-overflow. Bars draw through the native renderer and expose geometry only for read-only acceptance inspection.",
+      "refs": [
+        "docs/specs/061-pane-scroll-controls.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/scroll.c",
+    "sha256": "76d67138b80789d3f3c756548e3fc0b2d0a283be5beb99e63722d72932880830",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

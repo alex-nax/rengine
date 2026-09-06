@@ -5,8 +5,8 @@
       "id": "native-view-lifetime",
       "kind": "rationale",
       "anchor": {
-        "start": 25,
-        "end": 25,
+        "start": 28,
+        "end": 28,
         "snippet": "int main(int argc, char **argv) {"
       },
       "note": "The C desktop owns only native views, renderer resources and service connections. Normal exit waits for durable draft/layout requests before detaching. The event-driven loop schedules one settling frame when microui next_hover_root differs from hover_root; without it the first click after entering another container can miss because hover is computed from the previous frame. Static workspaces do not repaint continuously. --automation allocates optional inspection metadata and is a local testing seam, not a production remote-control endpoint. Automation windows have a distinct title so a visible regression fixture is distinguishable from the owner's workspace.",
@@ -18,19 +18,21 @@
       "id": "native-reload-and-presentation",
       "kind": "rationale",
       "anchor": {
-        "start": 94,
-        "end": 94,
+        "start": 98,
+        "end": 98,
         "snippet": "    re_draw_end(draw);"
       },
-      "note": "Only after presentation, for visible non-minimized terminal content, report readiness to the attached session. Cmd/Ctrl+Shift+R consumes the shortcut before terminal/editor/game dispatch and uses normal quit persistence before exit code 75. The launcher rebuilds and reconnects; native exit never stops the service or agent. Direct binary launches report the required launcher instead of disappearing on reload. Failed persistence cancels reload along with quit.",
+      "note": "Only after presentation, for visible non-minimized terminal content, report readiness to the attached session. Cmd/Ctrl+Shift+R consumes the shortcut before terminal/editor/game dispatch. An authenticated desktop action sets the same closing/reload flags after the app tick. Both use normal quit persistence before exit code 75; failed persistence cancels reload and quit. The launcher rebuilds and reconnects; native exit never stops the service or agent. Direct binary launches report the required launcher. microui wheel input uses the shared signed precise accumulator, converting vertical deltas to content offsets without undoing system inversion.",
       "refs": [
-        "docs/specs/058-orchestrator-handoff.md"
+        "docs/specs/058-orchestrator-handoff.md",
+        "docs/specs/062-agent-desktop-actions.md",
+        "docs/specs/061-pane-scroll-controls.md"
       ]
     }
   ],
   "source": {
     "path": "orchestrator/native/main.c",
-    "sha256": "fbeb96c6468baf0f7074a944d4c9ba4c98ba433763e617cf958afdc2953fca76",
+    "sha256": "e683ea402a0e96cdec5801dc786ee6609aed9f8bba8c44d67736d907b71dde9a",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

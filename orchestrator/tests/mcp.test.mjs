@@ -6,6 +6,8 @@ import path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { startServer } from '../server/main.mjs';
+import { WebSocket } from 'ws';
+import { once } from 'node:events';
 
 test('real MCP stdio tools keep files and sessions bound to the original project', { timeout: 15000 }, async t => {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-mcp-'));
@@ -23,6 +25,8 @@ test('real MCP stdio tools keep files and sessions bound to the original project
   await client.connect(transport);
   const tools = await client.listTools();
   assert.ok(tools.tools.some(tool => tool.name === 'workspace_info'));
+  assert.ok(tools.tools.some(tool => tool.name === 'list_desktops'));
+  assert.ok(tools.tools.some(tool => tool.name === 'reload_desktop'));
   const info = await client.callTool({ name: 'workspace_info', arguments: {} });
   assert.equal(info.isError, undefined);
   assert.equal(JSON.parse(info.content[0].text).root.id, a.id);
@@ -36,6 +40,18 @@ test('real MCP stdio tools keep files and sessions bound to the original project
   const stop = await client.callTool({ name: 'stop_session', arguments: { id: foreign.id } });
   assert.equal(stop.isError, true);
   assert.equal(server.sessions.get(foreign.id).state, 'running');
+  const desktop = new WebSocket(`${server.url.replace('http', 'ws')}/events?token=${server.token}`);
+  t.after(() => desktop.terminate()); await once(desktop, 'open');
+  const registration = new Promise(resolve => desktop.on('message', bytes => {
+    const message = JSON.parse(bytes); if (message.type === 'desktop-registered') resolve(message.id);
+  }));
+  desktop.send(JSON.stringify({ type: 'desktop-register', rootIds: [b.id], sessionIds: [foreign.id], canReload: true }));
+  const desktopId = await registration;
+  const desktops = await client.callTool({ name: 'list_desktops', arguments: {} });
+  assert.deepEqual(JSON.parse(desktops.content[0].text).desktops, []);
+  const foreignReload = await client.callTool({ name: 'reload_desktop', arguments: { id: desktopId } });
+  assert.equal(foreignReload.isError, true);
+  desktop.terminate();
   await client.close();
   await writeFile(contextFile, JSON.stringify({ url: server.url, token: server.token, instance: 'different-instance', rootId: a.id }), { mode: 0o600 });
   const staleClient = new Client({ name: 'rengine-stale-test', version: '1.0.0' });

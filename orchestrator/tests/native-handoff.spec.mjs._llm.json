@@ -5,19 +5,20 @@
       "id": "instrumented-resume-consumer",
       "kind": "rationale",
       "anchor": {
-        "start": 11,
-        "end": 11,
+        "start": 13,
+        "end": 13,
         "snippet": "test('handoff waits for a presented native pane and reload retains the once-resumed CLI', { timeout: 60000 }, async () => {"
       },
-      "note": "Use an instrumented managed Codex executable and synthetic local session metadata in a temporary project, with the real Bash/MCP launcher, real PTY, normal native desktop launcher and native shortcut. This verifies no invocation before presentation, explicit resume/MCP argv once, concurrent session creation, interactive output, dirty draft recovery, actual rebuild/reload, repeated launch and Stop followed by a fresh waiting session. It deliberately does not reopen the currently written real conversation or claim live provider continuation/Windows qualification.",
+      "note": "Use an instrumented managed Codex executable and synthetic local session metadata in a temporary project with the real Bash launcher, PTY and native launcher. Verify no invocation before presentation, explicit resume/MCP argv once, concurrent session creation, interactive output, dirty draft recovery, repeated launch and explicit Stop followed by a fresh waiting session. First exercise the native keyboard shortcut, then call list_desktops/reload_desktop through actual MCP stdio and observe a replacement desktop ID, second build, same CLI PID, preserved dirty text and one invocation. Reject the stale target. This does not reopen the active real conversation or claim provider continuation, exact edit insertion position, or Windows qualification.",
       "refs": [
-        "docs/specs/058-orchestrator-handoff.md"
+        "docs/specs/058-orchestrator-handoff.md",
+        "docs/specs/062-agent-desktop-actions.md"
       ]
     }
   ],
   "source": {
     "path": "orchestrator/tests/native-handoff.spec.mjs",
-    "sha256": "724e93d61d98ec7cbf8c943ae2259156bf52abfac4babc084e6c5daa4c19d2a1",
+    "sha256": "135a03123e021eca53abc9717380fb596178830c52defed73d244e5f6ee7a060",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

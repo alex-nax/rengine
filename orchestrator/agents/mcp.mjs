@@ -16,7 +16,7 @@ const scopedState = async () => {
   if (state.instance !== context.instance) throw new Error('The original sidecar instance is no longer available. Reopen this agent from the workspace.');
   const root = state.roots.find(root => root.id === context.rootId);
   if (!root) throw new Error('The bound project is no longer available.');
-  return { root, sessions: state.sessions.filter(session => session.rootId === root.id), drafts: state.drafts.filter(draft => draft.rootId === root.id) };
+  return { root, capabilities: state.capabilities ?? {}, sessions: state.sessions.filter(session => session.rootId === root.id), drafts: state.drafts.filter(draft => draft.rootId === root.id) };
 };
 await scopedState();
 const server = new McpServer({ name: 'rengine-workspace', version: '1.0.0' }, {
@@ -49,6 +49,13 @@ tool('read_file', 'Read a bounded UTF-8 excerpt from the bound project. Explicit
     usingDraft: Boolean(useDraft && file.draft), text: excerpt.slice(0, 32000), truncated: excerpt.length > 32000 || startLine - 1 + maxLines < lines.length };
 });
 tool('list_sessions', 'List retained processes for the bound project.', {}, true, async (_values, state) => ({ sessions: state.sessions }));
+const desktopCapability = state => {
+  if (state.capabilities.desktopActions !== 1) throw new Error('This retained service predates agent desktop actions. Upgrade it through explicit session/service management; native keyboard reload remains available.');
+};
+tool('list_desktops', 'List connected native desktops displaying this project. Use an explicit returned ID for reload.', {}, true,
+  async (_values, state) => { desktopCapability(state); return request(context, `desktops?${new URLSearchParams({ rootId: context.rootId })}`); });
+tool('reload_desktop', 'Request the native save/build/reattach routine for one listed desktop. Returns accepted, not build completion; re-list desktops after rebuild. Retains running agent and other sessions.', { id: z.string() }, false,
+  async ({ id }, state) => { desktopCapability(state); return request(context, 'desktop-action', { rootId: context.rootId, desktopId: id, action: 'reload' }); });
 tool('session_output', 'Read the bounded tail of a project session output buffer.', {
   id: z.string(), maxCharacters: z.number().int().min(1).max(32000).default(8000),
 }, true, async ({ id, maxCharacters }, state) => {

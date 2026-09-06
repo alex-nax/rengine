@@ -28,7 +28,7 @@ and supplies this checkpoint, not a scheduler migration. If it remains paused, c
 user-authorized work as the resumed CLI turn and leave scheduler controls with the user.
 
 All 15 feature gates remain false. `features.json` criteria have not changed. Read the newest
-`Codex-progress.md` entry, `known-issues.md`, specs 055–060 and architecture before choosing the
+`Codex-progress.md` entry, `known-issues.md`, specs 055–062 and architecture before choosing the
 next bounded fix. Check `RENGINE_ORCHESTRATOR_SESSION`, then the MCP workspace/session identity
 for `/Users/alex/rengine`; its session must be the running root-bound agent. The environment
 marker is context, not a security boundary. Confirm the MCP connection before continuing edits.
@@ -53,6 +53,16 @@ The next real launch on 2026-09-06 again verified its running agent environment 
 MCP. The owner then prioritized missing terminal scrolling; spec 060 implements bounded native
 history. Cmd/Ctrl+Shift+R loads it while retaining this CLI. Wheel/trackpad and Shift+PageUp/
 PageDown browse; Shift+End returns to live output. No new conversation is needed for that reload.
+
+The owner then requested system trackpad direction, visible bars and agent-invoked reload. Specs
+061–062 implement signed precise scrolling, terminal/editor bars and root-bound MCP list_desktops/
+reload_desktop. Mac native checks pass, including an actual MCP-triggered rebuild with retained
+CLI PID, one invocation and dirty draft. The original live service/connector still predate
+desktopActions version 1 and were deliberately retained. Native reload loads the scrolling build;
+loading service/MCP code requires separate explicit session management. A targeted shortcut attempt
+was denied by macOS Accessibility, so this agent has not verified a live desktop reload from that
+attempt. No OS permission settings, conversation or retained processes were replaced. See
+`docs/evidence/native-scroll-controls-actions-macos-2026-09-06.md`.
 
 Start with KI-024. Actual NOLF streams while moved into a narrow pane and back. However the
 latest combined test's `game-input.png` still shows the main menu after Enter; its automated

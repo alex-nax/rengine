@@ -11,7 +11,7 @@ add_library(rengine_vterm STATIC ${VTERM_SOURCES})
 target_include_directories(rengine_vterm SYSTEM PUBLIC "${RENGINE_VENDOR}/libvterm/include")
 target_compile_definitions(rengine_vterm PRIVATE _CRT_SECURE_NO_WARNINGS)
 
-add_library(rengine_desktop_core STATIC draw.c layout.c net.c terminal.c editor.c app.c workspace.c game.c)
+add_library(rengine_desktop_core STATIC draw.c layout.c net.c terminal.c editor.c app.c workspace.c game.c scroll.c)
 target_include_directories(rengine_desktop_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(rengine_desktop_core SYSTEM PRIVATE "${RENGINE_VENDOR}/stb")
 target_link_libraries(rengine_desktop_core PUBLIC SDL2::SDL2 rengine_microui rengine_json rengine_vterm CURL::libcurl)

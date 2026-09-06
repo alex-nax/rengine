@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "native-pointer-consumer",
+      "kind": "rationale",
+      "anchor": {
+        "start": 10,
+        "end": 10,
+        "snippet": "test('native scrollbars navigate terminals, editors and overflowing lists with system wheel signs', { timeout: 45000 }, async () => {"
+      },
+      "note": "Exercise native pointer/wheel dispatch using read-only bar geometry, real PTY output, an overflowing file tree and a two-axis long editor. Assert oldest/live and editor endpoints, track paging, signed precise FLIPPED motion, unchanged document bytes/revision, no PTY input on bar actions and no-overflow hiding. Use the Tree toolbar to reveal the tree when its header is outside the tab strip; never bypass overflow navigation by selecting a hidden control. Tree dragging qualifies the shared upstream list scrollbar path. Tests own and clean only their fixture service/window/processes.",
+      "refs": [
+        "docs/specs/061-pane-scroll-controls.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/tests/native-scrollbars.spec.mjs",
+    "sha256": "579014a4065197c943c28a5dcf064e0bef9304a066ee77acd5172ab3b7636d28",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

@@ -17,6 +17,7 @@ static cJSON *file_body(ReTab *t, bool draft) {
   cJSON_AddStringToObject(j, draft ? "baseVersion" : "version", t->version); return j;
 }
 void re_app_layout_changed(ReApp *a) {
+  a->desktop_registered = false;
   a->layout_dirty = true; a->layout_changed = SDL_GetTicks64();
   for (int n = 0; n < RE_PANES; n++) a->strips[n].width = -1;
 }
@@ -199,6 +200,19 @@ ReApp *re_app_open(const char *url, const char *token) {
   re_copy(a->initial_game, sizeof(a->initial_game), getenv("RENGINE_INITIAL_GAME"));
   re_copy(a->status, sizeof(a->status), a->net ? "Connecting to workspace…" : "No service connection. Launch with the workspace launcher or --connection FILE."); return a;
 }
+static void register_desktop(ReApp *a) {
+  if (!a->initialized || !a->connected || a->desktop_registered) return;
+  if (re_number(cJSON_GetObjectItemCaseSensitive(a->state, "capabilities"), "desktopActions") != 1) return;
+  cJSON *j = cJSON_CreateObject(), *roots = cJSON_AddArrayToObject(j, "rootIds"), *sessions = cJSON_AddArrayToObject(j, "sessionIds");
+  cJSON_AddStringToObject(j, "type", "desktop-register"); cJSON_AddBoolToObject(j, "canReload", getenv("RENGINE_CAN_RELOAD") != NULL);
+  if (*a->root) cJSON_AddItemToArray(roots, cJSON_CreateString(a->root));
+  for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].used) {
+    ReTab *t = &a->tabs[i];
+    if (*t->root) cJSON_AddItemToArray(roots, cJSON_CreateString(t->root));
+    if (*t->session) cJSON_AddItemToArray(sessions, cJSON_CreateString(t->session));
+  }
+  char *text = cJSON_PrintUnformatted(j); a->desktop_registered = text && re_socket_send(a->events, text); free(text); cJSON_Delete(j);
+}
 void re_app_tick(ReApp *a) {
   ReMessage *m;
   while ((m = re_net_poll(a->net))) { response(a, m); re_message_free(m); }
@@ -212,12 +226,21 @@ void re_app_tick(ReApp *a) {
       }
       for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].terminal) re_terminal_attach(a->tabs[i].terminal);
     }
-    else if (!strcmp(type, "disconnected")) { a->connected = false; re_copy(a->status, sizeof(a->status), "Session connection lost. Reconnecting to retained processes…"); }
+    else if (!strcmp(type, "disconnected")) { a->connected = a->desktop_registered = false; a->desktop_id[0] = 0; re_copy(a->status, sizeof(a->status), "Session connection lost. Reconnecting to retained processes…"); }
+    else if (!strcmp(type, "desktop-registered")) re_copy(a->desktop_id, sizeof(a->desktop_id), re_string(j, "id"));
+    else if (!strcmp(type, "desktop-action")) {
+      bool accepted = !strcmp(re_string(j, "action"), "reload") && !strcmp(re_string(j, "desktopId"), a->desktop_id) && getenv("RENGINE_CAN_RELOAD") && !a->quitting && !a->reload_requested;
+      cJSON *reply = cJSON_CreateObject(); cJSON_AddStringToObject(reply, "type", "desktop-action-result");
+      cJSON_AddStringToObject(reply, "requestId", re_string(j, "requestId")); cJSON_AddBoolToObject(reply, "accepted", accepted);
+      char *text = cJSON_PrintUnformatted(reply); bool sent = text && re_socket_send(a->events, text); free(text); cJSON_Delete(reply);
+      if (accepted && sent) a->reload_requested = true;
+    }
     else if (!strcmp(type, "session")) update_session(a, cJSON_GetObjectItemCaseSensitive(j, "session"));
     else if (!strcmp(type, "error")) re_copy(a->status, sizeof(a->status), re_string(j, "error"));
     for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].terminal) re_terminal_message(a->tabs[i].terminal, j);
     cJSON_Delete(j); re_message_free(m);
   }
+  register_desktop(a);
   Uint64 now = SDL_GetTicks64();
   for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].editor) {
     ReTab *t = &a->tabs[i]; t->dirty = t->saved != re_editor_revision(t->editor);
@@ -260,6 +283,10 @@ cJSON *re_app_inspect(ReApp *a) {
       cJSON_AddNumberToObject(tab, "historyLines", scroll.lines); cJSON_AddNumberToObject(tab, "scrollOffset", scroll.offset);
     }
     if (t->editor) cJSON_AddStringToObject(tab, "mode", re_editor_mode(t->editor));
+    if (t->terminal || t->editor) {
+      cJSON *bars = cJSON_AddArrayToObject(tab, "scrollbars");
+      if (t->terminal) re_terminal_scrollbars(t->terminal, bars); else re_editor_scrollbars(t->editor, bars);
+    }
     if (t->game) { cJSON_AddNumberToObject(tab, "sequence", t->game->sequence); cJSON_AddBoolToObject(tab, "captured", t->game->captured); }
     if (t->data && t->type == RE_TREE) cJSON_AddItemToObject(tab, "tree", cJSON_Duplicate(t->data, 1));
   }

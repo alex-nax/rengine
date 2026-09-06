@@ -5,34 +5,36 @@
       "id": "native-focus-and-detach",
       "kind": "rationale",
       "anchor": {
-        "start": 204,
-        "end": 204,
+        "start": 214,
+        "end": 214,
         "snippet": "bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {"
       },
-      "note": "Pointer focus selects a view without changing its root/session binding. Toolbar focus clears custom editor/terminal/game keyboard routing. Moving a tab keeps its identity. Detaching closes terminal/game display resources but never calls Stop; retained process management belongs to the explicit Sessions controls. Wheel events route to the visible terminal under the latest pointer position and are consumed there, without changing keyboard focus. A focused terminal must not scroll when the pointer is over another view; then leave the event for that view/UI.",
+      "note": "Pointer focus selects a view without changing its root/session binding. Toolbar focus clears custom editor/terminal/game keyboard routing. Moving a tab keeps its identity. Detaching closes terminal/game display resources but never calls Stop; retained process management belongs to explicit Sessions controls. Wheel events route to the visible terminal or editor under the latest pointer position without changing keyboard focus. Lists receive microui wheel input; a focused game receives wheel only over its image view. Focus loss releases custom scrollbar capture before clearing focus.",
       "refs": [
-        "docs/specs/056-native-desktop.md"
+        "docs/specs/056-native-desktop.md",
+        "docs/specs/061-pane-scroll-controls.md"
       ]
     },
     {
       "id": "inspection-control-geometry",
       "kind": "rationale",
       "anchor": {
-        "start": 3,
-        "end": 3,
+        "start": 9,
+        "end": 9,
         "snippet": "static void inspect_control(ReApp *a, mu_Context *ui, const char *role, const char *key, int tab) {"
       },
-      "note": "Only explicit automation allocates the controls array. Record at most 512 clipped visible control rectangles per rendered frame, preserving the actual microui action path and tab/session identity. Production rendering allocates none of this metadata. The test uses ordinary SDL pointer/wheel events to reach controls; it cannot bypass scrolling or call button handlers by name.",
+      "note": "Only explicit automation allocates the controls array. Record at most 512 visible control rectangles per rendered frame, preserving actual microui actions and tab/session identity. Ordinary widgets are clipped to their container. Upstream overflow scrollbar geometry is outside the content clip and is read directly from the container after mu_end_window; do not consult the popped clip stack there. Production rendering allocates none of this metadata. Tests use ordinary SDL pointer/wheel events to reach controls; they cannot bypass scrolling or call button handlers by name.",
       "refs": [
-        "docs/specs/055-launch-command-qualification.md"
+        "docs/specs/055-launch-command-qualification.md",
+        "docs/specs/061-pane-scroll-controls.md"
       ]
     },
     {
       "id": "bounded-tab-strip",
       "kind": "rationale",
       "anchor": {
-        "start": 70,
-        "end": 70,
+        "start": 74,
+        "end": 74,
         "snippet": "static void pane_header(ReApp *a, mu_Context *ui, int n) {"
       },
       "note": "Visible tab slots and previous/next controls fit the measured pane header; only displayed tabs receive hit rectangles. Strip offsets are ephemeral and can browse away from the selected content without retargeting it. Explicit layout changes invalidate the cached width to reveal the selected tab even when pane indices are reused. Drops choose insertion boundaries from visible header midpoints, then adjust for removal when source and destination are the same pane. Root/session identity stays on ReTab.",
@@ -43,7 +45,7 @@
   ],
   "source": {
     "path": "orchestrator/native/workspace.c",
-    "sha256": "eb00b10ee1da7cb62f4879de34e1509daabf0d57c6711d8a27af185c450de018",
+    "sha256": "9163c6a13894cf442e0234c37df6bf07c4b82fb3776857ed5931a1c4cfe5cdbd",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

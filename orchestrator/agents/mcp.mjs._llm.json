@@ -10,11 +10,24 @@
         "snippet": "const scopedState = async () => {"
       },
       "note": "The context is read once at startup. Every tool checks the same sidecar instance and filters to the original root before reading a file or operating on a session. An agent cannot retarget by submitting another root ID or by following later GUI focus changes. Text/log output is bounded; SDK errors preserve failure instead of synthesizing empty success. This binding does not confine the coding CLI\u2019s independent OS tools."
+    },
+    {
+      "id": "explicit-desktop-action",
+      "kind": "rationale",
+      "anchor": {
+        "start": 52,
+        "end": 52,
+        "snippet": "const desktopCapability = state => {"
+      },
+      "note": "Require the original service instance and desktopActions version 1 before discovery or reload. Reload accepts only an explicit listed ID, scoped by the immutable bound root; it does not infer focus or expose arbitrary actions/commands. The result says accepted, not build completion. A retained older service produces a clear upgrade error instead of a hidden replacement that would strand live sessions. Loading service/MCP code is separate from native desktop reload.",
+      "refs": [
+        "docs/specs/062-agent-desktop-actions.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/agents/mcp.mjs",
-    "sha256": "883cbf1450cdf1ff0c287d8015cc9d01f06e8e06f9339cba1ba297bdbcb6cc9a",
+    "sha256": "0af5c1b43c28b37565200cd63981492e2d7c9b9f3e201641460efe7797e5b016",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

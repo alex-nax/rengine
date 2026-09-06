@@ -1,14 +1,18 @@
 #include "app.h"
 
-static void inspect_control(ReApp *a, mu_Context *ui, const char *role, const char *key, int tab) {
+static void inspect_rect(ReApp *a, const char *role, const char *key, int tab, mu_Rect r) {
   if (!a->controls || cJSON_GetArraySize(a->controls) >= 512) return;
+  cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "role", role); cJSON_AddStringToObject(j, "key", key);
+  cJSON_AddNumberToObject(j, "tab", tab); cJSON_AddItemToObject(j, "rect", cJSON_CreateIntArray((int[]){r.x, r.y, r.w, r.h}, 4));
+  cJSON_AddItemToArray(a->controls, j);
+}
+static void inspect_control(ReApp *a, mu_Context *ui, const char *role, const char *key, int tab) {
+  if (!a->controls) return;
   mu_Rect r = ui->last_rect, clip = mu_get_clip_rect(ui);
   int x = re_max(r.x, clip.x), y = re_max(r.y, clip.y);
   int right = re_min(r.x + r.w, clip.x + clip.w), bottom = re_min(r.y + r.h, clip.y + clip.h);
   if (right <= x || bottom <= y) return;
-  cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "role", role); cJSON_AddStringToObject(j, "key", key);
-  cJSON_AddNumberToObject(j, "tab", tab); cJSON_AddItemToObject(j, "rect", cJSON_CreateIntArray((int[]){x, y, right - x, bottom - y}, 4));
-  cJSON_AddItemToArray(a->controls, j);
+  inspect_rect(a, role, key, tab, mu_rect(x, y, right - x, bottom - y));
 }
 static int button(ReApp *a, mu_Context *ui, const char *label, const char *role, const char *key, int tab) {
   int result = mu_button(ui, label); inspect_control(a, ui, role, key, tab); return result;
@@ -183,6 +187,12 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
         t->rect = mu_rect(content.x + 6, content.y + 59, re_max(0, content.w - 12), re_max(0, content.h - 65));
       }
       mu_end_window(ui);
+      if (a->controls && (t->type == RE_TREE || t->type == RE_SESSIONS)) {
+        mu_Container *container = mu_get_container(ui, title);
+        if (container->content_size.y + ui->style->padding * 2 > container->body.h) {
+          inspect_rect(a, "scrollbar", "y", index, mu_rect(container->body.x + container->body.w, container->body.y, ui->style->scrollbar_size, container->body.h));
+        }
+      }
     }
   }
 }
@@ -205,10 +215,16 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
   if (e->type == SDL_MOUSEMOTION) { a->mouse_x = e->motion.x; a->mouse_y = e->motion.y; }
   if (e->type == SDL_MOUSEBUTTONDOWN || e->type == SDL_MOUSEBUTTONUP) { a->mouse_x = e->button.x; a->mouse_y = e->button.y; }
   if (e->type == SDL_MOUSEWHEEL && !a->quitting) {
-    for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].terminal && re_inside(a->tabs[i].rect, a->mouse_x, a->mouse_y)) {
-      re_terminal_event(a->tabs[i].terminal, e); return true;
+    for (int i = 0; i < RE_TABS; i++) if ((a->tabs[i].terminal || a->tabs[i].editor) && re_inside(a->tabs[i].rect, a->mouse_x, a->mouse_y)) {
+      ReTab *t = &a->tabs[i];
+      if (t->terminal) re_terminal_event(t->terminal, e);
+      else re_editor_event(t->editor, e, t->rect, re_draw_cell_width(draw), re_draw_line_height(draw));
+      return true;
     }
-    if (a->focus >= 0 && a->tabs[a->focus].terminal) return false;
+    if (a->focus >= 0 && a->tabs[a->focus].game && re_inside(a->tabs[a->focus].rect, a->mouse_x, a->mouse_y)) {
+      re_game_event(a->tabs[a->focus].game, e); return true;
+    }
+    return false;
   }
   int previous_focus = a->focus;
   if (e->type == SDL_MOUSEBUTTONDOWN && e->button.button == SDL_BUTTON_LEFT) {
@@ -244,7 +260,14 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
     }
     a->drag_tab = a->resize_pane = -1;
   }
-  if (e->type == SDL_WINDOWEVENT && e->window.event == SDL_WINDOWEVENT_FOCUS_LOST) a->focus = -1;
+  if (e->type == SDL_WINDOWEVENT && e->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+    if (a->focus >= 0) {
+      ReTab *t = &a->tabs[a->focus];
+      if (t->terminal) re_terminal_event(t->terminal, e);
+      if (t->editor) re_editor_event(t->editor, e, t->rect, re_draw_cell_width(draw), re_draw_line_height(draw));
+    }
+    a->focus = -1;
+  }
   if (previous_focus >= 0 && previous_focus != a->focus && a->tabs[previous_focus].game) re_game_release(a->tabs[previous_focus].game);
   if (a->focus < 0 || a->quitting) return false;
   ReTab *t = &a->tabs[a->focus];

@@ -9,6 +9,8 @@ struct ReEditor {
   STB_TexteditState state;
   int scroll, horizontal, cw, lh;
   bool vim, insert, dragging; char pending, ignore_text;
+  ReScrollbar vertical, horizontal_bar; float wheel_x, wheel_y;
+  int extent_revision, line_count, longest_line;
 };
 #define KEY_BASE 0x200000
 #define KEY_SHIFT 0x400000
@@ -86,7 +88,7 @@ ReEditor *re_editor_open(const char *text) {
     uint32_t cp = re_utf8(&p); if (cp == '\r') continue;
     if (!insert_chars(e, e->length, &cp, 1)) { re_editor_close(e); return NULL; }
   }
-  e->revision = 0; return e;
+  e->revision = 0; e->extent_revision = -1; return e;
 }
 void re_editor_close(ReEditor *e) { if (e) { free(e->text); free(e); } }
 char *re_editor_text(ReEditor *e) {
@@ -98,6 +100,26 @@ char *re_editor_text(ReEditor *e) {
 int re_editor_revision(const ReEditor *e) { return e->revision; }
 void re_editor_vim(ReEditor *e, bool enabled) { e->vim = enabled; e->insert = !enabled; e->pending = 0; }
 const char *re_editor_mode(const ReEditor *e) { return !e->vim ? "Edit" : e->insert ? "Vim INSERT" : "Vim NORMAL"; }
+void re_editor_scrollbars(ReEditor *e, cJSON *array) { re_scrollbar_inspect(&e->vertical, array); re_scrollbar_inspect(&e->horizontal_bar, array); }
+static mu_Rect viewport(ReEditor *e, mu_Rect r, int cw, int lh) {
+  if (e->extent_revision != e->revision) {
+    e->line_count = 1; e->longest_line = 0; int col = 0;
+    for (int i = 0; i < e->length; i++) {
+      if (e->text[i] == '\n') { e->line_count++; col = 0; }
+      else { col += e->text[i] == '\t' ? 4 : 1; e->longest_line = re_max(e->longest_line, col); }
+    }
+    e->extent_revision = e->revision;
+  }
+  mu_Rect body = r;
+  bool vertical = e->line_count > re_max(1, body.h / lh);
+  bool horizontal = e->longest_line + 1 > re_max(1, (body.w - (vertical ? RE_SCROLLBAR_SIZE : 0)) / cw);
+  if (horizontal) body.h = re_max(0, body.h - RE_SCROLLBAR_SIZE);
+  vertical = e->line_count > re_max(1, body.h / lh);
+  if (vertical) body.w = re_max(0, body.w - RE_SCROLLBAR_SIZE);
+  re_scrollbar_set(&e->vertical, mu_rect(body.x + body.w, body.y, vertical ? RE_SCROLLBAR_SIZE : 0, body.h), e->line_count, re_max(1, body.h / lh), e->scroll, false);
+  re_scrollbar_set(&e->horizontal_bar, mu_rect(body.x, body.y + body.h, body.w, horizontal ? RE_SCROLLBAR_SIZE : 0), e->longest_line + 1, re_max(1, body.w / cw), e->horizontal, true);
+  e->scroll = e->vertical.value; e->horizontal = e->horizontal_bar.value; return body;
+}
 static void key(ReEditor *e, int k) { stb_textedit_key(e, &e->state, k); }
 static void follow_cursor(ReEditor *e, int rows, int cols) {
   int row = 0, column = 0;
@@ -132,7 +154,14 @@ static void vim_key(ReEditor *e, SDL_Keycode k) {
 }
 void re_editor_event(ReEditor *e, const SDL_Event *event, mu_Rect r, int cw, int lh) {
   e->cw = cw; e->lh = lh; e->state.row_count_per_page = re_max(1, r.h / lh - 1);
-  if (event->type == SDL_MOUSEWHEEL) { e->scroll = re_max(0, e->scroll - event->wheel.y * 3); return; }
+  r = viewport(e, r, cw, lh);
+  if (re_scrollbar_event(&e->vertical, event)) { e->scroll = e->vertical.value; return; }
+  if (re_scrollbar_event(&e->horizontal_bar, event)) { e->horizontal = e->horizontal_bar.value; return; }
+  if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_FOCUS_LOST) { e->dragging = false; return; }
+  if (event->type == SDL_MOUSEWHEEL) {
+    e->scroll = re_max(0, re_min(e->vertical.maximum, e->scroll - re_wheel_steps(&e->wheel_y, &event->wheel, false, 3)));
+    e->horizontal = re_max(0, re_min(e->horizontal_bar.maximum, e->horizontal + re_wheel_steps(&e->wheel_x, &event->wheel, true, 3))); return;
+  }
   if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
     e->dragging = true;
     stb_textedit_click(e, &e->state, (float)(event->button.x - r.x + e->horizontal * cw), (float)(event->button.y - r.y + e->scroll * lh)); return;
@@ -180,6 +209,7 @@ void re_editor_event(ReEditor *e, const SDL_Event *event, mu_Rect r, int cw, int
 }
 void re_editor_draw(ReEditor *e, ReDraw *draw, mu_Rect r, bool focused) {
   e->cw = re_draw_cell_width(draw); e->lh = re_draw_line_height(draw);
+  r = viewport(e, r, e->cw, e->lh);
   re_draw_clip(draw, &r); re_draw_rect(draw, r, mu_color(20, 24, 30, 255));
   int row = 0, col = 0, selection_a = re_min(e->state.select_start, e->state.select_end), selection_b = re_max(e->state.select_start, e->state.select_end);
   for (int i = 0; i <= e->length; i++) {
@@ -193,4 +223,5 @@ void re_editor_draw(ReEditor *e, ReDraw *draw, mu_Rect r, bool focused) {
     if (i < e->length && e->text[i] == '\n') { row++; col = 0; } else col += i < e->length && e->text[i] == '\t' ? 4 : 1;
   }
   re_draw_clip(draw, NULL);
+  re_scrollbar_draw(&e->vertical, draw); re_scrollbar_draw(&e->horizontal_bar, draw);
 }

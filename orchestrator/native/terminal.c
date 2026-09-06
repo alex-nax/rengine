@@ -10,6 +10,7 @@ struct ReTerminal {
   int cols, rows, sequence; bool attached, presented, waiting_for_view;
   HistoryLine *history[RE_HISTORY_LINES]; int first, count, offset; size_t history_bytes;
   float wheel; bool alternate, cursor_visible;
+  ReScrollbar scrollbar;
 };
 static size_t line_bytes(int cols) { return sizeof(HistoryLine) + (size_t)cols * sizeof(VTermScreenCell); }
 static void blank_cell(ReTerminal *t, VTermScreenCell *cell) {
@@ -85,6 +86,7 @@ ReTerminal *re_terminal_open(ReSocket *socket, const char *id, int cols, int row
 void re_terminal_close(ReTerminal *t) { if (t) { history_clear(t); vterm_free(t->vt); free(t); } }
 bool re_terminal_ready(ReTerminal *t) { return t && t->attached; }
 ReTerminalScroll re_terminal_scroll_state(ReTerminal *t) { return (ReTerminalScroll){t->count, t->offset, t->history_bytes}; }
+void re_terminal_scrollbars(ReTerminal *t, cJSON *array) { re_scrollbar_inspect(&t->scrollbar, array); }
 void re_terminal_attach(ReTerminal *t) {
   t->attached = t->presented = false;
   cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "type", "attach"); send(t, j);
@@ -116,12 +118,10 @@ void re_terminal_message(ReTerminal *t, const cJSON *j) {
 }
 void re_terminal_event(ReTerminal *t, const SDL_Event *e) {
   if (!t) return;
+  if (re_scrollbar_event(&t->scrollbar, e)) { t->offset = re_max(0, t->count - t->scrollbar.value); t->wheel = 0; return; }
   if (e->type == SDL_MOUSEWHEEL) {
     if (t->alternate) return;
-    float amount = e->wheel.preciseY ? e->wheel.preciseY : (float)e->wheel.y;
-    if (e->wheel.direction == SDL_MOUSEWHEEL_FLIPPED) amount = -amount;
-    t->wheel += (amount < -1000 ? -1000 : amount > 1000 ? 1000 : amount) * 3;
-    int lines = (int)t->wheel; t->wheel -= lines;
+    int lines = re_wheel_steps(&t->wheel, &e->wheel, false, 3);
     t->offset = re_max(0, re_min(t->count, t->offset + lines)); return;
   }
   if (e->type == SDL_KEYDOWN && (e->key.keysym.mod & KMOD_SHIFT)) {
@@ -170,9 +170,12 @@ void re_terminal_event(ReTerminal *t, const SDL_Event *e) {
   }
 }
 void re_terminal_draw(ReTerminal *t, ReDraw *draw, mu_Rect r, bool focused) {
+  mu_Rect track = mu_rect(r.x + re_max(0, r.w - RE_SCROLLBAR_SIZE), r.y, RE_SCROLLBAR_SIZE, r.h);
+  r.w = re_max(0, r.w - RE_SCROLLBAR_SIZE);
   int cw = re_draw_cell_width(draw), lh = re_draw_line_height(draw);
   int cols = re_max(2, re_min(500, r.w / cw)), rows = re_max(2, re_min(300, r.h / lh));
   if (t->attached && (cols != t->cols || rows != t->rows)) resize(t, cols, rows);
+  re_scrollbar_set(&t->scrollbar, track, t->rows + (t->alternate ? 0 : t->count), t->rows, t->count - t->offset, false);
   re_draw_clip(draw, &r);
   for (int row = 0; row < t->rows; row++) for (int col = 0; col < t->cols; col++) {
     VTermScreenCell cell;
@@ -200,6 +203,7 @@ void re_terminal_draw(ReTerminal *t, ReDraw *draw, mu_Rect r, bool focused) {
     re_draw_text(draw, label, -1, r.x + r.w - width, r.y + r.h - lh, mu_color(210, 224, 233, 255));
   }
   re_draw_clip(draw, NULL);
+  re_scrollbar_draw(&t->scrollbar, draw);
 }
 char *re_terminal_text(ReTerminal *t) {
   size_t capacity = (size_t)t->rows * ((size_t)t->cols * VTERM_MAX_CHARS_PER_CELL * 4 + 1) + 1;

@@ -53,6 +53,11 @@ The initial native Vim subset and current limits are in the [native desktop spec
 **Cmd/Ctrl+Shift+R** flushes drafts/layout, rebuilds the C desktop and reconnects to the same
 running sessions. A build failure leaves those sessions retained; rerun the launch command after
 fixing it. Reload covers the desktop; it does not replace a running service or coding agent.
+Agents can call **list_desktops**, then **reload_desktop** with an explicit returned ID to run
+the same routine through the root-bound MCP connector. The response confirms acceptance; list
+again after rebuilding to observe the replacement desktop. This needs a service advertising
+`desktopActions: 1` and the updated connector. Existing retained services need a separate explicit
+upgrade; native reload keeps them running. See [agent desktop actions](docs/specs/062-agent-desktop-actions.md).
 
 Terminal output waits for space in bounded receive queues. A dropped session stream reports
 the loss and reconnects to the same retained processes; disconnected keystrokes are discarded.
@@ -63,7 +68,11 @@ Scroll over a terminal or agent pane with the mouse/trackpad. **Shift+PageUp/Pag
 history; **Shift+Home/End** jump to oldest/live output. New output preserves your reading position;
 typing returns to the live prompt. Each view retains up to 2,000 rows/8 MiB, rebuilt from the
 sidecar's bounded output after reload. Full-screen alternate applications retain their own screen.
-See [terminal scrollback](docs/specs/060-native-terminal-scrollback.md) for current limits.
+Scrolling follows the system trackpad direction. Terminal history has a draggable vertical bar;
+editors show vertical/horizontal bars when needed, and overflowing trees/session lists retain
+microui bars. Drag the thumb or click a custom bar track to page. Wheel input follows the hovered
+pane without changing keyboard focus. See [pane scroll controls](docs/specs/061-pane-scroll-controls.md)
+and [terminal scrollback](docs/specs/060-native-terminal-scrollback.md) for current limits.
 
 To resume a specific Codex conversation inside an agent pane, use
 `npm start -- --handoff /path/to/handoff.json`. The version-1 manifest contains `project`

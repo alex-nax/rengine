@@ -5,8 +5,8 @@
       "id": "draft-save-ordering",
       "kind": "rationale",
       "anchor": {
-        "start": 23,
-        "end": 23,
+        "start": 24,
+        "end": 24,
         "snippet": "static void checkpoint(ReApp *a, int tab) {"
       },
       "note": "Drafts and saves go through the same FIFO HTTP worker. Do not checkpoint with a stale base version while Save is in flight. A save acknowledgement updates the baseline without dropping later edits; Discard blocks editing until the replacement file arrives. Closing views retains editor buffers/drafts, and normal GUI exit waits for persistence requests. Native layout stores historical layout data without loading the retired browser renderer.",
@@ -31,8 +31,8 @@
       "id": "show-resumed-agent",
       "kind": "rationale",
       "anchor": {
-        "start": 146,
-        "end": 146,
+        "start": 147,
+        "end": 147,
         "snippet": "  if (getenv(\"RENGINE_RESUME_AGENT\")) cJSON_ArrayForEach(session, sessions) {"
       },
       "note": "The handoff launcher selects its explicit initial agent after restoring other initial views so the pending bootstrap has visible native content and can cross the readiness gate. Root/session identities remain immutable. A reload of an already running agent selects that same retained view; it sends no continuation prompt.",
@@ -44,19 +44,32 @@
       "id": "reattach-retained-streams",
       "kind": "rationale",
       "anchor": {
-        "start": 207,
-        "end": 207,
+        "start": 221,
+        "end": 221,
         "snippet": "if (!strcmp(type, \"connected\")) {"
       },
       "note": "Process at most 128 stream messages per tick so continuous output yields to SDL input and rendering. On connection, refresh initialized workspace state and attach existing terminal IDs without creating sessions or repeating a handoff prompt. Local editor buffers, layout and immutable root/session bindings survive this recovery. Inspection reports each terminal attachment separately: a retained old screen plus a live socket is not proof that a fresh snapshot arrived. Terminal text inspection follows the currently drawn viewport, with historyLines and scrollOffset for native acceptance checks.",
       "refs": [
         "docs/specs/059-native-terminal-recovery.md"
       ]
+    },
+    {
+      "id": "desktop-action-registration",
+      "kind": "rationale",
+      "anchor": {
+        "start": 203,
+        "end": 203,
+        "snippet": "static void register_desktop(ReApp *a) {"
+      },
+      "note": "Register the current project and retained view bindings only when the same connected service advertises desktopActions version 1. Layout changes refresh these bindings; disconnect clears the ephemeral desktop ID so reconnection registers a new target. Older services receive no unsupported registration. Accept reload only for the assigned ID, reload-capable launcher and non-closing view; enqueue acknowledgement before setting reload_requested. This signals routine acceptance, not persistence/build completion. The native view never replaces its service, launches a CLI, or owns retained processes.",
+      "refs": [
+        "docs/specs/062-agent-desktop-actions.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/app.c",
-    "sha256": "30a62304fa48e0a7a89cc8034d14415ddb4e28bfd40447990b2dbba655d9b76f",
+    "sha256": "4cd81beec778a51773d415ce94e2141ba5c16cf40607c12509ad87198cfe5137",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

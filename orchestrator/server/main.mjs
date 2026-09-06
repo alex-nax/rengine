@@ -9,6 +9,7 @@ import { WorkspaceStore, fail } from './store.mjs';
 import { Sessions } from './sessions.mjs';
 import { Games } from './games.mjs';
 import { readImage } from './images.mjs';
+import { Desktops } from './desktops.mjs';
 
 const authorized = (value, token) => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value) && timingSafeEqual(Buffer.from(value), Buffer.from(token));
 
@@ -25,10 +26,12 @@ function json(response, status, value) {
   response.end(JSON.stringify(value));
 }
 
+// Loopback authentication is required — see sidecar: local-session-capability.
 export async function startServer({ stateDir, port = 0 } = {}) {
   if (!stateDir) fail('The sidecar requires an explicit state directory.');
   const store = await WorkspaceStore.open(stateDir);
   const sessions = new Sessions(store);
+  const desktops = new Desktops(store, sessions);
   const games = await Games.open(store, sessions);
   const token = randomBytes(32).toString('hex');
   const instance = randomUUID();
@@ -44,7 +47,7 @@ export async function startServer({ stateDir, port = 0 } = {}) {
         let value;
         if (request.method === 'GET') {
           switch (target.pathname) {
-            case '/api/state': value = { instance, capabilities: { handoff: 1 }, roots: store.state.roots, layout: store.state.layout, preferences: store.state.preferences,
+            case '/api/state': value = { instance, capabilities: { handoff: 1, desktopActions: 1 }, roots: store.state.roots, layout: store.state.layout, preferences: store.state.preferences,
               drafts: Object.values(store.state.drafts).map(({ rootId, path, updatedAt }) => ({ rootId, path, updatedAt })), sessions: sessions.list() }; break;
             case '/api/tree': value = await store.list(query.get('rootId'), query.get('path') ?? '', query.get('hidden') === 'true'); break;
             case '/api/file': value = await store.readText(query.get('rootId'), query.get('path')); break;
@@ -55,6 +58,7 @@ export async function startServer({ stateDir, port = 0 } = {}) {
               response.end(image.bytes); return;
             }
             case '/api/session': value = sessions.snapshot(query.get('id'), true); break;
+            case '/api/desktops': value = { desktops: desktops.list(query.get('rootId')) }; break;
             case '/api/game-config': value = await games.inspect(query.get('rootId')); break;
             default: fail('Unknown workspace endpoint.', 404);
           }
@@ -75,6 +79,9 @@ export async function startServer({ stateDir, port = 0 } = {}) {
             case '/api/input': sessions.input(data.id, data.data); value = { ok: true }; break;
             case '/api/resize': sessions.resize(data.id, data.cols, data.rows); value = { ok: true }; break;
             case '/api/stop': value = await sessions.stop(data.id); break;
+            case '/api/desktop-action':
+              if (data.action !== 'reload') fail('Unknown desktop action.');
+              value = await desktops.reload(data.rootId, data.desktopId); break;
             default: fail('Unknown workspace endpoint.', 404);
           }
         } else fail('Method not supported.', 405);
@@ -113,6 +120,8 @@ export async function startServer({ stateDir, port = 0 } = {}) {
           if (!attached.has(data.id)) fail('Attach the session before presenting it.');
           await sessions.presented(data.id);
         }
+        else if (data.type === 'desktop-register') desktops.register(ws, data);
+        else if (data.type === 'desktop-action-result') desktops.acknowledge(ws, data);
         else if (data.type === 'input') sessions.input(data.id, data.data);
         else if (data.type === 'resize') sessions.resize(data.id, data.cols, data.rows);
         else fail('Unknown session message.');
