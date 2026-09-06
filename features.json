@@ -826,6 +826,50 @@
         "vtmb-vr F1147 (the consumer's own surface-protocol client, src/platform/workspace_surface.cpp)"
       ],
       "evidence": []
+    },
+    {
+      "id": 78,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "Add a task-tracking view with a declared backend: the local git inventory by default, GitHub Issues or Linear where a project declares one.",
+      "acceptance_criteria": [
+        "A project declares its tracker in contract 5; a tracker block under an earlier contract is refused by name and required version rather than as an unknown key, and the declaration carries no credential field at all.",
+        "With no declaration and a features.json present, the view lists every row with the state the local tool reports, and a row whose dependency is unmet reads blocked.",
+        "A declared GitHub or Linear tracker lists its issues read-only with an open-in-browser action, using a credential read from the workspace state directory and never from the project file.",
+        "A remote tracker renders from cache with an explicit staleness indicator when the network is unavailable, refreshes on demand, and never blocks the frame.",
+        "Every existing desktop behaviour gate still passes on the GPU backend."
+      ],
+      "passes": false,
+      "dependencies": [
+        71
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/083-task-tracking.md, contracts/project-v1.schema.json, orchestrator/server/tracker*.mjs, orchestrator/native/tracker.c, and their tests",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 79,
+      "milestone": "O1",
+      "category": "design",
+      "priority": "medium",
+      "description": "Let a project name the workspace: a declared display title and glyph logo in the chrome and the window title, with rEdit as the default.",
+      "acceptance_criteria": [
+        "The default title is rEdit in both the chrome and the operating system window title, and a project declaring neither key is unchanged apart from that word.",
+        "A project declaring a title and a glyph with a design token name shows both in the chrome and in the window title; the token resolves against the live theme preset and accent hue.",
+        "Identity comes from the window's primary root: binding a second root and focusing a tab in it does not change the chrome.",
+        "A token name that does not resolve, or a glyph longer than the chip allows, is refused at declaration time naming the offending value.",
+        "The trailing-cell fixture still measures the same right edge."
+      ],
+      "passes": false,
+      "dependencies": [
+        60
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/084-project-identity.md, contracts/project-v1.schema.json, orchestrator/native/workspace.c and main.c, and their tests",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }

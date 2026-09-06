@@ -1,5 +1,48 @@
 # Progress Log
 
+## Session 35 (macos) — 2026-09-07 — Two chords the shell wanted back, and two specs
+
+The key sweep I commissioned to check F-keys and Tab found those were fine and found something
+worse. The pane shortcuts I added yesterday gate on either modifier, so on macOS Ctrl+W, Ctrl+\\ and
+Ctrl+Backspace all ran a workspace command instead of reaching the shell — delete-word, SIGQUIT and
+delete-word again, three of the most-used chords in any terminal, while the menu promised Cmd. The
+gate is now the platform's own modifier, which also makes the printed hints true. The conflict
+remains on Windows and Linux where Ctrl is genuinely both, and that needs a chord decision rather
+than a code change.
+
+The same sweep found keys falling through underneath an open menu: a right press opens the pane menu
+but only Escape and pointer events were intercepted, so every other keystroke landed in the still
+focused terminal and typed into the live shell under a visibly modal surface.
+
+My first fix for that was wrong in a way worth recording. I cleared pane focus when a surface opened,
+which reads correctly and is in the wrong place: focus is released by bookkeeping that only runs in
+the event handler, and changing it from the interface build skips that. It cost the dashboard suite a
+test that passed in isolation and failed twice in the full run. I attributed it by bisection rather
+than by argument — baseline clean, both edits failing, modifier-only clean — and the honest summary
+is that the focus edit caused it while the mechanism is inferred rather than proven. The surface now
+takes keyboard events in the event path instead, which is also what the popover's own text field
+needs, and the suite is clean at 33.
+
+Both fixes carry a regression verified against its own claim, per the work protocol: the chord test
+fails with the old gate because Ctrl+W never arrives as 0x17, and the menu test fails without the
+interception showing the typed letters in the shell's own echo.
+
+Also recorded two specs from an owner interview, both landing on one contract bump so a project
+raises its contract once rather than twice. Spec 083 is task tracking with a declared backend, read
+only, one backend per project, credentials beside the workspace state and never in the committed
+declaration. The research behind it corrected a prior of mine: dependencies map cleanly onto both
+GitHub and Linear, while the awkward fields are the numeric id, `passes` and acceptance criteria,
+which have no structured home on either. Spec 084 is project identity: rEdit as the default name, a
+declared title and glyph from the window's primary root, and a logo colour named as a design token so
+contrast stays a property of the design system. Charter D35 and D36.
+
+Commands: `npm test` 77/77, `npm run test:desktop` 33/33, `ctest` 6/6, `python3 tools/design.py
+check`, `python3 tools/features.py validate` at 39 features, `./init.sh`.
+
+Remaining: F78 and F79 are specified and unimplemented. F69 and the KI-038 Windows repair still
+block F37, F54, F62, F67 and F73. The charter has a pre-existing duplicate D32 on two unrelated rows,
+left alone rather than renumbered, since other documents cite these numbers.
+
 ## Session 35 (macos) — 2026-09-06 — Escape reaches the game
 
 The owner approved the recommendation, so Escape now frees the pointer and reaches an embedded game
