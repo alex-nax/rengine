@@ -136,17 +136,48 @@ static void pane_header(ReApp *a, mu_Context *ui, int n) {
     mu_pop_id(ui); if (closed) break;
   }
 }
+/* Several declared games open a menu below the toolbar; a game whose preflight failed is a disabled label naming its first issue. */
+static void games_menu(ReApp *a, mu_Context *ui, bool open_before) {
+  const cJSON *games = re_app_games(a, a->menu_root), *game = NULL;
+  if (!games) { a->menu_root[0] = 0; a->menu_rect = mu_rect(0, 0, 0, 0); return; }
+  int rows = cJSON_GetArraySize(games);
+  int height = 2 * RE_METRIC_MICROUI_PADDING + rows * RE_METRIC_TOOLBAR_ROW_HEIGHT + (rows - 1) * RE_METRIC_MICROUI_SPACING;
+  a->menu_rect = mu_rect(a->menu_x, RE_METRIC_TOOLBAR_HEIGHT + RE_METRIC_TOOLBAR_GAMES_MENU_INSET, RE_METRIC_TOOLBAR_GAMES_MENU_WIDTH, height);
+  mu_Container *container = mu_get_container(ui, "Games menu");
+  container->rect = a->menu_rect; container->open = 1;
+  if (a->menu_raise) { mu_bring_to_front(ui, container); a->menu_raise = false; }
+  if (!mu_begin_window_ex(ui, "Games menu", a->menu_rect, MU_OPT_NOTITLE | MU_OPT_NORESIZE | MU_OPT_NOCLOSE | MU_OPT_NOSCROLL)) return;
+  char chosen[65] = {0};
+  cJSON_ArrayForEach(game, games) {
+    const char *id = re_string(game, "id"); char label[1024];
+    bool ready = re_app_game_entry(a, a->menu_root, game, label, sizeof(label));
+    mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_TOOLBAR_ROW_HEIGHT);
+    mu_push_id(ui, id, (int)strlen(id));
+    if (!ready) { mu_label(ui, label); re_app_control(a, ui, "game-unavailable", id, -1); }
+    else {
+      if (mu_button_ex(ui, label, 0, 0)) re_copy(chosen, sizeof(chosen), id);
+      re_app_control(a, ui, "game", id, -1);
+    }
+    mu_pop_id(ui);
+  }
+  bool dismissed = open_before && ui->mouse_pressed && ui->hover_root != container;
+  mu_end_window(ui);
+  if (*chosen) re_app_launch_game(a, a->menu_root, chosen);
+  if (*chosen || dismissed) { a->menu_root[0] = 0; a->menu_rect = mu_rect(0, 0, 0, 0); container->open = 0; }
+}
 void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
   if (a->controls) { cJSON_Delete(a->controls); a->controls = cJSON_CreateArray(); }
+  bool menu_open_before = a->menu_root[0] != 0;
   int opts = MU_OPT_NOTITLE | MU_OPT_NORESIZE | MU_OPT_NOCLOSE | MU_OPT_NOSCROLL;
   mu_get_container(ui, "Toolbar")->rect = mu_rect(0, 0, width, RE_METRIC_TOOLBAR_HEIGHT);
   if (mu_begin_window_ex(ui, "Toolbar", mu_rect(0, 0, width, RE_METRIC_TOOLBAR_HEIGHT), opts)) {
-    const cJSON *game = re_app_game(a, a->root); /* the game column exists only while the bound root declares a game */
+    const cJSON *games = re_app_games(a, a->root); /* the game column exists only while the bound root declares games */
+    int declared = games ? cJSON_GetArraySize(games) : 0;
     int widths[] = {RE_METRIC_TOOLBAR_BRAND_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH, RE_METRIC_TOOLBAR_DASHBOARD_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH,
       RE_METRIC_TOOLBAR_MANAGE_WIDTH, RE_METRIC_TOOLBAR_SESSIONS_WIDTH, RE_METRIC_TOOLBAR_SPLIT_VERTICAL_WIDTH, RE_METRIC_TOOLBAR_SPLIT_HORIZONTAL_WIDTH,
       RE_METRIC_TOOLBAR_MERGE_WIDTH, RE_METRIC_TOOLBAR_GAME_WIDTH, -1};
     int columns = RE_ARRAY_SIZE(widths);
-    if (!game) { widths[columns - 2] = -1; columns--; }
+    if (!declared) { widths[columns - 2] = -1; columns--; }
     mu_layout_row(ui, columns, widths, RE_METRIC_TOOLBAR_ROW_HEIGHT);
     mu_label(ui, "rEngine");
     if (button(a, ui, "Tree", "toolbar", "Tree", -1)) { if (*a->root) re_app_tab(a, RE_TREE, a->root, "", "", "Project"); }
@@ -161,8 +192,17 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
       if (re_layout_collapse(&a->layout, a->layout.active) >= 0) { a->focus = -1; re_app_layout_changed(a); }
       else re_copy(a->status, sizeof(a->status), "This is already the only pane.");
     }
-    if (game && button(a, ui, re_string(game, "title"), "toolbar", re_string(game, "title"), -1)) {
-      cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "rootId", a->root); re_app_action(a, "game", j); cJSON_Delete(j);
+    if (declared == 1) {
+      const char *title = re_string(cJSON_GetArrayItem(games, 0), "title");
+      if (button(a, ui, title, "toolbar", title, -1)) re_app_launch_game(a, a->root, re_string(cJSON_GetArrayItem(games, 0), "id"));
+    } else if (declared > 1) {
+      bool toggled = button(a, ui, "Games", "toolbar", "Games", -1);
+      a->menu_x = re_max(0, re_min(ui->last_rect.x, width - RE_METRIC_TOOLBAR_GAMES_MENU_WIDTH)); /* the menu stays inside the window */
+      if (toggled) {
+        bool open = strcmp(a->menu_root, a->root) != 0;
+        re_copy(a->menu_root, sizeof(a->menu_root), open ? a->root : "");
+        if (open) { a->menu_raise = true; re_app_games_probe(a, a->root, true); }
+      }
     }
     int vim = a->vim;
     if (mu_checkbox(ui, "Vim", &vim)) {
@@ -184,6 +224,7 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
     mu_label(ui, "Agent CLI"); mu_textbox(ui, a->agent, sizeof(a->agent));
     mu_end_window(ui);
   }
+  if (*a->menu_root && strcmp(a->menu_root, a->root)) a->menu_root[0] = 0; /* the menu belongs to the bound root */
   re_layout_measure(&a->layout, mu_rect(0, RE_METRIC_WORKSPACE_TOP, width, height - RE_METRIC_WORKSPACE_TOP - RE_METRIC_WORKSPACE_STATUS_HEIGHT));
   for (int i = 0; i < RE_TABS; i++) { a->tabs[i].rect = mu_rect(0, 0, 0, 0); a->tabs[i].header = mu_rect(0, 0, 0, 0); }
   for (int n = 0; n < RE_PANES; n++) {
@@ -233,6 +274,7 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
       }
     }
   }
+  if (*a->menu_root) games_menu(a, ui, menu_open_before); else a->menu_rect = mu_rect(0, 0, 0, 0);
 }
 void re_app_draw(ReApp *a, ReDraw *draw) {
   for (int i = 0; i < RE_TABS; i++) {
@@ -251,9 +293,14 @@ void re_app_draw(ReApp *a, ReDraw *draw) {
     re_draw_rect(draw, a->layout.panes[n].divider, RE_COLOR_DIVIDER);
   if (a->scene) re_scene_draw(a->scene, draw);
 }
+static bool pointer_event(const SDL_Event *e) {
+  return e->type == SDL_MOUSEMOTION || e->type == SDL_MOUSEBUTTONDOWN || e->type == SDL_MOUSEBUTTONUP || e->type == SDL_MOUSEWHEEL;
+}
 bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
   if (e->type == SDL_MOUSEMOTION) { a->mouse_x = e->motion.x; a->mouse_y = e->motion.y; }
   if (e->type == SDL_MOUSEBUTTONDOWN || e->type == SDL_MOUSEBUTTONUP) { a->mouse_x = e->button.x; a->mouse_y = e->button.y; }
+  /* An open games menu owns its own rectangle; the view underneath never sees those clicks. */
+  if (*a->menu_root && pointer_event(e) && re_inside(a->menu_rect, a->mouse_x, a->mouse_y)) return false;
   if (e->type == SDL_MOUSEWHEEL && !a->quitting) {
     for (int i = 0; i < RE_TABS; i++) if ((a->tabs[i].terminal || a->tabs[i].editor || a->tabs[i].format) && re_inside(a->tabs[i].rect, a->mouse_x, a->mouse_y)) {
       ReTab *t = &a->tabs[i];

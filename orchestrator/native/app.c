@@ -1,6 +1,6 @@
 #include "app.h"
 
-enum { OP_STATE = 1, OP_LOAD, OP_SAVE, OP_DRAFT, OP_DISCARD, OP_CREATE, OP_ROOT, OP_GENERIC, OP_LAYOUT, OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_BYTES, OP_PREVIEW, OP_ENTRY };
+enum { OP_STATE = 1, OP_LOAD, OP_SAVE, OP_DRAFT, OP_DISCARD, OP_CREATE, OP_ROOT, OP_GENERIC, OP_LAYOUT, OP_FORMATS, OP_DASHBOARD, OP_GAME_CONFIG, OP_CAPTURE, OP_BYTES, OP_PREVIEW, OP_ENTRY };
 static int request_within(ReApp *a, int operation, int tab, const char *route, const cJSON *body, long timeout) {
   char scoped[160]; const char *window = getenv("RENGINE_WINDOW_ID");
   if (window && *window && (!strcmp(route, "state") || !strcmp(route, "layout"))) {
@@ -10,7 +10,7 @@ static int request_within(ReApp *a, int operation, int tab, const char *route, c
     int id = re_net_request_within(a->net, route, body, timeout);
     if (!id) break;
     a->pending[i] = (RePending){id, operation, tab, tab >= 0 ? a->tabs[tab].generation : 0,
-      tab >= 0 && a->tabs[tab].editor ? re_editor_revision(a->tabs[tab].editor) : 0, "", timeout};
+      tab >= 0 && a->tabs[tab].editor ? re_editor_revision(a->tabs[tab].editor) : 0, "", "", timeout};
     if (operation >= OP_BYTES && tab >= 0) a->pending[i].revision = re_format_mode(a->tabs[tab].format);
     if (tab >= 0) re_copy(a->pending[i].root, sizeof(a->pending[i].root), a->tabs[tab].root);
     return id;
@@ -94,9 +94,47 @@ void re_app_reveal(ReApp *a, const char *root, const char *artifact) {
   else { a->layout.active = pane; for (int k = 0; k < a->layout.panes[pane].count; k++) if (a->layout.panes[pane].tabs[k] == tab) a->layout.panes[pane].selected = k; }
   snprintf(a->status, sizeof(a->status), "Revealed %s in the project tree.", artifact); re_app_layout_changed(a);
 }
-const cJSON *re_app_game(ReApp *a, const char *root) {
-  const cJSON *known = formats_for(a, root), *game = known ? cJSON_GetObjectItemCaseSensitive(known, "game") : NULL;
-  return cJSON_IsObject(game) && *re_string(game, "title") ? game : NULL;
+const cJSON *re_app_games(ReApp *a, const char *root) {
+  const cJSON *known = formats_for(a, root), *games = known ? cJSON_GetObjectItemCaseSensitive(known, "games") : NULL;
+  return cJSON_IsArray(games) && cJSON_GetArraySize(games) > 0 ? games : NULL;
+}
+static void game_key(char *out, size_t size, const char *root, const char *id) { snprintf(out, size, "%s\n%s", root, id); }
+static void probe_game(ReApp *a, const char *root, const char *id) {
+  char key[144]; game_key(key, sizeof(key), root, id);
+  if (cJSON_HasObjectItem(a->game_configs, key)) return;
+  char route[512]; snprintf(route, sizeof(route), "game-config?rootId=%s&gameId=%s", root, id);
+  int request_id = request(a, OP_GAME_CONFIG, -1, route, NULL);
+  if (!request_id) return;
+  for (int i = 0; i < RE_ARRAY_SIZE(a->pending); i++) if (a->pending[i].id == request_id) {
+    re_copy(a->pending[i].root, sizeof(a->pending[i].root), root); re_copy(a->pending[i].game, sizeof(a->pending[i].game), id);
+  }
+  cJSON_AddItemToObject(a->game_configs, key, cJSON_CreateNull());
+}
+void re_app_games_probe(ReApp *a, const char *root, bool refresh) {
+  const cJSON *games = re_app_games(a, root), *game = NULL;
+  if (!games || cJSON_GetArraySize(games) < 2) return; /* one declared game is a plain button; only the menu shows readiness */
+  cJSON_ArrayForEach(game, games) {
+    const char *id = re_string(game, "id"); if (!*id) continue;
+    char key[144]; game_key(key, sizeof(key), root, id);
+    if (refresh) cJSON_DeleteItemFromObject(a->game_configs, key);
+    probe_game(a, root, id);
+  }
+}
+/* The row a games-menu entry renders; the same text is exposed for automation. */
+bool re_app_game_entry(ReApp *a, const char *root, const cJSON *game, char *label, size_t size) {
+  char key[144]; game_key(key, sizeof(key), root, re_string(game, "id"));
+  const cJSON *config = cJSON_GetObjectItemCaseSensitive(a->game_configs, key);
+  const char *title = re_string(game, "title");
+  if (!cJSON_IsObject(config)) { snprintf(label, size, "%s — checking…", title); return false; }
+  if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(config, "ready"))) { re_copy(label, size, title); return true; }
+  const cJSON *issue = cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(config, "issues"), 0);
+  snprintf(label, size, "%s — unavailable: %s", title, cJSON_IsString(issue) ? issue->valuestring : "the preflight failed");
+  return false;
+}
+void re_app_launch_game(ReApp *a, const char *root, const char *id) {
+  cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "rootId", root);
+  if (id && *id) cJSON_AddStringToObject(j, "gameId", id);
+  re_app_action(a, "game", j); cJSON_Delete(j);
 }
 bool re_app_external_session(ReApp *a, const char *id) {
   const cJSON *session = NULL;
@@ -274,7 +312,8 @@ static void formats_loaded(ReApp *a, const cJSON *j) {
   const char *root = re_string(j, "rootId"); if (!*root) return;
   cJSON_DeleteItemFromObject(a->formats, root); cJSON_AddItemToObject(a->formats, root, cJSON_Duplicate(j, 1));
   if (*re_string(j, "error")) re_copy(a->status, sizeof(a->status), re_string(j, "error"));
-  else if (*re_string(j, "gameError")) re_copy(a->status, sizeof(a->status), re_string(j, "gameError"));
+  else if (*re_string(j, "gamesError")) re_copy(a->status, sizeof(a->status), re_string(j, "gamesError"));
+  re_app_games_probe(a, root, true);
   for (int i = 0; i < RE_TABS; i++) {
     ReTab *t = &a->tabs[i];
     if (t->used && t->type == RE_EDITOR && t->format && (re_format_mode(t->format) == RE_MODE_PENDING || re_format_awaiting(t->format)) && !strcmp(t->root, root)) re_app_load(a, i);
@@ -288,6 +327,11 @@ static void dashboard_probed(ReApp *a, const cJSON *j) {
   if (!cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(j, "groups")) || listed(a->dashboards_opened, root)) return;
   for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].used && a->tabs[i].type == RE_DASHBOARD && !strcmp(a->tabs[i].root, root) && re_layout_find(&a->layout, i) >= 0) return;
   int active = a->layout.active; re_app_dashboard(a, root); a->layout.active = active; /* auto-open never steals the active pane */
+}
+static void game_config_loaded(ReApp *a, const RePending *p, const cJSON *j) {
+  if (!*p->root || !*p->game) return;
+  char key[144]; game_key(key, sizeof(key), p->root, p->game);
+  cJSON_DeleteItemFromObject(a->game_configs, key); cJSON_AddItemToObject(a->game_configs, key, cJSON_Duplicate(j, 1));
 }
 static bool raw_fallback(ReApp *a, RePending *p, ReTab *t, int status) {
   if (p->operation != OP_LOAD || !t || t->type != RE_EDITOR || status != 400) return false;
@@ -310,6 +354,12 @@ static void response(ReApp *a, ReMessage *m) {
       cJSON *settled = cJSON_CreateObject(); cJSON_AddStringToObject(settled, "rootId", p.root); cJSON_AddBoolToObject(settled, "declared", true);
       cJSON_AddStringToObject(settled, "error", error); cJSON_AddArrayToObject(settled, "groups"); dashboard_probed(a, settled); cJSON_Delete(settled); cJSON_Delete(j); return;
     }
+    if (p.operation == OP_GAME_CONFIG && *p.root) {
+      char key[144]; game_key(key, sizeof(key), p.root, p.game);
+      cJSON *settled = cJSON_CreateObject(); cJSON_AddBoolToObject(settled, "ready", false);
+      cJSON *issues = cJSON_AddArrayToObject(settled, "issues"); cJSON_AddItemToArray(issues, cJSON_CreateString(error));
+      cJSON_DeleteItemFromObject(a->game_configs, key); cJSON_AddItemToObject(a->game_configs, key, settled); cJSON_Delete(j); return;
+    }
     if (p.operation == OP_FORMATS && *p.root) {
       cJSON *settled = cJSON_CreateObject(); cJSON_AddStringToObject(settled, "rootId", p.root); cJSON_AddBoolToObject(settled, "declared", true);
       cJSON_AddStringToObject(settled, "error", error); cJSON_AddArrayToObject(settled, "formats"); formats_loaded(a, settled); cJSON_Delete(settled); cJSON_Delete(j); return;
@@ -326,6 +376,7 @@ static void response(ReApp *a, ReMessage *m) {
     case OP_STATE: state_loaded(a, j); break;
     case OP_FORMATS: formats_loaded(a, j); break;
     case OP_DASHBOARD: dashboard_probed(a, j); break;
+    case OP_GAME_CONFIG: game_config_loaded(a, &p, j); break;
     case OP_CAPTURE: snprintf(a->status, sizeof(a->status), "Captured %s (%d bytes, sha256 %.12s…)", re_string(j, "path"), re_number(j, "size"), re_string(j, "sha256")); t->error[0] = 0; break;
     case OP_LOAD:
       t->discarding = false;
@@ -358,7 +409,7 @@ static void response(ReApp *a, ReMessage *m) {
 }
 ReApp *re_app_open(const char *url, const char *token) {
   ReApp *a = calloc(1, sizeof(*a)); if (!a) return NULL;
-  re_layout_init(&a->layout); a->focus = a->drag_tab = a->resize_pane = -1; a->formats = cJSON_CreateObject(); a->dashboards = cJSON_CreateObject(); a->dashboards_opened = cJSON_CreateArray();
+  re_layout_init(&a->layout); a->focus = a->drag_tab = a->resize_pane = -1; a->formats = cJSON_CreateObject(); a->dashboards = cJSON_CreateObject(); a->dashboards_opened = cJSON_CreateArray(); a->game_configs = cJSON_CreateObject();
   a->net = re_net_open(url, token);
   if (a->net) { a->events = re_socket_open(a->net, "events"); request(a, OP_STATE, -1, "state", NULL); }
   re_copy(a->root, sizeof(a->root), getenv("RENGINE_INITIAL_ROOT"));
@@ -456,11 +507,21 @@ void re_app_close(ReApp *a) {
   for (int i = 0; i < RE_TABS; i++) {
     cJSON_Delete(a->tabs[i].data); re_terminal_close(a->tabs[i].terminal); re_editor_close(a->tabs[i].editor); re_game_close(a->tabs[i].game); re_format_close(a->tabs[i].format);
   }
-  re_socket_close(a->events); re_net_close(a->net); cJSON_Delete(a->state); cJSON_Delete(a->previous_layout); cJSON_Delete(a->controls); cJSON_Delete(a->formats); cJSON_Delete(a->dashboards); cJSON_Delete(a->dashboards_opened); free(a);
+  re_socket_close(a->events); re_net_close(a->net); cJSON_Delete(a->state); cJSON_Delete(a->previous_layout); cJSON_Delete(a->controls); cJSON_Delete(a->formats); cJSON_Delete(a->dashboards); cJSON_Delete(a->dashboards_opened); cJSON_Delete(a->game_configs); free(a);
 }
 cJSON *re_app_inspect(ReApp *a) {
   cJSON *j = serialize(a); cJSON_AddStringToObject(j, "status", a->status); cJSON_AddBoolToObject(j, "connected", a->connected); cJSON_AddStringToObject(j, "root", a->root);
   if (a->controls) cJSON_AddItemToObject(j, "controls", cJSON_Duplicate(a->controls, 1));
+  const cJSON *declared = re_app_games(a, a->root), *game = NULL;
+  if (declared) {
+    cJSON *games = cJSON_AddArrayToObject(j, "games");
+    cJSON_ArrayForEach(game, declared) {
+      char label[1024]; bool ready = re_app_game_entry(a, a->root, game, label, sizeof(label));
+      cJSON *entry = cJSON_CreateObject(); cJSON_AddItemToArray(games, entry);
+      cJSON_AddStringToObject(entry, "id", re_string(game, "id")); cJSON_AddStringToObject(entry, "title", re_string(game, "title"));
+      cJSON_AddBoolToObject(entry, "ready", ready); cJSON_AddStringToObject(entry, "label", label);
+    }
+  }
   cJSON_AddItemToObject(j, "state", cJSON_Duplicate(a->state, 1)); cJSON_AddNumberToObject(j, "focus", a->focus);
   cJSON *tabs = cJSON_GetObjectItemCaseSensitive(j, "tabs");
   for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].used) {
@@ -482,7 +543,7 @@ cJSON *re_app_inspect(ReApp *a) {
       if (t->terminal) re_terminal_inspect_mouse(t->terminal, tab);
     }
     if (t->game) { cJSON_AddNumberToObject(tab, "sequence", t->game->sequence); cJSON_AddBoolToObject(tab, "captured", t->game->captured); }
-    if (t->type == RE_GAME) cJSON_AddStringToObject(tab, "surface", t->terminal ? "external" : "sdl2-interpose");
+    if (t->type == RE_GAME) cJSON_AddStringToObject(tab, "surface", t->terminal ? "external" : "embedded");
     if (t->data && t->type == RE_TREE) cJSON_AddItemToObject(tab, "tree", cJSON_Duplicate(t->data, 1));
     if (t->data && t->type == RE_DASHBOARD) cJSON_AddItemToObject(tab, "dashboard", cJSON_Duplicate(t->data, 1));
     if (t->format) re_format_inspect(t->format, tab);
