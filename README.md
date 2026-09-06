@@ -38,12 +38,14 @@ MCP configuration. The combined macOS check boots installed Codex 0.153.4 throug
 verifies `/mcp` reports rEngine connected with eight tools in the native terminal. Existing agent
 settings and credentials stay with the agent.
 
-A project declares its game in `.rengine/project.json` (contract 2, `game`: executable
-candidates, literal args and env, required files, and a `surface`); the toolbar shows a button
-labelled with the declared title only for such a project, and `--launch-game` performs the same
-preflight. `sdl2-interpose` games stream live frames into a native texture through the macOS
-adapter; `external` games open their own window and keep only their output in the workspace.
-Windows host wiring remains pending. See `docs/specs/078-project-game-declaration.md`.
+A project declares its games in `.rengine/project.json` (contract 3, `games`: 1–16 records of
+executable candidates, literal args and env, a working directory, required files, and a
+`surface`); the toolbar shows nothing for a project without games, a button labelled with the
+declared title for one, and a `Games` menu for several, in which a game that fails its preflight
+is disabled and names the reason. `--launch-game` performs the same preflight. `embedded` games
+stream live frames into a native texture through the macOS adapter; `external` games open their
+own window and keep only their output in the workspace. Windows host wiring remains pending.
+See `docs/specs/078-project-game-declaration.md`.
 
 Closing views detaches them; use **Sessions** to reattach or explicitly **Stop** a process.
 Use the tab-strip arrows when a pane fills up. Drag onto a tab to reorder, or into another pane
@@ -132,7 +134,7 @@ RENGINE_NOLF_ROOT=/absolute/checkout npm run test:workspace
 ```
 
 Desktop GUI tests run sequentially to avoid competing for native mouse capture. The NOLF
-qualification of the `sdl2-interpose` surface copies the executable, links only asset archives into
+qualification of the `embedded` surface copies the executable, links only asset archives into
 an ignored runtime directory and writes the game declaration there, preserving the original
 project's saves/configuration. Native `--inspect-ui` automation uses process stdin;
 normal launches expose no UI debugging endpoint. See [native evidence](docs/evidence/native-desktop-macos-2026-09-05.md).
