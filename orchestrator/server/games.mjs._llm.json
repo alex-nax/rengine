@@ -11,7 +11,7 @@
       },
       "note": "Preflight reads the project's own declaration: executable candidates resolve in order (absolute, root-relative with a Windows .exe fallback, bare name through the sidecar PATH) and each declared requires file is stat'ed without symlink confinement so shared data can be linked in, as the qualification fixtures do; nothing runs. Concurrent launch requests are coalesced per root and later requests reattach to a running game. sdl2-interpose reserves a surface item and injects the macOS adapter (the qualified SDL interposition path); external spawns the plain PTY child so an SDL3/static application opens its own window and only its output is retained. Declared env is layered under the reservation and the adapter, and the reader already rejects RENGINE_/DYLD_/LD_ keys. Windows launch remains an explicit unsupported-integration error until the cooperative surface is wired and proven in that host.",
       "refs": [
-        "docs/specs/076-project-game-declaration.md"
+        "docs/specs/078-project-game-declaration.md"
       ]
     }
   ],

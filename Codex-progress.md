@@ -1,5 +1,69 @@
 # Progress Log
 
+## Session 25 (macos) — 2026-09-06 — Per-project game declaration and the contract-2 reconciliation
+
+**Owner scope**: explicit direction (overriding the AGENTS.md pause note): remove the toolbar's
+hard-coded "NOLF" button and the `nolf_preflight`/`launch_nolf` tools; a project declares its game
+in `.rengine/project.json` (contract 2, optional `game`), rEngine shows a title-labelled button,
+launches it and exposes generic tools, and names no game anywhere in server/native/agent/theme
+code. The second consumer (vtmb-vr, SDL3-static, no SDL2 interposer) must launch in its own
+window today. Branch `feat/project-game` from `43bbb80` in a worktree; not merged, pushed to
+`origin/feat/project-game`. Spec 078, row F71. The concurrent dashboard lane (spec 075) landed on
+main mid-session, so the same branch also carries the reconciliation of the two contract-2 lanes.
+
+**Implemented**: `contracts/project-v1.schema.json` accepts contracts 1 and 2 with a `game` block
+(`id`, `title` ≤ 32, 1–8 `executable` candidates, literal `args`, `env`, `requires`, `surface`
+`sdl2-interpose`|`external`); `readDeclaration` validates the game block separately and reports
+`gameError` beside intact formats; `game-rules.mjs` rejects reserved `RENGINE_`/`DYLD_`/`LD_` env
+keys and escaping `requires`. `games.mjs` resolves the first candidate (absolute, root-relative with
+a Windows `.exe` fallback, bare PATH name), names every missing required file, reserves a surface
+and injects the adapter only for `sdl2-interpose`, and spawns `external` games as plain PTY
+children with the declared env; sessions carry `title "<title> · <root>"`, `surface`, `game`; the
+host advertises `projectGame: 1`; MCP `game_preflight` (read-only) and `launch_game` (open-world)
+replace the removed tools and gate on the capability. Native: the toolbar row is built from theme
+metrics with the game column only while the bound root declares a game (label = declared title,
+`game-width` 110), the root button is inspectable, and an external game tab is the retained-PTY
+terminal view under a "Running in its own window" / "Game exited" status row from theme.json.
+The real-NOLF qualifications write the NOLF declaration into their temporary project;
+`test:nolf` → `test:game-nolf`; README updated.
+
+**Reconciled with the dashboard lane** (main `6a3271d`, merged in): one schema declaring BOTH
+optional `dashboard` and `game` under `additionalProperties: false` with each lane's `$defs` kept
+intact; one reader that splits both blocks off and validates each through a shared `section`
+helper, so `gameError` and `dashboardError` are independent and neither can disable the formats;
+`capabilities` advertising `dashboard: 1` and `projectGame: 1`; both tool families in
+`mcp-worker.mjs`, each behind its own capability guard; one toolbar row of 12 columns holding the
+fixed Dashboard button and the conditional game button, with the game column collapsing into the
+Vim filler when no game is declared; the session title default no longer naming a game. The
+toolbar theme note and `toolbar-row-1` string table now record the Dashboard button, which the
+dashboard lane had not. `orchestrator/tests/contract2.test.mjs` pins the composition and the real
+consumer declarations; the same fixture is rejected by either lane alone.
+
+**Verification**: red first (reader, preflight, launch, launcher message, native "NOLF" control),
+then on the reconciled tree: `npm test` 43 passes / 6.07 s; `npm run test:desktop` 17 passes /
+294.3 s (dashboard tab and declared-game fixtures both green); CTest 4 passes / 0.05 s;
+`./init.sh` (30 features); design check consistent; native build zero warnings; sidecar
+repair/review/stamp/check clean for the eleven touched files with `--index
+.cache/sidecars-contract2.sqlite` (18 pre-existing whole-tree diagnostics remain, all in files
+this session did not touch, and are present on main). `RENGINE_NOLF_ROOT=/Users/alex/nolf-improved
+npm run test:game-nolf`: 1 pass / 3.34 s, through the written declaration. The vtmb-vr contract-2
+declaration (formats + external game + dashboard) and the nolf-improved contract-1 declaration
+both validate through `validateSchema` and `readDeclaration`.
+Evidence: `docs/evidence/project-game-macos-2026-09-06.md`; KI-041 records what stays open.
+
+**Renumbering**: main took spec 076 (design foundations) and F67–F69 mid-session, and the recipe
+lane took F70, so this lane moved spec 076 → **078** and F67 → **F71**, and its known issue from
+KI-039 (taken by main) to **KI-041** (KI-040 is the dashboard's). References were updated one by
+one, never by a blanket rewrite, so main's own F67–F69 and spec-076 citations stay intact.
+
+**Remaining**: owner merges `feat/project-game` into main, pushes, runs `update_workspace` with the
+workspace, desktop and connector layers, and verifies the two consumers' declarations in the live
+window; an SDL3 cooperative surface is its own spec; Windows unqualified (KI-014).
+`feat/integration-recipe` carries a duplicate `KI-040` (its own row plus the dashboard's, inherited
+from main) that needs renumbering before it merges.
+
+---
+
 ## Session 24 (macos) — 2026-09-06 — Project dashboard (contract 2, step 1)
 
 **Owner scope**: after the format-registry review fixes, the second brief: a project dashboard

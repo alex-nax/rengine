@@ -614,6 +614,30 @@
       "deliverable": "docs/evidence for the Windows design update",
       "external_references": [],
       "evidence": []
+    },
+    {
+      "id": 71,
+      "milestone": "O1",
+      "category": "surfaces",
+      "priority": "high",
+      "description": "Declare a project's game in .rengine/project.json (contract 2) and launch it from a title-labelled toolbar button, the launcher and generic agent tools.",
+      "acceptance_criteria": [
+        "contracts/project-v1.schema.json accepts contract 1 unchanged and contract 2 with an optional game block (id, title, executable candidates, literal args, env, requires, surface sdl2-interpose or external) beside the optional dashboard of spec 075; a bad game block is reported as gameError by name without disabling the formats or the dashboard; bad or reserved env keys, placeholders in args, more than 8 executables, unknown surfaces and keys, shell argv[0] and escaping requires paths are rejected.",
+        "game-config and game_preflight report declared, title, surface, the first resolvable executable, args, env, requires, cwd, named issues (undeclared root, malformed declaration, missing candidates, each missing required file, surface prerequisites) and ready without running anything; game, launch_game, the toolbar button and --launch-game reuse the running game session or spawn it with cwd = root and the declared env, reserving a surface only for sdl2-interpose; the session carries title <title> · <root name>, surface and game.",
+        "No specific game is named in server, native, agent, theme or package-script code; the toolbar shows the declared title only for a declaring root and keeps its row arithmetic correct beside the dashboard button; an external game tab shows the retained output with a running/exited status row; service tests and a native fixture drive all of the above; the real-NOLF qualification runs through a written declaration; the owner verifies the real consumers after a layered workspace/desktop/connector update."
+      ],
+      "passes": false,
+      "dependencies": [
+        63
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/078-project-game-declaration.md, contracts/project-v1.schema.json (game), orchestrator/server/games.mjs and game-rules.mjs, mcp-worker game tools, native toolbar/external game view, games.test.mjs, contract2.test.mjs, native-game-declaration.spec.mjs and evidence",
+      "external_references": [
+        "nolf-improved and vtmb-vr .rengine/project.json declarations"
+      ],
+      "evidence": [
+        "docs/evidence/project-game-macos-2026-09-06.md"
+      ]
     }
   ]
 }

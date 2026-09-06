@@ -155,7 +155,7 @@
       },
       "note": "A game tab's view depends on the surface the workspace state reports for its session: sdl2-interpose opens the frame socket, external opens the same retained-PTY terminal a shell uses (the process is already a node-pty child). The choice is made wherever a view opens (new tab, reuse, layout restore, session-browser Attach) so restored layouts pick the right view once state has loaded. RE_GAME stays the tab type so Sessions, Attach, Stop, detach and layout persistence are unchanged; only the presentation differs.",
       "refs": [
-        "docs/specs/076-project-game-declaration.md"
+        "docs/specs/078-project-game-declaration.md"
       ]
     }
   ],

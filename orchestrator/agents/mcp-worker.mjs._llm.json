@@ -76,7 +76,7 @@
       },
       "note": "game_preflight and launch_game address only the game the bound project declares in .rengine/project.json; their descriptions name no game, and the connector never carries a built-in executable or data path. launch_game is open-world because it executes the project's own program; it returns the running session when one exists, so agents inspect the returned id rather than assuming a fresh process. Both gate on projectGame: 1 because an older retained host still answers game-config/game with the removed hard-coded semantics.",
       "refs": [
-        "docs/specs/076-project-game-declaration.md"
+        "docs/specs/078-project-game-declaration.md"
       ]
     }
   ],

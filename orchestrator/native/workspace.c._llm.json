@@ -66,7 +66,7 @@
       },
       "note": "The toolbar row is assembled from theme metrics with the game column present only while the bound root's formats listing carries a game block; the button label and its inspect key are the declared title, so no game name exists in native code or theme strings. The root button is inspectable so root switching is drivable in fixtures. An external game tab shows a status row from the theme's string table above its retained output and reports it as an inspectable game-status control.",
       "refs": [
-        "docs/specs/076-project-game-declaration.md"
+        "docs/specs/078-project-game-declaration.md"
       ]
     }
   ],

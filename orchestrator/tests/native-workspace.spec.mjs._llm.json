@@ -7,17 +7,18 @@
       "anchor": {
         "start": 11,
         "end": 11,
-        "snippet": "test('normal launcher opens native NOLF, source tree, editor, shell and installed Codex together', { timeout: 120000 }, async () => {"
+        "snippet": "test('normal launcher opens the declared NOLF game, source tree, editor, shell and installed Codex together', { timeout: 120000 }, async () => {"
       },
-      "note": "The ordinary npm launcher owns build, sidecar startup and all initial sessions. Copy the real NOLF executable and link only REZ files to keep writes to autoexec.cfg/Save isolated. Add the real source root through native controls and retain its README as a local draft; only a temporary second README receives Save/conflict writes. Read-only service snapshots corroborate identity, while native input drives actions. Pace the Codex slash command like typed keys so its paste-burst heuristic does not interpret Enter as pasted text. No coding prompt is submitted. Evidence and private connection data stay in ignored local state; source-controlled evidence contains hashes. Move the live NOLF tab into the narrow tree pane and back, asserting continuing frame sequence, visible header bounds and the same game PID before menu input and lifecycle checks. The post-move menu transition lacks an automated state oracle: the latest inspected screenshot remained at the main menu after Enter (KI-024). A passing frame/lifecycle check is not proof of menu input after movement.",
+      "note": "The ordinary npm launcher owns build, sidecar startup and all initial sessions. Copy the real NOLF executable and link only REZ files to keep writes to autoexec.cfg/Save isolated, and write a contract-2 .rengine/project.json with the NOLF game block so the launch goes through the per-project declaration (spec 076) rather than any built-in path. Add the real source root through native controls and retain its README as a local draft; only a temporary second README receives Save/conflict writes. Read-only service snapshots corroborate identity, while native input drives actions. Pace the Codex slash command like typed keys so its paste-burst heuristic does not interpret Enter as pasted text. No coding prompt is submitted. Evidence and private connection data stay in ignored local state; source-controlled evidence contains hashes. Move the live NOLF tab into the narrow tree pane and back, asserting continuing frame sequence, visible header bounds and the same game PID before menu input and lifecycle checks. The post-move menu transition lacks an automated state oracle: the latest inspected screenshot remained at the main menu after Enter (KI-024). A passing frame/lifecycle check is not proof of menu input after movement.",
       "refs": [
-        "docs/specs/055-launch-command-qualification.md"
+        "docs/specs/055-launch-command-qualification.md",
+        "docs/specs/078-project-game-declaration.md"
       ]
     }
   ],
   "source": {
     "path": "orchestrator/tests/native-workspace.spec.mjs",
-    "sha256": "1177eb7e7ee36af72c9dc542eccb802744f040d5980346c3d55b49c9e49d1bc9",
+    "sha256": "ea62e0c6a38f3de5d550f512f1dacb2f893e675fb99577697060b16d16efe291",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }
