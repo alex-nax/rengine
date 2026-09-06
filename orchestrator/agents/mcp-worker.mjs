@@ -134,10 +134,11 @@ tool('preview_file', 'Preview a file registered in the project’s .rengine/proj
   return output;
 });
 const gameCapability = state => { if (state.capabilities.projectGame !== 1) throw new Error('This retained service predates per-project game declarations. Update the workspace layer first.'); };
-tool('game_preflight', 'Check the game declared in the project’s .rengine/project.json (contract 2): its title, the first resolvable executable candidate, literal args and env, required files and surface prerequisites, with each problem as a named issue and ready. Runs nothing; an undeclared project reports declared false.', {}, true,
-  async (_values, state) => { gameCapability(state); return call(`game-config?${new URLSearchParams({ rootId: context.rootId })}`); });
-tool('launch_game', 'Launch the game declared in the project’s .rengine/project.json (its own executable with literal args and env, cwd = project root) or reuse the running game session of this project. sdl2-interpose games stream into the workspace pane; external games open their own window and retain only their PTY output. Executes a project executable; stop_session ends it.', {}, false,
-  async (_values, state) => { gameCapability(state); return call('game', { rootId: context.rootId }); });
+const gameSelector = { gameId: z.string().optional().describe('One declared game id; omitted, the first declared game is used.') };
+tool('game_preflight', 'Check one game declared in the project’s .rengine/project.json (contract 3, games): its title, the first resolvable executable candidate, literal args and env, working directory, required files and surface prerequisites, with each problem as a named issue and ready. Runs nothing; an undeclared project reports declared false, and an unknown gameId names the declared ids.', gameSelector, true,
+  async ({ gameId }, state) => { gameCapability(state); return call(`game-config?${new URLSearchParams({ rootId: context.rootId, ...(gameId ? { gameId } : {}) })}`); });
+tool('launch_game', 'Launch one game declared in the project’s .rengine/project.json (its own executable with literal args and env, in its declared working directory) or reuse the running session of that same game. Games of one project can run side by side. embedded games stream into the workspace pane; external games open their own window and retain only their PTY output. Executes a project executable; stop_session ends it.', gameSelector, false,
+  async ({ gameId }, state) => { gameCapability(state); return call('game', { rootId: context.rootId, ...(gameId ? { gameId } : {}) }); });
 tool('stop_session', 'Explicitly stop a retained process belonging to the bound project.', { id: z.string() }, false, async ({ id }, state) => {
   ownSession(id, state); return call('stop', { id });
 });

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rengine.local/contracts/project-v1.schema.json",
-  "title": "rEngine project declaration, contracts 1 and 2",
-  "description": "Read from <root>/.rengine/project.json. Contract 1 declares file formats whose previews are produced by the project's own executables (docs/specs/074-project-format-registry.md); contract 2 adds an optional dashboard of grouped actions (docs/specs/075-project-dashboard.md) and an optional game the workspace launches (docs/specs/078-project-game-declaration.md). Cross-field rules the service also enforces: default is one of modes; preview is required when modes contains preview; a preview command names ${file}; an entry command names ${file} and ${entry}; format ids are unique; dashboard and game each require contract 2; group and action ids are unique; an action carries only its kind's fields; script/requires/artifacts/into are root-relative; dashboard env keys are UPPER_SNAKE; game env keys are UPPER_SNAKE and never start with RENGINE_, DYLD_ or LD_; game requires entries are root-relative.",
+  "title": "rEngine project declaration, contracts 1, 2 and 3",
+  "description": "Read from <root>/.rengine/project.json. Contract 1 declares file formats whose previews are produced by the project's own executables (docs/specs/074-project-format-registry.md); contract 2 adds an optional dashboard of grouped actions (docs/specs/075-project-dashboard.md); contract 3 adds an optional array of games the workspace launches (docs/specs/078-project-game-declaration.md). Cross-field rules the service also enforces: default is one of modes; preview is required when modes contains preview; a preview command names ${file}; an entry command names ${file} and ${entry}; format ids are unique; dashboard requires contract 2 and games requires contract 3; group, action and game ids are unique; an action carries only its kind's fields; script/requires/artifacts/into are root-relative; dashboard env keys are UPPER_SNAKE; game env keys are UPPER_SNAKE and never start with RENGINE_, DYLD_ or LD_; game requires entries and game cwd are root-relative.",
   "type": "object",
   "required": [
     "contract",
@@ -14,7 +14,8 @@
     "contract": {
       "enum": [
         1,
-        2
+        2,
+        3
       ]
     },
     "project": {
@@ -33,8 +34,14 @@
     "dashboard": {
       "$ref": "#/$defs/dashboard"
     },
-    "game": {
-      "$ref": "#/$defs/game"
+    "games": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/game"
+      },
+      "description": "Games this project can launch, in declaration order. Declaring games requires contract 3, so a reader that predates it answers \"unknown contract\" instead of \"unknown key\". An omitted gameId on the preflight/launch routes selects the first record."
     }
   },
   "$defs": {
@@ -349,18 +356,19 @@
         "surface"
       ],
       "additionalProperties": false,
-      "description": "The game the workspace launches for this project: literal executable candidates, argv and env, files that must exist, and how its window is presented.",
+      "description": "One game the workspace launches: literal executable candidates, argv, env, working directory, files that must exist, and how its window is presented.",
       "properties": {
         "id": {
           "type": "string",
           "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-          "maxLength": 64
+          "maxLength": 64,
+          "description": "Unique within games; carried on the session as game and used as the gameId selector."
         },
         "title": {
           "type": "string",
           "minLength": 1,
           "maxLength": 32,
-          "description": "Toolbar button label; the session title is \"<title> · <root name>\"."
+          "description": "Toolbar button label with one declared game, menu-entry label with several; the session title is \"<title> · <root name>\"."
         },
         "executable": {
           "type": "array",
@@ -395,6 +403,11 @@
           },
           "description": "Literal variables added over the shell environment. Keys starting RENGINE_, DYLD_ or LD_ are reserved and rejected."
         },
+        "cwd": {
+          "type": "string",
+          "maxLength": 1024,
+          "description": "Root-relative working directory for the launched process; \"\" or an absent key means the project root. No absolute path, no \"..\" segment, no backslash."
+        },
         "requires": {
           "type": "array",
           "maxItems": 32,
@@ -407,10 +420,10 @@
         },
         "surface": {
           "enum": [
-            "sdl2-interpose",
+            "embedded",
             "external"
           ],
-          "description": "sdl2-interpose streams the SDL2 window into the workspace through the adapter; external opens its own window and only its PTY output is retained."
+          "description": "embedded streams the game window into the workspace through the cooperative SDL adapter; external opens its own operating-system window and only its PTY output is retained."
         }
       }
     }

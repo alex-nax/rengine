@@ -1,8 +1,9 @@
-// Cross-field rules for the contract-2 game block; no imports so formats.mjs and games.mjs share them.
+// Cross-field rules for the contract-3 games array; no imports so formats.mjs and games.mjs share them.
 const ENV_KEY = /^[A-Z][A-Z0-9_]*$/, RESERVED = /^(?:RENGINE_|DYLD_|LD_)/;
 export const rootRelative = value => typeof value === 'string' && value.length > 0 && !value.startsWith('/') && !/^[A-Za-z]:/.test(value) && !value.includes('\\') && !value.split('/').includes('..') && !value.includes('\0');
+export const rootRelativeDirectory = value => value === '' || rootRelative(value); /* "" is the project root; see sidecar: working-directory */
 
-export function gameEnvRules(env, where = '$.game.env') {
+export function gameEnvRules(env, where) {
   const errors = [];
   if (env === undefined) return errors;
   if (!env || typeof env !== 'object' || Array.isArray(env)) return [`${where} must be an object of UPPER_SNAKE keys`];
@@ -15,9 +16,16 @@ export function gameEnvRules(env, where = '$.game.env') {
   }
   return errors;
 }
-export function gameRules(game) {
-  if (!game || typeof game !== 'object' || Array.isArray(game)) return [];
-  const errors = gameEnvRules(game.env);
-  (Array.isArray(game.requires) ? game.requires : []).forEach((value, index) => { if (!rootRelative(value)) errors.push(`$.game.requires[${index}] must be root-relative`); });
+export function gamesRules(games) {
+  if (!Array.isArray(games)) return [];
+  const errors = [], seen = new Set();
+  games.forEach((game, index) => {
+    if (!game || typeof game !== 'object' || Array.isArray(game)) return;
+    const where = `$.games[${index}]`;
+    if (seen.has(game.id)) errors.push(`${where}.id repeats ${JSON.stringify(game.id)}`); seen.add(game.id);
+    errors.push(...gameEnvRules(game.env, `${where}.env`));
+    (Array.isArray(game.requires) ? game.requires : []).forEach((value, n) => { if (!rootRelative(value)) errors.push(`${where}.requires[${n}] must be root-relative`); });
+    if (game.cwd !== undefined && !rootRelativeDirectory(game.cwd)) errors.push(`${where}.cwd must be root-relative`);
+  });
   return errors;
 }

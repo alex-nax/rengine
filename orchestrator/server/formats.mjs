@@ -6,9 +6,9 @@ import { validateSchema } from './schema.mjs';
 import { fail, hash, resolveInRoot, MAX_TEXT_BYTES } from './store.mjs';
 import { shellEnvironment } from './sessions.mjs';
 import { dashboardRules } from './dashboard-rules.mjs';
-import { gameRules } from './game-rules.mjs';
+import { gamesRules } from './game-rules.mjs';
 
-export const CONTRACTS = [1, 2];
+export const CONTRACTS = [1, 2, 3];
 export const DEFAULT_TIMEOUT_MS = 10000;
 export const DEFAULT_MAX_BYTES = 4 * 1024 * 1024;
 export const MAX_RAW_WINDOW = 64 * 1024;
@@ -42,23 +42,26 @@ export async function readDeclaration(rootPath) {
   let value;
   try { value = JSON.parse(bytes.toString('utf8')); } catch (error) { return problem(`invalid JSON (${error.message})`); }
   if (!value || typeof value !== 'object' || Array.isArray(value)) return problem('declaration must be a JSON object');
-  if (!CONTRACTS.includes(value.contract)) return problem(`unknown contract ${JSON.stringify(value.contract)}; this rEngine supports contracts ${CONTRACTS.join(' and ')}`);
-  const { dashboard, game, ...base } = value;
+  if (!CONTRACTS.includes(value.contract)) return problem(`unknown contract ${JSON.stringify(value.contract)}; this rEngine supports contracts ${CONTRACTS.slice(0, -1).join(', ')} and ${CONTRACTS.at(-1)}`);
+  const { dashboard, games, ...base } = value;
   const structural = validateSchema(schema, base);
   if (structural.length) return problem(structural.slice(0, 3).join('; '));
   const errors = crossRules(base);
   if (errors.length) return problem(errors.slice(0, 3).join('; '));
   const result = { declared: true, contract: value.contract, project: value.project,
     formats: value.formats.map(format => ({ ...format, preview: bounded(format.preview), entry: bounded(format.entry) })) };
-  /* dashboard and game are each reported separately so neither can disable the formats; see sidecar: declaration-reporting */
-  return section(section(result, 'game', game, value.contract), 'dashboard', dashboard, value.contract);
+  /* games and dashboard are each reported separately so neither can disable the formats; see sidecar: declaration-reporting */
+  return section(section(result, 'games', games, value.contract), 'dashboard', dashboard, value.contract);
 }
+const SECTIONS = {
+  games: { minimum: 3, rules: gamesRules, node: () => schema.properties.games },
+  dashboard: { minimum: 2, rules: dashboardRules, node: () => schema.$defs.dashboard },
+};
 function section(result, name, block, contract) {
   if (block === undefined) return result;
-  const key = `${name}Error`;
-  if (contract < 2) return { ...result, [key]: `.rengine/project.json: ${name} requires contract 2 (declared contract ${contract})` };
-  const rules = name === 'game' ? gameRules : dashboardRules;
-  const problems = [...validateSchema(schema.$defs[name], block, schema, `$.${name}`), ...rules(block)];
+  const { minimum, rules, node } = SECTIONS[name], key = `${name}Error`;
+  if (contract < minimum) return { ...result, [key]: `.rengine/project.json: ${name} requires contract ${minimum} (declared contract ${contract})` };
+  const problems = [...validateSchema(node(), block, schema, `$.${name}`), ...rules(block)];
   return problems.length ? { ...result, [key]: `.rengine/project.json: ${problems.slice(0, 3).join('; ')}` } : { ...result, [name]: block };
 }
 export async function listFormats(root) { return { rootId: root.id, ...await readDeclaration(root.path) }; }

@@ -64,7 +64,7 @@ export async function startServer({ stateDir, port = 0 } = {}) {
             case '/api/bytes': value = await readBytes(store.root(query.get('rootId')), Object.fromEntries(query)); break;
             case '/api/session': value = sessions.snapshot(query.get('id'), true); break;
             case '/api/desktops': value = { desktops: desktops.list(query.get('rootId')) }; break;
-            case '/api/game-config': value = await games.inspect(query.get('rootId')); break;
+            case '/api/game-config': value = await games.inspect(query.get('rootId'), query.get('gameId') ?? undefined); break;
             default: fail('Unknown workspace endpoint.', 404);
           }
         } else if (request.method === 'POST') {
@@ -83,7 +83,7 @@ export async function startServer({ stateDir, port = 0 } = {}) {
             case '/api/terminal':
               if (data.type && !['terminal', 'agent'].includes(data.type)) fail('Use the game adapter to launch a game.');
               value = await sessions.terminal(data); break;
-            case '/api/game': value = await games.launch(data.rootId); break;
+            case '/api/game': value = await games.launch(data.rootId, data.gameId); break;
             case '/api/input': sessions.input(data.id, data.data); value = { ok: true }; break;
             case '/api/resize': sessions.resize(data.id, data.cols, data.rows); value = { ok: true }; break;
             case '/api/stop': value = await sessions.stop(data.id); break;

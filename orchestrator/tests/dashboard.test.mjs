@@ -57,7 +57,7 @@ test('contract 2 declarations validate, contract 1 stays accepted and dashboard 
       const result = await declare(label.replaceAll(/[^a-z0-9]/g, '-'), document);
       assert.equal(result.error, undefined, `${label}: formats stay valid`); assert.match(result.dashboardError ?? '', pattern, label); assert.equal(result.dashboard, undefined, label);
     }
-    const three = await declare('three', { ...contract2(), contract: 3 }); assert.match(three.error, /unknown contract 3/); assert.deepEqual(three.formats, []);
+    const four = await declare('four', { ...contract2(), contract: 4 }); assert.match(four.error, /unknown contract 4/); assert.deepEqual(four.formats, []);
     const listed = await listFormats({ id: 'r', path: path.join(directory, 'unknown-kind') });
     assert.equal(listed.formats[0].id, 'fixture-pack'); assert.match(listed.dashboardError, /kind/);
   } finally { await rm(directory, { recursive: true, force: true }); }
