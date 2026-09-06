@@ -275,3 +275,49 @@ target by grepping a build config — reLith declares `relith-nolf`/`relith-nolf
 creates `relith-avp2` in `cmake/avp2_game.cmake`, so a config grep produces a false failure for one
 of three targets. The build system is the only authority, and an absent *built* binary is a skip,
 not a failure: rEngine already reports it as a named preflight issue.
+
+## Declaration errors name the offending record (same day, F72 refinement)
+
+The reLith consumer session found the consequence of the toolbar removal: a section fails whole
+(`dashboard.mjs:35` answers `groups: []` on any `dashboardError`), so one typo in one unrelated
+dashboard action empties every group and removes the only human path to launch **any** game,
+including targets whose own `games` records are valid. Fail-whole stays — a partial dashboard would
+show something that does not match the file — but it makes the error string the whole recovery path,
+and that string identified records only by array index.
+
+Every cross-rule error now carries the record's own id beside its JSON path. Real messages, produced
+from copies of the live vtmb-vr declaration with one field broken in each:
+
+```
+.rengine/project.json: $.dashboard.groups[1].actions[1] (quest-screen).into must be root-relative
+.rengine/project.json: $.games[1] (vtmb-vr).cwd must be root-relative
+.rengine/project.json: $.formats[0] (troika-vpk).default must be one of its modes
+.rengine/project.json: … (quest).script must be …; … (pcvr).script …; … (editor-check).script …; and 1 more problem
+```
+
+- The innermost named record is used; an action with no usable id is placed by its group
+  (`$.dashboard.groups[0] (device).actions[0].into …`), and with nothing named the bare path stands
+  alone. `undefined` is never printed and no name is invented.
+- Duplicate-id errors keep the bare path (`$.dashboard.groups[0].actions[1].id repeats "shot"`):
+  they already quote the id, and the index is what says which occurrence repeats.
+- Structural (schema) errors keep bare paths: `schema.mjs` is generic and has no notion of a record,
+  and for `formats` a structural failure short-circuits before the cross rules anyway.
+- The report stays capped at three problems and now names what it hides (`and 1 more problem` /
+  `and 2 more problems`). The cap was not raised: this is one unwrapped line in the dashboard tab
+  label (clipped at the pane width) and in the workspace status row — 1272 px ÷ an 8 px Menlo cell
+  at the theme's 16 px face ≈ 159 columns at the default window width, copied into a 512-byte
+  buffer. Three id-carrying problems already fill it. The count is stated **last** because it is the
+  least load-bearing part of the line; the id lands around column 55–70, inside every surface.
+
+Gates for this change: red first (`contracts.test.mjs` failed on the missing id, 1 of 3 in that
+file). Then `npm test` 46 passes / 5.8 s; `npm run test:desktop` 17 passes / 296.2 s; CTest in
+`.cache/desktop` 4 passes / 0.04 s; `./init.sh` (31 features); `design.py check` consistent; native
+build zero warnings; sidecars `--index .cache/sidecars-error-ids.sqlite`, run sequentially, clean
+for the three touched modules (new `dashboard-rules.mjs#record-identity`,
+`game-rules.mjs#record-identity`, `formats.mjs#bounded-report`). The native status row is qualified
+by `native-format-hardening.spec.mjs`, whose broken root now carries a cross-rule error instead of a
+structural one: it asserts the status line names `(fixture-pack)` and that the id sits inside the
+first 100 columns, i.e. is never the part that clips. Structural malformation stays covered by
+`formats.test.mjs`. Both live consumer declarations were re-read fresh and validate with no
+`error`/`gamesError`/`dashboardError`; vtmb-vr has meanwhile adopted `kind: "game"` for its `flat`
+and `flat-newgame` actions. Neither consumer repository was edited.

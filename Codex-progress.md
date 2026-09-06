@@ -1,5 +1,71 @@
 # Progress Log
 
+## Session 28 (macos) — 2026-09-06 — Declaration errors name the offending record
+
+**Why now**: the reLith consumer session reported the consequence of session 27's toolbar removal.
+A section fails whole — `orchestrator/server/dashboard.mjs:35` answers `groups: []` on any
+`dashboardError`, and `formats.mjs` raises that for any cross-rule problem anywhere in the section —
+so one typo in one unrelated dashboard action (a bad `into` on a capture entry, a stray key) empties
+every group and removes the only human path to launch **any** game, including targets whose own
+`games` records are perfectly valid. Fail-whole is right and stays: a partial dashboard rendered
+from an invalid declaration would show something that does not match the file. But it makes the
+error string the entire recovery path, and that string identified records only by array index
+(`$.dashboard.groups[0].actions[2].into must be root-relative` — count the actions in the file).
+A refinement of **F72**, not new scope: its criteria gained one row rather than taking a new id.
+
+**The change**: every cross-rule error now names the record beside its JSON path, in all three rule
+modules so the sections read alike. The path is what a machine consumer keys on; the id is what a
+human greps for.
+
+```
+$.dashboard.groups[1].actions[1] (quest-screen).into must be root-relative
+$.games[1] (vtmb-vr).cwd must be root-relative
+$.formats[0] (troika-vpk).default must be one of its modes
+```
+
+The **innermost** record is named, not every level: action ids are unique across the dashboard, so a
+named action already locates itself, and naming its group too would push the id ~8 columns further
+right in surfaces that clip. An action with no usable id falls back to its group
+(`$.dashboard.groups[0] (device).actions[0].into …`), and with nothing named the bare path stands
+alone — `undefined` is never printed and no name is invented. **Duplicate-id errors keep the bare
+path**: they already quote the id, and what must stay unambiguous there is which occurrence repeats,
+which is the index. Structural (schema) errors also keep bare paths — `schema.mjs` is a generic
+validator with no notion of a record, and for `formats` a structural failure short-circuits before
+the cross rules anyway. One `nameOf` helper, duplicated between the two rule modules exactly as
+`rootRelative` already is (both stay import-free so the reader and the runtime can share them);
+`formats.mjs` imports it rather than carrying a third copy.
+
+**Two decisions asked for explicitly.** (1) **Truncation stays at three** and now names what it
+hides (`…; and 2 more problems`). The message is one unwrapped line in both places it is read: the
+dashboard tab label, clipped at the pane width, and the status row — 1272 px over an 8 px Menlo cell
+at the theme's 16 px face is ≈159 columns at the default window, copied into a 512-byte buffer.
+Three id-carrying problems already fill that, so a larger cap pushes content off the right edge
+rather than closer to a fix, and problems cascade from one bad record anyway. What was missing was
+knowing the list had been cut. (2) **Native rendering needs no layout change**: the id lands around
+column 55–70, well inside both surfaces, and the count is deliberately last because it is the least
+load-bearing part of the line and the first thing to lose to clipping or a 512-byte truncation.
+`native-format-hardening.spec.mjs` now qualifies that: its broken root carries a cross-rule error
+instead of a structural one and the test asserts the status row names `(fixture-pack)` inside the
+first 100 columns. Structural malformation stays covered by `formats.test.mjs`.
+
+**Verification**: red first — `contracts.test.mjs` failed on the missing id before the change (1 of
+3 in that file), and two existing expectations in `dashboard.test.mjs`/`games.test.mjs` moved to the
+new shape rather than being relaxed. `npm test` 46 passes / 5.8 s; `npm run test:desktop` 17 passes
+/ 296.2 s; CTest in `.cache/desktop` 4 passes / 0.04 s; `./init.sh` (31 features);
+`python3 tools/design.py check` consistent; native build zero warnings; sidecars with
+`--index .cache/sidecars-error-ids.sqlite`, run sequentially, clean for the three touched modules
+(new `dashboard-rules.mjs#record-identity`, `game-rules.mjs#record-identity`,
+`formats.mjs#bounded-report`; four drifted anchors in those files repaired). Both live consumer
+declarations were re-read fresh and validate with no `error`/`gamesError`/`dashboardError` —
+vtmb-vr (contract 3, which has meanwhile adopted `kind: "game"` for `flat`/`flat-newgame`) and
+nolf-improved (contract 2); no assertion touches their command strings and neither repository was
+edited. Left alone deliberately: the symmetric version gate in `SECTIONS` and the independent
+parsing of the sections, both verified correct beforehand.
+
+**Remaining**: unchanged from session 27 — F72 stays `passes: false` until the owner merges
+`feat/project-game`, runs `update_workspace` and sees a real consumer launch from its dashboard.
+Evidence appended to `docs/evidence/project-game-macos-2026-09-06.md`.
+
 ## Session 27 (macos) — 2026-09-06 — Games launch from a dashboard action; the toolbar game control is removed
 
 **Owner scope**: a decision from the reLith stream, relayed and confirmed. That consumer launched a

@@ -84,6 +84,41 @@ Contract 3 adds an optional top-level `games` array:
   window; rEngine starts and tracks the session and retains its PTY output only). The enum value
   was renamed with the contract bump; nothing shipped the old spelling to a user.
 
+### The error message is the recovery path (decision, 2026-09-06)
+
+Each section fails whole: one bad `into` on one capture action empties `dashboard.groups` for the
+whole project, because `dashboardError` is reported instead of the block. That stays — rendering a
+partial dashboard from an invalid declaration would show something that does not match the file,
+which is worse than showing nothing and an error. But with the toolbar game control removed, the
+dashboard is the only human path to launch any game, so that one string is the entire recovery
+path for a project whose own `games` records are perfectly valid. It has to say *which record*.
+
+Every cross-rule error therefore names the record beside its JSON path — `$.dashboard.groups[1]
+.actions[1] (quest-screen).into must be root-relative`, `$.games[1] (vtmb-vr).cwd must be
+root-relative`, `$.formats[0] (troika-vpk).default must be one of its modes`. The path is what a
+machine consumer keys on and never moves; the id is what a human greps for in the file. Rules:
+
+- The **innermost** record on the path is named, not every level: a named action already locates
+  itself (action ids are unique across the dashboard), and naming its group too would push the id
+  a further ~8 columns right in surfaces that clip.
+- A record whose `id` is missing or not a string falls back to the nearest named ancestor
+  (`$.dashboard.groups[0] (device).actions[0].into …`), and to the bare path when nothing on the
+  path is named. `undefined` is never printed and no name is invented.
+- **Duplicate-id errors keep the bare path.** They already quote the id; what they must stay
+  unambiguous about is *which occurrence* repeats, and that is the index.
+- Structural (schema) errors keep bare paths. `schema.mjs` is a generic validator with no notion of
+  a record, and for `formats` a structural failure short-circuits before the cross rules anyway.
+
+**Truncation stays at three problems and now says what it hides**
+(`…; and 2 more problems`). The cap is not raised: the message is one **unwrapped** line in both
+places it is read — the dashboard tab label, clipped at the pane width, and the workspace status
+row, ~159 monospace columns at the default 1280-wide window (8 px cell) and truncated into a
+512-byte buffer. Three id-carrying problems already fill it, so a larger cap would push content off
+the right edge rather than closer to a fix, and problems cascade anyway (one bad record yields
+several). What was actually missing was knowing that the list was cut, so the count is stated — and
+stated last, because it is the least load-bearing part of the line and the first thing that may
+clip. The id, by contrast, lands around column 55–70, inside every surface that renders this.
+
 `readDeclaration` accepts contract 1, 2 or 3. The schema's `contract` is the enum `[1, 2, 3]`,
 `games` is an optional property under `additionalProperties: false`, so unknown keys are still
 rejected. The reader validates the contract-1 part first and each optional block separately:
@@ -167,8 +202,8 @@ Spec 075's dashboard action kinds become `script | log | capture | game`. A `gam
 
 - `game`: **required**, must equal the `id` of a record in this declaration's `games` array. A
   reference to an undeclared id is a cross-field error reported like every other cross rule —
-  `$.dashboard.groups[g].actions[i].game references undeclared game id "x"; this declaration
-  declares a, b` (or `declares no games`) — so it lands in `dashboardError` and disables neither the
+  `$.dashboard.groups[g].actions[i] (<action id>).game references undeclared game id "x"; this
+  declaration declares a, b` (or `declares no games`) — so it lands in `dashboardError` and disables neither the
   formats nor the `games` array nor the workspace. When the `games` block itself failed validation
   the reference check is skipped: `gamesError` already names the real problem and a second,
   derived error would only mislead.

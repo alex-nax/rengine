@@ -5,8 +5,8 @@
       "id": "tree-sanitization",
       "kind": "rationale",
       "anchor": {
-        "start": 127,
-        "end": 127,
+        "start": 131,
+        "end": 131,
         "snippet": "function sanitizeTree(value) {"
       },
       "note": "Only name/dirs/files with name/path/size survive; producer extras (relith-rez offset/time/type) are dropped so the native client and agents see one shape. Depth 64 and 200,000 nodes bound recursion and memory below the 4 MiB stdout default; a malformed node fails the whole preview rather than showing a partial tree.",
@@ -18,8 +18,8 @@
       "id": "declaration-reporting",
       "kind": "constraint",
       "anchor": {
-        "start": 36,
-        "end": 36,
+        "start": 40,
+        "end": 40,
         "snippet": "export async function readDeclaration(rootPath) {"
       },
       "note": "A malformed, oversized or unknown-contract declaration is returned as { declared: true, error, formats: [] } rather than thrown: the listing route shows it and the workspace, editor and other roots keep working. Structural (schema) problems are reported before cross-field rules run, and the cross-field pass guards every shape it touches, because a thrown TypeError here surfaced as a 500 that left native editors waiting (review finding 2). Only the first three problems are reported to keep the status line readable. Later contracts are read in stages: the contract-1 part (everything but dashboard and games) decides error/formats, then the shared section helper validates each optional block on its own into dashboard/dashboardError and games/gamesError. The SECTIONS table gives each block the contract it needs \u2014 dashboard 2, games 3 \u2014 so a block under too low a contract is reported by name and ignored instead of disabling previews, and the two blocks stay independent of each other.",
@@ -31,8 +31,8 @@
       "id": "execution-boundary",
       "kind": "constraint",
       "anchor": {
-        "start": 89,
-        "end": 89,
+        "start": 93,
+        "end": 93,
         "snippet": "export async function runCommand(root, spec, values) {"
       },
       "note": "The runner takes the root record and a root-relative file and re-confines it through resolveInRoot immediately before the spawn, passing that resolved path; it never trusts a caller-supplied absolute path. Argv is literal after substituting only ${file}/${entry}; no shell, stdin closed, cwd = root, the sidecar's shell environment. The child is its own POSIX process group, so timeout and oversized output kill the whole tree (taskkill /T /F on Windows), close the pipes and wait for the exit before rejecting (review finding 4). The window between this resolution and the producer's own open cannot be closed for a path-taking executable; spec 074 and KI-037 state it.",
@@ -44,19 +44,32 @@
       "id": "raw-read-confinement",
       "kind": "constraint",
       "anchor": {
-        "start": 170,
-        "end": 170,
+        "start": 174,
+        "end": 174,
         "snippet": "export async function readBytes(root, { path: relative, offset = 0, length = MAX_RAW_WINDOW }) {"
       },
       "note": "Open first, then fstat the handle, then confine a fresh resolution of the same relative path and require the same dev/inode as the opened handle; a swap between resolution and open is reported as a 409 rather than served. Node has no frealpath, so inode identity is the strongest confinement of what was actually opened.",
       "refs": [
         "docs/specs/074-project-format-registry.md"
       ]
+    },
+    {
+      "id": "bounded-report",
+      "kind": "rationale",
+      "anchor": {
+        "start": 34,
+        "end": 37,
+        "snippet": "const REPORTED = 3; /* one clipped line in two desktop surfaces; see sidecar: bounded-report */"
+      },
+      "note": "Three problems, not more, and the count of what is hidden. The string is read as ONE unwrapped line in two places: the dashboard tab label, clipped at the pane width, and the workspace status row, about 159 monospace columns at the default 1280-wide window (8 px cell) and copied into a 512-byte buffer. Three problems that each carry a record id already fill that, so raising the cap would push content off the right edge rather than closer to a fix, and cascading errors from one bad record make the tail low-value anyway. What was missing was knowing the list was cut, so the count is stated, and stated last: it is the least load-bearing part of the line and therefore the right thing to lose to clipping or truncation. Every call site reports through this helper so the three sections read alike.",
+      "refs": [
+        "docs/specs/078-project-game-declaration.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/server/formats.mjs",
-    "sha256": "807066fa3dc4e3bb06d2d6fe29212dd24b449f5876c228dd122f0daa18275288",
+    "sha256": "0034f5ee7faf05d911a775b92be05d484408d25f9b31a2675d5b2d8d58a539e2",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }
