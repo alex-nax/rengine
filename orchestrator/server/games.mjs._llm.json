@@ -69,7 +69,7 @@
   ],
   "source": {
     "path": "orchestrator/server/games.mjs",
-    "sha256": "494a3d56dc841c8345cdd6de29e9c0e8a0db6d6097e95fb4c6869a61abb21bf7",
+    "sha256": "7369e6c87b4ed85b664983bbadc5dcf96898891f006595c3099e76ecb6c8ed1e",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

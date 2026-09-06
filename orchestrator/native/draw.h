@@ -25,6 +25,8 @@ void re_draw_shadow(ReDraw *draw, mu_Rect rect, mu_Color color, float radius, in
 void re_draw_ring(ReDraw *draw, mu_Rect rect, mu_Color color, float radius, int width);
 void re_draw_gradient(ReDraw *draw, mu_Rect rect, mu_Color from, mu_Color to, float radius, uint8_t corners, uint8_t axis);
 void re_draw_icon(ReDraw *draw, uint8_t icon, mu_Rect rect, mu_Color color);
+/* An icon at an explicit pixel size, for a mark that has to fit a box smaller than the text size. */
+void re_draw_icon_sized(ReDraw *draw, uint8_t icon, int size, mu_Rect rect, mu_Color color);
 ReTexture *re_draw_texture_create(ReDraw *draw, int width, int height);
 bool re_draw_texture_update(ReTexture *texture, const void *rgba, int pitch);
 void re_draw_texture_destroy(ReTexture *texture);

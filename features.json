@@ -719,7 +719,13 @@
       "owner_workspace": "rengine",
       "deliverable": "nested explorer and docs/evidence",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/nested-explorer-macos-2026-09-06.md",
+        "orchestrator/tests/native-explorer.spec.mjs: with the setting on, a directory expands in place at the card's indentation and keeps its siblings, a second level nests under the first, a click collapses the branch whole, and the caret drills in; with the setting off the view drills down as before.",
+        "orchestrator/tests/native-explorer.spec.mjs: the row cap collapses the least-recently-expanded branch and names it in the status line, and refuses the expansion instead when the opened directory and the selected file leave no unprotected branch.",
+        "orchestrator/tests/native-explorer.spec.mjs: expansion survives a reload of the same directory.",
+        "Gates on macOS 2026-09-06: npm test 56/56, npm run test:desktop 26/26, CTest 5/5, python3 tools/design.py check, the cross-backend render comparison."
+      ]
     },
     {
       "id": 74,

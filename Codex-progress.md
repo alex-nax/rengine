@@ -33,7 +33,8 @@ and the MCP tool are in files main never touched, and main's only server change 
 preferences for spec 080) does not reach them. `workspace.c` is exactly the reported footprint on
 main's structure: the switcher entry and `views = 5`, the tab icon, the dispatch, and `RE_DEVICES`
 in the two scroll predicates. No id collision: main stops at F74 and spec 080 and KI-043, so F76,
-spec 082 and KI-045/046/047 are all still free. `features.json` appended in place;
+spec 082 and KI-045/046/047 were free at that point — main took F75, spec 081 and KI-044 two
+commits later, which is why this lane renumbered; see below. `features.json` appended in place;
 `docs/roadmap-graph.md` regenerates byte-identical to the merge; `theme.h`/`theme.c` and the design
 mirrors regenerate byte-identical too, so the generated files were not conflict-resolved by hand.
 
@@ -67,30 +68,57 @@ noise, not a regression, and it belongs to the render lane: either widen it to c
 spread or measure something less noisy than a whole-process RSS difference. A third sweep lost the
 same spec to its 420 s timeout under load average 20.6.
 
-**Gates**, re-run in full after the second merge and after a final `git fetch` (`origin/main`
-`a5e6036`). `npm test` **66/66**. `npm run test:desktop` **25/25**, sequential — main's 22, plus
-`native-devices.spec.mjs` 3/3 including the new busy-pane case. Earlier sweeps of the first merge lost
+**A third merge, `5356ece`, and a renumber.** Main advanced twice more during the report: the
+overlay fix (`a5e6036`) and then the game-recording lane (`a749d9a` + `5356ece`), which **took F75,
+spec 081 and KI-044** — the three ids this lane had checked as free two commits earlier. Main is
+pushed and this branch is not, so this lane moved, following `cbfa1ef`: **F75 -> F76**,
+`docs/specs/081-project-devices.md` -> `082-project-devices.md`, **KI-044/045/046 -> KI-045/046/047**
+(and one commit later again to **KI-046/047/048**, when main's next commit took 045 for the flakiness
+issue this report had asked for),
+and, because main also took session 32, this lane's sessions became **33** (devices) and **34** (this
+merge). Every reference moved with them: the schema description, the sidecar refs, `games.mjs`'s own
+comment, the theme card, both fixtures and the progress log. The renumber is its own commit before
+the merge, so the merge itself is only a union.
+
+Everything the recording lane touches that this lane also touches was a union rather than a choice:
+`RE_DEVICES` joins the tab enum beside `#include "recording.h"`, the worker and the host advertise
+both `recordings: 1` and `projectDevices: 1`, both route modules are imported in `main.mjs` and
+`worker.mjs`, `devices.c` and `recording.c` are both built, the theme card keeps both view notes, and
+the desktop list runs both fixtures. Five sidecars conflicted and are the union of both sides'
+entries, re-anchored and stamped; after that the sidecar diagnostics are **identical, line for line,
+to `origin/main` at `5356ece`** (16 errors, 18 warnings).
+
+One more main-side flake surfaced and was reproduced there before being attributed:
+`native-format-hardening` — main's own new nested-explorer loop, which clicks 64 directories with
+scroll settles — failed once here (`dir3 expanded not reached`) and **2 of 3 isolated runs on
+unmodified `origin/main` at `5356ece`** (`dir56 expanded not reached`, and `slow producer preview
+loaded`). The sweep that follows is a clean 26/26 on this branch.
+
+**Gates**, re-run in full after the third merge and after a final `git fetch` (`origin/main`
+`5356ece`). `npm test` **71/71**. `npm run test:desktop` **26/26**, sequential — 20 fixtures, this
+lane's `native-devices.spec.mjs` 3/3 including the new busy-pane case and the recording lane's own. Earlier sweeps of the first merge lost
 one test each to machine load, never the same one twice, and every class was reproduced on main
 before being attributed there: `native-render`'s memory budget (the numbers are above),
 `native-render` cancelled at its 420 s timeout under load average 20.6, and `native-project-windows`,
 which passes 3/3 in isolation here while `origin/main`'s own sweep at `60d0917` came in at 21/22 with
 `native-game`'s fixture aborted on signal 6. None touches a devices path.
-`ctest --test-dir .cache/desktop` **5/5** (0.95 s). Native build from a **wiped** `.cache/desktop`: **0 warnings, 0 errors** — the
-honest check for the `-Werror` implicit-declaration class of defect. `./init.sh` clean (35 features).
+`ctest --test-dir .cache/desktop` **6/6** (1.13 s, the recording test included). Native build from a **wiped** `.cache/desktop`: **0 warnings, 0 errors** — the
+honest check for the `-Werror` implicit-declaration class of defect. `./init.sh` clean (36 features).
 `python3 tools/design.py check` clean. `python3 tools/features.py validate` clean.
 `RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run test:game-nolf` **1/1**. Sidecars with the
-private index `.cache/sidecars-devices-merge.sqlite`: **17 errors, 20 warnings** — the set that
-predates both lanes (KI-047). `origin/main` at `a5e6036` reports **35 errors**, because its own
-commit shifted `app.c` and `workspace.c` without re-anchoring their sidecars; this branch repairs
-those 18 with `check --fix-anchors` and stamps both files, so it carries no drift of its own. Both live consumer
+private index `.cache/sidecars-devices-merge.sqlite`: **16 errors, 18 warnings**, identical line for
+line to `origin/main` at `5356ece` — the drift that predates both lanes (KI-048). At `a5e6036` main
+reported 35 errors because that commit shifted `app.c` and `workspace.c` without re-anchoring their
+sidecars; this branch repaired those 18 with `check --fix-anchors`, and the recording lane repaired
+the rest on its way in. Both live consumer
 declarations re-read through the merged code: vtmb-vr (contract 3, 1 format, 2 games, 3 dashboard
 groups) and nolf-improved (contract 3, 1 format, 3 games, 3 groups), no errors, `devices` absent in
 both, `projectDevices` reporting each as the implicit local device only, and both files byte-
 unchanged.
 
 **Remaining** is what session 33 left: F76 stays `passes: false` until a consumer declares devices
-and a probe runs against a real Quest or SSH host (KI-045), delivery needs `update_workspace` plus a
-desktop reload, and the dashboard still pays one probe per device per listing (KI-046).
+and a probe runs against a real Quest or SSH host (KI-046), delivery needs `update_workspace` plus a
+desktop reload, and the dashboard still pays one probe per device per listing (KI-047).
 
 ## Session 33 (macos) — 2026-09-06 — Devices: where a declared target actually runs (contract 4, F76)
 
@@ -171,7 +199,7 @@ npm run test:game-nolf` **1/1** — the real NOLF game still renders and accepts
 fifth toolbar cell in the switcher. `./init.sh` clean (35 features validated).
 `python3 tools/design.py check` clean. Clean native rebuild with **0** diagnostics from
 `orchestrator/native` under the picky flag set. Sidecars clean and stamped for every file this branch touches (pre-existing
-drift elsewhere is KI-047, not this lane's). Both live consumer declarations re-read clean and
+drift elsewhere is KI-048, not this lane's). Both live consumer declarations re-read clean and
 unchanged at contract 3: vtmb-vr (1 format, 2 games, 10 actions) and nolf-improved (1 format,
 3 games, 14 actions).
 
@@ -182,9 +210,62 @@ and `native-game-declaration.spec.mjs`, which pins the exact toolbar cell list t
 control stayed removed, gains `Devices`.
 
 **Remaining.** F76 stays `passes: false`: no consumer declares devices yet and no probe has run
-against a real Quest or SSH host from this branch (KI-045), delivery needs `update_workspace` for
+against a real Quest or SSH host from this branch (KI-046), delivery needs `update_workspace` for
 the worker layer plus a desktop reload for the native section, and the dashboard now pays one probe
-per device per listing (KI-046).
+per device per listing (KI-047).
+## Session 32 (macos) — 2026-09-06 — The explorer expands in place, and three defects the owner found first
+
+F73 is implemented and gated on macOS. In nested mode a directory row expands in place at the card's
+indentation, the caret glyph drills in so the old behaviour stays reachable, and a branch collapses
+whole. Flat mode is unchanged. The mode is the setting from spec 080 decision 1 and nothing infers it.
+
+The row cap is the interesting part. It counts rows rather than branches, because rows are what a
+person scrolls, and it is enforced when a listing arrives, since the size of a directory is not known
+before that. Reaching it collapses the least-recently-expanded branch and names it in the status line.
+A branch is protected when the directory being opened sits under it or when the selected file does,
+and the selection is the file being worked on rather than whichever folder was last toggled — the
+first version updated the selection on every folder click, which quietly cancelled the protection the
+rule exists to provide. When every branch is protected the expansion is refused, also in the status
+line, and nothing already open closes. `orchestrator/tests/native-explorer.spec.mjs` drives all four
+criteria against the real desktop.
+
+The row is not marked passing. F73 depends on F67, which is signed off but waits on the Windows card
+evidence blocked by KI-038, so the inventory keeps `passes: false` and the macOS verification is
+recorded in `docs/evidence/nested-explorer-macos-2026-09-06.md`.
+
+Three defects arrived from the owner and one peer rather than from reading code, and all three are
+worth writing down because none would have been caught by the gates as they stood:
+
+- The settings popover would not take clicks over a pane running an agent CLI. The surface is drawn
+  above every pane but the pointer was still offered to the panes first, and a terminal with mouse
+  reporting on claims the press and returns. The rows above that terminal's rectangle worked, which
+  made it look like two broken controls rather than a layer that stops at a boundary. An open overlay
+  now owns the pointer over its own rectangle. The regression only means something with a fixture
+  that enables mouse reporting; a plain shell does not claim the press and the test passes either way.
+- The check mark in a checkbox was drawn at the text size, so a 14px box cropped it to a diagonal
+  stroke that reads as a slash. Icons now take a size, and the assertion is that the mark keeps clear
+  of the box's corners, which is what an oversized glyph reaches first.
+- Scrolled views painted over the toolbar, reported by the peer session from the owner's screen. That
+  one was a class rather than a bug: owned controls never saw microui's clip, and the scrollbar work
+  simply gave those lists somewhere to scroll to. Fixed in the control layer, so every view was
+  covered by one change.
+
+The three added defects of my own making are in the spec: an operation number that sorted above the
+format-view boundary and read a format the explorer does not have, a collapse that passed a pointer
+into the slot it then cleared, and a pool whose free marker made tab 0 indistinguishable from an
+unused slot.
+
+Commands: `npm test` 61/61, `ctest` 6/6, `python3 tools/design.py check`, `python3
+tools/features.py validate`, and `npm run test:desktop` 26/26 on two of five runs. The other three
+dropped one or two different tests to an automation timeout, each passing when rerun alone, and the
+committed baseline `a5e6036` dropped three the same way, so this is environmental. Recorded as KI-045
+rather than left as folklore, because a single red run here should not read as a regression.
+
+Remaining: F69 and the KI-038 Windows suite repair, which unblocks F37, F54, F62, F67 and with them
+F73. The owner's sign-off notes for F60 and F67 are still outstanding. Two peer sessions have raised
+work for the owner to decide: Escape never reaches an embedded game because the pane consumes it as
+the capture-release gesture, and requests for game recording and per-project chrome identity.
+
 ## Session 32 (macos) — 2026-09-06 — A game pane that remembers the last two minutes
 
 F75 implements the recording the owner asked for directly: a game pane keeps a rolling buffer while

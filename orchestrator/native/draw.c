@@ -144,6 +144,9 @@ void re_draw_gradient(ReDraw *d, mu_Rect r, mu_Color from, mu_Color to, float ra
   re_draw_list_gradient(&d->list, rect_of(r), color_of(from), color_of(to), radius, corners, axis);
 }
 void re_draw_icon(ReDraw *d, uint8_t icon, mu_Rect r, mu_Color c) { re_draw_list_icon(&d->list, icon, RE_THEME_FONT_SIZE, rect_of(r), color_of(c)); }
+void re_draw_icon_sized(ReDraw *d, uint8_t icon, int size, mu_Rect r, mu_Color c) {
+  re_draw_list_icon(&d->list, icon, size > 0 ? size : RE_THEME_FONT_SIZE, rect_of(r), color_of(c));
+}
 
 ReTexture *re_draw_texture_create(ReDraw *d, int width, int height) { return d->backend->ops->texture_create(d->backend, width, height); }
 bool re_draw_texture_update(ReTexture *t, const void *rgba, int pitch) { return t && t->owner->ops->texture_update(t, rgba, pitch); }
