@@ -79,10 +79,56 @@ Contract 3 adds an optional top-level `games` array:
   root, which stays the default. A missing or non-directory `cwd` is a named preflight issue.
 - `requires`: optional, 0–32 root-relative regular files that must exist. Each missing file is one
   named preflight issue.
-- `surface`: `embedded` (rEngine injects its cooperative SDL adapter and hosts the frames in a game
-  tab, as the former `sdl2-interpose` did) or `external` (the process opens its own operating-system
-  window; rEngine starts and tracks the session and retains its PTY output only). The enum value
-  was renamed with the contract bump; nothing shipped the old spelling to a user.
+- `surface`: `embedded` (rEngine injects its SDL2 adapter and hosts the frames in a game tab, as the
+  former `sdl2-interpose` did), `external` (the process opens its own operating-system window;
+  rEngine starts and tracks the session and retains its PTY output only), or `cooperative` (the game
+  speaks the surface protocol itself; rEngine reserves the surface and passes the environment but
+  injects nothing — see below). The `embedded` enum value was renamed with the contract bump;
+  nothing shipped the old spelling to a user.
+
+### `cooperative`: the game connects itself (owner, 2026-09-06, F77)
+
+`embedded` means three things at once: reserve a surface item, pass
+`RENGINE_SURFACE_PORT`/`RENGINE_SURFACE_TOKEN`, **and** put
+`adapters/sdl2/librengine_surface.dylib` on `DYLD_INSERT_LIBRARIES` so the adapter interposes SDL2's
+`SDL_GL_SwapWindow`/`SDL_PollEvent` inside the game. That third thing is the one an SDL3-static
+consumer cannot have: there is no dynamic SDL symbol to interpose, so a statically linked engine can
+never be reached by the interposer no matter what it declares.
+
+`cooperative` is `embedded` minus the injection. rEngine reserves the item through
+`Surfaces.reserve()`, passes the two variables alongside the record's own `env`, sets **no**
+`DYLD_INSERT_LIBRARIES` and reports **no** adapter, and expects the game to open the
+`RENGINE/1 FRAME` and `RENGINE/1 INPUT` channels itself. Everything downstream is unchanged: the
+session is `type: "game"` carrying its `surface`, the `/surface` upgrade streams it, the native game
+tab is the live view, Sessions and Stop behave identically. The first consumer is vtmb-vr, whose
+engine implements the client side of this protocol directly (its F1147): it reads the two variables,
+greets both channels, sends 24-byte-header RGBA frames bottom-row-first and injects the received
+input packets into its own event pump.
+
+**Why this is a third value and not a flag on `embedded` — the part a later reader will otherwise
+undo.** A game that connects itself *and* is injected greets with **the same token twice on the same
+channel**. `orchestrator/server/surfaces.mjs` accepts the first socket to arrive on a channel and
+destroys the second (`if (item[channel]) { socket.destroy(); return; }`), and both clients reconnect
+after a close — the adapter has its own connect loop, and the consumer's writer and reader threads
+retry too — so the surviving producer is whichever one wins a restart race, again on every
+reconnect. The pane would show frames from an arbitrary one of two producers, differently on each
+run, with no error reported anywhere. That state must not be reachable by configuration, which is
+exactly what `surface: "embedded"` plus an `inject: false` flag would make it: one typo away. A
+distinct enum value means a declaration either injects or connects and never both, and the
+regression that keeps it that way asserts on the composed launch environment — for a `cooperative`
+game it carries no `DYLD_`/`LD_` key at all.
+
+**The macOS adapter precondition belongs to `embedded` only.** A cooperative game is portable by
+construction: the protocol is a loopback socket and a byte layout, with no platform-specific loader
+behaviour in it. So `cooperative` never reports *"The embedded game surface needs host integration
+and qualification on this platform"* and never reports *"Build the native surface first"* — on Linux
+and Windows a cooperative record preflights on its own merits, and the only reasons it is not ready
+are a missing executable, a missing `requires` file or a bad `cwd`.
+
+The contract-4 device rule applies to `cooperative` identically and through the same code: a
+cooperative game streams into a **local** pane over loopback, so it cannot be bound to a remote
+device. `game-rules.mjs` names the set of local-only surfaces once rather than testing `embedded`
+twice.
 
 ### The error message is the recovery path (decision, 2026-09-06)
 
@@ -146,7 +192,8 @@ An unknown `gameId` is one clear error naming the declared ids.
   `Working directory is missing: <path>.`.
 - `embedded` additionally needs the adapter dylib on macOS (`Build the native surface first:
   npm run build:surface`) and reports the platform issue elsewhere. `external` has no surface
-  prerequisite.
+  prerequisite. `cooperative` has none either and carries no `adapter`: it is ready wherever its
+  executable and files are, on every platform.
 
 `POST /api/game { rootId, gameId, args? }`, the MCP tool `launch_game(gameId?, args?)`, a dashboard
 `game` action and `--launch-game` in the launcher launch the selected game, else reuse. `args` is
@@ -158,7 +205,9 @@ game session whose `rootId` *and* `game` both match, and otherwise spawns: cwd =
 resolved inside the root (the root itself by default), env = the sidecar's shell environment plus
 the declared `env`. For `embedded` the surface reservation
 (`RENGINE_SURFACE_PORT`/`RENGINE_SURFACE_TOKEN`) and `DYLD_INSERT_LIBRARIES` are added, and the
-reservation is released when the session exits. For `external` no surface item is reserved. The
+reservation is released when the session exits. For `cooperative` the same reservation is added and
+released the same way, and `DYLD_INSERT_LIBRARIES` is **not** set — that one difference is the whole
+of `cooperative` in the launch path. For `external` no surface item is reserved. The
 session is `type: 'game'` with `title: "<title> · <root name>"`; its snapshot carries `surface` and
 `game` (the declared id). A launch on an unready game fails with status 409 and the joined issues.
 `--launch-game` in `orchestrator/launch.mjs` preflights the first declared game and reports its
@@ -311,7 +360,12 @@ session opens as a game tab through the existing session-tab path, so `embedded`
 and `external` gets the retained-output view. The inspectable roles stay the dashboard's own:
 `dashboard-action`/`<action id>` and `dashboard-unavailable`/`<action id>`.
 
-For `embedded` the game tab is the existing live game view (texture, capture, Esc release). For
+For `embedded` the game tab is the existing live game view (texture, capture, Esc release), and
+`cooperative` needs nothing of its own here: `re_app_external_session` asks whether the session's
+surface **is** `external`, so every other value already opens the live view. The one native change
+is honesty in the automation snapshot — a game tab reported its surface as `t->terminal ? "external"
+: "embedded"`, which would call a cooperative tab embedded; it now reports the session's own
+declared surface and keeps `embedded` only as the fallback for a session that declares none. For
 `external` the tab is a terminal-style view over the game session's PTY output (the session is
 already a node-pty child) with a status row from the theme's string table: "Running in its own
 window" while the session runs, "Game exited · reattach or Stop in Sessions" afterwards. The
@@ -397,8 +451,24 @@ already reports it as a named preflight issue.
 4. `npm test`, `npm run test:desktop`, CTest, `./init.sh`, design check and sidecar validation
    pass; the native build has zero warnings. `RENGINE_NOLF_ROOT=… npm run test:game-nolf` launches
    the real NOLF build through a dashboard game action and sees its frames.
+5. **`cooperative` (F77).** The suite never depends on a consumer binary: `orchestrator/tests/
+   surface-producer.mjs` is a fixture producer that reads the two variables, greets both channels
+   through the committed `surface-protocol.mjs` encoder, sends frames and reports its own
+   environment on stdout, and `game-fixtures.mjs` declares it as a `cooperative` record. Covered:
+   the reader accepts `cooperative` and still rejects an unknown value naming all three; a
+   `cooperative` record on a non-local device is refused by the same rule and the same message as
+   `embedded`; preflight reports no `adapter`, no platform issue and `ready: true` on every
+   platform; a launch composes `RENGINE_SURFACE_PORT`, `RENGINE_SURFACE_TOKEN` and the declared
+   `env` and **no `DYLD_`/`LD_` key at all** (the injection-race regression, asserted on the
+   environment rEngine composes rather than on the child's, because macOS strips `DYLD_*` from a
+   protected interpreter); the reservation exists while it runs and is released when it exits; its
+   frames reach `Surfaces` and a `/surface` viewer; `embedded` on macOS still composes
+   `DYLD_INSERT_LIBRARIES` with the adapter; `external` still reserves nothing.
+   `native-cooperative.spec.mjs` (in `test:desktop`) launches the producer through the real game
+   route and shows the native tab rendering its frames as a live game view — a rising `sequence`,
+   `surface: "cooperative"` in the snapshot, and none of the external tab's PTY text or status row.
 
 Boundaries: no new npm or C dependency; no game is named in rEngine code, theme strings, tool
 descriptions or package scripts (the named real-NOLF qualification test and its npm script are the
-only permitted mention); a cooperative surface for SDL3/static applications is a later spec
-(recorded as a known issue); Windows stays unqualified (KI-014).
+only permitted mention); `cooperative` adds no client library — the protocol is the contract, and a
+consumer implements it in its own engine; Windows stays unqualified (KI-014).
