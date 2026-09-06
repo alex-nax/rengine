@@ -522,7 +522,7 @@
     "game": "Capture row above a black surface inset from the pane that starts at top; an external game shows its status row there and its retained output in the same area. A game is launched from a dashboard game action, which renders as an ordinary dashboard row.",
     "scrollbar": "Native terminal/editor bars: width, minimum thumb length and the thumb inset from the track edges.",
     "design": "Card constants from design/base.css that tokens.css does not name; every other design metric is a token binding under token-metrics.",
-    "devices": "Devices tab (spec 081): heading, note, then per device a title/status row and two reason rows."
+    "devices": "Devices tab (spec 082): heading, note, then per device a title/status row and two reason rows."
   },
   "icons": {
     "close": "x",

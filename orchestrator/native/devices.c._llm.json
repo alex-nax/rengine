@@ -11,7 +11,7 @@
       },
       "note": "The surface argument for the whole feature: an unreachable device draws ONE row with ONE reason, and lists the targets bound to it, instead of four separately disabled actions each restating the same sentence. Only issues[0] is drawn \u2014 the service may report both a missing local file and an unreachable device, and the dashboard is where the per-action detail belongs. Rows use the owned control layer (re_ui_*), not pristine microui as dashboard.c still does, so the section matches the design system; every row publishes a re_app_control entry whether or not it was hit, because the automation harness addresses rows by role and key rather than by coordinates. The reachable/unreachable role is what a fixture asserts on, so keep it derived from the service's boolean and never from the presence of a reason.",
       "refs": [
-        "docs/specs/081-project-devices.md"
+        "docs/specs/082-project-devices.md"
       ]
     }
   ],

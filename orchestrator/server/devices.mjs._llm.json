@@ -11,7 +11,7 @@
       },
       "note": "15 s is the chosen TTL. It is long enough that one dashboard listing probes each declared device once rather than once per action (the live nolf-improved declaration has eight device actions across two devices), and that a preflight followed by the launch attempt it informs reuses one result; it is short enough that a stale \"reachable\" cannot mislead for longer than it takes to notice. An explicit refresh deletes the key first, so it is never served stale. A TTL alone would NOT be enough: dashboardActions resolves its actions with Promise.all, so all eight checks start before any result exists and every one of them would miss. That is why coalesced() joins an in-flight probe rather than only a completed one \u2014 without it, one dashboard listing spawns six adb probes at once, which is exactly the cost the cache exists to prevent. The key includes the resolved argv and the timeout, so editing the declaration or changing the environment variable invalidates the entry instead of pinning an answer about a different machine.",
       "refs": [
-        "docs/specs/081-project-devices.md"
+        "docs/specs/082-project-devices.md"
       ]
     },
     {
@@ -24,7 +24,7 @@
       },
       "note": "The local device is implicit by contract: a target without a device binds to it, and a declaration that omits the array entirely behaves exactly as contract 3 did. It is prepended here rather than required in the declaration so a consumer never has to declare it to bind to it or to see it in the Devices section \u2014 which is what keeps the section meaningful for a contract-3 project. A declared local record wins, because a declaration may name it purely to give it a title. The cross-field rules make that unambiguous: at most one kind local, and the id and the kind must agree, so this lookup can never pick the wrong record.",
       "refs": [
-        "docs/specs/081-project-devices.md"
+        "docs/specs/082-project-devices.md"
       ]
     },
     {
@@ -37,7 +37,7 @@
       },
       "note": "An env variable that is unset or empty must become an unreachable device with the variable named, never a spawn. Two failure modes are being closed at once: spawning ssh with an empty argument (which would connect somewhere unintended or hang), and spawning with the literal ${host} still in the argv (which fails with a confusing diagnostic that looks like a declaration bug). deviceStatus resolves before substituting and returns early on `missing`, then asserts no ${ survives the substitution as defence in depth. Only fields the probe actually names are resolved, so a record may declare a host it does not use without becoming unreachable.",
       "refs": [
-        "docs/specs/081-project-devices.md"
+        "docs/specs/082-project-devices.md"
       ]
     },
     {
@@ -50,7 +50,7 @@
       },
       "note": "Two honest limits on what a probe means, both load-bearing. (1) It is bounded and side-effect-light, NOT read-only. Every other declared command in these contracts genuinely is read-only; adb get-state and adb devices both start the adb server when no daemon is running and leave a process behind. Do not describe probes as read-only in any surface or tool description. (2) A green probe is reachability, never launchability: ssh host true succeeds while the launch still cannot work, because an SSH logon session has no window station and therefore no GL context \u2014 which is why the consumer dispatches through Task Scheduler with /IT. If probe success were allowed to enable an action, the PCVR entry would light up precisely when it cannot run. Availability therefore claims only that the device answered and the target's own local prerequisites are met.",
       "refs": [
-        "docs/specs/081-project-devices.md"
+        "docs/specs/082-project-devices.md"
       ]
     },
     {
@@ -63,7 +63,7 @@
       },
       "note": "requires and tools are LOCAL by definition, on a device and on a target alike, even when the device is remote. This is a rule, not an accident: the consumer's Quest data push is an adb action whose requires names the local archive being pushed, so reinterpreting requires as device-side paths when a device is bound would break it. A device-side prerequisite, if one is ever needed, gets its own field; the name deviceRequires is reserved and unimplemented. They are also checked BEFORE the probe, and short-circuit it: there is no point probing an ssh device when ssh is not installed, and the message should say which half is missing rather than reporting a connection failure.",
       "refs": [
-        "docs/specs/081-project-devices.md"
+        "docs/specs/082-project-devices.md"
       ]
     },
     {
@@ -76,7 +76,7 @@
       },
       "note": "Availability composes the device answering with the target's own local prerequisites, and BOTH halves are reported so a reader fixes the right thing: a reachable device with a missing local file reports the file, an unreachable device reports the device, and a target failing both reports both. This replaces the proxy that contracts 1-3 forced on consumers \u2014 tools: [\"adb\"] asks whether a binary is on PATH, which is always true, so six adb actions reported available: true with nothing attached. Every call goes through deviceStatus and therefore through the cache, which is what makes it safe to evaluate per action.",
       "refs": [
-        "docs/specs/081-project-devices.md"
+        "docs/specs/082-project-devices.md"
       ]
     }
   ],

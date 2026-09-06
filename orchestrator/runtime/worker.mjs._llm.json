@@ -38,7 +38,7 @@
       },
       "note": "The refusal is issued HERE, from the worker's own preflight, before anything is forwarded to the retained session host. That is the spec-078 / KI-043 lesson applied: a retained host predates contract 4, so asking it about a device would get a confident wrong answer from code that knows nothing about devices \u2014 exactly how the removed built-in NOLF config was once returned with HTTP 200 for a vtmb-vr root. The worker already computes preflight from its own checkout, so it holds the decision. Games.start refuses again on the same string for a caller that reaches the host directly.",
       "refs": [
-        "docs/specs/081-project-devices.md"
+        "docs/specs/082-project-devices.md"
       ]
     },
     {

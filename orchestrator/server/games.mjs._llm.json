@@ -11,7 +11,7 @@
       },
       "note": "Remote launching is deliberately outside this contract. The consumers' own scripts do it and hold knowledge that does not belong in an orchestrator: an SSH logon session has no window station, so a GL context cannot be created and the launch has to go through Task Scheduler with /IT; APK freshness is compared against the installed base.apk mtime. So the refusal is computed here, where the declaration is in hand, and names the project's own script actions bound to that device \u2014 derived from data, so rEngine still names no specific script. The string is carried on the config so the worker can refuse before anything reaches the retained host (the KI-043 lesson) and Games.start can refuse again for a direct caller, without two copies of the wording.",
       "refs": [
-        "docs/specs/081-project-devices.md"
+        "docs/specs/082-project-devices.md"
       ]
     },
     {
@@ -35,9 +35,9 @@
         "end": 75,
         "snippet": "let executable = null;"
       },
-      "note": "THE rule of spec 081: a target bound to a non-local device is never resolved or stat-ed against the local filesystem. That check is exactly what produced \"Game executable not found; expected build/vtmb-vr ...\" for a target that is condition = \"windows\" and can never be built on the machine the workspace runs on \u2014 every word true, and the conclusion (build it) impossible. The cwd is skipped for the same reason: it is a directory on that machine. The record's own requires are still checked locally, because requires is local by definition even on a remote device. The regression test proves the rule rather than the symptom: it places the executable ON the local disk and asserts it is still unresolved, so the test cannot pass by the file merely being absent.",
+      "note": "THE rule of spec 082: a target bound to a non-local device is never resolved or stat-ed against the local filesystem. That check is exactly what produced \"Game executable not found; expected build/vtmb-vr ...\" for a target that is condition = \"windows\" and can never be built on the machine the workspace runs on \u2014 every word true, and the conclusion (build it) impossible. The cwd is skipped for the same reason: it is a directory on that machine. The record's own requires are still checked locally, because requires is local by definition even on a remote device. The regression test proves the rule rather than the symptom: it places the executable ON the local disk and asserts it is still unresolved, so the test cannot pass by the file merely being absent.",
       "refs": [
-        "docs/specs/081-project-devices.md"
+        "docs/specs/082-project-devices.md"
       ]
     },
     {

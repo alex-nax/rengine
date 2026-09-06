@@ -32,8 +32,8 @@ schema, `devices` rules, the probe with its 15 s cache and in-flight coalescing,
 and the MCP tool are in files main never touched, and main's only server change (`store.mjs`
 preferences for spec 080) does not reach them. `workspace.c` is exactly the reported footprint on
 main's structure: the switcher entry and `views = 5`, the tab icon, the dispatch, and `RE_DEVICES`
-in the two scroll predicates. No id collision: main stops at F74 and spec 080 and KI-043, so F75,
-spec 081 and KI-044/045/046 are all still free. `features.json` appended in place;
+in the two scroll predicates. No id collision: main stops at F74 and spec 080 and KI-043, so F76,
+spec 082 and KI-045/046/047 are all still free. `features.json` appended in place;
 `docs/roadmap-graph.md` regenerates byte-identical to the merge; `theme.h`/`theme.c` and the design
 mirrors regenerate byte-identical too, so the generated files were not conflict-resolved by hand.
 
@@ -80,7 +80,7 @@ honest check for the `-Werror` implicit-declaration class of defect. `./init.sh`
 `python3 tools/design.py check` clean. `python3 tools/features.py validate` clean.
 `RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run test:game-nolf` **1/1**. Sidecars with the
 private index `.cache/sidecars-devices-merge.sqlite`: **17 errors, 20 warnings** — the set that
-predates both lanes (KI-046). `origin/main` at `a5e6036` reports **35 errors**, because its own
+predates both lanes (KI-047). `origin/main` at `a5e6036` reports **35 errors**, because its own
 commit shifted `app.c` and `workspace.c` without re-anchoring their sidecars; this branch repairs
 those 18 with `check --fix-anchors` and stamps both files, so it carries no drift of its own. Both live consumer
 declarations re-read through the merged code: vtmb-vr (contract 3, 1 format, 2 games, 3 dashboard
@@ -88,16 +88,16 @@ groups) and nolf-improved (contract 3, 1 format, 3 games, 3 groups), no errors, 
 both, `projectDevices` reporting each as the implicit local device only, and both files byte-
 unchanged.
 
-**Remaining** is what session 32 left: F75 stays `passes: false` until a consumer declares devices
-and a probe runs against a real Quest or SSH host (KI-044), delivery needs `update_workspace` plus a
-desktop reload, and the dashboard still pays one probe per device per listing (KI-045).
+**Remaining** is what session 32 left: F76 stays `passes: false` until a consumer declares devices
+and a probe runs against a real Quest or SSH host (KI-045), delivery needs `update_workspace` plus a
+desktop reload, and the dashboard still pays one probe per device per listing (KI-046).
 
-## Session 32 (macos) — 2026-09-06 — Devices: where a declared target actually runs (contract 4, F75)
+## Session 32 (macos) — 2026-09-06 — Devices: where a declared target actually runs (contract 4, F76)
 
 **Owner scope**: give a project a way to say WHERE each target runs, probe reachability, and report
 availability in those terms. Worktree `.cache/worktrees/merge-verify`, branch `feat/devices` cut
 from `origin/main` at `94ce2fd` and pushed per commit; the `main` ref untouched, `update_workspace`
-deliberately not run, no consumer repository edited. Spec `docs/specs/081-project-devices.md` (080
+deliberately not run, no consumer repository edited. Spec `docs/specs/082-project-devices.md` (080
 was already taken by the settings popover).
 
 **The defect is a proxy, not a message.** The reported symptom was `game_preflight` for vtmb-vr's
@@ -171,7 +171,7 @@ npm run test:game-nolf` **1/1** — the real NOLF game still renders and accepts
 fifth toolbar cell in the switcher. `./init.sh` clean (35 features validated).
 `python3 tools/design.py check` clean. Clean native rebuild with **0** diagnostics from
 `orchestrator/native` under the picky flag set. Sidecars clean and stamped for every file this branch touches (pre-existing
-drift elsewhere is KI-046, not this lane's). Both live consumer declarations re-read clean and
+drift elsewhere is KI-047, not this lane's). Both live consumer declarations re-read clean and
 unchanged at contract 3: vtmb-vr (1 format, 2 games, 10 actions) and nolf-improved (1 format,
 3 games, 14 actions).
 
@@ -181,10 +181,10 @@ contract" guards in `formats`/`dashboard`/`games` tests step from 4 to 5 (contra
 and `native-game-declaration.spec.mjs`, which pins the exact toolbar cell list to prove the game
 control stayed removed, gains `Devices`.
 
-**Remaining.** F75 stays `passes: false`: no consumer declares devices yet and no probe has run
-against a real Quest or SSH host from this branch (KI-044), delivery needs `update_workspace` for
+**Remaining.** F76 stays `passes: false`: no consumer declares devices yet and no probe has run
+against a real Quest or SSH host from this branch (KI-045), delivery needs `update_workspace` for
 the worker layer plus a desktop reload for the native section, and the dashboard now pays one probe
-per device per listing (KI-045).
+per device per listing (KI-046).
 
 ## Session 31 (macos) — 2026-09-06 — Settings, menus, a gradient in the contract, and a clip nobody had
 

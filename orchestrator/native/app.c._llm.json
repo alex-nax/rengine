@@ -24,7 +24,7 @@
       },
       "note": "A devices load runs every declared probe, so it cannot use the 5 s default deadline a filesystem answer needs: one ssh probe with ConnectTimeout=4 against a box that is off already eats most of it, and the contract caps a probe at 60 s. Hence RE_DEVICES_TIMEOUT_MS. The refresh flag is appended to the query rather than threaded through re_net_query, which builds only rootId and path; the service reads refresh=1 and bypasses its brief probe cache. The tab is deliberately NOT auto-opened the way the dashboard is: probes must run only on an explicit availability check, so opening the section or pressing Refresh is what triggers them, never a background probe on connect.",
       "refs": [
-        "docs/specs/081-project-devices.md"
+        "docs/specs/082-project-devices.md"
       ]
     },
     {

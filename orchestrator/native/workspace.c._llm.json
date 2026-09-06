@@ -80,7 +80,7 @@
       },
       "note": "The view switcher is a fixed table walked by index, and the click handler branches on that same index \u2014 so inserting an entry is not a one-line change: `views` must match the table length and every later branch must be re-numbered. Devices was inserted at index 2, which moved the terminal/agent branch from `i == 3` to `i == 4`. Getting that wrong opens a shell where the user asked for an agent, silently, because both branches call launch_terminal. The group ring is drawn once around the whole run using GROUP_FIRST/LAST, so the first and last entries must stay first and last.",
       "refs": [
-        "docs/specs/081-project-devices.md"
+        "docs/specs/082-project-devices.md"
       ]
     },
     {

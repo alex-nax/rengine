@@ -94,8 +94,8 @@ flowchart TD
   F74["F74: blocked"]
   F71 --> F74
   F72 --> F74
-  F75["F75: blocked"]
-  F74 --> F75
+  F76["F76: blocked"]
+  F74 --> F76
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -134,4 +134,4 @@ flowchart TD
 | F72 | O1 | rengine | blocked | Launch a declared game from the project dashboard through an action kind game, and remove the toolbar game control. |
 | F73 | R2 | rengine | blocked | Let the project explorer expand directories in place, chosen by setting, with a bounded loaded-row cap. |
 | F74 | O1 | rengine | blocked | Serve the declaration-backed game preflight from the replaceable workspace worker, so a routine layered update delivers the per-project game capability. |
-| F75 | O1 | rengine | blocked | Contract 4 devices: a project declares where each target runs, rEngine probes reachability under the declared-command boundary and reports availability in those terms, replacing the tools-on-PATH proxy and the local executable stat for non-local targets. |
+| F76 | O1 | rengine | blocked | Contract 4 devices: a project declares where each target runs, rEngine probes reachability under the declared-command boundary and reports availability in those terms, replacing the tools-on-PATH proxy and the local executable stat for non-local targets. |

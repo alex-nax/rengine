@@ -3,5 +3,5 @@
 #include "app.h"
 #include "ui/ui.h"
 /* Contract-4 devices tab: where each declared target runs, with the reachability the service
-   measured from each record's own probe and the targets bound to it (spec 081). */
+   measured from each record's own probe and the targets bound to it (spec 082). */
 #endif

@@ -50,7 +50,7 @@
       },
       "note": "The contract-4 device binding is validated for EVERY action kind, not only the ones that look remote, because device is a property of where an action runs rather than of what it does \u2014 a log, a capture and a script can all be device-scoped. The rules themselves live in device-rules.mjs so games and the dashboard share one implementation and one message. Ordering matters: the reader settles devices before games and games before the dashboard, so context here already carries the accepted devices array (or devicesError, which suppresses a derived \"undeclared id\" error that would only mislead) \u2014 the same shape the game reference above uses.",
       "refs": [
-        "docs/specs/081-project-devices.md"
+        "docs/specs/082-project-devices.md"
       ]
     }
   ],

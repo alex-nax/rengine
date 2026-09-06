@@ -75,7 +75,7 @@ test('contract 3 games arrays validate, earlier contracts stay accepted and game
     const rootCwd = await declare(directory, 'root-cwd', gameDeclaration({ cwd: '' }));
     assert.equal(rootCwd.gamesError, undefined, 'an empty cwd means the project root'); assert.equal(rootCwd.games[0].cwd, '');
     const four = await declare(directory, 'four', { ...gameDeclaration(), contract: 4 });
-    assert.equal(four.error, undefined, 'contract 4 (spec 081, devices) accepts a games array unchanged'); assert.deepEqual(four.games, [game()]);
+    assert.equal(four.error, undefined, 'contract 4 (spec 082, devices) accepts a games array unchanged'); assert.deepEqual(four.games, [game()]);
     const above = await declare(directory, 'above', { ...gameDeclaration(), contract: 5 }); assert.match(above.error, /unknown contract 5/); assert.deepEqual(above.formats, []);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
@@ -103,7 +103,7 @@ test('preflight names the undeclared root, the malformed declaration, missing ca
   assert.deepEqual(missing.config.issues, ['Game executable not found; expected build/game-a or build/game-b in the selected project.',
     'Required file is missing: data/absent.bin.', 'Required file is missing: data/other.rez.', 'Working directory is missing: absent-dir.']);
   const ready = await preflight(await gameProject(directory, 'ready'));
-  /* Contract 4 (spec 081) adds device and candidates to every config; an undeclared record binds to
+  /* Contract 4 (spec 082) adds device and candidates to every config; an undeclared record binds to
      the implicit local device, whose reachability is not measured against anything. */
   const { device, checkedAt, ...settled } = { ...ready.config, checkedAt: ready.config.device.checkedAt };
   assert.deepEqual(device, { id: 'local', kind: 'local', title: 'This machine', reachable: true, checkedAt, issues: [] });

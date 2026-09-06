@@ -89,7 +89,7 @@
       },
       "note": "The devices tool is readOnlyHint (it changes nothing in the project) but openWorldHint, because it reaches the network or a USB device. Its description deliberately does NOT claim read-only: adb get-state and adb devices start the adb server when no daemon is running, so a probe is bounded and side-effect-light, not free of side effects. It also states that reachable is not launchable \u2014 a green ssh probe still cannot create a GL context in a logon session with no window station \u2014 so an agent does not read a reachable device as permission to launch on it. It gates on projectDevices, which the replaceable workspace worker advertises (KI-043: a capability served only by the retained host cannot be delivered by a layered update).",
       "refs": [
-        "docs/specs/081-project-devices.md"
+        "docs/specs/082-project-devices.md"
       ]
     }
   ],

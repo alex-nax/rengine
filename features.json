@@ -747,7 +747,7 @@
       ]
     },
     {
-      "id": 75,
+      "id": 76,
       "milestone": "O1",
       "category": "surfaces",
       "priority": "high",
@@ -766,7 +766,7 @@
         74
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/081-project-devices.md, contracts/project-v1.schema.json, orchestrator/server/{device-rules,devices,formats,games,dashboard}.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, orchestrator/native/{devices.c,devices.h,app.c,workspace.c,theme.json}, orchestrator/tests/{devices.test.mjs,device-fixtures.mjs,native-devices.spec.mjs}",
+      "deliverable": "docs/specs/082-project-devices.md, contracts/project-v1.schema.json, orchestrator/server/{device-rules,devices,formats,games,dashboard}.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, orchestrator/native/{devices.c,devices.h,app.c,workspace.c,theme.json}, orchestrator/tests/{devices.test.mjs,device-fixtures.mjs,native-devices.spec.mjs}",
       "external_references": [
         "vtmb-vr/docs/specs/feature-1146-device-targets.md (consumer proposal)",
         "vtmb-vr and nolf-improved .rengine/project.json declarations"
