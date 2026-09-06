@@ -52,7 +52,7 @@ test('contract 3 games arrays validate, earlier contracts stay accepted and game
       'nine executables': [{ executable: Array.from({ length: 9 }, (_, i) => `build/game-${i}`) }, /executable allows at most 8/],
       'no executables': [{ executable: [] }, /executable needs at least 1/],
       'shell executable': [{ executable: ['build/game | tee'] }, /executable\[0\]/],
-      'unknown surface': [{ surface: 'sdl2-interpose' }, /surface must be one of "embedded", "external"/],
+      'unknown surface': [{ surface: 'sdl2-interpose' }, /surface must be one of "embedded", "external", "cooperative"/],
       'unknown key': [{ shell: true }, /unknown key shell/],
       'long title': [{ title: 'x'.repeat(33) }, /title is longer than 32/],
       'bad id': [{ id: 'Fixture Game' }, /id does not match/],
@@ -74,6 +74,10 @@ test('contract 3 games arrays validate, earlier contracts stay accepted and game
     assert.match(empty.gamesError, /games needs at least 1 item/); assert.equal(empty.games, undefined);
     const rootCwd = await declare(directory, 'root-cwd', gameDeclaration({ cwd: '' }));
     assert.equal(rootCwd.gamesError, undefined, 'an empty cwd means the project root'); assert.equal(rootCwd.games[0].cwd, '');
+    for (const surface of ['embedded', 'external', 'cooperative']) {
+      const accepted = await declare(directory, `surface-${surface}`, gameDeclaration({ surface }));
+      assert.equal(accepted.gamesError, undefined, surface); assert.equal(accepted.games[0].surface, surface);
+    }
     const four = await declare(directory, 'four', { ...gameDeclaration(), contract: 4 });
     assert.equal(four.error, undefined, 'contract 4 (spec 082, devices) accepts a games array unchanged'); assert.deepEqual(four.games, [game()]);
     const above = await declare(directory, 'above', { ...gameDeclaration(), contract: 5 }); assert.match(above.error, /unknown contract 5/); assert.deepEqual(above.formats, []);

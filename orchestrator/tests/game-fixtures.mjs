@@ -1,5 +1,6 @@
 import { mkdir, writeFile, chmod } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { declaration } from './format-fixtures.mjs';
 
 // Shared fixtures for the per-project game declarations (contract 3, games array): scripts that
@@ -12,6 +13,12 @@ export const second = (extra = {}) => ({
   id: 'fixture-second', title: 'Fixture second', executable: ['tools/second.sh'], args: ['--second'], surface: 'external', ...extra,
 });
 export const absent = (extra = {}) => ({ id: 'fixture-absent', title: 'Fixture absent', executable: ['build/absent-game'], surface: 'external', ...extra });
+/* A game that speaks the surface protocol in its own process (spec 078, F77): nothing is injected
+   into it, so it stands in for an SDL3-static consumer without the suite owning that consumer. */
+export const cooperativeGame = (extra = {}) => ({
+  id: 'fixture-cooperative', title: 'Fixture co-op', executable: ['tools/cooperative.sh'],
+  args: ['--width', '8', '--height', '4'], env: { FIXTURE_FLAVOUR: 'violet' }, surface: 'cooperative', ...extra,
+});
 export const gamesDeclaration = (games, base = declaration()) => ({ ...base, contract: 3, games });
 export const gameDeclaration = (extra = {}, base = declaration()) => gamesDeclaration([game(extra)], base);
 
@@ -29,6 +36,10 @@ export const launcherDeclaration = (games = [game(), second(), absent()], board 
 
 const script = marker => `#!/bin/bash\nprintf "${marker} args=%s flavour=%s cwd=%s\\n" "$*" "\${FIXTURE_FLAVOUR:-unset}" "$PWD"\n`
   + 'trap \'echo FIXTURE_GAME_EXIT; exit 0\' TERM\nfor i in $(seq 1 600); do sleep 0.1; done\n';
+/* The declared executable of a cooperative record: a root-relative launcher, like a real one, over
+   the committed producer beside this file. */
+const producer = fileURLToPath(new URL('./surface-producer.mjs', import.meta.url));
+const cooperativeScript = `#!/bin/bash\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(producer)} "$@"\n`;
 
 export async function gameProject(directory, name, document = gameDeclaration()) {
   const root = path.join(directory, name);
@@ -38,6 +49,8 @@ export async function gameProject(directory, name, document = gameDeclaration())
     await writeFile(path.join(root, file), script(marker));
     await chmod(path.join(root, file), 0o755);
   }
+  await writeFile(path.join(root, 'tools/cooperative.sh'), cooperativeScript);
+  await chmod(path.join(root, 'tools/cooperative.sh'), 0o755);
   await writeFile(path.join(root, 'data/present.bin'), Buffer.from([1, 2, 3]));
   return root;
 }

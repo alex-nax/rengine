@@ -78,6 +78,24 @@ test('the real consumer declarations validate through the reconciled contract', 
     assert.equal(rewritten.dashboardError, undefined); assert.equal(rewritten.gamesError, undefined);
     assert.deepEqual(rewritten.dashboard.groups[0].actions.slice(0, 2).map(a => [a.kind, a.game, a.args]),
       [['game', 'vtmb-flat', undefined], ['game', 'vtmb-flat', ['--newgame']]]);
+    /* The shape the owner will flip `vtmb-flat` to now that its engine speaks the surface protocol
+       (spec 078, F77). Verified against a copy: this repository never edits a consumer's file. */
+    const asCooperative = structuredClone(vtmb);
+    asCooperative.games[0] = { id: 'vtmb-flat', title: 'VtMB', executable: ['build/vtmb', 'build/Release/vtmb'],
+      args: ['--width', '1280', '--height', '720'], env: { VTMB_HIDDEN_WINDOW: '1' },
+      requires: ['gamedata/Vampire/pack000.vpk'], surface: 'cooperative' };
+    assert.deepEqual(validateSchema(schema, asCooperative), [], 'the cooperative shape validates structurally');
+    const coop = await declare(directory, 'vtmb-cooperative', asCooperative);
+    assert.equal(coop.error, undefined); assert.equal(coop.gamesError, undefined); assert.equal(coop.dashboardError, undefined);
+    assert.deepEqual(coop.games.map(x => [x.id, x.surface]), [['vtmb-flat', 'cooperative'], ['vtmb-vr', 'external']]);
+    /* The consumer's own variable is an ordinary declared entry: rEngine needs no knowledge of it,
+       and the reserved-prefix rule (RENGINE_/DYLD_/LD_) does not reach a name like this one. */
+    assert.deepEqual(coop.games[0].env, { VTMB_HIDDEN_WINDOW: '1' });
+    assert.deepEqual(coop.games[0].args, ['--width', '1280', '--height', '720']);
+    const reserved = structuredClone(asCooperative);
+    reserved.games[0].env = { DYLD_INSERT_LIBRARIES: '/x.dylib' };
+    assert.match((await declare(directory, 'vtmb-reserved', reserved)).gamesError, /DYLD_INSERT_LIBRARIES is reserved/);
+
     const stray = structuredClone(asGameActions);
     stray.dashboard.groups[0].actions[0].game = 'vtmb-nowhere';
     const unknown = await declare(directory, 'vtmb-stray', stray);

@@ -102,10 +102,19 @@ test('device cross-field rules are named, and an unknown device reference lists 
       ...devicesDeclaration([answering()]), games: [{ ...localGame(), device: 'local' }],
     });
     assert.equal(localOk.gamesError, undefined, 'the implicit local device may be named without being declared');
-    const embedded = await declare(directory, 'embedded-remote', {
-      ...devicesDeclaration([answering()]), games: [{ ...remoteGame(), surface: 'embedded' }],
+    /* A cooperative game (spec 078, F77) streams into a local pane over loopback exactly as an
+       embedded one does, so it is bound to the local device by the same rule and the same message. */
+    for (const surface of ['embedded', 'cooperative']) {
+      const remote = await declare(directory, `${surface}-remote`, {
+        ...devicesDeclaration([answering()]), games: [{ ...remoteGame(), surface }],
+      });
+      assert.match(remote.gamesError, new RegExp(`"${surface}" needs the local device; "answering-box" is a ssh device`), surface);
+      assert.equal(remote.games, undefined, surface);
+    }
+    const localSurface = await declare(directory, 'cooperative-local', {
+      ...devicesDeclaration([answering()]), games: [{ ...localGame(), surface: 'cooperative', device: 'local' }],
     });
-    assert.match(embedded.gamesError, /"embedded" needs the local device; "answering-box" is a ssh device/);
+    assert.equal(localSurface.gamesError, undefined, 'a cooperative game on the local device is accepted');
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
