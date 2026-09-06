@@ -115,7 +115,9 @@ thirteen rewritten cards. `tools/design.py` now parses the layered CSS, mirrors 
 `tokens.json`, resolves presets to sRGB with oklch conversion and validates cards that link
 `styles.css`; the interim native source moved to `orchestrator/native/theme.json` and `theme.h` is
 unchanged. `check` found `--terminal-cursor` referencing an undefined `--ui-accent-dim`; fixed
-locally to `--re-accent-dim` (push pending), and the mirror now follows the CSS font stacks. Harness
+to `--re-accent-dim`, and the mirror now follows the CSS font stacks. On the owner's go-ahead the
+corrected `tokens.css`, mirror, manifest and README were synced back to the design project (plan
+limited to those four paths, four files written, remote cursor token verified). Harness
 gate, graph regeneration and design check pass. Commit:
 `feat(design): record the GPU rendering decision and pull the theming update`.
 

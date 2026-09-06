@@ -67,7 +67,7 @@ carries the renderer work, and the desktop keeps an interim theme source until t
   are app-generated and stay remote.
 - Renderer requirements are tabulated in spec 066; KI-031 tracks the gap.
 - `check` found `--terminal-cursor: var(--ui-accent-dim)` referencing an undefined token; corrected
-  locally to `var(--re-accent-dim)`, pending a sync back. The pulled JSON carried different font
+  to `var(--re-accent-dim)` and synced back with the regenerated mirror, manifest and README. The pulled JSON carried different font
   stacks from the CSS; the mirror now follows the CSS.
 - The former `import` command was retired: cards no longer carry `:root` blocks, and pulls replace
   files directly.
