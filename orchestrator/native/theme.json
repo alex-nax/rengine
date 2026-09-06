@@ -506,6 +506,10 @@
     "settings": {
       "width": 280,
       "label-width": 84
+    },
+    "recording": {
+      "toggle-width": 96,
+      "commit-width": 168
     }
   },
   "metric-notes": {
@@ -522,6 +526,7 @@
     "game": "Capture row above a black surface inset from the pane that starts at top; an external game shows its status row there and its retained output in the same area. A game is launched from a dashboard game action, which renders as an ordinary dashboard row.",
     "scrollbar": "Native terminal/editor bars: width, minimum thumb length and the thumb inset from the track edges.",
     "design": "Card constants from design/base.css that tokens.css does not name; every other design metric is a token binding under token-metrics.",
+    "recording": "The game tab's recording cells share the game row height; the row is capture, toggle, commit, status (spec 081).",
     "devices": "Devices tab (spec 082): heading, note, then per device a title/status row and two reason rows."
   },
   "icons": {
@@ -599,6 +604,16 @@
       "Add or select a project first.",
       "This is already the only pane.",
       "Start through npm start to rebuild and reload the desktop."
+    ],
+    "recording": [
+      "Record",
+      "Stop",
+      "Commit last <n> s",
+      "<game status> · <ring state> · ring <n> s / <n> MiB holding <n> frames",
+      "committing <n>/<n>",
+      "saved <id> · <n> frames · <n> log lines",
+      "nothing to commit yet",
+      "game exited"
     ]
   },
   "token-metrics": {

@@ -48,7 +48,7 @@
         "end": 348,
         "snippet": "static void state_loaded(ReApp *a, const cJSON *j) {"
       },
-      "note": "Ordinary layout restoration does not reselect an initial session whose view is already visible: retain the selected editor and pane. Explicit handoff presentation still selects its pending resumed agent so the once-only readiness gate can open. Project windows load/save their own layout namespace and use each session\u2019s original root even when the tree is a different project.",
+      "note": "Ordinary layout restoration does not reselect an initial session whose view is already visible: retain the selected editor and pane. Explicit handoff presentation still selects its pending resumed agent so the once-only readiness gate can open. Project windows load/save their own layout namespace and use each session’s original root even when the tree is a different project.",
       "refs": [
         "docs/specs/069-project-window-dogfooding.md",
         "docs/specs/058-orchestrator-handoff.md"
@@ -84,8 +84,8 @@
       "id": "drain-terminal-input-before-quit",
       "kind": "rationale",
       "anchor": {
-        "start": 560,
-        "end": 560,
+        "start": 562,
+        "end": 562,
         "snippet": "bool re_app_quit(ReApp *a) {"
       },
       "note": "On the first close/reload attempt, release held terminal buttons before teardown. Keep ticking native input/rendering until the connected events socket has handed queued/in-flight output to libcurl, in addition to existing durable draft/layout requirements. An observed native test previously lost the final mouse-up when re_app_close queued it immediately before stopping the stream worker. Bound this send drain to two seconds; cancel close/reload visibly if the stream stays busy. Disconnected output is already discarded, so it does not become a replay queue. Drain is transport completion, not a remote application acknowledgement.",
@@ -175,16 +175,29 @@
       "id": "inspect-reports-window-size",
       "kind": "rationale",
       "anchor": {
-        "start": 586,
-        "end": 586,
+        "start": 589,
+        "end": 589,
         "snippet": "cJSON *re_app_inspect(ReApp *a) {"
       },
       "note": "Inspection reports the window size beside the control rectangles so a fixture can check that a row of controls adds up to it. The toolbar lays its cells out left to right with explicit rects and reserves the trailing cells' widths and gaps before sizing the path field, so adding or removing a cell without correcting that reservation still compiles and only renders one gap wrong. native-game-declaration.spec.mjs pins it: the last cell's right edge must land on the toolbar padding. The size is the drawn logical size re_app_ui was last called with, not the SDL window's pixels, so it matches the rects it is compared against on a HiDPI display."
+    },
+    {
+      "id": "recording-lifecycle",
+      "kind": "rationale",
+      "anchor": {
+        "start": 551,
+        "end": 551,
+        "snippet": "  re_recording_sync(a);"
+      },
+      "note": "One call a tick owns the whole recorder lifecycle: it creates a recorder for a game tab that has a live surface, closes one whose tab lost its game, commits an open explicit segment when the session snapshot stops saying running, and drains a commit in flight. Putting it on the tick rather than in the tab-opening path means a restored layout, an Attach from the session browser and RENGINE_INITIAL_GAME all reach it without a third place to remember. Session output is routed separately, from the events loop above, because the recorder timestamps a log line when its newline arrives — the only clock it shares with the frames.",
+      "refs": [
+        "docs/specs/081-game-recording.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/app.c",
-    "sha256": "c4e422e1d1c9a91b50b2e95b0c637e0cd98729c184b69e105dade5d8321ddcaa",
+    "sha256": "290df8ca36e70b9d2c901737774c49830343334a2f29f0f14d60dfb5f1135ca8",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

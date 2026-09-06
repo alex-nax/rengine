@@ -6,6 +6,9 @@ export const MAX_TEXT_BYTES = 2 * 1024 * 1024;
 export const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 export function fail(message, status = 400) { const error = new Error(message); error.status = status; throw error; }
 const key = (rootId, file) => JSON.stringify([rootId, file]);
+/* Game-recording ring bounds (spec 081): both apply, whichever binds first. The desktop clamps
+   again, so a hand-edited workspace file cannot ask for a ring larger than these. */
+const RECORDING = { seconds: [5, 900], bytes: [4 * 1024 * 1024, 1024 * 1024 * 1024], fps: [1, 30], width: [160, 1280], quality: [30, 95] };
 const within = (root, file) => { const rel = path.relative(root, file); return rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel); };
 export async function resolveInRoot(root, relative = '', allowMissing = false) {
   if (typeof relative !== 'string' || relative.includes('\0') || path.isAbsolute(relative)) fail('Use a path relative to its project root.');
@@ -168,7 +171,7 @@ export class WorkspaceStore {
   async preferences(values) {
     if (!values || typeof values !== 'object') fail('Invalid preferences.');
     // The desktop's settings live here so a second window and a restarted desktop agree (spec 080).
-    const { agent, vim, theme, syntax, explorer, accentHue, themes } = values;
+    const { agent, vim, theme, syntax, explorer, accentHue, themes, recording } = values;
     if (agent !== undefined && (typeof agent !== 'string' || agent.length > 256)) fail('Invalid agent preference.');
     if (vim !== undefined && typeof vim !== 'boolean') fail('Invalid Vim preference.');
     for (const [key, value] of [['theme', theme], ['syntax', syntax], ['explorer', explorer]]) {
@@ -176,6 +179,16 @@ export class WorkspaceStore {
     }
     if (accentHue !== undefined && (typeof accentHue !== 'number' || !Number.isFinite(accentHue) || accentHue < 0 || accentHue >= 360)) {
       fail('Invalid accent hue preference.');
+    }
+    if (recording !== undefined) {
+      if (typeof recording !== 'object' || !recording || Array.isArray(recording)) fail('Invalid recording preference.');
+      for (const [name, value] of Object.entries(recording)) {
+        const range = RECORDING[name];
+        if (!range) fail(`Invalid recording preference key ${name}.`);
+        if (!Number.isInteger(value) || value < range[0] || value > range[1]) {
+          fail(`Invalid recording preference ${name}; expected an integer between ${range[0]} and ${range[1]}.`);
+        }
+      }
     }
     // A project theme is remembered per root, so the entry survives reopening that project (spec 080).
     if (themes !== undefined) {
@@ -190,7 +203,8 @@ export class WorkspaceStore {
       ...(agent !== undefined ? { agent } : {}), ...(vim !== undefined ? { vim } : {}),
       ...(theme !== undefined ? { theme } : {}), ...(syntax !== undefined ? { syntax } : {}),
       ...(explorer !== undefined ? { explorer } : {}), ...(accentHue !== undefined ? { accentHue } : {}),
-      ...(themes !== undefined ? { themes: { ...this.state.preferences.themes, ...themes } } : {}) };
+      ...(themes !== undefined ? { themes: { ...this.state.preferences.themes, ...themes } } : {}),
+      ...(recording !== undefined ? { recording: { ...this.state.preferences.recording, ...recording } } : {}) };
     await this.persist();
     return this.state.preferences;
   }

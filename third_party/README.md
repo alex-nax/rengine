@@ -7,7 +7,7 @@ not a claim that the first iklib two-game curation proof is complete.
 | Component | Use | Pin / license |
 | --- | --- | --- |
 | microui | Immediate-mode C controls and drawing commands | 2.02, commit `0850aba860959c3e75fb3e97120ca92957f9d057`; MIT |
-| stb_truetype / stb_textedit | Trusted local font rasterization and native text editing | Commit `2c980bb59875b0d32144a71867fbdebb2f77cd20`; MIT or public domain |
+| stb_truetype / stb_textedit / stb_image_write | Trusted local font rasterization, native text editing, and in-memory JPEG encoding of game-recording keyframes (spec 081) | Commit `2c980bb59875b0d32144a71867fbdebb2f77cd20`; MIT or public domain |
 | cJSON | Workspace JSON messages and persisted layout | 1.7.19; MIT |
 | libvterm | Actual PTY terminal emulation | 0.3.3 official release archive; MIT |
 | libcurl | Bounded local HTTP/WebSocket client transport | 8.22.0 archive SHA-256 in `orchestrator/native/curl.cmake`; curl license |

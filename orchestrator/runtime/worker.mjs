@@ -4,6 +4,7 @@ import { listFormats, formatPreview, readBytes, readDeclaration } from '../serve
 import { dashboardAction, dashboardActions, dashboardRunPayload, dashboardCapture } from '../server/dashboard.mjs';
 import { inspectGame } from '../server/games.mjs';
 import { projectDevices } from '../server/devices.mjs';
+import { listRecordings, readRecording } from '../server/recordings.mjs';
 import { randomBytes } from 'node:crypto';
 import { WebSocket, WebSocketServer } from 'ws';
 import { Desktops } from '../server/desktops.mjs';
@@ -24,7 +25,7 @@ export async function startWorker(host) {
      the retained host, which owns the PTY and the embedded surface. See sidecar: game-routes. */
   const preflight = (rootId, gameId) => inspectGame(root(rootId), gameId);
   const capabilities = ({ projectGameLaunch, ...rest }) => ({ ...rest, desktopActions: 1, layeredUpdates: 1, scriptActions: 1,
-    formatRegistry: 1, dashboard: 1, projectGame: 1, projectDevices: 1, ...(rest.projectGame === 1 ? { projectGameLaunch: 1 } : {}) });
+    formatRegistry: 1, dashboard: 1, projectGame: 1, recordings: 1, projectDevices: 1, ...(rest.projectGame === 1 ? { projectGameLaunch: 1 } : {}) });
   /* Refused here, from the worker's own preflight, before anything reaches the retained host: the
      spec-078 / KI-043 lesson is that the host must not be the one to answer. See sidecar: remote-launch. */
   const refuseRemote = async (rootId, gameId) => {
@@ -65,6 +66,11 @@ export async function startWorker(host) {
         const data = await body(req); await refresh();
         await refuseRemote(data.rootId, data.gameId ?? undefined);
         json(res, 200, await launch({ rootId: data.rootId, ...(data.gameId === undefined ? {} : { gameId: data.gameId }), ...(data.args === undefined ? {} : { args: data.args }) }));
+      } else if (req.method === 'GET' && target.pathname === '/api/recordings') {
+        await refresh(); json(res, 200, await listRecordings(root(target.searchParams.get('rootId')), Object.fromEntries(target.searchParams)));
+      } else if (req.method === 'GET' && target.pathname === '/api/recording') {
+        await refresh();
+        json(res, 200, await readRecording(root(target.searchParams.get('rootId')), target.searchParams.get('id'), Object.fromEntries(target.searchParams)));
       } else if (req.method === 'GET' && target.pathname === '/api/dashboard') {
         await refresh(); json(res, 200, await dashboardActions(root(target.searchParams.get('rootId')), preflight));
       } else if (req.method === 'POST' && target.pathname === '/api/dashboard-run') {

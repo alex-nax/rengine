@@ -542,11 +542,13 @@ void re_app_tick(ReApp *a) {
       if (reload && accepted && sent) a->reload_requested = true;
     }
     else if (!strcmp(type, "session")) update_session(a, cJSON_GetObjectItemCaseSensitive(j, "session"));
+    else if (!strcmp(type, "output")) re_recording_output_event(a, j);
     else if (!strcmp(type, "error")) re_copy(a->status, sizeof(a->status), re_string(j, "error"));
     for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].terminal) re_terminal_message(a->tabs[i].terminal, j);
     cJSON_Delete(j); re_message_free(m);
   }
   register_desktop(a);
+  re_recording_sync(a);
   Uint64 now = SDL_GetTicks64();
   for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].editor) {
     ReTab *t = &a->tabs[i]; t->dirty = t->saved != re_editor_revision(t->editor);
@@ -579,7 +581,8 @@ bool re_app_quit(ReApp *a) {
 void re_app_close(ReApp *a) {
   if (!a) return;
   for (int i = 0; i < RE_TABS; i++) {
-    cJSON_Delete(a->tabs[i].data); re_terminal_close(a->tabs[i].terminal); re_editor_close(a->tabs[i].editor); re_game_close(a->tabs[i].game); re_format_close(a->tabs[i].format);
+    cJSON_Delete(a->tabs[i].data); re_recording_close(a->tabs[i].recorder); re_terminal_close(a->tabs[i].terminal);
+    re_editor_close(a->tabs[i].editor); re_game_close(a->tabs[i].game); re_format_close(a->tabs[i].format);
   }
   re_socket_close(a->events); re_net_close(a->net); cJSON_Delete(a->state); cJSON_Delete(a->previous_layout); cJSON_Delete(a->controls); cJSON_Delete(a->formats); cJSON_Delete(a->dashboards); cJSON_Delete(a->dashboards_opened); free(a);
 }
@@ -612,6 +615,7 @@ cJSON *re_app_inspect(ReApp *a) {
       if (t->terminal) re_terminal_inspect_mouse(t->terminal, tab);
     }
     if (t->game) { cJSON_AddNumberToObject(tab, "sequence", t->game->sequence); cJSON_AddBoolToObject(tab, "captured", t->game->captured); }
+    if (t->recorder) re_recording_inspect(t->recorder, tab);
     if (t->type == RE_GAME) cJSON_AddStringToObject(tab, "surface", t->terminal ? "external" : "embedded");
     if (t->data && t->type == RE_TREE) cJSON_AddItemToObject(tab, "tree", cJSON_Duplicate(t->data, 1));
     if (t->data && t->type == RE_DASHBOARD) cJSON_AddItemToObject(tab, "dashboard", cJSON_Duplicate(t->data, 1));

@@ -151,6 +151,24 @@ tool('game_preflight', 'Check one game declared in the project’s .rengine/proj
   async ({ gameId }, state) => { gameCapability(state); return call(`game-config?${new URLSearchParams({ rootId: context.rootId, ...(gameId ? { gameId } : {}) })}`); });
 tool('launch_game', 'Launch one game declared in the project’s .rengine/project.json on THIS machine (its own executable with literal args and env, in its declared working directory) or reuse the running session of that same game. Games of one project can run side by side; the same game already running with different arguments is refused rather than reused, so stop it first. embedded games stream into the workspace pane; external games open their own window and retain only their PTY output. A record bound to a non-local device is refused by name, pointing at the project’s own dashboard script action, and nothing is attempted. Executes a project executable; stop_session ends it.', gameLauncher, false,
   async ({ gameId, args }, state) => { launchCapability(state); return call('game', { rootId: context.rootId, ...(gameId ? { gameId } : {}), ...(args ? { args } : {}) }); });
+const recordingCapability = state => { if (state.capabilities.recordings !== 1) throw new Error('This retained service predates game recording. Update the workspace layer first.'); };
+tool('recordings_list', 'List the game recordings committed for the bound project from its live pane (.cache/recordings): id, the game and session they came from, whether they were committed from the rolling buffer or an explicit start/stop, start and end, duration, size and the artifact inventory. A directory whose commit did not complete is listed with its error rather than hidden. Newest first.', {
+  limit: z.number().int().min(1).max(200).optional().describe('At most this many recordings, newest first.'),
+}, true, async ({ limit }, state) => {
+  recordingCapability(state);
+  return call(`recordings?${new URLSearchParams({ rootId: context.rootId, ...(limit ? { limit: String(limit) } : {}) })}`);
+});
+tool('recording_read', 'Read one committed recording: its manifest, a bounded tail of its timestamped log slice, and a page of its timestamped keyframe index whose entries carry root-relative image paths to read with the file tools. Keyframes, log lines and any audio chunk share one clock — atMs from the segment start, beside the game frame sequence and an absolute wall time — so a frame can be put beside the line printed while it was on screen. Audio is a declared slot: when it is absent the manifest says so and names its provider.', {
+  id: z.string().describe('One recording id from recordings_list.'),
+  artifact: z.enum(['all', 'manifest', 'log', 'keyframes']).default('all'),
+  offset: z.number().int().min(0).default(0).describe('First keyframe of the page.'),
+  limit: z.number().int().min(1).max(1000).default(200).describe('Keyframes in the page.'),
+  maxCharacters: z.number().int().min(1).max(32000).default(8000).describe('Budget for the log tail.'),
+}, true, async (values, state) => {
+  recordingCapability(state);
+  return call(`recording?${new URLSearchParams({ rootId: context.rootId, id: values.id, artifact: values.artifact,
+    offset: String(values.offset), limit: String(values.limit), maxCharacters: String(values.maxCharacters) })}`);
+});
 tool('stop_session', 'Explicitly stop a retained process belonging to the bound project.', { id: z.string() }, false, async ({ id }, state) => {
   ownSession(id, state); return call('stop', { id });
 });

@@ -13,6 +13,7 @@ import { Desktops } from './desktops.mjs';
 import { listFormats, formatPreview, readBytes, readDeclaration } from './formats.mjs';
 import { dashboardAction, dashboardActions, dashboardRunPayload, dashboardCapture } from './dashboard.mjs';
 import { projectDevices } from './devices.mjs';
+import { listRecordings, readRecording } from './recordings.mjs';
 
 const authorized = (value, token) => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value) && timingSafeEqual(Buffer.from(value), Buffer.from(token));
 
@@ -51,7 +52,7 @@ export async function startServer({ stateDir, port = 0 } = {}) {
         let value;
         if (request.method === 'GET') {
           switch (target.pathname) {
-            case '/api/state': value = { instance, capabilities: { handoff: 1, desktopActions: 1, formatRegistry: 1, dashboard: 1, projectGame: 1, projectGameLaunch: 1, projectDevices: 1 }, roots: store.state.roots, layout: store.state.layout, preferences: store.state.preferences,
+            case '/api/state': value = { instance, capabilities: { handoff: 1, desktopActions: 1, formatRegistry: 1, dashboard: 1, projectGame: 1, projectGameLaunch: 1, recordings: 1, projectDevices: 1 }, roots: store.state.roots, layout: store.state.layout, preferences: store.state.preferences,
               drafts: Object.values(store.state.drafts).map(({ rootId, path, updatedAt }) => ({ rootId, path, updatedAt })), sessions: sessions.list() }; break;
             case '/api/tree': value = await store.list(query.get('rootId'), query.get('path') ?? '', query.get('hidden') === 'true'); break;
             case '/api/file': value = await store.readText(query.get('rootId'), query.get('path')); break;
@@ -69,6 +70,8 @@ export async function startServer({ stateDir, port = 0 } = {}) {
             case '/api/session': value = sessions.snapshot(query.get('id'), true); break;
             case '/api/desktops': value = { desktops: desktops.list(query.get('rootId')) }; break;
             case '/api/game-config': value = await games.inspect(query.get('rootId'), query.get('gameId') ?? undefined); break;
+            case '/api/recordings': value = await listRecordings(store.root(query.get('rootId')), Object.fromEntries(query)); break;
+            case '/api/recording': value = await readRecording(store.root(query.get('rootId')), query.get('id'), Object.fromEntries(query)); break;
             default: fail('Unknown workspace endpoint.', 404);
           }
         } else if (request.method === 'POST') {
