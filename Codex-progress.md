@@ -72,9 +72,12 @@ same spec to its 420 s timeout under load average 20.6.
 overlay fix (`a5e6036`) and then the game-recording lane (`a749d9a` + `5356ece`), which **took F75,
 spec 081 and KI-044** — the three ids this lane had checked as free two commits earlier. Main is
 pushed and this branch is not, so this lane moved, following `cbfa1ef`: **F75 -> F76**,
-`docs/specs/081-project-devices.md` -> `082-project-devices.md`, **KI-044/045/046 -> KI-045/046/047**
-(and one commit later again to **KI-046/047/048**, when main's next commit took 045 for the flakiness
-issue this report had asked for),
+`docs/specs/081-project-devices.md` -> `082-project-devices.md`, and the known issues out of the
+contested range entirely: **KI-044/045/046 -> KI-050/051/052**. The first two attempts packed against
+whatever had just landed (045/046/047, then 046/047/048) and collided again each time, because main
+was taking an id roughly as fast as a gate sweep runs; the block above main's highest (046 at
+`a5b3f2f`) leaves a gap on purpose, and a gap costs nothing. F76 and spec 082 were re-checked against
+`a5b3f2f` and are still free,
 and, because main also took session 32, this lane's sessions became **33** (devices) and **34** (this
 merge). Every reference moved with them: the schema description, the sidecar refs, `games.mjs`'s own
 comment, the theme card, both fixtures and the progress log. The renumber is its own commit before
@@ -107,7 +110,7 @@ honest check for the `-Werror` implicit-declaration class of defect. `./init.sh`
 `python3 tools/design.py check` clean. `python3 tools/features.py validate` clean.
 `RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run test:game-nolf` **1/1**. Sidecars with the
 private index `.cache/sidecars-devices-merge.sqlite`: **16 errors, 18 warnings**, identical line for
-line to `origin/main` at `5356ece` — the drift that predates both lanes (KI-048). At `a5e6036` main
+line to `origin/main` at `5356ece` — the drift that predates both lanes (KI-052). At `a5e6036` main
 reported 35 errors because that commit shifted `app.c` and `workspace.c` without re-anchoring their
 sidecars; this branch repaired those 18 with `check --fix-anchors`, and the recording lane repaired
 the rest on its way in. Both live consumer
@@ -117,8 +120,8 @@ both, `projectDevices` reporting each as the implicit local device only, and bot
 unchanged.
 
 **Remaining** is what session 33 left: F76 stays `passes: false` until a consumer declares devices
-and a probe runs against a real Quest or SSH host (KI-046), delivery needs `update_workspace` plus a
-desktop reload, and the dashboard still pays one probe per device per listing (KI-047).
+and a probe runs against a real Quest or SSH host (KI-050), delivery needs `update_workspace` plus a
+desktop reload, and the dashboard still pays one probe per device per listing (KI-051).
 
 ## Session 33 (macos) — 2026-09-06 — Devices: where a declared target actually runs (contract 4, F76)
 
@@ -199,7 +202,7 @@ npm run test:game-nolf` **1/1** — the real NOLF game still renders and accepts
 fifth toolbar cell in the switcher. `./init.sh` clean (35 features validated).
 `python3 tools/design.py check` clean. Clean native rebuild with **0** diagnostics from
 `orchestrator/native` under the picky flag set. Sidecars clean and stamped for every file this branch touches (pre-existing
-drift elsewhere is KI-048, not this lane's). Both live consumer declarations re-read clean and
+drift elsewhere is KI-052, not this lane's). Both live consumer declarations re-read clean and
 unchanged at contract 3: vtmb-vr (1 format, 2 games, 10 actions) and nolf-improved (1 format,
 3 games, 14 actions).
 
@@ -210,9 +213,9 @@ and `native-game-declaration.spec.mjs`, which pins the exact toolbar cell list t
 control stayed removed, gains `Devices`.
 
 **Remaining.** F76 stays `passes: false`: no consumer declares devices yet and no probe has run
-against a real Quest or SSH host from this branch (KI-046), delivery needs `update_workspace` for
+against a real Quest or SSH host from this branch (KI-050), delivery needs `update_workspace` for
 the worker layer plus a desktop reload for the native section, and the dashboard now pays one probe
-per device per listing (KI-047).
+per device per listing (KI-051).
 ## Session 32 (macos) — 2026-09-06 — The explorer expands in place, and three defects the owner found first
 
 F73 is implemented and gated on macOS. In nested mode a directory row expands in place at the card's
