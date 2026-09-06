@@ -5,9 +5,9 @@
       "id": "availability-without-execution",
       "kind": "constraint",
       "anchor": {
-        "start": 22,
-        "end": 22,
-        "snippet": "export async function dashboardActions(root) {"
+        "start": 31,
+        "end": 31,
+        "snippet": "export async function dashboardActions(root, preflight) {"
       },
       "note": "Availability is computed by resolving each required file through the root boundary (a symlink escaping the root counts as missing) and by an explicit PATH walk with the same shell environment terminals get (PATHEXT on Windows); nothing is executed and nothing is cached, so a freshly copied pcvr-host.env enables its action on the next refresh. A declaration or dashboard error is returned with empty groups instead of thrown so the tab can render it while formats keep working.",
       "refs": [
@@ -18,20 +18,34 @@
       "id": "run-and-capture-boundary",
       "kind": "constraint",
       "anchor": {
-        "start": 44,
-        "end": 44,
-        "snippet": "export async function dashboardRunPayload(root, actionId) {"
+        "start": 54,
+        "end": 54,
+        "snippet": "export async function dashboardRunPayload(root, action) {"
       },
-      "note": "Running goes through the retained host's terminal route with a payload built here (bash + resolved script + literal args + env for scripts, the argv itself for logs) so the replaceable worker never spawns PTYs; unavailable actions are refused with the missing items and capture actions are redirected. Captures reuse the format runner (no shell, cwd = root, 10 s / 8 MiB), require the PNG signature before touching disk, create `into` after a lexical boundary check and confine its realpath, then write the image and the manifest through temp-and-rename; a same-millisecond collision gets a numeric suffix. The returned title also overrides the snapshot because a retained host older than the title option labels sessions generically.",
+      "note": "Running goes through the retained host's terminal route with a payload built here (bash + resolved script + literal args + env for scripts, the argv itself for logs) so the replaceable worker never spawns PTYs; unavailable actions are refused with the missing items and capture actions are redirected. Captures reuse the format runner (no shell, cwd = root, 10 s / 8 MiB), require the PNG signature before touching disk, create `into` after a lexical boundary check and confine its realpath, then write the image and the manifest through temp-and-rename; a same-millisecond collision gets a numeric suffix. The returned title also overrides the snapshot because a retained host older than the title option labels sessions generically. The action is now selected once by dashboardAction and passed in, because a game action does not produce a terminal payload at all: the caller launches it through the project game route and returns that game session, so this function refuses the game kind the way it already refuses capture.",
       "refs": [
         "docs/specs/075-project-dashboard.md",
         "docs/specs/074-project-format-registry.md"
+      ]
+    },
+    {
+      "id": "game-availability",
+      "kind": "rationale",
+      "anchor": {
+        "start": 24,
+        "end": 24,
+        "snippet": "async function gameMissing(root, action, preflight) {"
+      },
+      "note": "A game action's availability is the referenced record's preflight, injected rather than recomputed: the host passes games.inspect and the replaceable worker passes a call to the retained host's game-config route, so the verdict a dashboard row shows is the same one the launch will apply and there is no second copy of the executable/requires/cwd/surface checks to drift. A thrown preflight (an unknown gameId is a 404) becomes the row's own issue instead of failing the whole listing, and a workspace layer that cannot preflight at all says so rather than rendering the action as available.",
+      "refs": [
+        "docs/specs/078-project-game-declaration.md",
+        "docs/specs/075-project-dashboard.md"
       ]
     }
   ],
   "source": {
     "path": "orchestrator/server/dashboard.mjs",
-    "sha256": "dc103385e2cd66100b6e29dabd578bcbe69d917950d711178223df8c6c12777d",
+    "sha256": "8e5dd22aa5421c346e76fa15211be7ce9001c428384dd3e535575def8d844842",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

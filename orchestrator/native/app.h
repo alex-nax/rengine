@@ -42,6 +42,7 @@ void re_app_load(ReApp *app, int tab);
 void re_app_load_entry(ReApp *app, int tab);
 void re_app_mode(ReApp *app, int tab, int mode);
 const cJSON *re_app_format_record(ReApp *app, ReTab *tab);
+bool re_app_external_session(ReApp *app, const char *session);
 void re_app_control(ReApp *app, mu_Context *ui, const char *role, const char *key, int tab);
 int re_app_dashboard(ReApp *app, const char *root);
 void re_app_dashboard_run(ReApp *app, int tab, const char *action, bool capture);

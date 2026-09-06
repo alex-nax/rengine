@@ -7,12 +7,19 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { startServer } from '../server/main.mjs';
 import { nativeClient } from './native-client.mjs';
 
-test('actual NOLF renders and accepts menu input in the C/microui workspace', { timeout: 60000 }, async () => {
+test('the declared NOLF game renders and accepts menu input in the C/microui workspace', { timeout: 60000 }, async () => {
   assert.equal(process.platform, 'darwin', 'This check currently qualifies the macOS game adapter.');
   assert.ok(process.env.RENGINE_NOLF_ROOT, 'Set RENGINE_NOLF_ROOT to an actual built NOLF checkout.');
   const source = path.resolve(process.env.RENGINE_NOLF_ROOT);
   const directory = await mkdtemp(path.resolve('.cache/native-nolf-'));
-  for (const sub of ['build', 'nolf/Custom', 'assets']) await mkdir(path.join(directory, sub), { recursive: true });
+  for (const sub of ['build', 'nolf/Custom', 'assets', '.rengine']) await mkdir(path.join(directory, sub), { recursive: true });
+  await writeFile(path.join(directory, '.rengine/project.json'), JSON.stringify({ contract: 3, project: 'nolf-improved qualification',
+    formats: [{ id: 'lithtech-rez', title: 'LithTech REZ archive', match: ['*.rez'], modes: ['raw'], default: 'raw' }],
+    games: [{ id: 'nolf-flat', title: 'NOLF (flat)', executable: ['build/relith-nolf', 'build/Release/relith-nolf'], args: ['--flat', '--game', 'nolf', '--width', '1280', '--height', '720'],
+      env: { RELITH_HIDDEN_WINDOW: '1', RELITH_SKIP_INTRO: '1' }, cwd: '', requires: ['nolf/NOLF.REZ'], surface: 'embedded' }],
+    /* The launch path under qualification: a dashboard game action, not the removed toolbar button. */
+    dashboard: { title: 'Qualification', groups: [{ id: 'launch', title: 'Launch', actions: [{ id: 'nolf-flat', title: 'Launch the declared game', kind: 'game', game: 'nolf-flat' }] }] } }));
+
   await copyFile(path.join(source, 'build/relith-nolf'), path.join(directory, 'build/relith-nolf'), constants.COPYFILE_FICLONE);
   for (const sub of ['nolf', 'nolf/Custom', 'assets']) for (const entry of await readdir(path.join(source, sub), { withFileTypes: true })) {
     if (entry.isFile() && /\.rez$/i.test(entry.name)) await symlink(path.join(source, sub, entry.name), path.join(directory, sub, entry.name));
@@ -21,10 +28,22 @@ test('actual NOLF renders and accepts menu input in the C/microui workspace', { 
   try {
     server = await startServer({ stateDir: path.join(directory, 'state') });
     const root = await server.store.addRoot(directory);
-    game = await server.games.launch(root.id);
-    gui = await nativeClient(server, { root: root.id, game: game.id });
-    let state = await gui.until(s => s.tabs.some(t => t?.session === game.id && t.sequence > 5), 'actual NOLF texture');
+    gui = await nativeClient(server, { root: root.id });
+    let state = await gui.until(s => s.controls?.some(c => c.role === 'dashboard-action' && c.key === 'nolf-flat'), 'the dashboard offers the declared game action');
+    const board = state.controls.find(c => c.role === 'dashboard-action' && c.key === 'nolf-flat').tab;
+    await gui.control('dashboard-action', 'nolf-flat', board);
+    state = await gui.until(s => s.state.sessions.some(x => x.type === 'game' && x.state === 'running'), 'the dashboard game action reached a real game session');
+    game = state.state.sessions.find(x => x.type === 'game');
+    /* The reported failure was a dashboard entry that produced a terminal, so the qualification
+       fails rather than logs if the action ever comes back as anything but a typed game session
+       on its declared surface, shown in a game pane (only a game surface reports frames). */
+    assert.equal(game.type, 'game', 'the dashboard game action produced a game session, not a terminal');
+    assert.equal(game.surface, 'embedded'); assert.equal(game.game, 'nolf-flat');
+    assert.equal(state.state.sessions.filter(x => x.type === 'terminal' && x.rootId === root.id).length, 0,
+      'the action opened no terminal session beside it');
+    state = await gui.until(s => s.tabs.some(t => t?.session === game.id && t.sequence > 5), 'actual NOLF texture');
     let tab = state.tabs.find(t => t?.session === game.id);
+    assert.equal(tab.type, 5, 'the session opened a game pane (RE_GAME), not a terminal tab');
     await gui.command({ op: 'snapshot', path: path.join(directory, 'menu.bmp') });
     const before = Buffer.from(server.games.items.get(game.id).latest);
     await gui.click(tab.rect[0] + tab.rect[2] / 2, tab.rect[1] + tab.rect[3] / 2);
@@ -40,7 +59,9 @@ test('actual NOLF renders and accepts menu input in the C/microui workspace', { 
     await server.sessions.stop(game.id);
     for (let i = 0; i < 200 && server.sessions.snapshot(game.id).state !== 'exited'; i++) await delay(20);
     assert.equal(server.sessions.snapshot(game.id).state, 'exited');
-    await writeFile(path.join(directory, 'evidence.json'), JSON.stringify({ source, pid: game.pid, session: game.id, nativeGui: true, frames: tab.sequence, scope: 'menu/input/restart/Stop' }, null, 2));
+    await writeFile(path.join(directory, 'evidence.json'), JSON.stringify({ source, pid: game.pid, session: game.id, nativeGui: true,
+      launchedBy: 'dashboard game action nolf-flat', sessionType: game.type, surface: game.surface, game: game.game, tabType: tab.type,
+      frames: tab.sequence, scope: 'dashboard-launch/game-typed-session/menu/input/restart/Stop' }, null, 2));
     console.log(`Native NOLF evidence: ${directory}`);
   } finally {
     if (game) await writeFile(path.join(directory, 'game.log'), server.sessions.snapshot(game.id, true).output);

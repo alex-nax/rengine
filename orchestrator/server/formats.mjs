@@ -5,9 +5,10 @@ import path from 'node:path';
 import { validateSchema } from './schema.mjs';
 import { fail, hash, resolveInRoot, MAX_TEXT_BYTES } from './store.mjs';
 import { shellEnvironment } from './sessions.mjs';
-import { dashboardRules } from './dashboard-rules.mjs';
+import { dashboardRules, nameOf } from './dashboard-rules.mjs';
+import { gamesRules } from './game-rules.mjs';
 
-export const CONTRACTS = [1, 2];
+export const CONTRACTS = [1, 2, 3];
 export const DEFAULT_TIMEOUT_MS = 10000;
 export const DEFAULT_MAX_BYTES = 4 * 1024 * 1024;
 export const MAX_RAW_WINDOW = 64 * 1024;
@@ -21,8 +22,8 @@ function crossRules(value) {
   if (!Array.isArray(value.formats)) return errors;
   for (const [index, format] of value.formats.entries()) {
     if (!format || typeof format !== 'object' || Array.isArray(format)) continue;
-    const where = `$.formats[${index}]`;
-    if (seen.has(format.id)) errors.push(`${where}.id repeats ${JSON.stringify(format.id)}`); seen.add(format.id);
+    const at = `$.formats[${index}]`, where = at + nameOf(format);
+    if (seen.has(format.id)) errors.push(`${at}.id repeats ${JSON.stringify(format.id)}`); seen.add(format.id);
     if (Array.isArray(format.modes) && !format.modes.includes(format.default)) errors.push(`${where}.default must be one of its modes`);
     if (Array.isArray(format.modes) && format.modes.includes('preview') && !format.preview) errors.push(`${where}.preview is required for the preview mode`);
     if (Array.isArray(format.preview?.command) && !uses(format.preview, 'file')) errors.push(`${where}.preview.command must name \${file}`);
@@ -30,6 +31,10 @@ function crossRules(value) {
   }
   return errors;
 }
+const REPORTED = 3; /* one clipped line in two desktop surfaces; see sidecar: bounded-report */
+const report = problems => problems.length > REPORTED
+  ? `${problems.slice(0, REPORTED).join('; ')}; and ${problems.length - REPORTED} more problem${problems.length - REPORTED === 1 ? '' : 's'}`
+  : problems.join('; ');
 const bounded = spec => spec && { ...spec, timeoutMs: spec.timeoutMs ?? DEFAULT_TIMEOUT_MS, maxBytes: spec.maxBytes ?? DEFAULT_MAX_BYTES };
 
 export async function readDeclaration(rootPath) {
@@ -41,18 +46,27 @@ export async function readDeclaration(rootPath) {
   let value;
   try { value = JSON.parse(bytes.toString('utf8')); } catch (error) { return problem(`invalid JSON (${error.message})`); }
   if (!value || typeof value !== 'object' || Array.isArray(value)) return problem('declaration must be a JSON object');
-  if (!CONTRACTS.includes(value.contract)) return problem(`unknown contract ${JSON.stringify(value.contract)}; this rEngine supports contracts ${CONTRACTS.join(' and ')}`);
-  const { dashboard, ...base } = value;
+  if (!CONTRACTS.includes(value.contract)) return problem(`unknown contract ${JSON.stringify(value.contract)}; this rEngine supports contracts ${CONTRACTS.slice(0, -1).join(', ')} and ${CONTRACTS.at(-1)}`);
+  const { dashboard, games, ...base } = value;
   const structural = validateSchema(schema, base);
-  if (structural.length) return problem(structural.slice(0, 3).join('; '));
+  if (structural.length) return problem(report(structural));
   const errors = crossRules(base);
-  if (errors.length) return problem(errors.slice(0, 3).join('; '));
+  if (errors.length) return problem(report(errors));
   const result = { declared: true, contract: value.contract, project: value.project,
     formats: value.formats.map(format => ({ ...format, preview: bounded(format.preview), entry: bounded(format.entry) })) };
-  if (dashboard === undefined) return result; /* the dashboard is reported separately so it can never disable the formats; see sidecar: declaration-reporting */
-  if (value.contract < 2) return { ...result, dashboardError: `.rengine/project.json: dashboard requires contract 2 (declared contract ${value.contract})` };
-  const problems = [...validateSchema(schema.$defs.dashboard, dashboard, schema, '$.dashboard'), ...dashboardRules(dashboard)];
-  return problems.length ? { ...result, dashboardError: `.rengine/project.json: ${problems.slice(0, 3).join('; ')}` } : { ...result, dashboard };
+  /* games and dashboard are each reported separately so neither can disable the formats; see sidecar: declaration-reporting */
+  return section(section(result, 'games', games, value.contract), 'dashboard', dashboard, value.contract);
+}
+const SECTIONS = {
+  games: { minimum: 3, rules: gamesRules, node: () => schema.properties.games },
+  dashboard: { minimum: 2, rules: dashboardRules, node: () => schema.$defs.dashboard },
+};
+function section(result, name, block, contract) {
+  if (block === undefined) return result;
+  const { minimum, rules, node } = SECTIONS[name], key = `${name}Error`;
+  if (contract < minimum) return { ...result, [key]: `.rengine/project.json: ${name} requires contract ${minimum} (declared contract ${contract})` };
+  const problems = [...validateSchema(node(), block, schema, `$.${name}`), ...rules(block, result)]; /* games is settled first, so dashboard rules can resolve game references */
+  return problems.length ? { ...result, [key]: `.rengine/project.json: ${report(problems)}` } : { ...result, [name]: block };
 }
 export async function listFormats(root) { return { rootId: root.id, ...await readDeclaration(root.path) }; }
 

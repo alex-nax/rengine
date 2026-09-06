@@ -384,7 +384,6 @@
       "split-vertical-width": 120,
       "split-horizontal-width": 125,
       "merge-width": 95,
-      "game-width": 85,
       "root-width": 170,
       "path-right": 475,
       "add-width": 95,
@@ -499,7 +498,7 @@
   "metric-notes": {
     "microui": "Upstream style defaults applied explicitly: content padding, row spacing, tree indent, unused title height, overflow scrollbar and thumb, default control width.",
     "window": "Initial SDL window size and the enforced minimum.",
-    "toolbar": "Top window with two rows. Row one: brand label, three view buttons (Tree, Shell, Agent), Manage, Sessions, Split vertical, Split horizontal, Merge pane, NOLF, then the Vim checkbox filling the rest. Row two: root button, project path textbox ending path-right from the right edge, Add project, Agent CLI label, agent textbox filling the rest.",
+    "toolbar": "Top window with two rows, both a fixed set of columns. Row one: brand label, Tree, the Dashboard button (dashboard-width), the Shell and Agent view buttons, Manage, Sessions, Split vertical, Split horizontal, Merge pane, then the Vim checkbox filling the rest. Row two: root button, project path textbox ending path-right from the right edge, Add project, Agent CLI label, agent textbox filling the rest. Declared games are launched from dashboard game actions, so no column depends on the bound root's declaration (owner decision 2026-09-06, spec 078).",
     "workspace": "Pane area starts below the toolbar and ends above the status line, whose text sits status-text-top below that edge. Splits leave a draggable divider and keep panes at least pane-minimum; a fresh layout gives the tree tree-percent of the width.",
     "pane": "Each leaf pane has a header window; content starts at content-top with a root-name row.",
     "tab": "Tab cells are width wide including the close button, a gap before it and the microui spacing after it; overflow adds nav-width previous/next buttons; titles clip after title-characters.",
@@ -507,7 +506,7 @@
     "sessions": "Session rows reserve actions-width on the right for Attach (attach-width) and Stop; the Recovery drafts heading row is heading-height.",
     "editor": "Save, Discard and mode column widths in the toolbar row; the buffer is inset from the pane, starts at top and ends bottom above the pane bottom; the error label sits error-inset above the bottom; caret width and tab cells for text layout.",
     "terminal": "Terminal cells are inset and start at top below the content top; bottom is the space kept below the cells.",
-    "game": "Capture row above a black surface inset from the pane that starts at top.",
+    "game": "Capture row above a black surface inset from the pane that starts at top; an external game shows its status row there and its retained output in the same area. A game is launched from a dashboard game action, which renders as an ordinary dashboard row.",
     "scrollbar": "Native terminal/editor bars: width, minimum thumb length and the thumb inset from the track edges.",
     "design": "Card constants from design/base.css that tokens.css does not name; every other design metric is a token binding under token-metrics."
   },
@@ -526,6 +525,7 @@
     "toolbar-row-1": [
       "rEngine",
       "Tree",
+      "Dashboard",
       "Shell",
       "Agent",
       "Manage",
@@ -533,7 +533,6 @@
       "Split vertical",
       "Split horizontal",
       "Merge pane",
-      "NOLF",
       "Vim"
     ],
     "toolbar-row-2": [
@@ -572,7 +571,9 @@
       "Captured · Esc releases",
       "Connecting to game",
       "Live",
-      "Game surface disconnected"
+      "Game surface disconnected",
+      "Running in its own window",
+      "Game exited · reattach or Stop in Sessions"
     ],
     "status": [
       "Connecting to workspace…",

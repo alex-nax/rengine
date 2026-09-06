@@ -1,0 +1,215 @@
+{
+  "contract": 3,
+  "project": "vtmb-vr",
+  "formats": [
+    {
+      "id": "troika-vpk",
+      "title": "Troika VPK pack set",
+      "match": [
+        "*.vpk"
+      ],
+      "modes": [
+        "raw",
+        "preview"
+      ],
+      "default": "raw",
+      "preview": {
+        "kind": "tree",
+        "command": [
+          "build/vtmb-vpk",
+          "--json",
+          "--single",
+          "tree",
+          "${file}"
+        ],
+        "timeoutMs": 10000,
+        "maxBytes": 16777216
+      },
+      "entry": {
+        "kind": "bytes",
+        "command": [
+          "build/vtmb-vpk",
+          "--single",
+          "cat",
+          "${file}",
+          "${entry}"
+        ],
+        "timeoutMs": 10000,
+        "maxBytes": 67108864
+      }
+    }
+  ],
+  "games": [
+    {
+      "id": "vtmb-flat",
+      "title": "VtMB",
+      "executable": [
+        "build/vtmb",
+        "build/Release/vtmb"
+      ],
+      "args": [
+        "--width",
+        "1280",
+        "--height",
+        "720"
+      ],
+      "requires": [
+        "gamedata/Vampire/pack000.vpk"
+      ],
+      "surface": "external"
+    },
+    {
+      "id": "vtmb-vr",
+      "title": "VtMB (VR)",
+      "executable": [
+        "build/vtmb-vr",
+        "build/Release/vtmb-vr"
+      ],
+      "requires": [
+        "gamedata/Vampire/pack000.vpk"
+      ],
+      "surface": "external"
+    }
+  ],
+  "dashboard": {
+    "title": "reSource",
+    "groups": [
+      {
+        "id": "quick-start",
+        "title": "Quick start",
+        "actions": [
+          {
+            "id": "flat",
+            "title": "Flat desktop: main menu",
+            "description": "Runs build/vtmb from the repo root so gamedata/ resolves; refuses with a message when the binary is not built.",
+            "kind": "script",
+            "script": "run.sh"
+          },
+          {
+            "id": "flat-newgame",
+            "title": "Flat desktop: new game (skips the menu)",
+            "description": "Skips the main menu only. What follows is the data-driven New Game chain, not a scripted sequence.",
+            "kind": "script",
+            "script": "run.sh",
+            "args": [
+              "--newgame"
+            ]
+          },
+          {
+            "id": "quest",
+            "title": "Quest: build, install, launch",
+            "description": "Gradle refreshes the debug APK, installs it when the on-device build is stale, and launches on the headset over USB.",
+            "kind": "script",
+            "script": "fast-start-quest.sh",
+            "tools": [
+              "adb"
+            ]
+          },
+          {
+            "id": "pcvr",
+            "title": "PCVR: build and launch on the Windows box over SSH",
+            "description": "Sends the commits the box is missing, builds with MSVC in one shell, and launches through Task Scheduler so the process gets a desktop. Host from VTMB_WIN_HOST.",
+            "kind": "script",
+            "script": "fast-start-win.sh",
+            "tools": [
+              "ssh"
+            ]
+          },
+          {
+            "id": "editor-check",
+            "title": "Editor prerequisites",
+            "kind": "script",
+            "script": "editor.sh",
+            "args": [
+              "--check"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "device",
+        "title": "Quest device",
+        "actions": [
+          {
+            "id": "quest-log",
+            "title": "Log stream (vtmb)",
+            "kind": "log",
+            "command": [
+              "adb",
+              "logcat",
+              "-v",
+              "time",
+              "-s",
+              "vtmb"
+            ],
+            "filters": [
+              "ERROR",
+              "WARN",
+              "perf",
+              "crash",
+              "xr"
+            ],
+            "tools": [
+              "adb"
+            ]
+          },
+          {
+            "id": "quest-screen",
+            "title": "Headset screenshot",
+            "description": "One PNG per capture into .cache/captures/quest with manifest.json; the agent reads the manifest.",
+            "kind": "capture",
+            "command": [
+              "adb",
+              "exec-out",
+              "screencap",
+              "-p"
+            ],
+            "into": ".cache/captures/quest",
+            "format": "png",
+            "tools": [
+              "adb"
+            ]
+          },
+          {
+            "id": "quest-deploy",
+            "title": "Deploy debug APK and launch",
+            "kind": "script",
+            "script": "scripts/deploy-quest.sh",
+            "tools": [
+              "adb"
+            ]
+          },
+          {
+            "id": "quest-data",
+            "title": "Push game data to the headset",
+            "description": "Incremental: only changed files travel, as one bundle extracted on-device.",
+            "kind": "script",
+            "script": "scripts/quest-data.sh",
+            "requires": [
+              "gamedata/Vampire/pack000.vpk"
+            ],
+            "tools": [
+              "adb"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "distribution",
+        "title": "Distribution",
+        "actions": [
+          {
+            "id": "dist",
+            "title": "Build the VR distribution archive",
+            "description": "Reproducible zip of the compiled scripts and our own VR resources, into dist/.",
+            "kind": "script",
+            "script": "scripts/make-dist.sh",
+            "artifacts": [
+              "dist"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

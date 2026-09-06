@@ -1,5 +1,361 @@
 # Progress Log
 
+## Session 29 (macos) — 2026-09-06 — Merging contract 3 and the integration recipe onto the card toolbar
+
+**Owner scope**: reconcile two finished branches onto main and report green before main advances.
+Worktree `.cache/worktrees/merge-verify`, branch `integ/contract-3`, pushed per commit; the `main`
+ref untouched. Base moved four times mid-merge (`8c44250` -> `b6f8b84` -> `776647a` -> `6258be0` ->
+`c8aea10`). While the base was still ahead of any commit of ours the merge was restarted from
+current `origin/main`; once there were commits to keep, main was merged in. Either way `theme.h`
+and `theme.c` are generated from the resolved `theme.json` rather than conflict-resolved, and the
+last regeneration was compared against what the merge produced to prove they agree.
+
+`c8aea10` merged `feat/integration-recipe` into main directly, so this branch's second merge is now
+a redundant path to the same commits and merges clean. It also means `docs/specs/077-editor-syntax.md`
+and `docs/specs/077-project-integration-recipe.md` now **both exist on main** — a spec-number
+collision between the design lane and the recipe lane that predates this branch and needs an owner
+renumber; nothing references the editor-syntax one yet, so it is the cheaper of the two to move.
+
+**`feat/project-game` (299eebe)** conflicted in three files because main's Claude Design series
+rewrote the toolbar underneath it. `workspace.c`: main's card toolbar supersedes our edit, which
+removed the game column from a `mu_layout_row` that no longer exists; `session_running()` and the
+`RE_GAME && t->terminal` branch that gives an external game its status row, its `game-status`
+control and its rect are ported onto the rewritten file — without that branch `surface: "external"`
+has no view, and vtmb-vr declares both of its games external. **Main's rewritten toolbar still
+carried the NOLF cell**, so spec 078's removal still had work here: the cell, its
+`re_app_action(a, "game", …)` by rootId — the last caller of the old single-game route — its
+control record, its width in `trailing` and its one leading gap (`7 *` -> `6 *`, one per cell after
+the path field: field, Add project, Agent label, agent field, Vim, Theme). Main registers the
+root-cycle control as `"root"` and the fixture drives `"Root"`; ours kept. `theme.json` unioned
+(main's `design` note, our longer `game` note); `toolbar.game-width` and the games-menu metrics and
+strings are gone and nothing names them. `package.json` unioned to 17 desktop specs, keeping the
+`test:nolf` -> `test:game-nolf` rename.
+
+**`feat/integration-recipe` (2ba3db3)** conflicted only in the four inventory files both lanes
+append to. `features.json` took F70 beside F71/F72 as a 24-line insertion with nothing removed —
+built from the merge-1 tree, not the merge base, because the recipe branch forked before main's F60
+evidence landed and carries the older copy of that record. `docs/roadmap-graph.md` is generated, so
+it was regenerated. No id collides: F70/F71/F72, specs 077/078, KI-041/KI-042.
+
+**A gap the merge had to close**: nothing pinned the toolbar row's geometry, so a half-done cell
+removal would compile and render one gap wrong. `re_app_inspect` now reports the window size and
+`native-game-declaration.spec.mjs` asserts the last cell's right edge lands on the toolbar padding
+(measured: Theme at x=1248 w=22 -> 1270 = 1280 - 10). It also expects main's Theme cell in the row.
+`native-nolf.spec.mjs` now fails rather than logs if a dashboard game action returns anything but a
+game-typed session on its declared surface in a game pane — a terminal instead of a game pane was
+the original report — and records `sessionType`/`surface`/`tabType` in its evidence.
+
+**Gates** (final run, on `c8aea10`): `npm test` 55 passes / 5.9 s; `npm run test:desktop` 18 passes
+/ 319.8 s from a wiped `.cache/desktop`, zero warnings; CTest 4 passes / 0.65 s; `./init.sh`
+(32 features); `tools/design.py check` consistent; `tools/features.py validate` clean;
+`RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run test:game-nolf` 1 pass / 3.3 s, evidence
+`sessionType: game`, `surface: embedded`, `tabType: 5`, 6 frames. The font-fallback commit changes
+glyph lookup and so could have moved the row the toolbar fixture pins; it did not — the trailing
+cells sit at the same x they did before it (Add project 958, agent 1074, Vim 1202, Theme 1248) and
+the last right edge is still 1270 on a 1280 window. They stay put because the path field absorbs
+the slack, which is the reservation the `6 *` multiplier belongs to. Sidecars refreshed with
+`--index .cache/sidecars-merge.sqlite` run sequentially: the four `workspace.c` anchors and
+`app.c` repaired and stamped, two notes added (`inspect-reports-window-size`,
+`external-game-status-row`); every remaining diagnostic in the tree also exists on `origin/main`.
+Both consumer declarations re-read fresh through the merged reader: vtmb-vr contract 3,
+`troika-vpk`, `vtmb-flat`/`vtmb-vr` both external, dashboard `reSource`; nolf-improved contract 2,
+`lithtech-rez`, dashboard `reLith`; no `error`/`gamesError`/`dashboardError` on either.
+
+**Left as found**: `native-game.spec.mjs` aborts in a fresh worktree until `npm run build:surface`
+has produced `.cache/native/` — a prerequisite `test:desktop` does not run, not a regression; it
+passes once built. Both lanes numbered their sessions from the same base, so the entries below
+carry two Session 25 and two Session 26 headings, all 2026-09-06; kept as each lane wrote them.
+
+---
+
+## Session 28 (macos) — 2026-09-06 — Declaration errors name the offending record
+
+**Why now**: the reLith consumer session reported the consequence of session 27's toolbar removal.
+A section fails whole — `orchestrator/server/dashboard.mjs:35` answers `groups: []` on any
+`dashboardError`, and `formats.mjs` raises that for any cross-rule problem anywhere in the section —
+so one typo in one unrelated dashboard action (a bad `into` on a capture entry, a stray key) empties
+every group and removes the only human path to launch **any** game, including targets whose own
+`games` records are perfectly valid. Fail-whole is right and stays: a partial dashboard rendered
+from an invalid declaration would show something that does not match the file. But it makes the
+error string the entire recovery path, and that string identified records only by array index
+(`$.dashboard.groups[0].actions[2].into must be root-relative` — count the actions in the file).
+A refinement of **F72**, not new scope: its criteria gained one row rather than taking a new id.
+
+**The change**: every cross-rule error now names the record beside its JSON path, in all three rule
+modules so the sections read alike. The path is what a machine consumer keys on; the id is what a
+human greps for.
+
+```
+$.dashboard.groups[1].actions[1] (quest-screen).into must be root-relative
+$.games[1] (vtmb-vr).cwd must be root-relative
+$.formats[0] (troika-vpk).default must be one of its modes
+```
+
+The **innermost** record is named, not every level: action ids are unique across the dashboard, so a
+named action already locates itself, and naming its group too would push the id ~8 columns further
+right in surfaces that clip. An action with no usable id falls back to its group
+(`$.dashboard.groups[0] (device).actions[0].into …`), and with nothing named the bare path stands
+alone — `undefined` is never printed and no name is invented. **Duplicate-id errors keep the bare
+path**: they already quote the id, and what must stay unambiguous there is which occurrence repeats,
+which is the index. Structural (schema) errors also keep bare paths — `schema.mjs` is a generic
+validator with no notion of a record, and for `formats` a structural failure short-circuits before
+the cross rules anyway. One `nameOf` helper, duplicated between the two rule modules exactly as
+`rootRelative` already is (both stay import-free so the reader and the runtime can share them);
+`formats.mjs` imports it rather than carrying a third copy.
+
+**Two decisions asked for explicitly.** (1) **Truncation stays at three** and now names what it
+hides (`…; and 2 more problems`). The message is one unwrapped line in both places it is read: the
+dashboard tab label, clipped at the pane width, and the status row — 1272 px over an 8 px Menlo cell
+at the theme's 16 px face is ≈159 columns at the default window, copied into a 512-byte buffer.
+Three id-carrying problems already fill that, so a larger cap pushes content off the right edge
+rather than closer to a fix, and problems cascade from one bad record anyway. What was missing was
+knowing the list had been cut. (2) **Native rendering needs no layout change**: the id lands around
+column 55–70, well inside both surfaces, and the count is deliberately last because it is the least
+load-bearing part of the line and the first thing to lose to clipping or a 512-byte truncation.
+`native-format-hardening.spec.mjs` now qualifies that: its broken root carries a cross-rule error
+instead of a structural one and the test asserts the status row names `(fixture-pack)` inside the
+first 100 columns. Structural malformation stays covered by `formats.test.mjs`.
+
+**Verification**: red first — `contracts.test.mjs` failed on the missing id before the change (1 of
+3 in that file), and two existing expectations in `dashboard.test.mjs`/`games.test.mjs` moved to the
+new shape rather than being relaxed. `npm test` 46 passes / 5.8 s; `npm run test:desktop` 17 passes
+/ 296.2 s; CTest in `.cache/desktop` 4 passes / 0.04 s; `./init.sh` (31 features);
+`python3 tools/design.py check` consistent; native build zero warnings; sidecars with
+`--index .cache/sidecars-error-ids.sqlite`, run sequentially, clean for the three touched modules
+(new `dashboard-rules.mjs#record-identity`, `game-rules.mjs#record-identity`,
+`formats.mjs#bounded-report`; four drifted anchors in those files repaired). Both live consumer
+declarations were re-read fresh and validate with no `error`/`gamesError`/`dashboardError` —
+vtmb-vr (contract 3, which has meanwhile adopted `kind: "game"` for `flat`/`flat-newgame`) and
+nolf-improved (contract 2); no assertion touches their command strings and neither repository was
+edited. Left alone deliberately: the symmetric version gate in `SECTIONS` and the independent
+parsing of the sections, both verified correct beforehand.
+
+**Remaining**: unchanged from session 27 — F72 stays `passes: false` until the owner merges
+`feat/project-game`, runs `update_workspace` and sees a real consumer launch from its dashboard.
+Evidence appended to `docs/evidence/project-game-macos-2026-09-06.md`.
+
+## Session 27 (macos) — 2026-09-06 — Games launch from a dashboard action; the toolbar game control is removed
+
+**Owner scope**: a decision from the reLith stream, relayed and confirmed. That consumer launched a
+game from its dashboard and got a terminal tab instead of a game pane, because dashboard launches go
+through `kind: "script"` actions while only the toolbar button reached the game surface —
+`list_sessions` showed `type: "game"` for the button and `type: "terminal"` for the action. The
+resolution reverses part of `0cf70b6` on this branch: contract 3's dashboard gains an action
+`kind: "game"` that names a declared record and launches it through the same route the button used,
+and the **toolbar game control is removed entirely** (button, `Games` menu, disabled entries) rather
+than relabelled or hidden behind a flag. Configurable toolbar items are a separate rEngine feature
+the owner will scope later, so nothing replaces it and no stub button is left. The preflight/launch
+machinery of `3440ef5` is untouched and is what the action calls. Same branch `feat/project-game`,
+same spec 078 and KI-041, both amended; new row **F72** (verified free across `origin/main`,
+`origin/feat/integration-recipe` and this branch), and F71's toolbar criterion corrected in place
+with the decision recorded beside it. Pushed to `origin/feat/project-game` after every commit, not
+merged.
+
+**The action**: `{ id, title, kind: "game", game: "<declared id>", args?: [...] }`. `game` is
+required and must name a record in the same declaration's `games` array; an undeclared reference is
+a cross rule reporting the id and the declared ids, landing in `dashboardError` without disabling
+the formats, the `games` array or the workspace. When the `games` block itself failed the reference
+check is **skipped** — `gamesError` already names the real problem and a derived error would send
+the reader after the wrong key. `args` is optional literal argv appended to the record's own, held
+to the record's rules (non-empty, no `${…}`) as a cross rule so script-action `args` keep their
+meaning. Availability is the referenced record's preflight, injected (`games.inspect` on the host, a
+call to the retained host's `game-config` route in the replaceable worker) rather than recomputed,
+so a dashboard row shows exactly the verdict the launch will apply; the action's own
+`requires`/`tools` are checked in addition, and a failing row's label prints the preflight issue as
+the sentence it already is.
+
+**Decided deliberately — the same game with different `args`** (vtmb-vr's plain flat launch and its
+`--newgame` variant). Coalescing **stays per (root, game id)** and a differing launch is **refused**
+with 409 naming both argv. The declared id is already the single identity of a running game session
+(`launch_game`/`game_preflight` select by it, the snapshot carries it, the native tab binding and
+`RENGINE_INITIAL_GAME` resolve through it), so keying on argv would put two live sessions under one
+id with no way for an id-keyed route to say which it meant. The option explicitly avoided is the
+silent one — attaching and dropping the caller's arguments, handing someone who clicked "new game"
+the old session with no indication why. The in-flight map now stores the argv beside the promise: an
+identical concurrent launch joins the flight, a differing one chains behind it and meets the same
+refusal instead of racing a second spawn. Game sessions carry their `args` so the comparison has
+something to compare.
+
+**`args` rationale corrected**: it rests on ONE consumer, not two. vtmb-vr's `--newgame` is a real
+flag of its `src/main.cpp`; reLith's `--world`/`--shells`/`--campaign` are not engine flags at all —
+their fast-start script rewrites a `boot_mode` value into a temporary profile copy and passes
+`--profile FILE`. The rule recorded in spec 078: `args` serves a variant expressible as argv; one
+needing a different profile or config file belongs in its own `games` record or a `script` action.
+
+**Removed**: `workspace.c`'s `games_menu` container, the toolbar's conditional game column, the
+menu bookkeeping and the pointer-routing exception it needed; `app.c`'s `re_app_games`,
+`re_app_game_entry`, `re_app_games_probe`, `re_app_launch_game`, `game_key`, `probe_game`,
+`game_config_loaded`, `OP_GAME_CONFIG` with its error branch, the `game_configs` cache and the
+`games` array in `re_app_inspect`; `app.h`'s declarations, `menu_*` fields and `RePending.game`;
+`theme.json`'s `toolbar.game-width`, `games-menu-width`, `games-menu-inset`, the row-1 game string
+and the `games-menu` string list. Row one is now a literal fixed array of ten metric widths plus the
+`-1` filler passed with `RE_ARRAY_SIZE`, so no run-time count can disagree with it; `theme.h` was
+regenerated and `design.py check` passes, and the native fixture asserts the exact control list for
+a root that *does* declare games — the case the removed column used to alter.
+
+**Verification**: red first — 2 of 45 service tests failed before the service knew the kind. Then
+`npm test` 45 passes / 6.8 s; `npm run test:desktop` 17 passes / 374.1 s (18 before: the two toolbar
+tests become one dashboard-driven fixture); CTest 4 passes / 0.77 s; `./init.sh` (31 features);
+`design.py check` consistent; native build zero warnings — it caught the mirror image of last
+session's defect, removing `game[65]` from `RePending` left an excess `""` the compiler was
+assigning into `timeout`. Sidecars with `--index .cache/sidecars-game-action.sqlite`, run
+sequentially, clean for the eleven touched files: two new entries
+(`dashboard-rules.mjs#game-reference`, `dashboard.mjs#game-availability`), three removed with the
+code they described, `games.mjs#launch-identity` extended; the same 18 pre-existing whole-tree
+diagnostics remain in untouched files.
+`RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run test:game-nolf`: 1 pass / 4.7 s, now launching
+**through the dashboard game action** — the fixture writes a one-action dashboard, clicks
+`dashboard-action`/`nolf-flat` and waits for real frames, and its `evidence.json` records
+`"launchedBy": "dashboard game action nolf-flat"`. That is the regression proving the new path
+reaches a real game session rather than a terminal.
+
+**Consumers**: the vtmb-vr fixture is refreshed from its live declaration (its `formats` entry has
+since gained `--single` and a `*.vpk` glob — another agent is editing that section, and no assertion
+depends on the command strings) and validates with zero errors, as does the same document with its
+`flat`/`flat-newgame` quick-start actions rewritten to `kind: "game"` on `vtmb-flat`, which is the
+shape that consumer is expected to adopt. nolf-improved's live contract-2 document still validates
+unchanged. Neither consumer repository was edited.
+
+**Remaining**: F72 stays `passes: false` until the owner merges `feat/project-game`, runs
+`update_workspace` (workspace, desktop, connector) and sees a real consumer launch from its
+dashboard; the live connector, worker and desktop predate the routes until that layered update. A
+configurable toolbar is unscoped. Windows stays unqualified (KI-014) and the SDL3 cooperative
+surface still does not exist (KI-041). Evidence:
+`docs/evidence/project-game-macos-2026-09-06.md`.
+
+## Session 26 (macos) — 2026-09-06 — Per-project game declarations reworked to the contract-3 games array
+
+**Owner scope**: an explicit decision minutes after session 25 landed. This lane had implemented
+"contract 2 + optional root object `game`"; the owner's nolf-improved session had independently
+proposed an ARRAY under a contract bump (recorded there as F1615). The owner adopted the array
+superset, **without** that proposal's deprecated `nolf_preflight`/`launch_nolf` aliases. Same
+branch `feat/project-game`, same spec 078, same row F71 and known issue KI-041 — nothing
+renumbered; pushed to `origin/feat/project-game` after every commit, not merged.
+
+**Decided contract**: `contract` becomes the enum 1|2|3. Contract 3 = contract 2 plus the optional
+root key `games`, 1–16 records with unique kebab-case ids. The singular `game` is REMOVED outright
+with no alias — nothing had shipped it to a user, so there is no migration path to keep. Declaring
+`games` requires `contract: 3`, which is the point of the bump: an older reader answers *unknown
+contract 3* instead of *unknown key games*. New per-record `cwd` (root-relative, `""` = the project
+root, re-confined in `spawnTerminal`); `surface` `sdl2-interpose` renamed `embedded` everywhere
+including its platform-support message; `env` kept against the sibling proposal because NOLF's own
+launch needs `RELITH_HIDDEN_WINDOW`/`RELITH_SKIP_INTRO`.
+
+**Implemented**: `game-rules.mjs` gains unique-id and root-relative-`cwd` rules; `formats.mjs`
+gets one `SECTIONS` table so each optional block declares the contract it needs (dashboard 2,
+games 3) and reports `gamesError`/`dashboardError` independently of each other and of the formats.
+`game-config`, `POST /api/game`, `game_preflight` and `launch_game` take an optional `gameId`
+defaulting to the first declared game, with a 404 naming the declared ids for an unknown one.
+**Reuse is per game id, not per root** (the decision this lane had to make): a launch coalesces and
+reuses on the (root, game id) pair, so vtmb-vr can run its flat and VR targets at once; an
+undeclared project fails before the reuse lookup so a foreign game session can never be handed
+back. Native: the toolbar shows nothing without games, the declared title for one, and a `Games`
+button for several that opens a menu window below the toolbar (anchored at the control, clamped
+inside the window, drawn after the panes and owning its own pointer events). A ready entry is a
+left-aligned button; a failing one is a disabled label reading `<title> — unavailable: <first
+issue>`, mirroring the dashboard lane's unavailable action. Entries are preflighted per game id,
+cached, and re-preflighted whenever the menu opens, so a build makes an entry available without
+reconnecting; `re_app_inspect` exposes the rendered rows.
+
+**Verification**: red first — 6 of 43 service tests failed before the reader knew `games`. Then
+`npm test` 43 passes / 6.0 s; `npm run test:desktop` 18 passes / 310.3 s (the new multi-game menu
+test is the eighteenth); CTest 4 passes / 0.91 s; `./init.sh` (30 features); `design.py check`
+consistent; native build from a wiped `.cache/desktop` with zero warnings; sidecar
+index/repair/review/stamp/check clean for the nine touched files with `--index
+.cache/sidecars-contract3.sqlite`, four new entries added, and the same 18 pre-existing whole-tree
+diagnostics as on main in files this session did not touch.
+`RENGINE_NOLF_ROOT=/Users/alex/nolf-improved npm run test:game-nolf`: 1 pass / 3.26 s, through a
+contract-3 declaration whose `games` array holds the NOLF record with `surface: "embedded"`.
+The clean rebuild caught a real defect: adding `game[65]` to `RePending` made the existing
+aggregate initialiser consume the `timeout` argument into the new array — fixed.
+
+**Consumers**: `contract2.test.mjs` is renamed `contracts.test.mjs` and pins both real
+declarations verbatim — vtmb-vr's live contract-3 document (formats + `vtmb-flat`/`vtmb-vr`, both
+`external`, + the reSource dashboard) and nolf-improved's live contract-2 document (formats +
+dashboard, no games), which still validates unchanged — plus a contract-1 document and the
+rejection of `games` under contract 2. `formats.test.mjs` and `dashboard.test.mjs` moved their
+unknown-contract case from 3 to 4.
+Evidence: `docs/evidence/project-game-macos-2026-09-06.md`; KI-041 records what stays open.
+
+**No new collisions**: `origin/main` holds F32–F69, specs through 076 and KI ids through KI-040;
+`origin/feat/integration-recipe` adds F70, spec 077 and KI-042. This lane keeps F71, spec 078 and
+KI-041.
+
+**Remaining**: owner merges `feat/project-game` into main, pushes, runs `update_workspace` with the
+workspace, desktop and connector layers, and verifies the two consumers' declarations in the live
+window; an SDL3 cooperative surface is its own spec; Windows unqualified (KI-014). A long
+unavailable-issue string clips at the games menu's right edge like every other long label in this
+desktop; the full text is in the preflight and the inspect payload. One correction to the brief:
+the vtmb-vr VR entry was expected to be the live disabled example, but `build/vtmb-vr` exists on
+this machine as a Mach-O arm64 binary from 2026-08-23, so both vtmb-vr entries preflight ready and
+the disabled path is proven by the fixture's always-missing record instead.
+
+---
+
+## Session 25 (macos) — 2026-09-06 — Per-project game declaration and the contract-2 reconciliation
+
+**Owner scope**: explicit direction (overriding the AGENTS.md pause note): remove the toolbar's
+hard-coded "NOLF" button and the `nolf_preflight`/`launch_nolf` tools; a project declares its game
+in `.rengine/project.json` (contract 2, optional `game`), rEngine shows a title-labelled button,
+launches it and exposes generic tools, and names no game anywhere in server/native/agent/theme
+code. The second consumer (vtmb-vr, SDL3-static, no SDL2 interposer) must launch in its own
+window today. Branch `feat/project-game` from `43bbb80` in a worktree; not merged, pushed to
+`origin/feat/project-game`. Spec 078, row F71. The concurrent dashboard lane (spec 075) landed on
+main mid-session, so the same branch also carries the reconciliation of the two contract-2 lanes.
+
+**Implemented**: `contracts/project-v1.schema.json` accepts contracts 1 and 2 with a `game` block
+(`id`, `title` ≤ 32, 1–8 `executable` candidates, literal `args`, `env`, `requires`, `surface`
+`sdl2-interpose`|`external`); `readDeclaration` validates the game block separately and reports
+`gameError` beside intact formats; `game-rules.mjs` rejects reserved `RENGINE_`/`DYLD_`/`LD_` env
+keys and escaping `requires`. `games.mjs` resolves the first candidate (absolute, root-relative with
+a Windows `.exe` fallback, bare PATH name), names every missing required file, reserves a surface
+and injects the adapter only for `sdl2-interpose`, and spawns `external` games as plain PTY
+children with the declared env; sessions carry `title "<title> · <root>"`, `surface`, `game`; the
+host advertises `projectGame: 1`; MCP `game_preflight` (read-only) and `launch_game` (open-world)
+replace the removed tools and gate on the capability. Native: the toolbar row is built from theme
+metrics with the game column only while the bound root declares a game (label = declared title,
+`game-width` 110), the root button is inspectable, and an external game tab is the retained-PTY
+terminal view under a "Running in its own window" / "Game exited" status row from theme.json.
+The real-NOLF qualifications write the NOLF declaration into their temporary project;
+`test:nolf` → `test:game-nolf`; README updated.
+
+**Reconciled with the dashboard lane** (main `6a3271d`, merged in): one schema declaring BOTH
+optional `dashboard` and `game` under `additionalProperties: false` with each lane's `$defs` kept
+intact; one reader that splits both blocks off and validates each through a shared `section`
+helper, so `gameError` and `dashboardError` are independent and neither can disable the formats;
+`capabilities` advertising `dashboard: 1` and `projectGame: 1`; both tool families in
+`mcp-worker.mjs`, each behind its own capability guard; one toolbar row of 12 columns holding the
+fixed Dashboard button and the conditional game button, with the game column collapsing into the
+Vim filler when no game is declared; the session title default no longer naming a game. The
+toolbar theme note and `toolbar-row-1` string table now record the Dashboard button, which the
+dashboard lane had not. `orchestrator/tests/contract2.test.mjs` pins the composition and the real
+consumer declarations; the same fixture is rejected by either lane alone.
+
+**Verification**: red first (reader, preflight, launch, launcher message, native "NOLF" control),
+then on the reconciled tree: `npm test` 43 passes / 6.07 s; `npm run test:desktop` 17 passes /
+294.3 s (dashboard tab and declared-game fixtures both green); CTest 4 passes / 0.05 s;
+`./init.sh` (30 features); design check consistent; native build zero warnings; sidecar
+repair/review/stamp/check clean for the eleven touched files with `--index
+.cache/sidecars-contract2.sqlite` (18 pre-existing whole-tree diagnostics remain, all in files
+this session did not touch, and are present on main). `RENGINE_NOLF_ROOT=/Users/alex/nolf-improved
+npm run test:game-nolf`: 1 pass / 3.34 s, through the written declaration. The vtmb-vr contract-2
+declaration (formats + external game + dashboard) and the nolf-improved contract-1 declaration
+both validate through `validateSchema` and `readDeclaration`.
+Evidence: `docs/evidence/project-game-macos-2026-09-06.md`; KI-041 records what stays open.
+
+**Renumbering**: main took spec 076 (design foundations) and F67–F69 mid-session, and the recipe
+lane took F70, so this lane moved spec 076 → **078** and F67 → **F71**, and its known issue from
+KI-039 (taken by main) to **KI-041** (KI-040 is the dashboard's). References were updated one by
+one, never by a blanket rewrite, so main's own F67–F69 and spec-076 citations stay intact.
+
+**Remaining**: owner merges `feat/project-game` into main, pushes, runs `update_workspace` with the
+workspace, desktop and connector layers, and verifies the two consumers' declarations in the live
+window; an SDL3 cooperative surface is its own spec; Windows unqualified (KI-014).
+`feat/integration-recipe` carries a duplicate `KI-040` (its own row plus the dashboard's, inherited
+from main) that needs renumbering before it merges.
+
+---
+
 ## Session 26 (macos) — 2026-09-06 — Integration recipe: contract-3 drift and the KI renumber
 
 **Owner scope**: a review of the finished `feat/integration-recipe` branch produced a drift list.

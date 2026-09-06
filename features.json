@@ -642,6 +642,55 @@
       "evidence": [
         "docs/evidence/project-integration-recipe-macos-2026-09-06.md"
       ]
+    },
+    {
+      "id": 71,
+      "milestone": "O1",
+      "category": "surfaces",
+      "priority": "high",
+      "description": "Declare a project's games in .rengine/project.json (contract 3, games array) and launch any of them from the dashboard, the launcher and generic agent tools.",
+      "acceptance_criteria": [
+        "contracts/project-v1.schema.json accepts contracts 1 and 2 unchanged and contract 3 with an optional games array (1-16 records of id, title, executable candidates, literal args, env, cwd, requires, surface embedded or external) beside the optional dashboard of spec 075; declaring games requires contract 3, so an older reader answers unknown contract rather than unknown key; a bad games array is reported as gamesError by name without disabling the formats or the dashboard; duplicate ids, a 17th record, bad or reserved env keys, placeholders in args, more than 8 executables, unknown surfaces and keys, shell argv[0] and escaping requires/cwd paths are rejected.",
+        "game-config and game_preflight take an optional gameId (default: the first declared game; an unknown id names the declared ids) and report declared, title, surface, the first resolvable executable, args, env, cwd, requires, named issues (undeclared root, malformed declaration, missing candidates, each missing required file, a missing cwd, surface prerequisites) and ready without running anything; game, launch_game, the toolbar control and --launch-game reuse the running session of that root AND game id, or spawn it with the declared cwd and env, reserving a surface only for embedded; the session carries title <title> · <root name>, surface and game, and one root can run several declared games at once.",
+        "No specific game is named in server, native, agent, theme or package-script code and no nolf_* tool alias remains; an external game tab shows the retained output with a running/exited status row; service tests and a native fixture drive all of the above; the real-NOLF qualification runs through a written contract-3 declaration; the owner verifies the real consumers after a layered workspace/desktop/connector update. (Corrected 2026-09-06 by owner decision, recorded in spec 078 and Codex-progress session 27: the toolbar game control this criterion originally required — absent without games, a title button for one, a Games menu for several — was built in 0cf70b6 and then removed outright, because dashboard launches reached only a terminal tab. Launching moved to the dashboard game action of F72; a configurable toolbar is a later, separately scoped feature.)"
+      ],
+      "passes": false,
+      "dependencies": [
+        63
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/078-project-game-declaration.md, contracts/project-v1.schema.json (games), orchestrator/server/games.mjs and game-rules.mjs, mcp-worker game tools, external game view, games.test.mjs, contracts.test.mjs, native-game-declaration.spec.mjs and evidence",
+      "external_references": [
+        "nolf-improved and vtmb-vr .rengine/project.json declarations"
+      ],
+      "evidence": [
+        "docs/evidence/project-game-macos-2026-09-06.md"
+      ]
+    },
+    {
+      "id": 72,
+      "milestone": "O1",
+      "category": "surfaces",
+      "priority": "high",
+      "description": "Launch a declared game from the project dashboard through an action kind game, and remove the toolbar game control.",
+      "acceptance_criteria": [
+        "contracts/project-v1.schema.json adds the dashboard action kind game with a required game key (the id of a record in the same declaration's contract-3 games array) and an optional literal args list appended to that record's own args; the reader rejects a game action without game, one carrying another kind's field, a ${...} placeholder in its args and a reference to an undeclared id (naming the id and the declared ids) as dashboardError, leaving the formats and the games array intact, and skips the reference check when gamesError is already set.",
+        "GET /api/dashboard marks a game action available from its referenced record's preflight (the spec-078 path, not a second copy of the checks) and unavailable with that record's first issue when the executable is missing, in addition to the action's own requires and tools; POST /api/dashboard-run on a game action returns a type game session carrying the record's args followed by the action's, reuses it on a second run, and refuses a second action referencing the same record with different args with status 409 naming both argv; the replaceable worker serves the same through the retained host's game route.",
+        "The toolbar game button, its Games menu, its unavailable-entry rendering, its per-game preflight cache and its theme metrics and strings are gone; toolbar row one is a fixed set of columns whose arithmetic no longer depends on the declaration; design.py check passes; a native fixture shows no toolbar game control for a root that declares games, launches an external game from a dashboard game action into its tab with the running status, reuses it on a second click and shows an unbuilt record's action as a disabled label naming its first issue; RENGINE_NOLF_ROOT=... npm run test:game-nolf launches the real NOLF build through a dashboard game action and sees its frames.",
+        "Because a section fails whole and the dashboard is now the only human path to a launch, every cross-rule error in the declaration names the offending record beside its JSON path in all three sections ($.dashboard.groups[1].actions[1] (quest-screen).into must be root-relative, $.games[1] (vtmb-vr).cwd ..., $.formats[0] (troika-vpk).default ...); an action with no usable id is placed by its group, a record with no named ancestor keeps the bare path and undefined is never printed; duplicate-id errors keep the bare path so the repeating occurrence stays unambiguous; the report stays capped at three problems and names how many it hides; the native status row carries the id early enough not to clip it."
+      ],
+      "passes": false,
+      "dependencies": [
+        71
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/078-project-game-declaration.md and 075-project-dashboard.md, contracts/project-v1.schema.json (game action kind), orchestrator/server/dashboard-rules.mjs, dashboard.mjs, games.mjs and sessions.mjs, orchestrator/runtime/worker.mjs, native dashboard tab and toolbar removal, theme.json/theme.h, dashboard.test.mjs, contracts.test.mjs, native-game-declaration.spec.mjs, native-nolf.spec.mjs and evidence",
+      "external_references": [
+        "vtmb-vr .rengine/project.json dashboard quick-start actions"
+      ],
+      "evidence": [
+        "docs/evidence/project-game-macos-2026-09-06.md"
+      ]
     }
   ]
 }

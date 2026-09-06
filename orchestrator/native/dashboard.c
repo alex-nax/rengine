@@ -10,7 +10,9 @@ static void action_row(ReApp *a, mu_Context *ui, int tab, const cJSON *action) {
     re_app_control(a, ui, "dashboard-action", id, tab);
   } else {
     const cJSON *missing = cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(action, "missing"), 0);
-    snprintf(label, sizeof(label), "%s — unavailable: missing %s %s", re_string(action, "title"), re_string(missing, "type"), re_string(missing, "name"));
+    const char *type = re_string(missing, "type"), *name = re_string(missing, "name");
+    if (!strcmp(type, "game")) snprintf(label, sizeof(label), "%s — unavailable: %s", re_string(action, "title"), name); /* a preflight issue is already a sentence */
+    else snprintf(label, sizeof(label), "%s — unavailable: missing %s %s", re_string(action, "title"), type, name);
     mu_label(ui, label); re_app_control(a, ui, "dashboard-unavailable", id, tab);
   }
   snprintf(label, sizeof(label), "%s%s%s", kind, *description ? " · " : "", description);

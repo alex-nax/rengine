@@ -79,8 +79,9 @@ export class Sessions extends EventEmitter {
   }
 
   snapshot(id, includeOutput = false) {
-    const { id: sessionId, rootId, type, agent, handoff, released, title, pid, state, exitCode, signal, createdAt, endedAt, cols, rows, sequence, output } = this.get(id);
+    const { id: sessionId, rootId, type, agent, handoff, released, title, surface, game, args, pid, state, exitCode, signal, createdAt, endedAt, cols, rows, sequence, output } = this.get(id);
     return { id: sessionId, rootId, type, agent, title, pid, state, exitCode, signal, createdAt, endedAt, cols, rows, sequence,
+      ...(type === 'game' ? { surface, game, args: args ?? [] } : {}),
       ...(handoff ? { handoff: { sessionId: handoff.sessionId, checkpoint: handoff.checkpoint }, waitingForView: !released } : {}),
       ...(includeOutput ? { output } : {}) };
   }
@@ -97,9 +98,11 @@ export class Sessions extends EventEmitter {
     finally { if (this.handoffFlights.get(key) === flight) this.handoffFlights.delete(key); }
   }
 
-  async spawnTerminal({ rootId, type = 'terminal', agent, action = 'launch', command, args, handoffFile, cols = 100, rows = 30, env = {}, title }) {
+  async spawnTerminal({ rootId, type = 'terminal', agent, action = 'launch', command, args, handoffFile, cols = 100, rows = 30, env = {}, title, surface, game, cwd }) {
     if (title !== undefined && (typeof title !== 'string' || !title.trim() || title.length > 200)) fail('Session title must be a short string.');
     const root = this.store.root(rootId);
+    const workingDirectory = cwd === undefined ? root.path : path.resolve(cwd);
+    if (workingDirectory !== root.path && !workingDirectory.startsWith(root.path + path.sep)) fail('The working directory must be inside the project root.');
     const id = randomUUID(); let handoff, gate;
     env = shellEnvironment({ ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents'),
       RENGINE_HANDOFF_GATE: undefined, RENGINE_HANDOFF_FILE: undefined, RENGINE_ORCHESTRATOR_SESSION: undefined });
@@ -136,10 +139,10 @@ export class Sessions extends EventEmitter {
       }
     }
     if (typeof file !== 'string' || !Array.isArray(argv) || argv.some(arg => typeof arg !== 'string')) fail('Invalid executable or arguments.');
-    const child = pty.spawn(file, argv, { name: 'xterm-256color', cols, rows, cwd: root.path,
+    const child = pty.spawn(file, argv, { name: 'xterm-256color', cols, rows, cwd: workingDirectory,
       env: shellEnvironment({ ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents') }) });
-    const item = { id, rootId, type, handoff, gate, released: false, ...(type === 'agent' ? { agent: agent ?? '' } : {}),
-      title: title ?? (type === 'agent' ? `${agent || 'Choose agent'} · ${root.name}` : `${type === 'game' ? 'NOLF' : 'Terminal'} · ${root.name}`),
+    const item = { id, rootId, type, handoff, gate, released: false, ...(type === 'agent' ? { agent: agent ?? '' } : {}), ...(type === 'game' ? { surface, game, args: argv } : {}),
+      title: title ?? (type === 'agent' ? `${agent || 'Choose agent'} · ${root.name}` : `${type === 'game' ? 'Game' : 'Terminal'} · ${root.name}`),
       pid: child.pid, child, state: 'running', createdAt: Date.now(), cols, rows, output: '', sequence: 0 };
     this.items.set(item.id, item);
     child.onData(data => {

@@ -18,8 +18,8 @@
       "id": "script-view-consumer",
       "kind": "rationale",
       "anchor": {
-        "start": 29,
-        "end": 29,
+        "start": 32,
+        "end": 32,
         "snippet": "const data = await body(req), state = await refresh(); json(res, 200, await openScript(host, desktops, data, state));"
       },
       "note": "Script launch and session-view actions live in the replaceable worker above the retained host. Only this worker\u2019s connected desktop broker can attach a view; a desktop still connected through an older worker needs a native update first, not a duplicate process.",
@@ -31,8 +31,8 @@
       "id": "format-registry-worker",
       "kind": "rationale",
       "anchor": {
-        "start": 33,
-        "end": 33,
+        "start": 36,
+        "end": 36,
         "snippet": "} else if (req.method === 'GET' && target.pathname === '/api/formats') {"
       },
       "note": "Format listing, preview/entry execution and raw byte windows are answered here instead of being forwarded, so a retained host that predates spec 074 still gains them through a workspace-layer update. Roots come from the refreshed host state; the boundary is store.mjs resolveInRoot, identical to the host's.",
@@ -43,7 +43,7 @@
   ],
   "source": {
     "path": "orchestrator/runtime/worker.mjs",
-    "sha256": "402b01e153ef07627097f9d49816db37814ed550ff0c59d572d58a76a2f8e9ad",
+    "sha256": "a01b03244c7a348f8dbe6958a8f9cc72cc1465eccd53e722c8da87c82c7a0b66",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }
