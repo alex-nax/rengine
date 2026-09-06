@@ -40,6 +40,8 @@ void re_app_load(ReApp *app, int tab);
 void re_app_load_entry(ReApp *app, int tab);
 void re_app_mode(ReApp *app, int tab, int mode);
 const cJSON *re_app_format_record(ReApp *app, ReTab *tab);
+const cJSON *re_app_game(ReApp *app, const char *root);
+bool re_app_external_session(ReApp *app, const char *session);
 void re_app_control(ReApp *app, mu_Context *ui, const char *role, const char *key, int tab);
 void re_app_save(ReApp *app, int tab);
 void re_app_discard(ReApp *app, int tab);

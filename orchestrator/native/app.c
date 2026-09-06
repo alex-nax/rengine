@@ -58,6 +58,21 @@ static void fetch_formats(ReApp *a, const char *root) {
   }
   free(route);
 }
+const cJSON *re_app_game(ReApp *a, const char *root) {
+  const cJSON *known = formats_for(a, root), *game = known ? cJSON_GetObjectItemCaseSensitive(known, "game") : NULL;
+  return cJSON_IsObject(game) && *re_string(game, "title") ? game : NULL;
+}
+bool re_app_external_session(ReApp *a, const char *id) {
+  const cJSON *session = NULL;
+  cJSON_ArrayForEach(session, cJSON_GetObjectItemCaseSensitive(a->state, "sessions"))
+    if (!strcmp(re_string(session, "id"), id)) return !strcmp(re_string(session, "type"), "game") && !strcmp(re_string(session, "surface"), "external");
+  return false;
+}
+/* A game whose surface is external has no frame stream; its view is the retained PTY output. */
+static void open_view(ReApp *a, ReTab *t) {
+  if (t->type == RE_TERMINAL || (t->type == RE_GAME && re_app_external_session(a, t->session))) { if (!t->terminal) t->terminal = re_terminal_open(a->events, t->session, 80, 24); }
+  else if (t->type == RE_GAME && !t->game) t->game = re_game_open(a->net, t->session);
+}
 const cJSON *re_app_format_record(ReApp *a, ReTab *t) {
   const cJSON *known = formats_for(a, t->root); if (!known) return NULL;
   const char *name = strrchr(t->path, '/'); name = name ? name + 1 : t->path;
@@ -114,8 +129,7 @@ int re_app_tab(ReApp *a, int type, const char *root, const char *path, const cha
   for (int i = 0; i < RE_TABS; i++) {
     ReTab *t = &a->tabs[i];
     if (t->used && t->type == type && !strcmp(t->root, root) && !strcmp(t->path, path) && !strcmp(t->session, session)) {
-      if (type == RE_TERMINAL && !t->terminal) t->terminal = re_terminal_open(a->events, session, 80, 24);
-      if (type == RE_GAME && !t->game) t->game = re_game_open(a->net, session);
+      open_view(a, t);
       int pane = re_layout_find(&a->layout, i);
       if (pane < 0) re_layout_add(&a->layout, a->layout.active, i);
       else { a->layout.active = pane; for (int k = 0; k < a->layout.panes[pane].count; k++) if (a->layout.panes[pane].tabs[k] == i) a->layout.panes[pane].selected = k; }
@@ -127,8 +141,7 @@ int re_app_tab(ReApp *a, int type, const char *root, const char *path, const cha
     re_copy(t->root, sizeof(t->root), root); re_copy(t->path, sizeof(t->path), path);
     re_copy(t->session, sizeof(t->session), session); re_copy(t->title, sizeof(t->title), title);
     re_layout_add(&a->layout, a->layout.active, i); a->focus = i;
-    if (type == RE_TERMINAL) t->terminal = re_terminal_open(a->events, session, 80, 24);
-    if (type == RE_GAME) t->game = re_game_open(a->net, session);
+    open_view(a, t);
     re_app_load(a, i); re_app_layout_changed(a); return i;
   }
   re_copy(a->status, sizeof(a->status), "The workspace supports 64 retained views in this build."); return -1;
@@ -179,8 +192,7 @@ static bool restore(ReApp *a, const cJSON *j) {
     ReTab *t = &a->tabs[i]; t->used = true; t->generation++; t->type = re_number(tab, "type");
     re_copy(t->root, sizeof(t->root), re_string(tab, "root")); re_copy(t->path, sizeof(t->path), re_string(tab, "path"));
     re_copy(t->session, sizeof(t->session), re_string(tab, "session")); re_copy(t->title, sizeof(t->title), re_string(tab, "title"));
-    if (t->type == RE_TERMINAL && re_layout_find(&a->layout, i) >= 0) t->terminal = re_terminal_open(a->events, t->session, 80, 24);
-    if (t->type == RE_GAME && re_layout_find(&a->layout, i) >= 0) t->game = re_game_open(a->net, t->session);
+    if ((t->type == RE_TERMINAL || t->type == RE_GAME) && re_layout_find(&a->layout, i) >= 0) open_view(a, t);
     if (cJSON_HasObjectItem(tab, "mode")) t->format = re_format_open(re_format_mode_from(re_string(tab, "mode")), true);
     re_app_load(a, i);
   }
@@ -222,6 +234,7 @@ static void formats_loaded(ReApp *a, const cJSON *j) {
   const char *root = re_string(j, "rootId"); if (!*root) return;
   cJSON_DeleteItemFromObject(a->formats, root); cJSON_AddItemToObject(a->formats, root, cJSON_Duplicate(j, 1));
   if (*re_string(j, "error")) re_copy(a->status, sizeof(a->status), re_string(j, "error"));
+  else if (*re_string(j, "gameError")) re_copy(a->status, sizeof(a->status), re_string(j, "gameError"));
   for (int i = 0; i < RE_TABS; i++) {
     ReTab *t = &a->tabs[i];
     if (t->used && t->type == RE_EDITOR && t->format && (re_format_mode(t->format) == RE_MODE_PENDING || re_format_awaiting(t->format)) && !strcmp(t->root, root)) re_app_load(a, i);
@@ -414,6 +427,7 @@ cJSON *re_app_inspect(ReApp *a) {
       if (t->terminal) re_terminal_inspect_mouse(t->terminal, tab);
     }
     if (t->game) { cJSON_AddNumberToObject(tab, "sequence", t->game->sequence); cJSON_AddBoolToObject(tab, "captured", t->game->captured); }
+    if (t->type == RE_GAME) cJSON_AddStringToObject(tab, "surface", t->terminal ? "external" : "sdl2-interpose");
     if (t->data && t->type == RE_TREE) cJSON_AddItemToObject(tab, "tree", cJSON_Duplicate(t->data, 1));
     if (t->format) re_format_inspect(t->format, tab);
   }

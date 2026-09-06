@@ -24,6 +24,12 @@ static const char *root_name(ReApp *a, const char *id) {
     if (!strcmp(re_string(root, "id"), id)) return re_string(root, "name");
   return "Missing root";
 }
+static bool session_running(ReApp *a, const char *id) {
+  const cJSON *session = NULL;
+  cJSON_ArrayForEach(session, cJSON_GetObjectItemCaseSensitive(a->state, "sessions"))
+    if (!strcmp(re_string(session, "id"), id)) return !strcmp(re_string(session, "state"), "running");
+  return false;
+}
 static void launch_terminal(ReApp *a, bool agent, bool menu) {
   if (!*a->root) { re_copy(a->status, sizeof(a->status), "Add or select a project first."); return; }
   cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "rootId", a->root);
@@ -135,9 +141,13 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
   int opts = MU_OPT_NOTITLE | MU_OPT_NORESIZE | MU_OPT_NOCLOSE | MU_OPT_NOSCROLL;
   mu_get_container(ui, "Toolbar")->rect = mu_rect(0, 0, width, RE_METRIC_TOOLBAR_HEIGHT);
   if (mu_begin_window_ex(ui, "Toolbar", mu_rect(0, 0, width, RE_METRIC_TOOLBAR_HEIGHT), opts)) {
-    mu_layout_row(ui, 11, (int[]){RE_METRIC_TOOLBAR_BRAND_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH,
+    const cJSON *game = re_app_game(a, a->root); /* the game column exists only while the bound root declares a game */
+    int widths[] = {RE_METRIC_TOOLBAR_BRAND_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH, RE_METRIC_TOOLBAR_VIEW_WIDTH,
       RE_METRIC_TOOLBAR_MANAGE_WIDTH, RE_METRIC_TOOLBAR_SESSIONS_WIDTH, RE_METRIC_TOOLBAR_SPLIT_VERTICAL_WIDTH, RE_METRIC_TOOLBAR_SPLIT_HORIZONTAL_WIDTH,
-      RE_METRIC_TOOLBAR_MERGE_WIDTH, RE_METRIC_TOOLBAR_GAME_WIDTH, -1}, RE_METRIC_TOOLBAR_ROW_HEIGHT);
+      RE_METRIC_TOOLBAR_MERGE_WIDTH, RE_METRIC_TOOLBAR_GAME_WIDTH, -1};
+    int columns = RE_ARRAY_SIZE(widths);
+    if (!game) { widths[columns - 2] = -1; columns--; }
+    mu_layout_row(ui, columns, widths, RE_METRIC_TOOLBAR_ROW_HEIGHT);
     mu_label(ui, "rEngine");
     if (button(a, ui, "Tree", "toolbar", "Tree", -1)) { if (*a->root) re_app_tab(a, RE_TREE, a->root, "", "", "Project"); }
     if (button(a, ui, "Shell", "toolbar", "Shell", -1)) launch_terminal(a, false, false);
@@ -150,7 +160,7 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
       if (re_layout_collapse(&a->layout, a->layout.active) >= 0) { a->focus = -1; re_app_layout_changed(a); }
       else re_copy(a->status, sizeof(a->status), "This is already the only pane.");
     }
-    if (button(a, ui, "NOLF", "toolbar", "NOLF", -1)) {
+    if (game && button(a, ui, re_string(game, "title"), "toolbar", re_string(game, "title"), -1)) {
       cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "rootId", a->root); re_app_action(a, "game", j); cJSON_Delete(j);
     }
     int vim = a->vim;
@@ -160,7 +170,8 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
       cJSON *j = cJSON_CreateObject(); cJSON_AddBoolToObject(j, "vim", a->vim); re_app_action(a, "preferences", j); cJSON_Delete(j);
     }
     mu_layout_row(ui, 5, (int[]){RE_METRIC_TOOLBAR_ROOT_WIDTH, -RE_METRIC_TOOLBAR_PATH_RIGHT, RE_METRIC_TOOLBAR_ADD_WIDTH, RE_METRIC_TOOLBAR_AGENT_LABEL_WIDTH, -1}, RE_METRIC_TOOLBAR_ROW_HEIGHT);
-    if (mu_button(ui, root_name(a, a->root))) {
+    bool cycle = mu_button(ui, root_name(a, a->root)); re_app_control(a, ui, "toolbar", "Root", -1);
+    if (cycle) {
       cJSON *roots = cJSON_GetObjectItemCaseSensitive(a->state, "roots"); int count = cJSON_GetArraySize(roots);
       for (int i = 0; i < count; i++) if (!strcmp(re_string(cJSON_GetArrayItem(roots, i), "id"), a->root)) {
         re_copy(a->root, sizeof(a->root), re_string(cJSON_GetArrayItem(roots, (i + 1) % count), "id")); break;
@@ -200,6 +211,11 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
       else if (t->type == RE_EDITOR) editor_ui(a, ui, index, content, below);
       else if (t->type == RE_TERMINAL) {
         t->rect = mu_rect(content.x + RE_METRIC_TERMINAL_INSET, content.y + RE_METRIC_TERMINAL_TOP, re_max(0, content.w - 2 * RE_METRIC_TERMINAL_INSET), re_max(0, content.h - RE_METRIC_TERMINAL_BOTTOM));
+      } else if (t->type == RE_GAME && t->terminal) {
+        bool running = session_running(a, t->session);
+        mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_GAME_ROW_HEIGHT);
+        mu_label(ui, running ? "Running in its own window" : "Game exited · reattach or Stop in Sessions"); re_app_control(a, ui, "game-status", running ? "running" : "exited", index);
+        t->rect = mu_rect(content.x + RE_METRIC_GAME_INSET, content.y + RE_METRIC_GAME_TOP, re_max(0, content.w - 2 * RE_METRIC_GAME_INSET), re_max(0, content.h - RE_METRIC_GAME_BOTTOM));
       } else if (t->game) {
         mu_layout_row(ui, 2, (int[]){RE_METRIC_GAME_CAPTURE_WIDTH, -1}, RE_METRIC_GAME_ROW_HEIGHT);
         if (mu_button(ui, t->game->captured ? "Captured · Esc releases" : "Capture mouse")) { re_game_capture(t->game); a->focus = index; }
