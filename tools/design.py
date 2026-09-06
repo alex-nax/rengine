@@ -7,7 +7,7 @@
   import FILE...  apply token values from a preview's :root block (for example a card pulled back
                   from Claude Design) to tokens.json, then regenerate
 
-Boundaries and rationale: docs/specs/063-design-system-handoff.md. Standard library only.
+Boundaries and rationale: docs/specs/064-design-system-handoff.md. Standard library only.
 """
 import json
 import re

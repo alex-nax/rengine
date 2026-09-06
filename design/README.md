@@ -1,7 +1,7 @@
 # rEngine design system source
 
 Design material for the native C/microui desktop. Nothing here is loaded at runtime; see
-[spec 063](../docs/specs/063-design-system-handoff.md) for the boundaries.
+[spec 064](../docs/specs/064-design-system-handoff.md) for the boundaries.
 
 | Path | Role |
 | --- | --- |

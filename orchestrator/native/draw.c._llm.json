@@ -25,7 +25,7 @@
       },
       "note": "Colours, microui metrics, the font pixel size and the line height come from orchestrator/native/theme.h, which `python3 tools/design.py generate` derives from design/tokens.json; the same tokens feed the Claude Design preview cards. Edit the tokens and regenerate, never the header: `tools/design.py check` rejects a stale header and any mu_color/vterm_color_rgb literal outside the palette. Applying upstream microui's default slots explicitly here is behaviour-neutral (identical values) and makes every slot designable. The other native files still carry literal colours; replacing them with RE_COLOR_* waits for the in-flight spec 061/062 edits to land so this change does not conflict with that session.",
       "refs": [
-        "docs/specs/063-design-system-handoff.md",
+        "docs/specs/064-design-system-handoff.md",
         "design/tokens.json",
         "tools/design.py"
       ]

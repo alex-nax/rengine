@@ -116,7 +116,7 @@ game simulation or require the training stack to launch a game.
 | `adapters/` (future) | Development-tool adapters; runtime glue usually stays with the host |
 | `templates/` (future) | Minimal agent-neutral project harness and optional native wrappers |
 | `orchestrator/` | Desktop UI, launcher, retained session service and acceptance tests; live game integration in progress |
-| `design/` | Design tokens and self-contained Claude Design preview cards; `tools/design.py` generates the native theme header from them; never a runtime dependency (spec 063) |
+| `design/` | Design tokens and self-contained Claude Design preview cards; `tools/design.py` generates the native theme header from them; never a runtime dependency (spec 064) |
 
 Do not create empty runtime modules to imply progress. Introduce each directory with its first
 complete artifact. Broad design rationale lives here or in a spec; file-local notes use sidecars.

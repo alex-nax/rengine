@@ -8,7 +8,7 @@ feature gate and the active goal are unchanged, and no conversation or goal was 
 session's uncommitted spec 061/062 edits (native scroll/desktop-action sources, service, tests,
 package.json) were present throughout and were left untouched and uncommitted.
 
-**Implemented**: Spec 063 defines the single channel between Claude Design's HTML design-system
+**Implemented**: Spec 064 (renumbered from 063 after the other session's untracked 063 appeared) defines the single channel between Claude Design's HTML design-system
 projects and the C/microui desktop. `design/tokens.json` (25 colours including the explicit
 upstream microui defaults, typography, 12 metric groups, icon glyphs and UI strings) generates
 `orchestrator/native/theme.h`, `design/tokens.css`, `design/manifest.json` and the managed blocks
@@ -32,7 +32,7 @@ DesignSync `list_projects` from this session was refused pending `/design-login`
 into a design-system project (create one if absent); pulled cards return through
 `tools/design.py import`. Replace the remaining literal colours in editor, terminal, workspace,
 scroll, main and game sources with `RE_COLOR_*` once specs 061/062 land. No feature row was
-added; spec 063 records a candidate. A Claude Design canvas seeded from `screens/workspace.html`
+added; spec 064 records a candidate. A Claude Design canvas seeded from `screens/workspace.html`
 is an optional later step. All 15 feature gates remain false.
 Commit: `feat(design): add Claude Design token bridge and preview library`.
 
