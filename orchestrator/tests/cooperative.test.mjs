@@ -11,9 +11,9 @@ import { cooperativeGame, game, gameProject, gamesDeclaration } from './game-fix
 
 /* Spec 078, F77. `cooperative` is `embedded` minus the injection: a game whose own engine speaks the
    surface protocol connects itself, and rEngine must never also inject the SDL2 adapter into it —
-   two producers would greet the same token on the same channel and the surviving one would be a
-   restart race. The fixture producer stands in for such a consumer, so nothing here needs a real
-   game binary. */
+   two producers would greet the same token on the same channel, `Surfaces` destroys whichever
+   arrives second, and both sides reconnect, so the survivor is a restart race. The fixture producer
+   stands in for such a consumer, so nothing here needs a real game binary. */
 const waitOutput = async (server, id, text) => {
   for (let i = 0; i < 200; i++) { if (server.sessions.snapshot(id, true).output.includes(text)) return server.sessions.snapshot(id, true).output; await delay(50); }
   throw new Error(`session never printed ${text}: ${server.sessions.snapshot(id, true).output}`);
@@ -28,16 +28,42 @@ function watchLaunches(server) {
   return seen;
 }
 const injectionKeys = env => Object.keys(env ?? {}).filter(key => /^(?:DYLD_|LD_)/.test(key));
+const scratch = async name => realpath(await mkdtemp(path.join(tmpdir(), `rengine-cooperative-${name}-`)));
 
-test('a cooperative game is launched with the surface environment and no injection variable at all', { timeout: 40000 }, async t => {
-  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-cooperative-')));
+/* THE injection-race regression, deliberately alone in its own test with its own launch: held
+   inside the larger test below, an earlier assertion failing for another reason would mask it, and
+   a regression that never fails for its own reason is an assertion with no evidence behind it. The
+   sabotage it is written against is a FUTURE edit that injects into the cooperative path while
+   leaving everything else intact — so the first thing asserted, before anything easier, is that the
+   composed environment carries no injection variable at all. */
+test('the launch environment of a cooperative game carries no injection variable at all', { timeout: 40000 }, async t => {
+  const directory = await scratch('injection');
   const server = await startServer({ stateDir: path.join(directory, 'state') });
   t.after(async () => { await server.close(); await rm(directory, { recursive: true, force: true }); });
   const launches = watchLaunches(server);
+  const root = await server.store.addRoot(await gameProject(directory, 'coop', gamesDeclaration([cooperativeGame()])));
+
+  const session = await request(server, 'game', { rootId: root.id, gameId: 'fixture-cooperative' });
+  const composed = launches.find(options => options.game === 'fixture-cooperative');
+  assert.ok(composed, 'the cooperative launch was seen');
+  assert.deepEqual(injectionKeys(composed.env), [],
+    `no injection variable may reach a cooperative game, or its own connection races an injected one: ${JSON.stringify(composed.env)}`);
+  assert.equal('DYLD_INSERT_LIBRARIES' in composed.env, false);
+  /* The other half of the same environment, asserted after it so it can never stand in for it. */
+  assert.match(composed.env.RENGINE_SURFACE_PORT, /^\d+$/);
+  assert.match(composed.env.RENGINE_SURFACE_TOKEN, /^[0-9a-f]{64}$/);
+  assert.equal(composed.env.FIXTURE_FLAVOUR, 'violet', "the record's own env survives beside the surface variables");
+  await server.sessions.stop(session.id); assert.equal(await waitExit(server, session.id), 'exited');
+});
+
+test('a cooperative game preflights with no adapter and no platform gate, connects itself and streams to a viewer', { timeout: 40000 }, async t => {
+  const directory = await scratch('stream');
+  const server = await startServer({ stateDir: path.join(directory, 'state') });
+  t.after(async () => { await server.close(); await rm(directory, { recursive: true, force: true }); });
   const rootPath = await gameProject(directory, 'coop', gamesDeclaration([cooperativeGame(), game()]));
   const root = await server.store.addRoot(rootPath);
 
-  /* Preflight: portable by construction, so no adapter and no platform issue on any platform. */
+  /* Portable by construction, so no adapter and no platform issue on any platform. */
   const config = await request(server, `game-config?${new URLSearchParams({ rootId: root.id, gameId: 'fixture-cooperative' })}`);
   assert.equal(config.surface, 'cooperative');
   assert.equal(config.adapter, undefined, 'a cooperative game reports no adapter');
@@ -50,17 +76,7 @@ test('a cooperative game is launched with the surface environment and no injecti
   assert.equal(session.type, 'game'); assert.equal(session.surface, 'cooperative'); assert.equal(session.game, 'fixture-cooperative');
   assert.equal(session.title, 'Fixture co-op · coop');
   assert.equal(server.games.surfaces.items.size, 1, 'a cooperative game reserves a surface, exactly as embedded does');
-  assert.equal(server.games.items.size, 1);
-
-  /* THE regression: the launch environment carries the reservation and the declared env, and no
-     injection variable exists in it for a second producer to be created by. */
-  const composed = launches.find(options => options.game === 'fixture-cooperative');
-  assert.ok(composed, 'the cooperative launch was seen');
-  assert.match(composed.env.RENGINE_SURFACE_PORT, /^\d+$/);
-  assert.match(composed.env.RENGINE_SURFACE_TOKEN, /^[0-9a-f]{64}$/);
-  assert.equal(composed.env.FIXTURE_FLAVOUR, 'violet', "the record's own env survives beside the surface variables");
-  assert.deepEqual(injectionKeys(composed.env), [], `no injection variable may reach a cooperative game: ${JSON.stringify(composed.env)}`);
-  assert.equal('DYLD_INSERT_LIBRARIES' in composed.env, false);
+  assert.equal(server.games.items.size, 1, 'and the session is bound to that item, or no viewer can attach');
 
   const started = await waitOutput(server, session.id, 'COOPERATIVE_STARTED');
   assert.match(started, /token=64 inject=none/, 'the game itself sees the token and no injection');
@@ -72,16 +88,27 @@ test('a cooperative game is launched with the surface environment and no injecti
   assert.ok(item.frameCount >= 2, `frames reached the server: ${item.frameCount}`);
   assert.equal(item.width, 8); assert.equal(item.height, 4); assert.equal(item.status, 'Live');
 
+  /* Two frames with different sequence numbers, not one: attaching replays the latest frame the
+     server already holds, so a single frame would pass with the live fan-out to viewers removed. */
   const viewer = new WebSocket(`${server.url.replace('http', 'ws')}/surface?${new URLSearchParams({ token: server.token, id: session.id })}`);
-  const frame = await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('no frame reached the viewer')), 15000);
+  const received = [];
+  const frames = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`the viewer received ${received.length} frame(s) while the server holds ${item.frameCount}`)), 15000);
     viewer.on('error', reject);
-    viewer.on('message', (bytes, binary) => { if (binary) { clearTimeout(timer); resolve(Buffer.from(bytes)); } });
+    viewer.on('close', (code, reason) => reject(new Error(`the viewer was closed before its frames: ${code} ${reason}`)));
+    viewer.on('message', (bytes, binary) => {
+      if (!binary) return;
+      received.push(Buffer.from(bytes));
+      if (received.length === 2) { clearTimeout(timer); resolve(received); }
+    });
   });
-  viewer.close();
-  assert.equal(frame.readUInt32LE(0), 0x31464752, 'the viewer receives the framed protocol');
-  assert.equal(frame.readUInt32LE(4), 8); assert.equal(frame.readUInt32LE(8), 4);
-  assert.equal(frame.length, 24 + 8 * 4 * 4);
+  viewer.removeAllListeners('close'); viewer.close();
+  for (const frame of frames) {
+    assert.equal(frame.readUInt32LE(0), 0x31464752, 'the viewer receives the framed protocol');
+    assert.equal(frame.readUInt32LE(4), 8); assert.equal(frame.readUInt32LE(8), 4);
+    assert.equal(frame.length, 24 + 8 * 4 * 4);
+  }
+  assert.notEqual(frames[0].readUInt32LE(12), frames[1].readUInt32LE(12), 'the pane keeps receiving new frames, not one replayed on attach');
 
   await server.sessions.stop(session.id);
   assert.equal(await waitExit(server, session.id), 'exited');
@@ -91,7 +118,7 @@ test('a cooperative game is launched with the surface environment and no injecti
 });
 
 test('embedded still injects the adapter on macOS, external still reserves nothing', { timeout: 40000 }, async t => {
-  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-cooperative-peers-')));
+  const directory = await scratch('peers');
   const server = await startServer({ stateDir: path.join(directory, 'state') });
   const adapter = path.resolve('.cache/native/librengine_surface.dylib');
   let placeholder = false;

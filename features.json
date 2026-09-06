@@ -801,6 +801,31 @@
         "vtmb-vr and nolf-improved .rengine/project.json declarations"
       ],
       "evidence": []
+    },
+    {
+      "id": 77,
+      "milestone": "O1",
+      "category": "surfaces",
+      "priority": "high",
+      "description": "A third game surface, cooperative: rEngine reserves the surface and passes RENGINE_SURFACE_PORT/RENGINE_SURFACE_TOKEN exactly as embedded does but injects nothing, so a game whose own engine speaks the surface protocol -- a statically linked or non-SDL2 runtime the adapter can never interpose -- gets a live workspace pane instead of falling back to its own window.",
+      "acceptance_criteria": [
+        "The surface enum is embedded | external | cooperative and needs no contract bump: it is a new value of a closed enum, so a reader that predates it refuses the document and drops the whole games array rather than degrading, and nothing on the injection path tests anything but equality with embedded. Both directions are tested: the current schema refuses an unknown value naming all three, and a reconstruction of the predecessor enum refuses cooperative and yields no games.",
+        "A cooperative launch composes the record's own env plus RENGINE_SURFACE_PORT and RENGINE_SURFACE_TOKEN and NO DYLD_/LD_ key at all, asserted on the environment rEngine composes rather than on the child's, because macOS purges DYLD_* before a protected interpreter can report it. This is the regression that keeps the two-producer race unreachable by configuration: an injected adapter and a self-connecting game would greet the same token on one channel, surfaces.mjs destroys whichever socket arrives second, and both sides reconnect.",
+        "Preflight reports no adapter and no platform issue for a cooperative record on any platform: the macOS adapter precondition and the needs host integration and qualification on this platform issue stay with embedded, because a cooperative game is portable by construction. embedded on macOS still composes DYLD_INSERT_LIBRARIES with the adapter and external still reserves nothing.",
+        "The contract-4 rule binding a streaming game to the local device covers cooperative through the same code and the same message as embedded, named once in game-rules.mjs rather than tested twice.",
+        "The session stays type game carrying its surface, so the native pane, the /surface upgrade, Sessions and Stop behave as they do for embedded, verified rather than assumed: a native fixture launches a cooperative game through the real game route and shows a rising frame sequence, surface cooperative in the snapshot and none of the external tab's PTY text or status row. Launch identity, coalescing and the different-arguments refusal are unchanged.",
+        "The suite never depends on a consumer binary: a committed fixture producer reads the two variables, greets both channels through the server's own encoder, streams frames and reports the injection variables it was handed. npm test, npm run test:desktop, CTest, ./init.sh, python3 tools/design.py check, features.py validate and the sidecar check pass, the native build has zero warnings, and the real-NOLF qualification still passes unchanged since NOLF stays embedded."
+      ],
+      "passes": false,
+      "dependencies": [
+        71
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/078-project-game-declaration.md, contracts/project-v1.schema.json, orchestrator/server/{game-rules,games}.mjs, orchestrator/native/app.c, orchestrator/actions/integrate-project.sh, orchestrator/templates/project/test_rengine_project_decl.py, docs/runbooks/project-integration.md, orchestrator/tests/{cooperative.test.mjs,surface-producer.mjs,game-fixtures.mjs,native-cooperative.spec.mjs}",
+      "external_references": [
+        "vtmb-vr F1147 (the consumer's own surface-protocol client, src/platform/workspace_surface.cpp)"
+      ],
+      "evidence": []
     }
   ]
 }
