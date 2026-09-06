@@ -204,13 +204,16 @@ void re_app_reveal(ReApp *a, const char *root, const char *artifact) {
   else { a->layout.active = pane; for (int k = 0; k < a->layout.panes[pane].count; k++) if (a->layout.panes[pane].tabs[k] == tab) a->layout.panes[pane].selected = k; }
   snprintf(a->status, sizeof(a->status), "Revealed %s in the project tree.", artifact); re_app_layout_changed(a);
 }
-bool re_app_external_session(ReApp *a, const char *id) {
+/* The surface a game session declares, or "" for anything that is not a game session carrying one. */
+static const char *game_session_surface(ReApp *a, const char *id) {
   const cJSON *session = NULL;
   cJSON_ArrayForEach(session, cJSON_GetObjectItemCaseSensitive(a->state, "sessions"))
-    if (!strcmp(re_string(session, "id"), id)) return !strcmp(re_string(session, "type"), "game") && !strcmp(re_string(session, "surface"), "external");
-  return false;
+    if (!strcmp(re_string(session, "id"), id)) return strcmp(re_string(session, "type"), "game") ? "" : re_string(session, "surface");
+  return "";
 }
-/* A game whose surface is external has no frame stream; its view is the retained PTY output. */
+bool re_app_external_session(ReApp *a, const char *id) { return !strcmp(game_session_surface(a, id), "external"); }
+/* A game whose surface is external has no frame stream; its view is the retained PTY output. Every
+   other surface streams, so embedded and cooperative both open the live view without naming it. */
 static void open_view(ReApp *a, ReTab *t) {
   if (t->type == RE_TERMINAL || (t->type == RE_GAME && re_app_external_session(a, t->session))) { if (!t->terminal) t->terminal = re_terminal_open(a->events, t->session, 80, 24); }
   else if (t->type == RE_GAME && !t->game) t->game = re_game_open(a->net, t->session);
@@ -616,7 +619,12 @@ cJSON *re_app_inspect(ReApp *a) {
     }
     if (t->game) { cJSON_AddNumberToObject(tab, "sequence", t->game->sequence); cJSON_AddBoolToObject(tab, "captured", t->game->captured); }
     if (t->recorder) re_recording_inspect(t->recorder, tab);
-    if (t->type == RE_GAME) cJSON_AddStringToObject(tab, "surface", t->terminal ? "external" : "embedded");
+    if (t->type == RE_GAME) {
+      /* Report the session's own surface rather than inferring one from the view, which called every
+         streaming tab embedded and would now misname a cooperative one. */
+      const char *surface = t->terminal ? "external" : game_session_surface(a, t->session);
+      cJSON_AddStringToObject(tab, "surface", *surface ? surface : "embedded");
+    }
     if (t->data && t->type == RE_TREE) cJSON_AddItemToObject(tab, "tree", cJSON_Duplicate(t->data, 1));
     if (t->data && t->type == RE_DASHBOARD) cJSON_AddItemToObject(tab, "dashboard", cJSON_Duplicate(t->data, 1));
     if (t->data && t->type == RE_DEVICES) cJSON_AddItemToObject(tab, "devices", cJSON_Duplicate(t->data, 1));

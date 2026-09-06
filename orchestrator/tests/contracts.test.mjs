@@ -96,6 +96,20 @@ test('the real consumer declarations validate through the reconciled contract', 
     reserved.games[0].env = { DYLD_INSERT_LIBRARIES: '/x.dylib' };
     assert.match((await declare(directory, 'vtmb-reserved', reserved)).gamesError, /DYLD_INSERT_LIBRARIES is reserved/);
 
+    /* A new VALUE of a closed enum needs no contract bump, because the enum already fails closed in
+       both directions. A reader that predates the value refuses the document and drops the whole
+       games array, so nothing from it can be launched — least of all as embedded. */
+    const older = structuredClone(schema);
+    older.$defs.game.properties.surface.enum = ['embedded', 'external'];
+    const withoutBlocks = structuredClone(asCooperative); delete withoutBlocks.games; delete withoutBlocks.dashboard;
+    assert.deepEqual(validateSchema(older, withoutBlocks), [], 'the predecessor schema differs only in that enum');
+    const refused = validateSchema(older.properties.games, asCooperative.games, older, '$.games');
+    assert.deepEqual(refused, ['$.games[0].surface must be one of "embedded", "external"'],
+      'an older reader refuses cooperative by value, and never treats it as embedded');
+    const strange = await declare(directory, 'vtmb-unknown-surface', { ...asCooperative, games: [{ ...asCooperative.games[0], surface: 'sdl3-interpose' }] });
+    assert.match(strange.gamesError, /surface must be one of "embedded", "external", "cooperative"/, 'the current reader names all three');
+    assert.equal(strange.games, undefined, 'an unknown surface drops the games array whole, so no record of it is launchable');
+
     const stray = structuredClone(asGameActions);
     stray.dashboard.groups[0].actions[0].game = 'vtmb-nowhere';
     const unknown = await declare(directory, 'vtmb-stray', stray);

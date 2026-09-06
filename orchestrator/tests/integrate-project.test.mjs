@@ -209,7 +209,7 @@ test('the wizard rejects the retired sdl2-interpose surface by naming embedded, 
     error => error.code === 2 && /sdl2-interpose/.test(error.stderr) && /embedded/.test(error.stderr));
   await assert.rejects(wizard(['--project', root, '--name', 'unknown-surface', '--no-submodule', ...game,
     '--game-surface', 'window'], { timeout: 30000 }),
-    error => error.code === 2 && /embedded/.test(error.stderr) && /external/.test(error.stderr));
+    error => error.code === 2 && /embedded/.test(error.stderr) && /external/.test(error.stderr) && /cooperative/.test(error.stderr));
   await assert.rejects(wizard(['--project', root, '--name', 'wrong-contract', '--no-submodule', ...game,
     '--contract', '2'], { timeout: 30000 }),
     error => error.code === 2 && /contract 3/.test(error.stderr));

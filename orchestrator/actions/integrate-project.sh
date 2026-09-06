@@ -28,7 +28,7 @@ docs/runbooks/project-integration.md (spec 077).
   --contract 1|2|3        declaration contract to write (default: 3 with a game, else 2)
   --game-title TITLE      game toolbar label, at most 32 characters (contract 3)
   --game-exe REL          root-relative game executable, e.g. build/my-game (contract 3)
-  --game-surface KIND     external (default) or embedded
+  --game-surface KIND     external (default), embedded or cooperative
   --no-submodule          skip the submodule stage (offline scaffolding, existing pin)
   --dry-run               print every command as "+ …" and write nothing
   --help                  this text
@@ -66,8 +66,9 @@ if [[ -n "$RE_GAME_EXE" || -n "$RE_GAME_TITLE" ]]; then
   [[ -n "$RE_GAME_EXE" && -n "$RE_GAME_TITLE" ]] || { printf 'Declare both --game-title and --game-exe\n' >&2; exit 2; }
   [[ "$RE_GAME_TITLE" =~ $RE_TITLE_RE ]] || { printf 'Invalid game title: at most 32 plain characters\n' >&2; exit 2; }
   [[ "$RE_GAME_EXE" =~ $RE_PATH_RE && "$RE_GAME_EXE" != *..* ]] || { printf 'The game executable must be a root-relative path\n' >&2; exit 2; }
-  [[ "$RE_GAME_SURFACE" != sdl2-interpose ]] || { printf 'Game surface sdl2-interpose is retired: use embedded, which hosts the frames in the game tab through the cooperative SDL adapter\n' >&2; exit 2; }
-  [[ "$RE_GAME_SURFACE" == external || "$RE_GAME_SURFACE" == embedded ]] || { printf 'Game surface must be embedded or external\n' >&2; exit 2; }
+  [[ "$RE_GAME_SURFACE" != sdl2-interpose ]] || { printf 'Game surface sdl2-interpose is retired: use embedded, which hosts the frames in the game tab by injecting the SDL2 adapter\n' >&2; exit 2; }
+  # cooperative is embedded without the injection: the game speaks the surface protocol itself.
+  [[ "$RE_GAME_SURFACE" == external || "$RE_GAME_SURFACE" == embedded || "$RE_GAME_SURFACE" == cooperative ]] || { printf 'Game surface must be embedded, external or cooperative\n' >&2; exit 2; }
 fi
 [[ -n "$RE_CONTRACT" ]] || RE_CONTRACT=2
 [[ "$RE_CONTRACT" == 1 || "$RE_CONTRACT" == 2 || "$RE_CONTRACT" == 3 ]] || { printf 'Contract must be 1, 2 or 3\n' >&2; exit 2; }

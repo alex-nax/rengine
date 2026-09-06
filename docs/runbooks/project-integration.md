@@ -138,10 +138,15 @@ Rules that bite:
     the project root. No absolute path, no `..` segment, no backslash.
   - `requires` — optional root-relative files that must exist. Each missing one is a named
     preflight issue, so a target with no data yet reports why instead of failing at launch.
-  - `surface` — `embedded` (the game's frames are hosted in a game tab through the cooperative SDL
-    adapter) or `external` (the game opens its own operating-system window; rEngine starts the
-    session and tracks it, and the tab carries its output with Stop). Pick `external` for anything
-    the adapter cannot interpose — a statically linked or non-SDL2 runtime, or a Windows-only build.
+  - `surface` — `embedded` (rEngine injects its SDL2 adapter and hosts the game's frames in a game
+    tab), `external` (the game opens its own operating-system window; rEngine starts the session and
+    tracks it, and the tab carries its output with Stop), or `cooperative` (the same game tab, but
+    the game speaks the surface protocol in its own engine: rEngine reserves the surface and passes
+    `RENGINE_SURFACE_PORT`/`RENGINE_SURFACE_TOKEN` and injects nothing). Pick `cooperative` when the
+    adapter cannot be interposed — a statically linked or non-SDL2 runtime — and the engine can
+    connect for itself; `external` when it cannot. Never declare `embedded` for a game that also
+    connects on its own: two producers would greet the same token on one channel and the surviving
+    one would be a restart race (spec 078).
   - rEngine names no game anywhere: the tools are `game_preflight(gameId?)` and `launch_game(gameId?)`,
     both defaulting to the first declared target.
 - **Dashboard**: kebab-case group and action ids, unique across the dashboard. `script` actions

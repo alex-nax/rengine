@@ -130,6 +130,41 @@ cooperative game streams into a **local** pane over loopback, so it cannot be bo
 device. `game-rules.mjs` names the set of local-only surfaces once rather than testing `embedded`
 twice.
 
+#### No contract bump, and the rule for the next surface value (decision, 2026-09-06)
+
+**`cooperative` does not bump the contract, and a declaration naming it against a reader that
+predates it is refused rather than degraded.** The precedent to follow: *a new **key** needs a
+contract bump; a new **value** of an existing closed enum does not.* `games` and `devices` were new
+keys, and under `additionalProperties: false` an older reader rejects an unknown key with a message
+about the key rather than about the version — hence contracts 3 and 4, so the reader can say *update
+your workspace* instead of *delete this*. `surface` is a key every contract-3 reader already has,
+with a closed enum and no default. An older reader answers
+`$.games[0] (vtmb-flat).surface must be one of "embedded", "external"` and drops the **whole** games
+array as `gamesError`, so no record from that document is launchable at all — it fails closed, and
+the message already names exactly what that workspace supports, which is the actionable fact.
+
+That claim is only worth as much as the audit behind it, so here is every comparison against a
+surface value and which way each one fails:
+
+- `Games.start` injects on `config.surface === 'embedded'` **exactly**. There is no `!== 'external'`,
+  no default and no truthiness test anywhere on the injection path, so no unknown value — present or
+  future — can be injected into. This is the direction that matters: degrading *onto* injection is
+  the one outcome that would recreate the two-producer race.
+- `Games.start` reserves a surface on `streamsIntoPane(surface)`, an explicit membership test. An
+  unknown value therefore takes the `external` path: fewer privileges, not more.
+- `inspectGame` attaches the adapter and its platform gate on `=== 'embedded'` exactly.
+- Native `re_app_external_session` tests `== "external"` exactly, so every other value opens the live
+  view. This one *is* a fall-through, and it is both benign and correct: it is what lets a **newer
+  server with an older desktop** — the layered-update asymmetry this spec already describes — render
+  a cooperative session properly without a desktop update.
+- One report did degrade: the automation snapshot labelled a game tab `t->terminal ? "external" :
+  "embedded"`, which would have called a cooperative tab embedded. That was a label rather than
+  behaviour, and it now reports the session's own surface (see Native, below).
+
+Both directions are tested: the current schema refuses a genuinely unknown value naming all three,
+and a reconstruction of the predecessor enum refuses `cooperative` and yields no `games` at all, so
+nothing from such a document can reach a launch — let alone an injected one.
+
 ### The error message is the recovery path (decision, 2026-09-06)
 
 Each section fails whole: one bad `into` on one capture action empties `dashboard.groups` for the
