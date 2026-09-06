@@ -117,6 +117,53 @@ static const char *entry_meta(ReApp *a, const ReTab *t, const cJSON *entry, cons
   if (cJSON_IsNumber(children)) { snprintf(buffer, size, "%d", (int)children->valuedouble); return buffer; }
   return "";
 }
+/* Explorer rows. In flat mode a directory row drills in, which is the behaviour the desktop has
+ * always had. In nested mode the row expands the directory in place and the caret glyph drills in,
+ * so today's behaviour stays reachable (spec 080 decision 9). The mode is a setting, never inferred
+ * from how large a project is (decision 1). */
+static void tree_rows(ReApp *a, mu_Context *ui, int index, const cJSON *entries, int depth) {
+  ReTab *t = &a->tabs[index];
+  const cJSON *entry = NULL;
+  cJSON_ArrayForEach(entry, entries) {
+    mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_DESIGN_TREE_ROW);
+    const char *name = re_string(entry, "name"), *path = re_string(entry, "path");
+    bool directory = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(entry, "directory"));
+    bool nested = a->explorer_nested && directory;
+    int slot = nested ? re_app_expanded(a, index, path) : -1;
+    char meta_text[16]; const char *meta = entry_meta(a, t, entry, path, meta_text, sizeof(meta_text));
+    int opt = strcmp(meta, "M") ? 0 : RE_UI_STRONG;
+    if (*t->selected && !strcmp(t->selected, path)) opt |= RE_UI_ON;
+    int icon = directory ? (slot >= 0 ? RE_ICON_EXPANDED : RE_ICON_COLLAPSED) : RE_ICON_HOLLOW;
+    mu_push_id(ui, path, (int)strlen(path));   /* names repeat between folders; the path does not */
+    bool clicked = re_ui_row_ex(ui, name, icon, meta, depth, opt) != 0;
+    mu_Rect row = ui->last_rect;
+    re_app_control(a, ui, "tree-entry", path, index);
+    mu_Rect caret = mu_rect(row.x + RE_METRIC_DESIGN_ICON_GAP + depth * RE_METRIC_DESIGN_TREE_INDENT,
+                            row.y, RE_METRIC_DESIGN_SIZE, row.h);
+    if (nested) inspect_rect(a, "tree-drill", path, index, caret);
+    mu_pop_id(ui);
+    if (clicked) {
+      if (strlen(path) >= sizeof(t->path)) { re_copy(t->error, sizeof(t->error), "File path exceeds the view limit."); continue; }
+      re_copy(t->selected, sizeof(t->selected), path);
+      bool on_caret = nested && re_inside(caret, ui->mouse_pos.x, ui->mouse_pos.y);
+      if (nested && !on_caret) re_app_expand(a, index, path);
+      else if (directory) {
+        re_app_expansions_clear(a, index);     /* a new root is a new tree */
+        re_copy(t->path, sizeof(t->path), path); t->selected[0] = 0;
+        re_app_load(a, index); re_app_layout_changed(a);
+        continue;
+      } else re_app_tab(a, RE_EDITOR, t->root, path, "", name);
+    }
+    if (slot >= 0) {
+      const cJSON *children = cJSON_GetObjectItemCaseSensitive(a->expansions[slot].data, "entries");
+      if (!children) {
+        mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_DESIGN_TREE_ROW);
+        re_ui_row_ex(ui, "Loading…", RE_ICON_UNKNOWN, "", depth + 1, RE_UI_MUTED | RE_UI_DISABLED);
+      } else tree_rows(a, ui, index, children, depth + 1);
+    }
+  }
+}
+
 static void tree_ui(ReApp *a, mu_Context *ui, int index) {
   ReTab *t = &a->tabs[index];
   ReDraw *draw = re_draw_active();
@@ -124,6 +171,7 @@ static void tree_ui(ReApp *a, mu_Context *ui, int index) {
   mu_layout_row(ui, 2, (int[]){RE_METRIC_DESIGN_ICON_BUTTON, -1}, RE_METRIC_DESIGN_ROW);
   if (re_ui_button_ex(ui, "Up", RE_ICON_ARROW_UP, RE_UI_GHOST | RE_UI_ICON_ONLY | (*t->path ? 0 : RE_UI_DISABLED))) {
     char *slash = strrchr(t->path, '/'); if (slash) *slash = 0; else t->path[0] = 0;
+    re_app_expansions_clear(a, index); t->selected[0] = 0;
     re_app_load(a, index); re_app_layout_changed(a);
   }
   re_app_control(a, ui, "tree-up", "", index);
@@ -146,22 +194,7 @@ static void tree_ui(ReApp *a, mu_Context *ui, int index) {
     re_ui_label_ex(ui, *t->error ? t->error : "Loading files…", RE_UI_MUTED);
     return;
   }
-  const cJSON *entry = NULL;
-  cJSON_ArrayForEach(entry, cJSON_GetObjectItemCaseSensitive(t->data, "entries")) {
-    mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_DESIGN_TREE_ROW);
-    const char *name = re_string(entry, "name"), *path = re_string(entry, "path");
-    bool directory = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(entry, "directory"));
-    char meta_text[16]; const char *meta = entry_meta(a, t, entry, path, meta_text, sizeof(meta_text));
-    int opt = strcmp(meta, "M") ? 0 : RE_UI_STRONG;
-    if (re_ui_row_ex(ui, name, directory ? RE_ICON_COLLAPSED : RE_ICON_HOLLOW, meta, 0, opt)) {
-      re_app_control(a, ui, "tree-entry", path, index);
-      if (strlen(path) >= sizeof(t->path)) { re_copy(t->error, sizeof(t->error), "File path exceeds the view limit."); continue; }
-      if (directory) { re_copy(t->path, sizeof(t->path), path); re_app_load(a, index); re_app_layout_changed(a); }
-      else re_app_tab(a, RE_EDITOR, t->root, path, "", name);
-      continue;
-    }
-    re_app_control(a, ui, "tree-entry", path, index);
-  }
+  tree_rows(a, ui, index, cJSON_GetObjectItemCaseSensitive(t->data, "entries"), 0);
   if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(t->data, "truncated"))) {
     mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_DESIGN_TREE_ROW);
     re_ui_label_ex(ui, "Showing the first 2,000 directory entries.", RE_UI_MUTED | RE_UI_SMALL);
@@ -396,7 +429,12 @@ static bool overlay_begin(ReApp *a, mu_Context *ui, int width, int height) {
   if (y + height > a->height - pad) y = re_max(pad, a->overlay_anchor.y - height - gap);
   mu_Rect rect = mu_rect(re_max(pad, x), y, width, height);
   a->overlay_rect = rect;
-  mu_get_container(ui, "Overlay")->rect = rect;
+  mu_Container *container = mu_get_container(ui, "Overlay");
+  container->rect = rect;
+  /* The overlay is drawn above every pane, and input has to agree: microui routes the mouse to the
+   * frontmost container, and clicking a pane brings that pane forward, which would leave the surface
+   * visible but deaf. Bringing it to front each frame keeps what is on top the thing you can click. */
+  mu_bring_to_front(ui, container);
   if (!mu_begin_window_ex(ui, "Overlay", rect, MU_OPT_NOTITLE | MU_OPT_NORESIZE | MU_OPT_NOCLOSE | MU_OPT_NOSCROLL | MU_OPT_NOFRAME)) return false;
   re_ui_overlay_begin();
   re_ui_popover(rect);
@@ -764,6 +802,12 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
    * it on the next frame (spec 080 decision 5). */
   if (a->overlay) {
     if (e->type == SDL_KEYDOWN && e->key.keysym.sym == SDLK_ESCAPE) { overlay_close(a); return true; }
+    /* The surface is drawn above every pane, so it owns the pointer over its own rectangle. Without
+     * this a terminal beneath it takes the press first and the rows over that terminal look dead,
+     * which is exactly how the owner found it: the top rows answered and the lower ones did not. */
+    bool pointer = e->type == SDL_MOUSEMOTION || e->type == SDL_MOUSEBUTTONDOWN ||
+                   e->type == SDL_MOUSEBUTTONUP || e->type == SDL_MOUSEWHEEL;
+    if (pointer && re_inside(a->overlay_rect, a->mouse_x, a->mouse_y)) return false;
     /* An outside press closes the surface and then goes on to whatever it landed on, so choosing
      * another toolbar control takes one click. The opener is excluded, because its own toggle
      * closes the surface and would otherwise reopen it on the same press. */

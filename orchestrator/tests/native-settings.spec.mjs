@@ -34,10 +34,20 @@ test('the settings popover and the menus are one overlay layer that matches the 
   await writeFile(path.join(project, 'settings.txt'), 'settings check\n');
   const server = await startServer({ stateDir: path.join(dir, 'state') });
   const root = await server.store.addRoot(project);
-  const gui = await nativeClient(server, { root: root.id });
+  // A terminal in the right pane running a program that reports mouse events, because the popover
+  // hangs from the far right of the toolbar and lands on top of it. That is how the owner found the
+  // rows over such a pane dead: the terminal claimed the press before the surface saw it.
+  const fixture = path.join(dir, 'mouse.cjs');
+  await writeFile(fixture, `process.stdin.setRawMode(true);
+process.stdout.write('\\x1b[?1049h\\x1b[?1000h\\x1b[?1002h\\x1b[?1003h\\x1b[?1006h');
+process.stdout.write('\\x1b[2J\\x1b[HMOUSE APPLICATION READY\\r\\n');
+process.stdin.on('data', () => {});
+setInterval(() => {}, 1000);`);
+  const shell = await server.sessions.terminal({ rootId: root.id, command: process.execPath, args: [fixture] });
+  const gui = await nativeClient(server, { root: root.id, terminal: shell.id });
   const evidence = {};
   try {
-    await gui.until(s => s.connected && s.tabs.some(t => t?.type === 1 && t.tree), 'workspace');
+    await gui.until(s => s.connected && s.tabs.some(t => t?.type === 3 && t.text?.includes('MOUSE APPLICATION READY')), 'a mouse-reporting pane');
     const card = reference.presets.default.popover;
 
     // The popover opens from the toolbar and draws the card's raised ground.
@@ -93,6 +103,18 @@ test('the settings popover and the menus are one overlay layer that matches the 
     await gui.control('toolbar', 'Settings', -1);
     state = await gui.until(s => s.controls?.some(c => c.role === 'settings'), 'settings replaced the menu');
     assert.ok(!state.controls.some(c => c.role === 'menu-root'), 'only one overlay is open at a time');
+
+    // The popover must stay clickable after the workspace has been used: microui routes the mouse to
+    // the frontmost container, so a pane clicked before opening it used to leave it visible and deaf.
+    await gui.click(Math.round(LOGICAL_WIDTH / 2), 400);
+    await gui.until(s => !s.controls?.some(c => c.role === 'settings'), 'the pane press closed it');
+    await gui.control('toolbar', 'Settings', -1);
+    await gui.until(s => s.controls?.some(c => c.key === 'vim'), 'reopened over a used pane');
+    const vimBefore = (await gui.command({ op: 'state' })).vim;
+    await gui.control('settings', 'vim', -1);
+    await gui.until(s => s.vim !== vimBefore, 'the Vim checkbox answers after a pane was clicked');
+    await gui.control('settings', 'explorer', -1);
+    await gui.until(s => s.explorerNested === true, 'the explorer checkbox answers too');
 
     // A press outside closes it.
     await gui.click(Math.round(LOGICAL_WIDTH / 2), 400);

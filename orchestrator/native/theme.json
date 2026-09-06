@@ -418,7 +418,8 @@
     },
     "tree": {
       "row-height": 24,
-      "up-width": 55
+      "up-width": 55,
+      "row-cap": 1200
     },
     "sessions": {
       "row-height": 26,
@@ -514,7 +515,7 @@
     "workspace": "Pane area starts below the toolbar and ends above the status line, whose text sits status-text-top below that edge. Splits leave a draggable divider and keep panes at least pane-minimum; a fresh layout gives the tree tree-percent of the width.",
     "pane": "Each leaf pane has a header window; content starts at content-top with a root-name row.",
     "tab": "Tab cells are width wide including the close button, a gap before it and the microui spacing after it; overflow adds nav-width previous/next buttons; titles clip after title-characters.",
-    "tree": "Directory rows and the Up button with its width.",
+    "tree": "Directory rows and the Up button with its width; row-cap bounds the rows a nested explorer keeps loaded across every expanded folder (spec 080 decision 7).",
     "sessions": "Session rows reserve actions-width on the right for Attach (attach-width) and Stop; the Recovery drafts heading row is heading-height.",
     "editor": "Save, Discard and mode column widths in the toolbar row; the buffer is inset from the pane, starts at top and ends bottom above the pane bottom; the error label sits error-inset above the bottom; caret width and tab cells for text layout.",
     "terminal": "Terminal cells are inset and start at top below the content top; bottom is the space kept below the cells.",
