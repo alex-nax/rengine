@@ -36,7 +36,8 @@ GPU adapters are compared to each other as information only.
   colour-attachment and transfer-source usage so snapshots copy the presented image; recreated on
   out-of-date, suboptimal or size change.
 - Two frames in flight, each with a command buffer, fence, semaphores, a chain of persistently
-  mapped 65536-vertex chunks that grows to the largest frame seen, and a 4 MiB staging buffer.
+  mapped 16384-vertex chunks created on first use that grows to the largest frame seen, and a
+  1 MiB glyph staging buffer; the snapshot readback buffer is allocated on the first snapshot.
 - Vertex layout and shading are the Metal adapter's (`float4` shape and radii first, stride 60);
   the vertex shader takes the drawable size as a push constant and emits Vulkan's y-down NDC
   directly, so no flip is needed anywhere else.
@@ -52,7 +53,7 @@ GPU adapters are compared to each other as information only.
   that variable); `rengine --renderer vulkan` needs the same variable by hand.
 - Windows runs happen in the console session through a scheduled task (the nolf precedent: an SSH
   session is not interactive), with output captured to log files; the terminal scene uses
-  PowerShell with a fixed prompt. The runbook is `docs/runbooks/windows-verification.md`.
+  PowerShell with its default prompt. The runbook is `docs/runbooks/windows-verification.md`.
 
 ## Verification
 
@@ -65,6 +66,14 @@ GPU adapters are compared to each other as information only.
   `docs/evidence/vulkan-adapter-windows-<date>.md` (F59).
 - After both pass on Windows, the Windows default flips to Vulkan and the default smoke snapshot
   matches the explicit `--renderer vulkan` snapshot there.
+
+## Status, 2026-09-06
+
+macOS through MoltenVK: every gate met (`docs/evidence/vulkan-adapter-macos-2026-09-06.md`). Windows:
+build, CTest, smoke, comparisons, frame time and validation met for OpenGL and Vulkan; the Vulkan memory
+delta (54–60 MiB, driver baseline) exceeds the spec 068 ceiling (KI-039) and the desktop suite passes
+7 of 15 tests there for reasons outside rendering (KI-038). F59 and F62 stay open per decision 10;
+the Windows default stays SDL per decision 8.
 
 ## Deferred
 
