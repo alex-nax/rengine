@@ -17,7 +17,7 @@ Rules for these files:
   consumer replaces (`PROJECT_NAME`, `build/project-cli`, `example-*`).
 - `project.json`'s placeholder format matches `*.example` and declares no command it needs to run,
   so a scaffolded declaration is valid on the first open. Contract 1 and 2 both require at least
-  one format record, so the placeholder stays until the project declares a real one (KI-039).
+  one format record, so the placeholder stays until the project declares a real one (KI-040).
 - `editor.sh` reads its CMake and SDL2 requirements out of the pinned tree, so a pin bump moves
   the prerequisite check with it. Do not hard-code versions here.
 - The wizard never overwrites an existing file; a project that already owns one of these keeps it.

@@ -106,7 +106,7 @@ Rules that bite:
   ``| ; & $ ` ``. Bounds default to 10 s / 4 MiB and are capped at 600 s / 64 MiB. Globs match the
   **base name**, case-insensitively. Unknown keys are rejected, so a typo cannot silently disable
   a mode. Both contracts require **at least one** format record: a project with no format yet
-  declares the inert placeholder the wizard writes (KI-039).
+  declares the inert placeholder the wizard writes (KI-040).
 - **Game**: `title` is the toolbar button label (≤ 32 characters), `executable` is a list of
   root-relative candidates, `surface` is `external` (its own window, the tab shows stdout, Stop
   works) or `sdl2-interpose` (live frames in the pane through the macOS SDL2 interposer).
@@ -239,6 +239,6 @@ The toolbar's **Add project** button should run exactly this: pick a directory, 
 and the optional game, run the same stages in a script tab, and open the project window on the
 result. Native controls come after that — a declaration editor that writes `formats`, `game` and
 `dashboard` rows through the schema, a pin-bump action that re-runs the consumer's declaration
-test, and a review-gate reminder before the pin moves. That work is tracked as F68 with KI-039;
+test, and a review-gate reminder before the pin moves. That work is tracked as F68 with KI-040;
 until it lands, the button opens a window on an already-integrated project only, and this runbook
 is the path for everything else.

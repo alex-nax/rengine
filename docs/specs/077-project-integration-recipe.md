@@ -85,7 +85,7 @@ The skeleton carries one inert placeholder format (`match: ["*.example"]`, `mode
 command) rather than an empty `formats` array, because contract 1 and contract 2 both require at
 least one format record (`minItems: 1`): an empty array would make rEngine settle the root as
 declared-with-error on the first open. A project whose only surfaces are a dashboard and a game
-therefore still declares one placeholder until the contract relaxes that bound (KI-039).
+therefore still declares one placeholder until the contract relaxes that bound (KI-040).
 
 ## Acceptance criteria
 

@@ -34,14 +34,15 @@ tree, and the copied Python test passed with both pinned-contract checks skippin
 `pinned rEngine supports contract [1]; this declaration is contract 2`. Evidence:
 `docs/evidence/project-integration-recipe-macos-2026-09-06.md`.
 
-**Remaining**: KI-039 — the Add project button should run this recipe natively (spec 002/071);
+**Remaining**: KI-040 — the Add project button should run this recipe natively (spec 002/071);
 until then the wizard runs in a script tab. Both contracts require at least one format record, so
 the scaffold writes an inert `*.example` placeholder; relaxing `formats` to `minItems: 0` for
 contract 2 belongs to the dashboard/game lanes. F68 is recorded as passing on the automated
-evidence above; no native or contract code changed. IDs: F68 and KI-039 were chosen after reading
-main, the dashboard worktree (F65–F66, KI-038) and `feat/project-game`, leaving F67 to that lane;
-`features.json`, `known-issues.md`, `docs/roadmap-graph.md` and `Codex-progress.md` will conflict
-with the concurrent lanes and are append-only here.
+evidence above; no native or contract code changed. IDs: F68 and KI-040 were chosen after rebasing
+onto main — which advanced by three Windows-renderer commits during the session and took KI-038 and
+KI-039 — and after reading the dashboard worktree (F65–F66) and `feat/project-game`, leaving F67 to
+that lane. `features.json`, `known-issues.md`, `docs/roadmap-graph.md` and `Codex-progress.md` may
+still conflict with the concurrent contract lanes and are append-only here.
 
 ---
 
