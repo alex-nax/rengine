@@ -36,7 +36,7 @@
         "end": 83,
         "snippet": "re_do() {  # label, then the literal command; --dry-run prints it instead of running it"
       },
-      "note": "--dry-run must write nothing at all, so every effect goes through re_do, re_install or re_write_declaration and prints one '+ …' line on stdout while stage logs stay on stderr. The declaration prints '+ write .rengine/project.json' rather than a command because there is no command to name. Stage 1's read-only git checks still run under --dry-run: they are what makes the printed plan trustworthy.",
+      "note": "--dry-run must write nothing at all, so every effect goes through re_do, re_install or re_write_declaration and prints one '+ \u2026' line on stdout while stage logs stay on stderr. The declaration prints '+ write .rengine/project.json' rather than a command because there is no command to name. Stage 1's read-only git checks still run under --dry-run: they are what makes the printed plan trustworthy.",
       "refs": [
         "docs/runbooks/project-integration.md"
       ]
@@ -44,7 +44,7 @@
   ],
   "source": {
     "path": "orchestrator/actions/integrate-project.sh",
-    "sha256": "69b8c74e4ea88e037577ddbe6122fdc01c1f8719b380fc831e9f3f3bf1eac2d3",
+    "sha256": "f44f5f79bd84c5098b7dea197675aa38ff043facc9221483a1f8fcaed632caac",
     "format": "shell",
     "format_fingerprint": "0c07404ffdecc7f9c766fddf6b5a92dfedbae0728eaef728c4c42a67f47f7f4a"
   }

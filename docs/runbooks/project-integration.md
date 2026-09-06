@@ -115,13 +115,15 @@ Rules that bite:
   **base name**, case-insensitively. Unknown keys are rejected, so a typo cannot silently disable
   a mode. Every contract requires **at least one** format record: a project with no format yet
   declares the inert placeholder the wizard writes (KI-042).
-- **Games** is an **array** of launch targets, so one engine can expose several — a flat build, a
-  VR build, a second title on the same runtime. Per record:
+- **Games** is an **array** of launch targets (1–16, in declaration order), so one engine can
+  expose several — a flat build, a VR build, a second title on the same runtime. Declaring it at
+  all requires `contract: 3`, so an older pin answers "unknown contract" rather than "unknown key".
+  Per record:
   - `id` — kebab-case, at most 64 characters, **unique across the array**. It is what the session
     carries and what `game_preflight`/`launch_game` name.
   - `title` — 1–32 characters, the toolbar label. One game gives a button with that label; several
-    give a menu, and an entry whose preflight fails renders disabled with its first issue named.
-    No games declared means no game control at all.
+    give a `Games` menu, in which an entry whose preflight fails is a disabled label reading
+    `<title> — unavailable: <first issue>`. No games declared means no game control at all.
   - `executable` — 1–8 candidates **in order**; the first that exists and is executable wins, so a
     single record covers `build/…` and `build/Release/…`. Each is resolved like a format `argv[0]`:
     absolute as given, relative to the project root when it contains a separator (`.exe` is also
@@ -132,7 +134,8 @@ Rules that bite:
   - `env` — optional, added over the sidecar's shell environment. Keys match `^[A-Z][A-Z0-9_]*$`
     and values are literal strings; keys beginning `RENGINE_`, `DYLD_` or `LD_` are reserved for
     the workspace and rejected **by name**, because those are what the surface reservation uses.
-  - `cwd` — optional root-relative directory the process starts in; the default is the project root.
+  - `cwd` — optional root-relative directory the process starts in; an absent key or `""` means
+    the project root. No absolute path, no `..` segment, no backslash.
   - `requires` — optional root-relative files that must exist. Each missing one is a named
     preflight issue, so a target with no data yet reports why instead of failing at launch.
   - `surface` — `embedded` (the game's frames are hosted in a game tab through the cooperative SDL

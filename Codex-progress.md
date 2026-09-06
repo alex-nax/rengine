@@ -1,5 +1,76 @@
 # Progress Log
 
+## Session 26 (macos) — 2026-09-06 — Integration recipe: contract-3 drift and the KI renumber
+
+**Owner scope**: a review of the finished `feat/integration-recipe` branch produced a drift list.
+The sibling game lane's contract changed by owner decision on 2026-09-06 — the singular `game`
+object is replaced by a multi-game `games` array at `contract: 3`, reconciled with nolf-improved's
+competing F1615 proposal but **without** its deprecated `nolf_preflight`/`launch_nolf` aliases —
+and this recipe documents that contract in five places. Worktree
+`.cache/worktrees/integration-recipe`, branch `feat/integration-recipe` from `ccbb29e`; pushed per
+commit. `origin/main` (`6a3271d`) was already an ancestor, so no merge was owed.
+
+**Verified before writing, and again at the end**: the shape was read out of the sibling branch,
+not assumed. At the start `origin/feat/project-game` still carried contract 2 with a singular
+`game`, and a local `feat/game-contract` at `0f40b24` carried a contract-3 draft that numbered its
+spec `077` (colliding with this branch) and narrowed game `executable` to root-relative only; that
+branch was deleted while this session ran. By the end `origin/feat/project-game` (`3440ef5`, spec
+`078`) had landed the decided shape and it **agrees with the brief on every point**: contract enum
+`[1, 2, 3]`, `games` 1–16, `id` kebab ≤64 and unique, `title` 1–32, `executable` 1–8 candidates
+sharing the format `argv[0]` definition (absolute, root-relative with a separator, or a bare PATH
+name — not root-relative-only), literal `args`, UPPER_SNAKE `env` with `RENGINE_`/`DYLD_`/`LD_`
+rejected, root-relative `cwd`/`requires`, `surface` `embedded`|`external`, and the tools
+`game_preflight(gameId?)`/`launch_game(gameId?)`. The scaffold and the reference template were then
+validated against that landed schema and its `gamesRules` — zero errors each.
+
+**Drift fixed**: spec 077 and the templates README cited "076 (game)" and the runbook cited
+"specs 074/075/076"; the game spec is `078` (main took 076 for design foundations). The runbook's
+Game bullet called `executable` "a list of root-relative candidates" and omitted the reserved env
+prefixes, the literal-args rule and the 1–8 bound that its Dashboard bullet documents properly; it
+is now a per-field list covering the array, id uniqueness, `cwd`, the none/one/menu toolbar
+behaviour and both surfaces. The test's local re-implementation of the contract rules is gone: it
+had drifted in two directions at once (rejecting legal absolute/PATH `executable` candidates,
+accepting reserved `env` prefixes) and its "this branch's reader knows contract 1 only" comment was
+about to go stale; the helper now calls the shipped `validateSchema` plus `dashboardRules` (and
+`gameRules` when the game lane ships it), validating the core with `games` removed and naming the
+uncovered tier while the committed schema predates contract 3. The wizard emits a one-record
+`games` array at `contract: 3`, takes `--game-surface embedded|external` and rejects the retired
+`sdl2-interpose` spelling by naming `embedded`; the reference template moved to contract 3 with two
+records (one `embedded`, one `external`, exercising `args`/`env`/`cwd`/`requires`), and the copied
+Python declaration test follows. The two worked-example tables now carry the multi-target shapes —
+nolf-improved with three `embedded` targets on one LithTech engine, vtmb-vr with two `external`
+ones forced by its static SDL3 link — both marked as the shapes those projects are **adopting**,
+not verified live state.
+
+**Flags kept single-valued**: `--game-title/--game-exe/--game-surface` scaffold one record, the way
+the wizard scaffolds one placeholder format and one dashboard action. Repeatable flags would need
+order-dependent record flushing for a skeleton the project edits anyway; the multi-record array is
+shown in the reference template and printed as follow-up 5 instead.
+
+**Identifier collisions**: this branch carried two `KI-040` rows after the main merge — the
+dashboard lane's and its own. The recipe's row is now **KI-042** (the game lane took KI-041), the
+dashboard row is untouched, and the citations moved in `docs/specs/077-*`, the runbook (twice), the
+templates README and the evidence document. The same merge had also duplicated `KI-039`: the
+branch's stale copy is removed and main's updated row kept verbatim. Two collisions remain for the
+owner to settle at merge time and were **not** touched here: the deleted `feat/game-contract` draft
+had claimed spec `077` and row `F70`, both of which this branch owns (the surviving
+`feat/project-game` uses `078`/`F71`, so this may already be moot), and `feat/project-game` also
+numbers its entry below "Session 25", as this branch's previous session does.
+
+**Gates**: `npm test` 47/47 (46 before, +1 new check), exit 0; the recipe file alone 9/9, red on 4
+of them before the wizard and template moved; `./init.sh` and `python3 tools/design.py check`
+clean; `python3 tools/features.py validate` 30 features; `bash -n` clean on the wizard and the
+template `editor.sh`; sidecar repair/review/stamp/check clean on the touched sidecars with the
+private index `.cache/sidecars-recipe-drift.sqlite`. `docs/roadmap-graph.md` regenerated identical,
+so it is unchanged. Evidence appended to
+`docs/evidence/project-integration-recipe-macos-2026-09-06.md`.
+
+**Remaining**: F70 stays passing and spec 077 stands; only their contract-facing wording moved,
+with the owner's 2026-09-06 decision as the rationale. KI-042 is still open (Add project should run
+this recipe natively). The repo-wide sidecar check reports pre-existing, unrelated drift in
+`orchestrator/native/*` and `orchestrator/tests/native-client.mjs` that is present at `ccbb29e` and
+belongs to the native/design lanes.
+
 ## Session 25 (macos) — 2026-09-06 — Project integration recipe
 
 **Owner scope**: "for next rengine integrations or new projects we should have this recipe stored

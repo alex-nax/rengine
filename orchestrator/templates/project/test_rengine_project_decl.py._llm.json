@@ -17,7 +17,7 @@
   ],
   "source": {
     "path": "orchestrator/templates/project/test_rengine_project_decl.py",
-    "sha256": "12ebdd4c557c18ccb6d571c68a38564e7aa2f7873c4bb46e29d608fbab0f02e8",
+    "sha256": "c086645666c0bb5a3d3f08b41f8ecc142419ea03b4f83745ccf2d45790054a8e",
     "format": "python",
     "format_fingerprint": "a67a51640399e60d6402a43d48acddd852a615617d5502a24e0e77d080b238af"
   }

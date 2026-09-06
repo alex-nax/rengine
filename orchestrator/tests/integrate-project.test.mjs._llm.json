@@ -31,7 +31,7 @@
   ],
   "source": {
     "path": "orchestrator/tests/integrate-project.test.mjs",
-    "sha256": "5bbc924110cd718445eb207f2fa0af9b1ca99be4e4cb203d613325a97cd97ddb",
+    "sha256": "7d88e4045dd10bc6f685cf18ae5f3c544755e723ef5c9329f6565a3a4281be77",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }
