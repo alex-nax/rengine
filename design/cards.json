@@ -38,6 +38,13 @@
         "background": "#1b1b1b",
         "gutter": "#6a6a6a",
         "caret": "#f97c3d"
+      },
+      "syntax": {
+        "keyword": "#c1a9ee",
+        "string": "#91c985",
+        "comment": "#6a6a6a",
+        "number": "#f6ab6b",
+        "function": "#66cfe1"
       }
     },
     "teal": {
@@ -76,6 +83,13 @@
         "background": "#11151b",
         "gutter": "#546874",
         "caret": "#7cd2ae"
+      },
+      "syntax": {
+        "keyword": "#c1a9ee",
+        "string": "#91c985",
+        "comment": "#546874",
+        "number": "#f6ab6b",
+        "function": "#66cfe1"
       }
     },
     "light": {
@@ -114,6 +128,13 @@
         "background": "#fbfaf7",
         "gutter": "#9a958c",
         "caret": "#cf5604"
+      },
+      "syntax": {
+        "keyword": "#643b9a",
+        "string": "#357426",
+        "comment": "#9a958c",
+        "number": "#b45000",
+        "function": "#006283"
       }
     }
   }

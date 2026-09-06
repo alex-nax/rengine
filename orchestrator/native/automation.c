@@ -1,5 +1,7 @@
 #include "automation.h"
 #include "scene.h"
+#include "editor.h"
+#include "render/syntax_theme.h"
 static Uint32 automation_event;
 static int read_commands(void *unused) {
   (void)unused; char line[16384];
@@ -37,6 +39,12 @@ void re_automation_command(ReApp *app, SDL_Window *window, const cJSON *j) {
     int index = re_draw_theme(re_draw_active(), re_string(j, "name"));
     e.type = SDL_WINDOWEVENT; e.window.event = SDL_WINDOWEVENT_EXPOSED; SDL_PushEvent(&e); /* the switch shows on the next frame */
     re_automation_reply(id, index >= 0 ? cJSON_CreateString(re_theme_preset_names[index]) : cJSON_CreateNull());
+    return;
+  }
+  if (!strcmp(op, "syntax")) {
+    int index = re_editor_scheme(re_string(j, "name"));
+    e.type = SDL_WINDOWEVENT; e.window.event = SDL_WINDOWEVENT_EXPOSED; SDL_PushEvent(&e);
+    re_automation_reply(id, index >= 0 ? cJSON_CreateString(re_scheme_names[index]) : cJSON_CreateNull());
     return;
   }
   if (!strcmp(op, "scene")) app->scene = re_scene_id(re_string(j, "name"));

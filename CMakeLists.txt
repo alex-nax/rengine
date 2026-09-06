@@ -185,6 +185,7 @@ set(rengine_desktop_core_SOURCES
 	"orchestrator/native/net.c"
 	"orchestrator/native/scene.c"
 	"orchestrator/native/scroll.c"
+	"orchestrator/native/syntax.c"
 	"orchestrator/native/terminal.c"
 	"orchestrator/native/workspace.c"
 )
@@ -387,6 +388,40 @@ if(BUILD_TESTING) # testing
 	if(WIN32)
 	  add_custom_command(TARGET rengine_draw_list_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
 	    $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_draw_list_test>)
+	endif()
+
+endif()
+# Target: rengine_syntax_test
+if(BUILD_TESTING) # testing
+	set(rengine_syntax_test_SOURCES
+		cmake.toml
+		"orchestrator/native/tests/syntax_test.c"
+	)
+
+	add_executable(rengine_syntax_test)
+
+	target_sources(rengine_syntax_test PRIVATE ${rengine_syntax_test_SOURCES})
+	source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${rengine_syntax_test_SOURCES})
+
+	target_link_libraries(rengine_syntax_test PRIVATE
+		rengine_desktop_core
+	)
+
+	get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
+	if(NOT CMKR_VS_STARTUP_PROJECT)
+		set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT rengine_syntax_test)
+	endif()
+
+	set(CMKR_TARGET rengine_syntax_test)
+	if(MSVC)
+	  target_compile_options(rengine_syntax_test PRIVATE /UNDEBUG)
+	else()
+	  target_compile_options(rengine_syntax_test PRIVATE -UNDEBUG)
+	endif()
+	add_test(NAME native_syntax COMMAND rengine_syntax_test)
+	if(WIN32)
+	  add_custom_command(TARGET rengine_syntax_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+	    $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_syntax_test>)
 	endif()
 
 endif()

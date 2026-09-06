@@ -203,6 +203,7 @@ typedef struct {
 } ReTheme;
 enum { RE_PRESET_DEFAULT = 0, RE_PRESET_TEAL = 1, RE_PRESET_LIGHT = 2, RE_PRESET_COUNT = 3 };
 extern ReTheme re_theme;                                   /* the live theme; presets assign it whole */
+extern int re_theme_preset;                                /* index of the live preset, for tables keyed by it */
 extern const ReTheme re_theme_presets[RE_PRESET_COUNT];
 extern const char *const re_theme_preset_names[RE_PRESET_COUNT];
 int re_theme_select(const char *name);                     /* preset index, or -1 when unknown */

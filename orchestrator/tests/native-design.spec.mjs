@@ -17,6 +17,12 @@ const LOGICAL_WIDTH = 1280;
 // rather than anything the desktop reports about itself (spec 076 decision 3).
 const reference = JSON.parse(await readFile('design/cards.json', 'utf8'));
 
+async function find(file, region, colour) {
+  const { stdout } = await run(PYTHON, ['tools/bmp_find.py', file, '--logical-width', String(LOGICAL_WIDTH),
+    '--region', region.join(','), '--colour', colour]);
+  return JSON.parse(stdout).count;
+}
+
 async function probe(file, probes) {
   const args = [file, '--logical-width', String(LOGICAL_WIDTH), ...Object.entries(probes).map(([name, [x, y]]) => `${name}=${x},${y}`)];
   const { stdout } = await run(PYTHON, ['tools/bmp_probe.py', ...args]);
@@ -27,6 +33,8 @@ test('toolbar, tab strip, status bar and the views match their Claude Design car
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-native-design-'));
   const project = path.join(dir, 'project'); await mkdir(project);
   await writeFile(path.join(project, 'design.txt'), 'design check\n');
+  // A source file so the editor's syntax colours can be asserted on screen (spec 077).
+  await writeFile(path.join(project, 'sample.c'), 'void render(void) {\n  if (ready) return;\n}\n');
   const server = await startServer({ stateDir: path.join(dir, 'state') });
   const root = await server.store.addRoot(project);
   const shell = await server.sessions.terminal({ rootId: root.id, ...(process.platform === 'win32'
@@ -83,6 +91,27 @@ test('toolbar, tab strip, status bar and the views match their Claude Design car
       [`row${offset}`, [tab.header ? tab.header[0] + 20 : 40, toolbar.height + offset]])));
     assert.ok(Object.values(rows).includes(tabs.marker),
       `the active tab shows the accent marker in the strip's top rows: ${JSON.stringify(rows)}`);
+
+    // Syntax colours: open a C file and look for the scheme's keyword colour in the code column,
+    // in a dark preset and the light one, which proves the generated table and its per-preset
+    // override both reach the screen (spec 077).
+    await gui.control('tree-entry', 'sample.c', state.tabs.findIndex(t => t?.type === 1));
+    const opened = await gui.until(s => s.tabs.some(t => t?.type === 2 && t.text?.includes('render')), 'source file open');
+    const editor = opened.tabs.find(t => t?.type === 2);
+    const region = [editor.rect[0], editor.rect[1], editor.rect[2], editor.rect[3]];
+    for (const preset of ['default', 'light']) {
+      assert.equal(await gui.command({ op: 'theme', name: preset }), preset);
+      await delay(150);
+      const file = path.join(dir, `design-syntax-${preset}.bmp`);
+      assert.equal(await gui.command({ op: 'snapshot', path: file }), true);
+      const expected = reference.presets[preset].syntax;
+      assert.ok(await find(file, region, expected.keyword) > 0, `${preset}: the keyword colour ${expected.keyword} is on screen`);
+      assert.ok(await find(file, region, expected.comment) >= 0, `${preset}: the comment colour resolves`);
+      report.presets[preset].syntax = expected;
+    }
+    assert.equal(await gui.command({ op: 'syntax', name: 'ember' }), 'ember', 'a scheme can be selected');
+    assert.equal(await gui.command({ op: 'syntax', name: 'design' }), 'design');
+    assert.equal(await gui.command({ op: 'theme', name: 'default' }), 'default');
 
     await mkdir('.cache/evidence', { recursive: true });
     await writeFile('.cache/evidence/design-cards.json', JSON.stringify(report, null, 2));

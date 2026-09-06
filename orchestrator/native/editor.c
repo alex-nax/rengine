@@ -1,4 +1,6 @@
 #include "editor.h"
+#include "syntax.h"
+#include "render/syntax_theme.h"
 #define STB_TEXTEDIT_CHARTYPE uint32_t
 #define STB_TEXTEDIT_POSITIONTYPE int
 #define STB_TEXTEDIT_UNDOCHARCOUNT 16384
@@ -11,7 +13,10 @@ struct ReEditor {
   bool vim, insert, dragging, readonly; char pending, ignore_text;
   ReScrollbar vertical, horizontal_bar; float wheel_x, wheel_y;
   int extent_revision, line_count, longest_line;
+  int language;                       /* RE_LANG_*; PLAIN draws without spans */
+  uint32_t *line_state; int state_count, state_revision; /* carry state per line, so a scroll is not a rescan */
 };
+static int editor_scheme = RE_SCHEME_DESIGN;   /* one scheme for every editor, like an IDE's setting */
 #define KEY_BASE 0x200000
 #define KEY_SHIFT 0x400000
 #define KEY_LEFT (KEY_BASE + 1)
@@ -91,7 +96,7 @@ ReEditor *re_editor_open(const char *text) {
   }
   e->revision = 0; e->extent_revision = -1; return e;
 }
-void re_editor_close(ReEditor *e) { if (e) { free(e->text); free(e); } }
+void re_editor_close(ReEditor *e) { if (e) { free(e->line_state); free(e->text); free(e); } }
 char *re_editor_text(ReEditor *e) {
   char *text = malloc((size_t)e->length * 4 + 1); if (!text) return NULL;
   size_t offset = 0;
@@ -100,9 +105,73 @@ char *re_editor_text(ReEditor *e) {
 }
 int re_editor_revision(const ReEditor *e) { return e->revision; }
 void re_editor_vim(ReEditor *e, bool enabled) { e->vim = enabled; e->insert = !enabled; e->pending = 0; }
+void re_editor_language(ReEditor *e, const char *filename) {
+  if (e) { e->language = re_syntax_language(filename); e->state_revision = -1; }
+}
+int re_editor_scheme(const char *name) {
+  for (int i = 0; i < RE_SCHEME_COUNT; i++) if (name && !strcmp(name, re_scheme_names[i])) { editor_scheme = i; return i; }
+  return -1;
+}
 void re_editor_readonly(ReEditor *e, bool enabled) { e->readonly = enabled; }
 const char *re_editor_mode(const ReEditor *e) { return !e->vim ? "Edit" : e->insert ? "Vim INSERT" : "Vim NORMAL"; }
 void re_editor_scrollbars(ReEditor *e, cJSON *array) { re_scrollbar_inspect(&e->vertical, array); re_scrollbar_inspect(&e->horizontal_bar, array); }
+/* One line's colours. The editor stores code points, the tokeniser reads bytes, so the line is
+ * encoded once and each character's kind is looked up by its byte offset — see sidecar: syntax-spans */
+#define RE_SYNTAX_LINE_BYTES 4096
+#define RE_SYNTAX_LINE_CHARS 1024
+#define RE_SYNTAX_LINE_SPANS 256
+
+typedef struct { uint8_t kind[RE_SYNTAX_LINE_CHARS]; int chars; } ReLineKinds;
+
+static void line_kinds(const ReEditor *e, int start, int end, uint32_t *state, ReLineKinds *out) {
+  char bytes[RE_SYNTAX_LINE_BYTES];
+  int offsets[RE_SYNTAX_LINE_CHARS + 1];
+  int length = 0, chars = 0;
+  for (int i = start; i < end && chars < RE_SYNTAX_LINE_CHARS; i++) {
+    char encoded[5]; int n = re_encode(e->text[i], encoded);
+    if (length + n >= RE_SYNTAX_LINE_BYTES) break;
+    offsets[chars++] = length;
+    memcpy(bytes + length, encoded, (size_t)n); length += n;
+  }
+  offsets[chars] = length;
+  out->chars = chars;
+  memset(out->kind, RE_SYNTAX_TEXT, (size_t)chars);
+  ReSyntaxSpan spans[RE_SYNTAX_LINE_SPANS];
+  int count = re_syntax_line(e->language, bytes, length, state, spans, RE_SYNTAX_LINE_SPANS);
+  int character = 0;
+  for (int s = 0; s < count; s++) {
+    while (character < chars && (uint32_t)offsets[character] < spans[s].start) character++;
+    for (int c = character; c < chars && (uint32_t)offsets[c] < spans[s].start + spans[s].length; c++) out->kind[c] = spans[s].kind;
+  }
+}
+
+/* The carry state of every line up to the last one drawn, rebuilt only when the text changes. */
+static void ensure_states(ReEditor *e, int through) {
+  if (e->language == RE_LANG_PLAIN) return;
+  if (e->state_revision != e->revision) { e->state_count = 0; e->state_revision = e->revision; }
+  if (through < e->state_count) return;
+  int wanted = through + 64 < e->line_count + 1 ? through + 64 : e->line_count + 1;
+  if (wanted > e->state_count) {
+    uint32_t *grown = realloc(e->line_state, sizeof(uint32_t) * (size_t)(wanted + 1));
+    if (!grown) return;
+    e->line_state = grown;
+  }
+  if (!e->state_count) { e->line_state[0] = 0; e->state_count = 1; }
+  int line = e->state_count - 1, index = 0;
+  for (int seen = 0; seen < line && index < e->length; index++) if (e->text[index] == '\n') seen++;
+  while (line < wanted && index <= e->length) {
+    int start = index;
+    while (index < e->length && e->text[index] != '\n') index++;
+    uint32_t state = e->line_state[line];
+    ReLineKinds discard;
+    line_kinds(e, start, index, &state, &discard);
+    e->line_state[++line] = state;
+    e->state_count = line + 1;
+    if (index >= e->length) break;
+    index++;
+  }
+}
+
 /* Line numbers, right-aligned in the gutter, with the caret's line brought forward. */
 static void gutter_numbers(ReEditor *e, ReDraw *draw, mu_Rect outer, mu_Rect body, int caret_row) {
   int width = body.x - outer.x - RE_METRIC_DESIGN_GAP;
@@ -239,6 +308,10 @@ void re_editor_draw(ReEditor *e, ReDraw *draw, mu_Rect r, bool focused) {
   }
   gutter_numbers(e, draw, outer, r, caret_row);
   re_draw_clip(draw, &r);
+  int rows = re_max(1, r.h / e->lh);
+  ensure_states(e, e->scroll + rows + 1);
+  ReLineKinds kinds; kinds.chars = 0;
+  uint32_t carry = 0; int line_start = 0, drawn_row = -1;
   int row = 0, col = 0, selection_a = re_min(e->state.select_start, e->state.select_end), selection_b = re_max(e->state.select_start, e->state.select_end);
   for (int i = 0; i <= e->length; i++) {
     int x = r.x + (col - e->horizontal) * e->cw, y = r.y + (row - e->scroll) * e->lh;
@@ -246,7 +319,20 @@ void re_editor_draw(ReEditor *e, ReDraw *draw, mu_Rect r, bool focused) {
     if (row >= e->scroll) {
       if (i >= selection_a && i < selection_b) re_draw_rect(draw, mu_rect(x, y, e->cw, e->lh), RE_COLOR_SELECTION);
       if (focused && i == e->state.cursor) re_draw_rect(draw, mu_rect(x, y, e->vim && !e->insert ? e->cw : RE_METRIC_EDITOR_CARET_WIDTH, e->lh), RE_COLOR_CARET);
-      if (i < e->length && e->text[i] != '\n' && e->text[i] != '\t') { char text[5]; re_encode(e->text[i], text); re_draw_text(draw, text, -1, x, y, RE_COLOR_EDITOR_FG); }
+      if (i < e->length && e->text[i] != '\n' && e->text[i] != '\t') {
+        if (e->language != RE_LANG_PLAIN && drawn_row != row) {
+          int end = i; while (end < e->length && e->text[end] != '\n') end++;
+          carry = row < e->state_count ? e->line_state[row] : 0;
+          line_start = i; while (line_start > 0 && e->text[line_start - 1] != '\n') line_start--;
+          uint32_t state = carry;
+          line_kinds(e, line_start, end, &state, &kinds);
+          drawn_row = row;
+        }
+        int character = i - line_start;
+        int kind = e->language != RE_LANG_PLAIN && drawn_row == row && character >= 0 && character < kinds.chars ? kinds.kind[character] : RE_SYNTAX_TEXT;
+        mu_Color colour = kind == RE_SYNTAX_TEXT ? RE_COLOR_EDITOR_FG : re_scheme_colors[editor_scheme][re_theme_preset][kind];
+        char text[5]; re_encode(e->text[i], text); re_draw_text(draw, text, -1, x, y, colour);
+      }
     }
     if (i < e->length && e->text[i] == '\n') { row++; col = 0; } else col += i < e->length && e->text[i] == '\t' ? RE_METRIC_EDITOR_TAB_CELLS : 1;
   }

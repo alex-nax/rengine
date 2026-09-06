@@ -321,7 +321,7 @@ static void response(ReApp *a, ReMessage *m) {
         const cJSON *draft = cJSON_GetObjectItemCaseSensitive(j, "draft"); bool dirty = cJSON_IsObject(draft);
         ReEditor *editor = re_editor_open(re_string(dirty ? draft : j, "text"));
         if (!editor) { re_copy(t->error, sizeof(t->error), "Cannot allocate editor buffer."); break; }
-        re_editor_close(t->editor); t->editor = editor; re_editor_vim(editor, a->vim);
+        re_editor_close(t->editor); t->editor = editor; re_editor_vim(editor, a->vim); re_editor_language(editor, t->path);
         t->saved = dirty ? -1 : 0; t->dirty = dirty; t->checkpoint = 0; t->conflict = dirty && strcmp(re_string(draft, "baseVersion"), re_string(j, "version"));
         re_copy(t->version, sizeof(t->version), re_string(dirty ? draft : j, dirty ? "baseVersion" : "version"));
       }
