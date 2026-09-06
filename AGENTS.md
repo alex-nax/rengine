@@ -56,6 +56,15 @@ failing regression or other meaningful acceptance check, implement the bounded c
 relevant gates, and verify the actual consumer path. Documentation-only changes need document
 and graph checks, not artificial tests.
 
+A regression counts as established only once it has been observed failing for its own reason:
+break the implementation in the specific way the test claims to catch, confirm it goes red for
+that and not for something earlier, then restore. Watching any red is not enough, and a test
+that has never failed is an assertion with no evidence behind it. Six worked cases, including
+one where the control under test masked the failure of the thing under test, are in
+`docs/evidence/blind-regressions-2026-09-06.md`. Keep every spec reachable from an npm script
+or listed in `orchestrator/tests/suite-coverage.test.mjs` with its reason; a fixture that
+leaves the suite is invisible in a green report.
+
 Keep accepted IDs, descriptions, criteria, and dependencies stable. Add follow-up work instead
 of rewriting a requirement to pass. A necessary correction requires a recorded rationale and
 owner decision. Set `passes: true` only with evidence for every criterion and prerequisite.

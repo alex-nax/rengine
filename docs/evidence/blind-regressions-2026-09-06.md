@@ -6,8 +6,8 @@ working in different parts of the desktop, which is what makes this a pattern ab
 written here rather than three unrelated mistakes. Two more of the same shape arrived from a peer session before the day was
 out, and one of a different shape: a fixture that stopped running altogether.
 
-This document records the cases and the rule they support. It does not change any project
-instruction; that is an owner decision, and this is the evidence it would rest on.
+This document records the cases and the rule they support. The owner took the rule into the work
+protocol in `AGENTS.md` on 2026-09-06; this is the evidence it rests on.
 
 ## The three cases
 
