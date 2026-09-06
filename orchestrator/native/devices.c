@@ -20,7 +20,7 @@ static void device_row(ReApp *a, mu_Context *ui, int tab, const cJSON *device) {
   bool probed = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(device, "probed"));
   char label[1400]; mu_push_id(ui, id, (int)strlen(id));
 
-  mu_layout_row(ui, 2, (int[]){-1, RE_METRIC_DEVICES_STATUS_WIDTH}, RE_METRIC_DEVICES_ROW_HEIGHT);
+  mu_layout_row(ui, 2, (int[]){-RE_METRIC_DEVICES_STATUS_WIDTH, -1}, RE_METRIC_DEVICES_ROW_HEIGHT);
   snprintf(label, sizeof(label), "%s · %s", title, kind);
   re_ui_label_ex(ui, label, RE_UI_STRONG);
   re_app_control(a, ui, reachable ? "devices-reachable" : "devices-unreachable", id, tab);
