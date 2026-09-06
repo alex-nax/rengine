@@ -44,7 +44,9 @@ test('a dashboard game action launches the declared game in its own window while
     assert.ok(state.controls.some(c => c.tab === board && c.role === 'dashboard-unavailable' && c.key === 'play-absent'), 'an unbuilt record is a label, not a button');
     assert.ok(!state.controls.some(c => c.tab === board && c.role === 'dashboard-action' && c.key === 'play-absent'));
 
-    await gui.control('dashboard-action', 'play', board);
+    /* Launching selects the new game tab, so the dashboard is re-selected before every click. */
+    const runAction = async id => { await gui.control('tab', '', board); await gui.control('dashboard-action', id, board); };
+    await runAction('play');
     state = await gui.until(s => s.state.sessions.some(x => x.type === 'game' && x.state === 'running'), 'game session launched from the dashboard action');
     const session = state.state.sessions.find(x => x.type === 'game');
     assert.equal(session.surface, 'external'); assert.equal(session.game, 'fixture-game');
@@ -57,14 +59,13 @@ test('a dashboard game action launches the declared game in its own window while
     await mkdir('.cache/evidence', { recursive: true });
     assert.equal(await gui.command({ op: 'snapshot', path: path.resolve('.cache/evidence/native-game-action.bmp') }), true);
 
-    await gui.control('tab', '', board);
-    await gui.control('dashboard-action', 'play', board); await delay(600);
+    await runAction('play'); await delay(600);
     state = await gui.command({ op: 'state' });
     assert.equal(state.state.sessions.filter(x => x.type === 'game').length, 1, 'a second click on the same action reuses the running session');
-    await gui.control('dashboard-action', 'play-newgame', board);
+    await runAction('play-newgame');
     state = await gui.until(s => /already running with different arguments/.test(s.status), 'a different-argv action is refused, not silently attached');
     assert.equal(state.state.sessions.filter(x => x.type === 'game').length, 1);
-    await gui.control('dashboard-action', 'play-second', board);
+    await runAction('play-second');
     state = await gui.until(s => s.state.sessions.filter(x => x.type === 'game' && x.state === 'running').length === 2, 'a second declared game runs beside the first');
 
     await gui.control('toolbar', 'Sessions'); await gui.control('stop', session.id);
