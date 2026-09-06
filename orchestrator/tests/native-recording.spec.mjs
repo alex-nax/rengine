@@ -45,8 +45,13 @@ test('the game tab records a rolling buffer and its toggle commits segments an a
     await gui.until(s => s.tabs.some(t => t?.session === game.id && t.captured), 'the pane takes the keyboard');
     await gui.command({ op: 'key', key: 'W' });
     await awaitPrint('key 26 1');
-    await gui.key('Escape');   /* releases capture, and the release prints the held key's release */
+    // Release the key explicitly. Escape frees the pointer and reaches the game now, and no longer
+    // forges a release for a key the player is still physically holding (spec 043), so this test
+    // says what it means rather than borrowing a side effect of the capture gesture.
+    await gui.command({ op: 'key', key: 'W', down: false });
     await awaitPrint('key 26 0');
+    await gui.key('Escape');   /* frees the pointer so the recording toggle can be clicked */
+    await gui.until(s => s.tabs.some(t => t?.session === game.id && !t.captured), 'the pointer is free');
     state = await gui.until(s => recording(s)?.logLines > 1, "the pane's rolling buffer holds the game's log lines");
 
     await gui.control('recording', 'toggle');

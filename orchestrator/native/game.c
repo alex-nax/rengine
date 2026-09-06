@@ -12,11 +12,17 @@ ReGame *re_game_open(ReNet *net, const char *id) {
   char route[128]; snprintf(route, sizeof(route), "surface?id=%s", id); g->socket = re_socket_open(net, route);
   re_copy(g->status, sizeof(g->status), "Connecting to game"); return g;
 }
+/* Freeing the pointer alone. The full release also tells the game to drop every held key and forgets
+ * that the pane has focus, which is right when the workspace takes the pane away and wrong when the
+ * player is still in the game with a menu open — see sidecar: escape-forwards */
+static void uncapture(ReGame *g) {
+  if (g->captured) SDL_SetRelativeMouseMode(SDL_FALSE);
+  g->captured = false; SDL_CaptureMouse(SDL_FALSE);
+}
 void re_game_release(ReGame *g) {
   if (!g) return;
   send(g, 6, NULL, 0); g->focused = false; g->buttons = 0;
-  if (g->captured) SDL_SetRelativeMouseMode(SDL_FALSE);
-  g->captured = false; SDL_CaptureMouse(SDL_FALSE);
+  uncapture(g);
 }
 void re_game_capture(ReGame *g) {
   if (SDL_SetRelativeMouseMode(SDL_TRUE) != 0) { re_copy(g->status, sizeof(g->status), SDL_GetError()); return; }
@@ -64,7 +70,9 @@ void re_game_draw(ReGame *g, ReDraw *draw, mu_Rect r) {
 }
 void re_game_event(ReGame *g, const SDL_Event *e) {
   if (e->type == SDL_KEYDOWN || e->type == SDL_KEYUP) {
-    if (e->type == SDL_KEYDOWN && e->key.keysym.sym == SDLK_ESCAPE && g->captured) { re_game_release(g); return; }
+    /* Escape opens the menu in most games, and a menu needs a cursor, so it frees the pointer and
+     * still reaches the game. Keeping focus across that means no menu re-announces it. */
+    if (e->type == SDL_KEYDOWN && e->key.keysym.sym == SDLK_ESCAPE && g->captured) uncapture(g);
     if (e->type == SDL_KEYDOWN) focus(g);
     send(g, 1, (int[]){e->key.keysym.scancode, e->type == SDL_KEYDOWN, e->key.repeat != 0}, 3);
   } else if (e->type == SDL_MOUSEMOTION) {

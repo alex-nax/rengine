@@ -19,9 +19,24 @@ fixtures supplement the real game with precise event/pixel assertions; they cann
 live gameplay check. Extend the versioned input contract explicitly if more coordinate metadata
 is required.
 
-While mouse lock is active, the first Escape releases that lock and all held game controls,
-without also opening the game's pause menu. Once unlocked, Escape reaches the game normally.
-The native desktop implements this explicitly through SDL relative mouse mode and control release.
+While mouse lock is active, Escape frees the pointer and reaches the game in the same press, so a
+game opens its pause menu with the cursor already available. Held controls are not released with it:
+the player is still holding them, and the game is told when a key actually comes up. A game that
+claims Escape for itself is left with a way out through the platform modifier and period, which runs
+the full release, drops held controls, and is never forwarded. The native desktop implements this
+through SDL relative mouse mode, a narrow uncapture that leaves focus and held keys alone, and the
+full release for the chord and for the workspace taking the pane away.
+
+**Correction, 2026-09-06 (owner decision).** The original criterion read: *"While mouse lock is
+active, the first Escape releases that lock and all held game controls, without also opening the
+game's pause menu. Once unlocked, Escape reaches the game normally."* That made Escape unreachable
+for a captured game, which is the menu key in most of them, and the owner was pressing it twice —
+once to lose the lock, once to reach the game. It cost a real capture, because the pause menu was
+where Save lived. Two answers were defensible: Escape releases and forwards, or Escape belongs to
+the game entirely with the workspace moving to a chord. The owner took the first with a chord added,
+which covers the game where Escape does something in the world and the player wants to keep the
+lock. Reported by two peer sessions; recorded here because the superseded sentence was an accepted
+criterion, not an implementation detail.
 
 Keep screenshots/logs and local assets ignored. Record build/profile identity, scenario, controls,
 observed behavior and remaining limits. A fixed menu screenshot, animated world without verified

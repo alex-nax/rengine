@@ -1,5 +1,40 @@
 # Progress Log
 
+## Session 35 (macos) — 2026-09-06 — Escape reaches the game
+
+The owner approved the recommendation, so Escape now frees the pointer and reaches an embedded game
+in the same press. It was consumed as the workspace's release gesture, which made it unreachable for
+a captured game — and it is the menu key in most of them. The owner had been pressing twice, and it
+cost a real capture, because Save was behind the menu that never opened.
+
+Three parts. `uncapture` in `game.c` frees the pointer only, leaving focus and held keys alone;
+`re_game_release` keeps doing all three and is still what the workspace calls when it takes the pane
+away. Escape falls through to the normal forward, and because focus survives, no menu open
+re-announces focus with another kind 5. Held keys are no longer forged into releases: the player is
+still holding the movement key, and the game hears about it when the key actually comes up. A game
+that swallows Escape entirely gets out through the platform modifier and period, beside the existing
+split and close commands; period because every Escape chord is taken by the platform, and the game
+pane's own label now names it.
+
+The test is the part that mattered. The existing spec asserted the defect as correct behaviour — it
+required that the first Escape did *not* reach the game and that a second one did. A test that only
+checked capture was released would pass with the defect present, because the defect released capture
+too. It now asserts the delivered scancode. Verified with both sabotages separately: reinstating the
+original early return fails at "the same press reaches the game", and removing the chord case fails
+at the chord's own release rather than anywhere earlier.
+
+`native-recording.spec.mjs` depended on Escape forging the held key's release as a convenient way to
+produce two log lines. That is a real consequence of this change rather than flakiness, and it was
+caught by rerunning rather than assumed. It releases the key explicitly now, which decouples the
+recording feature from the input contract it should not care about.
+
+Spec 043 carried the old behaviour as an accepted criterion, so the superseded sentence is quoted in
+place with the owner decision and the reason, rather than rewritten away.
+
+Commands: `npm test` 77/77, `npm run test:desktop` 31/31, `ctest` 6/6, `python3 tools/design.py
+check`, clean build with zero warnings. Two unrelated desktop tests failed on one run and passed
+alone, which is KI-045.
+
 ## Session 38 (macos) — 2026-09-06 — The log slice a committed segment never carried
 
 The first real segment F75 wrote came back half empty. `20260906T201912Z-45e037` in nolf-improved:

@@ -391,12 +391,14 @@ enum { RE_COMMAND_SPLIT_VERTICAL = 0, RE_COMMAND_SPLIT_HORIZONTAL, RE_COMMAND_ME
 #define RE_SHORTCUT_MERGE            "Cmd Backspace"
 #define RE_SHORTCUT_SHELL            "Cmd T"
 #define RE_SHORTCUT_CLOSE            "Cmd W"
+#define RE_SHORTCUT_RELEASE          "Cmd ."
 #else
 #define RE_SHORTCUT_SPLIT_VERTICAL   "Ctrl \\"
 #define RE_SHORTCUT_SPLIT_HORIZONTAL "Ctrl Shift \\"
 #define RE_SHORTCUT_MERGE            "Ctrl Backspace"
 #define RE_SHORTCUT_SHELL            "Ctrl T"
 #define RE_SHORTCUT_CLOSE            "Ctrl W"
+#define RE_SHORTCUT_RELEASE          "Ctrl ."
 #endif
 
 static void close_view(ReApp *a) {
@@ -839,7 +841,10 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
            (spec 081). The game rectangle below it keeps its metrics. */
         mu_layout_row(ui, 4, (int[]){RE_METRIC_GAME_CAPTURE_WIDTH, RE_METRIC_RECORDING_TOGGLE_WIDTH,
                                      RE_METRIC_RECORDING_COMMIT_WIDTH, -1}, RE_METRIC_GAME_ROW_HEIGHT);
-        if (mu_button(ui, t->game->captured ? "Captured · Esc releases" : "Capture mouse")) { re_game_capture(t->game); a->focus = index; }
+        /* Escape now reaches the game as well as freeing the pointer, so the label names the chord that
+         * gets out of a game which swallows it. */
+        if (mu_button(ui, t->game->captured ? "Captured · Esc frees the pointer · " RE_SHORTCUT_RELEASE " releases"
+                                            : "Capture mouse")) { re_game_capture(t->game); a->focus = index; }
         re_recording_ui(a, ui, index);
         t->rect = mu_rect(content.x + RE_METRIC_GAME_INSET, content.y + RE_METRIC_GAME_TOP, re_max(0, content.w - 2 * RE_METRIC_GAME_INSET), re_max(0, content.h - RE_METRIC_GAME_BOTTOM));
       }
@@ -913,6 +918,11 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
       case SDLK_BACKSPACE: run_command(a, RE_COMMAND_MERGE); return true;
       case SDLK_t: run_command(a, RE_COMMAND_SHELL); return true;
       case SDLK_w: run_command(a, RE_COMMAND_CLOSE_VIEW); return true;
+      /* The way out of a game that swallows Escape entirely. Period rather than Escape because every
+       * Escape chord is already taken by the platform, and this one is never forwarded. */
+      case SDLK_PERIOD:
+        if (a->focus >= 0 && a->tabs[a->focus].game) { re_game_release(a->tabs[a->focus].game); return true; }
+        break;
       default: break;
     }
   }

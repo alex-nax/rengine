@@ -27,14 +27,36 @@ test('native game texture streams real SDL frames and releases controls on nativ
     await gui.command({ op: 'key', key: 'W' });
     for (let i = 0; i < 100 && !server.sessions.snapshot(game.id, true).output.includes('key 26 1'); i++) await delay(20);
     assert.match(server.sessions.snapshot(game.id, true).output, /key 26 1/);
+    // Escape opens the menu in most games and a menu needs a cursor, so one press has to do both:
+    // free the pointer and reach the game. The pane used to consume it, and the owner was pressing
+    // twice. Asserting only that capture was released passes with that defect present, so the
+    // assertion that matters is the delivered scancode: 41 is Escape.
+    const output = () => server.sessions.snapshot(game.id, true).output;
+    const settle = async token => { for (let i = 0; i < 100 && !output().includes(token); i++) await delay(20); };
+    assert.doesNotMatch(output(), /key 41 1/, 'Escape has not reached the game yet');
     await gui.key('Escape');
     await gui.until(s => s.tabs.some(t => t?.session === game.id && !t.captured), 'Escape releases native capture');
-    for (let i = 0; i < 100 && !server.sessions.snapshot(game.id, true).output.includes('key 26 0'); i++) await delay(20);
-    assert.match(server.sessions.snapshot(game.id, true).output, /key 26 0/);
-    assert.doesNotMatch(server.sessions.snapshot(game.id, true).output, /key 41 1/);
-    await gui.key('Escape');
-    for (let i = 0; i < 100 && !server.sessions.snapshot(game.id, true).output.includes('key 41 1'); i++) await delay(20);
-    assert.match(server.sessions.snapshot(game.id, true).output, /key 41 1/);
+    await settle('key 41 1');
+    assert.match(output(), /key 41 1/, 'the same press reaches the game');
+    // The player is still holding W, so the workspace does not forge a release for it. The game
+    // hears about that key when it actually comes up.
+    assert.doesNotMatch(output(), /key 26 0/, 'no forged release while the key is still held');
+    await gui.command({ op: 'key', key: 'W', down: false });
+    await settle('key 26 0');
+    assert.match(output(), /key 26 0/, 'the real release reaches the game');
+
+    // The way out of a game that swallows Escape: the platform modifier with period. It does the
+    // full release, which drops held keys, and is never forwarded. Period scancode is 55.
+    await gui.click(tab.rect[0] + 50, tab.rect[1] - 17);
+    await gui.until(s => s.tabs.some(t => t?.session === game.id && t.captured), 'captured again');
+    await gui.command({ op: 'key', key: 'Q' });
+    await settle('key 20 1');
+    assert.match(output(), /key 20 1/, 'the game is taking keys again');
+    await gui.key('.', 1024);   // KMOD_LGUI; the handler accepts Ctrl too, so this drives both platforms
+    await gui.until(s => s.tabs.some(t => t?.session === game.id && !t.captured), 'the chord releases capture');
+    await settle('key 20 0');
+    assert.match(output(), /key 20 0/, 'the full release tells the game to drop held keys');
+    assert.doesNotMatch(output(), /key 55 1/, 'the chord itself is not forwarded to the game');
     await mkdir('.cache/evidence', { recursive: true });
     await gui.command({ op: 'snapshot', path: path.resolve('.cache/evidence/native-game.bmp') });
     await gui.close(); gui = null;

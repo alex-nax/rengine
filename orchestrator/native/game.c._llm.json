@@ -2,29 +2,45 @@
   "version": 1,
   "entries": [
     {
-      "id": "native-game-input",
-      "kind": "rationale",
+      "id": "escape-forwards",
+      "kind": "history",
       "anchor": {
-        "start": 65,
-        "end": 65,
-        "snippet": "void re_game_event(ReGame *g, const SDL_Event *e) {"
+        "start": 18,
+        "end": 21,
+        "symbol": "uncapture",
+        "snippet": "static void uncapture(ReGame *g) {"
       },
-      "note": "The separate game adapter consumes SDL scancodes and input events. Native relative capture belongs to this desktop process; first Escape releases capture and all held controls, while a later Escape is delivered to the game. Ignore mouse-up events for buttons never pressed in the game, such as the Capture mouse toolbar click. Current absolute coordinates still follow frame dimensions: logical/drawable game DPI mapping remains unqualified and must be extended explicitly.",
+      "note": "Escape used to be consumed here: a captured game never saw it, and the workspace released capture instead. Escape is the menu key in most games, so the owner was pressing it twice \u2014 once to lose capture, once to reach the game. It now frees the pointer and forwards, which is what a menu needs, since a menu wants a cursor.\n\nThe narrow uncapture exists because re_game_release does three other things: it sends kind 6 so the game drops every held key, it clears focused, and it zeroes buttons. All three are right when the workspace takes the pane away and wrong when the player is still in the game with a menu open. Falling through to the full release would drop the movement key the player is still physically holding, and clearing focused would make focus() re-send kind 5 on every menu open. Keeping focus is what makes the fall-through quiet.\n\nA game that swallows Escape entirely still needs a way out, so the workspace claims the platform modifier with period (workspace.c, beside the split and close commands). Period rather than Escape because every Escape chord is taken by the platform: Ctrl+Shift+Esc is Task Manager, Cmd+Opt+Esc is Force Quit. That chord runs the full release and is never forwarded.\n\nThe regression is in orchestrator/tests/native-game.spec.mjs and asserts the delivered scancode rather than the capture flag, because a test that only checked capture was released passed with the defect present \u2014 the defect released capture too. Verified by reinstating the original early return (fails at the delivered key) and by removing the chord case (fails at the chord's own release).",
       "refs": [
-        "docs/specs/056-native-desktop.md"
+        "orchestrator/tests/native-game.spec.mjs",
+        "orchestrator/native/workspace.c",
+        "docs/evidence/blind-regressions-2026-09-06.md"
       ]
     },
     {
       "id": "recording-frame-sink",
       "kind": "rationale",
       "anchor": {
-        "start": 46,
-        "end": 46,
+        "start": 52,
+        "end": 52,
         "snippet": "  if (g->sink) g->sink(g->sink_user, (const unsigned char *)m->data + 24, w, h, (int)header[3]);"
       },
       "note": "The sink runs on the validated frame, before the texture update and before the message is freed, so the recorder sees exactly the frames the pane accepts and never opens a second stream. It sits after the header check on purpose: a rejected frame is not a frame. It runs even when the texture update fails, because a frame that could not be uploaded is still a frame that happened and is often the one worth having. The recorder samples at its own declared rate, so this callback is cheap on most frames \u2014 the socket already keeps only the newest binary message, so the pane sees the display rate, not the game's.",
       "refs": [
         "docs/specs/081-game-recording.md"
+      ]
+    },
+    {
+      "id": "native-game-input",
+      "kind": "rationale",
+      "anchor": {
+        "start": 71,
+        "end": 71,
+        "snippet": "void re_game_event(ReGame *g, const SDL_Event *e) {"
+      },
+      "note": "The separate game adapter consumes SDL scancodes and input events. Native relative capture belongs to this desktop process; first Escape releases capture and all held controls, while a later Escape is delivered to the game. Ignore mouse-up events for buttons never pressed in the game, such as the Capture mouse toolbar click. Current absolute coordinates still follow frame dimensions: logical/drawable game DPI mapping remains unqualified and must be extended explicitly.",
+      "refs": [
+        "docs/specs/056-native-desktop.md"
       ]
     }
   ],
