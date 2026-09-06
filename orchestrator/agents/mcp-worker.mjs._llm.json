@@ -41,19 +41,6 @@
       ]
     },
     {
-      "id": "preview-file-tool",
-      "kind": "rationale",
-      "anchor": {
-        "start": 107,
-        "end": 107,
-        "snippet": "const PREVIEW_BUDGET = 32000;"
-      },
-      "note": "preview_file runs the project's own declared executable, so it is open-world and not read-only even though it never writes. The route returns the whole sanitized tree; the tool slices dir/depth and pages files with offset/limit, then shrinks depth and limit until the serialized reply fits the 32,000-character budget, reporting truncated/nextOffset (review finding 5). Command metadata is made root-relative and the generic tool wrapper replaces the absolute root path in error text with <root>. Entry text is bounded like read_file; the hex window is dropped because agents get size and SHA-256 instead.",
-      "refs": [
-        "docs/specs/074-project-format-registry.md"
-      ]
-    },
-    {
       "id": "dashboard-tools",
       "kind": "rationale",
       "anchor": {
@@ -67,22 +54,48 @@
       ]
     },
     {
+      "id": "preview-file-tool",
+      "kind": "rationale",
+      "anchor": {
+        "start": 107,
+        "end": 107,
+        "snippet": "const PREVIEW_BUDGET = 32000;"
+      },
+      "note": "preview_file runs the project's own declared executable, so it is open-world and not read-only even though it never writes. The route returns the whole sanitized tree; the tool slices dir/depth and pages files with offset/limit, then shrinks depth and limit until the serialized reply fits the 32,000-character budget, reporting truncated/nextOffset (review finding 5). Command metadata is made root-relative and the generic tool wrapper replaces the absolute root path in error text with <root>. Entry text is bounded like read_file; the hex window is dropped because agents get size and SHA-256 instead.",
+      "refs": [
+        "docs/specs/074-project-format-registry.md"
+      ]
+    },
+    {
       "id": "declared-game-tools",
       "kind": "rationale",
       "anchor": {
-        "start": 136,
-        "end": 136,
+        "start": 143,
+        "end": 143,
         "snippet": "const gameCapability = state => { if (state.capabilities.projectGame !== 1) throw new Error('This retained service predates per-project game declarations. Update the workspace layer first.'); };"
       },
       "note": "game_preflight and launch_game address only the games the bound project declares in .rengine/project.json; their descriptions name no game, and the connector never carries a built-in executable or data path. Both take an optional gameId and default to the first declared record, so a single-game project needs no argument while a multi-game one is addressed explicitly and an unknown id is answered with the declared ids. launch_game is open-world because it executes the project's own program; it returns the running session of that same game id when one exists, so agents inspect the returned id rather than assuming a fresh process, and two declared games of one project can be running at once. The removed nolf_preflight/launch_nolf have no alias: nothing had shipped them to a user. The two tools gate on two capabilities, because the workspace layer can deliver only one of them: game_preflight needs projectGame, which the replaceable worker advertises for the route it serves itself, while launch_game needs projectGameLaunch, which only a session host that answers from the declaration can offer \u2014 replacing that host requires quiescence, so the refusal names it instead of telling the agent to update the workspace layer again.",
       "refs": [
         "docs/specs/078-project-game-declaration.md"
       ]
+    },
+    {
+      "id": "devices-tool",
+      "kind": "constraint",
+      "anchor": {
+        "start": 137,
+        "end": 137,
+        "snippet": "tool('devices', 'List the devices the project declares in .rengine/project.json (contract 4, devices): where each target runs, with reachability, when it was checked, the reasons an unreachable device gives, and the games and dashboard actions bound to it. The implicit local device is always listed. Reachability comes from each record\u2019s own declared probe \u2014 bounded and side-effect-light rather than read-only, since adb starts its own daemon when none is running \u2014 run only on this call, cached briefly, and bypassed by refresh. Reachable means the device answered, never that a target can be launched on it: rEngine does not launch on a remote device, and the project\u2019s own script action owns that.', {"
+      },
+      "note": "The devices tool is readOnlyHint (it changes nothing in the project) but openWorldHint, because it reaches the network or a USB device. Its description deliberately does NOT claim read-only: adb get-state and adb devices start the adb server when no daemon is running, so a probe is bounded and side-effect-light, not free of side effects. It also states that reachable is not launchable \u2014 a green ssh probe still cannot create a GL context in a logon session with no window station \u2014 so an agent does not read a reachable device as permission to launch on it. It gates on projectDevices, which the replaceable workspace worker advertises (KI-043: a capability served only by the retained host cannot be delivered by a layered update).",
+      "refs": [
+        "docs/specs/081-project-devices.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/agents/mcp-worker.mjs",
-    "sha256": "9b21fdbb824e111ce16b52ecdd935c939c5eccb5da2b6d3aace258ea84bf439d",
+    "sha256": "4846b84d3a65e3c8c613e5cf72e39027187a6cefde0140018070fb68286ab65c",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

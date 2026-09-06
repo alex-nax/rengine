@@ -477,6 +477,14 @@
       "artifact-width": 260,
       "note-height": 24
     },
+    "devices": {
+      "heading-height": 26,
+      "row-height": 26,
+      "reason-height": 20,
+      "refresh-width": 90,
+      "status-width": 120,
+      "note-height": 24
+    },
     "design": {
       "focus-width": 2,
       "transition-ms": 90,
@@ -508,7 +516,8 @@
     "terminal": "Terminal cells are inset and start at top below the content top; bottom is the space kept below the cells.",
     "game": "Capture row above a black surface inset from the pane that starts at top; an external game shows its status row there and its retained output in the same area. A game is launched from a dashboard game action, which renders as an ordinary dashboard row.",
     "scrollbar": "Native terminal/editor bars: width, minimum thumb length and the thumb inset from the track edges.",
-    "design": "Card constants from design/base.css that tokens.css does not name; every other design metric is a token binding under token-metrics."
+    "design": "Card constants from design/base.css that tokens.css does not name; every other design metric is a token binding under token-metrics.",
+    "devices": "Devices tab (spec 081): heading, note, then per device a title/status row and two reason rows."
   },
   "icons": {
     "close": "x",
@@ -526,6 +535,7 @@
       "rEngine",
       "Tree",
       "Dashboard",
+      "Devices",
       "Shell",
       "Agent",
       "Manage",

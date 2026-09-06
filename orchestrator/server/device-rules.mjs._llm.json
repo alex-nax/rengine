@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "reserved-local",
+      "kind": "constraint",
+      "anchor": {
+        "start": 24,
+        "end": 24,
+        "snippet": "export function devicesRules(devices) {"
+      },
+      "note": "local is a reserved id bound to a reserved kind: at most one kind local device, a kind local device must use the id local, and the id local may not be taken by another kind. Without all three the implicit binding is ambiguous \u2014 every target without a device resolves to the id local, so a declaration could otherwise point that at an ssh box and silently make unbound targets remote. A remote device must declare a probe, so reachable is always evidence and never an assumption; and local may not carry probe, host or selector, which are all about reaching somewhere else.",
+      "refs": [
+        "docs/specs/081-project-devices.md"
+      ]
+    },
+    {
+      "id": "contract-gate",
+      "kind": "constraint",
+      "anchor": {
+        "start": 72,
+        "end": 72,
+        "snippet": "export function deviceReferenceRules(record, where, context) {"
+      },
+      "note": "The device key is accepted STRUCTURALLY by the schema for every contract, and gated here instead. That is deliberate: if the schema rejected it under contract 3, the message would be \"unknown key device\" and an operator would delete the key. Gated here, the message names the contract to update to, which is the same discipline that carried games into contract 3. The top-level devices array is gated by the section reader's own minimum; this covers the two places the key can appear on a target.",
+      "refs": [
+        "docs/specs/081-project-devices.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/server/device-rules.mjs",
+    "sha256": "12efc2f24a77c41374fba08929a71fca4c39d0f35ec2b4c711def3f17e61a735",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

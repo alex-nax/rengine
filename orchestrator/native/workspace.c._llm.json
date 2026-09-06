@@ -2,21 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "id": "native-focus-and-detach",
-      "kind": "rationale",
-      "anchor": {
-        "start": 485,
-        "end": 485,
-        "snippet": "bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {"
-      },
-      "note": "Pointer focus selects a view without changing its root/session binding. Toolbar focus clears custom editor/terminal/game keyboard routing. Detach never calls Stop. Wheel targets the visible hovered terminal/editor; negotiated terminal reporting gets first refusal before native history. Mouse motion/buttons route to an existing held terminal first, otherwise the hovered visible terminal; layout drags do not become application motion. Hover never changes keyboard focus. Focus loss releases all terminal holds, focus transfer releases the previous terminal, and hidden views release during drawing. Native UI still receives mouse motion to settle microui hover; consumed application buttons are not forwarded to chrome.",
-      "refs": [
-        "docs/specs/056-native-desktop.md",
-        "docs/specs/061-pane-scroll-controls.md",
-        "docs/specs/063-terminal-mouse-reporting.md"
-      ]
-    },
-    {
       "id": "inspection-control-geometry",
       "kind": "rationale",
       "anchor": {
@@ -31,24 +16,11 @@
       ]
     },
     {
-      "id": "bounded-tab-strip",
-      "kind": "rationale",
-      "anchor": {
-        "start": 246,
-        "end": 246,
-        "snippet": "static void pane_header(ReApp *a, mu_Context *ui, int n) {"
-      },
-      "note": "Visible tab slots and previous/next controls fit the measured pane header; only displayed tabs receive hit rectangles. Strip offsets are ephemeral and can browse away from the selected content without retargeting it. Explicit layout changes invalidate the cached width to reveal the selected tab even when pane indices are reused. Drops choose insertion boundaries from visible header midpoints, then adjust for removal when source and destination are the same pane. Root/session identity stays on ReTab.",
-      "refs": [
-        "docs/specs/057-native-pane-navigation.md"
-      ]
-    },
-    {
       "id": "format-tab-layout",
       "kind": "rationale",
       "anchor": {
-        "start": 218,
-        "end": 218,
+        "start": 221,
+        "end": 221,
         "snippet": "static void editor_ui(ReApp *a, mu_Context *ui, int index, mu_Rect content, mu_Rect below) {"
       },
       "note": "A format-aware editor tab draws the mode toolbar first; text mode keeps the Save/Discard row below it and shifts the buffer down by one row, raw and text previews take the whole content area as a draw-list rect, and a tree preview lives inside the scrollable microui window with the selected entry drawn in the reserved lower split. Actions returned by the view are performed after drawing so request/mode changes never interleave with layout. The third root container per pane is avoided on purpose: the entry area is a draw-list rect, not another microui window (upstream's 32-root limit).",
@@ -57,19 +29,60 @@
       ]
     },
     {
+      "id": "bounded-tab-strip",
+      "kind": "rationale",
+      "anchor": {
+        "start": 249,
+        "end": 249,
+        "snippet": "static void pane_header(ReApp *a, mu_Context *ui, int n) {"
+      },
+      "note": "Visible tab slots and previous/next controls fit the measured pane header; only displayed tabs receive hit rectangles. Strip offsets are ephemeral and can browse away from the selected content without retargeting it. Explicit layout changes invalidate the cached width to reveal the selected tab even when pane indices are reused. Drops choose insertion boundaries from visible header midpoints, then adjust for removal when source and destination are the same pane. Root/session identity stays on ReTab.",
+      "refs": [
+        "docs/specs/057-native-pane-navigation.md"
+      ]
+    },
+    {
+      "id": "view-switcher-indices",
+      "kind": "constraint",
+      "anchor": {
+        "start": 343,
+        "end": 343,
+        "snippet": "{\"Tree\", RE_ICON_TREE}, {\"Dashboard\", RE_ICON_PROJECT}, {\"Devices\", RE_ICON_MENU}, {\"Shell\", RE_ICON_SHELL}, {\"Agent\", RE_ICON_AGENT} };"
+      },
+      "note": "The view switcher is a fixed table walked by index, and the click handler branches on that same index \u2014 so inserting an entry is not a one-line change: `views` must match the table length and every later branch must be re-numbered. Devices was inserted at index 2, which moved the terminal/agent branch from `i == 3` to `i == 4`. Getting that wrong opens a shell where the user asked for an agent, silently, because both branches call launch_terminal. The group ring is drawn once around the whole run using GROUP_FIRST/LAST, so the first and last entries must stay first and last.",
+      "refs": [
+        "docs/specs/081-project-devices.md"
+      ]
+    },
+    {
       "id": "external-game-status-row",
       "kind": "rationale",
       "anchor": {
-        "start": 447,
-        "end": 447,
+        "start": 452,
+        "end": 452,
         "snippet": "      } else if (t->type == RE_GAME && t->terminal) {"
       },
       "note": "An external game runs in its own window, so its tab has no frame surface to draw: it shows the retained PTY output with a status row above it, and the row reads the session's live state rather than the tab's, because the process can exit while the tab stays open. The rect is still set from the game insets so the terminal below occupies the same area an embedded surface would. This branch must precede the t->game one \u2014 an external tab has a terminal and no game surface. Without it surface \"external\" has no view at all, which is what the vtmb-vr consumer declares for both of its games."
+    },
+    {
+      "id": "native-focus-and-detach",
+      "kind": "rationale",
+      "anchor": {
+        "start": 490,
+        "end": 490,
+        "snippet": "bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {"
+      },
+      "note": "Pointer focus selects a view without changing its root/session binding. Toolbar focus clears custom editor/terminal/game keyboard routing. Detach never calls Stop. Wheel targets the visible hovered terminal/editor; negotiated terminal reporting gets first refusal before native history. Mouse motion/buttons route to an existing held terminal first, otherwise the hovered visible terminal; layout drags do not become application motion. Hover never changes keyboard focus. Focus loss releases all terminal holds, focus transfer releases the previous terminal, and hidden views release during drawing. Native UI still receives mouse motion to settle microui hover; consumed application buttons are not forwarded to chrome.",
+      "refs": [
+        "docs/specs/056-native-desktop.md",
+        "docs/specs/061-pane-scroll-controls.md",
+        "docs/specs/063-terminal-mouse-reporting.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/workspace.c",
-    "sha256": "f4d435e62859b0ead3fbc9b9e83f9058790f35b15d0cccc962fcd833cafb3ae0",
+    "sha256": "bfbf6f37cf656cb24eff964eb9f069c9b7024fa71150b1c83f014b9f0dd2ec5e",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

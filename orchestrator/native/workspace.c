@@ -27,6 +27,7 @@ static int tab_icon(const ReTab *t) {
     case RE_TREE: return RE_ICON_TREE;
     case RE_SESSIONS: return RE_ICON_MENU;
     case RE_DASHBOARD: return RE_ICON_PROJECT;
+    case RE_DEVICES: return RE_ICON_MENU;
     case RE_TERMINAL: return t->game ? RE_ICON_RUN : RE_ICON_SHELL;
     default: return t->game ? RE_ICON_RUN : RE_ICON_FILE;
   }
@@ -337,9 +338,9 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
     ReToolbar bar = toolbar_open(ui, width);
     re_ui_panel(bar.draw, mu_rect(0, 0, width, RE_METRIC_DESIGN_TOOLBAR_HEIGHT), RE_COLOR_TOOLBAR_BG);
     toolbar_brand(&bar);
-    int views = 4, view_index = 0, group_left = 0;
+    int views = 5, view_index = 0, group_left = 0;
     struct { const char *label; int icon; } switcher[] = {
-      {"Tree", RE_ICON_TREE}, {"Dashboard", RE_ICON_PROJECT}, {"Shell", RE_ICON_SHELL}, {"Agent", RE_ICON_AGENT} };
+      {"Tree", RE_ICON_TREE}, {"Dashboard", RE_ICON_PROJECT}, {"Devices", RE_ICON_MENU}, {"Shell", RE_ICON_SHELL}, {"Agent", RE_ICON_AGENT} };
     for (int i = 0; i < views; i++, view_index++) {
       int opt = RE_UI_GROUP_MIDDLE;
       if (i == 0) opt = RE_UI_GROUP_FIRST;
@@ -348,7 +349,8 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
       if (toolbar_cell(&bar, switcher[i].label, switcher[i].icon, opt, i ? 0 : RE_METRIC_DESIGN_GAP_LG)) {
         if (i == 0) { if (*a->root) re_app_tab(a, RE_TREE, a->root, "", "", "Project"); }
         else if (i == 1) { if (re_app_dashboard(a, a->root) < 0) re_copy(a->status, sizeof(a->status), "Add or select a project first."); }
-        else launch_terminal(a, i == 3, false);
+        else if (i == 2) { if (re_app_devices(a, a->root) < 0) re_copy(a->status, sizeof(a->status), "Add or select a project first."); }
+        else launch_terminal(a, i == 4, false);
       }
       re_app_control(a, ui, "toolbar", switcher[i].label, -1);
     }
@@ -430,7 +432,7 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
     if (!p->count) { mu_get_container(ui, title)->rect = content; continue; }
     int index = p->tabs[p->selected]; ReTab *t = &a->tabs[index];
     bool format_view = t->type == RE_EDITOR && t->format && re_format_scrolls(t->format);
-    int content_opts = t->type == RE_TREE || t->type == RE_SESSIONS || t->type == RE_DASHBOARD || format_view ? opts & ~MU_OPT_NOSCROLL : opts;
+    int content_opts = t->type == RE_TREE || t->type == RE_SESSIONS || t->type == RE_DASHBOARD || t->type == RE_DEVICES || format_view ? opts & ~MU_OPT_NOSCROLL : opts;
     if (format_view && re_format_split(t->format)) {
       int h = content.h * RE_METRIC_FORMAT_ENTRY_PERCENT / 100;
       below = mu_rect(content.x + RE_METRIC_EDITOR_INSET, content.y + content.h - h, re_max(0, content.w - 2 * RE_METRIC_EDITOR_INSET), re_max(0, h - RE_METRIC_EDITOR_INSET)); content.h -= h;
@@ -443,6 +445,7 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
       if (t->type == RE_TREE) tree_ui(a, ui, index);
       else if (t->type == RE_SESSIONS) sessions_ui(a, ui);
       else if (t->type == RE_DASHBOARD) re_dashboard_ui(a, ui, index);
+      else if (t->type == RE_DEVICES) re_devices_ui(a, ui, index);
       else if (t->type == RE_EDITOR) editor_ui(a, ui, index, content, below);
       else if (t->type == RE_TERMINAL) {
         t->rect = mu_rect(content.x + RE_METRIC_TERMINAL_INSET, content.y + RE_METRIC_TERMINAL_TOP, re_max(0, content.w - 2 * RE_METRIC_TERMINAL_INSET), re_max(0, content.h - RE_METRIC_TERMINAL_BOTTOM));
@@ -458,7 +461,7 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
         t->rect = mu_rect(content.x + RE_METRIC_GAME_INSET, content.y + RE_METRIC_GAME_TOP, re_max(0, content.w - 2 * RE_METRIC_GAME_INSET), re_max(0, content.h - RE_METRIC_GAME_BOTTOM));
       }
       mu_end_window(ui);
-      if (a->controls && (t->type == RE_TREE || t->type == RE_SESSIONS || t->type == RE_DASHBOARD || format_view)) {
+      if (a->controls && (t->type == RE_TREE || t->type == RE_SESSIONS || t->type == RE_DASHBOARD || t->type == RE_DEVICES || format_view)) {
         mu_Container *container = mu_get_container(ui, title);
         if (container->content_size.y + ui->style->padding * 2 > container->body.h) {
           inspect_rect(a, "scrollbar", "y", index, mu_rect(container->body.x + container->body.w, container->body.y, ui->style->scrollbar_size, container->body.h));

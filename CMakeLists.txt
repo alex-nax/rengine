@@ -177,6 +177,7 @@ set(rengine_desktop_core_SOURCES
 	cmake.toml
 	"orchestrator/native/app.c"
 	"orchestrator/native/dashboard.c"
+	"orchestrator/native/devices.c"
 	"orchestrator/native/editor.c"
 	"orchestrator/native/formatview.c"
 	"orchestrator/native/game.c"

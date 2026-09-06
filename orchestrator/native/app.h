@@ -5,7 +5,8 @@
 #include "editor.h"
 #include "game.h"
 #include "formatview.h"
-enum { RE_TREE = 1, RE_EDITOR, RE_TERMINAL, RE_SESSIONS, RE_GAME, RE_DASHBOARD };
+enum { RE_TREE = 1, RE_EDITOR, RE_TERMINAL, RE_SESSIONS, RE_GAME, RE_DASHBOARD, RE_DEVICES };
+#define RE_DEVICES_TIMEOUT_MS 45000L /* a devices load runs every declared probe; see sidecar: devices-route */
 typedef struct {
   bool used, dirty, conflict, discarding; int type, generation, saved, checkpoint, checkpoint_flight;
   char root[65], session[65], path[2048], title[256], version[65], error[512];
@@ -48,6 +49,9 @@ int re_app_dashboard(ReApp *app, const char *root);
 void re_app_dashboard_run(ReApp *app, int tab, const char *action, bool capture);
 void re_app_reveal(ReApp *app, const char *root, const char *artifact);
 void re_dashboard_ui(ReApp *app, mu_Context *ui, int tab);
+int  re_app_devices(ReApp *app, const char *root);
+void re_app_devices_refresh(ReApp *app, int tab);
+void re_devices_ui(ReApp *app, mu_Context *ui, int tab);
 void re_app_save(ReApp *app, int tab);
 void re_app_discard(ReApp *app, int tab);
 void re_app_action(ReApp *app, const char *route, const cJSON *body);

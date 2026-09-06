@@ -70,6 +70,21 @@ static void probe_dashboard(ReApp *a, const char *root) {
   }
   free(route);
 }
+/* A devices load runs every declared probe, so it gets its own deadline rather than the 5 s one a
+   filesystem answer needs; refresh asks the service to bypass its brief cache. See sidecar: devices-route. */
+static void devices_request(ReApp *a, int tab, bool refresh) {
+  ReTab *t = &a->tabs[tab];
+  char *base = re_net_query("devices", t->root, "");
+  if (!base) return;
+  char route[2300]; snprintf(route, sizeof(route), "%s%s", base, refresh ? "&refresh=1" : "");
+  free(base);
+  request_within(a, OP_LOAD, tab, route, NULL, RE_DEVICES_TIMEOUT_MS);
+}
+void re_app_devices_refresh(ReApp *a, int tab) { devices_request(a, tab, true); }
+int re_app_devices(ReApp *a, const char *root) {
+  if (!*root) return -1;
+  return re_app_tab(a, RE_DEVICES, root, "", "", "Devices");
+}
 int re_app_dashboard(ReApp *a, const char *root) {
   if (!*root) return -1;
   if (!listed(a->dashboards_opened, root)) cJSON_AddItemToArray(a->dashboards_opened, cJSON_CreateString(root));
@@ -116,6 +131,7 @@ void re_app_load(ReApp *a, int tab) {
   ReTab *t = &a->tabs[tab];
   if (t->type == RE_TREE) { char *route = re_net_query("tree", t->root, t->path); if (route) request(a, OP_LOAD, tab, route, NULL); free(route); return; }
   if (t->type == RE_DASHBOARD) { char *route = re_net_query("dashboard", t->root, ""); if (route) request(a, OP_LOAD, tab, route, NULL); free(route); return; }
+  if (t->type == RE_DEVICES) { devices_request(a, tab, false); return; }
   if (t->type != RE_EDITOR) return;
   if (!t->format || re_format_mode(t->format) == RE_MODE_PENDING) {
     if (!t->format) t->format = re_format_open(RE_MODE_PENDING, false);
@@ -216,7 +232,7 @@ static bool restore(ReApp *a, const cJSON *j) {
     const cJSON *tab = cJSON_GetArrayItem(tabs, i);
     if (cJSON_IsNull(tab)) { if (re_layout_find(&layout, i) >= 0) return false; continue; }
     int type = re_number(tab, "type");
-    if (type < RE_TREE || type > RE_DASHBOARD || strlen(re_string(tab, "root")) > 64 ||
+    if (type < RE_TREE || type > RE_DEVICES || strlen(re_string(tab, "root")) > 64 ||
         strlen(re_string(tab, "session")) > 64 || strlen(re_string(tab, "path")) > 2047) return false;
     if (cJSON_HasObjectItem(tab, "mode") && (type != RE_EDITOR || re_format_mode_from(re_string(tab, "mode")) < 0)) return false;
   }
@@ -482,6 +498,7 @@ cJSON *re_app_inspect(ReApp *a) {
     if (t->type == RE_GAME) cJSON_AddStringToObject(tab, "surface", t->terminal ? "external" : "embedded");
     if (t->data && t->type == RE_TREE) cJSON_AddItemToObject(tab, "tree", cJSON_Duplicate(t->data, 1));
     if (t->data && t->type == RE_DASHBOARD) cJSON_AddItemToObject(tab, "dashboard", cJSON_Duplicate(t->data, 1));
+    if (t->data && t->type == RE_DEVICES) cJSON_AddItemToObject(tab, "devices", cJSON_Duplicate(t->data, 1));
     if (t->format) re_format_inspect(t->format, tab);
   }
   return j;

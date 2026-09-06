@@ -101,6 +101,7 @@ sources = [
   "orchestrator/native/workspace.c", "orchestrator/native/game.c", "orchestrator/native/scroll.c",
   "orchestrator/native/scene.c", "orchestrator/native/hexview.c", "orchestrator/native/formatview.c",
   "orchestrator/native/dashboard.c",
+    "orchestrator/native/devices.c",
 ]
 include-directories = ["orchestrator/native"]
 link-libraries = ["SDL2::SDL2", "rengine_ui", "rengine_render", "rengine_microui", "rengine_json", "rengine_vterm", "CURL::libcurl"]

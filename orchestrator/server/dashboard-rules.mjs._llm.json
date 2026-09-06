@@ -2,11 +2,24 @@
   "version": 1,
   "entries": [
     {
+      "id": "record-identity",
+      "kind": "rationale",
+      "anchor": {
+        "start": 11,
+        "end": 11,
+        "snippet": "export const nameOf = record => typeof record?.id === 'string' && record.id ? ` (${record.id})` : '';"
+      },
+      "note": "A section fails whole (formats.mjs reports dashboardError instead of the block) and, since the toolbar game control was removed, the dashboard is the only human path to launch any game: one typo in one unrelated action empties every group, so this message is the entire recovery path and must name the record, not only its index. The innermost record on the path is named because action ids are unique across the dashboard and naming the group as well would push the id ~8 columns further right in surfaces that clip; an action with no usable id falls back to its group (gw), and with nothing named the bare path stands alone, so 'undefined' is never printed and no name is invented. The duplicate-id error deliberately keeps the bare path 'gp'/'ap': it already quotes the id, and what has to stay unambiguous there is which occurrence repeats. Kept import-free like rootRelative, so runtime/scripts.mjs can share these rules; formats.mjs imports nameOf from here rather than carrying a third copy.",
+      "refs": [
+        "docs/specs/078-project-game-declaration.md"
+      ]
+    },
+    {
       "id": "shared-cross-rules",
       "kind": "rationale",
       "anchor": {
-        "start": 25,
-        "end": 25,
+        "start": 28,
+        "end": 28,
         "snippet": "export function dashboardRules(dashboard, context = {}) {"
       },
       "note": "Kept free of imports so formats.mjs (reader), dashboard.mjs (runtime) and runtime/scripts.mjs (open_script env) can share the same rules without an ES-module cycle: formats.mjs awaits its schema at top level, and a cycle through dashboard.mjs would deadlock module evaluation. The schema lists every kind's fields as optional on one action object because the validator subset has no oneOf/if; these rules add the per-kind required/forbidden fields, unique ids, root-relative paths and UPPER_SNAKE env keys with the offending JSON path in each message. The second parameter is the partially built declaration, not another block to validate: formats.mjs settles games before the dashboard, so a game action's reference can be resolved against the accepted array without this module importing games.mjs.",
@@ -18,8 +31,8 @@
       "id": "game-reference",
       "kind": "rationale",
       "anchor": {
-        "start": 27,
-        "end": 27,
+        "start": 30,
+        "end": 30,
         "snippet": "const declared = context.gamesError ? null : (Array.isArray(context.games) ? context.games : []).map(item => item?.id);"
       },
       "note": "Three states, deliberately distinct. An accepted games array yields its ids, so an action naming something else is reported with the id and the declared ids. No games key at all yields an empty list, so the message says the declaration declares no games \u2014 which is the true diagnosis for a game action under contract 2. A failed games block yields null and the reference check is skipped entirely: gamesError already names the real problem, and a derived 'undeclared id' error on top of it would send the reader after the wrong key.",
@@ -28,22 +41,22 @@
       ]
     },
     {
-      "id": "record-identity",
+      "id": "device-reference",
       "kind": "rationale",
       "anchor": {
-        "start": 8,
-        "end": 8,
-        "snippet": "export const nameOf = record => typeof record?.id === 'string' && record.id ? ` (${record.id})` : '';"
+        "start": 54,
+        "end": 54,
+        "snippet": "errors.push(...deviceReferenceRules(action, where, context));"
       },
-      "note": "A section fails whole (formats.mjs reports dashboardError instead of the block) and, since the toolbar game control was removed, the dashboard is the only human path to launch any game: one typo in one unrelated action empties every group, so this message is the entire recovery path and must name the record, not only its index. The innermost record on the path is named because action ids are unique across the dashboard and naming the group as well would push the id ~8 columns further right in surfaces that clip; an action with no usable id falls back to its group (gw), and with nothing named the bare path stands alone, so 'undefined' is never printed and no name is invented. The duplicate-id error deliberately keeps the bare path 'gp'/'ap': it already quotes the id, and what has to stay unambiguous there is which occurrence repeats. Kept import-free like rootRelative, so runtime/scripts.mjs can share these rules; formats.mjs imports nameOf from here rather than carrying a third copy.",
+      "note": "The contract-4 device binding is validated for EVERY action kind, not only the ones that look remote, because device is a property of where an action runs rather than of what it does \u2014 a log, a capture and a script can all be device-scoped. The rules themselves live in device-rules.mjs so games and the dashboard share one implementation and one message. Ordering matters: the reader settles devices before games and games before the dashboard, so context here already carries the accepted devices array (or devicesError, which suppresses a derived \"undeclared id\" error that would only mislead) \u2014 the same shape the game reference above uses.",
       "refs": [
-        "docs/specs/078-project-game-declaration.md"
+        "docs/specs/081-project-devices.md"
       ]
     }
   ],
   "source": {
     "path": "orchestrator/server/dashboard-rules.mjs",
-    "sha256": "19efe8cee4e2482a0d308f3e8ba3b2979397c5474ed4c1b8c9b854ba277c53a8",
+    "sha256": "9a7ec32f3c15cdf314c8d972c97c3a55d53a0fbba53401048f3054e322f732a6",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

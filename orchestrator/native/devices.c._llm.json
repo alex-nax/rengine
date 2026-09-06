@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "one-reason-per-device",
+      "kind": "rationale",
+      "anchor": {
+        "start": 17,
+        "end": 17,
+        "snippet": "static void device_row(ReApp *a, mu_Context *ui, int tab, const cJSON *device) {"
+      },
+      "note": "The surface argument for the whole feature: an unreachable device draws ONE row with ONE reason, and lists the targets bound to it, instead of four separately disabled actions each restating the same sentence. Only issues[0] is drawn \u2014 the service may report both a missing local file and an unreachable device, and the dashboard is where the per-action detail belongs. Rows use the owned control layer (re_ui_*), not pristine microui as dashboard.c still does, so the section matches the design system; every row publishes a re_app_control entry whether or not it was hit, because the automation harness addresses rows by role and key rather than by coordinates. The reachable/unreachable role is what a fixture asserts on, so keep it derived from the service's boolean and never from the presence of a reason.",
+      "refs": [
+        "docs/specs/081-project-devices.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/devices.c",
+    "sha256": "c64b1a3f46e16bea9d2b801b053f06bf39774e3ced2b81d67fd6e2d3440d26a1",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}
