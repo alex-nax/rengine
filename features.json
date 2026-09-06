@@ -397,7 +397,10 @@
       "owner_workspace": "rengine",
       "deliverable": "Vulkan adapter and docs/evidence",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/vulkan-adapter-macos-2026-09-06.md",
+        "docs/evidence/vulkan-adapter-windows-2026-09-06.md"
+      ]
     },
     {
       "id": 60,
@@ -461,7 +464,9 @@
       "owner_workspace": "rengine",
       "deliverable": "docs/evidence for the Windows OpenGL adapter",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/opengl-adapter-windows-2026-09-06.md"
+      ]
     },
     {
       "id": 63,

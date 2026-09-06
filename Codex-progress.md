@@ -319,7 +319,13 @@ median everywhere, memory below SDL, 0 validation messages, suite 13 of 13 on
 Windows bring-up started per the runbook `docs/runbooks/windows-verification.md`: SDL2 2.32.10 dev
 files and the LunarG SDK 1.4.357 installed, the pre-Vulkan HEAD builds with MSVC and its SDL and
 OpenGL smoke snapshots are byte-identical; CTest editor/terminal binaries lacked `SDL2.dll` (copy
-added in `cmake.toml`). Windows render/suite results follow in the next commit.
+added in `cmake.toml`). Windows results (`docs/evidence/opengl-adapter-windows-2026-09-06.md`, `vulkan-adapter-windows-2026-09-06.md`):
+OpenGL and Vulkan pixel-identical to each other and within tolerance against SDL, both below the SDL
+median, Vulkan validation clean on the NVIDIA driver, smoke snapshots of all backends byte-identical;
+OpenGL memory +24–28 MiB, Vulkan +54–60 MiB after the allocation trim (`b0a6d4b`) against the 32 MiB
+ceiling (KI-039, owner decision pending); the suite passes 7 of 15 there on either backend (KI-038:
+layered-update unlink, symlink fixture, tree scroll, four terminal specs; fixed on the way: `_spawnv`
+quoting, DLL copies, `python`, the game fixture path, `--test-force-exit`). F59 and F62 stay open.
 
 **Follow-up 7 (same session)**: F58 on owner direction after a `/grill-me` interview (spec 072;
 inventory corrections committed first as `b119a3e`). `render/backend_metal.m` is the one

@@ -63,6 +63,9 @@ projection scaled by density.
 
 ## Deferred
 
-Metal (F58) and Vulkan (F59) reuse the batching and atlas design through the same ops table. The
+Amendment 2026-09-06 (owner decision during F59, spec 073): the decision 6 resident-memory ceiling is
+64 MiB above the SDL reference for Vulkan on Windows, where the NVIDIA driver's process baseline sits
+about 30 MiB above OpenGL's before the adapter draws anything; every other backend and platform keeps
+32 MiB. Metal (F58) and Vulkan (F59) reuse the batching and atlas design through the same ops table. The
 default flip on Windows waits for its evidence. Subpixel or gamma-aware text is not part of this
 feature.

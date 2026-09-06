@@ -42,7 +42,9 @@ ssh pr0fe@192.168.31.217 "type C:\Users\pr0fe\rengine-logs\render.log"
 
 Stages: `setup` (`npm ci`), `build` (configure and build), `render` (the render comparison spec),
 `suite <backend>` (the desktop suite on `RENGINE_RENDERER=<backend>`), `ctest`, `smoke` (all backends).
-Each stage appends `STAGE-EXIT=<code>` to its log; poll the log until that line appears. `setup`,
+Each stage writes a new `<stage>-<timestamp>.log` and records its path in `<stage>.latest`, then
+appends `STAGE-EXIT=<code>` when done; poll `.latest` and check that the file name changed before
+reading `STAGE-EXIT`, otherwise a previous run's exit line is mistaken for the new one. `setup`,
 `build` and `ctest` need no window and can run straight from SSH. The task is created without
 `/ru`, so it runs as the logged-on user in the console session (windows appear on the box's
 screen while a stage runs). From the nolf notes: killing the process with `taskkill` leaves the
