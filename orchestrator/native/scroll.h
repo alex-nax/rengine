@@ -2,7 +2,7 @@
 #define RENGINE_SCROLL_H
 #include "draw.h"
 typedef struct {
-  mu_Rect track, thumb; int total, page, value, maximum, grab; bool horizontal, dragging;
+  mu_Rect track, thumb; int total, page, value, maximum, grab; bool horizontal, dragging, hover;
 } ReScrollbar;
 int re_wheel_steps(float *remainder, const SDL_MouseWheelEvent *event, bool horizontal, float scale);
 void re_scrollbar_set(ReScrollbar *bar, mu_Rect track, int total, int page, int value, bool horizontal);

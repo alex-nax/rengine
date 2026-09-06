@@ -34,6 +34,7 @@ bool re_scrollbar_event(ReScrollbar *bar, const SDL_Event *event) {
     else bar->value = re_max(0, re_min(bar->maximum, bar->value + (position < thumb_start ? -bar->page : bar->page)));
     return true;
   }
+  if (event->type == SDL_MOUSEMOTION && !bar->dragging) bar->hover = re_inside(bar->track, event->motion.x, event->motion.y);
   if (event->type == SDL_MOUSEMOTION && bar->dragging) {
     int position = bar->horizontal ? event->motion.x : event->motion.y;
     int start = bar->horizontal ? bar->track.x : bar->track.y;
@@ -44,12 +45,19 @@ bool re_scrollbar_event(ReScrollbar *bar, const SDL_Event *event) {
   }
   return false;
 }
+/* The card's overlay bar: the track is transparent, the thumb is the only mark, and dragging takes
+ * the accent so the pointer target is unambiguous. */
 void re_scrollbar_draw(const ReScrollbar *bar, ReDraw *draw) {
   if (!bar->track.w || !bar->track.h) return;
-  re_draw_rect(draw, bar->track, RE_COLOR_SCROLL_TRACK);
+  mu_Color track = RE_COLOR_SCROLL_TRACK;
+  if (track.a) re_draw_rect(draw, bar->track, track);
   mu_Rect thumb = bar->thumb;
-  if (bar->horizontal) { thumb.y += RE_METRIC_SCROLLBAR_THUMB_INSET; thumb.h -= 2 * RE_METRIC_SCROLLBAR_THUMB_INSET; } else { thumb.x += RE_METRIC_SCROLLBAR_THUMB_INSET; thumb.w -= 2 * RE_METRIC_SCROLLBAR_THUMB_INSET; }
-  re_draw_rect(draw, thumb, bar->dragging ? RE_COLOR_SCROLL_THUMB_ACTIVE : RE_COLOR_SCROLL_THUMB);
+  int inset = RE_METRIC_DESIGN_SCROLL_INSET;
+  if (bar->horizontal) { thumb.y += inset; thumb.h -= 2 * inset; } else { thumb.x += inset; thumb.w -= 2 * inset; }
+  if (thumb.w <= 0 || thumb.h <= 0) return;
+  float radius = (float)(bar->horizontal ? thumb.h : thumb.w) / 2;
+  mu_Color fill = bar->dragging ? RE_COLOR_ACCENT : bar->hover ? RE_COLOR_SCROLL_THUMB_ACTIVE : RE_COLOR_SCROLL_THUMB;
+  re_draw_rrect(draw, thumb, fill, radius, RE_CORNERS_ALL);
 }
 void re_scrollbar_inspect(const ReScrollbar *bar, cJSON *array) {
   if (!bar->track.w || !bar->track.h) return;
