@@ -12,13 +12,21 @@ const url = new URL(context.url);
 if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !/^[0-9a-f]{64}$/.test(context.token) || typeof context.rootId !== 'string') {
   throw new Error('Invalid local workspace context.');
 }
-const call = async (route, data) => request(await resolveRuntime(context), route, data);
+/* The per-launch context carries the identity; a probe or an older launch has none and stays
+   anonymous rather than failing. The header is arbitration, never authentication (spec 095). */
+const agent = context.agent && typeof context.agent === 'object' && /^[0-9a-f-]{36}$/.test(context.agent.agentId ?? '')
+  ? { agentId: context.agent.agentId, label: String(context.agent.label ?? 'agent'), pid: context.agent.pid, startedAt: context.agent.startedAt,
+      ...(context.agent.sessionId ? { sessionId: context.agent.sessionId } : {}) }
+  : undefined;
+const identityHeaders = agent ? { 'X-Rengine-Agent': agent.agentId } : {};
+const call = async (route, data) => request(await resolveRuntime(context), route, data, identityHeaders);
 const scopedState = async () => {
   const state = await call('state');
   if (state.instance !== context.instance) throw new Error('The original sidecar instance is no longer available. Reopen this agent from the workspace.');
   const root = state.roots.find(root => root.id === context.rootId);
   if (!root) throw new Error('The bound project is no longer available.');
-  return { root, capabilities: state.capabilities ?? {}, sessions: state.sessions.filter(session => session.rootId === root.id), drafts: state.drafts.filter(draft => draft.rootId === root.id) };
+  return { root, capabilities: state.capabilities ?? {}, sessions: state.sessions.filter(session => session.rootId === root.id), drafts: state.drafts.filter(draft => draft.rootId === root.id),
+    ...(agent ? { agent } : {}) };
 };
 await scopedState();
 const server = new McpServer({ name: 'rengine-workspace', version: '1.0.0' }, {
@@ -39,7 +47,7 @@ const ownSession = (id, state) => {
   if (!session) throw new Error('Session is not bound to this project.');
   return session;
 };
-tool('workspace_info', 'Inspect the bound project, retained sessions and recovery draft metadata.', {}, true, async (_values, state) => state);
+tool('workspace_info', 'Inspect the bound project, retained sessions, recovery draft metadata and this launch\u2019s own agent identity (agentId, label, pid, startedAt) when it has one.', {}, true, async (_values, state) => state);
 tool('list_files', 'List files in a directory relative to the bound project.', { path: z.string().default(''), hidden: z.boolean().default(false) }, true,
   async ({ path, hidden }) => call(`tree?${new URLSearchParams({ rootId: context.rootId, path, hidden })}`));
 tool('read_file', 'Read a bounded UTF-8 excerpt from the bound project. Explicitly opt into a recovery draft.', {

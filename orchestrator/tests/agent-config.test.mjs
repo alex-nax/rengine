@@ -14,7 +14,8 @@ test('agent overlays preserve arguments and existing configuration without rewri
   const codex = await agentLaunch({ agent: 'codex', executable: '/installed/codex', args, contextFile, env: {} });
   assert.deepEqual(codex.args.slice(-2), args);
   assert.ok(codex.args.some(value => value.includes('mcp_servers.rengine_123456781234.command=')));
-  assert.ok(codex.args.some(value => value.includes(contextFile)));
+  assert.ok(codex.args.some(value => value.includes(codex.contextFile)), 'the worker is pointed at this launch\u2019s own context file');
+  assert.ok(!codex.args.some(value => value.includes(contextFile)), 'and no longer at the context file every agent on the root shares');
   const claude = await agentLaunch({ agent: 'claude', executable: '/installed/claude', args, contextFile, env: {} });
   const config = JSON.parse(await readFile(claude.args[1], 'utf8'));
   assert.equal(Object.values(config.mcpServers)[0].type, 'stdio');
