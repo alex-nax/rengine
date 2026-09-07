@@ -1,5 +1,38 @@
 # Progress Log
 
+## Session 46 (macos) — 2026-09-07 — Per-launch agent identity and binding by discovery (F90 stage 1)
+
+Stage 1 of spec 095, on `feat/agent-identity`. `agentLaunch()` now writes `context.json` into the
+per-launch directory it already minted — the root context plus `agent: { agentId, label, pid,
+startedAt }`, with `sessionId` when the launcher's own pid or its parent is a listed agent session —
+and every MCP configuration points the facade at that file rather than the `integrations/<rootId>.json`
+every agent on the root shares. The tool worker reads `context.agent`, sends `X-Rengine-Agent` on
+every call, and reports the identity from `workspace_info`; a context without one (probeTools, an
+older launch) stays anonymous and sends nothing. `request()` carries only `X-Rengine-*` names with
+printable values, laid down before Authorization so a caller cannot displace it. Nothing enforces the
+header — that is stage 2.
+
+New `orchestrator/agents/bind.mjs` (npm script `bind`) binds an agent the workspace never spawned: it
+scans the sidecar descriptors under the state directory, asks each live instance for its roots, picks
+the one serving `--project`, mints the same identity a pane-spawned agent gets, and prints the
+configuration path with the flag that consumes it. Two instances claiming the directory is a refusal
+naming both; none is a refusal listing what was scanned. No environment variable is read to find the
+workspace. Runbook section 8b covers it. No host change, no native change.
+
+Two spec facts corrected from the code. `scripts/agent.sh` **execs** the launcher, so on POSIX the
+launcher's own pid *is* the pty session pid the host lists, not its parent's as the spec said. And the
+state directory to scan is the base as well as its children, because `orchestrator/launch.mjs`
+defaults `--state` to `~/.local/state/rengine` itself while a consumer's `editor.sh` nests one per
+checkout.
+
+`orchestrator/tests/agent-identity.test.mjs`, three tests, and nine sabotages recorded in
+`docs/evidence/agent-identity-2026-09-07.md` — including one where the earlier control masked the
+assertion under test, and one that had to be narrowed twice before it tripped the assertion it
+claimed. `agent-config.test.mjs` had asserted the codex overlay named the shared root context, which
+is exactly the behaviour this stage removes; it now asserts the opposite. `npm test` 87/87.
+
+F90 stays `passes: false`: eight of its nine criteria are stages 2–4.
+
 ## Session 45 (macos) — 2026-09-07 — The project token, recorded (F90, spec 095)
 
 Owner direction, given directly in the vtmb-vr workspace after three agents had acted on one

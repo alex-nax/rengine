@@ -88,13 +88,20 @@ workspace worker reads it. A request without the header is the desktop's. The ho
 headers, so this costs no host change.
 
 When an agent is spawned by the workspace, `launch.mjs` also records the pty session it runs under
-where it can (POSIX: the launcher's parent is the session's shell, whose pid the host lists), so the
-desktop can show *claude · vtmb-vr* rather than a UUID. Where it cannot, the label and pid stand.
+where it can, so the desktop can show *claude · vtmb-vr* rather than a UUID. This spec first said the
+launcher's *parent* is the session's shell whose pid the host lists; that is wrong. `sessions.mjs`
+spawns `bash scripts/agent.sh …` and `launch_agent()` ends in `exec node …/launch.mjs`, so the
+launcher replaces that shell and its own pid **is** the pid the host lists. The implementation matches
+either the launcher's pid or its parent's, and records `sessionId` when one of them is a listed agent
+session. Where neither matches, the label and pid stand.
 
-**Binding from outside.** `node orchestrator/agents/bind.mjs --project DIR [--agent NAME]` walks the
-sidecar descriptors under the state directory, asks each live instance for its roots, picks the one
-whose root is `DIR`, mints an identity, writes the per-launch context and MCP configuration, and
-prints the configuration path and the CLI flag that consumes it. A consumer's launcher (vtmb-vr's
+**Binding from outside.** `node orchestrator/agents/bind.mjs --project DIR [--agent NAME] [--state DIR]`
+walks the sidecar descriptors under the state directory, asks each live instance for its roots, picks
+the one whose root is `DIR`, mints an identity, writes the per-launch context and MCP configuration,
+and prints the configuration path and the CLI flag that consumes it. Without `--state` it scans both
+the base directory and each of its children: a consumer's `editor.sh` nests one state directory per
+checkout at `<base>/<name>-<cksum>`, while this checkout's own default state directory *is* the base,
+so `main.mjs` writes `sidecar.json` straight into it. A consumer's launcher (vtmb-vr's
 `editor.sh`, nolf-improved's) wraps that as `--bind`. Two instances claiming the same root is a
 refusal that names both. This is the mechanism the owner asked for when a session that could not
 press a button asked the owner to press it.
