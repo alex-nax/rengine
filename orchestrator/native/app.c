@@ -1,16 +1,19 @@
 #include "app.h"
 #include "editor.h"
+#include "tracker.h"
 
 /* Operations at or above OP_BYTES belong to a format view and carry its mode in `revision`;
  * everything else must sort below it, or the request path reads a format that is not there. */
 enum { OP_STATE = 1, OP_LOAD, OP_SAVE, OP_DRAFT, OP_DISCARD, OP_CREATE, OP_ROOT, OP_GENERIC, OP_LAYOUT, OP_EXPAND,
-       OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_SIGNIN, OP_DIAGNOSTICS, OP_BYTES, OP_PREVIEW, OP_ENTRY };
+       OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_SIGNIN, OP_DIAGNOSTICS, OP_AGENTS_MENU, OP_AGENT_SPAWN, OP_BYTES, OP_PREVIEW, OP_ENTRY };
 /* Enforced rather than remembered. A merge that appends a new operation after OP_BYTES makes the
  * request path read a format a tracker or agent tab does not have, and the symptom is a request that
  * never completes rather than an error where the mistake was made. */
 typedef char re_signin_sorts_below_bytes[OP_SIGNIN < OP_BYTES ? 1 : -1];
 typedef char re_expand_sorts_below_bytes[OP_EXPAND < OP_BYTES ? 1 : -1];
 typedef char re_diagnostics_sorts_below_bytes[OP_DIAGNOSTICS < OP_BYTES ? 1 : -1];
+typedef char re_agents_menu_sorts_below_bytes[OP_AGENTS_MENU < OP_BYTES ? 1 : -1];
+typedef char re_agent_spawn_sorts_below_bytes[OP_AGENT_SPAWN < OP_BYTES ? 1 : -1];
 static int request_within(ReApp *a, int operation, int tab, const char *route, const cJSON *body, long timeout) {
   char scoped[160]; const char *window = getenv("RENGINE_WINDOW_ID");
   if (window && *window && (!strcmp(route, "state") || !strcmp(route, "layout"))) {
@@ -226,6 +229,13 @@ static void tracker_request(ReApp *a, int tab, bool refresh) {
   char route[2300]; snprintf(route, sizeof(route), "%s%s", base, refresh ? "&refresh=1" : "");
   free(base);
   request_within(a, OP_LOAD, tab, route, NULL, RE_DEVICES_TIMEOUT_MS);
+  /* The per-task controls read the project's agent menu (spec 103 decision 5). It is fetched with
+     the list and on the same gesture, never on a timer, and its absence never takes the list
+     down: a worker that does not serve the route yet leaves the rows exactly as they are. */
+  if (!re_tracker_menu_served(a, tab)) return;
+  char *agents = re_net_query("agents-menu", t->root, "");
+  if (agents) request(a, OP_AGENTS_MENU, tab, agents, NULL);
+  free(agents);
 }
 void re_app_tracker_refresh(ReApp *a, int tab) { tracker_request(a, tab, true); }
 /* Sign-in is a round trip the desktop cannot shortcut: the service mints the challenge and owns the
@@ -235,6 +245,9 @@ void re_app_tracker_signin(ReApp *a, int tab) {
   request(a, OP_SIGNIN, tab, "tracker/signin", j); cJSON_Delete(j);
   re_copy(a->status, sizeof(a->status), "Opening the browser to sign in…");
 }
+/* A spawn carries its own operation so its answer — a started pane, or a refusal naming a whole
+   prerequisite — reaches the pane that asked rather than the generic status line (spec 103). */
+void re_app_agent_spawn(ReApp *a, int tab, const cJSON *body) { request(a, OP_AGENT_SPAWN, tab, "agent-spawn", body); }
 int re_app_tracker(ReApp *a, const char *root) {
   if (!*root) return -1;
   return re_app_tab(a, RE_TRACKER, root, "", "", "Tasks");
@@ -523,6 +536,8 @@ static void response(ReApp *a, ReMessage *m) {
       cJSON *settled = cJSON_CreateObject(); cJSON_AddStringToObject(settled, "rootId", p.root); cJSON_AddBoolToObject(settled, "declared", true);
       cJSON_AddStringToObject(settled, "error", error); cJSON_AddArrayToObject(settled, "formats"); formats_loaded(a, settled); cJSON_Delete(settled); cJSON_Delete(j); return;
     }
+    if (p.operation == OP_AGENTS_MENU && p.tab >= 0) { re_tracker_menu_failed(a, p.tab, error); cJSON_Delete(j); return; }
+    if (p.operation == OP_AGENT_SPAWN && p.tab >= 0) { re_tracker_spawn_failed(a, p.tab, error); cJSON_Delete(j); return; }
     if (!m->status && p.timeout > 0) { snprintf(budget, sizeof(budget), "%s · no reply within %ld ms (declared timeoutMs %ld plus transport)", error, p.timeout, p.timeout - 2000L); error = budget; }
     re_copy(a->status, sizeof(a->status), error);
     if (p.operation == OP_ENTRY && t && t->format) re_format_entry_failed(t->format, error);
@@ -535,6 +550,8 @@ static void response(ReApp *a, ReMessage *m) {
     case OP_STATE: state_loaded(a, j); break;
     case OP_FORMATS: formats_loaded(a, j); break;
     case OP_DASHBOARD: dashboard_probed(a, j); break;
+    case OP_AGENTS_MENU: re_tracker_menu(a, p.tab, j); break;
+    case OP_AGENT_SPAWN: re_tracker_spawned(a, p.tab, j); break;
     case OP_CAPTURE: snprintf(a->status, sizeof(a->status), "Captured %s (%d bytes, sha256 %.12s…)", re_string(j, "path"), re_number(j, "size"), re_string(j, "sha256")); t->error[0] = 0; break;
     case OP_EXPAND: {
       ReExpansion *e = p.slot >= 0 && p.slot < RE_TREE_EXPANSIONS ? &a->expansions[p.slot] : NULL;
@@ -784,6 +801,7 @@ cJSON *re_app_inspect(ReApp *a) {
   cJSON_AddStringToObject(j, "primaryRoot", a->primary_root);
   cJSON_AddNumberToObject(j, "overlay", a->overlay);
   re_token_inspect(a, j);
+  re_tracker_inspect(a, j);
   cJSON *tabs = cJSON_GetObjectItemCaseSensitive(j, "tabs");
   for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].used) {
     cJSON *tab = cJSON_GetArrayItem(tabs, i); ReTab *t = &a->tabs[i];

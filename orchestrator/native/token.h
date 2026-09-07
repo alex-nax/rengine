@@ -37,6 +37,10 @@ bool re_token_holder_alive(const struct ReApp *app);
 /* `reject` | `grant` | `revoke` | `free`, as the pinned `token-action` frame. The popover and the
    Sessions tab send through this one function, so there is no second path. */
 void re_token_action(struct ReApp *app, const char *action);
+/* The Tasks pane's "Hold token for that agent" (spec 103 decision 5): the same sender, naming the
+   project whose task is being worked and the identity to hand the token to. A grant answers a
+   contest that agent had to open first; this does not need one. */
+bool re_token_assign(struct ReApp *app, const char *root, const char *agentId);
 void re_token_segment(const struct ReApp *app, char *out, size_t size);   /* the segment's text */
 mu_Rect re_token_rect(const struct ReApp *app, ReDraw *draw);  /* zero while no frame has arrived */
 void re_token_status(struct ReApp *app, ReDraw *draw);         /* draws the segment */

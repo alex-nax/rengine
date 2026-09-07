@@ -32,13 +32,14 @@
       "id": "never-gated-gestures",
       "kind": "constraint",
       "anchor": {
-        "start": 148,
-        "end": 148,
-        "snippet": "void re_token_action(ReApp *a, const char *action) {"
+        "start": 152,
+        "end": 152,
+        "snippet": "static bool send_action(ReApp *a, const char *root, const char *action, const char *agent) {"
       },
-      "note": "These four are the person's own acts and are never gated on the token (spec 095 decision 6), so nothing here consults the holder before sending. contestId rides only on reject and grant, which answer a contest; revoke and free are about a held token and carry none, and adding it to them would name a contest they are not answering. The reason is the person's own text and is sent only with reject, only when non-empty: a reason invented by the chrome would be worse than none, because the contester reads it as the holder's.",
+      "note": "These five are the person's own acts and are never gated on the token (spec 095 decision 6), so nothing here consults the holder before sending. contestId rides only on reject and grant, which answer a contest; revoke and free are about a held token and carry none, and adding it to them would name a contest they are not answering. assign (spec 103, the Tasks pane's Hold token) carries the chosen agentId and nothing else, and names the Tasks tab's root rather than the window's. The reason is the person's own text and is sent only with reject, only when non-empty: a reason invented by the chrome would be worse than none, because the contester reads it as the holder's.",
       "refs": [
-        "docs/specs/095-project-token.md"
+        "docs/specs/095-project-token.md",
+        "docs/specs/103-task-driven-agents.md"
       ]
     },
     {
@@ -54,11 +55,26 @@
         "docs/specs/103-task-driven-agents.md",
         "docs/evidence/sessions-token-controls-2026-09-07.md"
       ]
+    },
+    {
+      "id": "one-token-action-sender",
+      "kind": "rationale",
+      "anchor": {
+        "start": 152,
+        "end": 174,
+        "symbol": "send_action",
+        "snippet": "static bool send_action(ReApp *a, const char *root, const char *action, const char *agent) {"
+      },
+      "note": "Every token-action frame the desktop puts on the wire is built here: the popover's four gestures, the Sessions tab's Revoke and Free, and the Tasks pane's assign (spec 103 decision 5). The assign differs from the others in two ways that are why it takes parameters rather than reading the app: it names its own root, because the project whose task is being worked need not be the window's primary one, and it names the identity to hand the token to. It is refused locally without one -- the ledger refuses an assign with no agentId by name, and a frame that cannot succeed is not worth sending. A grant would not do instead: a grant answers a contest the agent had to open first, and this is the human handing the token over unasked.",
+      "refs": [
+        "docs/specs/103-task-driven-agents.md",
+        "orchestrator/tests/native-tasks-controls.spec.mjs"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/token.c",
-    "sha256": "f9d182cfd3eb3f5d7a8ecc762c5b9a823b33d09c786a5821cea8bfaa1a165047",
+    "sha256": "60587df500a5c0e2b7342714e53d9b90728683980bdbe17f44dbf8c167df9a01",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

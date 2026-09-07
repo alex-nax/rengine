@@ -87,6 +87,46 @@ paragraph above, each because the code says otherwise:
 dashboard already has; availability follows the tracker's provider (`local` writes; remote rows offer
 Spawn only). A task that agents are working shows their labels (`claude 5b8d47c2`).
 
+*What shipped, 2026-09-07* (`orchestrator/native/tracker.{c,h}`, `app.{c,h}`, `token.{c,h}`; evidence
+with the sabotage table: `docs/evidence/tasks-pane-controls-2026-09-07.md`). Corrections against the
+paragraph above, each because the code says otherwise:
+
+- **The chooser is inline, not a popover.** The pane is already a scrolled list, an overlay would
+  cost one of the 32 root containers that fifteen leaf panes with a surface open already fill — the
+  same budget that keeps the token segment out of microui — and a chooser that scrolls with its row
+  cannot end up describing a different task than the one under it. Spawn ▾ opens *Agent*, choosing an
+  agent opens *Model* with the menu's declared default preselected, and pressing a model sends.
+- **There is no live agent list "the dashboard already has".** One route answers both:
+  `GET /api/agents-menu` carries `agents` and `live`, fetched with the tracker refresh on the same
+  gesture (`OP_AGENTS_MENU`, below `OP_BYTES` as the static assertions require) and never on a timer.
+  Its absence never takes the list down: a workspace that serves no menu leaves the rows alone and
+  says so in the chooser.
+- **Availability follows the workspace's capabilities as well as the provider.** `agentsMenu` decides
+  whether the menu is fetched at all; `agentSpawn` whether a spawn is sent; `taskWrites` gates
+  **Decompose** in addition, because a decomposition's only legitimate output is `task_add` calls and
+  a worker that cannot write the inventory has nowhere to put the subtasks it would produce. Each is
+  refused by name in a note row of the pane rather than discovered as a failed request.
+- **A spawn's answer belongs to the pane**, so it carries its own operation (`OP_AGENT_SPAWN`). The
+  worker's refusals name a whole prerequisite — a session host predating task-driven panes — which a
+  status line truncates, and its `detail` (started, retained, could not be shown; do not spawn it
+  again) must not read as an error to retry.
+- **"Hold token ▾ (live agents)" needs an identity, and not every live agent has one.** The ledger
+  names a holder by `agentId`, which for a workspace-launched pane is its conversation; a CLI that
+  names its own carries none, so that row is disabled with the reason instead of sending an assign
+  the ledger would refuse. The frame leaves through the desktop's one token-action sender
+  (`re_token_assign`), as the Sessions tab's own correction above requires.
+- **"Remote rows offer Spawn only" is literal**: no Decompose *and* no Hold token. Decompose writes
+  rows into an inventory that provider owns, and the token names agents of a workspace that row is
+  not in.
+- **The row shows the task's criteria too**, where the agent is chosen — rows carry `criteria`, and
+  the prompt the spawned agent gets is built from them, so the pane shows what it is about to send.
+- **No new metric.** The cluster reuses the tracker's existing widths, so no size literal enters a
+  native source. `re_app_inspect` gains `tracker` — the menu this window holds, the open chooser
+  (`taskKey`, `agent`, `model`, `kind`) and the last note — and the controls report their rectangles
+  as `tracker-spawn`, `tracker-decompose`, `tracker-hold`, `tracker-agent`, `tracker-model`,
+  `tracker-live`, `tracker-criterion`, `tracker-working` and `tracker-note`, keyed by task or by the
+  thing chosen, the way every other `tracker-*` control is.
+
 **Workspace worker.** `POST /api/task` (`add` | `update` | `decompose`) — token-gated, one at a time
 per root, running the declared `tracker.write` argv with the row as `${json}` on the project's own
 tool; `POST /api/agent-spawn` — starts an agent pane through the host's existing terminal route with

@@ -145,16 +145,22 @@ void re_token_status(ReApp *a, ReDraw *draw) {
  * whatever the ledger says about agents. The answer is the next `token` frame, or an `error`.
  * The popover below and the Sessions tab's own Revoke and Free (spec 103 decision 1) both send
  * here, so the two surfaces cannot drift into two contracts. */
-void re_token_action(ReApp *a, const char *action) {
-  const char *root = primary(a);
-  if (!*root) { re_copy(a->status, sizeof(a->status), "Add or select a project first."); return; }
+/* One sender for every token-action frame the desktop puts on the wire, so the popover's four
+   gestures and the Tasks pane's `assign` (spec 103 decision 5) cannot drift apart in what they
+   send. An assign names its own root — the project whose task is being worked, which need not be
+   the window's primary one — and the identity to hand the token to. */
+static bool send_action(ReApp *a, const char *root, const char *action, const char *agent) {
+  if (!*root) { re_copy(a->status, sizeof(a->status), "Add or select a project first."); return false; }
   bool contest = !strcmp(action, "reject") || !strcmp(action, "grant");
-  if (contest && !*a->token.contest_id) { re_copy(a->status, sizeof(a->status), "No contest is open on this project's token."); return; }
+  bool assign = !strcmp(action, "assign");
+  if (contest && !*a->token.contest_id) { re_copy(a->status, sizeof(a->status), "No contest is open on this project's token."); return false; }
+  if (assign && (!agent || !*agent)) { re_copy(a->status, sizeof(a->status), "Name the agent to give this project's token to."); return false; }
   cJSON *j = cJSON_CreateObject();
   cJSON_AddStringToObject(j, "type", "token-action");
   cJSON_AddStringToObject(j, "rootId", root);
   cJSON_AddStringToObject(j, "action", action);
   if (contest) cJSON_AddStringToObject(j, "contestId", a->token.contest_id);
+  if (assign) cJSON_AddStringToObject(j, "agentId", agent);
   if (!strcmp(action, "reject") && *a->token.reason) cJSON_AddStringToObject(j, "reason", a->token.reason);
   char *text = cJSON_PrintUnformatted(j);
   bool sent = text && re_socket_send(a->events, text);
@@ -162,7 +168,10 @@ void re_token_action(ReApp *a, const char *action) {
   if (sent) snprintf(a->status, sizeof(a->status), "Asked the workspace to %s the project token; the ledger answers with the next token frame.", action);
   else re_copy(a->status, sizeof(a->status), "Session connection is down; the token action was not sent.");
   if (sent && !strcmp(action, "reject")) a->token.reason[0] = 0;
+  return sent;
 }
+void re_token_action(ReApp *a, const char *action) { send_action(a, primary(a), action, NULL); }
+bool re_token_assign(ReApp *a, const char *root, const char *agent) { return send_action(a, root, "assign", agent); }
 
 void re_token_ui(ReApp *a, mu_Context *ui) {
   ReProjectToken *t = &a->token;
