@@ -102,7 +102,8 @@ flowchart TD
   F77["F77: blocked"]
   F71 --> F77
   F78["F78: blocked"]
-  F71 --> F78
+  F63 --> F78
+  F60 --> F78
   F79["F79: ready"]
   F60 --> F79
 ```

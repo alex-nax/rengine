@@ -842,7 +842,8 @@
       ],
       "passes": false,
       "dependencies": [
-        71
+        63,
+        60
       ],
       "owner_workspace": "rengine",
       "deliverable": "docs/specs/083-task-tracking.md, contracts/project-v1.schema.json, orchestrator/server/tracker*.mjs, orchestrator/native/tracker.c, and their tests",
