@@ -106,6 +106,7 @@ test('a Linear team reaches the neutral row, and its states keep their own names
     assert.equal(seen.length, 1, 'one request');
     assert.equal(seen[0].auth, 'lin_api_fixture', 'a personal key is sent bare, with no Bearer prefix');
     assert.equal(seen[0].body.variables.team, 'KOH');
+    assert.equal(seen[0].body.variables.project, null, 'a team without a project filter passes null, not a missing variable');
 
     const [first, second] = result.rows;
     assert.equal(first.key, 'KOH-12');
@@ -123,6 +124,31 @@ test('a Linear team reaches the neutral row, and its states keep their own names
     assert.equal(seen.length, 1, 'the cached list costs no request');
     await projectTracker(root, await readDeclaration(root), { stateDirectory: state, fetch: fetchImpl, refresh: true });
     assert.equal(seen.length, 2, 'an explicit refresh does spend one');
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test('a Linear tracker can narrow a team to one project', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-tracker-project-'));
+  forget();
+  try {
+    const root = await project(directory, 'kohai', base({ provider: 'linear', team: 'BAS', project: 'Kohai' }));
+    const declared = await readDeclaration(root);
+    assert.equal(declared.trackerError, undefined, declared.trackerError);
+    assert.equal(declared.tracker.project, 'Kohai');
+    const state = path.join(directory, 'state');
+    await mkdir(path.join(state, 'trackers'), { recursive: true });
+    await writeFile(path.join(state, 'trackers', 'kohai.token'), 'lin_api_fixture');
+    let variables = null;
+    await projectTracker(root, declared, { stateDirectory: state, fetch: async (url, options) => {
+      variables = JSON.parse(options.body).variables;
+      return { ok: true, status: 200, json: async () => ({ data: { issues: { nodes: [] } } }) };
+    } });
+    assert.equal(variables.team, 'BAS');
+    assert.equal(variables.project, 'Kohai', 'the project reaches the query, or the view shows the whole team');
+
+    // The filter belongs to Linear; naming it elsewhere is refused rather than ignored.
+    const wrong = await project(directory, 'wrong', base({ provider: 'github', repository: 'o/n', project: 'Kohai' }));
+    assert.match((await readDeclaration(wrong)).trackerError ?? '', /project belongs to provider linear/);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 

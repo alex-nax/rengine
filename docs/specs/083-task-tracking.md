@@ -149,6 +149,12 @@ A refresh that fails keeps the token it had, because Linear allows the original 
 replayed for **thirty minutes** and a cleared grant could not use that window. Signing out revokes at
 the provider and clears the file.
 
+A Linear tracker may narrow a team to one project by name, which matters because a team holds
+everything it has ever done and a person opening one project wants that project. The filter is
+null-safe, so one query document serves both shapes. The credential key and that filter are
+deliberately different fields: naming both `project` made the filter silently take the token file's
+name, caught by asserting the variable that actually reaches the query rather than the result.
+
 A pasted personal key still works and is never refreshed, so nothing that worked before stops
 working. One-time setup: create an application, register the listed redirect URIs, and put its client
 id in `trackers/oauth.json` beside the workspace state. The secret is neither needed nor stored.
