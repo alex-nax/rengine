@@ -12,7 +12,7 @@ import { probeTools } from './tools.mjs';
 import { windowStore, nativeControl, inspectWindow } from './windows.mjs';
 
 const defaultWorker = fileURLToPath(new URL('./worker.mjs', import.meta.url));
-async function startWorker(host, filename) {
+async function startWorker(host, filename, directory) {
   const child = fork(filename, [], { stdio: ['ignore', 'ignore', 'pipe', 'ipc'], windowsHide: true });
   let diagnostics = ''; child.stderr.on('data', data => { diagnostics = (diagnostics + data).slice(-8000); });
   try {
@@ -23,7 +23,7 @@ async function startWorker(host, filename) {
       const exited = () => bad(new Error(`Workspace worker exited during startup. ${diagnostics}`));
       const message = data => { if (data.type === 'ready') { cleanup(); resolve(data); } else if (data.type === 'failed') bad(new Error(data.error)); };
       child.once('error', bad); child.once('exit', exited); child.on('message', message);
-      child.send({ host });
+      child.send({ host, directory });
     });
     checkConnection(ready);
     const state = await call(ready, 'state');
@@ -39,7 +39,7 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
   const hostState = async () => { const state = await call(host, 'state'); if (state.instance !== host.instance) fail('Original session host is no longer available.'); return state; };
   await hostState(); await mkdir(directory, { recursive: true, mode: 0o700 });
   const windows = await windowStore(directory);
-  let current = await startWorker(host, workerFile), url, active, activeFlight, closing = false, connectorGeneration = 1;
+  let current = await startWorker(host, workerFile, directory), url, active, activeFlight, closing = false, connectorGeneration = 1;
   let recovery = { state: 'idle' }, recoveryFlight, automaticRecoveryUsed = false;
   const retired = new Set(), desktops = new Map(), opens = new Map(), preserved = new Set(), jobs = [];
   const token = randomBytes(32).toString('hex');
@@ -54,7 +54,7 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
     automaticRecoveryUsed = true; recovery = { state: 'restarting', previousPid: current.pid };
     recoveryFlight = (async () => {
       try {
-        const next = await startWorker(host, workerFile), old = current;
+        const next = await startWorker(host, workerFile, directory), old = current;
         if (closing) { next.child.kill(); return; }
         current = next; watch(next); retired.add(old); retire(old);
         recovery = { state: 'recovered', previousPid: old.pid, pid: next.pid };
@@ -142,7 +142,7 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
     let candidate, replacement, record = desktop && desktops.get(desktop.owner), previous, previousWorker, startedDesktop = false;
     const previousConnector = connectorGeneration;
     try {
-      if (job.layers.includes('workspace')) candidate = await startWorker(host, workerFile);
+      if (job.layers.includes('workspace')) candidate = await startWorker(host, workerFile, directory);
       if (job.layers.includes('desktop')) replacement = await buildDesktop(path.join(directory, 'versions', job.id));
       if (job.layers.includes('connector')) await probeTools(host, directory, job.rootId, toolWorkerFile);
       if (closing) throw new Error('Supervisor is closing.');
