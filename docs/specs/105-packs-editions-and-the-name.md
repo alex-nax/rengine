@@ -55,6 +55,28 @@ reopening the window would break the decision. Plugin access to the store, to se
 host connection is therefore outside D38's grant, and a later spec that wants to widen it has to say
 so against this paragraph.
 
+## A clause of D38 that cannot be implemented as written
+
+Found by the implementation, recorded here rather than quietly narrowed. D38 says a plugin
+"registers tabs **and controls** through the owned control layer (D33), never through pristine
+microui's context". Those two halves conflict: every one of the fourteen owned controls in
+`orchestrator/native/ui/ui.h` takes `mu_Context *` as its first parameter, by D33's own design. A
+plugin can therefore register a **tab** — that goes through the app's own tab model and needs no
+context — but cannot call a control without being handed the very thing the clause keeps private.
+
+ABI v1 ships tabs and drawing, and no controls. Widening it needs a control handle that is not
+`mu_Context`, which is a later ABI version's design; `docs/specs/106-plugin-abi.md` decision 8 holds
+the detail. The decision is not wrong about the boundary — the owned layer *is* the right door, and
+microui's context *should* stay private — it is under-specified about what a plugin holds when it
+walks through it.
+
+## A constraint the plugin ABI creates for the design lane
+
+`render/icons.h` is included by the plugin header, so `RE_ICON_*` numbering is now frozen for every
+plugin compiled against ABI 1. `design/icons.json` must be **append-only** from here: reordering or
+removing an icon silently changes what an already-built plugin draws. Recorded in `known-issues.md`
+because it binds a lane that has no reason to read this spec.
+
 ## Open questions, deliberately not answered here
 
 1. **The plugin ABI's own versioning.** The draw list is versioned; the registration surface a plugin
