@@ -49,12 +49,26 @@
         "end": 195,
         "snippet": "async recordConversation(rootId, { conversation, agent } = {}) {"
       },
-      "note": "This exists because spec 096 shipped without it and was shaped for the wrong event. Session records live in the host's memory (Sessions keeps a Map), so a conversation recorded there dies with the host — and a host restart is precisely what a person reaches for a resume after. Persisting here, beside roots and drafts, is what makes resuming mean anything across the only event that matters. The bound is not decoration: this file is rewritten whole on every persist, so an unbounded per-root list would grow the write. Re-recording touches and re-fronts an existing row rather than appending, so a conversation resumed daily stays one row. See docs/specs/097-agent-conversation-persistence.md."
+      "note": "This exists because spec 096 shipped without it and was shaped for the wrong event. Session records live in the host's memory (Sessions keeps a Map), so a conversation recorded there dies with the host \u2014 and a host restart is precisely what a person reaches for a resume after. Persisting here, beside roots and drafts, is what makes resuming mean anything across the only event that matters. The bound is not decoration: this file is rewritten whole on every persist, so an unbounded per-root list would grow the write. Re-recording touches and re-fronts an existing row rather than appending, so a conversation resumed daily stays one row. See docs/specs/097-agent-conversation-persistence.md."
+    },
+    {
+      "id": "per-root-preferences-merge",
+      "kind": "constraint",
+      "anchor": {
+        "start": 244,
+        "end": 244,
+        "symbol": "preferences",
+        "snippet": "...(themes !== undefined ? { themes: { ...this.state.preferences.themes, ...themes } } : {}),"
+      },
+      "note": "`themes` and `recording` are merged into what is stored rather than replacing it, and that is load-bearing rather than stylistic. The desktop sends only the key it just changed \u2014 one root's theme, one recording bound \u2014 because it has no reason to send the rest, and it may not even know the rest: a second window can hold a project this one never opened. Replacing the map (`{ themes }`) would silently drop every other project's remembered theme on the next change, which reads as \"my theme keeps resetting\" rather than as an error. The 64-entry cap exists for the reason the conversation bound does: this file is rewritten whole on every persist, so an unbounded map grows every write. Scalar preferences are not merged because they have no per-root structure to lose.",
+      "refs": [
+        "docs/specs/080-desktop-settings.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/server/store.mjs",
-    "sha256": "2fa19ae04df083856a0262999bd9f2d4ccbb10ceac1a10ed52f13855b55a7357",
+    "sha256": "b59558a436d108d1ddacff9f7a391f59dd1d88f9f40c5f22db9b99c42c592147",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

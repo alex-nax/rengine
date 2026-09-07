@@ -1,5 +1,32 @@
 # Progress Log
 
+## Session 53 (macos) — 2026-09-07 — The capability a merge dropped, and the test that would have caught it
+
+A merge into `main` took the other side of the capabilities map and removed `tracker: 1` from
+`orchestrator/server/main.mjs`. The routes survived — `/api/tracker`, `/tracker/signin`,
+`/tracker/signout` all still answered — so nothing failed loudly. What broke was the only thing that
+tells a client the route exists, which is precisely the signal the desktop reads before offering the
+Tasks tab against a workspace it did not start.
+
+Restored the flag, then wrote the regression that had been missing: test 7 in
+`orchestrator/tests/tracker.test.mjs` asserts the capability and the route **in the same test**, on
+the same live server. A test that checked only the route would have passed throughout the outage;
+one that checked only the flag could pass on a workspace whose route 404s. Verified by sabotage —
+removing `tracker: 1` again fails test 7 by name and nothing else — then restored. 15/15 across
+`tracker.test.mjs` and `tracker-auth.test.mjs`, `./init.sh` and `features.py validate` clean.
+
+**Two sidecar notes, both about traps rather than mechanics.** `main.mjs#tracker-is-host-only`
+records why this route in particular cannot arrive by a layered update: an update replaces the
+worker, and this file is the host. That is the KI-043 shape and it is what the owner hit — a
+development workspace whose host predates the feature answers 404 while the desktop beside it draws
+the button. `store.mjs#per-root-preferences-merge` records why `themes` and `recording` are merged
+into stored preferences rather than replacing them: the desktop sends only the key it changed, so a
+replace would silently drop every other project's remembered theme, which surfaces as "my theme
+keeps resetting" rather than as an error.
+
+Both sidecars reviewed and stamped; `check` clean for both. Remaining stale stamps in the tree
+belong to other lanes' files.
+
 ## Session 52 (macos) — 2026-09-07 — The conversation IS the identity: three lanes onto one uuid
 
 Three lanes had been building the same thing from three ends and had to become one branch,

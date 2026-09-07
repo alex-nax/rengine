@@ -27,11 +27,25 @@
       "refs": [
         "docs/specs/074-project-format-registry.md"
       ]
+    },
+    {
+      "id": "tracker-is-host-only",
+      "kind": "constraint",
+      "anchor": {
+        "start": 69,
+        "end": 72,
+        "snippet": "case '/api/tracker': { const selected = store.root(query.get('rootId'));"
+      },
+      "note": "The tracker routes are served here and nowhere else, which means a workspace whose session host predates them cannot get them by a layered update: an update replaces the worker, and the host is the one component it cannot replace. That is the KI-043 shape, and it bit the owner \u2014 their development workspace, running a host from the previous day, answered 404 for /api/tracker while the desktop binary beside it had the button. The durable fix is the one games took: serve the read from the worker and leave only what genuinely needs the host's own state here. Until that happens, a new route added in this file reaches a running workspace only when its host is replaced.",
+      "refs": [
+        "docs/specs/083-task-tracking.md",
+        "known-issues.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/server/main.mjs",
-    "sha256": "4647f39c9b3f1c937008636a5317449abce5bb358196c2665c402f7c268a00da",
+    "sha256": "940ee1653c6c33e1a00f462e592b0dd19bc00a21258b479f6fda74e7fba67054",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }
