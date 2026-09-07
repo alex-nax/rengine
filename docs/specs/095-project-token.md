@@ -41,13 +41,13 @@ lifecycle events that the holder's monitor watches. It does **not** add an acces
 | --- | --- | --- |
 | 1 | The instance issues **one token per project root**. It is held by at most one agent identity at a time, or by nobody. | Owner |
 | 2 | Any agent bound to that root may **contest**. A contest opens a window; if it is not rejected before the window closes, the token **transfers to the contester** at the deadline and the transfer is a feed frame. There is no separate claim call to forget. | Owner (contest, window, contester wins on silence); automatic transfer at the deadline recommended |
-| 3 | A contest may be **rejected by the holder** — the notification lands on its monitor for exactly this — **or by the person at the desktop**. The person may also grant at once, revoke, or free the token. The owner's sentence names "owner" for the rejecting party; this reads it as the token owner with the human always able to override, which is a superset of both readings. | Owner's wording; the superset is recommended and the owner has not yet ruled on it |
+| 3 | A contest may be **rejected by the holder** — the notification lands on its monitor for exactly this — **or by the person at the desktop**. The person may also grant at once, revoke, or free the token. The holder's reject is a **liveness proof**: a holder that can answer a contest keeps the token, one that cannot is by definition not holding it, so the token is always held by an agent that is actually there. | Owner (2026-09-07): "Yes token holder may reject - it's the mechanism that ensures that token will be held by at least one agent." |
 | 4 | The **extended set** is every tool that starts, stops, replaces or captures something the project owns: `launch_game`, `stop_session`, `open_script`, `dashboard_capture`, `reload_desktop`, `update_workspace`, and the recording controls when they exist. Reading never needs the token. | Owner ("an extended set of mcp commands"); the membership is recommended |
-| 5 | Without the token those tools **refuse by name**: who holds it, since when, and that `token_contest` is the way forward. Nothing is attempted. | House discipline (spec 078, *Who serves what*) |
+| 5 | Without the token those tools **refuse by name**: who holds it, since when, and that `token_contest` is the way forward. Nothing is attempted. A **free** token is refused the same way, naming that it is free and that `token_contest` claims it at once — holding is deliberate, so every hold is a frame somebody can read. | House discipline (spec 078, *Who serves what*); the free-token reading is recommended |
 | 6 | The person at the desktop is **never gated**. A dashboard click, a Stop, a record toggle are the owner's acts; the token arbitrates agents. | Recommended; follows from decision 3 |
 | 7 | The **feed** is a stream of lifecycle frames only — token transitions, game sessions starting and ending, device-bound actions starting and ending, captures starting and being committed, workspace layers replaced — each with a monotonic sequence, resumable by cursor. PTY output never appears on it. | Owner (the listed events, "but not limited to"); the frame set is recommended |
 | 8 | The feed is readable by **every** agent bound to the root. The token decides who may act, not who may watch; a contester has to see whether it was rejected. | Recommended |
-| 9 | The window is a **workspace preference** with a default of 60 s, not an environment variable and not a declaration key. | Owner ("no envs"); the default is recommended |
+| 9 | The window is a **workspace preference** with a default of 60 s, not an environment variable and not a declaration key. The retained host's preference store allowlists the keys it knows and drops the rest, so this one is owned by the workspace worker beside the ledgers: the worker intercepts `POST /api/preferences`, keeps `tokenWindowMs`, forwards the rest unchanged, and merges it back into `/api/state`. | Owner ("no envs"); the default is recommended, and the worker-side ownership follows from decision 10 |
 | 10 | Everything ships through the **replaceable layers**. The ledger lives in the workspace worker and persists in the runtime directory; the tool worker adds identity to its calls; the desktop draws one status-bar segment. The retained session host is not touched, per spec 065. | Owner ("do not forget about our layered restarts") |
 | 11 | A holder whose process is gone holds nothing. A contest against a dead holder resolves at once, without a window. | Recommended |
 | 12 | An agent that was not spawned by the workspace **binds by discovery**: it asks the sidecars in the state directory which one serves its project, and receives the same identity and MCP configuration a pane-spawned agent gets. No environment variable is required to find the workspace. | Owner ("maybe init.sh should be tighter bound to the editor", "you should not use any envs") |
@@ -83,9 +83,16 @@ that `config.mjs` already creates, and that file — not the shared root file �
 the tool worker read. Two agents on one root therefore differ, and a replaced tool worker keeps the
 identity because it re-reads the file.
 
-The tool worker sends the identity on every call as a header, `X-Rengine-Agent: <agentId>`, and the
-workspace worker reads it. A request without the header is the desktop's. The host ignores unknown
-headers, so this costs no host change.
+The tool worker sends the identity on every call as three headers — `X-Rengine-Agent: <agentId>`,
+`X-Rengine-Agent-Label` and `X-Rengine-Agent-Pid` — and the workspace worker reads them. The label
+and pid travel because a refusal has to *name* the holder and the ledger has to know whether the
+holder's process is still there, and the worker has no table to look either up in. A request without
+the first header is the desktop's. The host ignores unknown headers, so this costs no host change.
+
+**Liveness is the pid, uniformly.** `scripts/agent.sh` execs the launcher, so a pane-spawned agent's
+`process.pid` *is* the pty session pid the host lists; `bind.mjs` records `process.ppid`, the terminal
+that will run the CLI. Both are a process alive exactly while the agent is, so no `boundBy`
+discriminator is needed and none was added.
 
 When an agent is spawned by the workspace, `launch.mjs` also records the pty session it runs under
 where it can, so the desktop can show *claude · vtmb-vr* rather than a UUID. This spec first said the
@@ -108,14 +115,21 @@ press a button asked the owner to press it.
 
 ## The token and the contest
 
-A **ledger** per root, owned by the workspace worker and persisted atomically as `token.json` in the
-runtime directory:
+A **ledger** per root, owned by the workspace worker and persisted atomically as `token.json` under
+the runtime directory, at `<runtime>/tokens/<rootId>/token.json` with the root's retained feed beside
+it as `feed.json`:
 
 ```
 { version: 1, rootId, holder: { agentId, label, pid, since } | null,
   contest: { id, contester: {...}, openedAt, deadline, reason } | null,
-  cooldown: { [agentId]: until }, sequence, history: [ ...last 50 transitions ] }
+  cooldown: { [agentId]: until }, sequence,
+  identities: { [agentId]: { agentId, label, pid, firstSeenAt, lastSeenAt } },
+  history: [ ...last 50 transitions ] }
 ```
+
+`identities` is every identity the worker has seen on the header for this root, which is what
+`token_status` lists as candidates. The workspace-wide `tokenWindowMs` and the worker generation live
+in `<runtime>/tokens/preferences.json`, beside the ledgers rather than inside any one of them.
 
 Transitions, each a feed frame:
 
@@ -146,8 +160,12 @@ never sees it), carrying one JSON frame per event, replaying from `after` out of
 1,000 frames persisted beside the ledger:
 
 ```
-{ sequence, at, rootId, type, by: { kind: 'agent', agentId, label } | { kind: 'desktop', desktopId } | { kind: 'deadline' | 'holder-gone' }, ... }
+{ sequence, at, rootId, type, by: { kind: 'agent', agentId, label } | { kind: 'desktop', desktopId }
+                                | { kind: 'deadline' | 'holder-gone' } | { kind: 'workspace', pid }, ... }
 ```
+
+`workspace` is the fourth `by` the implementation needed: a frame nobody asked for — a game the
+person started from the desktop pane, or the worker announcing its own generation.
 
 | type | carries | source |
 | --- | --- | --- |
@@ -155,7 +173,7 @@ never sees it), carrying one JSON frame per event, replaying from `after` out of
 | `game.started` `game.ended` | sessionId, gameId, surface, args, exitCode | `session` events for `type: game` on `/events`, which the worker already receives |
 | `device-action.started` `device-action.ended` | sessionId, actionId, deviceId, kind | dashboard actions bound to a non-local device (contract 4) — the owner's "deploying to device", named generally so `quest-deploy`, `quest-data`, `pcvr` and `remote-rengine` all qualify |
 | `capture.started` `capture.committed` | sessionId, gameId, recordingId, kind `ring` or `explicit` | the desktop, which owns the recorder, sends a `recording` frame on `/events` when its toggle fires; the worker intercepts it as it does `desktop-register` |
-| `workspace.updated` | layers, generation | the worker's own update path |
+| `workspace.updated` | layers, generation | the worker announcing itself. The runtime supervisor answers `/api/update-workspace` and never forwards it, so the worker cannot observe the update as a request; instead each worker process announces `{ layers: ['workspace'], generation }` once, on the first request it serves that is not `/health` or `/api/state`. A candidate the supervisor prepares and then discards only ever answers those two, so a worker that never served anybody never claims a generation. |
 
 The worker learns of sessions by subscribing to the host's `/events` itself, once, as a client — it
 already opens that socket per desktop; this is one more, with no desktop behind it. It maps `session`
@@ -166,15 +184,59 @@ Two MCP tools expose it: `feed_url` returns the socket URL with cursor, for a `M
 WebSocket source; `feed_read` returns frames after a cursor, bounded, for an agent that polls. The
 first is the owner's monitor. Both are read tools and need no token.
 
+The URL `feed_url` hands back is the **workspace worker's own** loopback URL and capability, not the
+supervisor's: the supervisor's upgrade handler allowlists `/events` and `/surface`, so a `/feed`
+upgrade through it is refused, and extending that handler would be a change to a layer this spec
+does not replace. The caller already reaches that worker through the supervisor, so this widens
+nothing (see *What the token is not*); it does mean a monitor's socket ends when the workspace layer
+is replaced, and the agent re-reads `feed_url` and reopens with the last sequence it saw — which is
+what the cursor is for.
+
 ## Native desktop
 
 One **status-bar segment** (`re_app_status`, `workspace.c`) per window: *Token · free*,
 *Token · claude*, or *Contest · codex · 42s* counting down. Pressing it opens a popover in the spec
 080 pattern listing the holder, the open contest with **Reject** and **Grant**, and **Revoke** and
-**Free** for a held token. The desktop sends
-`{ type: 'token-action', rootId, action, contestId, reason }` on `/events`, which the worker
-intercepts before forwarding; the worker pushes `{ type: 'token', … }` frames to every desktop on the
-same socket so the segment updates without polling. No new pane.
+**Free** for a held token. The frames below carry it: the worker intercepts the desktop's before
+forwarding, and pushes its own to every desktop on the same socket, so the segment updates without
+polling. No new pane.
+
+The worker side of this is built (stage 2). The three frames that cross this socket are **pinned**
+(owner-coordinated, 2026-09-07) and the worker conforms to them exactly.
+
+**Worker → desktop**, to every desktop bound to the root, once per registered root at
+`desktop-register` time and again after every transition:
+
+```
+{ type: 'token', rootId,
+  holder:  { agentId, label, pid, since } | null,
+  contest: { id, contester: { agentId, label, pid }, openedAt, deadline, reason } | null,
+  windowMs, sequence }            // sequence: the feed sequence of the last token.* frame
+```
+
+**Desktop → worker**, the human's controls, never gated, intercepted before forwarding:
+
+```
+{ type: 'token-action', rootId, action: 'reject' | 'grant' | 'revoke' | 'free',
+  contestId,      // required for reject and grant
+  reason }        // optional, reject only
+```
+
+The reply is the next `token` frame. A refusal — no such contest, nothing held, a root this desktop
+is not bound to, a contestId that is no longer the open one — is the socket's ordinary
+`{ type: 'error', error }`, as the host's other errors on it are.
+
+**Desktop → worker**, the recorder (spec 081), intercepted like `desktop-register` and turned into
+`capture.started` / `capture.committed` on the feed, attributed to that desktop:
+
+```
+{ type: 'recording', rootId, sessionId, gameId, event: 'started' | 'committed',
+  recordingId, kind: 'ring' | 'explicit', at }
+```
+
+`started` is sent when an explicit start begins; `committed` when a segment's manifest is written,
+of either kind. A ring commit sends only `committed`, so a `capture.committed` with no
+`capture.started` before it is the normal ring case, not a lost frame.
 
 ### What shipped (stage 3, 2026-09-07)
 
@@ -209,10 +271,8 @@ otherwise:
   60-second window reading `61s`. Nothing depends on the desktop's number: the ledger owns the
   deadline and the transfer.
 
-The recorder's frame is
-`{ type: 'recording', rootId, sessionId, gameId, event: 'started' | 'committed', recordingId, kind:
-'ring' | 'explicit', at }`, sent from `recording.c` through a callback the recorder carries, on the
-same socket. Two things about it:
+The recorder's frame is the pinned one above, sent from `recording.c` through a callback the
+recorder carries, on the socket the desktop already registers over. Two things about it:
 
 - **`kind` is the feed's vocabulary, not the manifest's.** Spec 081 writes `kind: "segment"` into a
   manifest for the explicit gesture; the feed says `explicit`. The feed names the gesture, the
@@ -223,11 +283,19 @@ same socket. Two things about it:
   `committed`. This moves the segment directory's timestamp from the commit instant to the start
   instant, which is the instant `startedAt` in its own manifest already reports.
 
-Not shipped here: the ledger, the feed socket, the MCP tools and the gates (stage 2), and the
-recording controls over MCP (stage 4). The native fixture drives a stand-in for the worker's
-interception, so nothing in this stage asserts what a `token-action` does to a ledger.
+Not built in this stage: the ledger, the feed socket, the MCP tools and the gates, which are stage
+2's and landed beside this one; and the recording controls over MCP, which are stage 4. The native
+fixture drives a stand-in for the worker's interception rather than the worker, so nothing here
+asserts what a `token-action` does to a ledger — those are criteria 3, 4 and 7, and stage 2's
+evidence carries them.
 
 ## MCP tools
+
+The gate a tool applies has two halves. `agentToken: 1` says the worker serves the ledger; a tool
+called by an *identified* agent against a worker that does not advertise it refuses naming the layer
+to update, rather than calling a worker that would pass every request. An **anonymous** caller — a
+`probeTools` context, an older launch with no identity — is not an agent and is never gated at all,
+which is what keeps `update_workspace` able to prepare its own replacement.
 
 | tool | token | does |
 | --- | --- | --- |
@@ -251,7 +319,13 @@ than passing every call — the spec 078 asymmetry, handled at design time this 
 - **Agents do not contest on startup.** An agent contests when it is about to act. A contest loop is
   refused by the cooldown, and the frame it produces is visible on every monitor.
 - **The host is unchanged.** If a route in this spec cannot be served by the worker, the answer is to
-  redesign the route, not to extend the host; spec 065's status text stays true.
+  redesign the route, not to extend the host; spec 065's status text stays true. `/api/stop` is the
+  case in point: the host serves it and the worker only forwarded it, so the gate intercepts before
+  the forward rather than asking the host to grow one.
+- **Two gated routes are the supervisor's, not the worker's.** `/api/update-workspace` and
+  `/api/desktop-action` are answered by the runtime supervisor, which forwards everything else to the
+  worker, so `update_workspace` and `reload_desktop` read their gate from the ledger in the tool
+  worker before the call. The worker gates them as well, for a caller addressing it directly.
 - **Nothing here launches on a remote device.** A device-bound action is still the project's script;
   the feed reports it, the token arbitrates it.
 
@@ -261,7 +335,13 @@ than passing every call — the spec 078 asymmetry, handled at design time this 
    the per-launch context). Ships as a connector update; a pane-spawned agent reopened after it has
    an identity.
 2. Ledger, contest, gating and the feed in the workspace worker; the tool worker's header and gates;
-   `token_*` and `feed_*` tools. Ships as `workspace` + `connector`.
+   `token_*` and `feed_*` tools. Ships as `workspace` + `connector`. **Done** 2026-09-07:
+   `orchestrator/runtime/{token,feed}.mjs` beside `worker.mjs`, the gates and routes in `worker.mjs`,
+   the tools in `agents/mcp-worker.mjs`, evidence in `docs/evidence/project-token-2026-09-07.md`.
+   One line of `runtime/supervisor.mjs` changed with it: the fork message now carries the runtime
+   directory (`child.send({ host, directory })`) so a worker persists where its supervisor says,
+   with `runtimeDirectory(host)` as the fallback an older supervisor leaves it. The retained host and
+   `orchestrator/native/*` are untouched.
 3. The status-bar segment and popover; the desktop's `recording` frame. Ships as `desktop`.
 4. Recording controls over MCP (`recording_start`, `recording_stop`), in spec 081's terms, gated by
    the token; a follow-up to that spec, not this one.

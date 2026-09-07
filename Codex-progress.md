@@ -44,6 +44,77 @@ Commands: `npm test` 100/100, `npm run test:desktop` 43/43, `ctest` in `.cache/d
 `python3 tools/design.py check`, `python3 tools/features.py validate`, sidecar `check` clean, native
 build at zero warnings. F90 stays `passes: false`: stages 2 and 4 are not built, and six of
 its nine criteria belong to them.
+## Session 48 (macos) — 2026-09-07 — The token ledger, the gates and the feed (F90 stage 2)
+
+Stage 2 of spec 095, on `feat/agent-token-ledger`. The workspace worker now keeps one **ledger** per
+project root — `<runtime>/tokens/<rootId>/token.json`, written atomically, with that root's retained
+1,000-frame feed beside it — and `orchestrator/runtime/token.mjs` holds the whole state machine:
+claim when free, contest with an absolute deadline, reject by the holder (cooldown of one window for
+the contester), the desktop's reject / grant / revoke / free, the transfer at the deadline by timer
+*and* lazily on the next call, and the dead-holder resolution. Deadlines are absolute wall times and
+every call settles before it acts, so a replaced worker resumes the same contest from the file rather
+than restarting its countdown.
+
+Seven agent-originated routes are gated on the `X-Rengine-Agent` header: `/api/game`,
+`/api/script-open`, `/api/dashboard-run`, `/api/dashboard-capture`, `/api/desktop-action`,
+`/api/update-workspace` and `/api/stop` — the last intercepted before `forward()`, because the
+retained host serves it and spec 065 says the host does not grow a gate. A request without the header
+is the desktop's and is never gated. A refusal is HTTP 409 naming the holder's label, since when, and
+`token_contest`; a **free** token is refused the same way, because holding is deliberate and every
+hold should be a frame somebody can read.
+
+`GET /feed` on the worker and only there. The worker subscribes to the retained host's `/events`
+itself, once, with no desktop behind it, and reads session transitions only — an `output` frame is
+never turned into a feed frame, which is what makes "no PTY output on the feed" structural rather
+than a filter. Frames: `token.*`, `game.started/ended`, `device-action.started/ended` for a dashboard
+action whose declared device is not this machine, `capture.started/committed` from the desktop's
+`recording` frame, and `workspace.updated`.
+
+The tool worker carries the label and pid beside the id (a refusal has to name a holder and the
+ledger has to check a pid, and the worker has no table for either), offers `token_status`,
+`token_contest`, `token_reject`, `token_release`, `feed_url` and `feed_read`, and gates
+`update_workspace` and `reload_desktop` itself — the runtime supervisor answers those two and never
+forwards them, so the worker cannot see them. `agentToken: 1` is the one flag `capabilities()` adds
+conditionally: only a worker that opened its ledger advertises it, so an old worker under a new
+connector is refused by name instead of passing every call.
+
+**Seven facts the code corrected in the spec**, all recorded there. The host's preference store
+allowlists its keys and drops the rest, so `tokenWindowMs` is owned beside the ledgers and the worker
+intercepts `POST /api/preferences` to keep it — otherwise the window would never leave its default.
+Two of the seven gated routes are the supervisor's, not the worker's. The feed socket is the worker's
+own loopback URL, because the supervisor's upgrade handler allowlists `/events` and `/surface`.
+Liveness is the pid uniformly — `agent.sh` execs the launcher and `bind.mjs` records the terminal —
+so no `boundBy` discriminator was needed. `by` grew a fourth kind, `workspace`, for a frame nobody
+asked for. `workspace.updated` cannot be observed as a request, so each worker announces its own
+generation on the first request it serves that is not `/health` or `/api/state`. And the ledger
+carries `identities`, which is criterion 1's candidate list.
+
+One line outside the worker and the tool worker: `runtime/supervisor.mjs` now sends the runtime
+directory in the fork message, so a worker persists where its supervisor says, with
+`runtimeDirectory(host)` as the fallback an older supervisor leaves it. `orchestrator/server/*` and
+`orchestrator/native/*` are untouched.
+
+The three frames crossing the worker↔desktop `/events` socket were **pinned** mid-session by the
+owner-coordinated stage-3 lane, and the worker conforms exactly: the worker→desktop `token` frame is
+flat (`holder`, `contest`, `windowMs`, and the feed sequence of the last `token.*` frame) and is
+pushed once per registered root at `desktop-register` as well as after every transition; a
+`token-action` is answered by the next `token` frame rather than a bespoke result, with `contestId`
+required for `reject` and `grant` and a refusal arriving as the socket's ordinary `{type:'error'}`;
+and the recorder's frame carries `event`, not `phase`, with a ring commit sending only `committed`.
+All three are written into spec 095's *Native desktop* section.
+
+`orchestrator/tests/project-token.test.mjs`, seven tests over `token-fixtures.mjs`, against a real
+worker in front of a real session host, with a fake desktop on `/events` and the real MCP tool worker
+for the tool half. **Twenty sabotages** in `docs/evidence/project-token-2026-09-07.md`, each red
+for its own assertion — including three that did not discriminate at first: two went red without
+naming themselves (a setup line throwing 409, and a bare `strictEqual`) and one went **green**,
+because the register-time push was asserted after a transition had already pushed the same frame.
+The "no PTY output" proof measures against the desktop's own `/events` socket carrying that output in
+the same run, so the negative is not a quiet machine. `npm test` 107/107.
+
+F90 stays `passes: false`: criterion 9 is the stage-3 status-bar segment, and the desktop's
+`recording` frame is stage 3's to send. The exact frame shapes it owes the worker are written into
+spec 095's *Native desktop* section and exercised today by the fake desktop.
 
 ## Session 37 (macos) — 2026-09-07 — Task tracking with a declared backend (F78)
 

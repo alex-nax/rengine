@@ -30,7 +30,7 @@
   ],
   "source": {
     "path": "orchestrator/runtime/supervisor.mjs",
-    "sha256": "646c22e51e7ccc3bcd9bbb03d8140286163a9058a022ed632a25150c5bc6eebe",
+    "sha256": "eb08303fba038399ed629532cbc8f86f8eafd68b293661619cee444ca058ac94",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }
