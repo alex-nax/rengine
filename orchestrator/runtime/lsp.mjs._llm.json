@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "framing-is-not-lines",
+      "kind": "constraint",
+      "anchor": {
+        "start": 24,
+        "end": 24,
+        "symbol": "framer",
+        "snippet": "export function framer(onMessage) {"
+      },
+      "note": "The protocol frames every message with a `Content-Length` header, and the body is arbitrary UTF-8 — a diagnostic message routinely contains newlines, and can contain the blank line that ends a header block. A reader that splits on newlines therefore works on every message anyone writes a test for and fails on real compiler output. It also has to tolerate a pipe delivering one byte at a time, which is why the buffer is kept across calls rather than parsed per chunk; the test feeds it a byte at a time for that reason.",
+      "refs": [
+        "docs/evidence/editor-as-claude-ide-2026-09-07.md"
+      ]
+    },
+    {
+      "id": "diagnostics-die-with-their-server",
+      "kind": "rationale",
+      "anchor": {
+        "start": 116,
+        "end": 116,
+        "symbol": "onExit",
+        "snippet": "onExit(code, diagnostics) {"
+      },
+      "note": "When a server exits, everything it said is dropped rather than kept until a replacement contradicts it. Keeping them means reporting a file as broken on the authority of a process that is no longer running — and one that may have died precisely because it was confused about that file. An empty list from a restarting server is a true statement about what the workspace currently knows; a stale error is a false one, and the person cannot tell the difference.\n\nThe restart is backed off and bounded, and a server that keeps dying is reported instead of restarted forever, because a crash loop that hides itself is indistinguishable from a language with no diagnostics."
+    },
+    {
+      "id": "one-pass-glob",
+      "kind": "history",
+      "anchor": {
+        "start": 252,
+        "end": 252,
+        "symbol": "matches",
+        "snippet": "const source = pattern.replace(/\\*\\*\\/|\\*|\\?|[.+^${}()|\\\\]/g, token =>"
+      },
+      "note": "Written first as two passes — expand the directory wildcard, then rewrite every remaining star — which is wrong, because the second pass rewrites the star inside what the first pass just produced. `src/**/*.c` stopped matching `src/deep.c`, and the test caught it. Reordering the passes would have worked and would have left the trap in place for the next person; matching the tokens in one alternation cannot have the bug at all. An intermediate version parked the wildcard behind a placeholder, which ended up in the file as a literal NUL byte: invisible in a diff, and worse than what it fixed.",
+      "refs": [
+        "docs/evidence/editor-as-claude-ide-2026-09-07.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/runtime/lsp.mjs",
+    "sha256": "28488c7f3dbdc6832496ac406ed0d21a1a0420b6cac0b485a46268ec2dd1c47e",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

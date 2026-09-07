@@ -8,6 +8,8 @@ import { WebSocket } from 'ws';
 import { startIdeBridge, sweep, IDE_NAME } from '../runtime/ide.mjs';
 import { startServer } from '../server/main.mjs';
 import { startWorker } from '../runtime/worker.mjs';
+import { uriFor } from '../runtime/lsp.mjs';
+import { setTimeout as delay } from 'node:timers/promises';
 
 const directory = async () => mkdtemp(path.join(tmpdir(), 'rengine-ide-'));
 
@@ -133,13 +135,59 @@ test('the worker resolves the desktop\'s root and path into the file path the CL
       headers: { authorization: `Bearer ${worker.token}`, 'content-type': 'application/json' },
       body: JSON.stringify({ rootId: root.id, path: 'a.c', text: 'int main',
         selection: { start: { line: 0, character: 0 }, end: { line: 0, character: 8 } } }) });
-    assert.deepEqual(await answer.json(), { delivered: 1 });
+    // Only what this test is about: the route also reports which language servers were told, and a
+    // deep-equal here would fail every time that answer grows a field.
+    assert.equal((await answer.json()).delivered, 1);
     const notification = await arrived;
     assert.equal(notification.method, 'selection_changed');
     // The root's own stored path, which is the real one: the store resolves symlinks when a root is
     // bound, and on macOS a temp directory is one. The CLI must be given the path it can open.
     assert.equal(notification.params.filePath, path.join(root.path, 'a.c'),
       `the CLI is given a path it can open: ${JSON.stringify(notification.params)}`);
+    await client.close();
+  } finally { await worker.close(); await host.close(); await rm(dir, { recursive: true, force: true }); }
+});
+
+test('getDiagnostics answers with what the project\'s declared language server published', { timeout: 40000 }, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'rengine-ide-lsp-'));
+  process.env.RENGINE_IDE_DIRECTORY ??= path.join(dir, 'locks');
+  const project = path.join(dir, 'project');
+  await mkdir(path.join(project, '.rengine'), { recursive: true });
+  await writeFile(path.join(project, 'a.c'), 'int main(void) { return 0; }\n');
+  await writeFile(path.join(project, '.rengine', 'project.json'), JSON.stringify({
+    contract: 7, project: 'lsp-fixture',
+    formats: [{ id: 'c', title: 'C', match: ['*.c'], modes: ['text'], default: 'text' }],
+    languageServers: [{ id: 'fake', languageId: 'c', match: ['*.c'],
+      command: [process.execPath, path.resolve('orchestrator/tests/fake-language-server.mjs')] }],
+  }));
+  const host = await startServer({ stateDir: path.join(dir, 'state') });
+  const root = await host.store.addRoot(project);
+  const worker = await startWorker({ url: host.url, token: host.token, instance: host.instance },
+    { directory: path.join(dir, 'runtime'), ideOptions: { directory: path.join(dir, 'locks'), hostPid: process.pid } });
+  try {
+    const client = await connected(worker.ide);
+    const file = path.join(root.path, 'a.c');
+    const post = buffer => fetch(`${worker.url}/api/ide-selection`, { method: 'POST',
+      headers: { authorization: `Bearer ${worker.token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ rootId: root.id, path: 'a.c', text: '', buffer,
+        selection: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } }) });
+
+    // The desktop's unsaved buffer is what the server is told — nothing here is written to disk.
+    const answer = await (await post('int main(void) {\n  // TODO unsaved\n}\n')).json();
+    assert.deepEqual(answer.servers, ['fake'], `the declared server serves this file: ${JSON.stringify(answer)}`);
+    const read = async () => JSON.parse((await client.callTool({ name: 'getDiagnostics', arguments: { uri: uriFor(file) } })).content[0].text);
+    let published = [];
+    for (let i = 0; i < 100 && !published.length; i++) { published = (await read())[0].diagnostics; await delay(50); }
+    assert.equal(published.length, 1, `the agent reads what the server published: ${JSON.stringify(published)}`);
+    assert.equal(published[0].message, 'TODO on line 2');
+    assert.deepEqual(published[0].range.start, { line: 1, character: 5 });
+
+    // Edit the buffer and the answer follows it, still without touching the file.
+    await post('// TODO one\n// TODO two\n');
+    let changed = [];
+    for (let i = 0; i < 100 && changed.length !== 2; i++) { changed = (await read())[0].diagnostics; await delay(50); }
+    assert.deepEqual(changed.map(item => item.message), ['TODO on line 1', 'TODO on line 2']);
+    assert.equal(await readFile(path.join(project, 'a.c'), 'utf8'), 'int main(void) { return 0; }\n', 'and the file on disk is untouched');
     await client.close();
   } finally { await worker.close(); await host.close(); await rm(dir, { recursive: true, force: true }); }
 });

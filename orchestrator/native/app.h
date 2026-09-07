@@ -57,6 +57,7 @@ typedef struct ReApp {
   /* What the focused editor last told the workspace, so a caret that has not moved is not
    * reported again and a held arrow key does not send a frame's worth of notifications. */
   char selection[192]; Uint64 selection_sent;
+  char buffered[320];        /* file and revision of the last buffer sent to the language servers */
   int scene;
 } ReApp;
 /* The overlay layer. Opening one closes the other, so the kind is a single value (spec 080). */

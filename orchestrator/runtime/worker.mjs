@@ -15,6 +15,7 @@ import { authenticated, body, checkConnection, fail, forward, json } from './pro
 import { hostStateDirectory, readTasks, trackerSignIn, trackerSignOut } from './tracker.mjs';
 import { agentsMenu, modelArgs, promptFor, promptValues, taskWrite } from '../server/tasks.mjs';
 import { startIdeBridge } from './ide.mjs';
+import { LanguageServers, uriFor } from './lsp.mjs';
 import { runtimeDirectory, alive, discoverRuntime } from './discovery.mjs';
 import { Tokens, UUID, readIdentity, readDesktop, segmentFrame } from './token.mjs';
 
@@ -50,9 +51,22 @@ export async function startWorker(host, options = {}) {
      the session host is (spec 102). A host from this checkout says its pid; a retained one is found
      in the process table by the same scan the tracker uses. See sidecar: ide-names-the-host.  */
   const hostPid = located.pid ?? (Number.isInteger(state.pid) ? state.pid : undefined);
+  /* One set of language servers per root, started the first time a file under it is asked about, so
+     a workspace with three projects open does not run three toolchains nobody looked at.
+     See sidecar: servers-are-per-root-and-lazy. */
+  const servers = new Map();
+  const serversFor = async selected => {
+    if (!servers.has(selected.id)) {
+      const declared = await readDeclaration(selected);
+      servers.set(selected.id, new LanguageServers(selected, declared.languageServers ?? [], options.lspOptions));
+    }
+    return servers.get(selected.id);
+  };
+  const diagnosticsFor = uri => [...servers.values()].flatMap(group => group.for(uri));
   let ide = null;
   if (options.ide !== false) {
-    ide = await startIdeBridge({ roots: state.roots.map(root => root.path), hostPid, port: options.idePort ?? 0, ...options.ideOptions })
+    ide = await startIdeBridge({ roots: state.roots.map(root => root.path), hostPid, port: options.idePort ?? 0,
+      diagnosticsFor, ...options.ideOptions })
       .catch(error => ({ published: false, reason: error.message }));
   }
   const token = randomBytes(32).toString('hex');
@@ -280,6 +294,8 @@ export async function startWorker(host, options = {}) {
        supervisor has switched; `--ide` connects only when exactly one is offered. */
     await ide?.close?.();
     ide = null;
+    for (const group of servers.values()) await group.stop();
+    servers.clear();
     hostStream?.terminate(); hostStream = null;
     for (const client of feeds) { try { client.close(1001, RETIRED_FEED); } catch { /* already gone */ } }
     feeds.clear();
@@ -536,9 +552,13 @@ export async function startWorker(host, options = {}) {
            here: the desktop names a root and a path within it, as every other route does. */
         const data = await body(req);
         const selected = root(data.rootId);
+        const file = path.join(selected.path, data.path ?? '');
+        /* The buffer the person is looking at, not the file on disk: the desktop sends what it holds
+           and that is what the servers are told, so a diagnostic describes the unsaved edit. */
+        const opened = typeof data.buffer === 'string' ? await (await serversFor(selected)).open(file, data.buffer) : null;
         json(res, 200, { delivered: ide?.published
-          ? ide.selection({ filePath: path.join(selected.path, data.path ?? ''), text: data.text ?? '', selection: data.selection })
-          : 0 });
+          ? ide.selection({ filePath: file, text: data.text ?? '', selection: data.selection })
+          : 0, servers: opened?.servers ?? [] });
       } else if (req.method === 'POST' && target.pathname === '/api/tracker/signout') {
         const data = await body(req); await refresh(); json(res, 200, await trackerSignOut(root(data.rootId), located));
       } else if (req.method === 'GET' && target.pathname === '/api/dashboard') {
@@ -659,6 +679,7 @@ export async function startWorker(host, options = {}) {
   return { url, token, instance: host.instance, pid: process.pid, tokens, retire, get ide() { return ide; }, async close() {
     closing = true; hostStream?.terminate();
     await ide?.close?.();
+    for (const group of servers.values()) await group.stop();
     for (const entry of relays.values()) entry.socket?.terminate();
     relays.clear();
     for (const client of sockets.clients) client.terminate(); sockets.close();

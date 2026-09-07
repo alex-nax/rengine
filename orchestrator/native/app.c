@@ -617,6 +617,15 @@ static void report_selection(ReApp *a, Uint64 now) {
   cJSON_AddNumberToObject(end, "character", selection.end_character);
   cJSON_AddItemToObject(range, "start", start); cJSON_AddItemToObject(range, "end", end);
   cJSON_AddItemToObject(body, "selection", range);
+  /* The whole buffer goes only when it has actually changed. A language server has to be told the
+     text the person is looking at rather than the file on disk, but a caret moving through an
+     unedited file is not news, and this buffer can be two megabytes. */
+  char buffered[320];
+  snprintf(buffered, sizeof(buffered), "%s|%s|%d", t->root, t->path, re_editor_revision(t->editor));
+  if (strcmp(buffered, a->buffered)) {
+    char *text_of = re_editor_text(t->editor);
+    if (text_of) { cJSON_AddStringToObject(body, "buffer", text_of); free(text_of); re_copy(a->buffered, sizeof(a->buffered), buffered); }
+  }
   request(a, OP_GENERIC, -1, "ide-selection", body);
   cJSON_Delete(body);
 }

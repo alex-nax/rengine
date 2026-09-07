@@ -11,6 +11,15 @@ import { devicesRules } from './device-rules.mjs';
 
 /* A provider only accepts the locator it can use, so a declaration that names the wrong one is
    refused at declaration time rather than failing later against the network. */
+function languageServerRules(block, result = {}) {
+  const problems = [], seen = new Set();
+  for (const [index, server] of block.entries()) {
+    if (seen.has(server.id)) problems.push(`$.languageServers[${index}] repeats id ${server.id}`);
+    seen.add(server.id);
+  }
+  return problems;
+}
+
 function trackerRules(block, result = {}) {
   const problems = [];
   const need = { github: 'repository', linear: 'team' };
@@ -53,7 +62,7 @@ function agentsRules(value) {
   return problems;
 }
 
-export const CONTRACTS = [1, 2, 3, 4, 5, 6];
+export const CONTRACTS = [1, 2, 3, 4, 5, 6, 7];
 /* Brand-mark colours a project may name. Each is a saturated fill the design system pairs with
    the on-accent ink, which is what keeps the letter legible in every preset. */
 export const ICON_TOKENS = ['accent', 'ok', 'warn', 'err', 'info'];
@@ -126,11 +135,13 @@ export async function readDeclaration(root) {
     formats: value.formats.map(format => ({ ...format, preview: bounded(format.preview), entry: bounded(format.entry) })) };
   /* devices, games and dashboard are each reported separately so none can disable the formats, and
      devices settles first so both of the others can resolve a device binding; see sidecar: declaration-reporting */
-  const withTracker = section(result, 'tracker', tracker, value.contract);
+  const withServers = section(result, 'languageServers', value.languageServers, value.contract);
+  const withTracker = section(withServers, 'tracker', tracker, value.contract);
   const withDevices = section(withTracker, 'devices', devices, value.contract);
   return section(section(withDevices, 'games', games, value.contract), 'dashboard', dashboard, value.contract);
 }
 const SECTIONS = {
+  languageServers: { minimum: 7, rules: languageServerRules, node: () => schema.properties.languageServers },
   tracker: { minimum: 5, rules: trackerRules, node: () => schema.properties.tracker },
   devices: { minimum: 4, rules: devicesRules, node: () => schema.properties.devices },
   games: { minimum: 3, rules: gamesRules, node: () => schema.properties.games },

@@ -18,7 +18,8 @@
         3,
         4,
         5,
-        6
+        6,
+        7
       ]
     },
     "project": {
@@ -167,6 +168,15 @@
         "$ref": "#/$defs/agentMenu"
       },
       "description": "Contract 6: the agent CLIs and models this project offers when an agent is spawned on a task, in declaration order. Absent, the menu is the CLIs rEngine can launch with its own known model lists. Declaring it requires contract 6, so a reader that predates it answers \"unknown contract\" instead of \"unknown key\"."
+    },
+    "languageServers": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/languageServer"
+      },
+      "description": "Contract 7: the language servers this project's files are served by. rEngine runs a declared server, it never installs one, and an undeclared project answers an empty diagnostic list rather than guessing. Declaring it requires contract 7, so a reader that predates it answers \"unknown contract\" instead of \"unknown key\"."
     }
   },
   "$defs": {
@@ -732,6 +742,53 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 128
+        }
+      }
+    },
+    "languageServer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "command",
+        "match"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,63}$",
+          "description": "Names this server in diagnostics and in the reason a missing one gives."
+        },
+        "command": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "description": "The program and its arguments, run from the project root under the declared-command boundary. rEngine does not install it; a command that is not on the machine is reported as unavailable by name."
+        },
+        "match": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "description": "Glob patterns for the files this server serves, matched the way format patterns are."
+        },
+        "languageId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+#.-]{0,31}$",
+          "description": "The protocol's languageId for those files; defaults to the server id."
+        },
+        "initializationOptions": {
+          "type": "object",
+          "description": "Passed through to the server's initialize request, unread by rEngine."
         }
       }
     }
