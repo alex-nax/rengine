@@ -675,6 +675,30 @@ static void report_selection(ReApp *a, Uint64 now) {
   cJSON_Delete(body);
 }
 
+/* Whether anything is listening: the workspace says so, and the control that sends a file to an
+ * agent is drawn only where it would do something. */
+bool re_app_ide_connected(ReApp *a) {
+  return re_number(cJSON_GetObjectItemCaseSensitive(a->state, "capabilities"), "ide") == 1;
+}
+
+/* "To agent": the file and the selected lines, sent once, on purpose. The passive selection stream
+ * tells an agent where the caret is; this says "look at this", which is a different statement and
+ * the CLI keeps them apart. */
+void re_app_mention(ReApp *a, int tab) {
+  ReTab *t = tab >= 0 && tab < RE_TABS ? &a->tabs[tab] : NULL;
+  if (!t || !t->used || !t->editor || !re_app_ide_connected(a)) return;
+  ReSelection selection; char text[8];
+  re_editor_selection(t->editor, &selection, text, (int)sizeof(text));
+  cJSON *body = cJSON_CreateObject();
+  cJSON_AddStringToObject(body, "rootId", t->root);
+  cJSON_AddStringToObject(body, "path", t->path);
+  cJSON_AddNumberToObject(body, "lineStart", selection.start_line);
+  cJSON_AddNumberToObject(body, "lineEnd", selection.end_line);
+  request(a, OP_GENERIC, -1, "ide-mention", body);
+  cJSON_Delete(body);
+  re_copy(a->status, sizeof(a->status), "Sent to the agent listening on this workspace.");
+}
+
 /* What the language servers said, asked for twice a second while an editor pane is focused and
  * answered `unchanged` almost every time. A push would be better and belongs with the feed the
  * worker already runs; this is the version that works without one. */

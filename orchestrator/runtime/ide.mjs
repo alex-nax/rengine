@@ -139,6 +139,12 @@ export async function startIdeBridge({ roots = [], hostPid, workerPid = process.
       for (const socket of sockets) socket.mcp?.notification({ method: 'selection_changed', params: value }).catch(() => {});
       return sockets.size;
     },
+    /* `at_mentioned` carries the file and a line range, not the selection shape: the CLI's own schema
+       is { filePath, lineStart?, lineEnd? }, read out of its binary rather than guessed. */
+    mention(value) {
+      for (const socket of sockets) socket.mcp?.notification({ method: 'at_mentioned', params: value }).catch(() => {});
+      return sockets.size;
+    },
     async close() {
       closed = true;
       await bridge.ready?.catch(() => {});

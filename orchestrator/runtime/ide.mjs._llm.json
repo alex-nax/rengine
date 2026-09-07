@@ -47,7 +47,7 @@
   ],
   "source": {
     "path": "orchestrator/runtime/ide.mjs",
-    "sha256": "97ea1644bc1613188034d915ae573bc57588b8926fb65346f7d03338279ed73b",
+    "sha256": "684c8328cd9ed0508e533d7f5f9e5678e21d6454a69404f590f87e37f2114472",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

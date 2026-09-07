@@ -1,5 +1,34 @@
 # Progress Log
 
+## Session 68 (macos) — 2026-09-07 — "To agent": the gesture, chosen as a control rather than a chord (F100)
+
+The last unmet criterion of F100. The editor pane header gains a labelled **To agent** button that
+sends `at_mentioned` for the file and its selected lines. I had held this back twice for an owner
+design decision and the owner kept saying "go on", so it is built as the recommendation I had already
+stated — a labelled control, not a key chord — and it is reversible: the affordance is four lines in
+`editor_ui`, and a different one can replace it without touching anything below.
+
+The reasoning that made a chord the wrong answer is what makes a labelled control the right one: an
+editor that grows a gesture nobody can find is worse than one that waits. The control is drawn only
+where the workspace advertises `ide`, so a pane bound to a bare session host does not show a button
+that cannot work — asserted in both directions, present in `native-diagnostics` and absent in
+`native-ide-selection`.
+
+**The schema is the CLI's own, read rather than guessed.** `at_mentioned` takes
+`{ filePath, lineStart?, lineEnd? }` — a different shape from `selection_changed`, which carries the
+text and a start/end object. That is out of the CLI's own zod declaration in its binary, not
+inferred from the name, and the test asserts the two notifications stay distinct because the CLI
+treats them differently: one says where the caret is, the other says look at this.
+
+Not yet done, and recorded on the row: the shape has not been seen *rendered* by a real CLI. The
+running worker predates the route, and delivering it means another workspace update, which moves the
+IDE port again and drops every connected session — the supervisor still lacks the stable-port fix
+from KI-066, which needs a supervisor restart rather than a layered update. Worth doing together.
+
+Gates: `npm test` 196/196, both native specs green, desktop build clean, `./init.sh`,
+`features.py validate` and `design.py check` clean, sidecars stamped. The metric
+`editor.mention-width` went through `theme.json` and `design.py generate` like every other size.
+
 ## Session 68 (macos) — 2026-09-07 — A project's brand is its own artwork (F106, spec 104)
 
 Owner direction, given in the hirebase-v2 workspace: *"the logo is like on site, maybe we can use the

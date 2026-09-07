@@ -68,6 +68,10 @@ test('the focused editor reports its selection in the units the protocol counts'
     // posting to a workspace without the route answers 404 and overwrites the person's status line.
     assert.ok(!/Unknown workspace endpoint/.test(state.status ?? ''),
       `no route is called that this workspace does not serve: ${state.status}`);
+    // And no control offers to send the file to an agent, because there is nothing here to send it
+    // to. A button that cannot work is worse than an absent one.
+    assert.ok(!state.controls.some(c => c.role === 'mention'),
+      'the "To agent" control is absent where no agent can be listening');
 
     // A pane that stops holding an editor stops reporting, rather than leaving a stale selection.
     await gui.control('toolbar', 'Tasks', -1);

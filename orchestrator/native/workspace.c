@@ -460,13 +460,21 @@ static void editor_ui(ReApp *a, mu_Context *ui, int index, mu_Rect content, mu_R
   if (t->format && mode != RE_MODE_PENDING) { action = re_format_ui(t->format, a, ui, re_app_format_record(a, t), index, t->error); top += RE_METRIC_FORMAT_ROW_ADVANCE; }
   if (mode == RE_MODE_TEXT || mode == RE_MODE_PENDING) {
     /* Breadcrumb, state, then the actions on the right, as the editor card lays them out. */
-    mu_layout_row(ui, 4, (int[]){-RE_METRIC_EDITOR_SAVE_WIDTH - RE_METRIC_EDITOR_DISCARD_WIDTH - RE_METRIC_EDITOR_MODE_WIDTH,
-                                 RE_METRIC_EDITOR_MODE_WIDTH, RE_METRIC_EDITOR_DISCARD_WIDTH, RE_METRIC_EDITOR_SAVE_WIDTH},
+    mu_layout_row(ui, 5, (int[]){-RE_METRIC_EDITOR_SAVE_WIDTH - RE_METRIC_EDITOR_DISCARD_WIDTH - RE_METRIC_EDITOR_MODE_WIDTH - RE_METRIC_EDITOR_MENTION_WIDTH,
+                                 RE_METRIC_EDITOR_MODE_WIDTH, RE_METRIC_EDITOR_MENTION_WIDTH, RE_METRIC_EDITOR_DISCARD_WIDTH, RE_METRIC_EDITOR_SAVE_WIDTH},
                   RE_METRIC_EDITOR_TOOLBAR_HEIGHT);
     char crumbs[1100]; breadcrumb(crumbs, sizeof(crumbs), t->path);
     re_ui_label_ex(ui, crumbs, RE_UI_MUTED);
     re_ui_pill(ui, t->conflict ? "conflict" : t->dirty ? "unsaved draft" : t->editor ? re_editor_mode(t->editor) : "loading",
                t->conflict ? RE_UI_PILL_ERR : t->dirty ? RE_UI_PILL_WARN : RE_UI_PILL_NEUTRAL);
+    /* A labelled control rather than a key chord: an editor that grows a gesture nobody can find is
+       worse than one that waits. Shown only where an agent could be listening. */
+    if (re_app_ide_connected(a)) {
+      if (re_ui_button_ex(ui, "To agent", RE_ICON_ARROW_UP, RE_UI_GHOST)) re_app_mention(a, index);
+      re_app_control(a, ui, "mention", "", index);
+    } else {
+      re_ui_label_ex(ui, "", 0);
+    }
     if (re_ui_button_ex(ui, "Discard", RE_ICON_UNKNOWN, RE_UI_GHOST)) re_app_discard(a, index);
     re_app_control(a, ui, "discard", "", index);
     if (re_ui_button_ex(ui, "Save", RE_ICON_UNKNOWN, t->dirty ? RE_UI_PRIMARY : 0)) re_app_save(a, index);

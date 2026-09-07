@@ -5,8 +5,8 @@
       "id": "inspection-control-geometry",
       "kind": "rationale",
       "anchor": {
-        "start": 26,
-        "end": 26,
+        "start": 27,
+        "end": 27,
         "snippet": "void re_app_control(ReApp *a, mu_Context *ui, const char *role, const char *key, int tab) {"
       },
       "note": "Only explicit automation allocates the controls array. Record at most 512 visible control rectangles per rendered frame, preserving actual microui actions and tab/session identity. Ordinary widgets are clipped to their container. Upstream overflow scrollbar geometry is outside the content clip and is read directly from the container after mu_end_window; do not consult the popped clip stack there. Production rendering allocates none of this metadata. Tests use ordinary SDL pointer/wheel events to reach controls; they cannot bypass scrolling or call button handlers by name. Exported so owned view modules (formatview.c) register their controls without duplicating the clip arithmetic.",
@@ -19,8 +19,8 @@
       "id": "format-tab-layout",
       "kind": "rationale",
       "anchor": {
-        "start": 402,
-        "end": 402,
+        "start": 458,
+        "end": 458,
         "snippet": "static void editor_ui(ReApp *a, mu_Context *ui, int index, mu_Rect content, mu_Rect below) {"
       },
       "note": "A format-aware editor tab draws the mode toolbar first; text mode keeps the Save/Discard row below it and shifts the buffer down by one row, raw and text previews take the whole content area as a draw-list rect, and a tree preview lives inside the scrollable microui window with the selected entry drawn in the reserved lower split. Actions returned by the view are performed after drawing so request/mode changes never interleave with layout. The third root container per pane is avoided on purpose: the entry area is a draw-list rect, not another microui window (upstream's 32-root limit).",
@@ -32,8 +32,8 @@
       "id": "bounded-tab-strip",
       "kind": "rationale",
       "anchor": {
-        "start": 430,
-        "end": 430,
+        "start": 494,
+        "end": 494,
         "snippet": "static void pane_header(ReApp *a, mu_Context *ui, int n) {"
       },
       "note": "Visible tab slots and previous/next controls fit the measured pane header; only displayed tabs receive hit rectangles. Strip offsets are ephemeral and can browse away from the selected content without retargeting it. Explicit layout changes invalidate the cached width to reveal the selected tab even when pane indices are reused. Drops choose insertion boundaries from visible header midpoints, then adjust for removal when source and destination are the same pane. Root/session identity stays on ReTab.",
@@ -45,8 +45,8 @@
       "id": "one-overlay",
       "kind": "rationale",
       "anchor": {
-        "start": 566,
-        "end": 595,
+        "start": 630,
+        "end": 659,
         "symbol": "overlay_open",
         "snippet": "static void overlay_open(ReApp *a, mu_Context *ui, int kind) {"
       },
@@ -59,8 +59,8 @@
       "id": "offered-not-applied",
       "kind": "constraint",
       "anchor": {
-        "start": 683,
-        "end": 706,
+        "start": 747,
+        "end": 770,
         "symbol": "project_theme_probe",
         "snippet": "static void project_theme_probe(ReApp *a) {"
       },
@@ -74,8 +74,8 @@
       "id": "view-switcher-indices",
       "kind": "constraint",
       "anchor": {
-        "start": 883,
-        "end": 883,
+        "start": 947,
+        "end": 947,
         "snippet": "struct { const char *label; int icon; } switcher[] = {"
       },
       "note": "The view switcher is a fixed table walked by index, and the click handler branches on that same index — so inserting an entry is not a one-line change: `views` must match the table length and every later branch must be re-numbered. Tasks sits at index 2 and Devices at 3, so the terminal/agent branch is `i == 4`/`i == 5`; getting it wrong opens a shell where the user asked for an agent, silently, because both call launch_terminal. The group ring is drawn once around the whole run using GROUP_FIRST/LAST, so the first and last entries must stay first and last.",
@@ -87,8 +87,8 @@
       "id": "external-game-status-row",
       "kind": "rationale",
       "anchor": {
-        "start": 995,
-        "end": 995,
+        "start": 1059,
+        "end": 1059,
         "snippet": "      } else if (t->type == RE_GAME && t->terminal) {"
       },
       "note": "An external game runs in its own window, so its tab has no frame surface to draw: it shows the retained PTY output with a status row above it, and the row reads the session's live state rather than the tab's, because the process can exit while the tab stays open. The rect is still set from the game insets so the terminal below occupies the same area an embedded surface would. This branch must precede the t->game one — an external tab has a terminal and no game surface. Without it surface \"external\" has no view at all, which is what the vtmb-vr consumer declares for both of its games."
@@ -97,8 +97,8 @@
       "id": "native-focus-and-detach",
       "kind": "rationale",
       "anchor": {
-        "start": 1040,
-        "end": 1040,
+        "start": 1104,
+        "end": 1104,
         "snippet": "bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {"
       },
       "note": "Pointer focus selects a view without changing its root/session binding. Toolbar focus clears custom editor/terminal/game keyboard routing. Detach never calls Stop. Wheel targets the visible hovered terminal/editor; negotiated terminal reporting gets first refusal before native history. Mouse motion/buttons route to an existing held terminal first, otherwise the hovered visible terminal; layout drags do not become application motion. Hover never changes keyboard focus. Focus loss releases all terminal holds, focus transfer releases the previous terminal, and hidden views release during drawing. Native UI still receives mouse motion to settle microui hover; consumed application buttons are not forwarded to chrome.",
@@ -112,8 +112,8 @@
       "id": "status-segment-geometry",
       "kind": "constraint",
       "anchor": {
-        "start": 487,
-        "end": 487,
+        "start": 551,
+        "end": 551,
         "snippet": "void re_app_status(ReApp *a, ReDraw *draw) {"
       },
       "note": "The status bar is drawn outside microui, after every pane, so a segment on it cannot be a control: it is a face here and a rectangle reported to automation, and the press is served in re_app_event beside the pane strip's context menu. A window of its own would have cost a root container, and fifteen leaf panes with a surface open already sit at microui's root list of 32. The token segment takes the right edge and the facts move left of it so that its rectangle depends on the window width and its own text alone; measuring it from the facts instead would make the pressable rectangle lag the drawn one by a frame.",
@@ -124,7 +124,7 @@
   ],
   "source": {
     "path": "orchestrator/native/workspace.c",
-    "sha256": "5d90f9ab25ff8a1879f72cba57d567c49d6ef4437e32e16ca55676338f9c6975",
+    "sha256": "2342b824fbb28b7bf8bef299969c81a54ae013abc575b97972f9a62fa39c61ee",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

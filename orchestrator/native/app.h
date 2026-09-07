@@ -121,4 +121,6 @@ void re_app_save(ReApp *app, int tab);
 void re_app_discard(ReApp *app, int tab);
 void re_app_action(ReApp *app, const char *route, const cJSON *body);
 void re_app_layout_changed(ReApp *app);
+bool re_app_ide_connected(ReApp *app);   /* the workspace serves the IDE routes, so a control can act */
+void re_app_mention(ReApp *app, int tab); /* send this file and its selected lines to a listening agent */
 #endif

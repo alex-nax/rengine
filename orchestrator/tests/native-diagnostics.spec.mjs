@@ -59,6 +59,15 @@ test('the editor pane draws what the project\'s language server said', { timeout
     state = await gui.until(s => s.tabs[tab]?.diagnostics === 2, 'an unsaved edit changes what is drawn');
     assert.equal(state.tabs[tab].diagnostics, 2, 'the second TODO is reported without saving');
     assert.ok(state.tabs[tab].dirty, 'and the file is still unsaved');
+
+    // "To agent" is a labelled control rather than a chord, and it is drawn because this workspace
+    // serves the IDE routes. A pane bound to a bare host does not show it — there is nothing to say
+    // it to — which is asserted in native-ide-selection.
+    const mention = state.controls.find(c => c.role === 'mention' && c.tab === tab);
+    assert.ok(mention, `the pane offers to send the file to an agent: ${JSON.stringify(state.controls.map(c => c.role))}`);
+    await gui.control('mention', '', tab);
+    state = await gui.until(s => /Sent to the agent/.test(s.status ?? ''), 'the desktop says it sent');
+    assert.match(state.status, /Sent to the agent/);
   } finally {
     await gui.close(); await worker.close(); await host.close(); await rm(dir, { recursive: true, force: true });
   }

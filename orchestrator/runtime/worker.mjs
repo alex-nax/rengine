@@ -559,6 +559,14 @@ export async function startWorker(host, options = {}) {
           const file = path.join(selected.path, target.searchParams.get('path') ?? '');
           json(res, 200, { version, items: group.for(uriFor(file)), unavailable: group.unavailable() });
         }
+      } else if (req.method === 'POST' && target.pathname === '/api/ide-mention') {
+        /* Deliberate, unlike the selection stream: the person pressed a button that says so, and the
+           CLI treats the two differently. */
+        const data = await body(req);
+        const selected = root(data.rootId);
+        json(res, 200, { delivered: ide?.published
+          ? ide.mention({ filePath: path.join(selected.path, data.path ?? ''), lineStart: data.lineStart, lineEnd: data.lineEnd })
+          : 0 });
       } else if (req.method === 'POST' && target.pathname === '/api/ide-selection') {
         /* The desktop reports a fact about itself — which file, which range — and this turns it into
            the notification Claude Code understands. The path is resolved here because roots live

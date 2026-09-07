@@ -192,6 +192,26 @@ test('getDiagnostics answers with what the project\'s declared language server p
   } finally { await worker.close(); await host.close(); await rm(dir, { recursive: true, force: true }); }
 });
 
+test('the deliberate mention is a different notification from the passive selection', async () => {
+  const dir = await directory();
+  const bridge = await startIdeBridge({ roots: ['/work'], hostPid: process.pid, directory: dir });
+  try {
+    const client = await connected(bridge);
+    const seen = [];
+    client.fallbackNotificationHandler = notification => { seen.push(notification); return Promise.resolve(); };
+    bridge.selection({ filePath: '/work/a.c', text: 'x', selection: { start: { line: 2, character: 0 }, end: { line: 2, character: 1 } } });
+    assert.equal(bridge.mention({ filePath: '/work/a.c', lineStart: 2, lineEnd: 4 }), 1);
+    for (let i = 0; i < 60 && seen.length < 2; i++) await delay(50);
+    const methods = seen.map(n => n.method);
+    assert.deepEqual(methods, ['selection_changed', 'at_mentioned'],
+      `the CLI keeps the two apart, so we must too: ${methods.join(', ')}`);
+    // The schema is the CLI's own, read out of its binary: filePath with an optional line range,
+    // not the selection's start/end objects.
+    assert.deepEqual(seen[1].params, { filePath: '/work/a.c', lineStart: 2, lineEnd: 4 });
+    await client.close();
+  } finally { await bridge.close(); await rm(dir, { recursive: true, force: true }); }
+});
+
 test('the port survives a worker replacement, because the CLI reconnects to the one it read', async () => {
   const dir = await directory();
   // The worker being replaced still holds the port when its successor starts, which is exactly the
