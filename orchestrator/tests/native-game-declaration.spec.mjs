@@ -22,7 +22,7 @@ test('a dashboard game action launches the declared game in its own window while
     let state = await gui.until(s => s.connected && s.controls?.some(c => c.role === 'toolbar' && c.key === 'Root'), 'connected toolbar');
     const toolbarKeys = s => s.controls.filter(c => c.role === 'toolbar' && c.tab === -1).map(c => c.key);
     assert.deepEqual(toolbarKeys(state).filter(k => k !== 'Root'),
-      ['Tree', 'Dashboard', 'Devices', 'Shell', 'Agent', 'Manage', 'Sessions', 'Split vertical', 'Split horizontal', 'Merge pane', 'Add project', 'Settings'],
+      ['Tree', 'Dashboard', 'Tasks', 'Devices', 'Shell', 'Agent', 'Manage', 'Sessions', 'Split vertical', 'Split horizontal', 'Merge pane', 'Add project', 'Settings'],
       'the toolbar is a fixed set of cells with no game control (Devices joined it in spec 082)');
     assert.equal(state.games, undefined, 'the desktop no longer publishes a toolbar game list');
 

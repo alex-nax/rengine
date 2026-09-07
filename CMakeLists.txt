@@ -205,6 +205,7 @@ set(rengine_desktop_core_SOURCES
 	"orchestrator/native/scroll.c"
 	"orchestrator/native/syntax.c"
 	"orchestrator/native/terminal.c"
+	"orchestrator/native/tracker.c"
 	"orchestrator/native/workspace.c"
 )
 

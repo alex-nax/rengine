@@ -1,5 +1,45 @@
 # Progress Log
 
+## Session 37 (macos) — 2026-09-07 — Task tracking with a declared backend (F78)
+
+Built the tracker. Contract 5 carries a `tracker` block naming a provider and the locator that
+provider needs: a repository for GitHub, a team key for Linear, nothing for local. A declaration
+naming the wrong locator is refused at declaration time rather than failing later against the
+network, and the block has no credential field at all, so the schema refuses a token key outright.
+
+Three providers answer one neutral row. Local reads the project's own inventory and derives readiness
+with the rule `tools/features.py` applies, so the view and the command line cannot disagree about what
+is blocked; a project declaring no tracker still gets its inventory, which is the default. Remote
+providers are cached for thirty seconds with in-flight coalescing, the shape devices established, and
+local is never cached because it is always current.
+
+Two decisions from the interview earned themselves during the build. State reaches the row as
+`(id, name, category)`, and the Linear fixture is why: a team names its own states, "In Review" and
+"Icebox", and only the category is shared vocabulary, so a boolean would have flattened exactly the
+thing worth showing. And the failure vocabulary is the backend's rather than HTTP's — `denied`,
+`unavailable`, `invalid` with reasons — which is what let a missing token, a refused token and a
+Linear rate limit each say something different and true. Linear reports its limit as a 400 carrying a
+RATELIMITED error rather than a 429, handled by name.
+
+A token lives at `<workspace state>/trackers/<project>.token`, keyed by the declared project identity
+so a person can create it by name. That works unchanged for an externally owned project whose
+declaration lives outside its checkout, which is the case that prompted the feature.
+
+Three sabotages, each failing only its own claim: readiness ignoring unmet dependencies, which fails
+the blocked row; a Bearer prefix on a Linear personal key, which fails the bare-token assertion; and
+the declared provider ignored in favour of local, which fails the Linear view test.
+
+Commands: `npm test` 89/89, `npm run test:desktop` 41/41, `ctest` 6/6, `python3 tools/design.py
+check`, `python3 tools/features.py validate` at 42 features. One earlier desktop run lost three
+tests; a clean rerun passed all 41, and the four specs the toolbar change could plausibly have
+touched — design cards, the workspace spec, identity and tracker — pass individually. That is
+KI-045 rather than a regression, though three at once is more than its usual one or two.
+
+F78 stays `passes: false`: it depends on F63, which is not verified, and the inventory's own rule
+forbids a passing feature from resting on one that is not. The evidence is recorded on the row.
+
+Remaining: F69 and the KI-038 Windows repair still block F37, F54, F62, F67 and F73.
+
 ## Session 45 (macos) — 2026-09-07 — The project token, recorded (F90, spec 095)
 
 Owner direction, given directly in the vtmb-vr workspace after three agents had acted on one

@@ -211,6 +211,26 @@ static void devices_request(ReApp *a, int tab, bool refresh) {
   request_within(a, OP_LOAD, tab, route, NULL, RE_DEVICES_TIMEOUT_MS);
 }
 void re_app_devices_refresh(ReApp *a, int tab) { devices_request(a, tab, true); }
+/* The task list follows the devices shape: fetched when the tab opens or Refresh is pressed, never
+   on a timer, because a remote provider spends a rate-limited request on every read (spec 083). */
+static void tracker_request(ReApp *a, int tab, bool refresh) {
+  ReTab *t = &a->tabs[tab];
+  char *base = re_net_query("tracker", t->root, "");
+  if (!base) return;
+  char route[2300]; snprintf(route, sizeof(route), "%s%s", base, refresh ? "&refresh=1" : "");
+  free(base);
+  request_within(a, OP_LOAD, tab, route, NULL, RE_DEVICES_TIMEOUT_MS);
+}
+void re_app_tracker_refresh(ReApp *a, int tab) { tracker_request(a, tab, true); }
+int re_app_tracker(ReApp *a, const char *root) {
+  if (!*root) return -1;
+  return re_app_tab(a, RE_TRACKER, root, "", "", "Tasks");
+}
+/* Reading is the whole feature, so the one thing a row can do with a link is hand it to the browser. */
+void re_app_open_url(ReApp *a, const char *url) {
+  if (!url || strncmp(url, "https://", 8)) { re_copy(a->status, sizeof(a->status), "Only https links open from a task."); return; }
+  if (SDL_OpenURL(url) != 0) re_copy(a->status, sizeof(a->status), SDL_GetError());
+}
 int re_app_devices(ReApp *a, const char *root) {
   if (!*root) return -1;
   return re_app_tab(a, RE_DEVICES, root, "", "", "Devices");
@@ -264,6 +284,7 @@ void re_app_load(ReApp *a, int tab) {
   ReTab *t = &a->tabs[tab];
   if (t->type == RE_TREE) { char *route = re_net_query("tree", t->root, t->path); if (route) request(a, OP_LOAD, tab, route, NULL); free(route); return; }
   if (t->type == RE_DASHBOARD) { char *route = re_net_query("dashboard", t->root, ""); if (route) request(a, OP_LOAD, tab, route, NULL); free(route); return; }
+  if (t->type == RE_TRACKER) { tracker_request(a, tab, false); return; }
   if (t->type == RE_DEVICES) { devices_request(a, tab, false); return; }
   if (t->type != RE_EDITOR) return;
   if (!t->format || re_format_mode(t->format) == RE_MODE_PENDING) {
@@ -368,7 +389,7 @@ static bool restore(ReApp *a, const cJSON *j) {
     const cJSON *tab = cJSON_GetArrayItem(tabs, i);
     if (cJSON_IsNull(tab)) { if (re_layout_find(&layout, i) >= 0) return false; continue; }
     int type = re_number(tab, "type");
-    if (type < RE_TREE || type > RE_DEVICES || strlen(re_string(tab, "root")) > 64 ||
+    if (type < RE_TREE || type > RE_TRACKER || strlen(re_string(tab, "root")) > 64 ||
         strlen(re_string(tab, "session")) > 64 || strlen(re_string(tab, "path")) > 2047) return false;
     if (cJSON_HasObjectItem(tab, "mode") && (type != RE_EDITOR || re_format_mode_from(re_string(tab, "mode")) < 0)) return false;
   }
@@ -671,6 +692,7 @@ cJSON *re_app_inspect(ReApp *a) {
     if (t->data && t->type == RE_TREE) cJSON_AddItemToObject(tab, "tree", cJSON_Duplicate(t->data, 1));
     if (t->data && t->type == RE_DASHBOARD) cJSON_AddItemToObject(tab, "dashboard", cJSON_Duplicate(t->data, 1));
     if (t->data && t->type == RE_DEVICES) cJSON_AddItemToObject(tab, "devices", cJSON_Duplicate(t->data, 1));
+    if (t->data && t->type == RE_TRACKER) cJSON_AddItemToObject(tab, "tracker", cJSON_Duplicate(t->data, 1));
     if (t->format) re_format_inspect(t->format, tab);
   }
   return j;

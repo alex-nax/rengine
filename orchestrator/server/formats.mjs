@@ -9,6 +9,20 @@ import { dashboardRules, nameOf } from './dashboard-rules.mjs';
 import { gamesRules } from './game-rules.mjs';
 import { devicesRules } from './device-rules.mjs';
 
+/* A provider only accepts the locator it can use, so a declaration that names the wrong one is
+   refused at declaration time rather than failing later against the network. */
+function trackerRules(block) {
+  const problems = [];
+  const need = { github: 'repository', linear: 'team' };
+  const required = need[block.provider];
+  if (required && block[required] === undefined) problems.push(`$.tracker requires ${required} for provider ${block.provider}`);
+  for (const [provider, key] of Object.entries(need)) {
+    if (block.provider !== provider && block[key] !== undefined) problems.push(`$.tracker ${key} belongs to provider ${provider}`);
+  }
+  if (block.provider !== 'local' && block.inventory !== undefined) problems.push('$.tracker inventory belongs to provider local');
+  return problems;
+}
+
 export const CONTRACTS = [1, 2, 3, 4, 5];
 /* Brand-mark colours a project may name. Each is a saturated fill the design system pairs with
    the on-accent ink, which is what keeps the letter legible in every preset. */
@@ -54,7 +68,7 @@ export async function readDeclaration(root) {
   try { value = JSON.parse(bytes.toString('utf8')); } catch (error) { return problem(`invalid JSON (${error.message})`); }
   if (!value || typeof value !== 'object' || Array.isArray(value)) return problem('declaration must be a JSON object');
   if (!CONTRACTS.includes(value.contract)) return problem(`unknown contract ${JSON.stringify(value.contract)}; this rEngine supports contracts ${CONTRACTS.slice(0, -1).join(', ')} and ${CONTRACTS.at(-1)}`);
-  const { dashboard, games, devices, ...base } = value;
+  const { dashboard, games, devices, tracker, ...base } = value;
   const structural = validateSchema(schema, base);
   if (structural.length) return problem(report(structural));
   /* Identity keys are plain root fields rather than a block, so their contract floor is checked here
@@ -79,10 +93,12 @@ export async function readDeclaration(root) {
     formats: value.formats.map(format => ({ ...format, preview: bounded(format.preview), entry: bounded(format.entry) })) };
   /* devices, games and dashboard are each reported separately so none can disable the formats, and
      devices settles first so both of the others can resolve a device binding; see sidecar: declaration-reporting */
-  const withDevices = section(result, 'devices', devices, value.contract);
+  const withTracker = section(result, 'tracker', tracker, value.contract);
+  const withDevices = section(withTracker, 'devices', devices, value.contract);
   return section(section(withDevices, 'games', games, value.contract), 'dashboard', dashboard, value.contract);
 }
 const SECTIONS = {
+  tracker: { minimum: 5, rules: trackerRules, node: () => schema.properties.tracker },
   devices: { minimum: 4, rules: devicesRules, node: () => schema.properties.devices },
   games: { minimum: 3, rules: gamesRules, node: () => schema.properties.games },
   dashboard: { minimum: 2, rules: dashboardRules, node: () => schema.$defs.dashboard },

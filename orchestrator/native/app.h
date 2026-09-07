@@ -6,7 +6,7 @@
 #include "game.h"
 #include "formatview.h"
 #include "recording.h"
-enum { RE_TREE = 1, RE_EDITOR, RE_TERMINAL, RE_SESSIONS, RE_GAME, RE_DASHBOARD, RE_DEVICES };
+enum { RE_TREE = 1, RE_EDITOR, RE_TERMINAL, RE_SESSIONS, RE_GAME, RE_DASHBOARD, RE_DEVICES, RE_TRACKER };
 #define RE_DEVICES_TIMEOUT_MS 45000L /* a devices load runs every declared probe; see sidecar: devices-route */
 typedef struct {
   bool used, dirty, conflict, discarding; int type, generation, saved, checkpoint, checkpoint_flight;
@@ -96,6 +96,9 @@ void re_app_reveal(ReApp *app, const char *root, const char *artifact);
 void re_dashboard_ui(ReApp *app, mu_Context *ui, int tab);
 int  re_app_devices(ReApp *app, const char *root);
 void re_app_devices_refresh(ReApp *app, int tab);
+int re_app_tracker(ReApp *app, const char *root);       /* the project's task list (spec 083) */
+void re_app_tracker_refresh(ReApp *app, int tab);
+void re_app_open_url(ReApp *app, const char *url);      /* hands a task's link to the browser */
 void re_devices_ui(ReApp *app, mu_Context *ui, int tab);
 void re_app_save(ReApp *app, int tab);
 void re_app_discard(ReApp *app, int tab);

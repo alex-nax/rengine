@@ -87,6 +87,41 @@ local concept: it is never read back from a provider as truth.
   protocol: for the cache, a stale entry served past its window; for the contract gate, a block
   declared one contract too early.
 
+## What shipped (F78, 2026-09-07)
+
+Contract 5 carries a `tracker` block naming a provider and the locator that provider needs: a
+repository for GitHub, a team key for Linear, nothing for local. A declaration naming the wrong
+locator is refused at declaration time rather than failing later against the network, and the block
+has no credential field at all, so a secret cannot be committed by mistake — the schema refuses the
+key outright.
+
+Three providers answer the same neutral row. Local reads the project's own inventory and derives
+readiness with the rule `tools/features.py` applies, so the view and the command line cannot disagree
+about what is blocked. A project that declares no tracker still gets its inventory, which is the
+default backend and the one this repository uses. Remote providers are cached for thirty seconds with
+in-flight coalescing, the shape the devices probe established; the local backend is never cached,
+because it is always current and a staleness indicator on it would be a lie.
+
+State reaches the row as `(id, name, category)`. A Linear team names its own states — "In Review",
+"Icebox" — and only the category is shared vocabulary, which is why a boolean would not have done.
+The failure vocabulary is the backend's rather than HTTP's: `denied` when a token is missing or
+refused, `unavailable` when a service cannot be reached, `invalid` with reasons when a declaration or
+an inventory is malformed. Linear reports its rate limit as a 400 carrying a RATELIMITED error rather
+than a 429, and that is handled by name.
+
+A token lives at `<workspace state>/trackers/<project>.token`, keyed by the declared project identity
+so a person can create it by name. For an externally owned project whose declaration lives outside
+its checkout, this works unchanged: the declaration is found through the root's declaration file and
+the token is keyed on the `project` it declares.
+
+To point a project at Linear:
+
+```json
+{ "contract": 5, "tracker": { "provider": "linear", "team": "KOH" } }
+```
+
+then write the key to `trackers/<project>.token` beside the workspace state.
+
 ## Deferred
 
 Writing to any backend. Mirroring between backends. Linear subscriptions. Image icons and anything

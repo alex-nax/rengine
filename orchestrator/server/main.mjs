@@ -13,6 +13,7 @@ import { Desktops } from './desktops.mjs';
 import { listFormats, formatPreview, readBytes, readDeclaration } from './formats.mjs';
 import { dashboardAction, dashboardActions, dashboardRunPayload, dashboardCapture } from './dashboard.mjs';
 import { projectDevices } from './devices.mjs';
+import { projectTracker } from './tracker.mjs';
 import { listRecordings, readRecording } from './recordings.mjs';
 
 const authorized = (value, token) => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value) && timingSafeEqual(Buffer.from(value), Buffer.from(token));
@@ -64,6 +65,8 @@ export async function startServer({ stateDir, port = 0 } = {}) {
             }
             case '/api/formats': value = await listFormats(store.root(query.get('rootId'))); break;
             case '/api/dashboard': value = await dashboardActions(store.root(query.get('rootId')), preflight); break;
+            case '/api/tracker': { const selected = store.root(query.get('rootId'));
+              value = await projectTracker(selected, await readDeclaration(selected), { stateDirectory: stateDir, refresh: query.get('refresh') === '1' }); break; }
             case '/api/devices': { const selected = store.root(query.get('rootId'));
               value = await projectDevices(selected, await readDeclaration(selected),
                 { refresh: query.get('refresh') === '1', preflight, resolve: () => dashboardActions(selected, preflight) }); break; }
