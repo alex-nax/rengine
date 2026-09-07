@@ -7,6 +7,7 @@ import { request } from '../launcher/sidecar.mjs';
 import { checkConnection } from '../runtime/protocol.mjs';
 
 const mcpMain = fileURLToPath(new URL('./mcp.mjs', import.meta.url));
+const reportMain = fileURLToPath(new URL('./report-session.mjs', import.meta.url));
 const NAMED = ['claude', 'codex', 'gemini', 'opencode'];
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 // Which CLIs accept being told the conversation they are starting, and how to resume that one.
@@ -107,6 +108,21 @@ export async function agentIdentity({ agent, executable, args = [], handoff, ses
   return pty ? { ...identity, sessionId: pty.id } : identity;
 }
 export const shellQuote = value => /^[A-Za-z0-9_@%+=:,./-]+$/.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`;
+/* The launcher decides the conversation at launch and then goes blind: a /resume performed inside
+   the running CLI changes which conversation the process is in, and no flag, transcript or process
+   tree says so afterwards. So the CLI is asked to say it. Claude Code's SessionStart hook fires on
+   startup, --resume, an in-CLI /resume, /clear and after compaction, carrying the session_id it is
+   actually running, and report-session.mjs reports that back. The settings live beside this launch's
+   MCP configuration; the person's own and the project's settings files are never touched.
+   The hook is given this launch's context file on its own command line, so a session started by hand
+   from the line bind.mjs prints -- which inherits none of the launcher's environment -- reports
+   itself too. Claude Code runs the command through a shell, and that shell is cmd on Windows, where
+   POSIX single quotes are literal characters rather than quoting. */
+const hookQuote = value => process.platform === 'win32'
+  ? (/^[A-Za-z0-9_@%+=:,.\\/-]+$/.test(value) ? value : `"${value.replaceAll('"', '""')}"`) : shellQuote(value);
+export const claudeSettings = contextFile => ({ hooks: { SessionStart: [{ hooks: [{ type: 'command',
+  command: [process.execPath, reportMain, '--context', contextFile].map(hookQuote).join(' ') }] }] } });
+export const claudeSettingsFile = (directory, contextFile) => privateJson(path.join(directory, 'settings.json'), claudeSettings(contextFile));
 export function describeInvocation(plan) {
   return [...Object.entries(plan.consumes.env).map(([key, value]) => `${key}=${shellQuote(value)}`),
     shellQuote(plan.executable), ...plan.consumes.args.map(shellQuote)].join(' ');
@@ -127,8 +143,10 @@ export async function agentLaunch({ agent, executable, args = [], contextFile, c
   if (agent === 'codex') {
     consumes.args = ['-c', `mcp_servers.${name}.command=${JSON.stringify(server.command)}`,
       '-c', `mcp_servers.${name}.args=${JSON.stringify(server.args)}`, '-c', `mcp_servers.${name}.required=true`];
-  } else if (agent === 'claude') consumes.args = ['--mcp-config', generic, ...conversationArgs(agent, bound, resume)];
-  else if (agent === 'opencode') {
+  } else if (agent === 'claude') {
+    plan.settings = await claudeSettingsFile(home, boundFile);
+    consumes.args = ['--mcp-config', generic, '--settings', plan.settings, ...conversationArgs(agent, bound, resume)];
+  } else if (agent === 'opencode') {
     const previous = env.OPENCODE_CONFIG_CONTENT ? object(env.OPENCODE_CONFIG_CONTENT, 'OpenCode runtime configuration') : {};
     consumes.env.OPENCODE_CONFIG_CONTENT = JSON.stringify({ ...previous,
       mcp: add(previous.mcp, name, { type: 'local', command: [server.command, ...server.args], enabled: true }) });

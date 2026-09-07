@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { discoverSidecar, request } from '../launcher/sidecar.mjs';
-import { agentIdentity, agentLaunch, describeInvocation, describeSession, shellQuote } from './config.mjs';
+import { agentIdentity, agentLaunch, claudeSettingsFile, describeInvocation, describeSession, shellQuote } from './config.mjs';
 
 const USAGE = `node orchestrator/agents/bind.mjs --project DIR [--agent claude|codex|gemini|opencode|EXECUTABLE]
                                    [--session UUID] [--state DIR]
@@ -93,9 +93,12 @@ export async function bind(argv) {
        written for them, so bind writes that only for the CLI the caller names. */
     const server = JSON.parse(await readFile(plan.generic, 'utf8')).mcpServers[plan.name];
     /* The identity is the Claude session id, so the claude line names it: --resume for a session
-       that already exists, --session-id for the one this binding minted. */
+       that already exists, --session-id for the one this binding minted. It also carries --settings,
+       so a session started outside the workspace reports its own conversation back the way a pane
+       does: the identity here is only the launch's guess until the CLI confirms or corrects it. */
+    const settings = await claudeSettingsFile(plan.directory, plan.contextFile);
     lines.push(`Start the agent from ${root.path} with the flag its CLI consumes:`,
-      `  claude --mcp-config ${shellQuote(plan.generic)} ${session ? '--resume' : '--session-id'} ${identity.agentId}`,
+      `  claude --mcp-config ${shellQuote(plan.generic)} --settings ${shellQuote(settings)} ${session ? '--resume' : '--session-id'} ${identity.agentId}`,
       `  codex ${['-c', `mcp_servers.${plan.name}.command=${JSON.stringify(server.command)}`,
         '-c', `mcp_servers.${plan.name}.args=${JSON.stringify(server.args)}`,
         '-c', `mcp_servers.${plan.name}.required=true`].map(shellQuote).join(' ')}`,

@@ -1,5 +1,52 @@
 # Progress Log
 
+## Session 57 (macos) — 2026-09-07 — The CLI reports the conversation it runs (F90)
+
+"The conversation IS the identity" was reconciled yesterday and still had one hole, seen live today: a
+pane launched with a minted `b9e2114c` was moved by its person to another conversation from **inside**
+the running CLI — Claude Code's own `/resume` picker — so the process ran `5b8d47c2`, its transcript
+was `5b8d47c2….jsonl`, and no `b9e2114c….jsonl` ever existed, while the pane record,
+`workspace_info.agent`, the token ledger identity and the Sessions tab all still said `b9e2114c`. The
+launcher decides the conversation from the launch's own flags and is blind afterwards, and inferring
+the id from transcripts or the process tree is forbidden — the thing an earlier attempt did and kept
+getting wrong.
+
+The fix is not a better guess: **the CLI is asked**. Verified on this machine before anything was
+written (2.1.263): `--settings <file-or-json>` exists, and one real `claude -p` run with a throwaway
+hook showed exactly what a `SessionStart` hook is handed on stdin — `session_id`, `transcript_path`,
+`cwd`, `hook_event_name`, `source` (`startup` on a fresh run, `resume` when resumed) — and that the
+hook inherits the launch environment, so the launcher's own `RENGINE_*` plumbing reaches it.
+
+What changed. **`agents/report-session.mjs`** reads that payload, finds this launch's binding the way
+the tool worker does (`RENGINE_MCP_CONFIG` → the per-launch `mcp.json` → its `--context` file, else
+`RENGINE_WORKSPACE_CONTEXT`), posts `POST /api/agent-conversation` exactly as `launch.mjs` does at
+launch, and rewrites the per-launch `context.json` identity — `agentId`, `label`, and `session` with
+`source: 'reported'`. It never fails the CLI it runs inside (stderr only, always exit 0), never writes
+to stdout (a `SessionStart` hook's stdout becomes text in the person's own conversation), and does
+nothing at all outside a workspace pane. It reports on every session start, not only on a change, so a
+`-c` launch — which claims nothing and leaves the pane unrestartable — becomes known at its first
+report. **`agents/config.mjs`** writes that hook into a per-launch `settings.json` beside `mcp.json`
+and passes `--settings`; nobody's own settings file is touched. **`agents/bind.mjs`** prints the same
+flag, and the hook is given this launch's context on its own command line, so a session started by
+hand from that printed line — which inherits none of the launcher's environment — corrects the
+identity too, though it posts to nobody, having no pane. **`agents/mcp-worker.mjs`** re-reads the
+identity from the context file once per tool call, so `workspace_info` and the `X-Rengine-Agent`
+header follow the CLI without a worker restart — while the binding stays the facade's snapshot, so the
+file can rename this agent and never retarget its root. No server route and no native change.
+
+Verified end to end through the real CLI, with the live gap reproduced: the launcher named
+`b9e2114c-0000-…`, the CLI ran `5a9a90ce-96ea-…`, and afterwards the fake host held
+`{ id, conversation: 5a9a90ce…, agent: claude }` and the context identity read `claude 5a9a90ce`,
+`source: reported`, with `pid` and `startedAt` untouched. Thirteen sabotages, each watched red for its
+own claim (case 12 red twice, from both ends of one mechanism); one of them found a real hole rather
+than confirming one — the claude line `bind` prints without `--agent` had no assertion on it at all,
+so dropping the flag there passed until the assertion was added. 161/161 on
+`node --test orchestrator/tests/*.test.mjs`. Spec 095 gains *The CLI reports what it runs*, 096 gains
+amendments 3c and 4b, and the runbook says to start a bound session with the printed `--settings`.
+Evidence, with both recorded hook payloads: `docs/evidence/report-session-hook-2026-09-07.md`.
+
+**Not verified:** a live pane, the same gap 095–098 all record — this session's host predates the
+change; and Windows, where the hook command is quoted for `cmd` rather than POSIX-style.
 ## Session 56 (macos) — 2026-09-07 — What a running workspace can and cannot be given (F98)
 
 The owner was told, more than once, that layered updates were in place, and today a new route could

@@ -276,12 +276,22 @@ and the line that starts the agent on it.
 
 **The identity is the agent's session id** (spec 095, *Identity*), so that line names the session as
 well as the configuration: without `--session` an id is minted and the start line is
-`claude --mcp-config <path> --session-id <id>`; with `--session UUID` — the id Claude prints on exit
+`claude --mcp-config <path> --settings <path> --session-id <id>`; with `--session UUID` — the id Claude prints on exit
 as `claude --resume <id>` — the binding *is* that session and the start line resumes it,
-`claude --mcp-config <path> --resume <id>`. Bind the session you are already in, and the project
-token follows it through every exit and resume instead of being stranded on a dead pid. Without
-`--agent` the command prints the line for each CLI that can consume the configuration as written
-(`codex -c mcp_servers.…` among them).
+`claude --mcp-config <path> --settings <path> --resume <id>`. Bind the session you are already in,
+and the project token follows it through every exit and resume instead of being stranded on a dead
+pid. Without `--agent` the command prints the line for each CLI that can consume the configuration as
+written (`codex -c mcp_servers.…` among them).
+
+**Start it with the `--settings` file the command prints.** That file is written per launch beside
+the MCP configuration and contains one thing: a `SessionStart` hook that reports back which
+conversation the CLI is actually running (spec 095, *The CLI reports what it runs*). Without it the
+binding is only correct until someone resumes a different conversation from inside the running CLI —
+a `/resume` in the picker moves the process, and nothing else can see that it has. With it, the
+workspace record, `workspace_info` and the token identity all follow the CLI, and a pane started with
+`-c` becomes restartable as soon as the CLI names its own conversation. It adds nothing else and does
+not read, write or override the person's or the project's settings files. A pane the workspace opens
+gets the flag automatically.
 
 ## 9. Layered update after rEngine lands something
 
