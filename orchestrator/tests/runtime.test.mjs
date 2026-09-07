@@ -103,6 +103,9 @@ process.stdin.setRawMode(true); console.log('CLI_READY'); process.stdin.on('data
     const toolFailure = await until(async () => { const value = await call('update_status'); return value.jobs.find(x => x.id === badTools.jobId)?.status === 'failed' && value; }, 'failed MCP candidate');
     assert.equal(toolFailure.connectorGeneration, finished.connectorGeneration);
     assert.equal(toolFailure.toolWorkerPid, finished.toolWorkerPid);
+    /* The facade recreates a crashed worker from the file the supervisor published (spec 101), which
+       is this one; a crash while it is still broken on disk is the source edit's failure, not recovery's. */
+    await writeFile(toolWorkerFile, `import ${JSON.stringify(pathToFileURL(path.resolve('orchestrator/agents/mcp-worker.mjs')).href)};`);
     process.kill(toolFailure.toolWorkerPid, 'SIGTERM'); await delay(100);
     const toolRecovery = await call('update_status'); assert.notEqual(toolRecovery.toolWorkerPid, toolFailure.toolWorkerPid);
     await writeFile(workerFile, workerSource);

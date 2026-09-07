@@ -81,8 +81,8 @@ test('a claude launch IS its claude session: minted and named to the CLI, or tak
   const SESSION = '5b8d47c2-0faa-4f8c-8a7a-a4866e386fae';
 
   const fresh = await launch([]);
-  assert.deepEqual(fresh.args, ['--mcp-config', fresh.generic, '--session-id', fresh.identity.agentId],
-    'a launch with no session of its own is started as the identity rEngine minted');
+  assert.deepEqual(fresh.args, ['--mcp-config', fresh.generic, '--settings', fresh.settings, '--session-id', fresh.identity.agentId],
+    'a launch with no session of its own is started as the identity rEngine minted, and told to report what it runs');
   assert.deepEqual(fresh.identity.session, { provider: 'claude', id: fresh.identity.agentId, known: true, source: 'minted',
     resume: `claude --resume ${fresh.identity.agentId}` }, 'and the identity says which session it is and how to resume it');
   assert.match(describeSession(fresh.identity), new RegExp(`claude --resume ${fresh.identity.agentId}`),
@@ -92,7 +92,7 @@ test('a claude launch IS its claude session: minted and named to the CLI, or tak
     const named = await launch([flag, SESSION]);
     assert.equal(named.identity.agentId, SESSION, `${flag} names the session, and that session is the identity`);
     assert.equal(named.identity.session.known, true);
-    assert.deepEqual(named.args, ['--mcp-config', named.generic, flag, SESSION],
+    assert.deepEqual(named.args, ['--mcp-config', named.generic, '--settings', named.settings, flag, SESSION],
       `${flag} is passed through unchanged, with no second session named beside it`);
   }
   assert.equal((await launch([`--resume=${SESSION.toUpperCase()}`])).identity.agentId, SESSION, 'in either spelling, lowercased');
@@ -100,14 +100,14 @@ test('a claude launch IS its claude session: minted and named to the CLI, or tak
   const continued = await launch(['-c']);
   assert.notEqual(continued.identity.agentId, SESSION);
   assert.equal(continued.identity.session.known, false, '--continue resumes a conversation whose id rEngine cannot know');
-  assert.deepEqual(continued.args, ['--mcp-config', continued.generic, '-c'],
-    'so nothing is injected that would claim otherwise');
+  assert.deepEqual(continued.args, ['--mcp-config', continued.generic, '--settings', continued.settings, '-c'],
+    'so no identifier is injected that would claim otherwise');
   assert.match(describeSession(continued.identity), /unknown/, 'and the launcher says so rather than printing a resume line that would not work');
 
   const forked = await launch(['--resume', SESSION, '--fork-session']);
   assert.notEqual(forked.identity.agentId, SESSION, 'a fork is a new conversation, so the resumed id is not this identity');
   assert.equal(forked.identity.session.known, false);
-  assert.deepEqual(forked.args, ['--mcp-config', forked.generic, '--resume', SESSION, '--fork-session']);
+  assert.deepEqual(forked.args, ['--mcp-config', forked.generic, '--settings', forked.settings, '--resume', SESSION, '--fork-session']);
 
   /* Codex already carries a session id in its handoff, so it is that agent's identity too. */
   const handed = await agentLaunch({ agent: 'codex', executable: 'codex', contextFile: shared, env: {},
@@ -208,7 +208,7 @@ test('binding by discovery finds the one instance serving the directory, and ref
   assert.equal(bound.instance.instance, servers[1].server.instance, 'the instance that serves the directory is the one chosen');
   assert.equal(bound.root.id, owned.id);
   assert.equal(bound.identity.label, `claude ${bound.identity.agentId.slice(0, 8)}`);
-  assert.match(bound.report, new RegExp(`claude --mcp-config \\S+ --session-id ${bound.identity.agentId}`),
+  assert.match(bound.report, new RegExp(`claude --mcp-config \\S+ --settings \\S+ --session-id ${bound.identity.agentId}`),
     'the report prints the flag that consumes the configuration and the session id the identity is');
   assert.ok(bound.report.includes(bound.plan.generic), 'and the configuration path');
   const written = JSON.parse(await readFile(bound.plan.contextFile, 'utf8'));
@@ -228,6 +228,8 @@ test('binding by discovery finds the one instance serving the directory, and ref
   const explicit = await bind(['--project', path.join(directory, 'project'), '--state', servers[0].stateDir]);
   assert.equal(explicit.instance.instance, servers[0].server.instance, '--state names the instance when discovery cannot');
   assert.match(explicit.report, /codex -c /, 'without --agent every consuming flag is printed');
+  assert.match(explicit.report, /claude --mcp-config \S+ --settings \S+ --session-id /,
+    'and the claude line carries the settings that make a session started outside the workspace report its own conversation');
 
   /* The owner's rule: the identity IS the session the CLI resumes by, so binding a session that
      already exists takes its id rather than minting a competing one. */
@@ -237,7 +239,7 @@ test('binding by discovery finds the one instance serving the directory, and ref
   assert.equal(resumed.identity.label, `claude ${SESSION.slice(0, 8)}`);
   assert.equal(JSON.parse(await readFile(resumed.plan.contextFile, 'utf8')).agent.session.id, SESSION,
     'and the per-launch context carries it, so the tool worker sends it as this agent');
-  assert.match(resumed.report, new RegExp(`claude --mcp-config \\S+ --resume ${SESSION}`),
+  assert.match(resumed.report, new RegExp(`claude --mcp-config \\S+ --settings \\S+ --resume ${SESSION}`),
     'the start line resumes that session rather than naming a new one');
   await assert.rejects(bind(['--project', path.join(directory, 'project'), '--state', servers[0].stateDir, '--agent', 'claude', '--session', 'session-one']),
     /--session takes the agent session/, 'a session id that is not one is refused rather than bound');

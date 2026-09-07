@@ -7,27 +7,39 @@ import { resolveRuntime } from '../runtime/discovery.mjs';
 
 const index = process.argv.indexOf('--context');
 if (index < 0 || !process.argv[index + 1]) throw new Error('A workspace context file is required.');
-const context = JSON.parse(process.env.RENGINE_MCP_CONTEXT_SNAPSHOT ?? await readFile(process.argv[index + 1], 'utf8'));
+const contextFile = process.argv[index + 1];
+const context = JSON.parse(process.env.RENGINE_MCP_CONTEXT_SNAPSHOT ?? await readFile(contextFile, 'utf8'));
 const url = new URL(context.url);
 if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !/^[0-9a-f]{64}$/.test(context.token) || typeof context.rootId !== 'string') {
   throw new Error('Invalid local workspace context.');
 }
 /* The per-launch context carries the identity; a probe or an older launch has none and stays
    anonymous rather than failing. The header is arbitration, never authentication (spec 095). */
-const agent = context.agent && typeof context.agent === 'object' && /^[0-9a-f-]{36}$/.test(context.agent.agentId ?? '')
-  ? { agentId: context.agent.agentId, label: String(context.agent.label ?? 'agent'), pid: context.agent.pid, startedAt: context.agent.startedAt,
+const identityOf = value => value && typeof value === 'object' && /^[0-9a-f-]{36}$/.test(value.agentId ?? '')
+  ? { agentId: value.agentId, label: String(value.label ?? 'agent'), pid: value.pid, startedAt: value.startedAt,
       /* The conversation IS the identity, so the resume line belongs beside it: an agent that is
          asked to hand its session over reads it here rather than guessing at its own id. */
-      ...(context.agent.session && typeof context.agent.session === 'object' ? { session: context.agent.session } : {}),
-      ...(context.agent.sessionId ? { sessionId: context.agent.sessionId } : {}) }
+      ...(value.session && typeof value.session === 'object' ? { session: value.session } : {}),
+      ...(value.sessionId ? { sessionId: value.sessionId } : {}) }
   : undefined;
+let agent = identityOf(context.agent);
+/* The binding stays the snapshot's, so nothing the file says can retarget this CLI's instance or
+   root; only the identity is re-read, once per tool call, because the CLI reports the conversation
+   it is actually running and report-session.mjs rewrites this file with it (spec 095, "the CLI
+   reports what it runs"). A file that is missing, torn or anonymous leaves the identity as it was. */
+const refreshIdentity = async () => {
+  try { agent = identityOf(JSON.parse(await readFile(contextFile, 'utf8')).agent) ?? agent; }
+  catch { /* the identity this worker already has stands */ }
+  return agent;
+};
 /* The label and pid travel beside the id so the worker can name a holder in a refusal and check
    whether its process is still there, without a lookup it has no table for. */
 const printable = value => String(value ?? '').replace(/[^\x20-\x7e]/g, '').slice(0, 64);
-const identityHeaders = agent ? { 'X-Rengine-Agent': agent.agentId, 'X-Rengine-Agent-Label': printable(agent.label) || 'agent',
+const identityHeaders = () => agent ? { 'X-Rengine-Agent': agent.agentId, 'X-Rengine-Agent-Label': printable(agent.label) || 'agent',
   ...(Number.isSafeInteger(agent.pid) && agent.pid > 0 ? { 'X-Rengine-Agent-Pid': String(agent.pid) } : {}) } : {};
-const call = async (route, data) => request(await resolveRuntime(context), route, data, identityHeaders);
+const call = async (route, data) => request(await resolveRuntime(context), route, data, identityHeaders());
 const scopedState = async () => {
+  await refreshIdentity();
   const state = await call('state');
   if (state.instance !== context.instance) throw new Error('The original sidecar instance is no longer available. Reopen this agent from the workspace.');
   const root = state.roots.find(root => root.id === context.rootId);
@@ -41,7 +53,7 @@ const server = new McpServer({ name: 'rengine-workspace', version: '1.0.0' }, {
   instructions: 'These tools address the project bound when this agent was launched. List sessions before selecting a process. Closing a workspace view retains the process; stop_session explicitly stops it. File reads use disk text unless useDraft is requested.',
 });
 const tool = (name, description, inputSchema, readOnlyHint, action) => server.registerTool(name, {
-  description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script', 'restart_agent'].includes(name), openWorldHint: ['open_script', 'preview_file', 'dashboard_capture', 'launch_game', 'devices'].includes(name) },
+  description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script', 'restart_agent'].includes(name), openWorldHint: ['open_script', 'preview_file', 'dashboard_capture', 'launch_game', 'devices', 'list_tasks'].includes(name) },
 }, async values => {
   let state;
   try {
@@ -156,6 +168,13 @@ tool('devices', 'List the devices the project declares in .rengine/project.json 
 }, true, async ({ refresh }, state) => {
   deviceCapability(state);
   return call(`devices?${new URLSearchParams({ rootId: context.rootId, ...(refresh ? { refresh: '1' } : {}) })}`);
+});
+const trackerCapability = state => { if (state.capabilities.tracker !== 1) throw new Error('This retained service predates the task tracker (spec 083). Update the workspace layer first.'); };
+tool('list_tasks', 'List the bound project’s tasks from its declared tracker (contract 5): the local features.json inventory by default, GitHub Issues or Linear where the project declares one. Every row is the same neutral shape — key, title, state as (id, name, category), priority, labels, assignee, url, updatedAt, blockedBy — and the local state is the readiness tools/features.py reports. Read-only: nothing is written to any provider. A remote list that is empty says why: denied (no or refused credential, with signIn naming the provider), unavailable (unreachable, rate-limited, or the state directory unknown), or invalid with reasons. Remote answers are cached for 30 s; refresh bypasses that, and the local backend is always current.', {
+  refresh: z.boolean().default(false).describe('Bypass the 30 s cache of a remote provider.'),
+}, true, async ({ refresh }, state) => {
+  trackerCapability(state);
+  return call(`tracker?${new URLSearchParams({ rootId: context.rootId, ...(refresh ? { refresh: '1' } : {}) })}`);
 });
 const gameCapability = state => { if (state.capabilities.projectGame !== 1) throw new Error('This retained service predates per-project game declarations. Update the workspace layer first.'); };
 const launchCapability = state => {

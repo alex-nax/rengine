@@ -227,7 +227,7 @@
         "end": 285,
         "snippet": "static bool session_known(ReApp *a, const char *id) {"
       },
-      "note": "A restored layout can name sessions this workspace does not have: they ended with the host that owned them, and the layout in the store outlived it (spec 098). Such a view is marked `session_ended` rather than pretended to be live \u2014 nothing is attached for it, `register_desktop` leaves its id out of `sessionIds`, `re_app_inspect` reports `sessionEnded`, and the status bar says how many views are in that state and that Sessions has the conversation (spec 097/099). Advertising those ids used to make the host refuse the entire registration, which cost the workspace its whole runtime layer (KI-063). The tab itself is kept: it is the person's layout, and removing tabs to fix a protocol problem would be a worse trade.",
+      "note": "A restored layout can name sessions this workspace does not have: they ended with the host that owned them, and the layout in the store outlived it (spec 098). Such a view is marked `session_ended` rather than pretended to be live \u2014 nothing is attached for it, `register_desktop` leaves its id out of `sessionIds`, `re_app_inspect` reports `sessionEnded`, and the status bar says how many views are in that state and that Sessions has the conversation (spec 097/099). Advertising those ids used to make the host refuse the entire registration, which cost the workspace its whole runtime layer (KI-064). The tab itself is kept: it is the person's layout, and removing tabs to fix a protocol problem would be a worse trade.",
       "refs": [
         "docs/specs/098-replace-session-host.md",
         "docs/specs/099-sessions-tab-resume.md"

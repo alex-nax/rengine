@@ -1,6 +1,6 @@
 # Progress Log
 
-## Session 57 (macos) — 2026-09-07 — The layout a replaced host leaves behind (KI-063, spec 098)
+## Session 58 (macos) — 2026-09-07 — The layout a replaced host leaves behind (KI-064/065, spec 098)
 
 `--replace-host` (spec 098) landed this morning and the owner ran it. Twice today, on two different
 projects, the workspace came back with the new host serving and **no runtime layer at all**: on
@@ -48,7 +48,167 @@ the owner's machines produced. The acceptance is deliberately not "a window appe
 `GET /api/desktops` **through the runtime** is non-empty and `update_status` answers. Both native
 reds burned the full 10 s deadline and both now pass in 0.7 s and 1.0 s. Evidence and the sabotage
 table in `docs/evidence/stale-sessions-registration-2026-09-07.md`; spec 098 gains *What a replacement
-leaves behind* with the per-layer table; KI-063 records it.
+leaves behind* with the per-layer table; KI-064 records it.
+## Session 57 (macos) — 2026-09-07 — The CLI reports the conversation it runs (F90)
+
+"The conversation IS the identity" was reconciled yesterday and still had one hole, seen live today: a
+pane launched with a minted `b9e2114c` was moved by its person to another conversation from **inside**
+the running CLI — Claude Code's own `/resume` picker — so the process ran `5b8d47c2`, its transcript
+was `5b8d47c2….jsonl`, and no `b9e2114c….jsonl` ever existed, while the pane record,
+`workspace_info.agent`, the token ledger identity and the Sessions tab all still said `b9e2114c`. The
+launcher decides the conversation from the launch's own flags and is blind afterwards, and inferring
+the id from transcripts or the process tree is forbidden — the thing an earlier attempt did and kept
+getting wrong.
+
+The fix is not a better guess: **the CLI is asked**. Verified on this machine before anything was
+written (2.1.263): `--settings <file-or-json>` exists, and one real `claude -p` run with a throwaway
+hook showed exactly what a `SessionStart` hook is handed on stdin — `session_id`, `transcript_path`,
+`cwd`, `hook_event_name`, `source` (`startup` on a fresh run, `resume` when resumed) — and that the
+hook inherits the launch environment, so the launcher's own `RENGINE_*` plumbing reaches it.
+
+What changed. **`agents/report-session.mjs`** reads that payload, finds this launch's binding the way
+the tool worker does (`RENGINE_MCP_CONFIG` → the per-launch `mcp.json` → its `--context` file, else
+`RENGINE_WORKSPACE_CONTEXT`), posts `POST /api/agent-conversation` exactly as `launch.mjs` does at
+launch, and rewrites the per-launch `context.json` identity — `agentId`, `label`, and `session` with
+`source: 'reported'`. It never fails the CLI it runs inside (stderr only, always exit 0), never writes
+to stdout (a `SessionStart` hook's stdout becomes text in the person's own conversation), and does
+nothing at all outside a workspace pane. It reports on every session start, not only on a change, so a
+`-c` launch — which claims nothing and leaves the pane unrestartable — becomes known at its first
+report. **`agents/config.mjs`** writes that hook into a per-launch `settings.json` beside `mcp.json`
+and passes `--settings`; nobody's own settings file is touched. **`agents/bind.mjs`** prints the same
+flag, and the hook is given this launch's context on its own command line, so a session started by
+hand from that printed line — which inherits none of the launcher's environment — corrects the
+identity too, though it posts to nobody, having no pane. **`agents/mcp-worker.mjs`** re-reads the
+identity from the context file once per tool call, so `workspace_info` and the `X-Rengine-Agent`
+header follow the CLI without a worker restart — while the binding stays the facade's snapshot, so the
+file can rename this agent and never retarget its root. No server route and no native change.
+
+Verified end to end through the real CLI, with the live gap reproduced: the launcher named
+`b9e2114c-0000-…`, the CLI ran `5a9a90ce-96ea-…`, and afterwards the fake host held
+`{ id, conversation: 5a9a90ce…, agent: claude }` and the context identity read `claude 5a9a90ce`,
+`source: reported`, with `pid` and `startedAt` untouched. Thirteen sabotages, each watched red for its
+own claim (case 12 red twice, from both ends of one mechanism); one of them found a real hole rather
+than confirming one — the claude line `bind` prints without `--agent` had no assertion on it at all,
+so dropping the flag there passed until the assertion was added. 161/161 on
+`node --test orchestrator/tests/*.test.mjs`. Spec 095 gains *The CLI reports what it runs*, 096 gains
+amendments 3c and 4b, and the runbook says to start a bound session with the printed `--settings`.
+Evidence, with both recorded hook payloads: `docs/evidence/report-session-hook-2026-09-07.md`.
+
+**Not verified:** a live pane, the same gap 095–098 all record — this session's host predates the
+change; and Windows, where the hook command is quoted for `cmd` rather than POSIX-style.
+## Session 56 (macos) — 2026-09-07 — What a running workspace can and cannot be given (F98)
+
+The owner was told, more than once, that layered updates were in place, and today a new route could
+not reach the running editor. Measured first, read-only, before writing anything: the premise "no
+worker serves this workspace" was wrong. Supervisor 44390 has run above host 33465 since yesterday
+morning, its worker 79969 since 23:22, the editor (PID 88067, opened 12:34 today) talks to that
+supervisor, and `connectorGeneration` is 11. The mechanism was installed and had been used eleven
+times. What was true is narrower and worse: the tracker routes were added to `server/main.mjs` — the
+host — and to nothing else, so the worker forwarded `/api/tracker` to a process from before the route
+existed, which answered 404. KI-043 for the third time, with the lesson already written in two
+sidecars. Spec 101 records the measurements and the decisions; KI-062 records the shape.
+
+What changed. **The tracker routes are served by the worker** (`runtime/tracker.mjs`, importing
+`server/tracker.mjs` and `tracker-auth.mjs`; nothing about a provider repeated), and the worker
+advertises `tracker: 1` itself. The one thing the host has that the route needs is its state directory,
+where a credential lives: a host from this checkout now says it on `/api/state` (`stateDir` — the
+minimum host change for next time), and the retained one is found the way `--replace-host` finds it,
+from the `main.mjs --state DIR` process-table row whose `sidecar.json` names the host's **instance** —
+never the URL the worker was handed, which is often a proxy's, and never the first host row, of which
+this machine has a dozen. **The facade watches `runtime.json`** and refreshes its tool worker when the
+connector generation changes without waiting for a request, so a CLI that honours
+`tools/list_changed` has the new list before its next turn instead of a mid-turn surprise. **A stale
+tool name is answered with the way back** — the generation, the current names, and that Claude Code
+refreshes while Codex must be restarted — instead of the SDK's bare `Tool X not found`, which the SDK
+delivers as an `isError` result, not an exception, a detail the first version of the handler got wrong.
+**The facade runs the tool worker the supervisor probed** (`toolWorker` in `runtime.json`), not its
+sibling by assumption; in a checkout the two are the same file, and it is what gives a test two
+generations. And **`list_tasks`** exposes the tracker to agents, so there is a concrete new tool to see
+arriving.
+
+What was verified live, read-only, from this worktree against host 33465 (evidence in
+`docs/evidence/live-capability-updates-2026-09-07.md`): the route through supervisor 44390 still
+404s; a worker from this checkout answers it for all three roots (50, 1315 and 526 rows) and names
+`.cache/orchestrator-development/trackers/oauth.json` in the sign-in setup, found by instance; a
+scratch supervisor, worker and facade above the same host list `list_tasks`, and a connector update
+issued to that supervisor reached the idle facade in 914 ms with no request through it; `launch_nolf`
+at that facade got the way-back answer. Seventeen sessions before, seventeen after, nine running.
+And the client question was measured rather than read: a throwaway server driven by `claude -p` shows
+the installed Claude Code 2.1.263 re-listing tools in the same millisecond as the notification and
+calling the new tool in the same turn.
+
+What is genuinely impossible, so nobody is told a third time: the two pre-facade connectors (93041
+under the owner's `claude` pane — the pane this session runs in, `CLAUDE_PID=92680` — and 20159 under a
+`codex` pane) run code from before any refresh path existed and cannot be changed from outside; the
+Claude one reconnects from `/mcp` (Reconnect keeps the conversation and the pane), the Codex one
+restarts its CLI. A Codex session cannot gain a new tool *name* at all without a restart (openai/codex
+#10105, #19155, #33266; Codex 0.153.4 installed); it gains new behaviour behind stable names.
+Supervisor routes need a supervisor restart, which closes the editor windows and keeps every session.
+Host state — PTYs, store, `/events`, `/api/terminal`, `/api/game`, `agentConversations` — moves only
+with `--replace-host`, which ends the sessions.
+
+Eight sabotages, each red for its own assertion: the route forwarded to the retained host; `stateDir`
+dropped — first masked by the host-level assertion, then re-run with that lifted so the worker-level
+one was seen to discriminate alone; the URL as the key, and the first host row on trust; the watcher
+removed; the stale answer dropped; the sibling worker instead of the probed file. One existing test
+changed: `runtime.test.mjs` restores its tool-worker wrapper before killing the worker, because the
+facade now recreates a crashed worker from the published file and a crash while that file is broken
+on disk is the source edit's failure, not recovery's. `launcher` and `games` each dropped one test
+under the full suite's load and passed alone (KI-045's shape).
+
+Gates: `npm test` 132/132; `ctest` 6/6; `python3 tools/design.py check`, `features.py validate`,
+`./init.sh` clean; sidecars for the six annotated files repaired, reviewed and stamped on a disposable
+index; graph regenerated. `npm run test:desktop` 41/44 under load, and each red passed alone: the GPU
+adapter comparison on its own (KI-045's shape), and the game-texture and recording specs once
+`npm run build:surface` had produced the surface fixture this fresh worktree did not have — they
+were reading "game exited" from a missing executable, not a regression.
+
+While that suite ran, the parent session committed this tree as `20e2cab`, merged `origin/main`
+(`79afb62`, KI-061 retention and token gating) and `main` (`414c814`, the tracker filters), and
+renumbered the work to F98 and spec 101 because F97 and spec 100 had been taken. On the merged head:
+`npm test` 158/159 under load with the one red — `token-retirement.test.mjs`, another lane's
+retention fixture — passing alone; `native-updates`, `native-bootstrap` and `native-tracker` 5/5;
+sidecars clean after re-stamping `runtime.test.mjs`, whose spec reference the renumber had edited.
+
+Not done here, deliberately: merging to `main` and running the update on supervisor 44390 — the
+supervisor forks `runtime/worker.mjs` from the main checkout's working tree, which other lanes were
+editing (the token ledger and `tracker: 1` on the host, both already in that tree). The first live
+run belongs to whoever merges: from any pane,
+`node orchestrator/runtime/client.mjs update --context "$RENGINE_WORKSPACE_CONTEXT" --layers workspace,connector`,
+then the Tasks tab and `list_tasks`. Branch `feat/live-hot-update`, not merged. F98 `passes: false`
+for that reason.
+
+**The live run, done at 13:45 from this checkout after the merge.** `client.mjs update --layers
+workspace,connector` against supervisor 44390 succeeded in 337 ms: worker 79969 → **35886**,
+connector generation 11 → **12**, the old worker listed under `retiring` with one stream still
+draining, which is KI-061's hand-off doing its job. The supervisor then advertised `tracker: 1` and
+answered `GET /api/tracker` with **51 local rows** where minutes earlier it had returned the retained
+host's `404 Unknown workspace endpoint.`; a facade started from this checkout against the same
+context listed 32 tools including **`list_tasks`** and got the same 51 rows through it. Host PID
+33465 was never signalled and every retained session survived — `workspace_info` through the owner's
+own connector shows the same eleven, six running. So the capability the owner was told repeatedly was
+already deliverable is now actually delivered to the running editor, without ending a session.
+
+Two things that remain true and are not defects: the owner's own MCP connector (PID 93041) predates
+the facade and needs `/mcp` → **Reconnect** to see `list_tasks`, which costs neither the conversation
+nor the pane; and F98 stays `passes: false` because both prerequisites, F74 and F78, are still
+blocked — the live criterion itself is now recorded as done in
+`docs/evidence/live-capability-updates-2026-09-07.md`.
+
+**Then the owner reconnected and asked for the full update.** After `/mcp` → Reconnect the connector
+runs the facade with the current 32 tools and `list_tasks` answers through it — the new tool reached
+an already-open CLI session without ending the pane or the conversation. `update_workspace` over MCP
+was refused for a reason worth recording: *"Only an identified agent can act on the token; this
+request carried no X-Rengine-Agent header"*. The token was free; the connector simply predates F90's
+agent identities, so **a connector bootstrapped before F90 can never hold the token**, and the
+token-gated tools are unreachable from it until it is re-bootstrapped with an identity. The same
+update through `client.mjs`, which carries the runtime's own token rather than an agent's, is not
+agent-gated: all three layers succeeded in 1.9 s — worker 35886 → **89697**, desktop 88067 →
+**90113**, generation 12 → **13**, tool worker 90114, nothing left retiring. This session's facade
+answered `update_status` at generation 13 without being touched, which is the descriptor watcher
+doing exactly what it was built for. All twelve sessions kept their PIDs and their sequence numbers
+kept advancing. The `desktop` layer's cost, as designed: the window detaches with exit 75 after
+persisting its layout and reopens on it. The session host was never signalled in either run.
 
 ## Session 55 (macos) — 2026-09-07 — The tracker narrows to a person and to what is actually active (F97)
 

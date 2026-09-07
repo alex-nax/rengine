@@ -6,7 +6,7 @@ import path from 'node:path';
 import { writeAtomically } from '../runtime/feed.mjs';
 import { Tokens } from '../runtime/token.mjs';
 
-/* KI-064. `writeAtomically` named its temporary after the writing *process*, so two writes to one
+/* KI-065. `writeAtomically` named its temporary after the writing *process*, so two writes to one
    file in flight in the same process shared it: the first rename moved the bytes both had written
    into place and the second failed `ENOENT ... rename tokens/preferences.json.<pid>.tmp`. Seen as a
    flake in `token-retirement.test.mjs`, about one run in three, on a clean checkout. */

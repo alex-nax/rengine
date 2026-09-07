@@ -5,8 +5,8 @@
       "id": "prepare-switch-recover",
       "kind": "rationale",
       "anchor": {
-        "start": 153,
-        "end": 153,
+        "start": 156,
+        "end": 156,
         "snippet": "const perform = async (job, desktop, closed = false) => {"
       },
       "note": "Prepare candidate workspace/tool code and a probed immutable native executable before requesting the old view\u2019s normal persistence/drain/exit-75 path. Preserve the previous workspace and binary until the replacement registers with a new view stamp. Failures enter recovering and become failed only after rollback completes; failed recovery is explicit. Keep old streams/HTTP mutations on their existing worker until drained. Serialize explicit updates, permit one automatic workspace crash recovery per explicit generation, and keep host-backed state/update control available if worker recovery fails. Never terminate/relaunch the original PTY host.",
@@ -18,8 +18,8 @@
       "id": "window-owner-and-session-root",
       "kind": "rationale",
       "anchor": {
-        "start": 221,
-        "end": 221,
+        "start": 224,
+        "end": 224,
         "snippet": "const openProject = async data => {"
       },
       "note": "Opening an integration window requires a running agent from the originating root and an explicit absolute target directory. A durable window record is the only cross-root initial-agent exception. Repeat opens reuse that identity, closed views reopen their own layout, and graceful close never force-kills a session. The stable supervisor remains the sole writer for layouts/reports while workspace/tool workers can be replaced.",
@@ -31,8 +31,8 @@
       "id": "retirement-notice",
       "kind": "rationale",
       "anchor": {
-        "start": 74,
-        "end": 74,
+        "start": 77,
+        "end": 77,
         "snippet": "const notifyRetired = worker => { if (worker.child.connected) worker.child.send({ type: 'retired' }); };"
       },
       "note": "The supervisor's whole part in spec 095's Retirement: tell a replaced worker it was replaced, so it hands the token ledger and the feed to the worker that replaced it while its streams keep draining under spec 065. Sent where a retirement is committed - the finally that releases a replaced worker from `preserved`, and the rollback that retires a rejected candidate - and never at the swap, because a failed update restores the previous worker as the current one and a worker already told it was retired would then forward requests to itself. An older supervisor sends nothing and the worker behaves as it did before.",
@@ -42,14 +42,27 @@
       ]
     },
     {
+      "id": "probed-worker-runs",
+      "kind": "rationale",
+      "anchor": {
+        "start": 41,
+        "end": 41,
+        "snippet": "  toolWorkerFile = path.resolve(toolWorkerFile);"
+      },
+      "note": "The tool worker file this supervisor probes is published in runtime.json as toolWorker, and the facade runs that file rather than assuming its own sibling mcp-worker.mjs. In a normal checkout the two are the same path, so nothing changes for a person; what it fixes is coherence (the code that passed the probe is the code that answers) and it is what lets a test give a facade two different generations. A descriptor from a supervisor older than this field names none, and the facade falls back to its sibling.",
+      "refs": [
+        "docs/specs/101-live-capability-updates.md"
+      ]
+    },
+    {
       "id": "wait-view-names-the-refusal",
       "kind": "rationale",
       "anchor": {
-        "start": 114,
-        "end": 114,
+        "start": 117,
+        "end": 117,
         "snippet": "const waitView = async record => {"
       },
-      "note": "\"Replacement desktop did not register before timeout.\" was the whole report of a failure that had two available explanations: what the desktop process printed (`record.diagnostics`, already captured in spawnView) and the registration a worker refused (`registerError` on `/api/runtime-desktops`, read by the same poll this loop already makes). Both are named on timeout now. Only a refusal recorded after this wait started is reported: an older one would name a different desktop. KI-063 cost a session to diagnose because this message said nothing, and the supervisor's exit carried it over IPC, leaving `runtime.log` empty.",
+      "note": "\"Replacement desktop did not register before timeout.\" was the whole report of a failure that had two available explanations: what the desktop process printed (`record.diagnostics`, already captured in spawnView) and the registration a worker refused (`registerError` on `/api/runtime-desktops`, read by the same poll this loop already makes). Both are named on timeout now. Only a refusal recorded after this wait started is reported: an older one would name a different desktop. KI-064 cost a session to diagnose because this message said nothing, and the supervisor's exit carried it over IPC, leaving `runtime.log` empty.",
       "refs": [
         "docs/specs/098-replace-session-host.md",
         "docs/evidence/stale-sessions-registration-2026-09-07.md"
@@ -58,7 +71,7 @@
   ],
   "source": {
     "path": "orchestrator/runtime/supervisor.mjs",
-    "sha256": "80001c386deb95cbe1c0c07d6fd68e6d2154173f7a6b9ac85464214a29837ec1",
+    "sha256": "6adeb3b792247f590bdb9141170b07217dac449c0102e60b14dbd4252bfff15e",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

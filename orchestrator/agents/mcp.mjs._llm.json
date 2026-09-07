@@ -5,8 +5,8 @@
       "id": "immutable-root-instance",
       "kind": "rationale",
       "anchor": {
-        "start": 12,
-        "end": 12,
+        "start": 13,
+        "end": 13,
         "snippet": "const filename = process.argv[index + 1], context = JSON.parse(await readFile(filename, 'utf8'));"
       },
       "note": "Capture the context once in the stable stdio facade. Replacement tool workers receive that exact snapshot through their private environment, so editing the context file or changing native focus cannot retarget an existing CLI. The worker performs root/session checks for every tool; this does not confine the CLI\u2019s independent OS tools.",
@@ -18,19 +18,59 @@
       "id": "explicit-desktop-action",
       "kind": "rationale",
       "anchor": {
-        "start": 44,
-        "end": 44,
-        "snippet": "server.setRequestHandler(CallToolRequestSchema, request => queued(client => client.callTool(request.params)));"
+        "start": 57,
+        "end": 57,
+        "snippet": "server.setRequestHandler(CallToolRequestSchema, request => queued(async client => {"
       },
-      "note": "Serialize tool calls across worker replacement so a live request is never replayed. Prepare and list a candidate before swapping; failure keeps a working predecessor. A changed supervisor connector generation loads new tool code between requests and notifies tools/list_changed. A crashed tool worker is recreated on the next request. The original outer transport and CLI remain alive. A connector loaded before this facade cannot gain it retroactively; the bound runtime CLI is the authorized update fallback.",
+      "note": "Serialize tool calls across worker replacement so a live request is never replayed. Prepare and list a candidate before swapping; failure keeps a working predecessor. A changed supervisor connector generation loads new tool code between requests and notifies tools/list_changed. A crashed tool worker is recreated on the next request, from the file the supervisor published (see probed-worker). The original outer transport and CLI remain alive. A connector loaded before this facade cannot gain it retroactively; the bound runtime CLI is the authorized update fallback.",
       "refs": [
+        "docs/specs/065-layered-workspace-updates.md"
+      ]
+    },
+    {
+      "id": "probed-worker",
+      "kind": "rationale",
+      "anchor": {
+        "start": 37,
+        "end": 37,
+        "snippet": "  const file = typeof runtime.toolWorker === 'string' && path.isAbsolute(runtime.toolWorker) ? runtime.toolWorker : siblingWorker;"
+      },
+      "note": "The worker that runs is the one the supervisor probed and published in runtime.json, not this file's sibling by assumption; a descriptor without the field (an older supervisor) falls back to the sibling. A change of file counts as a generation change, so a facade follows a supervisor that publishes a different worker without waiting for the counter.",
+      "refs": [
+        "docs/specs/101-live-capability-updates.md"
+      ]
+    },
+    {
+      "id": "stale-tool-answer",
+      "kind": "rationale",
+      "anchor": {
+        "start": 49,
+        "end": 49,
+        "snippet": "const stale = async (client, name) => {"
+      },
+      "note": "The SDK answers a name the worker does not have as an isError result carrying exactly `MCP error -32602: Tool X not found` (older releases threw it as a McpError, which the catch still handles). Either way the model would be left with a bare not-found for a tool it was told existed, so the facade answers instead with the connector generation, the current tool names and what the CLI must do: Claude Code refreshes on tools/list_changed (documented, 2.1.0+), Codex does not (openai/codex #10105, #19155, #33266) and needs a restart to see a new name. The match is on the SDK's exact text for the requested name, so a tool's own error can never be mistaken for it.",
+      "refs": [
+        "docs/specs/101-live-capability-updates.md"
+      ]
+    },
+    {
+      "id": "idle-refresh",
+      "kind": "rationale",
+      "anchor": {
+        "start": 70,
+        "end": 70,
+        "snippet": "const watch = setInterval(async () => {"
+      },
+      "note": "Before this the facade noticed a new connector generation only on its next request, so the first call after an update went to the old worker and the notification arrived mid-turn. The descriptor is stat-polled once a second on an unreferenced timer (inode, mtime and size: persist() renames a fresh temp file over it, so every write is a new inode) and a change runs an empty queued action, which is the ordinary ready() path: same serialization as a tool call, same replace(), same notification. Cost is one stat a second per facade. resolveRuntime is not polled directly because it is an HTTP round trip through the supervisor and worker to the host.",
+      "refs": [
+        "docs/specs/101-live-capability-updates.md",
         "docs/specs/065-layered-workspace-updates.md"
       ]
     }
   ],
   "source": {
     "path": "orchestrator/agents/mcp.mjs",
-    "sha256": "578195f9ab8ce57e4af7ff95a8625f4ad044e75bcc49c108bd8c48123ee4e2c9",
+    "sha256": "0c5c64b2fc23d4593ebf152be47ce4ff3ebd80480eccf19f54c7a1d6cad3267a",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

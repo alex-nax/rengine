@@ -174,7 +174,7 @@ test('a retired worker mints nothing: one writer, one game.started, and the file
      and both persisted this root's ring, so the sequence a third worker loads disagreed with the
      one the feed serves. writeAtomically names its temporary `<file>.<pid>.<write>.tmp` — the pid
      first, so which processes wrote is a fact on the filesystem rather than a race to sample, and a
-     per-write component so two writes in one process cannot share a name (KI-064). */
+     per-write component so two writes in one process cannot share a name (KI-065). */
   const writers = new Set();
   const watcher = watch(path.join(runtimeDir, 'tokens', root.id), (event, name) => {
     const match = /^(?:feed|token)\.json\.(\d+)\.[0-9a-z]+\.tmp$/.exec(name ?? '');

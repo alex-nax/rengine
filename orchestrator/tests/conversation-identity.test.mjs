@@ -33,8 +33,8 @@ test('a pane launch carries exactly one conversation, and that conversation is t
 
   const fresh = await launch(contextFile, { conversation: HOST });
   assert.equal(fresh.identity.agentId, HOST, 'the host’s conversation IS the agentId, not a second uuid beside it');
-  assert.deepEqual(fresh.args, ['--mcp-config', fresh.generic, '--session-id', HOST],
-    'and the CLI is told it once, from the conversations table');
+  assert.deepEqual(fresh.args, ['--mcp-config', fresh.generic, '--settings', fresh.settings, '--session-id', HOST],
+    'and the CLI is told it once, from the conversations table, beside the settings that ask it to report back');
   assert.equal(count(fresh.args, '--session-id') + count(fresh.args, '--resume'), 1, 'exactly one identifier is named');
   assert.deepEqual(fresh.identity.session, { provider: 'claude', id: HOST, known: true, source: 'workspace',
     resume: `claude --resume ${HOST}` }, 'the identity says where the id came from and how to resume it');
@@ -42,7 +42,7 @@ test('a pane launch carries exactly one conversation, and that conversation is t
   assert.equal(fresh.conversation, HOST, 'and the plan reports it, so the host record follows the launch');
 
   const resumed = await launch(contextFile, { conversation: HOST, resume: true });
-  assert.deepEqual(resumed.args, ['--mcp-config', resumed.generic, '--resume', HOST],
+  assert.deepEqual(resumed.args, ['--mcp-config', resumed.generic, '--settings', resumed.settings, '--resume', HOST],
     'a resume names the same conversation with --resume, and still only once');
   assert.equal(resumed.identity.agentId, HOST, 'the identity is the same across the resume, so the token holder is too');
   assert.equal(resumed.identity.label, fresh.identity.label);
@@ -56,7 +56,7 @@ test('a person’s own --resume wins over the host’s conversation, and the rec
   for (const flag of ['--session-id', '--resume', '-r']) {
     const plan = await launch(contextFile, { args: [flag, MINE], conversation: HOST });
     assert.equal(plan.identity.agentId, MINE, `${flag} names the conversation this launch will be`);
-    assert.deepEqual(plan.args, ['--mcp-config', plan.generic, flag, MINE],
+    assert.deepEqual(plan.args, ['--mcp-config', plan.generic, '--settings', plan.settings, flag, MINE],
       'the args pass through untouched, with no second identifier injected beside them');
     assert.equal(plan.args.includes(HOST), false, 'and the conversation the host minted is nowhere on the argv');
     assert.equal(plan.conversation, MINE, 'the pane reports what actually launched, so the record cannot lie');
@@ -72,7 +72,8 @@ test('a launch that continues or forks reports no conversation rather than claim
     const plan = await launch(contextFile, { args, conversation: HOST });
     assert.equal(plan.identity.session.known, false, `${args.join(' ')} continues or forks a conversation the CLI names itself`);
     assert.notEqual(plan.identity.agentId, HOST, 'so the identity is rEngine’s own');
-    assert.deepEqual(plan.args, ['--mcp-config', plan.generic, ...args], 'and nothing is injected that would claim otherwise');
+    assert.deepEqual(plan.args, ['--mcp-config', plan.generic, '--settings', plan.settings, ...args],
+      'and no identifier is injected that would claim otherwise');
     assert.equal(plan.conversation, null, 'null, not undefined: the host is told to claim nothing for this pane');
     assert.match(describeSession(plan.identity), /unknown/);
   }

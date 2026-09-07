@@ -1,4 +1,4 @@
-# A desktop that cannot register because its layout outlived a host (spec 098, KI-063)
+# A desktop that cannot register because its layout outlived a host (spec 098, KI-064)
 
 Date: 2026-09-07. Branch `fix/stale-sessions-registration`, from `origin/main` at `6f61640`.
 Machine: macOS, this checkout. Parent spec: [098](../specs/098-replace-session-host.md), *What a
@@ -69,13 +69,44 @@ soonest is not the layer that owns the store.
 
 ## Sabotage
 
-Each fix broken in the way its test claims to catch, the red read, then restored.
+Each fix broken in the way its test claims to catch, the red read, then restored. Because the three
+layers are deliberately redundant — that is the point of the layer table — a single-layer sabotage
+often leaves the end-to-end test green: another layer still drops the ids. The combinations below say
+which layer carries which configuration, so nothing here is a green claimed for the wrong reason.
 
-SABOTAGE_TABLE
+| # | Sabotage | Test run | Result |
+| --- | --- | --- | --- |
+| 1 | **host**: `Desktops.register` re-throws the 404 instead of dropping the id | `stale-sessions.test.mjs` | **red** — `Unknown session.`, the original refusal. Test 3 (through the worker) stayed **green**: the worker's filter carries that configuration on its own, which is the "old host behind a new worker" case |
+| 2 | **worker helper**: `withoutEndedSessions` returns the frame unchanged | `stale-sessions.test.mjs` | **red** — the filter test only; the ids it should have removed are still in `frame.sessionIds` |
+| 3 | **worker call site**: `desktops.register(client, data)` unfiltered | `stale-sessions.test.mjs` | **green** — `Desktops` still drops them. The layer is redundant *by design*; row 4 is the configuration where it is not |
+| 4 | **1 + 3 together**: neither server layer drops | `stale-sessions.test.mjs` | **red** — test 1 `Unknown session.`, test 3 `Timed out: desktop registered`. Two layers, each sufficient alone |
+| 5 | **desktop**: `register_desktop` advertises stale ids again | `native-stale-sessions.spec.mjs` | **green** — the server layers drop them, so the binding is still `[live]`. Row 7 is where this layer is the only one left |
+| 6 | **desktop**: `restore` does not mark the view ended | `native-stale-sessions.spec.mjs` | **red** — *"nothing was attached for it"*, actual `false`, expected `undefined`: a terminal was opened against a session nobody has |
+| 7 | **1 + 3 + 5**: no layer drops the ids | `native-stale-sessions.spec.mjs` | **red** — tests 1 and 3: `Replacement desktop did not register before timeout. last registration refused: Unknown session.` The original live failure, reproduced end to end — and the new `waitView` message naming it |
+| 8 | **1 + 3 only**, desktop layer intact | `native-stale-sessions.spec.mjs` | **green** — the desktop's own filter is sufficient: this is a desktop reload against a host that has not been replaced |
+| 9 | **supervisor**: `waitView` throws the old bare message | `native-stale-sessions.spec.mjs` | **red** — *"the timeout names the refusal instead of only the silence: Replacement desktop did not register before timeout."* |
+| 10 | **KI-065**: `writeAtomically` back to one temporary per process | `atomic-write.test.mjs` | **red**, both tests, in 3 of 3 runs: seven of eight writes rejected with `ENOENT: no such file or directory, rename .../preferences.json.<pid>.tmp` |
+
+Row 7 is the one that matters: with every layer's fix removed the suite reproduces the owner's exact
+failure, and the improved timeout message is what identifies it.
 
 ## Gates
 
-GATES
+Run in this worktree, macOS, after the merge of `origin/main` at `7a1d6c5`.
+
+| Gate | Result |
+| --- | --- |
+| `npm run build` | clean, zero warnings (the picky C flag set is unchanged) |
+| `npm test` | GATE_UNIT |
+| `npm run test:desktop` | GATE_DESKTOP |
+| `orchestrator/tests/token-retirement.test.mjs`, five consecutive runs | 5/5 green (it flaked about one run in three before KI-065) |
+| sidecar `check` for the four annotated files this touched | clean after `--fix-anchors` and `stamp` |
+
+One desktop test failed on the pre-merge run for an environmental reason, unrelated to anything here:
+`GPU adapters match the SDL reference` reported `opengl: resident memory delta 33728 KiB exceeds
+32768 KiB` — 2.9% over the ceiling of spec 068 decision 6, measured while the unit suite was running
+on the same machine. It is the KI-039 / KI-045 shape; the result of its isolated re-run is in the
+table above.
 
 ## What is not proved here
 
@@ -83,5 +114,5 @@ The live `--replace-host` on the owner's workspaces is not re-run here: this ses
 of them and decision 3 of spec 098 refuses it. What this branch proves is that the three layers agree
 on a stale registration in a real host + real supervisor + real desktop, under a layout persisted the
 way a replaced host leaves one. The first live run after the pin bump — `~/hirebase-v2.command
---replace-host`, then `GET /api/desktops` through the runtime answering non-empty — closes KI-063 on
+--replace-host`, then `GET /api/desktops` through the runtime answering non-empty — closes KI-064 on
 the owner's own machines.
