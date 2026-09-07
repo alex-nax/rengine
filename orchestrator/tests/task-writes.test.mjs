@@ -44,9 +44,11 @@ test('contract 6 carries tracker.write and the agent menu, and a contract-5 decl
     await writeFile(path.join(root, '.rengine/project.json'), JSON.stringify(document));
     return readDeclaration(root);
   };
-  // The ceiling is 7 since languageServers (F102); this stays a tripwire, so whoever raises it
+  // The ceiling is 8 since brand artwork (F106); this stays a tripwire, so whoever raises it
   // next comes here and confirms that contract 6's own keys still read as they do below.
-  assert.equal(CONTRACTS.at(-1), 7, 'the ceiling moved with the keys');
+  // Confirmed for 8: artwork adds icon.image and wordmark, touches neither tracker.write nor
+  // agents, and the assertions below ran unchanged.
+  assert.equal(CONTRACTS.at(-1), 8, 'the ceiling moved with the keys');
 
   const document = taskDeclaration({ agents: [{ cli: 'claude', models: ['claude-opus-5', 'claude-sonnet-5'], default: 'claude-opus-5' }] });
   assert.deepEqual(validateSchema(schema, document), [], 'a contract-6 document validates structurally');

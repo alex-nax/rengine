@@ -179,6 +179,18 @@ const char *re_app_mark(ReApp *a) {
   const char *glyph = re_string(cJSON_GetObjectItemCaseSensitive(declared, "icon"), "glyph");
   return *glyph ? glyph : "r";
 }
+static const char *declared_file(ReApp *a, const char *block, const char *key) {
+  const cJSON *declared = formats_for(a, *a->primary_root ? a->primary_root : a->root);
+  const char *file = re_string(cJSON_GetObjectItemCaseSensitive(declared, block), key);
+  return *file ? file : NULL;
+}
+const char *re_app_mark_image(ReApp *a) { return declared_file(a, "icon", "imageFile"); }
+const char *re_app_wordmark_image(ReApp *a, bool dark) {
+  /* One declared string resolves to the same file for both themes, so this asks for the theme it is
+   * drawing on and lets the declaration decide whether that is a distinction. */
+  const char *file = declared_file(a, "wordmark", dark ? "darkFile" : "lightFile");
+  return file ? file : declared_file(a, "wordmark", dark ? "lightFile" : "darkFile");
+}
 mu_Color re_app_mark_color(ReApp *a) {
   const cJSON *declared = formats_for(a, *a->primary_root ? a->primary_root : a->root);
   const char *token = re_string(cJSON_GetObjectItemCaseSensitive(declared, "icon"), "token");
@@ -798,6 +810,16 @@ cJSON *re_app_inspect(ReApp *a) {
      re-deriving it: root|path|startLine:startCharacter-endLine:endCharacter|revision. */
   cJSON_AddStringToObject(j, "selection", a->selection);
   cJSON_AddStringToObject(j, "title", re_app_title(a)); cJSON_AddStringToObject(j, "mark", re_app_mark(a));
+  /* Spec 104: the artwork the chrome would draw for each slot, so a test can tell "wearing the
+     brand" from "fell back to the glyph" without reading pixels. Absent when nothing is declared or
+     the declared file could not be resolved — which is exactly when the glyph is drawn. */
+  { const char *image = re_app_mark_image(a);
+    if (image) cJSON_AddStringToObject(j, "markImage", image);
+    /* Reported for BOTH themes rather than the current one: a test that only ever saw the theme it
+       happened to run under could not tell a light/dark pair from a single file. */
+    const char *light = re_app_wordmark_image(a, false), *dark = re_app_wordmark_image(a, true);
+    if (light) cJSON_AddStringToObject(j, "wordmarkLight", light);
+    if (dark) cJSON_AddStringToObject(j, "wordmarkDark", dark); }
   cJSON_AddStringToObject(j, "primaryRoot", a->primary_root);
   cJSON_AddNumberToObject(j, "overlay", a->overlay);
   re_token_inspect(a, j);

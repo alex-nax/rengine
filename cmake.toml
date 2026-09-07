@@ -48,6 +48,14 @@ cmake-after = """
 target_include_directories(rengine_vterm SYSTEM PUBLIC "${RENGINE_VENDOR}/libvterm/include")
 """
 
+[target.rengine_svg]
+type = "static"
+sources = ["orchestrator/native/svg.c"]
+cmake-after = """
+target_include_directories(rengine_svg PRIVATE "${PROJECT_SOURCE_DIR}/orchestrator/native")
+target_include_directories(rengine_svg SYSTEM PRIVATE "${RENGINE_VENDOR}/nanosvg") # pinned nanosvg (spec 104)
+"""
+
 [target.rengine_jpeg]
 type = "static"
 sources = ["orchestrator/native/jpeg.c"]
@@ -112,7 +120,7 @@ sources = [
   "orchestrator/native/token.c",
 ]
 include-directories = ["orchestrator/native"]
-link-libraries = ["SDL2::SDL2", "rengine_ui", "rengine_render", "rengine_microui", "rengine_json", "rengine_vterm", "rengine_jpeg", "CURL::libcurl"]
+link-libraries = ["SDL2::SDL2", "rengine_ui", "rengine_render", "rengine_microui", "rengine_json", "rengine_vterm", "rengine_jpeg", "rengine_svg", "CURL::libcurl"]
 compile-features = ["c_std_11"]
 compile-definitions = ["SDL_MAIN_HANDLED"]
 cmake-after = """
@@ -191,6 +199,21 @@ if(WIN32)
   add_custom_command(TARGET rengine_terminal_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
     $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_terminal_test>)
 endif()
+"""
+
+[target.rengine_svg_test]
+condition = "testing"
+type = "executable"
+sources = ["orchestrator/native/tests/svg_test.c"]
+private-link-libraries = ["rengine_svg"]
+cmake-after = """
+target_include_directories(rengine_svg_test PRIVATE "${PROJECT_SOURCE_DIR}/orchestrator/native")
+if(MSVC)
+  target_compile_options(rengine_svg_test PRIVATE /UNDEBUG)
+else()
+  target_compile_options(rengine_svg_test PRIVATE -UNDEBUG)
+endif()
+add_test(NAME native_svg COMMAND rengine_svg_test "${PROJECT_SOURCE_DIR}/orchestrator/native/tests/fixtures")
 """
 
 [target.rengine_draw_list_test]

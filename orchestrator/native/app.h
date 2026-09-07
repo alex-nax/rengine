@@ -83,6 +83,11 @@ void re_app_project_theme(ReApp *app);
 const char *re_app_title(ReApp *app);          /* display title; never an identifier */
 const char *re_app_mark(ReApp *app);           /* one or two characters for the brand chip */
 mu_Color re_app_mark_color(ReApp *app);        /* the chip's fill, resolved from the declared token */
+/* Brand artwork (spec 104). Each returns an absolute file the server already resolved beside the
+ * declaration, or NULL when the project declares none — or declares one that could not be read, in
+ * which case the chrome draws its glyph and the workspace reports the problem. */
+const char *re_app_mark_image(ReApp *app);
+const char *re_app_wordmark_image(ReApp *app, bool dark);
 
 /* The explorer's nested mode. `re_app_expanded` returns the expansion index for a directory or -1;
  * expanding requests the listing, collapsing drops it and every expansion beneath it. */

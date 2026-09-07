@@ -173,3 +173,71 @@ test('a declaration error names the offending record by id and says how much the
     assert.match(five, /; and 2 more problems$/); assert.ok(!/shot-3/.test(five), 'the report stays bounded at three problems');
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
+
+test('contract 8 brand artwork: one mark, an svg, inside the declaration (spec 104)', async () => {
+  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-contract8-')));
+  const brand = (extra = {}) => ({ ...declaration(), contract: 8, title: 'Kohai', ...extra });
+  const SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="#CC4F4C"/></svg>';
+  const withArt = async (name, document, files = ['brand/mark.svg', 'brand/wordmark.svg', 'brand/wordmark-dark.svg']) => {
+    const root = path.join(directory, name);
+    await mkdir(path.join(root, 'brand'), { recursive: true });
+    for (const file of files) await writeFile(path.join(root, file), SVG);
+    return declare(directory, name, document);
+  };
+  try {
+    const artwork = await withArt('artwork', brand({
+      icon: { image: 'brand/mark.svg' },
+      wordmark: { light: 'brand/wordmark.svg', dark: 'brand/wordmark-dark.svg' },
+    }));
+    assert.equal(artwork.error, undefined, `artwork should be accepted: ${artwork.error}`);
+    assert.equal(artwork.artworkError, undefined);
+    // Resolved beside the declaration, so the desktop opens a path rather than joining one.
+    assert.equal(artwork.icon.image, 'brand/mark.svg');
+    assert.equal(artwork.icon.imageFile, path.join(directory, 'artwork', 'brand/mark.svg'));
+    assert.equal(artwork.wordmark.lightFile, path.join(directory, 'artwork', 'brand/wordmark.svg'));
+    assert.equal(artwork.wordmark.darkFile, path.join(directory, 'artwork', 'brand/wordmark-dark.svg'));
+
+    // A file that cannot be read is REPORTED and its path omitted, so the chrome falls back to the
+    // glyph rather than drawing nothing (spec 104 decision 7). The rest of the declaration survives.
+    const gone = await withArt('gone', brand({ icon: { glyph: 'Ko' }, wordmark: 'brand/missing.svg' }), []);
+    assert.match(gone.artworkError, /wordmark\.light names brand\/missing\.svg, which cannot be read/);
+    assert.equal(gone.wordmark.lightFile, undefined);
+    assert.equal(gone.formats[0].id, 'fixture-pack', 'a missing brand file does not take the formats with it');
+
+    // One string serves every theme — the honest default for a mark that contrasts on either ground.
+    const single = await withArt('single', brand({ icon: { glyph: 'Ko' }, wordmark: 'brand/wordmark.svg' }));
+    assert.equal(single.error, undefined);
+    assert.equal(single.wordmark.light, 'brand/wordmark.svg');
+    assert.equal(single.wordmark.dark, 'brand/wordmark.svg', 'one string serves both themes');
+    assert.equal(single.wordmark.lightFile, single.wordmark.darkFile);
+
+    // Exactly one mark. Two with no rule about which wins is a defect waiting for a narrow window.
+    const both = await declare(directory, 'both', brand({ icon: { glyph: 'Ko', image: 'brand/mark.svg' } }));
+    assert.match(both.error, /exactly one of glyph and image/);
+    const neither = await declare(directory, 'neither', brand({ icon: { token: 'err' } }));
+    assert.match(neither.error, /exactly one of glyph and image/);
+
+    // A reader that predates the artwork must say "unknown contract", not draw nothing in silence.
+    const old = await declare(directory, 'old', { ...declaration(), contract: 5, title: 'Kohai', icon: { image: 'brand/mark.svg' } });
+    assert.match(old.error, /requires contract 8/);
+    const oldWordmark = await declare(directory, 'old-wordmark', { ...declaration(), contract: 5, title: 'Kohai', wordmark: 'brand/wordmark.svg' });
+    assert.match(oldWordmark.error, /requires contract 8/);
+
+    // Confined and .svg — the same rule every other declared path carries, plus the one format the
+    // chrome can rasterise.
+    for (const escape of ['../secrets/mark.svg', '/etc/mark.svg', 'brand/../../mark.svg']) {
+      const out = await declare(directory, `escape-${escape.replace(/\W/g, '')}`, brand({ icon: { image: escape } }));
+      assert.match(out.error, /inside the declaration/, `${escape} must be refused`);
+    }
+    const png = await declare(directory, 'png', brand({ icon: { image: 'brand/mark.png' } }));
+    assert.match(png.error, /must name an \.svg file/);
+    const wordmarkPng = await declare(directory, 'wordmark-png', brand({ icon: { glyph: 'Ko' }, wordmark: { light: 'a.svg', dark: 'b.png' } }));
+    assert.match(wordmarkPng.error, /wordmark\.dark must name an \.svg file/);
+
+    // The glyph path is untouched: spec 084's declaration still reads exactly as it did.
+    const glyph = await declare(directory, 'glyph', { ...declaration(), contract: 5, title: 're:Lith', icon: { glyph: 'rL', token: 'ok' } });
+    assert.equal(glyph.error, undefined);
+    assert.deepEqual(glyph.icon, { glyph: 'rL', token: 'ok' });
+    assert.equal(glyph.wordmark, undefined);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});

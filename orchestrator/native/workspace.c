@@ -5,6 +5,7 @@
 #include "render/syntax_theme.h"
 #include "theme_file.h"
 #include "tracker.h"
+#include "svg.h"
 #include <time.h>
 
 static void inspect_rect(ReApp *a, const char *role, const char *key, int tab, mu_Rect r) {
@@ -80,21 +81,76 @@ static int toolbar_cell(ReToolbar *bar, const char *label, int icon, int opt, in
   toolbar_next(bar, width, gap);
   return re_ui_button_ex(bar->ui, label, icon, opt);
 }
+/* Brand artwork (spec 104). A rasterised SVG is a texture, and rasterising it every frame would be
+ * absurd — so each slot keeps ONE, remembered by the file and the pixel box it was rasterised for.
+ * A theme change swaps the file and a DPI change moves the box, and either miss re-rasterises.
+ * Two slots, because the mark and the wordmark are drawn at different sizes from different files. */
+typedef struct { char file[512]; int w, h; ReTexture *texture; int tw, th; } ReBrandSlot;
+
+static bool brand_texture(ReDraw *draw, ReBrandSlot *slot, const char *file, int box_w, int box_h) {
+  if (!file || box_w <= 0 || box_h <= 0) return false;
+  if (slot->texture && slot->w == box_w && slot->h == box_h && !strcmp(slot->file, file)) return true;
+  ReSvgImage image;
+  if (!re_svg_rasterize(file, box_w, box_h, &image)) {
+    /* Remember the miss too: a declaration naming a file that cannot be rasterised would otherwise
+     * try again on every frame, which is a stutter nobody would connect to their own typo. */
+    if (slot->texture) { re_draw_texture_destroy(slot->texture); slot->texture = NULL; }
+    re_copy(slot->file, sizeof(slot->file), file);
+    slot->w = box_w; slot->h = box_h;
+    return false;
+  }
+  if (slot->texture) re_draw_texture_destroy(slot->texture);
+  slot->texture = re_draw_texture_create(draw, image.width, image.height);
+  if (slot->texture) re_draw_texture_update(slot->texture, image.rgba, image.width * 4);
+  slot->tw = image.width; slot->th = image.height;
+  re_copy(slot->file, sizeof(slot->file), file);
+  slot->w = box_w; slot->h = box_h;
+  re_svg_free(&image);
+  return slot->texture != NULL;
+}
+
+/* The theme has no dark flag, so this asks the only question that matters here: is the ink lighter
+ * than the ground it sits on? A wordmark inverts for exactly that reason. */
+static bool brand_dark_theme(void) {
+  mu_Color bg = RE_COLOR_SURFACE, fg = RE_COLOR_TEXT_STRONG;
+  return (bg.r + bg.g + bg.b) < (fg.r + fg.g + fg.b);
+}
+
 /* Brand mark: the accent square with the wordmark beside it, as the card draws it. */
 /* The chrome wears the primary root's declared name and mark, or rEdit and the accent when a project
  * declares neither. The glyph's ink is the on-accent ink for every token, which is the pairing the
- * design system guarantees against a saturated fill (spec 084). */
+ * design system guarantees against a saturated fill (spec 084). A project may declare artwork for
+ * either slot instead (spec 104); artwork that cannot be rasterised falls through to the glyph and
+ * the text, because a chrome that draws nothing is worse than one that draws a letter. */
 static void toolbar_brand(ReToolbar *bar, ReApp *a) {
+  static ReBrandSlot mark_slot, wordmark_slot;
   int size = RE_METRIC_DESIGN_SIZE_LG, mark = RE_METRIC_DESIGN_BRAND_MARK;
   const char *glyph = re_app_mark(a), *title = re_app_title(a);
   mu_Rect box = mu_rect(bar->x, bar->y + (bar->h - mark) / 2, mark, mark);
-  re_draw_rrect(bar->draw, box, re_app_mark_color(a), RE_METRIC_DESIGN_BRAND_RADIUS, RE_CORNERS_ALL);
-  re_draw_text_face(bar->draw, RE_FACE_UI_SEMIBOLD, RE_METRIC_DESIGN_SIZE_SM, glyph, -1,
-                    box.x + (mark - re_draw_text_width(bar->draw, RE_FACE_UI_SEMIBOLD, RE_METRIC_DESIGN_SIZE_SM, glyph, -1)) / 2,
-                    box.y + (mark - RE_METRIC_DESIGN_SIZE_SM) / 2 - 1, RE_COLOR_TEXT_ON_ACCENT);
+  if (brand_texture(bar->draw, &mark_slot, re_app_mark_image(a), mark, mark)) {
+    /* Centred at its own aspect ratio inside the chip's square, and no plate behind it: the artwork
+     * carries its own colour, and a token fill under it would tint what the brand already decided. */
+    mu_Rect at = mu_rect(box.x + (mark - mark_slot.tw) / 2, box.y + (mark - mark_slot.th) / 2,
+                         mark_slot.tw, mark_slot.th);
+    re_draw_texture(bar->draw, mark_slot.texture, at, 0);
+  } else {
+    re_draw_rrect(bar->draw, box, re_app_mark_color(a), RE_METRIC_DESIGN_BRAND_RADIUS, RE_CORNERS_ALL);
+    re_draw_text_face(bar->draw, RE_FACE_UI_SEMIBOLD, RE_METRIC_DESIGN_SIZE_SM, glyph, -1,
+                      box.x + (mark - re_draw_text_width(bar->draw, RE_FACE_UI_SEMIBOLD, RE_METRIC_DESIGN_SIZE_SM, glyph, -1)) / 2,
+                      box.y + (mark - RE_METRIC_DESIGN_SIZE_SM) / 2 - 1, RE_COLOR_TEXT_ON_ACCENT);
+  }
   bar->x += mark + RE_METRIC_DESIGN_GAP_LG;
-  re_draw_text_face(bar->draw, RE_FACE_UI_SEMIBOLD, size, title, -1, bar->x, bar->y + (bar->h - size) / 2 - 1, RE_COLOR_TEXT_STRONG);
-  bar->x += re_draw_text_width(bar->draw, RE_FACE_UI_SEMIBOLD, size, title, -1);
+  /* The wordmark is bound by HEIGHT — it sits on the title's line — and given room to be as wide as
+   * its own ratio makes it. The cap keeps a pathological asset from eating the whole bar. */
+  const char *wordmark = re_app_wordmark_image(a, brand_dark_theme());
+  if (brand_texture(bar->draw, &wordmark_slot, wordmark, size * 8, size)) {
+    re_draw_texture(bar->draw, wordmark_slot.texture,
+                    mu_rect(bar->x, bar->y + (bar->h - wordmark_slot.th) / 2, wordmark_slot.tw, wordmark_slot.th), 0);
+    bar->x += wordmark_slot.tw;
+  } else {
+    re_draw_text_face(bar->draw, RE_FACE_UI_SEMIBOLD, size, title, -1, bar->x, bar->y + (bar->h - size) / 2 - 1, RE_COLOR_TEXT_STRONG);
+    bar->x += re_draw_text_width(bar->draw, RE_FACE_UI_SEMIBOLD, size, title, -1);
+  }
 }
 static void toolbar_label(ReToolbar *bar, const char *label) {
   int width = re_draw_text_width(bar->draw, RE_FACE_UI, RE_METRIC_DESIGN_SIZE_SM, label, -1);

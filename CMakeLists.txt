@@ -92,6 +92,21 @@ target_compile_definitions(rengine_vterm PRIVATE
 set(CMKR_TARGET rengine_vterm)
 target_include_directories(rengine_vterm SYSTEM PUBLIC "${RENGINE_VENDOR}/libvterm/include")
 
+# Target: rengine_svg
+set(rengine_svg_SOURCES
+	cmake.toml
+	"orchestrator/native/svg.c"
+)
+
+add_library(rengine_svg STATIC)
+
+target_sources(rengine_svg PRIVATE ${rengine_svg_SOURCES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${rengine_svg_SOURCES})
+
+set(CMKR_TARGET rengine_svg)
+target_include_directories(rengine_svg PRIVATE "${PROJECT_SOURCE_DIR}/orchestrator/native")
+target_include_directories(rengine_svg SYSTEM PRIVATE "${RENGINE_VENDOR}/nanosvg") # pinned nanosvg (spec 104)
+
 # Target: rengine_jpeg
 set(rengine_jpeg_SOURCES
 	cmake.toml
@@ -235,6 +250,7 @@ target_link_libraries(rengine_desktop_core PUBLIC
 	rengine_json
 	rengine_vterm
 	rengine_jpeg
+	rengine_svg
 	CURL::libcurl
 )
 
@@ -376,6 +392,37 @@ if(BUILD_TESTING) # testing
 	  add_custom_command(TARGET rengine_terminal_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
 	    $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_terminal_test>)
 	endif()
+
+endif()
+# Target: rengine_svg_test
+if(BUILD_TESTING) # testing
+	set(rengine_svg_test_SOURCES
+		cmake.toml
+		"orchestrator/native/tests/svg_test.c"
+	)
+
+	add_executable(rengine_svg_test)
+
+	target_sources(rengine_svg_test PRIVATE ${rengine_svg_test_SOURCES})
+	source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${rengine_svg_test_SOURCES})
+
+	target_link_libraries(rengine_svg_test PRIVATE
+		rengine_svg
+	)
+
+	get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
+	if(NOT CMKR_VS_STARTUP_PROJECT)
+		set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT rengine_svg_test)
+	endif()
+
+	set(CMKR_TARGET rengine_svg_test)
+	target_include_directories(rengine_svg_test PRIVATE "${PROJECT_SOURCE_DIR}/orchestrator/native")
+	if(MSVC)
+	  target_compile_options(rengine_svg_test PRIVATE /UNDEBUG)
+	else()
+	  target_compile_options(rengine_svg_test PRIVATE -UNDEBUG)
+	endif()
+	add_test(NAME native_svg COMMAND rengine_svg_test "${PROJECT_SOURCE_DIR}/orchestrator/native/tests/fixtures")
 
 endif()
 # Target: rengine_draw_list_test

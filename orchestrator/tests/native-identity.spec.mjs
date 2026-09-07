@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, mkdir, writeFile, readFile } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir, writeFile, readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFile } from 'node:child_process';
@@ -98,4 +98,73 @@ test('identity keys are refused below contract 5 and an unknown token is named',
   assert.equal(declaredGood.title, 're:Lith');
   assert.deepEqual(declaredGood.icon, { glyph: 'rL', token: 'ok' });
   await rm(dir, { recursive: true, force: true });
+});
+
+// Spec 104 — a project's brand is its own artwork. The pure rasteriser has its own test
+// (native_svg); this is the WIRING: the declaration reaches the chrome, the chrome draws the
+// artwork instead of the glyph, and a file it cannot read falls back rather than drawing nothing.
+const BRAND = {
+  contract: 8, project: 'kohai', title: 'Kohai',
+  icon: { image: 'brand/mark.svg' },
+  wordmark: { light: 'brand/wordmark.svg', dark: 'brand/wordmark-dark.svg' },
+  formats: [{ id: 'text', title: 'Text', match: ['*.txt'], modes: ['raw'], default: 'raw' }],
+};
+
+async function branded(root, declaration, files = ['mark.svg', 'wordmark.svg', 'wordmark-dark.svg']) {
+  await project(root, declaration);
+  await mkdir(path.join(root, 'brand'), { recursive: true });
+  const assets = path.join('orchestrator', 'native', 'tests', 'fixtures');
+  for (const file of files) {
+    const from = file.startsWith('wordmark') ? 'wordmark.svg' : 'mark.svg';
+    await writeFile(path.join(root, 'brand', file), await readFile(path.join(assets, from)));
+  }
+  return root;
+}
+
+test('the chrome wears declared artwork, and falls back to the glyph without it', { timeout: 90000 }, async () => {
+  const dir = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-identity-brand-')));
+  const root = await branded(path.join(dir, 'kohai'), BRAND);
+  const server = await startServer({ stateDir: path.join(dir, 'state') });
+  const added = await server.store.addRoot(root);
+  const gui = await nativeClient(server, { root: added.id });
+  try {
+    const state = await gui.until(s => s.connected && s.title === 'Kohai', 'the declared title reaches the chrome');
+    // Resolved beside the declaration, so the desktop opened a path rather than joining one.
+    assert.equal(state.markImage, path.join(root, 'brand/mark.svg'));
+    assert.equal(state.wordmarkLight, path.join(root, 'brand/wordmark.svg'));
+    assert.equal(state.wordmarkDark, path.join(root, 'brand/wordmark-dark.svg'));
+    // The window title stays TEXT — no image can reach it (spec 104 decision 8).
+    assert.match(state.windowTitle, /^Kohai\b/, `the window title wears the name: ${state.windowTitle}`);
+
+    // The artwork's own ink is on the screen. This is the assertion the state above cannot make:
+    // a declaration that resolved but never rasterised would pass everything up to here.
+    const file = path.join(dir, 'brand.bmp');
+    assert.equal(await gui.command({ op: 'snapshot', path: file }), true);
+    const height = JSON.parse(await readFile('design/cards.json', 'utf8')).presets.default.toolbar.height;
+    const { stdout } = await run(PYTHON, ['tools/bmp_find.py', file, '--logical-width', '1280',
+      '--region', `0,0,64,${height}`, '--colour', '#cc4f4c']);
+    assert.ok(JSON.parse(stdout).count > 0, `the mark's own red reached the bar: ${stdout}`);
+  } finally {
+    await gui.close(); await server.close(); await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('artwork that cannot be read leaves the glyph and reports the problem', { timeout: 90000 }, async () => {
+  const dir = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-identity-brand-missing-')));
+  // Declares the image and ships none: the decision-7 fallback, observed rather than assumed.
+  const root = await branded(path.join(dir, 'kohai'), { ...BRAND, icon: { glyph: 'Ko', token: 'err' } }, []);
+  const server = await startServer({ stateDir: path.join(dir, 'state') });
+  const added = await server.store.addRoot(root);
+  const gui = await nativeClient(server, { root: added.id });
+  try {
+    const state = await gui.until(s => s.connected && s.title === 'Kohai', 'the title still reaches the chrome');
+    assert.equal(state.mark, 'Ko', 'the declared glyph is what the chip falls back to');
+    assert.equal(state.wordmarkLight, undefined, 'an unreadable wordmark is not offered to the chrome');
+    const { readDeclaration } = await import('../server/formats.mjs');
+    const declared = await readDeclaration(root);
+    assert.match(declared.artworkError, /cannot be read/, 'and the problem is reported, not swallowed');
+    assert.equal(declared.formats[0].id, 'text', 'while the rest of the declaration survives');
+  } finally {
+    await gui.close(); await server.close(); await rm(dir, { recursive: true, force: true });
+  }
 });

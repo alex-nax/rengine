@@ -1402,6 +1402,34 @@
       "deliverable": "The auto-connect option in the agent launch configuration (orchestrator/agents/config.mjs) and the runbook note about the host boundary.",
       "external_references": [],
       "evidence": []
+    },
+    {
+      "id": 106,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "A project's brand mark and wordmark are its own artwork: the chrome rasterises declared SVG in place of the letter chip and the title text, and falls back to the glyph when a declaration names a file it cannot read.",
+      "acceptance_criteria": [
+        "A declared icon.image is drawn in the mark chip and its own ink reaches the screen, rather than a letter on a token fill.",
+        "A declared wordmark is drawn in place of the title text, and a light/dark pair follows the theme the bar is drawn on.",
+        "The OS window title stays the declared text, because no image can reach it.",
+        "Artwork that is missing, malformed or oversized leaves the glyph and the title in place, and the workspace reports the problem rather than swallowing it.",
+        "icon carries exactly one of glyph and image; artwork paths are declaration-relative, refused when they escape, and refused below contract 8.",
+        "Rasterising happens once per file and pixel box, not once per frame."
+      ],
+      "passes": true,
+      "dependencies": [
+        79
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "third_party/nanosvg, orchestrator/native/svg.{c,h}, contract 8, toolbar_brand artwork",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/104-project-brand-artwork.md",
+        "orchestrator/native/tests/svg_test.c (native_svg): the real Kohai mark and wordmark rasterise, uniform fit, refusals",
+        "orchestrator/tests/contracts.test.mjs: exactly one mark, .svg only, confined paths, contract-8 floor, missing file reported",
+        "orchestrator/tests/native-identity.spec.mjs: the chrome wears the artwork (#CC4F4C found in the bar) and falls back to the glyph without it"
+      ]
     }
   ]
 }

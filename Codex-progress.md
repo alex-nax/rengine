@@ -1,5 +1,62 @@
 # Progress Log
 
+## Session 68 (macos) — 2026-09-07 — A project's brand is its own artwork (F106, spec 104)
+
+Owner direction, given in the hirebase-v2 workspace: *"the logo is like on site, maybe we can use the
+svg instead of title too"*, and when told the chrome can only draw a letter, *"svg rasterizer is a
+good addition to redit editor"*. That is the later explicit direction AGENTS.md's 2026-09-05 pause
+provides for; nothing else in the pause changed.
+
+Spec 084 let a project declare a title and a one-or-two-character glyph. `toolbar_brand` drew the
+chip with `re_draw_rrect` and the mark with `re_draw_text_face` — the mark was **text**, so a project
+whose mark is a shape had no way to say so. The renderer was never the obstacle: `re_draw_texture_*`
+has been public since the backend split. What was missing was anything that turns artwork into
+pixels.
+
+- **`third_party/nanosvg`** (zlib, pinned at `93ce879` with per-file sha256 in `sources.json`) behind
+  **`orchestrator/native/svg.{c,h}`** — the same wrapper shape `jpeg.c` has over pinned stb.
+- **Contract 8**: `icon.image` replaces the glyph in the chip, `wordmark` replaces the title text and
+  takes one file or a `{light, dark}` pair. Exactly one of `glyph` and `image`; paths are
+  declaration-relative, `.svg`, and refused when they escape. Resolved to absolute files
+  server-side, because only the server knows where an external declaration (spec 085) lives.
+- **`toolbar_brand`** draws either slot as a texture, cached per file and pixel box so a theme or DPI
+  change re-rasterises and a frame does not. Artwork that cannot be read leaves the glyph and the
+  title, and the workspace reports the problem.
+
+**The window title stays text.** `SDL_SetWindowTitle` takes a string, so the owner's "svg instead of
+title" reaches the in-app chrome and cannot reach the OS title bar. Recorded as decision 8 rather
+than left for the next reader to rediscover.
+
+**One claim I had to withdraw mid-implementation.** I wrote the rasteriser to premultiply alpha,
+commenting that the draw list blends premultiplied. It does not: `backend_gl.c` uses
+`GL_SRC_ALPHA` and `backend_metal.m` `MTLBlendFactorSourceAlpha`, both straight alpha. The
+premultiply would have double-applied alpha and darkened every antialiased edge. Checked before
+believing the comment I had just written; removed, with the two call sites named in its place.
+
+Regressions observed failing for their own reason, per the work protocol:
+
+| mutation | red |
+| --- | --- |
+| per-axis scale instead of a uniform fit | `svg_test.c` wordmark aspect assertion (200x200, not 200x56) |
+| allocate the buffer and never rasterise | `svg_test.c` "rasterised to a transparent buffer" |
+| `if (false && brand_texture(...))` in the chrome | `native-identity.spec.mjs` "the mark's own red reached the bar": `count: 0` for `#cc4f4c` |
+
+The third is the one that matters: it is the only check that separates "resolved, cached and never
+drawn" from "on the screen", and everything else in that test stayed green under it.
+
+Commands: `npm run build`; `.cache/desktop/rengine_svg_test orchestrator/native/tests/fixtures` → ok;
+`npm test` → 195/195; the native identity, render, design, external-project and format-registry specs
+→ 10/10. `python3 tools/features.py status` → 12 passing; graph regenerated.
+
+`orchestrator/tests/task-writes.test.mjs` carried a deliberate tripwire asking whoever raises the
+contract ceiling to confirm contract 6's keys still read as they did. Raised to 8 and confirmed:
+artwork adds `icon.image` and `wordmark` and touches neither `tracker.write` nor `agents`.
+
+Remaining: the hirebase-v2 declaration is now contract 8 and points at the Kohai mark and wordmark,
+so **a host built before this change reports "unknown contract 8" and loses that declaration until it
+is replaced**. Not verified: how a denser wordmark reads at the smallest bar height on a low-DPI
+display — the metric is fixed and both Kohai assets are legible at it.
+
 ## Session 67 (macos) — 2026-09-07 — The pane draws what the server said, and a test that passed for the wrong reason
 
 F102's second consumer. The editor pane asks the worker for its file's diagnostics twice a second,

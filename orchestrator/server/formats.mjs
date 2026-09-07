@@ -5,7 +5,7 @@ import path from 'node:path';
 import { validateSchema } from './schema.mjs';
 import { fail, hash, resolveInRoot, MAX_TEXT_BYTES } from './store.mjs';
 import { shellEnvironment } from './sessions.mjs';
-import { dashboardRules, nameOf } from './dashboard-rules.mjs';
+import { dashboardRules, nameOf, rootRelative } from './dashboard-rules.mjs';
 import { gamesRules } from './game-rules.mjs';
 import { devicesRules } from './device-rules.mjs';
 
@@ -62,7 +62,7 @@ function agentsRules(value) {
   return problems;
 }
 
-export const CONTRACTS = [1, 2, 3, 4, 5, 6, 7];
+export const CONTRACTS = [1, 2, 3, 4, 5, 6, 7, 8];
 /* Brand-mark colours a project may name. Each is a saturated fill the design system pairs with
    the on-accent ink, which is what keeps the letter legible in every preset. */
 export const ICON_TOKENS = ['accent', 'ok', 'warn', 'err', 'info'];
@@ -126,11 +126,56 @@ export async function readDeclaration(root) {
   if (value.icon?.token !== undefined && !ICON_TOKENS.includes(value.icon.token)) {
     return problem(`icon token ${JSON.stringify(value.icon.token)} is not a design token; use ${ICON_TOKENS.join(', ')}`);
   }
+  /* Brand artwork (spec 104). Same floor reasoning as the identity keys above, one contract later. */
+  const artwork = [
+    ...(value.icon?.image !== undefined ? [['icon.image', value.icon.image]] : []),
+    ...(typeof value.wordmark === 'string' ? [['wordmark', value.wordmark]] : []),
+    ...(value.wordmark && typeof value.wordmark === 'object'
+      ? Object.entries(value.wordmark).map(([theme, file]) => [`wordmark.${theme}`, file]) : []),
+  ];
+  if (artwork.length && value.contract < 8) return problem(`brand artwork requires contract 8 (declared contract ${value.contract})`);
+  /* Exactly one mark. Two, with no rule about which wins, is a defect waiting for a narrow window;
+     neither leaves the chip with nothing to draw (spec 104 decision 4). */
+  if (value.icon !== undefined) {
+    const has = ['glyph', 'image'].filter(key => value.icon[key] !== undefined);
+    if (has.length !== 1) return problem(`icon carries exactly one of glyph and image, not ${has.length ? has.join(' and ') : 'neither'}`);
+  }
+  /* Declaration-relative and confined, like every other project path — and an SVG, because that is
+     the one format the chrome rasterises (spec 104 decisions 1 and 9). */
+  for (const [where, file] of artwork) {
+    if (!rootRelative(file)) return problem(`${where} must be a relative path inside the declaration's directory`);
+    if (!file.toLowerCase().endsWith('.svg')) return problem(`${where} must name an .svg file`);
+  }
   const errors = [...crossRules(base), ...agentsRules(base)];
   if (errors.length) return problem(report(errors));
+  /* Brand artwork is resolved to an absolute file HERE, beside the declaration that names it, because
+     that is the only place that knows where the declaration lives — an external one (spec 085) sits
+     outside the root it describes. The desktop is handed a path it can open, never a path it has to
+     join. A file that is missing or unreadable is reported and its path omitted, so the chrome falls
+     back to its glyph rather than drawing nothing (spec 104 decision 7). */
+  const artworkDir = external ? path.dirname(source) : rootPath;
+  const artworkProblems = [];
+  const resolveArtwork = async (where, file) => {
+    const absolute = path.resolve(artworkDir, file);
+    try { await access(absolute); return absolute; }
+    catch { artworkProblems.push(`${where} names ${file}, which cannot be read`); return undefined; }
+  };
+  const withFile = (key, file) => (file === undefined ? {} : { [key]: file });
+  const icon = value.icon?.image !== undefined
+    ? { ...value.icon, ...withFile('imageFile', await resolveArtwork('icon.image', value.icon.image)) }
+    : value.icon;
+  const wordmark = typeof value.wordmark === 'string'
+    ? { light: value.wordmark, dark: value.wordmark }
+    : value.wordmark;
+  const wordmarkFiles = wordmark
+    ? { ...withFile('lightFile', await resolveArtwork('wordmark.light', wordmark.light)),
+        ...withFile('darkFile', await resolveArtwork('wordmark.dark', wordmark.dark)) }
+    : undefined;
   const result = { declared: true, source, contract: value.contract, project: value.project,
     ...(value.title !== undefined ? { title: value.title } : {}),
-    ...(value.icon !== undefined ? { icon: value.icon } : {}),
+    ...(icon !== undefined ? { icon } : {}),
+    ...(wordmark !== undefined ? { wordmark: { ...wordmark, ...wordmarkFiles } } : {}),
+    ...(artworkProblems.length ? { artworkError: `${source}: ${report(artworkProblems)}` } : {}),
     ...(value.agents !== undefined ? { agents: value.agents } : {}),
     formats: value.formats.map(format => ({ ...format, preview: bounded(format.preview), entry: bounded(format.entry) })) };
   /* devices, games and dashboard are each reported separately so none can disable the formats, and

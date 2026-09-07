@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rengine.local/contracts/project-v1.schema.json",
-  "title": "rEngine project declaration, contracts 1 through 6",
-  "description": "Read from <root>/.rengine/project.json. Contract 1 declares file formats whose previews are produced by the project's own executables (docs/specs/074-project-format-registry.md); contract 2 adds an optional dashboard of grouped actions (docs/specs/075-project-dashboard.md); contract 3 adds an optional array of games the workspace launches (docs/specs/078-project-game-declaration.md); contract 4 adds an optional array of devices saying where each target runs, and an optional device on a game record and a dashboard action (docs/specs/082-project-devices.md). Cross-field rules the service also enforces: default is one of modes; preview is required when modes contains preview; a preview command names ${file}; an entry command names ${file} and ${entry}; format ids are unique; dashboard requires contract 2, games requires contract 3, and devices or any device key requires contract 4; group, action, game and device ids are unique; an action carries only its kind's fields; a game action's game names a declared games record and its args are literal argv without placeholders; a device reference names a declared device or the implicit local; a game whose surface is embedded or cooperative streams into a local pane and so binds to the local device; local is a reserved id/kind pairing that takes no probe, host or selector; host and selector each carry exactly one of value or env; a probe placeholder must have a declared source; script/requires/artifacts/into are root-relative and requires stays local even on a remote device; dashboard env keys are UPPER_SNAKE; game env keys are UPPER_SNAKE and never start with RENGINE_, DYLD_ or LD_; game requires entries and game cwd are root-relative. Contract 5 adds an optional display title and an icon of a glyph plus a design token name, which the workspace chrome and the window title wear in place of their defaults. It also adds an optional tracker naming where the project's task list lives, whose repository, team, inventory, project, assignee and states keys each belong to one provider and are refused under the others (docs/specs/083-task-tracking.md, docs/specs/100-tracker-view-filters.md). Contract 6 adds an optional tracker.write naming the project's own command that writes one task row (literal argv naming ${json}; local provider only), and an optional top-level agents array saying which agent CLIs and models this project offers when an agent is spawned on a task (docs/specs/103-task-driven-agents.md). Cross-field rules for it: write belongs to provider local, one of its arguments must name ${json}, each agents record's default must be one of its models, and agent cli ids are unique.",
+  "title": "rEngine project declaration, contracts 1 through 8",
+  "description": "Read from <root>/.rengine/project.json. Contract 1 declares file formats whose previews are produced by the project's own executables (docs/specs/074-project-format-registry.md); contract 2 adds an optional dashboard of grouped actions (docs/specs/075-project-dashboard.md); contract 3 adds an optional array of games the workspace launches (docs/specs/078-project-game-declaration.md); contract 4 adds an optional array of devices saying where each target runs, and an optional device on a game record and a dashboard action (docs/specs/082-project-devices.md). Cross-field rules the service also enforces: default is one of modes; preview is required when modes contains preview; a preview command names ${file}; an entry command names ${file} and ${entry}; format ids are unique; dashboard requires contract 2, games requires contract 3, and devices or any device key requires contract 4; group, action, game and device ids are unique; an action carries only its kind's fields; a game action's game names a declared games record and its args are literal argv without placeholders; a device reference names a declared device or the implicit local; a game whose surface is embedded or cooperative streams into a local pane and so binds to the local device; local is a reserved id/kind pairing that takes no probe, host or selector; host and selector each carry exactly one of value or env; a probe placeholder must have a declared source; script/requires/artifacts/into are root-relative and requires stays local even on a remote device; dashboard env keys are UPPER_SNAKE; game env keys are UPPER_SNAKE and never start with RENGINE_, DYLD_ or LD_; game requires entries and game cwd are root-relative. Contract 5 adds an optional display title and an icon of a glyph plus a design token name, which the workspace chrome and the window title wear in place of their defaults. It also adds an optional tracker naming where the project's task list lives, whose repository, team, inventory, project, assignee and states keys each belong to one provider and are refused under the others (docs/specs/083-task-tracking.md, docs/specs/100-tracker-view-filters.md). Contract 6 adds an optional tracker.write naming the project's own command that writes one task row (literal argv naming ${json}; local provider only), and an optional top-level agents array saying which agent CLIs and models this project offers when an agent is spawned on a task (docs/specs/103-task-driven-agents.md). Cross-field rules for it: write belongs to provider local, one of its arguments must name ${json}, each agents record's default must be one of its models, and agent cli ids are unique. Contract 7 adds an optional languageServers array naming the language servers this project's files are served by (docs/specs/102-editor-as-claude-ide.md). Contract 8 adds brand artwork: an icon.image rasterised into the mark chip in place of its glyph, and a wordmark drawn in place of the title text, either one file or a light/dark pair (docs/specs/104-project-brand-artwork.md). Cross-field rules for it: icon carries exactly one of glyph and image; image and wordmark paths are declaration-relative and refused when they escape; both require contract 8.",
   "type": "object",
   "required": [
     "contract",
@@ -19,7 +19,8 @@
         4,
         5,
         6,
-        7
+        7,
+        8
       ]
     },
     "project": {
@@ -65,10 +66,7 @@
     "icon": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "glyph"
-      ],
-      "description": "The brand mark. A short glyph on a colour named from the design tokens, so the letter's contrast is a property of the theme rather than a per-project accident.",
+      "description": "The brand mark. Either a short glyph on a colour named from the design tokens, so the letter's contrast is a property of the theme rather than a per-project accident, or artwork the chrome rasterises in place of both (contract 8). Exactly one of glyph and image.",
       "properties": {
         "glyph": {
           "type": "string",
@@ -80,6 +78,12 @@
           "type": "string",
           "pattern": "^[a-z][a-z0-9-]{0,63}$",
           "description": "A design token name such as accent, ok, warn, err or info. Resolved against the live preset."
+        },
+        "image": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "contract 8: an SVG rasterised into the mark chip, replacing the glyph and its token fill. Declaration-relative, so an external declaration resolves beside itself rather than inside the root."
         }
       }
     },
@@ -177,6 +181,36 @@
         "$ref": "#/$defs/languageServer"
       },
       "description": "Contract 7: the language servers this project's files are served by. rEngine runs a declared server, it never installs one, and an undeclared project answers an empty diagnostic list rather than guessing. Declaring it requires contract 7, so a reader that predates it answers \"unknown contract\" instead of \"unknown key\"."
+    },
+    "wordmark": {
+      "description": "contract 8: artwork the chrome draws in place of the title text. A string is used on every theme; a light/dark pair lets a wordmark of ink invert with the ground. `title` remains required for identity either way — the OS window title is a string and no image can reach it.",
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "light",
+            "dark"
+          ],
+          "properties": {
+            "light": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "dark": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        }
+      ]
     }
   },
   "$defs": {
