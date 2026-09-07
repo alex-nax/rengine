@@ -20,13 +20,16 @@ const MENU = {
     { cli: 'codex', installed: true, models: ['gpt-6-astra'], default: 'gpt-6-astra' },
     { cli: 'gemini', installed: false, models: ['flash'], default: 'flash' },
   ],
-  live: [{ sessionId: 'sess-1', label: 'claude 5b8d47c2', conversation: AGENT, task: 'F2' }],
+  live: [
+    { sessionId: 'sess-1', conversation: AGENT, label: 'claude 5b8d47c2', task: 'F2' },
+    { sessionId: 'sess-2', conversation: null, label: 'codex', task: null },
+  ],
 };
 const local = {
   provider: 'local',
   rows: [
-    { key: 'F1', title: 'Finished work', state: { category: 'completed', name: 'done' } },
-    { key: 'F2', title: 'Ready to start', state: { category: 'unstarted', name: 'ready' } },
+    { key: 'F1', title: 'Finished work', criteria: [], state: { category: 'completed', name: 'done' } },
+    { key: 'F2', title: 'Ready to start', criteria: ['The pane spawns', 'The pane decomposes'], state: { category: 'unstarted', name: 'ready' } },
   ],
 };
 const remote = {
@@ -37,10 +40,10 @@ const remote = {
 const rows = state => state.tabs.find(t => t?.type === 8)?.tracker?.rows ?? [];
 const keys = (state, role) => state.controls.filter(c => c.role === role).map(c => c.key).sort();
 
-async function open(directory, tracker) {
+async function open(directory, tracker, options = {}) {
   const dir = await mkdtemp(path.join(tmpdir(), directory));
   const server = await startServer({ stateDir: path.join(dir, 'state') });
-  const sidecar = await startTasksSidecar(server, { tracker, menu: MENU });
+  const sidecar = await startTasksSidecar(server, { tracker, menu: MENU, ...options });
   const root = await server.store.addRoot(dir);
   const gui = await nativeClient({ ...server, url: sidecar.url }, { root: root.id });
   await gui.until(s => s.connected, 'the desktop connects through the worker stand-in');
@@ -55,7 +58,13 @@ async function open(directory, tracker) {
 }
 
 test('a task row spawns the chosen agent and model, and decomposes with the declared default', { timeout: 90000 }, async () => {
-  const it = await open('rengine-tasks-controls-', local);
+  /* The second spawn — the decomposition — comes back started but unshown, which is a detail the
+     pane must carry rather than an error to retry. */
+  const it = await open('rengine-tasks-controls-', local, {
+    spawn: (body, n) => (n === 2 ? { body: { rootId: body.rootId, taskKey: body.taskKey, agent: body.agent, model: body.model, brief: body.brief,
+      conversation: 'conversation-2', session: { id: 'spawned-2' }, sequence: 2, view: { status: 'not_attached', error: 'no pane' },
+      detail: 'The agent pane was started and is retained, but could not be shown. Use show_session; do not spawn it again.' } } : {}),
+  });
   try {
     const { gui, sidecar, rootId, desktopId } = it;
 
@@ -71,7 +80,10 @@ test('a task row spawns the chosen agent and model, and decomposes with the decl
 
     /* A task live agents work wears their labels, and only that task does. */
     assert.deepEqual(keys(state, 'tracker-working'), ['F2'], 'the working mark is on the task the agent records, not on every row');
-    assert.deepEqual(state.tracker.live, [{ sessionId: 'sess-1', label: 'claude 5b8d47c2', agentId: AGENT, task: 'F2' }]);
+    assert.deepEqual(state.tracker.live, [
+      { sessionId: 'sess-1', label: 'claude 5b8d47c2', agentId: AGENT, task: 'F2' },
+      { sessionId: 'sess-2', label: 'codex', agentId: '', task: '' },
+    ], 'the conversation is the identity an assign names; a CLI that names its own carries none');
 
     /* Spawn opens the chooser on its own row and claims nothing until an agent is picked. */
     await gui.control('tracker-spawn', 'F2');
@@ -79,6 +91,7 @@ test('a task row spawns the chosen agent and model, and decomposes with the decl
     assert.deepEqual(state.tracker.chooser, { taskKey: 'F2', agent: '', model: '', kind: 'spawn' });
     assert.deepEqual(keys(state, 'tracker-agent'), ['claude', 'codex'], 'an installed CLI is offered');
     assert.deepEqual(keys(state, 'tracker-agent-missing'), ['gemini'], 'and one that is not is named rather than hidden');
+    assert.deepEqual(keys(state, 'tracker-criterion'), ['F2', 'F2'], "the task's own criteria are shown where the agent is chosen");
 
     /* Choosing the agent preselects the model the menu declares as its default. */
     await gui.control('tracker-agent', 'claude');
@@ -98,6 +111,68 @@ test('a task row spawns the chosen agent and model, and decomposes with the decl
     const decompose = await sidecar.waitForSpawn(body => body.taskKey === 'F1', 'the decompose body');
     assert.deepEqual(decompose, { rootId, taskKey: 'F1', agent: 'claude', model: 'opus', brief: 'decompose', desktopId });
     assert.equal(sidecar.spawns.length, 2, 'one press, one spawn');
+
+    /* A pane that was started but could not be shown is the worker's `detail`, and repeating the
+       gesture would start a second agent on the same task — so the pane says it where it applies. */
+    state = await gui.until(s => /could not be shown/.test(s.tracker.note ?? ''), "the worker's detail reaches the pane");
+    assert.ok(state.controls.some(c => c.role === 'tracker-note'), 'and it is a row of the pane, not only a status line');
+  } finally { await it.close(); }
+});
+
+test('a workspace that gates no writes refuses Spawn and Decompose by name, and sends nothing', { timeout: 90000 }, async () => {
+  /* The worker advertises agentSpawn and taskWrites only where it owns the ledger (spec 095's
+     asymmetry): a caller is refused by name rather than posting into a worker with no gate. */
+  const it = await open('rengine-tasks-ungated-', local, { capabilities: { agentsMenu: 1 } });
+  try {
+    const { gui, sidecar } = it;
+    await gui.until(s => s.tracker?.menu === true, 'the agent menu still answers');
+
+    await gui.control('tracker-spawn', 'F2');
+    await gui.control('tracker-agent', 'claude');
+    await gui.control('tracker-model', 'opus');
+    let state = await gui.until(s => /no agent spawning/.test(s.tracker.note ?? ''), 'the refusal names the missing gate');
+    assert.match(state.tracker.note, /project-token ledger/);
+    assert.ok(state.controls.some(c => c.role === 'tracker-note'));
+    assert.equal(sidecar.spawns.length, 0, 'and nothing was sent');
+
+    await gui.control('tracker-decompose', 'F1');
+    await delay(200);
+    state = await gui.command({ op: 'state' });
+    assert.equal(sidecar.spawns.length, 0, 'decompose is refused too');
+  } finally { await it.close(); }
+});
+
+test('a workspace that cannot write the inventory still spawns, and refuses only Decompose', { timeout: 90000 }, async () => {
+  /* Decompose has the stricter gate of the two: its only legitimate output is task_add calls, so a
+     worker that cannot write the inventory has nowhere to put the subtasks it would produce. */
+  const it = await open('rengine-tasks-nowrites-', local, { capabilities: { agentsMenu: 1, agentSpawn: 1 } });
+  try {
+    const { gui, sidecar, rootId, desktopId } = it;
+    await gui.until(s => s.tracker?.menu === true, 'the agent menu answers');
+
+    await gui.control('tracker-decompose', 'F1');
+    const state = await gui.until(s => /task inventory/.test(s.tracker.note ?? ''), 'the refusal names the missing write');
+    assert.match(state.tracker.note, /nowhere to put its subtasks/);
+    assert.equal(sidecar.spawns.length, 0, 'and nothing was sent');
+
+    await gui.control('tracker-spawn', 'F2');
+    await gui.control('tracker-agent', 'codex');
+    await gui.control('tracker-model', 'gpt-6-astra');
+    const spawn = await sidecar.waitForSpawn(() => true, 'the spawn body');
+    assert.deepEqual(spawn, { rootId, taskKey: 'F2', agent: 'codex', model: 'gpt-6-astra', brief: 'task', desktopId },
+      'spawning an agent on a task writes nothing, so it is not gated on writing');
+  } finally { await it.close(); }
+});
+
+test('a workspace that serves no agent menu says so in the chooser instead of spending a request', { timeout: 90000 }, async () => {
+  const it = await open('rengine-tasks-nomenu-', local, { capabilities: {} });
+  try {
+    const { gui } = it;
+    let state = await gui.until(s => s.tracker?.menu === true, 'the pane settles on an answer');
+    assert.match(state.tracker.error, /serves no agent menu/);
+    await gui.control('tracker-spawn', 'F2');
+    state = await gui.until(s => s.tracker.chooser.taskKey === 'F2', 'the chooser opens');
+    assert.deepEqual(keys(state, 'tracker-agent'), [], 'with no agent to choose');
   } finally { await it.close(); }
 });
 
@@ -111,6 +186,8 @@ test('Hold token asks the ledger to give this project\'s token to a chosen live 
     let state = await gui.until(s => s.tracker.chooser.kind === 'hold', 'the live-agent chooser opens');
     assert.equal(state.tracker.chooser.taskKey, 'F2');
     assert.deepEqual(keys(state, 'tracker-live'), [AGENT], 'the live agents are listed by their own identity');
+    assert.deepEqual(keys(state, 'tracker-live-unidentified'), ['sess-2'],
+      'and one that names its own conversation is shown with the reason it cannot be given the token');
 
     /* Grant answers a contest; this hands the token over whether one is open or not, so it is its
        own action on the frame the popover already sends. */

@@ -5,13 +5,14 @@
 /* Operations at or above OP_BYTES belong to a format view and carry its mode in `revision`;
  * everything else must sort below it, or the request path reads a format that is not there. */
 enum { OP_STATE = 1, OP_LOAD, OP_SAVE, OP_DRAFT, OP_DISCARD, OP_CREATE, OP_ROOT, OP_GENERIC, OP_LAYOUT, OP_EXPAND,
-       OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_SIGNIN, OP_AGENTS_MENU, OP_BYTES, OP_PREVIEW, OP_ENTRY };
+       OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_SIGNIN, OP_AGENTS_MENU, OP_AGENT_SPAWN, OP_BYTES, OP_PREVIEW, OP_ENTRY };
 /* Enforced rather than remembered. A merge that appends a new operation after OP_BYTES makes the
  * request path read a format a tracker or agent tab does not have, and the symptom is a request that
  * never completes rather than an error where the mistake was made. */
 typedef char re_signin_sorts_below_bytes[OP_SIGNIN < OP_BYTES ? 1 : -1];
 typedef char re_expand_sorts_below_bytes[OP_EXPAND < OP_BYTES ? 1 : -1];
 typedef char re_agents_menu_sorts_below_bytes[OP_AGENTS_MENU < OP_BYTES ? 1 : -1];
+typedef char re_agent_spawn_sorts_below_bytes[OP_AGENT_SPAWN < OP_BYTES ? 1 : -1];
 static int request_within(ReApp *a, int operation, int tab, const char *route, const cJSON *body, long timeout) {
   char scoped[160]; const char *window = getenv("RENGINE_WINDOW_ID");
   if (window && *window && (!strcmp(route, "state") || !strcmp(route, "layout"))) {
@@ -230,6 +231,7 @@ static void tracker_request(ReApp *a, int tab, bool refresh) {
   /* The per-task controls read the project's agent menu (spec 103 decision 5). It is fetched with
      the list and on the same gesture, never on a timer, and its absence never takes the list
      down: a worker that does not serve the route yet leaves the rows exactly as they are. */
+  if (!re_tracker_menu_served(a, tab)) return;
   char *agents = re_net_query("agents-menu", t->root, "");
   if (agents) request(a, OP_AGENTS_MENU, tab, agents, NULL);
   free(agents);
@@ -242,6 +244,9 @@ void re_app_tracker_signin(ReApp *a, int tab) {
   request(a, OP_SIGNIN, tab, "tracker/signin", j); cJSON_Delete(j);
   re_copy(a->status, sizeof(a->status), "Opening the browser to sign in…");
 }
+/* A spawn carries its own operation so its answer — a started pane, or a refusal naming a whole
+   prerequisite — reaches the pane that asked rather than the generic status line (spec 103). */
+void re_app_agent_spawn(ReApp *a, int tab, const cJSON *body) { request(a, OP_AGENT_SPAWN, tab, "agent-spawn", body); }
 int re_app_tracker(ReApp *a, const char *root) {
   if (!*root) return -1;
   return re_app_tab(a, RE_TRACKER, root, "", "", "Tasks");
@@ -531,6 +536,7 @@ static void response(ReApp *a, ReMessage *m) {
       cJSON_AddStringToObject(settled, "error", error); cJSON_AddArrayToObject(settled, "formats"); formats_loaded(a, settled); cJSON_Delete(settled); cJSON_Delete(j); return;
     }
     if (p.operation == OP_AGENTS_MENU && p.tab >= 0) { re_tracker_menu_failed(a, p.tab, error); cJSON_Delete(j); return; }
+    if (p.operation == OP_AGENT_SPAWN && p.tab >= 0) { re_tracker_spawn_failed(a, p.tab, error); cJSON_Delete(j); return; }
     if (!m->status && p.timeout > 0) { snprintf(budget, sizeof(budget), "%s · no reply within %ld ms (declared timeoutMs %ld plus transport)", error, p.timeout, p.timeout - 2000L); error = budget; }
     re_copy(a->status, sizeof(a->status), error);
     if (p.operation == OP_ENTRY && t && t->format) re_format_entry_failed(t->format, error);
@@ -544,6 +550,7 @@ static void response(ReApp *a, ReMessage *m) {
     case OP_FORMATS: formats_loaded(a, j); break;
     case OP_DASHBOARD: dashboard_probed(a, j); break;
     case OP_AGENTS_MENU: re_tracker_menu(a, p.tab, j); break;
+    case OP_AGENT_SPAWN: re_tracker_spawned(a, p.tab, j); break;
     case OP_CAPTURE: snprintf(a->status, sizeof(a->status), "Captured %s (%d bytes, sha256 %.12s…)", re_string(j, "path"), re_number(j, "size"), re_string(j, "sha256")); t->error[0] = 0; break;
     case OP_EXPAND: {
       ReExpansion *e = p.slot >= 0 && p.slot < RE_TREE_EXPANSIONS ? &a->expansions[p.slot] : NULL;
@@ -602,6 +609,35 @@ ReApp *re_app_open(const char *url, const char *token) {
   re_copy(a->initial_game, sizeof(a->initial_game), getenv("RENGINE_INITIAL_GAME"));
   re_copy(a->status, sizeof(a->status), a->net ? "Connecting to workspace…" : "No service connection. Launch with the workspace launcher or --connection FILE."); return a;
 }
+/* The focused editor's caret, told to the workspace so an agent in a pane can see what the person is
+ * looking at (spec 102, F100). Only the focused pane reports, and only when something changed: the
+ * desktop knows nothing about who is listening, and posts a fact about itself. */
+static void report_selection(ReApp *a, Uint64 now) {
+  ReTab *t = a->focus >= 0 && a->focus < RE_TABS ? &a->tabs[a->focus] : NULL;
+  if (!a->net || !a->connected || now < a->selection_sent + 150) return;
+  if (!t || !t->used || !t->editor) { a->selection[0] = 0; return; }
+  ReSelection selection; char text[4096];
+  re_editor_selection(t->editor, &selection, text, (int)sizeof(text));
+  char signature[192];
+  snprintf(signature, sizeof(signature), "%s|%s|%d:%d-%d:%d|%d", t->root, t->path, selection.start_line,
+           selection.start_character, selection.end_line, selection.end_character, re_editor_revision(t->editor));
+  if (!strcmp(signature, a->selection)) return;
+  re_copy(a->selection, sizeof(a->selection), signature);
+  a->selection_sent = now;
+  cJSON *body = cJSON_CreateObject(), *range = cJSON_CreateObject(), *start = cJSON_CreateObject(), *end = cJSON_CreateObject();
+  cJSON_AddStringToObject(body, "rootId", t->root);
+  cJSON_AddStringToObject(body, "path", t->path);
+  cJSON_AddStringToObject(body, "text", text);
+  cJSON_AddNumberToObject(start, "line", selection.start_line);
+  cJSON_AddNumberToObject(start, "character", selection.start_character);
+  cJSON_AddNumberToObject(end, "line", selection.end_line);
+  cJSON_AddNumberToObject(end, "character", selection.end_character);
+  cJSON_AddItemToObject(range, "start", start); cJSON_AddItemToObject(range, "end", end);
+  cJSON_AddItemToObject(body, "selection", range);
+  request(a, OP_GENERIC, -1, "ide-selection", body);
+  cJSON_Delete(body);
+}
+
 static void register_desktop(ReApp *a) {
   if (!a->initialized || !a->connected || a->desktop_registered) return;
   if (re_number(cJSON_GetObjectItemCaseSensitive(a->state, "capabilities"), "desktopActions") != 1) return;
@@ -666,6 +702,7 @@ void re_app_tick(ReApp *a) {
   register_desktop(a);
   re_recording_sync(a);
   Uint64 now = SDL_GetTicks64();
+  report_selection(a, now);
   for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].editor) {
     ReTab *t = &a->tabs[i]; t->dirty = t->saved != re_editor_revision(t->editor);
     if (now >= t->edited + 250 || a->quitting) checkpoint(a, i);
@@ -711,6 +748,9 @@ cJSON *re_app_inspect(ReApp *a) {
   cJSON_AddBoolToObject(j, "vim", a->vim); cJSON_AddBoolToObject(j, "explorerNested", a->explorer_nested);
   cJSON_AddStringToObject(j, "scheme", a->scheme); cJSON_AddNumberToObject(j, "accentHue", a->accent_hue);
   cJSON_AddStringToObject(j, "themePath", a->theme_path);
+  /* Exactly what the focused editor last told the workspace, so a test reads the report rather than
+     re-deriving it: root|path|startLine:startCharacter-endLine:endCharacter|revision. */
+  cJSON_AddStringToObject(j, "selection", a->selection);
   cJSON_AddStringToObject(j, "title", re_app_title(a)); cJSON_AddStringToObject(j, "mark", re_app_mark(a));
   cJSON_AddStringToObject(j, "primaryRoot", a->primary_root);
   cJSON_AddNumberToObject(j, "overlay", a->overlay);

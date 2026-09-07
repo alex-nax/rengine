@@ -54,6 +54,9 @@ typedef struct ReApp {
   ReProjectToken token;                             /* the project token of the primary root (spec 095) */
   int focus, drag_tab, resize_pane, drag_x, drag_y, mouse_x, mouse_y;
   Uint64 layout_changed, quit_started;
+  /* What the focused editor last told the workspace, so a caret that has not moved is not
+   * reported again and a held arrow key does not send a frame's worth of notifications. */
+  char selection[192]; Uint64 selection_sent;
   int scene;
 } ReApp;
 /* The overlay layer. Opening one closes the other, so the kind is a single value (spec 080). */
@@ -102,6 +105,7 @@ void re_app_devices_refresh(ReApp *app, int tab);
 int re_app_tracker(ReApp *app, const char *root);       /* the project's task list (spec 083) */
 void re_app_tracker_refresh(ReApp *app, int tab);
 void re_app_tracker_signin(ReApp *app, int tab);        /* opens the provider's sign-in page */
+void re_app_agent_spawn(ReApp *app, int tab, const cJSON *body);  /* spec 103: the Tasks pane owns the answer */
 void re_app_open_url(ReApp *app, const char *url);      /* hands a task's link to the browser */
 void re_devices_ui(ReApp *app, mu_Context *ui, int tab);
 void re_app_save(ReApp *app, int tab);

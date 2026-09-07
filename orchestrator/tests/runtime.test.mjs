@@ -16,6 +16,11 @@ import { discoverRuntime, ensureRuntime, alive } from '../runtime/discovery.mjs'
 import { forward, json, tunnel } from '../runtime/protocol.mjs';
 import { request } from '../launcher/sidecar.mjs';
 
+/* A worker publishes an IDE lock for Claude Code to find (spec 102), and these workers are real, so
+   the suite must not publish into the `/ide` menu of whoever is running it. The npm scripts set
+   RENGINE_IDE_DIRECTORY; this is the fallback for a file run directly. */
+process.env.RENGINE_IDE_DIRECTORY ??= await mkdtemp(path.join(tmpdir(), 'rengine-runtime-ide-'));
+
 async function until(check, label) {
   for (let i = 0; i < 160; i++) { const value = await check(); if (value) return value; await delay(50); }
   throw new Error(`Timed out: ${label}`);

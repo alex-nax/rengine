@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rengine.local/contracts/project-v1.schema.json",
-  "title": "rEngine project declaration, contracts 1, 2, 3 and 4",
-  "description": "Read from <root>/.rengine/project.json. Contract 1 declares file formats whose previews are produced by the project's own executables (docs/specs/074-project-format-registry.md); contract 2 adds an optional dashboard of grouped actions (docs/specs/075-project-dashboard.md); contract 3 adds an optional array of games the workspace launches (docs/specs/078-project-game-declaration.md); contract 4 adds an optional array of devices saying where each target runs, and an optional device on a game record and a dashboard action (docs/specs/082-project-devices.md). Cross-field rules the service also enforces: default is one of modes; preview is required when modes contains preview; a preview command names ${file}; an entry command names ${file} and ${entry}; format ids are unique; dashboard requires contract 2, games requires contract 3, and devices or any device key requires contract 4; group, action, game and device ids are unique; an action carries only its kind's fields; a game action's game names a declared games record and its args are literal argv without placeholders; a device reference names a declared device or the implicit local; a game whose surface is embedded or cooperative streams into a local pane and so binds to the local device; local is a reserved id/kind pairing that takes no probe, host or selector; host and selector each carry exactly one of value or env; a probe placeholder must have a declared source; script/requires/artifacts/into are root-relative and requires stays local even on a remote device; dashboard env keys are UPPER_SNAKE; game env keys are UPPER_SNAKE and never start with RENGINE_, DYLD_ or LD_; game requires entries and game cwd are root-relative. Contract 5 adds an optional display title and an icon of a glyph plus a design token name, which the workspace chrome and the window title wear in place of their defaults. It also adds an optional tracker naming where the project's task list lives, whose repository, team, inventory, project, assignee and states keys each belong to one provider and are refused under the others (docs/specs/083-task-tracking.md, docs/specs/100-tracker-view-filters.md).",
+  "title": "rEngine project declaration, contracts 1 through 6",
+  "description": "Read from <root>/.rengine/project.json. Contract 1 declares file formats whose previews are produced by the project's own executables (docs/specs/074-project-format-registry.md); contract 2 adds an optional dashboard of grouped actions (docs/specs/075-project-dashboard.md); contract 3 adds an optional array of games the workspace launches (docs/specs/078-project-game-declaration.md); contract 4 adds an optional array of devices saying where each target runs, and an optional device on a game record and a dashboard action (docs/specs/082-project-devices.md). Cross-field rules the service also enforces: default is one of modes; preview is required when modes contains preview; a preview command names ${file}; an entry command names ${file} and ${entry}; format ids are unique; dashboard requires contract 2, games requires contract 3, and devices or any device key requires contract 4; group, action, game and device ids are unique; an action carries only its kind's fields; a game action's game names a declared games record and its args are literal argv without placeholders; a device reference names a declared device or the implicit local; a game whose surface is embedded or cooperative streams into a local pane and so binds to the local device; local is a reserved id/kind pairing that takes no probe, host or selector; host and selector each carry exactly one of value or env; a probe placeholder must have a declared source; script/requires/artifacts/into are root-relative and requires stays local even on a remote device; dashboard env keys are UPPER_SNAKE; game env keys are UPPER_SNAKE and never start with RENGINE_, DYLD_ or LD_; game requires entries and game cwd are root-relative. Contract 5 adds an optional display title and an icon of a glyph plus a design token name, which the workspace chrome and the window title wear in place of their defaults. It also adds an optional tracker naming where the project's task list lives, whose repository, team, inventory, project, assignee and states keys each belong to one provider and are refused under the others (docs/specs/083-task-tracking.md, docs/specs/100-tracker-view-filters.md). Contract 6 adds an optional tracker.write naming the project's own command that writes one task row (literal argv naming ${json}; local provider only), and an optional top-level agents array saying which agent CLIs and models this project offers when an agent is spawned on a task (docs/specs/103-task-driven-agents.md). Cross-field rules for it: write belongs to provider local, one of its arguments must name ${json}, each agents record's default must be one of its models, and agent cli ids are unique.",
   "type": "object",
   "required": [
     "contract",
@@ -17,7 +17,8 @@
         2,
         3,
         4,
-        5
+        5,
+        6
       ]
     },
     "project": {
@@ -141,8 +142,31 @@
               "canceled"
             ]
           }
+        },
+        "write": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/executable"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/writeArgument"
+          },
+          "description": "local only, contract 6: the project's own command that writes one task row, as literal argv with no shell. One argument must name ${json}, which is replaced by the JSON document the workspace sends: the row's fields plus the action (add, update or decompose) and, for a child row, its parent. The workspace never edits the inventory text itself; this command is the validated path the project already trusts."
         }
       }
+    },
+    "agents": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/agentMenu"
+      },
+      "description": "Contract 6: the agent CLIs and models this project offers when an agent is spawned on a task, in declaration order. Absent, the menu is the CLIs rEngine can launch with its own known model lists. Declaring it requires contract 6, so a reader that predates it answers \"unknown contract\" instead of \"unknown key\"."
     }
   },
   "$defs": {
@@ -668,6 +692,46 @@
           "minimum": 1,
           "maximum": 60000,
           "default": 5000
+        }
+      }
+    },
+    "writeArgument": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "description": "A literal argv element; the only placeholder is ${json}.",
+      "pattern": "^(?:[^$]|\\$(?!\\{)|\\$\\{json\\})*$"
+    },
+    "agentMenu": {
+      "type": "object",
+      "required": [
+        "cli",
+        "models",
+        "default"
+      ],
+      "additionalProperties": false,
+      "description": "One agent CLI this project offers: the executable name rEngine launches (claude, codex, gemini, opencode, or an installed executable), the models to choose from, and the one chosen by default. rEngine passes the model with the CLI's own flag and refuses by name for a CLI whose flag it does not know.",
+      "properties": {
+        "cli": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$",
+          "maxLength": 64
+        },
+        "models": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "default": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
         }
       }
     }

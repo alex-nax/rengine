@@ -15,10 +15,19 @@
 #define RE_TRACKER_LIVE 16
 
 void re_tracker_ui(ReApp *app, mu_Context *ui, int tab);
+/* Whether this workspace serves the agent menu at all. A worker that owns no ledger serves no
+   spawning either, and says so by advertising neither capability; the pane is told by name rather
+   than spending a request on a route that is not there. */
+bool re_tracker_menu_served(ReApp *app, int tab);
 /* One `agents-menu` answer for that tab's root, or the reason there is none. The list never goes
    down with the menu: a worker that does not serve the route yet leaves the rows alone. */
 void re_tracker_menu(ReApp *app, int tab, const cJSON *answer);
 void re_tracker_menu_failed(ReApp *app, int tab, const char *error);
+/* The answer to a spawn, and its refusal. Both belong to the pane: the worker's refusals name a
+   whole prerequisite (a session host that predates task-driven panes, say), which a status line
+   truncates and a note row does not. */
+void re_tracker_spawned(ReApp *app, int tab, const cJSON *answer);
+void re_tracker_spawn_failed(ReApp *app, int tab, const char *error);
 /* `tracker`: the menu this window holds and the chooser a row has open. */
 void re_tracker_inspect(const ReApp *app, cJSON *out);
 #endif

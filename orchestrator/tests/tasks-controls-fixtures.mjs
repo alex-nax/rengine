@@ -11,13 +11,18 @@ import { forward, tunnel } from '../runtime/protocol.mjs';
  *   GET  /api/tracker      the rows the pane draws, with the provider that decides which controls
  *                          a row may carry — a remote provider is served here rather than signed
  *                          in to, because what is under test is the pane, not an OAuth round trip
- *   GET  /api/agents-menu  { agents: [{ cli, installed, models, default }], live: [{ sessionId, label, conversation, task }] }
- *   POST /api/agent-spawn  { rootId, taskKey, agent, model?, brief, desktopId } -> { session, conversation }
+ *   GET  /api/agents-menu  { rootId, declared, agents: [{ cli, installed, models, default }], live: [{ sessionId, conversation, label, task }] }
+ *   POST /api/agent-spawn  { rootId, taskKey, agent, model?, brief, desktopId } -> { rootId, taskKey, agent,
+ *                          model, brief, conversation, session, sequence, view?, detail? }
+ * and it answers `/api/state` with the capabilities the test chooses folded into the host's own,
+ * because the worker layer is what advertises `agentsMenu`, `agentSpawn` and `taskWrites` and this
+ * fixture stands in for that layer.
  * and it keeps every `token-action` frame the desktop sends on `/events` instead of forwarding it.
  *
  * It holds no ledger and starts no agent: a spawn recorded here changes nothing, exactly as a
  * `token-action` recorded by the token fixture changes nothing. The worker lane owns both. */
-export async function startTasksSidecar(host, { tracker = { provider: 'local', rows: [] }, menu = { agents: [], live: [] } } = {}) {
+export async function startTasksSidecar(host, { tracker = { provider: 'local', rows: [] }, menu = { agents: [], live: [] },
+                                                capabilities = { agentsMenu: 1, agentSpawn: 1, taskWrites: 1 }, spawn = null } = {}) {
   const spawns = [], frames = [], clients = new Set();
   let rows = tracker, offered = menu, refreshes = 0;
   const answer = (response, status, value) => {
@@ -27,6 +32,13 @@ export async function startTasksSidecar(host, { tracker = { provider: 'local', r
   };
   const server = http.createServer((request, response) => {
     const target = new URL(request.url, 'http://127.0.0.1');
+    if (target.pathname === '/api/state') {
+      fetch(new URL(request.url, host.url), { headers: { authorization: `Bearer ${host.token}` } })
+        .then(upstream => upstream.json())
+        .then(state => answer(response, 200, { ...state, capabilities: { ...state.capabilities, ...capabilities } }))
+        .catch(error => answer(response, 502, { error: error.message }));
+      return;
+    }
     if (target.pathname === '/api/tracker') {
       if (target.searchParams.get('refresh') === '1') refreshes++;
       answer(response, 200, { fresh: true, checkedAt: new Date().toISOString(), ...rows });
@@ -40,7 +52,11 @@ export async function startTasksSidecar(host, { tracker = { provider: 'local', r
       request.on('end', () => {
         let data; try { data = JSON.parse(body); } catch { data = { unparsed: body }; }
         spawns.push(data);
-        answer(response, 200, { session: { id: `spawned-${spawns.length}` }, conversation: `conversation-${spawns.length}` });
+        const reply = spawn?.(data, spawns.length) ?? {};
+        answer(response, reply.status ?? 200, reply.body ?? {
+          rootId: data.rootId, taskKey: data.taskKey, agent: data.agent, model: data.model ?? null, brief: data.brief,
+          conversation: `conversation-${spawns.length}`, session: { id: `spawned-${spawns.length}` }, sequence: spawns.length,
+        });
       });
       return;
     }

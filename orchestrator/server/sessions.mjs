@@ -99,9 +99,10 @@ export class Sessions extends EventEmitter {
   }
 
   snapshot(id, includeOutput = false) {
-    const { id: sessionId, rootId, type, agent, conversation, handoff, released, title, surface, game, args, pid, state, exitCode, signal, createdAt, endedAt, cols, rows, sequence, output } = this.get(id);
+    const { id: sessionId, rootId, type, agent, conversation, task, handoff, released, title, surface, game, args, pid, state, exitCode, signal, createdAt, endedAt, cols, rows, sequence, output } = this.get(id);
     return { id: sessionId, rootId, type, agent, title, pid, state, exitCode, signal, createdAt, endedAt, cols, rows, sequence,
       ...(conversation ? { conversation } : {}),
+      ...(task ? { task } : {}),
       ...(type === 'game' ? { surface, game, args: args ?? [] } : {}),
       ...(handoff ? { handoff: { sessionId: handoff.sessionId, checkpoint: handoff.checkpoint }, waitingForView: !released } : {}),
       ...(includeOutput ? { output } : {}) };
@@ -179,6 +180,13 @@ export class Sessions extends EventEmitter {
         }
         env = { ...env, RENGINE_ORCHESTRATOR_SESSION: id };
       }
+      // The launcher's own trailing arguments, which agent.sh forwards to the CLI after `--` and
+      // the workspace launcher appends after the MCP wiring it composes. This is how a pane started
+      // on a task carries the CLI's model flag and the rendered prompt (spec 103 decision 5);
+      // without it those arguments were accepted by this route and silently dropped, so a spawn
+      // looked right and ran a CLI with no prompt. Guarded by the taskConversations capability, so
+      // a caller can tell a host that forwards them from one that does not.
+      if (args?.length) argv.push('--', ...args);
     }
     if (type !== 'agent' || !env.RENGINE_AGENT_CONVERSATION) conversation = undefined;
     if (typeof file !== 'string' || !Array.isArray(argv) || argv.some(arg => typeof arg !== 'string')) fail('Invalid executable or arguments.');
@@ -232,7 +240,9 @@ export class Sessions extends EventEmitter {
   // person at the pane may have chosen a different one from the offered list, and their own
   // --resume beats both. `null` says this launch continues or forks a conversation the CLI names
   // itself, so the record must claim nothing rather than keep an id that would resume the wrong one.
-  async recordConversation(id, conversation, agent) {
+  // `task` (spec 103 decision 6) is the key of the task this conversation was started on. It joins
+  // the two systems and nothing else: it never selects, resumes or retargets anything.
+  async recordConversation(id, conversation, agent, task) {
     const item = this.get(id);
     if (item.type !== 'agent') fail('Only an agent session holds a conversation.');
     if (agent && !item.agent) item.agent = agent;
@@ -242,8 +252,9 @@ export class Sessions extends EventEmitter {
       this.changed(item);
       return this.snapshot(id);
     }
-    const entry = await this.store.recordConversation(item.rootId, { conversation, agent: agent || item.agent || undefined });
+    const entry = await this.store.recordConversation(item.rootId, { conversation, agent: agent || item.agent || undefined, task });
     item.conversation = entry.id;
+    item.task = entry.task;
     if (item.titleAuto) item.title = agentTitle(item.agent, entry.id, this.store.root(item.rootId).name);
     this.changed(item);
     return this.snapshot(id);

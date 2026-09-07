@@ -192,15 +192,21 @@ export class WorkspaceStore {
     return (all[rootId] ?? []).map(entry => ({ ...entry }));
   }
 
-  async recordConversation(rootId, { conversation, agent } = {}) {
+  async recordConversation(rootId, { conversation, agent, task } = {}) {
     if (typeof conversation !== 'string' || !CONVERSATION_ID.test(conversation)) fail('An agent conversation must be a UUID rEngine minted.');
     if (agent !== undefined && (typeof agent !== 'string' || agent.length > 256)) fail('Invalid agent name for a conversation.');
+    // `task` is the one join between the task system and the agent system (spec 103 decision 6): a
+    // conversation started from a task carries that task's key, so the Sessions tab and
+    // workspace_info show which task an agent works and the Tasks pane shows which agents work a
+    // task. Only ever set explicitly; an omitted task leaves whatever the record already carried.
+    if (task !== undefined && task !== null && (typeof task !== 'string' || !task.length || task.length > 128)) fail('A conversation task is the key of one task row.');
     if (!this.state.roots.some(root => root.id === rootId)) fail('Unknown project root.', 404);
     if (!this.state.conversations || typeof this.state.conversations !== 'object' || Array.isArray(this.state.conversations)) this.state.conversations = {};
     const list = this.state.conversations[rootId] ?? [];
     const entry = list.find(item => item.id === conversation) ?? { id: conversation, startedAt: Date.now() };
     entry.lastSeenAt = Date.now();
     if (agent !== undefined) entry.agent = agent;
+    if (task === null) delete entry.task; else if (task !== undefined) entry.task = task;
     this.state.conversations[rootId] = [entry, ...list.filter(item => item !== entry)].slice(0, CONVERSATION_LIMIT);
     await this.persist();
     return { ...entry };

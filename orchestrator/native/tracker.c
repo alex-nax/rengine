@@ -32,7 +32,24 @@ static struct {
   ReLiveEntry live[RE_TRACKER_LIVE]; int live_count;
   int kind;                          /* which chooser is open, RE_CHOOSER_NONE when none */
   char task[80], agent[64], model[64];
+  char note[512];                    /* the last spawn's refusal or detail, said where it applies */
 } menu;
+
+/* A capability the workspace advertises. The worker serves `agentsMenu` always and `agentSpawn` /
+   `taskWrites` only where it owns the ledger, so a workspace that cannot gate a write says so by
+   advertising neither and the pane refuses by name rather than posting into a 404. */
+static bool capable(const ReApp *a, const char *name) {
+  const cJSON *value = cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(a->state, "capabilities"), name);
+  return cJSON_IsTrue(value) || (cJSON_IsNumber(value) && value->valueint == 1);
+}
+
+/* Whatever the pane must say about the last spawn — a refusal, or a detail the worker added. It
+   also reaches the status line, because that is where the desktop says things; the note row is what
+   keeps a refusal that names a whole prerequisite readable. */
+static void note_of(ReApp *a, const char *text) {
+  re_copy(menu.note, sizeof(menu.note), text ? text : "");
+  if (text && *text) re_copy(a->status, sizeof(a->status), text);
+}
 
 static void chooser_close(void) { menu.kind = RE_CHOOSER_NONE; menu.task[0] = menu.agent[0] = menu.model[0] = 0; }
 static bool menu_answers(const char *root) { return menu.known && !strcmp(menu.root, root); }
@@ -59,6 +76,12 @@ static void menu_reset(ReApp *a, int tab) {
   if (strcmp(menu.root, root)) chooser_close();   /* another project's chooser is not this one's */
   re_copy(menu.root, sizeof(menu.root), root);
   menu.agent_count = menu.live_count = 0; menu.error[0] = 0;
+}
+
+bool re_tracker_menu_served(ReApp *a, int tab) {
+  if (capable(a, "agentsMenu")) return true;
+  re_tracker_menu_failed(a, tab, "This workspace serves no agent menu; update the workspace to spawn agents from a task.");
+  return false;
 }
 
 void re_tracker_menu(ReApp *a, int tab, const cJSON *j) {
@@ -94,6 +117,22 @@ void re_tracker_menu(ReApp *a, int tab, const cJSON *j) {
   if (*menu.agent && !agent_named(menu.agent)) { menu.agent[0] = 0; menu.model[0] = 0; }
 }
 
+/* A pane that was started but could not be shown is not a failure to retry: the worker says so in
+   `detail`, and repeating the gesture would start a second agent on the same task. */
+void re_tracker_spawned(ReApp *a, int tab, const cJSON *j) {
+  char text[512];
+  (void)tab;
+  if (*re_string(j, "detail")) { note_of(a, re_string(j, "detail")); return; }
+  snprintf(text, sizeof(text), "%s is on %s%s%s.", re_string(j, "agent"), re_string(j, "taskKey"),
+           *re_string(j, "conversation") ? " · " : "", re_string(j, "conversation"));
+  re_copy(a->status, sizeof(a->status), text);
+  menu.note[0] = 0;
+}
+void re_tracker_spawn_failed(ReApp *a, int tab, const char *error) {
+  (void)tab;
+  note_of(a, error);
+}
+
 void re_tracker_menu_failed(ReApp *a, int tab, const char *error) {
   menu_reset(a, tab);
   menu.known = true;                 /* answered, with nothing to offer, which the chooser says */
@@ -104,9 +143,20 @@ void re_tracker_menu_failed(ReApp *a, int tab, const char *error) {
 
 /* The spawn body is the pinned one, sent through the same generic action route every other write
    uses; `desktopId` is how the worker knows which window to hand the new pane to. */
+/* What stops this spawn before it is sent, or NULL. Both prerequisites are the worker's, and both
+   are named rather than discovered as a failed request. */
+static const char *refused(const ReApp *a, const char *brief) {
+  if (!capable(a, "agentSpawn"))
+    return "This workspace worker serves no agent spawning: it owns no project-token ledger, so a spawn could be neither gated nor announced. Update the workspace, then try again.";
+  if (!strcmp(brief, "decompose") && !capable(a, "taskWrites"))
+    return "This workspace worker cannot write this project's task inventory, so a decomposition would have nowhere to put its subtasks. Update the workspace, then try again.";
+  return NULL;
+}
 static void spawn(ReApp *a, int tab, const char *task, const char *cli, const char *model, const char *brief) {
   char note[512];
-  if (!cli || !*cli) { re_copy(a->status, sizeof(a->status), "No agent CLI is installed for this project."); return; }
+  const char *stop = refused(a, brief);
+  if (stop) { note_of(a, stop); chooser_close(); return; }
+  if (!cli || !*cli) { note_of(a, "No agent CLI this workspace can start is installed for this project."); chooser_close(); return; }
   cJSON *j = cJSON_CreateObject();
   cJSON_AddStringToObject(j, "rootId", a->tabs[tab].root);
   cJSON_AddStringToObject(j, "taskKey", task);
@@ -114,11 +164,12 @@ static void spawn(ReApp *a, int tab, const char *task, const char *cli, const ch
   if (*model) cJSON_AddStringToObject(j, "model", model);
   cJSON_AddStringToObject(j, "brief", brief);
   cJSON_AddStringToObject(j, "desktopId", a->desktop_id);
-  re_app_action(a, "agent-spawn", j);
+  re_app_agent_spawn(a, tab, j);
   cJSON_Delete(j);
   snprintf(note, sizeof(note), "Asked the workspace to start %s%s%s on %s with the %s brief.",
            cli, *model ? " · " : "", model, task, brief);
   re_copy(a->status, sizeof(a->status), note);
+  menu.note[0] = 0;
   chooser_close();
 }
 
@@ -170,8 +221,19 @@ static int working_labels(const char *key, char *out, size_t size) {
  * Inline rows under the task rather than a popover: the pane is already a scrolled list, an overlay
  * would cost one of the root containers the panes fill, and a chooser that scrolls with its row
  * cannot end up describing a different task than the one under it. */
-static void agent_rows(ReApp *a, mu_Context *ui, int tab, const char *key, bool answered) {
+static void agent_rows(ReApp *a, mu_Context *ui, int tab, const char *key, const cJSON *criteria, bool answered) {
   int agents = answered ? menu.agent_count : 0;
+  /* The task's own acceptance criteria, where the person is deciding who to put on it: the prompt
+     the agent gets carries them (spec 103 decision 7), so the pane shows what it is about to send. */
+  const cJSON *criterion = NULL; bool first = true;
+  cJSON_ArrayForEach(criterion, criteria) {
+    if (!cJSON_IsString(criterion)) continue;
+    mu_layout_row(ui, 2, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+    re_ui_label_ex(ui, first ? "Criteria" : "", RE_UI_MUTED | RE_UI_SMALL);
+    re_ui_label_ex(ui, criterion->valuestring, RE_UI_MUTED | RE_UI_SMALL);
+    re_app_control(a, ui, "tracker-criterion", key, tab);
+    first = false;
+  }
   int widths[RE_TRACKER_AGENTS + 2], n = 0;
   widths[n++] = RE_METRIC_TRACKER_KEY_WIDTH;
   for (int i = 0; i < agents; i++) widths[n++] = RE_METRIC_TRACKER_REFRESH_WIDTH;
@@ -226,16 +288,19 @@ static void live_rows(ReApp *a, mu_Context *ui, int tab, bool answered) {
     const ReLiveEntry *e = &menu.live[i];
     mu_layout_row(ui, 3, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, -RE_METRIC_TRACKER_STATE_WIDTH, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
     re_ui_label_ex(ui, i ? "" : "Give to", RE_UI_MUTED | RE_UI_SMALL);
-    if (re_ui_button_ex(ui, e->label, RE_ICON_AGENT, RE_UI_SMALL | RE_UI_ALIGN_LEFT)) { hold(a, tab, e); return; }
-    re_app_control(a, ui, "tracker-live", e->agent, tab);
-    re_ui_label_ex(ui, e->task, RE_UI_MUTED | RE_UI_SMALL);
+    /* The ledger names a holder by its agent id, and an agent that names its own conversation has
+       none to be named by — so that row says why rather than sending an assign the ledger refuses. */
+    bool identified = *e->agent != 0;
+    if (re_ui_button_ex(ui, e->label, RE_ICON_AGENT, RE_UI_SMALL | RE_UI_ALIGN_LEFT | (identified ? 0 : RE_UI_DISABLED)) && identified) { hold(a, tab, e); return; }
+    re_app_control(a, ui, identified ? "tracker-live" : "tracker-live-unidentified", identified ? e->agent : e->session, tab);
+    re_ui_label_ex(ui, identified ? e->task : "names its own conversation", RE_UI_MUTED | RE_UI_SMALL);
   }
 }
 
-static void chooser_rows(ReApp *a, mu_Context *ui, int tab, const char *key, bool answered) {
+static void chooser_rows(ReApp *a, mu_Context *ui, int tab, const char *key, const cJSON *criteria, bool answered) {
   if (menu.kind == RE_CHOOSER_NONE || strcmp(menu.task, key)) return;
   mu_push_id(ui, "chooser", 7);
-  if (menu.kind == RE_CHOOSER_SPAWN) agent_rows(a, ui, tab, key, answered);
+  if (menu.kind == RE_CHOOSER_SPAWN) agent_rows(a, ui, tab, key, criteria, answered);
   else live_rows(a, ui, tab, answered);
   mu_pop_id(ui);
 }
@@ -294,7 +359,7 @@ static void task_row(ReApp *a, mu_Context *ui, int tab, const cJSON *task, bool 
     re_app_control(a, ui, "tracker-hold", key, tab);
   }
   re_ui_pill(ui, *name ? name : category, state_pill(category));
-  chooser_rows(a, ui, tab, key, answered);
+  chooser_rows(a, ui, tab, key, cJSON_GetObjectItemCaseSensitive(task, "criteria"), answered);
   mu_pop_id(ui);
 }
 
@@ -355,6 +420,12 @@ void re_tracker_ui(ReApp *a, mu_Context *ui, int tab) {
              fresh ? "" : " · last read ", fresh ? "" : checked);
     re_ui_label_ex(ui, label, RE_UI_MUTED);
   }
+  /* A refusal the worker named, or a detail it added, belongs above the rows it is about. */
+  if (*menu.note) {
+    mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_TRACKER_NOTE_HEIGHT);
+    re_ui_label_ex(ui, menu.note, RE_UI_MUTED);
+    re_app_control(a, ui, "tracker-note", "", tab);
+  }
   /* Only the local backend's rows are ours to write, so only they carry Decompose and Hold token
      (spec 103, "Surfaces"). The menu the cluster reads is this tab's root's, or none. */
   bool local = !strcmp(provider, "local");
@@ -369,6 +440,7 @@ void re_tracker_inspect(const ReApp *a, cJSON *out) {
   cJSON_AddBoolToObject(j, "menu", menu.known);
   cJSON_AddStringToObject(j, "rootId", menu.root);
   cJSON_AddStringToObject(j, "error", menu.error);
+  cJSON_AddStringToObject(j, "note", menu.note);
   cJSON *agents = cJSON_AddArrayToObject(j, "agents");
   for (int i = 0; i < menu.agent_count; i++) {
     const ReAgentEntry *e = &menu.agents[i];

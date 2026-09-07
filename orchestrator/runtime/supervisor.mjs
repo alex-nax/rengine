@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { fork } from 'node:child_process';
+import { createServer } from 'node:net';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdir, writeFile, rename } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -13,7 +14,18 @@ import { windowStore, nativeControl, inspectWindow } from './windows.mjs';
 
 const defaultWorker = fileURLToPath(new URL('./worker.mjs', import.meta.url));
 const defaultToolWorker = fileURLToPath(new URL('../agents/mcp-worker.mjs', import.meta.url));
-async function startWorker(host, filename, directory) {
+
+/* Ask the OS for a free port and let go of it. There is a window in which something else could take
+   it; the worker that then cannot bind says so and the IDE bridge stays unpublished, which is a
+   named absence rather than a silently moved port. */
+async function reservePort() {
+  const probe = createServer();
+  try {
+    await new Promise((resolve, reject) => { probe.once('listening', resolve); probe.once('error', reject); probe.listen(0, '127.0.0.1'); });
+    return probe.address().port;
+  } finally { await new Promise(resolve => probe.close(resolve)); }
+}
+async function startWorker(host, filename, directory, idePort) {
   const child = fork(filename, [], { stdio: ['ignore', 'ignore', 'pipe', 'ipc'], windowsHide: true });
   let diagnostics = ''; child.stderr.on('data', data => { diagnostics = (diagnostics + data).slice(-8000); });
   try {
@@ -24,7 +36,7 @@ async function startWorker(host, filename, directory) {
       const exited = () => bad(new Error(`Workspace worker exited during startup. ${diagnostics}`));
       const message = data => { if (data.type === 'ready') { cleanup(); resolve(data); } else if (data.type === 'failed') bad(new Error(data.error)); };
       child.once('error', bad); child.once('exit', exited); child.on('message', message);
-      child.send({ host, directory });
+      child.send({ host, directory, idePort });
     });
     checkConnection(ready);
     const state = await call(ready, 'state');
@@ -41,8 +53,14 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
   toolWorkerFile = path.resolve(toolWorkerFile);
   const hostState = async () => { const state = await call(host, 'state'); if (state.instance !== host.instance) fail('Original session host is no longer available.'); return state; };
   await hostState(); await mkdir(directory, { recursive: true, mode: 0o700 });
+  /* One port for this runtime's whole life, handed to every worker it starts. Claude Code reconnects
+     to the port it first read out of the lock file and never re-reads the directory, so a port that
+     moves with each worker ends every IDE session on every layered update (KI-066). Asked of the OS
+     once here rather than picked, and carried in the descriptor so it survives this process.
+     See sidecar: one-ide-port-per-runtime. */
+  const idePort = await reservePort();
   const windows = await windowStore(directory);
-  let current = await startWorker(host, workerFile, directory), url, active, activeFlight, closing = false, connectorGeneration = 1;
+  let current = await startWorker(host, workerFile, directory, idePort), url, active, activeFlight, closing = false, connectorGeneration = 1;
   let recovery = { state: 'idle' }, recoveryFlight, automaticRecoveryUsed = false;
   const retired = new Set(), desktops = new Map(), opens = new Map(), preserved = new Set(), jobs = [];
   const token = randomBytes(32).toString('hex');
@@ -57,7 +75,7 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
     automaticRecoveryUsed = true; recovery = { state: 'restarting', previousPid: current.pid };
     recoveryFlight = (async () => {
       try {
-        const next = await startWorker(host, workerFile, directory), old = current;
+        const next = await startWorker(host, workerFile, directory, idePort), old = current;
         if (closing) { next.child.kill(); return; }
         current = next; watch(next); retired.add(old); retire(old);
         recovery = { state: 'recovered', previousPid: old.pid, pid: next.pid };
@@ -95,7 +113,7 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
   };
   const persist = async () => {
     const filename = path.join(directory, 'runtime.json');
-    await writeFile(`${filename}.${process.pid}.tmp`, JSON.stringify({ ...instance, url, connectorGeneration, toolWorker: toolWorkerFile }), { mode: 0o600 });
+    await writeFile(`${filename}.${process.pid}.tmp`, JSON.stringify({ ...instance, url, connectorGeneration, toolWorker: toolWorkerFile, idePort }), { mode: 0o600 });
     await rename(`${filename}.${process.pid}.tmp`, filename);
   };
   const spawnView = record => {
@@ -157,7 +175,7 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
     let candidate, replacement, record = desktop && desktops.get(desktop.owner), previous, previousWorker, startedDesktop = false;
     const previousConnector = connectorGeneration;
     try {
-      if (job.layers.includes('workspace')) candidate = await startWorker(host, workerFile, directory);
+      if (job.layers.includes('workspace')) candidate = await startWorker(host, workerFile, directory, idePort);
       if (job.layers.includes('desktop')) replacement = await buildDesktop(path.join(directory, 'versions', job.id));
       if (job.layers.includes('connector')) await probeTools(host, directory, job.rootId, toolWorkerFile);
       if (closing) throw new Error('Supervisor is closing.');
