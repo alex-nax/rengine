@@ -145,6 +145,11 @@ flowchart TD
   F65 --> F102
   F103["F103: blocked"]
   F99 --> F103
+  F105["F105: blocked"]
+  F78 --> F105
+  F90 --> F105
+  F93 --> F105
+  F95 --> F105
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -205,3 +210,4 @@ flowchart TD
 | F101 | O1 | rengine | blocked | Claude's edits are reviewed in the editor rather than in the terminal: the workspace serves openDiff, close_tab and closeAllDiffTabs, and a diff opens as a tab in rEdit whose accept or reject is the answer the CLI is waiting on. |
 | F102 | O1 | rengine | blocked | getDiagnostics answers with real diagnostics: the workspace runs a project's declared check action, parses its output into file-keyed diagnostics and serves those, so an agent asks the editor what is broken instead of the editor always answering that it knows of nothing. |
 | F103 | O1 | rengine | blocked | An agent pane is connected to the editor it runs inside without anyone typing /ide: the workspace launches a supported CLI with its own auto-connect option when exactly one rEdit is published for that root. |
+| F105 | O1 | rengine | blocked | Task-driven agents (spec 103): the project token serialises workspace-mediated writes to project state -- task_add/task_update/task_decompose run the project's declared write command for the holder only, one at a time; the Sessions tab marks the holder and revokes or frees the token beside it; the Tasks pane spawns a chosen agent and model on a task (a conversation that records the task) or decomposes it into subtasks through an agent brief; prompts are project files with shipped defaults; contract 6 adds tracker.write and agents. |

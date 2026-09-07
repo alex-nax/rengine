@@ -1234,6 +1234,34 @@
       ]
     },
     {
+      "id": 105,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "Task-driven agents (spec 103): the project token serialises workspace-mediated writes to project state -- task_add/task_update/task_decompose run the project's declared write command for the holder only, one at a time; the Sessions tab marks the holder and revokes or frees the token beside it; the Tasks pane spawns a chosen agent and model on a task (a conversation that records the task) or decomposes it into subtasks through an agent brief; prompts are project files with shipped defaults; contract 6 adds tracker.write and agents.",
+      "acceptance_criteria": [
+        "On the Sessions tab the live agent holding the token is marked and offers Revoke; pressing it frees the token as a token.revoked frame by desktop and another agent's token_contest then claims it; a holder whose process is gone offers Free with the same effect.",
+        "task_add, task_update and task_decompose from a non-holder are refused naming the holder and token_contest with nothing written; from the holder they run the declared tracker.write command with the row as JSON; two holders in sequence never interleave a write, proved with a slow fake write command and two callers.",
+        "A project without tracker.write is told so by name; GitHub and Linear providers refuse writes by name.",
+        "Spawn from the Tasks pane starts an agent pane with the chosen CLI and model on a fresh conversation seeded with the task prompt, records task on the conversation, the Sessions tab and workspace_info show the task beside the agent, and agent.spawned is on the feed.",
+        "Decompose starts an agent on the decomposition prompt; with a scripted agent the resulting task_add calls create child rows with parent set and no other file changes.",
+        ".rengine/prompts/*.md override the shipped prompts, a missing file uses the default, and a misspelled placeholder is reported rather than emptied.",
+        "Contract 6 (tracker.write, agents) validates, a contract-5 declaration is accepted unchanged, and an older host is refused by name on the new keys.",
+        "Everything ships in replaceable layers; the host changes only to accept task on the conversation record, refused by name before the next replacement."
+      ],
+      "passes": false,
+      "dependencies": [
+        78,
+        90,
+        93,
+        95
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/103-task-driven-agents.md; Sessions-tab token controls in orchestrator/native/workspace.c; task write routes and agent-spawn in orchestrator/runtime/worker.mjs; task_*/spawn_agent tools in orchestrator/agents/mcp-worker.mjs; Tasks-pane controls in orchestrator/native/tracker.c; contract 6 in contracts/project-v1.schema.json; shipped prompts under orchestrator/templates/prompts",
+      "external_references": [],
+      "evidence": []
+    },
+    {
       "id": 99,
       "milestone": "O1",
       "category": "workspace",

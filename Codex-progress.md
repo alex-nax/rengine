@@ -1,6 +1,6 @@
 # Progress Log
 
-## Session 59 (macos) — 2026-09-07 — rEdit is an IDE Claude Code will connect to (F99, spec 102, slice 1)
+## Session 60 (macos) — 2026-09-07 — rEdit is an IDE Claude Code will connect to (F99, spec 102, slice 1)
 
 The owner asked whether Claude Code's `/ide` integration could be used. It can, and now is: a real
 `claude` 2.1.263 in a pane shows **`Select IDE … 1. rEdit ✔`** and reports **`Connected to rEdit.`**
@@ -45,6 +45,18 @@ the house format. F99 `passes: false` — F74 is still blocked. Evidence:
 One side effect worth naming: a worker publishes a real lock, so the suite used to write into the
 `/ide` menu of whoever ran it. `RENGINE_IDE_DIRECTORY` now points every test script at
 `.cache/ide-locks`, with a temp-directory fallback for a spec run directly.
+## Session 59 (macos) — 2026-09-07 — Task-driven agents, recorded (F105, spec 103)
+
+Owner direction in the vtmb-vr workspace, after the token was seen live: the Sessions tab must revoke
+the token so another agent can claim it; the token serialises MCP actions that must be serial — one
+file, one writer; two agents never edit features.json at once; the task system and the agents get
+tighter coupled, with Tasks-pane controls up to spawning a chosen agent and model on a task or
+decomposing it. Spec 103 records the decisions with attribution: workspace-mediated writes to the
+local inventory are token-gated and run the project's own declared command (spec 083's read-only rule
+amended for the local backend, kept for GitHub/Linear and why); an agent's own edits are covered by
+convention and visibility, not pretended enforcement; Spawn, Decompose and Hold-token on the Tasks
+pane; the conversation record carries the task; prompts are project files with shipped defaults;
+contract 6 adds tracker.write and agents. F105 added, passes false. Documentation only.
 
 ## Session 58 (macos) — 2026-09-07 — The layout a replaced host leaves behind (KI-064/065, spec 098)
 
