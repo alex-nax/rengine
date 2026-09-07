@@ -32,5 +32,11 @@
         "orchestrator/native/render/draw_list.h"
       ]
     }
-  ]
+  ],
+  "source": {
+    "path": "orchestrator/native/draw.c",
+    "sha256": "bea243c26aa90a4c93d15fec7598aa336c193dcf9556738f4cca272b3158cfb6",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
 }

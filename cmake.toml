@@ -118,6 +118,7 @@ sources = [
   "orchestrator/native/scene.c", "orchestrator/native/hexview.c", "orchestrator/native/formatview.c",
   "orchestrator/native/dashboard.c", "orchestrator/native/tracker.c", "orchestrator/native/recording.c", "orchestrator/native/devices.c",
   "orchestrator/native/token.c",
+  "orchestrator/native/plugin.c", "orchestrator/native/pluginview.c",
 ]
 include-directories = ["orchestrator/native"]
 link-libraries = ["SDL2::SDL2", "rengine_ui", "rengine_render", "rengine_microui", "rengine_json", "rengine_vterm", "rengine_jpeg", "rengine_svg", "CURL::libcurl"]
@@ -129,6 +130,7 @@ if(NOT MSVC)
   target_compile_options(rengine_desktop_core PRIVATE -Wall -Wextra -Wpedantic)
   target_link_libraries(rengine_desktop_core PUBLIC m)
 endif()
+target_link_libraries(rengine_desktop_core PUBLIC ${CMAKE_DL_LIBS}) # plugin.c: the one dlopen/LoadLibrary wrapper (spec 106)
 """
 
 [target.rengine]
@@ -268,5 +270,62 @@ add_test(NAME native_recording COMMAND rengine_recording_test)
 if(WIN32)
   add_custom_command(TARGET rengine_recording_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
     $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_recording_test>)
+endif()
+"""
+
+# --- spec 106: fixture plugins are real loadable modules, one source declaring itself several ways ---
+
+[target.rengine_plugin_fixture]
+condition = "testing"
+type = "shared"
+sources = ["orchestrator/native/tests/plugins/fixture_plugin.c"]
+include-directories = ["orchestrator/native"]
+compile-features = ["c_std_11"]
+cmake-after = """
+# PREFIX "" keeps each module's file name its target name, under ${CMAKE_BINARY_DIR}/plugins on every platform.
+function(rengine_plugin_output name)
+  set_target_properties(${name} PROPERTIES PREFIX "" LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins" RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins")
+  if(NOT MSVC)
+    target_compile_options(${name} PRIVATE -Wall -Wextra -Wpedantic)
+  endif()
+endfunction()
+function(rengine_plugin_variant name)
+  add_library(${name} SHARED "${PROJECT_SOURCE_DIR}/orchestrator/native/tests/plugins/fixture_plugin.c")
+  target_include_directories(${name} PRIVATE "${PROJECT_SOURCE_DIR}/orchestrator/native")
+  target_compile_features(${name} PRIVATE c_std_11)
+  target_compile_definitions(${name} PRIVATE ${ARGN})
+  rengine_plugin_output(${name})
+endfunction()
+rengine_plugin_output(rengine_plugin_fixture)
+rengine_plugin_variant(rengine_plugin_fixture_abi_old RE_FIXTURE_ABI=0 RE_FIXTURE_NAME="fixture-abi-old")
+rengine_plugin_variant(rengine_plugin_fixture_abi_new "RE_FIXTURE_ABI=(RE_PLUGIN_ABI_VERSION+1)" RE_FIXTURE_NAME="fixture-abi-new")
+rengine_plugin_variant(rengine_plugin_fixture_list_new "RE_FIXTURE_DRAW_LIST=(RE_DRAW_LIST_VERSION+1)" RE_FIXTURE_NAME="fixture-list-new")
+rengine_plugin_variant(rengine_plugin_fixture_list_old RE_FIXTURE_DRAW_LIST=1 RE_FIXTURE_NAME="fixture-list-old")
+rengine_plugin_variant(rengine_plugin_fixture_decline RE_FIXTURE_DECLINE=1 RE_FIXTURE_NAME="fixture-decline")
+add_library(rengine_plugin_blank SHARED "${PROJECT_SOURCE_DIR}/orchestrator/native/tests/plugins/blank_plugin.c")
+target_include_directories(rengine_plugin_blank PRIVATE "${PROJECT_SOURCE_DIR}/orchestrator/native")
+rengine_plugin_output(rengine_plugin_blank)
+"""
+
+[target.rengine_plugin_test]
+condition = "testing"
+type = "executable"
+sources = ["orchestrator/native/tests/plugin_test.c"]
+private-link-libraries = ["rengine_desktop_core"]
+cmake-after = """
+if(MSVC)
+  target_compile_options(rengine_plugin_test PRIVATE /UNDEBUG)
+else()
+  target_compile_options(rengine_plugin_test PRIVATE -UNDEBUG)
+endif()
+add_dependencies(rengine_plugin_test rengine_plugin_fixture rengine_plugin_fixture_abi_old rengine_plugin_fixture_abi_new
+  rengine_plugin_fixture_list_new rengine_plugin_fixture_list_old rengine_plugin_fixture_decline rengine_plugin_blank)
+add_test(NAME native_plugin COMMAND rengine_plugin_test
+  $<TARGET_FILE:rengine_plugin_fixture> $<TARGET_FILE:rengine_plugin_fixture_abi_old> $<TARGET_FILE:rengine_plugin_fixture_abi_new>
+  $<TARGET_FILE:rengine_plugin_fixture_list_new> $<TARGET_FILE:rengine_plugin_fixture_list_old> $<TARGET_FILE:rengine_plugin_blank>
+  $<TARGET_FILE:rengine_plugin_fixture_decline> "${PROJECT_SOURCE_DIR}/orchestrator/native/tests/plugin_test.c")
+if(WIN32)
+  add_custom_command(TARGET rengine_plugin_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_plugin_test>)
 endif()
 """

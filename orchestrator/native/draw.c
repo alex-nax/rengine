@@ -176,4 +176,5 @@ int re_draw_text_width(ReDraw *d, uint8_t face, int size, const char *text, int 
 int re_draw_cell_width(const ReDraw *d) { return d->cell_width; }
 int re_draw_line_height(const ReDraw *d) { return d->line_height; }
 bool re_draw_overflowed(const ReDraw *d) { return d->list.overflow; }
+ReDrawList *re_draw_list(ReDraw *d) { return &d->list; }
 const char *re_draw_backend(const ReDraw *d) { return d->backend->ops->name; }

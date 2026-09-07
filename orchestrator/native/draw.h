@@ -35,6 +35,7 @@ int re_draw_text_width(ReDraw *draw, uint8_t face, int size, const char *text, i
 int re_draw_cell_width(const ReDraw *draw);
 int re_draw_line_height(const ReDraw *draw);
 bool re_draw_overflowed(const ReDraw *draw);
+ReDrawList *re_draw_list(ReDraw *draw);   /* this frame's list, for a plugin frame to append to (spec 106) */
 const char *re_draw_backend(const ReDraw *draw);
 bool re_draw_snapshot(ReDraw *draw, const char *path);
 #endif

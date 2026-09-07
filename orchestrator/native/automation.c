@@ -1,4 +1,5 @@
 #include "automation.h"
+#include "pluginview.h"
 #include "scene.h"
 #include "editor.h"
 #include "render/syntax_theme.h"
@@ -49,6 +50,13 @@ void re_automation_command(ReApp *app, SDL_Window *window, const cJSON *j) {
     e.type = SDL_WINDOWEVENT; e.window.event = SDL_WINDOWEVENT_EXPOSED; SDL_PushEvent(&e);
     re_automation_reply(id, index >= 0 ? cJSON_CreateString(re_scheme_names[index]) : cJSON_CreateNull());
     return;
+  }
+  if (!strcmp(op, "plugin")) {
+    /* Loads a module into this window the way a declaration will (spec 106): the explicitly enabled
+       automation channel is the only door until the declaring lane passes the same three inputs. */
+    int index = re_app_plugin_load(app, re_string(j, "name"), re_string(j, "path"), re_string(j, "abi"));
+    e.type = SDL_WINDOWEVENT; e.window.event = SDL_WINDOWEVENT_EXPOSED; SDL_PushEvent(&e);
+    re_automation_reply(id, index >= 0 ? cJSON_CreateTrue() : cJSON_CreateString(app->status)); return;
   }
   if (!strcmp(op, "scene")) app->scene = re_scene_id(re_string(j, "name"));
   else
