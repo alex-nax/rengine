@@ -40,6 +40,16 @@
         "snippet": "// --project is what makes this fixture capable of failing: the desktop path creates its terminal"
       },
       "note": "Two fixture choices carry the discrimination rather than the assertions. The no-agent check passes --project because the desktop path creates its terminal and agent sessions only once a root is given, so the same check without one would pass against any implementation; and its agent-specific assertion comes before the broader 'no sessions at all', so re-adding agent creation reddens the agent line for its own reason instead of tripping a more general one first. The capability check compares against a second, independently started workspace service rather than a copy of the same literal, so it discriminates the sidecar from anything else that writes a sidecar.json."
+    },
+    {
+      "id": "serving-before-pid",
+      "kind": "constraint",
+      "anchor": {
+        "start": 226,
+        "end": 230,
+        "snippet": "const state = await api(descriptor.url, descriptor.token, 'state').then(response => response.json())"
+      },
+      "note": "The retention check asserts what the sidecar is still serving before it asserts the sidecar's pid, and the order is load-bearing. A signalled sidecar stops its sessions well before its process goes, so the sabotage that kills the sidecar on detach left liveness true \u2014 at one second of waiting too \u2014 while the session was already gone, and the failure landed on the wrong line. Do not reorder these, and do not replace the serving assertion with a liveness one."
     }
   ],
   "source": {

@@ -32,7 +32,7 @@ rengine headless ready url=http://127.0.0.1:<port> instance=… pid=… state=�
 Stopping that process leaves the sidecar and its retained sessions running, as desktop exit does;
 if the sidecar dies the supervisor names `sidecar.log` and exits non-zero.
 
-**The sabotage pass taught the fixture three things.** Two of the seven checks had sabotages that
+**The sabotage pass taught the fixture four things.** Two of the eight checks had sabotages that
 make the launcher *succeed* — deleting the flag refusals, and forcing every start down the headless
 branch — after which it supervises a sidecar for ever and the check timed out saying nothing. Both
 invocations now carry an `execFile` kill timeout, and the desktop check reads its two recording
@@ -40,8 +40,13 @@ files rather than the exit status, so a lost desktop path reports `recorded noth
 `command failed`. Third: `node:test` runs after-hooks in registration order, verified directly. The
 temp-directory hook was registered first and deleted `sidecar.json` before the hook that reads a pid
 out of it, so every failed run leaked a sidecar for the machine's uptime; the two are one hook now,
-and a full run leaves zero `server/main.mjs` processes behind. Assertion-by-assertion sabotages and
-what each named are in `docs/evidence/headless-start-macos-2026-09-07.md`.
+and a full run leaves zero `server/main.mjs` processes behind. Fourth, and the one closest to case 3
+of the blind-regressions note: the retention check asserted the sidecar's pid before the session it
+was retaining, and a signalled sidecar stops its sessions well before its process goes — so the
+sabotage that kills the sidecar on detach reddened the *session* line while the liveness line
+passed, at one second of waiting too. What it is still serving comes first now; the pid follows.
+Assertion-by-assertion sabotages and what each named are in
+`docs/evidence/headless-start-macos-2026-09-07.md`.
 
 One thing the fixture cannot catch on its own: the capability comparison is against a *second,
 independently started* workspace service, not against a copy of the same literal, because both sides

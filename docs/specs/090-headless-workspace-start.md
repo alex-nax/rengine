@@ -93,6 +93,10 @@ own reason, and the record is in `docs/evidence/headless-start-macos-2026-09-07.
   `RENGINE_NATIVE_BINARY` pointing at a recording stub, a plain `--state` launch invokes the build
   and then executes the binary with the workspace URL and token in its environment. This is what
   makes the change additive rather than a redirection of the existing path.
+- **It stays up, and stopping it keeps the sidecar and its sessions.** The start is still
+  supervising after a heartbeat has passed; a `SIGTERM` to it exits zero, and the sidecar still
+  answers with the same instance and still lists the session it was retaining. The order of
+  those two assertions is load-bearing — see the evidence note.
 - **The refusals hold**: `--headless` with `--agent`, `--launch-game`, `--handoff` or `--inspect-ui`
   fails naming the flag, before any sidecar is started.
 

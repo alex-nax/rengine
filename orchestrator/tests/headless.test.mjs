@@ -197,3 +197,37 @@ test('the full start path still builds the desktop and spawns it',
       `the desktop is executed with the workspace endpoint and token in its environment; ${said}`);
     assert.equal(outcome, null, `the launcher exited cleanly: ${outcome?.message}`);
   });
+
+test('a headless start stays up, and stopping it leaves the sidecar and its sessions', { timeout: 60000 }, async t => {
+  const directory = await scratch(t);
+  const project = await scratch(t);
+  const started = headless(t, directory, ['--project', project]);
+  const ready = await started.ready;
+  const pid = Number(ready.pid);
+
+  // Past one supervision heartbeat: a start that returned as soon as the sidecar was up would be
+  // gone by now, and a scheduled task or service wrapper would have nothing representing the host.
+  await pause(1500);
+  assert.equal(started.child.exitCode, null, `the headless start is still supervising: ${started.seen.stdout}`);
+
+  const descriptor = JSON.parse(await readFile(path.join(directory, 'sidecar.json'), 'utf8'));
+  const session = await (await fetch(`${descriptor.url}/api/terminal`, { method: 'POST',
+    headers: { Authorization: `Bearer ${descriptor.token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rootId: ready.root }) })).json();
+  assert.ok(session.id, `a session to retain: ${JSON.stringify(session)}`);
+
+  const stopped = new Promise(resolve => started.child.once('exit', code => resolve(code)));
+  started.child.kill('SIGTERM');
+  assert.equal(await stopped, 0, 'stopping it is not a failure');
+
+  // What the sidecar is still serving comes first, and pid liveness second. A signalled sidecar
+  // stops its sessions well before the process goes, so asserting liveness first passes while it is
+  // on its way out: the first run of this check reddened the session line instead of the pid line.
+  const state = await api(descriptor.url, descriptor.token, 'state').then(response => response.json())
+    .catch(error => { throw new Error(`the sidecar stopped answering once the headless start was stopped: ${error.message}`); });
+  assert.deepEqual(state.sessions.filter(item => item.state === 'running').map(item => item.id), [session.id],
+    'the sidecar keeps serving, and keeps the session it was retaining');
+  assert.equal(state.instance, descriptor.instance, 'and it is the same instance, not a replacement');
+  for (let attempt = 0; attempt < 50 && alive(pid); attempt++) await pause(20);
+  assert.ok(alive(pid), 'the sidecar process outlives the process that started it, as it does a desktop exit');
+});

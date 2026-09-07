@@ -1,7 +1,7 @@
 # Headless start — sabotage pass and gates, macOS, 2026-09-07
 
 Feature F85, spec [090](../specs/090-headless-workspace-start.md). Fixture:
-`orchestrator/tests/headless.test.mjs`, seven checks, run by the `npm test` glob.
+`orchestrator/tests/headless.test.mjs`, eight checks, run by the `npm test` glob.
 
 ## Sabotage pass
 
@@ -17,6 +17,8 @@ reverted before the next; the fixture was confirmed green again after each rever
 | a headless start creates no agent session | `runHeadless` creates one, the way the desktop path does: `request(instance, 'terminal', { rootId, type: 'agent', agent: '', action: 'menu' })` | `a headless host serves sessions; it starts no conversation` — the agent-specific assertion, ahead of the broader "and starts no terminal either" |
 | `--headless` refuses the desktop-only flags | the refusal block deleted from `launch.mjs` | `The input did not match the regular expression /--headless cannot be combined with --launch-game/` |
 | the full start path still builds the desktop and spawns it | `if (options.headless)` changed to `if (true)`, so every start becomes headless | `the desktop build ran configure and build; recorded nothing and the launcher failed: Command failed: … launch.mjs --state …` |
+| a headless start stays up, and stopping it leaves the sidecar and its sessions | (a) the `SIGINT`/`SIGTERM` handler kills the sidecar before it exits | `the sidecar keeps serving, and keeps the session it was retaining` |
+| — same check | (b) `runHeadless` returns as soon as the sidecar is up, instead of supervising | `the headless start is still supervising:` followed by everything it had printed |
 
 Two sabotages taught the fixture something before they were useful. Deleting the refusals and
 forcing the headless path both make the launcher *succeed* and then supervise a sidecar for ever,
@@ -24,7 +26,15 @@ so the first attempt at each produced a bare test timeout that named nothing. Bo
 carry an `execFile` kill timeout, and the desktop check reads the recording files rather than the
 exit status, so a lost desktop path reports "recorded nothing" instead of "command failed".
 
-A third correction came out of the same pass: `node:test` runs after-hooks in registration order,
+Sabotage (a) went red on the wrong line twice before it went red on the right one. The check first
+asserted `alive(pid)` and then the retained session, and a signalled sidecar stops its sessions well
+before its process goes — so the liveness read passed while the sidecar was on its way out, and the
+session line took the failure. Waiting a bounded second for the death did not fix it; the sidecar
+was still alive at one second with its sessions already gone. What the sidecar is still *serving* is
+the property, and it is observable immediately, so that assertion now comes first and pid liveness
+second. This is the shape of case 3 in the blind-regressions note: correct assertions, wrong order.
+
+A further correction came out of the same pass: `node:test` runs after-hooks in registration order,
 which was verified directly. The temporary-directory hook was registered first, so it deleted
 `sidecar.json` before the hook that reads a pid out of it — every failed run leaked a sidecar for
 the machine's uptime. Stopping the sidecar and removing the directory are now one hook. A full run
