@@ -1,5 +1,50 @@
 # Progress Log
 
+## Session 49 (macos) — 2026-09-07 — The project token in the chrome, and the recorder on the feed (F90 stage 3)
+
+Stage 3 of spec 095: the native desktop's half of the project token, built on `feat/agent-token-desktop`
+in a worktree while stage 2's ledger was being built in parallel on `feat/agent-token-ledger`. The two
+stages meet at a pinned wire contract and nothing else — this branch never touches `worker.mjs`,
+`agents/` or `server/`.
+
+The window now holds the ledger's last word about its **primary root** — the same identity rule the
+chrome's name follows (spec 084 decision 3), so a `token` frame for any other root changes nothing
+here. That is the assertion most worth having and it is one: a second root's ledger naming a
+different holder leaves the segment reading `Token · claude`. The state lives in
+`orchestrator/native/token.{c,h}` beside `devices.c` and `tracker.c`, and a `disconnected` clears it,
+because the ledger's word does not outlive the socket that carried it.
+
+The segment is at the right edge of the status bar, with the facts moving left of it, so its
+rectangle is a function of the window width and its own text alone. That matters more than it looks:
+the face is owned drawing laid down after every pane, while the hit area is built during the
+interface pass, and the two agree only because both derive the rectangle from the same function.
+Before the first frame arrives the segment draws nothing at all — *Token · free* is a claim about a
+ledger, and a window that has heard none has no business making it.
+
+Two details earned themselves. The countdown **floors**: the desktop's wall clock is `time(NULL)`,
+so rounding up opens a 60-second window reading `61s`. And an explicit recording's segment id is now
+minted when the toggle **starts** it rather than when it commits, so the `started` and `committed`
+frames name one directory a reader can pair; the id's timestamp is now the instant `startedAt` in
+its own manifest already reported. The recorder's `kind` on the wire is `ring`/`explicit` while the
+manifest keeps `ring`/`segment` — the feed names the gesture, the artifact names its shape, and
+that difference is written down in both specs rather than left to be discovered.
+
+Twelve sabotages, each watched failing for its own claim and not an earlier one, in
+`docs/evidence/token-desktop-2026-09-07.md`: the held segment, the parsed deadline, the primary-root
+filter, `contestId` present on reject/grant and absent from revoke/free, the clear on disconnect, the
+start announcement, the id pairing, the feed's vocabulary, the segment opening the surface, the held
+token's own controls, and a ring commit announcing a start it never had.
+
+The fixture is `orchestrator/tests/token-fixtures.mjs`: a stand-in for the worker's interception —
+it proxies the session host, keeps the frames the desktop sends on `/events`, and pushes the
+ledger's own frames back. It holds no ledger on purpose. Nothing here asserts what a `token-action`
+does to one; those are stage 2's criteria 3, 4 and 7.
+
+Commands: `npm test` 100/100, `npm run test:desktop` 43/43, `ctest` in `.cache/desktop` 6/6,
+`python3 tools/design.py check`, `python3 tools/features.py validate`, sidecar `check` clean, native
+build at zero warnings. F90 stays `passes: false`: stages 2 and 4 are not built, and six of
+its nine criteria belong to them.
+
 ## Session 37 (macos) — 2026-09-07 — Task tracking with a declared backend (F78)
 
 Built the tracker. Contract 5 carries a `tracker` block naming a provider and the locator that

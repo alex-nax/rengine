@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 import { startServer } from '../server/main.mjs';
 import { nativeClient } from './native-client.mjs';
-import { contestFrame, startTokenSidecar, tokenFrame } from './token-fixtures.mjs';
+import { contestFrame, startTokenSidecar, tokenFrame } from './token-desktop-fixtures.mjs';
 
 /* The desktop's half of the project token (spec 095, stage 3): one status-bar segment reading the
    ledger's `token` frames, a popover carrying the gestures the person is never gated on, and the

@@ -5,7 +5,7 @@ segment, its popover, and the recorder's announcements on the live channel. F90 
 `passes: false` — stages 2 and 4 are not built, and this records only what the desktop now does.
 
 Everything here is `orchestrator/tests/native-token.spec.mjs`, driven through
-`orchestrator/tests/token-fixtures.mjs`: a stand-in for the workspace worker's interception that
+`orchestrator/tests/token-desktop-fixtures.mjs`: a stand-in for the workspace worker's interception that
 proxies the session host, keeps the frames the desktop sends on `/events`, and pushes the ledger's
 own frames back. It holds no ledger, which is deliberate — the ledger is stage 2, and a fixture that
 invented one here would be asserting against itself.
