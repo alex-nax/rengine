@@ -5,8 +5,8 @@
       "id": "legacy-host-adapter",
       "kind": "rationale",
       "anchor": {
-        "start": 17,
-        "end": 17,
+        "start": 25,
+        "end": 25,
         "snippet": "export async function startWorker(host, options = {}) {"
       },
       "note": "The original host remains the sole session and durable-state authority. This process forwards its APIs/PTY/game streams and supplies desktop actions even when that host predates them. Desktop registration is intercepted and validated against current host roots/sessions; other frames retain their order and binary/text kind. Existing streams can outlive a newer HTTP worker generation. Closing this worker only closes its views/proxies, never the host or its PTYs.",
@@ -18,8 +18,8 @@
       "id": "script-view-consumer",
       "kind": "rationale",
       "anchor": {
-        "start": 236,
-        "end": 236,
+        "start": 338,
+        "end": 338,
         "snippet": "json(res, 200, await openScript(host, desktops, data, state));"
       },
       "note": "Script launch and session-view actions live in the replaceable worker above the retained host. Only this worker\u2019s connected desktop broker can attach a view; a desktop still connected through an older worker needs a native update first, not a duplicate process.",
@@ -31,8 +31,8 @@
       "id": "format-registry-worker",
       "kind": "rationale",
       "anchor": {
-        "start": 240,
-        "end": 240,
+        "start": 342,
+        "end": 342,
         "snippet": "} else if (req.method === 'GET' && target.pathname === '/api/formats') {"
       },
       "note": "Format listing, preview/entry execution and raw byte windows are answered here instead of being forwarded, so a retained host that predates spec 074 still gains them through a workspace-layer update. Roots come from the refreshed host state; the boundary is store.mjs resolveInRoot, identical to the host's.",
@@ -44,8 +44,8 @@
       "id": "game-routes",
       "kind": "rationale",
       "anchor": {
-        "start": 29,
-        "end": 29,
+        "start": 37,
+        "end": 37,
         "snippet": "const preflight = (rootId, gameId) => inspectGame(root(rootId), gameId);"
       },
       "note": "The general rule this file keeps learning: a capability that only the retained host serves cannot be delivered by a layered update, because the capability flag comes from the host's own state. dashboard and formatRegistry are advertised here because the routes are served here; game-config was forwarded, so projectGame could never appear on a live workspace no matter how often update_workspace ran, and the forwarded answers came from the removed built-in game (one hard-coded config for every root and every gameId). Preflight now runs from this checkout through inspectGame, and projectGame is advertised beside dashboard. Launch is the deliberate exception: creating a game session needs the host's Sessions (PTY ownership), its Surfaces reservation for an embedded game and the session-id map behind its /surface upgrade, and its /api/terminal refuses type \"game\" by design \u2014 so it stays forwarded and is advertised as its own projectGameLaunch, mirrored from the host's own projectGame. Above an older host the launch is refused by name rather than forwarded into the built-in game.",
@@ -58,8 +58,8 @@
       "id": "remote-launch",
       "kind": "constraint",
       "anchor": {
-        "start": 42,
-        "end": 42,
+        "start": 52,
+        "end": 52,
         "snippet": "const refuseRemote = async (rootId, gameId) => {"
       },
       "note": "The refusal is issued HERE, from the worker's own preflight, before anything is forwarded to the retained session host. That is the spec-078 / KI-043 lesson applied: a retained host predates contract 4, so asking it about a device would get a confident wrong answer from code that knows nothing about devices \u2014 exactly how the removed built-in NOLF config was once returned with HTTP 200 for a vtmb-vr root. The worker already computes preflight from its own checkout, so it holds the decision. Games.start refuses again on the same string for a caller that reaches the host directly.",
@@ -71,8 +71,8 @@
       "id": "recording-routes",
       "kind": "rationale",
       "anchor": {
-        "start": 273,
-        "end": 273,
+        "start": 375,
+        "end": 375,
         "snippet": "      } else if (req.method === 'GET' && target.pathname === '/api/recordings') {"
       },
       "note": "Both recording routes are answered here, from this checkout, and never forwarded: reading committed segments is a filesystem walk over a project root with no session, PTY or surface state behind it. That is the whole reason the capability is deliverable by a layered workspace update, which is the lesson KI-043 and spec 078 paid for \u2014 a route only the retained session host can answer cannot be delivered without quiescence. recordings: 1 is therefore advertised unconditionally here, unlike projectGameLaunch, which is mirrored from the host because the host is the one that can honour it.",
@@ -84,8 +84,8 @@
       "id": "token-gate",
       "kind": "rationale",
       "anchor": {
-        "start": 75,
-        "end": 75,
+        "start": 89,
+        "end": 89,
         "snippet": "const gate = async (req, rootId, tool) => {"
       },
       "note": "Who is gated is decided by one thing: the presence of X-Rengine-Agent. The desktop never sends it, so decision 6 (\u201cthe person at the desktop is never gated\u201d) is a property of the transport rather than a list of exceptions somebody has to keep in step. The header is arbitration, not authentication \u2014 every caller already holds the workspace capability, so lying about an identity buys nothing that was not already reachable, and the code does not pretend otherwise. A free token is refused too: holding is deliberate, and token_contest claims a free one at once, so every hold is a frame on the feed rather than a side effect of the first launch somebody happened to make.",
@@ -97,8 +97,8 @@
       "id": "stop-interception",
       "kind": "constraint",
       "anchor": {
-        "start": 263,
-        "end": 263,
+        "start": 365,
+        "end": 365,
         "snippet": "} else if (req.method === 'POST' && target.pathname === '/api/stop') {"
       },
       "note": "/api/stop is the retained host's route and this worker only forwarded it, so the gate has to intercept before forward() rather than ask the host to grow one (spec 065: the host is not extended). /api/update-workspace and /api/desktop-action are the mirror case \u2014 the runtime supervisor answers those two itself and forwards everything else, so the worker's copies of those gates only fire for a caller addressing it directly, and the live gate for them is in the tool worker.",
@@ -111,19 +111,34 @@
       "id": "feed-source",
       "kind": "rationale",
       "anchor": {
-        "start": 183,
-        "end": 183,
+        "start": 269,
+        "end": 269,
         "snippet": "const subscribe = () => {"
       },
       "note": "The worker opens the retained host's /events itself, once, with no desktop behind it, and the message handler only ever reaches for data.type === 'session'. \u201cNo PTY output on the feed\u201d is therefore structural: an output frame is not filtered out downstream, it is never turned into a feed frame at all, and Feed.emit refuses a type it does not know. The launch attribution needs a queue rather than a map keyed by session id, because the host emits the session event before the launch call returns \u2014 the frame is built before the worker knows the id it would key on.",
       "refs": [
         "docs/specs/095-project-token.md"
       ]
+    },
+    {
+      "id": "retirement-handoff",
+      "kind": "rationale",
+      "anchor": {
+        "start": 167,
+        "end": 167,
+        "snippet": "const retire = async () => {"
+      },
+      "note": "Spec 065 keeps a replaced worker's streams draining through it; spec 095 put a stateful service on one of those streams, and KI-061 was the collision. Retention is by kind: views keep draining here, the ledger and the feed hand off. On the supervisor's `retired` message this worker drops its host /events subscription and its ledger, so it mints nothing and never writes token.json or feed.json again; closes its own /feed clients with a reason that names retirement, so a monitor reattaches to the current worker by cursor; forwards the ledger's routes and its retained desktops' token-action/recording frames to the current worker through the supervisor named by runtime.json, carrying the desktop actor on X-Rengine-Desktop; and relays the pinned token push back by watching the current ledger's feed. The frame text on the desktop's socket is unchanged, so the native desktop needs no edit. Never send the message at the swap instead: a failed update restores the previous worker as current, and a worker told it was retired would forward to itself.",
+      "refs": [
+        "docs/specs/095-project-token.md",
+        "docs/specs/065-layered-workspace-updates.md",
+        "docs/evidence/token-retirement-2026-09-07.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/runtime/worker.mjs",
-    "sha256": "cca5ea8a285231dea7a324567e630236be4a71b7419f871c0f14943f8cfe4c54",
+    "sha256": "1061932962e4647a251128872c57f2fc4adf2d8bdd3ce275e05ae0cde3a61758",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

@@ -1,13 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { watch } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { WebSocket } from 'ws';
 import { startServer } from '../server/main.mjs';
 import { startRuntime } from '../runtime/supervisor.mjs';
 import { Feed } from '../runtime/feed.mjs';
-import { tokenProject, identity, api, ok, until, fakeDesktop, feedSocket } from './token-fixtures.mjs';
+import { tokenProject, identity, identityHeaders, api, ok, until, fakeDesktop, feedSocket } from './token-fixtures.mjs';
 
 /* KI-061, closed: after a workspace-only replacement the desktop's /events socket keeps draining
    through the retired worker (spec 065) while the ledger and the feed belong to the worker that
@@ -15,6 +16,9 @@ import { tokenProject, identity, api, ok, until, fakeDesktop, feedSocket } from 
    the socket the real one uses — the split is between kinds of traffic, not between processes. */
 
 const WINDOW = 60000;
+/* The whole unit suite runs these files in parallel, so every wait here is bounded generously
+   rather than by the fixture's five-second default: a slow spawn is not the defect under test. */
+const SLOW = 600;
 const query = value => new URLSearchParams(value).toString();
 const within = (promise, ms, label) => Promise.race([promise,
   new Promise((_, reject) => { setTimeout(() => reject(new Error(`Timed out: ${label}`)), ms).unref?.(); })]);
@@ -58,12 +62,12 @@ process.stdin.on('data', data => console.log('INPUT_' + data.toString('hex')));`
   const desktop = await fakeDesktop(runtime, [root.id], [session.id]);
   t.after(() => desktop.close());
   desktop.send({ type: 'attach', id: session.id });
-  await until(() => desktop.messages.some(message => message.type === 'attached'), 'the desktop attached the retained PTY');
+  await until(() => desktop.messages.some(message => message.type === 'attached'), 'the desktop attached the retained PTY', SLOW);
 
   await ok(runtime, 'token-action', { rootId: root.id, action: 'contest' }, alice);
   const pending = await ok(runtime, 'token-action', { rootId: root.id, action: 'contest', reason: 'about to deploy' }, bob);
   const pushed = () => desktop.messages.filter(message => message.type === 'token').at(-1);
-  await until(() => pushed()?.contest?.id === pending.contestId, 'the contest is on the desktop before the layer moves');
+  await until(() => pushed()?.contest?.id === pending.contestId, 'the contest is on the desktop before the layer moves', SLOW);
   const monitor = await feedSocket(runtime, (await tokenState(runtime, root.id)).feed);
   await until(() => monitor.frames.length >= 2, 'the monitor has read the ledger it is about to lose');
   const cursor = monitor.frames.at(-1).sequence;
@@ -76,9 +80,9 @@ process.stdin.on('data', data => console.log('INPUT_' + data.toString('hex')));`
   assert.equal(desktop.socket.readyState, WebSocket.OPEN, 'and the desktop socket was never closed under it');
   desktop.send({ type: 'input', id: session.id, data: 'still-alive' });
   await until(() => host.sessions.snapshot(session.id, true).output.includes('INPUT_7374696c6c2d616c697665'),
-    'input still reaches the PTY through the retired worker');
+    'input still reaches the PTY through the retired worker', SLOW);
   await until(() => desktop.messages.some(message => message.type === 'output' && message.data?.includes('INPUT_7374696c6c2d616c697665')),
-    'and its output still reaches the retained view');
+    'and its output still reaches the retained view', SLOW);
 
   /* (f) the monitor is not left reading a ledger nobody writes: it is closed with a reason that
      names retirement, and the current worker has every frame after the cursor it had. */
@@ -91,7 +95,7 @@ process.stdin.on('data', data => console.log('INPUT_' + data.toString('hex')));`
   /* (b) the person's control, sent on the retained socket, lands on the ledger the agents read. */
   desktop.send({ type: 'token-action', rootId: root.id, action: 'reject', contestId: pending.contestId, reason: 'a build is running' });
   const rejected = await until(() => feed.frames.find(frame => frame.type === 'token.rejected'),
-    "the retained desktop's rejection reaches the current worker's feed");
+    "the retained desktop's rejection reaches the current worker's feed", SLOW);
   assert.equal(rejected.by.kind, 'desktop', 'attributed to the person, not to the worker that carried it');
   assert.equal(rejected.by.desktopId, desktop.id, 'naming the desktop the retired worker registered');
   assert.equal(rejected.contestId, pending.contestId);
@@ -107,7 +111,7 @@ process.stdin.on('data', data => console.log('INPUT_' + data.toString('hex')));`
   const before = pushed().sequence;
   const opened = await ok(runtime, 'token-action', { rootId: root.id, action: 'contest', reason: 'my turn' }, gemini);
   const relayed = await until(() => { const frame = pushed(); return frame?.contest?.id === opened.contestId && frame; },
-    'the current ledger reaches the retained desktop as a token frame');
+    'the current ledger reaches the retained desktop as a token frame', SLOW);
   assert.deepEqual(Object.keys(relayed).sort(), ['contest', 'holder', 'rootId', 'sequence', 'type', 'windowMs'],
     'the frame on the desktop socket is the pinned flat shape, unchanged by the relay');
   assert.equal(relayed.contest.contester.agentId, gemini.agentId);
@@ -118,7 +122,7 @@ process.stdin.on('data', data => console.log('INPUT_' + data.toString('hex')));`
   /* (f, second half) nothing between the closed monitor's cursor and the reattached one. */
   const read = await ok(runtime, `feed?${query({ rootId: root.id, after: String(cursor) })}`);
   assert.equal(read.frames[0].sequence, cursor + 1, 'the current ledger retained the frame after that cursor');
-  await until(() => feed.frames.length >= read.frames.length, 'the reattached monitor catches up');
+  await until(() => feed.frames.length >= read.frames.length, 'the reattached monitor catches up', SLOW);
   assert.deepEqual(feed.frames.slice(0, read.frames.length).map(frame => frame.sequence), read.frames.map(frame => frame.sequence),
     'a reattach by cursor on the current worker misses nothing');
 
@@ -137,20 +141,45 @@ process.stdin.on('data', data => console.log('INPUT_' + data.toString('hex')));`
   const released = await ok(retiredWorker, 'token-action', { rootId: root.id, action: 'release' }, alice);
   assert.equal(released.state, 'claimed', 'POST /api/token-action is the current ledger answering, contest and all');
   assert.equal(released.holder.agentId, gemini.agentId);
-  await until(() => pushed()?.holder?.agentId === gemini.agentId, 'and the retained desktop is told who holds it now');
+  await until(() => pushed()?.holder?.agentId === gemini.agentId, 'and the retained desktop is told who holds it now', SLOW);
+
+  /* The desktop actor is honoured only in the absence of an agent header. `release` is the agent's
+     word and not one of the person's four controls, so which branch answered is unambiguous. */
+  const both = await fetch(`${runtime.url}/api/token-action`, { method: 'POST',
+    headers: { ...identityHeaders(gemini), 'X-Rengine-Desktop': desktop.id, Authorization: `Bearer ${runtime.token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rootId: root.id, action: 'release' }) });
+  assert.equal(both.status, 200, 'a request carrying both headers is the agent\'s');
+  assert.equal((await both.json()).state, 'free');
 });
 
-test('a retired worker mints nothing: one game.started, and the file a third worker would load agrees', { timeout: 90000 }, async t => {
+test('a retired worker mints nothing: one writer, one game.started, and the file a third worker would load agrees', { timeout: 90000 }, async t => {
   const { host, root, runtime, runtimeDir } = await workspace(t);
   const alice = identity('claude');
   const desktop = await fakeDesktop(runtime, [root.id]);
   t.after(() => desktop.close());
   await ok(runtime, 'token-action', { rootId: root.id, action: 'contest' }, alice);
+  const pushed = () => desktop.messages.filter(message => message.type === 'token').at(-1);
+  await until(() => pushed()?.holder?.agentId === alice.agentId, 'the desktop has the ledger it registered against', SLOW);
 
   const status = await replaceWorkspace(runtime, root.id);
   assert.equal(status.workspace.retiring.length, 1, "the replaced worker is retained for the desktop's stream");
   const feed = await feedSocket(runtime, (await tokenState(runtime, root.id)).feed);
   t.after(() => feed.close());
+  /* The handoff is finished when the retired worker relays the current ledger to its desktop, which
+     is the last thing retirement does — so everything measured below is measured after it. */
+  await ok(runtime, 'token-action', { rootId: root.id, action: 'release' }, alice);
+  await until(() => pushed()?.holder === null, 'the retained desktop hears the current ledger', SLOW);
+
+  /* KI-061's collision was a second writer: both workers stayed subscribed to the host's /events
+     and both persisted this root's ring, so the sequence a third worker loads disagreed with the
+     one the feed serves. writeAtomically names its temporary after the writing process, so which
+     processes wrote is a fact on the filesystem rather than a race to sample. */
+  const writers = new Set();
+  const watcher = watch(path.join(runtimeDir, 'tokens', root.id), (event, name) => {
+    const match = /^(?:feed|token)\.json\.(\d+)\.tmp$/.exec(name ?? '');
+    if (match) writers.add(Number(match[1]));
+  });
+  t.after(() => watcher.close());
 
   /* (d) the recorder is the desktop's (spec 081) and the desktop is on the retired worker; the
      frames still become captures on the ledger the agents watch. */
@@ -159,7 +188,7 @@ test('a retired worker mints nothing: one game.started, and the file a third wor
     desktop.send({ type: 'recording', rootId: root.id, sessionId: 'session-1', gameId: 'fixture-game', event, recordingId: 'rec-1', kind: 'explicit', at });
   }
   const committed = await until(() => feed.frames.find(frame => frame.type === 'capture.committed'),
-    "the retained recorder's commit reaches the current feed");
+    "the retained recorder's commit reaches the current feed", SLOW);
   const started = feed.frames.find(frame => frame.type === 'capture.started');
   assert.ok(started, 'and its start did too');
   assert.equal(started.by.desktopId, desktop.id, 'both naming the desktop that sent them');
@@ -168,21 +197,22 @@ test('a retired worker mints nothing: one game.started, and the file a third wor
   assert.equal(committed.kind, 'explicit');
   assert.ok(committed.sequence > started.sequence, 'two frames, in order, on the one feed');
 
-  /* (e) the collision KI-061 measured: a game session announced by the host reached both workers,
-     and both wrote the ring. One writer now, so the served feed and the file agree. */
+  /* (e) a game session the host announces to everyone subscribed to it. */
   const game = await ok(runtime, 'game', { rootId: root.id, gameId: 'fixture-game' });
-  await until(() => feed.frames.some(frame => frame.type === 'game.started'), 'game.started');
+  await until(() => feed.frames.some(frame => frame.type === 'game.started'), 'game.started', SLOW);
   await ok(runtime, 'stop', { id: game.id });
-  await until(() => feed.frames.some(frame => frame.type === 'game.ended'), 'game.ended');
+  await until(() => feed.frames.some(frame => frame.type === 'game.ended'), 'game.ended', SLOW);
   assert.equal(feed.frames.filter(frame => frame.type === 'game.started').length, 1, 'one worker minted the start, not two');
   assert.equal(feed.frames.filter(frame => frame.type === 'game.ended').length, 1);
   assert.equal(host.sessions.snapshot(game.id).state, 'exited');
+  assert.deepEqual([...writers], [status.workspace.pid],
+    `only the worker that owns the ledger wrote it; the retired one is pid ${status.workspace.retiring[0].pid}`);
 
   const served = await ok(runtime, `feed?${query({ rootId: root.id })}`);
   const third = await until(async () => {
     const loaded = await Feed.open(path.join(runtimeDir, 'tokens', root.id), root.id);
     return loaded.frames.length === served.frames.length && loaded;
-  }, 'the ring on disk finishes being written');
+  }, 'the ring on disk finishes being written', SLOW);
   assert.deepEqual(third.frames.map(frame => [frame.sequence, frame.type]), served.frames.map(frame => [frame.sequence, frame.type]),
     'the feed a third worker loads from feed.json is the feed the current worker serves');
   assert.ok(third.frames.some(frame => frame.type === 'workspace.updated'), 'including the generation the replacement announced');

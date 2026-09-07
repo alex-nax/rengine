@@ -1,5 +1,76 @@
 # Progress Log
 
+## Session 52 (macos) — 2026-09-07 — Retirement by kind: the streams drain, the ledger hands off (KI-061)
+
+Session 50's end-to-end check found the defect neither half of the token could see: after
+`update_workspace` with `layers: ['workspace']` and a desktop attached, **two workers owned one
+ledger**. Spec 065 lets existing streams finish through the replaced worker; spec 095 then put a
+stateful service on one of those streams. The person's Reject landed on a ledger no agent read, and
+both workers stayed subscribed to the host's `/events` and minted `game.*` into one `feed.json` with
+colliding sequences. The obvious fix — close the replaced worker's tunnelled sockets — was tried and
+reverted, because it turns `runtime.test.mjs:91` red at `0 !== 1`. Owner instruction: *"do not forget
+about our layered restarts."*
+
+The two specs never disagreed about *whether* a replaced worker keeps serving, only about **what**,
+and the kinds are already distinct: a terminal or surface view is a stream of somebody else's bytes,
+the ledger is a service with one writer. So retention is now **by kind**. Views keep draining through
+the retired worker, untouched — 065's regression is unchanged and stays the floor. The token/feed
+service hands off.
+
+The supervisor's whole part is one message, `{ type: 'retired' }`, and *where* it is sent is the one
+design decision inside it: at the point a retirement is **committed** — the `finally` that releases a
+replaced worker from `preserved`, and the rollback that retires a rejected candidate — never at the
+swap, because a failed update restores the previous worker as the current one and a worker already
+told it was retired would then be forwarding requests to itself. Under an older supervisor the
+message never arrives and the worker behaves exactly as it did before.
+
+The worker that receives it drops its subscription to the host's `/events` and its ledger, so it
+mints nothing and never writes `token.json` or `feed.json` again; closes its own `/feed` clients with
+a reason naming retirement, which is what the cursor was always for; answers `GET /api/token`,
+`POST /api/token-action`, `GET /api/feed`, `POST /api/recording` and `POST /api/preferences` by
+forwarding to the current worker **through the supervisor named by the runtime descriptor already in
+its own directory** — no environment variable, no new descriptor; forwards its retained desktops'
+`token-action` and `recording` frames with the desktop actor on `X-Rengine-Desktop`, which the
+current worker honours only when no agent header is present and answers `by: { kind: 'desktop',
+desktopId }` exactly as it does for a local socket; and relays the pinned `token` push back by
+watching the current ledger's feed for `token.*`. `Ledger.segment()` and that relay are one function,
+so the frame text on the desktop's socket is unchanged and `orchestrator/native/*` needed no edit.
+Nothing under `orchestrator/server/` was touched.
+
+`orchestrator/tests/token-retirement.test.mjs` asserts it against a real supervisor, two real workers
+and a stand-in desktop on the real socket: 065's invariant with a live PTY still carrying input and
+output through the retired worker, the monitor closed with the retirement reason and reattachable by
+cursor with no gap, a `token-action` from the retained socket landing on the current ledger with the
+right `desktopId`, an agent's transition arriving back on that socket as the pinned frame, a
+`recording` frame becoming `capture.committed` on the current feed, and one `game.started` for one
+game session. `native-token-e2e.spec.mjs` gains the scenario its criterion 5 had to leave out: after
+the replacement, Reject on the **real** popover reaches the ledger the replacement serves, and the
+segment follows it.
+
+One measurement had to be reshaped before it discriminated, and it is the KI-061 measurement itself.
+Which of two writers lands last is timing, so sampling `feed.json` at the end can agree by luck —
+under the deliberate sabotage it did. `writeAtomically` names its temporary after the writing
+process, so the check watches the ledger directory and asserts the **set of pids that wrote it**. Two
+workers minting is then a fact on the filesystem rather than a race to sample.
+
+Fifteen sabotages, each watched failing for its own claim, in
+`docs/evidence/token-retirement-2026-09-07.md`. Row 15 is the control: the reverted alternative,
+still red at `runtime.test.mjs:91` `expected: 1 / actual: 0`. Rows 1–14 fail under the old code and
+row 15 under the code that was rejected; only the split passes both.
+
+F90 stays `passes: false`. KI-061 was one of its two named blockers and is closed; the other stands —
+F74, F76 and F80 are all `passes: false`, and F74's third criterion waits on the owner's live
+verification.
+
+Commands: `npm test` 112/112 (110 before, plus this lane's two) · `npm run test:desktop` 45/45 ·
+`python3 tools/features.py validate` 43 features · `python3 tools/design.py check` clean · sidecar
+`check` clean on the two files this lane edited, each with a new note and a fresh stamp. One flake
+worth naming because it is not this lane's: the first `test:desktop` run failed
+`native-dashboard.spec.mjs` after its desktop reconnected mid-test; that spec drives the session host
+directly, with no supervisor and no workspace worker in it, and it passed alone and on the re-run of
+the whole suite. Nothing under `orchestrator/server/` or `orchestrator/native/` was touched, and no
+environment variable was added.
+
 ## Session 51 (macos) — 2026-09-07 — The agent identity is the Claude session id (F90 stage 1, revised)
 
 Owner decision, verbatim: *"Each claude session has identifier … on every session exit claude tells us

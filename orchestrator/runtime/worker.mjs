@@ -17,7 +17,10 @@ import { Tokens, readIdentity, readDesktop, segmentFrame } from './token.mjs';
 /* Named once because a monitor reads it: the close reason a retired worker gives its feed clients
    so they re-read feed_url and reattach to the current worker from the cursor they had. */
 export const RETIRED_FEED = 'Workspace worker retired; re-read feed_url and resume from your cursor';
-const RETIRED_ROUTES = ['/api/token', '/api/token-action', '/api/feed', '/api/recording', '/api/preferences'];
+/* The routes a retired worker forwards, by method: `GET /api/recording` reads a recording out of the
+   project and is nobody's ledger, while `POST /api/recording` is the desktop's frame. */
+const RETIRED_ROUTES = new Map([['/api/token', 'GET'], ['/api/token-action', 'POST'], ['/api/feed', 'GET'],
+  ['/api/recording', 'POST'], ['/api/preferences', 'POST']]);
 
 export async function startWorker(host, options = {}) {
   checkConnection(host);
@@ -121,7 +124,7 @@ export async function startWorker(host, options = {}) {
      socket stays here; spec 095 put a stateful service on that socket. Retirement splits the two:
      terminal and surface views keep draining, and the token/feed service hands off to the current
      worker, reached through the supervisor named by the runtime descriptor in this directory. */
-  const feeds = new Set(), relays = new Map();
+  const feeds = new Set(), relays = new Map(), relayAttempts = new Map();
   const supervisorOf = async () => {
     if (supervisor) return supervisor;
     const found = await discoverRuntime(host, directory);
@@ -135,11 +138,16 @@ export async function startWorker(host, options = {}) {
      through the supervisor, pushing the same pinned frame it used to build itself. */
   const follow = async rootId => {
     if (!retired || closing || relays.has(rootId)) return;
-    const entry = { socket: null, attempts: (relays.get(rootId)?.attempts ?? 0) };
+    const entry = { socket: null };
     relays.set(rootId, entry);
+    /* The count lives outside the entry, so a supervisor that never answers gives up after twenty
+       tries rather than looping; a socket that opened resets it, because the current worker being
+       replaced in turn is a reconnection this relay is supposed to follow. */
     const again = () => {
       relays.delete(rootId);
-      if (closing || !retired || entry.attempts > 20) return;
+      const attempts = (relayAttempts.get(rootId) ?? 0) + 1;
+      relayAttempts.set(rootId, attempts);
+      if (closing || !retired || attempts > 20) return;
       setTimeout(() => void follow(rootId).catch(() => {}), 250).unref?.();
     };
     try {
@@ -148,12 +156,13 @@ export async function startWorker(host, options = {}) {
       const socket = new WebSocket(`${read.socket}&after=${read.cursor}`);
       entry.socket = socket;
       socket.on('error', () => {});
+      socket.once('open', () => relayAttempts.delete(rootId));
       socket.on('message', bytes => {
         let frame; try { frame = JSON.parse(bytes); } catch { return; }
         if (typeof frame?.type === 'string' && frame.type.startsWith('token.')) void pushToken(rootId).catch(() => {});
       });
-      socket.once('close', () => { entry.attempts++; again(); });
-    } catch { entry.attempts++; again(); }
+      socket.once('close', again);
+    } catch { again(); }
   };
   const retire = async () => {
     if (retired) return;
@@ -277,7 +286,7 @@ export async function startWorker(host, options = {}) {
       /* Retired: the ledger belongs to the worker that replaced this one, so every route that reads
          or writes it — including the tokenWindowMs half of a preferences write, which that worker
          splits exactly as this one did — is answered by forwarding through the supervisor. */
-      if (retired && RETIRED_ROUTES.includes(target.pathname)) { forward(req, res, await supervisorOf()); return; }
+      if (retired && RETIRED_ROUTES.get(target.pathname) === req.method) { forward(req, res, await supervisorOf()); return; }
       if (req.method === 'GET' && target.pathname === '/api/state') {
         const state = await refresh();
         json(res, 200, { ...state, preferences: { ...state.preferences, ...(tokens ? { tokenWindowMs: tokens.window() } : {}) }, capabilities: capabilities(state.capabilities) });
