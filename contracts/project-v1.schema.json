@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rengine.local/contracts/project-v1.schema.json",
   "title": "rEngine project declaration, contracts 1, 2, 3 and 4",
-  "description": "Read from <root>/.rengine/project.json. Contract 1 declares file formats whose previews are produced by the project's own executables (docs/specs/074-project-format-registry.md); contract 2 adds an optional dashboard of grouped actions (docs/specs/075-project-dashboard.md); contract 3 adds an optional array of games the workspace launches (docs/specs/078-project-game-declaration.md); contract 4 adds an optional array of devices saying where each target runs, and an optional device on a game record and a dashboard action (docs/specs/082-project-devices.md). Cross-field rules the service also enforces: default is one of modes; preview is required when modes contains preview; a preview command names ${file}; an entry command names ${file} and ${entry}; format ids are unique; dashboard requires contract 2, games requires contract 3, and devices or any device key requires contract 4; group, action, game and device ids are unique; an action carries only its kind's fields; a game action's game names a declared games record and its args are literal argv without placeholders; a device reference names a declared device or the implicit local; a game whose surface is embedded or cooperative streams into a local pane and so binds to the local device; local is a reserved id/kind pairing that takes no probe, host or selector; host and selector each carry exactly one of value or env; a probe placeholder must have a declared source; script/requires/artifacts/into are root-relative and requires stays local even on a remote device; dashboard env keys are UPPER_SNAKE; game env keys are UPPER_SNAKE and never start with RENGINE_, DYLD_ or LD_; game requires entries and game cwd are root-relative. Contract 5 adds an optional display title and an icon of a glyph plus a design token name, which the workspace chrome and the window title wear in place of their defaults. It also adds an optional tracker naming where the project's task list lives.",
+  "description": "Read from <root>/.rengine/project.json. Contract 1 declares file formats whose previews are produced by the project's own executables (docs/specs/074-project-format-registry.md); contract 2 adds an optional dashboard of grouped actions (docs/specs/075-project-dashboard.md); contract 3 adds an optional array of games the workspace launches (docs/specs/078-project-game-declaration.md); contract 4 adds an optional array of devices saying where each target runs, and an optional device on a game record and a dashboard action (docs/specs/082-project-devices.md). Cross-field rules the service also enforces: default is one of modes; preview is required when modes contains preview; a preview command names ${file}; an entry command names ${file} and ${entry}; format ids are unique; dashboard requires contract 2, games requires contract 3, and devices or any device key requires contract 4; group, action, game and device ids are unique; an action carries only its kind's fields; a game action's game names a declared games record and its args are literal argv without placeholders; a device reference names a declared device or the implicit local; a game whose surface is embedded or cooperative streams into a local pane and so binds to the local device; local is a reserved id/kind pairing that takes no probe, host or selector; host and selector each carry exactly one of value or env; a probe placeholder must have a declared source; script/requires/artifacts/into are root-relative and requires stays local even on a remote device; dashboard env keys are UPPER_SNAKE; game env keys are UPPER_SNAKE and never start with RENGINE_, DYLD_ or LD_; game requires entries and game cwd are root-relative. Contract 5 adds an optional display title and an icon of a glyph plus a design token name, which the workspace chrome and the window title wear in place of their defaults. It also adds an optional tracker naming where the project's task list lives, whose repository, team, inventory, project, assignee and states keys each belong to one provider and are refused under the others (docs/specs/083-task-tracking.md, docs/specs/100-tracker-view-filters.md).",
   "type": "object",
   "required": [
     "contract",
@@ -119,6 +119,28 @@
           "minLength": 1,
           "maxLength": 128,
           "description": "linear only: narrow the team's issues to one project by name. A team without this shows everything it holds, which is rarely what a person opening one project wants."
+        },
+        "assignee": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "linear only: narrow to one person. \"me\" is the signed-in user, whoever the token belongs to; any other value is matched against Linear's displayName. A project still holds everyone's work, and a person opening their own workspace wants their own."
+        },
+        "states": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "description": "linear only: narrow to these workflow-state categories, which is the vocabulary the neutral row normalises to rather than a team's own state names, so the declaration says the same word the row shows. Omitted shows every state.",
+          "items": {
+            "enum": [
+              "backlog",
+              "unstarted",
+              "started",
+              "completed",
+              "canceled"
+            ]
+          }
         }
       }
     }

@@ -113,10 +113,10 @@ async function localRows(root, block) {
 /* Linear. A personal API key sends the token bare, without a Bearer prefix, which is the one thing
    about its auth that surprises everyone. States are objects carrying a category, so they reach the
    neutral row without being flattened into open and closed. */
-/* The project filter is optional and null-safe: passing null leaves the team unfiltered, so one
-   query serves both shapes rather than branching the document. */
-const LINEAR_QUERY = `query Issues($team: String!, $project: String, $first: Int!) {
-  issues(first: $first, filter: { team: { key: { eq: $team } }, project: { name: { eq: $project } } }, orderBy: updatedAt) {
+/* The whole filter is one variable, so this document is a fixed string whatever the declaration
+   narrows to; nothing is interpolated into it. See linearFilter for what goes in. */
+const LINEAR_QUERY = `query Issues($filter: IssueFilter, $first: Int!) {
+  issues(first: $first, filter: $filter, orderBy: updatedAt) {
     nodes {
       id identifier title url priority updatedAt
       state { id name type }
@@ -128,12 +128,25 @@ const LINEAR_QUERY = `query Issues($team: String!, $project: String, $first: Int
 }`;
 const LINEAR_PRIORITY = [null, 'urgent', 'high', 'medium', 'low'];
 
+/* An undeclared narrowing contributes no clause, so the two-clause object below is byte-identical to
+   what the previous document produced and an existing declaration asks exactly what it always did.
+   The project clause stays null-safe: present and null leaves the team unfiltered (spec 100). */
+function linearFilter(block) {
+  const filter = { team: { key: { eq: block.team } }, project: { name: { eq: block.project ?? null } } };
+  /* "me" is the one assignee value that is not a name: it asks Linear who the token belongs to, so a
+     personal declaration keeps working when someone else's token reads it. */
+  if (block.assignee !== undefined) filter.assignee = block.assignee === 'me' ? { isMe: { eq: true } } : { displayName: { eq: block.assignee } };
+  /* Declared categories are the row's own vocabulary, which is Linear's state type. */
+  if (block.states !== undefined) filter.state = { type: { in: block.states } };
+  return filter;
+}
+
 async function linearRows(block, token, fetchImpl) {
   if (!token) return { rows: [], denied: 'Not signed in to Linear.', signIn: 'linear' };
   const response = await fetchImpl('https://api.linear.app/graphql', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
-    body: JSON.stringify({ query: LINEAR_QUERY, variables: { team: block.team, project: block.project ?? null, first: 100 } }),
+    body: JSON.stringify({ query: LINEAR_QUERY, variables: { filter: linearFilter(block), first: 100 } }),
   });
   if (response.status === 401 || response.status === 403) return { rows: [], denied: 'Linear refused the token.' };
   if (!response.ok) return { rows: [], unavailable: `Linear answered ${response.status}.` };
@@ -216,7 +229,9 @@ export async function projectTracker(root, declared, options = {}) {
 
   if (typeof fetchImpl !== 'function') fail('This build cannot reach a network tracker.', 501);
   const token = await credential(options.stateDirectory, named.identity, options);
-  const key = [root.id, block.provider, block.repository ?? block.team, block.project ?? ''].join(' ');
+  /* The narrowing is part of the key: two declarations that ask different questions are different
+     questions, and answering the second from the first's entry would be wrong rather than stale. */
+  const key = [root.id, block.provider, block.repository ?? block.team, block.project ?? '', block.assignee ?? '', (block.states ?? []).join(',')].join(' ');
   if (options.refresh) cache.delete(key);
   const produce = () => (block.provider === 'linear'
     ? linearRows(named, token, fetchImpl)

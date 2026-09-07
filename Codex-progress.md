@@ -1,5 +1,68 @@
 # Progress Log
 
+## Session 54 (macos) — 2026-09-07 — The tracker narrows to a person and to what is actually active (F97)
+
+The hirebase-v2 tracker tab answered with a hundred rows spanning every assignee and every workflow
+state, and the owner opening their workspace to work through their own tasks had to hunt. The
+declaration could already narrow a Linear team to one project; it could not narrow to a person, and
+it could not say "the states that mean now". Spec 100 adds two optional Linear-only keys to the
+`tracker` block — `assignee` and `states` — and honours them where the query is built.
+
+**The query shape was verified against live Linear before this session and is not re-derived here.**
+Team BAS / project Kohai: `{team, project, assignee: {isMe: {eq: true}}, state: {type: {in:
+["started"]}}}` → 13 rows; the same with `displayName: {eq: "jon"}` → 11; `{team, project}` alone →
+50; `state: {type: {in: ["started", "unstarted"]}}` → 13. The whole filter now goes over as a single
+`$filter: IssueFilter` variable and `linearFilter()` builds it in JavaScript, so the document is one
+fixed string for every shape and no clause is interpolated into it.
+
+**Back-compat is the whole branch, and it turns on one clause.** The project clause is always
+present, and `null` when nothing is declared — which is byte-for-byte what the old `$project`
+variable produced. Building the filter without it when it is undeclared would have been a *different*
+query that happens to return the same rows today; the test asserts `Object.keys(filter)` is exactly
+`['team', 'project']` so no empty narrowing sneaks in either.
+
+**`local` and `github` refuse rather than ignore.** The file already had this style — `repository
+belongs to provider github`, `inventory belongs to provider local` — so the two new keys joined
+`project` in one linear-only loop in `trackerRules`. A list that quietly answers a wider question
+than the one asked looks exactly like a correct answer, which is the failure those rules exist to
+prevent. An unknown state category is refused by the schema enum at declaration time, so `in-progress`
+(a team's state *name*) never reaches the network; the declaration speaks the five categories the
+neutral row normalises to.
+
+**The narrowing joined the cache key.** Two declarations differing only in their filters are
+different questions, and answering the second from the first's thirty-second entry would be a wrong
+list rather than a stale one — which the freshness indicator cannot flag, because the entry is fresh.
+
+**The masked first run, which is the point of the protocol.** All six new tests went red against the
+unchanged code and *three of them for the wrong reason*: `additionalProperties: false` refused the
+keys outright, so no request was ever built and the tests were failing on the declaration rather than
+on the filter. The schema keys were added alone and the suite re-run before any filter existed; only
+then did each test fail for its own reason (and test 4 went green, because the enum alone is what it
+claims to catch). Six sabotages then produced exactly the red each claims and nothing else, tabled in
+`docs/evidence/tracker-filters-2026-09-07.md`.
+
+**Gates.** `node --test orchestrator/tests/*.test.mjs` 152/152 (six new in
+`orchestrator/tests/tracker-filter.test.mjs`, picked up by the glob). `./init.sh` clean, 50 features
+validated. `verify.sh design` clean. Recorded and unrelated: while the sidecar indexer was running,
+two full runs each went red once in `project-token.test.mjs` — a different test each time, both green
+in isolation and in the quiet full run. That suite has real deadlines in it, so it is sensitive to
+another process eating the machine; nothing in this branch touches it. No test makes a network call: every Linear test drives an
+injected `fetch` and asserts on the request body it records, never on the rows — spec 083 recorded
+why the result is not the evidence for a filter.
+
+**No declaration was edited, on purpose.** The schema has `additionalProperties: false` and a running
+session host freezes it at startup, so a declaration carrying these keys is refused *wholesale* by any
+host that predates this change and takes that project's dashboard down with it — which already
+happened once today. The code lands first; hirebase-v2's `project.json` gains the keys only after the
+owner runs `~/hirebase-v2.command --replace-host` (F94). That live confirmation is F97's one
+outstanding criterion.
+
+**One repair.** Session 53's commit 98ead34 describes a test asserting the tracker capability and the
+`/api/tracker` route together, but the test is not in it: this session had the same working tree open
+and had momentarily parked that addition while separating its own change. Restored verbatim in
+832e1f0; 7/7 in `tracker.test.mjs`. Two pre-existing assertions there did have to move, because the
+Linear variables are now one `filter` object rather than `team` and `project`.
+
 ## Session 53 (macos) — 2026-09-07 — The capability a merge dropped, and the test that would have caught it
 
 A merge into `main` took the other side of the capabilities map and removed `tracker: 1` from

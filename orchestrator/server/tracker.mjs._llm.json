@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "linear-filter",
+      "kind": "rationale",
+      "anchor": {
+        "start": 134,
+        "end": 134,
+        "snippet": "function linearFilter(block) {"
+      },
+      "note": "Four filter shapes were verified against live Linear (team BAS, project Kohai) before this was written and are not to be re-derived: team+project+assignee isMe+state started returned 13 rows; the same with displayName \"jon\" returned 11; team+project alone returned 50; state type in [started, unstarted] returned 13. The project clause is always present, and null when nothing is declared, which is what makes an existing declaration byte-identical to what the old $project variable produced - omitting the clause instead would be a different query that happens to return the same rows today, and back-compat is the whole point of the branch. \"me\" is the only assignee value that is not a name: it asks Linear who the token belongs to, so a personal declaration keeps working when someone else's grant reads it, and a person actually called \"me\" is a trade taken deliberately. Declared categories are Linear's state *type*, which is the same vocabulary the neutral row normalises to, so the declaration and the row cannot drift when a team renames \"In Review\". The whole object goes over as one $filter variable: the document is a fixed string, so no clause is ever interpolated and adding a narrowing later touches this function alone.",
+      "refs": [
+        "docs/specs/100-tracker-view-filters.md"
+      ]
+    },
+    {
+      "id": "filter-in-the-cache-key",
+      "kind": "constraint",
+      "anchor": {
+        "start": 234,
+        "end": 234,
+        "snippet": "  const key = [root.id, block.provider, block.repository ?? block.team, block.project ?? '', block.assignee ?? '', (block.states ?? []).join(',')].join(' ');"
+      },
+      "note": "The narrowing belongs in the key because the cache is keyed by question, not by root. Two declarations differing only in assignee or states are different questions, and answering the second from the first's entry inside the thirty-second window returns a wrong list rather than a stale one - which the freshness indicator cannot flag, because the entry genuinely is fresh. Any clause added to linearFilter must be added here in the same edit. states is joined rather than hashed so the key stays readable while debugging; declaration order is significant to this key and irrelevant to Linear, which at worst costs one extra request after a reordering.",
+      "refs": [
+        "docs/specs/100-tracker-view-filters.md",
+        "docs/specs/083-task-tracking.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/server/tracker.mjs",
+    "sha256": "9cbc488ee408d0cde8eed3de0a8e6ac049ba897288a9d046c38797a260e3ceca",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

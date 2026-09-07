@@ -114,8 +114,8 @@ test('a Linear team reaches the neutral row, and its states keep their own names
     assert.equal(result.provider, 'linear');
     assert.equal(seen.length, 1, 'one request');
     assert.equal(seen[0].auth, 'lin_api_fixture', 'a personal key is sent bare, with no Bearer prefix');
-    assert.equal(seen[0].body.variables.team, 'KOH');
-    assert.equal(seen[0].body.variables.project, null, 'a team without a project filter passes null, not a missing variable');
+    assert.deepEqual(seen[0].body.variables.filter, { team: { key: { eq: 'KOH' } }, project: { name: { eq: null } } },
+      'the whole filter is one variable, and a team without a project filter still carries the null clause');
 
     const [first, second] = result.rows;
     assert.equal(first.key, 'KOH-12');
@@ -152,8 +152,8 @@ test('a Linear tracker can narrow a team to one project', async () => {
       variables = JSON.parse(options.body).variables;
       return { ok: true, status: 200, json: async () => ({ data: { issues: { nodes: [] } } }) };
     } });
-    assert.equal(variables.team, 'BAS');
-    assert.equal(variables.project, 'Kohai', 'the project reaches the query, or the view shows the whole team');
+    assert.equal(variables.filter.team.key.eq, 'BAS');
+    assert.equal(variables.filter.project.name.eq, 'Kohai', 'the project reaches the query, or the view shows the whole team');
 
     // The filter belongs to Linear; naming it elsewhere is refused rather than ignored.
     const wrong = await project(directory, 'wrong', base({ provider: 'github', repository: 'o/n', project: 'Kohai' }));
