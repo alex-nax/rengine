@@ -5,6 +5,7 @@
 #include "render/syntax_theme.h"
 #include "theme_file.h"
 #include "tracker.h"
+#include <time.h>
 
 static void inspect_rect(ReApp *a, const char *role, const char *key, int tab, mu_Rect r) {
   if (!a->controls || cJSON_GetArraySize(a->controls) >= 512) return;
@@ -230,6 +231,43 @@ static void sessions_columns(mu_Context *ui, const char *first, const char *seco
   re_ui_label_ex(ui, third, RE_UI_MUTED | RE_UI_SMALL);
   re_ui_label_ex(ui, "", RE_UI_MUTED | RE_UI_SMALL);
 }
+static const char *agent_name(const char *agent) { return agent && *agent ? agent : "agent"; }
+/* The last-seen wording mirrors describeAge in orchestrator/server/sessions.mjs (spec 097); the
+   desktop formats the persisted lastSeenAt rather than asking the service for a string. */
+static const char *describe_age(const cJSON *entry, char *buf, size_t size) {
+  const cJSON *seen = cJSON_GetObjectItemCaseSensitive(entry, "lastSeenAt");
+  double when = cJSON_IsNumber(seen) ? seen->valuedouble : 0.0;
+  double gap = (double)time(NULL) * 1000.0 - when; if (gap < 0) gap = 0;
+  const double MIN = 60000.0, HR = 3600000.0, DAY = 86400000.0;
+  if (when <= 0) re_copy(buf, size, "");
+  else if (gap < 2 * MIN) re_copy(buf, size, "just now");
+  else if (gap < HR) snprintf(buf, size, "%d minutes ago", (int)(gap / MIN + 0.5));
+  else if (gap < 2 * HR) re_copy(buf, size, "an hour ago");
+  else if (gap < DAY) snprintf(buf, size, "%d hours ago", (int)(gap / HR + 0.5));
+  else if (gap < 2 * DAY) re_copy(buf, size, "yesterday");
+  else snprintf(buf, size, "%d days ago", (int)(gap / DAY + 0.5));
+  return buf;
+}
+/* The id of a running agent pane holding this conversation, or "" when none does; a live conversation
+   is attached through its pane, and only a conversation no pane holds is offered for resume. */
+static const char *conversation_session(ReApp *a, const char *rootId, const char *conversation) {
+  const cJSON *session = NULL;
+  cJSON_ArrayForEach(session, cJSON_GetObjectItemCaseSensitive(a->state, "sessions")) {
+    if (strcmp(re_string(session, "type"), "agent") || strcmp(re_string(session, "state"), "running")) continue;
+    if (strcmp(re_string(session, "rootId"), rootId)) continue;
+    if (!strcmp(re_string(session, "conversation"), conversation)) return re_string(session, "id");
+  }
+  return "";
+}
+/* Resume is the same POST a fresh launch uses, carrying the conversation and the resume flag, so the
+   pane comes up already on it; the person never types /resume (spec 099). */
+static void resume_conversation(ReApp *a, const char *rootId, const char *agent, const char *conversation) {
+  cJSON *j = cJSON_CreateObject();
+  cJSON_AddStringToObject(j, "rootId", rootId); cJSON_AddStringToObject(j, "type", "agent");
+  cJSON_AddStringToObject(j, "agent", agent); cJSON_AddStringToObject(j, "conversation", conversation);
+  cJSON_AddBoolToObject(j, "resume", true);
+  re_app_action(a, "terminal", j); cJSON_Delete(j);
+}
 static void sessions_ui(ReApp *a, mu_Context *ui) {
   sessions_columns(ui, "Session", "State", "");
   const cJSON *session = NULL;
@@ -253,6 +291,50 @@ static void sessions_ui(ReApp *a, mu_Context *ui) {
     re_app_control(a, ui, "stop", id, -1);
     mu_pop_id(ui);
   }
+  mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_SESSIONS_HEADING_HEIGHT);
+  re_ui_label_ex(ui, "Conversations", RE_UI_STRONG);
+  bool any_conversation = false;
+  const cJSON *root = NULL;
+  cJSON_ArrayForEach(root, cJSON_GetObjectItemCaseSensitive(a->state, "roots")) {
+    const char *rid = re_string(root, "id");
+    /* A live agent pane: attach it. One that names its own conversations carries no id, so it is
+       marked not resumable rather than offered a resume that would fork a second conversation. */
+    const cJSON *s = NULL;
+    cJSON_ArrayForEach(s, cJSON_GetObjectItemCaseSensitive(a->state, "sessions")) {
+      if (strcmp(re_string(s, "type"), "agent") || strcmp(re_string(s, "state"), "running")) continue;
+      if (strcmp(re_string(s, "rootId"), rid)) continue;
+      const char *sid = re_string(s, "id"), *conv = re_string(s, "conversation");
+      any_conversation = true;
+      char key[80]; snprintf(key, sizeof(key), "c-%s", sid); mu_push_id(ui, key, (int)strlen(key));
+      mu_layout_row(ui, 4, (int[]){-RE_METRIC_SESSIONS_ACTIONS_WIDTH - RE_METRIC_SESSIONS_STATE_WIDTH, RE_METRIC_SESSIONS_STATE_WIDTH,
+                                   RE_METRIC_SESSIONS_ATTACH_WIDTH, -1}, RE_METRIC_SESSIONS_ROW_HEIGHT);
+      char label[1024]; snprintf(label, sizeof(label), "%s · %s", agent_name(re_string(s, "agent")), root_name(a, rid));
+      re_ui_row_ex(ui, label, RE_ICON_AGENT, *conv ? "" : "names its own", 0, RE_UI_DISABLED);
+      re_ui_pill(ui, "live", RE_UI_PILL_OK);
+      if (re_ui_button_ex(ui, "Attach", RE_ICON_UNKNOWN, RE_UI_SMALL)) re_app_tab(a, RE_TERMINAL, rid, "", sid, re_string(s, "title"));
+      re_app_control(a, ui, "conversation-attach", sid, -1);
+      re_ui_label_ex(ui, *conv ? "" : "not resumable", RE_UI_MUTED | RE_UI_SMALL);
+      mu_pop_id(ui);
+    }
+    /* A conversation no pane holds: resume it. Its agent named it, so it always carries a usable id. */
+    const cJSON *conv = NULL;
+    cJSON_ArrayForEach(conv, cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(a->state, "conversations"), rid)) {
+      const char *cid = re_string(conv, "id"); if (!*cid || *conversation_session(a, rid, cid)) continue;
+      const char *agent = re_string(conv, "agent");
+      any_conversation = true;
+      char key[80]; snprintf(key, sizeof(key), "r-%s", cid); mu_push_id(ui, key, (int)strlen(key));
+      mu_layout_row(ui, 4, (int[]){-RE_METRIC_SESSIONS_ACTIONS_WIDTH - RE_METRIC_SESSIONS_STATE_WIDTH, RE_METRIC_SESSIONS_STATE_WIDTH,
+                                   RE_METRIC_SESSIONS_ATTACH_WIDTH, -1}, RE_METRIC_SESSIONS_ROW_HEIGHT);
+      char label[1024]; snprintf(label, sizeof(label), "%s · %s", agent_name(agent), root_name(a, rid));
+      re_ui_row_ex(ui, label, RE_ICON_AGENT, "", 0, RE_UI_DISABLED);
+      re_ui_pill(ui, "past", RE_UI_PILL_NEUTRAL);
+      if (re_ui_button_ex(ui, "Resume", RE_ICON_ARROW_UP, RE_UI_SMALL)) resume_conversation(a, rid, agent, cid);
+      re_app_control(a, ui, "resume", cid, -1);
+      char age[64]; re_ui_label_ex(ui, describe_age(conv, age, sizeof(age)), RE_UI_MUTED | RE_UI_SMALL);
+      mu_pop_id(ui);
+    }
+  }
+  if (!any_conversation) { mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_DESIGN_TREE_ROW); re_ui_label_ex(ui, "No agent conversations yet.", RE_UI_MUTED); }
   mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_SESSIONS_HEADING_HEIGHT);
   re_ui_label_ex(ui, "Recovery drafts", RE_UI_STRONG);
   const cJSON *draft = NULL;

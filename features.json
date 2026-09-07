@@ -1100,6 +1100,35 @@
         "orchestrator/tests/replace-host.test.mjs: replacing a throwaway host: the old one exits, its port closes, a new one answers, and the report says so",
         "orchestrator/tests/replace-host.test.mjs: --headless --replace-host through the launcher comes up as a different host"
       ]
+    },
+    {
+      "id": 95,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "The native Sessions tab is the place a person resumes or attaches agent work: it lists the bound project's agent conversations, offering Attach for one a live pane holds and Resume for one no pane holds, so getting back into a conversation is a choice in the desktop rather than a /resume typed by hand; a live agent that names its own conversations is attach-only and marked not resumable, and the two are deduplicated so a conversation a pane holds is never also offered for resume.",
+      "acceptance_criteria": [
+        "With conversations recorded for the project and no pane holding them, the Sessions tab lists them most recently seen first, each with a resume control keyed by its conversation id and no attach, and starts no session to make the offer.",
+        "Pressing Resume starts an agent pane bound to that exact conversation id with the resume flag, not a freshly minted one, so the person never types /resume or pastes an id.",
+        "A live agent pane offers Attach onto the running pane and is never offered for resume; a conversation a running pane holds appears once, as that pane's Attach.",
+        "A live agent that holds no conversation id (an agent that names its own) is shown attach-only and marked not resumable rather than offering a resume that would start a second conversation.",
+        "Each row shows the agent, whether it is live or past, and when it was last seen, using the describeAge wording; the desktop formats the persisted lastSeenAt and asks the service for no string.",
+        "The raw process list with its Stop control is unchanged; no colour or row-size literal enters a native source.",
+        "Each regression was observed failing for its own reason before the Conversations section existed.",
+        "LIVE, still outstanding: from a host carrying this change, the Sessions tab lists a prior conversation, Resume brings it back rather than starting a second, and a live pane offers Attach; recorded under docs/evidence/."
+      ],
+      "passes": false,
+      "dependencies": [
+        93
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/099-sessions-tab-resume.md; the Conversations section, describe_age, conversation_session and resume_conversation in orchestrator/native/workspace.c; orchestrator/tests/native-sessions.spec.mjs; its entry in package.json test:desktop.",
+      "external_references": [],
+      "evidence": [
+        "orchestrator/tests/native-sessions.spec.mjs: the Sessions tab offers a project's past conversations for resume, most recent first",
+        "orchestrator/tests/native-sessions.spec.mjs: Resume starts a pane bound to that same conversation, not a fresh one",
+        "orchestrator/tests/native-sessions.spec.mjs: a live agent that names its own conversations is attach-only and marked not resumable"
+      ]
     }
   ]
 }
