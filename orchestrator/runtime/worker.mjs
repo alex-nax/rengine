@@ -1,4 +1,5 @@
 import http from 'node:http';
+import path from 'node:path';
 import { openScript } from './scripts.mjs';
 import { listFormats, formatPreview, readBytes, readDeclaration } from '../server/formats.mjs';
 import { dashboardAction, dashboardActions, dashboardRunPayload, dashboardCapture } from '../server/dashboard.mjs';
@@ -13,6 +14,7 @@ import { request as call } from '../launcher/sidecar.mjs';
 import { authenticated, body, checkConnection, fail, forward, json } from './protocol.mjs';
 import { hostStateDirectory, readTasks, trackerSignIn, trackerSignOut } from './tracker.mjs';
 import { agentsMenu, modelArgs, promptFor, promptValues, taskWrite } from '../server/tasks.mjs';
+import { startIdeBridge } from './ide.mjs';
 import { runtimeDirectory, alive, discoverRuntime } from './discovery.mjs';
 import { Tokens, UUID, readIdentity, readDesktop, segmentFrame } from './token.mjs';
 
@@ -44,6 +46,15 @@ export async function startWorker(host, options = {}) {
   let bindings = state, url;
   /* Found once: the host's instance does not change while this worker lives. See sidecar: tracker-routes. */
   const located = await hostStateDirectory(host, state);
+  /* The lock Claude Code reads must name a process that is one of a pane's own ancestors, and only
+     the session host is (spec 102). A host from this checkout says its pid; a retained one is found
+     in the process table by the same scan the tracker uses. See sidecar: ide-names-the-host.  */
+  const hostPid = located.pid ?? (Number.isInteger(state.pid) ? state.pid : undefined);
+  let ide = null;
+  if (options.ide !== false) {
+    ide = await startIdeBridge({ roots: state.roots.map(root => root.path), hostPid, port: options.idePort ?? 0, ...options.ideOptions })
+      .catch(error => ({ published: false, reason: error.message }));
+  }
   const token = randomBytes(32).toString('hex');
   const root = id => bindings.roots.find(x => x.id === id) ?? fail('Unknown project root.', 404);
   const snapshot = id => bindings.sessions.find(x => x.id === id) ?? fail('Unknown session.', 404);
@@ -265,6 +276,10 @@ export async function startWorker(host, options = {}) {
   const retire = async () => {
     if (retired) return;
     retired = true;
+    /* Released at retirement rather than at close, so `/ide` lists one rEdit again as soon as the
+       supervisor has switched; `--ide` connects only when exactly one is offered. */
+    await ide?.close?.();
+    ide = null;
     hostStream?.terminate(); hostStream = null;
     for (const client of feeds) { try { client.close(1001, RETIRED_FEED); } catch { /* already gone */ } }
     feeds.clear();
@@ -515,6 +530,15 @@ export async function startWorker(host, options = {}) {
             task: item.task ?? remembered.get(item.conversation)?.task ?? null })) });
       } else if (req.method === 'POST' && target.pathname === '/api/tracker/signin') {
         const data = await body(req); await refresh(); json(res, 200, await trackerSignIn(root(data.rootId), located));
+      } else if (req.method === 'POST' && target.pathname === '/api/ide-selection') {
+        /* The desktop reports a fact about itself — which file, which range — and this turns it into
+           the notification Claude Code understands. The path is resolved here because roots live
+           here: the desktop names a root and a path within it, as every other route does. */
+        const data = await body(req);
+        const selected = root(data.rootId);
+        json(res, 200, { delivered: ide?.published
+          ? ide.selection({ filePath: path.join(selected.path, data.path ?? ''), text: data.text ?? '', selection: data.selection })
+          : 0 });
       } else if (req.method === 'POST' && target.pathname === '/api/tracker/signout') {
         const data = await body(req); await refresh(); json(res, 200, await trackerSignOut(root(data.rootId), located));
       } else if (req.method === 'GET' && target.pathname === '/api/dashboard') {
@@ -632,8 +656,9 @@ export async function startWorker(host, options = {}) {
   url = `http://127.0.0.1:${server.address().port}`;
   await prime();
   subscribe();
-  return { url, token, instance: host.instance, pid: process.pid, tokens, retire, async close() {
+  return { url, token, instance: host.instance, pid: process.pid, tokens, retire, get ide() { return ide; }, async close() {
     closing = true; hostStream?.terminate();
+    await ide?.close?.();
     for (const entry of relays.values()) entry.socket?.terminate();
     relays.clear();
     for (const client of sockets.clients) client.terminate(); sockets.close();
@@ -644,7 +669,7 @@ export async function startWorker(host, options = {}) {
 if (process.send) {
   process.once('message', async message => {
     try {
-      const worker = await startWorker(message.host, { directory: message.directory });
+      const worker = await startWorker(message.host, { directory: message.directory, idePort: message.idePort });
       process.send({ type: 'ready', url: worker.url, token: worker.token, instance: worker.instance, pid: process.pid });
       /* Serialized, because a worker that is drained the instant it is replaced is told both things
          at once and the handoff has to finish before the process goes away. */

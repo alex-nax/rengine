@@ -42,6 +42,127 @@ one masked case and one sabotage that proved nothing until it was corrected, in
 `docs/evidence/task-writes-2026-09-07.md`. Neither the write command nor the spawned CLI is mocked:
 both are real executables in the fixture, and the argv each was handed is read off a file.
 
+## Session 62 (macos) — 2026-09-07 — The IDE port may not move (KI-066)
+
+The layered update that delivered F100 ended this session's own IDE connection. That is the finding:
+not a hiccup, a defect in the feature shipped an hour earlier, and one that would have hit every
+connected pane on every update from then on.
+
+**What happened.** The bridge bound an ephemeral port per worker. `--layers workspace,desktop` moved
+rEdit from 49953 to 61709, and the CLI reported `WebSocket connection to 'ws://127.0.0.1:49953/'
+failed`. Claude Code reads a lock once and afterwards reconnects to the port it read; it never goes
+back to the directory to look again. So the feature whose entire premise is that new capabilities
+arrive *by* layered update was broken *by* layered updates, and the only visible symptom was an
+editor connection quietly gone.
+
+**The fix is where the lifetime is.** The port belongs to the runtime, not to the worker: the
+supervisor reserves one at startup, carries it in `runtime.json` as `idePort`, and hands the same
+number to every worker it starts. A worker starting during an update finds its predecessor still
+holding the port — the successor is started before the old one retires — so it retries for a bounded
+while instead of taking a free one. Taking a free one is the tempting fallback and it is precisely
+the bug: it succeeds, logs nothing, and silently ends every session. A worker that never gets the
+port publishes nothing and says why. Closing unlinks the lock before closing the socket, so the
+successor cannot bind and write the lock in the gap only for its predecessor to delete it.
+
+Regression: `the port survives a worker replacement, because the CLI reconnects to the one it read` —
+two bridges over one port, the second refusing to settle for another, taking it when the first closes,
+same port and same lock path, then serving a real client. Sabotage: restore the old
+fall-back-to-ephemeral and it goes red on `published` being true when it should be false.
+
+Gates: `npm test` 179/179, `native-updates` and `native-ide-selection` green against the supervisor
+change, `./init.sh` clean, sidecars stamped. KI-066 recorded and closed; spec 102 gains decision 8b.
+
+**The general lesson, since this is the second time this week.** A capability that rides the update
+path has to be tested *across* an update, not only after one. The tracker was reachable only after
+the host was replaced (KI-043 again, KI-062); this one worked perfectly until the first update and
+then died. Both were found by running the thing live rather than by reading the code.
+
+## Session 61 (macos) — 2026-09-07 — The editor tells the agent where the caret is (F100), and LSP becomes the direction (D37)
+
+**The owner chose the protocol.** F102 had offered two ways to make `getDiagnostics` true: parse a
+declared check action's output, or adopt LSP. *"LSP adoption looks great"* — so F102 is rewritten to
+adoption and recorded as charter **D37**, with parsed check output kept as a second source because a
+build reports failures no language server sees. The row is a rewrite rather than a follow-up because
+it was added an hour earlier in this same session and nothing had been built against it; the
+rationale and the owner decision are both recorded, which is what the work protocol asks. Servers are
+declared per project and never installed by rEngine, and the client belongs to the replaceable worker.
+
+**The selection contract confirmed itself by accident.** The shape pushed as `selection_changed` was
+invented from the CLI's vocabulary. The probe that proved the live bridge posted a real selection into
+the owner's own session, and it came back rendered as *"The user selected the lines 19 to 19 from
+…/ide.mjs"* — a zero-based line 18 shown as 19. So the shape is understood, lines count from zero,
+and the notification becomes conversation context rather than merely being accepted.
+
+**Counting characters is the whole of the C work.** The buffer holds code points; the protocol counts
+UTF-16 code units. The fixture line `const char *s = "🙂🙂";` answers 21, **23** and 27 depending on
+whether you count code points, UTF-16 units or bytes, which is why that line is in the fixture. The
+spec's first run failed at 23 against an expected 24 — the arithmetic in the test's own comment was
+wrong, not the code — and the expectation was corrected to what the rule produces.
+
+`re_editor_selection` walks the buffer once and converts both ends; the desktop reports only from the
+focused pane, only when the signature changes, and never faster than every 150 ms, so a held arrow
+key is not a frame's worth of notifications. The path within a root goes to the worker, which resolves
+it against the root it owns — the desktop names a root and a path exactly as it does everywhere else.
+
+Sabotages, each rebuilt and run alone: code points instead of UTF-16 units (`1:0-1:21`), a pane with
+no editor keeping the last selection standing (the Tasks tab still reporting `a.c|1:0-1:23`), and byte
+offsets (`1:0-1:27`). Plus the eight from slice 1 re-run green.
+
+Gates: `npm test` 178/178; `native-ide-selection.spec.mjs` green and registered in `test:desktop` and
+therefore in `suite-coverage`; desktop build clean under the picky warning set; `./init.sh`,
+`design.py check` and `features.py validate` clean; sidecars stamped and written back in the house
+format.
+
+**Not done, and said so in the row rather than dropped:** `at_mentioned` has its transport but no
+gesture. Which affordance sends it — a key chord, a pane control, a menu entry — is the owner's
+design choice, and inventing one silently is how an editor grows a gesture nobody can find. F100
+stays `passes: false` for that one criterion.
+
+## Session 60 (macos) — 2026-09-07 — rEdit is an IDE Claude Code will connect to (F99, spec 102, slice 1)
+
+The owner asked whether Claude Code's `/ide` integration could be used. It can, and now is: a real
+`claude` 2.1.263 in a pane shows **`Select IDE … 1. rEdit ✔`** and reports **`Connected to rEdit.`**
+
+**Read the binary first, then distrust it.** `/ide` discovers an editor by reading
+`~/.claude/ide/<port>.lock` — the port is the *filename*, nothing inside the file names it — and
+connecting over WebSocket. Two things the binary would not tell us decided the implementation, and
+both were settled by driving the real CLI rather than by reasoning:
+
+- **Print mode never connects.** `claude -p --ide` answered normally and opened zero sockets. Any
+  "verification" of this feature through `-p` would have been worthless. The probe moved to an
+  interactive CLI under a PTY.
+- **Where the token is presented** is not in the binary's strings. The first implementation hedged
+  across three plausible positions, which is the kind of hedge nothing ever disproves. The live
+  handshake settled it — `x-claude-code-ide-authorization`, plus a `mcp` subprotocol request — and
+  the hedge was deleted rather than left in.
+
+**The design point that would have failed silently.** The CLI only trusts a lock whose `pid` is
+alive and is one of the calling CLI's own first ten ancestors. In rEdit the desktop is never that:
+panes are PTYs the *session host* forked, so the chain is CLI ← shell ← host. The lock therefore
+names the session host — which has a second consequence, because the CLI collects a lock by noticing
+its pid is dead, and ours never will be. So the bridge unlinks its own lock at retirement and sweeps
+stale ones at startup, recognising its own by `rengineWorker`, a key the CLI's parser ignores. A lock
+naming the worker or the desktop produces no error anywhere; `/ide` just lists nothing.
+
+The bridge lives in the workspace worker (`orchestrator/runtime/ide.mjs`), which is spec 101's rule
+applied one more time: it needs no PTY, no surface and no store state, so it arrives by a routine
+layered update. The host gained one field — its own `pid` on `/api/state`, beside the `stateDir` of
+spec 101, for the same reason and with the same process-table fallback for a host too old to say it.
+
+Slice 1 serves `getDiagnostics` (an empty list, which is the honest answer from an editor with no
+language server), requires the token, echoes the subprotocol, and turns a selection posted by the
+desktop into `selection_changed`. Slice 2 is the desktop's own selection reporting, `at_mentioned`,
+and `openDiff` with accept/reject in a pane.
+
+Gates: `ide.test.mjs` 7/7 with all **eight** sabotages red for their own assertion (including one
+that would have deleted VS Code's locks, and one that dropped the subprotocol); `npm test` 177/177;
+`./init.sh`, `design.py check` and `features.py validate` clean; sidecars stamped and written back in
+the house format. F99 `passes: false` — F74 is still blocked. Evidence:
+`docs/evidence/editor-as-claude-ide-2026-09-07.md`.
+
+One side effect worth naming: a worker publishes a real lock, so the suite used to write into the
+`/ide` menu of whoever ran it. `RENGINE_IDE_DIRECTORY` now points every test script at
+`.cache/ide-locks`, with a temp-directory fallback for a spec run directly.
 ## Session 59 (macos) — 2026-09-07 — Task-driven agents, recorded (F105, spec 103)
 
 Owner direction in the vtmb-vr workspace, after the token was seen live: the Sessions tab must revoke

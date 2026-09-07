@@ -115,6 +115,33 @@ int re_editor_scheme(const char *name) {
 void re_editor_readonly(ReEditor *e, bool enabled) { e->readonly = enabled; }
 const char *re_editor_mode(const ReEditor *e) { return !e->vim ? "Edit" : e->insert ? "Vim INSERT" : "Vim NORMAL"; }
 void re_editor_scrollbars(ReEditor *e, cJSON *array) { re_scrollbar_inspect(&e->vertical, array); re_scrollbar_inspect(&e->horizontal_bar, array); }
+
+/* One walk of the buffer converts both ends: the position is a line and a UTF-16 column, so a
+   character outside the basic plane advances the column by two while a tab advances it by one. */
+static void position(const ReEditor *e, int offset, int *line, int *character) {
+  *line = 0; *character = 0;
+  for (int i = 0; i < offset && i < e->length; i++) {
+    if (e->text[i] == '\n') { (*line)++; *character = 0; }
+    else *character += e->text[i] > 0xFFFF ? 2 : 1;
+  }
+}
+
+void re_editor_selection(const ReEditor *e, ReSelection *selection, char *text, int size) {
+  if (size > 0) text[0] = 0;
+  if (!e || !selection) return;
+  int a = e->state.select_start, b = e->state.select_end;
+  if (a == b) a = b = e->state.cursor;         /* no selection: both ends are the caret */
+  int from = re_min(a, b), to = re_max(a, b);
+  from = re_max(0, re_min(from, e->length)); to = re_max(0, re_min(to, e->length));
+  position(e, from, &selection->start_line, &selection->start_character);
+  position(e, to, &selection->end_line, &selection->end_character);
+  int length = 0;
+  for (int i = from; i < to && length + 5 < size; i++) {
+    char encoded[5]; int n = re_encode(e->text[i], encoded);
+    memcpy(text + length, encoded, (size_t)n); length += n;
+  }
+  if (size > 0) text[length] = 0;
+}
 /* One line's colours. The editor stores code points, the tokeniser reads bytes, so the line is
  * encoded once and each character's kind is looked up by its byte offset — see sidecar: syntax-spans */
 #define RE_SYNTAX_LINE_BYTES 4096

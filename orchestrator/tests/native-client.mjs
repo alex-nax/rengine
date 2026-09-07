@@ -3,6 +3,14 @@ import { once } from 'node:events';
 import { createInterface } from 'node:readline';
 import { setTimeout as delay } from 'node:timers/promises';
 import path from 'node:path';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+
+/* A native spec starts a real workspace, and a real workspace publishes an IDE lock for Claude Code
+   to find (spec 102). Without this, running a spec directly rather than through its npm script puts
+   a dead rEdit into the `/ide` menu of whoever ran it. */
+process.env.RENGINE_IDE_DIRECTORY ??= await mkdtemp(path.join(tmpdir(), 'rengine-spec-ide-'));
+
 
 export async function nativeClient(instance, { root = '', terminal = '', agent = '', game = '', env: extra = {} } = {}) {
   const executable = process.env.RENGINE_NATIVE_BINARY ?? path.resolve('.cache/desktop/bin', process.platform === 'win32' ? 'Release/rengine.exe' : 'rengine');
