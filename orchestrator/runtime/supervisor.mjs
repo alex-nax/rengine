@@ -66,6 +66,12 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
     if (!retired.has(worker) || preserved.has(worker) || worker.requests || worker.streams) return;
     retired.delete(worker); if (worker.child.connected) worker.child.send({ type: 'close' });
   };
+  /* Spec 095, Retirement: a replaced worker keeps draining its streams (spec 065) and hands the
+     stateful half — the ledger, the feed and the host subscription that mints game.* — to the
+     worker that replaced it, so one process owns them. Sent where the retirement is committed
+     rather than at the swap: a failed update restores the previous worker as the current one, and
+     a worker told it was retired would then be forwarding requests to itself. */
+  const notifyRetired = worker => { if (worker.child.connected) worker.child.send({ type: 'retired' }); };
   const list = async rootId => {
     await ownRoot(rootId);
     const values = await Promise.all([current, ...retired].map(async worker => {
@@ -166,7 +172,7 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
     } catch (error) {
       job.status = 'recovering'; job.error = error.message;
       if (candidate) candidate.child.kill();
-      if (previousWorker) { const rejected = current; current = previousWorker; retired.delete(previousWorker); retired.add(rejected); retire(rejected); }
+      if (previousWorker) { const rejected = current; current = previousWorker; retired.delete(previousWorker); retired.add(rejected); notifyRetired(rejected); retire(rejected); }
       connectorGeneration = previousConnector;
       try { await persist(); } catch (error) { job.persistenceError = error.message; }
       if (startedDesktop && record.child.exitCode === null && record.child.signalCode === null && !record.error) { record.child.kill(); await record.exited; }
@@ -176,7 +182,7 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
         catch (recovery) { job.recoveryError = recovery.message; }
       }
     } finally {
-      if (previousWorker) { preserved.delete(previousWorker); retire(previousWorker); }
+      if (previousWorker) { preserved.delete(previousWorker); if (retired.has(previousWorker)) notifyRetired(previousWorker); retire(previousWorker); }
       if (record) record.updating = false;
       job.finishedAt = Date.now(); if (job.status === 'recovering') job.status = 'failed'; active = null;
       recover();

@@ -42,7 +42,7 @@ lifecycle events that the holder's monitor watches. It does **not** add an acces
 | 1 | The instance issues **one token per project root**. It is held by at most one agent identity at a time, or by nobody. | Owner |
 | 2 | Any agent bound to that root may **contest**. A contest opens a window; if it is not rejected before the window closes, the token **transfers to the contester** at the deadline and the transfer is a feed frame. There is no separate claim call to forget. | Owner (contest, window, contester wins on silence); automatic transfer at the deadline recommended |
 | 3 | A contest may be **rejected by the holder** — the notification lands on its monitor for exactly this — **or by the person at the desktop**. The person may also grant at once, revoke, or free the token. The holder's reject is a **liveness proof**: a holder that can answer a contest keeps the token, one that cannot is by definition not holding it, so the token is always held by an agent that is actually there. | Owner (2026-09-07): "Yes token holder may reject - it's the mechanism that ensures that token will be held by at least one agent." |
-| 4 | The **extended set** is every tool that starts, stops, replaces or captures something the project owns: `launch_game`, `stop_session`, `open_script`, `dashboard_capture`, `reload_desktop`, `update_workspace`, and the recording controls when they exist. Reading never needs the token. | Owner ("an extended set of mcp commands"); the membership is recommended |
+| 4 | The **extended set** is every tool that starts, stops, replaces or captures something the project owns: `launch_game`, `stop_session`, `open_script`, `dashboard_capture`, `reload_desktop`, `update_workspace`, and the recording controls when they exist. Reading never needs the token. Extended 2026-09-07, when spec 098 added one: **`restart_agent`** stops that pane's child and starts it again, which is `stop_session` by another name, so it is gated the same way and intercepted in the worker before the forward, exactly as `/api/stop` is. | Owner ("an extended set of mcp commands"); the membership is recommended |
 | 5 | Without the token those tools **refuse by name**: who holds it, since when, and that `token_contest` is the way forward. Nothing is attempted. A **free** token is refused the same way, naming that it is free and that `token_contest` claims it at once — holding is deliberate, so every hold is a frame somebody can read. | House discipline (spec 078, *Who serves what*); the free-token reading is recommended |
 | 6 | The person at the desktop is **never gated**. A dashboard click, a Stop, a record toggle are the owner's acts; the token arbitrates agents. | Recommended; follows from decision 3 |
 | 7 | The **feed** is a stream of lifecycle frames only — token transitions, game sessions starting and ending, device-bound actions starting and ending, captures starting and being committed, workspace layers replaced — each with a monotonic sequence, resumable by cursor. PTY output never appears on it. | Owner (the listed events, "but not limited to"); the frame set is recommended |
@@ -313,16 +313,13 @@ One **status-bar segment** (`re_app_status`, `workspace.c`) per window: *Token �
 forwarding, and pushes its own to every desktop on the same socket, so the segment updates without
 polling. No new pane.
 
-**Where this meets spec 065, and does not fit.** `/events` is a stream, and spec 065 says existing
-streams finish through the replaced worker rather than being interrupted to unload code. Putting a
-*stateful* service on that stream means that after `update_workspace` with `layers: ['workspace']`
-and a desktop attached, two workers own one ledger: the desktop reads and writes the retired one
-while agents read and write the current one, and both mint feed frames into the same file with
-colliding sequences. Measured end to end in
-[the e2e evidence](../evidence/project-token-e2e-2026-09-07.md); the obvious fix — the supervisor
-closing the replaced worker's tunnelled sockets — makes the scenario pass and breaks 065's own
-regression, so the choice between them is the owner's: **KI-061**. Until it is made, replace the
-`workspace` and `desktop` layers together whenever a desktop is attached.
+**Where this meets spec 065.** `/events` is a stream, and spec 065 says existing streams finish
+through the replaced worker rather than being interrupted to unload code. Putting a *stateful*
+service on that stream meant that after `update_workspace` with `layers: ['workspace']` and a
+desktop attached, two workers owned one ledger: the desktop read and wrote the retired one while
+agents read and wrote the current one, and both minted feed frames into the same file with colliding
+sequences. Measured end to end in [the e2e evidence](../evidence/project-token-e2e-2026-09-07.md),
+recorded as **KI-061**, and answered by *Retirement* below.
 
 The worker side of this is built (stage 2). The three frames that cross this socket are **pinned**
 (owner-coordinated, 2026-09-07) and the worker conforms to them exactly.
@@ -412,6 +409,61 @@ fixture drives a stand-in for the worker's interception rather than the worker, 
 asserts what a `token-action` does to a ledger — those are criteria 3, 4 and 7, and stage 2's
 evidence carries them.
 
+## Retirement
+
+Added 2026-09-07, closing KI-061. The two specs do not disagree about *whether* a replaced worker
+keeps serving; they disagree about *what*. So retention is **by kind**, and the kinds are already
+distinct: a terminal or surface view is a stream of somebody else's bytes, and the ledger is a
+service with one writer. Views keep draining through the replaced worker exactly as spec 065 says —
+its regression, `runtime.test.mjs:91`, is unchanged and stays the floor. The token/feed service hands
+off to the current worker.
+
+The supervisor's part is one message, `{ type: 'retired' }`, sent to the replaced worker's child at
+the point the retirement is **committed** — the `finally` that releases it from `preserved`, and the
+rollback that retires a rejected candidate. Not at the swap: a failed update restores the previous
+worker as the current one, and a worker already told it was retired would then be forwarding requests
+to itself. Under an older supervisor the message never arrives and the worker behaves exactly as it
+did before, which is the pre-KI-061 behaviour rather than a new failure.
+
+A worker that receives it:
+
+- **terminates its subscription to the host's `/events` and never resubscribes**, and gives up its
+  ledger, so it mints nothing and never writes `token.json` or `feed.json` again. One writer per
+  root is what makes the sequence a monitor resumes by mean something.
+- **closes its own `/feed` clients** with a close reason naming retirement, so a monitor re-reads
+  `feed_url` and reattaches to the current worker from the cursor it had — which is what the cursor
+  is for, and what the *feed* section already says happens when the workspace layer is replaced.
+- **answers `GET /api/token`, `POST /api/token-action`, `GET /api/feed`, `POST /api/recording` and
+  `POST /api/preferences` by forwarding to the current worker through the supervisor.** It finds the
+  supervisor in the runtime descriptor already in its own directory (`runtime.json`, read by
+  `discoverRuntime`) — no environment variable, no new descriptor. The preferences write forwards
+  whole: the current worker splits `tokenWindowMs` from the rest exactly as this one did. Everything
+  else the worker serves is unchanged, and in practice unreachable anyway, because the supervisor
+  routes every HTTP request to the current worker; what makes forwarding worth having is the URL and
+  capability `feed_url` handed out before the replacement.
+- **forwards its retained desktops' frames.** A `token-action` or `recording` frame from a retained
+  socket becomes `POST /api/token-action` / `POST /api/recording` on the current worker, with the
+  desktop actor carried as `X-Rengine-Desktop: <desktopId>`. The current worker honours that header
+  **only when no agent header is present**, and answers `by: { kind: 'desktop', desktopId }` exactly
+  as it does for a desktop on its own socket. Like the agent header, this is loopback arbitration and
+  not security: every participant already holds the workspace capability (*What the token is not*).
+  A refusal comes back as the socket's ordinary `{ type: 'error', error }`, unchanged.
+- **relays `token` pushes back.** For each root its retained desktops registered it subscribes to the
+  current worker's feed (`GET /api/feed?rootId` through the supervisor hands back `socket`), and on
+  every `token.*` frame it re-reads `GET /api/token?rootId` and pushes the pinned flat `token` frame
+  to those sockets; also on a fresh `desktop-register` after retirement. `Ledger.segment()` and the
+  relay build that frame through one function, so **the frame text on the desktop's socket is
+  unchanged** and the desktop needs no change at all — `orchestrator/native/*` is untouched.
+
+Consequences worth stating. A retained desktop's controls are answered a round trip later than a
+locally-served one, and the answer arrives as the relayed push rather than as a locally-built one;
+the desktop cannot tell. And the desktop keeps its identity: the `desktopId` is the one the retired
+worker minted at `desktop-register`, which is also the id `GET /api/desktops` lists for it, because
+the supervisor asks every retired worker as well as the current one.
+
+Evidence: [`token-retirement-2026-09-07.md`](../evidence/token-retirement-2026-09-07.md), fifteen
+sabotages including the reverted alternative as a control.
+
 ## MCP tools
 
 The gate a tool applies has two halves. `agentToken: 1` says the worker serves the ledger; a tool
@@ -422,7 +474,7 @@ which is what keeps `update_workspace` able to prepare its own replacement.
 
 | tool | token | does |
 | --- | --- | --- |
-| `token_status` | read | holder, open contest with seconds remaining, whether the caller holds it, cooldowns, identities seen |
+| `token_status` | read | holder, open contest with seconds remaining, whether the caller holds it, cooldowns, identities seen — and, since 2026-09-07, the root's persisted conversations (spec 097) folded in as identities it has not yet seen on the wire, each marked `conversation: true`. The ledger only learns an `agentId` from a header, so a lane that has not called anything would otherwise be invisible here and un-nameable in a refusal. Nothing is minted, and an identity the ledger has actually seen always wins over the persisted record of the same id. |
 | `token_contest` | — | opens a contest or claims a free token; returns `{ state: 'claimed' \| 'pending', deadline }`; refuses during the caller's cooldown, naming when it ends |
 | `token_reject` | holder | rejects the open contest with a reason the contester will read |
 | `token_release` | holder | frees the token, or hands it to an open contest's contester at once |

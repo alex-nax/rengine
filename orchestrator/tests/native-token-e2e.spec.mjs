@@ -131,8 +131,9 @@ test('the real ledger drives the real segment, and the real popover drives the r
      proved the ledger survives the worker that recorded it; what this adds is the supervisor under
      it — a real replacement rather than a close-and-reopen — and the boundary the two specs meet at.
      Spec 065 is explicit that existing streams finish through the previous worker, so the attached
-     desktop keeps reading the worker it registered on while the agents read the new one. The
-     desktop's own half of criterion 7 therefore cannot be asserted here, and is not: see KI-061. */
+     desktop keeps reading the worker it registered on; spec 095's Retirement then hands the ledger,
+     the feed and the host subscription to the replacement, so the desktop's own half of criterion 7
+     is asserted below rather than deferred to KI-061. */
   const held = await contest(supervisor, root.id, alice);
   assert.equal(held.state, 'claimed');
   const open = await contest(supervisor, root.id, opencode, 'replacing the layer');
@@ -163,6 +164,33 @@ test('the real ledger drives the real segment, and the real popover drives the r
   assert.deepEqual(replayed.frames.map(frame => frame.type), ['workspace.updated'],
     'the replacement announced its own generation on the feed the ledger carried across');
   assert.equal(replayed.frames[0].by.kind, 'workspace');
+
+  /* 6. The desktop's half of criterion 7, which KI-061 made impossible to assert: the stream stays
+     where spec 065 put it and the ledger moves. The monitor opened on the worker that was replaced
+     is closed with a reason naming retirement; the person's Reject on the real popover, sent on the
+     socket that still drains through that worker, lands on the ledger the agents read; and the
+     segment follows the ledger the replacement serves. */
+  const closed = await Promise.race([feed.closed,
+    new Promise((_, reject) => { setTimeout(() => reject(new Error('Timed out: the retired worker closes its feed clients')), 20000).unref?.(); })]);
+  assert.match(closed.reason, /retired/i, `the monitor is told why it has to reattach: ${closed.reason}`);
+  const served = await feedSocket(supervisor, `${(await tokenState(supervisor, root.id)).feed}&after=${cursor}`);
+  t.after(() => served.close());
+
+  await popover(gui);
+  await gui.control('token', 'reject');
+  const answered = await until(() => served.frames.find(frame => frame.type === 'token.rejected'),
+    "the popover's Reject reaches the ledger the replacement serves");
+  assert.equal(answered.by.kind, 'desktop', 'still the person, through a worker that no longer owns the ledger');
+  assert.equal(answered.by.desktopId, desktopId, 'still naming the desktop the supervisor listed');
+  assert.equal(answered.contestId, open.contestId, 'answering the contest that was open across the replacement');
+  const settled = await tokenState(supervisor, root.id);
+  assert.equal(settled.holder.agentId, alice.agentId, 'the holder the person kept is the one the agents read');
+  assert.equal(settled.contest, null, 'and the contest is closed there, not on a ledger nobody reads');
+  state = await gui.until(s => s.token.segment === 'Token · claude' && s.token.contest === null,
+    'and the segment follows the current ledger through the socket it still drains through');
+  assert.equal(state.token.holder.agentId, alice.agentId);
+  const cooled = await api(supervisor, 'token-action', { rootId: root.id, action: 'contest' }, opencode);
+  assert.equal(cooled.status, 409, "the desktop's rejection cost the contester a cooldown on the current ledger");
 
   /* Nothing on the feed is a byte a process printed, and the sequence never rewound across the
      replacement — the whole conversation above is one monotonic run. */
