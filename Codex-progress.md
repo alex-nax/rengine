@@ -1,5 +1,47 @@
 # Progress Log
 
+## Session 60 (macos) — 2026-09-07 — Token-serialised task writes and task-driven spawns (F105, spec 103)
+
+The workspace half of spec 103, on `feat/task-writes`: decisions 2–4 and 6–9, plus decision 5's
+`assign` for the Tasks pane's *Hold token*. The native halves (Sessions-tab Revoke/Free, the Tasks
+pane's control cluster) are separate lanes against these routes; F105 stays `passes: false` until
+they land.
+
+- **Contract 6** in `contracts/project-v1.schema.json`: `tracker.write` (literal argv naming
+  `${json}`, `provider: "local"` only, its own contract floor inside a contract-5 block) and a
+  top-level `agents` menu (`cli`, `models[]`, `default`; unique clis, default one of its models). A
+  contract-5 declaration reads exactly as it did.
+- **`POST /api/task`** (`add` | `update` | `decompose`), `orchestrator/runtime/worker.mjs` over the
+  new `orchestrator/server/tasks.mjs`: token-gated, then serialised per root **behind** that gate, so
+  a non-holder is refused without waiting for anybody and two holders in sequence queue rather than
+  interleave. It runs the project's own declared command — no shell, cwd the root, bounded like a
+  format preview — and hands back its stdout (parsed when it is JSON) with the refreshed row list.
+  Every refusal names what is missing and says nothing ran.
+- **`POST /api/agent-spawn`**: the chosen CLI and model through the host's terminal route, the
+  rendered prompt as the CLI's positional initial argument, then `task` recorded on the conversation.
+  **`GET /api/agents-menu`**: the declared menu or rEngine's known lists, plus the live agent panes
+  with the task each is working. Feed frames `task.added`, `task.updated`, `agent.spawned`.
+- **Prompts** shipped at `orchestrator/templates/prompts/{task,decompose}.md`, overridable at
+  `.rengine/prompts/<name>.md`; a placeholder a project misspells is named in the refusal.
+- **MCP**: `task_add`, `task_update`, `task_decompose`, `spawn_agent` (holder only) and
+  `list_agents_menu` (read), gated on `taskWrites`/`agentSpawn`/`agentsMenu`.
+- **Ledger**: desktop action `assign` hands the token to a named identity at once, settling an open
+  contest as rejected-by-desktop **without charging its cooldown**, resolving the label through the
+  ledger's identities or the project's remembered conversations, and refusing an unknown id by name.
+
+**The host is not unchanged in one way; it is unchanged in two.** The pinned route already accepted
+`args` for an agent pane and **dropped them** — `spawnTerminal` overwrites `argv` for `type: 'agent'`
+— so a spawn through the untouched host would have started a CLI with no model flag and no prompt and
+looked entirely successful. The host now forwards them after `--`, alongside accepting `task` on the
+conversation record; both are announced as `taskConversations: 1` and `/api/agent-spawn` refuses by
+name without it. Recorded as a correction in spec 103; the spec-098 order is unchanged.
+
+Gates: `node --test orchestrator/tests/*.test.mjs` **179/179** (170 before). Nine new tests in
+`orchestrator/tests/task-writes.test.mjs`, each observed red for its own reason — 21 sabotage rows,
+one masked case and one sabotage that proved nothing until it was corrected, in
+`docs/evidence/task-writes-2026-09-07.md`. Neither the write command nor the spawned CLI is mocked:
+both are real executables in the fixture, and the argv each was handed is read off a file.
+
 ## Session 59 (macos) — 2026-09-07 — Task-driven agents, recorded (F105, spec 103)
 
 Owner direction in the vtmb-vr workspace, after the token was seen live: the Sessions tab must revoke

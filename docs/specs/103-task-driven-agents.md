@@ -110,3 +110,46 @@ with one acceptance criterion, none implemented; report the ids; release the tok
 8. Everything above ships in replaceable layers (worker, connector, desktop); the host is unchanged
    except that the conversation record accepts `task`, which lands at the next replacement and is
    refused by name before it.
+
+## What shipped (the workspace half, 2026-09-07)
+
+Decisions 2–4 and 6–9, plus decision 5's `assign` for the Tasks pane's *Hold token*, are in
+`contracts/project-v1.schema.json`, `orchestrator/server/tasks.mjs`, `orchestrator/runtime/worker.mjs`,
+`orchestrator/runtime/token.mjs`, `orchestrator/agents/mcp-worker.mjs` and
+`orchestrator/templates/prompts/`. The native halves — the Sessions tab's Revoke/Free and the Tasks
+pane's control cluster — are separate lanes against the routes below. Evidence, including the
+sabotage table, is [task-writes-2026-09-07](../evidence/task-writes-2026-09-07.md). Corrections
+against the paragraphs above, each because the code says otherwise:
+
+- **The host is not unchanged in one way; it is unchanged in two.** Criterion 8 says the host changes
+  only to accept `task` on the conversation record. It also had to **forward an agent pane's `args`
+  to its CLI**: `spawnTerminal` overwrites `argv` for `type: 'agent'` and, before this, accepted the
+  caller's `args` and dropped them. A spawn through the unchanged route therefore started a CLI with
+  no model flag and no prompt, and looked entirely successful doing it. Both changes are announced as
+  one capability, `taskConversations: 1`, and `/api/agent-spawn` refuses by name without it — so the
+  spec-098 order still holds, and the refusal covers the silent half as well as the visible one.
+- **The neutral row gained `criteria`.** The prompt defaults say the brief carries the task's
+  criteria, and spec 083's row carried none. `criteria` is now part of the row, filled from the local
+  inventory's `acceptance_criteria` and empty for a remote provider, whose issue body is prose rather
+  than criteria.
+- **`task_decompose` writes one child row, not a plan.** Decision 2 lists it among the write tools and
+  decision 5 gives Decompose to an agent brief; the tool is therefore the write a decomposition makes:
+  the declared command with `action: "decompose"` and a **required** `parent`. A decompose write with
+  no parent is refused rather than filed at the top level.
+- **The `${json}` document is the row plus two fields the workspace knows.** `action` and, when there
+  is one, `parent` are added to the row, with `action` written **last** so a row carrying its own
+  `action` cannot rename the call.
+- **`tracker.write`'s contract floor is checked inside the block.** The `tracker` block is contract 5
+  and only this key is contract 6, so the floor is a tracker cross-rule rather than a section
+  minimum; `agents` is a plain root field and is checked beside `title`/`icon`.
+- **Three capabilities, not one.** `taskWrites: 1` and `agentSpawn: 1` are advertised only by a worker
+  that owns the ledger, because both are gated and both mint a feed frame; `agentsMenu: 1` is
+  advertised by every worker with the route, because reading the menu needs no ledger.
+- **`assign` refreshes the host state first.** It resolves an id against the conversations the project
+  remembers, and the desktop's `/events` socket has no other reason to re-read them, so a conversation
+  started since the worker did would otherwise be an id the frame could not name.
+- **The declaration template is prose, not JSON.** `orchestrator/templates/project/project.json` is a
+  contract-3 reference a consumer copies from, and JSON carries no comments; contract 6's two keys are
+  documented in `orchestrator/templates/project/README.md` instead, with the schema-freeze order
+  (spec 098) stated beside them. rEngine's own `.rengine/project.json` stays where it is: declarations
+  change last.
