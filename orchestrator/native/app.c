@@ -737,11 +737,14 @@ void re_app_close(ReApp *a) {
     cJSON_Delete(a->tabs[i].data); re_recording_close(a->tabs[i].recorder); re_terminal_close(a->tabs[i].terminal);
     re_editor_close(a->tabs[i].editor); re_game_close(a->tabs[i].game); re_format_close(a->tabs[i].format);
   }
-  re_socket_close(a->events); re_net_close(a->net); cJSON_Delete(a->state); cJSON_Delete(a->previous_layout); cJSON_Delete(a->controls); cJSON_Delete(a->formats); cJSON_Delete(a->dashboards); cJSON_Delete(a->dashboards_opened); free(a);
+  re_socket_close(a->events); re_net_close(a->net); cJSON_Delete(a->state); cJSON_Delete(a->previous_layout); cJSON_Delete(a->controls); cJSON_Delete(a->conversations); cJSON_Delete(a->formats); cJSON_Delete(a->dashboards); cJSON_Delete(a->dashboards_opened); free(a);
 }
 cJSON *re_app_inspect(ReApp *a) {
   cJSON *j = serialize(a); cJSON_AddStringToObject(j, "status", a->status); cJSON_AddBoolToObject(j, "connected", a->connected); cJSON_AddStringToObject(j, "root", a->root);
   if (a->controls) cJSON_AddItemToObject(j, "controls", cJSON_Duplicate(a->controls, 1));
+  /* The Sessions tab's conversation rows as the interface pass drew them, so a test reads the
+     token mark from the same derivation the row carries rather than re-deriving it (spec 103). */
+  if (a->conversations) cJSON_AddItemToObject(j, "conversations", cJSON_Duplicate(a->conversations, 1));
   cJSON_AddItemToObject(j, "state", cJSON_Duplicate(a->state, 1)); cJSON_AddNumberToObject(j, "focus", a->focus);
   cJSON_AddNumberToObject(j, "width", a->width); cJSON_AddNumberToObject(j, "height", a->height);
   /* The settings a person can change, so a test and a second window can read what this one holds. */

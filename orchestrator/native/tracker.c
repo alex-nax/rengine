@@ -174,21 +174,14 @@ static void spawn(ReApp *a, int tab, const char *task, const char *cli, const ch
 }
 
 /* Hold token is not the popover's Grant: a grant answers a contest that is open, and this asks the
-   ledger to give the token to a named identity whether it is free, held or contested. It travels on
-   the same `token-action` frame the popover's gestures use, as a new `assign` action. */
+   ledger to give the token to a named identity whether it is free, held or contested. It leaves
+   through the desktop's one token-action sender, as a new `assign` action naming this tab's root. */
 static void hold(ReApp *a, int tab, const ReLiveEntry *who) {
   char note[512];
-  cJSON *j = cJSON_CreateObject();
-  cJSON_AddStringToObject(j, "type", "token-action");
-  cJSON_AddStringToObject(j, "action", "assign");
-  cJSON_AddStringToObject(j, "rootId", a->tabs[tab].root);
-  cJSON_AddStringToObject(j, "agentId", who->agent);
-  char *text = cJSON_PrintUnformatted(j);
-  bool sent = text && re_socket_send(a->events, text);
-  free(text); cJSON_Delete(j);
-  if (sent) snprintf(note, sizeof(note), "Asked the workspace to give this project's token to %s; the ledger answers with the next token frame.", who->label);
-  else re_copy(note, sizeof(note), "Session connection is down; the token was not assigned.");
-  re_copy(a->status, sizeof(a->status), note);
+  if (re_token_assign(a, a->tabs[tab].root, who->agent)) {
+    snprintf(note, sizeof(note), "Asked the workspace to give this project's token to %s; the ledger answers with the next token frame.", who->label);
+    re_copy(a->status, sizeof(a->status), note);
+  }
   chooser_close();
 }
 

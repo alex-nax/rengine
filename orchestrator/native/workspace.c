@@ -268,6 +268,42 @@ static void resume_conversation(ReApp *a, const char *rootId, const char *agent,
   cJSON_AddBoolToObject(j, "resume", true);
   re_app_action(a, "terminal", j); cJSON_Delete(j);
 }
+/* The token controls the Sessions tab offers beside the agent that holds it (spec 103 decision 1).
+   Revoke while its process is there, Free once it is gone; both go through token.c's one sender, so
+   the row and the popover send one contract. A row that holds nothing spends the column on nothing. */
+static void token_control(ReApp *a, mu_Context *ui, const char *key, const char *action) {
+  if (!*action) { re_ui_label_ex(ui, "", RE_UI_MUTED | RE_UI_SMALL); return; }
+  bool revoke = !strcmp(action, "revoke");
+  if (re_ui_button_ex(ui, revoke ? "Revoke" : "Free", revoke ? RE_ICON_CLOSE : RE_ICON_HOLLOW,
+                      RE_UI_SMALL | (revoke ? 0 : RE_UI_GHOST))) re_token_action(a, action);
+  re_app_control(a, ui, revoke ? "conversation-revoke" : "conversation-free", key, -1);
+}
+/* What the row decided, reported from the row rather than re-derived, so a mark keyed on the wrong
+   id is red in the report as well as wrong on the screen. */
+static void conversation_reported(ReApp *a, const char *rootId, const char *agent, const char *conversation,
+                                  const char *sessionId, bool live, const char *action) {
+  if (!a->conversations) return;
+  cJSON *j = cJSON_CreateObject();
+  cJSON_AddStringToObject(j, "rootId", rootId);
+  cJSON_AddStringToObject(j, "agent", agent_name(agent));
+  cJSON_AddStringToObject(j, "conversation", conversation);
+  cJSON_AddStringToObject(j, "sessionId", sessionId);
+  cJSON_AddBoolToObject(j, "live", live);
+  cJSON_AddBoolToObject(j, "holdsToken", re_token_holds(a, conversation));
+  cJSON_AddStringToObject(j, "tokenAction", action);
+  cJSON_AddItemToArray(a->conversations, j);
+}
+/* The gesture a row offers for the token: none unless it is the holder, and then the one that fits
+   what the ledger says about the holder's process (decision 11). */
+static const char *conversation_token_action(ReApp *a, const char *conversation) {
+  if (!re_token_holds(a, conversation)) return "";
+  return re_token_holder_alive(a) ? "revoke" : "free";
+}
+static void conversation_row(mu_Context *ui) {
+  mu_layout_row(ui, 5, (int[]){-RE_METRIC_SESSIONS_ACTIONS_WIDTH - RE_METRIC_SESSIONS_STATE_WIDTH - RE_METRIC_SESSIONS_TOKEN_WIDTH,
+                               RE_METRIC_SESSIONS_STATE_WIDTH, RE_METRIC_SESSIONS_ATTACH_WIDTH,
+                               RE_METRIC_SESSIONS_TOKEN_WIDTH, -1}, RE_METRIC_SESSIONS_ROW_HEIGHT);
+}
 static void sessions_ui(ReApp *a, mu_Context *ui) {
   sessions_columns(ui, "Session", "State", "");
   const cJSON *session = NULL;
@@ -304,16 +340,18 @@ static void sessions_ui(ReApp *a, mu_Context *ui) {
       if (strcmp(re_string(s, "type"), "agent") || strcmp(re_string(s, "state"), "running")) continue;
       if (strcmp(re_string(s, "rootId"), rid)) continue;
       const char *sid = re_string(s, "id"), *conv = re_string(s, "conversation");
+      const char *action = conversation_token_action(a, conv);
       any_conversation = true;
       char key[80]; snprintf(key, sizeof(key), "c-%s", sid); mu_push_id(ui, key, (int)strlen(key));
-      mu_layout_row(ui, 4, (int[]){-RE_METRIC_SESSIONS_ACTIONS_WIDTH - RE_METRIC_SESSIONS_STATE_WIDTH, RE_METRIC_SESSIONS_STATE_WIDTH,
-                                   RE_METRIC_SESSIONS_ATTACH_WIDTH, -1}, RE_METRIC_SESSIONS_ROW_HEIGHT);
+      conversation_row(ui);
       char label[1024]; snprintf(label, sizeof(label), "%s · %s", agent_name(re_string(s, "agent")), root_name(a, rid));
-      re_ui_row_ex(ui, label, RE_ICON_AGENT, *conv ? "" : "names its own", 0, RE_UI_DISABLED);
+      re_ui_row_ex(ui, label, RE_ICON_AGENT, re_token_holds(a, conv) ? "token" : *conv ? "" : "names its own", 0, RE_UI_DISABLED);
       re_ui_pill(ui, "live", RE_UI_PILL_OK);
       if (re_ui_button_ex(ui, "Attach", RE_ICON_UNKNOWN, RE_UI_SMALL)) re_app_tab(a, RE_TERMINAL, rid, "", sid, re_string(s, "title"));
       re_app_control(a, ui, "conversation-attach", sid, -1);
+      token_control(a, ui, conv, action);
       re_ui_label_ex(ui, *conv ? "" : "not resumable", RE_UI_MUTED | RE_UI_SMALL);
+      conversation_reported(a, rid, re_string(s, "agent"), conv, sid, true, action);
       mu_pop_id(ui);
     }
     /* A conversation no pane holds: resume it. Its agent named it, so it always carries a usable id. */
@@ -321,16 +359,20 @@ static void sessions_ui(ReApp *a, mu_Context *ui) {
     cJSON_ArrayForEach(conv, cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(a->state, "conversations"), rid)) {
       const char *cid = re_string(conv, "id"); if (!*cid || *conversation_session(a, rid, cid)) continue;
       const char *agent = re_string(conv, "agent");
+      /* A hold outlives the process that took it (spec 095: the conversation IS the identity), so
+         the row a gone holder appears on is this one, and Free is what it can offer. */
+      const char *action = conversation_token_action(a, cid);
       any_conversation = true;
       char key[80]; snprintf(key, sizeof(key), "r-%s", cid); mu_push_id(ui, key, (int)strlen(key));
-      mu_layout_row(ui, 4, (int[]){-RE_METRIC_SESSIONS_ACTIONS_WIDTH - RE_METRIC_SESSIONS_STATE_WIDTH, RE_METRIC_SESSIONS_STATE_WIDTH,
-                                   RE_METRIC_SESSIONS_ATTACH_WIDTH, -1}, RE_METRIC_SESSIONS_ROW_HEIGHT);
+      conversation_row(ui);
       char label[1024]; snprintf(label, sizeof(label), "%s · %s", agent_name(agent), root_name(a, rid));
-      re_ui_row_ex(ui, label, RE_ICON_AGENT, "", 0, RE_UI_DISABLED);
+      re_ui_row_ex(ui, label, RE_ICON_AGENT, re_token_holds(a, cid) ? "token" : "", 0, RE_UI_DISABLED);
       re_ui_pill(ui, "past", RE_UI_PILL_NEUTRAL);
       if (re_ui_button_ex(ui, "Resume", RE_ICON_ARROW_UP, RE_UI_SMALL)) resume_conversation(a, rid, agent, cid);
       re_app_control(a, ui, "resume", cid, -1);
+      token_control(a, ui, cid, action);
       char age[64]; re_ui_label_ex(ui, describe_age(conv, age, sizeof(age)), RE_UI_MUTED | RE_UI_SMALL);
+      conversation_reported(a, rid, agent, cid, "", false, action);
       mu_pop_id(ui);
     }
   }
@@ -827,7 +869,8 @@ static void token_popover(ReApp *a, mu_Context *ui) {
 }
 
 void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
-  if (a->controls) { cJSON_Delete(a->controls); a->controls = cJSON_CreateArray(); }
+  if (a->controls) { cJSON_Delete(a->controls); a->controls = cJSON_CreateArray();
+                     cJSON_Delete(a->conversations); a->conversations = cJSON_CreateArray(); }
   int opts = MU_OPT_NOTITLE | MU_OPT_NORESIZE | MU_OPT_NOCLOSE | MU_OPT_NOSCROLL;
   a->width = width; a->height = height;
   re_ui_begin(re_draw_active(), (double)SDL_GetTicks64() / 1000.0); /* one clock for every control's transitions */
