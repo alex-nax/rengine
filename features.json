@@ -1389,6 +1389,7 @@
         "A CLI with no such option, or a workspace publishing no lock, launches exactly as it does today with nothing added to its command line.",
         "The option is carried by the agent launch configuration, so adding a CLI that supports it is a declaration rather than a code change.",
         "A pane whose root has no published lock does not pass the flag, because auto-connect that finds nothing is a startup error the person did not ask for.",
+        "Two workspaces can publish a lock for the same folder — the rEngine workspace binds vtmb-vr as a root while vtmb-vr's own workspace serves it too — and both are valid for a pane whose ancestor chain reaches either host. Claude Code auto-connects only when exactly one valid IDE is offered, so in that case the flag must not be passed: auto-connect that finds two editors is a startup the person did not ask to answer. The pane still gets `/ide`.",
         "Recorded explicitly: the launch environment is composed by the retained session host, so this reaches an existing workspace only when its host is replaced; the row is not complete until that is stated in the runbook.",
         "Each regression was observed failing for its own reason."
       ],
