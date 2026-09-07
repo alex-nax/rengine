@@ -9,6 +9,12 @@ import { checkConnection } from '../runtime/protocol.mjs';
 const mcpMain = fileURLToPath(new URL('./mcp.mjs', import.meta.url));
 const NAMED = ['claude', 'codex', 'gemini', 'opencode'];
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+// Which CLIs accept being told the conversation they are starting, and how to resume that one.
+// An agent absent from this table names its own; rEngine records no identifier it cannot resume.
+const CONVERSATIONS = {
+  claude: { start: id => ['--session-id', id], resume: id => ['--resume', id] },
+};
+export const agentConversation = agent => CONVERSATIONS[agent] ?? null;
 const object = (text, name) => {
   const errors = [];
   const value = parse(text, errors, { allowTrailingComma: true });
@@ -54,11 +60,17 @@ function sessionOf(provider, id, source) {
   const resume = provider === 'codex' ? `codex resume ${id}` : `claude --resume ${id}`;
   return { provider, id, known: source !== 'unknown', source, resume };
 }
-/* Only a minted id has to be told to the CLI; one the caller's own flags named is already the
-   conversation it will be, and a bound identity names a session that exists and is resumed. */
-const claudeStart = identity => identity?.session?.provider !== 'claude' ? []
-  : identity.session.source === 'minted' ? ['--session-id', identity.session.id]
-  : identity.session.source === 'bound' ? ['--resume', identity.session.id] : [];
+/* The conversation IS the identity, so exactly one identifier is ever named, and only when rEngine
+   is the one naming it: a launch whose own flags carry a session is passed through untouched, and a
+   launch that continues or forks is given nothing to claim an id the CLI keeps to itself. */
+export function conversationArgs(agent, identity, resume = false) {
+  const talk = agentConversation(agent);
+  const session = identity?.session;
+  if (!talk || !session || session.provider !== agent) return [];
+  if (session.source === 'bound') return talk.resume(session.id);
+  if (session.source === 'minted' || session.source === 'workspace') return resume ? talk.resume(session.id) : talk.start(session.id);
+  return [];
+}
 export function describeSession(identity) {
   const session = identity?.session;
   if (!session) return null;
@@ -69,8 +81,21 @@ export function describeSession(identity) {
 async function listedSessions(context) {
   try { return (await request(checkConnection(context), 'state')).sessions ?? []; } catch { return []; }
 }
-export async function agentIdentity({ agent, executable, args = [], handoff, session, pid = process.pid, sessions = [] }) {
-  const claude = agent === 'claude' ? (session ? { id: session, source: 'bound' } : claudeSession(args)) : null;
+/* Where the id comes from, in the order that decides it. The person's own flags win over the
+   workspace's, because the pane reports back what actually launched and the record follows the
+   launch; the workspace's minted conversation is the identity for every ordinary pane. */
+function claudeIdentity({ args, session, conversation, resume }) {
+  const named = claudeSession(args);
+  if (named.id || named.source === 'unknown') return named;
+  if (session) return { id: session, source: 'bound' };
+  if (conversation) {
+    if (typeof conversation !== 'string' || !UUID.test(conversation)) throw new Error('An agent conversation must be a UUID rEngine minted.');
+    return { id: conversation.toLowerCase(), source: 'workspace' };
+  }
+  return { id: null, source: 'minted' };
+}
+export async function agentIdentity({ agent, executable, args = [], handoff, session, conversation, resume = false, pid = process.pid, sessions = [] }) {
+  const claude = agent === 'claude' ? claudeIdentity({ args, session, conversation, resume }) : null;
   const codex = agent === 'codex' ? (session ?? handoff?.sessionId ?? null) : null;
   const agentId = claude?.id ?? codex ?? session ?? randomUUID();
   const identity = { agentId, label: agentLabel(agent, executable, agentId), pid, startedAt: new Date().toISOString(),
@@ -87,13 +112,13 @@ export function describeInvocation(plan) {
     shellQuote(plan.executable), ...plan.consumes.args.map(shellQuote)].join(' ');
 }
 
-export async function agentLaunch({ agent, executable, args = [], contextFile, context, directory, identity, handoff, env = process.env }) {
+export async function agentLaunch({ agent, executable, args = [], contextFile, context, directory, identity, handoff, conversation, resume = false, env = process.env }) {
   const root = context ?? JSON.parse(await readFile(contextFile, 'utf8'));
   if (!/^[0-9a-f-]{36}$/.test(root.rootId)) throw new Error('Invalid project identity in workspace context.');
   const name = `rengine_${root.rootId.replaceAll('-', '').slice(0, 12)}`;
   const home = path.join(directory ?? path.dirname(contextFile), `${name}-${randomUUID()}`);
   await mkdir(home, { recursive: true, mode: 0o700 });
-  const bound = identity ?? await agentIdentity({ agent, executable, args, handoff, sessions: await listedSessions(root) });
+  const bound = identity ?? await agentIdentity({ agent, executable, args, handoff, conversation, resume, sessions: await listedSessions(root) });
   const boundFile = await privateJson(path.join(home, 'context.json'), { ...root, agent: bound });
   const server = { type: 'stdio', command: process.execPath, args: [mcpMain, '--context', boundFile] };
   const generic = await privateJson(path.join(home, 'mcp.json'), { mcpServers: { [name]: server } });
@@ -102,7 +127,7 @@ export async function agentLaunch({ agent, executable, args = [], contextFile, c
   if (agent === 'codex') {
     consumes.args = ['-c', `mcp_servers.${name}.command=${JSON.stringify(server.command)}`,
       '-c', `mcp_servers.${name}.args=${JSON.stringify(server.args)}`, '-c', `mcp_servers.${name}.required=true`];
-  } else if (agent === 'claude') consumes.args = ['--mcp-config', generic, ...claudeStart(bound)];
+  } else if (agent === 'claude') consumes.args = ['--mcp-config', generic, ...conversationArgs(agent, bound, resume)];
   else if (agent === 'opencode') {
     const previous = env.OPENCODE_CONFIG_CONTENT ? object(env.OPENCODE_CONFIG_CONTENT, 'OpenCode runtime configuration') : {};
     consumes.env.OPENCODE_CONFIG_CONTENT = JSON.stringify({ ...previous,
@@ -117,6 +142,10 @@ export async function agentLaunch({ agent, executable, args = [], contextFile, c
       ...previous, mcpServers: add(previous.mcpServers, name, { command: server.command, args: server.args }),
     });
   } else plan.custom = true;
+  /* What the host's record should say this pane holds. `null` is the honest answer for a launch
+     that continues or forks: the identity is rEngine's own and no record may claim it names the
+     conversation. An agent absent from the table is recorded with nothing at all. */
+  if (agentConversation(agent)) plan.conversation = bound.session?.known ? bound.agentId : null;
   plan.args = [...consumes.args, ...args];
   plan.env = { ...env, RENGINE_MCP_CONFIG: generic, ...consumes.env };
   return plan;

@@ -4,7 +4,12 @@
 /* Operations at or above OP_BYTES belong to a format view and carry its mode in `revision`;
  * everything else must sort below it, or the request path reads a format that is not there. */
 enum { OP_STATE = 1, OP_LOAD, OP_SAVE, OP_DRAFT, OP_DISCARD, OP_CREATE, OP_ROOT, OP_GENERIC, OP_LAYOUT, OP_EXPAND,
-       OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_BYTES, OP_PREVIEW, OP_ENTRY };
+       OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_SIGNIN, OP_BYTES, OP_PREVIEW, OP_ENTRY };
+/* Enforced rather than remembered. A merge that appends a new operation after OP_BYTES makes the
+ * request path read a format a tracker or agent tab does not have, and the symptom is a request that
+ * never completes rather than an error where the mistake was made. */
+typedef char re_signin_sorts_below_bytes[OP_SIGNIN < OP_BYTES ? 1 : -1];
+typedef char re_expand_sorts_below_bytes[OP_EXPAND < OP_BYTES ? 1 : -1];
 static int request_within(ReApp *a, int operation, int tab, const char *route, const cJSON *body, long timeout) {
   char scoped[160]; const char *window = getenv("RENGINE_WINDOW_ID");
   if (window && *window && (!strcmp(route, "state") || !strcmp(route, "layout"))) {
@@ -222,6 +227,13 @@ static void tracker_request(ReApp *a, int tab, bool refresh) {
   request_within(a, OP_LOAD, tab, route, NULL, RE_DEVICES_TIMEOUT_MS);
 }
 void re_app_tracker_refresh(ReApp *a, int tab) { tracker_request(a, tab, true); }
+/* Sign-in is a round trip the desktop cannot shortcut: the service mints the challenge and owns the
+   loopback listener, and hands back only a URL to open, so no credential passes through here. */
+void re_app_tracker_signin(ReApp *a, int tab) {
+  cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "rootId", a->tabs[tab].root);
+  request(a, OP_SIGNIN, tab, "tracker/signin", j); cJSON_Delete(j);
+  re_copy(a->status, sizeof(a->status), "Opening the browser to sign in…");
+}
 int re_app_tracker(ReApp *a, const char *root) {
   if (!*root) return -1;
   return re_app_tab(a, RE_TRACKER, root, "", "", "Tasks");
@@ -516,6 +528,16 @@ static void response(ReApp *a, ReMessage *m) {
       enforce_row_cap(a, p.tab, e->path);
       break;
     }
+    case OP_SIGNIN:
+      if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(j, "ok"))) {
+        re_app_open_url(a, re_string(j, "url"));
+        re_copy(a->status, sizeof(a->status), "Finish signing in in the browser, then press Refresh.");
+      } else {
+        /* Before an application is registered there is nothing to open, so say what to do instead. */
+        const cJSON *setup = cJSON_GetObjectItemCaseSensitive(j, "setup");
+        snprintf(a->status, sizeof(a->status), "%s %s", re_string(setup, "step1"), re_string(setup, "step3"));
+      }
+      break;
     case OP_LOAD:
       t->discarding = false;
       cJSON_Delete(t->data); t->data = cJSON_Duplicate(j, 1); t->error[0] = 0;

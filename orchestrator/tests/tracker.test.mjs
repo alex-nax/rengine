@@ -47,6 +47,14 @@ test('the local backend reads the inventory and derives the same readiness the t
     assert.equal(fallback.provider, 'local');
     assert.equal(fallback.rows.length, 3);
 
+    // The common case, and the one this repository itself is in: a project that declares formats and
+    // a dashboard but no tracker at all. It must still show its own inventory rather than nothing.
+    const other = await project(directory, 'other',
+      { contract: 2, project: 'kohai', formats: [FORMAT], dashboard: { title: 'D', groups: [] } }, INVENTORY);
+    const implicit = await read(other);
+    assert.equal(implicit.provider, 'local', 'an older contract with no tracker block still reads its inventory');
+    assert.equal(implicit.rows.length, 3);
+
     // A project with neither says so rather than showing an empty list as if it were finished.
     const empty = await project(directory, 'empty', base({ provider: 'local' }), null);
     const missing = await read(empty);
@@ -106,6 +114,7 @@ test('a Linear team reaches the neutral row, and its states keep their own names
     assert.equal(seen.length, 1, 'one request');
     assert.equal(seen[0].auth, 'lin_api_fixture', 'a personal key is sent bare, with no Bearer prefix');
     assert.equal(seen[0].body.variables.team, 'KOH');
+    assert.equal(seen[0].body.variables.project, null, 'a team without a project filter passes null, not a missing variable');
 
     const [first, second] = result.rows;
     assert.equal(first.key, 'KOH-12');
@@ -126,6 +135,31 @@ test('a Linear team reaches the neutral row, and its states keep their own names
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
+test('a Linear tracker can narrow a team to one project', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-tracker-project-'));
+  forget();
+  try {
+    const root = await project(directory, 'kohai', base({ provider: 'linear', team: 'BAS', project: 'Kohai' }));
+    const declared = await readDeclaration(root);
+    assert.equal(declared.trackerError, undefined, declared.trackerError);
+    assert.equal(declared.tracker.project, 'Kohai');
+    const state = path.join(directory, 'state');
+    await mkdir(path.join(state, 'trackers'), { recursive: true });
+    await writeFile(path.join(state, 'trackers', 'kohai.token'), 'lin_api_fixture');
+    let variables = null;
+    await projectTracker(root, declared, { stateDirectory: state, fetch: async (url, options) => {
+      variables = JSON.parse(options.body).variables;
+      return { ok: true, status: 200, json: async () => ({ data: { issues: { nodes: [] } } }) };
+    } });
+    assert.equal(variables.team, 'BAS');
+    assert.equal(variables.project, 'Kohai', 'the project reaches the query, or the view shows the whole team');
+
+    // The filter belongs to Linear; naming it elsewhere is refused rather than ignored.
+    const wrong = await project(directory, 'wrong', base({ provider: 'github', repository: 'o/n', project: 'Kohai' }));
+    assert.match((await readDeclaration(wrong)).trackerError ?? '', /project belongs to provider linear/);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
 test('a tracker without a token, or without a network, says which and keeps what it had', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-tracker-degrade-'));
   forget();
@@ -135,7 +169,8 @@ test('a tracker without a token, or without a network, says which and keeps what
     const declared = await readDeclaration(root);
 
     const denied = await projectTracker(root, declared, { stateDirectory: state, fetch: async () => { throw new Error('unreachable'); } });
-    assert.match(denied.denied ?? '', /No Linear token.*trackers\/kohai\.token/, denied.denied);
+    assert.match(denied.denied ?? '', /Not signed in to Linear/, denied.denied);
+    assert.equal(denied.signIn, 'linear', 'and it says which provider to sign in to, so the view can offer it');
     assert.deepEqual(denied.rows, [], 'and no rows are invented');
 
     await mkdir(path.join(state, 'trackers'), { recursive: true });

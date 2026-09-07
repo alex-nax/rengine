@@ -9,6 +9,10 @@ const key = (rootId, file) => JSON.stringify([rootId, file]);
 /* Game-recording ring bounds (spec 081): both apply, whichever binds first. The desktop clamps
    again, so a hand-edited workspace file cannot ask for a ring larger than these. */
 const RECORDING = { seconds: [5, 900], bytes: [4 * 1024 * 1024, 1024 * 1024 * 1024], fps: [1, 30], width: [160, 1280], quality: [30, 95] };
+/* Conversations are remembered per root because the host's own session list dies with the host,
+   and surviving exactly that is the point of resuming into one. Bounded, most recent first. */
+const CONVERSATION_LIMIT = 20;
+const CONVERSATION_ID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 const within = (root, file) => { const rel = path.relative(root, file); return rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel); };
 export async function resolveInRoot(root, relative = '', allowMissing = false) {
   if (typeof relative !== 'string' || relative.includes('\0') || path.isAbsolute(relative)) fail('Use a path relative to its project root.');
@@ -40,7 +44,7 @@ export class WorkspaceStore {
   constructor(directory) {
     this.directory = directory;
     this.filename = path.join(directory, 'workspace.json');
-    this.state = { version: 1, roots: [], drafts: {}, layout: null, preferences: {} };
+    this.state = { version: 1, roots: [], drafts: {}, layout: null, preferences: {}, conversations: {} };
     this.persisting = Promise.resolve();
     this.files = new Map();
   }
@@ -180,6 +184,26 @@ export class WorkspaceStore {
     if (!layout || typeof layout !== 'object' || JSON.stringify(layout).length > 1024 * 1024) fail('Invalid workspace layout.');
     this.state.layout = layout;
     await this.persist();
+  }
+
+  listConversations(rootId) {
+    const all = this.state.conversations;
+    if (!all || typeof all !== 'object' || Array.isArray(all)) return [];
+    return (all[rootId] ?? []).map(entry => ({ ...entry }));
+  }
+
+  async recordConversation(rootId, { conversation, agent } = {}) {
+    if (typeof conversation !== 'string' || !CONVERSATION_ID.test(conversation)) fail('An agent conversation must be a UUID rEngine minted.');
+    if (agent !== undefined && (typeof agent !== 'string' || agent.length > 256)) fail('Invalid agent name for a conversation.');
+    if (!this.state.roots.some(root => root.id === rootId)) fail('Unknown project root.', 404);
+    if (!this.state.conversations || typeof this.state.conversations !== 'object' || Array.isArray(this.state.conversations)) this.state.conversations = {};
+    const list = this.state.conversations[rootId] ?? [];
+    const entry = list.find(item => item.id === conversation) ?? { id: conversation, startedAt: Date.now() };
+    entry.lastSeenAt = Date.now();
+    if (agent !== undefined) entry.agent = agent;
+    this.state.conversations[rootId] = [entry, ...list.filter(item => item !== entry)].slice(0, CONVERSATION_LIMIT);
+    await this.persist();
+    return { ...entry };
   }
 
   async preferences(values) {

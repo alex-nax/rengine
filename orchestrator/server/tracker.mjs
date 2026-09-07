@@ -11,6 +11,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fail } from './store.mjs';
+import { parseCredential, expiring, refresh } from './tracker-auth.mjs';
 
 const PROBE_TTL_MS = 30000;          /* one poll every 30 s is about 5% of a Linear key's budget */
 const CACHE_LIMIT = 64;
@@ -41,16 +42,22 @@ export function forget() { cache.clear(); }
 
 /* The token lives beside the workspace state and never in the committed declaration. Keyed by the
    declared project identity rather than a root id, so a person can create it by name. */
-export async function credential(stateDirectory, project) {
+export async function credential(stateDirectory, project, options = {}) {
   if (!stateDirectory || !project) return null;
   const file = path.join(stateDirectory, 'trackers', `${project}.token`);
+  let grant;
   try {
-    const text = await readFile(file, 'utf8');
-    return text.trim() || null;
+    grant = parseCredential(await readFile(file, 'utf8'));
   } catch (error) {
     if (error.code === 'ENOENT') return null;
     throw error;
   }
+  if (!grant) return null;
+  /* A signed-in grant is refreshed before it lapses; a pasted personal key never expires and is
+     handed back untouched. A refresh that fails keeps the token it had, because Linear allows the
+     request to be replayed for thirty minutes and a cleared grant could not use that. */
+  if (expiring(grant)) grant = await refresh(stateDirectory, project, grant, options);
+  return grant.accessToken ?? null;
 }
 
 /* The neutral row. State is (id, name, category) and never a boolean: a two-value enum cannot
@@ -106,8 +113,10 @@ async function localRows(root, block) {
 /* Linear. A personal API key sends the token bare, without a Bearer prefix, which is the one thing
    about its auth that surprises everyone. States are objects carrying a category, so they reach the
    neutral row without being flattened into open and closed. */
-const LINEAR_QUERY = `query Issues($team: String!, $first: Int!) {
-  issues(first: $first, filter: { team: { key: { eq: $team } } }, orderBy: updatedAt) {
+/* The project filter is optional and null-safe: passing null leaves the team unfiltered, so one
+   query serves both shapes rather than branching the document. */
+const LINEAR_QUERY = `query Issues($team: String!, $project: String, $first: Int!) {
+  issues(first: $first, filter: { team: { key: { eq: $team } }, project: { name: { eq: $project } } }, orderBy: updatedAt) {
     nodes {
       id identifier title url priority updatedAt
       state { id name type }
@@ -120,11 +129,11 @@ const LINEAR_QUERY = `query Issues($team: String!, $first: Int!) {
 const LINEAR_PRIORITY = [null, 'urgent', 'high', 'medium', 'low'];
 
 async function linearRows(block, token, fetchImpl) {
-  if (!token) return { rows: [], denied: `No Linear token. Put one in the workspace state directory as trackers/${block.project}.token` };
+  if (!token) return { rows: [], denied: 'Not signed in to Linear.', signIn: 'linear' };
   const response = await fetchImpl('https://api.linear.app/graphql', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
-    body: JSON.stringify({ query: LINEAR_QUERY, variables: { team: block.team, first: 100 } }),
+    body: JSON.stringify({ query: LINEAR_QUERY, variables: { team: block.team, project: block.project ?? null, first: 100 } }),
   });
   if (response.status === 401 || response.status === 403) return { rows: [], denied: 'Linear refused the token.' };
   if (!response.ok) return { rows: [], unavailable: `Linear answered ${response.status}.` };
@@ -159,7 +168,7 @@ async function linearRows(block, token, fetchImpl) {
 
 /* GitHub. State is open or closed with a reason, so the category is derived rather than read. */
 async function githubRows(block, token, fetchImpl) {
-  if (!token) return { rows: [], denied: `No GitHub token. Put one in the workspace state directory as trackers/${block.project}.token` };
+  if (!token) return { rows: [], denied: `No GitHub token. Put one in the workspace state directory as trackers/${block.identity}.token` };
   const url = `https://api.github.com/repos/${block.repository}/issues?state=all&sort=updated&direction=desc&per_page=100`;
   const response = await fetchImpl(url, {
     headers: {
@@ -198,13 +207,16 @@ export async function projectTracker(root, declared, options = {}) {
   if (declared.trackerError) return { ...base, contract: declared.contract, error: declared.trackerError };
   /* A project that declares no tracker still has its own inventory, which is the default backend. */
   const block = declared.tracker ?? { provider: 'local' };
-  const named = { ...block, project: declared.project ?? root.id };
+  /* `identity` is the declared project name the token file is keyed by; `project` inside the block
+     is Linear's project filter. Naming both `project` made the filter silently take the token's
+     value, which the tests caught by asserting the variable that reaches the query. */
+  const named = { ...block, identity: declared.project ?? root.id };
   const result = { ...base, contract: declared.contract, provider: block.provider };
   if (block.provider === 'local') return { ...result, ...(await localRows(root, block)), fresh: true };
 
   if (typeof fetchImpl !== 'function') fail('This build cannot reach a network tracker.', 501);
-  const token = await credential(options.stateDirectory, named.project);
-  const key = [root.id, block.provider, block.repository ?? block.team].join(' ');
+  const token = await credential(options.stateDirectory, named.identity, options);
+  const key = [root.id, block.provider, block.repository ?? block.team, block.project ?? ''].join(' ');
   if (options.refresh) cache.delete(key);
   const produce = () => (block.provider === 'linear'
     ? linearRows(named, token, fetchImpl)

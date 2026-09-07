@@ -970,7 +970,8 @@
         "docs/evidence/agent-identity-2026-09-07.md",
         "docs/evidence/project-token-2026-09-07.md",
         "docs/evidence/token-desktop-2026-09-07.md",
-        "docs/evidence/project-token-e2e-2026-09-07.md"
+        "docs/evidence/project-token-e2e-2026-09-07.md",
+        "docs/evidence/conversation-is-identity-2026-09-07.md"
       ]
     },
     {
@@ -996,6 +997,173 @@
       "evidence": [
         "docs/evidence/headless-start-macos-2026-09-07.md"
       ]
+    },
+    {
+      "id": 91,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "The surface owns its colour declaration: shellEnvironment sets TERM and COLORTERM, so a NO_COLOR inherited from whatever launched the workspace is dropped instead of being forwarded into every pane the session host will ever spawn, while an explicit override still suppresses colour.",
+      "acceptance_criteria": [
+        "A workspace launched from a shell carrying NO_COLOR=1 hands its panes an environment without it, and the pane still reports TERM=xterm-256color and COLORTERM=truecolor.",
+        "A caller that passes NO_COLOR in overrides still gets it, so a project action can ask for plain output on purpose.",
+        "The drop is case-insensitive on Windows, like every other name this function composes.",
+        "The regression was observed failing for its own reason before the fix: the inherited value reached the composed environment."
+      ],
+      "passes": true,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/096-agent-session-resume.md; shellEnvironment in orchestrator/server/sessions.mjs; orchestrator/tests/environment.test.mjs.",
+      "external_references": [],
+      "evidence": [
+        "orchestrator/tests/environment.test.mjs: the surface owns its colour declaration, so an inherited NO_COLOR never reaches a pane"
+      ]
+    },
+    {
+      "id": 92,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "Agent panes carry the conversation they hold: rEngine names one at launch for a CLI that accepts being told, records it on the session and reports it in workspace_info, and restart_agent replaces the pane's process on that same conversation with a freshly composed environment, leaving the retained session host and every other pane untouched.",
+      "acceptance_criteria": [
+        "A fresh claude pane is launched with --session-id naming a UUID rEngine minted, and that identifier appears on the session record and in workspace_info.",
+        "restart_agent stops the pane's child and starts a new one with --resume on the same identifier; the pane's process id changes, the session host pid does not, and no other session is affected.",
+        "An agent whose CLI names its own conversations, such as codex, is recorded with no identifier, receives none of the conversation arguments, and is refused by name on restart rather than started as a second conversation.",
+        "A pane never inherits another pane's conversation: the transport variables are cleared from the inherited environment before each spawn.",
+        "A retained session host that predates the capability refuses restart_agent by name and says replacing the host requires quiescence.",
+        "Each regression was observed failing for its own reason before the implementation existed.",
+        "LIVE, still outstanding: a real agent pane restarted from a host carrying this change continues the same conversation, recorded as evidence under docs/evidence/."
+      ],
+      "passes": false,
+      "dependencies": [
+        90,
+        91
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/096-agent-session-resume.md; agentConversation and agentLaunch in orchestrator/agents/config.mjs; orchestrator/agents/launch.mjs; spawnTerminal, snapshot and restartAgent in orchestrator/server/sessions.mjs; /api/agent-restart and the agentConversations capability in orchestrator/server/main.mjs; the restart_agent tool in orchestrator/agents/mcp-worker.mjs; orchestrator/tests/{agent-config,sessions}.test.mjs.",
+      "external_references": [],
+      "evidence": [
+        "orchestrator/tests/agent-config.test.mjs: rEngine names the conversation it launches and resumes that same one",
+        "orchestrator/tests/sessions.test.mjs: restarting refuses anything it cannot put back into its own conversation",
+        "orchestrator/tests/conversation-identity.test.mjs: a pane launch carries exactly one conversation, and that conversation is the identity",
+        "orchestrator/tests/conversation-identity.test.mjs: a person’s own --resume wins over the host’s conversation, and the record follows the launch",
+        "orchestrator/tests/conversation-identity.test.mjs: a launch that continues or forks reports no conversation rather than claiming a minted one",
+        "orchestrator/tests/conversation-identity.test.mjs: a restart puts the pane back on the same conversation, so the identity survives it",
+        "docs/evidence/conversation-is-identity-2026-09-07.md"
+      ]
+    },
+    {
+      "id": 93,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "Conversations outlive the session host that recorded them: the workspace persists them per project root, bounded and most recent first, and an agent pane offers the project's own conversations so resuming one is a choice in the pane rather than a command the person has to remember.",
+      "acceptance_criteria": [
+        "A conversation recorded by one session host is listed by a new host opened on the same state directory, most recently seen first, scoped to its own root.",
+        "Re-recording an existing conversation touches it and moves it to the front rather than adding a second row, and the list is bounded at 20 per root with the oldest dropped.",
+        "An agent pane whose project has history lists it with when each was last seen, and choosing one resumes that conversation instead of starting a second.",
+        "Enter starts a new conversation and keeps the identifier the workspace minted; an out-of-range choice starts a new conversation rather than guessing.",
+        "The offer is silent with no listing, an empty listing, or only another agent's rows, and a restart that already named its conversation is not asked again.",
+        "A workspace-minted identifier does NOT suppress the offer: a fresh pane still sees what it could resume instead.",
+        "The pane reports what it actually launched, so the session record and the persisted list follow the person's choice rather than what was minted.",
+        "LIVE, still outstanding: from a host carrying this change, a pane offers a prior conversation, resuming it continues that conversation, and the offer survives a host restart. Recorded under docs/evidence/."
+      ],
+      "passes": false,
+      "dependencies": [
+        92
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/097-agent-conversation-persistence.md; listConversations and recordConversation in orchestrator/server/store.mjs; the listing, describeAge and Sessions.recordConversation in orchestrator/server/sessions.mjs; the report in orchestrator/agents/launch.mjs; /api/agent-conversation and conversations on /api/state in orchestrator/server/main.mjs; scoped conversations in orchestrator/agents/mcp-worker.mjs; choose_conversation in scripts/agent.sh; orchestrator/tests/{conversations,conversation-picker}.test.mjs.",
+      "external_references": [],
+      "evidence": [
+        "orchestrator/tests/conversations.test.mjs: conversations outlive the session host that recorded them",
+        "orchestrator/tests/conversations.test.mjs: the remembered list is bounded, so a long-lived project cannot grow it without limit",
+        "orchestrator/tests/conversation-picker.test.mjs: a pane offers the conversations this project already has",
+        "orchestrator/tests/conversation-picker.test.mjs: a workspace-minted conversation is still offered the history, and Enter keeps the new one"
+      ]
+    },
+    {
+      "id": 94,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "A workspace's retained session host can be replaced on purpose: the launcher's --replace-host finds the host through its own descriptor and the process table (never pgrep), stops its update supervisor and then the host gracefully then forcefully, confirms the port is released, starts a fresh host from the current checkout, and reports what it stopped and started; it refuses by name a PID that serves another state directory or a launcher running inside the workspace it would replace, and a normal start says when the host is older than the code.",
+      "acceptance_criteria": [
+        "The host of a state directory is the PID its sidecar.json names, and only when ps shows that PID as server/main.mjs --state for that same directory; a PID that is another directory's host (vtmb-vr, nolf-improved, a worktree's preflight host), a supervisor, or any other process is refused by name with nothing signalled, and a dead PID is reported stale rather than refused.",
+        "A launcher whose ancestor chain contains the host PID is refused with a message to run from a terminal outside rEngine, and the host it runs inside is untouched.",
+        "Only a supervisor whose runtime.json names this host's instance, whose PID is alive and is supervisor.mjs, is stopped; it is stopped before the host; each process gets SIGTERM and SIGKILL only if SIGTERM is ignored, in that order.",
+        "Against a real throwaway host: the old PID exits, its port refuses connections, sidecar.json names a new live PID with a new instance, roots persist and sessions do not, and the report names the old PID, each ended running session, each signalled process and its outcome, and the new PID.",
+        "launch.mjs --headless --replace-host --state DIR comes up supervising a different host than the one that was there, and the generated .command forwards --replace-host unchanged.",
+        "A normal start prints which file changed after the host started and names --replace-host; it never replaces on its own.",
+        "Each regression was observed failing for its own reason: the directory comparison, the SIGKILL escalation, the ancestor refusal and the launcher's honouring of the flag were each removed in turn and only their own tests went red.",
+        "LIVE, still outstanding: the owner replaces the hirebase-v2 host (PID 68944, running since 2026-09-07 09:16:13) with `~/hirebase-v2.command --replace-host` from a terminal outside rEngine, and the tracker tab, terminal colour and conversation offer then match the checkout; recorded under docs/evidence/."
+      ],
+      "passes": false,
+      "dependencies": [
+        85
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/098-replace-session-host.md; orchestrator/launcher/replace.mjs (findHost, insideHost, findSupervisors, stopProcess, portReleased, hostAge, replaceHost); --replace-host and the host-age notice in orchestrator/launch.mjs; orchestrator/tests/replace-host.test.mjs.",
+      "external_references": [],
+      "evidence": [
+        "orchestrator/tests/replace-host.test.mjs: the host of a state directory is the PID its descriptor names, and only if that PID serves that directory",
+        "orchestrator/tests/replace-host.test.mjs: a refusal leaves the real host untouched: another directory claimed, or a launcher inside the workspace",
+        "orchestrator/tests/replace-host.test.mjs: replacing a throwaway host: the old one exits, its port closes, a new one answers, and the report says so",
+        "orchestrator/tests/replace-host.test.mjs: --headless --replace-host through the launcher comes up as a different host"
+      ]
+    },
+    {
+      "id": 95,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "The native Sessions tab is the place a person resumes or attaches agent work: it lists the bound project's agent conversations, offering Attach for one a live pane holds and Resume for one no pane holds, so getting back into a conversation is a choice in the desktop rather than a /resume typed by hand; a live agent that names its own conversations is attach-only and marked not resumable, and the two are deduplicated so a conversation a pane holds is never also offered for resume.",
+      "acceptance_criteria": [
+        "With conversations recorded for the project and no pane holding them, the Sessions tab lists them most recently seen first, each with a resume control keyed by its conversation id and no attach, and starts no session to make the offer.",
+        "Pressing Resume starts an agent pane bound to that exact conversation id with the resume flag, not a freshly minted one, so the person never types /resume or pastes an id.",
+        "A live agent pane offers Attach onto the running pane and is never offered for resume; a conversation a running pane holds appears once, as that pane's Attach.",
+        "A live agent that holds no conversation id (an agent that names its own) is shown attach-only and marked not resumable rather than offering a resume that would start a second conversation.",
+        "Each row shows the agent, whether it is live or past, and when it was last seen, using the describeAge wording; the desktop formats the persisted lastSeenAt and asks the service for no string.",
+        "The raw process list with its Stop control is unchanged; no colour or row-size literal enters a native source.",
+        "Each regression was observed failing for its own reason before the Conversations section existed.",
+        "LIVE, still outstanding: from a host carrying this change, the Sessions tab lists a prior conversation, Resume brings it back rather than starting a second, and a live pane offers Attach; recorded under docs/evidence/."
+      ],
+      "passes": false,
+      "dependencies": [
+        93
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/099-sessions-tab-resume.md; the Conversations section, describe_age, conversation_session and resume_conversation in orchestrator/native/workspace.c; orchestrator/tests/native-sessions.spec.mjs; its entry in package.json test:desktop.",
+      "external_references": [],
+      "evidence": [
+        "orchestrator/tests/native-sessions.spec.mjs: the Sessions tab offers a project's past conversations for resume, most recent first",
+        "orchestrator/tests/native-sessions.spec.mjs: Resume starts a pane bound to that same conversation, not a fresh one",
+        "orchestrator/tests/native-sessions.spec.mjs: a live agent that names its own conversations is attach-only and marked not resumable"
+      ]
+    },
+    {
+      "id": 96,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "Recover conversations the workspace never recorded: read the agent CLI's own session storage for the bound project and offer those alongside the ones rEngine minted, so a conversation started outside a pane, or one from before the workspace tracked it, is never lost.",
+      "acceptance_criteria": [
+        "For claude, conversations are discovered from its per-project session directory (the project path with separators replaced, one file per session id) and only that project's directory is read, so another project's conversations can never be offered.",
+        "For codex, the same is done through its own rollout storage, validating the session's recorded working directory against the project root, generalising what handoff.mjs already does for a single explicit id.",
+        "A discovered conversation is shown as discovered rather than recorded, with when it was last active; resuming one records it, after which it is an ordinary remembered conversation.",
+        "Discovery reads only what it needs to identify and date a session, never its content, and is bounded to the newest handful so opening the tab stays cheap.",
+        "An agent with no discoverable storage degrades to the recorded list rather than erroring.",
+        "The case that motivated this is covered: a conversation resumed from a terminal, which the workspace never spawned and so never recorded, still appears for its project."
+      ],
+      "passes": false,
+      "dependencies": [
+        93,
+        95
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "A spec under docs/specs/; discovery beside orchestrator/agents/handoff.mjs, whose codex rollout lookup is the existing precedent; surfaced through the same /api/state conversations path the Sessions tab already reads.",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }

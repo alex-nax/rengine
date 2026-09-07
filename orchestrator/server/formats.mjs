@@ -20,6 +20,7 @@ function trackerRules(block) {
     if (block.provider !== provider && block[key] !== undefined) problems.push(`$.tracker ${key} belongs to provider ${provider}`);
   }
   if (block.provider !== 'local' && block.inventory !== undefined) problems.push('$.tracker inventory belongs to provider local');
+  if (block.provider !== 'linear' && block.project !== undefined) problems.push('$.tracker project belongs to provider linear');
   return problems;
 }
 

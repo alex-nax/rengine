@@ -1,5 +1,8 @@
 import { spawn } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
 import { agentLaunch, describeSession } from './config.mjs';
+import { request } from '../launcher/sidecar.mjs';
+import { checkConnection } from '../runtime/protocol.mjs';
 import { readHandoff, waitForPresentation, resumeArgs, checkResume } from './handoff.mjs';
 
 const [agent, executable, contextFile, ...args] = process.argv.slice(2);
@@ -11,7 +14,18 @@ if (process.env.RENGINE_HANDOFF_GATE) {
   await checkResume(process.env.RENGINE_BASH, handoff.project, process.env);
   args.push(...resumeArgs(handoff));
 }
-const plan = await agentLaunch({ agent, executable, contextFile, args, handoff });
+const plan = await agentLaunch({ agent, executable, contextFile, args, handoff,
+  conversation: process.env.RENGINE_AGENT_CONVERSATION, resume: process.env.RENGINE_AGENT_RESUME === '1' });
+// The identity decided here is the single source: the workspace may have minted a conversation, the
+// person at the pane may have chosen another from the offered list, and their own --resume beats
+// both. Report the id the CLI was actually started with, so the record follows the launch — and
+// report null for a launch that continues or forks, so no record claims an id rEngine cannot resume.
+if (plan.conversation !== undefined && process.env.RENGINE_ORCHESTRATOR_SESSION) {
+  try {
+    await request(checkConnection(JSON.parse(await readFile(contextFile, 'utf8'))), 'agent-conversation',
+      { id: process.env.RENGINE_ORCHESTRATOR_SESSION, conversation: plan.conversation, agent });
+  } catch (error) { console.error(`The workspace was not told which conversation this pane holds: ${error.message}`); }
+}
 if (plan.custom) console.log(`Custom agent MCP configuration: ${plan.generic} (also RENGINE_MCP_CONFIG). Configure this CLI to consume it.`);
 else console.log(`Workspace MCP: ${plan.name}`);
 const session = describeSession(plan.identity);

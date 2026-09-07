@@ -91,12 +91,48 @@ update_agent() {
   esac
 }
 
+# Offer the conversations this project already has for the chosen agent, so resuming one is a
+# choice in the pane rather than a command the person has to remember. The workspace writes the
+# listing (id, agent, when) and only when it has something to offer; a restart that already named
+# its conversation is never asked. See docs/specs/097-agent-conversation-persistence.md.
+choose_conversation() {
+  # Only an explicit resume suppresses the offer. A workspace-minted id means "this pane is new",
+  # not "this pane has already chosen", so it must still see what it could resume instead.
+  if [ "${RENGINE_AGENT_RESUME:-}" = "1" ]; then return 0; fi
+  [ -n "${RENGINE_AGENT_CONVERSATIONS:-}" ] && [ -s "${RENGINE_AGENT_CONVERSATIONS}" ] || return 0
+  local ids=() whens=() id owner when count=0 index choice
+  while IFS=$'\t' read -r id owner when || [ -n "${id:-}" ]; do
+    [ -n "${id:-}" ] || continue
+    [ "${owner:-}" = "$agent" ] || continue
+    ids+=("$id"); whens+=("${when:-earlier}"); count=$((count + 1))
+  done < "$RENGINE_AGENT_CONVERSATIONS"
+  [ "$count" -gt 0 ] || return 0
+  printf '\nConversations for %s in this project:\n' "$agent"
+  index=1
+  # The first eight characters are the name this conversation goes by everywhere else — the pane
+  # title, the identity label, the token segment — so the row leads with them.
+  while [ "$index" -le "$count" ]; do
+    printf '  %d) %s %s\t%s\t%s\n' "$index" "$agent" "${ids[index-1]:0:8}" "${whens[index-1]}" "${ids[index-1]}"
+    index=$((index + 1))
+  done
+  printf 'Resume which? (Enter starts a new conversation): '
+  IFS= read -r choice || choice=''
+  case "${choice:-}" in ''|*[!0-9]*) printf 'Starting a new conversation.\n'; return 0 ;; esac
+  if [ "$choice" -lt 1 ] || [ "$choice" -gt "$count" ]; then
+    printf 'No such choice; starting a new conversation.\n'; return 0
+  fi
+  export RENGINE_AGENT_CONVERSATION="${ids[choice-1]}"
+  export RENGINE_AGENT_RESUME=1
+  printf 'Resuming %s\n' "$RENGINE_AGENT_CONVERSATION"
+}
+
 launch_agent() {
   local executable
   executable="$(find_agent "$agent" || true)"
   [ -n "$executable" ] || { echo "Agent '$agent' is missing; choose Install in the launcher." >&2; return 127; }
   mkdir -p -- "$agent_home"
   printf '%s\n' "$agent" > "$agent_home/preferred-agent"
+  choose_conversation
   printf 'Launching %s in %s\n' "$executable" "$project"
   if [ -n "${RENGINE_WORKSPACE_CONTEXT:-}" ]; then
     exec "${RENGINE_NODE:-node}" "$launcher_dir/../orchestrator/agents/launch.mjs" "$agent" "$executable" "$RENGINE_WORKSPACE_CONTEXT" ${extra[@]+"${extra[@]}"}

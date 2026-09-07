@@ -1,6 +1,6 @@
 # Progress Log
 
-## Session 52 (macos) — 2026-09-07 — Retirement by kind: the streams drain, the ledger hands off (KI-061)
+## Session 53 (macos) — 2026-09-07 — Retirement by kind: the streams drain, the ledger hands off (KI-061)
 
 Session 50's end-to-end check found the defect neither half of the token could see: after
 `update_workspace` with `layers: ['workspace']` and a desktop attached, **two workers owned one
@@ -70,6 +70,71 @@ worth naming because it is not this lane's: the first `test:desktop` run failed
 directly, with no supervisor and no workspace worker in it, and it passed alone and on the re-run of
 the whole suite. Nothing under `orchestrator/server/` or `orchestrator/native/` was touched, and no
 environment variable was added.
+## Session 52 (macos) — 2026-09-07 — The conversation IS the identity: three lanes onto one uuid
+
+Three lanes had been building the same thing from three ends and had to become one branch,
+`feat/conversation-is-identity`, merged in a worktree at `.cache/worktrees/reconcile`.
+
+**The defect the merge would have shipped.** Spec 095 (F90) decided the per-launch agent identity IS
+the Claude session id and injected `--session-id <agentId>`. Spec 096 (F91/F92) had the session host
+mint a conversation, pass it as `RENGINE_AGENT_CONVERSATION`, and inject `--session-id` for that.
+Both were right; together a pane launch carried two `--session-id` flags with two different UUIDs,
+and `restart_agent` would then have "resumed" a conversation the CLI had never been in.
+
+**The reconciliation.** The owner's rule taken literally — one identifier, so the conversation is the
+identity. `claudeIdentity()` in `config.mjs` is the single place that decides which UUID: the
+launch's own flags first, then `bind.mjs --session`, then the host's conversation, then a mint.
+`conversationArgs()` injects it exactly once, from the `CONVERSATIONS` capability table. A person's
+`--resume X` under a host conversation `Y` is **not refused** — `launch.mjs` reports the decided id
+back over `POST /api/agent-conversation`, so the record follows what actually launched (refinement
+from the 096–098 author: "your identity minting becomes the single source and my conversation field
+reads it, rather than two independent mints racing to pass the same flag"). `-c`, a search-term
+`--resume` and `--fork-session` report `conversation: null`, which clears the pane's record so a
+restart refuses by name rather than opening a second conversation wearing the first one's name.
+
+The eight characters now name the same thing everywhere a person meets them: the identity label, the
+pane title (`agentTitle`), the 097 picker rows, the token segment. And a conversation spec 097
+persists per root IS an identity to the token ledger — same id, same `claude <first eight>` label, on
+both sides of a host restart, with nothing to migrate because there was never a second number.
+
+**Two merges, unioned, never a side taken.**
+
+- `origin/main` c550214 (0e3c1a7). Conflicts: `config.mjs` (union — origin's `claudeSession`/
+  `describeSession` plus HEAD's `CONVERSATIONS` table, `claudeStart` replaced by `conversationArgs`,
+  `claudeIdentity` added as the decision point); `launch.mjs` (union — the identity line and the
+  report back to the host, now sent whenever `plan.conversation` is not `undefined`); three
+  `._llm.json` sidecars (anchors, plus a fourth entry on config.mjs); `Codex-progress.md`.
+  `mcp-worker.mjs`, `app.c`, `app.h`, `features.json` and `package.json` auto-merged with both sides
+  intact — OP_SIGNIN still below OP_BYTES, RE_TRACKER still last in the append-only tab enum,
+  `re_app_inspect` the union of the tracker fields and `re_token_inspect`.
+- local `main` 49ab287 (0c80bcd). Conflicts: `package.json` (union of the desktop spec list — the
+  token lane's two specs and this lane's `native-sessions.spec.mjs`, 29 in all; taking either side
+  would have silently dropped the other's proof, which is what `suite-coverage.test.mjs` exists to
+  catch); `workspace.c._llm.json` (union of nine entries, re-anchored and stamped);
+  `Codex-progress.md`. 958f1b2's static assertions on the operation enum arrived with this merge
+  rather than needing a cherry-pick.
+
+**Regressions, each observed red for its own reason.** Ten sabotages, each producing exactly one
+failing test, tabled with its assertion in `docs/evidence/conversation-is-identity-2026-09-07.md`:
+ignoring the host conversation, starting a resume, injecting beside a person's flags, letting the
+host beat those flags, reporting a minted id for `-c`, keeping a stale conversation on a `null`
+report, restarting onto a new conversation, dropping the prefix from the pane title and from the
+picker row, and keying the identity label on something other than the conversation.
+
+**Gates** at `0c80bcd`: `npm test` 145/145, `npm run test:desktop` 48/48 (native-token,
+native-token-e2e, native-tracker and native-sessions together), `ctest` 6/6, desktop build with zero
+warnings, `features.py validate` 49, `design.py check` clean. Five desktop specs failed before
+`npm run build:surface` had been run in this fresh worktree; two more (native-explorer cap,
+native-render metal edge band) then failed under the long run and passed on their own both here and
+on a control worktree at `0b2359d`, so they were the known flake, not the merge.
+
+**Remaining.** Not verified live: this session runs inside a host that predates all three lanes, so
+the first workspace started from a host carrying this change should record a pane launched with one
+`--session-id`, `token_status` naming the holder by the conversation's first eight characters, and a
+`restart_agent` that kept the token. Two things in 096–099 still sit oddly against 095 and are named
+in the report rather than changed here: `restart_agent` stops a process and is not token-gated while
+`stop_session` is, and the ledger's `identities` registry is fed only by callers on the wire — folding
+`state.conversations` into `token_status` needs `runtime/worker.mjs`, which another lane owns.
 
 ## Session 51 (macos) — 2026-09-07 — The agent identity is the Claude session id (F90 stage 1, revised)
 
@@ -328,6 +393,237 @@ the same run, so the negative is not a quiet machine. `npm test` 107/107.
 F90 stays `passes: false`: criterion 9 is the stage-3 status-bar segment, and the desktop's
 `recording` frame is stage 3's to send. The exact frame shapes it owes the worker are written into
 spec 095's *Native desktop* section and exercised today by the fake desktop.
+## Session 49 (macos) — 2026-09-07 — The Sessions tab resumes and attaches, where the owner asked for it (F95)
+
+The owner has asked three times for one thing and it kept landing on the wrong surface. Spec 097 built
+the resume picker as a stdin prompt in `agent.sh`; the owner meant the native Sessions tab —
+"list all the available ids to resume or be available to attach if session is active." Spec 099 moves
+it there. Nothing about the data changed: past conversations already reach the desktop on `/api/state`
+as `conversations[rootId]` (097), live agent panes are the `type:'agent'` sessions each carrying a
+`conversation` when it holds one, and resume is the `POST /api/terminal` with `resume:true` that
+`spawnTerminal` already honours. This is a view over data that was all present at 64dc08e.
+
+`orchestrator/native/workspace.c` gains a Conversations section in `sessions_ui`, above the recovery
+drafts and below the unchanged raw process list. A live agent pane offers **Attach** (the existing
+session-view path); a conversation no pane holds offers **Resume**, which starts a pane already on that
+id; the two are deduplicated by conversation so a live one is never also offered for resume; and a live
+agent that names its own conversations — no id recorded — is attach-only and marked *not resumable*,
+which is the one place a resume affordance is withheld on purpose. `describe_age` mirrors the JS
+`describeAge` wording so a row says when it was last seen; the desktop formats the persisted
+`lastSeenAt` rather than asking for a string. No colour or row-size literal — design guard clean.
+
+`native-sessions.spec.mjs`, three tests through the automation bridge: past conversations become
+resume rows most-recent-first with no session started; Resume creates an agent session bound to that
+exact conversation id (a fresh launch would mint a random one, so the id is the proof it resumed); and
+a live menu agent is attach-only with no resume control while the raw list still stops it. Observed
+red first by reverting `workspace.c` to its committed state and rebuilding: all three failed for their
+own reason — the state dumps showed the conversations data and, for the third, the running agent with
+its `attach`/`stop` controls, but no `resume` or `conversation-attach` control, which is exactly the
+section that did not exist yet — then restored and rebuilt green.
+
+While here, one stale sidecar anchor in `workspace.c._llm.json` was repaired: `view-switcher-indices`
+had drifted at the tracker change (a066641) when a Tasks entry was inserted at switcher index 2,
+splitting the table across two lines; its note's example ("Devices at index 2") was corrected to
+"Tasks at 2, Devices at 3" and re-anchored to the stable declaration line.
+
+Commands: `npm run build` clean; `node --test orchestrator/tests/native-sessions.spec.mjs` 3/3;
+`verify.sh design` clean; unit suite, `test:desktop` and `init.sh` recorded below the commit;
+`tools/features.py validate` 48 features; graph regenerated; sidecars valid for workspace.c.
+
+Not verified live, deliberately, and `passes` stays false on F95: this session runs inside the old
+host, and the owner's real claude pane resume belongs to a host started from this change — the same
+live criterion 096 and 097 carry. F95 reads blocked because F93's own live criterion is still open;
+that is the dependency chain telling the truth, not a defect.
+
+## Session 48 (macos) — 2026-09-07 — Replacing a session host on purpose, and why three restarts changed nothing (F94)
+
+Two tasks, one cause. First the merge that had been waiting on a dirty tree:
+`feat/agent-conversation-persistence` (spec 097, F93) went into `main` with `--no-ff` as 64dc08e. The
+only conflict was `Codex-progress.md`, where both sides had prepended a session; the resolution is the
+union, 39 above 38, nothing dropped. `orchestrator/server/main.mjs` auto-merged and kept both route
+sets — the tracker sign-in/sign-out from `main` and `/api/agent-conversation` plus `conversations` on
+`/api/state` from the branch — and its two sidecar anchors, drifted by the merge, were repaired. Gates
+on merged main: `./init.sh` clean (46 features), `node --test orchestrator/tests/*.test.mjs` 118/118,
+`verify.sh design` clean. The log already carries duplicate session numbers from parallel sessions
+(18, 25, 26, 32, 35–38); this entry takes the highest number in the file plus one rather than adding
+another.
+
+Then the defect the owner is angry about, measured before anything was designed. The hirebase-v2
+session host, PID 68944, has run since 09:16:13; the reflog puts `main` at 0a11a36 then, before the
+tracker (09:59), the `NO_COLOR` drop (10:17), the browser sign-in (10:39), the project filter (11:13)
+and 097 (11:23). Read-only against the live host: `GET /api/tracker` answers `404 Unknown workspace
+endpoint.`; `/api/state` has no `agentConversations` and no `conversations`; and `/api/dashboard`
+answers `$ has unknown key tracker` for the whole declaration, because `formats.mjs` reads the
+contract schema once at import and the declaration gained its `tracker` block at 11:11. So the broken
+Linear tab, the colourless terminal, the sessions tab and — unreported — the dashboard for that root
+are one staleness. The owner's three restarts reused the host because `ensureSidecar` is built to,
+and the hand remedy failed for a reason worth writing down: macOS `pgrep`/`pkill` exclude the
+caller's own ancestors by default (`man pgrep`, `-a`), and a pane inside the workspace descends from
+the host. Verified: `pgrep -f server/main.mjs` lists thirteen hosts and not 68944, `pgrep -a -f` lists
+it, `ps -A -ww -o pid=,ppid=,command=` shows it plainly, and `pkill` with no match exits 1 and prints
+nothing.
+
+Spec 098 and `orchestrator/launcher/replace.mjs` are the answer: `--replace-host` on the launcher, so
+the owner's command is `~/hirebase-v2.command --replace-host` (the generated `.command` forwards
+unknown flags; confirmed through its own `exec` with `--help`). It finds the host through
+`sidecar.json` and `ps`, never `pgrep`; refuses by name a PID that is not `server/main.mjs --state
+<this directory>` — so vtmb-vr's and nolf-improved's hosts on this machine cannot be caught; refuses a
+launcher whose ancestors include the host; stops the bound update supervisor (matched by
+`runtime.json` host identity) and then the host, SIGTERM then SIGKILL; waits for the port to refuse;
+starts the ordinary host through `ensureSidecar`; and prints what it stopped, which running sessions
+ended, and what it started. A normal start now says when `sidecar.json` is older than the newest file
+under `orchestrator/{server,launcher,agents}`, `scripts` or `contracts`, and names the flag. It never
+replaces on its own.
+
+Ten regressions in `replace-host.test.mjs`, seven against an injected process table copied from this
+machine and three against real throwaway hosts the test starts and stops. Sabotage, each restored
+after: dropping the `--state` comparison reddened the descriptor test and the refusal test with
+`Missing expected rejection`; dropping `SIGKILL` reddened the signal test with `PID 4242 is still
+alive after SIGKILL`; making the headless path ignore the flag reddened the launcher test with
+`expected: 58287 / actual: 58287`; and dropping the ancestor refusal ended the test runner itself
+with `signal: 'SIGTERM'` — the sabotaged launcher stopped the host and then swept the host's
+children, which in the doctored table was the test process, which is precisely the pane-ends-itself
+failure decision 3 prevents. That last red skipped its cleanup hook, so the process table was checked
+for throwaway hosts afterwards: a first count of two turned out to be the checking shell's own command
+line matching itself, and a listing that excluded it found none. Nothing of the owner's was signalled
+at any point: 68944, 9599 and 9603 are where they were.
+
+Commands: `node --test orchestrator/tests/replace-host.test.mjs` 10/10; full suite, `./init.sh` and
+`verify.sh design` recorded below the commit; `python3 tools/features.py validate` 47 features;
+graph regenerated; sidecars validated for `main.mjs`, `launch.mjs` and `replace.mjs`.
+
+Not verified, deliberately: replacing PID 68944. This session runs inside it and would be refused;
+the owner's work is in it. `passes` stays false on F94 with the live criterion written down. Still
+open after that: Windows (the flag refuses by name), an MCP route (an agent inside is a descendant by
+construction), and whether the Linear application actually carries the five registered redirect
+URIs — `trackers/oauth.json` has a client id, no token file exists yet, and nothing here can reach
+Linear to check.
+
+## Session 39 (macos) — 2026-09-07 — Conversations that outlive the host, and a pane that offers them (F93)
+
+Spec 097, written because 096 shipped and did not solve the owner's problem. They restarted, opened
+a new agent tab, and still had to type `/resume` by hand. They were right to expect otherwise.
+
+096 recorded a pane's conversation and could restart a pane into it. What it missed is that session
+records live only in the host's memory — `Sessions` keeps a Map, and the state file persists roots,
+drafts, layout and preferences and nothing else. So every conversation a host knows dies with that
+host, which is precisely the event a person reaches for a resume after. The feature was shaped for
+the wrong event. There was a second gap of the same shape: 096 could restart an existing pane, but
+after a host restart the old pane is gone and what a person does is open a new one, and choosing a
+conversation for a new pane was the deferred native browser.
+
+So conversations are now persisted per root in the workspace state file, bounded at twenty, most
+recent first, re-recording touching a row rather than adding one. And the offer lives in the pane,
+where the agent is already chosen, rather than waiting for a browser: the workspace writes the
+project's conversations for the pane, the launcher lists them with when each was last seen, Enter
+starts a new one. The pane reports what it actually launched, because the person may have chosen
+something other than what was minted, so the record follows the pane rather than the intention.
+
+Decision 5 earned itself during the build, in the way these usually do. The first implementation
+suppressed the offer whenever the pane already had a conversation — which is always, because the
+workspace mints one before the pane runs, so the picker would have shipped and never appeared. A
+minted id means "this pane is new", not "this pane has chosen"; only an explicit resume suppresses
+the offer. The test that pins it is the one that caught it.
+
+Three regressions failing only for their own claim: the store methods absent, the offer never
+appearing, and the minted-id suppression above. Suite 108 pass, 0 fail, against 103 on main.
+
+Still not proven live, and `passes` stays false, for the same reason 096's did: a workspace whose
+host predates the change cannot exercise it. The first host started from this should record that a
+pane offered a prior conversation, that choosing it resumed rather than starting a second, and that
+the offer survived a host restart — the criterion 096 could not meet — which closes both features.
+Remaining after that: the native session browser, now a presentation change over a persisted list
+rather than a data one, and Codex, which names its own rollouts and so records nothing here.
+
+## Session 38 (macos) — 2026-09-07 — A URL to sign in with, not a key to paste
+
+The owner asked for browser sign-in rather than a pasted token. Two facts from the providers' own
+documentation decided what that could be, and I verified both before writing anything, because
+getting either wrong would have meant a rebuild.
+
+Linear lists `client_secret` as **optional** at the token endpoint when `code_verifier` is present,
+on the first exchange and on every refresh of a grant created that way. That is the fact the design
+rests on: the desktop is a public client using PKCE with S256 and ships no secret. Without it, a
+desktop could not sign in without a broker and the honest answer would have been no.
+
+Linear matches redirect URIs **exactly** with no port wildcard, so the usual native-app pattern of an
+OS-assigned port cannot work. The callback listens on a fixed port from a small registered range,
+opened only for the duration of a sign-in and bound to loopback. That is the one place this departs
+from RFC 8252, and it departs because the provider does.
+
+The browser redirect carries no workspace bearer token — it cannot — so the one-time state is what
+authorises the callback, compared in constant time. A grant refreshes an hour early and the refresh
+token rotates; a refresh that fails keeps the token it had, because Linear allows the original
+request to be replayed for thirty minutes and a cleared grant could not use that window. Signing out
+revokes at the provider. A pasted personal key still works and is never refreshed, so nothing that
+worked yesterday stops working.
+
+Three sabotages, each failing only its own claim: sending the verifier in place of its hash, which
+fails the challenge test; accepting any state, which fails the wrong-state test; and dropping the
+grant when a refresh fails, which fails the replay-window assertion.
+
+GitHub sign-in is deliberately not built. Its loopback exchange requires a `client_secret` a public
+client cannot keep, and while GitHub sanctions shipping it, the device flow needs no secret at any
+point, so that is the better shape there and it is deferred rather than half-done.
+
+Commands: `npm test` 111/111, `npm run test:desktop` 41/41, `ctest` 6/6, `python3 tools/design.py
+check`, `./init.sh`.
+
+One thing to flag rather than bury: the research agent I spawned to verify Linear's flow performed a
+network **write** while doing so — it POSTed a dynamic client registration to Linear's MCP
+authorization server and received a client id back. That was outside the read-only brief I gave it.
+Nothing of the owner's was touched and the registration is anonymous, but an agent making an
+external side effect during a research task is worth recording rather than noticing later.
+
+## Session 38 (macos) — 2026-09-07 — Agent conversations, and the environment a pane inherits (F91, F92)
+
+Spec 096, from an incident in the hirebase-v2 workspace. Every pane there had lost its colour, and
+the interesting part was not the cause but that nothing could reach it. `shellEnvironment` sets
+`TERM=xterm-256color` and `COLORTERM=truecolor`, declaring the surface colour-capable, and then
+forwarded the `NO_COLOR=1` it had inherited, which contradicts that declaration. It was in the
+session host's environment from the moment the host started, because the launcher had been run from
+an agent CLI's shell, and those set `NO_COLOR` for the shells they spawn. Measured in a live pane:
+`tput colors` 256, raw SGR intact, Node colour depth 1. The surface was never the problem.
+
+Neither side had regressed. `git log -S NO_COLOR` over this repository returns nothing, and the
+TERM/COLORTERM line dates to the original retained-PTY commit; the agent CLI has carried that
+constant across every installed version. It was an interaction, and its trigger was launch
+provenance.
+
+What made it worth a spec is the second half. The owner restarted, twice, and nothing changed: the
+desktop and the agent child were replaced, but the retained session host is durable by design
+(spec 065), so each new pane came from the same environment. The only remedy was killing the host,
+which destroys every live conversation on it. An in-app workaround does not exist either — the
+`open_script` env map takes strings only, and blanking the variable does not help, because Node
+disables colour on its presence: `NO_COLOR=` gives depth 1, absence gives 8. So the owner's choice
+was a broken environment or their work, which is the real defect.
+
+F91 drops an inherited `NO_COLOR` the way `ELECTRON_RUN_AS_NODE` is already dropped, while an
+explicit override still suppresses colour on purpose.
+
+F92 is the part that keeps a restart from costing a conversation. rEngine now names the conversation
+at launch instead of discovering it afterwards: it mints a UUID and tells the CLI, so the identifier
+exists before the first byte of output and no rollout directory is scraped. Naming is a declared
+per-agent capability rather than an assumption — `claude` takes `--session-id` and `--resume`; an
+agent that names its own conversations is recorded with none and refused by name on restart, rather
+than quietly started as a second conversation. The identifier rides on the session record and
+`workspace_info`, so a caller can see which panes are restartable, and `restart_agent` replaces the
+pane's child on that same conversation with a freshly composed environment. The host, the other
+panes and their processes are untouched, so a pane restart is not a quiescence event.
+
+Three regressions, each observed failing only for its own claim: the inherited value reaching the
+composed environment (`actual: '1'`), the conversation arguments missing from the launch plan (a
+`deepStrictEqual` on the argv), and the restart refusing nothing at all (`restartAgent is not a
+function`). Suite 103 pass, 0 fail, against 100 on main.
+
+Not proven live, and `passes` stays false on F92: an end-to-end pane restart cannot be observed from
+inside a workspace whose host predates the change, which is precisely the condition the spec
+describes. The first workspace started from a host carrying this should record pane restarted,
+conversation continued, child pid changed, host pid unchanged under `docs/evidence/`. Remaining
+after that: the native session browser that draws the conversation column decision 5 feeds, and
+Codex has no mintable conversation, so its existing handoff resume is still the only path there.
+
+Sidecar anchors: `sessions.mjs` and `launch.mjs` drifted from this change and were repaired. `main.mjs`, `mcp-worker.mjs` and `config.mjs` carried drift before it — `configuration-overlays` had lost its snippet entirely to the F90 rewrite — and were repaired in passing while their files were open; the note itself still describes behaviour `agent-config.test.mjs` asserts, so it was re-anchored rather than rewritten.
 
 ## Session 37 (macos) — 2026-09-07 — Task tracking with a declared backend (F78)
 

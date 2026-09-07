@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "process-table-not-pgrep",
+      "kind": "rationale",
+      "anchor": {
+        "start": 14,
+        "end": 14,
+        "snippet": "export async function listProcesses(exec = run) {"
+      },
+      "note": "The host is located from its own descriptor and confirmed against ps, never pgrep/pkill: on macOS those exclude the caller's ancestors by default (man pgrep, -a), and every pane inside a workspace is a descendant of its host, so `pkill -f main.mjs` typed there matches nothing and exits 1 silently. Measured 2026-09-07: `pgrep -f server/main.mjs` listed 13 hosts and not PID 68944; `pgrep -a -f` and ps both showed it. A tool built on pgrep would inherit the trap. The --state tail of the command line is compared canonically (realpath, falling back to resolve) so a descriptor that names another directory's host, a reused PID, or a worktree's preflight host is refused with nothing signalled (spec 098 decision 2)."
+    },
+    {
+      "id": "supervisor-before-host",
+      "kind": "rationale",
+      "anchor": {
+        "start": 171,
+        "end": 171,
+        "snippet": "for (const supervisor of await findSupervisors(instance, processes, options)) {"
+      },
+      "note": "Order matters: the update supervisor bound to this host instance is stopped first, because its SIGTERM handler closes its desktops and workers and its recovery path would otherwise try to replace a worker against a host that is on its way out. Supervisors are matched by runtime.json host.instance under this checkout's .cache/runtime and confirmed as supervisor.mjs in the process table; another checkout's supervisor is never touched. Children still alive after each stop are swept so a SIGKILL fallback leaves no orphan PTYs (spec 098 decision 4)."
+    },
+    {
+      "id": "descriptor-removed-after-release",
+      "kind": "rationale",
+      "anchor": {
+        "start": 177,
+        "end": 177,
+        "snippet": "if (!await portReleased(url, options)) throw new Error(`${url} still accepts connections after PID ${pid} exited; not starting a second host.`);"
+      },
+      "note": "The stale sidecar.json is removed only after the old PID is gone AND its port refuses connections. ensureSidecar treats a descriptor whose PID is alive-but-unavailable as a reason to refuse a second host, so a reused PID could otherwise block the restart; and starting while the port still answers would be two hosts for one directory (spec 098 decision 5)."
+    }
+  ],
+  "source": {
+    "path": "orchestrator/launcher/replace.mjs",
+    "sha256": "4ed45e1d394c2eaec65c66ebe7bfb139333fde9e88df942da6f491ba0f309777",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

@@ -16,6 +16,9 @@ if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !/^[0-9a-f]{64}$
    anonymous rather than failing. The header is arbitration, never authentication (spec 095). */
 const agent = context.agent && typeof context.agent === 'object' && /^[0-9a-f-]{36}$/.test(context.agent.agentId ?? '')
   ? { agentId: context.agent.agentId, label: String(context.agent.label ?? 'agent'), pid: context.agent.pid, startedAt: context.agent.startedAt,
+      /* The conversation IS the identity, so the resume line belongs beside it: an agent that is
+         asked to hand its session over reads it here rather than guessing at its own id. */
+      ...(context.agent.session && typeof context.agent.session === 'object' ? { session: context.agent.session } : {}),
       ...(context.agent.sessionId ? { sessionId: context.agent.sessionId } : {}) }
   : undefined;
 /* The label and pid travel beside the id so the worker can name a holder in a refusal and check
@@ -30,6 +33,7 @@ const scopedState = async () => {
   const root = state.roots.find(root => root.id === context.rootId);
   if (!root) throw new Error('The bound project is no longer available.');
   return { root, capabilities: state.capabilities ?? {}, sessions: state.sessions.filter(session => session.rootId === root.id), drafts: state.drafts.filter(draft => draft.rootId === root.id),
+    conversations: state.conversations?.[root.id] ?? [],
     ...(agent ? { agent } : {}) };
 };
 await scopedState();
@@ -37,7 +41,7 @@ const server = new McpServer({ name: 'rengine-workspace', version: '1.0.0' }, {
   instructions: 'These tools address the project bound when this agent was launched. List sessions before selecting a process. Closing a workspace view retains the process; stop_session explicitly stops it. File reads use disk text unless useDraft is requested.',
 });
 const tool = (name, description, inputSchema, readOnlyHint, action) => server.registerTool(name, {
-  description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script'].includes(name), openWorldHint: ['open_script', 'preview_file', 'dashboard_capture', 'launch_game', 'devices'].includes(name) },
+  description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script', 'restart_agent'].includes(name), openWorldHint: ['open_script', 'preview_file', 'dashboard_capture', 'launch_game', 'devices'].includes(name) },
 }, async values => {
   let state;
   try {
@@ -51,7 +55,7 @@ const ownSession = (id, state) => {
   if (!session) throw new Error('Session is not bound to this project.');
   return session;
 };
-tool('workspace_info', 'Inspect the bound project, retained sessions, recovery draft metadata and this launch\u2019s own agent identity (agentId, label, pid, startedAt) when it has one.', {}, true, async (_values, state) => state);
+tool('workspace_info', 'Inspect the bound project, retained sessions, recovery draft metadata, the conversations this project remembers (id, agent, when each was last seen) and this launch\u2019s own agent identity when it has one: agentId, label, pid, startedAt, and session \u2014 the provider, the id this agent resumes by and the line that resumes it. The agentId IS that conversation id for a pane the workspace launched, so the same eight characters name it in the pane title, the picker and the token.', {}, true, async (_values, state) => state);
 tool('list_files', 'List files in a directory relative to the bound project.', { path: z.string().default(''), hidden: z.boolean().default(false) }, true,
   async ({ path, hidden }) => call(`tree?${new URLSearchParams({ rootId: context.rootId, path, hidden })}`));
 tool('read_file', 'Read a bounded UTF-8 excerpt from the bound project. Explicitly opt into a recovery draft.', {
@@ -231,5 +235,9 @@ tool('feed_read', 'Read retained lifecycle frames after a cursor, for an agent t
 });
 tool('stop_session', 'Explicitly stop a retained process belonging to the bound project. Gated by the project token: this agent must hold it, or the call is refused naming the holder and token_contest, and nothing is attempted.', { id: z.string() }, false, async ({ id }, state) => {
   ownSession(id, state); tokenCapability(state, 'stop_session'); return call('stop', { id });
+});
+const conversationCapability = state => { if (state.capabilities.agentConversations !== 1) throw new Error('This retained session host predates agent conversations, so it cannot name or resume one. Replacing the session host requires quiescence.'); };
+tool('restart_agent', 'Replace one agent pane with a new one on the SAME conversation: the child is stopped and started again, resuming the conversation rEngine named when it launched it, with a freshly composed environment. Use it to pick up a corrected environment or a new CLI version without losing the conversation and without restarting the session host. The pane keeps its project binding; its process id changes. An agent whose CLI names its own conversations has none recorded and is refused by name rather than started as a second conversation \u2014 workspace_info shows which sessions carry one.', { id: z.string() }, false, async ({ id }, state) => {
+  conversationCapability(state); ownSession(id, state); return call('agent-restart', { id });
 });
 await server.connect(new StdioServerTransport());

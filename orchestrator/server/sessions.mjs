@@ -10,10 +10,27 @@ import path from 'node:path';
 import pty from 'node-pty';
 import { fail } from './store.mjs';
 import { readHandoff, checkResume } from '../agents/handoff.mjs';
+import { agentConversation } from '../agents/config.mjs';
 
 const execute = promisify(execFile);
 const agentScript = fileURLToPath(new URL('../../scripts/agent.sh', import.meta.url));
 const OUTPUT_LIMIT = 1024 * 1024;
+/* Plain words beat a timestamp in a pane: the person is choosing between "2 hours ago" and
+   "yesterday", not reading a clock. */
+const MINUTE = 60000, HOUR = 60 * MINUTE, DAY = 24 * HOUR;
+/* One conversation, one set of eight characters: the pane title, the picker row, the identity label
+   and the token segment all show the same prefix, so a person recognises the same thing in each. */
+export const agentTitle = (agent, conversation, rootName) =>
+  `${agent || 'Choose agent'}${conversation ? ` ${conversation.slice(0, 8)}` : ''} · ${rootName}`;
+export function describeAge(when, now = Date.now()) {
+  const gap = Math.max(0, now - when);
+  if (gap < 2 * MINUTE) return 'just now';
+  if (gap < HOUR) return `${Math.round(gap / MINUTE)} minutes ago`;
+  if (gap < 2 * HOUR) return 'an hour ago';
+  if (gap < DAY) return `${Math.round(gap / HOUR)} hours ago`;
+  if (gap < 2 * DAY) return 'yesterday';
+  return `${Math.round(gap / DAY)} days ago`;
+}
 
 export function shellEnvironment(overrides = {}, { inherited = process.env, platform = process.platform, userDirectory = homedir() } = {}) {
   const win = platform === 'win32';
@@ -27,6 +44,9 @@ export function shellEnvironment(overrides = {}, { inherited = process.env, plat
     }
   }
   entries.delete(key('ELECTRON_RUN_AS_NODE'));
+  // TERM/COLORTERM above declare this surface colour-capable; an inherited NO_COLOR would
+  // contradict that for every pane the host ever spawns. An explicit override still wins.
+  if (!Object.keys(overrides).some(name => key(name) === key('NO_COLOR'))) entries.delete(key('NO_COLOR'));
   const env = Object.fromEntries(entries.values());
   const pathKey = entries.get(key('PATH'))?.[0] ?? (win ? 'Path' : 'PATH');
   const extra = ['.local/bin', '.n/bin', '.opencode/bin', '.cargo/bin'].map(part => paths.join(userDirectory, part));
@@ -79,8 +99,9 @@ export class Sessions extends EventEmitter {
   }
 
   snapshot(id, includeOutput = false) {
-    const { id: sessionId, rootId, type, agent, handoff, released, title, surface, game, args, pid, state, exitCode, signal, createdAt, endedAt, cols, rows, sequence, output } = this.get(id);
+    const { id: sessionId, rootId, type, agent, conversation, handoff, released, title, surface, game, args, pid, state, exitCode, signal, createdAt, endedAt, cols, rows, sequence, output } = this.get(id);
     return { id: sessionId, rootId, type, agent, title, pid, state, exitCode, signal, createdAt, endedAt, cols, rows, sequence,
+      ...(conversation ? { conversation } : {}),
       ...(type === 'game' ? { surface, game, args: args ?? [] } : {}),
       ...(handoff ? { handoff: { sessionId: handoff.sessionId, checkpoint: handoff.checkpoint }, waitingForView: !released } : {}),
       ...(includeOutput ? { output } : {}) };
@@ -98,14 +119,15 @@ export class Sessions extends EventEmitter {
     finally { if (this.handoffFlights.get(key) === flight) this.handoffFlights.delete(key); }
   }
 
-  async spawnTerminal({ rootId, type = 'terminal', agent, action = 'launch', command, args, handoffFile, cols = 100, rows = 30, env = {}, title, surface, game, cwd }) {
+  async spawnTerminal({ rootId, type = 'terminal', agent, conversation, resume = false, action = 'launch', command, args, handoffFile, cols = 100, rows = 30, env = {}, title, surface, game, cwd }) {
     if (title !== undefined && (typeof title !== 'string' || !title.trim() || title.length > 200)) fail('Session title must be a short string.');
     const root = this.store.root(rootId);
     const workingDirectory = cwd === undefined ? root.path : path.resolve(cwd);
     if (workingDirectory !== root.path && !workingDirectory.startsWith(root.path + path.sep)) fail('The working directory must be inside the project root.');
     const id = randomUUID(); let handoff, gate;
     env = shellEnvironment({ ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents'),
-      RENGINE_HANDOFF_GATE: undefined, RENGINE_HANDOFF_FILE: undefined, RENGINE_ORCHESTRATOR_SESSION: undefined });
+      RENGINE_HANDOFF_GATE: undefined, RENGINE_HANDOFF_FILE: undefined, RENGINE_ORCHESTRATOR_SESSION: undefined,
+      RENGINE_AGENT_CONVERSATION: undefined, RENGINE_AGENT_RESUME: undefined });
     if (handoffFile) {
       if (type !== 'agent' || agent !== 'codex' || action !== 'launch' || args?.length || !this.workspaceContext) fail('Handoff requires the Codex workspace launcher.');
       handoff = await readHandoff(handoffFile, root.path, env);
@@ -136,13 +158,35 @@ export class Sessions extends EventEmitter {
         await writeFile(temporary, JSON.stringify({ ...this.workspaceContext, rootId: root.id }), { mode: 0o600 });
         await rename(temporary, filename);
         env = { ...env, RENGINE_WORKSPACE_CONTEXT: filename, RENGINE_NODE: process.execPath, RENGINE_BASH: file };
+        // Name the conversation now, for a CLI that accepts being told, so this pane can be put
+        // back into the same one later. An agent that names its own is recorded with none.
+        if (agentConversation(agent)) {
+          conversation = conversation ?? randomUUID();
+          env = { ...env, RENGINE_AGENT_CONVERSATION: conversation, ...(resume ? { RENGINE_AGENT_RESUME: '1' } : {}) };
+          await this.store.recordConversation(root.id, { conversation, agent });
+        }
+        // What this project already has, for the pane to offer. Written only when there is
+        // something to offer, so a project with no history never prompts.
+        const remembered = this.store.listConversations(root.id);
+        if (remembered.length) {
+          const listing = path.join(directory, `${id}.conversations.tsv`);
+          const rows = remembered.filter(entry => entry.id !== conversation)
+            .map(entry => `${entry.id}\t${entry.agent ?? ''}\t${describeAge(entry.lastSeenAt)}`);
+          if (rows.length) {
+            await writeFile(listing, `${rows.join('\n')}\n`, { mode: 0o600 });
+            env = { ...env, RENGINE_AGENT_CONVERSATIONS: listing };
+          }
+        }
+        env = { ...env, RENGINE_ORCHESTRATOR_SESSION: id };
       }
     }
+    if (type !== 'agent' || !env.RENGINE_AGENT_CONVERSATION) conversation = undefined;
     if (typeof file !== 'string' || !Array.isArray(argv) || argv.some(arg => typeof arg !== 'string')) fail('Invalid executable or arguments.');
     const child = pty.spawn(file, argv, { name: 'xterm-256color', cols, rows, cwd: workingDirectory,
       env: shellEnvironment({ ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents') }) });
-    const item = { id, rootId, type, handoff, gate, released: false, ...(type === 'agent' ? { agent: agent ?? '' } : {}), ...(type === 'game' ? { surface, game, args: argv } : {}),
-      title: title ?? (type === 'agent' ? `${agent || 'Choose agent'} · ${root.name}` : `${type === 'game' ? 'Game' : 'Terminal'} · ${root.name}`),
+    const item = { id, rootId, type, handoff, gate, released: false, ...(type === 'agent' ? { agent: agent ?? '', conversation } : {}), ...(type === 'game' ? { surface, game, args: argv } : {}),
+      titleAuto: title === undefined,
+      title: title ?? (type === 'agent' ? agentTitle(agent, conversation, root.name) : `${type === 'game' ? 'Game' : 'Terminal'} · ${root.name}`),
       pid: child.pid, child, state: 'running', createdAt: Date.now(), cols, rows, output: '', sequence: 0 };
     this.items.set(item.id, item);
     child.onData(data => {
@@ -182,6 +226,38 @@ export class Sessions extends EventEmitter {
     const item = this.get(id);
     if (item.state !== 'running') return;
     item.child.resize(cols, rows); item.cols = cols; item.rows = rows;
+  }
+
+  // The pane reports what it actually launched: the workspace may have minted a conversation, the
+  // person at the pane may have chosen a different one from the offered list, and their own
+  // --resume beats both. `null` says this launch continues or forks a conversation the CLI names
+  // itself, so the record must claim nothing rather than keep an id that would resume the wrong one.
+  async recordConversation(id, conversation, agent) {
+    const item = this.get(id);
+    if (item.type !== 'agent') fail('Only an agent session holds a conversation.');
+    if (agent && !item.agent) item.agent = agent;
+    if (conversation === null) {
+      item.conversation = undefined;
+      if (item.titleAuto) item.title = agentTitle(item.agent, undefined, this.store.root(item.rootId).name);
+      this.changed(item);
+      return this.snapshot(id);
+    }
+    const entry = await this.store.recordConversation(item.rootId, { conversation, agent: agent || item.agent || undefined });
+    item.conversation = entry.id;
+    if (item.titleAuto) item.title = agentTitle(item.agent, entry.id, this.store.root(item.rootId).name);
+    this.changed(item);
+    return this.snapshot(id);
+  }
+
+  // Replace an agent pane with a new one on the same conversation and a freshly composed
+  // environment. The host keeps running; only this child is replaced.
+  async restartAgent(id) {
+    const item = this.get(id);
+    if (item.type !== 'agent') fail('Only an agent session can be restarted into its conversation.');
+    if (!item.conversation) fail(`This ${item.agent || 'agent'} pane has no conversation rEngine can resume; stop it and start a new one.`);
+    const { rootId, agent, conversation, cols, rows } = item;
+    await this.stop(id);
+    return this.spawnTerminal({ rootId, type: 'agent', agent, conversation, resume: true, cols, rows });
   }
 
   async stop(id) {

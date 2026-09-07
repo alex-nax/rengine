@@ -77,13 +77,23 @@ test('a declared Linear tracker without a token says so instead of showing an em
     const state = await gui.until(s => s.tabs.some(t => t?.type === 8 && t.tracker), 'the tracker answered');
     const tracker = state.tabs.find(t => t?.type === 8).tracker;
     assert.equal(tracker.provider, 'linear', 'the declared provider is used, not the local default');
-    assert.match(tracker.denied ?? '', /No Linear token.*trackers\/kohai\.token/,
-      `it names the file to create rather than failing silently: ${JSON.stringify(tracker)}`);
+    assert.match(tracker.denied ?? '', /Not signed in to Linear/,
+      `it says what is missing rather than failing silently: ${JSON.stringify(tracker)}`);
+    assert.equal(tracker.signIn, 'linear', 'and names the provider, so the view can offer sign-in');
     assert.deepEqual(tracker.rows, [], 'and invents no rows');
     // The view says it too, rather than leaving an empty pane.
     await delay(200);
     const shown = await gui.command({ op: 'state' });
     assert.ok(!shown.controls.some(c => c.role === 'tracker-task'), 'no task rows are drawn');
+    // The view offers sign-in rather than telling a person to create a file by hand.
+    const signIn = shown.controls.find(c => c.role === 'tracker-signin');
+    assert.ok(signIn, `the view offers to sign in: ${JSON.stringify(shown.controls.map(c => c.role))}`);
+    assert.equal(signIn.key, 'linear');
+
+    // Pressing it before an application is registered says what to do rather than opening nothing.
+    await gui.control('tracker-signin', 'linear');
+    const guided = await gui.until(s => /linear\.app\/settings\/api\/applications/.test(s.status ?? ''), 'the setup is named');
+    assert.match(guided.status, /oauth\.json/, `and where the client id goes: ${guided.status}`);
   } finally {
     await gui.close(); await server.close(); await rm(dir, { recursive: true, force: true });
   }
