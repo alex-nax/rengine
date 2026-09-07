@@ -78,7 +78,7 @@ test('an MCP client over the socket lists the tools and reads diagnostics', asyn
     assert.deepEqual(tools, ['getDiagnostics'], `slice 1 serves exactly one tool: ${tools.join(', ')}`);
     const answer = await client.callTool({ name: 'getDiagnostics', arguments: { uri: 'file:///work/a.c' } });
     // An empty list is the honest answer from an editor with no language server; a refusal would
-    // make the CLI report rEdit as broken rather than as quiet.
+    // make the CLI report our editor as broken rather than as quiet.
     assert.deepEqual(JSON.parse(answer.content[0].text), [{ uri: 'file:///work/a.c', diagnostics: [] }]);
     await client.close();
   } finally { await bridge.close(); await rm(dir, { recursive: true, force: true }); }
@@ -259,7 +259,7 @@ test('the port survives a worker replacement, because the CLI reconnects to the 
   } finally { await second.close(); await first.close(); await rm(dir, { recursive: true, force: true }); }
 });
 
-test('a lock left by a dead rEdit worker is collected, and another IDE is left alone', async () => {
+test(`a lock left by a dead ${IDE_NAME} worker is collected, and another IDE is left alone`, async () => {
   const dir = await directory();
   await mkdir(dir, { recursive: true });
   await writeFile(path.join(dir, '111.lock'), JSON.stringify({ pid: 1, ideName: IDE_NAME, rengineWorker: 4242 }));

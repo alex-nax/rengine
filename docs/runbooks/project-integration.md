@@ -8,7 +8,7 @@ declarations, its CLIs, its scripts and its tests.
 
 ## External integration for an unchanged project
 
-For a project whose rEdit capabilities must live outside its checkout, use the external
+For a project whose Red capabilities must live outside its checkout, use the external
 installer (spec 085). All four paths are explicit and absolute:
 
 ```sh

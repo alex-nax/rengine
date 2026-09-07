@@ -15,6 +15,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fail } from './store.mjs';
+import { PRODUCT_NAME } from '../runtime/product.mjs';
 
 /* Register these as redirect URIs once, when creating the application. Several so a busy port does
    not end the attempt; the setup message lists every one so they can be pasted together. */
@@ -81,7 +82,7 @@ async function listen(server) {
   return null;
 }
 
-const page = message => `<!doctype html><meta charset="utf-8"><title>rEdit</title>
+const page = message => `<!doctype html><meta charset="utf-8"><title>${PRODUCT_NAME}</title>
 <body style="font:14px system-ui;padding:3rem;color:#242424"><p>${message}</p></body>`;
 
 /* Starts a sign-in: returns the URL to open. The browser comes back to the loopback listener, which
@@ -122,7 +123,7 @@ export async function begin(stateDirectory, project, options = {}) {
           clientId: registered.clientId, code: target.searchParams.get('code'), redirect, verifier,
         });
         await store(stateDirectory, project, grant);
-        response.writeHead(200, { 'Content-Type': 'text/html' }).end(page('Signed in. You can close this tab and go back to rEdit.'));
+        response.writeHead(200, { 'Content-Type': 'text/html' }).end(page(`Signed in. You can close this tab and go back to ${PRODUCT_NAME}.`));
         cancel(); resolve({ ok: true });
       } catch (error) {
         response.writeHead(500, { 'Content-Type': 'text/html' }).end(page(`Sign-in failed: ${error.message}`));

@@ -57,6 +57,64 @@ D40's cross-project editions will have to fix.
 
 Remaining: no loader, no build integration, no edition, and no acquisition. F109 is scoped to the
 manifest and claims nothing else. Spec 105's four open questions are all still open.
+## Session 74 (macos) — 2026-09-07 — The product is Red, and the name is generated (F110, spec 108)
+
+D41's second half was the engineering: *"the name stops being hard-coded … so the rename is a data
+edit and the next one is too."* The rename itself was four strings. The work was making a fifth one
+impossible.
+
+**One declaration, two generated outputs.** `orchestrator/native/theme.json` gains a `product` block
+(`name`, `suite`, `retired`), validated by `tools/design.py` beside the theme tokens. `generate`
+writes `RE_PRODUCT_NAME` / `RE_PRODUCT_SUITE` into `theme.h` — already included everywhere through
+`common.h`, so `app.h` reduces to `#define RE_DEFAULT_TITLE RE_PRODUCT_NAME` — and
+`orchestrator/runtime/product.mjs` for the JS side. A generated module rather than reading the JSON
+at run time, because `orchestrator/runtime/` is the replaceable layer (spec 101) and would otherwise
+depend on a path in the desktop's build inputs; content cannot be half-read, and there is no fallback
+string to go stale. `check` compares both, so a hand-edited generated file is refused like every
+other one.
+
+**The four consumers now read it**, and are asserted against what they actually answer rather than
+against their source: the `/ide` lock publishes `ideName: "Red"`, a language server is sent
+`clientInfo.name` (read off the bytes by a recorder server), the tracker callback serves
+`<title>Red</title>` from a real loopback request, and `native-identity.spec.mjs` drives a live
+window for the chrome and OS window title. `ide-connect.mjs` needed no edit — it already compares a
+lock's `ideName` against the imported `IDE_NAME` — but its fixtures did: they published the literal
+old word, so they would have kept passing while auto-connect (F103) stopped recognising our own
+editor. That is the failure this rename could actually have shipped.
+
+**The guard.** `design.py check` now fails when the product name — current *or* retired — appears in
+shipping code (`orchestrator/`, `tools/`, `adapters/`, `scripts/`), and `design.py product [PATH]`
+runs the same scan alone so the npm suite can assert it without inheriting another lane's colour
+literal. Comments are exempt on purpose: prose naming the product is not hard-coding it, and a file
+has to be able to say what it is. Allowed: the declaration, the two generated files, and
+`product-name.test.mjs`, which holds the one deliberate `'Red'` — `IDE_NAME` is published into other
+people's `/ide` menus, so a rename should have to change a line that says so out loud.
+
+**Written first as string-literals-only, which was wrong.** It found 21 hand-written names and walked
+straight past `assert.match(state.windowTitle, /^rEdit\b/, …)` — a regular expression is not a string.
+It now scans everything that is not a comment, and the automated decoy has both forms plus a comment
+that must *not* fire, so the guard cannot pass for the wrong reason.
+
+**Sabotage** (`docs/evidence/product-name-2026-09-07.md`): current name typed back in → guard names
+`ide.mjs:23`; retired name in C → names `app.h:85`; hand-edited `theme.h` and hand-edited
+`product.mjs` → stale, and the test that catches the second one is the canary, because with a renamed
+module every consumer test still passed happily saying "Rouge"; declaration changed without
+regenerating → both outputs stale; module deleted → `ERR_MODULE_NOT_FOUND` at import in all three JS
+consumers; macro deleted → `use of undeclared identifier 'RE_PRODUCT_NAME'`, build fails. Two
+controls: a comment naming the product, and `'Redirected … red Redis … prepared'`, both silent.
+
+**Gates**: `./init.sh`, `npm test` (219 pass), `npm run build`, `python3 tools/design.py check`,
+`python3 tools/features.py validate`, `native-ide-selection.spec.mjs` (1 pass) and
+`native-identity.spec.mjs` (5 pass). Sidecar anchors in `ide.mjs` and `lsp.mjs` repaired, reviewed
+and stamped on a private index.
+
+**Deliberately not renamed**: `rEngine` — the project that builds Red keeps its name; `Codex-progress`
+entries, `docs/evidence/**` and earlier `features.json` rows, which are dated records; charter D36's
+own wording, because a decision that silently agrees with the successor revising it destroys the
+record of there having been a change (specs 084 and 102 carry a revision note above their unchanged
+decision rows instead). **Left hard-coded**: the default brand glyph, still `"r"` in `app.c:180` —
+that file belongs to another lane this session, and a glyph is spec 084's declared mark rather than
+the name. A follow-up should make it product data (`"R"`) or derive it from the declared name.
 
 ## Session 72 (macos) — 2026-09-07 — Packs, plugins, editions and the name (spec 105, D38–D41)
 

@@ -76,10 +76,13 @@ bool re_app_event(ReApp *app, const SDL_Event *event, ReDraw *draw);
 /* Applies this root's theme file when a person has already activated it for that root (D34). */
 void re_app_project_theme(ReApp *app);
 
-/* The workspace wears the primary root's declared name and mark, falling back to rEdit and the
- * accent. Identity never follows the focused tab, so moving between panes cannot rename the
- * chrome under you (spec 084 decision 3). */
-#define RE_DEFAULT_TITLE "rEdit"
+/* The workspace wears the primary root's declared name and mark, falling back to the product's own
+ * name and the accent. Identity never follows the focused tab, so moving between panes cannot rename
+ * the chrome under you (spec 084 decision 3).
+ *
+ * The word itself is declared in theme.json and generated into theme.h, which common.h already
+ * includes: the default title is an alias so a rename stays a data edit (charter D41, spec 108). */
+#define RE_DEFAULT_TITLE RE_PRODUCT_NAME
 const char *re_app_title(ReApp *app);          /* display title; never an identifier */
 const char *re_app_mark(ReApp *app);           /* one or two characters for the brand chip */
 mu_Color re_app_mark_color(ReApp *app);        /* the chip's fill, resolved from the declared token */

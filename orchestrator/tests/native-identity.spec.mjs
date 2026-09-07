@@ -8,6 +8,9 @@ import { promisify } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import { startServer } from '../server/main.mjs';
 import { nativeClient } from './native-client.mjs';
+// The default word is the product's own name, generated from one declaration (spec 108); asserting
+// the constant rather than a copy of it is what keeps this test about identity and not about spelling.
+import { PRODUCT_NAME } from '../runtime/product.mjs';
 
 const run = promisify(execFile);
 const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
@@ -25,7 +28,7 @@ const DECLARED = {
   formats: [{ id: 'text', title: 'Text', match: ['*.txt'], modes: ['raw'], default: 'raw' }],
 };
 
-test('the workspace wears the project name, and rEdit when none is declared', { timeout: 90000 }, async () => {
+test(`the workspace wears the project name, and ${PRODUCT_NAME} when none is declared`, { timeout: 90000 }, async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-identity-'));
   const plain = await project(path.join(dir, 'plain'), null);
   const named = await project(path.join(dir, 'named'), DECLARED);
@@ -35,11 +38,11 @@ test('the workspace wears the project name, and rEdit when none is declared', { 
   const other = await server.store.addRoot(named);
   const gui = await nativeClient(server, { root: bare.id });
   try {
-    // Undeclared: the default word, and it is rEdit rather than the old one.
+    // Undeclared: the default word, and it is the product's own name rather than the project's.
     let state = await gui.until(s => s.connected && s.title, 'the chrome has a title');
-    assert.equal(state.title, 'rEdit', 'an undeclared project shows the default name');
+    assert.equal(state.title, PRODUCT_NAME, 'an undeclared project shows the default name');
     assert.equal(state.mark, 'r', 'and the default mark');
-    assert.match(state.windowTitle, /^rEdit\b/, `and the window title agrees: ${state.windowTitle}`);
+    assert.ok(state.windowTitle.startsWith(PRODUCT_NAME), `and the window title agrees: ${state.windowTitle}`);
 
     // The declared name reaches the chrome.
     await gui.control('toolbar', 'Root', -1);
@@ -51,7 +54,7 @@ test('the workspace wears the project name, and rEdit when none is declared', { 
     // Identity comes from the window's primary root, so selecting another root must NOT rename it.
     state = await gui.command({ op: 'state' });
     assert.equal(state.primaryRoot, bare.id, 'the primary root is the one the window opened on');
-    assert.equal(state.title, 'rEdit', 'selecting another root does not rename the chrome');
+    assert.equal(state.title, PRODUCT_NAME, 'selecting another root does not rename the chrome');
   } finally {
     await gui.close(); await server.close(); await rm(dir, { recursive: true, force: true });
   }

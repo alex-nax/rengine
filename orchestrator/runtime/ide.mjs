@@ -1,4 +1,4 @@
-/* rEdit as a Claude Code IDE (spec 102).
+/* Red as a Claude Code IDE (spec 102).
  *
  * Claude Code finds an editor by reading `~/.claude/ide/<port>.lock` and connecting to the port its
  * filename names. This serves that socket from the workspace worker, which is the replaceable layer:
@@ -15,8 +15,12 @@ import { mkdir, readdir, readFile, writeFile, unlink } from 'node:fs/promises';
 import { WebSocketServer } from 'ws';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { PRODUCT_NAME } from './product.mjs';
 
-export const IDE_NAME = 'rEdit';
+/* What other people see in their `/ide` menu, beside VS Code and Cursor. It is the product's own
+   name, declared once and generated (charter D41, spec 108), so a rename is a data edit — and
+   ide-connect.mjs compares a lock's ideName against this, never against a word of its own. */
+export const IDE_NAME = PRODUCT_NAME;
 /* The CLI reads this one path, so it is the default rather than a setting — but it stays an explicit
    input, because a test that publishes into the developer's own `/ide` menu is a test with a side
    effect on the person running it. */
@@ -118,11 +122,11 @@ export async function startIdeBridge({ roots = [], hostPid, workerPid = process.
     const mcp = new Server({ name: 'rengine-ide', version: '1.0.0' }, { capabilities: { tools: {} } });
     mcp.setRequestHandler(ListToolsRequestSchema, () => ({ tools: [{
       name: 'getDiagnostics',
-      description: 'Diagnostics rEdit holds for a file, from the language servers the project declares. A project that declares none answers an empty list rather than refusing.',
+      description: `Diagnostics ${PRODUCT_NAME} holds for a file, from the language servers the project declares. A project that declares none answers an empty list rather than refusing.`,
       inputSchema: { type: 'object', properties: { uri: { type: 'string' } } },
     }] }));
     mcp.setRequestHandler(CallToolRequestSchema, request => {
-      if (request.params.name !== 'getDiagnostics') throw new Error(`${request.params.name} is not a tool rEdit serves yet.`);
+      if (request.params.name !== 'getDiagnostics') throw new Error(`${request.params.name} is not a tool ${PRODUCT_NAME} serves yet.`);
       return { content: [{ type: 'text', text: JSON.stringify(diagnostics(request.params.arguments?.uri ?? '', diagnosticsFor)) }] };
     });
     socket.mcp = mcp;

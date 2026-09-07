@@ -4,6 +4,10 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { offeredEditors, autoConnect, ideConnectFlag } from '../agents/ide-connect.mjs';
+// The fixtures publish OUR name, because "is this editor ours?" is what these tests are about.
+// Taking it from the same export the code compares against is what makes the question survive a
+// rename: a fixture holding the old word would still pass while auto-connect silently stopped.
+import { IDE_NAME } from '../runtime/ide.mjs';
 import { agentLaunch } from '../agents/config.mjs';
 
 async function locks(entries) {
@@ -17,9 +21,9 @@ const alive = () => true;
 
 test('an editor is offered when its folders cover the directory, and not when they merely look like it', async () => {
   const dir = await locks({
-    100: { pid: 1, ideName: 'rEdit', workspaceFolders: ['/work/rengine'] },
-    200: { pid: 2, ideName: 'rEdit', workspaceFolders: ['/work/rengine-old'] },
-    300: { pid: 3, ideName: 'rEdit', workspaceFolders: ['/elsewhere'] },
+    100: { pid: 1, ideName: IDE_NAME, workspaceFolders: ['/work/rengine'] },
+    200: { pid: 2, ideName: IDE_NAME, workspaceFolders: ['/work/rengine-old'] },
+    300: { pid: 3, ideName: IDE_NAME, workspaceFolders: ['/elsewhere'] },
   });
   try {
     const offered = await offeredEditors('/work/rengine/orchestrator', { locks: dir, alive });
@@ -34,7 +38,7 @@ test('an editor is offered when its folders cover the directory, and not when th
 });
 
 test('a lock whose process is gone is not offered', async () => {
-  const dir = await locks({ 100: { pid: 4242, ideName: 'rEdit', workspaceFolders: ['/work'] } });
+  const dir = await locks({ 100: { pid: 4242, ideName: IDE_NAME, workspaceFolders: ['/work'] } });
   try {
     assert.deepEqual(await offeredEditors('/work', { locks: dir, alive: () => false }), []);
   } finally { await rm(dir, { recursive: true, force: true }); }
@@ -45,8 +49,8 @@ test('this workspace\'s own editor is named by port, so a machine-mate\'s does n
   // alone would decline forever on a machine where two workspaces bind the same project. Naming our
   // port is what the CLI itself honours to select one outright.
   const shared = await locks({
-    100: { pid: 1, ideName: 'rEdit', workspaceFolders: ['/work'] },
-    200: { pid: 2, ideName: 'rEdit', workspaceFolders: ['/work'] },
+    100: { pid: 1, ideName: IDE_NAME, workspaceFolders: ['/work'] },
+    200: { pid: 2, ideName: IDE_NAME, workspaceFolders: ['/work'] },
   });
   try {
     const ours = await autoConnect('claude', '/work', { locks: shared, alive, ourPids: [2, 77] });
@@ -66,10 +70,10 @@ test('this workspace\'s own editor is named by port, so a machine-mate\'s does n
 
 test('exactly one is the rule when this workspace cannot be identified', async () => {
   const two = await locks({
-    100: { pid: 1, ideName: 'rEdit', workspaceFolders: ['/work'] },
-    200: { pid: 2, ideName: 'rEdit', workspaceFolders: ['/work'] },
+    100: { pid: 1, ideName: IDE_NAME, workspaceFolders: ['/work'] },
+    200: { pid: 2, ideName: IDE_NAME, workspaceFolders: ['/work'] },
   });
-  const one = await locks({ 100: { pid: 1, ideName: 'rEdit', workspaceFolders: ['/work'] } });
+  const one = await locks({ 100: { pid: 1, ideName: IDE_NAME, workspaceFolders: ['/work'] } });
   const foreign = await locks({ 100: { pid: 1, ideName: 'VS Code', workspaceFolders: ['/work'] } });
   try {
     const many = await autoConnect('claude', '/work', { locks: two, alive });
@@ -90,7 +94,7 @@ test('exactly one is the rule when this workspace cannot be identified', async (
 });
 
 test('a CLI with no auto-connect option gets nothing added to its command line', async () => {
-  const dir = await locks({ 100: { pid: 1, ideName: 'rEdit', workspaceFolders: ['/work'] } });
+  const dir = await locks({ 100: { pid: 1, ideName: IDE_NAME, workspaceFolders: ['/work'] } });
   try {
     assert.equal(ideConnectFlag('codex'), null);
     for (const agent of ['codex', 'gemini', 'opencode']) {

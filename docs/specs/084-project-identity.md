@@ -4,6 +4,13 @@ Date: 2026-09-06. Status: recorded after a design interview. Owner request: a pr
 the default logo and title, so that `~/nolf-improved` reads "re:Lith"; and the default itself becomes
 "rEdit" rather than "rEngine".
 
+> Revised 2026-09-07 by charter D41: the product is **Red**, so the default title is Red. The
+> decisions below keep their original wording, because D41 is a revision and a decision that
+> silently agrees with its successor destroys the record of there having been a change. The
+> default word is no longer written in the source at all — it is declared and generated
+> ([spec 108](108-the-product-name.md)), so read every "rEdit" below as "the product's own
+> name". The declared-title and glyph behaviour this spec specifies is unchanged.
+
 Parent: [design foundations](076-design-foundations.md), charter D33. Shares contract 5 with
 [task tracking](083-task-tracking.md).
 
