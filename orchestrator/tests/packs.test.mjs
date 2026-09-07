@@ -11,6 +11,14 @@ import { dashboard } from './dashboard-fixtures.mjs';
 import { game, second } from './game-fixtures.mjs';
 import { thisMachine, answering } from './device-fixtures.mjs';
 
+/* A refusal that never fires leaves packsError undefined, and assert.match on undefined dies with
+   "The string argument must be of type string" — red for the right reason, useless as a message.
+   This says which refusal went missing before matching what it said. */
+const refused = (result, pattern, what) => {
+  assert.ok(result.packsError, `${what}: no refusal was reported at all; the declaration was accepted`);
+  assert.match(result.packsError, pattern, what);
+};
+
 // The contract-9 pack manifest (spec 107, charter D39, D24 clarified). A pack is one pinned,
 // versioned artifact whose facets say how it is consumed: a library facet at build time, a plugin
 // facet at run time. Nothing here acquires or loads anything — see the spec's out-of-scope table.
@@ -90,7 +98,7 @@ test('packs on contract 8 is refused for the contract it needs, not as an unknow
   const eight = await declare(directory, 'eight', packed([pack({ library: library() })], { contract: 8 }));
   assert.ok(!/unknown key packs/.test(eight.error ?? ''),
     'packs is a known key at every contract; a reader that has the block refuses the contract, never the key');
-  assert.match(eight.packsError, /packs requires contract 9 \(declared contract 8\)/,
+  refused(eight, /packs requires contract 9 \(declared contract 8\)/,
     'a reader that has the block still refuses it below its floor, by the contract it needs');
   assert.ok(!/unknown key/.test(eight.packsError ?? ''), 'never as an unknown key: the key is known, the contract is not');
   assert.equal(eight.packs, undefined, 'nothing from a below-floor block reaches a consumer');
@@ -98,7 +106,7 @@ test('packs on contract 8 is refused for the contract it needs, not as an unknow
   assert.equal(eight.formats[0].id, 'fixture-pack', 'contract 8 still lists its formats');
 
   const one = await declare(directory, 'one', { ...declaration(), packs: [pack({ library: library() })] });
-  assert.match(one.packsError, /packs requires contract 9 \(declared contract 1\)/);
+  refused(one, /packs requires contract 9 \(declared contract 1\)/, 'one');
   assert.equal(one.formats[0].id, 'fixture-pack');
 
   const beyond = CONTRACTS.at(-1) + 1;
@@ -115,29 +123,29 @@ test('each pack refusal names the pack and the key (spec 107)', async t => {
   // A facet key under the wrong facet. The schema refuses the unknown key; the rule says where the
   // key belongs, which is the half that tells a human what to do about it.
   const strayLibraryKey = await refuse('stray-library-key', [pack({ plugin: plugin({ target: 'iklib::ik' }) })]);
-  assert.match(strayLibraryKey.packsError, /\$\.packs\[0\] \(iklib\)\.plugin\.target belongs to the library facet/);
+  refused(strayLibraryKey, /\$\.packs\[0\] \(iklib\)\.plugin\.target belongs to the library facet/, 'strayLibraryKey');
   assert.equal(strayLibraryKey.packs, undefined, 'a bad pack fails its section whole');
   assert.equal(strayLibraryKey.formats[0].id, 'fixture-pack', 'and takes nothing else with it');
 
   const strayPluginKey = await refuse('stray-plugin-key', [pack({ library: library({ module: 'build/x.dylib' }) })]);
-  assert.match(strayPluginKey.packsError, /\$\.packs\[0\] \(iklib\)\.library\.module belongs to the plugin facet/);
+  refused(strayPluginKey, /\$\.packs\[0\] \(iklib\)\.library\.module belongs to the plugin facet/, 'strayPluginKey');
 
   const strayAbi = await refuse('stray-abi', [pack({ library: library({ abi: 're-plugin-1' }) })]);
-  assert.match(strayAbi.packsError, /\$\.packs\[0\] \(iklib\)\.library\.abi belongs to the plugin facet/);
+  refused(strayAbi, /\$\.packs\[0\] \(iklib\)\.library\.abi belongs to the plugin facet/, 'strayAbi');
 
   // A pack declaring no facet at all: a name and a version with nothing on the other end of them.
   const facetless = await refuse('facetless', [pack()]);
-  assert.match(facetless.packsError, /\$\.packs\[0\] \(iklib\) declares no facet; a pack declares library, plugin or both/);
+  refused(facetless, /\$\.packs\[0\] \(iklib\) declares no facet; a pack declares library, plugin or both/, 'facetless');
 
   // A repeated pack name, placed by the occurrence's index rather than by the name it repeats, so
   // the report points at the entry to go and look at.
   const twice = await refuse('twice', [pack({ library: library() }), pack({ plugin: plugin() })]);
-  assert.match(twice.packsError, /\$\.packs\[1\]\.name repeats "iklib"/);
+  refused(twice, /\$\.packs\[1\]\.name repeats "iklib"/, 'twice');
   assert.ok(!/\$\.packs\[0\]\.name repeats/.test(twice.packsError), 'the first occurrence is not the problem');
 
   // D24 clarified: the claim is earned on the library facet. An editor plugin does not earn it.
   const claiming = await refuse('claiming', [{ name: 'red-inspector', pin: { version: '0.1.2', revision: SHA256 }, poweredBy: true, plugin: plugin() }]);
-  assert.match(claiming.packsError, /\$\.packs\[0\] \(red-inspector\)\.poweredBy is earned by a library facet; an editor plugin does not earn it/);
+  refused(claiming, /\$\.packs\[0\] \(red-inspector\)\.poweredBy is earned by a library facet; an editor plugin does not earn it/, 'claiming');
   const earned = await refuse('earned', [pack({ poweredBy: true, library: library() })]);
   assert.equal(earned.packsError, undefined, 'the same key on a library facet is exactly what D24 defines');
 
@@ -145,7 +153,7 @@ test('each pack refusal names the pack and the key (spec 107)', async t => {
   // different bytes. The version is the label; the revision is the identity.
   for (const revision of ['main', 'v0.4.0', 'HEAD', '9f1c0b2', SHA1.toUpperCase(), `${SHA1}0`]) {
     const named = await refuse(`revision-${revision.replace(/\W/g, '')}`, [pack({ pin: pin({ revision }), library: library() })]);
-    assert.match(named.packsError, /\$\.packs\[0\] \(iklib\)\.pin\.revision must be a 40- or 64-character hex digest/,
+    refused(named, /\$\.packs\[0\] \(iklib\)\.pin\.revision must be a 40- or 64-character hex digest/,
       `${revision} must be refused as a revision`);
     assert.ok(named.packsError.includes(JSON.stringify(revision)), 'and the refusal quotes what was written');
   }
@@ -155,29 +163,29 @@ test('each pack refusal names the pack and the key (spec 107)', async t => {
   // Declared paths are root-relative, like every other path in this contract.
   for (const escape of ['../elsewhere/iklib', '/opt/iklib', 'third_party/../../iklib']) {
     const out = await refuse(`escape-${escape.replace(/\W/g, '')}`, [pack({ library: library({ path: escape }) })]);
-    assert.match(out.packsError, /\$\.packs\[0\] \(iklib\)\.library\.path must be root-relative/, `${escape} must be refused`);
+    refused(out, /\$\.packs\[0\] \(iklib\)\.library\.path must be root-relative/, `${escape} must be refused`, 'out');
   }
   const escapingModule = await refuse('escaping-module', [pack({ plugin: plugin({ module: '../evil.dylib' }) })]);
-  assert.match(escapingModule.packsError, /\$\.packs\[0\] \(iklib\)\.plugin\.module must be root-relative/);
+  refused(escapingModule, /\$\.packs\[0\] \(iklib\)\.plugin\.module must be root-relative/, 'escapingModule');
 
   // A record with no name is placed by its index and never printed as undefined (spec 078's rule).
   const anonymous = await refuse('anonymous', [{ pin: pin(), library: library({ path: '/opt/iklib' }) }]);
-  assert.match(anonymous.packsError, /\$\.packs\[0\]\.library\.path must be root-relative/);
+  refused(anonymous, /\$\.packs\[0\]\.library\.path must be root-relative/, 'anonymous');
   assert.ok(!/undefined/.test(anonymous.packsError), 'a missing name is never printed as undefined');
 
   // Structural floors the schema owns, reported through the same key.
   const empty = await refuse('empty', []);
-  assert.match(empty.packsError, /\$\.packs needs at least 1 items/, 'an empty list is a block that says nothing');
+  refused(empty, /\$\.packs needs at least 1 items/, 'an empty list is a block that says nothing', 'empty');
   const nameless = await refuse('nameless', [{ pin: pin(), library: library() }]);
-  assert.match(nameless.packsError, /\$\.packs\[0\] requires name/);
+  refused(nameless, /\$\.packs\[0\] requires name/, 'nameless');
   const unpinned = await refuse('unpinned', [{ name: 'iklib', library: library() }]);
-  assert.match(unpinned.packsError, /\$\.packs\[0\] requires pin/);
+  refused(unpinned, /\$\.packs\[0\] requires pin/, 'unpinned');
   const halfPin = await refuse('half-pin', [{ name: 'iklib', pin: { version: '0.4.0' }, library: library() }]);
-  assert.match(halfPin.packsError, /\$\.packs\[0\]\.pin requires revision/);
+  refused(halfPin, /\$\.packs\[0\]\.pin requires revision/, 'halfPin');
   const targetless = await refuse('targetless', [pack({ library: { path: 'third_party/iklib' } })]);
-  assert.match(targetless.packsError, /\$\.packs\[0\]\.library requires target/);
+  refused(targetless, /\$\.packs\[0\]\.library requires target/, 'targetless');
   const abiless = await refuse('abiless', [pack({ plugin: { module: 'build/x.dylib' } })]);
-  assert.match(abiless.packsError, /\$\.packs\[0\]\.plugin requires abi/);
+  refused(abiless, /\$\.packs\[0\]\.plugin requires abi/, 'abiless');
 });
 
 test('a declaration that does not name packs reads exactly as it did (the ten blocks of contracts 1-8)', async t => {
