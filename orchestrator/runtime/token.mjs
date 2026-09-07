@@ -277,6 +277,17 @@ export class Tokens {
     this.directory = path.join(directory, 'tokens'); this.options = options;
     this.file = path.join(this.directory, 'preferences.json');
     this.ledgers = new Map(); this.opening = new Map(); this.preferences = {};
+    /* Serialised the way `Ledger.persist` is. Unique temporaries make two concurrent writes safe;
+       they do not order them, and whichever rename landed last decided the file — so a `setWindow`
+       could be overwritten by an older `bumpGeneration` and the file would disagree with memory. */
+    this.writing = Promise.resolve();
+  }
+  /* Writes the preferences as they were when this call was made, after every write queued before it. */
+  persist() {
+    const value = this.preferences;
+    const write = () => writeAtomically(this.file, value);
+    this.writing = this.writing.then(write, write);
+    return this.writing;
   }
   static async open(directory, options) {
     const tokens = new Tokens(directory, options);
@@ -294,7 +305,7 @@ export class Tokens {
   async bumpGeneration() {
     const next = (Number.isSafeInteger(this.preferences.generation) ? this.preferences.generation : 0) + 1;
     this.preferences = { ...this.preferences, generation: next };
-    await writeAtomically(this.file, this.preferences);
+    await this.persist();
     return next;
   }
   async setWindow(value) {
@@ -302,7 +313,7 @@ export class Tokens {
       throw Object.assign(new Error(`Invalid tokenWindowMs preference; expected an integer between ${MIN_WINDOW_MS} and ${MAX_WINDOW_MS}.`), { status: 400 });
     }
     this.preferences = { ...this.preferences, tokenWindowMs: value };
-    await writeAtomically(this.file, this.preferences);
+    await this.persist();
     /* Nothing is re-armed: an open contest carries the window it opened under, its deadline is an
        absolute wall time, and the next contest is the first to use the new length. */
     return this.preferences;

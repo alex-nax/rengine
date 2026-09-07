@@ -6,8 +6,14 @@ const TYPES = new Set(['token.claimed', 'token.contested', 'token.rejected', 'to
   'game.started', 'game.ended', 'device-action.started', 'device-action.ended',
   'capture.started', 'capture.committed', 'workspace.updated']);
 
+/* One temporary per write, not one per process. Two writes to the same file in flight in the same
+   process shared a name: the first rename moved the bytes both had written into place and the second
+   failed `ENOENT ... rename`, throwing away that write and, through the callers that await it, the
+   answer with it. The pid stays the first component because the retirement check reads it off these
+   names to learn which processes wrote a ledger directory (spec 095, Retirement). */
+let writes = 0;
 export async function writeAtomically(filename, value) {
-  const temporary = `${filename}.${process.pid}.tmp`;
+  const temporary = `${filename}.${process.pid}.${(writes = (writes + 1) % 0xffffff).toString(36)}.tmp`;
   try { await writeFile(temporary, JSON.stringify(value), { mode: 0o600 }); await rename(temporary, filename); }
   catch (error) { await rm(temporary, { force: true }); throw error; }
 }
