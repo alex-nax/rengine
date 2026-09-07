@@ -1,129 +1,129 @@
 {
- "version": 1,
- "entries": [
-  {
-   "id": "root-bound-replaceable-tools",
-   "kind": "rationale",
-   "anchor": {
-    "start": 41,
-    "end": 41,
-    "snippet": "const scopedState = async () => {"
-   },
-   "note": "Tool implementation lives in a replaceable process behind the stable facade. Resolve only a validated runtime descriptor for the original host, retain the original root and reject foreign sessions/desktops before each operation. Probe/update/status never launches a coding conversation. The existing eight-tool connector can remain running while an agent uses runtime/client.mjs with its original context.",
-   "refs": [
-    "docs/specs/065-layered-workspace-updates.md"
-   ]
-  },
-  {
-   "id": "linked-project-operations",
-   "kind": "rationale",
-   "anchor": {
-    "start": 102,
-    "end": 102,
-    "snippet": "const windowCapability = state => { if (state.capabilities.projectWindows !== 1) throw new Error('Project-window control needs the current runtime supervisor. Use the documented context-bound bootstrap.'); };"
-   },
-   "note": "New window and report tools retain the connector\u2019s captured root. Opening a window attaches an existing root-bound agent; only the recorded origin/project pair can inspect its window or exchange reports. The origin can explicitly view its linked project inbox or attribute its own project-side observation without claiming another agent wrote it.",
-   "refs": [
-    "docs/specs/069-project-window-dogfooding.md"
-   ]
-  },
-  {
-   "id": "interactive-script-tools",
-   "kind": "rationale",
-   "anchor": {
-    "start": 117,
-    "end": 117,
-    "snippet": "const scriptCapability = state => { if (state.capabilities.scriptActions !== 1) throw new Error('Update the workspace worker before opening script tabs.'); };"
-   },
-   "note": "Script execution is effectful and not idempotent; root-bound tools require an explicit script path, literal argv and a target desktop. View attachment failure returns a retained process identity. show_session attaches that process without another execution, and ordinary stop_session remains the explicit termination action.",
-   "refs": [
-    "docs/specs/071-interactive-script-tabs.md"
-   ]
-  },
-  {
-   "id": "preview-file-tool",
-   "kind": "rationale",
-   "anchor": {
-    "start": 136,
-    "end": 136,
-    "snippet": "const PREVIEW_BUDGET = 32000;"
-   },
-   "note": "preview_file runs the project's own declared executable, so it is open-world and not read-only even though it never writes. The route returns the whole sanitized tree; the tool slices dir/depth and pages files with offset/limit, then shrinks depth and limit until the serialized reply fits the 32,000-character budget, reporting truncated/nextOffset (review finding 5). Command metadata is made root-relative and the generic tool wrapper replaces the absolute root path in error text with <root>. Entry text is bounded like read_file; the hex window is dropped because agents get size and SHA-256 instead.",
-   "refs": [
-    "docs/specs/074-project-format-registry.md"
-   ]
-  },
-  {
-   "id": "dashboard-tools",
-   "kind": "rationale",
-   "anchor": {
-    "start": 121,
-    "end": 121,
-    "snippet": "const dashboardCapability = state => { if (state.capabilities.dashboard !== 1) throw new Error('This retained service predates the project dashboard. Update the workspace layer first.'); };"
-   },
-   "note": "dashboard_actions is read-only (availability only); dashboard_capture is open-world because it runs a project executable and writes files. Script and log actions deliberately get no new tool: scripts go through open_script with the listed script/args/env, logs start from the desktop tab and are followed with show_session/session_output, so process creation stays on the existing audited paths.",
-   "refs": [
-    "docs/specs/075-project-dashboard.md"
-   ]
-  },
-  {
-   "id": "declared-game-tools",
-   "kind": "rationale",
-   "anchor": {
-    "start": 172,
-    "end": 172,
-    "snippet": "const gameCapability = state => { if (state.capabilities.projectGame !== 1) throw new Error('This retained service predates per-project game declarations. Update the workspace layer first.'); };"
-   },
-   "note": "game_preflight and launch_game address only the games the bound project declares in .rengine/project.json; their descriptions name no game, and the connector never carries a built-in executable or data path. Both take an optional gameId and default to the first declared record, so a single-game project needs no argument while a multi-game one is addressed explicitly and an unknown id is answered with the declared ids. launch_game is open-world because it executes the project's own program; it returns the running session of that same game id when one exists, so agents inspect the returned id rather than assuming a fresh process, and two declared games of one project can be running at once. The removed nolf_preflight/launch_nolf have no alias: nothing had shipped them to a user. The two tools gate on two capabilities, because the workspace layer can deliver only one of them: game_preflight needs projectGame, which the replaceable worker advertises for the route it serves itself, while launch_game needs projectGameLaunch, which only a session host that answers from the declaration can offer \u2014 replacing that host requires quiescence, so the refusal names it instead of telling the agent to update the workspace layer again.",
-   "refs": [
-    "docs/specs/078-project-game-declaration.md"
-   ]
-  },
-  {
-   "id": "devices-tool",
-   "kind": "constraint",
-   "anchor": {
-    "start": 166,
-    "end": 166,
-    "snippet": "tool('devices', 'List the devices the project declares in .rengine/project.json (contract 4, devices): where each target runs, with reachability, when it was checked, the reasons an unreachable device gives, and the games and dashboard actions bound to it \u2014 each bound action with the availability the dashboard computed for it (its own requires/tools composed with the device\u2019s reachability) and each bound game with the preflight the launch uses, so a caller reads what can be run where without a second listing. The implicit local device is always listed. Reachability comes from each record\u2019s own declared probe \u2014 bounded and side-effect-light rather than read-only, since adb starts its own daemon when none is running \u2014 run only on this call, cached briefly, and bypassed by refresh. Reachable means the device answered, never that a target can be launched on it: rEngine does not launch on a remote device, and the project\u2019s own script action owns that.', {"
-   },
-   "note": "The devices tool is readOnlyHint (it changes nothing in the project) but openWorldHint, because it reaches the network or a USB device. Its description deliberately does NOT claim read-only: adb get-state and adb devices start the adb server when no daemon is running, so a probe is bounded and side-effect-light, not free of side effects. It also states that reachable is not launchable \u2014 a green ssh probe still cannot create a GL context in a logon session with no window station \u2014 so an agent does not read a reachable device as permission to launch on it. It gates on projectDevices, which the replaceable workspace worker advertises (KI-043: a capability served only by the retained host cannot be delivered by a layered update). The description now also states what each bound target carries \u2014 an action's availability as the dashboard computed it, a game's preflight \u2014 because the Devices tab renders those as controls and an agent reading this tool should not need a second listing to learn what can be run where.",
-   "refs": [
-    "docs/specs/082-project-devices.md"
-   ]
-  },
-  {
-   "id": "token-gate-in-the-tool-worker",
-   "kind": "constraint",
-   "anchor": {
-    "start": 214,
-    "end": 214,
-    "snippet": "const tokenGate = async (state, tool) => {"
-   },
-   "note": "Two of the six extended tools cannot be gated where the others are. The runtime supervisor answers /api/update-workspace and /api/desktop-action itself and forwards everything else to the workspace worker, so update_workspace and reload_desktop never reach the worker's gate and read the ledger here instead, before the call. The capability half is separate and applies to all six: agentToken says the worker serves a ledger, so an identified agent against a worker that does not advertise it is refused naming the layer to update rather than calling a worker that would pass every request. An anonymous caller \u2014 probeTools, an older launch with no identity \u2014 is not an agent and is never gated at all, which is what keeps update_workspace able to prepare its own replacement.",
-   "refs": [
-    "docs/specs/095-project-token.md"
-   ]
-  },
-  {
-   "id": "identity-is-re-read-binding-is-not",
-   "kind": "rationale",
-   "anchor": {
-    "start": 30,
-    "end": 30,
-    "snippet": "const refreshIdentity = async () => {"
-   },
-   "note": "Two things live in the per-launch context and they have opposite rules. The BINDING -- url, token, instance, rootId -- is taken once from the facade's snapshot (RENGINE_MCP_CONTEXT_SNAPSHOT) precisely so that editing the file cannot retarget a running CLI to another project (spec 065); do not make the binding follow the file. The IDENTITY is the conversation, and the conversation can legitimately change under a running CLI: report-session.mjs rewrites this file when Claude Code's SessionStart hook says the process moved to another session id. So the identity alone is re-read, once per tool call at the top of scopedState, and identityHeaders is a function rather than a frozen object -- a frozen object passes workspace_info and still puts the stale id on the wire, which is the ledger's whole input. A missing, torn or anonymous file leaves the identity as it was rather than dropping it.",
-   "refs": [
-    "docs/specs/095-project-token.md",
-    "docs/evidence/report-session-hook-2026-09-07.md"
-   ]
+  "version": 1,
+  "entries": [
+    {
+      "id": "root-bound-replaceable-tools",
+      "kind": "rationale",
+      "anchor": {
+        "start": 41,
+        "end": 41,
+        "snippet": "const scopedState = async () => {"
+      },
+      "note": "Tool implementation lives in a replaceable process behind the stable facade. Resolve only a validated runtime descriptor for the original host, retain the original root and reject foreign sessions/desktops before each operation. Probe/update/status never launches a coding conversation. The existing eight-tool connector can remain running while an agent uses runtime/client.mjs with its original context.",
+      "refs": [
+        "docs/specs/065-layered-workspace-updates.md"
+      ]
+    },
+    {
+      "id": "linked-project-operations",
+      "kind": "rationale",
+      "anchor": {
+        "start": 102,
+        "end": 102,
+        "snippet": "const windowCapability = state => { if (state.capabilities.projectWindows !== 1) throw new Error('Project-window control needs the current runtime supervisor. Use the documented context-bound bootstrap.'); };"
+      },
+      "note": "New window and report tools retain the connector’s captured root. Opening a window attaches an existing root-bound agent; only the recorded origin/project pair can inspect its window or exchange reports. The origin can explicitly view its linked project inbox or attribute its own project-side observation without claiming another agent wrote it.",
+      "refs": [
+        "docs/specs/069-project-window-dogfooding.md"
+      ]
+    },
+    {
+      "id": "interactive-script-tools",
+      "kind": "rationale",
+      "anchor": {
+        "start": 117,
+        "end": 117,
+        "snippet": "const scriptCapability = state => { if (state.capabilities.scriptActions !== 1) throw new Error('Update the workspace worker before opening script tabs.'); };"
+      },
+      "note": "Script execution is effectful and not idempotent; root-bound tools require an explicit script path, literal argv and a target desktop. View attachment failure returns a retained process identity. show_session attaches that process without another execution, and ordinary stop_session remains the explicit termination action.",
+      "refs": [
+        "docs/specs/071-interactive-script-tabs.md"
+      ]
+    },
+    {
+      "id": "preview-file-tool",
+      "kind": "rationale",
+      "anchor": {
+        "start": 136,
+        "end": 136,
+        "snippet": "const PREVIEW_BUDGET = 32000;"
+      },
+      "note": "preview_file runs the project's own declared executable, so it is open-world and not read-only even though it never writes. The route returns the whole sanitized tree; the tool slices dir/depth and pages files with offset/limit, then shrinks depth and limit until the serialized reply fits the 32,000-character budget, reporting truncated/nextOffset (review finding 5). Command metadata is made root-relative and the generic tool wrapper replaces the absolute root path in error text with <root>. Entry text is bounded like read_file; the hex window is dropped because agents get size and SHA-256 instead.",
+      "refs": [
+        "docs/specs/074-project-format-registry.md"
+      ]
+    },
+    {
+      "id": "dashboard-tools",
+      "kind": "rationale",
+      "anchor": {
+        "start": 121,
+        "end": 121,
+        "snippet": "const dashboardCapability = state => { if (state.capabilities.dashboard !== 1) throw new Error('This retained service predates the project dashboard. Update the workspace layer first.'); };"
+      },
+      "note": "dashboard_actions is read-only (availability only); dashboard_capture is open-world because it runs a project executable and writes files. Script and log actions deliberately get no new tool: scripts go through open_script with the listed script/args/env, logs start from the desktop tab and are followed with show_session/session_output, so process creation stays on the existing audited paths.",
+      "refs": [
+        "docs/specs/075-project-dashboard.md"
+      ]
+    },
+    {
+      "id": "declared-game-tools",
+      "kind": "rationale",
+      "anchor": {
+        "start": 172,
+        "end": 172,
+        "snippet": "const gameCapability = state => { if (state.capabilities.projectGame !== 1) throw new Error('This retained service predates per-project game declarations. Update the workspace layer first.'); };"
+      },
+      "note": "game_preflight and launch_game address only the games the bound project declares in .rengine/project.json; their descriptions name no game, and the connector never carries a built-in executable or data path. Both take an optional gameId and default to the first declared record, so a single-game project needs no argument while a multi-game one is addressed explicitly and an unknown id is answered with the declared ids. launch_game is open-world because it executes the project's own program; it returns the running session of that same game id when one exists, so agents inspect the returned id rather than assuming a fresh process, and two declared games of one project can be running at once. The removed nolf_preflight/launch_nolf have no alias: nothing had shipped them to a user. The two tools gate on two capabilities, because the workspace layer can deliver only one of them: game_preflight needs projectGame, which the replaceable worker advertises for the route it serves itself, while launch_game needs projectGameLaunch, which only a session host that answers from the declaration can offer — replacing that host requires quiescence, so the refusal names it instead of telling the agent to update the workspace layer again.",
+      "refs": [
+        "docs/specs/078-project-game-declaration.md"
+      ]
+    },
+    {
+      "id": "devices-tool",
+      "kind": "constraint",
+      "anchor": {
+        "start": 166,
+        "end": 166,
+        "snippet": "tool('devices', 'List the devices the project declares in .rengine/project.json (contract 4, devices): where each target runs, with reachability, when it was checked, the reasons an unreachable device gives, and the games and dashboard actions bound to it — each bound action with the availability the dashboard computed for it (its own requires/tools composed with the device’s reachability) and each bound game with the preflight the launch uses, so a caller reads what can be run where without a second listing. The implicit local device is always listed. Reachability comes from each record’s own declared probe — bounded and side-effect-light rather than read-only, since adb starts its own daemon when none is running — run only on this call, cached briefly, and bypassed by refresh. Reachable means the device answered, never that a target can be launched on it: rEngine does not launch on a remote device, and the project’s own script action owns that.', {"
+      },
+      "note": "The devices tool is readOnlyHint (it changes nothing in the project) but openWorldHint, because it reaches the network or a USB device. Its description deliberately does NOT claim read-only: adb get-state and adb devices start the adb server when no daemon is running, so a probe is bounded and side-effect-light, not free of side effects. It also states that reachable is not launchable — a green ssh probe still cannot create a GL context in a logon session with no window station — so an agent does not read a reachable device as permission to launch on it. It gates on projectDevices, which the replaceable workspace worker advertises (KI-043: a capability served only by the retained host cannot be delivered by a layered update). The description now also states what each bound target carries — an action's availability as the dashboard computed it, a game's preflight — because the Devices tab renders those as controls and an agent reading this tool should not need a second listing to learn what can be run where.",
+      "refs": [
+        "docs/specs/082-project-devices.md"
+      ]
+    },
+    {
+      "id": "token-gate-in-the-tool-worker",
+      "kind": "constraint",
+      "anchor": {
+        "start": 214,
+        "end": 214,
+        "snippet": "const tokenGate = async (state, tool) => {"
+      },
+      "note": "Two of the six extended tools cannot be gated where the others are. The runtime supervisor answers /api/update-workspace and /api/desktop-action itself and forwards everything else to the workspace worker, so update_workspace and reload_desktop never reach the worker's gate and read the ledger here instead, before the call. The capability half is separate and applies to all six: agentToken says the worker serves a ledger, so an identified agent against a worker that does not advertise it is refused naming the layer to update rather than calling a worker that would pass every request. An anonymous caller — probeTools, an older launch with no identity — is not an agent and is never gated at all, which is what keeps update_workspace able to prepare its own replacement.",
+      "refs": [
+        "docs/specs/095-project-token.md"
+      ]
+    },
+    {
+      "id": "identity-is-re-read-binding-is-not",
+      "kind": "rationale",
+      "anchor": {
+        "start": 30,
+        "end": 30,
+        "snippet": "const refreshIdentity = async () => {"
+      },
+      "note": "Two things live in the per-launch context and they have opposite rules. The BINDING -- url, token, instance, rootId -- is taken once from the facade's snapshot (RENGINE_MCP_CONTEXT_SNAPSHOT) precisely so that editing the file cannot retarget a running CLI to another project (spec 065); do not make the binding follow the file. The IDENTITY is the conversation, and the conversation can legitimately change under a running CLI: report-session.mjs rewrites this file when Claude Code's SessionStart hook says the process moved to another session id. So the identity alone is re-read, once per tool call at the top of scopedState, and identityHeaders is a function rather than a frozen object -- a frozen object passes workspace_info and still puts the stale id on the wire, which is the ledger's whole input. A missing, torn or anonymous file leaves the identity as it was rather than dropping it.",
+      "refs": [
+        "docs/specs/095-project-token.md",
+        "docs/evidence/report-session-hook-2026-09-07.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/agents/mcp-worker.mjs",
+    "sha256": "13c0d35c60194d4dc8ca823076dbc390331fd5fa55e2b11d04959034c809e43c",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }
- ],
- "source": {
-  "path": "orchestrator/agents/mcp-worker.mjs",
-  "sha256": "13c0d35c60194d4dc8ca823076dbc390331fd5fa55e2b11d04959034c809e43c",
-  "format": "text",
-  "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
- }
 }
