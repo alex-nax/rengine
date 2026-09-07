@@ -10,7 +10,7 @@ import { bashPath, shellEnvironment } from './server/sessions.mjs';
 const options = { state: path.join(homedir(), '.local/state/rengine'), agent: undefined };
 for (let index = 2; index < process.argv.length; index++) {
   const flag = process.argv[index];
-  if (['--project', '--state', '--agent', '--handoff'].includes(flag)) {
+  if (['--project', '--state', '--agent', '--handoff', '--declaration'].includes(flag)) {
     if (!process.argv[index + 1]) throw new Error(`Missing value for ${flag}`);
     options[flag.slice(2)] = process.argv[++index];
   } else if (flag === '--no-agent') options.noAgent = true;
@@ -18,14 +18,17 @@ for (let index = 2; index < process.argv.length; index++) {
   else if (flag === '--launch-game') options.launchGame = true;
   else if (flag === '--inspect-ui') options.inspectUI = true;
   else if (flag === '--help') {
-    console.log('npm start -- [--project DIR] [--agent codex|claude|gemini|opencode|EXEC] [--state DIR] [--no-agent] [--headless] [--launch-game] [--handoff FILE] [--inspect-ui]\n--handoff resumes an explicit Codex conversation once its native pane is presented.\n--launch-game requires an explicit --project. --inspect-ui enables native stdin automation.\n--headless runs the sidecar alone: no desktop build, no desktop and no agent, so it starts on a\nmachine with no C toolchain. It stays in the foreground; npm run start:headless is the same command.\nCmd/Ctrl+Shift+R saves, rebuilds and reloads the desktop, retaining sessions.\nThe C/microui desktop detaches on exit; manage retained processes in Sessions.');
+    console.log('npm start -- [--project DIR] [--declaration FILE] [--agent codex|claude|gemini|opencode|EXEC] [--state DIR] [--no-agent] [--headless] [--launch-game] [--handoff FILE] [--inspect-ui]\n--declaration binds an external project.json without writing inside the project.\n--handoff resumes an explicit Codex conversation once its native pane is presented.\n--launch-game requires an explicit --project. --inspect-ui enables native stdin automation.\n--headless runs the sidecar alone: no desktop build, no desktop and no agent, so it starts on a\nmachine with no C toolchain. It stays in the foreground; npm run start:headless is the same command.\nCmd/Ctrl+Shift+R saves, rebuilds and reloads the desktop, retaining sessions.\nThe C/microui desktop detaches on exit; manage retained processes in Sessions.');
     process.exit(0);
   } else throw new Error(`Unknown option: ${flag}`);
 }
 if (options.headless) {
-  const desktopOnly = [['--agent', options.agent !== undefined], ['--handoff', options.handoff !== undefined],
-    ['--launch-game', options.launchGame === true], ['--inspect-ui', options.inspectUI === true]].find(([, used]) => used);
-  if (desktopOnly) throw new Error(`--headless cannot be combined with ${desktopOnly[0]}: a headless host serves sessions, presents no desktop and starts no conversation.`);
+  const refused = [['--agent', options.agent !== undefined, 'a headless host serves sessions and starts no conversation'],
+    ['--handoff', options.handoff !== undefined, 'a handoff resumes a conversation in a native pane'],
+    ['--launch-game', options.launchGame === true, 'a game wants a pane; start one through the API deliberately'],
+    ['--inspect-ui', options.inspectUI === true, 'there is no desktop to inspect'],
+    ['--declaration', options.declaration !== undefined, 'binding an external declaration is not wired here yet — see spec 090, Deferred']].find(([, used]) => used);
+  if (refused) throw new Error(`--headless cannot be combined with ${refused[0]}: ${refused[2]}.`);
 }
 if (options.handoff) {
   if (options.noAgent || (options.agent !== undefined && options.agent !== 'codex')) throw new Error('--handoff requires Codex and cannot use --no-agent.');
@@ -34,6 +37,7 @@ if (options.handoff) {
   await checkResume(bashPath(), handoff.project, shellEnvironment({ RENGINE_AGENT_HOME: path.join(path.resolve(options.state), 'agents') }));
 }
 if (options.launchGame && !options.project) throw new Error('--launch-game requires --project DIR.');
+if (options.declaration && !options.project) throw new Error('--declaration requires --project DIR.');
 
 if (options.headless) await runHeadless(options);
 else {
@@ -41,8 +45,10 @@ else {
   const instance = await ensureSidecar(path.resolve(options.state));
   const query = new URLSearchParams();
   if (options.project) {
-    const root = await request(instance, 'roots', { path: path.resolve(options.project) });
     const state = await request(instance, 'state');
+    if (options.declaration && state.capabilities?.externalDeclarations !== 1) throw new Error('This retained session host predates external declarations. Use a separate --state directory; no sessions were started.');
+    const root = await request(instance, 'roots', { path: path.resolve(options.project),
+      ...(options.declaration ? { declarationFile: path.resolve(options.declaration) } : {}) });
     if (options.handoff && state.capabilities?.handoff !== 1) throw new Error('This retained sidecar predates handoff support. Use a new --state directory, or explicitly stop its sessions and service before restarting it.');
     query.set('root', root.id);
     if (options.launchGame && !state.sessions.some(session => session.rootId === root.id && session.type === 'game' && session.state === 'running')) {

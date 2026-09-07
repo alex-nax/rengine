@@ -1,6 +1,6 @@
 # Progress Log
 
-## Session 42 (macos) — 2026-09-07 — A headless start: the sidecar without a desktop (F85)
+## Session 43 (macos) — 2026-09-07 — A headless start: the sidecar without a desktop (F85)
 
 Owner-directed. The vtmb-vr wizard `scripts/wizards/remote-rengine.sh` got all the way through
 installing rEngine on the Windows box — clone at the consumer's pin, `npm ci` compiling `node-pty`
@@ -17,9 +17,10 @@ the symptom of a machine that has no MSVC environment in an SSH logon and never 
 the same `ensureSidecar` the desktop calls, registers `--project` as a root, prints one parseable
 ready line, and then supervises. The body is `orchestrator/launcher/headless.mjs`, and the build
 import and desktop spawn sit inside the `else` of the branch, so the headless path structurally
-cannot reach them. It refuses `--agent`, `--handoff`, `--launch-game` and `--inspect-ui` by name
-before starting anything: each of those means a desktop or a conversation, and a headless host is
-neither. The bind is untouched — loopback with the capability token, which the ready line
+cannot reach them. It refuses `--agent`, `--handoff`, `--launch-game`, `--inspect-ui` and `--declaration` by name and
+with its own reason, before starting anything: the first four mean a desktop or a conversation, and
+`--declaration` — which landed on `main` from another lane while this was in flight — is not wired
+through the headless root registration yet, so refusing it beats silently dropping it. The bind is untouched — loopback with the capability token, which the ready line
 deliberately does not print, because a headless start is normally redirected into a log file.
 
 The exact invocation for the wizard, replacing the line it uses today:
@@ -82,6 +83,69 @@ launcher line at `--headless`, re-run it, and read `rengine headless ready` in
 `.state\headless.log` followed by the capability list through the tunnel. The recording-stub check
 for the full start path also skips on Windows, because Node refuses to spawn a `.cmd` without a
 shell. The consumer repository was not touched.
+## Session 42 (macos) — 2026-09-07 — Hirebase uses external rEdit capabilities (F81)
+
+Owner requested a home launcher for `~/hirebase-v2`, with every rEdit extension outside that
+project and no `editor.sh` integration. Spec 085 records this explicit scope outside the
+paused broader NOLF goal. The external declaration path is now durable metadata on the real
+project root; host and worker capability readers keep that full binding. Unsupported old
+hosts fail before root/session mutations, conflicting profiles are refused, and missing/bad
+external profiles name their filename without local fallback.
+
+Added an external web-project installer and helper, then installed and launched
+`~/hirebase-v2.command`. The profile lives at `~/.local/share/redit/hirebase-v2/`; runtime state
+is `~/.local/state/redit/hirebase-v2`. The real native window showed Hirebase, its source tree,
+eight available controls and successful read-only status output. Its package.json preview
+worked. The inspection view was closed normally and the ordinary home launcher reattached the
+same terminal/host, then became a managed desktop. All 4,085 recorded consumer source files
+and its dirty git status were unchanged. No hirebase integration files were created.
+
+Verification: initial external-binding failures observed for their own reasons; five deliberate
+mutations caught (confinement, quoting, overwrite, native identity, legacy-host mutation).
+Final `npm test` 84/84; `npm run test:desktop` 39/39; CTest 6/6; design, inventory, init and
+annotated-sidecar checks clean. Evidence: `docs/evidence/external-project-macos-2026-09-07.md`.
+The regression fixtures run from the normal scripts. F81 is complete for its explicit macOS
+consumer scope. Existing accepted feature criteria and gates are unchanged.
+
+Remaining: future Hirebase extensions belong in its external profile; project product work
+still follows Hirebase's own instructions. No development servers, product tests or remote
+backends were started by installation. Broader NOLF work remains independently paused.
+
+## Session 36 (macos) — 2026-09-07 — The workspace wears the project's name (F79)
+
+Built what I had only specified. The owner asked twice for a per-project logo and title and got a
+spec and an inventory row instead, which I reported as progress; that was stopping short, and this
+entry exists partly to record it.
+
+The default name is **rEdit** in the chrome and in the operating system window title. Contract 5 adds
+an optional `title` and an `icon` of a glyph plus a design token name. Both are plain root keys rather
+than a block, so their contract floor is checked directly: a project on contract 4 that sets either is
+refused by name and required version rather than having them accepted in silence. A token outside the
+design set is refused naming the token, so an unresolvable colour never reaches the chip.
+
+Identity is fixed to the root the window opened on. The window title follows in the frame loop rather
+than at creation, because the declaration arrives after the window exists, and it composes from the
+same source as the chrome so the two cannot disagree. The automation state now reports the real
+window title from SDL, which is what lets the criterion about the operating system title be asserted
+rather than assumed.
+
+Two sabotages, each failing only its own claim: identity read from the selected root instead of the
+primary one, which fails the assertion that selecting another project does not rename the chrome; and
+the declared token ignored in favour of the accent, which fails the chip's colour probe.
+
+Raising the contract ceiling broke four server tests that used contract 5 as "one above the ceiling".
+They now derive it from `CONTRACTS`, which is the better assertion anyway: they are about the gate,
+and the hard-coded number would have silently stopped testing it every time the ceiling rose. That is
+the same shape as the blind regressions of yesterday, arriving through a different door.
+
+Commands: `npm test` 78/78, `npm run test:desktop` 38/38, `ctest` 6/6, `python3 tools/design.py
+check`, `python3 tools/features.py validate` at 40 features, `./init.sh`.
+
+For a project to wear its name, add to `.rengine/project.json`: `"contract": 5`, `"title": "re:Lith"`,
+`"icon": {"glyph": "rL", "token": "ok"}`. Tokens are accent, ok, warn, err and info.
+
+Remaining: F78, the task tracker, is specified and next. F69 and the KI-038 Windows repair still block
+F37, F54, F62, F67 and F73.
 
 ## Session 41 (macos) — 2026-09-07 — The Devices tab runs what is bound to each device (F80)
 

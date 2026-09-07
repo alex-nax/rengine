@@ -32,6 +32,7 @@ typedef struct ReApp {
   ReTabStrip strips[RE_PANES];
   cJSON *state, *previous_layout, *controls, *formats, *dashboards, *dashboards_opened;
   char root[65], initial_terminal[65], initial_agent[65], initial_game[65];
+  char primary_root[65];                     /* the root the window opened on; identity comes from it (spec 084) */
   char project_input[1024], agent[256], status[512];
   bool initialized, connected, vim, layout_dirty, quitting;
   int width, height, preset;                 /* last laid-out size and the active theme preset */
@@ -64,6 +65,14 @@ void re_app_status(ReApp *app, ReDraw *draw);   /* the segmented status bar, dra
 bool re_app_event(ReApp *app, const SDL_Event *event, ReDraw *draw);
 /* Applies this root's theme file when a person has already activated it for that root (D34). */
 void re_app_project_theme(ReApp *app);
+
+/* The workspace wears the primary root's declared name and mark, falling back to rEdit and the
+ * accent. Identity never follows the focused tab, so moving between panes cannot rename the
+ * chrome under you (spec 084 decision 3). */
+#define RE_DEFAULT_TITLE "rEdit"
+const char *re_app_title(ReApp *app);          /* display title; never an identifier */
+const char *re_app_mark(ReApp *app);           /* one or two characters for the brand chip */
+mu_Color re_app_mark_color(ReApp *app);        /* the chip's fill, resolved from the declared token */
 
 /* The explorer's nested mode. `re_app_expanded` returns the expansion index for a directory or -1;
  * expanding requests the listing, collapsing drops it and every expansion beneath it. */

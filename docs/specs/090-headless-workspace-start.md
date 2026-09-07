@@ -35,7 +35,7 @@ environment, and nothing should have been building a desktop there in the first 
 | 2 | It is a flag on the launcher, `--headless`, **and** an npm script `start:headless`, matching how `start` and `resume` are exposed. One argument parser, so headless and desktop options cannot drift apart. | Recommended; owner left the shape open |
 | 3 | The headless run body lives in `orchestrator/launcher/headless.mjs`, beside `sidecar.mjs`. The module that runs a headless host cannot reach `build.mjs`, and the branch in `launch.mjs` is a structural `if/else`, not a sequence of early returns. | Recommended |
 | 4 | It reuses `ensureSidecar`. A headless host is the same service the desktop retains, discovered and authenticated through the same `sidecar.json`, never a second kind of service. | Owner |
-| 5 | It launches no agent. A headless host serves sessions; it does not start conversations. `--agent`, `--handoff`, `--launch-game` and `--inspect-ui` are refused with `--headless` rather than silently ignored, because each of them names a desktop or a conversation. | Owner (no agent); refusal recommended |
+| 5 | It launches no agent. A headless host serves sessions; it does not start conversations. `--agent`, `--handoff`, `--launch-game` and `--inspect-ui` are refused with `--headless` rather than silently ignored, because each of them names a desktop or a conversation, and each refusal names its own reason. | Owner (no agent); refusal recommended |
 | 6 | Loopback is unchanged: `127.0.0.1` with the capability token. Reachability across machines is the caller's tunnel. No flag in this change can move the bind. | Owner |
 | 7 | It prints one machine-parseable ready line, then stays in the foreground supervising the sidecar. Silence would leave a caller polling for a file. | Recommended; owner asked for a deliberate decision |
 | 8 | The token is **not** printed. It stays in mode-0600 `sidecar.json`, where the desktop launcher already reads it. A headless start is normally redirected to a log file, and a log file is a worse place for a capability than the state directory. | Recommended |
@@ -97,10 +97,16 @@ own reason, and the record is in `docs/evidence/headless-start-macos-2026-09-07.
   supervising after a heartbeat has passed; a `SIGTERM` to it exits zero, and the sidecar still
   answers with the same instance and still lists the session it was retaining. The order of
   those two assertions is load-bearing — see the evidence note.
-- **The refusals hold**: `--headless` with `--agent`, `--launch-game`, `--handoff` or `--inspect-ui`
-  fails naming the flag, before any sidecar is started.
+- **The refusals hold**: `--headless` with `--agent`, `--launch-game`, `--handoff`, `--inspect-ui`
+  or `--declaration` fails naming the flag, before any sidecar is started.
 
 ## Deferred
+
+`--declaration`, which landed on `main` from another lane (spec 085) while this was in flight, is
+refused rather than supported. Binding an external declaration is root registration and would suit a
+headless host well, but it needs the `externalDeclarations` capability check and a fixture of that
+lane's making; refusing it names the gap, where silently dropping it would register the root without
+its declaration. Wiring it through `runHeadless` is a small follow-up.
 
 A stop or status verb for a headless instance; the wizard stops it by process. Service or
 launchd/Task Scheduler packaging. Running a game from a headless host — `--launch-game` is refused

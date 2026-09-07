@@ -158,6 +158,8 @@ test('--headless refuses the desktop-only flags, before starting anything', { ti
   await assert.rejects(attempt(['--project', directory, '--launch-game']), /--headless cannot be combined with --launch-game/);
   await assert.rejects(attempt(['--agent', 'codex']), /--headless cannot be combined with --agent/);
   await assert.rejects(attempt(['--inspect-ui']), /--headless cannot be combined with --inspect-ui/);
+  await assert.rejects(attempt(['--project', directory, '--declaration', path.join(directory, 'project.json')]),
+    /--headless cannot be combined with --declaration/);
   // A handoff names a file; the refusal has to come before it is read, or the message is about the file.
   await assert.rejects(attempt(['--handoff', path.join(directory, 'absent.json')]), /--headless cannot be combined with --handoff/);
   await assert.rejects(readFile(path.join(directory, 'sidecar.json')), { code: 'ENOENT' },

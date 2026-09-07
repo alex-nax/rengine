@@ -9,7 +9,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { startServer } from '../server/main.mjs';
 import { startRuntime } from '../runtime/supervisor.mjs';
 import { request } from '../launcher/sidecar.mjs';
-import { readDeclaration, matchFormat, MAX_RAW_WINDOW } from '../server/formats.mjs';
+import { readDeclaration, matchFormat, MAX_RAW_WINDOW, CONTRACTS } from '../server/formats.mjs';
 
 import { producer, pack, declaration, entries, project } from './format-fixtures.mjs';
 
@@ -19,7 +19,7 @@ test('declaration discovery reports malformed files visibly and never disables t
   t.after(async () => { await server.close(); await rm(directory, { recursive: true, force: true }); });
   const bad = declaration();
   const cases = {
-    'contract 5': { ...bad, contract: 5 }, 'no formats': { ...bad, formats: [] }, 'missing title': { ...bad, formats: [{ ...bad.formats[0], title: undefined }] },
+    'contract above the ceiling': { ...bad, contract: CONTRACTS.at(-1) + 1 }, 'no formats': { ...bad, formats: [] }, 'missing title': { ...bad, formats: [{ ...bad.formats[0], title: undefined }] },
     'default outside modes': { ...bad, formats: [{ ...bad.formats[0], default: 'text' }] },
     'shell argv[0]': { ...bad, formats: [{ ...bad.formats[0], preview: { kind: 'tree', command: ['node $(x)', '${file}'] } }] },
     'string command': { ...bad, formats: [{ ...bad.formats[0], preview: { kind: 'tree', command: 'node tree ${file}' } }] },

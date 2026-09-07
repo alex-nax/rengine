@@ -28,6 +28,9 @@ void re_automation_command(ReApp *app, SDL_Window *window, const cJSON *j) {
   if (!strcmp(op, "state")) {
     cJSON *state = re_app_inspect(app); ReDraw *draw = re_draw_active();
     if (draw) cJSON_AddStringToObject(state, "backend", re_draw_backend(draw));
+    /* The real window title, so a test can hold the chrome and the operating system to the same
+     * source rather than assuming they agree (spec 084 decision 4). */
+    if (window) cJSON_AddStringToObject(state, "windowTitle", SDL_GetWindowTitle(window));
     re_automation_reply(id, state); return;
   }
   if (!strcmp(op, "stats")) {

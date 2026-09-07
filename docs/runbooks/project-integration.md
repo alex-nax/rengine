@@ -6,6 +6,43 @@ dashboard and game targets, and keeps tests that prove the declaration still wor
 rEngine owns the contracts, the editor, the tabs and the execution boundary; the project owns its
 declarations, its CLIs, its scripts and its tests.
 
+## External integration for an unchanged project
+
+For a project whose rEdit capabilities must live outside its checkout, use the external
+installer (spec 085). All four paths are explicit and absolute:
+
+```sh
+node orchestrator/external-project.mjs \
+  --project /absolute/path/to/web-project \
+  --profile /absolute/path/to/redit-profiles/web-project \
+  --launcher /absolute/path/to/open-web-project.command \
+  --state /absolute/path/to/redit-state/web-project \
+  --title 'Web project'
+```
+
+This writes a declaration and helper in `--profile`, plus an executable launcher. It leaves
+the project unchanged. `--dry-run` prints destinations without writing; `--minimal` includes
+only status, package-script discovery and JSON preview. The default also exposes existing
+`dev`, `docs:dev`, `lint`, `typecheck`, `test` and `build` package scripts as dashboard controls.
+Selecting a control runs it in a retained terminal in the real project directory. Opening
+the workspace runs none of those scripts. The profile requires an existing `package.json`
+and local rEngine build prerequisites; no tools or project dependencies are installed.
+
+Run the generated launcher to open the workspace, then use the native agent toolbar when
+needed. `launcher.command --agent codex` explicitly starts or reattaches that project's agent.
+The launcher defaults to `--no-agent`. Future extensions belong beside the external
+`project.json`; literal command argv can point at their absolute executables. Existing
+root-relative script/file restrictions still apply. JSON files retain ordinary text editing
+and gain a formatted preview. Edit an installed profile directly; rerunning the installer
+refuses differing files so it cannot overwrite custom extensions.
+
+The underlying launcher accepts `--project DIR --declaration FILE --state DIR`. The declaration
+binding is retained with that root in workspace state, survives reopen without the option,
+and never follows another focused project. An explicit profile replaces project-local
+discovery. A missing or invalid profile names its actual path and does not fall back.
+Use a separate state directory with an older session host; the launcher refuses hosts that
+cannot persist the binding. This external path does not use the in-project recipe below.
+
 The mechanical part is one command. Run it from this checkout:
 
 ```sh

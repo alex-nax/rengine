@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, rm, stat, realpath, readFile } from 'node:fs
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { readDeclaration } from '../server/formats.mjs';
+import { readDeclaration, CONTRACTS } from '../server/formats.mjs';
 import { deviceStatus, declaredDevices, deviceFor, forgetProbes, projectDevices, PROBE_TTL_MS } from '../server/devices.mjs';
 import { inspectGame } from '../server/games.mjs';
 import { dashboardActions } from '../server/dashboard.mjs';
@@ -55,8 +55,11 @@ test('contract 4 devices validate, contracts 1-3 stay accepted, and a device key
     assert.match(staleActionKey.dashboardError, /device requires contract 4 \(declared contract 3\)/);
     assert.equal(staleActionKey.dashboard, undefined);
 
-    const unknownContract = await declare(directory, 'unknown-contract', { ...declaration(), contract: 5 });
-    assert.match(unknownContract.error, /unknown contract 5.*contracts 1, 2, 3 and 4/);
+// One above the ceiling, derived rather than written down: this assertion is about the gate,
+    // and hard-coding the number made it silently stop testing it the day the ceiling rose.
+    const beyond = CONTRACTS.at(-1) + 1;
+    const unknownContract = await declare(directory, 'unknown-contract', { ...declaration(), contract: beyond });
+    assert.match(unknownContract.error, new RegExp(`unknown contract ${beyond}.*this rEngine supports contracts`));
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 

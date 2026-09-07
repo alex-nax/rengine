@@ -31,7 +31,7 @@
   ],
   "source": {
     "path": "orchestrator/server/main.mjs",
-    "sha256": "c25fc236d881276d65c2e476a4de3a90a5dbbbc4875cad6c2b76d11f9045b74c",
+    "sha256": "4647f39c9b3f1c937008636a5317449abce5bb358196c2665c402f7c268a00da",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

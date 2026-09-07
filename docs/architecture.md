@@ -35,6 +35,11 @@ durable two-root report link. The supervisor is their sole state writer. Its nar
 pipe supports inspection, focus and graceful close; production control does not type into panes.
 Reports are polled data with retry keys and cursors. They never start an agent turn or retarget MCP.
 
+External capability profiles (spec 085) bind an explicit declaration file to a canonical project
+root in private workspace state. The same schema and runners serve both external and project-local
+declarations. Profile placement changes discovery; files, drafts, PTYs and command cwd retain the
+real project root. The host persists the binding and the replaceable worker consumes it.
+
 ## Ownership
 
 Charter D24 sets the powered-by minimum: at least one curated capability at a pinned version

@@ -56,13 +56,27 @@ export class WorkspaceStore {
     return write;
   }
 
-  async addRoot(directory) {
+  async addRoot(directory, declarationFile) {
     if (typeof directory !== 'string' || !path.isAbsolute(directory)) fail('Choose an absolute project directory.');
     const resolved = await realpath(directory);
     if (!(await stat(resolved)).isDirectory()) fail('Project root must be a directory.');
+    let declaration;
+    if (declarationFile !== undefined) {
+      if (typeof declarationFile !== 'string' || !path.isAbsolute(declarationFile)) fail('Choose an absolute declaration file.');
+      declaration = await realpath(declarationFile);
+      if (!(await stat(declaration)).isFile()) fail('Declaration must be a file.');
+    }
     const existing = this.state.roots.find(root => root.path === resolved);
-    if (existing) return existing;
-    const root = { id: randomUUID(), path: resolved, name: path.basename(resolved) };
+    if (existing) {
+      if (declaration !== undefined && existing.declarationFile !== declaration) {
+        if (existing.declarationFile) fail(`Project is already bound to declaration ${existing.declarationFile}. Use that file or a separate workspace state.`, 409);
+        existing.declarationFile = declaration;
+        await this.persist();
+      }
+      return existing;
+    }
+    const root = { id: randomUUID(), path: resolved, name: path.basename(resolved),
+      ...(declaration === undefined ? {} : { declarationFile: declaration }) };
     this.state.roots.push(root);
     await this.persist();
     return root;

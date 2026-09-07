@@ -5,18 +5,18 @@
       "id": "desktop-does-not-own-sidecar",
       "kind": "rationale",
       "anchor": {
-        "start": 40,
-        "end": 40,
+        "start": 32,
+        "end": 32,
         "snippet": "await import('./build.mjs');"
       },
-      "note": "The development launcher uses system Node for native PTY ABI consistency. It reuses live sessions by explicit root/type/agent identity and opens their existing IDs in the desktop. Desktop exit affects this launcher only. Game prerequisite checks run before creating shell/agent sessions so a missing build does not leave fresh processes without the requested GUI. Installer/package prerequisites remain explicit; this is not yet an installable Windows/macOS release. Handoff launches additionally require service capability version 1 and are deduplicated inside the service. Exit code 75 requests a native rebuild/restart with the same initial session IDs. Build failure preserves the service; rerunning the same command reattaches live sessions. This does not hot-replace service code. The build import and the desktop spawn sit inside the else of an explicit headless branch, so a headless start cannot reach either: that mutual exclusion is structural on purpose, because the failure it fixes was this import running on a machine with no C toolchain. See orchestrator/launcher/headless.mjs and spec 090."
+      "note": "The development launcher uses system Node for native PTY ABI consistency. It reuses live sessions by explicit root/type/agent identity and opens their existing IDs in the desktop. Desktop exit affects this launcher only. Game prerequisite checks run before creating shell/agent sessions so a missing build does not leave fresh processes without the requested GUI. Installer/package prerequisites remain explicit; this is not yet an installable Windows/macOS release. Handoff launches additionally require service capability version 1 and are deduplicated inside the service. Exit code 75 requests a native rebuild/restart with the same initial session IDs. Build failure preserves the service; rerunning the same command reattaches live sessions. This does not hot-replace service code. External declarations require externalDeclarations: 1 from the retained host before root registration or session creation. A separate explicit state directory can host the new project without replacing any old host. The profile path is registered with the real project root and all ordinary reattachment rules remain in effect. The build import and the desktop spawn sit inside the else of an explicit headless branch, so a headless start cannot reach either: that mutual exclusion is structural on purpose, because the failure it fixes was this import running on a machine with no C toolchain. See orchestrator/launcher/headless.mjs and spec 090."
     },
     {
       "id": "explicit-ui-inspection",
       "kind": "constraint",
       "anchor": {
-        "start": 71,
-        "end": 71,
+        "start": 65,
+        "end": 65,
         "snippet": "const desktopArgs = options.inspectUI ? ['--automation'] : [];"
       },
       "note": "Only explicit --inspect-ui enables the native C desktop stdin/stdout SDL-event inspection channel. Normal launches expose no UI inspection endpoint. Connection credentials are passed in the child environment, not arguments or logs. Desktop exit detaches views from the independent retained service. Historical Electron/CDP automation was removed under owner decisions D26\u2013D27."
@@ -24,7 +24,7 @@
   ],
   "source": {
     "path": "orchestrator/launch.mjs",
-    "sha256": "8abac01f60071c1fba08924ab94769ef0acf7a9702ced3650b7c357c470035c7",
+    "sha256": "9c565548716b9a071d848885bcb884b9efb2e8590731eb3e67b48c954cdff9d5",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

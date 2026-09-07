@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "external-install-boundary",
+      "kind": "constraint",
+      "anchor": {
+        "start": 18,
+        "end": 18,
+        "snippet": "export async function installExternalProject(options) {"
+      },
+      "note": "Resolve existing ancestors as real paths before checking each output against the consumer root, including per-file symlinks in a preexisting profile. Installation rejects differing files before writing and uses exclusive creation with a second comparison for races. This is a local convenience installer, not an OS access boundary against a concurrent adversary swapping directories. The home launcher records explicit project/profile/runtime/checkout paths and the installation PATH, quotes every static shell argument, and leaves agent launch opt-in. The profile has no workspace-global registry or consumer-repository edits.",
+      "refs": [
+        "docs/specs/085-external-project-capabilities.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/external-project.mjs",
+    "sha256": "1c1eae8ef8750df226aa2e3015fd06cd44125d87e15ebdf7cb3a204f9f3ce89e",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

@@ -19,19 +19,32 @@
       "id": "save-and-draft-order",
       "kind": "rationale",
       "anchor": {
-        "start": 138,
-        "end": 138,
+        "start": 152,
+        "end": 152,
         "snippet": "async saveText({ rootId, path: relative, text, version }) {"
       },
       "note": "Serialize saves per canonical file, check the disk hash before and after staging, and retain the draft on conflicts. Rename preserves a whole file version. This is not an OS-level compare-and-swap against arbitrary external writers; power-loss durability and draft checkpoint scheduling still require qualification.",
       "refs": [
         "docs/specs/055-nolf-workspace-goal.md"
       ]
+    },
+    {
+      "id": "external-declaration-binding",
+      "kind": "constraint",
+      "anchor": {
+        "start": 59,
+        "end": 59,
+        "snippet": "async addRoot(directory, declarationFile) {"
+      },
+      "note": "The canonical declaration filename is durable metadata on the real project root, not a substitute root. Omitted declarations preserve an existing binding; a conflicting explicit filename is refused. The original host owns this state, so a worker update alone cannot add support to a legacy host. Registration checks file existence and type; later read errors belong to the declaration reader. No project-local configuration is written.",
+      "refs": [
+        "docs/specs/085-external-project-capabilities.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/server/store.mjs",
-    "sha256": "12bd35134e039f6ee909f1f461589f6d0226c6a3ff782d471be089e4c797731a",
+    "sha256": "2fa19ae04df083856a0262999bd9f2d4ccbb10ceac1a10ed52f13855b55a7357",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }
