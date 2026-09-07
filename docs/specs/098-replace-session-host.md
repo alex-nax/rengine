@@ -57,6 +57,40 @@ Three facts make this a product defect rather than a person forgetting a step.
 | 7 | The report says **what was stopped and what was started**: the old PID, instance, URL and start time; each running session that ended, by type and title; every process signalled and how it went; the new PID, instance and URL. Conversations are persisted (097), so the ended agent panes are resumable from the pane. | Owner ("report clearly what it stopped and started") |
 | 8 | A normal start **says when the host is older than the code.** If `sidecar.json` (written at host start) is older than the newest file under `orchestrator/server`, `orchestrator/launcher`, `orchestrator/agents`, `scripts` or `contracts`, the launcher prints which file changed and names `--replace-host`. It never replaces on its own: a retained host holds live sessions, and ending them is the person's call. | Recommended; turns the silent no-op into a sentence |
 
+## What a replacement leaves behind
+
+Decision 4 ends the old host's sessions on purpose. What it cannot end is the **desktop's saved
+layout**, which lives in the workspace store (`<state>/workspace.json`) and outlives every process:
+its tabs still name the session ids of the host that is gone. The first thing a desktop does against
+the new host is restore that layout and register the bindings it restored, so **the first
+registration after `--replace-host` advertises sessions the new host has never heard of.**
+
+Measured twice on 2026-09-07, on two different projects (rEngine's own workspace, and hirebase-v2
+replaced at 12:22): the saved layout named six session ids, four of them the dead host's.
+`Desktops.register` validated each with `sessions.snapshot(id)`, which fails `Unknown session.` (404)
+on the first stale one, so the **whole** registration was refused — the host answered
+`{ type: 'error', error: 'Unknown session.' }` and the desktop, whose `desktop_registered` flag is set
+by a successful *send*, never retried. `GET /api/desktops` answered `[]` while the desktop ran; the
+supervisor's `waitView` never saw the view in `runtime-desktops` and gave up with "Replacement desktop
+did not register before timeout."; the runtime supervisor exited with an empty `runtime.log`, because
+that failure travels over IPC and never reaches the file. The workspace came back with **no runtime
+layer at all** — no layered updates, no desktop actions, no token ledger — and on one of the two
+machines the desktop process was gone with it. The same desktop binary registered normally as soon as
+its layout named no stale session.
+
+So a registration that names sessions the host does not have is not an invalid frame. It is the
+expected first frame after a deliberate replacement, and all three layers have to agree on it:
+
+| Layer | What it does | When a live workspace gets it |
+| --- | --- | --- |
+| **Host** — `server/desktops.mjs`, `Desktops.register` | Drops ids `sessions.snapshot` answers 404 for, keeps the different-root refusal for ids the host *does* have, keeps `Invalid desktop bindings.` for a malformed frame, registers the desktop, and names the dropped ids as `unknownSessions` in the `desktop-registered` frame. | **Only at the next `--replace-host`.** A Node process holds the modules it imported at start (the premise of this whole spec), so the running host keeps the old `Desktops` until it is replaced. |
+| **Worker** — `runtime/worker.mjs`, the `desktop-register` interception | `withoutEndedSessions` filters `sessionIds` against the `/api/state` it just refreshed and hands the removed ids to `Desktops.register` as `dropped`, so they reach the desktop in the same frame. The worker also remembers the last registration it refused and publishes it on `/api/runtime-desktops`. | **At the next `update_workspace`** — this is the replaceable layer, so it reaches a running workspace without touching the host or its PTYs. |
+| **Desktop** — `native/app.c`, `register_desktop` | Advertises only session ids present in the `state.sessions` it already holds (fetched by `OP_STATE` before registration). A restored tab whose session is absent is marked ended: it is not attached to anything, `re_app_inspect` reports `sessionEnded`, and the status bar says how many views are in that state and that Sessions offers the conversation back (spec 097/099). No new widget — the tab stays where the person left it. | **At the next desktop reload/update.** |
+| **Supervisor** — `runtime/supervisor.mjs`, `waitView` | On timeout, names the last registration a worker refused and what the desktop process printed, instead of only that it did not register. | With the worker layer. |
+
+The layers are deliberately redundant: each is reachable on a different schedule, and the one that
+reaches a running workspace soonest (the worker) is not the one that owns the store (the host).
+
 ## What this does not do
 
 It does not replace the host automatically, ask a confirmation question, or offer the action over
@@ -77,6 +111,11 @@ are stopped. The age notice is a heuristic on file times and says so.
 | `replace-host.test.mjs` — a throwaway host | against a real sidecar started for the test: the old PID exits, its port refuses connections, the descriptor names a new live PID with a new instance, the report lists the session that ended, and a doctored process table claiming that PID serves another directory leaves the real process running |
 | `replace-host.test.mjs` — the launcher | `launch.mjs --headless --replace-host --state DIR` comes up with a different PID than the host that was there; `--replace-host` is not refused by `--headless` |
 | `replace-host.test.mjs` — the notice | a descriptor older than the code is stale, one newer is not |
+| `stale-sessions.test.mjs` — the host | a registration carrying one live and two unknown ids registers, is listed bound to the live one alone, and is told the two in `unknownSessions`; a malformed frame is still `Invalid desktop bindings.`, and a session the host *does* have on another root is still refused |
+| `stale-sessions.test.mjs` — the worker filter | `withoutEndedSessions` keeps the live ids in order, carries the dead one out separately, leaves the rest of the frame alone, and passes a malformed frame through untouched so `Desktops` refuses it by name |
+| `stale-sessions.test.mjs` — through the worker | a real host and a real worker: a desktop registering one live and one dead id is registered, listed on `GET /api/desktops` bound to the live one, told the dead one, and sent no `error` frame |
+| `native-stale-sessions.spec.mjs` — the desktop | a layout persisted before the desktop starts, naming a live session and a dead one: the real desktop the real supervisor launches registers, **`GET /api/desktops` through the runtime is not empty** and `update_status` answers, the live view is attached to its PTY, and the dead one is still in the layout with `sessionEnded` and nothing attached |
+| `native-stale-sessions.spec.mjs` — `waitView` | under the same layout, a desktop-layer replacement succeeds: the second desktop process registers, the runtime layer is listed again, and the replacement restores the same layout with the same view marked ended |
 
 Each regression was observed failing for its own reason by breaking the implementation in the way the
 test claims to catch, confirming the red was that and not something earlier, then restoring — recorded

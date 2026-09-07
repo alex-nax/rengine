@@ -1,5 +1,55 @@
 # Progress Log
 
+## Session 57 (macos) — 2026-09-07 — The layout a replaced host leaves behind (KI-063, spec 098)
+
+`--replace-host` (spec 098) landed this morning and the owner ran it. Twice today, on two different
+projects, the workspace came back with the new host serving and **no runtime layer at all**: on
+rEngine's own workspace `GET /api/desktops` answered `[]` while the desktop was on screen; on
+hirebase-v2, replaced at 12:22, the supervisor and the desktop process were both gone. The thing
+neither the spec nor the flag accounted for is what a replacement cannot end: the desktop's saved
+layout. It lives in `<state>/workspace.json`, it outlives every process, and its tabs still name the
+session ids of the host that was just stopped.
+
+So the first `desktop-register` after a deliberate replacement advertises sessions the new host has
+never heard of — on workspace 1, six ids of which four were the dead host's. `Desktops.register`
+validated each with `sessions.snapshot(id)`, which `fail`s `Unknown session.` 404 on the first stale
+one, before anything is stored, so the **whole** frame was refused; the host answered
+`{ type: 'error', error: 'Unknown session.' }` and the desktop, which sets `desktop_registered` from a
+successful *send* rather than from the reply, never tried again. `waitView` then timed out with
+"Replacement desktop did not register before timeout." and the supervisor exited with an empty
+`runtime.log`, because that failure travels over IPC. Two controls before writing anything: the same
+binary registers normally when its layout names no stale session, and a fake registration through a
+fresh worker with only live ids succeeded and got its `token` push, so the worker's ledger path was
+never involved.
+
+A registration naming sessions the host does not have is not an invalid frame. It is the expected
+first frame after a replacement, and the fix is in every layer that can refuse it, each reachable on
+its own schedule — which is the point spec 065's asymmetry keeps making and this is the third time it
+has cost something. **The host** (`server/desktops.mjs`) drops ids it has no session for, keeps
+`Invalid desktop bindings.` for a malformed frame and the different-root refusal for ids it *does*
+have, and names the dropped ones as `unknownSessions` in `desktop-registered`; that reaches a
+workspace only at the next `--replace-host`, because a Node process holds the modules it imported —
+the premise of spec 098 itself. **The worker** (`runtime/worker.mjs`) filters `sessionIds` against the
+`/api/state` it just refreshed and hands the removed ids down as `dropped`; that is the replaceable
+layer, so it arrives at the next `update_workspace` without touching a PTY. **The desktop**
+(`native/app.c`) advertises only sessions the state it already holds still lists, and marks the other
+restored tabs ended: nothing is attached to them, `re_app_inspect` reports `sessionEnded`, and the
+status bar says how many views are in that state and that Sessions has the conversation (spec
+097/099) — no new widget, and the tab stays where the person left it. And **the supervisor**
+(`waitView`) now names the last registration a worker refused and what the desktop printed, so the
+next failure of this shape says what it is instead of only that it did not happen.
+
+Verified TDD, each red for its own reason and each fix sabotaged in the way its test claims to catch:
+the host's refusal (`Unknown session.` out of `desktops.mjs:10`), the same refusal reached through the
+worker (`Timed out: desktop registered`), and — the discriminating one — a real host, a real runtime
+supervisor and the real desktop the supervisor launches, under a layout persisted before the desktop
+started: `Replacement desktop did not register before timeout.` at `supervisor.mjs:125`, verbatim what
+the owner's machines produced. The acceptance is deliberately not "a window appeared": it is that
+`GET /api/desktops` **through the runtime** is non-empty and `update_status` answers. Both native
+reds burned the full 10 s deadline and both now pass in 0.7 s and 1.0 s. Evidence and the sabotage
+table in `docs/evidence/stale-sessions-registration-2026-09-07.md`; spec 098 gains *What a replacement
+leaves behind* with the per-layer table; KI-063 records it.
+
 ## Session 55 (macos) — 2026-09-07 — The tracker narrows to a person and to what is actually active (F97)
 
 The hirebase-v2 tracker tab answered with a hundred rows spanning every assignee and every workflow

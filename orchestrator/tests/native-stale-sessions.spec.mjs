@@ -9,7 +9,7 @@ import { startServer } from '../server/main.mjs';
 import { startRuntime } from '../runtime/supervisor.mjs';
 import { snapshotBinary, nativeBinary } from '../runtime/desktop.mjs';
 import { nativeBridge } from './native-client.mjs';
-import { ok } from './token-fixtures.mjs';
+import { api, ok } from './token-fixtures.mjs';
 
 /* What a replaced session host leaves behind (spec 098): the desktop's saved layout, whose tabs name
    the sessions of the process that is gone. Measured on 2026-09-07, twice, on two projects — the new
@@ -38,6 +38,17 @@ function savedLayout(rootId, liveId, staleId) {
 }
 
 const CLI = `process.stdin.resume(); console.log('SURVIVING_CLI_READY');`;
+
+/* A layout whose one terminal tab claims a session of another project. This is the refusal spec 098
+   keeps — a desktop may not bind a session on a root it did not name — so it is what a registration
+   that is genuinely wrong looks like after the fix. */
+function foreignLayout(rootId, sessionId) {
+  const panes = Array.from({ length: PANES }, () => null);
+  panes[0] = pane({ tabs: [0], selected: 0 });
+  const tabs = Array.from({ length: TABS }, () => null);
+  tabs[0] = view(RE_TERMINAL, rootId, { session: sessionId, title: 'bash · another project' });
+  return { client: 'microui', layout: { version: 1, active: 0, panes }, tabs, dashboards: [] };
+}
 
 async function workspace(t) {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-stale-native-')));
@@ -86,6 +97,36 @@ test('a desktop restoring a layout from a replaced host registers its runtime la
   assert.equal(dead.attached, undefined, 'nothing was attached for it');
   assert.equal(state.tabs.find(x => x?.session === live.id).sessionEnded, false,
     'the session the host still has is not marked ended');
+});
+
+test('a registration the workspace really does refuse is named in the timeout', { timeout: 120000 }, async t => {
+  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-stale-refused-')));
+  const project = path.join(directory, 'project'), other = path.join(directory, 'other');
+  for (const dir of [project, other]) await mkdir(dir, { recursive: true });
+  await writeFile(path.join(other, 'cli.cjs'), CLI);
+  const host = await startServer({ stateDir: path.join(directory, 'host') });
+  const mine = await host.store.addRoot(project), theirs = await host.store.addRoot(other);
+  const foreign = await host.sessions.terminal({ rootId: theirs.id, command: process.execPath, args: [path.join(other, 'cli.cjs')] });
+  await host.store.saveLayout(foreignLayout(mine.id, foreign.id));
+
+  const views = [];
+  const runtime = await startRuntime({ host, directory: path.join(directory, 'runtime'), inspectUI: true,
+    buildDesktop: dir => snapshotBinary(nativeBinary, dir),
+    onDesktop: child => child.once('spawn', () => views.push(nativeBridge(child))) });
+  t.after(async () => {
+    for (const value of views) await value.close();
+    await runtime.close(); await host.close(); await rm(directory, { recursive: true, force: true });
+  });
+
+  /* The desktop starts, sends a registration the workspace refuses on its merits, and never appears.
+     Before this change the whole report was the timeout; nothing said which frame was refused. */
+  const refused = await api({ url: runtime.url, token: runtime.token }, 'open-desktop', { root: mine.id });
+  assert.equal(refused.status, 500, JSON.stringify(refused.body));
+  assert.match(refused.body.error, /did not register before timeout/);
+  assert.match(refused.body.error, /last registration refused: Desktop session has a different root\./,
+    `the timeout names the refusal instead of only the silence: ${refused.body.error}`);
+  assert.equal(host.sessions.snapshot(foreign.id).state, 'running', 'and the other project keeps its session');
+  await host.sessions.stop(foreign.id);
 });
 
 test('a replacement desktop comes up under the same layout and registers again', { timeout: 120000 }, async t => {
