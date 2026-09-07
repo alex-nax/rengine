@@ -1346,22 +1346,25 @@
       "id": 102,
       "milestone": "O1",
       "category": "workspace",
-      "priority": "medium",
-      "description": "getDiagnostics answers with real diagnostics: the workspace runs a project's declared check action, parses its output into file-keyed diagnostics and serves those, so an agent asks the editor what is broken instead of the editor always answering that it knows of nothing.",
+      "priority": "high",
+      "description": "rEdit speaks the Language Server Protocol: a project declares its language servers, the workspace worker runs them and keeps their documents in sync with the editor's buffers, and their diagnostics reach both the editor pane and getDiagnostics — so an agent asks the editor what is broken and gets the same answer the person is looking at.",
       "acceptance_criteria": [
-        "A project declares which of its dashboard actions produces diagnostics and how its output is read; an undeclared project keeps answering the empty list rather than guessing at a format.",
-        "Compiler and linter output is parsed into diagnostics with a file, a range, a severity and a message, and a line that does not parse is dropped rather than reported as a diagnostic at line zero.",
-        "getDiagnostics for a file returns that file's diagnostics from the most recent run, with the run's age reported, and never blocks a caller while a check is running.",
-        "Running the check is bounded by the declared-command boundary the dashboard already enforces, and no check runs because an agent asked for diagnostics unless the declaration says it may.",
+        "A project declares its language servers by command and by the file patterns each serves; nothing is downloaded or installed by rEngine, and an undeclared project keeps answering an empty diagnostic list rather than guessing at a server.",
+        "A declared server that is missing from the machine is reported as unavailable, by name and with what was looked for, and the workspace keeps working — an editor pane still opens and edits files.",
+        "The worker owns the server processes and the LSP session: initialize with the workspace roots, textDocument/didOpen, didChange and didClose driven by what the editor actually has open, and shutdown when the last document closes or the worker retires, leaving no orphaned server process.",
+        "Document sync carries the editor's unsaved buffer, not the file on disk, so diagnostics describe what the person is looking at; positions cross the boundary as UTF-16 line and character, which is what the protocol counts, verified against tabs and multi-byte characters.",
+        "publishDiagnostics reaches two consumers from one store: the editor pane renders them, and mcp__ide__getDiagnostics answers with the same set for a file, so the agent and the person never disagree about what is broken.",
+        "A server that crashes is restarted with a bounded backoff, its diagnostics are cleared rather than left stale, and repeated failure is reported instead of retried forever.",
+        "Parsed output from a declared check action remains a second source merged into the same store, distinguishable by origin, because a build reports failures no language server sees.",
         "Each regression was observed failing for its own reason."
       ],
       "passes": false,
       "dependencies": [
         99,
-        65
+        63
       ],
       "owner_workspace": "rengine",
-      "deliverable": "A diagnostics source over the declared dashboard action, its parsers, and the getDiagnostics implementation in orchestrator/runtime/ide.mjs.",
+      "deliverable": "An LSP client owned by the workspace worker, the language-server block in the project declaration (contract 6), document sync from the native editor, and the diagnostics store behind getDiagnostics and the editor's own rendering. Charter D37; docs/specs/102-editor-as-claude-ide.md.",
       "external_references": [],
       "evidence": []
     },
