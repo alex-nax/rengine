@@ -5,8 +5,8 @@
       "id": "ring-entry-refcounts",
       "kind": "constraint",
       "anchor": {
-        "start": 126,
-        "end": 126,
+        "start": 130,
+        "end": 130,
         "snippet": "static void evict(ReRecorder *r) {"
       },
       "note": "Ring entries are refcounted because a commit and the ring overlap in time: the drain writes keyframes over several ticks while new frames keep arriving and evicting old ones. The commit takes its own reference on each frame of its slice, so eviction can unlink an entry from the ring while the commit still writes it. Both bounds are enforced on every push and both keep at least one entry, so a single frame larger than the whole byte bound leaves a one-frame ring rather than an empty one. The array capacity is a third, implicit bound (seconds x fps + 4, capped at 4096 slots) and the push pops before it overruns, which is why evict does not test it.",
@@ -18,8 +18,8 @@
       "id": "one-clock",
       "kind": "rationale",
       "anchor": {
-        "start": 112,
-        "end": 112,
+        "start": 116,
+        "end": 116,
         "snippet": "static long long wall_of(const ReRecorder *r, Uint64 at) { return r->wall_base + (long long)(at - r->base_ms); }"
       },
       "note": "Wall clock is derived from the monotonic clock and a single epoch sample taken at open, never sampled per frame. That is what keeps keyframes, log lines and any later audio chunk on one clock: every artifact's wall time is a pure function of the same monotonic instant its atMs comes from, so they cannot disagree even if the system clock is stepped mid-recording. It also makes the whole recorder deterministic under test, which is how the unit test asserts an exact startedAt.",
@@ -31,8 +31,8 @@
       "id": "log-line-sanitising",
       "kind": "rationale",
       "anchor": {
-        "start": 176,
-        "end": 176,
+        "start": 180,
+        "end": 180,
         "snippet": "void re_recording_output(ReRecorder *r, const char *bytes, size_t size, Uint64 now_ms) {"
       },
       "note": "The log slice is data an agent reads, so escape sequences are removed as bytes arrive rather than stored and stripped later: the state machine spans chunk boundaries, which a per-chunk regex could not. CSI ends at a byte in 0x40-0x7E, OSC at BEL or ESC-backslash; carriage returns and the other C0 controls are dropped, tab is kept. A line is stamped when its newline arrives, which is the desktop's view of when the game said it \u2014 honest to within the PTY's flush latency, and the only clock shared with the frames. A trailing partial line is not committed: it is not yet a line.",
@@ -44,8 +44,8 @@
       "id": "commit-drain",
       "kind": "rationale",
       "anchor": {
-        "start": 260,
-        "end": 260,
+        "start": 272,
+        "end": 272,
         "snippet": "static void begin_commit(ReRecorder *r, int kind, Uint64 from, int requested_seconds, Uint64 now_ms, int after) {"
       },
       "note": "A commit is a job that drains over ticks, not a synchronous write, because a full ring is over a thousand files and writing them in one frame is a visible freeze. The manifest is written last, so a directory without one is an unfinished commit and the reader lists it as exactly that. The state to return to afterwards is carried on the job (after): a stop-and-commit returns to rolling, a commit forced by the game exiting returns to stopped and clears the ring. Closing the recorder drains what is in flight first \u2014 the job is bounded by the ring, so that loop always terminates \u2014 which is what keeps a commit from being lost when the tab or the desktop closes.",
@@ -57,19 +57,33 @@
       "id": "log-slice-is-the-ring",
       "kind": "constraint",
       "anchor": {
-        "start": 240,
-        "end": 240,
+        "start": 244,
+        "end": 244,
         "snippet": "static void write_log(ReRecorder *r) {"
       },
       "note": "The log slice is every line the ring still holds, for both gestures: only the keyframes are windowed by an explicit segment's mark. Filtering lines by that mark (line->at < from) is what made the first real committed segment report zero log lines beside 46 good keyframes \u2014 a menu prints nothing, so a five-second window over a silent span kept nothing, while the lines that explained the picture sat in the ring just before it. A ring commit passed from = 0 and so never showed the fault. The origin is the first committed keyframe, which is what gives a pre-mark line a negative atMs; the ring's own seconds and 2 MiB line budget already bound how far back the slice reaches. begin_commit returns before this is called when the slice has no frames, so frames[0] is always there.",
       "refs": [
         "docs/specs/081-game-recording.md"
       ]
+    },
+    {
+      "id": "explicit-segment-id",
+      "kind": "constraint",
+      "anchor": {
+        "start": 427,
+        "end": 427,
+        "snippet": "void re_recording_toggle(ReRecorder *r, Uint64 now_ms) {"
+      },
+      "note": "An explicit segment's id is minted when the toggle starts it, not when it commits, because the live channel announces both ends and a reader has to pair them by directory name (spec 095). begin_commit therefore consumes r->explicit_id for a RE_KIND_SEGMENT commit and clears it, including on every early return, or a later segment would inherit a dead id. A ring commit still mints its own at commit time and announces only `committed`. The visible consequence is that a segment directory's timestamp is now the instant recording started, which is what startedAt in its own manifest already reported.",
+      "refs": [
+        "docs/specs/095-project-token.md",
+        "docs/specs/081-game-recording.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/recording.c",
-    "sha256": "77c21a9887be8ef1083b9c69e1c5ebaf444e385bf0180f261ac98bb830e206eb",
+    "sha256": "b3d43a3228961082a287de8f36a688f61838f7122d9b65d84b6613a138e93380",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

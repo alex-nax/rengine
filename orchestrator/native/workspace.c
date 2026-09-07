@@ -821,20 +821,11 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
     re_app_control(a, ui, "toolbar", "Settings", -1);
     mu_end_window(ui);
   }
-  /* The status bar is owned drawing laid down after every pane, so its segment keeps its hit area
-   * here, where the pointer and the overlay's anchor both come from the same rectangle. */
-  mu_Rect segment = re_token_rect(a, re_draw_active());
-  if (segment.w > 0) {
-    mu_get_container(ui, "Status")->rect = segment;
-    if (mu_begin_window_ex(ui, "Status", segment, opts | MU_OPT_NOFRAME)) {
-      mu_layout_set_next(ui, segment, 0);
-      if (re_ui_button_ex(ui, "", RE_ICON_UNKNOWN, RE_UI_GHOST | RE_UI_ICON_ONLY | RE_UI_TRANSPARENT)) {
-        overlay_open(a, ui, RE_OVERLAY_TOKEN);
-      }
-      re_app_control(a, ui, "token", "segment", -1);
-      mu_end_window(ui);
-    }
-  }
+  /* The status bar is drawn outside microui entirely, after every pane, so its segment is reported
+   * as a rectangle rather than built as a control: a window of its own would cost a root container,
+   * and fifteen panes with a surface open already sit at microui's root list of 32. The press is
+   * served by re_app_event, the way the pane strip's context menu is. */
+  if (a->token.rect.w > 0) inspect_rect(a, "token", "segment", -1, a->token.rect);
   if (a->overlay_restore) { mu_set_focus(ui, a->overlay_opener); a->overlay_restore = false; }
   if (a->overlay == RE_OVERLAY_SETTINGS) settings_ui(a, ui);
   else if (a->overlay == RE_OVERLAY_ROOTS) roots_menu(a, ui);
@@ -978,6 +969,15 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
         break;
       default: break;
     }
+  }
+  /* The status bar's token segment. It is owned drawing on a bar microui does not lay out, so the
+   * press lands here; the surface hangs from the segment's own rectangle, which the anchor rule then
+   * places above it because the bar is at the bottom of the window. */
+  if (e->type == SDL_MOUSEBUTTONDOWN && e->button.button == SDL_BUTTON_LEFT && !a->quitting &&
+      a->token.rect.w > 0 && re_inside(a->token.rect, e->button.x, e->button.y)) {
+    if (a->overlay == RE_OVERLAY_TOKEN) overlay_close(a);
+    else { a->overlay = RE_OVERLAY_TOKEN; a->overlay_anchor = a->token.rect; a->overlay_opener = 0; }
+    return true;
   }
   /* A right press on a pane's tab strip opens the context menu of the menus card. */
   if (e->type == SDL_MOUSEBUTTONDOWN && e->button.button == SDL_BUTTON_RIGHT && !a->quitting) {

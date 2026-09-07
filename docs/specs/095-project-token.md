@@ -168,12 +168,64 @@ first is the owner's monitor. Both are read tools and need no token.
 
 ## Native desktop
 
-One **status-bar segment** (`re_app_status`, `app.c`) per window: *Token · free*, *Token · claude*, or
-*Contest · codex · 42 s* counting down. Pressing it opens a popover in the spec 080 pattern listing
-the holder, the open contest with **Reject** and **Grant**, **Revoke** and **Free** for a held token,
-and the identities the ledger has seen. The desktop sends `{ type: 'token-action', action, contestId }`
-on `/events`, which the worker intercepts before forwarding; the worker pushes `{ type: 'token', … }`
-frames to every desktop on the same socket so the segment updates without polling. No new pane.
+One **status-bar segment** (`re_app_status`, `workspace.c`) per window: *Token · free*,
+*Token · claude*, or *Contest · codex · 42s* counting down. Pressing it opens a popover in the spec
+080 pattern listing the holder, the open contest with **Reject** and **Grant**, and **Revoke** and
+**Free** for a held token. The desktop sends
+`{ type: 'token-action', rootId, action, contestId, reason }` on `/events`, which the worker
+intercepts before forwarding; the worker pushes `{ type: 'token', … }` frames to every desktop on the
+same socket so the segment updates without polling. No new pane.
+
+### What shipped (stage 3, 2026-09-07)
+
+The per-window state, the segment, the popover and the recorder's announcement are
+`orchestrator/native/token.{c,h}` beside `devices.c` and `tracker.c`; `app.c` parses the frame and
+`workspace.c` places the segment and the surface. The segment is not a control: the status bar is
+drawn outside microui, after every pane, so the face is `re_token_status` and the press is served in
+`re_app_event` beside the pane strip's context menu, with the rectangle reported to automation. A
+microui window of its own would have cost one of the 32 root containers that fifteen leaf panes with
+a surface open already fill. Corrections against the paragraph above, each because the code says
+otherwise:
+
+- **`re_app_status` is in `workspace.c`**, not `app.c`. The declaration is `app.h:64`; the paragraph
+  named the header's neighbour rather than the definition.
+- **The countdown reads `42s`, not `42 s`** — the wire contract stage 2 was written against says
+  `<seconds left>s`, and the segment is one of the narrowest things in the chrome.
+- **Nothing is drawn before the ledger speaks.** *Token · free* is a claim about a ledger, and a
+  window that has heard no `token` frame has no business making it, so the segment appears with the
+  first frame for its root. `re_app_inspect` reports `token.known: false` until then.
+- **The popover does not list the identities the ledger has seen.** The pinned `token` frame carries
+  a holder and a contester and nothing else, so a list of identities would have to be invented here
+  or fetched over a route this stage does not add. It belongs with the ledger's own status.
+- **Reject carries a reason the person typed.** Decision 3 gives the desktop the rejection and the
+  transition table gives the contester the reason; a reason invented by the chrome would be neither.
+  The popover has a field for it, sent only with `reject` and only when it is non-empty.
+- **Identity is the window's primary root** (spec 084 decision 3), so a frame for any other root is
+  ignored. That is the assertion most worth having, and it is one: a second root's ledger naming a
+  different holder leaves the segment unchanged.
+- **A `disconnected` clears the state.** The ledger's last word does not outlive the socket that
+  carried it; the worker re-sends per root after `desktop-register`, which is contract 1.
+- **The countdown floors.** The desktop's wall clock is `time(NULL)`, so rounding up would open a
+  60-second window reading `61s`. Nothing depends on the desktop's number: the ledger owns the
+  deadline and the transfer.
+
+The recorder's frame is
+`{ type: 'recording', rootId, sessionId, gameId, event: 'started' | 'committed', recordingId, kind:
+'ring' | 'explicit', at }`, sent from `recording.c` through a callback the recorder carries, on the
+same socket. Two things about it:
+
+- **`kind` is the feed's vocabulary, not the manifest's.** Spec 081 writes `kind: "segment"` into a
+  manifest for the explicit gesture; the feed says `explicit`. The feed names the gesture, the
+  artifact names its shape, and a worker mapping these onto `capture.*` must not expect the
+  manifest's word.
+- **An explicit segment's id is minted when the toggle starts it**, not when it commits, so
+  `started` and `committed` name one directory. A ring commit has no start and announces only
+  `committed`. This moves the segment directory's timestamp from the commit instant to the start
+  instant, which is the instant `startedAt` in its own manifest already reports.
+
+Not shipped here: the ledger, the feed socket, the MCP tools and the gates (stage 2), and the
+recording controls over MCP (stage 4). The native fixture drives a stand-in for the worker's
+interception, so nothing in this stage asserts what a `token-action` does to a ledger.
 
 ## MCP tools
 
