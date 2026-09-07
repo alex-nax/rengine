@@ -7,8 +7,11 @@
    status-bar segment, and sends the four gestures the person at the desktop is never gated on. */
 
 #ifdef _WIN32
+#include <windows.h>
 #define re_timegm _mkgmtime
 #else
+#include <errno.h>
+#include <signal.h>
 #define re_timegm timegm
 #endif
 
@@ -40,6 +43,30 @@ int re_token_seconds_left(const ReProjectToken *t) {
   long long left = t->deadline_ms - now_ms();
   if (left <= 0) return 0;
   return (int)(left / 1000);
+}
+
+/* The identity IS the conversation (spec 095), so a Sessions-tab row that knows its conversation
+   knows whether the ledger's holder is it. An unknown ledger and a nameless row both hold nothing:
+   comparing two empty strings would mark every agent that names its own conversations. */
+bool re_token_holds(const ReApp *a, const char *agent_id) {
+  const ReProjectToken *t = &a->token;
+  return t->known && t->held && agent_id && *agent_id && !strcmp(t->holder_agent, agent_id);
+}
+
+/* Liveness on the ledger's own terms (`gone()` in runtime/token.mjs): a pid it does not know is not
+   a dead pid, and a process this desktop may not signal is still a process. Both halves run on the
+   machine the ledger runs on, which is the only place a loopback workspace puts them. */
+bool re_token_holder_alive(const ReApp *a) {
+  const ReProjectToken *t = &a->token;
+  if (!t->known || !t->held) return false;
+  if (t->holder_pid <= 0) return true;
+#ifdef _WIN32
+  HANDLE handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, (DWORD)t->holder_pid);
+  if (handle) { CloseHandle(handle); return true; }
+  return GetLastError() == ERROR_ACCESS_DENIED;
+#else
+  return kill((pid_t)t->holder_pid, 0) == 0 || errno == EPERM;
+#endif
 }
 
 void re_token_clear(ReApp *a) {
@@ -115,8 +142,10 @@ void re_token_status(ReApp *a, ReDraw *draw) {
 
 /* ---- the human's controls ---------------------------------------------------------------------
  * Never gated (decision 6): these four are the person's own acts, and the desktop sends them
- * whatever the ledger says about agents. The answer is the next `token` frame, or an `error`. */
-static void send_action(ReApp *a, const char *action) {
+ * whatever the ledger says about agents. The answer is the next `token` frame, or an `error`.
+ * The popover below and the Sessions tab's own Revoke and Free (spec 103 decision 1) both send
+ * here, so the two surfaces cannot drift into two contracts. */
+void re_token_action(ReApp *a, const char *action) {
   const char *root = primary(a);
   if (!*root) { re_copy(a->status, sizeof(a->status), "Add or select a project first."); return; }
   bool contest = !strcmp(action, "reject") || !strcmp(action, "grant");
@@ -163,16 +192,16 @@ void re_token_ui(ReApp *a, mu_Context *ui) {
     re_ui_textbox_ex(ui, t->reason, sizeof(t->reason), RE_ICON_FILE, "Why (optional)…", 0);
     re_app_control(a, ui, "token", "reason", -1);
     mu_layout_row(ui, 2, (int[]){RE_METRIC_TOKEN_ACTION_WIDTH, -1}, RE_METRIC_TOKEN_ACTION_HEIGHT);
-    if (re_ui_button_ex(ui, "Reject", RE_ICON_CLOSE, 0)) send_action(a, "reject");
+    if (re_ui_button_ex(ui, "Reject", RE_ICON_CLOSE, 0)) re_token_action(a, "reject");
     re_app_control(a, ui, "token", "reject", -1);
-    if (re_ui_button_ex(ui, "Grant", RE_ICON_CHECK, RE_UI_PRIMARY)) send_action(a, "grant");
+    if (re_ui_button_ex(ui, "Grant", RE_ICON_CHECK, RE_UI_PRIMARY)) re_token_action(a, "grant");
     re_app_control(a, ui, "token", "grant", -1);
   }
   if (t->held) {
     mu_layout_row(ui, 2, (int[]){RE_METRIC_TOKEN_ACTION_WIDTH, -1}, RE_METRIC_TOKEN_ACTION_HEIGHT);
-    if (re_ui_button_ex(ui, "Revoke", RE_ICON_CLOSE, 0)) send_action(a, "revoke");
+    if (re_ui_button_ex(ui, "Revoke", RE_ICON_CLOSE, 0)) re_token_action(a, "revoke");
     re_app_control(a, ui, "token", "revoke", -1);
-    if (re_ui_button_ex(ui, "Free", RE_ICON_HOLLOW, RE_UI_GHOST)) send_action(a, "free");
+    if (re_ui_button_ex(ui, "Free", RE_ICON_HOLLOW, RE_UI_GHOST)) re_token_action(a, "free");
     re_app_control(a, ui, "token", "free", -1);
   }
 }
