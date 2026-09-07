@@ -10,7 +10,8 @@ if (process.env.RENGINE_HANDOFF_GATE) {
   await checkResume(process.env.RENGINE_BASH, handoff.project, process.env);
   args.push(...resumeArgs(handoff));
 }
-const plan = await agentLaunch({ agent, executable, contextFile, args });
+const plan = await agentLaunch({ agent, executable, contextFile, args,
+  conversation: process.env.RENGINE_AGENT_CONVERSATION, resume: process.env.RENGINE_AGENT_RESUME === '1' });
 if (plan.custom) console.log(`Custom agent MCP configuration: ${plan.generic} (also RENGINE_MCP_CONFIG). Configure this CLI to consume it.`);
 else console.log(`Workspace MCP: ${plan.name}`);
 if (process.platform === 'win32' && !process.env.RENGINE_BASH) throw new Error('Windows workspace bootstrap requires RENGINE_BASH.');

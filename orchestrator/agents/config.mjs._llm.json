@@ -5,11 +5,21 @@
       "id": "configuration-overlays",
       "kind": "rationale",
       "anchor": {
-        "start": 21,
-        "end": 21,
-        "snippet": "export async function agentLaunch({ agent, executable, args = [], contextFile, env = process.env }) {"
+        "start": 52,
+        "end": 52,
+        "snippet": "export async function agentLaunch({ agent, executable, args = [], contextFile, context, directory, identity, conversation, resume = false, env = process.env }) {"
       },
-      "note": "Each launch creates a private unique configuration directory so concurrent agents cannot overwrite one another\u2019s overlays. User/project files are never rewritten. OpenCode runtime JSONC and Gemini defaults are parsed and preserved; malformed input or a name collision fails visibly. Gemini uses the lowest-precedence defaults layer, so managed policy remains authoritative. Codex requires the injected MCP server to initialize; no permission-bypass flags are supplied."
+      "note": "Each launch creates a private unique configuration directory so concurrent agents cannot overwrite one another’s overlays. User/project files are never rewritten. OpenCode runtime JSONC and Gemini defaults are parsed and preserved; malformed input or a name collision fails visibly. Gemini uses the lowest-precedence defaults layer, so managed policy remains authoritative. Codex requires the injected MCP server to initialize; no permission-bypass flags are supplied."
+    },
+    {
+      "id": "conversation-naming-is-a-declared-capability",
+      "kind": "rationale",
+      "anchor": {
+        "start": 14,
+        "end": 14,
+        "snippet": "const CONVERSATIONS = {"
+      },
+      "note": "rEngine names the conversation at launch rather than discovering it afterwards: it mints the UUID and tells the CLI, so the identifier exists before the first byte of output and no rollout directory has to be scraped for it. The Codex handoff path (handoff.mjs) is the discovery version of this and shows the cost — it reads an external manifest, walks ~/.codex/sessions, and validates metadata, all to learn a fact the launcher could simply have chosen. Membership of this table is a capability claim, not an assumption: an agent absent from it names its own conversations, is recorded with none, and is refused by name on restart. Inventing an identifier for such an agent would produce a restart that silently opens a SECOND conversation while appearing to resume the first, which is worse than refusing. See docs/specs/096-agent-session-resume.md."
     }
   ],
   "source": {

@@ -33,3 +33,24 @@ test('agent overlays preserve arguments and existing configuration without rewri
   assert.deepEqual(overlay.security, JSON.parse(original).security); assert.ok(overlay.mcpServers.previous);
   await assert.rejects(agentLaunch({ agent: 'opencode', executable: 'opencode', contextFile, env: { OPENCODE_CONFIG_CONTENT: '{damaged' } }));
 });
+
+// A pane can only be restarted into the same conversation if rEngine knows which conversation it
+// launched. It names one at launch rather than discovering it afterwards, and only for an agent
+// whose CLI accepts being told. See docs/specs/096-agent-session-resume.md.
+test('rEngine names the conversation it launches and resumes that same one', async t => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-agent-conversation-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const contextFile = path.join(directory, 'context.json');
+  await writeFile(contextFile, JSON.stringify({ rootId: '12345678-1234-1234-1234-123456789abc' }));
+  const conversation = '87654321-4321-4321-4321-cba987654321';
+  const fresh = await agentLaunch({ agent: 'claude', executable: '/installed/claude', contextFile, env: {}, conversation });
+  assert.deepEqual(fresh.args.slice(-2), ['--session-id', conversation], 'a fresh launch tells the CLI which conversation it is');
+  assert.equal(fresh.conversation, conversation, 'and the plan reports it so the session record can keep it');
+  const resumed = await agentLaunch({ agent: 'claude', executable: '/installed/claude', contextFile, env: {}, conversation, resume: true });
+  assert.deepEqual(resumed.args.slice(-2), ['--resume', conversation], 'a restart resumes rather than starting a second conversation');
+  const codex = await agentLaunch({ agent: 'codex', executable: '/installed/codex', contextFile, env: {}, conversation });
+  assert.equal(codex.conversation, undefined, 'an agent that cannot be told its conversation id is not given a fake one');
+  assert.equal(codex.args.includes(conversation), false);
+  await assert.rejects(agentLaunch({ agent: 'claude', executable: '/installed/claude', contextFile, env: {}, conversation: 'not-a-uuid' }),
+    /conversation/i, 'and an identifier we did not mint is refused');
+});

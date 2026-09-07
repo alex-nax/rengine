@@ -5,8 +5,8 @@
       "id": "windows-environment-casing",
       "kind": "rationale",
       "anchor": {
-        "start": 18,
-        "end": 18,
+        "start": 19,
+        "end": 19,
         "snippet": "export function shellEnvironment(overrides = {}, { inherited = process.env, platform = process.platform, userDirectory = homedir() } = {}) {"
       },
       "note": "Spreading process.env loses Windows' case-insensitive lookup behavior. Normalize inherited and override names before adding CLI directories so a new PATH cannot mask the real Path. Later overrides retain their spelling, POSIX keys remain case-sensitive, and Electron's run-as-Node setting is removed regardless of Windows casing. Explicit inputs make the platform transformation testable on Mac without claiming Windows process qualification.",
@@ -19,8 +19,8 @@
       "id": "views-are-not-owners",
       "kind": "constraint",
       "anchor": {
-        "start": 72,
-        "end": 72,
+        "start": 76,
+        "end": 76,
         "snippet": "export class Sessions extends EventEmitter {"
       },
       "note": "The sidecar owns PTYs independently of display connections. Socket detach must never invoke stop or shutdown. Exited state comes from the actual PTY exit event; layout/session records cannot resurrect a PID.",
@@ -32,8 +32,8 @@
       "id": "stop-process-tree",
       "kind": "rationale",
       "anchor": {
-        "start": 55,
-        "end": 55,
+        "start": 59,
+        "end": 59,
         "snippet": "async function signalTree(pid, signal) {"
       },
       "note": "Stop targets descendants from a fresh numeric process-tree snapshot, then the owned root. Windows uses taskkill /T. POSIX escalates after a grace period only while the tracked PTY remains alive. Adversarial detached descendants and PID-reuse edge cases still need qualification; do not claim this is a security sandbox.",
@@ -45,8 +45,8 @@
       "id": "one-retained-handoff",
       "kind": "rationale",
       "anchor": {
-        "start": 92,
-        "end": 92,
+        "start": 97,
+        "end": 97,
         "snippet": "  async terminal(options) {"
       },
       "note": "Serialize handoff creation per project, then reuse a running session by canonical root and exact conversation UUID. Snapshot the validated manifest privately before spawning; editing the original while its pane is waiting must not retarget an existing session. A fresh unique readiness path prevents stale releases. Presentation releases only a live waiting bootstrap; input is rejected while waiting. Reload and view detach retain both waiting and running sessions. A later explicit launch after Stop/exit creates a fresh gated PTY.",
@@ -58,14 +58,34 @@
       "id": "optional-session-title",
       "kind": "rationale",
       "anchor": {
-        "start": 102,
-        "end": 102,
+        "start": 107,
+        "end": 107,
         "snippet": "if (title !== undefined && (typeof title !== 'string' || !title.trim() || title.length > 200)) fail('Session title must be a short string.');"
       },
-      "note": "Dashboard runs name their sessions (Script \u00b7 x.sh, Log \u00b7 title) and a declared game names its own (<title> \u00b7 <root>); the option is bounded and optional so every existing caller keeps the derived title, which no longer names any game. A game session also carries its declared surface and id so a restored tab picks the live view or the retained-output view. A retained host older than these fields ignores them, which is why the worker also returns the title on its own reply. A declared cwd travels the same way and is re-confined here: the resolved directory must be the root or inside it, so the working directory of a launched game can never be widened by a reader change alone.",
+      "note": "Dashboard runs name their sessions (Script · x.sh, Log · title) and a declared game names its own (<title> · <root>); the option is bounded and optional so every existing caller keeps the derived title, which no longer names any game. A game session also carries its declared surface and id so a restored tab picks the live view or the retained-output view. A retained host older than these fields ignores them, which is why the worker also returns the title on its own reply. A declared cwd travels the same way and is re-confined here: the resolved directory must be the root or inside it, so the working directory of a launched game can never be widened by a reader change alone.",
       "refs": [
         "docs/specs/075-project-dashboard.md"
       ]
+    },
+    {
+      "id": "the-surface-owns-its-colour-declaration",
+      "kind": "rationale",
+      "anchor": {
+        "start": 33,
+        "end": 33,
+        "snippet": "if (!Object.keys(overrides).some(name => key(name) === key('NO_COLOR'))) entries.delete(key('NO_COLOR'));"
+      },
+      "note": "This function sets TERM=xterm-256color and COLORTERM=truecolor two lines above, which is a declaration that the surface can render colour. Forwarding an inherited NO_COLOR contradicts that declaration for every pane the session host will ever spawn, and the host is durable across window and agent restarts (spec 065), so the contradiction outlives every remedy short of killing the host. That is not hypothetical: on 2026-09-07 a workspace whose launcher had been started from an agent CLI's shell — those set NO_COLOR for the shells they spawn — ran every pane monochrome while the pane itself measured 256 colours with SGR passing through intact. Blanking rather than deleting does NOT work: Node disables colour on the variable's presence, measured as depth 1 for NO_COLOR= and 8 for absence, so the key has to go. An explicit override still wins, because a project action asking for plain output is a different thing from an accident of launch provenance."
+    },
+    {
+      "id": "a-pane-restart-is-not-a-host-restart",
+      "kind": "rationale",
+      "anchor": {
+        "start": 202,
+        "end": 202,
+        "snippet": "async restartAgent(id) {"
+      },
+      "note": "Replacing one agent child is deliberately much smaller than replacing the session host. The host keeps its PTYs, its drafts and every other pane, so this is not a quiescence event under spec 065 and costs no other conversation. It exists because the alternative was observed and was unacceptable: an environment defect baked into the host could only be cleared by killing the host, which destroys every live agent conversation on it, leaving the owner to choose between a broken environment and their work. The two guards are the whole contract — a non-agent session has no conversation to return to, and an agent recorded without one cannot be resumed, so it is refused by name rather than restarted into a second conversation that would look like the first. See docs/specs/096-agent-session-resume.md."
     }
   ],
   "source": {

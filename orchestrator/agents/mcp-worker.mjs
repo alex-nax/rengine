@@ -33,7 +33,7 @@ const server = new McpServer({ name: 'rengine-workspace', version: '1.0.0' }, {
   instructions: 'These tools address the project bound when this agent was launched. List sessions before selecting a process. Closing a workspace view retains the process; stop_session explicitly stops it. File reads use disk text unless useDraft is requested.',
 });
 const tool = (name, description, inputSchema, readOnlyHint, action) => server.registerTool(name, {
-  description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script'].includes(name), openWorldHint: ['open_script', 'preview_file', 'dashboard_capture', 'launch_game', 'devices'].includes(name) },
+  description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script', 'restart_agent'].includes(name), openWorldHint: ['open_script', 'preview_file', 'dashboard_capture', 'launch_game', 'devices'].includes(name) },
 }, async values => {
   let state;
   try {
@@ -179,5 +179,9 @@ tool('recording_read', 'Read one committed recording: its manifest, a bounded ta
 });
 tool('stop_session', 'Explicitly stop a retained process belonging to the bound project.', { id: z.string() }, false, async ({ id }, state) => {
   ownSession(id, state); return call('stop', { id });
+});
+const conversationCapability = state => { if (state.capabilities.agentConversations !== 1) throw new Error('This retained session host predates agent conversations, so it cannot name or resume one. Replacing the session host requires quiescence.'); };
+tool('restart_agent', 'Replace one agent pane with a new one on the SAME conversation: the child is stopped and started again, resuming the conversation rEngine named when it launched it, with a freshly composed environment. Use it to pick up a corrected environment or a new CLI version without losing the conversation and without restarting the session host. The pane keeps its project binding; its process id changes. An agent whose CLI names its own conversations has none recorded and is refused by name rather than started as a second conversation \u2014 workspace_info shows which sessions carry one.', { id: z.string() }, false, async ({ id }, state) => {
+  conversationCapability(state); ownSession(id, state); return call('agent-restart', { id });
 });
 await server.connect(new StdioServerTransport());

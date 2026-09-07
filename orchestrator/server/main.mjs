@@ -53,7 +53,7 @@ export async function startServer({ stateDir, port = 0 } = {}) {
         let value;
         if (request.method === 'GET') {
           switch (target.pathname) {
-            case '/api/state': value = { instance, capabilities: { handoff: 1, desktopActions: 1, formatRegistry: 1, dashboard: 1, projectGame: 1, projectGameLaunch: 1, recordings: 1, projectDevices: 1, externalDeclarations: 1 }, roots: store.state.roots, layout: store.state.layout, preferences: store.state.preferences,
+            case '/api/state': value = { instance, capabilities: { handoff: 1, desktopActions: 1, formatRegistry: 1, dashboard: 1, projectGame: 1, projectGameLaunch: 1, recordings: 1, projectDevices: 1, externalDeclarations: 1, agentConversations: 1 }, roots: store.state.roots, layout: store.state.layout, preferences: store.state.preferences,
               drafts: Object.values(store.state.drafts).map(({ rootId, path, updatedAt }) => ({ rootId, path, updatedAt })), sessions: sessions.list() }; break;
             case '/api/tree': value = await store.list(query.get('rootId'), query.get('path') ?? '', query.get('hidden') === 'true'); break;
             case '/api/file': value = await store.readText(query.get('rootId'), query.get('path')); break;
@@ -102,6 +102,7 @@ export async function startServer({ stateDir, port = 0 } = {}) {
             case '/api/input': sessions.input(data.id, data.data); value = { ok: true }; break;
             case '/api/resize': sessions.resize(data.id, data.cols, data.rows); value = { ok: true }; break;
             case '/api/stop': value = await sessions.stop(data.id); break;
+            case '/api/agent-restart': value = await sessions.restartAgent(data.id); break;
             case '/api/desktop-action':
               if (data.action !== 'reload') fail('Unknown desktop action.');
               value = await desktops.reload(data.rootId, data.desktopId); break;
