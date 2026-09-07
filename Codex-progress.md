@@ -62,7 +62,17 @@ under the full suite's load and passed alone (KI-045's shape).
 
 Gates: `npm test` 132/132; `ctest` 6/6; `python3 tools/design.py check`, `features.py validate`,
 `./init.sh` clean; sidecars for the six annotated files repaired, reviewed and stamped on a disposable
-index; graph regenerated. `npm run test:desktop`: see the line below this entry.
+index; graph regenerated. `npm run test:desktop` 41/44 under load, and each red passed alone: the GPU
+adapter comparison on its own (KI-045's shape), and the game-texture and recording specs once
+`npm run build:surface` had produced the surface fixture this fresh worktree did not have — they
+were reading "game exited" from a missing executable, not a regression.
+
+While that suite ran, the parent session committed this tree as `20e2cab`, merged `origin/main`
+(`79afb62`, KI-061 retention and token gating) and `main` (`414c814`, the tracker filters), and
+renumbered the work to F98 and spec 101 because F97 and spec 100 had been taken. On the merged head:
+`npm test` 158/159 under load with the one red — `token-retirement.test.mjs`, another lane's
+retention fixture — passing alone; `native-updates`, `native-bootstrap` and `native-tracker` 5/5;
+sidecars clean after re-stamping `runtime.test.mjs`, whose spec reference the renumber had edited.
 
 Not done here, deliberately: merging to `main` and running the update on supervisor 44390 — the
 supervisor forks `runtime/worker.mjs` from the main checkout's working tree, which other lanes were
