@@ -8,11 +8,16 @@ import { request } from '../launcher/sidecar.mjs';
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const read = async filename => JSON.parse(await readFile(filename, 'utf8'));
 
-/* The launcher's own plumbing, read the way the tool worker reads it: RENGINE_MCP_CONFIG names the
-   per-launch mcp.json whose server is started on this launch's context file, and
-   RENGINE_WORKSPACE_CONTEXT is the root file a pane inherits, which carries the host connection but
-   no identity. Neither present means this CLI is not running inside a workspace pane. */
-export async function bindingContext(env = process.env) {
+/* Where this launch's context is, in the order that finds it. The per-launch settings file names it
+   on this hook's own command line, so a session started by hand from the line bind.mjs prints --
+   which inherits none of the launcher's environment -- is bound as well as a pane is. Otherwise the
+   launcher's own plumbing, read the way the tool worker reads it: RENGINE_MCP_CONFIG names the
+   per-launch mcp.json whose server is started on that same file, and RENGINE_WORKSPACE_CONTEXT is
+   the root file a pane inherits, which carries the host connection but no identity. None of the
+   three means this CLI is not running under rEngine at all, and there is nothing to report to. */
+export async function bindingContext(env = process.env, argv = process.argv.slice(2)) {
+  const named = argv.indexOf('--context');
+  if (named >= 0 && argv[named + 1]) return argv[named + 1];
   if (env.RENGINE_MCP_CONFIG) {
     const servers = (await read(env.RENGINE_MCP_CONFIG)).mcpServers;
     for (const server of Object.values(servers ?? {})) {
@@ -49,8 +54,8 @@ async function replaceJson(filename, value) {
    see a /resume performed inside the running CLI, so the record follows this report rather than the
    launch: the host is told over the same route launch.mjs reports on, and the per-launch context is
    rewritten so the tool worker's identity header and workspace_info follow it too. */
-export async function report({ env = process.env, input } = {}) {
-  const contextFile = await bindingContext(env);
+export async function report({ env = process.env, argv = process.argv.slice(2), input } = {}) {
+  const contextFile = await bindingContext(env, argv);
   if (!contextFile) return { bound: false, rewrote: false, posted: false };
   const conversation = String(input?.session_id ?? '').toLowerCase();
   if (!UUID.test(conversation)) throw new Error(`${input?.hook_event_name ?? 'The hook'} carried no session id.`);

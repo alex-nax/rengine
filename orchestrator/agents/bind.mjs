@@ -96,7 +96,7 @@ export async function bind(argv) {
        that already exists, --session-id for the one this binding minted. It also carries --settings,
        so a session started outside the workspace reports its own conversation back the way a pane
        does: the identity here is only the launch's guess until the CLI confirms or corrects it. */
-    const settings = await claudeSettingsFile(plan.directory);
+    const settings = await claudeSettingsFile(plan.directory, plan.contextFile);
     lines.push(`Start the agent from ${root.path} with the flag its CLI consumes:`,
       `  claude --mcp-config ${shellQuote(plan.generic)} --settings ${shellQuote(settings)} ${session ? '--resume' : '--session-id'} ${identity.agentId}`,
       `  codex ${['-c', `mcp_servers.${plan.name}.command=${JSON.stringify(server.command)}`,

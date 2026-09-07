@@ -5,8 +5,8 @@
    "id": "configuration-overlays",
    "kind": "rationale",
    "anchor": {
-    "start": 125,
-    "end": 125,
+    "start": 131,
+    "end": 131,
     "snippet": "export async function agentLaunch({ agent, executable, args = [], contextFile, context, directory, identity, handoff, conversation, resume = false, env = process.env }) {"
    },
    "note": "Each launch creates a private unique configuration directory so concurrent agents cannot overwrite one another\u2019s overlays. User/project files are never rewritten. OpenCode runtime JSONC and Gemini defaults are parsed and preserved; malformed input or a name collision fails visibly. Gemini uses the lowest-precedence defaults layer, so managed policy remains authoritative. Codex requires the injected MCP server to initialize; no permission-bypass flags are supplied. The claude branch also names the conversation, exactly once: conversationArgs adds --session-id or --resume for an identity rEngine decided, and adds nothing to a launch whose own args already name a session, because the identity IS that session id."
@@ -56,9 +56,9 @@
    "id": "the-cli-reports-what-it-runs",
    "kind": "rationale",
    "anchor": {
-    "start": 117,
-    "end": 117,
-    "snippet": "export const claudeSettings = () => ({ hooks: { SessionStart: [{ hooks: [{ type: 'command',"
+    "start": 123,
+    "end": 123,
+    "snippet": "export const claudeSettings = contextFile => ({ hooks: { SessionStart: [{ hooks: [{ type: 'command',"
    },
    "note": "claudeIdentity decides the conversation from the launch's own flags and is then blind: a person who resumes another conversation from inside the running CLI moves the process, and no flag, transcript or process tree says so afterwards. Observed live 2026-09-07 -- a pane launched as b9e2114c ran 5b8d47c2 while every record still said b9e2114c. Do NOT solve this by inferring the id after the fact; that is exactly what an earlier attempt did and kept getting wrong, and it is the reason the rest of this module decides at launch. The CLI is asked instead: Claude Code's SessionStart hook fires on startup, --resume, an in-CLI /resume, /clear and after compaction with the session_id it is actually running, and report-session.mjs reports it back. The settings file is per launch and passed with --settings, which loads ADDITIONAL settings -- the person's and the project's own files are never read, written or overridden. The launch identity is therefore rEngine's best guess until the CLI confirms or corrects it.",
    "refs": [
@@ -69,7 +69,7 @@
  ],
  "source": {
   "path": "orchestrator/agents/config.mjs",
-  "sha256": "6db8a1c9e404466a1a7235145333c10b3ac165af1cc1093ef3854441d37d7894",
+  "sha256": "43b02912f0b1121248bb0ad43dcadeed4c7dfd7824c14ca3ae9bd87fb4555ff4",
   "format": "text",
   "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
  }

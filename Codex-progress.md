@@ -27,7 +27,9 @@ nothing at all outside a workspace pane. It reports on every session start, not 
 `-c` launch — which claims nothing and leaves the pane unrestartable — becomes known at its first
 report. **`agents/config.mjs`** writes that hook into a per-launch `settings.json` beside `mcp.json`
 and passes `--settings`; nobody's own settings file is touched. **`agents/bind.mjs`** prints the same
-flag, so a session bound from outside corrects itself too. **`agents/mcp-worker.mjs`** re-reads the
+flag, and the hook is given this launch's context on its own command line, so a session started by
+hand from that printed line — which inherits none of the launcher's environment — corrects the
+identity too, though it posts to nobody, having no pane. **`agents/mcp-worker.mjs`** re-reads the
 identity from the context file once per tool call, so `workspace_info` and the `X-Rengine-Agent`
 header follow the CLI without a worker restart — while the binding stays the facade's snapshot, so the
 file can rename this agent and never retarget its root. No server route and no native change.
@@ -35,15 +37,16 @@ file can rename this agent and never retarget its root. No server route and no n
 Verified end to end through the real CLI, with the live gap reproduced: the launcher named
 `b9e2114c-0000-…`, the CLI ran `5a9a90ce-96ea-…`, and afterwards the fake host held
 `{ id, conversation: 5a9a90ce…, agent: claude }` and the context identity read `claude 5a9a90ce`,
-`source: reported`, with `pid` and `startedAt` untouched. Eleven sabotages, each producing exactly one
-red test for its own reason; one of them found a real hole — the claude line `bind` prints without
-`--agent` had no assertion on it at all, so dropping the flag there passed. 160/160 on
+`source: reported`, with `pid` and `startedAt` untouched. Thirteen sabotages, each watched red for its
+own claim (case 12 red twice, from both ends of one mechanism); one of them found a real hole rather
+than confirming one — the claude line `bind` prints without `--agent` had no assertion on it at all,
+so dropping the flag there passed until the assertion was added. 161/161 on
 `node --test orchestrator/tests/*.test.mjs`. Spec 095 gains *The CLI reports what it runs*, 096 gains
 amendments 3c and 4b, and the runbook says to start a bound session with the printed `--settings`.
 Evidence, with both recorded hook payloads: `docs/evidence/report-session-hook-2026-09-07.md`.
 
 **Not verified:** a live pane, the same gap 095–098 all record — this session's host predates the
-change.
+change; and Windows, where the hook command is quoted for `cmd` rather than POSIX-style.
 
 ## Session 55 (macos) — 2026-09-07 — The tracker narrows to a person and to what is actually active (F97)
 

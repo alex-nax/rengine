@@ -72,6 +72,7 @@ the payload for `source: resume`, and that a hook inherits the launch environmen
 | file | change |
 | --- | --- |
 | `orchestrator/agents/report-session.mjs` (new) | reads the hook payload from stdin, finds this launch's binding, posts `POST /api/agent-conversation`, and rewrites the per-launch `context.json` identity |
+| | it is given that context on its own command line (`--context`), so a session started by hand from the line `bind.mjs` prints — which inherits none of the launcher's environment — is bound as well as a pane is; the environment is the fallback |
 | `orchestrator/agents/config.mjs` | writes that hook into a per-launch `settings.json` beside `mcp.json`, and passes `--settings` on a claude launch |
 | `orchestrator/agents/bind.mjs` | prints the same `--settings` flag, so a session started outside the workspace reports itself too |
 | `orchestrator/agents/mcp-worker.mjs` | re-reads the identity from the context file once per tool call; the binding stays the facade's snapshot |
@@ -107,7 +108,7 @@ The settings the launcher wrote, verbatim:
   "hooks": {
     "SessionStart": [
       { "hooks": [ { "type": "command",
-        "command": "/Users/alex/.n/bin/node /Users/alex/rengine/.cache/worktrees/report-session/orchestrator/agents/report-session.mjs" } ] }
+        "command": "/Users/alex/.n/bin/node /Users/alex/rengine/.cache/worktrees/report-session/orchestrator/agents/report-session.mjs --context /var/folders/…/rengine_123456781234-ad8e0882-…/context.json" } ] }
     ]
   }
 }
@@ -141,6 +142,7 @@ New: `orchestrator/tests/report-session.test.mjs`.
 | the CLI's own report replaces the conversation: the host is told and the context follows | fed the recorded payload, it posts `{ id, conversation, agent }` and rewrites agentId, label and the whole session descriptor (`source: reported`, the resume line); `pid`, `startedAt` and the root binding are untouched; a second report that changes nothing rewrites nothing and still posts |
 | outside a workspace pane the hook reports nothing and never fails the CLI | with no binding environment it returns `bound: false` and posts nothing; run as a real subprocess on the recorded payload, on `{}` and on malformed input it exits 0 every time, writes nothing to stdout, and puts its one complaint on stderr |
 | a launch that continued or forked becomes known once the CLI reports | a `-c` launch claims nothing and records `known: false`; after the report the identity is the id the CLI minted for itself, `known: true`, and the host holds it — so the pane the launcher had to leave empty is restartable |
+| a session started from the line bind prints reports itself with no environment at all | with an empty environment and only the hook command's own `--context`, the report finds its launch, rewrites the identity, and posts to nobody — a bound session has no pane record to update |
 | the tool worker's next call carries the conversation the CLI reported | `workspace_info` answers with the launched conversation, then with the reported one after the hook runs, with no worker restart and with the facade snapshot still holding the old id; `X-Rengine-Agent` and its label change on the wire; the root stays the snapshot's |
 
 Extended: `agent-identity.test.mjs` and `conversation-identity.test.mjs` — the argv assertions now name
@@ -164,6 +166,8 @@ change, ran the one test by name, and restored the file. Every case produced exa
 | 9 | take the identity from the facade snapshot once, as before | `agents/mcp-worker.mjs` | the tool worker's next call carries… | "the identity is re-read per call, so workspace_info follows the CLI without a restart" — got `b9e2114c-…` |
 | 10 | re-read the identity but freeze the headers at start | `agents/mcp-worker.mjs` | the tool worker's next call carries… | the wire header: `X-Rengine-Agent` still `b9e2114c-…` while `workspace_info` had moved on |
 | 11 | drop `--settings` from the line `bind.mjs` prints | `agents/bind.mjs` | binding by discovery finds the one instance serving the directory… | "the claude line carries the settings that make a session started outside the workspace report its own conversation" |
+| 12 | drop `--context` from the hook command | `agents/config.mjs` | a claude launch carries a settings file… **and** a session started from the line bind prints… | "and is told this launch's context on its own command line, so a session started by hand is bound too"; and, from the other end, "the hook finds the launch it was written for without `RENGINE_MCP_CONFIG`" |
+| 13 | find the binding in the environment only, ignoring the hook's own argv | `agents/report-session.mjs` | a session started from the line bind prints… | "the hook finds the launch it was written for without `RENGINE_MCP_CONFIG`" |
 
 Case 11 initially produced **zero** failures: `bind --agent claude` prints its line through
 `describeInvocation`, which picked the flag up for free, and the hand-built line in the no-`--agent`
@@ -173,12 +177,16 @@ branch had no assertion on it at all. The assertion was added, and the sabotage 
 
 | gate | result |
 | --- | --- |
-| `node --test orchestrator/tests/*.test.mjs` | 160/160 |
+| `node --test orchestrator/tests/*.test.mjs` | 161/161 |
+| `token-retirement.test.mjs` on its own | flakes about one run in three — `ENOENT … rename 'tokens/preferences.json.<pid>.tmp'`. Reproduced the same way on a **control** checkout at `origin/main` with none of this branch in it, so it is the pre-existing write race, not this change |
 | `python3 tools/features.py validate` | 50 features, types, evidence and the dependency graph |
 | `python3 tools/design.py check` | consistent |
 | `node --check` on each changed module | clean |
 
 ## Not verified here
+
+Windows. The hook command is quoted for `cmd` there rather than POSIX-style, and that branch has not
+been run on the machine it is for; `docs/runbooks/windows-verification.md` is where it belongs.
 
 A live pane in a running workspace, which is the same gap specs 095–098 record: this session's session
 host predates all of it. The first workspace started from a host carrying this change should record

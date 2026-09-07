@@ -181,8 +181,8 @@ stdin (payload recorded on this machine against 2.1.263; see the evidence). So r
 | what | how |
 | --- | --- |
 | where the hook lives | a per-launch `settings.json` written beside `mcp.json`, passed as `--settings` — the person's own and the project's settings files are never touched |
-| what it runs | `orchestrator/agents/report-session.mjs`, under the launcher's own node, by absolute path |
-| what it does | finds this launch's binding the way the tool worker does (`RENGINE_MCP_CONFIG` → the per-launch `mcp.json` → its `--context` file, else `RENGINE_WORKSPACE_CONTEXT`), posts `POST /api/agent-conversation` exactly as `launch.mjs` reports at launch, and rewrites the per-launch context's identity — `agentId`, `label`, and `session` with `source: 'reported'` |
+| what it runs | `orchestrator/agents/report-session.mjs`, under the launcher's own node, by absolute path, given this launch's context file as `--context` — so a session started by hand from the line `bind.mjs` prints, which inherits none of the launcher's environment, reports itself as a pane does |
+| what it does | finds this launch's binding — its own `--context`, else the way the tool worker does (`RENGINE_MCP_CONFIG` → the per-launch `mcp.json` → its `--context` file, else `RENGINE_WORKSPACE_CONTEXT`), posts `POST /api/agent-conversation` exactly as `launch.mjs` reports at launch, and rewrites the per-launch context's identity — `agentId`, `label`, and `session` with `source: 'reported'` |
 | what it never does | fail the CLI it runs inside (stderr only, always exit 0), write to stdout (a `SessionStart` hook's stdout is added to that CLI's context), or act outside a workspace pane (no binding environment, silent exit 0) |
 | what it never touches | `pid` and `startedAt`. They are the launcher's, and liveness is measured on the pid |
 
@@ -193,8 +193,11 @@ next start instead of staying unknown for the life of the pane.
 
 The identity decided at launch is therefore rEngine's **best guess until the CLI confirms or corrects
 it**, and the correction is authoritative for the same reason a person's own flags are: the record
-follows what actually launched. `bind.mjs` prints the `--settings` flag too, so a session bound from
-outside the workspace corrects itself the same way.
+follows what actually launched. `bind.mjs` prints the `--settings` flag too. A bound session has no
+pane and no `RENGINE_*` environment, so it posts to nobody — but the context on the hook's own command
+line still lets it correct the identity the tool worker reads, which is the whole of what a binding
+has. Claude Code runs a hook command through a shell, and that shell is `cmd` on Windows, so the paths
+in it are quoted for the platform rather than always POSIX-style.
 
 The **tool worker re-reads the identity from the context file once per tool call**, so `workspace_info`
 and the `X-Rengine-Agent` header follow the CLI with no worker restart, and the ledger identity follows

@@ -76,7 +76,25 @@ test('a claude launch carries a settings file whose SessionStart hook runs the r
   assert.equal(settings.hooks.SessionStart[0].hooks[0].type, 'command');
   assert.ok(command.includes(reporter), `the hook runs report-session.mjs by absolute path (${command})`);
   assert.ok(command.startsWith(process.execPath) || command.includes(`'${process.execPath}'`), 'under the node the launcher itself is running');
+  assert.ok(command.includes(`--context ${plan.contextFile}`) || command.includes(`--context '${plan.contextFile}'`),
+    'and is told this launch’s context on its own command line, so a session started by hand is bound too');
   await stat(reporter);
+});
+
+/* `bind.mjs` prints a line a person runs in their own shell, which inherits none of the launcher's
+   environment. The context on the hook's command line is what makes that session report itself. */
+test('a session started from the line bind prints reports itself with no environment at all', async t => {
+  const workspace = await host(t);
+  const { plan, identity } = await pane(t, workspace, { conversation: LAUNCHED });
+  const settings = JSON.parse(await readFile(plan.settings, 'utf8'));
+  const argv = settings.hooks.SessionStart[0].hooks[0].command.split(' ').slice(2).map(value => value.replace(/^'|'$/g, ''));
+
+  const result = await report({ env: {}, argv, input: RECORDED });
+  assert.equal(result.bound, true, 'the hook finds the launch it was written for without RENGINE_MCP_CONFIG');
+  assert.equal(result.rewrote, true);
+  assert.equal(result.posted, false, 'and reports to no pane, because a bound session is not one');
+  assert.deepEqual(workspace.posted, []);
+  assert.equal((await identity()).agentId, RESUMED, 'the identity the tool worker reads still follows the CLI');
 });
 
 test('the CLI’s own report replaces the conversation: the host is told and the context follows', async t => {
