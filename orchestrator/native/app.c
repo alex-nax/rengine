@@ -592,6 +592,35 @@ ReApp *re_app_open(const char *url, const char *token) {
   re_copy(a->initial_game, sizeof(a->initial_game), getenv("RENGINE_INITIAL_GAME"));
   re_copy(a->status, sizeof(a->status), a->net ? "Connecting to workspace…" : "No service connection. Launch with the workspace launcher or --connection FILE."); return a;
 }
+/* The focused editor's caret, told to the workspace so an agent in a pane can see what the person is
+ * looking at (spec 102, F100). Only the focused pane reports, and only when something changed: the
+ * desktop knows nothing about who is listening, and posts a fact about itself. */
+static void report_selection(ReApp *a, Uint64 now) {
+  ReTab *t = a->focus >= 0 && a->focus < RE_TABS ? &a->tabs[a->focus] : NULL;
+  if (!a->net || !a->connected || now < a->selection_sent + 150) return;
+  if (!t || !t->used || !t->editor) { a->selection[0] = 0; return; }
+  ReSelection selection; char text[4096];
+  re_editor_selection(t->editor, &selection, text, (int)sizeof(text));
+  char signature[192];
+  snprintf(signature, sizeof(signature), "%s|%s|%d:%d-%d:%d|%d", t->root, t->path, selection.start_line,
+           selection.start_character, selection.end_line, selection.end_character, re_editor_revision(t->editor));
+  if (!strcmp(signature, a->selection)) return;
+  re_copy(a->selection, sizeof(a->selection), signature);
+  a->selection_sent = now;
+  cJSON *body = cJSON_CreateObject(), *range = cJSON_CreateObject(), *start = cJSON_CreateObject(), *end = cJSON_CreateObject();
+  cJSON_AddStringToObject(body, "rootId", t->root);
+  cJSON_AddStringToObject(body, "path", t->path);
+  cJSON_AddStringToObject(body, "text", text);
+  cJSON_AddNumberToObject(start, "line", selection.start_line);
+  cJSON_AddNumberToObject(start, "character", selection.start_character);
+  cJSON_AddNumberToObject(end, "line", selection.end_line);
+  cJSON_AddNumberToObject(end, "character", selection.end_character);
+  cJSON_AddItemToObject(range, "start", start); cJSON_AddItemToObject(range, "end", end);
+  cJSON_AddItemToObject(body, "selection", range);
+  request(a, OP_GENERIC, -1, "ide-selection", body);
+  cJSON_Delete(body);
+}
+
 static void register_desktop(ReApp *a) {
   if (!a->initialized || !a->connected || a->desktop_registered) return;
   if (re_number(cJSON_GetObjectItemCaseSensitive(a->state, "capabilities"), "desktopActions") != 1) return;
@@ -656,6 +685,7 @@ void re_app_tick(ReApp *a) {
   register_desktop(a);
   re_recording_sync(a);
   Uint64 now = SDL_GetTicks64();
+  report_selection(a, now);
   for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].editor) {
     ReTab *t = &a->tabs[i]; t->dirty = t->saved != re_editor_revision(t->editor);
     if (now >= t->edited + 250 || a->quitting) checkpoint(a, i);
@@ -701,6 +731,9 @@ cJSON *re_app_inspect(ReApp *a) {
   cJSON_AddBoolToObject(j, "vim", a->vim); cJSON_AddBoolToObject(j, "explorerNested", a->explorer_nested);
   cJSON_AddStringToObject(j, "scheme", a->scheme); cJSON_AddNumberToObject(j, "accentHue", a->accent_hue);
   cJSON_AddStringToObject(j, "themePath", a->theme_path);
+  /* Exactly what the focused editor last told the workspace, so a test reads the report rather than
+     re-deriving it: root|path|startLine:startCharacter-endLine:endCharacter|revision. */
+  cJSON_AddStringToObject(j, "selection", a->selection);
   cJSON_AddStringToObject(j, "title", re_app_title(a)); cJSON_AddStringToObject(j, "mark", re_app_mark(a));
   cJSON_AddStringToObject(j, "primaryRoot", a->primary_root);
   cJSON_AddNumberToObject(j, "overlay", a->overlay);

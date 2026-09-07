@@ -1,4 +1,5 @@
 import http from 'node:http';
+import path from 'node:path';
 import { openScript } from './scripts.mjs';
 import { listFormats, formatPreview, readBytes, readDeclaration } from '../server/formats.mjs';
 import { dashboardAction, dashboardActions, dashboardRunPayload, dashboardCapture } from '../server/dashboard.mjs';
@@ -438,9 +439,13 @@ export async function startWorker(host, options = {}) {
         const data = await body(req); await refresh(); json(res, 200, await trackerSignIn(root(data.rootId), located));
       } else if (req.method === 'POST' && target.pathname === '/api/ide-selection') {
         /* The desktop reports a fact about itself — which file, which range — and this turns it into
-           the notification Claude Code understands. See sidecar: ide-names-the-host. */
+           the notification Claude Code understands. The path is resolved here because roots live
+           here: the desktop names a root and a path within it, as every other route does. */
         const data = await body(req);
-        json(res, 200, { delivered: ide?.published ? ide.selection(data) : 0 });
+        const selected = root(data.rootId);
+        json(res, 200, { delivered: ide?.published
+          ? ide.selection({ filePath: path.join(selected.path, data.path ?? ''), text: data.text ?? '', selection: data.selection })
+          : 0 });
       } else if (req.method === 'POST' && target.pathname === '/api/tracker/signout') {
         const data = await body(req); await refresh(); json(res, 200, await trackerSignOut(root(data.rootId), located));
       } else if (req.method === 'GET' && target.pathname === '/api/dashboard') {

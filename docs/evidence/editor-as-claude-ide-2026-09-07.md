@@ -67,3 +67,49 @@ failure would have looked like "rEdit doesn't show up" with nothing in any log.
 
 `node --test orchestrator/tests/ide.test.mjs` 7/7; `npm test` on the merged head; `./init.sh` and
 `python3 tools/features.py validate` clean. Recorded in `Codex-progress.md`.
+
+---
+
+# Slice 2, part one: the editor reports what the person is looking at (F100)
+
+## The selection contract, confirmed by accident
+
+The shape pushed as `selection_changed` was invented from the CLI's vocabulary, not from a
+documented schema. It was confirmed the same afternoon, by accident: the probe that proved the live
+bridge posted a real selection into the owner's own session, and the CLI rendered it as
+*"The user selected the lines 19 to 19 from …/ide.mjs: export const IDE_NAME = 'rEdit';"* — a
+0-based `line: 18` shown as line 19. So `{filePath, text, selection: {start: {line, character}, end}}`
+is understood, lines are counted from zero, and the notification reaches the conversation as context
+rather than being merely accepted.
+
+## Counting characters
+
+The editor's buffer holds code points; the protocol counts UTF-16 code units. The fixture line
+`const char *s = "🙂🙂";` gives three different answers, which is the point of choosing it:
+
+| Counting | Result |
+| --- | --- |
+| code points | 21 |
+| **UTF-16 code units** | **23** |
+| bytes | 27 |
+
+The first run of the spec failed at 23 against an expected 24 — the arithmetic in the test's own
+comment was wrong, not the implementation. The expectation was corrected to what the rule actually
+produces.
+
+## The native sabotages
+
+| | Sabotage | Red for |
+| --- | --- | --- |
+| N1 | characters counted as code points | `1:0-1:21` against the expected 23 |
+| N2 | a pane with no editor keeps the last selection standing | the Tasks tab still reported `a.c\|1:0-1:23` |
+| N3 | byte offsets instead of the protocol's units | `1:0-1:27` |
+
+Each was rebuilt, run alone against `native-ide-selection.spec.mjs`, and restored.
+
+## What is not done
+
+`at_mentioned` has its transport but no gesture. Which affordance sends it — a key chord, a pane
+control, a menu entry — is a design choice for the owner; inventing one silently is how an editor
+grows a gesture nobody can find. F100 stays `passes: false` for that reason, and the criterion says
+so rather than being quietly dropped.

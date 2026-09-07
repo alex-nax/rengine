@@ -1,5 +1,46 @@
 # Progress Log
 
+## Session 61 (macos) — 2026-09-07 — The editor tells the agent where the caret is (F100), and LSP becomes the direction (D37)
+
+**The owner chose the protocol.** F102 had offered two ways to make `getDiagnostics` true: parse a
+declared check action's output, or adopt LSP. *"LSP adoption looks great"* — so F102 is rewritten to
+adoption and recorded as charter **D37**, with parsed check output kept as a second source because a
+build reports failures no language server sees. The row is a rewrite rather than a follow-up because
+it was added an hour earlier in this same session and nothing had been built against it; the
+rationale and the owner decision are both recorded, which is what the work protocol asks. Servers are
+declared per project and never installed by rEngine, and the client belongs to the replaceable worker.
+
+**The selection contract confirmed itself by accident.** The shape pushed as `selection_changed` was
+invented from the CLI's vocabulary. The probe that proved the live bridge posted a real selection into
+the owner's own session, and it came back rendered as *"The user selected the lines 19 to 19 from
+…/ide.mjs"* — a zero-based line 18 shown as 19. So the shape is understood, lines count from zero,
+and the notification becomes conversation context rather than merely being accepted.
+
+**Counting characters is the whole of the C work.** The buffer holds code points; the protocol counts
+UTF-16 code units. The fixture line `const char *s = "🙂🙂";` answers 21, **23** and 27 depending on
+whether you count code points, UTF-16 units or bytes, which is why that line is in the fixture. The
+spec's first run failed at 23 against an expected 24 — the arithmetic in the test's own comment was
+wrong, not the code — and the expectation was corrected to what the rule produces.
+
+`re_editor_selection` walks the buffer once and converts both ends; the desktop reports only from the
+focused pane, only when the signature changes, and never faster than every 150 ms, so a held arrow
+key is not a frame's worth of notifications. The path within a root goes to the worker, which resolves
+it against the root it owns — the desktop names a root and a path exactly as it does everywhere else.
+
+Sabotages, each rebuilt and run alone: code points instead of UTF-16 units (`1:0-1:21`), a pane with
+no editor keeping the last selection standing (the Tasks tab still reporting `a.c|1:0-1:23`), and byte
+offsets (`1:0-1:27`). Plus the eight from slice 1 re-run green.
+
+Gates: `npm test` 178/178; `native-ide-selection.spec.mjs` green and registered in `test:desktop` and
+therefore in `suite-coverage`; desktop build clean under the picky warning set; `./init.sh`,
+`design.py check` and `features.py validate` clean; sidecars stamped and written back in the house
+format.
+
+**Not done, and said so in the row rather than dropped:** `at_mentioned` has its transport but no
+gesture. Which affordance sends it — a key chord, a pane control, a menu entry — is the owner's
+design choice, and inventing one silently is how an editor grows a gesture nobody can find. F100
+stays `passes: false` for that one criterion.
+
 ## Session 60 (macos) — 2026-09-07 — rEdit is an IDE Claude Code will connect to (F99, spec 102, slice 1)
 
 The owner asked whether Claude Code's `/ide` integration could be used. It can, and now is: a real

@@ -6,6 +6,8 @@ import { tmpdir } from 'node:os';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { WebSocket } from 'ws';
 import { startIdeBridge, sweep, IDE_NAME } from '../runtime/ide.mjs';
+import { startServer } from '../server/main.mjs';
+import { startWorker } from '../runtime/worker.mjs';
 
 const directory = async () => mkdtemp(path.join(tmpdir(), 'rengine-ide-'));
 
@@ -110,6 +112,36 @@ test('a selection posted by the desktop reaches a connected CLI', async () => {
     assert.deepEqual(notification.params, value);
     await client.close();
   } finally { await bridge.close(); await rm(dir, { recursive: true, force: true }); }
+});
+
+test('the worker resolves the desktop\'s root and path into the file path the CLI is given', { timeout: 40000 }, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'rengine-ide-worker-'));
+  process.env.RENGINE_IDE_DIRECTORY ??= path.join(dir, 'locks');
+  const project = path.join(dir, 'project');
+  await mkdir(project, { recursive: true });
+  await writeFile(path.join(project, 'a.c'), 'int main(void) { return 0; }\n');
+  const host = await startServer({ stateDir: path.join(dir, 'state') });
+  const root = await host.store.addRoot(project);
+  const worker = await startWorker({ url: host.url, token: host.token, instance: host.instance },
+    { directory: path.join(dir, 'runtime'), ideOptions: { directory: path.join(dir, 'locks'), hostPid: process.pid } });
+  try {
+    const client = await connected(worker.ide);
+    const arrived = new Promise(resolve => { client.fallbackNotificationHandler = n => { resolve(n); return Promise.resolve(); }; });
+    // The desktop names a root and a path within it, exactly as it does on every other route; the
+    // absolute path is the workspace's business, because the roots live there.
+    const answer = await fetch(`${worker.url}/api/ide-selection`, { method: 'POST',
+      headers: { authorization: `Bearer ${worker.token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ rootId: root.id, path: 'a.c', text: 'int main',
+        selection: { start: { line: 0, character: 0 }, end: { line: 0, character: 8 } } }) });
+    assert.deepEqual(await answer.json(), { delivered: 1 });
+    const notification = await arrived;
+    assert.equal(notification.method, 'selection_changed');
+    // The root's own stored path, which is the real one: the store resolves symlinks when a root is
+    // bound, and on macOS a temp directory is one. The CLI must be given the path it can open.
+    assert.equal(notification.params.filePath, path.join(root.path, 'a.c'),
+      `the CLI is given a path it can open: ${JSON.stringify(notification.params)}`);
+    await client.close();
+  } finally { await worker.close(); await host.close(); await rm(dir, { recursive: true, force: true }); }
 });
 
 test('a lock left by a dead rEdit worker is collected, and another IDE is left alone', async () => {
