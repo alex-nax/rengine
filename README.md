@@ -31,6 +31,22 @@ checksum-pinned libcurl source archive; the other small C dependencies are vendo
 Node currently runs the development launcher and retained PTY/file/agent service as separate
 processes. It is not linked into the GUI or either game. Service migration timing remains open.
 
+A machine that only needs to *host* sessions runs the sidecar alone:
+
+```sh
+node orchestrator/launch.mjs --headless --state /absolute/state/dir --project /absolute/project
+npm run start:headless -- --state /absolute/state/dir
+```
+
+`--headless` builds nothing, spawns no desktop and starts no agent, so it comes up where no C
+toolchain exists — an SSH logon with no MSVC environment, for instance. It prints one parseable
+line, `rengine headless ready url=http://127.0.0.1:<port> instance=… pid=… state=… root=…`, and
+then stays in the foreground supervising the sidecar; stopping it leaves the sidecar and its
+sessions running. The bind is loopback with the capability token in mode-0600 `sidecar.json`,
+exactly as for a desktop start: reach it from another machine through your own tunnel, never a
+routable bind. `--agent`, `--handoff`, `--launch-game` and `--inspect-ui` are refused with it.
+See [spec 090](docs/specs/090-headless-workspace-start.md).
+
 Omit `--agent` to use the saved preference or selection menu. Manage opens the standalone Bash
 agent launcher with explicit find/install/update/launch actions. Windows agent launching requires
 Git Bash (`RENGINE_BASH` selects an alternate path). Agent sessions receive project-bound rEngine

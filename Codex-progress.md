@@ -1,6 +1,6 @@
 # Progress Log
 
-## Session 46 (macos) — 2026-09-07 — Per-launch agent identity and binding by discovery (F90 stage 1)
+## Session 47 (macos) — 2026-09-07 — Per-launch agent identity and binding by discovery (F90 stage 1)
 
 Stage 1 of spec 095, on `feat/agent-identity`. `agentLaunch()` now writes `context.json` into the
 per-launch directory it already minted — the root context plus `agent: { agentId, label, pid,
@@ -33,6 +33,101 @@ is exactly the behaviour this stage removes; it now asserts the opposite. `npm t
 
 F90 stays `passes: false`: eight of its nine criteria are stages 2–4.
 
+## Session 46 (macos) — 2026-09-07 — A headless start: the sidecar without a desktop (F85)
+
+Owner-directed. The vtmb-vr wizard `scripts/wizards/remote-rengine.sh` got all the way through
+installing rEngine on the Windows box — clone at the consumer's pin, `npm ci` compiling `node-pty`
+with MSVC, Task Scheduler `/IT` so the process lands in the logged-on session — and then its
+verification refused. It was right to. The log on the box shows the launcher it invoked building a
+desktop: `-- Building for: NMake Makefiles`, then `Running 'nmake' '-?' failed`.
+
+Nobody had configured anything wrong. `launch.mjs` imported `build.mjs` unconditionally and then
+resolved and spawned the native binary; `--no-agent` only suppresses the agent pane; `start` and
+`resume` are both that same path. There was **no headless entry point at all**. The `nmake` error is
+the symptom of a machine that has no MSVC environment in an SSH logon and never will.
+
+`--headless` (and `npm run start:headless`, so it is exposed the way `start` and `resume` are) calls
+the same `ensureSidecar` the desktop calls, registers `--project` as a root, prints one parseable
+ready line, and then supervises. The body is `orchestrator/launcher/headless.mjs`, and the build
+import and desktop spawn sit inside the `else` of the branch, so the headless path structurally
+cannot reach them. It refuses `--agent`, `--handoff`, `--launch-game`, `--inspect-ui` and `--declaration` by name and
+with its own reason, before starting anything: the first four mean a desktop or a conversation, and
+`--declaration` — which landed on `main` from another lane while this was in flight — is not wired
+through the headless root registration yet, so refusing it beats silently dropping it. The bind is untouched — loopback with the capability token, which the ready line
+deliberately does not print, because a headless start is normally redirected into a log file.
+
+The exact invocation for the wizard, replacing the line it uses today:
+
+```
+node orchestrator/launch.mjs --headless --state .state --project <root>
+rengine headless ready url=http://127.0.0.1:<port> instance=… pid=… state=… root=…
+```
+
+Stopping that process leaves the sidecar and its retained sessions running, as desktop exit does;
+if the sidecar dies the supervisor names `sidecar.log` and exits non-zero.
+
+**The sabotage pass taught the fixture four things.** Two of the eight checks had sabotages that
+make the launcher *succeed* — deleting the flag refusals, and forcing every start down the headless
+branch — after which it supervises a sidecar for ever and the check timed out saying nothing. Both
+invocations now carry an `execFile` kill timeout, and the desktop check reads its two recording
+files rather than the exit status, so a lost desktop path reports `recorded nothing` instead of
+`command failed`. Third: `node:test` runs after-hooks in registration order, verified directly. The
+temp-directory hook was registered first and deleted `sidecar.json` before the hook that reads a pid
+out of it, so every failed run leaked a sidecar for the machine's uptime; the two are one hook now,
+and a full run leaves zero `server/main.mjs` processes behind. Fourth, and the one closest to case 3
+of the blind-regressions note: the retention check asserted the sidecar's pid before the session it
+was retaining, and a signalled sidecar stops its sessions well before its process goes — so the
+sabotage that kills the sidecar on detach reddened the *session* line while the liveness line
+passed, at one second of waiting too. What it is still serving comes first now; the pid follows.
+Assertion-by-assertion sabotages and what each named are in
+`docs/evidence/headless-start-macos-2026-09-07.md`.
+
+One thing the fixture cannot catch on its own: the capability comparison is against a *second,
+independently started* workspace service, not against a copy of the same literal, because both sides
+of a same-server comparison move together. That is what makes it discriminate "the sidecar" from
+"anything else that writes a sidecar.json", and it is the assertion the trimmed-service sabotage
+reddened.
+
+Gates. `origin/main` was fetched again before the final sweep and had moved by two commits (F79 and
+F81, another lane), so this branch merged it and every number below is post-merge; it then moved
+twice more, by a spec-and-inventory pair (F90/spec 095) carrying no code, which is merged here too. The merge touched
+`launch.mjs`, `package.json` and `features.json`; `launch.mjs` was resolved by taking their file and
+re-applying the headless branch onto it, so the desktop path is theirs verbatim, indented.
+
+- `npm test` — 92 tests, 92 pass, 0 fail, 8.2 s.
+- `npm run test:desktop` — 35/35 before the merge; 38/39 on each of two runs after it, red on a
+  *different* test each time: `native-game-declaration` waiting for a dashboard action while the
+  sidecar indexer hashed the tree, and `native-render` with `opengl: resident memory delta 33344 KiB
+  exceeds 32768 KiB`, 1.8% over a resource budget with GUI processes from the previous run still
+  alive. Attributed rather than assumed: both specs re-run together on a quiet machine pass, 2/2.
+  This change touches no native, renderer or game code, and the desktop path in `launch.mjs` is
+  `origin/main`'s file indented into the `else`. A third red, the very first run, was a fresh
+  worktree having no `.cache/native` surface fixture — `npm run build:surface` is a prerequisite.
+  An earlier `npm test` showed 1 fail + 1 cancelled for the same family of reason, a native build
+  running `--parallel 6` beside it; the desktop check's kill timeout went 20 s → 45 s for headroom.
+  The lesson is cheap and worth writing down: nothing else may run on this machine during a GUI
+  suite, because its assertions are real timing and memory measurements.
+- Native build from a wiped `.cache/scratch-build`, Release: exit 0, **0 warnings**; CTest 6/6, 1.00 s.
+- `./init.sh` clean; `python3 tools/design.py check` clean; `python3 tools/features.py validate`
+  clean (42 features).
+- llm-sidecar `check --fix-anchors` then `stamp` with `--index .cache/sidecars-headless.sqlite`,
+  sequential: clean. Anchors in `launch.mjs._llm.json` drifted twice, once from my branch and once
+  from the merge; new sidecars for `launcher/headless.mjs` and `tests/headless.test.mjs`.
+- By hand, the exact wizard shape: `node orchestrator/launch.mjs --headless --state DIR --project DIR`
+  printed its ready line, wrote a mode-0600 `sidecar.json`, registered the root and answered
+  `/api/state` with nine capabilities and zero sessions.
+
+`F85` is `passing` with `dependencies: []`. F35, the sidecar row, is the real parent but is still
+open on its own broader qualification, and the validator refuses a passing row that depends on a
+non-passing one; the renderer rows closed the same way, with the relationship carried by the spec.
+
+**Not proved from here: the Windows path.** The check runs the real launcher with `PATH` pointing at
+an empty directory, so no `cmake`, `nmake` or compiler exists for the child — the box's SSH-logon
+condition by construction, and not the box. KI-060 carries what would settle it: point that wizard's
+launcher line at `--headless`, re-run it, and read `rengine headless ready` in
+`.state\headless.log` followed by the capability list through the tunnel. The recording-stub check
+for the full start path also skips on Windows, because Node refuses to spawn a `.cmd` without a
+shell. The consumer repository was not touched.
 ## Session 45 (macos) — 2026-09-07 — The project token, recorded (F90, spec 095)
 
 Owner direction, given directly in the vtmb-vr workspace after three agents had acted on one

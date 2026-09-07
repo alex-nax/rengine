@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "kill-timeouts-make-a-lost-guard-readable",
+      "kind": "constraint",
+      "anchor": {
+        "start": 155,
+        "end": 158,
+        "snippet": "const attempt = args => run(process.execPath, [LAUNCH, '--headless', '--state', directory, ...args],"
+      },
+      "note": "Two of this file's sabotages make the launcher succeed rather than fail: deleting the flag refusals, and forcing every start down the headless branch. In both cases the launcher then supervises a sidecar for ever, so without an execFile kill timeout the check produced a bare test timeout naming nothing. Keep the timeouts, and keep them well under the surrounding test timeout so the assertion \u2014 not the runner \u2014 reports the failure. The 45 s on the desktop check is headroom for a loaded machine: at 20 s it failed spuriously while a parallel native build had the CPU."
+    },
+    {
+      "id": "recordings-not-exit-status",
+      "kind": "rationale",
+      "anchor": {
+        "start": 186,
+        "end": 200,
+        "snippet": "const outcome = await run(process.execPath, [LAUNCH, '--state', directory],"
+      },
+      "note": "The desktop check reads the two recording files and only then the launcher's exit status, so a start that took the headless path reports 'recorded nothing' instead of 'command failed'. Asserting on the exit status first would have been correct and useless. The stubs are shell scripts, which is why the whole check skips on Windows: Node refuses to spawn a .cmd without a shell."
+    },
+    {
+      "id": "cleanup-is-one-hook",
+      "kind": "constraint",
+      "anchor": {
+        "start": 22,
+        "end": 29,
+        "snippet": "async function scratch(t) {"
+      },
+      "note": "node:test runs after-hooks in registration order, verified directly. When the temporary-directory removal was its own hook registered first, it deleted sidecar.json before the hook that reads a pid out of it, and every failed run leaked a sidecar for the machine's uptime. Stopping the sidecar and removing the directory must stay in one hook for that reason."
+    },
+    {
+      "id": "fixtures-capable-of-failing",
+      "kind": "rationale",
+      "anchor": {
+        "start": 138,
+        "end": 140,
+        "snippet": "// --project is what makes this fixture capable of failing: the desktop path creates its terminal"
+      },
+      "note": "Two fixture choices carry the discrimination rather than the assertions. The no-agent check passes --project because the desktop path creates its terminal and agent sessions only once a root is given, so the same check without one would pass against any implementation; and its agent-specific assertion comes before the broader 'no sessions at all', so re-adding agent creation reddens the agent line for its own reason instead of tripping a more general one first. The capability check compares against a second, independently started workspace service rather than a copy of the same literal, so it discriminates the sidecar from anything else that writes a sidecar.json."
+    },
+    {
+      "id": "serving-before-pid",
+      "kind": "constraint",
+      "anchor": {
+        "start": 228,
+        "end": 232,
+        "snippet": "const state = await api(descriptor.url, descriptor.token, 'state').then(response => response.json())"
+      },
+      "note": "The retention check asserts what the sidecar is still serving before it asserts the sidecar's pid, and the order is load-bearing. A signalled sidecar stops its sessions well before its process goes, so the sabotage that kills the sidecar on detach left liveness true \u2014 at one second of waiting too \u2014 while the session was already gone, and the failure landed on the wrong line. Do not reorder these, and do not replace the serving assertion with a liveness one."
+    }
+  ],
+  "source": {
+    "path": "orchestrator/tests/headless.test.mjs",
+    "sha256": "28a5bec344b9de65cfa4629cfc00d51085eae1431860986b3c5a5198325ff348",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}
