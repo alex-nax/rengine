@@ -271,6 +271,17 @@ One **status-bar segment** (`re_app_status`, `workspace.c`) per window: *Token �
 forwarding, and pushes its own to every desktop on the same socket, so the segment updates without
 polling. No new pane.
 
+**Where this meets spec 065, and does not fit.** `/events` is a stream, and spec 065 says existing
+streams finish through the replaced worker rather than being interrupted to unload code. Putting a
+*stateful* service on that stream means that after `update_workspace` with `layers: ['workspace']`
+and a desktop attached, two workers own one ledger: the desktop reads and writes the retired one
+while agents read and write the current one, and both mint feed frames into the same file with
+colliding sequences. Measured end to end in
+[the e2e evidence](../evidence/project-token-e2e-2026-09-07.md); the obvious fix — the supervisor
+closing the replaced worker's tunnelled sockets — makes the scenario pass and breaks 065's own
+regression, so the choice between them is the owner's: **KI-061**. Until it is made, replace the
+`workspace` and `desktop` layers together whenever a desktop is attached.
+
 The worker side of this is built (stage 2). The three frames that cross this socket are **pinned**
 (owner-coordinated, 2026-09-07) and the worker conforms to them exactly.
 

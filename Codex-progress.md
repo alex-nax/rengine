@@ -55,10 +55,78 @@ reading the live preference.
 `orchestrator/server/*` was touched; the native end-to-end fixture is another lane's, and the pinned
 worker→desktop frame is unchanged (`contest.windowMs` is ledger-side only).
 
+Merged `origin/main` at `a3e79fb` (session 50's native end-to-end fixture) on the way out: the only
+conflict was this log, resolved as a union with session 51 above session 50. The sidecars on the two
+annotated files this lane edited — `config.mjs` and `launch.mjs` — were repaired and stamped, with a
+new `session-is-the-identity` entry recording why the flags are read at launch rather than the
+conversation inferred afterwards; the repo-wide drift session 50 reported (KI-052's pattern) is
+untouched. **KI-061** — after a workspace replacement the desktop's `/events` stays on the retired
+worker, whose ledger keeps answering and whose feed keeps minting — is deliberately not addressed
+here: the handoff on retirement is its own lane's, and the obvious socket-kill breaks
+`runtime.test.mjs:91`'s retention invariant.
+
 Remaining: `workspace_info` still reports the identity's `agentId`/`label`/`pid`/`startedAt` and not
 its `session` descriptor, so an agent cannot yet read back its own resume line over MCP — one line in
 `agents/mcp-worker.mjs`, left out because that file is outside this branch's scope. Branch
 `feat/agent-session-identity`, not merged.
+
+## Session 50 (macos) — 2026-09-07 — The two halves of the project token, meeting (F90 stage 2 × stage 3)
+
+Spec 095's stages 2 and 3 were built in parallel and met at a pinned wire contract. Stage 3's report
+named what neither could assert: *"Nothing yet asserts the two halves together. My fixture is a
+stand-in for the worker; stage 2's tests never open a desktop."* This is that check, on
+`feat/agent-token-e2e` off `a12d582`.
+
+`orchestrator/tests/native-token-e2e.spec.mjs` boots the **real** stack — a session host, a runtime
+supervisor with a real workspace worker under it, and the desktop binary the supervisor snapshots
+and launches — and drives it from both ends. Four identities claim, contest, are rejected, granted
+and revoked; every gesture is a click on the real popover, read back through `re_app_inspect`, and
+every answer is read from `GET /api/token` and the worker's own feed socket. A second case toggles
+the recorder in a real game pane and follows the announcement through the worker onto the feed. The
+only fixtures left are the project the agents argue about and the SDL surface the pane draws.
+
+Fifteen sabotages, each watched failing for its own claim, in
+`docs/evidence/project-token-e2e-2026-09-07.md`. One method note worth keeping: the first sweep
+misattributed seven reds, because a JavaScript-only sabotage that follows a native one runs against
+the **previous row's binary** — a restored source tree is not a restored build. Every row is rebuilt
+now, and the seven were re-run.
+
+Two assertions had to be shaped before they discriminated, and both are the shape of a stand-in
+hiding something. The popover press *toggles*, so the second gesture in a row closes it — stage 3's
+fixture pressed once and drove four gestures, which only worked because nothing else touched the
+overlay. And the supervisor opens the project's **dashboard** beside the game, which takes the pane,
+so the recorder's controls were not drawn at all until the game tab is selected; stage 3's
+`nativeClient` never had a dashboard next to it.
+
+**What the check found is a defect neither half could see (KI-061).** Criterion 7 *seen from the
+desktop* — replace the workspace layer mid-contest and watch the segment re-register onto the new
+worker — does not happen. Spec 065 lets existing streams finish through the replaced worker, and
+spec 095 put the ledger's desktop channel on one of those streams, so after `update_workspace` with
+`layers: ['workspace']` and a desktop attached **two workers own one ledger**: the desktop reads and
+writes the retired one — its segment showed `Contest · codex · 58s` for a contest the live ledger had
+already rejected — while agents read the current one. Worse, both stay subscribed to the host's
+`/events` and both mint frames into the same `feed.json`, so the sequences collide: measured,
+`game.started` is 4 in the served feed and 3 in the file a third worker would load.
+
+The obvious fix was built and refused by 065: making `retire()` destroy the replaced worker's
+tunnelled sockets makes the whole scenario pass and turns `runtime.test.mjs:91` — *"layered
+workspace and MCP replacement retain a legacy host and active PTY streams"* — red at `0 !== 1`. Both
+reds were observed in one run and the change was reverted; choosing between them is an owner
+decision. The spec asserts the half that is true and wanted instead (same holder, same contest, same
+absolute deadline, same window preference, a feed that continues and announces its generation), plus
+spec 065's own rule, so the missing half is named in the fixture rather than only in a document.
+
+F90 stays `passes: false`, and now for two nameable reasons rather than missing stages: KI-061 is an
+open defect in criterion 5's *"take effect immediately"* under a routine layered update, and its
+prerequisites F74, F76 and F80 are all `passes: false` (F74's own third criterion says passing waits
+on the owner's live verification after `update_workspace`). All nine criteria have evidence; the
+prerequisites and the ledger fork do not.
+
+Commands: `npm test` 107/107, `npm run test:desktop` 45/45 (43 before, plus this spec's two),
+`ctest` in `.cache/desktop` 6/6, `python3 tools/features.py validate` at 43 features,
+`python3 tools/design.py check` clean. Sidecar `check` reports pre-existing drift on 25 files this
+lane never touched — KI-052's pattern, not repaired here. No file under `orchestrator/server/` was
+touched; `supervisor.mjs`, `worker.mjs` and the native sources are unchanged from `a12d582`.
 
 ## Session 49 (macos) — 2026-09-07 — The project token in the chrome, and the recorder on the feed (F90 stage 3)
 
