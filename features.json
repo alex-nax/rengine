@@ -970,7 +970,8 @@
         "docs/evidence/agent-identity-2026-09-07.md",
         "docs/evidence/project-token-2026-09-07.md",
         "docs/evidence/token-desktop-2026-09-07.md",
-        "docs/evidence/project-token-e2e-2026-09-07.md"
+        "docs/evidence/project-token-e2e-2026-09-07.md",
+        "docs/evidence/conversation-is-identity-2026-09-07.md"
       ]
     },
     {
@@ -1043,7 +1044,12 @@
       "external_references": [],
       "evidence": [
         "orchestrator/tests/agent-config.test.mjs: rEngine names the conversation it launches and resumes that same one",
-        "orchestrator/tests/sessions.test.mjs: restarting refuses anything it cannot put back into its own conversation"
+        "orchestrator/tests/sessions.test.mjs: restarting refuses anything it cannot put back into its own conversation",
+        "orchestrator/tests/conversation-identity.test.mjs: a pane launch carries exactly one conversation, and that conversation is the identity",
+        "orchestrator/tests/conversation-identity.test.mjs: a person’s own --resume wins over the host’s conversation, and the record follows the launch",
+        "orchestrator/tests/conversation-identity.test.mjs: a launch that continues or forks reports no conversation rather than claiming a minted one",
+        "orchestrator/tests/conversation-identity.test.mjs: a restart puts the pane back on the same conversation, so the identity survives it",
+        "docs/evidence/conversation-is-identity-2026-09-07.md"
       ]
     },
     {

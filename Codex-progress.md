@@ -1,5 +1,71 @@
 # Progress Log
 
+## Session 52 (macos) — 2026-09-07 — The conversation IS the identity: three lanes onto one uuid
+
+Three lanes had been building the same thing from three ends and had to become one branch,
+`feat/conversation-is-identity`, merged in a worktree at `.cache/worktrees/reconcile`.
+
+**The defect the merge would have shipped.** Spec 095 (F90) decided the per-launch agent identity IS
+the Claude session id and injected `--session-id <agentId>`. Spec 096 (F91/F92) had the session host
+mint a conversation, pass it as `RENGINE_AGENT_CONVERSATION`, and inject `--session-id` for that.
+Both were right; together a pane launch carried two `--session-id` flags with two different UUIDs,
+and `restart_agent` would then have "resumed" a conversation the CLI had never been in.
+
+**The reconciliation.** The owner's rule taken literally — one identifier, so the conversation is the
+identity. `claudeIdentity()` in `config.mjs` is the single place that decides which UUID: the
+launch's own flags first, then `bind.mjs --session`, then the host's conversation, then a mint.
+`conversationArgs()` injects it exactly once, from the `CONVERSATIONS` capability table. A person's
+`--resume X` under a host conversation `Y` is **not refused** — `launch.mjs` reports the decided id
+back over `POST /api/agent-conversation`, so the record follows what actually launched (refinement
+from the 096–098 author: "your identity minting becomes the single source and my conversation field
+reads it, rather than two independent mints racing to pass the same flag"). `-c`, a search-term
+`--resume` and `--fork-session` report `conversation: null`, which clears the pane's record so a
+restart refuses by name rather than opening a second conversation wearing the first one's name.
+
+The eight characters now name the same thing everywhere a person meets them: the identity label, the
+pane title (`agentTitle`), the 097 picker rows, the token segment. And a conversation spec 097
+persists per root IS an identity to the token ledger — same id, same `claude <first eight>` label, on
+both sides of a host restart, with nothing to migrate because there was never a second number.
+
+**Two merges, unioned, never a side taken.**
+
+- `origin/main` c550214 (0e3c1a7). Conflicts: `config.mjs` (union — origin's `claudeSession`/
+  `describeSession` plus HEAD's `CONVERSATIONS` table, `claudeStart` replaced by `conversationArgs`,
+  `claudeIdentity` added as the decision point); `launch.mjs` (union — the identity line and the
+  report back to the host, now sent whenever `plan.conversation` is not `undefined`); three
+  `._llm.json` sidecars (anchors, plus a fourth entry on config.mjs); `Codex-progress.md`.
+  `mcp-worker.mjs`, `app.c`, `app.h`, `features.json` and `package.json` auto-merged with both sides
+  intact — OP_SIGNIN still below OP_BYTES, RE_TRACKER still last in the append-only tab enum,
+  `re_app_inspect` the union of the tracker fields and `re_token_inspect`.
+- local `main` 49ab287 (0c80bcd). Conflicts: `package.json` (union of the desktop spec list — the
+  token lane's two specs and this lane's `native-sessions.spec.mjs`, 29 in all; taking either side
+  would have silently dropped the other's proof, which is what `suite-coverage.test.mjs` exists to
+  catch); `workspace.c._llm.json` (union of nine entries, re-anchored and stamped);
+  `Codex-progress.md`. 958f1b2's static assertions on the operation enum arrived with this merge
+  rather than needing a cherry-pick.
+
+**Regressions, each observed red for its own reason.** Ten sabotages, each producing exactly one
+failing test, tabled with its assertion in `docs/evidence/conversation-is-identity-2026-09-07.md`:
+ignoring the host conversation, starting a resume, injecting beside a person's flags, letting the
+host beat those flags, reporting a minted id for `-c`, keeping a stale conversation on a `null`
+report, restarting onto a new conversation, dropping the prefix from the pane title and from the
+picker row, and keying the identity label on something other than the conversation.
+
+**Gates** at `0c80bcd`: `npm test` 145/145, `npm run test:desktop` 48/48 (native-token,
+native-token-e2e, native-tracker and native-sessions together), `ctest` 6/6, desktop build with zero
+warnings, `features.py validate` 49, `design.py check` clean. Five desktop specs failed before
+`npm run build:surface` had been run in this fresh worktree; two more (native-explorer cap,
+native-render metal edge band) then failed under the long run and passed on their own both here and
+on a control worktree at `0b2359d`, so they were the known flake, not the merge.
+
+**Remaining.** Not verified live: this session runs inside a host that predates all three lanes, so
+the first workspace started from a host carrying this change should record a pane launched with one
+`--session-id`, `token_status` naming the holder by the conversation's first eight characters, and a
+`restart_agent` that kept the token. Two things in 096–099 still sit oddly against 095 and are named
+in the report rather than changed here: `restart_agent` stops a process and is not token-gated while
+`stop_session` is, and the ledger's `identities` registry is fed only by callers on the wire — folding
+`state.conversations` into `token_status` needs `runtime/worker.mjs`, which another lane owns.
+
 ## Session 51 (macos) — 2026-09-07 — The agent identity is the Claude session id (F90 stage 1, revised)
 
 Owner decision, verbatim: *"Each claude session has identifier … on every session exit claude tells us

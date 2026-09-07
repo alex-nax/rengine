@@ -49,6 +49,34 @@ back into it, and the owner is forced to choose between a broken environment and
 | 7 | A pane never **inherits another pane's** conversation: `RENGINE_AGENT_CONVERSATION` and `RENGINE_AGENT_RESUME` are cleared from the inherited environment before each spawn, as the handoff variables already are. | Recommended |
 | 8 | The capability is declared by the **session host**, because the host owns the PTY. A retained host that predates it refuses `restart_agent` by name and says that replacing the host requires quiescence. | House pattern (`projectGame`, spec 078) |
 
+## Reconciled with the project token: the conversation IS the identity (2026-09-07)
+
+Decisions 3 and 4 above were written in one lane while [spec 095](095-project-token.md) was deciding,
+in another, that the per-launch **agent identity** is the Claude session id and injecting
+`--session-id` for it. Both lanes were right and both passed `--session-id`. Merged as they stood, a
+pane launch would have carried the conversation's flag and the identity's, with two different UUIDs,
+and the pane's record would have named a conversation the CLI was not in.
+
+The reconciliation does not pick a side. **The conversation is the identity**, so the two mints
+become one, and the decisions above stand with these amendments — the full table lives in
+[095 *Identity*](095-project-token.md#identity):
+
+| # | Amendment |
+| --- | --- |
+| 3a | The host still mints eagerly and still names the conversation before the first byte of output. But the **launcher's identity is the single source**: `claudeIdentity()` decides the UUID, `agentLaunch` injects it exactly once from the `CONVERSATIONS` table, and that same UUID is the `agentId` (`session.source: 'workspace'`, `known: true`). There is no second identifier anywhere on the argv. |
+| 3b | A launch whose **own flags already name a session** — a person's `--resume X`, or `restart_agent`'s own resume — keeps that one, even when it contradicts the host's `RENGINE_AGENT_CONVERSATION`. It is not refused: decision 7 of [spec 097](097-agent-conversation-persistence.md) already says the pane reports what it launched, so the contradiction resolves by the record following the launch. |
+| 4a | An agent absent from `CONVERSATIONS` is recorded with nothing (`plan.conversation` stays undefined), as decision 4 says. A launch that **continues or forks** — `-c`, a search-term `--resume`, `--fork-session` — now reports `conversation: null` rather than silently nothing, so the host actively clears the pane's record instead of keeping the id it pre-minted. Keeping it would make `restart_agent` resume a conversation this pane never held, which looks like a resume and is a second conversation. |
+| 5a | `workspace_info` reports `agent.session` — provider, id and the line that resumes it — beside `conversations`, so a caller reads the identity and the project's history from one place. |
+| 6a | A restart keeps the conversation and therefore the `agentId`, so the project token survives it; the ledger refreshes the holder's pid for the new process (095, *Liveness*). |
+
+`RENGINE_AGENT_CONVERSATION` and `RENGINE_AGENT_RESUME` are plumbing between the host and the
+launcher, not user configuration: cleared from every inherited environment (decision 7), never read
+or written by `bind.mjs`, which names its session with `--session`. And because there is one UUID,
+its first eight characters name the same thing in the identity label, the pane title, the 097 picker
+rows and the token segment.
+
+Evidence: `docs/evidence/conversation-is-identity-2026-09-07.md`.
+
 ## What this does not do
 
 It does not add a session browser to the native desktop. Decision 5 puts the conversation on the

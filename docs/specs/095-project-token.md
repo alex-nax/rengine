@@ -112,14 +112,56 @@ reusing the original"):
 
 | the launch's own args | `agentId` | what rEngine adds to the CLI args |
 | --- | --- | --- |
-| none of the flags below | a minted UUID | `--session-id <agentId>`, beside `--mcp-config` |
-| `--session-id <uuid>`, `--resume <uuid>`, `-r <uuid>` | that uuid | nothing; the args pass through unchanged |
+| none of the flags below, and no host conversation | a minted UUID, `source: 'minted'` | `--session-id <agentId>`, beside `--mcp-config` |
+| none of the flags below, under `RENGINE_AGENT_CONVERSATION` | that conversation, `source: 'workspace'` | `--session-id <agentId>`, or `--resume <agentId>` when `RENGINE_AGENT_RESUME=1` |
+| `--session-id <uuid>`, `--resume <uuid>`, `-r <uuid>` | that uuid, `source: 'flag'` | nothing; the args pass through unchanged |
 | `-c` / `--continue`, or `--resume` with no uuid — its picker/search form | a minted UUID, `session.known: false` | nothing |
 | `--resume <uuid> --fork-session` | a minted UUID, `session.known: false` | nothing — a fork is a new conversation, and its id is minted inside the CLI |
 
 `known: false` is the honest case, not a failure: the CLI names that conversation itself, rEngine
 never sees the id, and the identity is rEngine's own for that launch. The launcher's printed line
 says so instead of offering a `--resume` command that would not work.
+
+### The conversation IS the identity (reconciled 2026-09-07)
+
+The second and third rows above are the reconciliation of this spec with
+[spec 096](096-agent-session-resume.md), which arrived at the same flag from the other end. 096 has
+the session host mint a UUID for a pane, pass it as `RENGINE_AGENT_CONVERSATION`, and inject
+`--session-id` for it; this spec minted an identity and injected `--session-id` for that. Both were
+right on their own and wrong together: a merged pane launch would have carried two `--session-id`
+flags with two different UUIDs, and the record would have named a conversation the CLI was not in.
+
+There is **one UUID**, and `claudeIdentity()` in `config.mjs` is the single place that decides which:
+
+1. **The launch's own flags win.** A `--resume X` a person typed is the conversation this launch will
+   be, even under a host conversation `Y`. This is not refused, because the launcher's identity is the
+   single source and `launch.mjs` reports the decided id back to the host over
+   `POST /api/agent-conversation` — so the record follows what actually launched rather than what the
+   host intended. Two independent mints racing to pass the same flag is the failure this replaces.
+2. **`bind.mjs --session <id>`** next, for a session that already exists outside the workspace.
+3. **The host's conversation** — an ordinary pane. `source: 'workspace'`, `known: true`, and the id
+   is injected exactly once, from the `CONVERSATIONS` capability table, as `--session-id` or, on a
+   restart, `--resume`.
+4. **A mint** otherwise, as row one.
+
+`-c`, a search-term `--resume` and `--fork-session` inject nothing and report `conversation: null`,
+so the host's record claims nothing and `restart_agent` refuses by name rather than opening a second
+conversation that looks like a resume.
+
+`RENGINE_AGENT_CONVERSATION` and `RENGINE_AGENT_RESUME` are **plumbing between two rEngine
+processes** — how the host tells the launcher which UUID it minted — not user configuration. They are
+cleared from every inherited environment before a spawn, and `bind.mjs` neither reads nor sets them:
+binding names its session with `--session`.
+
+Because there is one UUID, the eight characters that name it are the same everywhere a person meets
+it: the identity `label`, the pane title (`agentTitle`), the rows of the 097 conversation picker, and
+the token segment in the status bar. And the conversations spec 097 persists per root **are
+identities**: the same id the ledger's identities registry keys on, under the same
+`claude <first eight>` label, on both sides of a host restart — there is nothing to migrate, because
+there was never a second number. A `restart_agent` therefore keeps the `agentId`, and with it the
+token: the ledger's pid refresh (see *Liveness*, below) handles the new process.
+
+Evidence, with the sabotage table: `docs/evidence/conversation-is-identity-2026-09-07.md`.
 
 **Codex** already carries one: the handoff manifest's `sessionId`, which `resumeArgs()` hands to
 `codex resume <id>`. Where a handoff is present that id is the `agentId` too. Gemini and OpenCode get
