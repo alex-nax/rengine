@@ -5,19 +5,46 @@
       "id": "one-reason-per-device",
       "kind": "rationale",
       "anchor": {
-        "start": 17,
-        "end": 17,
+        "start": 78,
+        "end": 78,
         "snippet": "static void device_row(ReApp *a, mu_Context *ui, int tab, const cJSON *device) {"
       },
-      "note": "The surface argument for the whole feature: an unreachable device draws ONE row with ONE reason, and lists the targets bound to it, instead of four separately disabled actions each restating the same sentence. Only issues[0] is drawn \u2014 the service may report both a missing local file and an unreachable device, and the dashboard is where the per-action detail belongs. Rows use the owned control layer (re_ui_*), not pristine microui as dashboard.c still does, so the section matches the design system; every row publishes a re_app_control entry whether or not it was hit, because the automation harness addresses rows by role and key rather than by coordinates. The reachable/unreachable role is what a fixture asserts on, so keep it derived from the service's boolean and never from the presence of a reason.",
+      "note": "The surface argument for the whole feature: an unreachable device draws ONE row with ONE reason, and the targets bound to it hang under that row, instead of four separately disabled controls each restating the same sentence. Only issues[0] is drawn. The tension with \"an unavailable control names its first reason\" is resolved by naming the first reason that is NOT the device's: action_row skips a missing[0] of type device because this row already carries it, and the service filters a game's issue against the device's own issues for the same reason. Rows use the owned control layer (re_ui_*), not pristine microui as dashboard.c still does, so the section matches the design system; every row publishes a re_app_control entry whether or not it was hit, because the automation harness addresses rows by role and key rather than by coordinates, and every reason the section draws is published under the devices-reason role so \"once, not once per control\" is a checkable property rather than a claim. The reachable/unreachable role is what a fixture asserts on, so keep it derived from the service's boolean and never from the presence of a reason. When the payload carries neither controls nor targets the old Targets line is drawn instead: a workspace layer can be older than this desktop (spec 065), and a device with everything bound to it must not read as a device with nothing.",
       "refs": [
         "docs/specs/082-project-devices.md"
+      ]
+    },
+    {
+      "id": "controls-run-the-dashboard-route",
+      "kind": "constraint",
+      "anchor": {
+        "start": 29,
+        "end": 29,
+        "snippet": "static void action_row(ReApp *a, mu_Context *ui, int tab, const cJSON *action) {"
+      },
+      "note": "A control here is the Dashboard's action, run through the Dashboard's route: re_app_dashboard_run posts /api/dashboard-run, or /api/dashboard-capture for a capture action, exactly as dashboard.c does, so a script opened from Devices lands in a script tab with the same title, arguments and environment. Do not add a second execution path here \u2014 not a direct /api/game post for a bound game, not a local re-resolution of what an action means. Availability is likewise carried, not decided: the button is drawn enabled iff the service said available, and the reason comes from missing[0]. That is what keeps the honesty the device work bought. A bootstrap-shaped action (one whose purpose is to make its device usable) is deliberately NOT exempted from its device's reachability: rEngine cannot tell one from another without naming a specific script, the live example aborts at its own first ssh anyway, and the declaration already expresses independence by omitting `device`. Spec 082, \"Controls on the device\", carries the full reasoning; change it there before changing it here.",
+      "refs": [
+        "docs/specs/082-project-devices.md"
+      ]
+    },
+    {
+      "id": "trailing-column-width",
+      "kind": "constraint",
+      "anchor": {
+        "start": 24,
+        "end": 24,
+        "snippet": "static void meta_row(mu_Context *ui) {"
+      },
+      "note": "A negative width in microui means \"fill to the right edge\" (mu_layout_next: res.w += body.w - res.x + 1), so in a two-column row the LEADING column must reserve the trailing control's width and the trailing one takes -1. Written the other way round \u2014 {-1, WIDTH} \u2014 the leading control eats the whole row and the pill is laid out past the container: content wider than its pane, a horizontal scrollbar, labels clipped. That is the exact defect 5a0bc38 fixed on the device row itself, and it is why every row in this file goes through one helper. The regression is asserted geometrically rather than eyeballed: a pill pushed out of the container is recorded clipped or not at all, so the fixture requires every trailing pill to end at the same x as the device row's own status pill.",
+      "refs": [
+        "docs/specs/082-project-devices.md",
+        "5a0bc38"
       ]
     }
   ],
   "source": {
     "path": "orchestrator/native/devices.c",
-    "sha256": "c64b1a3f46e16bea9d2b801b053f06bf39774e3ced2b81d67fd6e2d3440d26a1",
+    "sha256": "b3a39b28c66003b781fb0a61ee9a70e11d58aae18142af6e4f589f58a2f11f98",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

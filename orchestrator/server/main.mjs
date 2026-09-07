@@ -65,7 +65,8 @@ export async function startServer({ stateDir, port = 0 } = {}) {
             case '/api/formats': value = await listFormats(store.root(query.get('rootId'))); break;
             case '/api/dashboard': value = await dashboardActions(store.root(query.get('rootId')), preflight); break;
             case '/api/devices': { const selected = store.root(query.get('rootId'));
-              value = await projectDevices(selected, await readDeclaration(selected.path), { refresh: query.get('refresh') === '1' }); break; }
+              value = await projectDevices(selected, await readDeclaration(selected.path),
+                { refresh: query.get('refresh') === '1', preflight, resolve: () => dashboardActions(selected, preflight) }); break; }
             case '/api/bytes': value = await readBytes(store.root(query.get('rootId')), Object.fromEntries(query)); break;
             case '/api/session': value = sessions.snapshot(query.get('id'), true); break;
             case '/api/desktops': value = { desktops: desktops.list(query.get('rootId')) }; break;

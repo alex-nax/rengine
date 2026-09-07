@@ -106,6 +106,8 @@ flowchart TD
   F60 --> F78
   F79["F79: ready"]
   F60 --> F79
+  F80["F80: blocked"]
+  F76 --> F80
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -149,3 +151,4 @@ flowchart TD
 | F77 | O1 | rengine | blocked | A third game surface, cooperative: rEngine reserves the surface and passes RENGINE_SURFACE_PORT/RENGINE_SURFACE_TOKEN exactly as embedded does but injects nothing, so a game whose own engine speaks the surface protocol -- a statically linked or non-SDL2 runtime the adapter can never interpose -- gets a live workspace pane instead of falling back to its own window. |
 | F78 | O1 | rengine | blocked | Add a task-tracking view with a declared backend: the local git inventory by default, GitHub Issues or Linear where a project declares one. |
 | F79 | O1 | rengine | ready | Let a project name the workspace: a declared display title and glyph logo in the chrome and the window title, with rEdit as the default. |
+| F80 | O1 | rengine | blocked | Actionable Devices tab: each device's bound dashboard actions render as controls that run from there through the dashboard's own route, carrying the availability dashboardActions already computed, and each bound game reports the preflight the launch uses -- replacing the inert comma-separated list of target ids. |

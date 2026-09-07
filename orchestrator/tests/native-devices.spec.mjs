@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, realpath, writeFile, readFile } from 'node:fs/promises';
+import { chmod, mkdtemp, mkdir, rm, realpath, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -192,6 +192,204 @@ test('the devices section answers a click while a probe is in flight, and the po
     assert.deepEqual(state.tabs[view].devices.devices.map(x => x.id), ['local', 'slow-box', 'answering-box']);
     assert.equal(state.tabs[view].devices.devices.find(x => x.id === 'slow-box').reachable, true);
     assert.ok(state.controls.some(c => c.tab === view && c.role === 'devices-refresh'), 'the refresh control survives');
+  } finally {
+    await gui?.close(); await server?.close(); await rm(directory, { recursive: true, force: true });
+  }
+});
+
+/* Spec 082, "Controls on the device". The tab listed each device's bound targets as a line of ids
+   with nothing to press. They are controls now, and they run through the dashboard's own route. */
+test('a device’s bound actions are controls that run from the tab, gated by the availability the dashboard computed', { timeout: 90000 }, async () => {
+  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-native-device-controls-')));
+  let server, gui;
+  try {
+    const document = {
+      /* The counted device is listed with nothing bound to it, so the empty case and the
+         probes-only-on-open rule are both exercised by the same row. */
+      ...devicesDeclaration([thisMachine(), counted(), silent(), answering()]),
+      games: [remoteGame()],
+      dashboard: { title: 'Fixture', groups: [{ id: 'device', title: 'Device', actions: [
+        { id: 'here', title: 'Runs here', kind: 'script', script: 'tools/say.sh', args: ['now'] },
+        /* An action whose whole purpose is to make the silent box usable, beside one that needs it. */
+        { id: 'install-silent', title: 'Install on the silent box', kind: 'script', script: 'tools/probe-ok.sh', device: 'silent-box' },
+        { id: 'offline-log', title: 'Offline log', kind: 'script', script: 'tools/probe-ok.sh', device: 'silent-box' },
+        { id: 'on-answering', title: 'On the answering box', kind: 'script', script: 'tools/probe-ok.sh', device: 'answering-box' },
+        { id: 'needs-file', title: 'Needs a local file', kind: 'script', script: 'tools/probe-ok.sh', device: 'answering-box', requires: ['data/absent.bin'] },
+      ] }] },
+    };
+    const project = await deviceProject(directory, 'project', document);
+    await writeFile(path.join(project, 'tools/say.sh'), '#!/bin/bash\necho "RAN FROM DEVICES arg=$1"\n');
+    await chmod(path.join(project, 'tools/say.sh'), 0o755);
+    server = await startServer({ stateDir: path.join(directory, 'state') });
+    const root = await server.store.addRoot(project);
+    gui = await nativeClient(server, { root: root.id });
+
+    await gui.until(s => s.connected, 'the desktop connects');
+    await gui.until(s => s.tabs.some(t => t?.type === 6 && t.dashboard?.groups?.length), 'the dashboard auto-opens first');
+    /* The whole section has to be drawn for these assertions: a row scrolled out records nothing. */
+    await gui.command({ op: 'resize', width: 1280, height: 1400 });
+    await gui.control('toolbar', 'Devices');
+    let state = await gui.until(s => {
+      const i = s.tabs.findIndex(t => t?.type === RE_DEVICES && t.devices?.devices?.length === 4);
+      return i >= 0 && s.controls.some(c => c.tab === i && c.role === 'devices-game' && c.key === 'remote-target');
+    }, 'the devices tab draws every bound target as a control');
+    const view = state.tabs.findIndex(t => t?.type === RE_DEVICES), tab = state.tabs[view];
+    const of = id => tab.devices.devices.find(device => device.id === id);
+    const drawn = (role, key) => state.controls.some(c => c.tab === view && c.role === role && c.key === key);
+
+    /* Availability is the dashboard's, and the tab renders it: runnable ones are buttons. */
+    assert.ok(drawn('devices-action', 'here'), 'an action bound to this machine is runnable here');
+    assert.ok(drawn('devices-action', 'on-answering'), 'an action on a reachable device is runnable here');
+    assert.ok(drawn('devices-unavailable', 'needs-file') && !drawn('devices-action', 'needs-file'),
+      'an action missing its own local prerequisite is drawn disabled');
+    /* Bootstrap versus gated, decided in spec 082: an action that exists to make a device usable is
+       gated on that device exactly like every other one bound to it, rather than exempted. */
+    for (const id of ['install-silent', 'offline-log']) {
+      assert.ok(drawn('devices-unavailable', id), `${id} is drawn disabled while its device is unreachable`);
+      assert.ok(!drawn('devices-action', id), `${id} is not runnable while its device is unreachable`);
+    }
+
+    /* The surface argument for the whole feature: two actions bound to one unreachable device show
+       ONE reason, on the device row, and neither control restates it. */
+    const reasons = state.controls.filter(c => c.tab === view && c.role === 'devices-reason').map(c => c.key);
+    const boxReason = of('silent-box').issues[0];
+    assert.match(boxReason, /Silent box \(silent-box\) is not reachable/);
+    assert.equal(reasons.filter(text => text === boxReason).length, 1, 'the device row draws its reason, once');
+    /* The load-bearing half: a control that restated the reason would wrap it rather than repeat it
+       verbatim, so this counts the device by name across every reason the section drew. */
+    assert.equal(reasons.filter(text => text.includes('silent-box')).length, 1,
+      `no bound control restates or paraphrases it; drew ${JSON.stringify(reasons)}`);
+    /* A control blocked by its OWN prerequisite still names it, as the dashboard tab does. */
+    assert.ok(reasons.includes('Unavailable: missing requires data/absent.bin'), `own reason named; drew ${JSON.stringify(reasons)}`);
+    /* A device with nothing bound says so. */
+    assert.deepEqual(of('counted-box').controls, []); assert.deepEqual(of('counted-box').targets, []);
+    assert.equal(reasons.filter(text => text === 'No target is bound to this device.').length, 1,
+      `the empty device says so; drew ${JSON.stringify(reasons)}`);
+
+    /* A bound game reports the preflight the launch uses, and a remote one never reads ready. */
+    assert.ok(drawn('devices-game', 'remote-target'), 'a bound game draws its own preflight row');
+    assert.ok(reasons.some(text => /on Answering box \(answering-box\), not on this machine/.test(text)),
+      'a game bound elsewhere says where it runs instead of claiming to be ready');
+
+    /* Geometry: every trailing pill ends where the device row's own status pill ends. A leading
+       column that failed to reserve the pill's width would push it past the pane (5a0bc38). */
+    const edges = state.controls.filter(c => c.tab === view && ['devices-status', 'devices-meta'].includes(c.role))
+      .map(c => ({ key: `${c.role}:${c.key}`, role: c.role, right: c.rect[0] + c.rect[2], width: c.rect[2] }));
+    assert.ok(edges.length >= 10, `every device and target row carries a trailing pill; got ${edges.length}`);
+    const right = edges[0].right;
+    assert.deepEqual(edges.filter(e => e.right !== right).map(e => e.key), [],
+      `every trailing pill ends where the device row's own does, at x=${right}`);
+    for (const role of ['devices-status', 'devices-meta']) {
+      const column = edges.filter(e => e.role === role);
+      assert.deepEqual(column.filter(e => e.width !== column[0].width).map(e => e.key), [],
+        `${role} keeps one column width; a pill pushed past the pane would be clipped narrower`);
+    }
+    assert.ok(right <= state.width, `the trailing column stays inside the pane (${right} <= ${state.width})`);
+
+    /* Drawing controls probes nothing: the counted device is probed on open and never again while
+       the section renders. Probes stay on open and Refresh, which is what spec 082 protects. */
+    const runs = async () => (await readFile(path.join(project, 'probe-count.txt'), 'utf8')).length;
+    assert.equal(await runs(), 1, 'opening the section probed the counted device once');
+    for (let i = 0; i < 30; i++) await gui.command({ op: 'state' });
+    assert.equal(await runs(), 1, 'thirty more frames of the same section probed nothing');
+
+    /* And the control runs, through the route the dashboard uses: a script lands in a script tab. */
+    await gui.control('devices-action', 'here', view);
+    state = await gui.until(s => s.tabs.some(t => t?.type === 3 && t.title === 'Script · say.sh' && t.text?.includes('RAN FROM DEVICES arg=now')),
+      'the action opened its retained script session with the declared arguments');
+    assert.equal(server.sessions.snapshot(state.tabs.find(t => t?.type === 3 && t.title === 'Script · say.sh').session).rootId, root.id);
+  } finally {
+    await gui?.close(); await server?.close(); await rm(directory, { recursive: true, force: true });
+  }
+});
+
+/* The seam between this section and the input-routing fix that restored control chords to the shell
+   and the keyboard to menus (1a9c591). A Devices control is a focusable control in a pane, so the
+   two questions neither lane asks alone are whether one can take a chord the workspace owns, and
+   whether one can act on a key an open menu wants. */
+const PLATFORM_MODIFIER = process.platform === 'darwin' ? 0x0400 /* KMOD_LGUI */ : 0x0040 /* KMOD_LCTRL */;
+
+test('a key pressed over the Devices section reaches the workspace and the menu, never a bound control', { timeout: 90000 }, async () => {
+  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-native-device-keys-')));
+  let server, gui;
+  try {
+    const document = {
+      ...devicesDeclaration([thisMachine(), answering()]),
+      dashboard: { title: 'Fixture', groups: [{ id: 'device', title: 'Device', actions: [
+        { id: 'here', title: 'Runs here', kind: 'script', script: 'tools/say.sh', args: ['now'] },
+        { id: 'on-answering', title: 'On the answering box', kind: 'script', script: 'tools/say.sh', device: 'answering-box' },
+      ] }] },
+    };
+    const project = await deviceProject(directory, 'project', document);
+    await writeFile(path.join(project, 'tools/say.sh'), '#!/bin/bash\necho "RAN FROM DEVICES arg=$1"\n');
+    await chmod(path.join(project, 'tools/say.sh'), 0o755);
+    server = await startServer({ stateDir: path.join(directory, 'state') });
+    const root = await server.store.addRoot(project);
+    gui = await nativeClient(server, { root: root.id });
+
+    await gui.until(s => s.connected, 'the desktop connects');
+    /* The dashboard auto-opens once per root and selects itself; let that settle first, or the pane
+       these keys land on is the dashboard's. */
+    await gui.until(s => s.tabs.some(t => t?.type === 6 && t.dashboard?.groups?.length), 'the dashboard auto-opens first');
+    await gui.control('toolbar', 'Devices');
+    let state = await gui.until(s => {
+      const i = s.tabs.findIndex(t => t?.type === RE_DEVICES && t.devices?.devices?.length === 2);
+      return i >= 0 && s.controls.some(c => c.tab === i && c.role === 'devices-action' && c.key === 'on-answering');
+    }, 'the devices tab draws its controls');
+    const view = state.tabs.findIndex(t => t?.type === RE_DEVICES);
+    const sessions = async () => (await gui.command({ op: 'state' })).state.sessions.length;
+    const terminals = s => s.tabs.filter(t => t?.type === 3).length;
+    assert.equal(await sessions(), 0, 'nothing has run yet');
+
+    /* Put the pointer on a control and press the modifier chord the workspace owns. A control that
+       took the key would run its action instead; the chord must open a shell. */
+    const action = state.controls.find(c => c.tab === view && c.role === 'devices-action' && c.key === 'here');
+    await gui.command({ op: 'motion', x: action.rect[0] + Math.round(action.rect[2] / 2), y: action.rect[1] + Math.round(action.rect[3] / 2) });
+    await delay(120);
+    await gui.command({ op: 'key', key: 'T', mod: PLATFORM_MODIFIER });
+    await gui.command({ op: 'key', key: 'T', mod: PLATFORM_MODIFIER, down: false });
+    state = await gui.until(s => terminals(s) === 1, 'the platform chord opened a shell over the Devices section');
+    const opened = state.tabs.find(t => t?.type === 3);
+    assert.notEqual(opened.title, 'Script · say.sh', 'the chord opened a shell, not a bound action');
+
+    /* Plain typing over the section runs nothing: a control here submits on a mouse press and holds
+       no keyboard focus, so Return and Space are not a second way to fire it. */
+    await gui.control('tab', '', view);
+    await gui.until(s => s.layout.panes.some(p => p?.tabs?.[p.selected] === view), 'the Devices tab is selected again');
+    for (const key of ['Return', 'Space', 'A']) {
+      await gui.command({ op: 'key', key, mod: 0 });
+      await gui.command({ op: 'key', key, mod: 0, down: false });
+    }
+    await gui.command({ op: 'text', text: 'zzz' });
+    await delay(400);
+    assert.equal(await sessions(), 1, 'typing over the section started nothing');
+    assert.ok(!(await gui.command({ op: 'state' })).tabs.some(t => t?.type === 3 && t.title === 'Script · say.sh'));
+
+    /* A menu opened over the section owns the keyboard: typing leaves it open, starts nothing, and
+       the section is intact underneath and still runs when it is actually pressed. */
+    await gui.control('toolbar', 'Settings', -1);
+    await gui.until(s => s.controls?.some(c => c.role === 'settings' && c.key === 'vim'), 'the popover opens over the section');
+    const vim = (await gui.command({ op: 'state' })).vim;
+    await gui.command({ op: 'text', text: 'zzz' });
+    for (const key of ['Return', 'A']) {
+      await gui.command({ op: 'key', key, mod: 0 });
+      await gui.command({ op: 'key', key, mod: 0, down: false });
+    }
+    await delay(400);
+    state = await gui.command({ op: 'state' });
+    assert.ok(state.controls.some(c => c.role === 'settings' && c.key === 'vim'), 'the popover stayed open');
+    assert.equal(state.vim, vim, 'and nothing beneath it changed a setting');
+    assert.equal(await sessions(), 1, 'nor started anything on the device beneath it');
+
+    /* Close the menu and prove the section still works, so nothing above left it deaf. */
+    await gui.control('settings', 'vim', -1);
+    await gui.until(s => s.vim !== vim, 'the popover answers its own control');
+    await gui.control('toolbar', 'Settings', -1);
+    await gui.until(s => !s.controls?.some(c => c.role === 'settings'), 'the popover closes');
+    await gui.control('devices-action', 'here', view);
+    state = await gui.until(s => s.tabs.some(t => t?.type === 3 && t.title === 'Script · say.sh' && t.text?.includes('RAN FROM DEVICES arg=now')),
+      'the control still runs when it is pressed');
+    assert.equal(terminals(state), 2, 'the shell the chord opened and the script the press ran');
   } finally {
     await gui?.close(); await server?.close(); await rm(directory, { recursive: true, force: true });
   }
