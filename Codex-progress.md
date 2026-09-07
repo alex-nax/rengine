@@ -1,6 +1,6 @@
 # Progress Log
 
-## Session 52 (macos) — 2026-09-07 — What a running workspace can and cannot be given (F97)
+## Session 54 (macos) — 2026-09-07 — What a running workspace can and cannot be given (F98)
 
 The owner was told, more than once, that layered updates were in place, and today a new route could
 not reach the running editor. Measured first, read-only, before writing anything: the premise "no
@@ -10,7 +10,7 @@ supervisor, and `connectorGeneration` is 11. The mechanism was installed and had
 times. What was true is narrower and worse: the tracker routes were added to `server/main.mjs` — the
 host — and to nothing else, so the worker forwarded `/api/tracker` to a process from before the route
 existed, which answered 404. KI-043 for the third time, with the lesson already written in two
-sidecars. Spec 100 records the measurements and the decisions; KI-062 records the shape.
+sidecars. Spec 101 records the measurements and the decisions; KI-062 records the shape.
 
 What changed. **The tracker routes are served by the worker** (`runtime/tracker.mjs`, importing
 `server/tracker.mjs` and `tracker-auth.mjs`; nothing about a provider repeated), and the worker
@@ -69,7 +69,7 @@ supervisor forks `runtime/worker.mjs` from the main checkout's working tree, whi
 editing (the token ledger and `tracker: 1` on the host, both already in that tree). The first live
 run belongs to whoever merges: from any pane,
 `node orchestrator/runtime/client.mjs update --context "$RENGINE_WORKSPACE_CONTEXT" --layers workspace,connector`,
-then the Tasks tab and `list_tasks`. Branch `feat/live-hot-update`, not merged. F97 `passes: false`
+then the Tasks tab and `list_tasks`. Branch `feat/live-hot-update`, not merged. F98 `passes: false`
 for that reason.
 
 ## Session 49 (macos) — 2026-09-07 — The Sessions tab resumes and attaches, where the owner asked for it (F95)

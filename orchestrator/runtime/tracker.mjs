@@ -1,4 +1,4 @@
-/* The tracker routes as the workspace worker serves them (spec 100).
+/* The tracker routes as the workspace worker serves them (spec 101).
  *
  * They live here, above the retained session host, because they need no PTY, no surface and no
  * store state — only the project root, its declaration and the workspace state directory where a

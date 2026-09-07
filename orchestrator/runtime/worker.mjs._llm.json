@@ -90,7 +90,7 @@
       },
       "note": "The tracker routes were first added to the host only, and the owner's running editor could not reach them through eleven layered updates: the worker forwarded /api/tracker to a host from before the route existed, which answered 404. KI-043 again, so the routes are served here from runtime/tracker.mjs (the provider logic is imported, never repeated) and tracker: 1 is advertised here. The one thing the host has that the route needs is its state directory, where a credential lives. A host from this checkout says it on /api/state (stateDir); the retained one does not and is found the way --replace-host finds it, from the process table row whose sidecar.json names this host's INSTANCE. The instance is the key on purpose: this worker is often handed a proxy's URL rather than the descriptor's, and the machine runs a dozen hosts, so neither the URL nor the first row would do. Found once at startup because the instance cannot change under a worker that refuses an instance change anyway.",
       "refs": [
-        "docs/specs/100-live-capability-updates.md",
+        "docs/specs/101-live-capability-updates.md",
         "docs/specs/083-task-tracking.md"
       ]
     }

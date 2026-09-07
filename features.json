@@ -1155,7 +1155,7 @@
       "evidence": []
     },
     {
-      "id": 97,
+      "id": 98,
       "milestone": "O1",
       "category": "workspace",
       "priority": "high",
@@ -1177,7 +1177,7 @@
         78
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/100-live-capability-updates.md; orchestrator/runtime/tracker.mjs; the tracker routes and tracker capability in orchestrator/runtime/worker.mjs; stateDir on /api/state in orchestrator/server/main.mjs with the shared signIn in orchestrator/server/tracker-auth.mjs; toolWorker in the supervisor descriptor (orchestrator/runtime/supervisor.mjs); the descriptor watcher, probed-worker choice and stale-name answer in orchestrator/agents/mcp.mjs; list_tasks in orchestrator/agents/mcp-worker.mjs; orchestrator/tests/hot-update.test.mjs with its stale-tool-worker.mjs fixture.",
+      "deliverable": "docs/specs/101-live-capability-updates.md; orchestrator/runtime/tracker.mjs; the tracker routes and tracker capability in orchestrator/runtime/worker.mjs; stateDir on /api/state in orchestrator/server/main.mjs with the shared signIn in orchestrator/server/tracker-auth.mjs; toolWorker in the supervisor descriptor (orchestrator/runtime/supervisor.mjs); the descriptor watcher, probed-worker choice and stale-name answer in orchestrator/agents/mcp.mjs; list_tasks in orchestrator/agents/mcp-worker.mjs; orchestrator/tests/hot-update.test.mjs with its stale-tool-worker.mjs fixture.",
       "external_references": [],
       "evidence": [
         "orchestrator/tests/hot-update.test.mjs: the tracker routes are served by the worker above a retained host that never had them",

@@ -37,7 +37,7 @@
       },
       "note": "The worker that runs is the one the supervisor probed and published in runtime.json, not this file's sibling by assumption; a descriptor without the field (an older supervisor) falls back to the sibling. A change of file counts as a generation change, so a facade follows a supervisor that publishes a different worker without waiting for the counter.",
       "refs": [
-        "docs/specs/100-live-capability-updates.md"
+        "docs/specs/101-live-capability-updates.md"
       ]
     },
     {
@@ -50,7 +50,7 @@
       },
       "note": "The SDK answers a name the worker does not have as an isError result carrying exactly `MCP error -32602: Tool X not found` (older releases threw it as a McpError, which the catch still handles). Either way the model would be left with a bare not-found for a tool it was told existed, so the facade answers instead with the connector generation, the current tool names and what the CLI must do: Claude Code refreshes on tools/list_changed (documented, 2.1.0+), Codex does not (openai/codex #10105, #19155, #33266) and needs a restart to see a new name. The match is on the SDK's exact text for the requested name, so a tool's own error can never be mistaken for it.",
       "refs": [
-        "docs/specs/100-live-capability-updates.md"
+        "docs/specs/101-live-capability-updates.md"
       ]
     },
     {
@@ -63,7 +63,7 @@
       },
       "note": "Before this the facade noticed a new connector generation only on its next request, so the first call after an update went to the old worker and the notification arrived mid-turn. The descriptor is stat-polled once a second on an unreferenced timer (inode, mtime and size: persist() renames a fresh temp file over it, so every write is a new inode) and a change runs an empty queued action, which is the ordinary ready() path: same serialization as a tool call, same replace(), same notification. Cost is one stat a second per facade. resolveRuntime is not polled directly because it is an HTTP round trip through the supervisor and worker to the host.",
       "refs": [
-        "docs/specs/100-live-capability-updates.md",
+        "docs/specs/101-live-capability-updates.md",
         "docs/specs/065-layered-workspace-updates.md"
       ]
     }

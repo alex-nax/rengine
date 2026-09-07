@@ -37,7 +37,7 @@
       },
       "note": "The tool worker file this supervisor probes is published in runtime.json as toolWorker, and the facade runs that file rather than assuming its own sibling mcp-worker.mjs. In a normal checkout the two are the same path, so nothing changes for a person; what it fixes is coherence (the code that passed the probe is the code that answers) and it is what lets a test give a facade two different generations. A descriptor from a supervisor older than this field names none, and the facade falls back to its sibling.",
       "refs": [
-        "docs/specs/100-live-capability-updates.md"
+        "docs/specs/101-live-capability-updates.md"
       ]
     }
   ],

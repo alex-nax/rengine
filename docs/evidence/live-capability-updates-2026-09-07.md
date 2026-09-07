@@ -1,6 +1,6 @@
 # Live capability updates — macOS, 2026-09-07
 
-F97, spec 100. Branch `feat/live-hot-update`, cut from local `main` at `8bd0aab` in the worktree
+F98, spec 101. Branch `feat/live-hot-update`, cut from local `main` at `8bd0aab` in the worktree
 `.claude/worktrees/agent-ae5d37dac407a7432`. No process of the owner's was signalled, stopped or
 restarted; nothing was written under the workspace state directory; `update_workspace` was not run on
 supervisor 44390.
@@ -62,7 +62,7 @@ nested-session variables cleared. The reply was `SECOND_TOOL_ANSWERED_7731`, and
 ```
 
 Claude Code 2.1.263 refreshes on the notification and used the new tool in the same turn. Codex was
-not probed here; its behaviour is documented by its own open issues (spec 100).
+not probed here; its behaviour is documented by its own open issues (spec 101).
 
 ## Failing first, then the sabotages
 

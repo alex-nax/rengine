@@ -1,4 +1,4 @@
-# Live capability updates for a running workspace (F97)
+# Live capability updates for a running workspace (F98)
 
 Date: 2026-09-07. Status: recorded from owner direction, given after being told on several occasions that
 layered updates were in place and then finding that a new route could not reach the running editor at
