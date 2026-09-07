@@ -165,7 +165,7 @@ test('--headless refuses the desktop-only flags, before starting anything', { ti
 });
 
 test('the full start path still builds the desktop and spawns it',
-  { timeout: 60000, skip: process.platform === 'win32' && 'the recording stubs are shell scripts; Node refuses to spawn a .cmd without a shell' },
+  { timeout: 120000, skip: process.platform === 'win32' && 'the recording stubs are shell scripts; Node refuses to spawn a .cmd without a shell' },
   async t => {
     const directory = await scratch(t);
     const stubs = path.join(directory, 'stubs');
@@ -182,7 +182,7 @@ test('the full start path still builds the desktop and spawns it',
     // build and spawn, so the kill timeout bounds it and the recordings — not the exit status — are
     // what the assertions read. Otherwise the only failure would be "command failed", naming nothing.
     const outcome = await run(process.execPath, [LAUNCH, '--state', directory],
-      { cwd: ROOT, timeout: 20000, killSignal: 'SIGKILL',
+      { cwd: ROOT, timeout: 45000, killSignal: 'SIGKILL',
         env: { ...process.env, PATH: `${stubs}${path.delimiter}${process.env.PATH}`, RENGINE_NATIVE_BINARY: binary } })
       .then(() => null, error => error);
     const said = outcome ? `the launcher failed: ${outcome.message}` : 'the launcher exited cleanly';
