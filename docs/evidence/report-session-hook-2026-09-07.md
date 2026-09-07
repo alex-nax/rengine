@@ -1,6 +1,9 @@
 # The CLI reports what it runs: closing the last gap in "the conversation IS the identity"
 
 Date: 2026-09-07. Machine: macos. Branch: `feat/report-session-hook`, from `origin/main` at `6f61640`.
+Not merged. A concurrent lane on the same checkout has unpushed commits up to `2de6088` that also touch
+`orchestrator/agents/mcp-worker.mjs` and `mcp.mjs` (F98, spec 101) — a merge, not a conflict of intent:
+that lane changes how the facade refreshes its worker, this one changes what the worker reads per call.
 Parent evidence: [conversation-is-identity-2026-09-07.md](conversation-is-identity-2026-09-07.md),
 which reconciled the two lanes that both minted a UUID. This closes what that reconciliation left open.
 
@@ -178,7 +181,7 @@ branch had no assertion on it at all. The assertion was added, and the sabotage 
 | gate | result |
 | --- | --- |
 | `node --test orchestrator/tests/*.test.mjs` | 161/161 |
-| `token-retirement.test.mjs` on its own | flakes about one run in three — `ENOENT … rename 'tokens/preferences.json.<pid>.tmp'`. Reproduced the same way on a **control** checkout at `origin/main` with none of this branch in it, so it is the pre-existing write race, not this change |
+| `token-retirement.test.mjs` on its own | flakes about one run in three — `ENOENT … rename 'tokens/preferences.json.<pid>.tmp'`. Reproduced the same way, one run in three, on the **control** checkout (`~/rengine` at `2de6088`, main's own lane, with none of this branch in it), so it is the pre-existing write race and not this change |
 | `python3 tools/features.py validate` | 50 features, types, evidence and the dependency graph |
 | `python3 tools/design.py check` | consistent |
 | `node --check` on each changed module | clean |
