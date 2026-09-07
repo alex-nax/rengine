@@ -1,5 +1,19 @@
 # Progress Log
 
+## Session 45 (macos) — 2026-09-07 — The project token, recorded (F90, spec 095)
+
+Owner direction, given directly in the vtmb-vr workspace after three agents had acted on one
+checkout and the one the workspace never spawned had to ask the owner to press a control: the
+instance issues one token per project; any bound agent contests; silence within the window
+transfers it; the holder alone runs the extended commands and reads a monitor that carries the
+contest and the project's lifecycle — games starting, device deploys, captures. Spec 095 records
+the decisions with attribution, the facts it stands on (`sessions.mjs:132` shares one context per
+root; the facade declares only `listChanged`; the worker already intercepts `/events` frames; the
+agent runtime's monitor takes a WebSocket), the identity, ledger, feed and native segment, and why
+all of it lives in the replaceable layers with the host untouched. Two readings of "owner does not
+reject" exist; the spec takes the superset (holder or desktop may reject) and marks it for the
+owner. F90 added with nine criteria, `passes: false`; documentation only, graph regenerated.
+
 ## Session 42 (macos) — 2026-09-07 — Hirebase uses external rEdit capabilities (F81)
 
 Owner requested a home launcher for `~/hirebase-v2`, with every rEdit extension outside that

@@ -3,7 +3,7 @@
   "project": "rengine",
   "created": "2026-09-05",
   "review_status": "approved",
-  "review_record": "docs/specs/055-nolf-workspace-goal.md — owner active implementation goal, 2026-09-05",
+  "review_record": "docs/specs/055-nolf-workspace-goal.md \u2014 owner active implementation goal, 2026-09-05",
   "features": [
     {
       "id": 32,
@@ -658,8 +658,8 @@
       "description": "Declare a project's games in .rengine/project.json (contract 3, games array) and launch any of them from the dashboard, the launcher and generic agent tools.",
       "acceptance_criteria": [
         "contracts/project-v1.schema.json accepts contracts 1 and 2 unchanged and contract 3 with an optional games array (1-16 records of id, title, executable candidates, literal args, env, cwd, requires, surface embedded or external) beside the optional dashboard of spec 075; declaring games requires contract 3, so an older reader answers unknown contract rather than unknown key; a bad games array is reported as gamesError by name without disabling the formats or the dashboard; duplicate ids, a 17th record, bad or reserved env keys, placeholders in args, more than 8 executables, unknown surfaces and keys, shell argv[0] and escaping requires/cwd paths are rejected.",
-        "game-config and game_preflight take an optional gameId (default: the first declared game; an unknown id names the declared ids) and report declared, title, surface, the first resolvable executable, args, env, cwd, requires, named issues (undeclared root, malformed declaration, missing candidates, each missing required file, a missing cwd, surface prerequisites) and ready without running anything; game, launch_game, the toolbar control and --launch-game reuse the running session of that root AND game id, or spawn it with the declared cwd and env, reserving a surface only for embedded; the session carries title <title> · <root name>, surface and game, and one root can run several declared games at once.",
-        "No specific game is named in server, native, agent, theme or package-script code and no nolf_* tool alias remains; an external game tab shows the retained output with a running/exited status row; service tests and a native fixture drive all of the above; the real-NOLF qualification runs through a written contract-3 declaration; the owner verifies the real consumers after a layered workspace/desktop/connector update. (Corrected 2026-09-06 by owner decision, recorded in spec 078 and Codex-progress session 27: the toolbar game control this criterion originally required — absent without games, a title button for one, a Games menu for several — was built in 0cf70b6 and then removed outright, because dashboard launches reached only a terminal tab. Launching moved to the dashboard game action of F72; a configurable toolbar is a later, separately scoped feature.)"
+        "game-config and game_preflight take an optional gameId (default: the first declared game; an unknown id names the declared ids) and report declared, title, surface, the first resolvable executable, args, env, cwd, requires, named issues (undeclared root, malformed declaration, missing candidates, each missing required file, a missing cwd, surface prerequisites) and ready without running anything; game, launch_game, the toolbar control and --launch-game reuse the running session of that root AND game id, or spawn it with the declared cwd and env, reserving a surface only for embedded; the session carries title <title> \u00b7 <root name>, surface and game, and one root can run several declared games at once.",
+        "No specific game is named in server, native, agent, theme or package-script code and no nolf_* tool alias remains; an external game tab shows the retained output with a running/exited status row; service tests and a native fixture drive all of the above; the real-NOLF qualification runs through a written contract-3 declaration; the owner verifies the real consumers after a layered workspace/desktop/connector update. (Corrected 2026-09-06 by owner decision, recorded in spec 078 and Codex-progress session 27: the toolbar game control this criterion originally required \u2014 absent without games, a title button for one, a Games menu for several \u2014 was built in 0cf70b6 and then removed outright, because dashboard launches reached only a terminal tab. Launching moved to the dashboard game action of F72; a configurable toolbar is a later, separately scoped feature.)"
       ],
       "passes": false,
       "dependencies": [
@@ -734,7 +734,7 @@
       "priority": "high",
       "description": "Serve the declaration-backed game preflight from the replaceable workspace worker, so a routine layered update delivers the per-project game capability.",
       "acceptance_criteria": [
-        "orchestrator/server/games.mjs exports inspectGame(root, gameId) — the single body Games.inspect delegates to — and orchestrator/runtime/worker.mjs serves GET /api/game-config from it, so the dashboard's game-action availability and game_preflight both answer from the project's own declaration above a retained session host that predates contract 3; the worker advertises projectGame: 1 beside dashboard: 1 and a layered workspace update alone lights the MCP guard up.",
+        "orchestrator/server/games.mjs exports inspectGame(root, gameId) \u2014 the single body Games.inspect delegates to \u2014 and orchestrator/runtime/worker.mjs serves GET /api/game-config from it, so the dashboard's game-action availability and game_preflight both answer from the project's own declaration above a retained session host that predates contract 3; the worker advertises projectGame: 1 beside dashboard: 1 and a layered workspace update alone lights the MCP guard up.",
         "Launching stays with the session host, which owns Sessions (PTY), the embedded Surfaces reservation and the session-id map behind /surface, and whose /api/terminal refuses type game; the worker advertises projectGameLaunch only by mirroring the host's own projectGame, refuses POST /api/game and the game branch of /api/dashboard-run by name above an older host instead of forwarding into the removed built-in game, and launch_game gates on projectGameLaunch with that message. supervisor.mjs claims neither capability in its workspaceWorkerUnavailable fallback, where the host answers.",
         "A regression drives a worker above a proxy that advertises only handoff: 1 and answers game-config with the removed built-in NOLF config: it asserts capabilities.projectGame is 1 and projectGameLaunch absent, that game-config returns each declared record (including an unknown gameId 404 naming the declared ids), that the dashboard marks a declared game available, that both launch paths and launch_game refuse by name, and that game_preflight through the real MCP connector answers from the declaration; the merged-host path keeps projectGameLaunch: 1 and launches through the worker's game route unchanged. npm test, npm run test:desktop, CTest, ./init.sh, design.py check, features.py validate and RENGINE_NOLF_ROOT=... npm run test:game-nolf pass, and both live consumer declarations re-validate through the fixed code. Passing waits on the owner's live verification after update_workspace, as F71/F72 do."
       ],
@@ -771,7 +771,7 @@
       "owner_workspace": "rengine",
       "deliverable": "docs/specs/081-game-recording.md, orchestrator/native/recording.c and jpeg.c, orchestrator/server/recordings.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, orchestrator/native/tests/recording_test.c, orchestrator/tests/recordings.test.mjs and native-recording.spec.mjs",
       "external_references": [
-        "capture-mcp (per-app audio and transcription) — KI-044"
+        "capture-mcp (per-app audio and transcription) \u2014 KI-044"
       ],
       "evidence": []
     },
@@ -872,7 +872,7 @@
       "external_references": [],
       "evidence": [
         "orchestrator/tests/native-identity.spec.mjs: an undeclared project shows rEdit in the chrome and in the operating system window title; a project declaring a title and glyph under contract 5 wears both, and the brand chip takes the declared token colour rather than the accent.",
-        "orchestrator/tests/native-identity.spec.mjs: identity comes from the window's primary root — selecting a second, declared root through the project menu does not rename the chrome. Verified failing when identity reads the selected root instead.",
+        "orchestrator/tests/native-identity.spec.mjs: identity comes from the window's primary root \u2014 selecting a second, declared root through the project menu does not rename the chrome. Verified failing when identity reads the selected root instead.",
         "orchestrator/tests/native-identity.spec.mjs: title and icon under contract 4 are refused naming the required version, and an icon token outside the design set is refused naming the token.",
         "Sabotages run separately, each failing only its own claim: identity read from the selected root; the declared token ignored in favour of the accent.",
         "Gates on macOS 2026-09-07: npm test 78/78, npm run test:desktop 38/38, CTest 6/6, python3 tools/design.py check."
@@ -930,6 +930,35 @@
       "evidence": [
         "docs/evidence/external-project-macos-2026-09-07.md"
       ]
+    },
+    {
+      "id": 90,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "The project token: the instance issues one token per project root; any bound agent can contest it and, absent a rejection by the holder or the person at the desktop within the window, the token transfers to the contester at the deadline; the holder alone may launch, stop, run scripts, capture, reload or replace layers over MCP, refused by name otherwise; every bound agent can watch a filtered lifecycle feed -- token transitions, game sessions, device-bound actions, captures, layer updates -- as a resumable WebSocket its monitor reads; each agent launch gets its own identity and an agent started outside the workspace binds by discovery; all of it ships through the replaceable layers with the session host untouched.",
+      "acceptance_criteria": [
+        "Two agents launched on one root receive distinct identities in per-launch context files and the shared root file is no longer what the tool worker reads; an agent bound from a plain terminal through bind.mjs receives the same shape and appears in token_status once it calls anything.",
+        "With the token held by A, each gated tool (launch_game, stop_session, open_script, dashboard_capture, reload_desktop, update_workspace) called by B is refused naming A, how long A has held it and token_contest, and nothing is launched, stopped, run or replaced; the same actions from the desktop succeed regardless of the holder.",
+        "A contest opens a window of the configured length; the holder's token_reject within it keeps the token and the contester reads the reason; silence transfers the token at the deadline as a frame with by: deadline; a rejected contester is refused a second contest until its cooldown ends, naming the time.",
+        "A contest against a holder whose pid is gone resolves at once, by: holder-gone.",
+        "Reject, Grant, Revoke and Free from the desktop take effect immediately and are frames with by: desktop.",
+        "Launching a game, a device-bound dashboard action starting and ending, a capture starting and being committed, a workspace layer replaced and every token transition each appear as one feed frame with a monotonic sequence; a monitor opened with after=N receives every retained frame after N; no PTY output ever appears on the feed, proven with a session that prints while the feed is watched.",
+        "Replacing the workspace worker while a contest is open keeps the holder and the deadline, and the contest resolves at the original time.",
+        "agentToken: 1 is advertised only by a worker serving the ledger; against an older worker the tools refuse naming the layer to update.",
+        "The status-bar segment shows free, held and the countdown, and its popover carries Reject, Grant, Revoke and Free."
+      ],
+      "passes": false,
+      "dependencies": [
+        74,
+        76,
+        80,
+        81
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/095-project-token.md; identity in orchestrator/agents/{config,launch}.mjs and a new bind.mjs; ledger, feed and gates in orchestrator/runtime/worker.mjs; token_*/feed_* tools and the identity header in orchestrator/agents/mcp-worker.mjs; the status-bar segment in orchestrator/native/app.c",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }
