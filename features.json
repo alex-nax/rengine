@@ -1070,6 +1070,36 @@
         "orchestrator/tests/conversation-picker.test.mjs: a pane offers the conversations this project already has",
         "orchestrator/tests/conversation-picker.test.mjs: a workspace-minted conversation is still offered the history, and Enter keeps the new one"
       ]
+    },
+    {
+      "id": 94,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "A workspace's retained session host can be replaced on purpose: the launcher's --replace-host finds the host through its own descriptor and the process table (never pgrep), stops its update supervisor and then the host gracefully then forcefully, confirms the port is released, starts a fresh host from the current checkout, and reports what it stopped and started; it refuses by name a PID that serves another state directory or a launcher running inside the workspace it would replace, and a normal start says when the host is older than the code.",
+      "acceptance_criteria": [
+        "The host of a state directory is the PID its sidecar.json names, and only when ps shows that PID as server/main.mjs --state for that same directory; a PID that is another directory's host (vtmb-vr, nolf-improved, a worktree's preflight host), a supervisor, or any other process is refused by name with nothing signalled, and a dead PID is reported stale rather than refused.",
+        "A launcher whose ancestor chain contains the host PID is refused with a message to run from a terminal outside rEngine, and the host it runs inside is untouched.",
+        "Only a supervisor whose runtime.json names this host's instance, whose PID is alive and is supervisor.mjs, is stopped; it is stopped before the host; each process gets SIGTERM and SIGKILL only if SIGTERM is ignored, in that order.",
+        "Against a real throwaway host: the old PID exits, its port refuses connections, sidecar.json names a new live PID with a new instance, roots persist and sessions do not, and the report names the old PID, each ended running session, each signalled process and its outcome, and the new PID.",
+        "launch.mjs --headless --replace-host --state DIR comes up supervising a different host than the one that was there, and the generated .command forwards --replace-host unchanged.",
+        "A normal start prints which file changed after the host started and names --replace-host; it never replaces on its own.",
+        "Each regression was observed failing for its own reason: the directory comparison, the SIGKILL escalation, the ancestor refusal and the launcher's honouring of the flag were each removed in turn and only their own tests went red.",
+        "LIVE, still outstanding: the owner replaces the hirebase-v2 host (PID 68944, running since 2026-09-07 09:16:13) with `~/hirebase-v2.command --replace-host` from a terminal outside rEngine, and the tracker tab, terminal colour and conversation offer then match the checkout; recorded under docs/evidence/."
+      ],
+      "passes": false,
+      "dependencies": [
+        85
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/098-replace-session-host.md; orchestrator/launcher/replace.mjs (findHost, insideHost, findSupervisors, stopProcess, portReleased, hostAge, replaceHost); --replace-host and the host-age notice in orchestrator/launch.mjs; orchestrator/tests/replace-host.test.mjs.",
+      "external_references": [],
+      "evidence": [
+        "orchestrator/tests/replace-host.test.mjs: the host of a state directory is the PID its descriptor names, and only if that PID serves that directory",
+        "orchestrator/tests/replace-host.test.mjs: a refusal leaves the real host untouched: another directory claimed, or a launcher inside the workspace",
+        "orchestrator/tests/replace-host.test.mjs: replacing a throwaway host: the old one exits, its port closes, a new one answers, and the report says so",
+        "orchestrator/tests/replace-host.test.mjs: --headless --replace-host through the launcher comes up as a different host"
+      ]
     }
   ]
 }

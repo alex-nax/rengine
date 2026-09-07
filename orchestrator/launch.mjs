@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensureSidecar, request } from './launcher/sidecar.mjs';
 import { runHeadless } from './launcher/headless.mjs';
+import { hostAge, replaceHost } from './launcher/replace.mjs';
 import { readHandoff, checkResume } from './agents/handoff.mjs';
 import { bashPath, shellEnvironment } from './server/sessions.mjs';
 
@@ -17,8 +18,9 @@ for (let index = 2; index < process.argv.length; index++) {
   else if (flag === '--headless') options.headless = true;
   else if (flag === '--launch-game') options.launchGame = true;
   else if (flag === '--inspect-ui') options.inspectUI = true;
+  else if (flag === '--replace-host') options.replaceHost = true;
   else if (flag === '--help') {
-    console.log('npm start -- [--project DIR] [--declaration FILE] [--agent codex|claude|gemini|opencode|EXEC] [--state DIR] [--no-agent] [--headless] [--launch-game] [--handoff FILE] [--inspect-ui]\n--declaration binds an external project.json without writing inside the project.\n--handoff resumes an explicit Codex conversation once its native pane is presented.\n--launch-game requires an explicit --project. --inspect-ui enables native stdin automation.\n--headless runs the sidecar alone: no desktop build, no desktop and no agent, so it starts on a\nmachine with no C toolchain. It stays in the foreground; npm run start:headless is the same command.\nCmd/Ctrl+Shift+R saves, rebuilds and reloads the desktop, retaining sessions.\nThe C/microui desktop detaches on exit; manage retained processes in Sessions.');
+    console.log('npm start -- [--project DIR] [--declaration FILE] [--agent codex|claude|gemini|opencode|EXEC] [--state DIR] [--no-agent] [--headless] [--launch-game] [--handoff FILE] [--inspect-ui] [--replace-host]\n--declaration binds an external project.json without writing inside the project.\n--handoff resumes an explicit Codex conversation once its native pane is presented.\n--launch-game requires an explicit --project. --inspect-ui enables native stdin automation.\n--headless runs the sidecar alone: no desktop build, no desktop and no agent, so it starts on a\nmachine with no C toolchain. It stays in the foreground; npm run start:headless is the same command.\nCmd/Ctrl+Shift+R saves, rebuilds and reloads the desktop, retaining sessions.\nThe C/microui desktop detaches on exit; manage retained processes in Sessions.\n--replace-host stops this state directory\'s retained session host and its update supervisor, ending their sessions,\nthen starts a fresh host from this checkout before continuing. Run it from a terminal outside rEngine.');
     process.exit(0);
   } else throw new Error(`Unknown option: ${flag}`);
 }
@@ -39,17 +41,22 @@ if (options.handoff) {
 if (options.launchGame && !options.project) throw new Error('--launch-game requires --project DIR.');
 if (options.declaration && !options.project) throw new Error('--declaration requires --project DIR.');
 
-if (options.headless) await runHeadless(options);
-else {
+if (options.headless) {
+  if (options.replaceHost) await replaceHost(path.resolve(options.state));
+  await runHeadless(options);
+} else {
   await import('./build.mjs');
+  if (options.replaceHost) await replaceHost(path.resolve(options.state));
   const instance = await ensureSidecar(path.resolve(options.state));
+  const age = options.replaceHost ? null : await hostAge(path.resolve(options.state));
+  if (age?.stale) console.error(`The retained session host (PID ${instance.pid}) started ${age.startedAt.toISOString()}, before ${age.newestFile} changed at ${age.newestAt.toISOString()}; it keeps serving the code it loaded then. Start again with --replace-host to replace it (its sessions end; conversations can be resumed from the pane).`);
   const query = new URLSearchParams();
   if (options.project) {
     const state = await request(instance, 'state');
-    if (options.declaration && state.capabilities?.externalDeclarations !== 1) throw new Error('This retained session host predates external declarations. Use a separate --state directory; no sessions were started.');
+    if (options.declaration && state.capabilities?.externalDeclarations !== 1) throw new Error('This retained session host predates external declarations. Use a separate --state directory, or start again with --replace-host; no sessions were started.');
     const root = await request(instance, 'roots', { path: path.resolve(options.project),
       ...(options.declaration ? { declarationFile: path.resolve(options.declaration) } : {}) });
-    if (options.handoff && state.capabilities?.handoff !== 1) throw new Error('This retained sidecar predates handoff support. Use a new --state directory, or explicitly stop its sessions and service before restarting it.');
+    if (options.handoff && state.capabilities?.handoff !== 1) throw new Error('This retained sidecar predates handoff support. Use a new --state directory, or start again with --replace-host.');
     query.set('root', root.id);
     if (options.launchGame && !state.sessions.some(session => session.rootId === root.id && session.type === 'game' && session.state === 'running')) {
       const game = await request(instance, `game-config?${new URLSearchParams({ rootId: root.id })}`);

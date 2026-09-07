@@ -1,5 +1,69 @@
 # Progress Log
 
+## Session 48 (macos) — 2026-09-07 — Replacing a session host on purpose, and why three restarts changed nothing (F94)
+
+Two tasks, one cause. First the merge that had been waiting on a dirty tree:
+`feat/agent-conversation-persistence` (spec 097, F93) went into `main` with `--no-ff` as 64dc08e. The
+only conflict was `Codex-progress.md`, where both sides had prepended a session; the resolution is the
+union, 39 above 38, nothing dropped. `orchestrator/server/main.mjs` auto-merged and kept both route
+sets — the tracker sign-in/sign-out from `main` and `/api/agent-conversation` plus `conversations` on
+`/api/state` from the branch — and its two sidecar anchors, drifted by the merge, were repaired. Gates
+on merged main: `./init.sh` clean (46 features), `node --test orchestrator/tests/*.test.mjs` 118/118,
+`verify.sh design` clean. The log already carries duplicate session numbers from parallel sessions
+(18, 25, 26, 32, 35–38); this entry takes the highest number in the file plus one rather than adding
+another.
+
+Then the defect the owner is angry about, measured before anything was designed. The hirebase-v2
+session host, PID 68944, has run since 09:16:13; the reflog puts `main` at 0a11a36 then, before the
+tracker (09:59), the `NO_COLOR` drop (10:17), the browser sign-in (10:39), the project filter (11:13)
+and 097 (11:23). Read-only against the live host: `GET /api/tracker` answers `404 Unknown workspace
+endpoint.`; `/api/state` has no `agentConversations` and no `conversations`; and `/api/dashboard`
+answers `$ has unknown key tracker` for the whole declaration, because `formats.mjs` reads the
+contract schema once at import and the declaration gained its `tracker` block at 11:11. So the broken
+Linear tab, the colourless terminal, the sessions tab and — unreported — the dashboard for that root
+are one staleness. The owner's three restarts reused the host because `ensureSidecar` is built to,
+and the hand remedy failed for a reason worth writing down: macOS `pgrep`/`pkill` exclude the
+caller's own ancestors by default (`man pgrep`, `-a`), and a pane inside the workspace descends from
+the host. Verified: `pgrep -f server/main.mjs` lists thirteen hosts and not 68944, `pgrep -a -f` lists
+it, `ps -A -ww -o pid=,ppid=,command=` shows it plainly, and `pkill` with no match exits 1 and prints
+nothing.
+
+Spec 098 and `orchestrator/launcher/replace.mjs` are the answer: `--replace-host` on the launcher, so
+the owner's command is `~/hirebase-v2.command --replace-host` (the generated `.command` forwards
+unknown flags; confirmed through its own `exec` with `--help`). It finds the host through
+`sidecar.json` and `ps`, never `pgrep`; refuses by name a PID that is not `server/main.mjs --state
+<this directory>` — so vtmb-vr's and nolf-improved's hosts on this machine cannot be caught; refuses a
+launcher whose ancestors include the host; stops the bound update supervisor (matched by
+`runtime.json` host identity) and then the host, SIGTERM then SIGKILL; waits for the port to refuse;
+starts the ordinary host through `ensureSidecar`; and prints what it stopped, which running sessions
+ended, and what it started. A normal start now says when `sidecar.json` is older than the newest file
+under `orchestrator/{server,launcher,agents}`, `scripts` or `contracts`, and names the flag. It never
+replaces on its own.
+
+Ten regressions in `replace-host.test.mjs`, seven against an injected process table copied from this
+machine and three against real throwaway hosts the test starts and stops. Sabotage, each restored
+after: dropping the `--state` comparison reddened the descriptor test and the refusal test with
+`Missing expected rejection`; dropping `SIGKILL` reddened the signal test with `PID 4242 is still
+alive after SIGKILL`; making the headless path ignore the flag reddened the launcher test with
+`expected: 58287 / actual: 58287`; and dropping the ancestor refusal ended the test runner itself
+with `signal: 'SIGTERM'` — the sabotaged launcher stopped the host and then swept the host's
+children, which in the doctored table was the test process, which is precisely the pane-ends-itself
+failure decision 3 prevents. That last red skipped its cleanup hook, so the process table was checked
+for throwaway hosts afterwards: a first count of two turned out to be the checking shell's own command
+line matching itself, and a listing that excluded it found none. Nothing of the owner's was signalled
+at any point: 68944, 9599 and 9603 are where they were.
+
+Commands: `node --test orchestrator/tests/replace-host.test.mjs` 10/10; full suite, `./init.sh` and
+`verify.sh design` recorded below the commit; `python3 tools/features.py validate` 47 features;
+graph regenerated; sidecars validated for `main.mjs`, `launch.mjs` and `replace.mjs`.
+
+Not verified, deliberately: replacing PID 68944. This session runs inside it and would be refused;
+the owner's work is in it. `passes` stays false on F94 with the live criterion written down. Still
+open after that: Windows (the flag refuses by name), an MCP route (an agent inside is a descendant by
+construction), and whether the Linear application actually carries the five registered redirect
+URIs — `trackers/oauth.json` has a client id, no token file exists yet, and nothing here can reach
+Linear to check.
+
 ## Session 39 (macos) — 2026-09-07 — Conversations that outlive the host, and a pane that offers them (F93)
 
 Spec 097, written because 096 shipped and did not solve the owner's problem. They restarted, opened
