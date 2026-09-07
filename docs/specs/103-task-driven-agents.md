@@ -217,3 +217,33 @@ against the paragraphs above, each because the code says otherwise:
   documented in `orchestrator/templates/project/README.md` instead, with the schema-freeze order
   (spec 098) stated beside them. rEngine's own `.rengine/project.json` stays where it is: declarations
   change last.
+
+## What the first live spawn found (2026-09-07, `fix/spawn-no-picker`)
+
+The first `spawn_agent` there ever was reached its pane, and the pane put the [spec
+097](097-agent-conversation-persistence.md) conversation picker in front of it: the workspace had
+history for this project, the host wrote it for the pane, and `scripts/agent.sh` asked which to
+resume and blocked on stdin. The pane received a `1` — a click into a pane is enough — and **resumed
+the conversation of the agent that had spawned it**, in a second process; the next pane sat on the
+prompt for an hour. Everything spec 103 itself does was correct: the model flag, the prompt, the task
+on the conversation, the frame. The pane simply never got to run them.
+
+Correction to the paragraphs above, because the code now says otherwise:
+
+- **A spawn names its conversation on the host call.** `/api/agent-spawn` sends
+  `conversation: <uuid>` alongside `args`, rather than leaving the host to mint one. The uuid is not
+  the point — the *naming* is: a caller that names a conversation has decided what its pane is, and
+  the host writes no listing for such a caller, so the pane is never asked a question it must not
+  answer. The `args` say the same thing independently, and both are sent because either one going
+  missing must not reopen the picker. For a CLI that mints its own conversations the host discards
+  the name and the answer and the frame still report `null`, exactly as before.
+- **This is the third thing the host had to be told, not the second.** Criterion 8 said the host
+  changes only to accept `task`; the shipped note above added forwarding a pane's `args`. It also has
+  to decide **who is offered the project's conversations** — bare panes only. That change is in
+  `server/sessions.mjs` and lands at the next `--replace-host`; `scripts/agent.sh` carries the same
+  rule and lands immediately, which is why a spawn against the current host is already safe.
+
+Evidence, with the reds and the sabotage table:
+[spawn-no-picker-2026-09-07](../evidence/spawn-no-picker-2026-09-07.md) (KI-068). Acceptance criterion
+4 gains a clause: the pane a spawn starts is **never shown a conversation picker**, and starts on the
+conversation the spawn named.

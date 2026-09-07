@@ -1,5 +1,54 @@
 # Progress Log
 
+## Session 72 (macos) — 2026-09-07 — The spawned pane that resumed its spawner (KI-068)
+
+The first `spawn_agent` of spec 103 worked in every respect except the one that mattered: the pane it
+started came up on the spec 097 conversation picker, blocked on stdin, took a stray `1` — clicking
+into a pane is enough — and **resumed the conversation of the agent that had spawned it**, in a second
+process. The next pane sat on its prompt for an hour until Enter arrived through `/api/input`. Both
+features were behaving as written; the defect is that neither knew about the other.
+
+**The rule spec 097 decision 5 states is one step narrower than the rule it means.** It asks *has this
+launch already chosen?* and answers with the only signal that existed at the time, an explicit resume.
+Spec 103 then invented a second kind of launch that has chosen — a pane started on a task, with its
+prompt already rendered into the CLI's initial argument — and nothing about it sets
+`RENGINE_AGENT_RESUME`. The offer belongs to an interactive **bare** launch; that is now the wording,
+in three layers, deliberately redundant because a listing can reach a pane from a stale environment as
+well as from this host, and the host can be older than the worker spawning through it.
+
+**A second defect of the same shape turned up on the way, and it is the more interesting one.**
+`Sessions.spawnTerminal` clears the pane-identity family by passing `undefined` overrides to
+`shellEnvironment()` — and then composes the child's environment with a *second* `shellEnvironment()`
+call, which starts from `process.env` again and inherits every one of them straight back. A session
+host running inside an agent pane therefore handed each pane it spawned that host's **own**
+conversation, resume flag and offered listing. On `origin/main`, run from such a pane, that turns
+spec 103's own spawn test red: the leaked `RENGINE_AGENT_RESUME=1` makes the launcher choose
+`--resume` over `--session-id`, which is a spawn continuing somebody else's conversation, by the same
+mechanism as the live failure and from the opposite direction. Four `conversation-picker` tests were
+red there too, for a fixture reason (KI-031's shape) that is also fixed: the suite now means the same
+thing run from a workspace pane as from a bare shell.
+
+Four new tests, each observed red for its own reason first, and six sabotages including two controls
+(the guard suppressing the offer for everybody — which is decision 5's original mistake seen from the
+other side — and the launcher never asking at all). `npm test`: **213 pass, 0 fail**, 11.5 s. The
+first run in a fresh worktree showed three unrelated timeouts while `headless.test.mjs` built the
+desktop for 45 s from a cold cache; isolated and warm re-runs are green, and that is recorded rather
+than quietly re-run.
+
+Branch `fix/spawn-no-picker` (`aeb5430` + docs), pushed, not merged. Files:
+`scripts/agent.sh`, `orchestrator/server/sessions.mjs`, `orchestrator/runtime/worker.mjs`, tests in
+`conversation-picker`/`sessions`/`task-writes`, sidecars refreshed and stamped for the three sources
+(one pre-existing broken anchor in `sessions.mjs._llm.json` repaired on the way).
+Evidence: `docs/evidence/spawn-no-picker-2026-09-07.md`. Specs 097 and 103 amended; KI-068 filed
+resolved.
+
+**Remaining:** the live proof. This is not merged, and the workspace that produced the defect still
+runs the host and worker that have it. `scripts/agent.sh` fixes it for a running workspace with no
+replacement at all, which is why the branch is worth taking before the host is; the worker half wants
+an `update_workspace`, the host half a `--replace-host`. The first workspace started from this change
+should record a `spawn_agent` whose pane comes up on its own conversation with its prompt and no
+picker in it.
+
 ## Session 71 (macos) — 2026-09-07 — Auto-connect, and the check that does not fire (F103)
 
 A Claude pane now connects to the editor it runs inside without anyone typing `/ide` — when exactly
