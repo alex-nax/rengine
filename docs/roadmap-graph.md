@@ -108,6 +108,7 @@ flowchart TD
   F60 --> F79
   F80["F80: blocked"]
   F76 --> F80
+  F85["F85: passing"]
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -152,3 +153,4 @@ flowchart TD
 | F78 | O1 | rengine | blocked | Add a task-tracking view with a declared backend: the local git inventory by default, GitHub Issues or Linear where a project declares one. |
 | F79 | O1 | rengine | ready | Let a project name the workspace: a declared display title and glyph logo in the chrome and the window title, with rEdit as the default. |
 | F80 | O1 | rengine | blocked | Actionable Devices tab: each device's bound dashboard actions render as controls that run from there through the dashboard's own route, carrying the availability dashboardActions already computed, and each bound game reports the preflight the launch uses -- replacing the inert comma-separated list of target ids. |
+| F85 | O1 | rengine | passing | A headless start: run the sidecar alone, with no desktop build, no desktop spawn and no agent, so an instance can be installed on a machine that has no C toolchain and be reached over the caller's own tunnel. |

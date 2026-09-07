@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const serverMain = fileURLToPath(new URL('../server/main.mjs', import.meta.url));
 const pause = () => new Promise(resolve => setTimeout(resolve, 75));
-const alive = pid => {
+export const alive = pid => {
   if (!Number.isSafeInteger(pid) || pid < 1) return false;
   try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; }
 };
