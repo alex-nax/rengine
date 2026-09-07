@@ -1129,6 +1129,30 @@
         "orchestrator/tests/native-sessions.spec.mjs: Resume starts a pane bound to that same conversation, not a fresh one",
         "orchestrator/tests/native-sessions.spec.mjs: a live agent that names its own conversations is attach-only and marked not resumable"
       ]
+    },
+    {
+      "id": 96,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "Recover conversations the workspace never recorded: read the agent CLI's own session storage for the bound project and offer those alongside the ones rEngine minted, so a conversation started outside a pane, or one from before the workspace tracked it, is never lost.",
+      "acceptance_criteria": [
+        "For claude, conversations are discovered from its per-project session directory (the project path with separators replaced, one file per session id) and only that project's directory is read, so another project's conversations can never be offered.",
+        "For codex, the same is done through its own rollout storage, validating the session's recorded working directory against the project root, generalising what handoff.mjs already does for a single explicit id.",
+        "A discovered conversation is shown as discovered rather than recorded, with when it was last active; resuming one records it, after which it is an ordinary remembered conversation.",
+        "Discovery reads only what it needs to identify and date a session, never its content, and is bounded to the newest handful so opening the tab stays cheap.",
+        "An agent with no discoverable storage degrades to the recorded list rather than erroring.",
+        "The case that motivated this is covered: a conversation resumed from a terminal, which the workspace never spawned and so never recorded, still appears for its project."
+      ],
+      "passes": false,
+      "dependencies": [
+        93,
+        95
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "A spec under docs/specs/; discovery beside orchestrator/agents/handoff.mjs, whose codex rollout lookup is the existing precedent; surfaced through the same /api/state conversations path the Sessions tab already reads.",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }
