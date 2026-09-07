@@ -57,7 +57,7 @@ Three facts make this a product defect rather than a person forgetting a step.
 | 7 | The report says **what was stopped and what was started**: the old PID, instance, URL and start time; each running session that ended, by type and title; every process signalled and how it went; the new PID, instance and URL. Conversations are persisted (097), so the ended agent panes are resumable from the pane. | Owner ("report clearly what it stopped and started") |
 | 8 | A normal start **says when the host is older than the code.** If `sidecar.json` (written at host start) is older than the newest file under `orchestrator/server`, `orchestrator/launcher`, `orchestrator/agents`, `scripts` or `contracts`, the launcher prints which file changed and names `--replace-host`. It never replaces on its own: a retained host holds live sessions, and ending them is the person's call. | Recommended; turns the silent no-op into a sentence |
 
-## What a replacement leaves behind
+## What a replacement leaves behind (KI-064)
 
 Decision 4 ends the old host's sessions on purpose. What it cannot end is the **desktop's saved
 layout**, which lives in the workspace store (`<state>/workspace.json`) and outlives every process:

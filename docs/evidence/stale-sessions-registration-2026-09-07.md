@@ -97,16 +97,18 @@ Run in this worktree, macOS, after the merge of `origin/main` at `7a1d6c5`.
 | Gate | Result |
 | --- | --- |
 | `npm run build` | clean, zero warnings (the picky C flag set is unchanged) |
-| `npm test` | GATE_UNIT |
-| `npm run test:desktop` | GATE_DESKTOP |
+| `npm test` | 170/170 green (165 on `origin/main` plus the five added here) |
+| `npm run test:desktop` | 51/51 green, `native-render` included |
 | `orchestrator/tests/token-retirement.test.mjs`, five consecutive runs | 5/5 green (it flaked about one run in three before KI-065) |
 | sidecar `check` for the four annotated files this touched | clean after `--fix-anchors` and `stamp` |
 
-One desktop test failed on the pre-merge run for an environmental reason, unrelated to anything here:
-`GPU adapters match the SDL reference` reported `opengl: resident memory delta 33728 KiB exceeds
-32768 KiB` — 2.9% over the ceiling of spec 068 decision 6, measured while the unit suite was running
-on the same machine. It is the KI-039 / KI-045 shape; the result of its isolated re-run is in the
-table above.
+One desktop test failed on an earlier, pre-merge run for an environmental reason, unrelated to
+anything here: `GPU adapters match the SDL reference` reported `opengl: resident memory delta 33728
+KiB exceeds 32768 KiB` — 2.9% over the ceiling of spec 068 decision 6, measured while the unit suite
+was running concurrently on the same machine. It is the KI-039 / KI-045 shape, and it passed in the
+uncontended run above. Before the surface adapter was built in this worktree (`npm run build:surface`,
+which populates `.cache/native`) the two recorder specs also failed on a missing fixture; that is a
+prerequisite of the suite, not a result.
 
 ## What is not proved here
 
