@@ -30,15 +30,33 @@ Worth writing down: the first attempt at that table ran before the implementatio
 the loop's `git checkout` restored the files to the commit *without* the feature — a red for the wrong
 reason. The script now refuses a dirty tree.
 
-Gates on the branch: `npm run build` clean, `npm test` 170/170, `npm run test:desktop` 53/53 (one run
-showed `native-devices` "a key pressed over the Devices section…" red; it passes alone and passed on
-the re-run — flake under the serialised suite, unrelated to this change, which touches no device or
-key-routing path). `npm run build:surface` is a prerequisite for the two recorder specs.
+Then merged `origin/main` a5bb1c8 — the task-writes lane (decisions 2, 3, 5, 8, 9) and, from a third
+session, the IDE bridge. Two list-shaped conflicts, both unioned: `package.json` keeps main's
+`RENGINE_IDE_DIRECTORY` prefix with this spec inserted beside `native-sessions.spec.mjs` (32 specs in
+`test:desktop`), and this entry is renumbered 64 because 60-63 were taken. Spec 103, `app.c` and
+`app.h` auto-merged — the other lane's spec edits are in the worker and MCP sections, this one's in
+Surfaces. Worth checking and checked: the task-writes lane touched `runtime/token.mjs`, and
+`segmentFrame()` still drops `holderAlive`, so the desktop-side derivation stands.
 
-Untouched on purpose: `orchestrator/runtime` (the ledger and the worker), `orchestrator/agents`,
-`orchestrator/server`, and `orchestrator/native/tracker.c` (another lane). The tab enum and the OP_*
-ordering are unchanged; the one new metric is `sessions.token-width` in `theme.json`. F105 stays
-`passes: false` — decisions 2 through 9 and criteria 2 through 8 are not built.
+Gates on the merged tip (a5bb1c8 is an ancestor of it): `npm run build` clean, zero warnings;
+`npm test` 188/188; `npm run test:desktop` 51/54. The three reds are not this change:
+
+- `native-format-hardening` "wide trees, malformed declarations and slow producers never take the
+  desktop down" (`dir6 expanded not reached`) is **red on origin/main itself** — reproduced twice in a
+  clean worktree built from a5bb1c8, alone, with no part of this branch in it. Not in
+  `known-issues.md`; it belongs to whoever owns the nested explorer's expansion cap.
+- `native-handoff` and `native-render` pass alone on this tip (handoff twice, render once) — flakes
+  under the serialised suite, and neither touches a device, a session row or the token.
+
+`npm run build:surface` is a prerequisite for the two recorder specs; without it they fail on a
+missing SDL fixture rather than on anything real.
+
+Untouched by this change: `orchestrator/runtime` (the ledger and the worker), `orchestrator/agents`,
+`orchestrator/server`, and `orchestrator/native/tracker.c` (another lane) — they enter the branch only
+through the merge. The tab enum and the OP_* ordering are unchanged; the one new metric is
+`sessions.token-width` in `theme.json`. Sidecar anchors for the three edited files are re-pointed, and
+`token.c._llm.json` gains the one entry a maintainer needs: liveness is derived here, in one place,
+because the frame does not carry it. F105 stays `passes: false` — criteria 4 through 8 are not built.
 
 Not verified: the live gesture on the owner's own workspace — Revoke on a running desktop taking the
 token off a real agent, and the next `token_contest` claiming it. Same reason spec 099 carries: a
