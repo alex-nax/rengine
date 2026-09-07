@@ -1265,6 +1265,100 @@
         "orchestrator/tests/ide.test.mjs: stale locks are collected and the bridge removes its own",
         "docs/evidence/editor-as-claude-ide-2026-09-07.md: the real CLI connecting, the observed handshake and the eight sabotages"
       ]
+    },
+    {
+      "id": 100,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "The editor tells the agent what the person is looking at: the focused editor pane reports its file and selected range to the workspace, which pushes selection_changed to every connected CLI, and an explicit send-to-Claude gesture in the pane sends at_mentioned, so an agent in a pane can act on the selection instead of being told about it.",
+      "acceptance_criteria": [
+        "A selection made in a focused editor pane reaches every connected CLI as selection_changed carrying the file path, the selected text and a start/end line and character range, and moving the caret without selecting reports the empty range rather than nothing.",
+        "The range is line and character as the CLI counts them, verified against a file with tabs and multi-byte characters, not byte offsets into the buffer.",
+        "Only the focused pane reports: switching panes or tabs changes what the agent sees, and a pane that loses focus stops reporting rather than leaving a stale selection standing.",
+        "An explicit gesture in the editor pane sends at_mentioned for the current file and selection, and is distinguishable in the CLI from the passive selection stream.",
+        "Reporting is bounded: a selection larger than a declared cap is reported as a range with truncated text rather than sending an unbounded buffer over the socket, and rapid selection changes are coalesced rather than sent per keystroke.",
+        "With no CLI connected the desktop still runs unchanged and posts nothing, and a worker replaced under a live desktop resumes receiving without the desktop restarting.",
+        "Each regression was observed failing for its own reason."
+      ],
+      "passes": false,
+      "dependencies": [
+        99
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "A selection accessor over ReEditor's existing select_start/select_end in orchestrator/native/editor.{c,h}, the report from the focused pane in the desktop, and the existing POST /api/ide-selection it feeds; docs/specs/102-editor-as-claude-ide.md slice 2.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 101,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "Claude's edits are reviewed in the editor rather than in the terminal: the workspace serves openDiff, close_tab and closeAllDiffTabs, and a diff opens as a tab in rEdit whose accept or reject is the answer the CLI is waiting on.",
+      "acceptance_criteria": [
+        "openDiff({old_file_path, new_file_path, new_file_contents, tab_name}) opens a diff tab in the desktop showing the proposed contents against what is on disk.",
+        "Accepting resolves the call as diff_accepted and rejecting as diff_rejected, in the shape the CLI expects, and the CLI's own terminal diff is not also shown.",
+        "close_tab({tab_name}) and closeAllDiffTabs({}) close what they name and report what they closed, including when the person already closed the tab by hand.",
+        "A diff whose file changes on disk while the tab is open says so rather than silently applying against a stale base.",
+        "A CLI that disconnects while a diff tab is open leaves the tab in a state the person can dismiss, and no promise is left pending forever.",
+        "Each regression was observed failing for its own reason."
+      ],
+      "passes": false,
+      "dependencies": [
+        99,
+        100
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The diff tools in orchestrator/runtime/ide.mjs, a diff tab in the native desktop, and the request path that carries the verdict back; docs/specs/102-editor-as-claude-ide.md slice 2.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 102,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "getDiagnostics answers with real diagnostics: the workspace runs a project's declared check action, parses its output into file-keyed diagnostics and serves those, so an agent asks the editor what is broken instead of the editor always answering that it knows of nothing.",
+      "acceptance_criteria": [
+        "A project declares which of its dashboard actions produces diagnostics and how its output is read; an undeclared project keeps answering the empty list rather than guessing at a format.",
+        "Compiler and linter output is parsed into diagnostics with a file, a range, a severity and a message, and a line that does not parse is dropped rather than reported as a diagnostic at line zero.",
+        "getDiagnostics for a file returns that file's diagnostics from the most recent run, with the run's age reported, and never blocks a caller while a check is running.",
+        "Running the check is bounded by the declared-command boundary the dashboard already enforces, and no check runs because an agent asked for diagnostics unless the declaration says it may.",
+        "Each regression was observed failing for its own reason."
+      ],
+      "passes": false,
+      "dependencies": [
+        99,
+        65
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "A diagnostics source over the declared dashboard action, its parsers, and the getDiagnostics implementation in orchestrator/runtime/ide.mjs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 103,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "An agent pane is connected to the editor it runs inside without anyone typing /ide: the workspace launches a supported CLI with its own auto-connect option when exactly one rEdit is published for that root.",
+      "acceptance_criteria": [
+        "A newly launched Claude pane is connected to rEdit without a slash command, and the pane says so once rather than on every turn.",
+        "A CLI with no such option, or a workspace publishing no lock, launches exactly as it does today with nothing added to its command line.",
+        "The option is carried by the agent launch configuration, so adding a CLI that supports it is a declaration rather than a code change.",
+        "A pane whose root has no published lock does not pass the flag, because auto-connect that finds nothing is a startup error the person did not ask for.",
+        "Recorded explicitly: the launch environment is composed by the retained session host, so this reaches an existing workspace only when its host is replaced; the row is not complete until that is stated in the runbook.",
+        "Each regression was observed failing for its own reason."
+      ],
+      "passes": false,
+      "dependencies": [
+        99
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The auto-connect option in the agent launch configuration (orchestrator/agents/config.mjs) and the runbook note about the host boundary.",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }

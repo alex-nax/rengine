@@ -135,6 +135,16 @@ flowchart TD
   F78 --> F98
   F99["F99: blocked"]
   F74 --> F99
+  F100["F100: blocked"]
+  F99 --> F100
+  F101["F101: blocked"]
+  F99 --> F101
+  F100 --> F101
+  F102["F102: blocked"]
+  F99 --> F102
+  F65 --> F102
+  F103["F103: blocked"]
+  F99 --> F103
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -191,3 +201,7 @@ flowchart TD
 | F97 | O1 | rengine | blocked | A Linear tracker narrows to a person and to the states that mean active: the tracker block gains optional assignee and states keys, so a workspace opens on its owner's own in-progress work instead of on every row the team holds; both keys absent behaves exactly as before, and either key under the local or GitHub backend is refused by name rather than quietly ignored. |
 | F98 | O1 | rengine | blocked | New server capabilities reach a running workspace and its attached MCP agent sessions without restarting the session host: a route that needs no PTY, surface or store state is served by the replaceable workspace worker (the tracker routes are the proof, with the host’s state directory taken from its own /api/state or found in the process table by the descriptor’s instance), the MCP facade refreshes its tool worker when the connector generation changes without waiting for a request and announces tools/list_changed, a call naming a tool the workspace no longer has is answered with the current names and the way back, and list_tasks exposes the tracker to agents. |
 | F99 | O1 | rengine | blocked | rEdit is a Claude Code IDE: the workspace publishes the lock file the CLI reads, serves MCP over the WebSocket it names, and pushes the editor's selection, so an agent pane running in the workspace can connect to the editor it is running inside rather than to nothing. |
+| F100 | O1 | rengine | blocked | The editor tells the agent what the person is looking at: the focused editor pane reports its file and selected range to the workspace, which pushes selection_changed to every connected CLI, and an explicit send-to-Claude gesture in the pane sends at_mentioned, so an agent in a pane can act on the selection instead of being told about it. |
+| F101 | O1 | rengine | blocked | Claude's edits are reviewed in the editor rather than in the terminal: the workspace serves openDiff, close_tab and closeAllDiffTabs, and a diff opens as a tab in rEdit whose accept or reject is the answer the CLI is waiting on. |
+| F102 | O1 | rengine | blocked | getDiagnostics answers with real diagnostics: the workspace runs a project's declared check action, parses its output into file-keyed diagnostics and serves those, so an agent asks the editor what is broken instead of the editor always answering that it knows of nothing. |
+| F103 | O1 | rengine | blocked | An agent pane is connected to the editor it runs inside without anyone typing /ide: the workspace launches a supported CLI with its own auto-connect option when exactly one rEdit is published for that root. |
