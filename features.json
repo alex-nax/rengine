@@ -968,7 +968,9 @@
       "external_references": [],
       "evidence": [
         "docs/evidence/agent-identity-2026-09-07.md",
-        "docs/evidence/project-token-2026-09-07.md"
+        "docs/evidence/project-token-2026-09-07.md",
+        "docs/evidence/token-desktop-2026-09-07.md",
+        "docs/evidence/project-token-e2e-2026-09-07.md"
       ]
     },
     {
