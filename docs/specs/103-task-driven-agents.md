@@ -71,9 +71,10 @@ paragraph above, each because the code says otherwise:
   it from the `holder.pid` the frame does carry — `kill(pid, 0)` / `OpenProcess`, on the ledger's own
   terms (`gone()`: an unknown pid is not a dead pid, an unsignalable process is still a process).
   `re_token_holder_alive` is the one place that changes if a later stage puts the field on the frame.
-- **"Exactly as `re_token_ui` does" is now literal**: the popover's sender was lifted to
-  `re_token_action` and both surfaces call it, so there is one frame builder and no second path.
-  `re_token_ui` is the popover's rows; the sender is no longer inside it.
+- **"Exactly as the popover does" is literal, not a resemblance.** The popover's sender was lifted
+  out of `re_token_ui` as `re_token_action`, and both surfaces call it — one frame builder, no second
+  path. The paragraph above originally named `re_token_ui`, which is the popover's *rows*; the sender
+  is no longer inside it.
 - **The mark is reported, not inferred.** `re_app_inspect` gains `conversations` — the rows as the
   interface pass drew them, each with `holdsToken` and `tokenAction` — and the gestures report their
   rectangles as `conversation-revoke` and `conversation-free`, keyed by conversation, the way spec
