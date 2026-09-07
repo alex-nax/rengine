@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "offered-not-applied",
+      "kind": "constraint",
+      "anchor": {
+        "start": 128,
+        "end": 128,
+        "symbol": "project_theme_probe",
+        "snippet": "static void project_theme_probe(ReApp *a) {"
+      },
+      "note": "A project root may carry a theme, and charter D34 is explicit that opening a repository must never change the workspace's appearance. The probe only reads the file's first line for its name, only when the settings popover is open, and only when the active root changed. Applying it takes a click, and the activation is remembered per root in the workspace preferences, so the trust decision is made once by a person rather than inferred from the contents of a checkout.",
+      "refs": [
+        "docs/specs/000-charter.md",
+        "docs/specs/080-settings-popover.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/overlays.c",
+    "sha256": "a5856fa0d942bc19f22efc9acdf2a05e3aed0864c0763051b064b901295205c0",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

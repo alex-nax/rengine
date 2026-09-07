@@ -215,6 +215,7 @@ set(rengine_desktop_core_SOURCES
 	"orchestrator/native/hexview.c"
 	"orchestrator/native/layout.c"
 	"orchestrator/native/net.c"
+	"orchestrator/native/overlays.c"
 	"orchestrator/native/plugin.c"
 	"orchestrator/native/pluginview.c"
 	"orchestrator/native/recording.c"
