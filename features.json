@@ -991,6 +991,55 @@
       "evidence": [
         "docs/evidence/headless-start-macos-2026-09-07.md"
       ]
+    },
+    {
+      "id": 91,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "The surface owns its colour declaration: shellEnvironment sets TERM and COLORTERM, so a NO_COLOR inherited from whatever launched the workspace is dropped instead of being forwarded into every pane the session host will ever spawn, while an explicit override still suppresses colour.",
+      "acceptance_criteria": [
+        "A workspace launched from a shell carrying NO_COLOR=1 hands its panes an environment without it, and the pane still reports TERM=xterm-256color and COLORTERM=truecolor.",
+        "A caller that passes NO_COLOR in overrides still gets it, so a project action can ask for plain output on purpose.",
+        "The drop is case-insensitive on Windows, like every other name this function composes.",
+        "The regression was observed failing for its own reason before the fix: the inherited value reached the composed environment."
+      ],
+      "passes": true,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/096-agent-session-resume.md; shellEnvironment in orchestrator/server/sessions.mjs; orchestrator/tests/environment.test.mjs.",
+      "external_references": [],
+      "evidence": [
+        "orchestrator/tests/environment.test.mjs: the surface owns its colour declaration, so an inherited NO_COLOR never reaches a pane"
+      ]
+    },
+    {
+      "id": 92,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "Agent panes carry the conversation they hold: rEngine names one at launch for a CLI that accepts being told, records it on the session and reports it in workspace_info, and restart_agent replaces the pane's process on that same conversation with a freshly composed environment, leaving the retained session host and every other pane untouched.",
+      "acceptance_criteria": [
+        "A fresh claude pane is launched with --session-id naming a UUID rEngine minted, and that identifier appears on the session record and in workspace_info.",
+        "restart_agent stops the pane's child and starts a new one with --resume on the same identifier; the pane's process id changes, the session host pid does not, and no other session is affected.",
+        "An agent whose CLI names its own conversations, such as codex, is recorded with no identifier, receives none of the conversation arguments, and is refused by name on restart rather than started as a second conversation.",
+        "A pane never inherits another pane's conversation: the transport variables are cleared from the inherited environment before each spawn.",
+        "A retained session host that predates the capability refuses restart_agent by name and says replacing the host requires quiescence.",
+        "Each regression was observed failing for its own reason before the implementation existed.",
+        "LIVE, still outstanding: a real agent pane restarted from a host carrying this change continues the same conversation, recorded as evidence under docs/evidence/."
+      ],
+      "passes": false,
+      "dependencies": [
+        90,
+        91
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/096-agent-session-resume.md; agentConversation and agentLaunch in orchestrator/agents/config.mjs; orchestrator/agents/launch.mjs; spawnTerminal, snapshot and restartAgent in orchestrator/server/sessions.mjs; /api/agent-restart and the agentConversations capability in orchestrator/server/main.mjs; the restart_agent tool in orchestrator/agents/mcp-worker.mjs; orchestrator/tests/{agent-config,sessions}.test.mjs.",
+      "external_references": [],
+      "evidence": [
+        "orchestrator/tests/agent-config.test.mjs: rEngine names the conversation it launches and resumes that same one",
+        "orchestrator/tests/sessions.test.mjs: restarting refuses anything it cannot put back into its own conversation"
+      ]
     }
   ]
 }

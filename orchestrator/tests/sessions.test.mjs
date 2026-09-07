@@ -38,3 +38,20 @@ test('real terminals retain identity/output without views and Stop affects only 
   assert.throws(() => sessions.input(a.id, 'anything'), /not running/);
   assert.throws(() => sessions.resize(b.id, 0, 1), /dimensions/);
 });
+
+// A restart is only meaningful when rEngine knows which conversation to resume into. Refusing by
+// name beats silently starting a second conversation. See docs/specs/096-agent-session-resume.md.
+test('restarting refuses anything it cannot put back into its own conversation', { timeout: 15000 }, async t => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'rengine-restart-'));
+  const store = await WorkspaceStore.open(path.join(dir, 'state'));
+  const root = await store.addRoot(dir);
+  const sessions = new Sessions(store);
+  t.after(async () => { await sessions.shutdown(); await rm(dir, { recursive: true, force: true }); });
+  const shell = process.platform === 'win32'
+    ? { command: 'powershell.exe', args: ['-NoLogo', '-NoProfile'] }
+    : { command: '/bin/bash', args: ['--noprofile', '--norc'] };
+  const plain = await sessions.terminal({ rootId: root.id, ...shell });
+  assert.equal(sessions.snapshot(plain.id).conversation, undefined, 'a plain terminal holds no conversation');
+  await assert.rejects(sessions.restartAgent(plain.id), /agent session/i, 'a terminal is not an agent pane');
+  await assert.rejects(sessions.restartAgent('00000000-0000-0000-0000-000000000000'), /not found|unknown/i);
+});

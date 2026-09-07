@@ -8,6 +8,13 @@ import { checkConnection } from '../runtime/protocol.mjs';
 
 const mcpMain = fileURLToPath(new URL('./mcp.mjs', import.meta.url));
 const NAMED = ['claude', 'codex', 'gemini', 'opencode'];
+const CONVERSATION = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+// Which CLIs accept being told the conversation they are starting, and how to resume that one.
+// An agent absent from this table names its own; rEngine records no identifier it cannot resume.
+const CONVERSATIONS = {
+  claude: { start: id => ['--session-id', id], resume: id => ['--resume', id] },
+};
+export const agentConversation = agent => CONVERSATIONS[agent] ?? null;
 const object = (text, name) => {
   const errors = [];
   const value = parse(text, errors, { allowTrailingComma: true });
@@ -42,7 +49,7 @@ export function describeInvocation(plan) {
     shellQuote(plan.executable), ...plan.consumes.args.map(shellQuote)].join(' ');
 }
 
-export async function agentLaunch({ agent, executable, args = [], contextFile, context, directory, identity, env = process.env }) {
+export async function agentLaunch({ agent, executable, args = [], contextFile, context, directory, identity, conversation, resume = false, env = process.env }) {
   const root = context ?? JSON.parse(await readFile(contextFile, 'utf8'));
   if (!/^[0-9a-f-]{36}$/.test(root.rootId)) throw new Error('Invalid project identity in workspace context.');
   const name = `rengine_${root.rootId.replaceAll('-', '').slice(0, 12)}`;
@@ -72,6 +79,11 @@ export async function agentLaunch({ agent, executable, args = [], contextFile, c
       ...previous, mcpServers: add(previous.mcpServers, name, { command: server.command, args: server.args }),
     });
   } else plan.custom = true;
+  if (conversation !== undefined) {
+    if (typeof conversation !== 'string' || !CONVERSATION.test(conversation)) throw new Error('An agent conversation must be a UUID rEngine minted.');
+    const talk = agentConversation(agent);
+    if (talk) { consumes.args.push(...(resume ? talk.resume(conversation) : talk.start(conversation))); plan.conversation = conversation; }
+  }
   plan.args = [...consumes.args, ...args];
   plan.env = { ...env, RENGINE_MCP_CONFIG: generic, ...consumes.env };
   return plan;

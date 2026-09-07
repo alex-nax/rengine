@@ -1,5 +1,55 @@
 # Progress Log
 
+## Session 38 (macos) — 2026-09-07 — Agent conversations, and the environment a pane inherits (F91, F92)
+
+Spec 096, from an incident in the hirebase-v2 workspace. Every pane there had lost its colour, and
+the interesting part was not the cause but that nothing could reach it. `shellEnvironment` sets
+`TERM=xterm-256color` and `COLORTERM=truecolor`, declaring the surface colour-capable, and then
+forwarded the `NO_COLOR=1` it had inherited, which contradicts that declaration. It was in the
+session host's environment from the moment the host started, because the launcher had been run from
+an agent CLI's shell, and those set `NO_COLOR` for the shells they spawn. Measured in a live pane:
+`tput colors` 256, raw SGR intact, Node colour depth 1. The surface was never the problem.
+
+Neither side had regressed. `git log -S NO_COLOR` over this repository returns nothing, and the
+TERM/COLORTERM line dates to the original retained-PTY commit; the agent CLI has carried that
+constant across every installed version. It was an interaction, and its trigger was launch
+provenance.
+
+What made it worth a spec is the second half. The owner restarted, twice, and nothing changed: the
+desktop and the agent child were replaced, but the retained session host is durable by design
+(spec 065), so each new pane came from the same environment. The only remedy was killing the host,
+which destroys every live conversation on it. An in-app workaround does not exist either — the
+`open_script` env map takes strings only, and blanking the variable does not help, because Node
+disables colour on its presence: `NO_COLOR=` gives depth 1, absence gives 8. So the owner's choice
+was a broken environment or their work, which is the real defect.
+
+F91 drops an inherited `NO_COLOR` the way `ELECTRON_RUN_AS_NODE` is already dropped, while an
+explicit override still suppresses colour on purpose.
+
+F92 is the part that keeps a restart from costing a conversation. rEngine now names the conversation
+at launch instead of discovering it afterwards: it mints a UUID and tells the CLI, so the identifier
+exists before the first byte of output and no rollout directory is scraped. Naming is a declared
+per-agent capability rather than an assumption — `claude` takes `--session-id` and `--resume`; an
+agent that names its own conversations is recorded with none and refused by name on restart, rather
+than quietly started as a second conversation. The identifier rides on the session record and
+`workspace_info`, so a caller can see which panes are restartable, and `restart_agent` replaces the
+pane's child on that same conversation with a freshly composed environment. The host, the other
+panes and their processes are untouched, so a pane restart is not a quiescence event.
+
+Three regressions, each observed failing only for its own claim: the inherited value reaching the
+composed environment (`actual: '1'`), the conversation arguments missing from the launch plan (a
+`deepStrictEqual` on the argv), and the restart refusing nothing at all (`restartAgent is not a
+function`). Suite 103 pass, 0 fail, against 100 on main.
+
+Not proven live, and `passes` stays false on F92: an end-to-end pane restart cannot be observed from
+inside a workspace whose host predates the change, which is precisely the condition the spec
+describes. The first workspace started from a host carrying this should record pane restarted,
+conversation continued, child pid changed, host pid unchanged under `docs/evidence/`. Remaining
+after that: the native session browser that draws the conversation column decision 5 feeds, and
+Codex has no mintable conversation, so its existing handoff resume is still the only path there.
+
+Sidecar anchors: `sessions.mjs` and `launch.mjs` drifted from this change and were repaired. `main.mjs`, `mcp-worker.mjs` and `config.mjs` carried drift before it — `configuration-overlays` had lost its snippet entirely to the F90 rewrite — and were repaired in passing while their files were open; the note itself still describes behaviour `agent-config.test.mjs` asserts, so it was re-anchored rather than rewritten.
+
 ## Session 37 (macos) — 2026-09-07 — Task tracking with a declared backend (F78)
 
 Built the tracker. Contract 5 carries a `tracker` block naming a provider and the locator that
