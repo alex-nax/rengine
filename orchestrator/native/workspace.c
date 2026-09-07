@@ -269,8 +269,8 @@ static void resume_conversation(ReApp *a, const char *rootId, const char *agent,
   re_app_action(a, "terminal", j); cJSON_Delete(j);
 }
 /* The token controls the Sessions tab offers beside the agent that holds it (spec 103 decision 1).
-   Revoke while its process is there, Free once it is gone; both send the frames re_token_ui sends,
-   through token.c's one sender. A row that holds nothing spends the column on nothing. */
+   Revoke while its process is there, Free once it is gone; both go through token.c's one sender, so
+   the row and the popover send one contract. A row that holds nothing spends the column on nothing. */
 static void token_control(ReApp *a, mu_Context *ui, const char *key, const char *action) {
   if (!*action) { re_ui_label_ex(ui, "", RE_UI_MUTED | RE_UI_SMALL); return; }
   bool revoke = !strcmp(action, "revoke");
