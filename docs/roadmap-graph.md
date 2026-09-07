@@ -108,6 +108,7 @@ flowchart TD
   F60 --> F79
   F80["F80: blocked"]
   F76 --> F80
+  F81["F81: passing"]
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -152,3 +153,4 @@ flowchart TD
 | F78 | O1 | rengine | blocked | Add a task-tracking view with a declared backend: the local git inventory by default, GitHub Issues or Linear where a project declares one. |
 | F79 | O1 | rengine | passing | Let a project name the workspace: a declared display title and glyph logo in the chrome and the window title, with rEdit as the default. |
 | F80 | O1 | rengine | blocked | Actionable Devices tab: each device's bound dashboard actions render as controls that run from there through the dashboard's own route, carrying the availability dashboardActions already computed, and each bound game reports the preflight the launch uses -- replacing the inert comma-separated list of target ids. |
+| F81 | O1 | rengine | passing | Open projects with externally stored rEdit capabilities and a home-directory launcher, without adding integration files to their checkout. |

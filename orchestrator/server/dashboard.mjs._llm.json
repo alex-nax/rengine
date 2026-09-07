@@ -59,7 +59,7 @@
   ],
   "source": {
     "path": "orchestrator/server/dashboard.mjs",
-    "sha256": "8b9a97c0e76f2855beefa8f7202ec9873497eb77cf8f0f3698df4fe50bc4fe0f",
+    "sha256": "1c18dedc5e1530e3fba6b23a4fba2e4db3fef45041d557a7495b227b2d1677c0",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

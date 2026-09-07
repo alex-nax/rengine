@@ -20,7 +20,7 @@ async function gameMissing(root, action, preflight) {
   return config?.ready ? [] : [{ type: 'game', name: config?.issues?.[0] ?? 'The game preflight failed.' }];
 }
 export async function dashboardActions(root, preflight, options = {}) {
-  const declared = await readDeclaration(root.path), base = { rootId: root.id, declared: declared.declared };
+  const declared = await readDeclaration(root), base = { rootId: root.id, declared: declared.declared };
   if (!declared.declared) return { ...base, groups: [] };
   if (declared.error) return { ...base, error: declared.error, groups: [] };
   if (declared.dashboardError) return { ...base, contract: declared.contract, error: declared.dashboardError, groups: [] };

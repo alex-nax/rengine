@@ -41,11 +41,14 @@ const report = problems => problems.length > REPORTED
   : problems.join('; ');
 const bounded = spec => spec && { ...spec, timeoutMs: spec.timeoutMs ?? DEFAULT_TIMEOUT_MS, maxBytes: spec.maxBytes ?? DEFAULT_MAX_BYTES };
 
-export async function readDeclaration(rootPath) {
-  const problem = message => ({ declared: true, error: `.rengine/project.json: ${message}`, formats: [] });
+export async function readDeclaration(root) {
+  const rootPath = typeof root === 'string' ? root : root.path;
+  const external = typeof root === 'object' && root.declarationFile !== undefined;
+  const source = external ? root.declarationFile : '.rengine/project.json';
+  const problem = message => ({ declared: true, source, error: `${source}: ${message}`, formats: [] });
   let bytes;
-  try { bytes = await readFile(path.join(rootPath, '.rengine', 'project.json')); }
-  catch (error) { return error.code === 'ENOENT' ? { declared: false, formats: [] } : problem(`cannot read (${error.message})`); }
+  try { bytes = await readFile(external ? source : path.join(rootPath, '.rengine', 'project.json')); }
+  catch (error) { return error.code === 'ENOENT' && !external ? { declared: false, formats: [] } : problem(`cannot read (${error.message})`); }
   if (bytes.length > MAX_DECLARATION_BYTES) return problem('declaration exceeds 256 KiB');
   let value;
   try { value = JSON.parse(bytes.toString('utf8')); } catch (error) { return problem(`invalid JSON (${error.message})`); }
@@ -70,7 +73,7 @@ export async function readDeclaration(rootPath) {
   }
   const errors = crossRules(base);
   if (errors.length) return problem(report(errors));
-  const result = { declared: true, contract: value.contract, project: value.project,
+  const result = { declared: true, source, contract: value.contract, project: value.project,
     ...(value.title !== undefined ? { title: value.title } : {}),
     ...(value.icon !== undefined ? { icon: value.icon } : {}),
     formats: value.formats.map(format => ({ ...format, preview: bounded(format.preview), entry: bounded(format.entry) })) };
@@ -87,11 +90,11 @@ const SECTIONS = {
 function section(result, name, block, contract) {
   if (block === undefined) return result;
   const { minimum, rules, node } = SECTIONS[name], key = `${name}Error`;
-  if (contract < minimum) return { ...result, [key]: `.rengine/project.json: ${name} requires contract ${minimum} (declared contract ${contract})` };
+  if (contract < minimum) return { ...result, [key]: `${result.source}: ${name} requires contract ${minimum} (declared contract ${contract})` };
   const problems = [...validateSchema(node(), block, schema, `$.${name}`), ...rules(block, result)]; /* devices settle before games, and games before dashboard, so each can resolve the references it makes */
-  return problems.length ? { ...result, [key]: `.rengine/project.json: ${report(problems)}` } : { ...result, [name]: block };
+  return problems.length ? { ...result, [key]: `${result.source}: ${report(problems)}` } : { ...result, [name]: block };
 }
-export async function listFormats(root) { return { rootId: root.id, ...await readDeclaration(root.path) }; }
+export async function listFormats(root) { return { rootId: root.id, ...await readDeclaration(root) }; }
 
 function globToRegExp(glob) {
   const source = glob.replace(/[.+^${}()|\\]/g, '\\$&').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]').replace(/\[!/g, '[^');
@@ -166,7 +169,7 @@ function sanitizeTree(value) {
 }
 
 export async function formatPreview(root, data) {
-  const declared = await readDeclaration(root.path);
+  const declared = await readDeclaration(root);
   if (!declared.declared) fail('This project does not declare formats in .rengine/project.json.', 415);
   if (declared.error) fail(declared.error, 415);
   const file = await resolveInRoot(root, data.path);

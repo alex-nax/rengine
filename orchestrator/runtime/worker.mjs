@@ -61,7 +61,7 @@ export async function startWorker(host) {
       } else if (req.method === 'GET' && target.pathname === '/api/devices') {
         await refresh();
         const selected = root(target.searchParams.get('rootId'));
-        json(res, 200, await projectDevices(selected, await readDeclaration(selected.path),
+        json(res, 200, await projectDevices(selected, await readDeclaration(selected),
           { refresh: target.searchParams.get('refresh') === '1', preflight, resolve: () => dashboardActions(selected, preflight) }));
       } else if (req.method === 'POST' && target.pathname === '/api/game') {
         const data = await body(req); await refresh();

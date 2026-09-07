@@ -52,7 +52,7 @@ export async function startServer({ stateDir, port = 0 } = {}) {
         let value;
         if (request.method === 'GET') {
           switch (target.pathname) {
-            case '/api/state': value = { instance, capabilities: { handoff: 1, desktopActions: 1, formatRegistry: 1, dashboard: 1, projectGame: 1, projectGameLaunch: 1, recordings: 1, projectDevices: 1 }, roots: store.state.roots, layout: store.state.layout, preferences: store.state.preferences,
+            case '/api/state': value = { instance, capabilities: { handoff: 1, desktopActions: 1, formatRegistry: 1, dashboard: 1, projectGame: 1, projectGameLaunch: 1, recordings: 1, projectDevices: 1, externalDeclarations: 1 }, roots: store.state.roots, layout: store.state.layout, preferences: store.state.preferences,
               drafts: Object.values(store.state.drafts).map(({ rootId, path, updatedAt }) => ({ rootId, path, updatedAt })), sessions: sessions.list() }; break;
             case '/api/tree': value = await store.list(query.get('rootId'), query.get('path') ?? '', query.get('hidden') === 'true'); break;
             case '/api/file': value = await store.readText(query.get('rootId'), query.get('path')); break;
@@ -65,7 +65,7 @@ export async function startServer({ stateDir, port = 0 } = {}) {
             case '/api/formats': value = await listFormats(store.root(query.get('rootId'))); break;
             case '/api/dashboard': value = await dashboardActions(store.root(query.get('rootId')), preflight); break;
             case '/api/devices': { const selected = store.root(query.get('rootId'));
-              value = await projectDevices(selected, await readDeclaration(selected.path),
+              value = await projectDevices(selected, await readDeclaration(selected),
                 { refresh: query.get('refresh') === '1', preflight, resolve: () => dashboardActions(selected, preflight) }); break; }
             case '/api/bytes': value = await readBytes(store.root(query.get('rootId')), Object.fromEntries(query)); break;
             case '/api/session': value = sessions.snapshot(query.get('id'), true); break;
@@ -79,7 +79,7 @@ export async function startServer({ stateDir, port = 0 } = {}) {
           const data = await body(request);
           if (!data || typeof data !== 'object' || Array.isArray(data)) fail('Expected an object.');
           switch (target.pathname) {
-            case '/api/roots': value = await store.addRoot(data.path); break;
+            case '/api/roots': value = await store.addRoot(data.path, data.declarationFile); break;
             case '/api/save': value = await store.saveText(data); break;
             case '/api/draft': value = await store.putDraft(data); break;
             case '/api/discard': await store.discardDraft(data.rootId, data.path); value = { ok: true }; break;

@@ -907,6 +907,29 @@
       "evidence": [
         "docs/evidence/device-controls-macos-2026-09-07.md"
       ]
+    },
+    {
+      "id": 81,
+      "milestone": "O1",
+      "category": "integration",
+      "priority": "high",
+      "description": "Open projects with externally stored rEdit capabilities and a home-directory launcher, without adding integration files to their checkout.",
+      "acceptance_criteria": [
+        "Persist an explicit external declaration on the canonical project root; preserve it on reopen, refuse conflicting bindings and unsupported retained hosts, and report the selected filename on errors.",
+        "Serve external formats, identity, dashboard, devices and game preflight through both the host and replaceable worker while file access, command cwd and sessions retain the real project binding.",
+        "Install external helpers and a quoted launcher at explicit paths outside the project, refuse differing files and inside-project destinations, and expose existing web-project commands only on explicit selection.",
+        "Verify the native macOS consumer through the installed hirebase-v2 home launcher, including its source tree, identity, dashboard status command and JSON preview, with unchanged consumer source files."
+      ],
+      "passes": true,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/085-external-project-capabilities.md, orchestrator/external-project.mjs, root declaration binding and native acceptance",
+      "external_references": [
+        "Owner request, 2026-09-07: hirebase-v2 keeps all rEdit extensions outside its checkout; install a launcher in home and launch it."
+      ],
+      "evidence": [
+        "docs/evidence/external-project-macos-2026-09-07.md"
+      ]
     }
   ]
 }

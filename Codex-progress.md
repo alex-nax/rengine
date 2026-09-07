@@ -1,5 +1,33 @@
 # Progress Log
 
+## Session 42 (macos) — 2026-09-07 — Hirebase uses external rEdit capabilities (F81)
+
+Owner requested a home launcher for `~/hirebase-v2`, with every rEdit extension outside that
+project and no `editor.sh` integration. Spec 085 records this explicit scope outside the
+paused broader NOLF goal. The external declaration path is now durable metadata on the real
+project root; host and worker capability readers keep that full binding. Unsupported old
+hosts fail before root/session mutations, conflicting profiles are refused, and missing/bad
+external profiles name their filename without local fallback.
+
+Added an external web-project installer and helper, then installed and launched
+`~/hirebase-v2.command`. The profile lives at `~/.local/share/redit/hirebase-v2/`; runtime state
+is `~/.local/state/redit/hirebase-v2`. The real native window showed Hirebase, its source tree,
+eight available controls and successful read-only status output. Its package.json preview
+worked. The inspection view was closed normally and the ordinary home launcher reattached the
+same terminal/host, then became a managed desktop. All 4,085 recorded consumer source files
+and its dirty git status were unchanged. No hirebase integration files were created.
+
+Verification: initial external-binding failures observed for their own reasons; five deliberate
+mutations caught (confinement, quoting, overwrite, native identity, legacy-host mutation).
+Final `npm test` 84/84; `npm run test:desktop` 39/39; CTest 6/6; design, inventory, init and
+annotated-sidecar checks clean. Evidence: `docs/evidence/external-project-macos-2026-09-07.md`.
+The regression fixtures run from the normal scripts. F81 is complete for its explicit macOS
+consumer scope. Existing accepted feature criteria and gates are unchanged.
+
+Remaining: future Hirebase extensions belong in its external profile; project product work
+still follows Hirebase's own instructions. No development servers, product tests or remote
+backends were started by installation. Broader NOLF work remains independently paused.
+
 ## Session 36 (macos) — 2026-09-07 — The workspace wears the project's name (F79)
 
 Built what I had only specified. The owner asked twice for a per-project logo and title and got a
