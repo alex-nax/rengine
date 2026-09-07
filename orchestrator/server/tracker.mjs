@@ -75,6 +75,10 @@ const row = value => ({
   url: value.url ?? null,
   updatedAt: value.updatedAt ?? null,
   blockedBy: value.blockedBy ?? [],
+  /* Added for spec 103: the prompt a spawned agent is seeded with says what "done" means, and only
+     the local backend has that written down. A remote row answers with an empty list rather than
+     with the issue body, which is prose rather than criteria. */
+  criteria: value.criteria ?? [],
 });
 
 /* Local. Readiness follows the same rule tools/features.py applies, so the view and the command
@@ -106,6 +110,7 @@ async function localRows(root, block) {
       labels: [feature.milestone, feature.category].filter(Boolean),
       assignee: feature.owner_workspace ?? null,
       blockedBy: (feature.dependencies ?? []).map(id => `F${id}`),
+      criteria: Array.isArray(feature.acceptance_criteria) ? feature.acceptance_criteria : [],
     })),
   };
 }

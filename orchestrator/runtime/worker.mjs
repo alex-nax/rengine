@@ -12,6 +12,7 @@ import { Desktops } from '../server/desktops.mjs';
 import { request as call } from '../launcher/sidecar.mjs';
 import { authenticated, body, checkConnection, fail, forward, json } from './protocol.mjs';
 import { hostStateDirectory, readTasks, trackerSignIn, trackerSignOut } from './tracker.mjs';
+import { agentsMenu, modelArgs, promptFor, promptValues, taskWrite } from '../server/tasks.mjs';
 import { runtimeDirectory, alive, discoverRuntime } from './discovery.mjs';
 import { Tokens, UUID, readIdentity, readDesktop, segmentFrame } from './token.mjs';
 
@@ -21,7 +22,10 @@ export const RETIRED_FEED = 'Workspace worker retired; re-read feed_url and resu
 /* The routes a retired worker forwards, by method: `GET /api/recording` reads a recording out of the
    project and is nobody's ledger, while `POST /api/recording` is the desktop's frame. */
 const RETIRED_ROUTES = new Map([['/api/token', 'GET'], ['/api/token-action', 'POST'], ['/api/feed', 'GET'],
-  ['/api/recording', 'POST'], ['/api/preferences', 'POST']]);
+  ['/api/recording', 'POST'], ['/api/preferences', 'POST'],
+  /* Both are gated by the ledger and both mint a feed frame, so they belong to the worker that owns
+     it: a retired worker forwarding them keeps one writer and one sequence (spec 103). */
+  ['/api/task', 'POST'], ['/api/agent-spawn', 'POST']]);
 
 /* A `desktop-register` frame, minus the sessions this host state does not have. Those ended with the
    host the desktop's saved layout was written under (spec 098); a malformed frame is left exactly as
@@ -60,9 +64,13 @@ export async function startWorker(host, options = {}) {
   catch (error) { ledgerError = error.message; }
   /* servesLedger, not tokens: a retired worker no longer owns the ledger but still answers for it,
      by forwarding to the worker that does, so the capability it advertises does not change. */
+  /* taskWrites and agentSpawn ride with agentToken for the same reason: both are token-gated and
+     both announce themselves on the feed, so a worker that owns no ledger cannot serve either and
+     says so by naming neither (spec 078's asymmetry — the caller is refused by name rather than
+     calling a worker that would pass every gate because it has none). */
   const capabilities = ({ projectGameLaunch, ...rest }) => ({ ...rest, desktopActions: 1, layeredUpdates: 1, scriptActions: 1,
-    formatRegistry: 1, dashboard: 1, projectGame: 1, recordings: 1, projectDevices: 1, tracker: 1,
-    ...(servesLedger ? { agentToken: 1 } : {}), ...(rest.projectGame === 1 ? { projectGameLaunch: 1 } : {}) });
+    formatRegistry: 1, dashboard: 1, projectGame: 1, recordings: 1, projectDevices: 1, tracker: 1, agentsMenu: 1,
+    ...(servesLedger ? { agentToken: 1, taskWrites: 1, agentSpawn: 1 } : {}), ...(rest.projectGame === 1 ? { projectGameLaunch: 1 } : {}) });
   /* Refused here, from the worker's own preflight, before anything reaches the retained host: the
      spec-078 / KI-043 lesson is that the host must not be the one to answer. See sidecar: remote-launch. */
   const refuseRemote = async (rootId, gameId) => {
@@ -130,6 +138,62 @@ export async function startWorker(host, options = {}) {
         firstSeenAt: asIso(entry.startedAt), lastSeenAt: asIso(entry.lastSeenAt), conversation: true });
     }
     return extra.length ? { ...status, identities: [...status.identities, ...extra] } : status;
+  };
+  const conversationsOf = rootId => Array.isArray(bindings.conversations?.[rootId]) ? bindings.conversations[rootId] : [];
+  /* An agent the Tasks pane can list is not necessarily one the ledger has met on the wire, so the
+     desktop's assign resolves through the conversations this project remembers as well (spec 103). */
+  const conversationIdentity = (rootId, agentId) => {
+    const entry = conversationsOf(rootId).find(item => item?.id === agentId);
+    return entry ? { agentId, label: `${printableName(entry.agent)} ${agentId.slice(0, 8)}` } : null;
+  };
+
+  /* --- task writes and agent spawns (spec 103) ----------------------------------------------- */
+  /* One write at a time per root, behind the gate rather than instead of it: a non-holder is refused
+     before it reaches the queue, and two holders in sequence queue rather than interleave. A write
+     that throws still advances the chain, so one project's failure never wedges the next call. */
+  const writing = new Map();
+  const serialised = (rootId, run) => {
+    const next = (writing.get(rootId) ?? Promise.resolve()).then(run, run);
+    writing.set(rootId, next.then(() => {}, () => {}));
+    return next;
+  };
+  const declarationOf = rootId => readDeclaration(root(rootId));
+  const taskRow = async (rootId, key) => {
+    const listed = await readTasks(root(rootId), located);
+    const row = listed.rows?.find(item => item.key === key || String(item.id) === String(key));
+    if (!row) fail(`No task ${JSON.stringify(key)} is in this project's tracker; list_tasks names the keys it has. Nothing was started.`, 404);
+    return row;
+  };
+  /* The CLI's own initial prompt is a positional argument after the model flag, which is how both
+     claude and codex take one. The pane's own launcher appends these after the MCP wiring. */
+  const spawnAgent = async (data, by) => {
+    if (bindings.capabilities?.taskConversations !== 1) {
+      fail('This retained session host predates task-driven agent panes: it neither records the task on a conversation nor passes a pane\'s arguments to its CLI, so a spawn would start an agent with no prompt. Replacing the session host requires quiescence. Nothing was started.', 409);
+    }
+    const rootId = root(data.rootId).id;
+    const agent = typeof data.agent === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(data.agent) ? data.agent : fail('Choose an agent CLI to spawn.');
+    const brief = data.brief ?? 'task';
+    const row = await taskRow(rootId, data.taskKey);
+    const args = [...modelArgs(agent, data.model), (await promptFor(root(rootId), brief, promptValues(row))).text];
+    const session = await call(host, 'terminal', { rootId, type: 'agent', agent, action: 'launch', args });
+    /* A CLI rEngine can name a conversation for has one already; one that names its own has none to
+       carry the task, and the frame says so rather than inventing an id. */
+    if (session?.conversation) {
+      await call(host, 'agent-conversation', { id: session.id, conversation: session.conversation, agent, task: row.key });
+    }
+    const frame = await note(rootId, 'agent.spawned', by, { taskKey: row.key, agent, model: data.model ?? null,
+      conversation: session?.conversation ?? null, sessionId: session?.id ?? null });
+    await refresh();
+    const result = { rootId, taskKey: row.key, agent, model: data.model ?? null, brief,
+      conversation: session?.conversation ?? null, session, sequence: frame?.sequence ?? null };
+    if (data.desktopId === undefined) return result;
+    /* Attached exactly as a script tab is: the pane is already running and retained, so a failure to
+       show it is reported rather than retried, and nothing is ever spawned twice. */
+    try { return { ...result, view: await desktops.attach(rootId, data.desktopId, session) }; }
+    catch (error) {
+      return { ...result, view: { status: 'not_attached', error: error.message },
+        detail: 'The agent pane was started and is retained. Use show_session; do not spawn it again.' };
+    }
   };
   const tokenStatus = async (rootId, req, tool) => {
     if (!tokens) fail(`This workspace worker does not serve the project token ledger: ${ledgerError ?? 'no runtime directory'}.`, 409);
@@ -227,14 +291,19 @@ export async function startWorker(host, options = {}) {
     const desktop = desktopOf(client);
     if (!desktop) fail('Register the desktop before sending token actions.', 409);
     if (!desktop.rootIds.includes(data.rootId)) fail('That project is not bound to this desktop.', 403);
+    /* An assign resolves an agent id against the conversations this project remembers, and those
+       live in the host's state: this socket has no other reason to re-read it, so a conversation
+       started since this worker did would be unknown to a frame that names it. */
+    if (data.action === 'assign') await refresh();
     if (retired) {
-      await relay('token-action', { rootId: data.rootId, action: data.action, contestId: data.contestId, reason: data.reason },
+      await relay('token-action', { rootId: data.rootId, action: data.action, contestId: data.contestId, reason: data.reason, agentId: data.agentId },
         { 'X-Rengine-Desktop': desktop.id });
       return;
     }
     if (!tokens) fail('This workspace worker does not serve the project token ledger.', 409);
     const ledger = await tokens.ledger(data.rootId);
-    await ledger.desktop(data.action, { contestId: data.contestId, desktopId: desktop.id, reason: data.reason });
+    await ledger.desktop(data.action, { contestId: data.contestId, desktopId: desktop.id, reason: data.reason,
+      agentId: data.agentId, lookup: id => conversationIdentity(data.rootId, id) });
     await pushToken(data.rootId);
   };
   /* The recorder lives in the desktop (spec 081), so a commit is announced by the desktop on the
@@ -344,7 +413,8 @@ export async function startWorker(host, options = {}) {
         const desktopId = who ? null : readDesktop(req.headers);
         if (!who && !desktopId) fail('Only an identified agent can act on the token; this request carried no X-Rengine-Agent header.', 403);
         const ledger = await tokens.ledger(root(data.rootId).id);
-        const result = desktopId ? await ledger.desktop(data.action, { contestId: data.contestId, desktopId, reason: data.reason })
+        const result = desktopId ? await ledger.desktop(data.action, { contestId: data.contestId, desktopId, reason: data.reason,
+            agentId: data.agentId, lookup: id => conversationIdentity(root(data.rootId).id, id) })
           : data.action === 'contest' ? await ledger.contest(who, data.reason)
           : data.action === 'reject' ? await ledger.reject(who, data.reason)
           : data.action === 'release' ? await ledger.release(who)
@@ -420,6 +490,29 @@ export async function startWorker(host, options = {}) {
         json(res, 200, await readRecording(root(target.searchParams.get('rootId')), target.searchParams.get('id'), Object.fromEntries(target.searchParams)));
       } else if (req.method === 'GET' && target.pathname === '/api/tracker') {
         await refresh(); json(res, 200, await readTasks(root(target.searchParams.get('rootId')), located, { refresh: target.searchParams.get('refresh') === '1' }));
+      } else if (req.method === 'POST' && target.pathname === '/api/task') {
+        /* Spec 103 decision 2: token-gated and serialised. The gate refuses a non-holder before the
+           queue, so a refusal never waits behind somebody else's write, and the frame is minted
+           after the project's own command returned rather than when it was asked for. */
+        const data = await body(req); await refresh(); await announce();
+        const selected = root(data.rootId), { by } = await gate(req, selected.id, `task_${data.action ?? 'write'}`);
+        const written = await serialised(selected.id, async () => taskWrite(selected, await declarationOf(selected.id), data));
+        const frame = await note(selected.id, data.action === 'update' ? 'task.updated' : 'task.added', by,
+          { key: written.key, action: data.action });
+        json(res, 200, { ...written, sequence: frame?.sequence ?? null, tracker: await readTasks(selected, located, { refresh: true }) });
+      } else if (req.method === 'POST' && target.pathname === '/api/agent-spawn') {
+        const data = await body(req); await refresh(); await announce();
+        const { by } = await gate(req, root(data.rootId).id, 'spawn_agent');
+        json(res, 200, await spawnAgent(data, by));
+      } else if (req.method === 'GET' && target.pathname === '/api/agents-menu') {
+        await refresh();
+        const selected = root(target.searchParams.get('rootId'));
+        const menu = await agentsMenu(selected, await readDeclaration(selected));
+        const remembered = new Map(conversationsOf(selected.id).map(entry => [entry.id, entry]));
+        json(res, 200, { ...menu, live: bindings.sessions.filter(item => item.rootId === selected.id && item.type === 'agent' && item.state === 'running')
+          .map(item => ({ sessionId: item.id, conversation: item.conversation ?? null,
+            label: item.conversation ? `${printableName(item.agent)} ${item.conversation.slice(0, 8)}` : printableName(item.agent),
+            task: item.task ?? remembered.get(item.conversation)?.task ?? null })) });
       } else if (req.method === 'POST' && target.pathname === '/api/tracker/signin') {
         const data = await body(req); await refresh(); json(res, 200, await trackerSignIn(root(data.rootId), located));
       } else if (req.method === 'POST' && target.pathname === '/api/tracker/signout') {

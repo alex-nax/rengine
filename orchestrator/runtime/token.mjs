@@ -209,14 +209,17 @@ export class Ledger {
     if (this.state.holder?.agentId !== caller.agentId) throw Object.assign(new Error(this.refusal(caller, 'token_reject')), { status: 409 });
     return this.settleRejection(contest, { kind: 'agent', agentId: caller.agentId, label: caller.label }, reason);
   }
-  async settleRejection(contest, by, reason) {
+  /* `cooldown: false` is the assign case (spec 103 decision 5): the person at the desktop handing
+     the token to a chosen agent settles the open contest rather than leaving it to time out, and the
+     contester did nothing wrong, so it is not charged the window a refusal costs. */
+  async settleRejection(contest, by, reason, { cooldown = true } = {}) {
     const until = new Date(Date.now() + (contest.windowMs ?? this.window())).toISOString();
     this.state.contest = null;
-    this.state.cooldown[contest.contester.agentId] = until;
+    if (cooldown) this.state.cooldown[contest.contester.agentId] = until;
     this.frame('token.rejected', by, { contestId: contest.id, contester: contest.contester, holder: this.state.holder,
-      reason: printable(reason, 200) || 'no reason given', cooldownUntil: until });
+      reason: printable(reason, 200) || 'no reason given', cooldownUntil: cooldown ? until : null });
     this.arm(); await this.persist();
-    return { state: 'rejected', contestId: contest.id, cooldownUntil: until, holder: this.state.holder };
+    return { state: 'rejected', contestId: contest.id, cooldownUntil: cooldown ? until : null, holder: this.state.holder };
   }
   /* A release under an open contest is that contest answered, not a token left lying free: the
      contester would otherwise wait out a window for a token nobody holds, and could not even
@@ -239,11 +242,29 @@ export class Ledger {
     await this.persist();
     return { state: 'free', previousHolder: holder };
   }
-  /* Decision 6: the person at the desktop is never gated. These four are that person's acts. */
-  async desktop(action, { contestId, desktopId, reason = '' } = {}) {
+  /* Decision 6: the person at the desktop is never gated. These five are that person's acts —
+     `assign` is spec 103 decision 5's "Hold token for that agent", the human's grant made from the
+     Tasks pane rather than from a contest that agent had to open first. */
+  async desktop(action, { contestId, desktopId, reason = '', agentId, lookup } = {}) {
     await this.settle();
     const by = { kind: 'desktop', desktopId: printable(desktopId, 64) || 'desktop' };
     const contest = this.state.contest;
+    if (action === 'assign') {
+      if (typeof agentId !== 'string' || !UUID.test(agentId)) throw Object.assign(new Error('Name the agent to assign the token to.'), { status: 400 });
+      /* The ledger's own registry first, then the conversations this project remembers, because an
+         agent the Tasks pane can list may not have called anything on this root yet. */
+      const known = this.state.identities[agentId] ?? (typeof lookup === 'function' ? lookup(agentId) : null);
+      if (!known) throw Object.assign(new Error(`No agent ${agentId} is known on this root: the ledger has seen none by that id, and no conversation this project remembers carries it.`), { status: 404 });
+      /* An open contest is answered rather than left running against a holder it can no longer
+         reach; the contester is charged nothing, because the desktop moved the token, not it. */
+      if (contest) await this.settleRejection(contest, by, 'the token was assigned from the desktop', { cooldown: false });
+      const previous = this.state.holder;
+      this.state.holder = { agentId, label: printable(known.label, 64) || 'agent',
+        ...(Number.isSafeInteger(known.pid) && known.pid > 0 ? { pid: known.pid } : {}), since: new Date().toISOString() };
+      this.frame('token.claimed', by, { holder: this.state.holder, ...(previous ? { previousHolder: previous } : {}) });
+      this.arm(); await this.persist();
+      return { state: 'claimed', holder: this.state.holder, ...(previous ? { previousHolder: previous } : {}), by: 'desktop' };
+    }
     if (action === 'reject' || action === 'grant') {
       if (!contest) throw Object.assign(new Error('No contest is open on this root.'), { status: 409 });
       if (!contestId) throw Object.assign(new Error(`Name the contest to ${action}: the open one is ${contest.id}.`), { status: 400 });
@@ -265,7 +286,7 @@ export class Ledger {
       await this.persist();
       return { state: 'free', previousHolder: holder };
     }
-    throw Object.assign(new Error('Choose reject, grant, revoke or free.'), { status: 400 });
+    throw Object.assign(new Error('Choose reject, grant, assign, revoke or free.'), { status: 400 });
   }
 }
 

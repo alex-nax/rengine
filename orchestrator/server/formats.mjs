@@ -11,7 +11,7 @@ import { devicesRules } from './device-rules.mjs';
 
 /* A provider only accepts the locator it can use, so a declaration that names the wrong one is
    refused at declaration time rather than failing later against the network. */
-function trackerRules(block) {
+function trackerRules(block, result = {}) {
   const problems = [];
   const need = { github: 'repository', linear: 'team' };
   const required = need[block.provider];
@@ -26,10 +26,34 @@ function trackerRules(block) {
   for (const key of ['project', 'assignee', 'states']) {
     if (block.provider !== 'linear' && block[key] !== undefined) problems.push(`$.tracker ${key} belongs to provider linear`);
   }
+  /* The one key of this block that is written rather than read (spec 103 decision 8). Its floor is
+     checked here rather than through SECTIONS, because the block is contract 5 and only this key is
+     contract 6; without it a contract-5 project would have the key accepted in silence. */
+  if (block.write !== undefined) {
+    if (block.provider !== 'local') problems.push('$.tracker write belongs to provider local');
+    if (result.contract < 6) problems.push(`$.tracker write requires contract 6 (declared contract ${result.contract})`);
+    if (Array.isArray(block.write) && !block.write.some(argument => typeof argument === 'string' && argument.includes('${json}'))) {
+      problems.push('$.tracker.write must name ${json} in one of its arguments');
+    }
+  }
+  return problems;
+}
+/* The agent/model menu a project offers (spec 103 decision 8). A default outside its own models is a
+   menu whose first choice is not on it, and two records for one CLI make the chooser ambiguous. */
+function agentsRules(value) {
+  const problems = [], seen = new Set();
+  if (!Array.isArray(value.agents)) return problems;
+  for (const [index, record] of value.agents.entries()) {
+    if (!record || typeof record !== 'object' || Array.isArray(record)) continue;
+    const at = `$.agents[${index}]`;
+    if (seen.has(record.cli)) problems.push(`${at}.cli repeats ${JSON.stringify(record.cli)}`);
+    seen.add(record.cli);
+    if (Array.isArray(record.models) && !record.models.includes(record.default)) problems.push(`${at}.default must be one of its models`);
+  }
   return problems;
 }
 
-export const CONTRACTS = [1, 2, 3, 4, 5];
+export const CONTRACTS = [1, 2, 3, 4, 5, 6];
 /* Brand-mark colours a project may name. Each is a saturated fill the design system pairs with
    the on-accent ink, which is what keeps the letter legible in every preset. */
 export const ICON_TOKENS = ['accent', 'ok', 'warn', 'err', 'info'];
@@ -37,7 +61,7 @@ export const DEFAULT_TIMEOUT_MS = 10000;
 export const DEFAULT_MAX_BYTES = 4 * 1024 * 1024;
 export const MAX_RAW_WINDOW = 64 * 1024;
 const MAX_DECLARATION_BYTES = 256 * 1024, MAX_TREE_DEPTH = 64, MAX_TREE_NODES = 200000, MAX_STDERR = 16 * 1024;
-const PLACEHOLDER = /\$\{(file|entry|host|selector)\}/g; /* host/selector only reach here from a device probe; the schema permits them nowhere else */
+const PLACEHOLDER = /\$\{(file|entry|host|selector|json)\}/g; /* host/selector only reach here from a device probe and json only from a task write; the schema permits each nowhere else */
 const schema = JSON.parse(await readFile(new URL('../../contracts/project-v1.schema.json', import.meta.url), 'utf8'));
 
 const uses = (spec, name) => Array.isArray(spec?.command) && spec.command.some(arg => typeof arg === 'string' && arg.includes(`\${${name}}`));
@@ -85,17 +109,20 @@ export async function readDeclaration(root) {
       return problem(`${name} requires contract 5 (declared contract ${value.contract})`);
     }
   }
+  /* Same reasoning one contract later: the agent/model menu is a plain root field (spec 103). */
+  if (value.agents !== undefined && value.contract < 6) return problem(`agents requires contract 6 (declared contract ${value.contract})`);
   /* A token rather than a colour, so the mark's contrast against its ink is the design system's
      guarantee and not a per-project accident. Named here because the desktop must be able to resolve
      every value this accepts (spec 084 decision 5). */
   if (value.icon?.token !== undefined && !ICON_TOKENS.includes(value.icon.token)) {
     return problem(`icon token ${JSON.stringify(value.icon.token)} is not a design token; use ${ICON_TOKENS.join(', ')}`);
   }
-  const errors = crossRules(base);
+  const errors = [...crossRules(base), ...agentsRules(base)];
   if (errors.length) return problem(report(errors));
   const result = { declared: true, source, contract: value.contract, project: value.project,
     ...(value.title !== undefined ? { title: value.title } : {}),
     ...(value.icon !== undefined ? { icon: value.icon } : {}),
+    ...(value.agents !== undefined ? { agents: value.agents } : {}),
     formats: value.formats.map(format => ({ ...format, preview: bounded(format.preview), entry: bounded(format.entry) })) };
   /* devices, games and dashboard are each reported separately so none can disable the formats, and
      devices settles first so both of the others can resolve a device binding; see sidecar: declaration-reporting */
