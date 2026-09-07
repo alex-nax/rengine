@@ -92,4 +92,22 @@ and the assertion the step makes (a new pid after a crash) is unchanged.
 
 ## Gates
 
-Recorded in `Codex-progress.md`, session 52.
+Recorded in `Codex-progress.md`, session 56.
+
+## The live run, after the merge (2026-09-07, 13:45)
+
+Done from the main checkout against the owner's running workspace, with the context file the host
+wrote for the rEngine root (`.cache/orchestrator-development/integrations/046c207b-….json`).
+
+| Step | Before | After |
+| --- | --- | --- |
+| `client.mjs update --layers workspace,connector` | supervisor 44390, worker 79969, `connectorGeneration` 11 | job `91406337` **succeeded** in 337 ms; worker **35886**, generation **12**; worker 79969 listed under `retiring` with one stream still draining (KI-061's hand-off, working) |
+| Supervisor `/api/state` capabilities | `handoff, desktopActions, layeredUpdates, scriptActions, formatRegistry, dashboard, projectGame, recordings, projectDevices, projectWindows` | the same plus **`tracker: 1`** and `agentToken: 1` |
+| Supervisor `GET /api/tracker?rootId=046c207b-…` | `404 Unknown workspace endpoint.` — the retained host's answer | `provider: local`, **51 rows**, `fresh: true`: F32 unstarted, F33 blocked, F34 blocked |
+| A facade started from this checkout against the same context | — | 32 tools including **`list_tasks`**, which answers `local`, 51 rows |
+| `workspace_info` through the owner's own pre-facade connector | 11 sessions | the same 11 sessions, six of them running, nothing lost |
+
+Host PID 33465 was never signalled: it is still instance `e9c3dbfd-…`, and every retained session
+survived the update. What the owner's own connector (PID 93041, loaded 2026-09-06 08:06) still
+cannot do is offer `list_tasks`, because it predates the facade — `/mcp` → Reconnect gives it the
+current set without costing the conversation or the pane.

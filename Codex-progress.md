@@ -82,6 +82,23 @@ run belongs to whoever merges: from any pane,
 then the Tasks tab and `list_tasks`. Branch `feat/live-hot-update`, not merged. F98 `passes: false`
 for that reason.
 
+**The live run, done at 13:45 from this checkout after the merge.** `client.mjs update --layers
+workspace,connector` against supervisor 44390 succeeded in 337 ms: worker 79969 → **35886**,
+connector generation 11 → **12**, the old worker listed under `retiring` with one stream still
+draining, which is KI-061's hand-off doing its job. The supervisor then advertised `tracker: 1` and
+answered `GET /api/tracker` with **51 local rows** where minutes earlier it had returned the retained
+host's `404 Unknown workspace endpoint.`; a facade started from this checkout against the same
+context listed 32 tools including **`list_tasks`** and got the same 51 rows through it. Host PID
+33465 was never signalled and every retained session survived — `workspace_info` through the owner's
+own connector shows the same eleven, six running. So the capability the owner was told repeatedly was
+already deliverable is now actually delivered to the running editor, without ending a session.
+
+Two things that remain true and are not defects: the owner's own MCP connector (PID 93041) predates
+the facade and needs `/mcp` → **Reconnect** to see `list_tasks`, which costs neither the conversation
+nor the pane; and F98 stays `passes: false` because both prerequisites, F74 and F78, are still
+blocked — the live criterion itself is now recorded as done in
+`docs/evidence/live-capability-updates-2026-09-07.md`.
+
 ## Session 55 (macos) — 2026-09-07 — The tracker narrows to a person and to what is actually active (F97)
 
 The hirebase-v2 tracker tab answered with a hundred rows spanning every assignee and every workflow
