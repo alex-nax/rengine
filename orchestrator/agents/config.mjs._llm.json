@@ -1,62 +1,76 @@
 {
-  "version": 1,
-  "entries": [
-    {
-      "id": "configuration-overlays",
-      "kind": "rationale",
-      "anchor": {
-        "start": 115,
-        "end": 115,
-        "snippet": "export async function agentLaunch({ agent, executable, args = [], contextFile, context, directory, identity, handoff, conversation, resume = false, env = process.env }) {"
-      },
-      "note": "Each launch creates a private unique configuration directory so concurrent agents cannot overwrite one another’s overlays. User/project files are never rewritten. OpenCode runtime JSONC and Gemini defaults are parsed and preserved; malformed input or a name collision fails visibly. Gemini uses the lowest-precedence defaults layer, so managed policy remains authoritative. Codex requires the injected MCP server to initialize; no permission-bypass flags are supplied. The claude branch also names the conversation, exactly once: conversationArgs adds --session-id or --resume for an identity rEngine decided, and adds nothing to a launch whose own args already name a session, because the identity IS that session id."
-    },
-    {
-      "id": "conversation-naming-is-a-declared-capability",
-      "kind": "rationale",
-      "anchor": {
-        "start": 14,
-        "end": 14,
-        "snippet": "const CONVERSATIONS = {"
-      },
-      "note": "rEngine names the conversation at launch rather than discovering it afterwards: it decides the UUID and tells the CLI, so the identifier exists before the first byte of output and no rollout directory has to be scraped for it. The Codex handoff path (handoff.mjs) is the discovery version of this and shows the cost — it reads an external manifest, walks ~/.codex/sessions, and validates metadata, all to learn a fact the launcher could simply have chosen. Membership of this table is a capability claim, not an assumption: an agent absent from it names its own conversations, is recorded with none (plan.conversation stays undefined), and is refused by name on restart. Inventing an identifier for such an agent would produce a restart that silently opens a SECOND conversation while appearing to resume the first, which is worse than refusing.",
-      "refs": [
-        "docs/specs/096-agent-session-resume.md"
-      ]
-    },
-    {
-      "id": "session-is-the-identity",
-      "kind": "rationale",
-      "anchor": {
-        "start": 43,
-        "end": 43,
-        "snippet": "export function claudeSession(args = []) {"
-      },
-      "note": "Read the launch's own flags rather than inferring the conversation afterwards from a transcript, a process tree or a hook — an earlier attempt did that and kept getting it wrong. --session-id/--resume/-r with a valid UUID name the session, so it becomes the agentId and the args are left alone; -c/--continue, --resume with a search term instead of an id, and --fork-session all mint the id inside the CLI where rEngine cannot see it, so the identity is rEngine's own and records known:false rather than guessing. Values are lowercased because the ledger's header check is lowercase hex.",
-      "refs": [
-        "docs/specs/095-project-token.md"
-      ]
-    },
-    {
-      "id": "one-uuid-and-who-decides-it",
-      "kind": "rationale",
-      "anchor": {
-        "start": 87,
-        "end": 87,
-        "snippet": "function claudeIdentity({ args, session, conversation, resume }) {"
-      },
-      "note": "Two lanes independently taught the launcher to pass --session-id: the identity (spec 095) minted one, the host's conversation (spec 096) minted another, and merged as-is a pane would have carried both with different UUIDs. The reconciliation is that the conversation IS the identity, and this function is the single place that decides which UUID that is. Order matters and is deliberate: the person's own flags first, because launch.mjs reports the decided id back to the host over /api/agent-conversation and the record must follow what actually launched rather than what the host intended — a contradiction between the two is resolved in the person's favour, not refused; then bind.mjs's --session for a session that already exists; then the host's RENGINE_AGENT_CONVERSATION for an ordinary pane; then a mint. -c/--continue, a search-term --resume and --fork-session return id null with source 'unknown', which makes plan.conversation null and tells the host to claim nothing.",
-      "refs": [
-        "docs/specs/095-project-token.md",
-        "docs/specs/096-agent-session-resume.md",
-        "docs/evidence/conversation-is-identity-2026-09-07.md"
-      ]
-    }
-  ],
-  "source": {
-    "path": "orchestrator/agents/config.mjs",
-    "sha256": "673cabe2a9c3d08caa7689d943bd8987e8b10b5e922a2b7a9c1e403b3afc8843",
-    "format": "text",
-    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+ "version": 1,
+ "entries": [
+  {
+   "id": "configuration-overlays",
+   "kind": "rationale",
+   "anchor": {
+    "start": 125,
+    "end": 125,
+    "snippet": "export async function agentLaunch({ agent, executable, args = [], contextFile, context, directory, identity, handoff, conversation, resume = false, env = process.env }) {"
+   },
+   "note": "Each launch creates a private unique configuration directory so concurrent agents cannot overwrite one another\u2019s overlays. User/project files are never rewritten. OpenCode runtime JSONC and Gemini defaults are parsed and preserved; malformed input or a name collision fails visibly. Gemini uses the lowest-precedence defaults layer, so managed policy remains authoritative. Codex requires the injected MCP server to initialize; no permission-bypass flags are supplied. The claude branch also names the conversation, exactly once: conversationArgs adds --session-id or --resume for an identity rEngine decided, and adds nothing to a launch whose own args already name a session, because the identity IS that session id."
+  },
+  {
+   "id": "conversation-naming-is-a-declared-capability",
+   "kind": "rationale",
+   "anchor": {
+    "start": 15,
+    "end": 15,
+    "snippet": "const CONVERSATIONS = {"
+   },
+   "note": "rEngine names the conversation at launch rather than discovering it afterwards: it decides the UUID and tells the CLI, so the identifier exists before the first byte of output and no rollout directory has to be scraped for it. The Codex handoff path (handoff.mjs) is the discovery version of this and shows the cost \u2014 it reads an external manifest, walks ~/.codex/sessions, and validates metadata, all to learn a fact the launcher could simply have chosen. Membership of this table is a capability claim, not an assumption: an agent absent from it names its own conversations, is recorded with none (plan.conversation stays undefined), and is refused by name on restart. Inventing an identifier for such an agent would produce a restart that silently opens a SECOND conversation while appearing to resume the first, which is worse than refusing.",
+   "refs": [
+    "docs/specs/096-agent-session-resume.md"
+   ]
+  },
+  {
+   "id": "session-is-the-identity",
+   "kind": "rationale",
+   "anchor": {
+    "start": 44,
+    "end": 44,
+    "snippet": "export function claudeSession(args = []) {"
+   },
+   "note": "Read the launch's own flags rather than inferring the conversation afterwards from a transcript, a process tree or a hook \u2014 an earlier attempt did that and kept getting it wrong. --session-id/--resume/-r with a valid UUID name the session, so it becomes the agentId and the args are left alone; -c/--continue, --resume with a search term instead of an id, and --fork-session all mint the id inside the CLI where rEngine cannot see it, so the identity is rEngine's own and records known:false rather than guessing. Values are lowercased because the ledger's header check is lowercase hex.",
+   "refs": [
+    "docs/specs/095-project-token.md"
+   ]
+  },
+  {
+   "id": "one-uuid-and-who-decides-it",
+   "kind": "rationale",
+   "anchor": {
+    "start": 88,
+    "end": 88,
+    "snippet": "function claudeIdentity({ args, session, conversation, resume }) {"
+   },
+   "note": "Two lanes independently taught the launcher to pass --session-id: the identity (spec 095) minted one, the host's conversation (spec 096) minted another, and merged as-is a pane would have carried both with different UUIDs. The reconciliation is that the conversation IS the identity, and this function is the single place that decides which UUID that is. Order matters and is deliberate: the person's own flags first, because launch.mjs reports the decided id back to the host over /api/agent-conversation and the record must follow what actually launched rather than what the host intended \u2014 a contradiction between the two is resolved in the person's favour, not refused; then bind.mjs's --session for a session that already exists; then the host's RENGINE_AGENT_CONVERSATION for an ordinary pane; then a mint. -c/--continue, a search-term --resume and --fork-session return id null with source 'unknown', which makes plan.conversation null and tells the host to claim nothing.",
+   "refs": [
+    "docs/specs/095-project-token.md",
+    "docs/specs/096-agent-session-resume.md",
+    "docs/evidence/conversation-is-identity-2026-09-07.md"
+   ]
+  },
+  {
+   "id": "the-cli-reports-what-it-runs",
+   "kind": "rationale",
+   "anchor": {
+    "start": 117,
+    "end": 117,
+    "snippet": "export const claudeSettings = () => ({ hooks: { SessionStart: [{ hooks: [{ type: 'command',"
+   },
+   "note": "claudeIdentity decides the conversation from the launch's own flags and is then blind: a person who resumes another conversation from inside the running CLI moves the process, and no flag, transcript or process tree says so afterwards. Observed live 2026-09-07 -- a pane launched as b9e2114c ran 5b8d47c2 while every record still said b9e2114c. Do NOT solve this by inferring the id after the fact; that is exactly what an earlier attempt did and kept getting wrong, and it is the reason the rest of this module decides at launch. The CLI is asked instead: Claude Code's SessionStart hook fires on startup, --resume, an in-CLI /resume, /clear and after compaction with the session_id it is actually running, and report-session.mjs reports it back. The settings file is per launch and passed with --settings, which loads ADDITIONAL settings -- the person's and the project's own files are never read, written or overridden. The launch identity is therefore rEngine's best guess until the CLI confirms or corrects it.",
+   "refs": [
+    "docs/specs/095-project-token.md",
+    "docs/evidence/report-session-hook-2026-09-07.md"
+   ]
   }
+ ],
+ "source": {
+  "path": "orchestrator/agents/config.mjs",
+  "sha256": "6db8a1c9e404466a1a7235145333c10b3ac165af1cc1093ef3854441d37d7894",
+  "format": "text",
+  "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+ }
 }

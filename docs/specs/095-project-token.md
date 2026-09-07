@@ -163,6 +163,48 @@ token: the ledger's pid refresh (see *Liveness*, below) handles the new process.
 
 Evidence, with the sabotage table: `docs/evidence/conversation-is-identity-2026-09-07.md`.
 
+### The CLI reports what it runs (2026-09-07)
+
+The launcher decides the conversation from the launch's own flags and is then blind. A person who
+resumes a **different** conversation from inside the running CLI — Claude Code's own `/resume`
+picker — moves the process to another conversation, and no flag says so. Observed live on 2026-09-07:
+a pane launched as `b9e2114c` ran `5b8d47c2`, and the pane record, `workspace_info`, the ledger
+identity and the Sessions tab all still said `b9e2114c`. `/clear` and a compaction are the same shape.
+
+Inferring the id afterwards — from the transcript directory, a rollout file or the process tree —
+stays forbidden: it is what an earlier attempt did and kept getting wrong, and it is why the rest of
+this section decides the id at launch. The remedy is not to guess better but to **ask the thing that
+knows**. Claude Code runs a `SessionStart` hook on startup, `--resume`, an in-CLI `/resume`, `/clear`
+and after compaction, handing it `{ session_id, transcript_path, cwd, hook_event_name, source }` on
+stdin (payload recorded on this machine against 2.1.263; see the evidence). So rEngine installs one.
+
+| what | how |
+| --- | --- |
+| where the hook lives | a per-launch `settings.json` written beside `mcp.json`, passed as `--settings` — the person's own and the project's settings files are never touched |
+| what it runs | `orchestrator/agents/report-session.mjs`, under the launcher's own node, by absolute path |
+| what it does | finds this launch's binding the way the tool worker does (`RENGINE_MCP_CONFIG` → the per-launch `mcp.json` → its `--context` file, else `RENGINE_WORKSPACE_CONTEXT`), posts `POST /api/agent-conversation` exactly as `launch.mjs` reports at launch, and rewrites the per-launch context's identity — `agentId`, `label`, and `session` with `source: 'reported'` |
+| what it never does | fail the CLI it runs inside (stderr only, always exit 0), write to stdout (a `SessionStart` hook's stdout is added to that CLI's context), or act outside a workspace pane (no binding environment, silent exit 0) |
+| what it never touches | `pid` and `startedAt`. They are the launcher's, and liveness is measured on the pid |
+
+It reports on **every** session start rather than only on a change, because this is the one report
+that comes from the CLI itself: a record the launcher could not write — a `-c` or `--fork-session`
+launch, which reports `conversation: null` and leaves the pane holding nothing — becomes known on the
+next start instead of staying unknown for the life of the pane.
+
+The identity decided at launch is therefore rEngine's **best guess until the CLI confirms or corrects
+it**, and the correction is authoritative for the same reason a person's own flags are: the record
+follows what actually launched. `bind.mjs` prints the `--settings` flag too, so a session bound from
+outside the workspace corrects itself the same way.
+
+The **tool worker re-reads the identity from the context file once per tool call**, so `workspace_info`
+and the `X-Rengine-Agent` header follow the CLI with no worker restart, and the ledger identity follows
+with them. Only the identity is re-read: the binding — url, token, instance, root — stays the facade's
+start-time snapshot, so the property that file cannot retarget a running CLI (spec 065) is unchanged.
+The file can rename this agent; it can never move it to another project.
+
+Evidence, with the recorded hook payloads, the run through the real CLI and the sabotage table:
+`docs/evidence/report-session-hook-2026-09-07.md`.
+
 **Codex** already carries one: the handoff manifest's `sessionId`, which `resumeArgs()` hands to
 `codex resume <id>`. Where a handoff is present that id is the `agentId` too. Gemini and OpenCode get
 a minted UUID and no `session` descriptor.
