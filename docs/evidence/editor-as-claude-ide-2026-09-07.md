@@ -260,6 +260,24 @@ needs no cooperation from the host at all, which is why it is the rule.
 | P1 | the flag is passed without naming which editor | the CLI was not told which one |
 | P2 | any published rEdit is treated as this workspace's | it named the wrong port |
 
+### The pane, opened
+
+The owner opened a Claude pane. It came up connected with no slash command, and its `/ide` menu —
+opened afterwards to look — shows which editor it chose:
+
+```
+  1. rEdit    /Users/alex/hirebase-v2, /Users/alex/rengine
+❯ 2. rEdit ✔  /Users/alex/rengine, /Users/alex/nolf-improved, …
+  3. None
+```
+
+The check mark is on entry 2, this workspace's editor, with hirebase-v2's offered beside it and not
+chosen. `POST /api/ide-selection` then reported `delivered: 2` — the existing pane and the new one —
+which is the independent confirmation that both are attached to the same bridge.
+
+This is exactly the case the counting rule could not serve: two valid editors, and the pane connected
+to its own without asking anyone.
+
 ## A criterion that was wrong, corrected
 
 F103 originally said auto-connect could only reach a running workspace by replacing its session

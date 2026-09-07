@@ -1395,7 +1395,7 @@
         "An editor is offered for a directory only when a declared folder actually contains it: a sibling whose name merely starts with the folder's name (/work/rengine-old against /work/rengine) is not inside it, and a lock whose process is gone is not offered at all.",
         "CORRECTED: an earlier criterion said this could only reach a running workspace by replacing its session host. That is wrong. The host spawns scripts/agent.sh, which execs orchestrator/agents/launch.mjs from the checkout at every pane launch, so the decision is made in the pane by code read from disk — it reaches a running workspace with no host replacement and no layered update.",
         "Each regression was observed failing for its own reason: the flag passed whenever any editor is offered, a bare prefix used for containment, a dead editor still offered, and every CLI given the flag.",
-        "LIVE, done 2026-09-07: against the running workspace, the real launch path resolved this pane's ancestors as 46159, 92680, 92674, 33465 — reaching session host 33465 — matched the lock it published, and composed `--ide` with CLAUDE_CODE_SSE_PORT=65353 for both /Users/alex/rengine (where two editors are published) and /Users/alex/nolf-improved. Still outstanding: watching a newly opened pane come up connected."
+        "LIVE, done 2026-09-07: a newly opened Claude pane in this workspace came up connected without a slash command. Its /ide menu listed two editors — hirebase-v2's workspace (which also binds /Users/alex/rengine) and this one — with the check mark already on this one, and POST /api/ide-selection reported delivered: 2, the existing pane and the new one. The launch resolved this pane's ancestors to session host 33465 and passed CLAUDE_CODE_SSE_PORT=65353. Recorded in docs/evidence/editor-as-claude-ide-2026-09-07.md."
       ],
       "passes": false,
       "dependencies": [
@@ -1410,7 +1410,8 @@
         "orchestrator/tests/ide-connect.test.mjs: a CLI with no auto-connect option gets nothing added to its command line",
         "orchestrator/tests/ide-connect.test.mjs: the launch plan carries the flag, and says why when it does not",
         "docs/evidence/editor-as-claude-ide-2026-09-07.md: the four-editor measurement that set the rule",
-        "orchestrator/tests/ide-connect.test.mjs: this workspace's own editor is named by port, so a machine-mate's does not block it"
+        "orchestrator/tests/ide-connect.test.mjs: this workspace's own editor is named by port, so a machine-mate's does not block it",
+        "docs/evidence/editor-as-claude-ide-2026-09-07.md: the pane that came up connected with two editors offered"
       ]
     },
     {

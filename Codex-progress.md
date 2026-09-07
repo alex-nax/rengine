@@ -47,8 +47,17 @@ newer than host 33465, and a host is precisely the thing that does not get repla
 sabotages: the flag passed without naming an editor, and any published rEdit treated as ours (it
 named the wrong port).
 
-Gates: `npm test` 209/209, `./init.sh` and `features.py validate` clean, sidecars stamped. F103
-`passes: false` on one criterion: no new pane has been opened to watch it happen.
+**And then a pane was opened.** It came up connected with no slash command; its `/ide` menu, opened
+afterwards to look, put the check mark on this workspace's editor with hirebase-v2's offered beside
+it and not chosen, and `ide-selection` reported `delivered: 2` — the existing pane and the new one.
+The case counting could not serve is the case it now serves.
+
+Gates: `npm test` 209/209, `./init.sh` and `features.py validate` clean, sidecars stamped. Every F103
+criterion is met; the row stays `passes: false` because F99 is not verified and the inventory refuses
+a passing row above it. One thing left for the owner: the row's *description* still says "when
+exactly one rEdit is published for that root", which was the first rule and is now only the fallback.
+Criterion 4 carries the corrected rule and the reason, so the record is right; changing an accepted
+description is the owner's call rather than mine.
 
 ## Session 70 (macos) — 2026-09-07 — The restart, run for real, and the two bugs only running it found
 
