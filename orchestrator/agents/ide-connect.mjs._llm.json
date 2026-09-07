@@ -15,11 +15,25 @@
         "docs/evidence/editor-as-claude-ide-2026-09-07.md",
         "docs/specs/102-editor-as-claude-ide.md"
       ]
+    },
+    {
+      "id": "naming-the-port-beats-counting",
+      "kind": "rationale",
+      "anchor": {
+        "start": 47,
+        "end": 47,
+        "symbol": "autoConnect",
+        "snippet": "export async function autoConnect(agent, directory, options = {}) {"
+      },
+      "note": "`--ide` alone auto-connects only when exactly one editor is valid, and on a machine where two workspaces bind the same project that is never true — the first version of this declined forever on the owner's own checkout, correctly and uselessly.\n\nThe CLI has a second path: a lock whose port equals `CLAUDE_CODE_SSE_PORT` is valid regardless of the other checks, and the selection then returns that editor alone. So the question becomes which editor is *this pane's*, and ancestry answers it without asking anything of anyone: the session host forks every pane, so its pid is in this process's ancestor chain, and the lock naming it is ours.\n\nAn earlier attempt asked the host for its pid on `/api/state` and got `undefined` — that field is newer than the running host, and a host is exactly the thing that does not get replaced. Ancestry needs no cooperation from it. Counting survives as the fallback for when the chain matches none of the offered editors.",
+      "refs": [
+        "docs/evidence/editor-as-claude-ide-2026-09-07.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/agents/ide-connect.mjs",
-    "sha256": "1c6f0c8ea769445a9d19f133f6bc542c500e2b7f5811ae996a0f9d5b5e8e99bd",
+    "sha256": "2d3d69d27fe1984a98745aac72e5c8c90188834753fd8149be524ec501b78e75",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

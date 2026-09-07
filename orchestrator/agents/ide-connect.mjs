@@ -41,17 +41,35 @@ export async function offeredEditors(directory, { locks = ideDirectory(), alive 
 const FLAGS = { claude: ['--ide'] };
 export const ideConnectFlag = agent => FLAGS[agent] ?? null;
 
-/* The decision, and the sentence explaining it — a pane that silently does not connect is a support
-   question, so the reason is always available even when the answer is "no". */
+/* The decision, its environment, and the sentence explaining it — a pane that silently does not
+   connect is a support question, so the reason is always available even when the answer is "no".
+   See sidecar: naming-the-port-beats-counting. */
 export async function autoConnect(agent, directory, options = {}) {
+  /* Which published editor is *this pane's*. The session host is an ancestor of every pane it forks,
+     so its pid appears in the chain above this process — which identifies our editor on any host,
+     including one too old to report its own pid on /api/state. */
+  const ourPids = (options.ourPids ?? []).filter(Number.isInteger);
   const flags = ideConnectFlag(agent);
-  if (!flags) return { flags: [], reason: `${agent} has no auto-connect option; nothing was added to its command line.` };
+  if (!flags) return { flags: [], env: {}, reason: `${agent} has no auto-connect option; nothing was added to its command line.` };
   const offered = await offeredEditors(directory, options);
-  if (!offered.length) return { flags: [], reason: 'No editor is published for this directory, so auto-connect would fail at startup.' };
-  if (offered.length > 1) {
-    return { flags: [], offered: offered.length,
-      reason: `${offered.length} editors are published for this directory, and auto-connect needs exactly one; run /ide to choose.` };
+  if (!offered.length) return { flags: [], env: {}, reason: 'No editor is published for this directory, so auto-connect would fail at startup.' };
+
+  /* This workspace's own editor is the one whose lock names this pane's session host. Naming its
+     port makes the CLI select it outright, which is the difference between connecting to the right
+     editor and declining because a machine-mate's workspace also binds this folder. */
+  const ours = ourPids.length ? offered.find(editor => ourPids.includes(editor.pid) && editor.ours) : null;
+  if (ours) {
+    return { flags, env: { CLAUDE_CODE_SSE_PORT: String(ours.port) }, offered: offered.length,
+      reason: offered.length > 1
+        ? `${offered.length} editors are published for this directory; connecting to this workspace's own on port ${ours.port}.`
+        : `This workspace's ${IDE_NAME} is published for this directory; connecting on startup.` };
   }
-  if (!offered[0].ours) return { flags: [], reason: `The one editor published here is ${offered[0].ideName}, not ${IDE_NAME}; it is not ours to connect to.` };
-  return { flags, offered: 1, reason: `One ${IDE_NAME} is published for this directory; connecting on startup.` };
+
+  if (offered.length > 1) {
+    const why = ourPids.length ? "none of them is this workspace's" : 'this workspace could not be identified among them';
+    return { flags: [], env: {}, offered: offered.length,
+      reason: `${offered.length} editors are published for this directory and ${why}, so there is nothing to choose; run /ide.` };
+  }
+  if (!offered[0].ours) return { flags: [], env: {}, reason: `The one editor published here is ${offered[0].ideName}, not ${IDE_NAME}; it is not ours to connect to.` };
+  return { flags, env: {}, offered: 1, reason: `One ${IDE_NAME} is published for this directory; connecting on startup.` };
 }

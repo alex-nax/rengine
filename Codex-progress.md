@@ -33,7 +33,21 @@ time, because the fixture asserted the direction a bare prefix also gets right; 
 is what the test asserts now. Second time this session a sabotage has exposed a test that did not
 test what its name claimed.
 
-Gates: `npm test` 208/208, `./init.sh` and `features.py validate` clean, sidecars stamped. F103
+**Counting was the wrong rule, and the machine said so within a minute.** `--ide` auto-connects only
+when exactly one editor is valid, so the first implementation declined on `/Users/alex/rengine` —
+correctly and uselessly, because hirebase-v2's workspace binds that folder too. The CLI has a second
+path in the same function: a lock whose port equals `CLAUDE_CODE_SSE_PORT` is valid regardless, and
+the selection then returns that editor alone. So the question is *which editor is this pane's*, and
+ancestry answers it with no cooperation from anyone: the session host forks every pane, so its pid is
+in the chain above `launch.mjs`. Live, the chain resolved as `46159, 92680, 92674, 33465` and the
+launch composed `--ide` with `CLAUDE_CODE_SSE_PORT=65353` for both roots.
+
+An earlier attempt asked the host for its own pid on `/api/state` and got `undefined` — that field is
+newer than host 33465, and a host is precisely the thing that does not get replaced. Two more
+sabotages: the flag passed without naming an editor, and any published rEdit treated as ours (it
+named the wrong port).
+
+Gates: `npm test` 209/209, `./init.sh` and `features.py validate` clean, sidecars stamped. F103
 `passes: false` on one criterion: no new pane has been opened to watch it happen.
 
 ## Session 70 (macos) — 2026-09-07 — The restart, run for real, and the two bugs only running it found

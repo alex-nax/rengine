@@ -129,7 +129,7 @@ export function describeInvocation(plan) {
     shellQuote(plan.executable), ...plan.consumes.args.map(shellQuote)].join(' ');
 }
 
-export async function agentLaunch({ agent, executable, args = [], contextFile, context, directory, identity, handoff, conversation, resume = false, env = process.env, cwd = null, ide = autoConnect }) {
+export async function agentLaunch({ agent, executable, args = [], contextFile, context, directory, identity, handoff, conversation, resume = false, env = process.env, cwd = null, ourPids = [], ide = autoConnect }) {
   const root = context ?? JSON.parse(await readFile(contextFile, 'utf8'));
   if (!/^[0-9a-f-]{36}$/.test(root.rootId)) throw new Error('Invalid project identity in workspace context.');
   const name = `rengine_${root.rootId.replaceAll('-', '').slice(0, 12)}`;
@@ -148,7 +148,7 @@ export async function agentLaunch({ agent, executable, args = [], contextFile, c
     plan.settings = await claudeSettingsFile(home, boundFile);
     /* Told to connect to the editor it runs inside, but only when exactly one is published for this
        directory — the CLI's own rule, and a menu nobody opened is worse than typing /ide. */
-    const connect = cwd ? await ide(agent, cwd) : { flags: [], reason: 'No working directory was given, so auto-connect was not considered.' };
+    const connect = cwd ? await ide(agent, cwd, { ourPids }) : { flags: [], env: {}, reason: 'No working directory was given, so auto-connect was not considered.' };
     plan.ide = connect;
     consumes.args = ['--mcp-config', generic, '--settings', plan.settings,
       ...connect.flags, ...conversationArgs(agent, bound, resume)];
@@ -171,6 +171,6 @@ export async function agentLaunch({ agent, executable, args = [], contextFile, c
      conversation. An agent absent from the table is recorded with nothing at all. */
   if (agentConversation(agent)) plan.conversation = bound.session?.known ? bound.agentId : null;
   plan.args = [...consumes.args, ...args];
-  plan.env = { ...env, RENGINE_MCP_CONFIG: generic, ...consumes.env };
+  plan.env = { ...env, RENGINE_MCP_CONFIG: generic, ...consumes.env, ...(plan.ide?.env ?? {}) };
   return plan;
 }

@@ -40,9 +40,31 @@ test('a lock whose process is gone is not offered', async () => {
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test('exactly one is the rule, because that is the rule the CLI applies', async () => {
-  // Measured on 2026-09-07: with two locks covering the working directory, `/ide` listed both and
-  // auto-connect has nothing to choose. A flag passed here would open a menu nobody asked for.
+test('this workspace\'s own editor is named by port, so a machine-mate\'s does not block it', async () => {
+  // Measured on 2026-09-07: four locks covered one folder and `/ide` listed all four, so counting
+  // alone would decline forever on a machine where two workspaces bind the same project. Naming our
+  // port is what the CLI itself honours to select one outright.
+  const shared = await locks({
+    100: { pid: 1, ideName: 'rEdit', workspaceFolders: ['/work'] },
+    200: { pid: 2, ideName: 'rEdit', workspaceFolders: ['/work'] },
+  });
+  try {
+    const ours = await autoConnect('claude', '/work', { locks: shared, alive, ourPids: [2, 77] });
+    assert.deepEqual(ours.flags, ['--ide'], `two offered, but one of them is ours: ${ours.reason}`);
+    assert.equal(ours.env.CLAUDE_CODE_SSE_PORT, '200', 'and the CLI is told which one');
+
+    // None of them ours: there is genuinely nothing to choose, so nothing is passed.
+    const theirs = await autoConnect('claude', '/work', { locks: shared, alive, ourPids: [999] });
+    assert.deepEqual(theirs.flags, []);
+    assert.match(theirs.reason, /none of them is this workspace's/);
+
+    // A host too old to report its pid falls back to counting, which is the previous behaviour.
+    const blind = await autoConnect('claude', '/work', { locks: shared, alive });
+    assert.deepEqual(blind.flags, []);
+  } finally { await rm(shared, { recursive: true, force: true }); }
+});
+
+test('exactly one is the rule when this workspace cannot be identified', async () => {
   const two = await locks({
     100: { pid: 1, ideName: 'rEdit', workspaceFolders: ['/work'] },
     200: { pid: 2, ideName: 'rEdit', workspaceFolders: ['/work'] },
@@ -51,8 +73,7 @@ test('exactly one is the rule, because that is the rule the CLI applies', async 
   const foreign = await locks({ 100: { pid: 1, ideName: 'VS Code', workspaceFolders: ['/work'] } });
   try {
     const many = await autoConnect('claude', '/work', { locks: two, alive });
-    assert.deepEqual(many.flags, [], 'two offered means no flag');
-    assert.match(many.reason, /needs exactly one/);
+    assert.deepEqual(many.flags, [], 'two offered and neither identified means no flag');
 
     const single = await autoConnect('claude', '/work', { locks: one, alive });
     assert.deepEqual(single.flags, ['--ide'], `one offered means the flag: ${single.reason}`);

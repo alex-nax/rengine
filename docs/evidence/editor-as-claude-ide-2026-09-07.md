@@ -235,6 +235,31 @@ That also settles the question raised when a peer mentioned replacing the vtmb-v
 overlapping-folder case is not hypothetical, it is the owner's machine today, and `--ide` would
 silently decline rather than connect.
 
+## Counting was the wrong rule, and the machine proved it immediately
+
+The first implementation followed the CLI's own condition: pass `--ide` when exactly one editor is
+offered. Run against the live workspace it declined, correctly and uselessly — two editors cover
+`/Users/alex/rengine`, this workspace's and hirebase-v2's, so a rengine pane would never auto-connect
+on this machine. The rule was right about the CLI and wrong about the job.
+
+The CLI has a second path, in the same function: a lock whose port equals `CLAUDE_CODE_SSE_PORT` is
+valid regardless, and the selection then returns that one editor alone. So the question becomes
+*which editor is this pane's*, and the answer needs nothing from the host: the session host is an
+ancestor of every pane it forks, so the lock naming a pid in this process's ancestor chain is ours.
+
+Measured against the running workspace: the pane's chain resolved as `46159, 92680, 92674, 33465` —
+reaching session host 33465 — and the launch composed `--ide` with `CLAUDE_CODE_SSE_PORT=65353` for
+both `/Users/alex/rengine` (two editors published) and `/Users/alex/nolf-improved` (one).
+
+An earlier attempt asked the host for its own pid on `/api/state`. It came back `undefined`: that
+field is newer than host 33465, which the supervisor restart deliberately did not replace. Ancestry
+needs no cooperation from the host at all, which is why it is the rule.
+
+| | Sabotage | Red for |
+| --- | --- | --- |
+| P1 | the flag is passed without naming which editor | the CLI was not told which one |
+| P2 | any published rEdit is treated as this workspace's | it named the wrong port |
+
 ## A criterion that was wrong, corrected
 
 F103 originally said auto-connect could only reach a running workspace by replacing its session

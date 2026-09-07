@@ -4,6 +4,7 @@ import { agentLaunch, describeSession } from './config.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { checkConnection } from '../runtime/protocol.mjs';
 import { readHandoff, waitForPresentation, resumeArgs, checkResume } from './handoff.mjs';
+import { ancestorsOf, listProcesses } from '../launcher/replace.mjs';
 
 const [agent, executable, contextFile, ...args] = process.argv.slice(2);
 if (!agent || !executable || !contextFile) throw new Error('Expected agent identity, executable and workspace context.');
@@ -16,8 +17,13 @@ if (process.env.RENGINE_HANDOFF_GATE) {
 }
 /* This runs in the pane, so its own working directory is the one the CLI will inherit and the one
    the editor's lock has to cover. Read from disk at every pane launch, which is why auto-connect
-   reaches a running workspace without replacing its session host. */
-const plan = await agentLaunch({ agent, executable, contextFile, args, handoff, cwd: process.cwd(),
+   reaches a running workspace without replacing its session host.
+   The host's pid identifies this workspace's own editor among however many cover the folder; a host
+   too old to report it leaves auto-connect to the count, which is the previous behaviour. */
+let ourPids = [];
+try { ourPids = ancestorsOf(process.pid, await listProcesses()); }
+catch { /* the editor decision is not worth failing a pane launch over */ }
+const plan = await agentLaunch({ agent, executable, contextFile, args, handoff, cwd: process.cwd(), ourPids,
   conversation: process.env.RENGINE_AGENT_CONVERSATION, resume: process.env.RENGINE_AGENT_RESUME === '1' });
 if (plan.ide) console.log(`Editor: ${plan.ide.reason}`);
 // The identity decided here is the single source: the workspace may have minted a conversation, the

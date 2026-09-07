@@ -7,7 +7,7 @@
       "anchor": {
         "start": 132,
         "end": 132,
-        "snippet": "export async function agentLaunch({ agent, executable, args = [], contextFile, context, directory, identity, handoff, conversation, resume = false, env = process.env, cwd = null, ide = autoConnect }) {"
+        "snippet": "export async function agentLaunch({ agent, executable, args = [], contextFile, context, directory, identity, handoff, conversation, resume = false, env = process.env, cwd = null, ourPids = [], ide = autoConnect }) {"
       },
       "note": "Each launch creates a private unique configuration directory so concurrent agents cannot overwrite one another’s overlays. User/project files are never rewritten. OpenCode runtime JSONC and Gemini defaults are parsed and preserved; malformed input or a name collision fails visibly. Gemini uses the lowest-precedence defaults layer, so managed policy remains authoritative. Codex requires the injected MCP server to initialize; no permission-bypass flags are supplied. The claude branch also names the conversation, exactly once: conversationArgs adds --session-id or --resume for an identity rEngine decided, and adds nothing to a launch whose own args already name a session, because the identity IS that session id."
     },
@@ -69,7 +69,7 @@
   ],
   "source": {
     "path": "orchestrator/agents/config.mjs",
-    "sha256": "7628569c3630ddf43670414de7c41d4ea34fe20da7bb89d99844ca33c0eb6b66",
+    "sha256": "ec4f12bbd234a5e76c9240881934201456f799345cac4e0922dc449e36ce135f",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

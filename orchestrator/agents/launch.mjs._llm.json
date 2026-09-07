@@ -5,8 +5,8 @@
       "id": "terminal-signals-and-windows-shims",
       "kind": "rationale",
       "anchor": {
-        "start": 41,
-        "end": 41,
+        "start": 47,
+        "end": 47,
         "snippet": "process.on('SIGINT', () => {});"
       },
       "note": "The wrapper retains the PTY while the real CLI owns interactive input. In canonical mode the foreground process group already receives SIGINT; forwarding it again would duplicate Ctrl-C, so the wrapper only suppresses its own default exit. Raw-mode CLIs receive the control byte directly. Explicit SIGTERM is forwarded and the wrapper exits with the child. Windows npm shell shims execute through the selected Git Bash with constant exec-$@ code and separate argv elements; never interpolate arguments into shell text."
@@ -15,8 +15,8 @@
       "id": "presentation-before-resume",
       "kind": "rationale",
       "anchor": {
-        "start": 11,
-        "end": 11,
+        "start": 12,
+        "end": 12,
         "snippet": "if (process.env.RENGINE_HANDOFF_GATE) {"
       },
       "note": "A handoff bootstrap owns a real retained PTY but waits on its private per-session gate before starting Codex. Native attach alone is insufficient: the terminal must have been rendered and presented. Revalidate the private manifest snapshot and login after the wait, then pass resume arguments as argv through the usual required MCP configuration. Stop terminates the waiting bootstrap normally. This gate is workflow coordination within the trusted local service, not remote attestation or a security sandbox.",
@@ -27,7 +27,7 @@
   ],
   "source": {
     "path": "orchestrator/agents/launch.mjs",
-    "sha256": "fd39ddbec1042b10ae5a30c637dc0eb2f1e067e29498b117e33f610cf810c4b5",
+    "sha256": "7920bebe1c59f8f39cfff391e14251cba9ba6519d341e054a8e3d2dfbc37609f",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }
