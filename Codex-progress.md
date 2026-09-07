@@ -1,5 +1,36 @@
 # Progress Log
 
+## Session 69 (macos) — 2026-09-07 — Restarting the layer that cannot be updated (F107)
+
+The supervisor performs layered updates, so its own code can never arrive by one — the stable IDE
+port of KI-066 has been sitting on `main` unable to reach the running workspace for exactly that
+reason. There was no supported way to restart it: `--replace-host` (spec 098) is the other layer and
+ends every session on purpose, and the owner's own attempt through this session was blocked because
+a raw `kill` is not something an agent should be reaching for.
+
+So it is an action now, in the dashboard beside the others, opening as a retained script tab.
+
+**Everything dangerous was already written.** `launcher/replace.mjs` came out of spec 098 with
+`findHost`, `findSupervisors`, `stopProcess` and `portReleased`, all of them tested, all of them
+refusing by name rather than pattern-matching process names. This is a small module on top rather
+than a second implementation of the same care.
+
+**The two rules the tests exist to hold.** The session host is never signalled — it owns the PTYs,
+the agents and the store, and stopping it is a different tool's job. And the replacement is started
+**detached**, because the thing asking for a supervisor restart is almost always a pane inside the
+workspace being restarted; a replacement that stayed an ordinary child would be a child of a pane
+whose window the restart just closed, and the workspace would end up with no supervisor at all. The
+launcher is invoked *without* `--replace-host`, and a test asserts that flag's absence, because
+adding it would look like thoroughness.
+
+Four sabotages, each red for its own assertion: the host added to the stop list (`the host was
+signalled: 200, 100`), the replacement left attached, `--replace-host` appended, and the plan
+computed after stopping had begun (`Missing expected rejection`).
+
+Gates: `npm test` 201/201, `./init.sh`, `design.py check` and `features.py validate` clean, the
+dashboard declaration reads without error. F107 `passes: false` on one criterion: it has not yet been
+run against the owner's own workspace, which is the point of it existing and is theirs to trigger.
+
 ## Session 68 (macos) — 2026-09-07 — "To agent": the gesture, chosen as a control rather than a chord (F100)
 
 The last unmet criterion of F100. The editor pane header gains a labelled **To agent** button that

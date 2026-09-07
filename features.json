@@ -1432,6 +1432,34 @@
         "orchestrator/tests/contracts.test.mjs: exactly one mark, .svg only, confined paths, contract-8 floor, missing file reported",
         "orchestrator/tests/native-identity.spec.mjs: the chrome wears the artwork (#CC4F4C found in the bar) and falls back to the glyph without it"
       ]
+    },
+    {
+      "id": 107,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "A workspace can restart its own update supervisor without ending a session: an action in the rEdit dashboard stops the supervisor for a state directory and starts a detached one from the current checkout, so the layer that performs layered updates — and therefore cannot receive one — can be replaced from inside the workspace it serves.",
+      "acceptance_criteria": [
+        "The session host is never signalled: the host for the state directory is found through its own descriptor confirmed against the process table, a PID that is not that host is refused by name with nothing signalled, and another workspace's host and supervisor are left alone.",
+        "The replacement is started detached, with no inherited pipes, so it survives the pane that asked for it — which is normally a pane inside the workspace being restarted, whose window the restart closes.",
+        "The launcher is invoked without --replace-host, adopting the running host rather than ending its sessions; the absence of that flag is asserted.",
+        "The report names the host it kept and each supervisor it stopped, including how many desktop windows close with it, so a vanishing editor window is predicted rather than surprising.",
+        "It is reachable as a declared dashboard action, opening as a retained interactive script tab like every other action, and it asks for confirmation before signalling anything.",
+        "Each regression was observed failing for its own reason: the host added to the stop list, the replacement left attached, --replace-host added to the launcher, and the plan computed after stopping had begun.",
+        "LIVE, still outstanding: run once against the owner's own workspace and record that the supervisor changed PID, the desktop reopened on its layout, and every retained session survived."
+      ],
+      "passes": false,
+      "dependencies": [
+        94
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "orchestrator/launcher/restart-supervisor.mjs, orchestrator/actions/restart-supervisor.sh, its dashboard declaration in .rengine/project.json, and orchestrator/tests/restart-supervisor.test.mjs.",
+      "external_references": [],
+      "evidence": [
+        "orchestrator/tests/restart-supervisor.test.mjs: the session host is never among the processes stopped",
+        "orchestrator/tests/restart-supervisor.test.mjs: the replacement is detached, or it would die with the pane that asked for it",
+        "orchestrator/tests/restart-supervisor.test.mjs: a state directory with no live host is refused, and nothing is signalled"
+      ]
     }
   ]
 }

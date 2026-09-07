@@ -205,6 +205,20 @@
               "Implemented",
               "Follow-up"
             ]
+          },
+          {
+            "id": "restart-supervisor",
+            "title": "Restart update supervisor",
+            "description": "Interactive: stops this workspace's update supervisor and starts a detached one from this checkout. Its desktop windows close and reopen; the session host and every retained terminal, agent and draft are untouched.",
+            "kind": "script",
+            "script": "orchestrator/actions/restart-supervisor.sh",
+            "requires": [
+              "orchestrator/actions/restart-supervisor.sh",
+              "orchestrator/launcher/restart-supervisor.mjs"
+            ],
+            "tools": [
+              "node"
+            ]
           }
         ]
       }

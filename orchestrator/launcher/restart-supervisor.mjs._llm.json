@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "the-other-layer",
+      "kind": "constraint",
+      "anchor": {
+        "start": 23,
+        "end": 23,
+        "symbol": "plan",
+        "snippet": "export async function plan(stateDir, { processes, descriptor, alive, runtimeRoot } = {}) {"
+      },
+      "note": "Two processes serve one workspace and stopping the wrong one is the difference between a blinking window and a day's work gone. The **session host** owns the PTYs, the agents, the store and the drafts; the **supervisor** owns the desktop windows and performs layered updates. This tool restarts the supervisor and must never signal the host — that is what `launch.mjs --replace-host` is for (spec 098), and it ends sessions on purpose.\n\nThe host is found by its own descriptor confirmed against the process table, never by pattern-matching process names: `findHost` throws, by name and without signalling anything, when the descriptor's PID turns out to be something else or another directory's host. That refusal is deliberately left to travel rather than being softened into a plan, because it is more specific than anything this file could say.",
+      "refs": [
+        "docs/specs/098-replace-session-host.md",
+        "known-issues.md"
+      ]
+    },
+    {
+      "id": "detached-or-it-dies-with-the-pane",
+      "kind": "rationale",
+      "anchor": {
+        "start": 57,
+        "end": 57,
+        "symbol": "restart",
+        "snippet": "const child = spawnImpl(process.execPath, [LAUNCHER, '--state', stateDir, '--no-agent'],"
+      },
+      "note": "The thing asking for a supervisor restart is almost always a pane *inside* the workspace being restarted — that is the whole reason this exists as an action tab. A replacement that stayed an ordinary child would then be a child of a pane whose window the restart just closed, and would go away with it, leaving the workspace with no supervisor at all. `detached: true` with `stdio: 'ignore'` reparents it and drops every pipe back to the caller; `unref()` lets the caller exit.\n\nThe launcher is invoked *without* `--replace-host`, which is the difference between adopting the running host and ending every session on it. A test asserts that flag's absence, because adding it would look like thoroughness.",
+      "refs": [
+        "orchestrator/actions/restart-supervisor.sh"
+      ]
+    }
+  ]
+}
