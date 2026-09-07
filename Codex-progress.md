@@ -1,5 +1,41 @@
 # Progress Log
 
+## Session 71 (macos) — 2026-09-07 — Auto-connect, and the check that does not fire (F103)
+
+A Claude pane now connects to the editor it runs inside without anyone typing `/ide` — when exactly
+one editor is published for its working directory, which is the CLI's own rule and turns out to
+matter far more than expected.
+
+**The rule was measured, and the reasoning it replaced was wrong.** The CLI's discovery code filters
+on `workspaceFolders` against the cwd *and* on the lock's pid being one of the CLI's first ten
+ancestors. Reading it, ancestry looks like the thing that disambiguates two workspaces publishing the
+same folder. Four locks were published over `/Users/alex/rengine` and a real CLI was driven with
+`/ide`: **all four were listed**, including hirebase-v2's, whose host is nobody's ancestor here. The
+only filter that fired was folders-against-cwd, and the locks it excluded said so in as many words.
+So the ancestry gate is conditional on something not true in a real pane, and this counts the way the
+CLI was observed to count rather than the way its source reads. If a future version starts applying
+ancestry this becomes conservative, which is the safe direction: a pane that does not auto-connect is
+one `/ide` away, and a pane that auto-connects into a four-item menu is a question nobody asked.
+
+That also makes the overlapping-folder case concrete rather than hypothetical — it is this machine
+today, and `--ide` would decline. The criterion added when a peer mentioned the vtmb-vr host was
+right for a reason neither of us had checked.
+
+**A criterion of my own was wrong and is corrected in the row.** F103 said this could only reach a
+running workspace by replacing its session host, on the KI-043 reasoning that the launch environment
+is host-composed. The host spawns `scripts/agent.sh`, which execs `agents/launch.mjs` **from the
+checkout at every pane launch** — so the decision is made in the pane by code read from disk, and it
+reaches a running workspace with no host replacement and no layered update at all.
+
+Four sabotages, each red for its own assertion. C2 — containment as a bare prefix — passed first
+time, because the fixture asserted the direction a bare prefix also gets right; querying from inside
+`/work/rengine` never confuses it with `/work/rengine-old`. Querying from the sibling does, and that
+is what the test asserts now. Second time this session a sabotage has exposed a test that did not
+test what its name claimed.
+
+Gates: `npm test` 208/208, `./init.sh` and `features.py validate` clean, sidecars stamped. F103
+`passes: false` on one criterion: no new pane has been opened to watch it happen.
+
 ## Session 70 (macos) — 2026-09-07 — The restart, run for real, and the two bugs only running it found
 
 Supervisor 44390 → **57193**, worker → 57195, desktop → 57227 with all 13 sessions, session host

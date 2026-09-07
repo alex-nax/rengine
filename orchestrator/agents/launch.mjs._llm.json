@@ -5,8 +5,8 @@
       "id": "terminal-signals-and-windows-shims",
       "kind": "rationale",
       "anchor": {
-        "start": 37,
-        "end": 37,
+        "start": 41,
+        "end": 41,
         "snippet": "process.on('SIGINT', () => {});"
       },
       "note": "The wrapper retains the PTY while the real CLI owns interactive input. In canonical mode the foreground process group already receives SIGINT; forwarding it again would duplicate Ctrl-C, so the wrapper only suppresses its own default exit. Raw-mode CLIs receive the control byte directly. Explicit SIGTERM is forwarded and the wrapper exits with the child. Windows npm shell shims execute through the selected Git Bash with constant exec-$@ code and separate argv elements; never interpolate arguments into shell text."
@@ -27,7 +27,7 @@
   ],
   "source": {
     "path": "orchestrator/agents/launch.mjs",
-    "sha256": "5e48d628344b4d3afc5d9e006ea2af74138bb852cdb19313237f7b59f8c6f02b",
+    "sha256": "fd39ddbec1042b10ae5a30c637dc0eb2f1e067e29498b117e33f610cf810c4b5",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

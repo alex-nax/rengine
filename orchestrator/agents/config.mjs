@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { parse } from 'jsonc-parser';
 import { request } from '../launcher/sidecar.mjs';
+import { autoConnect } from './ide-connect.mjs';
 import { checkConnection } from '../runtime/protocol.mjs';
 
 const mcpMain = fileURLToPath(new URL('./mcp.mjs', import.meta.url));
@@ -128,7 +129,7 @@ export function describeInvocation(plan) {
     shellQuote(plan.executable), ...plan.consumes.args.map(shellQuote)].join(' ');
 }
 
-export async function agentLaunch({ agent, executable, args = [], contextFile, context, directory, identity, handoff, conversation, resume = false, env = process.env }) {
+export async function agentLaunch({ agent, executable, args = [], contextFile, context, directory, identity, handoff, conversation, resume = false, env = process.env, cwd = null, ide = autoConnect }) {
   const root = context ?? JSON.parse(await readFile(contextFile, 'utf8'));
   if (!/^[0-9a-f-]{36}$/.test(root.rootId)) throw new Error('Invalid project identity in workspace context.');
   const name = `rengine_${root.rootId.replaceAll('-', '').slice(0, 12)}`;
@@ -145,7 +146,12 @@ export async function agentLaunch({ agent, executable, args = [], contextFile, c
       '-c', `mcp_servers.${name}.args=${JSON.stringify(server.args)}`, '-c', `mcp_servers.${name}.required=true`];
   } else if (agent === 'claude') {
     plan.settings = await claudeSettingsFile(home, boundFile);
-    consumes.args = ['--mcp-config', generic, '--settings', plan.settings, ...conversationArgs(agent, bound, resume)];
+    /* Told to connect to the editor it runs inside, but only when exactly one is published for this
+       directory — the CLI's own rule, and a menu nobody opened is worse than typing /ide. */
+    const connect = cwd ? await ide(agent, cwd) : { flags: [], reason: 'No working directory was given, so auto-connect was not considered.' };
+    plan.ide = connect;
+    consumes.args = ['--mcp-config', generic, '--settings', plan.settings,
+      ...connect.flags, ...conversationArgs(agent, bound, resume)];
   } else if (agent === 'opencode') {
     const previous = env.OPENCODE_CONFIG_CONTENT ? object(env.OPENCODE_CONFIG_CONTENT, 'OpenCode runtime configuration') : {};
     consumes.env.OPENCODE_CONFIG_CONTENT = JSON.stringify({ ...previous,

@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "counted-the-way-the-cli-counted",
+      "kind": "history",
+      "anchor": {
+        "start": 24,
+        "end": 24,
+        "symbol": "offeredEditors",
+        "snippet": "export async function offeredEditors(directory, { locks = ideDirectory(), alive = living } = {}) {"
+      },
+      "note": "The CLI's discovery code contains two filters: `workspaceFolders` against the working directory, and a check that the lock's pid is one of the CLI's first ten ancestors. Reading it, the ancestry check looks like the one that disambiguates two workspaces publishing the same folder — and that reasoning is wrong.\n\nMeasured on 2026-09-07 by publishing four locks over `/Users/alex/rengine` and driving a real CLI with `/ide`: all four were listed, including one belonging to another workspace's host, which is nobody's ancestor here. The only filter that fired was folders-against-cwd, and the locks it excluded were reported separately as not matching the cwd. So the ancestry gate is conditional on something not true in a real pane.\n\nThis counts the way the CLI was observed to count. If a future version starts applying ancestry, this becomes conservative — it will decline to auto-connect where the CLI would have found exactly one — which is the safe direction: a pane that does not auto-connect is a `/ide` away, and a pane that auto-connects into a menu is a question nobody asked.",
+      "refs": [
+        "docs/evidence/editor-as-claude-ide-2026-09-07.md",
+        "docs/specs/102-editor-as-claude-ide.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/agents/ide-connect.mjs",
+    "sha256": "1c6f0c8ea769445a9d19f133f6bc542c500e2b7f5811ae996a0f9d5b5e8e99bd",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

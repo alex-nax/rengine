@@ -14,8 +14,12 @@ if (process.env.RENGINE_HANDOFF_GATE) {
   await checkResume(process.env.RENGINE_BASH, handoff.project, process.env);
   args.push(...resumeArgs(handoff));
 }
-const plan = await agentLaunch({ agent, executable, contextFile, args, handoff,
+/* This runs in the pane, so its own working directory is the one the CLI will inherit and the one
+   the editor's lock has to cover. Read from disk at every pane launch, which is why auto-connect
+   reaches a running workspace without replacing its session host. */
+const plan = await agentLaunch({ agent, executable, contextFile, args, handoff, cwd: process.cwd(),
   conversation: process.env.RENGINE_AGENT_CONVERSATION, resume: process.env.RENGINE_AGENT_RESUME === '1' });
+if (plan.ide) console.log(`Editor: ${plan.ide.reason}`);
 // The identity decided here is the single source: the workspace may have minted a conversation, the
 // person at the pane may have chosen another from the offered list, and their own --resume beats
 // both. Report the id the CLI was actually started with, so the record follows the launch — and

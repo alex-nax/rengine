@@ -1388,22 +1388,29 @@
       "priority": "medium",
       "description": "An agent pane is connected to the editor it runs inside without anyone typing /ide: the workspace launches a supported CLI with its own auto-connect option when exactly one rEdit is published for that root.",
       "acceptance_criteria": [
-        "A newly launched Claude pane is connected to rEdit without a slash command, and the pane says so once rather than on every turn.",
-        "A CLI with no such option, or a workspace publishing no lock, launches exactly as it does today with nothing added to its command line.",
-        "The option is carried by the agent launch configuration, so adding a CLI that supports it is a declaration rather than a code change.",
-        "A pane whose root has no published lock does not pass the flag, because auto-connect that finds nothing is a startup error the person did not ask for.",
-        "Two workspaces can publish a lock for the same folder — the rEngine workspace binds vtmb-vr as a root while vtmb-vr's own workspace serves it too — and both are valid for a pane whose ancestor chain reaches either host. Claude Code auto-connects only when exactly one valid IDE is offered, so in that case the flag must not be passed: auto-connect that finds two editors is a startup the person did not ask to answer. The pane still gets `/ide`.",
-        "Recorded explicitly: the launch environment is composed by the retained session host, so this reaches an existing workspace only when its host is replaced; the row is not complete until that is stated in the runbook.",
-        "Each regression was observed failing for its own reason."
+        "A newly launched Claude pane is connected to rEdit without a slash command, and the pane prints the reason once at startup rather than on every turn.",
+        "A CLI with no such option, or a directory with no published editor, launches exactly as it does today with nothing added to its command line, and the reason says which case it was.",
+        "The option is carried by a table in the agent launch configuration, so adding a CLI that supports it is a declaration rather than a code change.",
+        "The flag is passed only when exactly one editor is published for the pane's working directory and it is rEdit — the CLI's own rule, measured rather than assumed: on 2026-09-07, with four locks covering /Users/alex/rengine, /ide listed all four and the ancestry check in the CLI's source did not filter the three that were not this pane's ancestors.",
+        "An editor is offered for a directory only when a declared folder actually contains it: a sibling whose name merely starts with the folder's name (/work/rengine-old against /work/rengine) is not inside it, and a lock whose process is gone is not offered at all.",
+        "CORRECTED: an earlier criterion said this could only reach a running workspace by replacing its session host. That is wrong. The host spawns scripts/agent.sh, which execs orchestrator/agents/launch.mjs from the checkout at every pane launch, so the decision is made in the pane by code read from disk — it reaches a running workspace with no host replacement and no layered update.",
+        "Each regression was observed failing for its own reason: the flag passed whenever any editor is offered, a bare prefix used for containment, a dead editor still offered, and every CLI given the flag.",
+        "LIVE, still outstanding: open a new Claude pane in this workspace and record that it connected without /ide, or that it printed which of the four editors ambiguity stopped it."
       ],
       "passes": false,
       "dependencies": [
         99
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The auto-connect option in the agent launch configuration (orchestrator/agents/config.mjs) and the runbook note about the host boundary.",
+      "deliverable": "orchestrator/agents/ide-connect.mjs; the FLAGS table and the plan's ide decision in orchestrator/agents/config.mjs; the cwd and the printed reason in orchestrator/agents/launch.mjs; orchestrator/tests/ide-connect.test.mjs.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "orchestrator/tests/ide-connect.test.mjs: exactly one is the rule, because that is the rule the CLI applies",
+        "orchestrator/tests/ide-connect.test.mjs: an editor is offered when its folders cover the directory, and not when they merely look like it",
+        "orchestrator/tests/ide-connect.test.mjs: a CLI with no auto-connect option gets nothing added to its command line",
+        "orchestrator/tests/ide-connect.test.mjs: the launch plan carries the flag, and says why when it does not",
+        "docs/evidence/editor-as-claude-ide-2026-09-07.md: the four-editor measurement that set the rule"
+      ]
     },
     {
       "id": 106,

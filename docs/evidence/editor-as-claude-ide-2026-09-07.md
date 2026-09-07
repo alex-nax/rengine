@@ -200,6 +200,64 @@ carry `ide: 1`, `POST /api/ide-mention` returned `delivered: 1` against a really
   held. The desktop always sends one, so nothing was visibly wrong — it surfaced only when a hand
   probe asked without it. Absent is not the same as zero.
 
+---
+
+# Auto-connect, and the measurement that set its rule (F103)
+
+## Four editors, and the check that did not fire
+
+The plan was to reason from the CLI's discovery code: a lock is valid when its `workspaceFolders`
+cover the cwd **and** its `pid` is one of the CLI's first ten ancestors. Two live locks covered
+`/Users/alex/rengine` at the time — this workspace's (host 33465) and hirebase-v2's (host 24145) —
+so the reasoning predicted that ancestry would leave exactly one.
+
+It was measured instead. Two more locks were published naming the probe's own process, and a real
+CLI was driven in a PTY with `/ide`:
+
+```
+1. rEdit  /Users/alex/rengine
+2. rEdit  /Users/alex/rengine
+3. rEdit  /Users/alex/hirebase-v2, /Users/alex/rengine
+4. rEdit  /Users/alex/rengine, /Users/alex/nolf-improved, …
+   Found 2 other running IDE(s). However, their workspace/project
+   directories do not match the current cwd.
+     ● rEdit:
+     ● rEdit: /Users/alex/vtmb-vr
+```
+
+**All four were offered**, including hirebase-v2's, which is not this pane's ancestor by any reading.
+The only filter that actually applied was folders-against-cwd; the two excluded ones were excluded
+for that reason and said so. So the ancestry gate is conditional on something not true in a real
+pane, and auto-connect cannot lean on it. The rule implemented is the one observed: exactly one
+editor covering the working directory, and it is ours.
+
+That also settles the question raised when a peer mentioned replacing the vtmb-vr host — the
+overlapping-folder case is not hypothetical, it is the owner's machine today, and `--ide` would
+silently decline rather than connect.
+
+## A criterion that was wrong, corrected
+
+F103 originally said auto-connect could only reach a running workspace by replacing its session
+host, on the KI-043 reasoning that the launch environment is host-composed. That is wrong. The host
+spawns `scripts/agent.sh`, which execs `orchestrator/agents/launch.mjs` **from the checkout at every
+pane launch**. The decision is therefore made in the pane, by code read from disk, and reaches a
+running workspace with no host replacement and no layered update at all. The row records the
+correction rather than quietly dropping the claim.
+
+## The sabotages
+
+| | Sabotage | Red for |
+| --- | --- | --- |
+| C1 | the flag is passed whenever any editor is offered | `two offered means no flag` |
+| C2 | containment is a bare prefix test | `/work/rengine-old` matched the editor serving `/work/rengine` |
+| C3 | a dead editor is still offered | a lock with no live process was returned |
+| C4 | every CLI is given the flag | codex, gemini and opencode were not left alone |
+
+C2 passed on the first attempt, and the fixture was the reason: it asserted that `/work/rengine-old`
+is not offered when querying from *inside* `/work/rengine`, which a bare prefix also gets right. The
+direction that distinguishes them is the opposite one — querying from the sibling — and the test now
+asserts that instead.
+
 ## What is not met, and said so in the row
 
 - Parsed check-action output as a second source is not built. Marked NOT MET.
