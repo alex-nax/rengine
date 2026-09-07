@@ -1,5 +1,65 @@
 # Progress Log
 
+## Session 51 (macos) — 2026-09-07 — The agent identity is the Claude session id (F90 stage 1, revised)
+
+Owner decision, verbatim: *"Each claude session has identifier … on every session exit claude tells us
+to use `claude resume <id>`, token should be bound to that identifier."* So the identity stops being a
+number rEngine keeps beside the agent and becomes the conversation's own id, decided **at launch**
+from the flags the launch was given — never inferred afterwards from a transcript, a process tree or
+a hook, which is how an earlier attempt kept getting it wrong.
+
+`claude --help` on this machine settles the four cases and they are a table in spec 095's *Identity*
+section now: nothing named → mint and start the CLI with `--session-id <agentId>` beside
+`--mcp-config`; `--session-id`/`--resume`/`-r` with a uuid → that uuid **is** the `agentId` and the
+args pass through untouched; `-c`/`--continue`, `--resume` with a search term rather than an id, and
+`--resume <id> --fork-session` → the CLI mints the id inside itself, so the identity is rEngine's own
+and says `session.known: false`. That last case is the honest one and the launcher prints it as such
+rather than offering a `--resume` line that would not work. Codex's handoff already carries a
+`sessionId`; where there is one it is that agent's `agentId` too. Nothing was invented for gemini or
+opencode.
+
+Two consequences worth their own sentences. The **label** is now `<cli> <first eight of agentId>` —
+`claude 5b8d47c2` — so two Claude sessions on one root are two different things in the status bar and
+in a refusal, and the prefix is the id the person resumes by. And `bind.mjs` grew **`--session UUID`**:
+bind the session you are already in, and its start line is `claude --mcp-config <path> --resume <id>`
+instead of naming a new one. That is the whole point of the decision — the binding outlives the
+process.
+
+The ledger had to follow. **A holder's pid now follows its session**: an identified request from the
+holder's own `agentId` under a different pid refreshes the holder and the identities registry, so a
+resumed session keeps the token it held and `holder-gone` goes on meaning what it says instead of
+firing at every resume. Two defects seen live the same day are closed with it. **A release under an
+open contest hands the token to the contester at once** (`token.claimed`, `by: { kind: 'release' }`,
+naming the holder that let go) — it used to free the token and leave the contest open, which left the
+contester unable to act, unable to re-contest, and waiting out a window against a token nobody held.
+The desktop's *free* and *revoke* are deliberately left alone: the person there has Grant and Reject.
+And **a contest now carries the window it opened under**, so changing `tokenWindowMs` re-times
+nothing that is already open.
+
+That last one corrected the report that prompted it. The stored deadline was *already* absolute and
+`arm()` already read it, so the deadline itself never moved; what followed the live preference were
+the window a `status` read reported for an open contest and the cooldown a rejection of it charged.
+Both now come from `contest.windowMs`, pinned at the instant the contest opens, and `setWindow`
+touches no open contest at all.
+
+Twelve sabotages in `docs/evidence/agent-session-identity-2026-09-07.md`, each watched red for its
+own assertion and not an earlier one: the minted id not reaching the CLI, the flag's uuid not being
+read, a session named twice, `--continue` and `--fork-session` claimed as known, codex's handoff
+dropped, the label without its prefix, `bind --session` ignored, a bound session started with
+`--session-id`, the holder's pid frozen (and again with the pid assertions lifted, so the consequence
+assertion is shown to discriminate on its own), the release leaving the contest hanging, the transfer
+attributed as an ordinary agent claim, the preference re-timing an open contest, and the cooldown
+reading the live preference.
+
+`npm test` — 110/110. Nothing under `orchestrator/native/*`, `orchestrator/tests/native*` or
+`orchestrator/server/*` was touched; the native end-to-end fixture is another lane's, and the pinned
+worker→desktop frame is unchanged (`contest.windowMs` is ledger-side only).
+
+Remaining: `workspace_info` still reports the identity's `agentId`/`label`/`pid`/`startedAt` and not
+its `session` descriptor, so an agent cannot yet read back its own resume line over MCP — one line in
+`agents/mcp-worker.mjs`, left out because that file is outside this branch's scope. Branch
+`feat/agent-session-identity`, not merged.
+
 ## Session 49 (macos) — 2026-09-07 — The project token in the chrome, and the recorder on the feed (F90 stage 3)
 
 Stage 3 of spec 095: the native desktop's half of the project token, built on `feat/agent-token-desktop`

@@ -1,18 +1,21 @@
 import { spawn } from 'node:child_process';
-import { agentLaunch } from './config.mjs';
+import { agentLaunch, describeSession } from './config.mjs';
 import { readHandoff, waitForPresentation, resumeArgs, checkResume } from './handoff.mjs';
 
 const [agent, executable, contextFile, ...args] = process.argv.slice(2);
 if (!agent || !executable || !contextFile) throw new Error('Expected agent identity, executable and workspace context.');
+let handoff = null;
 if (process.env.RENGINE_HANDOFF_GATE) {
   await waitForPresentation(process.env.RENGINE_HANDOFF_GATE);
-  const handoff = await readHandoff(process.env.RENGINE_HANDOFF_FILE, process.cwd());
+  handoff = await readHandoff(process.env.RENGINE_HANDOFF_FILE, process.cwd());
   await checkResume(process.env.RENGINE_BASH, handoff.project, process.env);
   args.push(...resumeArgs(handoff));
 }
-const plan = await agentLaunch({ agent, executable, contextFile, args });
+const plan = await agentLaunch({ agent, executable, contextFile, args, handoff });
 if (plan.custom) console.log(`Custom agent MCP configuration: ${plan.generic} (also RENGINE_MCP_CONFIG). Configure this CLI to consume it.`);
 else console.log(`Workspace MCP: ${plan.name}`);
+const session = describeSession(plan.identity);
+console.log(`Workspace identity: ${plan.identity.label}${session ? ` — ${session}` : ''}`);
 if (process.platform === 'win32' && !process.env.RENGINE_BASH) throw new Error('Windows workspace bootstrap requires RENGINE_BASH.');
 const command = process.platform === 'win32' ? process.env.RENGINE_BASH : plan.executable;
 const argv = process.platform === 'win32' ? ['--noprofile', '--norc', '-c', 'exec "$@"', 'rengine-agent', plan.executable, ...plan.args] : plan.args;

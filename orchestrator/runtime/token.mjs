@@ -91,6 +91,12 @@ export class Ledger {
     const known = this.state.identities[identity.agentId];
     this.state.identities[identity.agentId] = { agentId: identity.agentId, label: identity.label,
       ...(identity.pid ? { pid: identity.pid } : {}), firstSeenAt: known?.firstSeenAt ?? new Date().toISOString(), lastSeenAt: new Date().toISOString() };
+    /* The identity is the agent's session, not its process (spec 095, Identity): a resumed session
+       is the same agentId under a new pid, so the hold stands and liveness follows the process that
+       is running it now. Without this the resumed holder reads as gone and loses its own token. */
+    if (identity.pid && this.state.holder?.agentId === identity.agentId && this.state.holder.pid !== identity.pid) {
+      this.state.holder = { ...this.state.holder, pid: identity.pid };
+    }
     const entries = Object.entries(this.state.identities);
     if (entries.length > IDENTITIES) {
       entries.sort((a, b) => Date.parse(a[1].lastSeenAt) - Date.parse(b[1].lastSeenAt));
@@ -176,7 +182,11 @@ export class Ledger {
       return { state: 'claimed', holder: this.state.holder, by: by.kind };
     }
     const openedAt = new Date().toISOString();
-    this.state.contest = { id: randomUUID(), contester, openedAt, deadline: new Date(Date.now() + this.window()).toISOString(), reason: printable(reason, 200) };
+    /* The window a contest was opened under travels with it: the deadline is fixed at this instant,
+       and so is the cooldown a rejection of it costs. Changing the preference re-times nothing. */
+    const windowMs = this.window();
+    this.state.contest = { id: randomUUID(), contester, openedAt, windowMs,
+      deadline: new Date(Date.now() + windowMs).toISOString(), reason: printable(reason, 200) };
     this.frame('token.contested', { kind: 'agent', agentId: caller.agentId, label: caller.label },
       { contestId: this.state.contest.id, contester, holder, deadline: this.state.contest.deadline, reason: this.state.contest.reason });
     this.arm(); await this.persist();
@@ -191,7 +201,7 @@ export class Ledger {
     return this.settleRejection(contest, { kind: 'agent', agentId: caller.agentId, label: caller.label }, reason);
   }
   async settleRejection(contest, by, reason) {
-    const until = new Date(Date.now() + this.window()).toISOString();
+    const until = new Date(Date.now() + (contest.windowMs ?? this.window())).toISOString();
     this.state.contest = null;
     this.state.cooldown[contest.contester.agentId] = until;
     this.frame('token.rejected', by, { contestId: contest.id, contester: contest.contester, holder: this.state.holder,
@@ -199,11 +209,22 @@ export class Ledger {
     this.arm(); await this.persist();
     return { state: 'rejected', contestId: contest.id, cooldownUntil: until, holder: this.state.holder };
   }
+  /* A release under an open contest is that contest answered, not a token left lying free: the
+     contester would otherwise wait out a window for a token nobody holds, and could not even
+     re-contest, because a second contest is refused while one is open. */
   async release(caller) {
     await this.settle();
     this.seen(caller);
     if (this.state.holder?.agentId !== caller.agentId) throw Object.assign(new Error(this.refusal(caller, 'token_release')), { status: 409 });
-    const holder = this.state.holder;
+    const holder = this.state.holder, contest = this.state.contest;
+    if (contest) {
+      this.state.contest = null;
+      this.state.holder = { ...contest.contester, since: new Date().toISOString() };
+      this.frame('token.claimed', { kind: 'release', agentId: holder.agentId, label: holder.label },
+        { holder: this.state.holder, previousHolder: holder, contestId: contest.id });
+      this.arm(); await this.persist();
+      return { state: 'claimed', holder: this.state.holder, previousHolder: holder, contestId: contest.id, by: 'release' };
+    }
     this.state.holder = null;
     this.frame('token.released', { kind: 'agent', agentId: caller.agentId, label: caller.label }, { holder });
     await this.persist();
@@ -273,7 +294,8 @@ export class Tokens {
     }
     this.preferences = { ...this.preferences, tokenWindowMs: value };
     await writeAtomically(this.file, this.preferences);
-    for (const ledger of this.ledgers.values()) ledger.arm();
+    /* Nothing is re-armed: an open contest carries the window it opened under, its deadline is an
+       absolute wall time, and the next contest is the first to use the new length. */
     return this.preferences;
   }
   ledger(rootId) {

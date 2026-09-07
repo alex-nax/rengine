@@ -129,6 +129,76 @@ test('a contest against a holder whose process is gone resolves at once', { time
   assert.equal(frames.at(-1).by.kind, 'holder-gone');
 });
 
+test('a resumed session keeps the token it took under its previous process', { timeout: 20000 }, async t => {
+  const { root, worker } = await workspace(t);
+  const departed = spawn(process.execPath, ['-e', '']);
+  await once(departed, 'exit');
+  /* The Claude session id is the identity, so this is one agent across two processes: it claimed the
+     token under the pid that has since gone, and answers now under the pid it was resumed in. */
+  const claimed = identity('claude', departed.pid);
+  await ok(worker, 'token-action', { rootId: root.id, action: 'contest' }, claimed);
+  const stale = await status(worker, root.id, claimed);
+  assert.equal(stale.holderAlive, false, 'the control: the process that claimed it really is gone');
+
+  const seen = await status(worker, root.id, { ...claimed, pid: process.pid });
+  assert.equal(seen.holder.agentId, claimed.agentId, 'the same session still holds it');
+  assert.equal(seen.holder.pid, process.pid, 'under the process it is running in now');
+  assert.equal(seen.holder.since, stale.holder.since, 'and it is the same hold, not a fresh claim');
+  assert.equal(seen.holderAlive, true);
+  assert.equal(seen.identities.find(entry => entry.agentId === claimed.agentId).pid, process.pid,
+    'the identities the ledger lists follow the same process');
+  const contested = await ok(worker, 'token-action', { rootId: root.id, action: 'contest' }, identity('codex'));
+  assert.equal(contested.state, 'pending', 'so another agent opens a window rather than taking it as a token nobody holds');
+  assert.equal((await ok(worker, `feed?${new URLSearchParams({ rootId: root.id })}`)).frames.some(frame => frame.by.kind === 'holder-gone'),
+    false, 'and nothing on the feed ever declared the holder gone');
+});
+
+test('a release answers the open contest at once, and the window preference never re-times one', { timeout: 30000 }, async t => {
+  const { root, worker } = await workspace(t, { window: 5000 });
+  const alice = identity('claude'), bob = identity('codex');
+  await ok(worker, 'token-action', { rootId: root.id, action: 'contest' }, alice);
+  const feed = await feedSocket(worker, (await status(worker, root.id, alice)).feed);
+  t.after(() => feed.close());
+  const pending = await ok(worker, 'token-action', { rootId: root.id, action: 'contest', reason: 'about to deploy' }, bob);
+  assert.equal(pending.state, 'pending');
+
+  await ok(worker, 'preferences', { tokenWindowMs: 300 });
+  const shortened = await status(worker, root.id, alice);
+  assert.equal(shortened.window, 300, 'the workspace preference is the new length');
+  assert.equal(shortened.contest.deadline, pending.deadline, 'and the open contest keeps the deadline it opened with');
+  assert.equal(shortened.contest.windowMs, 5000, 'because it carries the window it opened under');
+  await delay(900);
+  const waited = await status(worker, root.id, alice);
+  assert.equal(waited.holder.agentId, alice.agentId, 'three of the new windows later the token has not moved');
+  assert.equal(waited.contest?.id, pending.contestId, 'and the contest is still the one that was opened');
+
+  const released = await ok(worker, 'token-action', { rootId: root.id, action: 'release' }, alice);
+  assert.ok(Date.now() < Date.parse(pending.deadline), 'the release lands well inside the window');
+  assert.equal(released.state, 'claimed', 'releasing under an open contest hands the token to the contester');
+  assert.equal(released.holder.agentId, bob.agentId);
+  assert.equal(released.contestId, pending.contestId);
+  const after = await status(worker, root.id, bob);
+  assert.equal(after.holder.agentId, bob.agentId, 'rather than leaving a free token under a contest nobody can resolve');
+  assert.equal(after.contest, null, 'the contest is closed');
+  assert.equal(after.holdsToken, true);
+  await ok(worker, 'preferences', { tokenWindowMs: 4000 });
+  assert.equal((await contest(worker, root.id, identity('gemini'))).status, 200,
+    'and a third agent may contest, which it could not while that contest hung open');
+  await ok(worker, 'preferences', { tokenWindowMs: 300 });
+  const rejected = await ok(worker, 'token-action', { rootId: root.id, action: 'reject', reason: 'not now' }, bob);
+  assert.ok(Date.parse(rejected.cooldownUntil) - Date.now() > 2000,
+    'a rejection costs the window its own contest was opened under, not whatever the preference has since become');
+
+  const claim = feed.frames.filter(frame => frame.type === 'token.claimed').at(-1);
+  assert.equal(claim.by.kind, 'release', 'the transfer is attributed to the release, not to a deadline that never arrived');
+  assert.equal(claim.by.agentId, alice.agentId);
+  assert.equal(claim.holder.agentId, bob.agentId);
+  assert.equal(claim.previousHolder.agentId, alice.agentId);
+  assert.equal(claim.contestId, pending.contestId);
+  assert.equal(feed.frames.some(frame => frame.type === 'token.released'), false,
+    'the token was never free, so no frame says it was');
+});
+
 test('the desktop can reject, grant, revoke and free, and its recording frames reach the feed', { timeout: 30000 }, async t => {
   const { root, worker } = await workspace(t);
   const alice = identity('claude'), bob = identity('codex');
@@ -311,8 +381,9 @@ test('the tools carry the token, and against a worker without the ledger they re
     assert.match(refused.text, /token_contest/, `${name} points at token_contest`);
   }
   const seen = await bob.call('token_status');
-  assert.deepEqual(seen.value.identities.map(entry => entry.label).sort(), ['claude', 'codex'],
-    'an agent appears in token_status once it has called anything');
+  assert.deepEqual(seen.value.identities.map(entry => entry.label).sort(),
+    [`claude ${alice.identity.agentId.slice(0, 8)}`, `codex ${bob.identity.agentId.slice(0, 8)}`].sort(),
+    'an agent appears in token_status once it has called anything, wearing its CLI and the session it resumes by');
 
   const url = await alice.call('feed_url');
   assert.match(url.value.url, /^ws:\/\/127\.0\.0\.1:\d+\/feed\?/);

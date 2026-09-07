@@ -76,12 +76,54 @@ The facts below are from the code as of `8ca5bbf`, so a reader can check each in
 
 ## Identity
 
-Each agent launch mints an **agent identity**: `{ agentId, label, pid, startedAt }` — a UUID, the CLI's
-name (`claude`, `codex`, `gemini`, `opencode`, or the executable's basename), the launcher's process
-id, and a wall time. It is written into a **per-launch context file** beside the MCP configuration
-that `config.mjs` already creates, and that file — not the shared root file — is what the facade and
-the tool worker read. Two agents on one root therefore differ, and a replaced tool worker keeps the
-identity because it re-reads the file.
+Owner decision, 2026-09-07, given verbatim in the vtmb-vr workspace:
+
+> "Each claude session has identifier … on every session exit claude tells us to use
+> `claude resume <id>`, token should be bound to that identifier."
+
+So the identity is not a number rEngine keeps *beside* the agent. Where the CLI names its own
+conversation, the **`agentId` IS that session id**, decided at launch from the flags the launch was
+given and never inferred afterwards — not from a transcript, a process tree or a hook, each of which
+an earlier attempt got wrong by guessing after the fact. That is what makes the binding outlive the
+process: a Claude session that exits and comes back through `claude --resume <id>` is the same
+identity, still holding whatever it held, and a lane that has forgotten its own id is a lane whose
+token has to be taken away by hand.
+
+An identity is `{ agentId, label, pid, startedAt, session?, sessionId? }`:
+
+| field | is |
+| --- | --- |
+| `agentId` | the CLI's own session id where one is known, else a minted UUID |
+| `label` | `<cli> <first eight of agentId>`, e.g. `claude 5b8d47c2`, so two Claude sessions on one root are two different things in the status bar and in a refusal — and the prefix is the id the person resumes by |
+| `pid` | the process the session is running in *now* (see liveness, below) |
+| `session` | `{ provider, id, known, source, resume }`, for the CLIs whose session flags have been checked against their own `--help`: claude and codex. Absent for the rest; nothing is invented for a CLI we have not verified. |
+| `sessionId` | the workspace pty session the launcher runs under, when there is one |
+
+It is written into a **per-launch context file** beside the MCP configuration that `config.mjs`
+already creates, and that file — not the shared root file — is what the facade and the tool worker
+read. Two agents on one root therefore differ, and a replaced tool worker keeps the identity because
+it re-reads the file.
+
+**How a Claude launch's id is decided** (`claude --help`, read on this machine 2026-09-07:
+`--session-id <uuid>` "Use a specific session ID for the conversation (must be a valid UUID)";
+`-r, --resume [value]` "Resume a conversation by session ID, or open interactive picker with optional
+search term"; `-c, --continue`; `--fork-session` "When resuming, create a new session ID instead of
+reusing the original"):
+
+| the launch's own args | `agentId` | what rEngine adds to the CLI args |
+| --- | --- | --- |
+| none of the flags below | a minted UUID | `--session-id <agentId>`, beside `--mcp-config` |
+| `--session-id <uuid>`, `--resume <uuid>`, `-r <uuid>` | that uuid | nothing; the args pass through unchanged |
+| `-c` / `--continue`, or `--resume` with no uuid — its picker/search form | a minted UUID, `session.known: false` | nothing |
+| `--resume <uuid> --fork-session` | a minted UUID, `session.known: false` | nothing — a fork is a new conversation, and its id is minted inside the CLI |
+
+`known: false` is the honest case, not a failure: the CLI names that conversation itself, rEngine
+never sees the id, and the identity is rEngine's own for that launch. The launcher's printed line
+says so instead of offering a `--resume` command that would not work.
+
+**Codex** already carries one: the handoff manifest's `sessionId`, which `resumeArgs()` hands to
+`codex resume <id>`. Where a handoff is present that id is the `agentId` too. Gemini and OpenCode get
+a minted UUID and no `session` descriptor.
 
 The tool worker sends the identity on every call as three headers — `X-Rengine-Agent: <agentId>`,
 `X-Rengine-Agent-Label` and `X-Rengine-Agent-Pid` — and the workspace worker reads them. The label
@@ -89,10 +131,13 @@ and pid travel because a refusal has to *name* the holder and the ledger has to 
 holder's process is still there, and the worker has no table to look either up in. A request without
 the first header is the desktop's. The host ignores unknown headers, so this costs no host change.
 
-**Liveness is the pid, uniformly.** `scripts/agent.sh` execs the launcher, so a pane-spawned agent's
-`process.pid` *is* the pty session pid the host lists; `bind.mjs` records `process.ppid`, the terminal
-that will run the CLI. Both are a process alive exactly while the agent is, so no `boundBy`
-discriminator is needed and none was added.
+**Liveness is the pid, and the pid follows the session.** `scripts/agent.sh` execs the launcher, so a
+pane-spawned agent's `process.pid` *is* the pty session pid the host lists; `bind.mjs` records
+`process.ppid`, the terminal that will run the CLI. Both are a process alive exactly while the agent
+is, so no `boundBy` discriminator is needed and none was added. Because the identity is the session
+and not the process, an identified request from the **holder's own `agentId` under a different pid**
+refreshes the holder's pid and the identities registry: the resumed session keeps its token, and
+`holder-gone` goes on meaning what it says rather than firing at every resume.
 
 When an agent is spawned by the workspace, `launch.mjs` also records the pty session it runs under
 where it can, so the desktop can show *claude · vtmb-vr* rather than a UUID. This spec first said the
@@ -102,16 +147,20 @@ launcher replaces that shell and its own pid **is** the pid the host lists. The 
 either the launcher's pid or its parent's, and records `sessionId` when one of them is a listed agent
 session. Where neither matches, the label and pid stand.
 
-**Binding from outside.** `node orchestrator/agents/bind.mjs --project DIR [--agent NAME] [--state DIR]`
-walks the sidecar descriptors under the state directory, asks each live instance for its roots, picks
-the one whose root is `DIR`, mints an identity, writes the per-launch context and MCP configuration,
-and prints the configuration path and the CLI flag that consumes it. Without `--state` it scans both
-the base directory and each of its children: a consumer's `editor.sh` nests one state directory per
-checkout at `<base>/<name>-<cksum>`, while this checkout's own default state directory *is* the base,
-so `main.mjs` writes `sidecar.json` straight into it. A consumer's launcher (vtmb-vr's
-`editor.sh`, nolf-improved's) wraps that as `--bind`. Two instances claiming the same root is a
-refusal that names both. This is the mechanism the owner asked for when a session that could not
-press a button asked the owner to press it.
+**Binding from outside.** `node orchestrator/agents/bind.mjs --project DIR [--agent NAME]
+[--session UUID] [--state DIR]` walks the sidecar descriptors under the state directory, asks each
+live instance for its roots, picks the one whose root is `DIR`, gives the agent an identity, writes
+the per-launch context and MCP configuration, and prints the configuration path and the CLI line that
+consumes it. `--session` is the other half of the owner's decision: pass the id an existing session
+resumes by and the binding *is* that session, and the printed line is
+`claude --mcp-config <path> --resume <id>`; omit it and one is minted, printed as
+`claude --mcp-config <path> --session-id <id>`. Without `--state` it scans both the base directory
+and each of its children: a consumer's `editor.sh` nests one state directory per checkout at
+`<base>/<name>-<cksum>`, while this checkout's own default state directory *is* the base, so
+`main.mjs` writes `sidecar.json` straight into it. A consumer's launcher (vtmb-vr's `editor.sh`,
+nolf-improved's) wraps that as `--bind`. Two instances claiming the same root is a refusal that names
+both. This is the mechanism the owner asked for when a session that could not press a button asked
+the owner to press it.
 
 ## The token and the contest
 
@@ -121,7 +170,7 @@ it as `feed.json`:
 
 ```
 { version: 1, rootId, holder: { agentId, label, pid, since } | null,
-  contest: { id, contester: {...}, openedAt, deadline, reason } | null,
+  contest: { id, contester: {...}, openedAt, windowMs, deadline, reason } | null,
   cooldown: { [agentId]: until }, sequence,
   identities: { [agentId]: { agentId, label, pid, firstSeenAt, lastSeenAt } },
   history: [ ...last 50 transitions ] }
@@ -141,12 +190,32 @@ Transitions, each a feed frame:
 | contest open | *grant* at the desktop | `token.claimed` at once, `by: desktop` |
 | contest open, deadline passed | (timer, or the next call) | `token.claimed` by the contester, `by: deadline` |
 | held, holder pid gone | `token_contest` | `token.claimed` at once, `by: holder-gone` |
-| held | `token_release` by the holder, or *free* at the desktop | `token.released` |
+| held, no contest open | `token_release` by the holder, or *free* at the desktop | `token.released` |
+| contest open | `token_release` by the holder | `token.claimed` at once by the contester, `by: { kind: 'release', agentId, label }` naming the holder that let go |
 | held | *revoke* at the desktop | `token.revoked`; nobody holds it |
 
 A second contest while one is open is refused naming the open one; a holder contesting its own token
 is a no-op that reports it holds it. Deadlines are absolute wall times so a replaced worker resumes
 the countdown from the file rather than restarting it (decision 10).
+
+**A contest is answered, or it times out; it is never left hanging.** Two defects were seen live on
+2026-09-07 and are closed here, each with its own regression in
+[`agent-session-identity-2026-09-07.md`](../evidence/agent-session-identity-2026-09-07.md):
+
+- **A release under an open contest hands the token straight to the contester.** Releasing used to
+  free the token and leave the contest open, which is the worst of both: the contester could not act
+  (it does not hold it), could not re-contest (a second contest is refused while one is open) and had
+  to wait out a window against a token nobody held. The release is the contest answered, so the frame
+  is one `token.claimed` attributed to the release rather than a `token.released` followed by a
+  transfer — the token was never free, and nothing on the feed should say it was. The desktop's
+  *free* and *revoke* are left as they are: the person at that desktop has **Grant** for handing it
+  over and **Reject** for refusing, and choosing one of those is what those controls are for.
+- **A contest carries the window it opened under.** `contest.windowMs` is fixed at the instant the
+  contest opens, along with the absolute `deadline` it implies and the cooldown a rejection of that
+  contest costs. Changing the `tokenWindowMs` preference re-times nothing that is already open; the
+  next contest is the first to use the new length. The pinned worker→desktop frame is unchanged:
+  its `windowMs` remains the workspace preference and its `contest` keeps the four fields stage 3
+  parses, so `windowMs` on the contest is ledger-side only.
 
 **What the token is not.** Every participant already holds the workspace capability, the sixty-four
 hex characters that authenticate every route. The token is **arbitration among cooperating agents**,
@@ -161,7 +230,8 @@ never sees it), carrying one JSON frame per event, replaying from `after` out of
 
 ```
 { sequence, at, rootId, type, by: { kind: 'agent', agentId, label } | { kind: 'desktop', desktopId }
-                                | { kind: 'deadline' | 'holder-gone' } | { kind: 'workspace', pid }, ... }
+                                | { kind: 'deadline' | 'holder-gone' } | { kind: 'workspace', pid }
+                                | { kind: 'release', agentId, label }, ... }
 ```
 
 `workspace` is the fourth `by` the implementation needed: a frame nobody asked for — a game the
@@ -302,7 +372,7 @@ which is what keeps `update_workspace` able to prepare its own replacement.
 | `token_status` | read | holder, open contest with seconds remaining, whether the caller holds it, cooldowns, identities seen |
 | `token_contest` | — | opens a contest or claims a free token; returns `{ state: 'claimed' \| 'pending', deadline }`; refuses during the caller's cooldown, naming when it ends |
 | `token_reject` | holder | rejects the open contest with a reason the contester will read |
-| `token_release` | holder | frees the token |
+| `token_release` | holder | frees the token, or hands it to an open contest's contester at once |
 | `feed_url` | read | the WebSocket URL for the caller's monitor, with the current cursor |
 | `feed_read` | read | frames after a cursor |
 
@@ -333,7 +403,10 @@ than passing every call — the spec 078 asymmetry, handled at design time this 
 
 1. Identity and binding (`config.mjs`, `launch.mjs`, new `bind.mjs`; the facade and tool worker read
    the per-launch context). Ships as a connector update; a pane-spawned agent reopened after it has
-   an identity.
+   an identity. **Revised** 2026-09-07 by the owner decision at the head of *Identity*: the identity
+   is the CLI's session id, `bind.mjs` grew `--session`, the label carries the id's first eight, and
+   the ledger's holder pid follows a resumed session. Evidence:
+   `docs/evidence/agent-session-identity-2026-09-07.md`.
 2. Ledger, contest, gating and the feed in the workspace worker; the tool worker's header and gates;
    `token_*` and `feed_*` tools. Ships as `workspace` + `connector`. **Done** 2026-09-07:
    `orchestrator/runtime/{token,feed}.mjs` beside `worker.mjs`, the gates and routes in `worker.mjs`,
