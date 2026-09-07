@@ -1,5 +1,8 @@
 import { spawn } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
 import { agentLaunch } from './config.mjs';
+import { request } from '../launcher/sidecar.mjs';
+import { checkConnection } from '../runtime/protocol.mjs';
 import { readHandoff, waitForPresentation, resumeArgs, checkResume } from './handoff.mjs';
 
 const [agent, executable, contextFile, ...args] = process.argv.slice(2);
@@ -12,6 +15,14 @@ if (process.env.RENGINE_HANDOFF_GATE) {
 }
 const plan = await agentLaunch({ agent, executable, contextFile, args,
   conversation: process.env.RENGINE_AGENT_CONVERSATION, resume: process.env.RENGINE_AGENT_RESUME === '1' });
+// Report what actually launched. The workspace may have minted the conversation, and the person at
+// the pane may have chosen a different one from the list it offered; the record follows the pane.
+if (plan.conversation && process.env.RENGINE_ORCHESTRATOR_SESSION) {
+  try {
+    await request(checkConnection(JSON.parse(await readFile(contextFile, 'utf8'))), 'agent-conversation',
+      { id: process.env.RENGINE_ORCHESTRATOR_SESSION, conversation: plan.conversation, agent });
+  } catch (error) { console.error(`The workspace was not told which conversation this pane holds: ${error.message}`); }
+}
 if (plan.custom) console.log(`Custom agent MCP configuration: ${plan.generic} (also RENGINE_MCP_CONFIG). Configure this CLI to consume it.`);
 else console.log(`Workspace MCP: ${plan.name}`);
 if (process.platform === 'win32' && !process.env.RENGINE_BASH) throw new Error('Windows workspace bootstrap requires RENGINE_BASH.');

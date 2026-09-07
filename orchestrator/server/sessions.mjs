@@ -15,6 +15,18 @@ import { agentConversation } from '../agents/config.mjs';
 const execute = promisify(execFile);
 const agentScript = fileURLToPath(new URL('../../scripts/agent.sh', import.meta.url));
 const OUTPUT_LIMIT = 1024 * 1024;
+/* Plain words beat a timestamp in a pane: the person is choosing between "2 hours ago" and
+   "yesterday", not reading a clock. */
+const MINUTE = 60000, HOUR = 60 * MINUTE, DAY = 24 * HOUR;
+export function describeAge(when, now = Date.now()) {
+  const gap = Math.max(0, now - when);
+  if (gap < 2 * MINUTE) return 'just now';
+  if (gap < HOUR) return `${Math.round(gap / MINUTE)} minutes ago`;
+  if (gap < 2 * HOUR) return 'an hour ago';
+  if (gap < DAY) return `${Math.round(gap / HOUR)} hours ago`;
+  if (gap < 2 * DAY) return 'yesterday';
+  return `${Math.round(gap / DAY)} days ago`;
+}
 
 export function shellEnvironment(overrides = {}, { inherited = process.env, platform = process.platform, userDirectory = homedir() } = {}) {
   const win = platform === 'win32';
@@ -147,7 +159,21 @@ export class Sessions extends EventEmitter {
         if (agentConversation(agent)) {
           conversation = conversation ?? randomUUID();
           env = { ...env, RENGINE_AGENT_CONVERSATION: conversation, ...(resume ? { RENGINE_AGENT_RESUME: '1' } : {}) };
+          await this.store.recordConversation(root.id, { conversation, agent });
         }
+        // What this project already has, for the pane to offer. Written only when there is
+        // something to offer, so a project with no history never prompts.
+        const remembered = this.store.listConversations(root.id);
+        if (remembered.length) {
+          const listing = path.join(directory, `${id}.conversations.tsv`);
+          const rows = remembered.filter(entry => entry.id !== conversation)
+            .map(entry => `${entry.id}\t${entry.agent ?? ''}\t${describeAge(entry.lastSeenAt)}`);
+          if (rows.length) {
+            await writeFile(listing, `${rows.join('\n')}\n`, { mode: 0o600 });
+            env = { ...env, RENGINE_AGENT_CONVERSATIONS: listing };
+          }
+        }
+        env = { ...env, RENGINE_ORCHESTRATOR_SESSION: id };
       }
     }
     if (type !== 'agent' || !env.RENGINE_AGENT_CONVERSATION) conversation = undefined;
@@ -195,6 +221,18 @@ export class Sessions extends EventEmitter {
     const item = this.get(id);
     if (item.state !== 'running') return;
     item.child.resize(cols, rows); item.cols = cols; item.rows = rows;
+  }
+
+  // The pane reports what it actually launched: the workspace may have minted a conversation, and
+  // the person at the pane may have chosen a different one from the offered list.
+  async recordConversation(id, conversation, agent) {
+    const item = this.get(id);
+    if (item.type !== 'agent') fail('Only an agent session holds a conversation.');
+    const entry = await this.store.recordConversation(item.rootId, { conversation, agent: agent || item.agent || undefined });
+    item.conversation = entry.id;
+    if (agent && !item.agent) item.agent = agent;
+    this.changed(item);
+    return this.snapshot(id);
   }
 
   // Replace an agent pane with a new one on the same conversation and a freshly composed

@@ -1040,6 +1040,36 @@
         "orchestrator/tests/agent-config.test.mjs: rEngine names the conversation it launches and resumes that same one",
         "orchestrator/tests/sessions.test.mjs: restarting refuses anything it cannot put back into its own conversation"
       ]
+    },
+    {
+      "id": 93,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "Conversations outlive the session host that recorded them: the workspace persists them per project root, bounded and most recent first, and an agent pane offers the project's own conversations so resuming one is a choice in the pane rather than a command the person has to remember.",
+      "acceptance_criteria": [
+        "A conversation recorded by one session host is listed by a new host opened on the same state directory, most recently seen first, scoped to its own root.",
+        "Re-recording an existing conversation touches it and moves it to the front rather than adding a second row, and the list is bounded at 20 per root with the oldest dropped.",
+        "An agent pane whose project has history lists it with when each was last seen, and choosing one resumes that conversation instead of starting a second.",
+        "Enter starts a new conversation and keeps the identifier the workspace minted; an out-of-range choice starts a new conversation rather than guessing.",
+        "The offer is silent with no listing, an empty listing, or only another agent's rows, and a restart that already named its conversation is not asked again.",
+        "A workspace-minted identifier does NOT suppress the offer: a fresh pane still sees what it could resume instead.",
+        "The pane reports what it actually launched, so the session record and the persisted list follow the person's choice rather than what was minted.",
+        "LIVE, still outstanding: from a host carrying this change, a pane offers a prior conversation, resuming it continues that conversation, and the offer survives a host restart. Recorded under docs/evidence/."
+      ],
+      "passes": false,
+      "dependencies": [
+        92
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/097-agent-conversation-persistence.md; listConversations and recordConversation in orchestrator/server/store.mjs; the listing, describeAge and Sessions.recordConversation in orchestrator/server/sessions.mjs; the report in orchestrator/agents/launch.mjs; /api/agent-conversation and conversations on /api/state in orchestrator/server/main.mjs; scoped conversations in orchestrator/agents/mcp-worker.mjs; choose_conversation in scripts/agent.sh; orchestrator/tests/{conversations,conversation-picker}.test.mjs.",
+      "external_references": [],
+      "evidence": [
+        "orchestrator/tests/conversations.test.mjs: conversations outlive the session host that recorded them",
+        "orchestrator/tests/conversations.test.mjs: the remembered list is bounded, so a long-lived project cannot grow it without limit",
+        "orchestrator/tests/conversation-picker.test.mjs: a pane offers the conversations this project already has",
+        "orchestrator/tests/conversation-picker.test.mjs: a workspace-minted conversation is still offered the history, and Enter keeps the new one"
+      ]
     }
   ]
 }

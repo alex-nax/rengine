@@ -26,6 +26,7 @@ const scopedState = async () => {
   const root = state.roots.find(root => root.id === context.rootId);
   if (!root) throw new Error('The bound project is no longer available.');
   return { root, capabilities: state.capabilities ?? {}, sessions: state.sessions.filter(session => session.rootId === root.id), drafts: state.drafts.filter(draft => draft.rootId === root.id),
+    conversations: state.conversations?.[root.id] ?? [],
     ...(agent ? { agent } : {}) };
 };
 await scopedState();
