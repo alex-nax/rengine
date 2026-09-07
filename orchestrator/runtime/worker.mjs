@@ -104,11 +104,14 @@ export async function startWorker(host, options = {}) {
     }
   };
   const desktopOf = client => desktops.clients.get(client);
-  const pushToken = async rootId => {
+  /* The pinned worker->desktop frame (spec 095, Native desktop): flat holder/contest/windowMs plus
+     the sequence of the last token.* frame, pushed to every desktop bound to the root when it
+     registers and after every transition, so the status-bar segment never polls. */
+  const pushToken = async (rootId, only = null) => {
     if (!tokens) return;
-    const ledger = await tokens.ledger(rootId);
-    const message = JSON.stringify({ type: 'token', rootId, status: ledger.status() });
+    const message = JSON.stringify((await tokens.ledger(rootId)).segment());
     for (const desktop of desktops.clients.values()) {
+      if (only && desktop.socket !== only) continue;
       if (desktop.rootIds?.includes(rootId) && desktop.socket.readyState === WebSocket.OPEN) desktop.socket.send(message);
     }
   };
@@ -118,8 +121,7 @@ export async function startWorker(host, options = {}) {
     if (!tokens) fail('This workspace worker does not serve the project token ledger.', 409);
     if (!desktop.rootIds.includes(data.rootId)) fail('That project is not bound to this desktop.', 403);
     const ledger = await tokens.ledger(data.rootId);
-    const result = await ledger.desktop(data.action, { contestId: data.contestId, desktopId: desktop.id, reason: data.reason });
-    client.send(JSON.stringify({ type: 'token-action-result', rootId: data.rootId, action: data.action, ...result }));
+    await ledger.desktop(data.action, { contestId: data.contestId, desktopId: desktop.id, reason: data.reason });
     await pushToken(data.rootId);
   };
   /* The recorder lives in the desktop (spec 081), so a commit is announced by the desktop on the
@@ -128,10 +130,11 @@ export async function startWorker(host, options = {}) {
     const desktop = desktopOf(client);
     if (!desktop) fail('Register the desktop before sending recording frames.', 409);
     if (!desktop.rootIds.includes(data.rootId)) fail('That project is not bound to this desktop.', 403);
-    if (!['started', 'committed'].includes(data.phase)) fail('A recording frame is phase started or committed.');
-    await note(data.rootId, data.phase === 'started' ? 'capture.started' : 'capture.committed', { kind: 'desktop', desktopId: desktop.id },
+    if (!['started', 'committed'].includes(data.event)) fail('A recording frame carries event started or committed.');
+    await note(data.rootId, data.event === 'started' ? 'capture.started' : 'capture.committed', { kind: 'desktop', desktopId: desktop.id },
       { sessionId: data.sessionId ?? null, gameId: data.gameId ?? null, recordingId: data.recordingId ?? null,
-        kind: data.kind === 'explicit' ? 'explicit' : 'ring', ...(data.error ? { error: String(data.error).slice(0, 400) } : {}) });
+        kind: data.kind === 'explicit' ? 'explicit' : 'ring', ...(data.at ? { startedAt: String(data.at).slice(0, 40) } : {}),
+        ...(data.error ? { error: String(data.error).slice(0, 400) } : {}) });
   };
   /* The worker subscribes to the retained host's stream itself, once, with no desktop behind it. It
      reads session transitions and nothing else: an `output` frame is never even parsed into a feed
@@ -359,7 +362,11 @@ export async function startWorker(host, options = {}) {
           await opened;
           if (target.pathname === '/events') {
             const data = JSON.parse(bytes);
-            if (data.type === 'desktop-register') { await refresh(); desktops.register(client, data); return; }
+            if (data.type === 'desktop-register') {
+              await refresh(); desktops.register(client, data);
+              for (const rootId of desktops.clients.get(client)?.rootIds ?? []) await pushToken(rootId, client);
+              return;
+            }
             if (data.type === 'desktop-action-result') { desktops.acknowledge(client, data); return; }
             if (data.type === 'token-action') { await desktopToken(client, data); return; }
             if (data.type === 'recording') { await desktopRecording(client, data); return; }

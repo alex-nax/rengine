@@ -39,7 +39,8 @@ test('the extended routes refuse an agent that does not hold the token, and neve
   const claimed = await ok(worker, 'token-action', { rootId: root.id, action: 'contest' }, alice);
   assert.equal(claimed.state, 'claimed', 'a free token is claimed at once rather than opening a window');
 
-  const idle = await ok(worker, 'dashboard-run', { rootId: root.id, actionId: 'here' });
+  const idle = await api(worker, 'dashboard-run', { rootId: root.id, actionId: 'here' });
+  assert.equal(idle.status, 200, `the desktop sends no identity header and is never gated: ${idle.body.error}`);
   const sessionsBefore = host.sessions.items.size;
   const refusals = {
     game: await api(worker, 'game', { rootId: root.id, gameId: 'fixture-game' }, bob),
@@ -48,7 +49,7 @@ test('the extended routes refuse an agent that does not hold the token, and neve
     'dashboard-capture': await api(worker, 'dashboard-capture', { rootId: root.id, actionId: 'shot' }, bob),
     'desktop-action': await api(worker, 'desktop-action', { rootId: root.id, desktopId: 'nobody', action: 'reload' }, bob),
     'update-workspace': await api(worker, 'update-workspace', { rootId: root.id, layers: ['workspace'] }, bob),
-    stop: await api(worker, 'stop', { id: idle.id }, bob),
+    stop: await api(worker, 'stop', { id: idle.body.id }, bob),
   };
   for (const [route, result] of Object.entries(refusals)) {
     assert.equal(result.status, 409, `${route} is refused with 409, not ${result.status}`);
@@ -57,7 +58,7 @@ test('the extended routes refuse an agent that does not hold the token, and neve
     assert.match(result.body.error, /token_contest/, `${route} points at token_contest`);
   }
   assert.equal(host.sessions.items.size, sessionsBefore, 'nothing was launched, run or stopped while refusing');
-  assert.equal(host.sessions.snapshot(idle.id).state, 'running', 'the session the refused stop named is still running');
+  assert.equal(host.sessions.snapshot(idle.body.id).state, 'running', 'the session the refused stop named is still running');
   assert.deepEqual(await captures(project), [], 'the refused capture wrote no PNG');
 
   /* Decision 6: the person at the desktop is never gated, whoever holds the token. */
@@ -92,7 +93,7 @@ test('a contest opens a window, a rejection costs a cooldown, and silence transf
   const rejected = await ok(worker, 'token-action', { rootId: root.id, action: 'reject', reason: 'a build is running' }, alice);
   assert.equal(rejected.holder.agentId, alice.agentId, 'rejecting keeps the token where it was');
   const blocked = await contest(worker, root.id, bob);
-  assert.equal(blocked.status, 409);
+  assert.equal(blocked.status, 409, 'a rejected contester cannot contest again until its cooldown ends');
   assert.match(blocked.body.error, new RegExp(rejected.cooldownUntil.slice(0, 16)), 'the cooldown refusal names when it ends');
   const seenByBob = await status(worker, root.id, bob);
   assert.equal(seenByBob.history.some(entry => entry.type === 'token.rejected'), true, 'the contester can read that it was rejected');
@@ -133,31 +134,48 @@ test('the desktop can reject, grant, revoke and free, and its recording frames r
   const alice = identity('claude'), bob = identity('codex');
   const desktop = await fakeDesktop(worker, [root.id]);
   t.after(() => desktop.close());
+  /* Asserted before anything has happened on this root: a push that only arrives with the first
+     transition would leave a freshly opened window with an empty segment. */
+  const registered = await until(() => desktop.messages.find(message => message.type === 'token'),
+    'the desktop is pushed the ledger the moment it registers, with nothing yet to report');
+  assert.equal(registered.holder, null);
+  assert.deepEqual(Object.keys(registered).sort(), ['contest', 'holder', 'rootId', 'sequence', 'type', 'windowMs'],
+    'and the frame is the pinned flat shape, not the agent-facing status object');
   const feed = await feedSocket(worker, (await status(worker, root.id)).feed);
   t.after(() => feed.close());
 
   await ok(worker, 'token-action', { rootId: root.id, action: 'contest' }, alice);
   const pending = await ok(worker, 'token-action', { rootId: root.id, action: 'contest' }, bob);
+  const pushed = () => desktop.messages.filter(message => message.type === 'token').at(-1);
+  await until(() => pushed().contest?.id === pending.contestId, 'the contest is pushed without polling');
+  assert.equal(pushed().windowMs, WINDOW, 'the push carries the configured window');
+
+  const named = desktop.messages.length;
+  desktop.send({ type: 'token-action', rootId: root.id, action: 'reject' });
+  await until(() => desktop.messages.slice(named).find(message => message.type === 'error'), 'reject without a contest id is refused');
+  assert.match(desktop.messages.at(-1).error, /Name the contest to reject/);
+
   desktop.send({ type: 'token-action', rootId: root.id, action: 'reject', contestId: pending.contestId, reason: 'not now' });
-  await until(() => desktop.messages.find(message => message.type === 'token-action-result' && message.action === 'reject'), 'desktop reject');
+  await until(() => pushed().contest === null, 'the reject is answered by the next token frame');
   assert.equal((await status(worker, root.id)).holder.agentId, alice.agentId);
 
   await until(async () => (await contest(worker, root.id, bob)).status === 200, 'bob contests again after the cooldown');
   const open = (await status(worker, root.id)).contest;
   desktop.send({ type: 'token-action', rootId: root.id, action: 'grant', contestId: open.id });
-  const granted = await until(() => desktop.messages.find(message => message.action === 'grant'), 'desktop grant');
-  assert.equal(granted.holder.agentId, bob.agentId, 'granting hands the token over without waiting out the window');
+  await until(() => pushed().holder?.agentId === bob.agentId, 'granting hands the token over without waiting out the window');
   desktop.send({ type: 'token-action', rootId: root.id, action: 'revoke' });
-  await until(() => desktop.messages.find(message => message.action === 'revoke'), 'desktop revoke');
+  await until(() => pushed().holder === null, 'revoke frees it');
   assert.equal((await status(worker, root.id)).holder, null);
   await ok(worker, 'token-action', { rootId: root.id, action: 'contest' }, alice);
   desktop.send({ type: 'token-action', rootId: root.id, action: 'free' });
-  await until(() => desktop.messages.find(message => message.action === 'free'), 'desktop free');
-  assert.equal((await status(worker, root.id)).holder, null);
+  await until(() => pushed().holder === null, 'and so does free');
+  assert.equal(pushed().sequence, (await status(worker, root.id)).tokenSequence,
+    'the pushed sequence is the last token frame, so a desktop can tell a stale push from a new one');
 
   /* The recorder is the desktop's (spec 081); stage 3 sends these two frames on this socket. */
-  desktop.send({ type: 'recording', rootId: root.id, phase: 'started', sessionId: 'session-1', gameId: 'fixture-game', recordingId: 'rec-1', kind: 'ring' });
-  desktop.send({ type: 'recording', rootId: root.id, phase: 'committed', sessionId: 'session-1', gameId: 'fixture-game', recordingId: 'rec-1', kind: 'ring' });
+  const at = new Date().toISOString();
+  desktop.send({ type: 'recording', rootId: root.id, sessionId: 'session-1', gameId: 'fixture-game', event: 'started', recordingId: 'rec-1', kind: 'explicit', at });
+  desktop.send({ type: 'recording', rootId: root.id, sessionId: 'session-1', gameId: 'fixture-game', event: 'committed', recordingId: 'rec-1', kind: 'explicit', at });
   await until(() => feed.frames.some(frame => frame.type === 'capture.committed'), 'the commit reaches the feed');
 
   const desktopFrames = feed.frames.filter(frame => frame.by.kind === 'desktop');
@@ -166,9 +184,7 @@ test('the desktop can reject, grant, revoke and free, and its recording frames r
     'each desktop act is one frame attributed to the desktop');
   for (const frame of desktopFrames) assert.equal(frame.by.desktopId, desktop.id, 'and names which desktop');
   const capture = feed.frames.find(frame => frame.type === 'capture.started');
-  assert.deepEqual([capture.recordingId, capture.gameId, capture.kind], ['rec-1', 'fixture-game', 'ring']);
-  assert.ok(desktop.messages.some(message => message.type === 'token' && message.status.holder === null),
-    'the desktop is pushed the ledger without polling for it');
+  assert.deepEqual([capture.recordingId, capture.gameId, capture.kind, capture.sessionId], ['rec-1', 'fixture-game', 'explicit', 'session-1']);
 });
 
 test('the feed carries lifecycle only, resumes from a cursor, and never carries a byte a process printed', { timeout: 60000 }, async t => {
@@ -227,7 +243,7 @@ test('replacing the workspace worker keeps the holder, the deadline and the curs
   const { directory, host, root, runtime, worker } = await workspace(t);
   const alice = identity('claude'), bob = identity('codex');
   await ok(worker, 'token-action', { rootId: root.id, action: 'contest' }, alice);
-  await ok(worker, 'preferences', { tokenWindowMs: 4000 });
+  await ok(worker, 'preferences', { tokenWindowMs: 2500 });
   const pending = await ok(worker, 'token-action', { rootId: root.id, action: 'contest' }, bob);
   const before = await status(worker, root.id, alice);
   await worker.close();
@@ -244,7 +260,7 @@ test('replacing the workspace worker keeps the holder, the deadline and the curs
   const transferred = await until(async () => {
     const value = await status(replacement, root.id, bob);
     return value.holder?.agentId === bob.agentId && value;
-  }, 'the contest resolves at its original time under the replacement');
+  }, 'the contest resolves at its original time under the replacement', 600);
   assert.ok(Date.now() >= Date.parse(pending.deadline), 'and not before it');
   const frames = (await ok(replacement, `feed?${new URLSearchParams({ rootId: root.id })}`)).frames;
   const claim = frames.filter(frame => frame.type === 'token.claimed').at(-1);

@@ -35,7 +35,7 @@ export class Ledger {
   constructor(directory, rootId, feed, { window = () => DEFAULT_WINDOW_MS, alive = () => true } = {}) {
     this.directory = directory; this.rootId = rootId; this.feed = feed; this.windowOf = window; this.alive = alive;
     this.file = path.join(directory, 'token.json');
-    this.state = { version: 1, rootId, holder: null, contest: null, cooldown: {}, sequence: 0, identities: {}, history: [] };
+    this.state = { version: 1, rootId, holder: null, contest: null, cooldown: {}, sequence: 0, tokenSequence: 0, identities: {}, history: [] };
     this.writing = Promise.resolve(); this.timer = null; this.watchers = new Set();
   }
   static async open(directory, rootId, options) {
@@ -80,6 +80,7 @@ export class Ledger {
   frame(type, by, fields) {
     const frame = this.feed.emit(type, by, fields);
     this.state.sequence = frame.sequence;
+    if (type.startsWith('token.')) this.state.tokenSequence = frame.sequence;
     this.state.history.push({ sequence: frame.sequence, at: frame.at, type, by });
     if (this.state.history.length > HISTORY) this.state.history.splice(0, this.state.history.length - HISTORY);
     for (const watcher of this.watchers) { try { watcher(this.status()); } catch { /* one bad desktop never stops the others */ } }
@@ -122,7 +123,17 @@ export class Ledger {
       holdsToken: Boolean(caller && this.state.holder?.agentId === caller.agentId),
       holderAlive: this.state.holder ? !this.gone(this.state.holder) : null,
       cooldown: this.state.cooldown, identities: Object.values(this.state.identities),
-      sequence: this.state.sequence, feedCursor: this.feed.sequence, history: this.state.history.slice(-10) };
+      sequence: this.state.sequence, tokenSequence: this.state.tokenSequence, feedCursor: this.feed.sequence,
+      history: this.state.history.slice(-10) };
+  }
+  /* The frame the native status-bar segment reads, pinned flat rather than as the agent-facing
+     status object: holder, contest, the window in milliseconds, and the sequence of the last
+     token.* frame so a desktop can tell a stale push from a new one. */
+  segment() {
+    const contest = this.state.contest;
+    return { type: 'token', rootId: this.rootId, holder: this.state.holder,
+      contest: contest ? { id: contest.id, contester: contest.contester, openedAt: contest.openedAt, deadline: contest.deadline, reason: contest.reason ?? '' } : null,
+      windowMs: this.window(), sequence: this.state.tokenSequence };
   }
   /* Decision 5: refuse by name, attempt nothing. A free token is refused too, because holding is
      deliberate — token_contest claims a free token at once, and the claim is a frame everybody sees. */
@@ -203,14 +214,13 @@ export class Ledger {
     await this.settle();
     const by = { kind: 'desktop', desktopId: printable(desktopId, 64) || 'desktop' };
     const contest = this.state.contest;
-    if (action === 'reject') {
+    if (action === 'reject' || action === 'grant') {
       if (!contest) throw Object.assign(new Error('No contest is open on this root.'), { status: 409 });
-      if (contestId && contestId !== contest.id) throw Object.assign(new Error('That contest is no longer the open one.'), { status: 409 });
-      return this.settleRejection(contest, by, reason);
+      if (!contestId) throw Object.assign(new Error(`Name the contest to ${action}: the open one is ${contest.id}.`), { status: 400 });
+      if (contestId !== contest.id) throw Object.assign(new Error('That contest is no longer the open one.'), { status: 409 });
     }
+    if (action === 'reject') return this.settleRejection(contest, by, reason);
     if (action === 'grant') {
-      if (!contest) throw Object.assign(new Error('No contest is open on this root.'), { status: 409 });
-      if (contestId && contestId !== contest.id) throw Object.assign(new Error('That contest is no longer the open one.'), { status: 409 });
       this.state.contest = null;
       this.state.holder = { ...contest.contester, since: new Date().toISOString() };
       this.frame('token.claimed', by, { holder: this.state.holder, contestId: contest.id });
