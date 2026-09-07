@@ -1,6 +1,6 @@
 # Progress Log
 
-## Session 60 (macos) — 2026-09-07 — Token-serialised task writes and task-driven spawns (F105, spec 103)
+## Session 63 (macos) — 2026-09-07 — Token-serialised task writes and task-driven spawns (F105, spec 103)
 
 The workspace half of spec 103, on `feat/task-writes`: decisions 2–4 and 6–9, plus decision 5's
 `assign` for the Tasks pane's *Hold token*. The native halves (Sessions-tab Revoke/Free, the Tasks
