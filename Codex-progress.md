@@ -1,5 +1,63 @@
 # Progress Log
 
+## Session 73 (macos) — 2026-09-07 — The pack manifest: contract 9 packs and its facets (spec 107, F109)
+
+D39 implemented rather than reconsidered. A pack is one pinned, versioned artifact whose facets say
+how it is consumed: a `library` facet is source and a CMake target a game consumes at build time, a
+`plugin` facet is a module the editor loads at run time, and one pack may declare both — the renderer
+(D30) is expected to. The eleventh declaration block, added the same way the other ten were: a schema
+block, a `SECTIONS` entry with `minimum: 9`, and a rules function.
+
+**The pin, which was the part with a choice in it.** A pin is two strings that are not
+interchangeable: a `version` that is said and a `revision` that is checked. A version alone is a claim
+rather than a pin — tags move, and two machines that both say `0.4.0` can hold different bytes, so an
+integration check passed against one says nothing about another; spec 001 already asked for "an
+immutable pin". A revision alone cannot be spoken, and D24's powered-by record and D40's editions both
+quote a version in prose. So both, with the revision constrained to 40 or 64 lowercase hex characters
+— a git SHA-1 or SHA-256 object id, or a content digest — and `main`, `v0.4.0`, `HEAD`, a short prefix
+and an uppercase digest each refused by name. Rejected: a bare version string, a `{ url, ref }`
+locator (that is acquisition, and a URL in a manifest is a download waiting for a reader), a lockfile
+beside the declaration, and a digest alone.
+
+**D24 made checkable rather than restated.** `poweredBy: true` on a pack is refused without a
+`library` facet: `$.packs[0] (red-inspector).poweredBy is earned by a library facet; an editor plugin
+does not earn it`. What the key asserts is bounded and the spec says so — it names the pack the claim
+rests on, and asserts nothing about the game integration checks, whose evidence is F21/F29.
+
+**Acquisition is absent by construction, not by omission.** KI-008 is open and the boundary forbids
+hidden downloads, so the block carries no URL, no registry and no fetch step; the reader opens neither
+`library.path` nor `plugin.module` and never compares a revision against bytes. A pack that has not
+been fetched is a missing prerequisite, not a malformed declaration. `plugin.abi` is shape-checked and
+never parsed, ordered or compared: its meaning belongs to the parallel plugin-ABI lane.
+
+**Sabotage, which is the point.** Fourteen breaks, one at a time, each restored; the table is
+`docs/evidence/pack-manifest-2026-09-07.md`. The row worth keeping is **S9**: inverting D24 so
+`poweredBy` required a `plugin` facet instead of a `library` one is a one-word edit that leaves every
+structural check green and every document valid, and it was caught not by a refusal test but by the
+acceptance one — `iklib`, a library-facet pack with `poweredBy: true`, stopped being accepted. A suite
+that only tested the refusal would have gone green on an implementation with the decision exactly
+backwards. Recorded there too: five rows fail as `assert.match(undefined, …)`, which is red for its own
+reason (the refusal did not happen at all) but reports as an argument-type error, and S6 fails on the
+regex rather than on a missing message because the structural `has unknown key target` is still there
+— which is exactly why the by-name rule sits on top of it.
+
+Commands: `./init.sh` (60 features), `npm test` (217 tests, 217 pass, 0 fail; 213 before, +4 from
+`orchestrator/tests/packs.test.mjs`), `python3 tools/features.py validate`, `python3 tools/design.py
+check`, and the sidecar repair/stamp/check cycle on `--index .cache/sidecars-packs.sqlite` because
+another agent is active. `orchestrator/tests/task-writes.test.mjs`'s deliberate contract-ceiling
+tripwire was raised to 9 with its comment kept and a line added confirming contract 6's own keys still
+read as they did.
+
+Three things I think D39 will cost, implemented as decided and written down in spec 107's last
+section rather than argued here: one pin over two facets forces the renderer's library consumers to
+re-pin for plugin-only changes; `poweredBy` in a declaration is a claim's subject that will read to
+somebody as the claim itself; and a facet says a role but not a direction, so `rengine-render` in
+rEngine's own declaration and `iklib` in a game's are identical rows with opposite meanings — which
+D40's cross-project editions will have to fix.
+
+Remaining: no loader, no build integration, no edition, and no acquisition. F109 is scoped to the
+manifest and claims nothing else. Spec 105's four open questions are all still open.
+
 ## Session 72 (macos) — 2026-09-07 — Packs, plugins, editions and the name (spec 105, D38–D41)
 
 A design interview, not an implementation. The owner opened the extension-system question and the

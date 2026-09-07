@@ -5,8 +5,8 @@
       "id": "tree-sanitization",
       "kind": "rationale",
       "anchor": {
-        "start": 217,
-        "end": 217,
+        "start": 312,
+        "end": 312,
         "snippet": "function sanitizeTree(value) {"
       },
       "note": "Only name/dirs/files with name/path/size survive; producer extras (relith-rez offset/time/type) are dropped so the native client and agents see one shape. Depth 64 and 200,000 nodes bound recursion and memory below the 4 MiB stdout default; a malformed node fails the whole preview rather than showing a partial tree.",
@@ -18,22 +18,23 @@
       "id": "declaration-reporting",
       "kind": "constraint",
       "anchor": {
-        "start": 97,
-        "end": 97,
+        "start": 145,
+        "end": 145,
         "snippet": "export async function readDeclaration(root) {"
       },
-      "note": "A malformed, oversized or unknown-contract declaration is returned as { declared: true, error, formats: [] } rather than thrown: the listing route shows it and the workspace, editor and other roots keep working. Structural (schema) problems are reported before cross-field rules run, and the cross-field pass guards every shape it touches, because a thrown TypeError here surfaced as a 500 that left native editors waiting (review finding 2). Only the first three problems are reported to keep the status line readable. Later contracts are read in stages: the contract-1 part (everything but dashboard and games) decides error/formats, then the shared section helper validates each optional block on its own into dashboard/dashboardError and games/gamesError. The SECTIONS table gives each block the contract it needs — dashboard 2, games 3 — so a block under too low a contract is reported by name and ignored instead of disabling previews, and the two blocks stay independent of each other. Spec 085 accepts a root record carrying declarationFile, while string callers retain project-local discovery. The selected filename is returned as source and used in every error. An explicitly missing external declaration is an error, never absence and never permission to read the project-local file. Pass the complete root record from every runtime consumer; passing only root.path silently drops the binding.",
+      "note": "A malformed, oversized or unknown-contract declaration is returned as { declared: true, error, formats: [] } rather than thrown: the listing route shows it and the workspace, editor and other roots keep working. Structural (schema) problems are reported before cross-field rules run, and the cross-field pass guards every shape it touches, because a thrown TypeError here surfaced as a 500 that left native editors waiting (review finding 2). Only the first three problems are reported to keep the status line readable. Later contracts are read in stages: the contract-1 part (everything but dashboard and games) decides error/formats, then the shared section helper validates each optional block on its own into dashboard/dashboardError and games/gamesError. The SECTIONS table gives each block the contract it needs \u2014 dashboard 2, games 3, devices 4, tracker 5, languageServers 7, packs 9 \u2014 so a block under too low a contract is reported by name and ignored instead of disabling previews, and the two blocks stay independent of each other. Spec 085 accepts a root record carrying declarationFile, while string callers retain project-local discovery. The selected filename is returned as source and used in every error. An explicitly missing external declaration is an error, never absence and never permission to read the project-local file. Pass the complete root record from every runtime consumer; passing only root.path silently drops the binding. The packs block (contract 9) references nothing and is referenced by nothing, so it settles first in the chain and cannot disturb the devices-then-games-then-dashboard order the others depend on. The contract ceiling is CONTRACTS, and raising it is what makes a new block answer \"unknown contract\" to an older reader rather than \"unknown key\".",
       "refs": [
         "docs/specs/074-project-format-registry.md",
-        "docs/specs/085-external-project-capabilities.md"
+        "docs/specs/085-external-project-capabilities.md",
+        "docs/specs/107-pack-manifest.md"
       ]
     },
     {
       "id": "execution-boundary",
       "kind": "constraint",
       "anchor": {
-        "start": 179,
-        "end": 179,
+        "start": 274,
+        "end": 274,
         "snippet": "export async function runCommand(root, spec, values) {"
       },
       "note": "The runner takes the root record and a root-relative file and re-confines it through resolveInRoot immediately before the spawn, passing that resolved path; it never trusts a caller-supplied absolute path. Argv is literal after substituting only ${file}/${entry}; no shell, stdin closed, cwd = root, the sidecar's shell environment. The child is its own POSIX process group, so timeout and oversized output kill the whole tree (taskkill /T /F on Windows), close the pipes and wait for the exit before rejecting (review finding 4). The window between this resolution and the producer's own open cannot be closed for a path-taking executable; spec 074 and KI-037 state it.",
@@ -45,8 +46,8 @@
       "id": "raw-read-confinement",
       "kind": "constraint",
       "anchor": {
-        "start": 260,
-        "end": 260,
+        "start": 355,
+        "end": 355,
         "snippet": "export async function readBytes(root, { path: relative, offset = 0, length = MAX_RAW_WINDOW }) {"
       },
       "note": "Open first, then fstat the handle, then confine a fresh resolution of the same relative path and require the same dev/inode as the opened handle; a swap between resolution and open is reported as a 409 rather than served. Node has no frealpath, so inode identity is the strongest confinement of what was actually opened.",
@@ -58,19 +59,34 @@
       "id": "bounded-report",
       "kind": "rationale",
       "anchor": {
-        "start": 91,
-        "end": 94,
+        "start": 139,
+        "end": 142,
         "snippet": "const REPORTED = 3; /* one clipped line in two desktop surfaces; see sidecar: bounded-report */"
       },
       "note": "Three problems, not more, and the count of what is hidden. The string is read as ONE unwrapped line in two places: the dashboard tab label, clipped at the pane width, and the workspace status row, about 159 monospace columns at the default 1280-wide window (8 px cell) and copied into a 512-byte buffer. Three problems that each carry a record id already fill that, so raising the cap would push content off the right edge rather than closer to a fix, and cascading errors from one bad record make the tail low-value anyway. What was missing was knowing the list was cut, so the count is stated, and stated last: it is the least load-bearing part of the line and therefore the right thing to lose to clipping or truncation. Every call site reports through this helper so the three sections read alike.",
       "refs": [
         "docs/specs/078-project-game-declaration.md"
       ]
+    },
+    {
+      "id": "pack-facets",
+      "kind": "rationale",
+      "anchor": {
+        "start": 72,
+        "end": 72,
+        "snippet": "function packsRules(block) {"
+      },
+      "note": "Three decisions that are not visible from the code alone. (1) A key in the wrong facet is refused TWICE and deliberately: the schema's additionalProperties:false says the key is unknown, and this rule says which facet owns it. Only the second tells a human what to do, and only the first survives if the facet key sets ever change, so neither is redundant. (2) poweredBy is checked for PRESENCE, not truth, exactly as the tracker's provider keys are: poweredBy:false on a plugin-only pack is still a key that belongs to the library facet, and accepting it would make the D24 distinction depend on a value rather than on where the key sits. Inverting this one condition leaves every structural check green and every document valid \u2014 sabotage S9 in the evidence document was caught by the ACCEPTANCE test, not by any refusal test. (3) Nothing here opens a file. library.path and plugin.module are shape-checked and confined but never stat'ed, and pin.revision is never compared against bytes, because identifying bytes is acquisition and KI-008 has not decided it; a pack that has not been fetched is a missing prerequisite, not a malformed declaration. plugin.abi is shape-checked and never parsed, ordered or compared \u2014 its meaning belongs to the plugin-ABI lane, not to this reader.",
+      "refs": [
+        "docs/specs/107-pack-manifest.md",
+        "docs/specs/105-packs-editions-and-the-name.md",
+        "docs/evidence/pack-manifest-2026-09-07.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/server/formats.mjs",
-    "sha256": "bc15f902591b483547c7febbbb85dcf6741b1fe78bb013d2d797f43b97149e29",
+    "sha256": "52b423ea78a3dc7c474590ff2acede3fe8dc84b5c14ce98ab827bc4482cd2360",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

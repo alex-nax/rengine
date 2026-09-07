@@ -1471,6 +1471,39 @@
         "orchestrator/tests/restart-supervisor.test.mjs: a state directory with no live host is refused, and nothing is signalled",
         "docs/evidence/editor-as-claude-ide-2026-09-07.md: the live supervisor restart on the owner's workspace"
       ]
+    },
+    {
+      "id": 109,
+      "milestone": "O1",
+      "category": "integration",
+      "priority": "medium",
+      "description": "A pack is one pinned, versioned artifact a project declares, and its facets say how it is consumed: contract 9 adds a packs block whose library facet is source and a CMake target a game consumes at build time and whose plugin facet is a module the editor loads at run time, with \"Powered by rEngine\" checkable on the library facet alone.",
+      "acceptance_criteria": [
+        "A contract-9 declaration whose pack declares both facets reads back through readDeclaration with its name, pin, library and plugin intact and packsError unset; the renderer's both-facets shape and iklib's library-only shape both read.",
+        "A contract-8 declaration that names packs is refused with \"packs requires contract 9\", never as an unknown key, and its formats still read; a contract past the ceiling is refused whole and the refusal names the contracts that are supported.",
+        "A pin is a spoken version and a checked revision: a 40- or 64-character lowercase hex digest is accepted and a branch, a tag, a short prefix, an uppercase digest and an over-long string are each refused by name, because a version alone is a claim rather than a pin.",
+        "Each refusal is by name and specific: a facet key under the wrong facet says which facet owns it, a pack with no facet, a repeated pack name, an escaping library.path or plugin.module, and poweredBy on a plugin-only pack each name the pack and the key. A pack with no name is placed by its index and never printed as undefined.",
+        "D24 stays as written: poweredBy is accepted on a library facet and refused on a plugin-only pack, so an editor plugin does not earn the claim. It names the pack the claim rests on and asserts nothing about the game integration checks, whose evidence is F21/F29.",
+        "A declaration that does not name packs is unchanged: a document carrying all ten blocks of contracts 1-8 reads with the same keys, the same values and no new ones, and packs cannot leak into a result that never asked for it.",
+        "Nothing in this feature acquires, downloads, unpacks, loads or interprets a pack. The block carries no URL, registry or fetch step, the reader opens neither library.path nor plugin.module, and plugin.abi is shape-checked and never parsed, ordered or compared. Acquisition stays with KI-008, loading with D38's own spec, editions with D40.",
+        "Each regression was observed failing for its own reason: fourteen sabotages, including D24 inverted onto the plugin facet, a tag accepted as a revision, the block never reaching its section and the block leaking into a declaration that never named it. Recorded in docs/evidence/pack-manifest-2026-09-07.md."
+      ],
+      "passes": true,
+      "dependencies": [
+        106
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/107-pack-manifest.md, the packs block and $defs.pack in contracts/project-v1.schema.json, packsRules plus the contract-9 ceiling and SECTIONS entry in orchestrator/server/formats.mjs, and orchestrator/tests/packs.test.mjs.",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/107-pack-manifest.md: the manifest shape, the pin's two halves and the forms that were rejected",
+        "orchestrator/tests/packs.test.mjs: contract 9 carries a pack whose facets are a library and a plugin",
+        "orchestrator/tests/packs.test.mjs: packs on contract 8 is refused for the contract it needs, not as an unknown key",
+        "orchestrator/tests/packs.test.mjs: each pack refusal names the pack and the key",
+        "orchestrator/tests/packs.test.mjs: a declaration that does not name packs reads exactly as it did (the ten blocks of contracts 1-8)",
+        "docs/evidence/pack-manifest-2026-09-07.md: the fourteen-row sabotage table, including the inverted D24 that only the acceptance test caught",
+        "orchestrator/tests/task-writes.test.mjs: the contract-ceiling tripwire, raised to 9 with contract 6's own keys reconfirmed"
+      ]
     }
   ]
 }

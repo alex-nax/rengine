@@ -154,6 +154,8 @@ flowchart TD
   F79 --> F106
   F107["F107: blocked"]
   F94 --> F107
+  F109["F109: passing"]
+  F106 --> F109
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -217,3 +219,4 @@ flowchart TD
 | F105 | O1 | rengine | blocked | Task-driven agents (spec 103): the project token serialises workspace-mediated writes to project state -- task_add/task_update/task_decompose run the project's declared write command for the holder only, one at a time; the Sessions tab marks the holder and revokes or frees the token beside it; the Tasks pane spawns a chosen agent and model on a task (a conversation that records the task) or decomposes it into subtasks through an agent brief; prompts are project files with shipped defaults; contract 6 adds tracker.write and agents. |
 | F106 | O1 | rengine | passing | A project's brand mark and wordmark are its own artwork: the chrome rasterises declared SVG in place of the letter chip and the title text, and falls back to the glyph when a declaration names a file it cannot read. |
 | F107 | O1 | rengine | blocked | A workspace can restart its own update supervisor without ending a session: an action in the rEdit dashboard stops the supervisor for a state directory and starts a detached one from the current checkout, so the layer that performs layered updates — and therefore cannot receive one — can be replaced from inside the workspace it serves. |
+| F109 | O1 | rengine | passing | A pack is one pinned, versioned artifact a project declares, and its facets say how it is consumed: contract 9 adds a packs block whose library facet is source and a CMake target a game consumes at build time and whose plugin facet is a module the editor loads at run time, with "Powered by rEngine" checkable on the library facet alone. |

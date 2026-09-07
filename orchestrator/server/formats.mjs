@@ -62,7 +62,55 @@ function agentsRules(value) {
   return problems;
 }
 
-export const CONTRACTS = [1, 2, 3, 4, 5, 6, 7, 8];
+/* One pinned, versioned artifact whose facets say how it is consumed (charter D39, spec 107): a
+   library facet at build time, a plugin facet at run time, or both. The pack is DECLARED here and
+   acquired nowhere — no path is opened and no revision is checked against bytes, because
+   identifying bytes is acquisition and KI-008 has not decided it. */
+const FACET_KEYS = { library: ['path', 'target'], plugin: ['module', 'abi'] };
+const REVISION = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+const packName = pack => typeof pack?.name === 'string' && pack.name ? ` (${pack.name})` : '';
+function packsRules(block) {
+  const problems = [], seen = new Set();
+  if (!Array.isArray(block)) return problems;
+  for (const [index, pack] of block.entries()) {
+    if (!pack || typeof pack !== 'object' || Array.isArray(pack)) continue;
+    const at = `$.packs[${index}]`, where = at + packName(pack);
+    if (typeof pack.name === 'string') {
+      if (seen.has(pack.name)) problems.push(`${at}.name repeats ${JSON.stringify(pack.name)}`);
+      seen.add(pack.name);
+    }
+    if (!Object.keys(FACET_KEYS).some(facet => pack[facet] !== undefined)) {
+      problems.push(`${where} declares no facet; a pack declares library, plugin or both`);
+    }
+    for (const [facet, keys] of Object.entries(FACET_KEYS)) {
+      const value = pack[facet];
+      if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+      /* A key in the wrong facet is refused twice: structurally as an unknown key, and here by the
+         facet that owns it, which is the half that says what to do about it. */
+      for (const [other, ownKeys] of Object.entries(FACET_KEYS)) {
+        if (other === facet) continue;
+        for (const key of ownKeys) if (Object.hasOwn(value, key) && !keys.includes(key)) problems.push(`${where}.${facet}.${key} belongs to the ${other} facet`);
+      }
+      for (const key of ['path', 'module']) {
+        if (keys.includes(key) && typeof value[key] === 'string' && !rootRelative(value[key])) problems.push(`${where}.${facet}.${key} must be root-relative`);
+      }
+    }
+    /* D24 clarified by D39: the claim is earned on the library facet, so declaring it on a plugin
+       is refused rather than quietly accepted. Presence is what is checked, as with the tracker's
+       provider keys: a key that belongs elsewhere belongs elsewhere whatever its value. */
+    if (pack.poweredBy !== undefined && pack.library === undefined) {
+      problems.push(`${where}.poweredBy is earned by a library facet; an editor plugin does not earn it`);
+    }
+    /* The version is the label and the revision is the identity; a tag in the revision collapses
+       the two, and an integration check passed against one "0.4.0" says nothing about another. */
+    if (typeof pack.pin?.revision === 'string' && !REVISION.test(pack.pin.revision)) {
+      problems.push(`${where}.pin.revision must be a 40- or 64-character hex digest, not ${JSON.stringify(pack.pin.revision)}`);
+    }
+  }
+  return problems;
+}
+
+export const CONTRACTS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 /* Brand-mark colours a project may name. Each is a saturated fill the design system pairs with
    the on-accent ink, which is what keeps the letter legible in every preset. */
 export const ICON_TOKENS = ['accent', 'ok', 'warn', 'err', 'info'];
@@ -107,7 +155,7 @@ export async function readDeclaration(root) {
   try { value = JSON.parse(bytes.toString('utf8')); } catch (error) { return problem(`invalid JSON (${error.message})`); }
   if (!value || typeof value !== 'object' || Array.isArray(value)) return problem('declaration must be a JSON object');
   if (!CONTRACTS.includes(value.contract)) return problem(`unknown contract ${JSON.stringify(value.contract)}; this rEngine supports contracts ${CONTRACTS.slice(0, -1).join(', ')} and ${CONTRACTS.at(-1)}`);
-  const { dashboard, games, devices, tracker, ...base } = value;
+  const { dashboard, games, devices, tracker, packs, ...base } = value;
   const structural = validateSchema(schema, base);
   if (structural.length) return problem(report(structural));
   /* Identity keys are plain root fields rather than a block, so their contract floor is checked here
@@ -180,12 +228,14 @@ export async function readDeclaration(root) {
     formats: value.formats.map(format => ({ ...format, preview: bounded(format.preview), entry: bounded(format.entry) })) };
   /* devices, games and dashboard are each reported separately so none can disable the formats, and
      devices settles first so both of the others can resolve a device binding; see sidecar: declaration-reporting */
-  const withServers = section(result, 'languageServers', value.languageServers, value.contract);
+  const withPacks = section(result, 'packs', packs, value.contract); /* references nothing and is referenced by nothing, so it settles first and cannot disturb the order the others depend on */
+  const withServers = section(withPacks, 'languageServers', value.languageServers, value.contract);
   const withTracker = section(withServers, 'tracker', tracker, value.contract);
   const withDevices = section(withTracker, 'devices', devices, value.contract);
   return section(section(withDevices, 'games', games, value.contract), 'dashboard', dashboard, value.contract);
 }
 const SECTIONS = {
+  packs: { minimum: 9, rules: packsRules, node: () => schema.properties.packs },
   languageServers: { minimum: 7, rules: languageServerRules, node: () => schema.properties.languageServers },
   tracker: { minimum: 5, rules: trackerRules, node: () => schema.properties.tracker },
   devices: { minimum: 4, rules: devicesRules, node: () => schema.properties.devices },
