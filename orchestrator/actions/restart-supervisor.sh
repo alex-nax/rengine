@@ -22,14 +22,7 @@ trap 'printf "Restart canceled. Nothing was signalled.\n" >&2; exit 130' INT
 re_wizard 'rEngine update supervisor restart' 3
 
 re_stage 'What is running, and what a restart would cost'
-re_run 'Read the workspace' "$RE_NODE" -e '
-  const { plan, } = await import(process.argv[1]);
-  const value = await plan(process.argv[2]);
-  if (value.refusal) { console.error(value.refusal); process.exit(1); }
-  console.log(`Session host PID ${value.host.pid} — NOT signalled, its sessions are kept.`);
-  if (!value.supervisors.length) console.log("No update supervisor is running; a restart would just start one.");
-  for (const s of value.supervisors) console.log(`Supervisor PID ${s.pid} at ${s.url}, with ${s.children.length} child process(es) that close with it.`);
-' "$RE_TOOL" "$RE_STATE"
+re_run 'Read the workspace' "$RE_NODE" "$RE_TOOL" --state "$RE_STATE" --plan
 
 re_stage 'Confirm'
 printf 'The desktop windows this supervisor manages will close and reopen on the layout the store kept.\nTerminals, agents and drafts live on the session host and are not touched.\n'

@@ -30,5 +30,11 @@
         "orchestrator/actions/restart-supervisor.sh"
       ]
     }
-  ]
+  ],
+  "source": {
+    "path": "orchestrator/launcher/restart-supervisor.mjs",
+    "sha256": "596858e1881ff47182d1d4a6d84e1f8e8ff08468e9e4f6661c15111051b96793",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
 }

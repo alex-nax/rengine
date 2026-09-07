@@ -3,7 +3,12 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { plan, restart, describe as report } from '../launcher/restart-supervisor.mjs';
+
+const run = promisify(execFile);
+const TOOL = path.resolve('orchestrator/launcher/restart-supervisor.mjs');
 
 /* A process table shaped like the real one: the host for a state directory, its supervisor, that
    supervisor's desktop child, and a second workspace's host that must never be touched. */
@@ -110,5 +115,22 @@ test('the report says what closes, so a vanishing editor window is predicted rat
     });
     const text = report(value);
     assert.match(text, /Supervisor PID 200: stopped on SIGTERM, closing 1 managed desktop window/);
+  } finally { await rm(w.dir, { recursive: true, force: true }); }
+});
+
+test('the command line is the only entry point, and --plan signals nothing', async () => {
+  const w = await workspace();
+  try {
+    // The action invokes this file as a program. An earlier version had the wizard import it and
+    // pass its own path as argv[1], which made the entry-point check below fire and print usage
+    // instead of doing the work — a failure that only appeared when the real action ran.
+    const failed = await run(process.execPath, [TOOL, '--state', w.stateDir, '--plan']).catch(error => error);
+    assert.equal(failed.code, 1, `a directory with no live host exits 1, not with usage: ${failed.stdout ?? ''}${failed.stderr ?? ''}`);
+    assert.match(failed.stderr, /No live session host/);
+    assert.doesNotMatch(`${failed.stdout}${failed.stderr}`, /Usage:/, 'it understood its own arguments');
+
+    const usage = await run(process.execPath, [TOOL]).catch(error => error);
+    assert.equal(usage.code, 2);
+    assert.match(usage.stderr, /--state DIR/, 'and says how to call it when it is called with nothing');
   } finally { await rm(w.dir, { recursive: true, force: true }); }
 });

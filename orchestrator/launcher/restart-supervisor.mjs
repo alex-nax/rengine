@@ -70,15 +70,27 @@ export function describe(result) {
   return lines.join('\n');
 }
 
+/* `--plan` reads and reports; without it the tool acts. One entry point rather than a caller that
+   imports this module, because `process.argv[1]` is whatever the caller put there: a wrapper that
+   passed this file's own path made the check below fire and print usage instead of doing its job. */
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
   const at = args.indexOf('--state');
   const stateDir = at >= 0 ? args[at + 1] : process.env.RENGINE_STATE_DIR;
-  if (!stateDir) { console.error('Usage: restart-supervisor.mjs --state DIR [--stop-only]'); process.exit(2); }
+  if (!stateDir) { console.error('Usage: restart-supervisor.mjs --state DIR [--plan | --stop-only]'); process.exit(2); }
   const resolved = path.resolve(stateDir);
   try {
-    const value = await restart(resolved, { launch: !args.includes('--stop-only') });
-    console.log(describe(value));
-    console.log(JSON.stringify(value));
+    if (args.includes('--plan')) {
+      const value = await plan(resolved);
+      if (value.refusal) { console.error(value.refusal); process.exit(1); }
+      console.log(`Session host PID ${value.host.pid} — NOT signalled, its sessions are kept.`);
+      if (!value.supervisors.length) console.log('No update supervisor is running for it; a restart would simply start one.');
+      for (const found of value.supervisors) {
+        console.log(`Supervisor PID ${found.pid} at ${found.url}, with ${found.children.length} child process(es) that close with it.`);
+      }
+    } else {
+      const value = await restart(resolved, { launch: !args.includes('--stop-only') });
+      console.log(describe(value));
+    }
   } catch (error) { console.error(error.message); process.exit(1); }
 }
