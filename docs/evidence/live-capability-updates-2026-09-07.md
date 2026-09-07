@@ -111,3 +111,25 @@ Host PID 33465 was never signalled: it is still instance `e9c3dbfd-…`, and eve
 survived the update. What the owner's own connector (PID 93041, loaded 2026-09-06 08:06) still
 cannot do is offer `list_tasks`, because it predates the facade — `/mcp` → Reconnect gives it the
 current set without costing the conversation or the pane.
+
+### The Reconnect, and then all three layers (13:58)
+
+The owner ran `/mcp` → Reconnect on `rengine_046c207bf579`. That connector now runs the facade and
+offers the current 32 tools; `list_tasks` through it answers with the 51 rows, so the tool reached an
+already-open CLI session without the pane or the conversation ending.
+
+`update_workspace` over MCP was refused — *"Only an identified agent can act on the token; this
+request carried no X-Rengine-Agent header"* — because this connector was bootstrapped before agent
+identities existed (F90). The token itself was free. The same update through `client.mjs`, which
+carries the runtime's own token, is not agent-gated and ran:
+
+| | before | after |
+| --- | --- | --- |
+| `--layers workspace,desktop,connector` | worker 35886, desktop **88067** (`f44a63ed`), generation 12 | **succeeded in 1.9 s**; worker **89697**, desktop **90113** (`b507b9a5`), generation **13**, tool worker 90114, nothing left retiring |
+| capabilities and `/api/tracker` | `tracker: 1`, 51 rows | unchanged through the new worker |
+| this session's facade | answering at generation 12 | answered `update_status` at generation 13 without being touched — the descriptor watcher doing its job |
+| the twelve sessions | six running | the same twelve, same PIDs, sequence numbers still advancing (terminal 33500 at 622 → 623, agent 92674 at 526934 → 531176) |
+
+The desktop binary was rebuilt and the window replaced, which is what the `desktop` layer costs: the
+old process detaches with exit 75 after persisting its layout and the new one reopens on it. The
+session host was still never signalled.

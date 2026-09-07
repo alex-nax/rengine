@@ -99,6 +99,21 @@ nor the pane; and F98 stays `passes: false` because both prerequisites, F74 and 
 blocked — the live criterion itself is now recorded as done in
 `docs/evidence/live-capability-updates-2026-09-07.md`.
 
+**Then the owner reconnected and asked for the full update.** After `/mcp` → Reconnect the connector
+runs the facade with the current 32 tools and `list_tasks` answers through it — the new tool reached
+an already-open CLI session without ending the pane or the conversation. `update_workspace` over MCP
+was refused for a reason worth recording: *"Only an identified agent can act on the token; this
+request carried no X-Rengine-Agent header"*. The token was free; the connector simply predates F90's
+agent identities, so **a connector bootstrapped before F90 can never hold the token**, and the
+token-gated tools are unreachable from it until it is re-bootstrapped with an identity. The same
+update through `client.mjs`, which carries the runtime's own token rather than an agent's, is not
+agent-gated: all three layers succeeded in 1.9 s — worker 35886 → **89697**, desktop 88067 →
+**90113**, generation 12 → **13**, tool worker 90114, nothing left retiring. This session's facade
+answered `update_status` at generation 13 without being touched, which is the descriptor watcher
+doing exactly what it was built for. All twelve sessions kept their PIDs and their sequence numbers
+kept advancing. The `desktop` layer's cost, as designed: the window detaches with exit 75 after
+persisting its layout and reopens on it. The session host was never signalled in either run.
+
 ## Session 55 (macos) — 2026-09-07 — The tracker narrows to a person and to what is actually active (F97)
 
 The hirebase-v2 tracker tab answered with a hundred rows spanning every assignee and every workflow
