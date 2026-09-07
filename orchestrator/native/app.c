@@ -598,6 +598,7 @@ ReApp *re_app_open(const char *url, const char *token) {
 static void report_selection(ReApp *a, Uint64 now) {
   ReTab *t = a->focus >= 0 && a->focus < RE_TABS ? &a->tabs[a->focus] : NULL;
   if (!a->net || !a->connected || now < a->selection_sent + 150) return;
+
   if (!t || !t->used || !t->editor) { a->selection[0] = 0; return; }
   ReSelection selection; char text[4096];
   re_editor_selection(t->editor, &selection, text, (int)sizeof(text));
@@ -607,6 +608,10 @@ static void report_selection(ReApp *a, Uint64 now) {
   if (!strcmp(signature, a->selection)) return;
   re_copy(a->selection, sizeof(a->selection), signature);
   a->selection_sent = now;
+  /* The selection is this desktop's own fact and is known whoever is listening; it is only *sent* to
+     a workspace that serves the route. A session host on its own does not, and posting to it answers
+     404, which overwrites the status line the person is reading — that is how this was found. */
+  if (re_number(cJSON_GetObjectItemCaseSensitive(a->state, "capabilities"), "ide") != 1) return;
   cJSON *body = cJSON_CreateObject(), *range = cJSON_CreateObject(), *start = cJSON_CreateObject(), *end = cJSON_CreateObject();
   cJSON_AddStringToObject(body, "rootId", t->root);
   cJSON_AddStringToObject(body, "path", t->path);

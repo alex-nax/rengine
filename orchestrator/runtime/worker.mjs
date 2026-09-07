@@ -94,7 +94,7 @@ export async function startWorker(host, options = {}) {
      says so by naming neither (spec 078's asymmetry — the caller is refused by name rather than
      calling a worker that would pass every gate because it has none). */
   const capabilities = ({ projectGameLaunch, ...rest }) => ({ ...rest, desktopActions: 1, layeredUpdates: 1, scriptActions: 1,
-    formatRegistry: 1, dashboard: 1, projectGame: 1, recordings: 1, projectDevices: 1, tracker: 1, agentsMenu: 1,
+    formatRegistry: 1, dashboard: 1, projectGame: 1, recordings: 1, projectDevices: 1, tracker: 1, ide: 1, agentsMenu: 1,
     ...(servesLedger ? { agentToken: 1, taskWrites: 1, agentSpawn: 1 } : {}), ...(rest.projectGame === 1 ? { projectGameLaunch: 1 } : {}) });
   /* Refused here, from the worker's own preflight, before anything reaches the retained host: the
      spec-078 / KI-043 lesson is that the host must not be the one to answer. See sidecar: remote-launch. */
