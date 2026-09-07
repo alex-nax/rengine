@@ -104,14 +104,16 @@ true`, minting nothing and never displacing an identity the ledger has actually 
 `retirement-handoff` / `retirement-notice` note added to each, stamped); the pre-existing drift on
 files this lane never touched is KI-052's pattern and is not repaired here.
 
-Two flakes, recorded because neither is this lane's. The first full `test:desktop` run failed
-`native-dashboard.spec.mjs`, *"the dashboard tab opens for a declared root …"*, at
-`dashboard-action shot not reached` after the desktop's own socket reported *"Session connection
-restored. Reattaching retained processes."* mid-test; a later run, held next to three parallel unit
-suites, failed `native-format-hardening.spec.mjs` at `wide pack opens in preview not reached`. Both
-specs drive the **session host directly** — their state dumps carry no `layeredUpdates` and no
-`agentToken`, so no supervisor and no workspace worker is in either — and nothing this lane changed
-can reach them. Each passes alone, and the whole suite passed clean on re-run.
+Three flakes across the sweep, recorded because none of them is this lane's and all three are a
+different spec: `native-dashboard.spec.mjs` at `dashboard-action shot not reached`, after the
+desktop's own socket reported *"Session connection restored. Reattaching retained processes."*
+mid-test; `native-format-hardening.spec.mjs` at `wide pack opens in preview not reached`; and
+`native-render.spec.mjs` at `opengl: resident memory delta 34176 KiB exceeds 32768 KiB`. All three
+drive the **session host directly** — their state dumps carry no `layeredUpdates` and no
+`agentToken`, so no supervisor and no workspace worker is in any of them, and the render one measures
+the desktop process's own resident memory — so nothing this lane changed can reach them. Each passes
+alone, and the suite is 48/48 on a clean run. The machine carried 63 rEngine processes and a load
+average around 12 throughout, from other lanes' live desktops and instances.
 
 F90 stays `passes: false`. KI-061 was one of its two named blockers and is closed here; the other
 stands — F74, F76 and F80 are all `passes: false`, and F74's own third criterion waits on the

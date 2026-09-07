@@ -74,11 +74,13 @@ has actually seen wins over the persisted record of the same id. Four more sabot
 
 Commands: `npm test` 148/148 (145 on main, plus this lane's three) · `npm run test:desktop` 48/48 ·
 `python3 tools/features.py validate` · `python3 tools/design.py check` clean · sidecar `check` clean
-on the files this lane edited, each with a fresh stamp and, where it earned one, a new note. Two
-flakes worth naming because neither is this lane's: `native-dashboard.spec.mjs` once, after its
-desktop reconnected mid-test, and `native-format-hardening.spec.mjs` once, on a run held next to
-three parallel unit suites. Both drive the session host directly — no supervisor and no workspace
-worker in either — and both passed alone and on a clean re-run of the whole suite. Nothing under
+on the files this lane edited, each with a fresh stamp and, where it earned one, a new note. Three
+flakes worth naming because none of them is this lane's and each is a different spec:
+`native-dashboard.spec.mjs` after its desktop reconnected mid-test, `native-format-hardening.spec.mjs`
+on a wide tree, and `native-render.spec.mjs` at `opengl: resident memory delta 34176 KiB exceeds
+32768 KiB`. All three drive the session host directly — no supervisor and no workspace worker in any
+of them — each passes alone, and the suite is 48/48 on a clean run. The machine carried 63 rEngine
+processes and a load average around 12 throughout, from other lanes. Nothing under
 `orchestrator/server/` or `orchestrator/native/` was touched, and no environment variable was added.
 
 ## Session 52 (macos) — 2026-09-07 — The conversation IS the identity: three lanes onto one uuid
