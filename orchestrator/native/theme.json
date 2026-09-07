@@ -2,6 +2,14 @@
   "version": 2,
   "name": "rEngine native workspace",
   "source": "Bindings from design/tokens.css to the native theme names. tools/design.py generates orchestrator/native/theme.h and theme.c from these bindings and the token layers, so every preset is compiled in and switches live (spec 076). Metrics below stay literal until a card claims them.",
+  "product": {
+    "name": "Red",
+    "suite": "Red Suite",
+    "retired": [
+      "rEdit"
+    ],
+    "note": "The product's own name, declared once (charter D41, spec 108). tools/design.py generate writes RE_PRODUCT_NAME and RE_PRODUCT_SUITE into theme.h and PRODUCT_NAME and PRODUCT_SUITE into orchestrator/runtime/product.mjs; check fails when the word is typed into shipping code instead of read from one of those. Retired names are guarded the same way, so a half-finished rename cannot linger."
+  },
   "typography": {
     "family": [
       "Menlo",

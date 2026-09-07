@@ -4,6 +4,10 @@
 #define RENGINE_THEME_H
 #include <stdint.h>
 #include "microui.h"
+/* The product's own name, declared in theme.json (charter D41, spec 108). Every C consumer
+ * reads these; app.h's RE_DEFAULT_TITLE is an alias, never a second literal. */
+#define RE_PRODUCT_NAME "Red"
+#define RE_PRODUCT_SUITE "Red Suite"
 #define RE_THEME_FONT_SIZE 16
 #define RE_THEME_LINE_HEIGHT 20
 #define RE_METRIC_MICROUI_PADDING 5

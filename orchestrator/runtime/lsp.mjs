@@ -12,6 +12,7 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { PRODUCT_NAME } from './product.mjs';
 
 const RESTART_BASE_MS = 500;
 const RESTART_CEILING_MS = 30000;
@@ -91,7 +92,7 @@ class Server {
       if (!spawned) { this.starting = null; return this; }
       const ready = await this.request('initialize', {
         processId: process.pid,
-        clientInfo: { name: 'rEdit', version: '1.0.0' },
+        clientInfo: { name: PRODUCT_NAME, version: '1.0.0' },   /* what a server's log calls us (spec 108) */
         rootUri: uriFor(this.root.path),
         workspaceFolders: [{ uri: uriFor(this.root.path), name: this.root.name ?? path.basename(this.root.path) }],
         capabilities: { textDocument: { publishDiagnostics: { relatedInformation: false } }, workspace: { workspaceFolders: true } },

@@ -1,4 +1,8 @@
-# rEdit as a Claude Code IDE (F99)
+# Red as a Claude Code IDE (F99)
+
+> Renamed 2026-09-07 by charter D41: the product is Red. The decision rows below keep the word
+> they were written with; the published `ideName` is now the generated product name, and where
+> it comes from is [spec 108](108-the-product-name.md).
 
 Date: 2026-09-07. Status: recorded from owner direction — *"claude code has /ide integration can we
 use it?"*, then *"yes, spec it and build the first slice"*. Parent: [spec 065](065-layered-workspace-updates.md)

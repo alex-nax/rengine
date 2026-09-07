@@ -1471,6 +1471,37 @@
         "orchestrator/tests/restart-supervisor.test.mjs: a state directory with no live host is refused, and nothing is signalled",
         "docs/evidence/editor-as-claude-ide-2026-09-07.md: the live supervisor restart on the owner's workspace"
       ]
+    },
+    {
+      "id": 110,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "The product is Red, and its name stops being hard-coded: one declaration in orchestrator/native/theme.json is generated into theme.h for the desktop and orchestrator/runtime/product.mjs for the workspace layer, every consumer reads the generated value, and a guard fails when shipping code spells the name instead (charter D41, spec 108).",
+      "acceptance_criteria": [
+        "The name is declared once and generated: theme.json carries the product block, tools/design.py generate writes RE_PRODUCT_NAME and RE_PRODUCT_SUITE into theme.h and PRODUCT_NAME and PRODUCT_SUITE into orchestrator/runtime/product.mjs, and design.py check fails when either generated file is stale or hand-edited.",
+        "All four consumers read the generated value: RE_DEFAULT_TITLE is an alias of RE_PRODUCT_NAME, IDE_NAME is PRODUCT_NAME, the LSP clientInfo name is PRODUCT_NAME, and the tracker sign-in callback page takes its title from PRODUCT_NAME.",
+        "The rename to Red is complete in shipping code: grepping the shipping tree finds the declaration, the generated output and one deliberate canary, and nothing hand-written; dated records (Codex-progress.md, docs/evidence, earlier features rows, charter D36's own wording) keep the old name on purpose.",
+        "The published change is safe: the lock file publishes the declared name and orchestrator/agents/ide-connect.mjs still recognises this workspace's own editor by comparing against the same export, so auto-connect (F103) cannot silently stop matching after a rename.",
+        "A guard fails when a literal product name — current or retired — is reintroduced in shipping code, in a string or outside one, while a comment naming the product is left alone.",
+        "Breaking the generated path fails loudly rather than falling back to a stale string: without the generated module the JS consumers throw at import, and without the macro the desktop does not compile.",
+        "Each regression was observed failing for its own reason, with the runs recorded: a hard-coded current name, a hard-coded retired name, a hand-edited theme.h, a hand-edited product.mjs, a declaration changed without regenerating, a deleted module and a deleted macro."
+      ],
+      "passes": true,
+      "dependencies": [
+        79
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The product block in orchestrator/native/theme.json, the generator and guard in tools/design.py, the generated orchestrator/runtime/product.mjs, the rewired consumers in orchestrator/native/app.h, orchestrator/runtime/ide.mjs, orchestrator/runtime/lsp.mjs and orchestrator/server/tracker-auth.mjs, and orchestrator/tests/product-name.test.mjs.",
+      "external_references": [],
+      "evidence": [
+        "orchestrator/tests/product-name.test.mjs: the generated artifacts carry the declaration rather than a copy of it",
+        "orchestrator/tests/product-name.test.mjs: the lock file other people read publishes the declared name, and IDE_NAME is that name",
+        "orchestrator/tests/product-name.test.mjs: a language server is told the declared name, read off the bytes sent to it",
+        "orchestrator/tests/product-name.test.mjs: the sign-in callback page wears the declared name, read off the page it serves",
+        "orchestrator/tests/product-name.test.mjs: no shipping source hard-codes the product name, and the guard goes red on a decoy that holds one in a string and in a regular expression while its comment is left alone",
+        "docs/evidence/product-name-2026-09-07.md: the sabotage table, including the two runs that break the generated path"
+      ]
     }
   ]
 }
