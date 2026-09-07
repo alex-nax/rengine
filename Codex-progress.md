@@ -1,6 +1,6 @@
 # Progress Log
 
-## Session 63 (macos) — 2026-09-07 — rEdit speaks LSP, and an agent reads what the server said (F102, D37)
+## Session 65 (macos) — 2026-09-07 — rEdit speaks LSP, and an agent reads what the server said (F102, D37)
 
 `mcp__ide__getDiagnostics` no longer answers "nothing" honestly; it answers what the project's own
 declared language servers published, about the buffer the person is looking at rather than the file
@@ -39,6 +39,67 @@ sidecars stamped in the house format. F102 `passes: false`, and the row now says
 met: the editor pane does not render diagnostics yet, so "two consumers, one store" is only half true
 — an agent gets the real answer, the person still sees nothing — and parsed check-action output as a
 second source is not built.
+## Session 64 (macos) — 2026-09-07 — The Sessions tab revokes the token (F105 criterion 1, spec 103)
+
+Spec 103 decision 1 and acceptance criterion 1, built on branch `feat/sessions-token-controls`. In the
+Conversations section of the Sessions tab, the row whose conversation is the ledger's `holder.agentId`
+now carries a token mark and **Revoke**, or **Free** once the holder's process is gone — "take it from
+that one so another can claim" is one gesture next to the agent it concerns, which is what the owner
+asked for. Both gestures go through `re_token_action`, the popover's own sender lifted out of
+`re_token_ui`, so the two surfaces send one `token-action` contract and there is no second path.
+
+Three things the code decided against the spec's paragraph, recorded in its Surfaces section:
+**(a)** the mark is not live-only — a hold outlives the process that took it (the conversation IS the
+identity, spec 095), so the past-conversation row carries it too, and that is exactly where a holder
+whose pane exited is listed; marking only live rows would have put Free nowhere the case it exists for
+could reach it. **(b)** the pinned `token` frame carries no liveness — `segmentFrame()` drops the
+`holderAlive` the ledger's `status()` computes — and stage 2's worker was deliberately not touched, so
+the desktop derives it from the `holder.pid` the frame does carry, on the ledger's own `gone()` terms
+(an unknown pid is not a dead pid; an unsignalable process is still a process). `re_token_holder_alive`
+is the one place that changes if a later stage puts the field on the frame. **(c)** `re_app_inspect`
+now reports `conversations` — the rows as the interface pass drew them, with `holdsToken` and
+`tokenAction` — so a test reads the mark from the row's own derivation rather than re-deriving it, and
+a mark keyed on the wrong id is red in the report as well as wrong on the screen.
+
+Regressions: `orchestrator/tests/native-sessions-token.spec.mjs`, two tests, added to `test:desktop`.
+Five sabotage rows, each watched failing for its own reason and confirmed not to be an earlier one —
+the wrong holder field, Revoke sending `free`, a mark that never clears, liveness ignored, and a mark
+that fires on any held token. Table and method: `docs/evidence/sessions-token-controls-2026-09-07.md`.
+Worth writing down: the first attempt at that table ran before the implementation was committed, and
+the loop's `git checkout` restored the files to the commit *without* the feature — a red for the wrong
+reason. The script now refuses a dirty tree.
+
+Then merged `origin/main` a5bb1c8 — the task-writes lane (decisions 2, 3, 5, 8, 9) and, from a third
+session, the IDE bridge. Two list-shaped conflicts, both unioned: `package.json` keeps main's
+`RENGINE_IDE_DIRECTORY` prefix with this spec inserted beside `native-sessions.spec.mjs` (32 specs in
+`test:desktop`), and this entry is renumbered 64 because 60-63 were taken. Spec 103, `app.c` and
+`app.h` auto-merged — the other lane's spec edits are in the worker and MCP sections, this one's in
+Surfaces. Worth checking and checked: the task-writes lane touched `runtime/token.mjs`, and
+`segmentFrame()` still drops `holderAlive`, so the desktop-side derivation stands.
+
+Gates on the merged tip (a5bb1c8 is an ancestor of it): `npm run build` clean, zero warnings;
+`npm test` 188/188; `npm run test:desktop` 51/54. The three reds are not this change:
+
+- `native-format-hardening` "wide trees, malformed declarations and slow producers never take the
+  desktop down" (`dir6 expanded not reached`) is **red on origin/main itself** — reproduced twice in a
+  clean worktree built from a5bb1c8, alone, with no part of this branch in it. Not in
+  `known-issues.md`; it belongs to whoever owns the nested explorer's expansion cap.
+- `native-handoff` and `native-render` pass alone on this tip (handoff twice, render once) — flakes
+  under the serialised suite, and neither touches a device, a session row or the token.
+
+`npm run build:surface` is a prerequisite for the two recorder specs; without it they fail on a
+missing SDL fixture rather than on anything real.
+
+Untouched by this change: `orchestrator/runtime` (the ledger and the worker), `orchestrator/agents`,
+`orchestrator/server`, and `orchestrator/native/tracker.c` (another lane) — they enter the branch only
+through the merge. The tab enum and the OP_* ordering are unchanged; the one new metric is
+`sessions.token-width` in `theme.json`. Sidecar anchors for the three edited files are re-pointed, and
+`token.c._llm.json` gains the one entry a maintainer needs: liveness is derived here, in one place,
+because the frame does not carry it. F105 stays `passes: false` — criteria 4 through 8 are not built.
+
+Not verified: the live gesture on the owner's own workspace — Revoke on a running desktop taking the
+token off a real agent, and the next `token_contest` claiming it. Same reason spec 099 carries: a
+workspace whose host predates this cannot exercise it, and this session runs inside that host.
 
 ## Session 63 (macos) — 2026-09-07 — Token-serialised task writes and task-driven spawns (F105, spec 103)
 

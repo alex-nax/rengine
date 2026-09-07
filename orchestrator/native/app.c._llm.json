@@ -213,8 +213,8 @@
       "id": "game-tab-surface-report",
       "kind": "rationale",
       "anchor": {
-        "start": 775,
-        "end": 775,
+        "start": 778,
+        "end": 778,
         "snippet": "      const char *surface = t->terminal ? \"external\" : game_session_surface(a, t->session);"
       },
       "note": "The view selection asks whether a session IS external, so every other surface opens the live game view -- which is what lets a newer server's cooperative session (spec 078, F77) render on a desktop that predates the value, with no native change. This report used to infer the surface back from the view (t->terminal ? external : embedded) and so called every streaming tab embedded; it now reports what the session declares, keeping 'embedded' only as the fallback for a game session that carries no surface at all -- which the fixtures in native-game.spec.mjs and native-recording.spec.mjs construct directly. Automation reads this, so a wrong label here is a test that cannot tell the two streaming surfaces apart."
@@ -236,7 +236,7 @@
   ],
   "source": {
     "path": "orchestrator/native/app.c",
-    "sha256": "bf4a8ff5dec150c200e5a74ecbf6646efa57747b72dabf2dad90e269b142cc31",
+    "sha256": "b234fa14e7a18ee5afbf05c19a48b69250bb4dd5d5386992765289a59a795f24",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

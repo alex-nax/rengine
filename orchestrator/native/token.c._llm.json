@@ -5,8 +5,8 @@
       "id": "primary-root-only",
       "kind": "constraint",
       "anchor": {
-        "start": 51,
-        "end": 51,
+        "start": 78,
+        "end": 78,
         "snippet": "void re_token_event(ReApp *a, const cJSON *j) {"
       },
       "note": "The window holds the ledger's word about ONE root: the root it opened on, the same identity rule the chrome's name follows (spec 084 decision 3). A frame for any other root is dropped, so a second bound root cannot rename this segment; taking the focused tab's root instead would make the segment describe whichever pane was last clicked. The state is also cleared on `disconnected` from app.c, because the worker re-sends per root after desktop-register and a stale holder shown over a dead socket is a claim nobody is making.",
@@ -19,8 +19,8 @@
       "id": "floored-countdown",
       "kind": "rationale",
       "anchor": {
-        "start": 38,
-        "end": 38,
+        "start": 41,
+        "end": 41,
         "snippet": "int re_token_seconds_left(const ReProjectToken *t) {"
       },
       "note": "The desktop's wall clock is time(NULL), one-second resolution, while the deadline arrives with milliseconds. Rounding up therefore shows a 60-second window opening at 61s; flooring shows the window's own number and reads 0 for the last part-second. Nothing depends on this number: the ledger owns the deadline and the transfer, and the segment is a readout, not a timer.",
@@ -32,13 +32,27 @@
       "id": "never-gated-gestures",
       "kind": "constraint",
       "anchor": {
-        "start": 119,
-        "end": 119,
-        "snippet": "static void send_action(ReApp *a, const char *action) {"
+        "start": 148,
+        "end": 148,
+        "snippet": "void re_token_action(ReApp *a, const char *action) {"
       },
       "note": "These four are the person's own acts and are never gated on the token (spec 095 decision 6), so nothing here consults the holder before sending. contestId rides only on reject and grant, which answer a contest; revoke and free are about a held token and carry none, and adding it to them would name a contest they are not answering. The reason is the person's own text and is sent only with reject, only when non-empty: a reason invented by the chrome would be worse than none, because the contester reads it as the holder's.",
       "refs": [
         "docs/specs/095-project-token.md"
+      ]
+    },
+    {
+      "id": "holder-liveness-derived-here",
+      "kind": "rationale",
+      "anchor": {
+        "start": 59,
+        "end": 59,
+        "snippet": "bool re_token_holder_alive(const ReApp *a) {"
+      },
+      "note": "The pinned `token` frame carries no liveness: runtime/token.mjs computes holderAlive in status() and segmentFrame() drops it, and the worker was deliberately not changed when the Sessions tab needed the fact (spec 103 decision 1). So the desktop derives it from the holder.pid the frame does carry, and matches the ledger's own gone() exactly -- a pid it does not know is not a dead pid, and a process this desktop may not signal (EPERM, ERROR_ACCESS_DENIED) is still a process. Both halves run on the machine the ledger runs on; a loopback workspace puts them nowhere else. This is the one place to change if a later stage puts holderAlive on the frame -- do not sprinkle a second liveness rule into the Sessions rows.",
+      "refs": [
+        "docs/specs/103-task-driven-agents.md",
+        "docs/evidence/sessions-token-controls-2026-09-07.md"
       ]
     }
   ],

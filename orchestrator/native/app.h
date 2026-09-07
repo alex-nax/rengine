@@ -33,6 +33,7 @@ typedef struct ReApp {
   ReTab tabs[RE_TABS]; RePending pending[128]; ReExpansion expansions[RE_TREE_EXPANSIONS];
   ReTabStrip strips[RE_PANES];
   cJSON *state, *previous_layout, *controls, *formats, *dashboards, *dashboards_opened;
+  cJSON *conversations;                      /* the Sessions tab's conversation rows as drawn, for automation (spec 103) */
   char root[65], initial_terminal[65], initial_agent[65], initial_game[65];
   char primary_root[65];                     /* the root the window opened on; identity comes from it (spec 084) */
   char project_input[1024], agent[256], status[512];
