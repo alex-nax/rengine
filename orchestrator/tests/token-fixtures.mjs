@@ -80,6 +80,9 @@ export async function feedSocket(worker, url) {
   const socket = new WebSocket(url), frames = [];
   socket.on('message', bytes => frames.push(JSON.parse(bytes)));
   socket.on('error', () => {});
+  /* Kept because a monitor is supposed to be told why its socket went away: a retired worker closes
+     it with a reason that says to re-read feed_url and resume from the cursor (spec 095). */
+  const closed = new Promise(resolve => socket.once('close', (code, reason) => resolve({ code, reason: String(reason) })));
   await new Promise((resolve, reject) => { socket.once('open', resolve); socket.once('error', reject); });
-  return { socket, frames, close: () => socket.close() };
+  return { socket, frames, closed, close: () => socket.close() };
 }

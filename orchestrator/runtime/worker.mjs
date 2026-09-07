@@ -11,8 +11,13 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { Desktops } from '../server/desktops.mjs';
 import { request as call } from '../launcher/sidecar.mjs';
 import { authenticated, body, checkConnection, fail, forward, json } from './protocol.mjs';
-import { runtimeDirectory, alive } from './discovery.mjs';
-import { Tokens, readIdentity } from './token.mjs';
+import { runtimeDirectory, alive, discoverRuntime } from './discovery.mjs';
+import { Tokens, readIdentity, readDesktop, segmentFrame } from './token.mjs';
+
+/* Named once because a monitor reads it: the close reason a retired worker gives its feed clients
+   so they re-read feed_url and reattach to the current worker from the cursor they had. */
+export const RETIRED_FEED = 'Workspace worker retired; re-read feed_url and resume from your cursor';
+const RETIRED_ROUTES = ['/api/token', '/api/token-action', '/api/feed', '/api/recording', '/api/preferences'];
 
 export async function startWorker(host, options = {}) {
   checkConnection(host);
@@ -30,12 +35,14 @@ export async function startWorker(host, options = {}) {
   /* The ledger is the only capability this worker advertises conditionally: a worker whose runtime
      directory it cannot own serves everything else and says agentToken nowhere, so the tools refuse
      by name instead of calling a worker that would pass every gate (spec 095, criterion 8). */
-  let tokens = null, ledgerError = null;
+  let tokens = null, ledgerError = null, servesLedger = false, retired = false, supervisor = null;
   const directory = options.directory ?? runtimeDirectory(host);
-  try { tokens = await Tokens.open(directory, { alive }); }
+  try { tokens = await Tokens.open(directory, { alive }); servesLedger = true; }
   catch (error) { ledgerError = error.message; }
+  /* servesLedger, not tokens: a retired worker no longer owns the ledger but still answers for it,
+     by forwarding to the worker that does, so the capability it advertises does not change. */
   const capabilities = ({ projectGameLaunch, ...rest }) => ({ ...rest, desktopActions: 1, layeredUpdates: 1, scriptActions: 1,
-    formatRegistry: 1, dashboard: 1, projectGame: 1, recordings: 1, projectDevices: 1, ...(tokens ? { agentToken: 1 } : {}),
+    formatRegistry: 1, dashboard: 1, projectGame: 1, recordings: 1, projectDevices: 1, ...(servesLedger ? { agentToken: 1 } : {}),
     ...(rest.projectGame === 1 ? { projectGameLaunch: 1 } : {}) });
   /* Refused here, from the worker's own preflight, before anything reaches the retained host: the
      spec-078 / KI-043 lesson is that the host must not be the one to answer. See sidecar: remote-launch. */
@@ -62,7 +69,11 @@ export async function startWorker(host, options = {}) {
     while (list?.length) { const entry = list.shift(); if (Date.now() - entry.at < 10000) return entry.by; }
     return null;
   };
-  const actor = who => who ? { kind: 'agent', agentId: who.agentId, label: who.label } : { kind: 'desktop' };
+  const actor = (who, headers = {}) => {
+    if (who) return { kind: 'agent', agentId: who.agentId, label: who.label };
+    const desktopId = readDesktop(headers);
+    return { kind: 'desktop', ...(desktopId ? { desktopId } : {}) };
+  };
   const note = async (rootId, type, by, fields) => {
     if (!tokens || !rootId) return null;
     const ledger = await tokens.ledger(rootId);
@@ -74,14 +85,14 @@ export async function startWorker(host, options = {}) {
      (decision 6). The header is arbitration, not authentication — see token.mjs. */
   const gate = async (req, rootId, tool) => {
     const who = readIdentity(req.headers);
-    if (!who || !tokens) return { who, by: actor(who) };
+    if (!who || !tokens) return { who, by: actor(who, req.headers) };
     const ledger = await tokens.ledger(rootId);
     await ledger.settle();
     ledger.seen(who);
     const refusal = ledger.refusal(who, tool);
     await ledger.persist();
     if (refusal) fail(refusal, 409);
-    return { who, by: actor(who) };
+    return { who, by: actor(who, req.headers) };
   };
   const tokenStatus = async (rootId, req, tool) => {
     if (!tokens) fail(`This workspace worker does not serve the project token ledger: ${ledgerError ?? 'no runtime directory'}.`, 409);
@@ -104,12 +115,66 @@ export async function startWorker(host, options = {}) {
     }
   };
   const desktopOf = client => desktops.clients.get(client);
+
+  /* --- retirement (spec 095, Retirement) ----------------------------------------------------- */
+  /* Spec 065 keeps this worker's streams draining after it is replaced, so the desktop's /events
+     socket stays here; spec 095 put a stateful service on that socket. Retirement splits the two:
+     terminal and surface views keep draining, and the token/feed service hands off to the current
+     worker, reached through the supervisor named by the runtime descriptor in this directory. */
+  const feeds = new Set(), relays = new Map();
+  const supervisorOf = async () => {
+    if (supervisor) return supervisor;
+    const found = await discoverRuntime(host, directory);
+    if (!found) fail('This workspace worker was retired and its runtime supervisor is gone; reopen the workspace.', 503);
+    supervisor = found;
+    return supervisor;
+  };
+  const relay = async (route, data, headers) => call(await supervisorOf(), route, data, headers);
+  /* A retired worker mints nothing, so a transition on the current ledger reaches its retained
+     desktops the only way left: it watches that ledger's feed for token.* and re-reads the status
+     through the supervisor, pushing the same pinned frame it used to build itself. */
+  const follow = async rootId => {
+    if (!retired || closing || relays.has(rootId)) return;
+    const entry = { socket: null, attempts: (relays.get(rootId)?.attempts ?? 0) };
+    relays.set(rootId, entry);
+    const again = () => {
+      relays.delete(rootId);
+      if (closing || !retired || entry.attempts > 20) return;
+      setTimeout(() => void follow(rootId).catch(() => {}), 250).unref?.();
+    };
+    try {
+      const read = await relay(`feed?${new URLSearchParams({ rootId })}`);
+      if (closing || !retired) { relays.delete(rootId); return; }
+      const socket = new WebSocket(`${read.socket}&after=${read.cursor}`);
+      entry.socket = socket;
+      socket.on('error', () => {});
+      socket.on('message', bytes => {
+        let frame; try { frame = JSON.parse(bytes); } catch { return; }
+        if (typeof frame?.type === 'string' && frame.type.startsWith('token.')) void pushToken(rootId).catch(() => {});
+      });
+      socket.once('close', () => { entry.attempts++; again(); });
+    } catch { entry.attempts++; again(); }
+  };
+  const retire = async () => {
+    if (retired) return;
+    retired = true;
+    hostStream?.terminate(); hostStream = null;
+    for (const client of feeds) { try { client.close(1001, RETIRED_FEED); } catch { /* already gone */ } }
+    feeds.clear();
+    const owned = tokens; tokens = null;
+    await owned?.close();
+    for (const rootId of new Set([...desktops.clients.values()].flatMap(desktop => desktop.rootIds ?? []))) await follow(rootId);
+  };
+
   /* The pinned worker->desktop frame (spec 095, Native desktop): flat holder/contest/windowMs plus
      the sequence of the last token.* frame, pushed to every desktop bound to the root when it
-     registers and after every transition, so the status-bar segment never polls. */
+     registers and after every transition, so the status-bar segment never polls. A retired worker
+     builds the same frame from the current worker's status instead of from a ledger it gave up. */
   const pushToken = async (rootId, only = null) => {
-    if (!tokens) return;
-    const message = JSON.stringify((await tokens.ledger(rootId)).segment());
+    if (!tokens && !retired) return;
+    const frame = retired ? segmentFrame(await relay(`token?${new URLSearchParams({ rootId })}`))
+      : (await tokens.ledger(rootId)).segment();
+    const message = JSON.stringify(frame);
     for (const desktop of desktops.clients.values()) {
       if (only && desktop.socket !== only) continue;
       if (desktop.rootIds?.includes(rootId) && desktop.socket.readyState === WebSocket.OPEN) desktop.socket.send(message);
@@ -118,23 +183,35 @@ export async function startWorker(host, options = {}) {
   const desktopToken = async (client, data) => {
     const desktop = desktopOf(client);
     if (!desktop) fail('Register the desktop before sending token actions.', 409);
-    if (!tokens) fail('This workspace worker does not serve the project token ledger.', 409);
     if (!desktop.rootIds.includes(data.rootId)) fail('That project is not bound to this desktop.', 403);
+    if (retired) {
+      await relay('token-action', { rootId: data.rootId, action: data.action, contestId: data.contestId, reason: data.reason },
+        { 'X-Rengine-Desktop': desktop.id });
+      return;
+    }
+    if (!tokens) fail('This workspace worker does not serve the project token ledger.', 409);
     const ledger = await tokens.ledger(data.rootId);
     await ledger.desktop(data.action, { contestId: data.contestId, desktopId: desktop.id, reason: data.reason });
     await pushToken(data.rootId);
   };
   /* The recorder lives in the desktop (spec 081), so a commit is announced by the desktop on the
-     same socket it registers on. Stage 3 sends this frame; the shape is fixed here. */
+     same socket it registers on. One function behind both ways in: that socket, and the route a
+     retired worker forwards it to. */
+  const recordingFrame = async (rootId, data, by) => {
+    if (!tokens) fail('This workspace worker does not serve the project token ledger.', 409);
+    if (!['started', 'committed'].includes(data.event)) fail('A recording frame carries event started or committed.');
+    const frame = await note(rootId, data.event === 'started' ? 'capture.started' : 'capture.committed', by,
+      { sessionId: data.sessionId ?? null, gameId: data.gameId ?? null, recordingId: data.recordingId ?? null,
+        kind: data.kind === 'explicit' ? 'explicit' : 'ring', ...(data.at ? { startedAt: String(data.at).slice(0, 40) } : {}),
+        ...(data.error ? { error: String(data.error).slice(0, 400) } : {}) });
+    return { rootId, type: frame?.type ?? null, sequence: frame?.sequence ?? null };
+  };
   const desktopRecording = async (client, data) => {
     const desktop = desktopOf(client);
     if (!desktop) fail('Register the desktop before sending recording frames.', 409);
     if (!desktop.rootIds.includes(data.rootId)) fail('That project is not bound to this desktop.', 403);
-    if (!['started', 'committed'].includes(data.event)) fail('A recording frame carries event started or committed.');
-    await note(data.rootId, data.event === 'started' ? 'capture.started' : 'capture.committed', { kind: 'desktop', desktopId: desktop.id },
-      { sessionId: data.sessionId ?? null, gameId: data.gameId ?? null, recordingId: data.recordingId ?? null,
-        kind: data.kind === 'explicit' ? 'explicit' : 'ring', ...(data.at ? { startedAt: String(data.at).slice(0, 40) } : {}),
-        ...(data.error ? { error: String(data.error).slice(0, 400) } : {}) });
+    if (retired) { await relay('recording', data, { 'X-Rengine-Desktop': desktop.id }); return; }
+    await recordingFrame(data.rootId, data, { kind: 'desktop', desktopId: desktop.id });
   };
   /* The worker subscribes to the retained host's stream itself, once, with no desktop behind it. It
      reads session transitions and nothing else: an `output` frame is never even parsed into a feed
@@ -181,7 +258,7 @@ export async function startWorker(host, options = {}) {
     }
   };
   const subscribe = () => {
-    if (closing || !tokens) return;
+    if (closing || retired || !tokens) return;
     const remote = new URL('/events', host.url); remote.protocol = 'ws:'; remote.searchParams.set('token', host.token);
     hostStream = new WebSocket(remote);
     hostStream.on('error', () => {});
@@ -189,7 +266,7 @@ export async function startWorker(host, options = {}) {
       let data; try { data = JSON.parse(bytes); } catch { return; }
       if (data?.type === 'session') void onSession(data.session).catch(() => {});
     });
-    hostStream.once('close', () => { if (closing || retries++ > 20) return; setTimeout(subscribe, 250).unref?.(); });
+    hostStream.once('close', () => { if (closing || retired || retries++ > 20) return; setTimeout(subscribe, 250).unref?.(); });
   };
 
   const server = http.createServer(async (req, res) => {
@@ -197,6 +274,10 @@ export async function startWorker(host, options = {}) {
       const target = new URL(req.url, 'http://127.0.0.1');
       if (target.pathname === '/health') { json(res, 200, { protocol: 1, instance: host.instance, worker: process.pid }); return; }
       if (!authenticated(req, token, url)) fail('Workspace authentication required.', 401);
+      /* Retired: the ledger belongs to the worker that replaced this one, so every route that reads
+         or writes it — including the tokenWindowMs half of a preferences write, which that worker
+         splits exactly as this one did — is answered by forwarding through the supervisor. */
+      if (retired && RETIRED_ROUTES.includes(target.pathname)) { forward(req, res, await supervisorOf()); return; }
       if (req.method === 'GET' && target.pathname === '/api/state') {
         const state = await refresh();
         json(res, 200, { ...state, preferences: { ...state.preferences, ...(tokens ? { tokenWindowMs: tokens.window() } : {}) }, capabilities: capabilities(state.capabilities) });
@@ -214,14 +295,26 @@ export async function startWorker(host, options = {}) {
         const data = await body(req); await refresh(); await announce();
         if (!tokens) fail(`This workspace worker does not serve the project token ledger: ${ledgerError ?? 'no runtime directory'}.`, 409);
         const who = readIdentity(req.headers);
-        if (!who) fail('Only an identified agent can act on the token; this request carried no X-Rengine-Agent header.', 403);
+        /* The desktop actor a retired worker forwards for one of its retained desktops. Honoured
+           only in the absence of an agent header, and answered exactly as a local desktop socket
+           is: the person at a desktop is never gated, whichever worker carries the frame. */
+        const desktopId = who ? null : readDesktop(req.headers);
+        if (!who && !desktopId) fail('Only an identified agent can act on the token; this request carried no X-Rengine-Agent header.', 403);
         const ledger = await tokens.ledger(root(data.rootId).id);
-        const result = data.action === 'contest' ? await ledger.contest(who, data.reason)
+        const result = desktopId ? await ledger.desktop(data.action, { contestId: data.contestId, desktopId, reason: data.reason })
+          : data.action === 'contest' ? await ledger.contest(who, data.reason)
           : data.action === 'reject' ? await ledger.reject(who, data.reason)
           : data.action === 'release' ? await ledger.release(who)
           : fail('Choose contest, reject or release.');
         await pushToken(data.rootId);
         json(res, 200, { ...result, status: ledger.status(who) });
+      } else if (req.method === 'POST' && target.pathname === '/api/recording') {
+        /* The desktop's own recording frame, arriving over HTTP because the desktop that sent it is
+           draining through a retired worker. Same body, same frames, same attribution. */
+        const data = await body(req); await refresh(); await announce();
+        const desktopId = readIdentity(req.headers) ? null : readDesktop(req.headers);
+        if (!desktopId) fail('A recording frame is the desktop\'s; this request carried no X-Rengine-Desktop header.', 403);
+        json(res, 200, await recordingFrame(root(data.rootId).id, data, { kind: 'desktop', desktopId }));
       } else if (req.method === 'GET' && target.pathname === '/api/feed') {
         await refresh(); await announce();
         if (!tokens) fail(`This workspace worker does not serve the project token ledger: ${ledgerError ?? 'no runtime directory'}.`, 409);
@@ -322,6 +415,7 @@ export async function startWorker(host, options = {}) {
   const serveFeed = async (client, target) => {
     client.on('error', () => {});
     try {
+      if (retired) throw new Error(RETIRED_FEED);
       if (!tokens) throw new Error('This workspace worker does not serve the project token ledger.');
       await refresh();
       const rootId = root(target.searchParams.get('rootId')).id;
@@ -334,7 +428,8 @@ export async function startWorker(host, options = {}) {
       };
       for (const frame of ledger.feed.after(Number.isSafeInteger(after) ? after : 0).frames) send(frame);
       const unsubscribe = ledger.feed.subscribe(send);
-      client.once('close', unsubscribe);
+      feeds.add(client);
+      client.once('close', () => { feeds.delete(client); unsubscribe(); });
     } catch (error) { client.close(1011, error.message.slice(0, 100)); }
   };
   server.on('upgrade', (req, socket, head) => {
@@ -364,7 +459,7 @@ export async function startWorker(host, options = {}) {
             const data = JSON.parse(bytes);
             if (data.type === 'desktop-register') {
               await refresh(); desktops.register(client, data);
-              for (const rootId of desktops.clients.get(client)?.rootIds ?? []) await pushToken(rootId, client);
+              for (const rootId of desktops.clients.get(client)?.rootIds ?? []) { await follow(rootId); await pushToken(rootId, client); }
               return;
             }
             if (data.type === 'desktop-action-result') { desktops.acknowledge(client, data); return; }
@@ -380,8 +475,10 @@ export async function startWorker(host, options = {}) {
   url = `http://127.0.0.1:${server.address().port}`;
   await prime();
   subscribe();
-  return { url, token, instance: host.instance, pid: process.pid, tokens, async close() {
+  return { url, token, instance: host.instance, pid: process.pid, tokens, retire, async close() {
     closing = true; hostStream?.terminate();
+    for (const entry of relays.values()) entry.socket?.terminate();
+    relays.clear();
     for (const client of sockets.clients) client.terminate(); sockets.close();
     await tokens?.close();
     await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });
@@ -392,7 +489,15 @@ if (process.send) {
     try {
       const worker = await startWorker(message.host, { directory: message.directory });
       process.send({ type: 'ready', url: worker.url, token: worker.token, instance: worker.instance, pid: process.pid });
-      process.on('message', async message => { if (message.type === 'close') { await worker.close(); process.exit(0); } });
+      /* Serialized, because a worker that is drained the instant it is replaced is told both things
+         at once and the handoff has to finish before the process goes away. */
+      let queue = Promise.resolve();
+      process.on('message', message => {
+        queue = queue.then(async () => {
+          if (message.type === 'retired') await worker.retire();
+          else if (message.type === 'close') { await worker.close(); process.exit(0); }
+        }).catch(() => {});
+      });
       process.on('disconnect', async () => { await worker.close(); process.exit(0); });
     } catch (error) { process.send({ type: 'failed', error: error.message }); process.exitCode = 1; process.disconnect(); }
   });

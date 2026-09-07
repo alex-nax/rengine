@@ -21,6 +21,20 @@ export function readIdentity(headers) {
   return { agentId, label: printable(headers['x-rengine-agent-label'], 64) || 'agent',
     ...(Number.isSafeInteger(pid) && pid > 0 ? { pid } : {}) };
 }
+/* The desktop a retired workspace worker acts for, carried on X-Rengine-Desktop when that worker
+   forwards a retained desktop's frame to the current one (spec 095, Retirement). Same domain as the
+   agent header and the same disclaimer: loopback arbitration, never an access boundary. The caller
+   already holds the workspace capability, so a lie here buys nothing it could not already reach. */
+export function readDesktop(headers) { return printable(headers['x-rengine-desktop'], 64) || null; }
+/* The pinned worker->desktop frame, built from a status object rather than from ledger internals, so
+   the worker that owns the ledger and a retired worker relaying that ledger through the supervisor
+   put the same bytes on the desktop's socket. */
+export function segmentFrame(status) {
+  const contest = status.contest;
+  return { type: 'token', rootId: status.rootId, holder: status.holder ?? null,
+    contest: contest ? { id: contest.id, contester: contest.contester, openedAt: contest.openedAt, deadline: contest.deadline, reason: contest.reason ?? '' } : null,
+    windowMs: status.window, sequence: status.tokenSequence };
+}
 const seconds = ms => `${Math.max(0, Math.round(ms / 1000))}s`;
 function elapsed(since) {
   const ms = Date.now() - Date.parse(since);
@@ -135,12 +149,7 @@ export class Ledger {
   /* The frame the native status-bar segment reads, pinned flat rather than as the agent-facing
      status object: holder, contest, the window in milliseconds, and the sequence of the last
      token.* frame so a desktop can tell a stale push from a new one. */
-  segment() {
-    const contest = this.state.contest;
-    return { type: 'token', rootId: this.rootId, holder: this.state.holder,
-      contest: contest ? { id: contest.id, contester: contest.contester, openedAt: contest.openedAt, deadline: contest.deadline, reason: contest.reason ?? '' } : null,
-      windowMs: this.window(), sequence: this.state.tokenSequence };
-  }
+  segment() { return segmentFrame(this.status()); }
   /* Decision 5: refuse by name, attempt nothing. A free token is refused too, because holding is
      deliberate — token_contest claims a free token at once, and the claim is a frame everybody sees. */
   refusal(caller, tool) {
