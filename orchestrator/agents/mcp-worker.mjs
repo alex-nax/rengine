@@ -16,9 +16,16 @@ if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !/^[0-9a-f]{64}$
    anonymous rather than failing. The header is arbitration, never authentication (spec 095). */
 const agent = context.agent && typeof context.agent === 'object' && /^[0-9a-f-]{36}$/.test(context.agent.agentId ?? '')
   ? { agentId: context.agent.agentId, label: String(context.agent.label ?? 'agent'), pid: context.agent.pid, startedAt: context.agent.startedAt,
+      /* The conversation IS the identity, so the resume line belongs beside it: an agent that is
+         asked to hand its session over reads it here rather than guessing at its own id. */
+      ...(context.agent.session && typeof context.agent.session === 'object' ? { session: context.agent.session } : {}),
       ...(context.agent.sessionId ? { sessionId: context.agent.sessionId } : {}) }
   : undefined;
-const identityHeaders = agent ? { 'X-Rengine-Agent': agent.agentId } : {};
+/* The label and pid travel beside the id so the worker can name a holder in a refusal and check
+   whether its process is still there, without a lookup it has no table for. */
+const printable = value => String(value ?? '').replace(/[^\x20-\x7e]/g, '').slice(0, 64);
+const identityHeaders = agent ? { 'X-Rengine-Agent': agent.agentId, 'X-Rengine-Agent-Label': printable(agent.label) || 'agent',
+  ...(Number.isSafeInteger(agent.pid) && agent.pid > 0 ? { 'X-Rengine-Agent-Pid': String(agent.pid) } : {}) } : {};
 const call = async (route, data) => request(await resolveRuntime(context), route, data, identityHeaders);
 const scopedState = async () => {
   const state = await call('state');
@@ -48,7 +55,7 @@ const ownSession = (id, state) => {
   if (!session) throw new Error('Session is not bound to this project.');
   return session;
 };
-tool('workspace_info', 'Inspect the bound project, retained sessions, recovery draft metadata and this launch\u2019s own agent identity (agentId, label, pid, startedAt) when it has one.', {}, true, async (_values, state) => state);
+tool('workspace_info', 'Inspect the bound project, retained sessions, recovery draft metadata, the conversations this project remembers (id, agent, when each was last seen) and this launch\u2019s own agent identity when it has one: agentId, label, pid, startedAt, and session \u2014 the provider, the id this agent resumes by and the line that resumes it. The agentId IS that conversation id for a pane the workspace launched, so the same eight characters name it in the pane title, the picker and the token.', {}, true, async (_values, state) => state);
 tool('list_files', 'List files in a directory relative to the bound project.', { path: z.string().default(''), hidden: z.boolean().default(false) }, true,
   async ({ path, hidden }) => call(`tree?${new URLSearchParams({ rootId: context.rootId, path, hidden })}`));
 tool('read_file', 'Read a bounded UTF-8 excerpt from the bound project. Explicitly opt into a recovery draft.', {
@@ -66,17 +73,18 @@ const desktopCapability = state => {
 };
 tool('list_desktops', 'List connected native desktops displaying this project. Use an explicit returned ID for reload.', {}, true,
   async (_values, state) => { desktopCapability(state); return call(`desktops?${new URLSearchParams({ rootId: context.rootId })}`); });
-tool('reload_desktop', 'Request the native save/build/reattach routine for one listed desktop. Returns accepted, not build completion; re-list desktops after rebuild. Retains running agent and other sessions.', { id: z.string() }, false,
-  async ({ id }, state) => { desktopCapability(state); return call('desktop-action', { rootId: context.rootId, desktopId: id, action: 'reload' }); });
+tool('reload_desktop', 'Request the native save/build/reattach routine for one listed desktop. Returns accepted, not build completion; re-list desktops after rebuild. Retains running agent and other sessions. Gated by the project token: this agent must hold it, or the call is refused naming the holder and token_contest, and nothing is attempted.', { id: z.string() }, false,
+  async ({ id }, state) => { desktopCapability(state); await tokenGate(state, 'reload_desktop'); return call('desktop-action', { rootId: context.rootId, desktopId: id, action: 'reload' }); });
 tool('update_status', 'Inspect installed workspace layers and update jobs for this bound root. Reports completion separately from acceptance.', {}, true,
   async (_values, state) => {
     if (state.capabilities.layeredUpdates !== 1) throw new Error('Load the layered native bootstrap once before using updates.');
     return { ...await call(`update-status?${new URLSearchParams({ rootId: context.rootId })}`), toolWorkerPid: process.pid };
   });
-tool('update_workspace', 'Prepare and replace selected workspace, desktop and/or MCP tool layers. Workspace/tool changes affect this shared workspace; PTY host and CLI processes remain running. Desktop requires an explicit listed managed ID. Poll update_status for completion.', {
+tool('update_workspace', 'Prepare and replace selected workspace, desktop and/or MCP tool layers. Workspace/tool changes affect this shared workspace; PTY host and CLI processes remain running. Desktop requires an explicit listed managed ID. Poll update_status for completion. Gated by the project token: this agent must hold it, or the call is refused naming the holder and token_contest, and nothing is attempted.', {
   layers: z.array(z.enum(['workspace', 'desktop', 'connector'])).min(1).max(3), desktopId: z.string().optional(),
 }, false, async ({ layers, desktopId }, state) => {
   if (state.capabilities.layeredUpdates !== 1) throw new Error('Load the layered native bootstrap once before using updates.');
+  await tokenGate(state, 'update_workspace');
   return call('update-workspace', { rootId: context.rootId, layers, desktopId });
 });
 const windowCapability = state => { if (state.capabilities.projectWindows !== 1) throw new Error('Project-window control needs the current runtime supervisor. Use the documented context-bound bootstrap.'); };
@@ -95,14 +103,14 @@ tool('integration_inbox', 'Read integration reports after a durable cursor. An o
   after: z.number().int().min(0).default(0), windowId: z.string().optional(), projectSide: z.boolean().default(false),
 }, true, async (data, state) => { windowCapability(state); return call(`integration-inbox?${new URLSearchParams(Object.entries({ rootId: context.rootId, ...data }).filter(([, value]) => value !== undefined))}`); });
 const scriptCapability = state => { if (state.capabilities.scriptActions !== 1) throw new Error('Update the workspace worker before opening script tabs.'); };
-tool('open_script', 'Run a project-relative .sh workflow in a retained interactive terminal and open its tab in an explicit desktop. Inspect the script purpose first: execution may have effects. Arguments are literal argv; env adds UPPER_SNAKE literal variables over the shell environment (dashboard script actions list their script, args and env). Not idempotent; inspect sessions after a timeout instead of blindly retrying.', {
+tool('open_script', 'Run a project-relative .sh workflow in a retained interactive terminal and open its tab in an explicit desktop. Inspect the script purpose first: execution may have effects. Arguments are literal argv; env adds UPPER_SNAKE literal variables over the shell environment (dashboard script actions list their script, args and env). Not idempotent; inspect sessions after a timeout instead of blindly retrying. Gated by the project token: this agent must hold it, or the call is refused naming the holder and token_contest, and nothing is attempted.', {
   path: z.string(), args: z.array(z.string()).default([]), desktopId: z.string(), env: z.record(z.string(), z.string()).optional(),
-}, false, async (data, state) => { scriptCapability(state); return call('script-open', { ...data, rootId: context.rootId }); });
+}, false, async (data, state) => { scriptCapability(state); tokenCapability(state, 'open_script'); return call('script-open', { ...data, rootId: context.rootId }); });
 const dashboardCapability = state => { if (state.capabilities.dashboard !== 1) throw new Error('This retained service predates the project dashboard. Update the workspace layer first.'); };
 tool('dashboard_actions', 'List the project’s declared dashboard (.rengine/project.json contract 2): groups and actions with availability (missing required files, PATH tools, or, for a game action, the referenced game’s first preflight issue) and, under contract 4, its device’s reachability, with the failing half named. Availability composes the device answering with the action’s own local prerequisites; a declared probe is the only thing run. Script actions are run with open_script using the listed script, args and env; log actions start from the dashboard tab and are followed with show_session/session_output; capture actions use dashboard_capture; game actions are launched with launch_game using the listed game id and args.', {}, true,
   async (_values, state) => { dashboardCapability(state); return call(`dashboard?${new URLSearchParams({ rootId: context.rootId })}`); });
-tool('dashboard_capture', 'Run one declared capture action (the project’s own command, no shell, 10 s / 8 MiB) and return its manifest entry: the PNG written under the action’s into directory plus manifest.json. Executes a project executable.', { actionId: z.string() }, false,
-  async ({ actionId }, state) => { dashboardCapability(state); return call('dashboard-capture', { rootId: context.rootId, actionId }); });
+tool('dashboard_capture', 'Run one declared capture action (the project’s own command, no shell, 10 s / 8 MiB) and return its manifest entry: the PNG written under the action’s into directory plus manifest.json. Executes a project executable. Gated by the project token: this agent must hold it, or the call is refused naming the holder and token_contest, and nothing is attempted.', { actionId: z.string() }, false,
+  async ({ actionId }, state) => { dashboardCapability(state); tokenCapability(state, 'dashboard_capture'); return call('dashboard-capture', { rootId: context.rootId, actionId }); });
 tool('show_session', 'Open a retained project session in a listed desktop without starting another process. Use this if a script started but its view could not attach.', { id: z.string(), desktopId: z.string() }, false,
   async (data, state) => { scriptCapability(state); ownSession(data.id, state); return call('session-view', { ...data, rootId: context.rootId }); });
 tool('session_output', 'Read the bounded tail of a project session output buffer.', {
@@ -165,8 +173,8 @@ const gameSelector = { gameId: z.string().optional().describe('One declared game
 const gameLauncher = { ...gameSelector, args: z.array(z.string()).optional().describe('Literal argv appended to the declared record’s own args, as a dashboard game action carries.') };
 tool('game_preflight', 'Check one game declared in the project’s .rengine/project.json (contract 3, games): its title, the first resolvable executable candidate, literal args and env, working directory, required files and surface prerequisites, with each problem as a named issue and ready. Under contract 4 it also reports the device the record runs on and its reachability: for a non-local device the executable is NOT looked for on this machine (the candidates and the device are reported instead), while the record’s own requires stay local. An undeclared project reports declared false, and an unknown gameId names the declared ids.', gameSelector, true,
   async ({ gameId }, state) => { gameCapability(state); return call(`game-config?${new URLSearchParams({ rootId: context.rootId, ...(gameId ? { gameId } : {}) })}`); });
-tool('launch_game', 'Launch one game declared in the project’s .rengine/project.json on THIS machine (its own executable with literal args and env, in its declared working directory) or reuse the running session of that same game. Games of one project can run side by side; the same game already running with different arguments is refused rather than reused, so stop it first. embedded games stream into the workspace pane; external games open their own window and retain only their PTY output. A record bound to a non-local device is refused by name, pointing at the project’s own dashboard script action, and nothing is attempted. Executes a project executable; stop_session ends it.', gameLauncher, false,
-  async ({ gameId, args }, state) => { launchCapability(state); return call('game', { rootId: context.rootId, ...(gameId ? { gameId } : {}), ...(args ? { args } : {}) }); });
+tool('launch_game', 'Launch one game declared in the project’s .rengine/project.json on THIS machine (its own executable with literal args and env, in its declared working directory) or reuse the running session of that same game. Games of one project can run side by side; the same game already running with different arguments is refused rather than reused, so stop it first. embedded games stream into the workspace pane; external games open their own window and retain only their PTY output. A record bound to a non-local device is refused by name, pointing at the project’s own dashboard script action, and nothing is attempted. Executes a project executable; stop_session ends it. Gated by the project token: this agent must hold it, or the call is refused naming the holder and token_contest, and nothing is attempted.', gameLauncher, false,
+  async ({ gameId, args }, state) => { launchCapability(state); tokenCapability(state, 'launch_game'); return call('game', { rootId: context.rootId, ...(gameId ? { gameId } : {}), ...(args ? { args } : {}) }); });
 const recordingCapability = state => { if (state.capabilities.recordings !== 1) throw new Error('This retained service predates game recording. Update the workspace layer first.'); };
 tool('recordings_list', 'List the game recordings committed for the bound project from its live pane (.cache/recordings): id, the game and session they came from, whether they were committed from the rolling buffer or an explicit start/stop, start and end, duration, size and the artifact inventory. A directory whose commit did not complete is listed with its error rather than hidden. Newest first.', {
   limit: z.number().int().min(1).max(200).optional().describe('At most this many recordings, newest first.'),
@@ -185,11 +193,58 @@ tool('recording_read', 'Read one committed recording: its manifest, a bounded ta
   return call(`recording?${new URLSearchParams({ rootId: context.rootId, id: values.id, artifact: values.artifact,
     offset: String(values.offset), limit: String(values.limit), maxCharacters: String(values.maxCharacters) })}`);
 });
-tool('stop_session', 'Explicitly stop a retained process belonging to the bound project.', { id: z.string() }, false, async ({ id }, state) => {
-  ownSession(id, state); return call('stop', { id });
+/* The project token (spec 095). Arbitration among cooperating agents, never an access boundary:
+   an anonymous caller — probeTools, an older launch — is not an agent and is never gated. */
+const TOKEN_TOOLS = 'token_status shows the holder; token_contest opens a contest (a free token is claimed at once) and, unless the holder or the person at the desktop rejects it, the token transfers to you at the deadline.';
+const tokenCapability = (state, tool) => {
+  if (!agent) return false;
+  if (state.capabilities.agentToken !== 1) {
+    throw new Error(`${tool} is gated by the project token, and this workspace worker predates the ledger that serves it. Update the workspace layer first: update_workspace with layers ["workspace"]. Nothing was attempted.`);
+  }
+  return true;
+};
+/* update_workspace and reload_desktop are answered by the runtime supervisor, which forwards
+   everything else to the workspace worker; the worker therefore never sees these two and the gate
+   for them is read from the ledger here, before the call, rather than enforced there. */
+const tokenGate = async (state, tool) => {
+  if (!tokenCapability(state, tool)) return;
+  const status = await call(`token?${new URLSearchParams({ rootId: context.rootId, tool })}`);
+  if (status.refusal) throw new Error(status.refusal);
+};
+const tokenAction = (action, values) => call('token-action', { rootId: context.rootId, action, ...values });
+tool('token_status', `Read this project's token: who holds it and since when, whether this agent holds it, any open contest with the seconds left on its window, the cooldowns a rejected contest left behind, and every agent identity the workspace has seen call anything on this root. ${TOKEN_TOOLS} Reading never needs the token.`, {}, true,
+  async (_values, state) => { tokenCapability(state, 'token_status'); return call(`token?${new URLSearchParams({ rootId: context.rootId })}`); });
+tool('token_contest', 'Take the project token, or open a contest for it. A free token is claimed at once and the claim is a feed frame. A token held by another live agent opens a window of the workspace\u2019s configured length (tokenWindowMs, 60 s by default): the holder\u2019s monitor carries the contest, the holder or the person at the desktop may reject it with a reason, and if nobody does the token transfers to this agent at the deadline. A holder whose process is gone is replaced at once. Contest when about to act, not on startup: a rejected contest costs a cooldown of one window, named in the refusal.', {
+  reason: z.string().default('').describe('One line the holder reads on its monitor: what this agent is about to do.'),
+}, false, async ({ reason }, state) => { tokenCapability(state, 'token_contest'); return tokenAction('contest', { reason }); });
+tool('token_reject', 'Refuse the contest open against the token this agent holds. The contester reads the reason, keeps nothing, and cannot contest again for one window. Only the holder (or the person at the desktop) can reject.', {
+  reason: z.string().default('').describe('Why the contester should wait: what is still running under this token.'),
+}, false, async ({ reason }, state) => { tokenCapability(state, 'token_reject'); return tokenAction('reject', { reason }); });
+tool('token_release', 'Give up the project token so the next agent can take it without waiting out a window. Release when the work that needed it is finished; the release is a feed frame.', {}, false,
+  async (_values, state) => { tokenCapability(state, 'token_release'); return tokenAction('release', {}); });
+tool('feed_url', 'Return the WebSocket URL of this project\u2019s lifecycle feed, with the current cursor, for a monitor to watch. Frames are lifecycle only \u2014 token transitions, games starting and ending, device-bound dashboard actions starting and ending, captures starting and being committed, workspace layers replaced \u2014 each with a monotonic sequence; no process output ever appears on it. Every agent bound to the root may watch, holder or not. The socket is served by the workspace worker: after that worker is replaced, read this again and reopen with the last sequence seen.', {
+  after: z.number().int().min(0).optional().describe('Replay retained frames after this sequence; omitted, the feed opens at the current cursor.'),
+}, true, async ({ after }, state) => {
+  tokenCapability(state, 'feed_url');
+  const feed = await call(`feed?${new URLSearchParams({ rootId: context.rootId, after: '0', limit: '0' })}`);
+  const cursor = after ?? feed.cursor;
+  return { url: `${feed.socket}&after=${cursor}`, cursor, retainedFrom: feed.retainedFrom,
+    detail: 'Open this with a WebSocket monitor. Frames arrive as one JSON object per message.' };
+});
+tool('feed_read', 'Read retained lifecycle frames after a cursor, for an agent that polls rather than watching. The ring retains 1,000 frames per root and survives a workspace worker replacement; a cursor older than retainedFrom has missed frames and says so.', {
+  after: z.number().int().min(0).default(0).describe('Return frames with a sequence greater than this.'),
+  limit: z.number().int().min(1).max(1000).default(200),
+}, true, async ({ after, limit }, state) => {
+  tokenCapability(state, 'feed_read');
+  const feed = await call(`feed?${new URLSearchParams({ rootId: context.rootId, after: String(after), limit: String(limit) })}`);
+  const { socket, ...rest } = feed;
+  return rest;
+});
+tool('stop_session', 'Explicitly stop a retained process belonging to the bound project. Gated by the project token: this agent must hold it, or the call is refused naming the holder and token_contest, and nothing is attempted.', { id: z.string() }, false, async ({ id }, state) => {
+  ownSession(id, state); tokenCapability(state, 'stop_session'); return call('stop', { id });
 });
 const conversationCapability = state => { if (state.capabilities.agentConversations !== 1) throw new Error('This retained session host predates agent conversations, so it cannot name or resume one. Replacing the session host requires quiescence.'); };
-tool('restart_agent', 'Replace one agent pane with a new one on the SAME conversation: the child is stopped and started again, resuming the conversation rEngine named when it launched it, with a freshly composed environment. Use it to pick up a corrected environment or a new CLI version without losing the conversation and without restarting the session host. The pane keeps its project binding; its process id changes. An agent whose CLI names its own conversations has none recorded and is refused by name rather than started as a second conversation \u2014 workspace_info shows which sessions carry one.', { id: z.string() }, false, async ({ id }, state) => {
-  conversationCapability(state); ownSession(id, state); return call('agent-restart', { id });
+tool('restart_agent', 'Replace one agent pane with a new one on the SAME conversation: the child is stopped and started again, resuming the conversation rEngine named when it launched it, with a freshly composed environment. Use it to pick up a corrected environment or a new CLI version without losing the conversation and without restarting the session host. The pane keeps its project binding; its process id changes. An agent whose CLI names its own conversations has none recorded and is refused by name rather than started as a second conversation \u2014 workspace_info shows which sessions carry one. Gated by the project token, as stop_session is: this restart stops that child, so this agent must hold the token or the call is refused naming the holder and token_contest, and nothing is attempted.', { id: z.string() }, false, async ({ id }, state) => {
+  conversationCapability(state); ownSession(id, state); tokenCapability(state, 'restart_agent'); return call('agent-restart', { id });
 });
 await server.connect(new StdioServerTransport());

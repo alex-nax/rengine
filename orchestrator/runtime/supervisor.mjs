@@ -13,7 +13,7 @@ import { windowStore, nativeControl, inspectWindow } from './windows.mjs';
 
 const defaultWorker = fileURLToPath(new URL('./worker.mjs', import.meta.url));
 const defaultToolWorker = fileURLToPath(new URL('../agents/mcp-worker.mjs', import.meta.url));
-async function startWorker(host, filename) {
+async function startWorker(host, filename, directory) {
   const child = fork(filename, [], { stdio: ['ignore', 'ignore', 'pipe', 'ipc'], windowsHide: true });
   let diagnostics = ''; child.stderr.on('data', data => { diagnostics = (diagnostics + data).slice(-8000); });
   try {
@@ -24,7 +24,7 @@ async function startWorker(host, filename) {
       const exited = () => bad(new Error(`Workspace worker exited during startup. ${diagnostics}`));
       const message = data => { if (data.type === 'ready') { cleanup(); resolve(data); } else if (data.type === 'failed') bad(new Error(data.error)); };
       child.once('error', bad); child.once('exit', exited); child.on('message', message);
-      child.send({ host });
+      child.send({ host, directory });
     });
     checkConnection(ready);
     const state = await call(ready, 'state');
@@ -42,7 +42,7 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
   const hostState = async () => { const state = await call(host, 'state'); if (state.instance !== host.instance) fail('Original session host is no longer available.'); return state; };
   await hostState(); await mkdir(directory, { recursive: true, mode: 0o700 });
   const windows = await windowStore(directory);
-  let current = await startWorker(host, workerFile), url, active, activeFlight, closing = false, connectorGeneration = 1;
+  let current = await startWorker(host, workerFile, directory), url, active, activeFlight, closing = false, connectorGeneration = 1;
   let recovery = { state: 'idle' }, recoveryFlight, automaticRecoveryUsed = false;
   const retired = new Set(), desktops = new Map(), opens = new Map(), preserved = new Set(), jobs = [];
   const token = randomBytes(32).toString('hex');
@@ -57,7 +57,7 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
     automaticRecoveryUsed = true; recovery = { state: 'restarting', previousPid: current.pid };
     recoveryFlight = (async () => {
       try {
-        const next = await startWorker(host, workerFile), old = current;
+        const next = await startWorker(host, workerFile, directory), old = current;
         if (closing) { next.child.kill(); return; }
         current = next; watch(next); retired.add(old); retire(old);
         recovery = { state: 'recovered', previousPid: old.pid, pid: next.pid };
@@ -69,6 +69,12 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
     if (!retired.has(worker) || preserved.has(worker) || worker.requests || worker.streams) return;
     retired.delete(worker); if (worker.child.connected) worker.child.send({ type: 'close' });
   };
+  /* Spec 095, Retirement: a replaced worker keeps draining its streams (spec 065) and hands the
+     stateful half — the ledger, the feed and the host subscription that mints game.* — to the
+     worker that replaced it, so one process owns them. Sent where the retirement is committed
+     rather than at the swap: a failed update restores the previous worker as the current one, and
+     a worker told it was retired would then be forwarding requests to itself. */
+  const notifyRetired = worker => { if (worker.child.connected) worker.child.send({ type: 'retired' }); };
   const list = async rootId => {
     await ownRoot(rootId);
     const values = await Promise.all([current, ...retired].map(async worker => {
@@ -145,7 +151,7 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
     let candidate, replacement, record = desktop && desktops.get(desktop.owner), previous, previousWorker, startedDesktop = false;
     const previousConnector = connectorGeneration;
     try {
-      if (job.layers.includes('workspace')) candidate = await startWorker(host, workerFile);
+      if (job.layers.includes('workspace')) candidate = await startWorker(host, workerFile, directory);
       if (job.layers.includes('desktop')) replacement = await buildDesktop(path.join(directory, 'versions', job.id));
       if (job.layers.includes('connector')) await probeTools(host, directory, job.rootId, toolWorkerFile);
       if (closing) throw new Error('Supervisor is closing.');
@@ -169,7 +175,7 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
     } catch (error) {
       job.status = 'recovering'; job.error = error.message;
       if (candidate) candidate.child.kill();
-      if (previousWorker) { const rejected = current; current = previousWorker; retired.delete(previousWorker); retired.add(rejected); retire(rejected); }
+      if (previousWorker) { const rejected = current; current = previousWorker; retired.delete(previousWorker); retired.add(rejected); notifyRetired(rejected); retire(rejected); }
       connectorGeneration = previousConnector;
       try { await persist(); } catch (error) { job.persistenceError = error.message; }
       if (startedDesktop && record.child.exitCode === null && record.child.signalCode === null && !record.error) { record.child.kill(); await record.exited; }
@@ -179,7 +185,7 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
         catch (recovery) { job.recoveryError = recovery.message; }
       }
     } finally {
-      if (previousWorker) { preserved.delete(previousWorker); retire(previousWorker); }
+      if (previousWorker) { preserved.delete(previousWorker); if (retired.has(previousWorker)) notifyRetired(previousWorker); retire(previousWorker); }
       if (record) record.updating = false;
       job.finishedAt = Date.now(); if (job.status === 'recovering') job.status = 'failed'; active = null;
       recover();

@@ -5,8 +5,8 @@
       "id": "prepare-switch-recover",
       "kind": "rationale",
       "anchor": {
-        "start": 144,
-        "end": 144,
+        "start": 150,
+        "end": 150,
         "snippet": "const perform = async (job, desktop, closed = false) => {"
       },
       "note": "Prepare candidate workspace/tool code and a probed immutable native executable before requesting the old view\u2019s normal persistence/drain/exit-75 path. Preserve the previous workspace and binary until the replacement registers with a new view stamp. Failures enter recovering and become failed only after rollback completes; failed recovery is explicit. Keep old streams/HTTP mutations on their existing worker until drained. Serialize explicit updates, permit one automatic workspace crash recovery per explicit generation, and keep host-backed state/update control available if worker recovery fails. Never terminate/relaunch the original PTY host.",
@@ -18,13 +18,27 @@
       "id": "window-owner-and-session-root",
       "kind": "rationale",
       "anchor": {
-        "start": 212,
-        "end": 212,
+        "start": 218,
+        "end": 218,
         "snippet": "const openProject = async data => {"
       },
       "note": "Opening an integration window requires a running agent from the originating root and an explicit absolute target directory. A durable window record is the only cross-root initial-agent exception. Repeat opens reuse that identity, closed views reopen their own layout, and graceful close never force-kills a session. The stable supervisor remains the sole writer for layouts/reports while workspace/tool workers can be replaced.",
       "refs": [
         "docs/specs/069-project-window-dogfooding.md"
+      ]
+    },
+    {
+      "id": "retirement-notice",
+      "kind": "rationale",
+      "anchor": {
+        "start": 77,
+        "end": 77,
+        "snippet": "const notifyRetired = worker => { if (worker.child.connected) worker.child.send({ type: 'retired' }); };"
+      },
+      "note": "The supervisor's whole part in spec 095's Retirement: tell a replaced worker it was replaced, so it hands the token ledger and the feed to the worker that replaced it while its streams keep draining under spec 065. Sent where a retirement is committed - the finally that releases a replaced worker from `preserved`, and the rollback that retires a rejected candidate - and never at the swap, because a failed update restores the previous worker as the current one and a worker already told it was retired would then forward requests to itself. An older supervisor sends nothing and the worker behaves as it did before.",
+      "refs": [
+        "docs/specs/095-project-token.md",
+        "docs/evidence/token-retirement-2026-09-07.md"
       ]
     },
     {
@@ -43,7 +57,7 @@
   ],
   "source": {
     "path": "orchestrator/runtime/supervisor.mjs",
-    "sha256": "390380054256895f7fcfc200523d5a6c9c2cd74d7da3023c0b1993f48c467d40",
+    "sha256": "6245bfc6c1526b474c34a41e3bc439d51a7626adb95b4befe670482acb78b38a",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

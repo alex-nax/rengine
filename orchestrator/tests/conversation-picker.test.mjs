@@ -32,6 +32,10 @@ test('a pane offers the conversations this project already has', async t => {
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /2 hours ago/, 'the choices are shown with when they were last seen');
   assert.match(result.stdout, /yesterday/);
+  // One conversation, one name: the eight characters in a picker row are the same eight in the
+  // pane title, the identity label and the token segment.
+  assert.match(result.stdout, new RegExp(`codex ${NEWER.slice(0, 8)}`), 'each row leads with the prefix the conversation goes by');
+  assert.match(result.stdout, new RegExp(`codex ${OLDER.slice(0, 8)}`));
   assert.match(result.stdout, new RegExp(`conversation=${NEWER}`), 'choosing 1 resumes the most recent');
   assert.match(result.stdout, /resume=1/, 'and it resumes rather than starting a new one');
 });

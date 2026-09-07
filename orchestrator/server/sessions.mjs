@@ -18,6 +18,10 @@ const OUTPUT_LIMIT = 1024 * 1024;
 /* Plain words beat a timestamp in a pane: the person is choosing between "2 hours ago" and
    "yesterday", not reading a clock. */
 const MINUTE = 60000, HOUR = 60 * MINUTE, DAY = 24 * HOUR;
+/* One conversation, one set of eight characters: the pane title, the picker row, the identity label
+   and the token segment all show the same prefix, so a person recognises the same thing in each. */
+export const agentTitle = (agent, conversation, rootName) =>
+  `${agent || 'Choose agent'}${conversation ? ` ${conversation.slice(0, 8)}` : ''} · ${rootName}`;
 export function describeAge(when, now = Date.now()) {
   const gap = Math.max(0, now - when);
   if (gap < 2 * MINUTE) return 'just now';
@@ -181,7 +185,8 @@ export class Sessions extends EventEmitter {
     const child = pty.spawn(file, argv, { name: 'xterm-256color', cols, rows, cwd: workingDirectory,
       env: shellEnvironment({ ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents') }) });
     const item = { id, rootId, type, handoff, gate, released: false, ...(type === 'agent' ? { agent: agent ?? '', conversation } : {}), ...(type === 'game' ? { surface, game, args: argv } : {}),
-      title: title ?? (type === 'agent' ? `${agent || 'Choose agent'} · ${root.name}` : `${type === 'game' ? 'Game' : 'Terminal'} · ${root.name}`),
+      titleAuto: title === undefined,
+      title: title ?? (type === 'agent' ? agentTitle(agent, conversation, root.name) : `${type === 'game' ? 'Game' : 'Terminal'} · ${root.name}`),
       pid: child.pid, child, state: 'running', createdAt: Date.now(), cols, rows, output: '', sequence: 0 };
     this.items.set(item.id, item);
     child.onData(data => {
@@ -223,14 +228,23 @@ export class Sessions extends EventEmitter {
     item.child.resize(cols, rows); item.cols = cols; item.rows = rows;
   }
 
-  // The pane reports what it actually launched: the workspace may have minted a conversation, and
-  // the person at the pane may have chosen a different one from the offered list.
+  // The pane reports what it actually launched: the workspace may have minted a conversation, the
+  // person at the pane may have chosen a different one from the offered list, and their own
+  // --resume beats both. `null` says this launch continues or forks a conversation the CLI names
+  // itself, so the record must claim nothing rather than keep an id that would resume the wrong one.
   async recordConversation(id, conversation, agent) {
     const item = this.get(id);
     if (item.type !== 'agent') fail('Only an agent session holds a conversation.');
+    if (agent && !item.agent) item.agent = agent;
+    if (conversation === null) {
+      item.conversation = undefined;
+      if (item.titleAuto) item.title = agentTitle(item.agent, undefined, this.store.root(item.rootId).name);
+      this.changed(item);
+      return this.snapshot(id);
+    }
     const entry = await this.store.recordConversation(item.rootId, { conversation, agent: agent || item.agent || undefined });
     item.conversation = entry.id;
-    if (agent && !item.agent) item.agent = agent;
+    if (item.titleAuto) item.title = agentTitle(item.agent, entry.id, this.store.root(item.rootId).name);
     this.changed(item);
     return this.snapshot(id);
   }

@@ -20,7 +20,12 @@ function trackerRules(block) {
     if (block.provider !== provider && block[key] !== undefined) problems.push(`$.tracker ${key} belongs to provider ${provider}`);
   }
   if (block.provider !== 'local' && block.inventory !== undefined) problems.push('$.tracker inventory belongs to provider local');
-  if (block.provider !== 'linear' && block.project !== undefined) problems.push('$.tracker project belongs to provider linear');
+  /* The narrowing keys are Linear's alone. A backend that cannot honour a declared filter refuses it
+     by name rather than ignoring it, because a list that quietly answers a wider question than the
+     one asked looks exactly like a correct answer (spec 100 decision 4). */
+  for (const key of ['project', 'assignee', 'states']) {
+    if (block.provider !== 'linear' && block[key] !== undefined) problems.push(`$.tracker ${key} belongs to provider linear`);
+  }
   return problems;
 }
 

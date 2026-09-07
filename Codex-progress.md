@@ -1,6 +1,6 @@
 # Progress Log
 
-## Session 54 (macos) — 2026-09-07 — What a running workspace can and cannot be given (F98)
+## Session 56 (macos) — 2026-09-07 — What a running workspace can and cannot be given (F98)
 
 The owner was told, more than once, that layered updates were in place, and today a new route could
 not reach the running editor. Measured first, read-only, before writing anything: the premise "no
@@ -72,6 +72,501 @@ run belongs to whoever merges: from any pane,
 then the Tasks tab and `list_tasks`. Branch `feat/live-hot-update`, not merged. F98 `passes: false`
 for that reason.
 
+## Session 55 (macos) — 2026-09-07 — The tracker narrows to a person and to what is actually active (F97)
+
+The hirebase-v2 tracker tab answered with a hundred rows spanning every assignee and every workflow
+state, and the owner opening their workspace to work through their own tasks had to hunt. The
+declaration could already narrow a Linear team to one project; it could not narrow to a person, and
+it could not say "the states that mean now". Spec 100 adds two optional Linear-only keys to the
+`tracker` block — `assignee` and `states` — and honours them where the query is built.
+
+**The query shape was verified against live Linear before this session and is not re-derived here.**
+Team BAS / project Kohai: `{team, project, assignee: {isMe: {eq: true}}, state: {type: {in:
+["started"]}}}` → 13 rows; the same with `displayName: {eq: "jon"}` → 11; `{team, project}` alone →
+50; `state: {type: {in: ["started", "unstarted"]}}` → 13. The whole filter now goes over as a single
+`$filter: IssueFilter` variable and `linearFilter()` builds it in JavaScript, so the document is one
+fixed string for every shape and no clause is interpolated into it.
+
+**Back-compat is the whole branch, and it turns on one clause.** The project clause is always
+present, and `null` when nothing is declared — which is byte-for-byte what the old `$project`
+variable produced. Building the filter without it when it is undeclared would have been a *different*
+query that happens to return the same rows today; the test asserts `Object.keys(filter)` is exactly
+`['team', 'project']` so no empty narrowing sneaks in either.
+
+**`local` and `github` refuse rather than ignore.** The file already had this style — `repository
+belongs to provider github`, `inventory belongs to provider local` — so the two new keys joined
+`project` in one linear-only loop in `trackerRules`. A list that quietly answers a wider question
+than the one asked looks exactly like a correct answer, which is the failure those rules exist to
+prevent. An unknown state category is refused by the schema enum at declaration time, so `in-progress`
+(a team's state *name*) never reaches the network; the declaration speaks the five categories the
+neutral row normalises to.
+
+**The narrowing joined the cache key.** Two declarations differing only in their filters are
+different questions, and answering the second from the first's thirty-second entry would be a wrong
+list rather than a stale one — which the freshness indicator cannot flag, because the entry is fresh.
+
+**The masked first run, which is the point of the protocol.** All six new tests went red against the
+unchanged code and *three of them for the wrong reason*: `additionalProperties: false` refused the
+keys outright, so no request was ever built and the tests were failing on the declaration rather than
+on the filter. The schema keys were added alone and the suite re-run before any filter existed; only
+then did each test fail for its own reason (and test 4 went green, because the enum alone is what it
+claims to catch). Six sabotages then produced exactly the red each claims and nothing else, tabled in
+`docs/evidence/tracker-filters-2026-09-07.md`.
+
+**Gates.** `node --test orchestrator/tests/*.test.mjs` 152/152 (six new in
+`orchestrator/tests/tracker-filter.test.mjs`, picked up by the glob). `./init.sh` clean, 50 features
+validated. `verify.sh design` clean. Recorded and unrelated: while the sidecar indexer was running,
+two full runs each went red once in `project-token.test.mjs` — a different test each time, both green
+in isolation and in the quiet full run. That suite has real deadlines in it, so it is sensitive to
+another process eating the machine; nothing in this branch touches it. No test makes a network call: every Linear test drives an
+injected `fetch` and asserts on the request body it records, never on the rows — spec 083 recorded
+why the result is not the evidence for a filter.
+
+**No declaration was edited, on purpose.** The schema has `additionalProperties: false` and a running
+session host freezes it at startup, so a declaration carrying these keys is refused *wholesale* by any
+host that predates this change and takes that project's dashboard down with it — which already
+happened once today. The code lands first; hirebase-v2's `project.json` gains the keys only after the
+owner runs `~/hirebase-v2.command --replace-host` (F94). That live confirmation is F97's one
+outstanding criterion.
+
+**One repair.** Session 53's commit 98ead34 describes a test asserting the tracker capability and the
+`/api/tracker` route together, but the test is not in it: this session had the same working tree open
+and had momentarily parked that addition while separating its own change. Restored verbatim in
+832e1f0; 7/7 in `tracker.test.mjs`. Two pre-existing assertions there did have to move, because the
+Linear variables are now one `filter` object rather than `team` and `project`.
+
+## Session 54 (macos) — 2026-09-07 — The capability a merge dropped, and the test that would have caught it
+
+A merge into `main` took the other side of the capabilities map and removed `tracker: 1` from
+`orchestrator/server/main.mjs`. The routes survived — `/api/tracker`, `/tracker/signin`,
+`/tracker/signout` all still answered — so nothing failed loudly. What broke was the only thing that
+tells a client the route exists, which is precisely the signal the desktop reads before offering the
+Tasks tab against a workspace it did not start.
+
+Restored the flag, then wrote the regression that had been missing: test 7 in
+`orchestrator/tests/tracker.test.mjs` asserts the capability and the route **in the same test**, on
+the same live server. A test that checked only the route would have passed throughout the outage;
+one that checked only the flag could pass on a workspace whose route 404s. Verified by sabotage —
+removing `tracker: 1` again fails test 7 by name and nothing else — then restored. 15/15 across
+`tracker.test.mjs` and `tracker-auth.test.mjs`, `./init.sh` and `features.py validate` clean.
+
+**Two sidecar notes, both about traps rather than mechanics.** `main.mjs#tracker-is-host-only`
+records why this route in particular cannot arrive by a layered update: an update replaces the
+worker, and this file is the host. That is the KI-043 shape and it is what the owner hit — a
+development workspace whose host predates the feature answers 404 while the desktop beside it draws
+the button. `store.mjs#per-root-preferences-merge` records why `themes` and `recording` are merged
+into stored preferences rather than replacing them: the desktop sends only the key it changed, so a
+replace would silently drop every other project's remembered theme, which surfaces as "my theme
+keeps resetting" rather than as an error.
+
+Both sidecars reviewed and stamped; `check` clean for both. Remaining stale stamps in the tree
+belong to other lanes' files.
+## Session 53 (macos) — 2026-09-07 — Retirement by kind: the streams drain, the ledger hands off (KI-061)
+
+Session 50's end-to-end check found the defect neither half of the token could see: after
+`update_workspace` with `layers: ['workspace']` and a desktop attached, **two workers owned one
+ledger**. Spec 065 lets existing streams finish through the replaced worker; spec 095 then put a
+stateful service on one of those streams. The person's Reject landed on a ledger no agent read, and
+both workers stayed subscribed to the host's `/events` and minted `game.*` into one `feed.json` with
+colliding sequences. The obvious fix — close the replaced worker's tunnelled sockets — was tried and
+reverted, because it turns `runtime.test.mjs:91` red at `0 !== 1`. Owner instruction: *"do not forget
+about our layered restarts."*
+
+The two specs never disagreed about *whether* a replaced worker keeps serving, only about **what**,
+and the kinds are already distinct: a terminal or surface view is a stream of somebody else's bytes,
+the ledger is a service with one writer. So retention is now **by kind**. Views keep draining through
+the retired worker, untouched — 065's regression is unchanged and stays the floor. The token/feed
+service hands off.
+
+The supervisor's whole part is one message, `{ type: 'retired' }`, and *where* it is sent is the one
+design decision inside it: at the point a retirement is **committed** — the `finally` that releases a
+replaced worker from `preserved`, and the rollback that retires a rejected candidate — never at the
+swap, because a failed update restores the previous worker as the current one and a worker already
+told it was retired would then be forwarding requests to itself. Under an older supervisor the
+message never arrives and the worker behaves exactly as it did before.
+
+The worker that receives it drops its subscription to the host's `/events` and its ledger, so it
+mints nothing and never writes `token.json` or `feed.json` again; closes its own `/feed` clients with
+a reason naming retirement, which is what the cursor was always for; answers `GET /api/token`,
+`POST /api/token-action`, `GET /api/feed`, `POST /api/recording` and `POST /api/preferences` by
+forwarding to the current worker **through the supervisor named by the runtime descriptor already in
+its own directory** — no environment variable, no new descriptor; forwards its retained desktops'
+`token-action` and `recording` frames with the desktop actor on `X-Rengine-Desktop`, which the
+current worker honours only when no agent header is present and answers `by: { kind: 'desktop',
+desktopId }` exactly as it does for a local socket; and relays the pinned `token` push back by
+watching the current ledger's feed for `token.*`. `Ledger.segment()` and that relay are one function,
+so the frame text on the desktop's socket is unchanged and `orchestrator/native/*` needed no edit.
+Nothing under `orchestrator/server/` was touched.
+
+`orchestrator/tests/token-retirement.test.mjs` asserts it against a real supervisor, two real workers
+and a stand-in desktop on the real socket: 065's invariant with a live PTY still carrying input and
+output through the retired worker, the monitor closed with the retirement reason and reattachable by
+cursor with no gap, a `token-action` from the retained socket landing on the current ledger with the
+right `desktopId`, an agent's transition arriving back on that socket as the pinned frame, a
+`recording` frame becoming `capture.committed` on the current feed, and one `game.started` for one
+game session. `native-token-e2e.spec.mjs` gains the scenario its criterion 5 had to leave out: after
+the replacement, Reject on the **real** popover reaches the ledger the replacement serves, and the
+segment follows it.
+
+One measurement had to be reshaped before it discriminated, and it is the KI-061 measurement itself.
+Which of two writers lands last is timing, so sampling `feed.json` at the end can agree by luck —
+under the deliberate sabotage it did. `writeAtomically` names its temporary after the writing
+process, so the check watches the ledger directory and asserts the **set of pids that wrote it**. Two
+workers minting is then a fact on the filesystem rather than a race to sample.
+
+Fifteen sabotages, each watched failing for its own claim, in
+`docs/evidence/token-retirement-2026-09-07.md`. Row 15 is the control: the reverted alternative,
+still red at `runtime.test.mjs:91` `expected: 1 / actual: 0`. Rows 1–14 fail under the old code and
+row 15 under the code that was rejected; only the split passes both.
+
+F90 stays `passes: false`. KI-061 was one of its two named blockers and is closed; the other stands —
+F74, F76 and F80 are all `passes: false`, and F74's third criterion waits on the owner's live
+verification.
+
+**Two additions folded in after the 4aa340f reconciliation merge**, both asked for because this lane
+owns `runtime/worker.mjs` and `agents/mcp-worker.mjs`. `restart_agent` (spec 098) stops that pane's
+child and starts it again, which is `stop_session` by another name, so it is gated the same way —
+and by the same mechanism, an interception in the worker before the forward, exactly as `/api/stop`
+is, which keeps the person at the desktop ungated. And `token_status` now folds the root's persisted
+conversations (spec 097) into the identities it lists: the ledger learns an `agentId` only from a
+header on the wire, so a lane that has not called anything was invisible there and un-nameable in a
+refusal. Nothing is minted, the entries are marked `conversation: true`, and an identity the ledger
+has actually seen wins over the persisted record of the same id. Four more sabotages, rows 16–19.
+
+Commands: `npm test` 148/148 (145 on main, plus this lane's three) · `npm run test:desktop` 48/48 ·
+`python3 tools/features.py validate` · `python3 tools/design.py check` clean · sidecar `check` clean
+on the files this lane edited, each with a fresh stamp and, where it earned one, a new note. Three
+flakes worth naming because none of them is this lane's and each is a different spec:
+`native-dashboard.spec.mjs` after its desktop reconnected mid-test, `native-format-hardening.spec.mjs`
+on a wide tree, and `native-render.spec.mjs` at `opengl: resident memory delta 34176 KiB exceeds
+32768 KiB`. All three drive the session host directly — no supervisor and no workspace worker in any
+of them — each passes alone, and the suite is 48/48 on a clean run. The machine carried 63 rEngine
+processes and a load average around 12 throughout, from other lanes. Nothing under
+`orchestrator/server/` or `orchestrator/native/` was touched, and no environment variable was added.
+
+## Session 52 (macos) — 2026-09-07 — The conversation IS the identity: three lanes onto one uuid
+
+Three lanes had been building the same thing from three ends and had to become one branch,
+`feat/conversation-is-identity`, merged in a worktree at `.cache/worktrees/reconcile`.
+
+**The defect the merge would have shipped.** Spec 095 (F90) decided the per-launch agent identity IS
+the Claude session id and injected `--session-id <agentId>`. Spec 096 (F91/F92) had the session host
+mint a conversation, pass it as `RENGINE_AGENT_CONVERSATION`, and inject `--session-id` for that.
+Both were right; together a pane launch carried two `--session-id` flags with two different UUIDs,
+and `restart_agent` would then have "resumed" a conversation the CLI had never been in.
+
+**The reconciliation.** The owner's rule taken literally — one identifier, so the conversation is the
+identity. `claudeIdentity()` in `config.mjs` is the single place that decides which UUID: the
+launch's own flags first, then `bind.mjs --session`, then the host's conversation, then a mint.
+`conversationArgs()` injects it exactly once, from the `CONVERSATIONS` capability table. A person's
+`--resume X` under a host conversation `Y` is **not refused** — `launch.mjs` reports the decided id
+back over `POST /api/agent-conversation`, so the record follows what actually launched (refinement
+from the 096–098 author: "your identity minting becomes the single source and my conversation field
+reads it, rather than two independent mints racing to pass the same flag"). `-c`, a search-term
+`--resume` and `--fork-session` report `conversation: null`, which clears the pane's record so a
+restart refuses by name rather than opening a second conversation wearing the first one's name.
+
+The eight characters now name the same thing everywhere a person meets them: the identity label, the
+pane title (`agentTitle`), the 097 picker rows, the token segment. And a conversation spec 097
+persists per root IS an identity to the token ledger — same id, same `claude <first eight>` label, on
+both sides of a host restart, with nothing to migrate because there was never a second number.
+
+**Two merges, unioned, never a side taken.**
+
+- `origin/main` c550214 (0e3c1a7). Conflicts: `config.mjs` (union — origin's `claudeSession`/
+  `describeSession` plus HEAD's `CONVERSATIONS` table, `claudeStart` replaced by `conversationArgs`,
+  `claudeIdentity` added as the decision point); `launch.mjs` (union — the identity line and the
+  report back to the host, now sent whenever `plan.conversation` is not `undefined`); three
+  `._llm.json` sidecars (anchors, plus a fourth entry on config.mjs); `Codex-progress.md`.
+  `mcp-worker.mjs`, `app.c`, `app.h`, `features.json` and `package.json` auto-merged with both sides
+  intact — OP_SIGNIN still below OP_BYTES, RE_TRACKER still last in the append-only tab enum,
+  `re_app_inspect` the union of the tracker fields and `re_token_inspect`.
+- local `main` 49ab287 (0c80bcd). Conflicts: `package.json` (union of the desktop spec list — the
+  token lane's two specs and this lane's `native-sessions.spec.mjs`, 29 in all; taking either side
+  would have silently dropped the other's proof, which is what `suite-coverage.test.mjs` exists to
+  catch); `workspace.c._llm.json` (union of nine entries, re-anchored and stamped);
+  `Codex-progress.md`. 958f1b2's static assertions on the operation enum arrived with this merge
+  rather than needing a cherry-pick.
+
+**Regressions, each observed red for its own reason.** Ten sabotages, each producing exactly one
+failing test, tabled with its assertion in `docs/evidence/conversation-is-identity-2026-09-07.md`:
+ignoring the host conversation, starting a resume, injecting beside a person's flags, letting the
+host beat those flags, reporting a minted id for `-c`, keeping a stale conversation on a `null`
+report, restarting onto a new conversation, dropping the prefix from the pane title and from the
+picker row, and keying the identity label on something other than the conversation.
+
+**Gates** at `0c80bcd`: `npm test` 145/145, `npm run test:desktop` 48/48 (native-token,
+native-token-e2e, native-tracker and native-sessions together), `ctest` 6/6, desktop build with zero
+warnings, `features.py validate` 49, `design.py check` clean. Five desktop specs failed before
+`npm run build:surface` had been run in this fresh worktree; two more (native-explorer cap,
+native-render metal edge band) then failed under the long run and passed on their own both here and
+on a control worktree at `0b2359d`, so they were the known flake, not the merge.
+
+**Remaining.** Not verified live: this session runs inside a host that predates all three lanes, so
+the first workspace started from a host carrying this change should record a pane launched with one
+`--session-id`, `token_status` naming the holder by the conversation's first eight characters, and a
+`restart_agent` that kept the token. Two things in 096–099 still sit oddly against 095 and are named
+in the report rather than changed here: `restart_agent` stops a process and is not token-gated while
+`stop_session` is, and the ledger's `identities` registry is fed only by callers on the wire — folding
+`state.conversations` into `token_status` needs `runtime/worker.mjs`, which another lane owns.
+
+## Session 51 (macos) — 2026-09-07 — The agent identity is the Claude session id (F90 stage 1, revised)
+
+Owner decision, verbatim: *"Each claude session has identifier … on every session exit claude tells us
+to use `claude resume <id>`, token should be bound to that identifier."* So the identity stops being a
+number rEngine keeps beside the agent and becomes the conversation's own id, decided **at launch**
+from the flags the launch was given — never inferred afterwards from a transcript, a process tree or
+a hook, which is how an earlier attempt kept getting it wrong.
+
+`claude --help` on this machine settles the four cases and they are a table in spec 095's *Identity*
+section now: nothing named → mint and start the CLI with `--session-id <agentId>` beside
+`--mcp-config`; `--session-id`/`--resume`/`-r` with a uuid → that uuid **is** the `agentId` and the
+args pass through untouched; `-c`/`--continue`, `--resume` with a search term rather than an id, and
+`--resume <id> --fork-session` → the CLI mints the id inside itself, so the identity is rEngine's own
+and says `session.known: false`. That last case is the honest one and the launcher prints it as such
+rather than offering a `--resume` line that would not work. Codex's handoff already carries a
+`sessionId`; where there is one it is that agent's `agentId` too. Nothing was invented for gemini or
+opencode.
+
+Two consequences worth their own sentences. The **label** is now `<cli> <first eight of agentId>` —
+`claude 5b8d47c2` — so two Claude sessions on one root are two different things in the status bar and
+in a refusal, and the prefix is the id the person resumes by. And `bind.mjs` grew **`--session UUID`**:
+bind the session you are already in, and its start line is `claude --mcp-config <path> --resume <id>`
+instead of naming a new one. That is the whole point of the decision — the binding outlives the
+process.
+
+The ledger had to follow. **A holder's pid now follows its session**: an identified request from the
+holder's own `agentId` under a different pid refreshes the holder and the identities registry, so a
+resumed session keeps the token it held and `holder-gone` goes on meaning what it says instead of
+firing at every resume. Two defects seen live the same day are closed with it. **A release under an
+open contest hands the token to the contester at once** (`token.claimed`, `by: { kind: 'release' }`,
+naming the holder that let go) — it used to free the token and leave the contest open, which left the
+contester unable to act, unable to re-contest, and waiting out a window against a token nobody held.
+The desktop's *free* and *revoke* are deliberately left alone: the person there has Grant and Reject.
+And **a contest now carries the window it opened under**, so changing `tokenWindowMs` re-times
+nothing that is already open.
+
+That last one corrected the report that prompted it. The stored deadline was *already* absolute and
+`arm()` already read it, so the deadline itself never moved; what followed the live preference were
+the window a `status` read reported for an open contest and the cooldown a rejection of it charged.
+Both now come from `contest.windowMs`, pinned at the instant the contest opens, and `setWindow`
+touches no open contest at all.
+
+Twelve sabotages in `docs/evidence/agent-session-identity-2026-09-07.md`, each watched red for its
+own assertion and not an earlier one: the minted id not reaching the CLI, the flag's uuid not being
+read, a session named twice, `--continue` and `--fork-session` claimed as known, codex's handoff
+dropped, the label without its prefix, `bind --session` ignored, a bound session started with
+`--session-id`, the holder's pid frozen (and again with the pid assertions lifted, so the consequence
+assertion is shown to discriminate on its own), the release leaving the contest hanging, the transfer
+attributed as an ordinary agent claim, the preference re-timing an open contest, and the cooldown
+reading the live preference.
+
+`npm test` — 110/110. Nothing under `orchestrator/native/*`, `orchestrator/tests/native*` or
+`orchestrator/server/*` was touched; the native end-to-end fixture is another lane's, and the pinned
+worker→desktop frame is unchanged (`contest.windowMs` is ledger-side only).
+
+Merged `origin/main` at `a3e79fb` (session 50's native end-to-end fixture) on the way out: the only
+conflict was this log, resolved as a union with session 51 above session 50. The sidecars on the two
+annotated files this lane edited — `config.mjs` and `launch.mjs` — were repaired and stamped, with a
+new `session-is-the-identity` entry recording why the flags are read at launch rather than the
+conversation inferred afterwards; the repo-wide drift session 50 reported (KI-052's pattern) is
+untouched. **KI-061** — after a workspace replacement the desktop's `/events` stays on the retired
+worker, whose ledger keeps answering and whose feed keeps minting — is deliberately not addressed
+here: the handoff on retirement is its own lane's, and the obvious socket-kill breaks
+`runtime.test.mjs:91`'s retention invariant.
+
+Remaining: `workspace_info` still reports the identity's `agentId`/`label`/`pid`/`startedAt` and not
+its `session` descriptor, so an agent cannot yet read back its own resume line over MCP — one line in
+`agents/mcp-worker.mjs`, left out because that file is outside this branch's scope. Branch
+`feat/agent-session-identity`, not merged.
+
+## Session 50 (macos) — 2026-09-07 — The two halves of the project token, meeting (F90 stage 2 × stage 3)
+
+Spec 095's stages 2 and 3 were built in parallel and met at a pinned wire contract. Stage 3's report
+named what neither could assert: *"Nothing yet asserts the two halves together. My fixture is a
+stand-in for the worker; stage 2's tests never open a desktop."* This is that check, on
+`feat/agent-token-e2e` off `a12d582`.
+
+`orchestrator/tests/native-token-e2e.spec.mjs` boots the **real** stack — a session host, a runtime
+supervisor with a real workspace worker under it, and the desktop binary the supervisor snapshots
+and launches — and drives it from both ends. Four identities claim, contest, are rejected, granted
+and revoked; every gesture is a click on the real popover, read back through `re_app_inspect`, and
+every answer is read from `GET /api/token` and the worker's own feed socket. A second case toggles
+the recorder in a real game pane and follows the announcement through the worker onto the feed. The
+only fixtures left are the project the agents argue about and the SDL surface the pane draws.
+
+Fifteen sabotages, each watched failing for its own claim, in
+`docs/evidence/project-token-e2e-2026-09-07.md`. One method note worth keeping: the first sweep
+misattributed seven reds, because a JavaScript-only sabotage that follows a native one runs against
+the **previous row's binary** — a restored source tree is not a restored build. Every row is rebuilt
+now, and the seven were re-run.
+
+Two assertions had to be shaped before they discriminated, and both are the shape of a stand-in
+hiding something. The popover press *toggles*, so the second gesture in a row closes it — stage 3's
+fixture pressed once and drove four gestures, which only worked because nothing else touched the
+overlay. And the supervisor opens the project's **dashboard** beside the game, which takes the pane,
+so the recorder's controls were not drawn at all until the game tab is selected; stage 3's
+`nativeClient` never had a dashboard next to it.
+
+**What the check found is a defect neither half could see (KI-061).** Criterion 7 *seen from the
+desktop* — replace the workspace layer mid-contest and watch the segment re-register onto the new
+worker — does not happen. Spec 065 lets existing streams finish through the replaced worker, and
+spec 095 put the ledger's desktop channel on one of those streams, so after `update_workspace` with
+`layers: ['workspace']` and a desktop attached **two workers own one ledger**: the desktop reads and
+writes the retired one — its segment showed `Contest · codex · 58s` for a contest the live ledger had
+already rejected — while agents read the current one. Worse, both stay subscribed to the host's
+`/events` and both mint frames into the same `feed.json`, so the sequences collide: measured,
+`game.started` is 4 in the served feed and 3 in the file a third worker would load.
+
+The obvious fix was built and refused by 065: making `retire()` destroy the replaced worker's
+tunnelled sockets makes the whole scenario pass and turns `runtime.test.mjs:91` — *"layered
+workspace and MCP replacement retain a legacy host and active PTY streams"* — red at `0 !== 1`. Both
+reds were observed in one run and the change was reverted; choosing between them is an owner
+decision. The spec asserts the half that is true and wanted instead (same holder, same contest, same
+absolute deadline, same window preference, a feed that continues and announces its generation), plus
+spec 065's own rule, so the missing half is named in the fixture rather than only in a document.
+
+F90 stays `passes: false`, and now for two nameable reasons rather than missing stages: KI-061 is an
+open defect in criterion 5's *"take effect immediately"* under a routine layered update, and its
+prerequisites F74, F76 and F80 are all `passes: false` (F74's own third criterion says passing waits
+on the owner's live verification after `update_workspace`). All nine criteria have evidence; the
+prerequisites and the ledger fork do not.
+
+Commands: `npm test` 107/107, `npm run test:desktop` 45/45 (43 before, plus this spec's two),
+`ctest` in `.cache/desktop` 6/6, `python3 tools/features.py validate` at 43 features,
+`python3 tools/design.py check` clean. Sidecar `check` reports pre-existing drift on 25 files this
+lane never touched — KI-052's pattern, not repaired here. No file under `orchestrator/server/` was
+touched; `supervisor.mjs`, `worker.mjs` and the native sources are unchanged from `a12d582`.
+
+## Session 49 (macos) — 2026-09-07 — The project token in the chrome, and the recorder on the feed (F90 stage 3)
+
+Stage 3 of spec 095: the native desktop's half of the project token, built on `feat/agent-token-desktop`
+in a worktree while stage 2's ledger was being built in parallel on `feat/agent-token-ledger`. The two
+stages meet at a pinned wire contract and nothing else — this branch never touches `worker.mjs`,
+`agents/` or `server/`.
+
+The window now holds the ledger's last word about its **primary root** — the same identity rule the
+chrome's name follows (spec 084 decision 3), so a `token` frame for any other root changes nothing
+here. That is the assertion most worth having and it is one: a second root's ledger naming a
+different holder leaves the segment reading `Token · claude`. The state lives in
+`orchestrator/native/token.{c,h}` beside `devices.c` and `tracker.c`, and a `disconnected` clears it,
+because the ledger's word does not outlive the socket that carried it.
+
+The segment is at the right edge of the status bar, with the facts moving left of it, so its
+rectangle is a function of the window width and its own text alone. That matters more than it looks:
+the face is owned drawing laid down after every pane, while the hit area is built during the
+interface pass, and the two agree only because both derive the rectangle from the same function.
+Before the first frame arrives the segment draws nothing at all — *Token · free* is a claim about a
+ledger, and a window that has heard none has no business making it.
+
+Two details earned themselves. The countdown **floors**: the desktop's wall clock is `time(NULL)`,
+so rounding up opens a 60-second window reading `61s`. And an explicit recording's segment id is now
+minted when the toggle **starts** it rather than when it commits, so the `started` and `committed`
+frames name one directory a reader can pair; the id's timestamp is now the instant `startedAt` in
+its own manifest already reported. The recorder's `kind` on the wire is `ring`/`explicit` while the
+manifest keeps `ring`/`segment` — the feed names the gesture, the artifact names its shape, and
+that difference is written down in both specs rather than left to be discovered.
+
+Twelve sabotages, each watched failing for its own claim and not an earlier one, in
+`docs/evidence/token-desktop-2026-09-07.md`: the held segment, the parsed deadline, the primary-root
+filter, `contestId` present on reject/grant and absent from revoke/free, the clear on disconnect, the
+start announcement, the id pairing, the feed's vocabulary, the segment opening the surface, the held
+token's own controls, and a ring commit announcing a start it never had.
+
+The fixture is `orchestrator/tests/token-fixtures.mjs`: a stand-in for the worker's interception —
+it proxies the session host, keeps the frames the desktop sends on `/events`, and pushes the
+ledger's own frames back. It holds no ledger on purpose. Nothing here asserts what a `token-action`
+does to one; those are stage 2's criteria 3, 4 and 7.
+
+Stage 2 landed on main while this was being built, so the branch merged it. Three things collided
+and each was resolved rather than picked: two fixtures named `token-fixtures.mjs`, where this one
+became `token-desktop-fixtures.mjs`; two rewrites of the spec's Native-desktop section, unioned so
+that stage 2's pinned frames stand and this stage's corrections and record follow them; and two
+session entries. The pinned frames agree with what shipped here, field for field, which is what the
+coordination was for. What nothing yet asserts is the two halves together: this stage's fixture is a
+stand-in for the worker's interception, and stage 2's tests never open a desktop. An end-to-end
+check through the real worker is the obvious next one.
+
+While merging, one stale sidecar anchor unrelated to this work was repaired:
+`workspace.c#view-switcher-indices` had pointed at a snippet that stopped existing when Tasks was
+inserted into the view switcher (F78).
+
+Commands: `npm test` 107/107 after the merge (100/100 before it), `npm run test:desktop` 43/43,
+`ctest` in `.cache/desktop` 6/6, `python3 tools/design.py check`,
+`python3 tools/features.py validate` at 43 features, sidecar `check` clean, native build at zero
+warnings. F90 stays `passes: false`: stages 2 and 4 are not built, and six of
+its nine criteria belong to them.
+## Session 48 (macos) — 2026-09-07 — The token ledger, the gates and the feed (F90 stage 2)
+
+Stage 2 of spec 095, on `feat/agent-token-ledger`. The workspace worker now keeps one **ledger** per
+project root — `<runtime>/tokens/<rootId>/token.json`, written atomically, with that root's retained
+1,000-frame feed beside it — and `orchestrator/runtime/token.mjs` holds the whole state machine:
+claim when free, contest with an absolute deadline, reject by the holder (cooldown of one window for
+the contester), the desktop's reject / grant / revoke / free, the transfer at the deadline by timer
+*and* lazily on the next call, and the dead-holder resolution. Deadlines are absolute wall times and
+every call settles before it acts, so a replaced worker resumes the same contest from the file rather
+than restarting its countdown.
+
+Seven agent-originated routes are gated on the `X-Rengine-Agent` header: `/api/game`,
+`/api/script-open`, `/api/dashboard-run`, `/api/dashboard-capture`, `/api/desktop-action`,
+`/api/update-workspace` and `/api/stop` — the last intercepted before `forward()`, because the
+retained host serves it and spec 065 says the host does not grow a gate. A request without the header
+is the desktop's and is never gated. A refusal is HTTP 409 naming the holder's label, since when, and
+`token_contest`; a **free** token is refused the same way, because holding is deliberate and every
+hold should be a frame somebody can read.
+
+`GET /feed` on the worker and only there. The worker subscribes to the retained host's `/events`
+itself, once, with no desktop behind it, and reads session transitions only — an `output` frame is
+never turned into a feed frame, which is what makes "no PTY output on the feed" structural rather
+than a filter. Frames: `token.*`, `game.started/ended`, `device-action.started/ended` for a dashboard
+action whose declared device is not this machine, `capture.started/committed` from the desktop's
+`recording` frame, and `workspace.updated`.
+
+The tool worker carries the label and pid beside the id (a refusal has to name a holder and the
+ledger has to check a pid, and the worker has no table for either), offers `token_status`,
+`token_contest`, `token_reject`, `token_release`, `feed_url` and `feed_read`, and gates
+`update_workspace` and `reload_desktop` itself — the runtime supervisor answers those two and never
+forwards them, so the worker cannot see them. `agentToken: 1` is the one flag `capabilities()` adds
+conditionally: only a worker that opened its ledger advertises it, so an old worker under a new
+connector is refused by name instead of passing every call.
+
+**Seven facts the code corrected in the spec**, all recorded there. The host's preference store
+allowlists its keys and drops the rest, so `tokenWindowMs` is owned beside the ledgers and the worker
+intercepts `POST /api/preferences` to keep it — otherwise the window would never leave its default.
+Two of the seven gated routes are the supervisor's, not the worker's. The feed socket is the worker's
+own loopback URL, because the supervisor's upgrade handler allowlists `/events` and `/surface`.
+Liveness is the pid uniformly — `agent.sh` execs the launcher and `bind.mjs` records the terminal —
+so no `boundBy` discriminator was needed. `by` grew a fourth kind, `workspace`, for a frame nobody
+asked for. `workspace.updated` cannot be observed as a request, so each worker announces its own
+generation on the first request it serves that is not `/health` or `/api/state`. And the ledger
+carries `identities`, which is criterion 1's candidate list.
+
+One line outside the worker and the tool worker: `runtime/supervisor.mjs` now sends the runtime
+directory in the fork message, so a worker persists where its supervisor says, with
+`runtimeDirectory(host)` as the fallback an older supervisor leaves it. `orchestrator/server/*` and
+`orchestrator/native/*` are untouched.
+
+The three frames crossing the worker↔desktop `/events` socket were **pinned** mid-session by the
+owner-coordinated stage-3 lane, and the worker conforms exactly: the worker→desktop `token` frame is
+flat (`holder`, `contest`, `windowMs`, and the feed sequence of the last `token.*` frame) and is
+pushed once per registered root at `desktop-register` as well as after every transition; a
+`token-action` is answered by the next `token` frame rather than a bespoke result, with `contestId`
+required for `reject` and `grant` and a refusal arriving as the socket's ordinary `{type:'error'}`;
+and the recorder's frame carries `event`, not `phase`, with a ring commit sending only `committed`.
+All three are written into spec 095's *Native desktop* section.
+
+`orchestrator/tests/project-token.test.mjs`, seven tests over `token-fixtures.mjs`, against a real
+worker in front of a real session host, with a fake desktop on `/events` and the real MCP tool worker
+for the tool half. **Twenty sabotages** in `docs/evidence/project-token-2026-09-07.md`, each red
+for its own assertion — including three that did not discriminate at first: two went red without
+naming themselves (a setup line throwing 409, and a bare `strictEqual`) and one went **green**,
+because the register-time push was asserted after a transition had already pushed the same frame.
+The "no PTY output" proof measures against the desktop's own `/events` socket carrying that output in
+the same run, so the negative is not a quiet machine. `npm test` 107/107.
+
+F90 stays `passes: false`: criterion 9 is the stage-3 status-bar segment, and the desktop's
+`recording` frame is stage 3's to send. The exact frame shapes it owes the worker are written into
+spec 095's *Native desktop* section and exercised today by the fake desktop.
 ## Session 49 (macos) — 2026-09-07 — The Sessions tab resumes and attaches, where the owner asked for it (F95)
 
 The owner has asked three times for one thing and it kept landing on the wrong surface. Spec 097 built
