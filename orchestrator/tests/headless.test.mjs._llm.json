@@ -15,8 +15,8 @@
       "id": "recordings-not-exit-status",
       "kind": "rationale",
       "anchor": {
-        "start": 184,
-        "end": 198,
+        "start": 186,
+        "end": 200,
         "snippet": "const outcome = await run(process.execPath, [LAUNCH, '--state', directory],"
       },
       "note": "The desktop check reads the two recording files and only then the launcher's exit status, so a start that took the headless path reports 'recorded nothing' instead of 'command failed'. Asserting on the exit status first would have been correct and useless. The stubs are shell scripts, which is why the whole check skips on Windows: Node refuses to spawn a .cmd without a shell."
@@ -45,8 +45,8 @@
       "id": "serving-before-pid",
       "kind": "constraint",
       "anchor": {
-        "start": 226,
-        "end": 230,
+        "start": 228,
+        "end": 232,
         "snippet": "const state = await api(descriptor.url, descriptor.token, 'state').then(response => response.json())"
       },
       "note": "The retention check asserts what the sidecar is still serving before it asserts the sidecar's pid, and the order is load-bearing. A signalled sidecar stops its sessions well before its process goes, so the sabotage that kills the sidecar on detach left liveness true \u2014 at one second of waiting too \u2014 while the session was already gone, and the failure landed on the wrong line. Do not reorder these, and do not replace the serving assertion with a liveness one."
@@ -54,7 +54,7 @@
   ],
   "source": {
     "path": "orchestrator/tests/headless.test.mjs",
-    "sha256": "c8f9a46953705a42736ba68d3fa53bfd4351ff68e21188530743673cf0952a8d",
+    "sha256": "28a5bec344b9de65cfa4629cfc00d51085eae1431860986b3c5a5198325ff348",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

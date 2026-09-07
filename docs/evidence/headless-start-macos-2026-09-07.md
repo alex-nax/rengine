@@ -42,18 +42,26 @@ of the fixture now leaves zero `orchestrator/server/main.mjs` processes behind, 
 
 ## Gates
 
-Run in `.cache/worktrees/headless` against `origin/main` at the tip recorded in the session entry.
+Run in `.cache/worktrees/headless`, after merging `origin/main` at `8ca5bbf` (F79 and F81 landed from
+another lane while this was in flight; `origin/main` was fetched again immediately before these).
 
 | Gate | Result |
 | --- | --- |
-| `npm test` | see the session entry in `Codex-progress.md` for counts |
-| `npm run test:desktop` | see the session entry |
-| `ctest` (`.cache/scratch-build`) | see the session entry |
-| `./init.sh` | see the session entry |
-| `python3 tools/design.py check` | see the session entry |
-| `python3 tools/features.py validate` | see the session entry |
-| sidecar `check` (`--index .cache/sidecars-headless.sqlite`) | see the session entry |
-| native build from a wiped scratch directory | see the session entry, with its warning count |
+| `npm test` | 92 tests, 92 pass, 0 fail, 0 cancelled, 8.2 s |
+| `npm run test:desktop` | 35 tests before the merge / 37 after, all pass — see the session entry for the per-run numbers and the two load-induced flakes |
+| Native build, wiped `.cache/scratch-build`, Release | exit 0, **0 warnings** |
+| CTest in that build | 6/6 pass, 1.00 s |
+| `./init.sh` | passed |
+| `python3 tools/design.py check` | consistent |
+| `python3 tools/features.py validate` | 42 features, types, evidence and dependency graph valid |
+| llm-sidecar `check --fix-anchors` then `stamp`, `--index .cache/sidecars-headless.sqlite`, sequential | clean |
+| End-to-end by hand | `node orchestrator/launch.mjs --headless --state DIR --project DIR` printed its ready line, wrote a mode-0600 `sidecar.json`, registered the root, answered `/api/state` with nine capabilities and zero sessions |
+
+Two runs of the desktop suite failed on load rather than on the change, and both are recorded because
+the number alone would misrepresent them: the first because a fresh worktree has no `.cache/native`
+surface fixture (run `npm run build:surface` first — it is a prerequisite, not a regression), and one
+later run because the sidecar indexer was hashing the tree on the same machine while GUI tests were
+waiting on frames. Do not run either alongside this suite.
 
 ## Not proved here
 

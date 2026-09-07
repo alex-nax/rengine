@@ -55,22 +55,28 @@ of a same-server comparison move together. That is what makes it discriminate "t
 "anything else that writes a sidecar.json", and it is the assertion the trimmed-service sabotage
 reddened.
 
-Gates, run in `.cache/worktrees/headless` off `origin/main` at `fbddaf3` (fetched again immediately
-before these; it had not moved):
+Gates. `origin/main` was fetched again before the final sweep and had moved by two commits (F79 and
+F81, another lane), so this branch merged it and every number below is post-merge. The merge touched
+`launch.mjs`, `package.json` and `features.json`; `launch.mjs` was resolved by taking their file and
+re-applying the headless branch onto it, so the desktop path is theirs verbatim, indented.
 
-- `npm test` — 85 tests, 85 pass, 0 fail, 6.7 s. An earlier run showed 1 fail + 1 cancelled; both
-  were my own doing, a native build running `--parallel 6` on the same machine, and both are green
-  alone. The desktop check's kill timeout went 20 s → 45 s for that headroom.
-- `npm run test:desktop` — see the counts recorded with this entry; the first run failed
-  `native-game.spec.mjs` because a fresh worktree has no `.cache/native` surface fixture. That is a
-  prerequisite, not a regression: `npm run build:surface` first.
-- Native build from a wiped `.cache/scratch-build`, Release: exit 0, **0 warnings**; CTest 6/6 in
-  0.97 s.
+- `npm test` — 92 tests, 92 pass, 0 fail, 8.2 s.
+- `npm run test:desktop` — 35/35 before the merge, and after it see the run recorded with this entry.
+  Two runs failed on load rather than on the change and both are worth naming: the first because a
+  fresh worktree has no `.cache/native` surface fixture (`npm run build:surface` is a prerequisite,
+  not a regression), and one later run because the sidecar indexer was hashing the tree while GUI
+  tests waited on frames. An earlier `npm test` showed 1 fail + 1 cancelled for the same reason, a
+  native build running `--parallel 6` alongside it; the desktop check's kill timeout went 20 s → 45 s
+  for that headroom. Do not run either alongside a GUI suite.
+- Native build from a wiped `.cache/scratch-build`, Release: exit 0, **0 warnings**; CTest 6/6, 1.00 s.
 - `./init.sh` clean; `python3 tools/design.py check` clean; `python3 tools/features.py validate`
-  clean (41 features).
-- llm-sidecar `check`/`stamp` with `--index .cache/sidecars-headless.sqlite`, sequential: clean.
-  Two anchors in `launch.mjs._llm.json` drifted by nine lines and were repaired; new sidecars for
-  `launcher/headless.mjs` and `tests/headless.test.mjs`.
+  clean (42 features).
+- llm-sidecar `check --fix-anchors` then `stamp` with `--index .cache/sidecars-headless.sqlite`,
+  sequential: clean. Anchors in `launch.mjs._llm.json` drifted twice, once from my branch and once
+  from the merge; new sidecars for `launcher/headless.mjs` and `tests/headless.test.mjs`.
+- By hand, the exact wizard shape: `node orchestrator/launch.mjs --headless --state DIR --project DIR`
+  printed its ready line, wrote a mode-0600 `sidecar.json`, registered the root and answered
+  `/api/state` with nine capabilities and zero sessions.
 
 `F85` is `passing` with `dependencies: []`. F35, the sidecar row, is the real parent but is still
 open on its own broader qualification, and the validator refuses a passing row that depends on a
