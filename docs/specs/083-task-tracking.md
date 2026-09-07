@@ -122,6 +122,41 @@ To point a project at Linear:
 
 then write the key to `trackers/<project>.token` beside the workspace state.
 
+## Browser sign-in (2026-09-07)
+
+The owner asked for a URL to authenticate against rather than a pasted key. Two facts from the
+providers' own documentation shaped what that could be.
+
+Linear's token endpoint lists `client_secret` as **optional** when `code_verifier` is present, on the
+first exchange and on every refresh of a grant created that way. So the desktop is a public client
+using PKCE with S256 and ships no secret at all. That is the fact the whole design rests on; without
+it a desktop could not sign in without a broker.
+
+Linear matches redirect URIs **exactly** and implements no port wildcard, so the usual native-app
+pattern of an OS-assigned port cannot work. The callback therefore listens on a fixed port from a
+small registered range, opened only for the duration of a sign-in and bound to loopback. This is the
+one place the design departs from RFC 8252's recommendation, and it departs because the provider
+does.
+
+The flow: the view offers Sign in, the service mints the verifier and a one-time state and returns a
+URL, the desktop opens it, the browser returns to the loopback listener, and the service exchanges
+the code and stores the grant. No credential passes through the desktop. The callback carries no
+workspace bearer token — a browser redirect cannot — so the one-time state is what authorises it,
+compared in constant time.
+
+A grant is refreshed an hour before it lapses rather than on expiry, and the refresh token rotates.
+A refresh that fails keeps the token it had, because Linear allows the original request to be
+replayed for **thirty minutes** and a cleared grant could not use that window. Signing out revokes at
+the provider and clears the file.
+
+A pasted personal key still works and is never refreshed, so nothing that worked before stops
+working. One-time setup: create an application, register the listed redirect URIs, and put its client
+id in `trackers/oauth.json` beside the workspace state. The secret is neither needed nor stored.
+
+GitHub sign-in is not built. Its loopback exchange requires a `client_secret` that a public client
+cannot keep — GitHub sanctions shipping it, but its device flow needs no secret at any point, so that
+is the better shape there and it is deferred rather than half-done.
+
 ## Deferred
 
 Writing to any backend. Mirroring between backends. Linear subscriptions. Image icons and anything

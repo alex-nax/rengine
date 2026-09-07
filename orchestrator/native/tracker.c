@@ -55,7 +55,17 @@ void re_tracker_ui(ReApp *a, mu_Context *ui, int tab) {
   /* The vocabulary is the backend's, not HTTP's: a missing token is denied, an unreachable service
      is unavailable, and a malformed inventory is invalid with its reasons. */
   const char *denied = re_string(t->data, "denied"), *unavailable = re_string(t->data, "unavailable");
-  if (*denied) { re_ui_label_ex(ui, denied, RE_UI_MUTED); return; }
+  if (*denied) {
+    re_ui_label_ex(ui, denied, RE_UI_MUTED);
+    /* A provider that can be signed in to offers the button rather than naming a file to create. */
+    if (*re_string(t->data, "signIn")) {
+      mu_layout_row(ui, 2, (int[]){RE_METRIC_TRACKER_STATE_WIDTH, -1}, RE_METRIC_TRACKER_HEADING_HEIGHT);
+      if (re_ui_button_ex(ui, "Sign in", RE_ICON_ARROW_UP, 0)) re_app_tracker_signin(a, tab);
+      re_app_control(a, ui, "tracker-signin", re_string(t->data, "signIn"), tab);
+      re_ui_label_ex(ui, "The browser opens; the workspace never sees your password.", RE_UI_MUTED | RE_UI_SMALL);
+    }
+    return;
+  }
   const cJSON *invalid = cJSON_GetObjectItemCaseSensitive(t->data, "invalid");
   if (cJSON_GetArraySize(invalid)) {
     const cJSON *reason = NULL;

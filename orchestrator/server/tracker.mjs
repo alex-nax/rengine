@@ -11,6 +11,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fail } from './store.mjs';
+import { parseCredential, expiring, refresh } from './tracker-auth.mjs';
 
 const PROBE_TTL_MS = 30000;          /* one poll every 30 s is about 5% of a Linear key's budget */
 const CACHE_LIMIT = 64;
@@ -41,16 +42,22 @@ export function forget() { cache.clear(); }
 
 /* The token lives beside the workspace state and never in the committed declaration. Keyed by the
    declared project identity rather than a root id, so a person can create it by name. */
-export async function credential(stateDirectory, project) {
+export async function credential(stateDirectory, project, options = {}) {
   if (!stateDirectory || !project) return null;
   const file = path.join(stateDirectory, 'trackers', `${project}.token`);
+  let grant;
   try {
-    const text = await readFile(file, 'utf8');
-    return text.trim() || null;
+    grant = parseCredential(await readFile(file, 'utf8'));
   } catch (error) {
     if (error.code === 'ENOENT') return null;
     throw error;
   }
+  if (!grant) return null;
+  /* A signed-in grant is refreshed before it lapses; a pasted personal key never expires and is
+     handed back untouched. A refresh that fails keeps the token it had, because Linear allows the
+     request to be replayed for thirty minutes and a cleared grant could not use that. */
+  if (expiring(grant)) grant = await refresh(stateDirectory, project, grant, options);
+  return grant.accessToken ?? null;
 }
 
 /* The neutral row. State is (id, name, category) and never a boolean: a two-value enum cannot
@@ -120,7 +127,7 @@ const LINEAR_QUERY = `query Issues($team: String!, $first: Int!) {
 const LINEAR_PRIORITY = [null, 'urgent', 'high', 'medium', 'low'];
 
 async function linearRows(block, token, fetchImpl) {
-  if (!token) return { rows: [], denied: `No Linear token. Put one in the workspace state directory as trackers/${block.project}.token` };
+  if (!token) return { rows: [], denied: 'Not signed in to Linear.', signIn: 'linear' };
   const response = await fetchImpl('https://api.linear.app/graphql', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
@@ -203,7 +210,7 @@ export async function projectTracker(root, declared, options = {}) {
   if (block.provider === 'local') return { ...result, ...(await localRows(root, block)), fresh: true };
 
   if (typeof fetchImpl !== 'function') fail('This build cannot reach a network tracker.', 501);
-  const token = await credential(options.stateDirectory, named.project);
+  const token = await credential(options.stateDirectory, named.project, options);
   const key = [root.id, block.provider, block.repository ?? block.team].join(' ');
   if (options.refresh) cache.delete(key);
   const produce = () => (block.provider === 'linear'

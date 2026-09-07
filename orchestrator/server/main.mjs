@@ -14,6 +14,7 @@ import { listFormats, formatPreview, readBytes, readDeclaration } from './format
 import { dashboardAction, dashboardActions, dashboardRunPayload, dashboardCapture } from './dashboard.mjs';
 import { projectDevices } from './devices.mjs';
 import { projectTracker } from './tracker.mjs';
+import { begin as beginSignIn, revoke as revokeSignIn, client as trackerClient, setupInstructions as trackerSetup } from './tracker-auth.mjs';
 import { listRecordings, readRecording } from './recordings.mjs';
 
 const authorized = (value, token) => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value) && timingSafeEqual(Buffer.from(value), Buffer.from(token));
@@ -83,6 +84,23 @@ export async function startServer({ stateDir, port = 0 } = {}) {
           if (!data || typeof data !== 'object' || Array.isArray(data)) fail('Expected an object.');
           switch (target.pathname) {
             case '/api/roots': value = await store.addRoot(data.path, data.declarationFile); break;
+            /* Sign-in returns a URL for the desktop to open; the browser comes back to a loopback
+               listener this module owns, so no credential passes through the desktop (spec 083). */
+            case '/api/tracker/signin': {
+              const selected = store.root(data.rootId);
+              const declaration = await readDeclaration(selected);
+              const project = declaration.project ?? selected.id;
+              if (!(await trackerClient(stateDir))) { value = { ok: false, setup: trackerSetup(stateDir) }; break; }
+              const started = await beginSignIn(stateDir, project);
+              value = { ok: true, url: started.url, redirect: started.redirect };
+              break;
+            }
+            case '/api/tracker/signout': {
+              const selected = store.root(data.rootId);
+              const declaration = await readDeclaration(selected);
+              value = await revokeSignIn(stateDir, declaration.project ?? selected.id);
+              break;
+            }
             case '/api/save': value = await store.saveText(data); break;
             case '/api/draft': value = await store.putDraft(data); break;
             case '/api/discard': await store.discardDraft(data.rootId, data.path); value = { ok: true }; break;

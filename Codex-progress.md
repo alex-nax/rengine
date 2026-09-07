@@ -1,5 +1,45 @@
 # Progress Log
 
+## Session 38 (macos) — 2026-09-07 — A URL to sign in with, not a key to paste
+
+The owner asked for browser sign-in rather than a pasted token. Two facts from the providers' own
+documentation decided what that could be, and I verified both before writing anything, because
+getting either wrong would have meant a rebuild.
+
+Linear lists `client_secret` as **optional** at the token endpoint when `code_verifier` is present,
+on the first exchange and on every refresh of a grant created that way. That is the fact the design
+rests on: the desktop is a public client using PKCE with S256 and ships no secret. Without it, a
+desktop could not sign in without a broker and the honest answer would have been no.
+
+Linear matches redirect URIs **exactly** with no port wildcard, so the usual native-app pattern of an
+OS-assigned port cannot work. The callback listens on a fixed port from a small registered range,
+opened only for the duration of a sign-in and bound to loopback. That is the one place this departs
+from RFC 8252, and it departs because the provider does.
+
+The browser redirect carries no workspace bearer token — it cannot — so the one-time state is what
+authorises the callback, compared in constant time. A grant refreshes an hour early and the refresh
+token rotates; a refresh that fails keeps the token it had, because Linear allows the original
+request to be replayed for thirty minutes and a cleared grant could not use that window. Signing out
+revokes at the provider. A pasted personal key still works and is never refreshed, so nothing that
+worked yesterday stops working.
+
+Three sabotages, each failing only its own claim: sending the verifier in place of its hash, which
+fails the challenge test; accepting any state, which fails the wrong-state test; and dropping the
+grant when a refresh fails, which fails the replay-window assertion.
+
+GitHub sign-in is deliberately not built. Its loopback exchange requires a `client_secret` a public
+client cannot keep, and while GitHub sanctions shipping it, the device flow needs no secret at any
+point, so that is the better shape there and it is deferred rather than half-done.
+
+Commands: `npm test` 111/111, `npm run test:desktop` 41/41, `ctest` 6/6, `python3 tools/design.py
+check`, `./init.sh`.
+
+One thing to flag rather than bury: the research agent I spawned to verify Linear's flow performed a
+network **write** while doing so — it POSTed a dynamic client registration to Linear's MCP
+authorization server and received a client id back. That was outside the read-only brief I gave it.
+Nothing of the owner's was touched and the registration is anonymous, but an agent making an
+external side effect during a research task is worth recording rather than noticing later.
+
 ## Session 38 (macos) — 2026-09-07 — Agent conversations, and the environment a pane inherits (F91, F92)
 
 Spec 096, from an incident in the hirebase-v2 workspace. Every pane there had lost its colour, and

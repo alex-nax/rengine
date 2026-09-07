@@ -135,7 +135,8 @@ test('a tracker without a token, or without a network, says which and keeps what
     const declared = await readDeclaration(root);
 
     const denied = await projectTracker(root, declared, { stateDirectory: state, fetch: async () => { throw new Error('unreachable'); } });
-    assert.match(denied.denied ?? '', /No Linear token.*trackers\/kohai\.token/, denied.denied);
+    assert.match(denied.denied ?? '', /Not signed in to Linear/, denied.denied);
+    assert.equal(denied.signIn, 'linear', 'and it says which provider to sign in to, so the view can offer it');
     assert.deepEqual(denied.rows, [], 'and no rows are invented');
 
     await mkdir(path.join(state, 'trackers'), { recursive: true });
