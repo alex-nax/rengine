@@ -40,9 +40,23 @@ it proxies the session host, keeps the frames the desktop sends on `/events`, an
 ledger's own frames back. It holds no ledger on purpose. Nothing here asserts what a `token-action`
 does to one; those are stage 2's criteria 3, 4 and 7.
 
-Commands: `npm test` 100/100, `npm run test:desktop` 43/43, `ctest` in `.cache/desktop` 6/6,
-`python3 tools/design.py check`, `python3 tools/features.py validate`, sidecar `check` clean, native
-build at zero warnings. F90 stays `passes: false`: stages 2 and 4 are not built, and six of
+Stage 2 landed on main while this was being built, so the branch merged it. Three things collided
+and each was resolved rather than picked: two fixtures named `token-fixtures.mjs`, where this one
+became `token-desktop-fixtures.mjs`; two rewrites of the spec's Native-desktop section, unioned so
+that stage 2's pinned frames stand and this stage's corrections and record follow them; and two
+session entries. The pinned frames agree with what shipped here, field for field, which is what the
+coordination was for. What nothing yet asserts is the two halves together: this stage's fixture is a
+stand-in for the worker's interception, and stage 2's tests never open a desktop. An end-to-end
+check through the real worker is the obvious next one.
+
+While merging, one stale sidecar anchor unrelated to this work was repaired:
+`workspace.c#view-switcher-indices` had pointed at a snippet that stopped existing when Tasks was
+inserted into the view switcher (F78).
+
+Commands: `npm test` 107/107 after the merge (100/100 before it), `npm run test:desktop` 43/43,
+`ctest` in `.cache/desktop` 6/6, `python3 tools/design.py check`,
+`python3 tools/features.py validate` at 43 features, sidecar `check` clean, native build at zero
+warnings. F90 stays `passes: false`: stages 2 and 4 are not built, and six of
 its nine criteria belong to them.
 ## Session 48 (macos) — 2026-09-07 — The token ledger, the gates and the feed (F90 stage 2)
 
