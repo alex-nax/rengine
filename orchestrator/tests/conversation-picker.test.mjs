@@ -17,11 +17,16 @@ async function fixture(t) {
   await mkdir(project); await mkdir(bin);
   // The fake CLI reports what the launcher decided, which is the only thing these tests assert on.
   await writeFile(path.join(bin, 'codex'),
-    '#!/bin/bash\nprintf "conversation=%s\\n" "${RENGINE_AGENT_CONVERSATION:-none}"\nprintf "resume=%s\\n" "${RENGINE_AGENT_RESUME:-none}"\n', { mode: 0o755 });
+    '#!/bin/bash\nprintf "conversation=%s\\n" "${RENGINE_AGENT_CONVERSATION:-none}"\nprintf "resume=%s\\n" "${RENGINE_AGENT_RESUME:-none}"\nprintf "args=%s\\n" "$*"\n', { mode: 0o755 });
   const listing = path.join(dir, 'conversations.tsv');
   await writeFile(listing, `${NEWER}\tcodex\t2 hours ago\n${OLDER}\tcodex\tyesterday\n`);
-  const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, RENGINE_AGENT_HOME: path.join(dir, 'managed') };
-  const run = (input, overrides = {}) => spawnSync('bash', [script, '--project', project, '--agent', 'codex', '--action', 'launch'],
+  /* KI-031's shape: this suite is run from an rEngine agent pane as often as not, and that pane's own
+     RENGINE_* environment — its workspace context, its conversation, its listing — would decide every
+     assertion below. The launcher's inputs here are the ones this fixture sets and nothing inherited. */
+  const clean = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('RENGINE_')));
+  const env = { ...clean, PATH: `${bin}${path.delimiter}${process.env.PATH}`, RENGINE_AGENT_HOME: path.join(dir, 'managed') };
+  const run = (input, overrides = {}, extra = []) => spawnSync('bash',
+    [script, '--project', project, '--agent', 'codex', '--action', 'launch', ...(extra.length ? ['--', ...extra] : [])],
     { env: { ...env, ...overrides }, input, encoding: 'utf8', timeout: 10000 });
   return { dir, project, env, listing, run };
 }
@@ -84,4 +89,27 @@ test('a workspace-minted conversation is still offered the history, and Enter ke
   const swap = run('2\n', { RENGINE_AGENT_CONVERSATIONS: listing, RENGINE_AGENT_CONVERSATION: MINTED });
   assert.match(swap.stdout, new RegExp(`conversation=${OLDER}`), 'choosing one replaces the minted id');
   assert.match(swap.stdout, /resume=1/);
+});
+
+// A pane the workspace launches on a task (spec 103) arrives with its prompt already written, so the
+// question the picker asks — which conversation should this pane be? — the caller has answered. Asking
+// it anyway cost the first live spawn its own conversation: the new pane took a stray keystroke as an
+// answer and resumed the *spawning* agent's conversation in a second process.
+test('a launch that carries an initial prompt is never asked which conversation to resume', async t => {
+  const { run, listing } = await fixture(t);
+  const MINTED = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+  const spawn = run('1\n', { RENGINE_AGENT_CONVERSATIONS: listing, RENGINE_AGENT_CONVERSATION: MINTED },
+    ['--model', 'gpt-5-codex', 'Work F1: the rendered task prompt']);
+  assert.equal(spawn.status, 0, spawn.stderr);
+  assert.equal(/Resume which/.test(spawn.stdout), false, 'a pane started on a task is not asked to choose');
+  assert.equal(/Conversations for/.test(spawn.stdout), false, 'and is not shown the list it must not answer');
+  assert.match(spawn.stdout, new RegExp(`conversation=${MINTED}`), 'it starts on the conversation it was given');
+  assert.match(spawn.stdout, /resume=none/, 'as a new conversation, not a resume of somebody else’s');
+  assert.match(spawn.stdout, /args=--model gpt-5-codex Work F1: the rendered task prompt/,
+    'and the prompt reaches the CLI rather than the picker’s read');
+  // The same launch without its arguments is still a bare pane, and still gets the offer: it is the
+  // arguments that say this pane was told what to do, not the presence of history.
+  const bare = run('1\n', { RENGINE_AGENT_CONVERSATIONS: listing, RENGINE_AGENT_CONVERSATION: MINTED });
+  assert.match(bare.stdout, /Resume which/, 'a bare pane with history is still offered it');
+  assert.match(bare.stdout, new RegExp(`conversation=${NEWER}`), 'and its answer is still honoured');
 });

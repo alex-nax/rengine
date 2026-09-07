@@ -7,7 +7,7 @@ import { inspectGame } from '../server/games.mjs';
 import { projectDevices } from '../server/devices.mjs';
 import { LOCAL } from '../server/device-rules.mjs';
 import { listRecordings, readRecording } from '../server/recordings.mjs';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { WebSocket, WebSocketServer } from 'ws';
 import { Desktops } from '../server/desktops.mjs';
 import { request as call } from '../launcher/sidecar.mjs';
@@ -200,7 +200,8 @@ export async function startWorker(host, options = {}) {
     const brief = data.brief ?? 'task';
     const row = await taskRow(rootId, data.taskKey);
     const args = [...modelArgs(agent, data.model), (await promptFor(root(rootId), brief, promptValues(row))).text];
-    const session = await call(host, 'terminal', { rootId, type: 'agent', agent, action: 'launch', args });
+    /* Named here rather than left to the host. See sidecar: a-spawn-names-its-conversation. */
+    const session = await call(host, 'terminal', { rootId, type: 'agent', agent, action: 'launch', args, conversation: randomUUID() });
     /* A CLI rEngine can name a conversation for has one already; one that names its own has none to
        carry the task, and the frame says so rather than inventing an id. */
     if (session?.conversation) {

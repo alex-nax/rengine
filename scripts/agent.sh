@@ -7,6 +7,7 @@ action="menu"
 version="latest"
 agent_home="${RENGINE_AGENT_HOME:-${XDG_STATE_HOME:-$HOME/.local/state}/rengine/agents}"
 extra=()
+extra_count=0
 launcher_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
@@ -26,7 +27,7 @@ while [ "$#" -gt 0 ]; do
       [ "$#" -ge 2 ] || { echo "Missing value for $1" >&2; exit 2; }
       case "$1" in --project) project="$2";; --agent) agent="$2";; --action) action="$2";; --version) version="$2";; esac
       shift 2 ;;
-    --) shift; extra=("$@"); break ;;
+    --) shift; extra=("$@"); extra_count="$#"; break ;;
     --help|-h) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -93,12 +94,16 @@ update_agent() {
 
 # Offer the conversations this project already has for the chosen agent, so resuming one is a
 # choice in the pane rather than a command the person has to remember. The workspace writes the
-# listing (id, agent, when) and only when it has something to offer; a restart that already named
-# its conversation is never asked. See docs/specs/097-agent-conversation-persistence.md.
+# listing (id, agent, when) only when it has something to offer, a restart that already named its
+# conversation is never asked, and neither is a launch that carries an initial prompt — only an
+# interactive bare launch is. See docs/specs/097-agent-conversation-persistence.md.
 choose_conversation() {
   # Only an explicit resume suppresses the offer. A workspace-minted id means "this pane is new",
   # not "this pane has already chosen", so it must still see what it could resume instead.
   if [ "${RENGINE_AGENT_RESUME:-}" = "1" ]; then return 0; fi
+  # Nor is a pane launched with an initial prompt (spec 103): it was told what to do, so the question
+  # this asks is already answered. See sidecar: only-an-explicit-resume-suppresses-the-offer.
+  if [ "$extra_count" -gt 0 ]; then return 0; fi
   [ -n "${RENGINE_AGENT_CONVERSATIONS:-}" ] && [ -s "${RENGINE_AGENT_CONVERSATIONS}" ] || return 0
   local ids=() whens=() id owner when count=0 index choice
   while IFS=$'\t' read -r id owner when || [ -n "${id:-}" ]; do

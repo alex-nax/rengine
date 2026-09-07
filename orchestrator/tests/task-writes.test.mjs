@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, mkdir, writeFile, rm, realpath } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -21,6 +21,7 @@ import { fakeCli, features, taskDeclaration, taskProject, writeLog } from './tas
 const schema = JSON.parse(readFileSync('contracts/project-v1.schema.json', 'utf8'));
 const toolWorkerMain = fileURLToPath(new URL('../agents/mcp-worker.mjs', import.meta.url));
 const status = (worker, rootId, who) => ok(worker, `token?${new URLSearchParams({ rootId })}`, undefined, who);
+const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
 async function workspace(t, { document = taskDeclaration(), window = 700 } = {}) {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-task-')));
@@ -196,6 +197,45 @@ test('a project without tracker.write, and a remote provider, are refused by nam
   assert.match(refused.body.error, /tracker is github/);
   assert.match(refused.body.error, /last-write-wins/, 'naming why the remote backends stay read-only');
   assert.deepEqual(await writeLog(remote.project), []);
+});
+
+/* The first live spawn (2026-09-07) walked into the spec 097 picker: the project had history, the host
+   offered it to the new pane, and a stray keystroke there resumed the *spawning* agent's conversation
+   in a second process. A spawn answers that question when it makes the call — it names the conversation
+   it minted — and a caller that named one is never offered a list. */
+test('a spawn names the conversation it mints, and its pane is offered no history to mis-answer', { timeout: 90000 }, async t => {
+  const { stateDir, host, root, worker } = await workspace(t);
+  const claude = await fakeCli(stateDir, 'claude');
+  const earlier = randomUUID();
+  await host.store.recordConversation(root.id, { conversation: earlier, agent: 'claude' });
+  /* The host would mint an identical-looking id of its own, so only the call the worker actually made
+     distinguishes "the worker named it" from "the host filled the gap". */
+  const asked = [];
+  const terminal = host.sessions.terminal.bind(host.sessions);
+  host.sessions.terminal = async options => { asked.push(options); return terminal(options); };
+  const alice = identity('claude');
+  await hold(worker, root.id, alice);
+  const feed = await feedSocket(worker, (await status(worker, root.id, alice)).feed);
+  t.after(() => feed.close());
+
+  const spawned = await ok(worker, 'agent-spawn', { rootId: root.id, taskKey: 'F1', agent: 'claude', model: 'claude-opus-5' }, alice);
+  assert.equal(asked.length, 1, 'one pane, one call');
+  assert.match(asked[0].conversation ?? '', UUID, 'the worker names the conversation on the host call');
+  assert.ok(asked[0].args?.length, 'alongside the arguments that make this a spawn rather than a bare pane');
+  assert.equal(spawned.conversation, asked[0].conversation, 'the answer carries the id the worker named');
+  assert.notEqual(spawned.conversation, earlier, 'never one somebody else was already having');
+  const state = await ok(worker, 'state');
+  assert.equal(state.conversations[root.id].find(entry => entry.id === asked[0].conversation)?.task, 'F1',
+    'the pane record is that same conversation, wearing its task');
+  const frame = await until(() => feed.frames.find(item => item.type === 'agent.spawned'), 'agent.spawned reaches the feed');
+  assert.equal(frame.conversation, asked[0].conversation, 'and so is the frame');
+
+  assert.equal(existsSync(path.join(stateDir, 'integrations', `${spawned.session.id}.conversations.tsv`)), false,
+    'the host writes this pane no listing, so there is nothing for a stray keystroke to answer');
+  const argv = await until(() => claude.read().catch(() => null), 'the fake claude recorded its argv', 600);
+  assert.equal(argv[argv.indexOf('--session-id') + 1], spawned.conversation, 'the CLI starts on that conversation');
+  assert.equal(argv.includes('--resume'), false, 'a spawn starts a conversation; it never resumes one');
+  assert.ok(argv.at(-1).includes('F1'), 'with the task prompt still its last argument');
 });
 
 test('a spawn starts the chosen CLI with its own model flag and the rendered prompt, records the task, and lands on the feed', { timeout: 90000 }, async t => {

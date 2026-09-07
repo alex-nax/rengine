@@ -45,8 +45,8 @@
       "id": "one-retained-handoff",
       "kind": "rationale",
       "anchor": {
-        "start": 113,
-        "end": 113,
+        "start": 114,
+        "end": 114,
         "snippet": "  async terminal(options) {"
       },
       "note": "Serialize handoff creation per project, then reuse a running session by canonical root and exact conversation UUID. Snapshot the validated manifest privately before spawning; editing the original while its pane is waiting must not retarget an existing session. A fresh unique readiness path prevents stale releases. Presentation releases only a live waiting bootstrap; input is rejected while waiting. Reload and view detach retain both waiting and running sessions. A later explicit launch after Stop/exit creates a fresh gated PTY.",
@@ -58,11 +58,11 @@
       "id": "optional-session-title",
       "kind": "rationale",
       "anchor": {
-        "start": 123,
-        "end": 123,
+        "start": 124,
+        "end": 124,
         "snippet": "if (title !== undefined && (typeof title !== 'string' || !title.trim() || title.length > 200)) fail('Session title must be a short string.');"
       },
-      "note": "Dashboard runs name their sessions (Script · x.sh, Log · title) and a declared game names its own (<title> · <root>); the option is bounded and optional so every existing caller keeps the derived title, which no longer names any game. A game session also carries its declared surface and id so a restored tab picks the live view or the retained-output view. A retained host older than these fields ignores them, which is why the worker also returns the title on its own reply. A declared cwd travels the same way and is re-confined here: the resolved directory must be the root or inside it, so the working directory of a launched game can never be widened by a reader change alone.",
+      "note": "Dashboard runs name their sessions (Script \u00b7 x.sh, Log \u00b7 title) and a declared game names its own (<title> \u00b7 <root>); the option is bounded and optional so every existing caller keeps the derived title, which no longer names any game. A game session also carries its declared surface and id so a restored tab picks the live view or the retained-output view. A retained host older than these fields ignores them, which is why the worker also returns the title on its own reply. A declared cwd travels the same way and is re-confined here: the resolved directory must be the root or inside it, so the working directory of a launched game can never be widened by a reader change alone.",
       "refs": [
         "docs/specs/075-project-dashboard.md"
       ]
@@ -75,37 +75,66 @@
         "end": 49,
         "snippet": "if (!Object.keys(overrides).some(name => key(name) === key('NO_COLOR'))) entries.delete(key('NO_COLOR'));"
       },
-      "note": "This function sets TERM=xterm-256color and COLORTERM=truecolor two lines above, which is a declaration that the surface can render colour. Forwarding an inherited NO_COLOR contradicts that declaration for every pane the session host will ever spawn, and the host is durable across window and agent restarts (spec 065), so the contradiction outlives every remedy short of killing the host. That is not hypothetical: on 2026-09-07 a workspace whose launcher had been started from an agent CLI's shell — those set NO_COLOR for the shells they spawn — ran every pane monochrome while the pane itself measured 256 colours with SGR passing through intact. Blanking rather than deleting does NOT work: Node disables colour on the variable's presence, measured as depth 1 for NO_COLOR= and 8 for absence, so the key has to go. An explicit override still wins, because a project action asking for plain output is a different thing from an accident of launch provenance."
+      "note": "This function sets TERM=xterm-256color and COLORTERM=truecolor two lines above, which is a declaration that the surface can render colour. Forwarding an inherited NO_COLOR contradicts that declaration for every pane the session host will ever spawn, and the host is durable across window and agent restarts (spec 065), so the contradiction outlives every remedy short of killing the host. That is not hypothetical: on 2026-09-07 a workspace whose launcher had been started from an agent CLI's shell \u2014 those set NO_COLOR for the shells they spawn \u2014 ran every pane monochrome while the pane itself measured 256 colours with SGR passing through intact. Blanking rather than deleting does NOT work: Node disables colour on the variable's presence, measured as depth 1 for NO_COLOR= and 8 for absence, so the key has to go. An explicit override still wins, because a project action asking for plain output is a different thing from an accident of launch provenance."
     },
     {
       "id": "a-pane-restart-is-not-a-host-restart",
       "kind": "rationale",
       "anchor": {
-        "start": 254,
-        "end": 254,
+        "start": 271,
+        "end": 271,
         "snippet": "async restartAgent(id) {"
       },
-      "note": "Replacing one agent child is deliberately much smaller than replacing the session host. The host keeps its PTYs, its drafts and every other pane, so this is not a quiescence event under spec 065 and costs no other conversation. It exists because the alternative was observed and was unacceptable: an environment defect baked into the host could only be cleared by killing the host, which destroys every live agent conversation on it, leaving the owner to choose between a broken environment and their work. The two guards are the whole contract — a non-agent session has no conversation to return to, and an agent recorded without one cannot be resumed, so it is refused by name rather than restarted into a second conversation that would look like the first. See docs/specs/096-agent-session-resume.md."
+      "note": "Replacing one agent child is deliberately much smaller than replacing the session host. The host keeps its PTYs, its drafts and every other pane, so this is not a quiescence event under spec 065 and costs no other conversation. It exists because the alternative was observed and was unacceptable: an environment defect baked into the host could only be cleared by killing the host, which destroys every live agent conversation on it, leaving the owner to choose between a broken environment and their work. The two guards are the whole contract \u2014 a non-agent session has no conversation to return to, and an agent recorded without one cannot be resumed, so it is refused by name rather than restarted into a second conversation that would look like the first. See docs/specs/096-agent-session-resume.md."
     },
     {
       "id": "the-record-follows-the-launch",
       "kind": "rationale",
       "anchor": {
-        "start": 235,
-        "end": 235,
-        "snippet": "  async recordConversation(id, conversation, agent) {"
+        "start": 251,
+        "end": 251,
+        "snippet": "async recordConversation(id, conversation, agent, task) {"
       },
-      "note": "The host pre-mints a conversation so a pane has one before its first byte of output, but the launcher's identity is the single source: the person at the pane may pick another from the offered list, and their own --resume beats both. So the pane reports what actually launched and this method takes it, rather than the host keeping what it intended. null is a distinct answer from 'nothing reported': it means the launch continues or forks a conversation the CLI names itself, so the pane must be left holding nothing — keeping the pre-minted id there would make restart_agent resume a conversation this pane never had, which looks like a resume and is a second conversation. The title is refreshed with it because the first eight characters are how a person recognises the same conversation in the pane, the picker, the identity label and the token segment.",
+      "note": "The host pre-mints a conversation so a pane has one before its first byte of output, but the launcher's identity is the single source: the person at the pane may pick another from the offered list, and their own --resume beats both. So the pane reports what actually launched and this method takes it, rather than the host keeping what it intended. null is a distinct answer from 'nothing reported': it means the launch continues or forks a conversation the CLI names itself, so the pane must be left holding nothing \u2014 keeping the pre-minted id there would make restart_agent resume a conversation this pane never had, which looks like a resume and is a second conversation. The title is refreshed with it because the first eight characters are how a person recognises the same conversation in the pane, the picker, the identity label and the token segment.",
       "refs": [
         "docs/specs/095-project-token.md",
         "docs/specs/096-agent-session-resume.md",
         "docs/evidence/conversation-is-identity-2026-09-07.md"
       ]
+    },
+    {
+      "id": "environment-cleared-in-both-compositions",
+      "kind": "constraint",
+      "anchor": {
+        "start": 131,
+        "end": 131,
+        "snippet": "const cleared = { RENGINE_HANDOFF_GATE: undefined, RENGINE_HANDOFF_FILE: undefined, RENGINE_ORCHESTRATOR_SESSION: undefined,"
+      },
+      "note": "shellEnvironment() rebuilds from this process's own environment on every call, and only an override whose value is undefined deletes a key. So a key cleared in this first composition is inherited again by the second one at pty.spawn unless the same deletions are repeated there \u2014 which is why `cleared` is a named object applied twice rather than an inline list applied once. It is not cosmetic: when a session host runs inside an agent pane (the normal case for a host started from a workspace terminal), the second composition handed every pane the host's OWN RENGINE_AGENT_RESUME, RENGINE_AGENT_CONVERSATION and RENGINE_AGENT_CONVERSATIONS. Measured on 2026-09-07 from such a pane: task-writes.test.mjs's spawn test failed on origin/main because the leaked RENGINE_AGENT_RESUME=1 turned the CLI's `--session-id` into `--resume`, i.e. a spawn continued somebody else's conversation. Order differs between the two on purpose: `cleared` last in the first (it must beat a caller's env), `cleared` first in the second (this launch's own deliberate values must beat it).",
+      "refs": [
+        "docs/specs/097-agent-conversation-persistence.md",
+        "docs/evidence/spawn-no-picker-2026-09-07.md"
+      ]
+    },
+    {
+      "id": "only-a-bare-pane-is-offered-the-history",
+      "kind": "rationale",
+      "anchor": {
+        "start": 150,
+        "end": 150,
+        "snippet": "const chosen = conversation !== undefined || Boolean(args?.length);"
+      },
+      "note": "The spec 097 picker asks the pane's occupant which conversation this pane should be. Two kinds of launch have already answered it: one that names `conversation` (a Sessions-tab Resume, restartAgent) and one that passes `args` (a spawn on a task, spec 103, whose rendered prompt is the CLI's positional argument). Neither may be written a listing. Read here, before the mint below sets `conversation` for every agent rEngine can name \u2014 after that point every pane looks like one that had chosen, and the guard would suppress the offer for everybody, which is the mistake spec 097 decision 5 already records once. Live failure this closes (KI-068): the first spawn's pane came up on the picker, took a click-through keystroke as the answer, and resumed the SPAWNING agent's conversation in a second process. agent.sh carries the same rule independently, because a listing can also arrive from a stale environment.",
+      "refs": [
+        "docs/specs/097-agent-conversation-persistence.md",
+        "docs/specs/103-task-driven-agents.md",
+        "docs/evidence/spawn-no-picker-2026-09-07.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/server/sessions.mjs",
-    "sha256": "5da5689a1dd56c303a01ff0bfb5b6b93a3a4a51b9f0c77f33b0d944f8cc43baf",
+    "sha256": "26516964b4800bc6f55b64c55a8297d10dd9a319779bfd8694e24bf5a51d8811",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

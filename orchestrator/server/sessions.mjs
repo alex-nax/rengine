@@ -126,9 +126,11 @@ export class Sessions extends EventEmitter {
     const workingDirectory = cwd === undefined ? root.path : path.resolve(cwd);
     if (workingDirectory !== root.path && !workingDirectory.startsWith(root.path + path.sep)) fail('The working directory must be inside the project root.');
     const id = randomUUID(); let handoff, gate;
-    env = shellEnvironment({ ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents'),
-      RENGINE_HANDOFF_GATE: undefined, RENGINE_HANDOFF_FILE: undefined, RENGINE_ORCHESTRATOR_SESSION: undefined,
-      RENGINE_AGENT_CONVERSATION: undefined, RENGINE_AGENT_RESUME: undefined });
+    /* What this launch composes for itself and must never inherit, cleared in BOTH compositions below.
+       See sidecar: environment-cleared-in-both-compositions. */
+    const cleared = { RENGINE_HANDOFF_GATE: undefined, RENGINE_HANDOFF_FILE: undefined, RENGINE_ORCHESTRATOR_SESSION: undefined,
+      RENGINE_AGENT_CONVERSATION: undefined, RENGINE_AGENT_RESUME: undefined, RENGINE_AGENT_CONVERSATIONS: undefined };
+    env = shellEnvironment({ ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents'), ...cleared });
     if (handoffFile) {
       if (type !== 'agent' || agent !== 'codex' || action !== 'launch' || args?.length || !this.workspaceContext) fail('Handoff requires the Codex workspace launcher.');
       handoff = await readHandoff(handoffFile, root.path, env);
@@ -143,6 +145,9 @@ export class Sessions extends EventEmitter {
     let file = command ?? (process.platform === 'win32' ? 'powershell.exe' : process.env.SHELL ?? '/bin/bash');
     let argv = args ?? (process.platform === 'win32' ? ['-NoLogo'] : ['-l']);
     if (type === 'agent') {
+      /* Whether this launch already decided what the pane is — the question the pane's own picker asks.
+         Read before the mint below. See sidecar: only-a-bare-pane-is-offered-the-history. */
+      const chosen = conversation !== undefined || Boolean(args?.length);
       file = bashPath();
       argv = [agentScript, '--project', root.path, '--action', action];
       if (agent) argv.push('--agent', agent);
@@ -166,9 +171,9 @@ export class Sessions extends EventEmitter {
           env = { ...env, RENGINE_AGENT_CONVERSATION: conversation, ...(resume ? { RENGINE_AGENT_RESUME: '1' } : {}) };
           await this.store.recordConversation(root.id, { conversation, agent });
         }
-        // What this project already has, for the pane to offer. Written only when there is
-        // something to offer, so a project with no history never prompts.
-        const remembered = this.store.listConversations(root.id);
+        // What this project already has, for the pane to offer: only for a bare pane, and only when
+        // there is something to offer. See sidecar: only-a-bare-pane-is-offered-the-history.
+        const remembered = chosen ? [] : this.store.listConversations(root.id);
         if (remembered.length) {
           const listing = path.join(directory, `${id}.conversations.tsv`);
           const rows = remembered.filter(entry => entry.id !== conversation)
@@ -191,7 +196,8 @@ export class Sessions extends EventEmitter {
     if (type !== 'agent' || !env.RENGINE_AGENT_CONVERSATION) conversation = undefined;
     if (typeof file !== 'string' || !Array.isArray(argv) || argv.some(arg => typeof arg !== 'string')) fail('Invalid executable or arguments.');
     const child = pty.spawn(file, argv, { name: 'xterm-256color', cols, rows, cwd: workingDirectory,
-      env: shellEnvironment({ ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents') }) });
+      // `cleared` first, so this launch's own values win and only what it left out stays deleted.
+      env: shellEnvironment({ ...cleared, ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents') }) });
     const item = { id, rootId, type, handoff, gate, released: false, ...(type === 'agent' ? { agent: agent ?? '', conversation } : {}), ...(type === 'game' ? { surface, game, args: argv } : {}),
       titleAuto: title === undefined,
       title: title ?? (type === 'agent' ? agentTitle(agent, conversation, root.name) : `${type === 'game' ? 'Game' : 'Terminal'} · ${root.name}`),
