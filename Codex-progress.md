@@ -1,5 +1,42 @@
 # Progress Log
 
+## Session 72 (macos) — 2026-09-07 — Packs, plugins, editions and the name (spec 105, D38–D41)
+
+A design interview, not an implementation. The owner opened the extension-system question and the
+rename in the same breath; `/grill-me` ran in three rounds and spec 105 is the artifact.
+
+**What the codebase answered so the owner did not have to.** Extensions already exist declaratively —
+ten blocks across contracts 1–8, each added the same way, executable parts as declared commands. The
+draw list is already `RE_DRAW_LIST_VERSION 2`, backend-neutral across four adapters: the ABI a plugin
+needs exists. The desktop is already a layer whose loss is survivable, proven the same day when a
+supervisor restart took the window and left 13 sessions running. And "library packs" is the owner's
+own phrase from D33 — so answering "one concept, one word" continued a decision rather than starting
+one, which neither of us had noticed when the question was asked.
+
+**The recommendation that lost, recorded because that is the useful part.** Declared-commands-only
+was recommended for extensions: no new trust, no ABI, and it is how every capability this week
+arrived. The owner chose **in-process native plugins**, and the reason the recommendation deserved to
+lose is capability — an extension that cannot draw is not an extension. The cost was then taken
+deliberately rather than discovered: a plugin fault costs the window and its layout and never a
+session, which is only true because sessions live on the retained host. That makes plugin access to
+store, session or host state *outside* the grant, and spec 105 says a later spec wanting to widen it
+must argue against that paragraph.
+
+**D38–D41**: extensions are in-process plugins drawing through the draw list and registering through
+the owned control layer, declared by the project; a pack is one pinned artifact with `library` and
+`plugin` facets; an edition is a declared bundle of packs over one binary, never a fork; the product
+is **Red**, the umbrella **Red Suite**, revising D36 — and the name becomes a generated token rather
+than four hard-coded strings, so this rename is a data edit and the next one is too. D24 is clarified
+rather than redefined: "Powered by" is defined on the library facet, so an editor plugin does not
+earn it.
+
+Four open questions are named and left open: the plugin ABI's own versioning, where a pack's bytes
+come from (KI-008 still holds), what a business edition actually contains, and what plugins do on
+Windows while KI-038 is outstanding.
+
+No inventory rows and no rename yet: the work protocol puts the spec first, and the implementation
+order is the owner's next call.
+
 ## Session 72 (macos) — 2026-09-07 — The spawned pane that resumed its spawner (KI-068)
 
 The first `spawn_agent` of spec 103 worked in every respect except the one that mattered: the pane it
