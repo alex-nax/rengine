@@ -50,7 +50,7 @@ merged in too and changes none of these numbers.
 | Gate | Result |
 | --- | --- |
 | `npm test` | 92 tests, 92 pass, 0 fail, 0 cancelled, 8.2 s |
-| `npm run test:desktop` | 35 tests before the merge / 37 after, all pass — see the session entry for the per-run numbers and the two load-induced flakes |
+| `npm run test:desktop` | 35/35 before the merge; 38/39 twice after it, a different budget/timing test each time, and both of those pass when re-run alone on a quiet machine (see below) |
 | Native build, wiped `.cache/scratch-build`, Release | exit 0, **0 warnings** |
 | CTest in that build | 6/6 pass, 1.00 s |
 | `./init.sh` | passed |
@@ -59,11 +59,20 @@ merged in too and changes none of these numbers.
 | llm-sidecar `check --fix-anchors` then `stamp`, `--index .cache/sidecars-headless.sqlite`, sequential | clean |
 | End-to-end by hand | `node orchestrator/launch.mjs --headless --state DIR --project DIR` printed its ready line, wrote a mode-0600 `sidecar.json`, registered the root, answered `/api/state` with nine capabilities and zero sessions |
 
-Two runs of the desktop suite failed on load rather than on the change, and both are recorded because
-the number alone would misrepresent them: the first because a fresh worktree has no `.cache/native`
-surface fixture (run `npm run build:surface` first — it is a prerequisite, not a regression), and one
-later run because the sidecar indexer was hashing the tree on the same machine while GUI tests were
-waiting on frames. Do not run either alongside this suite.
+Three runs of the desktop suite went red for reasons that are not this change, and all three are
+recorded because the number alone would misrepresent them:
+
+- the first, because a fresh worktree has no `.cache/native` surface fixture — `npm run build:surface`
+  is a prerequisite, not a regression;
+- one post-merge run, on `native-game-declaration.spec.mjs` waiting for a dashboard action, while the
+  sidecar indexer was hashing the tree on the same machine;
+- one post-merge run, on `native-render.spec.mjs`: `opengl: resident memory delta 33344 KiB exceeds
+  32768 KiB` — over a resource budget by 1.8%, with GUI processes from a previous run still alive.
+
+Attributed rather than assumed: both of those specs were re-run together on a quiet machine and both
+pass, 2/2. This change touches no native, renderer or game code — the desktop path in `launch.mjs` is
+`origin/main`'s file, indented into the `else` — and each failing test passed in the other runs. Do
+not run a build, an indexer or another suite alongside this one; its budgets are real measurements.
 
 ## Not proved here
 

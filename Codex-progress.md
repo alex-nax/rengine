@@ -62,13 +62,18 @@ twice more, by a spec-and-inventory pair (F90/spec 095) carrying no code, which 
 re-applying the headless branch onto it, so the desktop path is theirs verbatim, indented.
 
 - `npm test` — 92 tests, 92 pass, 0 fail, 8.2 s.
-- `npm run test:desktop` — 35/35 before the merge, and after it see the run recorded with this entry.
-  Two runs failed on load rather than on the change and both are worth naming: the first because a
-  fresh worktree has no `.cache/native` surface fixture (`npm run build:surface` is a prerequisite,
-  not a regression), and one later run because the sidecar indexer was hashing the tree while GUI
-  tests waited on frames. An earlier `npm test` showed 1 fail + 1 cancelled for the same reason, a
-  native build running `--parallel 6` alongside it; the desktop check's kill timeout went 20 s → 45 s
-  for that headroom. Do not run either alongside a GUI suite.
+- `npm run test:desktop` — 35/35 before the merge; 38/39 on each of two runs after it, red on a
+  *different* test each time: `native-game-declaration` waiting for a dashboard action while the
+  sidecar indexer hashed the tree, and `native-render` with `opengl: resident memory delta 33344 KiB
+  exceeds 32768 KiB`, 1.8% over a resource budget with GUI processes from the previous run still
+  alive. Attributed rather than assumed: both specs re-run together on a quiet machine pass, 2/2.
+  This change touches no native, renderer or game code, and the desktop path in `launch.mjs` is
+  `origin/main`'s file indented into the `else`. A third red, the very first run, was a fresh
+  worktree having no `.cache/native` surface fixture — `npm run build:surface` is a prerequisite.
+  An earlier `npm test` showed 1 fail + 1 cancelled for the same family of reason, a native build
+  running `--parallel 6` beside it; the desktop check's kill timeout went 20 s → 45 s for headroom.
+  The lesson is cheap and worth writing down: nothing else may run on this machine during a GUI
+  suite, because its assertions are real timing and memory measurements.
 - Native build from a wiped `.cache/scratch-build`, Release: exit 0, **0 warnings**; CTest 6/6, 1.00 s.
 - `./init.sh` clean; `python3 tools/design.py check` clean; `python3 tools/features.py validate`
   clean (42 features).
