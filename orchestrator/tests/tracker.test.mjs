@@ -47,6 +47,14 @@ test('the local backend reads the inventory and derives the same readiness the t
     assert.equal(fallback.provider, 'local');
     assert.equal(fallback.rows.length, 3);
 
+    // The common case, and the one this repository itself is in: a project that declares formats and
+    // a dashboard but no tracker at all. It must still show its own inventory rather than nothing.
+    const other = await project(directory, 'other',
+      { contract: 2, project: 'kohai', formats: [FORMAT], dashboard: { title: 'D', groups: [] } }, INVENTORY);
+    const implicit = await read(other);
+    assert.equal(implicit.provider, 'local', 'an older contract with no tracker block still reads its inventory');
+    assert.equal(implicit.rows.length, 3);
+
     // A project with neither says so rather than showing an empty list as if it were finished.
     const empty = await project(directory, 'empty', base({ provider: 'local' }), null);
     const missing = await read(empty);
