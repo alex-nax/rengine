@@ -1,4 +1,5 @@
 #include "app.h"
+#include "pluginview.h"
 #include "scene.h"
 #include "ui/ui.h"
 #include "editor.h"
@@ -46,6 +47,7 @@ static int tab_icon(const ReTab *t) {
     case RE_DASHBOARD: return RE_ICON_PROJECT;
     case RE_DEVICES: return RE_ICON_MENU;
     case RE_TRACKER: return RE_ICON_CHECK;
+    case RE_PLUGIN: return RE_ICON_MENU;
     case RE_TERMINAL: return t->game ? RE_ICON_RUN : RE_ICON_SHELL;
     default: return t->game ? RE_ICON_RUN : RE_ICON_FILE;
   }
@@ -1047,13 +1049,14 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
     if (mu_begin_window_ex(ui, title, content, content_opts | MU_OPT_NOFRAME)) {
       re_ui_clip(ui);   /* a scrolled view's own drawing stays inside its pane (KI: rows over the toolbar) */
       /* The explorer shows the root in its own path bar; every other view keeps this row. */
-      if (t->type != RE_TREE) { mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_PANE_ROOT_ROW_HEIGHT); re_ui_label_ex(ui, root_name(a, t->root), RE_UI_MUTED); }
+      if (t->type != RE_TREE && t->type != RE_PLUGIN) { mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_PANE_ROOT_ROW_HEIGHT); re_ui_label_ex(ui, root_name(a, t->root), RE_UI_MUTED); }
       if (t->type == RE_TREE) tree_ui(a, ui, index);
       else if (t->type == RE_SESSIONS) sessions_ui(a, ui);
       else if (t->type == RE_DASHBOARD) re_dashboard_ui(a, ui, index);
       else if (t->type == RE_DEVICES) re_devices_ui(a, ui, index);
       else if (t->type == RE_TRACKER) re_tracker_ui(a, ui, index);
       else if (t->type == RE_EDITOR) editor_ui(a, ui, index, content, below);
+      else if (t->type == RE_PLUGIN) t->rect = content;   /* the plugin draws the whole content in the draw pass (spec 106) */
       else if (t->type == RE_TERMINAL) {
         t->rect = mu_rect(content.x + RE_METRIC_TERMINAL_INSET, content.y + RE_METRIC_TERMINAL_TOP, re_max(0, content.w - 2 * RE_METRIC_TERMINAL_INSET), re_max(0, content.h - RE_METRIC_TERMINAL_BOTTOM));
       } else if (t->type == RE_GAME && t->terminal) {
@@ -1096,6 +1099,7 @@ void re_app_draw(ReApp *a, ReDraw *draw) {
     if (t->editor) re_editor_draw(t->editor, draw, t->rect, a->focus == i);
     else if (t->format) re_format_draw(t->format, draw, t->rect, a->focus == i);
     if (t->game) re_game_draw(t->game, draw, t->rect);
+    if (t->type == RE_PLUGIN) re_plugin_view_draw(a, t, draw);
   }
   for (int n = 0; n < RE_PANES; n++) if (a->layout.panes[n].used && a->layout.panes[n].axis)
     re_draw_rect(draw, a->layout.panes[n].divider, RE_COLOR_DIVIDER);

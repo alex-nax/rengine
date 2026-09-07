@@ -7,7 +7,8 @@
 #include "formatview.h"
 #include "recording.h"
 #include "token.h"
-enum { RE_TREE = 1, RE_EDITOR, RE_TERMINAL, RE_SESSIONS, RE_GAME, RE_DASHBOARD, RE_DEVICES, RE_TRACKER };
+#include "plugin.h"
+enum { RE_TREE = 1, RE_EDITOR, RE_TERMINAL, RE_SESSIONS, RE_GAME, RE_DASHBOARD, RE_DEVICES, RE_TRACKER, RE_PLUGIN };
 #define RE_DEVICES_TIMEOUT_MS 45000L /* a devices load runs every declared probe; see sidecar: devices-route */
 typedef struct {
   bool used, dirty, conflict, discarding; int type, generation, saved, checkpoint, checkpoint_flight;
@@ -54,6 +55,7 @@ typedef struct ReApp {
   bool overlay_restore;
   bool desktop_registered, reload_requested; char desktop_id[65];
   ReProjectToken token;                             /* the project token of the primary root (spec 095) */
+  RePlugins *plugins;                               /* the in-process plugins this window loaded (spec 106) */
   int focus, drag_tab, resize_pane, drag_x, drag_y, mouse_x, mouse_y;
   Uint64 layout_changed, quit_started;
   /* What the focused editor last told the workspace, so a caret that has not moved is not

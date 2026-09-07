@@ -436,7 +436,7 @@ static bool restore(ReApp *a, const cJSON *j) {
     const cJSON *tab = cJSON_GetArrayItem(tabs, i);
     if (cJSON_IsNull(tab)) { if (re_layout_find(&layout, i) >= 0) return false; continue; }
     int type = re_number(tab, "type");
-    if (type < RE_TREE || type > RE_TRACKER || strlen(re_string(tab, "root")) > 64 ||
+    if (type < RE_TREE || type > RE_PLUGIN || strlen(re_string(tab, "root")) > 64 ||
         strlen(re_string(tab, "session")) > 64 || strlen(re_string(tab, "path")) > 2047) return false;
     if (cJSON_HasObjectItem(tab, "mode") && (type != RE_EDITOR || re_format_mode_from(re_string(tab, "mode")) < 0)) return false;
   }
@@ -624,6 +624,7 @@ static void response(ReApp *a, ReMessage *m) {
 ReApp *re_app_open(const char *url, const char *token) {
   ReApp *a = calloc(1, sizeof(*a)); if (!a) return NULL;
   re_layout_init(&a->layout); a->focus = a->drag_tab = a->resize_pane = -1; a->formats = cJSON_CreateObject(); a->dashboards = cJSON_CreateObject(); a->dashboards_opened = cJSON_CreateArray();
+  a->plugins = re_plugins_open();
   a->net = re_net_open(url, token);
   if (a->net) { a->events = re_socket_open(a->net, "events"); request(a, OP_STATE, -1, "state", NULL); }
   re_copy(a->root, sizeof(a->root), getenv("RENGINE_INITIAL_ROOT"));
@@ -816,6 +817,7 @@ void re_app_close(ReApp *a) {
     cJSON_Delete(a->tabs[i].data); re_recording_close(a->tabs[i].recorder); re_terminal_close(a->tabs[i].terminal);
     re_editor_close(a->tabs[i].editor); re_game_close(a->tabs[i].game); re_format_close(a->tabs[i].format);
   }
+  re_plugins_close(a->plugins);
   re_socket_close(a->events); re_net_close(a->net); cJSON_Delete(a->state); cJSON_Delete(a->previous_layout); cJSON_Delete(a->controls); cJSON_Delete(a->conversations); cJSON_Delete(a->formats); cJSON_Delete(a->dashboards); cJSON_Delete(a->dashboards_opened); free(a);
 }
 cJSON *re_app_inspect(ReApp *a) {
@@ -848,6 +850,7 @@ cJSON *re_app_inspect(ReApp *a) {
   cJSON_AddNumberToObject(j, "overlay", a->overlay);
   re_token_inspect(a, j);
   re_tracker_inspect(a, j);
+  cJSON_AddItemToObject(j, "plugins", re_plugins_inspect(a->plugins));   /* every plugin asked for, loaded or refused by name (spec 106) */
   cJSON *tabs = cJSON_GetObjectItemCaseSensitive(j, "tabs");
   for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].used) {
     cJSON *tab = cJSON_GetArrayItem(tabs, i); ReTab *t = &a->tabs[i];

@@ -1,5 +1,76 @@
 # Progress Log
 
+## Session 73 (macos) — 2026-09-07 — The plugin ABI: a real module in a real window (spec 106, F108)
+
+Charter D38 said an extension is an in-process native plugin that draws through the draw list and
+registers through the owned layer, and spec 105 left two questions for the implementation spec:
+how the ABI itself is versioned, and what happens on Windows. Spec 106 answers both and the code
+under it loads a real module — built by the desktop build from
+`orchestrator/native/tests/plugins/` — into a running window, where its tab appears in the layout
+and its magenta is read back out of a snapshot.
+
+**The ABI is versioned separately from the draw list, and a plugin declares both.**
+`RE_PLUGIN_ABI_VERSION` moves when a struct in `plugin_abi.h` changes shape; `RE_DRAW_LIST_VERSION`
+moves when a primitive is added; they move for different reasons at different times. The desktop
+accepts a plugin only when the ABI matches exactly and the draw list is *not newer* than its own,
+which is spec 067's additive rule read from the producer's side. The entry point
+(`re_plugin_entry`, returning static storage and doing nothing else) and the first two descriptor
+fields are frozen for every future version, so the loader reads them from any module before
+deciding — a plugin built against a desktop that does not exist yet is refused by name, not
+crashed. Everything a plugin may call arrives by pointer in one host table: a module has no
+undefined references, which is what makes the same source a dylib, an .so and a DLL, and makes
+"what a plugin may do" the contents of one struct. In v1 that is: register up to eight tabs during
+`start`; append rect, rrect, frame, shadow, ring, text, icon and gradient to the frame of a
+visible tab; clip within its own area (a wider clip is intersected, and the frame resets the clip
+whatever the plugin did); measure text through the desktop's faces; read a theme colour by token
+name. No textures, no input, no controls, nothing that reaches the store, a session or the host.
+
+**The one tension in D38 as written, implemented as decided and recorded.** D38 says plugins
+register "tabs and controls" through the owned layer while microui's context stays private. The
+tab strip *is* the owned layer, so tabs go through it. The owned controls, by D33's own design,
+take `mu_Context *` first so they interleave with microui's — handing them to a plugin hands it
+the context D38 forbids. Controls therefore wait for a handle that is not `mu_Context`, a later
+ABI version's work; spec 106 decision 8 says so rather than widening v1.
+
+**What the declaring lane gets.** `re_app_plugin_load(app, name, path, abi)` with `abi` exactly
+`re-plugin/1` and `path` absolute — a bare name would consult the dynamic loader's search paths,
+which is a hidden-download-adjacent behaviour, and a relative one depends on whoever launched the
+window, so both are refused before `dlopen`. Loading is idempotent by name because the workspace
+state that will carry declarations arrives repeatedly. Until that lane lands, the explicitly
+enabled automation channel's `plugin` op is the only door, the way `scene` is.
+
+**Twenty sabotages, and the one that stayed green.** Fourteen against the registry (CTest
+`native_plugin`, real `dlopen` of seven real modules, the refused variants `abort()` in `start` so
+"never called" is the process surviving) and six against the window spec. P6 — the desktop's text
+measurer returning 0 — passed first time: the spec looked for cyan anywhere in the right 120px,
+and a zero width still put the first glyph there before the clip took the rest. The registry-side
+check was red because it asserts the x coordinate exactly; the pixel check was looking too loosely.
+It now asserts ink in the label's body and none in the final 8px strip, is red under the sabotage
+and green restored. Table and reasons in `docs/evidence/plugin-abi-2026-09-07.md`.
+
+**Gates.** `npm run build` (cmkr regenerated `CMakeLists.txt` from the TOML; seven fixture modules
+under `.cache/desktop/plugins/`), CTest 8/8 including `native_plugin`, `npm test` **213 pass, 0
+fail**, `native-plugin.spec.mjs` 2/2 (added to `test:desktop`; `native.spec.mjs` and
+`native-dashboard.spec.mjs` re-run beside it as the tab-model neighbours), `python3 tools/features.py
+validate`, `python3 tools/design.py check`, `./init.sh`. Sidecars of `app.c`, `workspace.c`,
+`automation.c` and `draw.c` re-anchored, the automation note amended for the one command with a
+side effect, stamped and checked on `.cache/sidecars-plugin-abi.sqlite`.
+
+Files: `orchestrator/native/plugin_abi.h`, `plugin.{c,h}`, `pluginview.{c,h}`,
+`tests/plugin_test.c`, `tests/plugins/{fixture,blank}_plugin.c`, `orchestrator/tests/native-plugin.spec.mjs`,
+`cmake.toml` (+ generated `CMakeLists.txt`), `package.json`; four lines in `app.c`, three in
+`app.h`, five in `workspace.c` (already past the 1,000-line rule before this lane; not made worse
+by more than that), eight in `automation.c`, two in `draw.{c,h}`. Inventory: **F108** added,
+`passes: false` — every criterion is met on macOS and the Windows criterion is explicitly NOT MET
+(construction only; KI-038 outstanding). Graph regenerated.
+
+**Remaining.** The declaration block (another lane) calling `re_app_plugin_load`; a Windows load
+once KI-038 is repaired; a way to reopen a closed plugin tab (v1 reopens on load and has no menu);
+a plugin-facing control surface without `mu_Context`; textures and input. Spec 105's open
+questions 1 and 4 are answered by spec 106 and 105 was left untouched — a cross-reference there is
+for whoever next edits it. Recommendation for the design lane, recorded in spec 106 decision 15:
+`icons.json` is append-only from here, because a plugin freezes today's `RE_ICON_*` numbering.
+
 ## Session 72 (macos) — 2026-09-07 — Packs, plugins, editions and the name (spec 105, D38–D41)
 
 A design interview, not an implementation. The owner opened the extension-system question and the

@@ -1471,6 +1471,38 @@
         "orchestrator/tests/restart-supervisor.test.mjs: a state directory with no live host is refused, and nothing is signalled",
         "docs/evidence/editor-as-claude-ide-2026-09-07.md: the live supervisor restart on the owner's workspace"
       ]
+    },
+    {
+      "id": 108,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "An extension is an in-process native plugin (charter D38): a module built against one C header loads by absolute path, negotiates its ABI and draw-list versions, registers tabs through the owned layer and draws by appending to the frame's draw list — and a module that will not load, exports no entry point or declares an incompatible ABI is refused by name while the window keeps running.",
+      "acceptance_criteria": [
+        "A plugin built against orchestrator/native/plugin_abi.h loads from its absolute module path in a real window; the tab it registered appears in the layout with its title, and its draw-list commands reach the frame — the identifiable colour it draws is read back from a snapshot inside the tab's rectangle.",
+        "The ABI is versioned separately from the draw list and a plugin declares both: an ABI version other than the desktop's — older or newer — is refused naming the module path and both versions, and its start is never called; a newer draw-list version is refused the same way and an older one is accepted, because the list is additive (spec 067).",
+        "A declaration whose abi string is not this desktop's is refused before the module file is touched; a path that will not open, a file that is not a module, a relative path, a module without re_plugin_entry, a descriptor whose name disagrees with the declaration, and a start that declines are each refused by name and skipped, and the window keeps answering and rendering afterwards.",
+        "Every plugin the window was asked to load has a row in the inspected state as loaded or refused with its reason; loading the same name twice is one plugin and one tab, so a declaration that arrives repeatedly does not touch the module again.",
+        "A plugin's frame opens with the clip set to its tab's area, a clip it sets can only narrow that area, the frame closes with a clip reset whatever the plugin did, registration outside start is refused, and a theme colour is resolved by token name from the live theme so a preset switch reaches the plugin on the next frame.",
+        "A plugin tab is persisted by identity like any other view: a restarted window restores it as a placeholder naming the plugin, and the same tab — not a second one — comes alive when the plugin loads again.",
+        "The plugin reaches no store, session or host state: the host table it receives holds registration, drawing, clipping, measurement and colour lookup and nothing else (D38). Controls, textures, input, a reopen menu and unloading are deferred with their reasons in spec 106.",
+        "NOT MET — Windows: the loader compiles to LoadLibrary/GetProcAddress and the fixture modules build as DLLs from the same TOML, but no plugin has been loaded on Windows while the desktop suite's repair (KI-038) is outstanding. This row stays passes: false until that evidence exists.",
+        "Each regression was observed failing for its own reason: the sabotage table in docs/evidence/plugin-abi-2026-09-07.md."
+      ],
+      "passes": false,
+      "dependencies": [
+        56,
+        60
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "orchestrator/native/plugin_abi.h (the header a plugin compiles against), orchestrator/native/plugin.{c,h} (registry, version negotiation, the one dlopen/LoadLibrary wrapper), orchestrator/native/pluginview.{c,h} (RE_PLUGIN views and re_app_plugin_load for the declaring lane), the automation `plugin` op, the fixture modules under orchestrator/native/tests/plugins/, rengine_plugin_test (CTest native_plugin), orchestrator/tests/native-plugin.spec.mjs; docs/specs/106-plugin-abi.md.",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/106-plugin-abi.md",
+        "orchestrator/native/tests/plugin_test.c (native_plugin): real modules loaded and refused by name for each reason, the ten-command frame, idempotence, colour by token",
+        "orchestrator/tests/native-plugin.spec.mjs: the fixture's tab and its pixels in a real window, the clip, the restart; refusals with the window still answering",
+        "docs/evidence/plugin-abi-2026-09-07.md: the sabotage table"
+      ]
     }
   ]
 }
