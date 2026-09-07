@@ -59,7 +59,7 @@ the set of pids that wrote it. That is why row 2 below goes red on a pid rather 
 
 Each row: break the one mechanism the assertion claims to catch, run the check, read **which**
 assertion went red, `git checkout` the file. Rows 1–12 are `token-retirement.test.mjs`, 13–14 are
-`native-token-e2e.spec.mjs` and 15 is `runtime.test.mjs`. Every sabotage is JavaScript and the
+`native-token-e2e.spec.mjs`, 15 is `runtime.test.mjs` and 16–19 are `project-token.test.mjs`. Every sabotage is JavaScript and the
 desktop binary was built once, before the sweep, from an unmodified tree and never touched after —
 the previous session's misattribution (a restored source tree is not a restored build) cannot apply.
 
@@ -80,25 +80,38 @@ the previous session's misattribution (a restored source tree is not a restored 
 | 13 | the supervisor commits the retirement without telling the worker (real desktop) | `Timed out: the retired worker closes its feed clients` |
 | 14 | a retained desktop's `token-action` is not forwarded (real desktop, real popover) | `Timed out: the popover's Reject reaches the ledger the replacement serves` |
 | 15 | **the control**: the fix that was tried and reverted — `retire()` ignores `worker.streams` and closes the replaced worker whatever it is carrying | `runtime.test.mjs:91` *"layered workspace and MCP replacement retain a legacy host and active PTY streams"*, `expected: 1 / actual: 0` — the same red the previous session recorded, unchanged by this lane |
+| 16 | the worker does not intercept `POST /api/agent-restart`, so `restart_agent` reaches the host ungated | `agent-restart is refused with 409, not 400` |
+| 17 | `withConversations` returns the ledger's identities unchanged | `a conversation the host persisted is an identity before it has called anything` |
+| 18 | a persisted conversation is folded in even when the ledger has already seen that id | `one entry per identity, not one per source` |
+| 19 | `restart_agent`'s description does not say it is gated | `restart_agent says it is gated` |
 
 Row 15 is the reason retention is by kind. Rows 1–14 fail under the old code and row 15 fails under
 the code that was rejected; only the split passes both.
 
+Rows 16–19 are the two additions folded in after the 4aa340f reconciliation merge, both in
+`project-token.test.mjs`: **`restart_agent` is gated like `stop_session`** — it stops that pane's
+child, and the gate is an interception in the worker before the forward, exactly as `/api/stop` is,
+so the person at the desktop stays ungated — and **`token_status` lists the root's persisted
+conversations** (spec 097) as identities it has not yet seen on the wire, marked `conversation:
+true`, minting nothing and never displacing an identity the ledger has actually seen.
+
 ## Commands
 
-`npm test` 112/112 (110 before, plus this lane's two) · `npm run test:desktop` 45/45 ·
+`npm test` 148/148 (145 on main after the 4aa340f reconciliation merge, plus this lane's three) ·
+`npm run test:desktop` 48/48 ·
 `python3 tools/features.py validate` 43 features · `python3 tools/design.py check` clean · sidecar
 `check` clean on `runtime/worker.mjs` and `runtime/supervisor.mjs` (anchors repaired, a
 `retirement-handoff` / `retirement-notice` note added to each, stamped); the pre-existing drift on
 files this lane never touched is KI-052's pattern and is not repaired here.
 
-One flake, recorded because it is not this lane's: the first full `test:desktop` run failed
+Two flakes, recorded because neither is this lane's. The first full `test:desktop` run failed
 `native-dashboard.spec.mjs`, *"the dashboard tab opens for a declared root …"*, at
 `dashboard-action shot not reached` after the desktop's own socket reported *"Session connection
-restored. Reattaching retained processes."* mid-test. That spec drives the **session host directly**
-— its state dump carries no `layeredUpdates` and no `agentToken`, so no supervisor and no workspace
-worker are in it — and nothing this lane changed can reach it. It passes alone and it passed on the
-re-run of the whole suite (45/45).
+restored. Reattaching retained processes."* mid-test; a later run, held next to three parallel unit
+suites, failed `native-format-hardening.spec.mjs` at `wide pack opens in preview not reached`. Both
+specs drive the **session host directly** — their state dumps carry no `layeredUpdates` and no
+`agentToken`, so no supervisor and no workspace worker is in either — and nothing this lane changed
+can reach them. Each passes alone, and the whole suite passed clean on re-run.
 
 F90 stays `passes: false`. KI-061 was one of its two named blockers and is closed here; the other
 stands — F74, F76 and F80 are all `passes: false`, and F74's own third criterion waits on the

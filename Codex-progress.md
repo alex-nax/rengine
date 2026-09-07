@@ -62,14 +62,25 @@ F90 stays `passes: false`. KI-061 was one of its two named blockers and is close
 F74, F76 and F80 are all `passes: false`, and F74's third criterion waits on the owner's live
 verification.
 
-Commands: `npm test` 112/112 (110 before, plus this lane's two) · `npm run test:desktop` 45/45 ·
-`python3 tools/features.py validate` 43 features · `python3 tools/design.py check` clean · sidecar
-`check` clean on the two files this lane edited, each with a new note and a fresh stamp. One flake
-worth naming because it is not this lane's: the first `test:desktop` run failed
-`native-dashboard.spec.mjs` after its desktop reconnected mid-test; that spec drives the session host
-directly, with no supervisor and no workspace worker in it, and it passed alone and on the re-run of
-the whole suite. Nothing under `orchestrator/server/` or `orchestrator/native/` was touched, and no
-environment variable was added.
+**Two additions folded in after the 4aa340f reconciliation merge**, both asked for because this lane
+owns `runtime/worker.mjs` and `agents/mcp-worker.mjs`. `restart_agent` (spec 098) stops that pane's
+child and starts it again, which is `stop_session` by another name, so it is gated the same way —
+and by the same mechanism, an interception in the worker before the forward, exactly as `/api/stop`
+is, which keeps the person at the desktop ungated. And `token_status` now folds the root's persisted
+conversations (spec 097) into the identities it lists: the ledger learns an `agentId` only from a
+header on the wire, so a lane that has not called anything was invisible there and un-nameable in a
+refusal. Nothing is minted, the entries are marked `conversation: true`, and an identity the ledger
+has actually seen wins over the persisted record of the same id. Four more sabotages, rows 16–19.
+
+Commands: `npm test` 148/148 (145 on main, plus this lane's three) · `npm run test:desktop` 48/48 ·
+`python3 tools/features.py validate` · `python3 tools/design.py check` clean · sidecar `check` clean
+on the files this lane edited, each with a fresh stamp and, where it earned one, a new note. Two
+flakes worth naming because neither is this lane's: `native-dashboard.spec.mjs` once, after its
+desktop reconnected mid-test, and `native-format-hardening.spec.mjs` once, on a run held next to
+three parallel unit suites. Both drive the session host directly — no supervisor and no workspace
+worker in either — and both passed alone and on a clean re-run of the whole suite. Nothing under
+`orchestrator/server/` or `orchestrator/native/` was touched, and no environment variable was added.
+
 ## Session 52 (macos) — 2026-09-07 — The conversation IS the identity: three lanes onto one uuid
 
 Three lanes had been building the same thing from three ends and had to become one branch,

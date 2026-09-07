@@ -12,7 +12,7 @@ import { Desktops } from '../server/desktops.mjs';
 import { request as call } from '../launcher/sidecar.mjs';
 import { authenticated, body, checkConnection, fail, forward, json } from './protocol.mjs';
 import { runtimeDirectory, alive, discoverRuntime } from './discovery.mjs';
-import { Tokens, readIdentity, readDesktop, segmentFrame } from './token.mjs';
+import { Tokens, UUID, readIdentity, readDesktop, segmentFrame } from './token.mjs';
 
 /* Named once because a monitor reads it: the close reason a retired worker gives its feed clients
    so they re-read feed_url and reattach to the current worker from the cursor they had. */
@@ -97,13 +97,31 @@ export async function startWorker(host, options = {}) {
     if (refusal) fail(refusal, 409);
     return { who, by: actor(who, req.headers) };
   };
+  /* The ledger learns an agentId only from a header on the wire, so a lane that has not called
+     anything yet is invisible to token_status and un-nameable. Spec 097's persisted conversations
+     are identities this root already has, so they are folded in: never minted, never overriding one
+     the ledger has actually seen, and marked so a reader can tell the two apart. */
+  const printableName = value => String(value ?? 'agent').replace(/[^\x20-\x7e]/g, '').slice(0, 32) || 'agent';
+  const asIso = value => (Number.isFinite(value) ? new Date(value) : new Date()).toISOString();
+  const withConversations = (status, rootId) => {
+    const seen = new Set(status.identities.map(entry => entry.agentId));
+    const listed = Array.isArray(bindings.conversations?.[rootId]) ? bindings.conversations[rootId] : [];
+    const extra = [];
+    for (const entry of listed) {
+      if (!UUID.test(entry?.id ?? '') || seen.has(entry.id)) continue;
+      seen.add(entry.id);
+      extra.push({ agentId: entry.id, label: `${printableName(entry.agent)} ${entry.id.slice(0, 8)}`,
+        firstSeenAt: asIso(entry.startedAt), lastSeenAt: asIso(entry.lastSeenAt), conversation: true });
+    }
+    return extra.length ? { ...status, identities: [...status.identities, ...extra] } : status;
+  };
   const tokenStatus = async (rootId, req, tool) => {
     if (!tokens) fail(`This workspace worker does not serve the project token ledger: ${ledgerError ?? 'no runtime directory'}.`, 409);
     const who = readIdentity(req.headers);
     const ledger = await tokens.ledger(rootId);
     await ledger.settle();
     if (who) { ledger.seen(who); await ledger.persist(); }
-    return { ...ledger.status(who), caller: who, refusal: ledger.refusal(who, tool), feed: feedUrl(rootId) };
+    return { ...withConversations(ledger.status(who), rootId), caller: who, refusal: ledger.refusal(who, tool), feed: feedUrl(rootId) };
   };
   const feedUrl = rootId => `${url.replace('http:', 'ws:')}/feed?${new URLSearchParams({ rootId, token })}`;
   /* One announcement per worker process, on the first request that is not a health or state probe:
@@ -368,6 +386,13 @@ export async function startWorker(host, options = {}) {
         const data = await body(req); await refresh(); await announce();
         await gate(req, snapshot(data.id).rootId, 'stop_session');
         json(res, 200, await call(host, 'stop', { id: data.id }));
+      } else if (req.method === 'POST' && target.pathname === '/api/agent-restart') {
+        /* Intercepted for the same reason as /api/stop, and gated for the same reason: restarting an
+           agent pane stops that child, which is one of the exclusive things decision 4 names. The
+           person at the desktop sends no identity header and is never gated (decision 6). */
+        const data = await body(req); await refresh(); await announce();
+        await gate(req, snapshot(data.id).rootId, 'restart_agent');
+        json(res, 200, await call(host, 'agent-restart', { id: data.id }));
       } else if (req.method === 'POST' && target.pathname === '/api/update-workspace') {
         const data = await body(req); await refresh(); await announce();
         await gate(req, root(data.rootId).id, 'update_workspace');

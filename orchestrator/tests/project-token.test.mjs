@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -50,6 +51,8 @@ test('the extended routes refuse an agent that does not hold the token, and neve
     'desktop-action': await api(worker, 'desktop-action', { rootId: root.id, desktopId: 'nobody', action: 'reload' }, bob),
     'update-workspace': await api(worker, 'update-workspace', { rootId: root.id, layers: ['workspace'] }, bob),
     stop: await api(worker, 'stop', { id: idle.body.id }, bob),
+    /* Restarting an agent pane stops that child, so it is gated exactly as stop_session is. */
+    'agent-restart': await api(worker, 'agent-restart', { id: idle.body.id }, bob),
   };
   for (const [route, result] of Object.entries(refusals)) {
     assert.equal(result.status, 409, `${route} is refused with 409, not ${result.status}`);
@@ -69,11 +72,34 @@ test('the extended routes refuse an agent that does not hold the token, and neve
   await ok(worker, 'stop', { id: game.id });
   const desktopUpdate = await api(worker, 'update-workspace', { rootId: root.id, layers: ['workspace'] });
   assert.doesNotMatch(desktopUpdate.body.error ?? '', /held by/, 'the desktop is answered by the route, never by the gate');
+  const desktopRestart = await api(worker, 'agent-restart', { id: idle.body.id });
+  assert.doesNotMatch(desktopRestart.body.error ?? '', /held by/, 'and its restart reaches the host rather than the gate');
 
   const held = await status(worker, root.id, alice);
   assert.equal(held.holdsToken, true, 'the holder is told it holds it');
   assert.deepEqual(held.identities.map(entry => entry.label).sort(), ['claude', 'codex'],
     'every identity the header carried is remembered as a candidate, refused or not');
+});
+
+test('token_status lists the conversations this root already has, and the ledger wins where both know one', { timeout: 20000 }, async t => {
+  const { host, root, worker } = await workspace(t);
+  const alice = identity('claude');
+  const resumed = randomUUID();
+  await host.store.recordConversation(root.id, { conversation: resumed, agent: 'codex' });
+  const listed = await status(worker, root.id, alice);
+  const entry = listed.identities.find(item => item.agentId === resumed);
+  assert.ok(entry, 'a conversation the host persisted is an identity before it has called anything');
+  assert.equal(entry.label, `codex ${resumed.slice(0, 8)}`, 'wearing its CLI and the id it resumes by');
+  assert.equal(entry.conversation, true, 'marked as one the ledger has not seen on the wire');
+  assert.equal(listed.identities.find(item => item.agentId === alice.agentId).conversation, undefined,
+    'while an identity that has called anything is the one the ledger saw');
+
+  /* The same id, persisted under a different name after the ledger has seen it on the wire. */
+  await host.store.recordConversation(root.id, { conversation: alice.agentId, agent: 'gemini' });
+  const after = await status(worker, root.id, alice);
+  const mine = after.identities.filter(item => item.agentId === alice.agentId);
+  assert.equal(mine.length, 1, 'one entry per identity, not one per source');
+  assert.equal(mine[0].label, 'claude', 'and the one the ledger saw wins');
 });
 
 test('a contest opens a window, a rejection costs a cooldown, and silence transfers at the deadline', { timeout: 40000 }, async t => {
@@ -358,7 +384,7 @@ test('the tools carry the token, and against a worker without the ledger they re
   for (const name of ['token_status', 'token_contest', 'token_reject', 'token_release', 'feed_url', 'feed_read']) {
     assert.ok(listed.tools.some(tool => tool.name === name), `${name} is offered`);
   }
-  for (const name of ['launch_game', 'stop_session', 'open_script', 'dashboard_capture', 'reload_desktop', 'update_workspace']) {
+  for (const name of ['launch_game', 'stop_session', 'open_script', 'dashboard_capture', 'reload_desktop', 'update_workspace', 'restart_agent']) {
     assert.match(listed.tools.find(tool => tool.name === name).description, /project token/, `${name} says it is gated`);
   }
 
