@@ -53,10 +53,33 @@ today — a git merge a person resolves.
 
 ## Surfaces
 
-**Sessions tab.** In the Conversations section a live agent row that holds the token carries a token
-mark and **Revoke**; when the ledger's holder pid is gone the row carries **Free**. Both send
-`token-action` (`revoke` | `free`) with the root, exactly as `re_token_ui` does; the ledger answers with
-the next `token` frame and the row follows it. No new pane, no new tab type, no enum change.
+**Sessions tab.** In the Conversations section a row that holds the token carries a token mark and
+**Revoke**; when the ledger's holder pid is gone the row carries **Free**. Both send `token-action`
+(`revoke` | `free`) with the root, exactly as the popover does; the ledger answers with the next
+`token` frame and the row follows it. No new pane, no new tab type, no enum change.
+
+*What shipped, 2026-09-07* (`orchestrator/native/workspace.c`, `token.{c,h}`, `app.c`; evidence with
+the sabotage table: `docs/evidence/sessions-token-controls-2026-09-07.md`). Corrections against the
+paragraph above, each because the code says otherwise:
+
+- **Not only a live row.** The row is keyed on the conversation, which *is* the agentId (spec 095),
+  and a hold outlives the process that took it — so the past-conversation row carries the mark too.
+  That is precisely where a holder whose pane has exited is listed, and marking only live rows would
+  have put **Free** nowhere the case it exists for can reach it.
+- **The pinned `token` frame carries no liveness.** `segmentFrame()` drops the `holderAlive` that the
+  ledger's `status()` computes, and stage 2's worker is not changed for this, so the desktop derives
+  it from the `holder.pid` the frame does carry — `kill(pid, 0)` / `OpenProcess`, on the ledger's own
+  terms (`gone()`: an unknown pid is not a dead pid, an unsignalable process is still a process).
+  `re_token_holder_alive` is the one place that changes if a later stage puts the field on the frame.
+- **"Exactly as `re_token_ui` does" is now literal**: the popover's sender was lifted to
+  `re_token_action` and both surfaces call it, so there is one frame builder and no second path.
+  `re_token_ui` is the popover's rows; the sender is no longer inside it.
+- **The mark is reported, not inferred.** `re_app_inspect` gains `conversations` — the rows as the
+  interface pass drew them, each with `holdsToken` and `tokenAction` — and the gestures report their
+  rectangles as `conversation-revoke` and `conversation-free`, keyed by conversation, the way spec
+  099's rows report `conversation-attach` and `resume`.
+- **One new metric**, `sessions.token-width`, so the row's fifth column is a design token like the
+  rest of it; no colour or size literal enters a native source.
 
 **Tasks pane.** Each task row gains a control cluster: **Spawn ▾** (agent · model), **Decompose**,
 **Hold token ▾** (live agents). The cluster reads the `agents` menu and the live agent list the

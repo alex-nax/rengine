@@ -1,5 +1,49 @@
 # Progress Log
 
+## Session 60 (macos) — 2026-09-07 — The Sessions tab revokes the token (F105 criterion 1, spec 103)
+
+Spec 103 decision 1 and acceptance criterion 1, built on branch `feat/sessions-token-controls`. In the
+Conversations section of the Sessions tab, the row whose conversation is the ledger's `holder.agentId`
+now carries a token mark and **Revoke**, or **Free** once the holder's process is gone — "take it from
+that one so another can claim" is one gesture next to the agent it concerns, which is what the owner
+asked for. Both gestures go through `re_token_action`, the popover's own sender lifted out of
+`re_token_ui`, so the two surfaces send one `token-action` contract and there is no second path.
+
+Three things the code decided against the spec's paragraph, recorded in its Surfaces section:
+**(a)** the mark is not live-only — a hold outlives the process that took it (the conversation IS the
+identity, spec 095), so the past-conversation row carries it too, and that is exactly where a holder
+whose pane exited is listed; marking only live rows would have put Free nowhere the case it exists for
+could reach it. **(b)** the pinned `token` frame carries no liveness — `segmentFrame()` drops the
+`holderAlive` the ledger's `status()` computes — and stage 2's worker was deliberately not touched, so
+the desktop derives it from the `holder.pid` the frame does carry, on the ledger's own `gone()` terms
+(an unknown pid is not a dead pid; an unsignalable process is still a process). `re_token_holder_alive`
+is the one place that changes if a later stage puts the field on the frame. **(c)** `re_app_inspect`
+now reports `conversations` — the rows as the interface pass drew them, with `holdsToken` and
+`tokenAction` — so a test reads the mark from the row's own derivation rather than re-deriving it, and
+a mark keyed on the wrong id is red in the report as well as wrong on the screen.
+
+Regressions: `orchestrator/tests/native-sessions-token.spec.mjs`, two tests, added to `test:desktop`.
+Five sabotage rows, each watched failing for its own reason and confirmed not to be an earlier one —
+the wrong holder field, Revoke sending `free`, a mark that never clears, liveness ignored, and a mark
+that fires on any held token. Table and method: `docs/evidence/sessions-token-controls-2026-09-07.md`.
+Worth writing down: the first attempt at that table ran before the implementation was committed, and
+the loop's `git checkout` restored the files to the commit *without* the feature — a red for the wrong
+reason. The script now refuses a dirty tree.
+
+Gates on the branch: `npm run build` clean, `npm test` 170/170, `npm run test:desktop` 53/53 (one run
+showed `native-devices` "a key pressed over the Devices section…" red; it passes alone and passed on
+the re-run — flake under the serialised suite, unrelated to this change, which touches no device or
+key-routing path). `npm run build:surface` is a prerequisite for the two recorder specs.
+
+Untouched on purpose: `orchestrator/runtime` (the ledger and the worker), `orchestrator/agents`,
+`orchestrator/server`, and `orchestrator/native/tracker.c` (another lane). The tab enum and the OP_*
+ordering are unchanged; the one new metric is `sessions.token-width` in `theme.json`. F105 stays
+`passes: false` — decisions 2 through 9 and criteria 2 through 8 are not built.
+
+Not verified: the live gesture on the owner's own workspace — Revoke on a running desktop taking the
+token off a real agent, and the next `token_contest` claiming it. Same reason spec 099 carries: a
+workspace whose host predates this cannot exercise it, and this session runs inside that host.
+
 ## Session 59 (macos) — 2026-09-07 — Task-driven agents, recorded (F105, spec 103)
 
 Owner direction in the vtmb-vr workspace, after the token was seen live: the Sessions tab must revoke
