@@ -377,7 +377,11 @@ void re_app_status(ReApp *a, ReDraw *draw) {
   snprintf(facts, sizeof(facts), "%s · %s · %d session%s", root_name(a, a->root), *a->agent ? a->agent : "no agent",
            sessions, sessions == 1 ? "" : "s");
   int facts_width = re_draw_text_width(draw, RE_FACE_UI, size, facts, -1);
-  int right = a->width - RE_METRIC_DESIGN_PAD - facts_width;
+  /* The token segment owns the right edge and the facts move left of it, so its rectangle depends
+     on the window width and its own text alone (spec 095). */
+  re_token_status(a, draw);
+  int edge = a->token.rect.w ? a->token.rect.x : a->width;
+  int right = edge - RE_METRIC_DESIGN_PAD - facts_width;
   re_draw_text_face(draw, RE_FACE_UI, size, facts, -1, right, text_y, RE_COLOR_STATUS_FG);
   re_draw_icon(draw, RE_ICON_AGENT, mu_rect(right - size - RE_METRIC_DESIGN_GAP, y, size, height), RE_COLOR_TEXT_FAINT);
   mu_Rect clip = mu_rect(x, y, re_max(0, right - x - RE_METRIC_DESIGN_PAD - size), height);
@@ -725,6 +729,21 @@ static void settings_ui(ReApp *a, mu_Context *ui) {
   overlay_end(ui);
 }
 
+/* The token popover hangs from the status-bar segment. The bar sits at the bottom of the window, so
+ * the shared placement puts this surface above its anchor rather than below it; nothing here knows
+ * that, which is the point of one overlay_begin (spec 080). */
+static void token_popover(ReApp *a, mu_Context *ui) {
+  ReProjectToken *t = &a->token;
+  int pad = RE_METRIC_DESIGN_PAD, gap = RE_METRIC_DESIGN_GAP;
+  int height = pad * 2 + RE_METRIC_TOKEN_HEADING_HEIGHT + RE_METRIC_TOKEN_ROW_HEIGHT + 2 * gap;
+  if (t->held) height += RE_METRIC_TOKEN_ROW_HEIGHT + RE_METRIC_TOKEN_ACTION_HEIGHT + 2 * gap;
+  if (t->contested) height += RE_METRIC_TOKEN_HEADING_HEIGHT + RE_METRIC_TOKEN_ROW_HEIGHT
+                            + 2 * RE_METRIC_TOKEN_ACTION_HEIGHT + 4 * gap;
+  if (!overlay_begin(a, ui, RE_METRIC_TOKEN_POPOVER_WIDTH, height)) return;
+  re_token_ui(a, ui);
+  overlay_end(ui);
+}
+
 void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
   if (a->controls) { cJSON_Delete(a->controls); a->controls = cJSON_CreateArray(); }
   int opts = MU_OPT_NOTITLE | MU_OPT_NORESIZE | MU_OPT_NOCLOSE | MU_OPT_NOSCROLL;
@@ -802,10 +821,25 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
     re_app_control(a, ui, "toolbar", "Settings", -1);
     mu_end_window(ui);
   }
+  /* The status bar is owned drawing laid down after every pane, so its segment keeps its hit area
+   * here, where the pointer and the overlay's anchor both come from the same rectangle. */
+  mu_Rect segment = re_token_rect(a, re_draw_active());
+  if (segment.w > 0) {
+    mu_get_container(ui, "Status")->rect = segment;
+    if (mu_begin_window_ex(ui, "Status", segment, opts | MU_OPT_NOFRAME)) {
+      mu_layout_set_next(ui, segment, 0);
+      if (re_ui_button_ex(ui, "", RE_ICON_UNKNOWN, RE_UI_GHOST | RE_UI_ICON_ONLY | RE_UI_TRANSPARENT)) {
+        overlay_open(a, ui, RE_OVERLAY_TOKEN);
+      }
+      re_app_control(a, ui, "token", "segment", -1);
+      mu_end_window(ui);
+    }
+  }
   if (a->overlay_restore) { mu_set_focus(ui, a->overlay_opener); a->overlay_restore = false; }
   if (a->overlay == RE_OVERLAY_SETTINGS) settings_ui(a, ui);
   else if (a->overlay == RE_OVERLAY_ROOTS) roots_menu(a, ui);
   else if (a->overlay == RE_OVERLAY_PANE) pane_menu(a, ui);
+  else if (a->overlay == RE_OVERLAY_TOKEN) token_popover(a, ui);
   if (!a->overlay) a->dropdown[0] = 0;          /* a list cannot outlive the surface it opened from */
   if (*a->dropdown) dropdown_ui(a, ui);
   re_layout_measure(&a->layout, mu_rect(0, RE_METRIC_WORKSPACE_TOP, width, height - RE_METRIC_WORKSPACE_TOP - RE_METRIC_WORKSPACE_STATUS_HEIGHT));

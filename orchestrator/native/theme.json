@@ -519,6 +519,15 @@
       "refresh-width": 90,
       "key-width": 70,
       "state-width": 110
+    },
+    "token": {
+      "segment-pad": 10,
+      "popover-width": 300,
+      "label-width": 96,
+      "heading-height": 26,
+      "row-height": 22,
+      "action-height": 24,
+      "action-width": 132
     }
   },
   "metric-notes": {
@@ -537,7 +546,8 @@
     "design": "Card constants from design/base.css that tokens.css does not name; every other design metric is a token binding under token-metrics.",
     "recording": "The game tab's recording cells share the game row height; the row is capture, toggle, commit, status (spec 081).",
     "devices": "Devices tab (spec 082): heading, note, then per device a title/status row and two reason rows.",
-    "tracker": "Tracker tab (spec 083): heading and note, then one row per task with a fixed key column on the left and a state pill on the right; the title takes the slack between them."
+    "tracker": "Tracker tab (spec 083): heading and note, then one row per task with a fixed key column on the left and a state pill on the right; the title takes the slack between them.",
+    "token": "Project-token status segment and its popover (spec 095): segment-pad is the horizontal padding inside the status-bar segment; the popover is popover-width wide with a fixed label column, one heading row per section, one row per fact, and a row of action buttons action-height tall split into action-width halves."
   },
   "icons": {
     "close": "x",
@@ -624,6 +634,17 @@
       "saved <id> · <n> frames · <n> log lines",
       "nothing to commit yet",
       "game exited"
+    ],
+    "token": [
+      "Token \u00b7 free",
+      "Token \u00b7 <holder label>",
+      "Contest \u00b7 <contester label> \u00b7 <n>s",
+      "Project token",
+      "Nobody holds this project's token.",
+      "Reject",
+      "Grant",
+      "Revoke",
+      "Free"
     ]
   },
   "token-metrics": {

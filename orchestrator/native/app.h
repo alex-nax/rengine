@@ -6,6 +6,7 @@
 #include "game.h"
 #include "formatview.h"
 #include "recording.h"
+#include "token.h"
 enum { RE_TREE = 1, RE_EDITOR, RE_TERMINAL, RE_SESSIONS, RE_GAME, RE_DASHBOARD, RE_DEVICES, RE_TRACKER };
 #define RE_DEVICES_TIMEOUT_MS 45000L /* a devices load runs every declared probe; see sidecar: devices-route */
 typedef struct {
@@ -49,12 +50,13 @@ typedef struct ReApp {
   mu_Rect dropdown_anchor, dropdown_rect;    /* the select it hangs from, and where it landed */
   bool overlay_restore;
   bool desktop_registered, reload_requested; char desktop_id[65];
+  ReProjectToken token;                             /* the project token of the primary root (spec 095) */
   int focus, drag_tab, resize_pane, drag_x, drag_y, mouse_x, mouse_y;
   Uint64 layout_changed, quit_started;
   int scene;
 } ReApp;
 /* The overlay layer. Opening one closes the other, so the kind is a single value (spec 080). */
-enum { RE_OVERLAY_NONE = 0, RE_OVERLAY_SETTINGS, RE_OVERLAY_ROOTS, RE_OVERLAY_PANE };
+enum { RE_OVERLAY_NONE = 0, RE_OVERLAY_SETTINGS, RE_OVERLAY_ROOTS, RE_OVERLAY_PANE, RE_OVERLAY_TOKEN };
 
 ReApp *re_app_open(const char *url, const char *token);
 void re_app_close(ReApp *app);

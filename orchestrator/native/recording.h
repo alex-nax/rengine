@@ -14,12 +14,27 @@ enum { RE_RECORDING_DRAIN = 24 };   /* keyframes written per tick: a full ring l
 
 typedef struct { int seconds, bytes, fps, width, quality; } ReRecordBounds;
 
+/* What the recorder announces on the live channel (spec 095): an explicit start, and every commit.
+ * The recorder carries its own identity, so one callback serves every tab. `kind` is the wire's
+ * vocabulary — "ring" or "explicit" — not the manifest's, which calls the second one "segment". */
+typedef struct {
+  const char *root_id, *session_id, *game_id;
+  const char *event;         /* "started" or "committed" */
+  const char *recording_id;  /* the segment directory name, minted when the segment begins */
+  const char *kind;          /* "ring" or "explicit" */
+} ReRecordEvent;
+typedef void (*ReRecordAnnounce)(void *user, const ReRecordEvent *event);
+
 typedef struct {
   const char *root_path, *root_id, *session_id, *game_id, *title;
   ReRecordBounds bounds;
   Uint64 now_ms;        /* the monotonic clock at open; every atMs is measured from it */
   long long wall_ms;    /* epoch milliseconds at open, so wall clock is derived, not sampled */
+  ReRecordAnnounce announce; void *announce_user;   /* optional; a NULL announces nothing */
 } ReRecordOpen;
+
+/* Epoch milliseconds as the ISO instant every keyframe, log line and manifest is stamped with. */
+void re_recording_wall_iso(long long epoch_ms, char *out, size_t size);
 
 /* Defaults, then the declared preference clamped into range; a hand-edited workspace cannot ask for
  * a ring larger than the bound this returns. `preferences` may be NULL. */

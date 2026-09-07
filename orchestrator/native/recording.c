@@ -37,6 +37,9 @@ struct ReRecorder {
   Uint64 last_sample, explicit_from; bool sampled;
   int state, segments, dropped, encoded_width, encoded_height;
   char last_segment[64], last_path[2100], message[256];
+  char explicit_id[64];        /* minted when an explicit segment starts, so its start and its commit
+                                  name one directory on the feed; cleared when that segment commits */
+  ReRecordAnnounce announce; void *announce_user;
   ReCommit commit;
   unsigned char *scratch; size_t scratch_size;
 };
@@ -100,6 +103,7 @@ ReRecorder *re_recording_open(const ReRecordOpen *options) {
   re_copy(r->game, sizeof(r->game), options->game_id);
   re_copy(r->title, sizeof(r->title), options->title);
   r->bounds = options->bounds; r->base_ms = options->now_ms; r->wall_base = options->wall_ms;
+  r->announce = options->announce; r->announce_user = options->announce_user;
   r->capacity = clamp(r->bounds.seconds * r->bounds.fps + 4, 8, FRAME_SLOTS);
   r->line_capacity = LINE_SLOTS;
   r->ring = calloc((size_t)r->capacity, sizeof(*r->ring));
@@ -110,7 +114,7 @@ ReRecorder *re_recording_open(const ReRecordOpen *options) {
 }
 
 static long long wall_of(const ReRecorder *r, Uint64 at) { return r->wall_base + (long long)(at - r->base_ms); }
-static void wall_iso(long long ms, char *out, size_t size) {
+void re_recording_wall_iso(long long ms, char *out, size_t size) {
   time_t seconds = (time_t)(ms / 1000);
   int millis = (int)(ms % 1000);
   struct tm parts;
@@ -246,7 +250,7 @@ static void write_log(ReRecorder *r) {
   char wall[40];
   for (int i = 0; i < r->line_count; i++) {
     ReLine *line = line_at(r, i);
-    wall_iso(wall_of(r, line->at), wall, sizeof(wall));
+    re_recording_wall_iso(wall_of(r, line->at), wall, sizeof(wall));
     cJSON *j = cJSON_CreateObject();
     cJSON_AddNumberToObject(j, "atMs", (double)((long long)line->at - (long long)origin));
     cJSON_AddStringToObject(j, "wall", wall);
@@ -257,18 +261,27 @@ static void write_log(ReRecorder *r) {
   }
   fclose(handle);
 }
+/* The live channel's vocabulary, which is not the manifest's: an explicit segment is "explicit" on
+   the feed and "segment" in the artifact, because the feed names the gesture and the manifest names
+   the shape (spec 095, "The feed"). */
+static void announce(ReRecorder *r, const char *event, const char *id, int kind) {
+  if (!r->announce || !id || !*id) return;
+  ReRecordEvent frame = {r->root_id, r->session, r->game, event, id, kind == RE_KIND_RING ? "ring" : "explicit"};
+  r->announce(r->announce_user, &frame);
+}
 static void begin_commit(ReRecorder *r, int kind, Uint64 from, int requested_seconds, Uint64 now_ms, int after) {
   int count = 0;
   for (int i = 0; i < r->count; i++) if (ring_at(r, i)->at >= from) count++;
   if (!count) {
     re_copy(r->message, sizeof(r->message), "nothing to commit yet");
+    if (kind == RE_KIND_SEGMENT) r->explicit_id[0] = 0;
     r->state = after;
     return;
   }
   ReCommit *c = &r->commit;
   memset(c, 0, sizeof(*c));
   c->frames = calloc((size_t)count, sizeof(*c->frames));
-  if (!c->frames) { r->state = after; return; }
+  if (!c->frames) { if (kind == RE_KIND_SEGMENT) r->explicit_id[0] = 0; r->state = after; return; }
   for (int i = 0; i < r->count; i++) {
     ReFrame *frame = ring_at(r, i);
     if (frame->at < from) continue;
@@ -277,7 +290,11 @@ static void begin_commit(ReRecorder *r, int kind, Uint64 from, int requested_sec
   c->kind = kind; c->from = from; c->requested_seconds = requested_seconds; c->after = after;
   c->dropped_lead = c->frames[0]->at > from ? c->frames[0]->at - from : 0;
   c->truncated = kind == RE_KIND_SEGMENT && c->dropped_lead > 0;
-  mint_id(r, now_ms, c->id, sizeof(c->id));
+  /* An explicit segment already has its id: it was minted and announced when the toggle started it,
+     and the pair on the feed has to name one directory. A ring commit mints its own here. */
+  if (kind == RE_KIND_SEGMENT && *r->explicit_id) re_copy(c->id, sizeof(c->id), r->explicit_id);
+  else mint_id(r, now_ms, c->id, sizeof(c->id));
+  r->explicit_id[0] = 0;
   if (!prepare_store(r, c->id, c->directory, sizeof(c->directory))) {
     for (int i = 0; i < c->count; i++) frame_unref(c->frames[i]);
     free(c->frames); memset(c, 0, sizeof(*c));
@@ -299,9 +316,9 @@ static void write_manifest(ReRecorder *r) {
   ReCommit *c = &r->commit;
   Uint64 origin = c->frames[0]->at, last = c->frames[c->count - 1]->at;
   char started[40], ended[40], created[40];
-  wall_iso(wall_of(r, origin), started, sizeof(started));
-  wall_iso(wall_of(r, last), ended, sizeof(ended));
-  wall_iso(wall_of(r, last), created, sizeof(created));
+  re_recording_wall_iso(wall_of(r, origin), started, sizeof(started));
+  re_recording_wall_iso(wall_of(r, last), ended, sizeof(ended));
+  re_recording_wall_iso(wall_of(r, last), created, sizeof(created));
   cJSON *j = cJSON_CreateObject();
   cJSON_AddNumberToObject(j, "version", 1);
   cJSON_AddStringToObject(j, "id", c->id);
@@ -363,6 +380,7 @@ static void finish_commit(ReRecorder *r) {
   if (c->index) { fclose(c->index); c->index = NULL; }
   write_manifest(r);
   r->segments++;
+  announce(r, "committed", c->id, c->kind);
   snprintf(r->message, sizeof(r->message), "saved %s · %d frames · %d log lines", c->id, c->count, c->log_lines);
   for (int i = 0; i < c->count; i++) frame_unref(c->frames[i]);
   free(c->frames);
@@ -387,7 +405,7 @@ void re_recording_tick(ReRecorder *r, Uint64 now_ms) {
     FILE *handle = fopen(path, "wb");
     if (handle) { fwrite(frame->bytes, 1, frame->size, handle); fclose(handle); c->video_bytes += frame->size; }
     if (!c->index) continue;
-    wall_iso(wall_of(r, frame->at), wall, sizeof(wall));
+    re_recording_wall_iso(wall_of(r, frame->at), wall, sizeof(wall));
     cJSON *j = cJSON_CreateObject();
     cJSON_AddStringToObject(j, "file", name);
     cJSON_AddNumberToObject(j, "atMs", (double)(frame->at - origin));
@@ -410,7 +428,9 @@ void re_recording_toggle(ReRecorder *r, Uint64 now_ms) {
   if (!r || r->state == RE_RECORDING_COMMITTING || r->state == RE_RECORDING_STOPPED) return;
   if (r->state == RE_RECORDING_ACTIVE) { begin_commit(r, RE_KIND_SEGMENT, r->explicit_from, 0, now_ms, RE_RECORDING_RING); return; }
   r->explicit_from = now_ms; r->state = RE_RECORDING_ACTIVE;
+  mint_id(r, now_ms, r->explicit_id, sizeof(r->explicit_id));
   re_copy(r->message, sizeof(r->message), "recording");
+  announce(r, "started", r->explicit_id, RE_KIND_SEGMENT);
 }
 void re_recording_exited(ReRecorder *r, Uint64 now_ms) {
   if (!r || r->state == RE_RECORDING_STOPPED || r->state == RE_RECORDING_COMMITTING) return;
@@ -480,7 +500,8 @@ void re_recording_sync(struct ReApp *a) {
       if (!*directory || !*t->session) continue;
       const cJSON *session = session_record(a, t->session);
       ReRecordOpen options = {directory, t->root, t->session, re_string(session, "game"), t->title,
-                              re_recording_bounds(cJSON_GetObjectItemCaseSensitive(a->state, "preferences")), now, wall};
+                              re_recording_bounds(cJSON_GetObjectItemCaseSensitive(a->state, "preferences")), now, wall,
+                              re_token_recording, a};   /* every commit reaches the live channel (spec 095) */
       t->recorder = re_recording_open(&options);
       if (t->recorder) re_game_sink(t->game, take_frame, t->recorder);
       continue;
