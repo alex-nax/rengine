@@ -11,7 +11,7 @@ import { startServer } from '../server/main.mjs';
 import { startRuntime } from '../runtime/supervisor.mjs';
 import { forward, json, tunnel } from '../runtime/protocol.mjs';
 import { request } from '../launcher/sidecar.mjs';
-import { readDeclaration } from '../server/formats.mjs';
+import { readDeclaration, CONTRACTS } from '../server/formats.mjs';
 import { declaration } from './format-fixtures.mjs';
 import { absent, game, gameDeclaration, gameProject, gamesDeclaration, launcherDeclaration, second } from './game-fixtures.mjs';
 
@@ -80,7 +80,10 @@ test('contract 3 games arrays validate, earlier contracts stay accepted and game
     }
     const four = await declare(directory, 'four', { ...gameDeclaration(), contract: 4 });
     assert.equal(four.error, undefined, 'contract 4 (spec 082, devices) accepts a games array unchanged'); assert.deepEqual(four.games, [game()]);
-    const above = await declare(directory, 'above', { ...gameDeclaration(), contract: 5 }); assert.match(above.error, /unknown contract 5/); assert.deepEqual(above.formats, []);
+    // One above the ceiling, derived rather than written down: this assertion is about the gate,
+  // and hard-coding the number made it silently stop testing it the day the ceiling rose.
+  const beyond = CONTRACTS.at(-1) + 1;
+    const above = await declare(directory, 'above', { ...gameDeclaration(), contract: beyond }); assert.match(above.error, new RegExp(`unknown contract ${beyond}`)); assert.deepEqual(above.formats, []);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 

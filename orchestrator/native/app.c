@@ -158,6 +158,27 @@ void re_app_discard(ReApp *a, int tab) {
 static const cJSON *formats_for(ReApp *a, const char *root) {
   const cJSON *known = cJSON_GetObjectItemCaseSensitive(a->formats, root); return cJSON_IsObject(known) ? known : NULL;
 }
+/* Identity comes from the primary root and is read from its declaration, which the desktop already
+ * fetches for formats. Falling back to the defaults costs nothing when a project declares neither. */
+const char *re_app_title(ReApp *a) {
+  const cJSON *declared = formats_for(a, *a->primary_root ? a->primary_root : a->root);
+  const char *title = re_string(declared, "title");
+  return *title ? title : RE_DEFAULT_TITLE;
+}
+const char *re_app_mark(ReApp *a) {
+  const cJSON *declared = formats_for(a, *a->primary_root ? a->primary_root : a->root);
+  const char *glyph = re_string(cJSON_GetObjectItemCaseSensitive(declared, "icon"), "glyph");
+  return *glyph ? glyph : "r";
+}
+mu_Color re_app_mark_color(ReApp *a) {
+  const cJSON *declared = formats_for(a, *a->primary_root ? a->primary_root : a->root);
+  const char *token = re_string(cJSON_GetObjectItemCaseSensitive(declared, "icon"), "token");
+  if (!strcmp(token, "ok")) return RE_COLOR_OK;
+  if (!strcmp(token, "warn")) return RE_COLOR_WARN;
+  if (!strcmp(token, "err")) return RE_COLOR_ERR;
+  if (!strcmp(token, "info")) return RE_COLOR_INFO;
+  return RE_COLOR_ACCENT;   /* the declared accent, and the default when nothing is declared */
+}
 static void fetch_formats(ReApp *a, const char *root) {
   if (!*root || cJSON_IsNull(cJSON_GetObjectItemCaseSensitive(a->formats, root))) return;
   char *route = re_net_query("formats", root, ""); int id = route ? request(a, OP_FORMATS, -1, route, NULL) : 0;
@@ -383,6 +404,8 @@ static void state_loaded(ReApp *a, const cJSON *j) {
   a->accent_hue = cJSON_IsNumber(hue) ? (float)hue->valuedouble : re_theme_accent_hues[a->preset];
   re_theme_hue_set(a->accent_hue);
   if (!*a->root) re_copy(a->root, sizeof(a->root), re_string(cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(j, "roots"), 0), "id"));
+  /* The window's primary root is fixed here and never follows focus afterwards (spec 084). */
+  if (!*a->primary_root) { re_copy(a->primary_root, sizeof(a->primary_root), a->root); fetch_formats(a, a->primary_root); }
   re_app_project_theme(a);
   if (!*a->root) re_copy(a->root, sizeof(a->root), re_string(cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(j, "roots"), 0), "id"));
   const cJSON *old = cJSON_GetObjectItemCaseSensitive(j, "layout");
@@ -615,6 +638,8 @@ cJSON *re_app_inspect(ReApp *a) {
   cJSON_AddBoolToObject(j, "vim", a->vim); cJSON_AddBoolToObject(j, "explorerNested", a->explorer_nested);
   cJSON_AddStringToObject(j, "scheme", a->scheme); cJSON_AddNumberToObject(j, "accentHue", a->accent_hue);
   cJSON_AddStringToObject(j, "themePath", a->theme_path);
+  cJSON_AddStringToObject(j, "title", re_app_title(a)); cJSON_AddStringToObject(j, "mark", re_app_mark(a));
+  cJSON_AddStringToObject(j, "primaryRoot", a->primary_root);
   cJSON_AddNumberToObject(j, "overlay", a->overlay);
   cJSON *tabs = cJSON_GetObjectItemCaseSensitive(j, "tabs");
   for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].used) {

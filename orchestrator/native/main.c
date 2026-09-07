@@ -49,11 +49,11 @@ int main(int argc, char **argv) {
   if (!backend) { fprintf(stderr, "Unknown renderer '%s'; use opengl, metal, vulkan or sdl.\n", renderer ? renderer : ""); return 2; }
   SDL_SetMainReady();
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) { fprintf(stderr, "%s\n", SDL_GetError()); return 1; }
-  SDL_Window *window = SDL_CreateWindow(automation ? "rEngine — automated verification" : "rEngine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+  SDL_Window *window = SDL_CreateWindow(automation ? RE_DEFAULT_TITLE " — automated verification" : RE_DEFAULT_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        RE_METRIC_WINDOW_WIDTH, RE_METRIC_WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | re_draw_window_flags(backend));
   if (!window) { fprintf(stderr, "%s\n", SDL_GetError()); SDL_Quit(); return 1; }
   if (getenv("RENGINE_WINDOW_TITLE")) {
-    char title[320]; snprintf(title, sizeof(title), "rEngine — %s", getenv("RENGINE_WINDOW_TITLE")); SDL_SetWindowTitle(window, title);
+    char title[320]; snprintf(title, sizeof(title), RE_DEFAULT_TITLE " — %s", getenv("RENGINE_WINDOW_TITLE")); SDL_SetWindowTitle(window, title);
   }
   SDL_SetWindowMinimumSize(window, RE_METRIC_WINDOW_MIN_WIDTH, RE_METRIC_WINDOW_MIN_HEIGHT);
   ReDraw *draw = re_draw_open(window, font, backend);
@@ -73,6 +73,7 @@ int main(int argc, char **argv) {
   if (automation || control) app->controls = cJSON_CreateArray();
   Uint32 automation_event = (automation || control) ? re_automation_start() : 0;
   bool running = true, closing = false, reload = false; int frames = 0, result = 0; cJSON *capture = NULL;
+  char window_title[128] = RE_DEFAULT_TITLE;
   SDL_StartTextInput();
   while (running) {
     SDL_Event event; bool redraw = false;
@@ -102,6 +103,17 @@ int main(int argc, char **argv) {
       if (!re_app_event(app, &event, draw)) ui_event(ui, &event);
     } while (SDL_PollEvent(&event));
     re_app_tick(app);
+    /* The declaration arrives after the window exists, so the title follows the same rule as the
+     * chrome rather than being a second literal: it is the primary root's name (spec 084). */
+    if (strcmp(window_title, re_app_title(app))) {
+      re_copy(window_title, sizeof(window_title), re_app_title(app));
+      const char *suffix = getenv("RENGINE_WINDOW_TITLE");
+      char title[320];
+      if (automation) snprintf(title, sizeof(title), "%s — automated verification", window_title);
+      else if (suffix && *suffix) snprintf(title, sizeof(title), "%s — %s", window_title, suffix);
+      else snprintf(title, sizeof(title), "%s", window_title);
+      SDL_SetWindowTitle(window, title);
+    }
     if (app->reload_requested) { app->reload_requested = false; closing = reload = true; }
     if (!redraw && !re_ui_animating() && frames && !smoke && !closing) continue; /* transitions ask for their own frames */
     int width, height; SDL_GetWindowSize(window, &width, &height);

@@ -9,7 +9,10 @@ import { dashboardRules, nameOf } from './dashboard-rules.mjs';
 import { gamesRules } from './game-rules.mjs';
 import { devicesRules } from './device-rules.mjs';
 
-export const CONTRACTS = [1, 2, 3, 4];
+export const CONTRACTS = [1, 2, 3, 4, 5];
+/* Brand-mark colours a project may name. Each is a saturated fill the design system pairs with
+   the on-accent ink, which is what keeps the letter legible in every preset. */
+export const ICON_TOKENS = ['accent', 'ok', 'warn', 'err', 'info'];
 export const DEFAULT_TIMEOUT_MS = 10000;
 export const DEFAULT_MAX_BYTES = 4 * 1024 * 1024;
 export const MAX_RAW_WINDOW = 64 * 1024;
@@ -51,9 +54,25 @@ export async function readDeclaration(rootPath) {
   const { dashboard, games, devices, ...base } = value;
   const structural = validateSchema(schema, base);
   if (structural.length) return problem(report(structural));
+  /* Identity keys are plain root fields rather than a block, so their contract floor is checked here
+     rather than through SECTIONS; without this a project on contract 4 would have them accepted in
+     silence and wonder why the chrome never changed (spec 084). */
+  for (const name of ['title', 'icon']) {
+    if (value[name] !== undefined && value.contract < 5) {
+      return problem(`${name} requires contract 5 (declared contract ${value.contract})`);
+    }
+  }
+  /* A token rather than a colour, so the mark's contrast against its ink is the design system's
+     guarantee and not a per-project accident. Named here because the desktop must be able to resolve
+     every value this accepts (spec 084 decision 5). */
+  if (value.icon?.token !== undefined && !ICON_TOKENS.includes(value.icon.token)) {
+    return problem(`icon token ${JSON.stringify(value.icon.token)} is not a design token; use ${ICON_TOKENS.join(', ')}`);
+  }
   const errors = crossRules(base);
   if (errors.length) return problem(report(errors));
   const result = { declared: true, contract: value.contract, project: value.project,
+    ...(value.title !== undefined ? { title: value.title } : {}),
+    ...(value.icon !== undefined ? { icon: value.icon } : {}),
     formats: value.formats.map(format => ({ ...format, preview: bounded(format.preview), entry: bounded(format.entry) })) };
   /* devices, games and dashboard are each reported separately so none can disable the formats, and
      devices settles first so both of the others can resolve a device binding; see sidecar: declaration-reporting */

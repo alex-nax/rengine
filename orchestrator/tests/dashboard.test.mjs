@@ -10,7 +10,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { startServer } from '../server/main.mjs';
 import { startRuntime } from '../runtime/supervisor.mjs';
 import { request } from '../launcher/sidecar.mjs';
-import { readDeclaration, listFormats } from '../server/formats.mjs';
+import { readDeclaration, listFormats, CONTRACTS } from '../server/formats.mjs';
 import { validateSchema } from '../server/schema.mjs';
 import { hash } from '../server/store.mjs';
 import { redImage } from './image-fixtures.mjs';
@@ -58,7 +58,11 @@ test('contract 2 declarations validate, contract 1 stays accepted and dashboard 
       const result = await declare(label.replaceAll(/[^a-z0-9]/g, '-'), document);
       assert.equal(result.error, undefined, `${label}: formats stay valid`); assert.match(result.dashboardError ?? '', pattern, label); assert.equal(result.dashboard, undefined, label);
     }
-    const above = await declare('above', { ...contract2(), contract: 5 }); assert.match(above.error, /unknown contract 5/); assert.deepEqual(above.formats, []);
+    // One above the ceiling, derived rather than written down: this assertion is about the gate,
+  // and hard-coding the number made it silently stop testing it the day the ceiling rose.
+  const beyond = CONTRACTS.at(-1) + 1;
+    const above = await declare('above', { ...contract2(), contract: beyond });
+    assert.match(above.error, new RegExp(`unknown contract ${beyond}`)); assert.deepEqual(above.formats, []);
     const listed = await listFormats({ id: 'r', path: path.join(directory, 'unknown-kind') });
     assert.equal(listed.formats[0].id, 'fixture-pack'); assert.match(listed.dashboardError, /kind/);
   } finally { await rm(directory, { recursive: true, force: true }); }

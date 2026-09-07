@@ -78,16 +78,20 @@ static int toolbar_cell(ReToolbar *bar, const char *label, int icon, int opt, in
   return re_ui_button_ex(bar->ui, label, icon, opt);
 }
 /* Brand mark: the accent square with the wordmark beside it, as the card draws it. */
-static void toolbar_brand(ReToolbar *bar) {
+/* The chrome wears the primary root's declared name and mark, or rEdit and the accent when a project
+ * declares neither. The glyph's ink is the on-accent ink for every token, which is the pairing the
+ * design system guarantees against a saturated fill (spec 084). */
+static void toolbar_brand(ReToolbar *bar, ReApp *a) {
   int size = RE_METRIC_DESIGN_SIZE_LG, mark = RE_METRIC_DESIGN_BRAND_MARK;
+  const char *glyph = re_app_mark(a), *title = re_app_title(a);
   mu_Rect box = mu_rect(bar->x, bar->y + (bar->h - mark) / 2, mark, mark);
-  re_draw_rrect(bar->draw, box, RE_COLOR_ACCENT, RE_METRIC_DESIGN_BRAND_RADIUS, RE_CORNERS_ALL);
-  re_draw_text_face(bar->draw, RE_FACE_UI_SEMIBOLD, RE_METRIC_DESIGN_SIZE_SM, "r", -1,
-                    box.x + (mark - re_draw_text_width(bar->draw, RE_FACE_UI_SEMIBOLD, RE_METRIC_DESIGN_SIZE_SM, "r", -1)) / 2,
+  re_draw_rrect(bar->draw, box, re_app_mark_color(a), RE_METRIC_DESIGN_BRAND_RADIUS, RE_CORNERS_ALL);
+  re_draw_text_face(bar->draw, RE_FACE_UI_SEMIBOLD, RE_METRIC_DESIGN_SIZE_SM, glyph, -1,
+                    box.x + (mark - re_draw_text_width(bar->draw, RE_FACE_UI_SEMIBOLD, RE_METRIC_DESIGN_SIZE_SM, glyph, -1)) / 2,
                     box.y + (mark - RE_METRIC_DESIGN_SIZE_SM) / 2 - 1, RE_COLOR_TEXT_ON_ACCENT);
   bar->x += mark + RE_METRIC_DESIGN_GAP_LG;
-  re_draw_text_face(bar->draw, RE_FACE_UI_SEMIBOLD, size, "rEngine", -1, bar->x, bar->y + (bar->h - size) / 2 - 1, RE_COLOR_TEXT_STRONG);
-  bar->x += re_draw_text_width(bar->draw, RE_FACE_UI_SEMIBOLD, size, "rEngine", -1);
+  re_draw_text_face(bar->draw, RE_FACE_UI_SEMIBOLD, size, title, -1, bar->x, bar->y + (bar->h - size) / 2 - 1, RE_COLOR_TEXT_STRONG);
+  bar->x += re_draw_text_width(bar->draw, RE_FACE_UI_SEMIBOLD, size, title, -1);
 }
 static void toolbar_label(ReToolbar *bar, const char *label) {
   int width = re_draw_text_width(bar->draw, RE_FACE_UI, RE_METRIC_DESIGN_SIZE_SM, label, -1);
@@ -728,7 +732,7 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
   if (mu_begin_window_ex(ui, "Toolbar", mu_rect(0, 0, width, RE_METRIC_DESIGN_TOOLBAR_HEIGHT), opts | MU_OPT_NOFRAME)) {
     ReToolbar bar = toolbar_open(ui, width);
     re_ui_panel(bar.draw, mu_rect(0, 0, width, RE_METRIC_DESIGN_TOOLBAR_HEIGHT), RE_COLOR_TOOLBAR_BG);
-    toolbar_brand(&bar);
+    toolbar_brand(&bar, a);
     int views = 5, view_index = 0, group_left = 0;
     struct { const char *label; int icon; } switcher[] = {
       {"Tree", RE_ICON_TREE}, {"Dashboard", RE_ICON_PROJECT}, {"Devices", RE_ICON_MENU}, {"Shell", RE_ICON_SHELL}, {"Agent", RE_ICON_AGENT} };

@@ -49,6 +49,34 @@ per-project accident and would clash with the light preset, which the workspace 
 - The trailing-cell fixture still measures the same right edge, since the brand's width is part of
   the toolbar's layout arithmetic.
 
+## What shipped (F79, 2026-09-07)
+
+Contract 5 carries an optional display `title` and an `icon` of a glyph plus a design token name.
+Both are plain root keys rather than a block, so their contract floor is checked directly, and a
+project on contract 4 that sets either is refused by name and required version instead of having them
+accepted in silence. A token outside the design set is refused naming the token, so an unresolvable
+colour cannot reach the chip.
+
+The chrome and the operating system window title both read the primary root's declared identity, and
+both fall back to rEdit. The window title follows in the frame loop rather than at window creation,
+because the declaration arrives after the window exists; it is composed from the same source rather
+than a second literal, which is what makes them unable to disagree.
+
+Identity is fixed to the root the window opened on and never follows the focused tab. That is the
+decision most worth having a test for, and it is asserted by selecting a second, declared root and
+requiring the chrome to be unchanged — an assertion that fails the moment identity reads the
+selected root instead.
+
+To wear a name, a project adds to `.rengine/project.json`:
+
+```json
+{ "contract": 5, "title": "re:Lith", "icon": { "glyph": "rL", "token": "ok" } }
+```
+
+Four tokens beside `accent` are accepted: `ok`, `warn`, `err` and `info`. The glyph's ink is the
+on-accent ink for every one of them, which is the pairing the design system guarantees against a
+saturated fill.
+
 ## Deferred
 
 Image icons, which wait on native image decoding, the same work the dashboard's captured frames wait
