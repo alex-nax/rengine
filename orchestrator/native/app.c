@@ -605,6 +605,7 @@ void re_app_tick(ReApp *a) {
     }
     else if (!strcmp(type, "disconnected")) {
       a->connected = a->desktop_registered = false; a->desktop_id[0] = 0; cJSON_Delete(a->formats); a->formats = cJSON_CreateObject(); cJSON_Delete(a->dashboards); a->dashboards = cJSON_CreateObject();
+      re_token_clear(a);   /* the ledger's word does not outlive the socket that carried it */
       re_copy(a->status, sizeof(a->status), "Session connection lost. Reconnecting to retained processes…");
     }
     else if (!strcmp(type, "desktop-registered")) re_copy(a->desktop_id, sizeof(a->desktop_id), re_string(j, "id"));
@@ -622,6 +623,7 @@ void re_app_tick(ReApp *a) {
       char *text = cJSON_PrintUnformatted(reply); bool sent = text && re_socket_send(a->events, text); free(text); cJSON_Delete(reply);
       if (reload && accepted && sent) a->reload_requested = true;
     }
+    else if (!strcmp(type, "token")) re_token_event(a, j);
     else if (!strcmp(type, "session")) update_session(a, cJSON_GetObjectItemCaseSensitive(j, "session"));
     else if (!strcmp(type, "output")) re_recording_output_event(a, j);
     else if (!strcmp(type, "error")) re_copy(a->status, sizeof(a->status), re_string(j, "error"));
@@ -679,6 +681,7 @@ cJSON *re_app_inspect(ReApp *a) {
   cJSON_AddStringToObject(j, "title", re_app_title(a)); cJSON_AddStringToObject(j, "mark", re_app_mark(a));
   cJSON_AddStringToObject(j, "primaryRoot", a->primary_root);
   cJSON_AddNumberToObject(j, "overlay", a->overlay);
+  re_token_inspect(a, j);
   cJSON *tabs = cJSON_GetObjectItemCaseSensitive(j, "tabs");
   for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].used) {
     cJSON *tab = cJSON_GetArrayItem(tabs, i); ReTab *t = &a->tabs[i];

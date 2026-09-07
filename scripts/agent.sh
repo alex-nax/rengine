@@ -109,8 +109,10 @@ choose_conversation() {
   [ "$count" -gt 0 ] || return 0
   printf '\nConversations for %s in this project:\n' "$agent"
   index=1
+  # The first eight characters are the name this conversation goes by everywhere else — the pane
+  # title, the identity label, the token segment — so the row leads with them.
   while [ "$index" -le "$count" ]; do
-    printf '  %d) %s\t%s\n' "$index" "${whens[index-1]}" "${ids[index-1]}"
+    printf '  %d) %s %s\t%s\t%s\n' "$index" "$agent" "${ids[index-1]:0:8}" "${whens[index-1]}" "${ids[index-1]}"
     index=$((index + 1))
   done
   printf 'Resume which? (Enter starts a new conversation): '

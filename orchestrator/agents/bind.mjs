@@ -3,13 +3,18 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { discoverSidecar, request } from '../launcher/sidecar.mjs';
-import { agentIdentity, agentLaunch, describeInvocation, shellQuote } from './config.mjs';
+import { agentIdentity, agentLaunch, describeInvocation, describeSession, shellQuote } from './config.mjs';
 
-const USAGE = `node orchestrator/agents/bind.mjs --project DIR [--agent claude|codex|gemini|opencode|EXECUTABLE] [--state DIR]
+const USAGE = `node orchestrator/agents/bind.mjs --project DIR [--agent claude|codex|gemini|opencode|EXECUTABLE]
+                                   [--session UUID] [--state DIR]
 Binds an agent this workspace never spawned: finds the live instance that already serves DIR,
-mints this launch its own identity, and writes the MCP configuration to start the agent with.
+gives this agent an identity, and writes the MCP configuration to start the agent with.
+The identity IS the agent's own session id: pass --session with the id the CLI resumes by
+(Claude prints it on exit as \`claude --resume <id>\`) to bind the session that already exists,
+or omit it to have one minted and started with --session-id.
 Without --state it scans the sidecar descriptors under \${XDG_STATE_HOME:-$HOME/.local/state}/rengine.
 No RENGINE_* environment variable is read; the workspace is found by discovery.`;
+const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
 const resolve = async value => { try { return await realpath(value); } catch { return path.resolve(value); } };
 
@@ -58,13 +63,15 @@ export async function bind(argv) {
   const options = {};
   for (let index = 0; index < argv.length; index++) {
     const flag = argv[index];
-    if (['--project', '--agent', '--state'].includes(flag)) {
+    if (['--project', '--agent', '--state', '--session'].includes(flag)) {
       if (!argv[index + 1]) throw new Error(`Missing value for ${flag}`);
       options[flag.slice(2)] = argv[++index];
     } else if (flag === '--help' || flag === '-h') return { usage: USAGE };
     else throw new Error(`Unknown option: ${flag}\n${USAGE}`);
   }
   if (!options.project) throw new Error(`--project DIR is required.\n${USAGE}`);
+  if (options.session && !UUID.test(options.session)) throw new Error(`--session takes the agent session's UUID, not ${options.session}.`);
+  const session = options.session?.toLowerCase();
   const { directory, instance, root } = await findInstance(options.project, { state: options.state });
   const context = { url: instance.url, token: instance.token, instance: instance.instance, rootId: root.id };
   const bindings = path.join(directory, 'bindings');
@@ -72,19 +79,23 @@ export async function bind(argv) {
   /* Nothing is spawned here, so the pid the identity records is the terminal that will run the CLI:
      the process that is actually alive while this agent works. */
   const owner = Number.isSafeInteger(process.ppid) && process.ppid > 1 ? process.ppid : process.pid;
-  const identity = await agentIdentity({ agent: options.agent, executable: options.agent ?? 'custom', pid: owner });
+  const identity = await agentIdentity({ agent: options.agent, executable: options.agent ?? 'custom', pid: owner, session });
   const plan = await agentLaunch({ agent: options.agent, executable: options.agent ?? 'custom', context, directory: bindings, identity });
+  const described = describeSession(identity);
   const lines = [`Bound to ${root.name} (${root.path})`,
     `  instance ${instance.instance} at ${instance.url}, discovered through ${path.join(directory, 'sidecar.json')}`,
-    `  identity ${identity.label} ${identity.agentId} (pid ${identity.pid})`,
+    `  identity ${identity.label} — ${identity.agentId} (pid ${identity.pid})`,
+    ...(described ? [`  ${described}`] : []),
     `  context  ${plan.contextFile}`,
     `  MCP configuration ${plan.generic}`];
   if (plan.custom) {
     /* claude and codex consume this configuration as it stands; gemini and opencode need an overlay
        written for them, so bind writes that only for the CLI the caller names. */
     const server = JSON.parse(await readFile(plan.generic, 'utf8')).mcpServers[plan.name];
+    /* The identity is the Claude session id, so the claude line names it: --resume for a session
+       that already exists, --session-id for the one this binding minted. */
     lines.push(`Start the agent from ${root.path} with the flag its CLI consumes:`,
-      `  claude --mcp-config ${shellQuote(plan.generic)}`,
+      `  claude --mcp-config ${shellQuote(plan.generic)} ${session ? '--resume' : '--session-id'} ${identity.agentId}`,
       `  codex ${['-c', `mcp_servers.${plan.name}.command=${JSON.stringify(server.command)}`,
         '-c', `mcp_servers.${plan.name}.args=${JSON.stringify(server.args)}`,
         '-c', `mcp_servers.${plan.name}.required=true`].map(shellQuote).join(' ')}`,

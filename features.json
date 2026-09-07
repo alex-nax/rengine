@@ -966,7 +966,12 @@
       "owner_workspace": "rengine",
       "deliverable": "docs/specs/095-project-token.md; identity in orchestrator/agents/{config,launch}.mjs and a new bind.mjs; ledger, feed and gates in orchestrator/runtime/worker.mjs; token_*/feed_* tools and the identity header in orchestrator/agents/mcp-worker.mjs; the status-bar segment in orchestrator/native/app.c",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/agent-identity-2026-09-07.md",
+        "docs/evidence/project-token-2026-09-07.md",
+        "docs/evidence/token-desktop-2026-09-07.md",
+        "docs/evidence/project-token-e2e-2026-09-07.md"
+      ]
     },
     {
       "id": 85,

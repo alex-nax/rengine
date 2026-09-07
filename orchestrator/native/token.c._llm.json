@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "primary-root-only",
+      "kind": "constraint",
+      "anchor": {
+        "start": 51,
+        "end": 51,
+        "snippet": "void re_token_event(ReApp *a, const cJSON *j) {"
+      },
+      "note": "The window holds the ledger's word about ONE root: the root it opened on, the same identity rule the chrome's name follows (spec 084 decision 3). A frame for any other root is dropped, so a second bound root cannot rename this segment; taking the focused tab's root instead would make the segment describe whichever pane was last clicked. The state is also cleared on `disconnected` from app.c, because the worker re-sends per root after desktop-register and a stale holder shown over a dead socket is a claim nobody is making.",
+      "refs": [
+        "docs/specs/095-project-token.md",
+        "docs/specs/084-project-identity.md"
+      ]
+    },
+    {
+      "id": "floored-countdown",
+      "kind": "rationale",
+      "anchor": {
+        "start": 38,
+        "end": 38,
+        "snippet": "int re_token_seconds_left(const ReProjectToken *t) {"
+      },
+      "note": "The desktop's wall clock is time(NULL), one-second resolution, while the deadline arrives with milliseconds. Rounding up therefore shows a 60-second window opening at 61s; flooring shows the window's own number and reads 0 for the last part-second. Nothing depends on this number: the ledger owns the deadline and the transfer, and the segment is a readout, not a timer.",
+      "refs": [
+        "docs/specs/095-project-token.md"
+      ]
+    },
+    {
+      "id": "never-gated-gestures",
+      "kind": "constraint",
+      "anchor": {
+        "start": 119,
+        "end": 119,
+        "snippet": "static void send_action(ReApp *a, const char *action) {"
+      },
+      "note": "These four are the person's own acts and are never gated on the token (spec 095 decision 6), so nothing here consults the holder before sending. contestId rides only on reject and grant, which answer a contest; revoke and free are about a held token and carry none, and adding it to them would name a contest they are not answering. The reason is the person's own text and is sent only with reject, only when non-empty: a reason invented by the chrome would be worse than none, because the contester reads it as the holder's.",
+      "refs": [
+        "docs/specs/095-project-token.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/token.c",
+    "sha256": "f9d182cfd3eb3f5d7a8ecc762c5b9a823b33d09c786a5821cea8bfaa1a165047",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

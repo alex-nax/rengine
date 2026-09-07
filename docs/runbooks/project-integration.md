@@ -260,7 +260,8 @@ agent on a machine where the desktop is not running — has no MCP binding and c
 press the controls it cannot. Bind it by discovery from the rEngine checkout:
 
 ```sh
-npm run bind -- --project /absolute/path/to/game-project --agent claude
+npm run bind -- --project /absolute/path/to/game-project --agent claude            # a new session
+npm run bind -- --project /absolute/path/to/game-project --agent claude --session UUID   # one that exists
 ```
 
 It reads no `RENGINE_*` environment variable. It scans the sidecar descriptors under
@@ -271,8 +272,16 @@ root is that directory. Two instances claiming it is a refusal naming both, and 
 the one you mean; none claiming it is a refusal listing every directory scanned, which usually means
 the project's `editor.sh` has not been run yet. The bound agent gets exactly what a pane-spawned one
 gets — its own identity in its own context file — and the command prints the MCP configuration path
-and the flag that consumes it (`claude --mcp-config …`, `codex -c mcp_servers.…`). Without `--agent`
-it prints the flag for each CLI that can consume the configuration as written.
+and the line that starts the agent on it.
+
+**The identity is the agent's session id** (spec 095, *Identity*), so that line names the session as
+well as the configuration: without `--session` an id is minted and the start line is
+`claude --mcp-config <path> --session-id <id>`; with `--session UUID` — the id Claude prints on exit
+as `claude --resume <id>` — the binding *is* that session and the start line resumes it,
+`claude --mcp-config <path> --resume <id>`. Bind the session you are already in, and the project
+token follows it through every exit and resume instead of being stranded on a dead pid. Without
+`--agent` the command prints the line for each CLI that can consume the configuration as written
+(`codex -c mcp_servers.…` among them).
 
 ## 9. Layered update after rEngine lands something
 
