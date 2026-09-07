@@ -22,6 +22,16 @@ export const RETIRED_FEED = 'Workspace worker retired; re-read feed_url and resu
 const RETIRED_ROUTES = new Map([['/api/token', 'GET'], ['/api/token-action', 'POST'], ['/api/feed', 'GET'],
   ['/api/recording', 'POST'], ['/api/preferences', 'POST']]);
 
+/* A `desktop-register` frame, minus the sessions this host state does not have. Those ended with the
+   host the desktop's saved layout was written under (spec 098); a malformed frame is left exactly as
+   it arrived so `Desktops.register` refuses it by name. */
+export function withoutEndedSessions(data, state) {
+  if (!Array.isArray(data.sessionIds)) return { frame: data, dropped: [] };
+  const live = new Set((state?.sessions ?? []).map(session => session.id));
+  const dropped = data.sessionIds.filter(id => !live.has(id));
+  return dropped.length ? { frame: { ...data, sessionIds: data.sessionIds.filter(id => live.has(id)) }, dropped } : { frame: data, dropped: [] };
+}
+
 export async function startWorker(host, options = {}) {
   checkConnection(host);
   const state = await call(host, 'state');
@@ -31,6 +41,9 @@ export async function startWorker(host, options = {}) {
   const root = id => bindings.roots.find(x => x.id === id) ?? fail('Unknown project root.', 404);
   const snapshot = id => bindings.sessions.find(x => x.id === id) ?? fail('Unknown session.', 404);
   const desktops = new Desktops({ root }, { snapshot });
+  /* The last registration this worker refused, so the supervisor's `waitView` can name the reason a
+     desktop never appeared instead of only that it did not (spec 098). */
+  let registerError = null;
   const refresh = async () => { const state = await call(host, 'state'); if (state.instance !== host.instance) fail('Session host identity changed.'); bindings = state; return state; };
   /* Preflight runs here, from this checkout, exactly as the dashboard does; only the launch needs
      the retained host, which owns the PTY and the embedded surface. See sidecar: game-routes. */
@@ -434,7 +447,7 @@ export async function startWorker(host, options = {}) {
       } else if (req.method === 'GET' && target.pathname === '/api/desktops') {
         await refresh(); json(res, 200, { desktops: desktops.list(target.searchParams.get('rootId')) });
       } else if (req.method === 'GET' && target.pathname === '/api/runtime-desktops') {
-        json(res, 200, { desktops: [...desktops.clients.values()].map(({ socket, ...desktop }) => desktop) });
+        json(res, 200, { desktops: [...desktops.clients.values()].map(({ socket, ...desktop }) => desktop), registerError });
       } else if (req.method === 'POST' && target.pathname === '/api/desktop-action') {
         const data = await body(req); await refresh(); await announce();
         if (data.action !== 'reload') fail('Unknown desktop action.');
@@ -492,7 +505,15 @@ export async function startWorker(host, options = {}) {
           if (target.pathname === '/events') {
             const data = JSON.parse(bytes);
             if (data.type === 'desktop-register') {
-              await refresh(); desktops.register(client, data);
+              const state = await refresh();
+              /* Filtered here as well as in `Desktops`, because this is the layer a live workspace can
+                 be given: `update_workspace` puts a current worker above a host that still refuses the
+                 frame, and a desktop restoring a replaced host's layout has to register through it
+                 (spec 098). The ids removed here travel to the desktop in the registered frame. */
+              const { frame, dropped } = withoutEndedSessions(data, state);
+              try { desktops.register(client, frame, { dropped }); }
+              catch (error) { registerError = { at: Date.now(), message: error.message }; throw error; }
+              registerError = null;
               for (const rootId of desktops.clients.get(client)?.rootIds ?? []) { await follow(rootId); await pushToken(rootId, client); }
               return;
             }

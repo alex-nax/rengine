@@ -18,19 +18,33 @@
       "id": "attach-existing-session",
       "kind": "rationale",
       "anchor": {
-        "start": 37,
-        "end": 37,
+        "start": 51,
+        "end": 51,
         "snippet": "attach(rootId, desktopId, session) {"
       },
       "note": "The attach capability is independent of reload. Check root, target availability and pending actions before script creation; send a root-matching retained session snapshot to the native client and require its matching acknowledgement. Attach never owns the PTY. Reload-specific error text remains stable for existing consumers.",
       "refs": [
         "docs/specs/071-interactive-script-tabs.md"
       ]
+    },
+    {
+      "id": "ended-sessions-tolerated",
+      "kind": "rationale",
+      "anchor": {
+        "start": 8,
+        "end": 8,
+        "snippet": "register(socket, data, { dropped = [] } = {}) {"
+      },
+      "note": "A registration naming a session this host has no record of is the expected first frame after `--replace-host`: the desktop's saved layout lives in the store and outlives the process whose sessions its tabs name. Refusing the whole frame on the first such id (which is what `sessions.snapshot` throwing 404 did) left the desktop unregistered for the life of its socket, `GET /api/desktops` empty while it ran, and the runtime supervisor's waitView timing out \u2014 KI-063, measured twice on 2026-09-07. Unknown ids are dropped and named back in `unknownSessions`; a malformed frame is still `Invalid desktop bindings.` and a session this host does have on a root the desktop did not bind is still refused, so neither refusal is weakened. Only a 404 is tolerated; any other error from the snapshot is re-thrown. `dropped` lets a layer above (the workspace worker) filter first and still have its removals reported in the one frame; it also counts toward the 64-session cap so pre-filtering cannot smuggle a larger binding past it. This copy of the class only changes at the next host replacement, because a Node process holds the modules it imported.",
+      "refs": [
+        "docs/specs/098-replace-session-host.md",
+        "docs/evidence/stale-sessions-registration-2026-09-07.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/server/desktops.mjs",
-    "sha256": "860fb09e1f1e74d59281d759f2fc7092008e52e514a4f46a6586c07518ea70df",
+    "sha256": "839056748c8ab4fe88e8c5f164c5252f12f70f808bc72804d795af7992b7651c",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

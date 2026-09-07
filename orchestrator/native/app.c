@@ -279,6 +279,15 @@ static const char *game_session_surface(ReApp *a, const char *id) {
   return "";
 }
 bool re_app_external_session(ReApp *a, const char *id) { return !strcmp(game_session_surface(a, id), "external"); }
+/* Whether the workspace still lists this session at all. A saved layout outlives the host that owned
+   its sessions, so after a host replacement some of its views name processes nobody has (spec 098):
+   those are marked ended rather than advertised at registration or attached to nothing. */
+static bool session_known(ReApp *a, const char *id) {
+  const cJSON *session = NULL;
+  cJSON_ArrayForEach(session, cJSON_GetObjectItemCaseSensitive(a->state, "sessions"))
+    if (!strcmp(re_string(session, "id"), id)) return true;
+  return false;
+}
 /* A game whose surface is external has no frame stream; its view is the retained PTY output. Every
    other surface streams, so embedded and cooperative both open the live view without naming it. */
 static void open_view(ReApp *a, ReTab *t) {
@@ -355,7 +364,7 @@ int re_app_tab(ReApp *a, int type, const char *root, const char *path, const cha
     }
   }
   for (int i = 0; i < RE_TABS; i++) if (!a->tabs[i].used) {
-    ReTab *t = &a->tabs[i]; t->used = true; t->generation++; t->type = type;
+    ReTab *t = &a->tabs[i]; t->used = true; t->generation++; t->type = type; t->session_ended = false;
     re_copy(t->root, sizeof(t->root), root); re_copy(t->path, sizeof(t->path), path);
     re_copy(t->session, sizeof(t->session), session); re_copy(t->title, sizeof(t->title), title);
     re_layout_add(&a->layout, a->layout.active, i); a->focus = i;
@@ -411,7 +420,8 @@ static bool restore(ReApp *a, const cJSON *j) {
     ReTab *t = &a->tabs[i]; t->used = true; t->generation++; t->type = re_number(tab, "type");
     re_copy(t->root, sizeof(t->root), re_string(tab, "root")); re_copy(t->path, sizeof(t->path), re_string(tab, "path"));
     re_copy(t->session, sizeof(t->session), re_string(tab, "session")); re_copy(t->title, sizeof(t->title), re_string(tab, "title"));
-    if ((t->type == RE_TERMINAL || t->type == RE_GAME) && re_layout_find(&a->layout, i) >= 0) open_view(a, t);
+    t->session_ended = *t->session && !session_known(a, t->session);
+    if ((t->type == RE_TERMINAL || t->type == RE_GAME) && !t->session_ended && re_layout_find(&a->layout, i) >= 0) open_view(a, t);
     if (cJSON_HasObjectItem(tab, "mode")) t->format = re_format_open(re_format_mode_from(re_string(tab, "mode")), true);
     re_app_load(a, i);
   }
@@ -462,7 +472,11 @@ static void state_loaded(ReApp *a, const cJSON *j) {
   if (getenv("RENGINE_RESUME_AGENT")) cJSON_ArrayForEach(session, sessions) {
     if (!strcmp(re_string(session, "id"), a->initial_agent) && !strcmp(re_string(session, "state"), "running")) session_tab(a, session);
   }
-  re_copy(a->status, sizeof(a->status), "Workspace connected. Closing a view detaches; sessions stop explicitly.");
+  int ended = 0;
+  for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].used && a->tabs[i].session_ended) ended++;
+  if (ended) snprintf(a->status, sizeof(a->status), "%d restored view%s %s a session this host does not have; it ended with the host before it. Resume from Sessions.",
+                      ended, ended == 1 ? "" : "s", ended == 1 ? "names" : "name");
+  else re_copy(a->status, sizeof(a->status), "Workspace connected. Closing a view detaches; sessions stop explicitly.");
 }
 static void formats_loaded(ReApp *a, const cJSON *j) {
   const char *root = re_string(j, "rootId"); if (!*root) return;
@@ -591,7 +605,11 @@ static void register_desktop(ReApp *a) {
   for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].used) {
     ReTab *t = &a->tabs[i];
     if (*t->root) cJSON_AddItemToArray(roots, cJSON_CreateString(t->root));
-    if (*t->session) cJSON_AddItemToArray(sessions, cJSON_CreateString(t->session));
+    /* Only sessions this workspace still has are advertised. A restored view naming one the host
+       never had is marked ended instead: advertising it refused the whole registration (spec 098). */
+    if (!*t->session) continue;
+    if (session_known(a, t->session)) cJSON_AddItemToArray(sessions, cJSON_CreateString(t->session));
+    else t->session_ended = true;
   }
   char *text = cJSON_PrintUnformatted(j); a->desktop_registered = text && re_socket_send(a->events, text); free(text); cJSON_Delete(j);
 }
@@ -693,6 +711,7 @@ cJSON *re_app_inspect(ReApp *a) {
     int r[] = {t->rect.x, t->rect.y, t->rect.w, t->rect.h}; cJSON_AddItemToObject(tab, "rect", cJSON_CreateIntArray(r, 4));
     int h[] = {t->header.x, t->header.y, t->header.w, t->header.h}; cJSON_AddItemToObject(tab, "header", cJSON_CreateIntArray(h, 4));
     cJSON_AddBoolToObject(tab, "dirty", t->dirty); cJSON_AddBoolToObject(tab, "conflict", t->conflict); cJSON_AddStringToObject(tab, "error", t->error);
+    if (*t->session) cJSON_AddBoolToObject(tab, "sessionEnded", t->session_ended);
     char *text = t->terminal ? re_terminal_text(t->terminal) : t->editor ? re_editor_text(t->editor) : NULL;
     if (text) { cJSON_AddStringToObject(tab, "text", text); free(text); }
     if (t->terminal) {

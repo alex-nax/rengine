@@ -5,8 +5,8 @@
       "id": "prepare-switch-recover",
       "kind": "rationale",
       "anchor": {
-        "start": 147,
-        "end": 147,
+        "start": 153,
+        "end": 153,
         "snippet": "const perform = async (job, desktop, closed = false) => {"
       },
       "note": "Prepare candidate workspace/tool code and a probed immutable native executable before requesting the old view\u2019s normal persistence/drain/exit-75 path. Preserve the previous workspace and binary until the replacement registers with a new view stamp. Failures enter recovering and become failed only after rollback completes; failed recovery is explicit. Keep old streams/HTTP mutations on their existing worker until drained. Serialize explicit updates, permit one automatic workspace crash recovery per explicit generation, and keep host-backed state/update control available if worker recovery fails. Never terminate/relaunch the original PTY host.",
@@ -18,8 +18,8 @@
       "id": "window-owner-and-session-root",
       "kind": "rationale",
       "anchor": {
-        "start": 215,
-        "end": 215,
+        "start": 221,
+        "end": 221,
         "snippet": "const openProject = async data => {"
       },
       "note": "Opening an integration window requires a running agent from the originating root and an explicit absolute target directory. A durable window record is the only cross-root initial-agent exception. Repeat opens reuse that identity, closed views reopen their own layout, and graceful close never force-kills a session. The stable supervisor remains the sole writer for layouts/reports while workspace/tool workers can be replaced.",
@@ -40,11 +40,25 @@
         "docs/specs/095-project-token.md",
         "docs/evidence/token-retirement-2026-09-07.md"
       ]
+    },
+    {
+      "id": "wait-view-names-the-refusal",
+      "kind": "rationale",
+      "anchor": {
+        "start": 114,
+        "end": 114,
+        "snippet": "const waitView = async record => {"
+      },
+      "note": "\"Replacement desktop did not register before timeout.\" was the whole report of a failure that had two available explanations: what the desktop process printed (`record.diagnostics`, already captured in spawnView) and the registration a worker refused (`registerError` on `/api/runtime-desktops`, read by the same poll this loop already makes). Both are named on timeout now. Only a refusal recorded after this wait started is reported: an older one would name a different desktop. KI-063 cost a session to diagnose because this message said nothing, and the supervisor's exit carried it over IPC, leaving `runtime.log` empty.",
+      "refs": [
+        "docs/specs/098-replace-session-host.md",
+        "docs/evidence/stale-sessions-registration-2026-09-07.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/runtime/supervisor.mjs",
-    "sha256": "7aa32a5adffce3a5bba4a114e6ac9a3a7102555f8f3fbe42d3b3ba48a448edfa",
+    "sha256": "80001c386deb95cbe1c0c07d6fd68e6d2154173f7a6b9ac85464214a29837ec1",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

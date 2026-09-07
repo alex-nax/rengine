@@ -11,6 +11,7 @@ enum { RE_TREE = 1, RE_EDITOR, RE_TERMINAL, RE_SESSIONS, RE_GAME, RE_DASHBOARD, 
 #define RE_DEVICES_TIMEOUT_MS 45000L /* a devices load runs every declared probe; see sidecar: devices-route */
 typedef struct {
   bool used, dirty, conflict, discarding; int type, generation, saved, checkpoint, checkpoint_flight;
+  bool session_ended;                        /* its session is gone from the workspace state: it ended with a previous host (spec 098) */
   char root[65], session[65], path[2048], title[256], version[65], error[512];
   char selected[1024];                       /* the last row opened here; its branch is never collapsed */
   cJSON *data; ReTerminal *terminal; ReEditor *editor; ReGame *game; ReFormatView *format; ReRecorder *recorder;

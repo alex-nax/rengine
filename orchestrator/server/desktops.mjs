@@ -3,11 +3,25 @@ import { fail } from './store.mjs';
 
 export class Desktops {
   constructor(store, sessions, timeout = 4000) { this.store = store; this.sessions = sessions; this.timeout = timeout; this.clients = new Map(); this.pending = new Map(); }
-  register(socket, data) {
-    if (!Array.isArray(data.rootIds) || data.rootIds.length > 128 || !Array.isArray(data.sessionIds) || data.sessionIds.length > 64) fail('Invalid desktop bindings.');
-    const rootIds = [...new Set(data.rootIds)], sessionIds = [...new Set(data.sessionIds)];
+  /* `dropped` names ids a layer above already removed against the same host state, so one frame
+     reports every id this registration lost (spec 098). */
+  register(socket, data, { dropped = [] } = {}) {
+    if (!Array.isArray(data.rootIds) || data.rootIds.length > 128 || !Array.isArray(data.sessionIds) ||
+      data.sessionIds.length + dropped.length > 64) fail('Invalid desktop bindings.');
+    const rootIds = [...new Set(data.rootIds)], named = [...new Set(data.sessionIds)];
     for (const root of rootIds) this.store.root(root);
-    for (const id of sessionIds) if (!rootIds.includes(this.sessions.snapshot(id).rootId)) fail('Desktop session has a different root.');
+    /* A session this host has never had is not an invalid binding: it ended with the host that owned
+       it, and the desktop's saved layout outlived that process. Refusing the frame would leave the
+       desktop unregistered and every desktop action, and the whole runtime layer, invisible. */
+    const sessionIds = [], unknown = new Set(dropped);
+    for (const id of named) {
+      let session;
+      try { session = this.sessions.snapshot(id); }
+      catch (error) { if (error.status !== 404) throw error; unknown.add(id); continue; }
+      if (!rootIds.includes(session.rootId)) fail('Desktop session has a different root.');
+      sessionIds.push(id);
+    }
+    const unknownSessions = [...unknown];
     let desktop = this.clients.get(socket);
     if (!desktop) {
       desktop = { id: randomUUID(), socket }; this.clients.set(socket, desktop);
@@ -18,7 +32,7 @@ export class Desktops {
     }
     Object.assign(desktop, { rootIds, sessionIds, canReload: data.canReload === true, canAttach: data.canAttach === true,
       ...(typeof data.owner === 'string' && typeof data.view === 'string' ? { owner: data.owner.slice(0, 64), view: data.view.slice(0, 64) } : {}) });
-    socket.send(JSON.stringify({ type: 'desktop-registered', id: desktop.id }));
+    socket.send(JSON.stringify({ type: 'desktop-registered', id: desktop.id, unknownSessions }));
   }
   list(rootId) {
     this.store.root(rootId);

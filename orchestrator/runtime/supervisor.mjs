@@ -112,7 +112,11 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
     onDesktop(child);
   };
   const waitView = async record => {
-    const deadline = Date.now() + 10000;
+    const started = Date.now(), deadline = started + 10000;
+    /* A desktop that never registers used to be reported as silence. The two things that say why are
+       already to hand: what the process printed, and the registration a worker refused while this
+       view was being waited for — never an older one, which would name the wrong desktop (spec 098). */
+    let refused = null;
     while (Date.now() < deadline) {
       if (record.error || record.child.exitCode !== null || record.child.signalCode !== null) throw new Error(`Replacement desktop exited: ${record.error ?? record.diagnostics}`);
       const values = await Promise.all([current, ...retired].map(async worker => {
@@ -120,9 +124,11 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
         catch (error) { worker.error = error.message; return { desktops: [] }; }
       }));
       if (values.some(value => value.desktops.some(x => x.owner === record.binding.owner && x.view === record.binding.view))) return;
+      refused = values.map(value => value.registerError).filter(x => x?.at >= started).sort((a, b) => b.at - a.at)[0] ?? refused;
       await delay(75);
     }
-    throw new Error('Replacement desktop did not register before timeout.');
+    const why = [refused && `last registration refused: ${refused.message}`, record.diagnostics && `desktop said: ${record.diagnostics.slice(-2000)}`].filter(Boolean);
+    throw new Error(`Replacement desktop did not register before timeout.${why.length ? ` ${why.join('; ')}` : ''}`);
   };
   const openView = async data => {
     const state = data.root ? await ownRoot(data.root) : await hostState();
