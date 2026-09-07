@@ -53,7 +53,8 @@ const server = new McpServer({ name: 'rengine-workspace', version: '1.0.0' }, {
   instructions: 'These tools address the project bound when this agent was launched. List sessions before selecting a process. Closing a workspace view retains the process; stop_session explicitly stops it. File reads use disk text unless useDraft is requested.',
 });
 const tool = (name, description, inputSchema, readOnlyHint, action) => server.registerTool(name, {
-  description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script', 'restart_agent'].includes(name), openWorldHint: ['open_script', 'preview_file', 'dashboard_capture', 'launch_game', 'devices', 'list_tasks'].includes(name) },
+  description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script', 'restart_agent', 'task_update', 'spawn_agent'].includes(name),
+    openWorldHint: ['open_script', 'preview_file', 'dashboard_capture', 'launch_game', 'devices', 'list_tasks', 'task_add', 'task_update', 'task_decompose', 'spawn_agent', 'list_agents_menu'].includes(name) },
 }, async values => {
   let state;
   try {
@@ -170,11 +171,52 @@ tool('devices', 'List the devices the project declares in .rengine/project.json 
   return call(`devices?${new URLSearchParams({ rootId: context.rootId, ...(refresh ? { refresh: '1' } : {}) })}`);
 });
 const trackerCapability = state => { if (state.capabilities.tracker !== 1) throw new Error('This retained service predates the task tracker (spec 083). Update the workspace layer first.'); };
-tool('list_tasks', 'List the bound project’s tasks from its declared tracker (contract 5): the local features.json inventory by default, GitHub Issues or Linear where the project declares one. Every row is the same neutral shape — key, title, state as (id, name, category), priority, labels, assignee, url, updatedAt, blockedBy — and the local state is the readiness tools/features.py reports. Read-only: nothing is written to any provider. A remote list that is empty says why: denied (no or refused credential, with signIn naming the provider), unavailable (unreachable, rate-limited, or the state directory unknown), or invalid with reasons. Remote answers are cached for 30 s; refresh bypasses that, and the local backend is always current.', {
+tool('list_tasks', 'List the bound project’s tasks from its declared tracker (contract 5): the local features.json inventory by default, GitHub Issues or Linear where the project declares one. Every row is the same neutral shape — key, title, state as (id, name, category), priority, labels, assignee, url, updatedAt, blockedBy, criteria — and the local state is the readiness tools/features.py reports; criteria are the local inventory’s acceptance criteria and are empty for a remote provider, whose issue body is prose rather than criteria. Read-only: nothing is written to any provider. A remote list that is empty says why: denied (no or refused credential, with signIn naming the provider), unavailable (unreachable, rate-limited, or the state directory unknown), or invalid with reasons. Remote answers are cached for 30 s; refresh bypasses that, and the local backend is always current.', {
   refresh: z.boolean().default(false).describe('Bypass the 30 s cache of a remote provider.'),
 }, true, async ({ refresh }, state) => {
   trackerCapability(state);
   return call(`tracker?${new URLSearchParams({ rootId: context.rootId, ...(refresh ? { refresh: '1' } : {}) })}`);
+});
+/* Task writes and agent spawns (spec 103). Both belong to the token holder alone; the gate itself
+   lives in the worker, so these capability checks only refuse a worker that lacks the route. */
+const writeCapability = (state, tool) => {
+  if (state.capabilities.taskWrites !== 1) throw new Error(`${tool} writes the project's task inventory through the workspace, and this workspace worker predates that route (spec 103). Update the workspace layer first: update_workspace with layers ["workspace"]. Nothing was written.`);
+};
+const TASK_ROW = { row: z.record(z.string(), z.any()).describe('The task row as the project’s own write command expects it: the fields its inventory uses, not a shape rEngine invents.') };
+tool('task_add', 'Add one task row to the bound project’s local inventory by running the tracker.write command the project declares (contract 6) with the row as JSON. The workspace never edits the inventory text itself, so the row must be what that command accepts; list_tasks shows what this project’s rows look like. Only the local backend is written — GitHub and Linear stay read-only and refuse by name — and a project that declares no tracker.write is told so by name with nothing run. Gated by the project token: this agent must hold it, or the call is refused naming the holder and token_contest, and nothing is written. Writes are serialised per project, so two holders in sequence never interleave; a write already in flight is waited for, never refused.', {
+  ...TASK_ROW, parent: z.string().optional().describe('The key of the task this row belongs under, for a subtask.'),
+}, false, async ({ row, parent }, state) => {
+  writeCapability(state, 'task_add'); tokenCapability(state, 'task_add');
+  return call('task', { rootId: context.rootId, action: 'add', row, ...(parent === undefined ? {} : { parent }) });
+});
+tool('task_update', 'Update one task row in the bound project’s local inventory through the same declared tracker.write command, with the row as JSON and the action update. The row names which task it is the way the project’s own command expects (its id or key) and carries the fields to change; the workspace neither merges nor diffs, it hands that command what you send, so read the row with list_tasks first. Gated by the project token and serialised per project exactly as task_add is: a non-holder is refused naming the holder and nothing is written.', TASK_ROW, false,
+  async ({ row }, state) => {
+    writeCapability(state, 'task_update'); tokenCapability(state, 'task_update');
+    return call('task', { rootId: context.rootId, action: 'update', row });
+  });
+tool('task_decompose', 'Add one subtask under a parent task: the same declared tracker.write command with the action decompose and the parent key, which is how a decomposition brief creates the children of the task it was given. The parent is required — a decompose write without one is refused rather than filed at the top level. Each child should carry one acceptance criterion, and creating it implements nothing. Gated by the project token and serialised per project as the other writes are.', {
+  ...TASK_ROW, parent: z.string().describe('The key of the task this subtask belongs under, as list_tasks reports it.'),
+}, false, async ({ row, parent }, state) => {
+  writeCapability(state, 'task_decompose'); tokenCapability(state, 'task_decompose');
+  return call('task', { rootId: context.rootId, action: 'decompose', row, parent });
+});
+const spawnCapability = state => {
+  if (state.capabilities.agentSpawn !== 1) throw new Error('spawn_agent starts an agent pane through the workspace, and this workspace worker predates that route (spec 103). Update the workspace layer first: update_workspace with layers ["workspace"]. Nothing was started.');
+};
+tool('list_agents_menu', 'List the agent CLIs and models this project offers to spawn_agent, and the agent panes already running on it. The menu is the project’s own declared agents block (contract 6) when it has one, otherwise the CLIs rEngine can launch with its known model lists and, for codex, whatever its own --help names; installed says whether each CLI is actually on this machine, and a CLI with no models starts on its own default. The live list carries each running agent pane: its session, its conversation, the label the workspace shows it by, and the task it was spawned on when it carries one. Reading never needs the token.', {}, true,
+  async (_values, state) => {
+    if (state.capabilities.agentsMenu !== 1) throw new Error('This workspace worker predates the agent menu (spec 103). Update the workspace layer first.');
+    return call(`agents-menu?${new URLSearchParams({ rootId: context.rootId })}`);
+  });
+tool('spawn_agent', 'Start a NEW agent pane on one task: the chosen CLI and model, on a fresh conversation seeded with the rendered prompt, with the task recorded on that conversation so the Sessions tab, workspace_info and the Tasks pane all show which agent works which task. brief task hands it the work; brief decompose hands it the decomposition brief, whose only legitimate output is task_add calls creating subtasks under the task. The model is passed with that CLI’s own flag (claude --model, codex -m); a CLI whose flag rEngine does not know is refused by name rather than started without the model you asked for. Prompts come from .rengine/prompts/task.md and decompose.md when the project has them and from rEngine’s shipped defaults when it does not; a placeholder the project misspells is named in the refusal and nothing is started. This starts a process; stop_session ends it. Gated by the project token — an agent spawning agents is an act on the project — so this agent must hold it or the call is refused naming the holder and token_contest, and nothing is started.', {
+  taskKey: z.string().describe('The key of the task, as list_tasks reports it.'),
+  agent: z.string().describe('One cli from list_agents_menu.'),
+  model: z.string().optional().describe('One model from that cli’s list; omitted, the CLI starts on its own default.'),
+  brief: z.enum(['task', 'decompose']).default('task'),
+  desktopId: z.string().optional().describe('Show the new pane in this listed desktop; omitted, the pane is retained and shown later with show_session.'),
+}, false, async (values, state) => {
+  spawnCapability(state); tokenCapability(state, 'spawn_agent');
+  return call('agent-spawn', { rootId: context.rootId, ...values });
 });
 const gameCapability = state => { if (state.capabilities.projectGame !== 1) throw new Error('This retained service predates per-project game declarations. Update the workspace layer first.'); };
 const launchCapability = state => {

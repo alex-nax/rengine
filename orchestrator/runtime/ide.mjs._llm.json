@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "our-locks-are-ours-to-collect",
+      "kind": "constraint",
+      "anchor": {
+        "start": 49,
+        "end": 49,
+        "symbol": "sweep",
+        "snippet": "export async function sweep(directory, { alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } } } = {}) {"
+      },
+      "note": "Claude Code garbage-collects an IDE lock by killing the process it names: a lock whose `pid` is dead is deleted. That never fires for us. Our lock names the **session host** (spec 102, decision 2), because the CLI only trusts a lock naming one of a pane's own first ten ancestors, and the host — which forks the PTY a pane runs in — is the only such process. The host outlives dozens of workers, so every lock this bridge writes would survive its writer and accumulate as a dead entry in the user's `/ide` menu, each pointing at a closed port. Hence both halves: the bridge unlinks its own lock when it retires, and sweeps on startup for locks marked `rengineWorker` whose worker is gone. `rengineWorker` is safe to add because the CLI's parser reads six named keys and ignores the rest — and it is what keeps the sweep from touching VS Code's locks, which look equally stale to us and are none of our business.",
+      "refs": [
+        "docs/specs/102-editor-as-claude-ide.md",
+        "docs/evidence/editor-as-claude-ide-2026-09-07.md"
+      ]
+    },
+    {
+      "id": "the-port-may-not-move",
+      "kind": "history",
+      "anchor": {
+        "start": 75,
+        "end": 75,
+        "snippet": "const RETAKE_INTERVAL_MS = 250;"
+      },
+      "note": "The first version bound an ephemeral port per worker, which looked obviously right and was obviously wrong the first time a layered update ran: the port moved from 49953 to 61709 and the owner's own connected session reported `WebSocket connection to 'ws://127.0.0.1:49953/' failed`. Claude Code reads a lock once, then reconnects to the port it read; it does not go back to the directory to look again. So an IDE whose port moves is an IDE that dies on every update — in a feature whose entire premise is that capabilities arrive *by* update (KI-066).\n\nThe port therefore belongs to the runtime, not to the worker: the supervisor reserves it once and hands the same number to every worker it starts. A worker starting during an update finds its predecessor still holding it, because the successor is started before the old one retires, so it retries for a bounded while instead of taking a free port. Taking a free port is the tempting fallback and it is the bug: it succeeds, logs nothing, and silently ends every session. Failing to get the port leaves the bridge unpublished with a reason, which someone can see.",
+      "refs": [
+        "known-issues.md",
+        "docs/specs/102-editor-as-claude-ide.md"
+      ]
+    },
+    {
+      "id": "token-arrival",
+      "kind": "history",
+      "anchor": {
+        "start": 108,
+        "end": 108,
+        "symbol": "presented",
+        "snippet": "const presented = request =>"
+      },
+      "note": "The lock carries an `authToken` and the CLI's binary never says where it presents it. The first implementation accepted it in any of three plausible places — header, query string, subprotocol — which is the kind of hedge that survives forever because nothing ever disproves it. Driving the real CLI settled it instead: `claude` 2.1.263 connects with `x-claude-code-ide-authorization: <token>` and asks for the `mcp` subprotocol (headers recorded in the evidence document). The hedge was then deleted. If a future version moves the token, this refuses the connection and the handshake fails loudly, which is the intended outcome: the alternative is a socket that accepts whatever a local process offers.",
+      "refs": [
+        "docs/evidence/editor-as-claude-ide-2026-09-07.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/runtime/ide.mjs",
+    "sha256": "c69531e2b8f88b09665692e40a9d9be54e4a1855f26a476733c2b22a65fb1a87",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

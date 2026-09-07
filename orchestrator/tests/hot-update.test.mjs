@@ -16,6 +16,12 @@ import { alive, ensureSidecar, request } from '../launcher/sidecar.mjs';
 import { parseProcessTable } from '../launcher/replace.mjs';
 import { hostStateDirectory } from '../runtime/tracker.mjs';
 
+/* A native spec starts a real workspace, and a real workspace publishes an IDE lock for Claude Code
+   to find (spec 102). Without this, running a spec directly rather than through its npm script puts
+   a dead rEdit into the `/ide` menu of whoever ran it. */
+process.env.RENGINE_IDE_DIRECTORY ??= await mkdtemp(path.join(tmpdir(), 'rengine-spec-ide-'));
+
+
 const FACADE = path.resolve('orchestrator/agents/mcp.mjs');
 const INVENTORY = {
   schema_version: 1, project: 'fixture', review_status: 'approved',

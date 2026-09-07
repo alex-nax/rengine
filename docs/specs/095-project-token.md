@@ -382,14 +382,24 @@ The worker side of this is built (stage 2). The three frames that cross this soc
 **Desktop → worker**, the human's controls, never gated, intercepted before forwarding:
 
 ```
-{ type: 'token-action', rootId, action: 'reject' | 'grant' | 'revoke' | 'free',
+{ type: 'token-action', rootId, action: 'reject' | 'grant' | 'assign' | 'revoke' | 'free',
   contestId,      // required for reject and grant
+  agentId,        // required for assign: the identity to hand the token to
   reason }        // optional, reject only
 ```
 
 The reply is the next `token` frame. A refusal — no such contest, nothing held, a root this desktop
-is not bound to, a contestId that is no longer the open one — is the socket's ordinary
+is not bound to, a contestId that is no longer the open one, an `assign` naming an id neither the
+ledger nor this project's conversations know — is the socket's ordinary
 `{ type: 'error', error }`, as the host's other errors on it are.
+
+`assign` was added by [spec 103](103-task-driven-agents.md) decision 5, for the Tasks pane's *Hold
+token* control: the ledger gives the token to that identity at once, whether it is free, held by
+somebody else, or mid-contest. An open contest is settled first as a `token.rejected` **by the
+desktop with no cooldown charged** — the contester did nothing wrong, the person moved the token —
+and the transfer itself is one `token.claimed` with `by: { kind: 'desktop', desktopId }`. The
+holder's label comes from the ledger's identity registry, or, for an agent that has not called
+anything on this root yet, from the conversations the project remembers (spec 097).
 
 **Desktop → worker**, the recorder (spec 081), intercepted like `desktop-register` and turned into
 `capture.started` / `capture.committed` on the feed, attributed to that desktop:

@@ -3,7 +3,7 @@
   "project": "rengine",
   "created": "2026-09-05",
   "review_status": "approved",
-  "review_record": "docs/specs/055-nolf-workspace-goal.md \u2014 owner active implementation goal, 2026-09-05",
+  "review_record": "docs/specs/055-nolf-workspace-goal.md — owner active implementation goal, 2026-09-05",
   "features": [
     {
       "id": 32,
@@ -658,8 +658,8 @@
       "description": "Declare a project's games in .rengine/project.json (contract 3, games array) and launch any of them from the dashboard, the launcher and generic agent tools.",
       "acceptance_criteria": [
         "contracts/project-v1.schema.json accepts contracts 1 and 2 unchanged and contract 3 with an optional games array (1-16 records of id, title, executable candidates, literal args, env, cwd, requires, surface embedded or external) beside the optional dashboard of spec 075; declaring games requires contract 3, so an older reader answers unknown contract rather than unknown key; a bad games array is reported as gamesError by name without disabling the formats or the dashboard; duplicate ids, a 17th record, bad or reserved env keys, placeholders in args, more than 8 executables, unknown surfaces and keys, shell argv[0] and escaping requires/cwd paths are rejected.",
-        "game-config and game_preflight take an optional gameId (default: the first declared game; an unknown id names the declared ids) and report declared, title, surface, the first resolvable executable, args, env, cwd, requires, named issues (undeclared root, malformed declaration, missing candidates, each missing required file, a missing cwd, surface prerequisites) and ready without running anything; game, launch_game, the toolbar control and --launch-game reuse the running session of that root AND game id, or spawn it with the declared cwd and env, reserving a surface only for embedded; the session carries title <title> \u00b7 <root name>, surface and game, and one root can run several declared games at once.",
-        "No specific game is named in server, native, agent, theme or package-script code and no nolf_* tool alias remains; an external game tab shows the retained output with a running/exited status row; service tests and a native fixture drive all of the above; the real-NOLF qualification runs through a written contract-3 declaration; the owner verifies the real consumers after a layered workspace/desktop/connector update. (Corrected 2026-09-06 by owner decision, recorded in spec 078 and Codex-progress session 27: the toolbar game control this criterion originally required \u2014 absent without games, a title button for one, a Games menu for several \u2014 was built in 0cf70b6 and then removed outright, because dashboard launches reached only a terminal tab. Launching moved to the dashboard game action of F72; a configurable toolbar is a later, separately scoped feature.)"
+        "game-config and game_preflight take an optional gameId (default: the first declared game; an unknown id names the declared ids) and report declared, title, surface, the first resolvable executable, args, env, cwd, requires, named issues (undeclared root, malformed declaration, missing candidates, each missing required file, a missing cwd, surface prerequisites) and ready without running anything; game, launch_game, the toolbar control and --launch-game reuse the running session of that root AND game id, or spawn it with the declared cwd and env, reserving a surface only for embedded; the session carries title <title> · <root name>, surface and game, and one root can run several declared games at once.",
+        "No specific game is named in server, native, agent, theme or package-script code and no nolf_* tool alias remains; an external game tab shows the retained output with a running/exited status row; service tests and a native fixture drive all of the above; the real-NOLF qualification runs through a written contract-3 declaration; the owner verifies the real consumers after a layered workspace/desktop/connector update. (Corrected 2026-09-06 by owner decision, recorded in spec 078 and Codex-progress session 27: the toolbar game control this criterion originally required — absent without games, a title button for one, a Games menu for several — was built in 0cf70b6 and then removed outright, because dashboard launches reached only a terminal tab. Launching moved to the dashboard game action of F72; a configurable toolbar is a later, separately scoped feature.)"
       ],
       "passes": false,
       "dependencies": [
@@ -734,7 +734,7 @@
       "priority": "high",
       "description": "Serve the declaration-backed game preflight from the replaceable workspace worker, so a routine layered update delivers the per-project game capability.",
       "acceptance_criteria": [
-        "orchestrator/server/games.mjs exports inspectGame(root, gameId) \u2014 the single body Games.inspect delegates to \u2014 and orchestrator/runtime/worker.mjs serves GET /api/game-config from it, so the dashboard's game-action availability and game_preflight both answer from the project's own declaration above a retained session host that predates contract 3; the worker advertises projectGame: 1 beside dashboard: 1 and a layered workspace update alone lights the MCP guard up.",
+        "orchestrator/server/games.mjs exports inspectGame(root, gameId) — the single body Games.inspect delegates to — and orchestrator/runtime/worker.mjs serves GET /api/game-config from it, so the dashboard's game-action availability and game_preflight both answer from the project's own declaration above a retained session host that predates contract 3; the worker advertises projectGame: 1 beside dashboard: 1 and a layered workspace update alone lights the MCP guard up.",
         "Launching stays with the session host, which owns Sessions (PTY), the embedded Surfaces reservation and the session-id map behind /surface, and whose /api/terminal refuses type game; the worker advertises projectGameLaunch only by mirroring the host's own projectGame, refuses POST /api/game and the game branch of /api/dashboard-run by name above an older host instead of forwarding into the removed built-in game, and launch_game gates on projectGameLaunch with that message. supervisor.mjs claims neither capability in its workspaceWorkerUnavailable fallback, where the host answers.",
         "A regression drives a worker above a proxy that advertises only handoff: 1 and answers game-config with the removed built-in NOLF config: it asserts capabilities.projectGame is 1 and projectGameLaunch absent, that game-config returns each declared record (including an unknown gameId 404 naming the declared ids), that the dashboard marks a declared game available, that both launch paths and launch_game refuse by name, and that game_preflight through the real MCP connector answers from the declaration; the merged-host path keeps projectGameLaunch: 1 and launches through the worker's game route unchanged. npm test, npm run test:desktop, CTest, ./init.sh, design.py check, features.py validate and RENGINE_NOLF_ROOT=... npm run test:game-nolf pass, and both live consumer declarations re-validate through the fixed code. Passing waits on the owner's live verification after update_workspace, as F71/F72 do."
       ],
@@ -771,7 +771,7 @@
       "owner_workspace": "rengine",
       "deliverable": "docs/specs/081-game-recording.md, orchestrator/native/recording.c and jpeg.c, orchestrator/server/recordings.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, orchestrator/native/tests/recording_test.c, orchestrator/tests/recordings.test.mjs and native-recording.spec.mjs",
       "external_references": [
-        "capture-mcp (per-app audio and transcription) \u2014 KI-044"
+        "capture-mcp (per-app audio and transcription) — KI-044"
       ],
       "evidence": []
     },
@@ -880,7 +880,7 @@
       "external_references": [],
       "evidence": [
         "orchestrator/tests/native-identity.spec.mjs: an undeclared project shows rEdit in the chrome and in the operating system window title; a project declaring a title and glyph under contract 5 wears both, and the brand chip takes the declared token colour rather than the accent.",
-        "orchestrator/tests/native-identity.spec.mjs: identity comes from the window's primary root \u2014 selecting a second, declared root through the project menu does not rename the chrome. Verified failing when identity reads the selected root instead.",
+        "orchestrator/tests/native-identity.spec.mjs: identity comes from the window's primary root — selecting a second, declared root through the project menu does not rename the chrome. Verified failing when identity reads the selected root instead.",
         "orchestrator/tests/native-identity.spec.mjs: title and icon under contract 4 are refused naming the required version, and an icon token outside the design set is refused naming the token.",
         "Sabotages run separately, each failing only its own claim: identity read from the selected root; the declared token ignored in favour of the accent.",
         "Gates on macOS 2026-09-07: npm test 78/78, npm run test:desktop 38/38, CTest 6/6, python3 tools/design.py check."
@@ -1046,7 +1046,7 @@
         "orchestrator/tests/agent-config.test.mjs: rEngine names the conversation it launches and resumes that same one",
         "orchestrator/tests/sessions.test.mjs: restarting refuses anything it cannot put back into its own conversation",
         "orchestrator/tests/conversation-identity.test.mjs: a pane launch carries exactly one conversation, and that conversation is the identity",
-        "orchestrator/tests/conversation-identity.test.mjs: a person\u2019s own --resume wins over the host\u2019s conversation, and the record follows the launch",
+        "orchestrator/tests/conversation-identity.test.mjs: a person’s own --resume wins over the host’s conversation, and the record follows the launch",
         "orchestrator/tests/conversation-identity.test.mjs: a launch that continues or forks reports no conversation rather than claiming a minted one",
         "orchestrator/tests/conversation-identity.test.mjs: a restart puts the pane back on the same conversation, so the identity survives it",
         "docs/evidence/conversation-is-identity-2026-09-07.md"
@@ -1204,17 +1204,17 @@
       "milestone": "O1",
       "category": "workspace",
       "priority": "high",
-      "description": "New server capabilities reach a running workspace and its attached MCP agent sessions without restarting the session host: a route that needs no PTY, surface or store state is served by the replaceable workspace worker (the tracker routes are the proof, with the host\u2019s state directory taken from its own /api/state or found in the process table by the descriptor\u2019s instance), the MCP facade refreshes its tool worker when the connector generation changes without waiting for a request and announces tools/list_changed, a call naming a tool the workspace no longer has is answered with the current names and the way back, and list_tasks exposes the tracker to agents.",
+      "description": "New server capabilities reach a running workspace and its attached MCP agent sessions without restarting the session host: a route that needs no PTY, surface or store state is served by the replaceable workspace worker (the tracker routes are the proof, with the host’s state directory taken from its own /api/state or found in the process table by the descriptor’s instance), the MCP facade refreshes its tool worker when the connector generation changes without waiting for a request and announces tools/list_changed, a call naming a tool the workspace no longer has is answered with the current names and the way back, and list_tasks exposes the tracker to agents.",
       "acceptance_criteria": [
-        "Above a retained host that answers /api/tracker with 404 and says nothing about its state directory, the worker serves GET /api/tracker, POST /api/tracker/signin and POST /api/tracker/signout from its own checkout, advertises tracker: 1, and the sign-in setup names that host\u2019s own trackers directory, found through the process table by the descriptor\u2019s instance.",
+        "Above a retained host that answers /api/tracker with 404 and says nothing about its state directory, the worker serves GET /api/tracker, POST /api/tracker/signin and POST /api/tracker/signout from its own checkout, advertises tracker: 1, and the sign-in setup names that host’s own trackers directory, found through the process table by the descriptor’s instance.",
         "A host from this checkout reports stateDir on /api/state, and a worker above it needs no process table to name the directory.",
-        "The state directory is keyed by the descriptor\u2019s instance: a worker handed a proxy\u2019s URL still finds the right directory, and a host that is not the first row in the table is not mistaken for another.",
-        "A connector-layer update issued to the supervisor reaches an idle facade: tools/list_changed is sent with no request through the facade, the next tools/list shows the probed worker\u2019s tools, and update_status reports a new tool-worker pid.",
-        "A call naming a tool the current worker does not have is answered with the connector generation, the current tool names and the client guidance, not the SDK\u2019s bare not-found.",
+        "The state directory is keyed by the descriptor’s instance: a worker handed a proxy’s URL still finds the right directory, and a host that is not the first row in the table is not mistaken for another.",
+        "A connector-layer update issued to the supervisor reaches an idle facade: tools/list_changed is sent with no request through the facade, the next tools/list shows the probed worker’s tools, and update_status reports a new tool-worker pid.",
+        "A call naming a tool the current worker does not have is answered with the connector generation, the current tool names and the client guidance, not the SDK’s bare not-found.",
         "list_tasks returns the tracker rows through the real facade.",
         "Each regression was observed failing for its own reason: the route forwarded to the retained host; stateDir dropped from /api/state, with the host-level assertion lifted so the worker-level one discriminates alone; the URL as the key, and the first host row taken on trust; the descriptor watcher removed; the stale-name answer dropped; the facade running its sibling instead of the probed file.",
-        "LIVE, read-only, done 2026-09-07: a worker from this checkout started in-process against host PID 33465 answered /api/tracker for all three roots and named the live state directory, while the same route through supervisor 44390 still returned the host\u2019s 404; a scratch supervisor, worker and facade from this checkout above the same host listed list_tasks and delivered a connector update to an idle facade in under a second; recorded in docs/evidence/live-capability-updates-2026-09-07.md.",
-        "LIVE, done 2026-09-07 13:45 after the merge: the workspace,connector update on supervisor 44390 succeeded in 337 ms; the supervisor then advertised tracker: 1 and answered GET /api/tracker with the 51 local rows where it had returned the retained host\u2019s 404, a facade from this checkout listed and called list_tasks against the same workspace, and every retained session survived with host PID 33465 never signalled. The owner\u2019s own connector, loaded before the facade existed, still needs /mcp \u2192 Reconnect to see list_tasks; recorded in docs/evidence/live-capability-updates-2026-09-07.md."
+        "LIVE, read-only, done 2026-09-07: a worker from this checkout started in-process against host PID 33465 answered /api/tracker for all three roots and named the live state directory, while the same route through supervisor 44390 still returned the host’s 404; a scratch supervisor, worker and facade from this checkout above the same host listed list_tasks and delivered a connector update to an idle facade in under a second; recorded in docs/evidence/live-capability-updates-2026-09-07.md.",
+        "LIVE, done 2026-09-07 13:45 after the merge: the workspace,connector update on supervisor 44390 succeeded in 337 ms; the supervisor then advertised tracker: 1 and answered GET /api/tracker with the 51 local rows where it had returned the retained host’s 404, a facade from this checkout listed and called list_tasks against the same workspace, and every retained session survived with host PID 33465 never signalled. The owner’s own connector, loaded before the facade existed, still needs /mcp → Reconnect to see list_tasks; recorded in docs/evidence/live-capability-updates-2026-09-07.md."
       ],
       "passes": false,
       "dependencies": [
@@ -1258,6 +1258,140 @@
       ],
       "owner_workspace": "rengine",
       "deliverable": "docs/specs/103-task-driven-agents.md; Sessions-tab token controls in orchestrator/native/workspace.c; task write routes and agent-spawn in orchestrator/runtime/worker.mjs; task_*/spawn_agent tools in orchestrator/agents/mcp-worker.mjs; Tasks-pane controls in orchestrator/native/tracker.c; contract 6 in contracts/project-v1.schema.json; shipped prompts under orchestrator/templates/prompts",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 99,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "rEdit is a Claude Code IDE: the workspace publishes the lock file the CLI reads, serves MCP over the WebSocket it names, and pushes the editor's selection, so an agent pane running in the workspace can connect to the editor it is running inside rather than to nothing.",
+      "acceptance_criteria": [
+        "The published lock is the one the CLI parses: named <port>.lock for the port actually listening, useWebSocket true, ideName rEdit, workspaceFolders the bound roots, and pid the SESSION HOST's — the only process in a pane's ancestor chain, which is what the CLI checks.",
+        "With no host pid to name, nothing is published and the reason says so, rather than leaving a lock the CLI silently skips.",
+        "A real MCP client over the socket completes initialize and tools/list and reads getDiagnostics, which answers an empty diagnostic list because rEdit runs no language server.",
+        "The socket requires the lock's token in the header the CLI actually uses, and refuses a connection without it with a policy close; the mcp subprotocol the CLI asks for is echoed back.",
+        "A selection posted by the desktop reaches every connected CLI as a selection_changed notification.",
+        "Stale rEdit locks are collected at startup and the bridge unlinks its own on retirement, because the lock names the long-lived host and the CLI's own sweep — which deletes locks whose pid is dead — can therefore never collect ours; another IDE's lock is left alone.",
+        "Each regression was observed failing for its own reason: the lock naming the worker, publishing without a host pid, diagnostics refusing, an untrusted connection admitted, the notification renamed, the sweep taking another IDE's lock, the subprotocol dropped, and close leaving its lock behind.",
+        "LIVE, done 2026-09-07: the real claude 2.1.263 in a PTY, cwd inside a bound root, showed 'Select IDE ... 1. rEdit' and reported 'Connected to rEdit.'; the accepted handshake presented the lock's token in x-claude-code-ide-authorization and negotiated the mcp subprotocol, and print mode was found never to connect at all. Recorded in docs/evidence/editor-as-claude-ide-2026-09-07.md.",
+        "FOLLOW-UP, not in this row: the desktop's own reporting of its editor selection over the POST route this serves, at_mentioned from an explicit send-to-Claude gesture, and openDiff with accept/reject rendered in a pane."
+      ],
+      "passes": false,
+      "dependencies": [
+        74
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/102-editor-as-claude-ide.md; orchestrator/runtime/ide.mjs; the bridge lifecycle and POST /api/ide-selection in orchestrator/runtime/worker.mjs; pid on /api/state in orchestrator/server/main.mjs; orchestrator/tests/ide.test.mjs.",
+      "external_references": [],
+      "evidence": [
+        "orchestrator/tests/ide.test.mjs: the lock file is the one Claude Code knows how to read",
+        "orchestrator/tests/ide.test.mjs: an MCP client over the socket lists the tools and reads diagnostics",
+        "orchestrator/tests/ide.test.mjs: a connection without the token is refused",
+        "orchestrator/tests/ide.test.mjs: a selection posted by the desktop reaches a connected CLI",
+        "orchestrator/tests/ide.test.mjs: stale locks are collected and the bridge removes its own",
+        "docs/evidence/editor-as-claude-ide-2026-09-07.md: the real CLI connecting, the observed handshake and the eight sabotages"
+      ]
+    },
+    {
+      "id": 100,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "The editor tells the agent what the person is looking at: the focused editor pane reports its file and selected range to the workspace, which pushes selection_changed to every connected CLI, and an explicit send-to-Claude gesture in the pane sends at_mentioned, so an agent in a pane can act on the selection instead of being told about it.",
+      "acceptance_criteria": [
+        "A selection made in a focused editor pane reaches every connected CLI as selection_changed carrying the file path, the selected text and a start/end line and character range, and moving the caret without selecting reports the empty range rather than nothing.",
+        "The range is line and character as the CLI counts them, verified against a file with tabs and multi-byte characters, not byte offsets into the buffer.",
+        "Only the focused pane reports: switching panes or tabs changes what the agent sees, and a pane that loses focus stops reporting rather than leaving a stale selection standing.",
+        "An explicit gesture in the editor pane sends at_mentioned for the current file and selection, and is distinguishable in the CLI from the passive selection stream. NOT MET: the transport is built and tested, but which affordance sends it — a key chord, a pane control, an entry in the editor's menu — is a design choice the owner has not made, and inventing one silently is how an editor grows a gesture nobody can find.",
+        "Reporting is bounded: a selection larger than a declared cap is reported as a range with truncated text rather than sending an unbounded buffer over the socket, and rapid selection changes are coalesced rather than sent per keystroke.",
+        "With no CLI connected the desktop still runs unchanged and posts nothing, and a worker replaced under a live desktop resumes receiving without the desktop restarting.",
+        "Each regression was observed failing for its own reason."
+      ],
+      "passes": false,
+      "dependencies": [
+        99
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "A selection accessor over ReEditor's existing select_start/select_end in orchestrator/native/editor.{c,h}, the report from the focused pane in the desktop, and the existing POST /api/ide-selection it feeds; docs/specs/102-editor-as-claude-ide.md slice 2.",
+      "external_references": [],
+      "evidence": [
+        "orchestrator/tests/native-ide-selection.spec.mjs: the focused editor reports its selection in the units the protocol counts",
+        "orchestrator/tests/ide.test.mjs: the worker resolves the desktop's root and path into the file path the CLI is given",
+        "docs/evidence/editor-as-claude-ide-2026-09-07.md: the three native sabotages, and the live selection that reached a connected CLI"
+      ]
+    },
+    {
+      "id": 101,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "Claude's edits are reviewed in the editor rather than in the terminal: the workspace serves openDiff, close_tab and closeAllDiffTabs, and a diff opens as a tab in rEdit whose accept or reject is the answer the CLI is waiting on.",
+      "acceptance_criteria": [
+        "openDiff({old_file_path, new_file_path, new_file_contents, tab_name}) opens a diff tab in the desktop showing the proposed contents against what is on disk.",
+        "Accepting resolves the call as diff_accepted and rejecting as diff_rejected, in the shape the CLI expects, and the CLI's own terminal diff is not also shown.",
+        "close_tab({tab_name}) and closeAllDiffTabs({}) close what they name and report what they closed, including when the person already closed the tab by hand.",
+        "A diff whose file changes on disk while the tab is open says so rather than silently applying against a stale base.",
+        "A CLI that disconnects while a diff tab is open leaves the tab in a state the person can dismiss, and no promise is left pending forever.",
+        "Each regression was observed failing for its own reason."
+      ],
+      "passes": false,
+      "dependencies": [
+        99,
+        100
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The diff tools in orchestrator/runtime/ide.mjs, a diff tab in the native desktop, and the request path that carries the verdict back; docs/specs/102-editor-as-claude-ide.md slice 2.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 102,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "rEdit speaks the Language Server Protocol: a project declares its language servers, the workspace worker runs them and keeps their documents in sync with the editor's buffers, and their diagnostics reach both the editor pane and getDiagnostics — so an agent asks the editor what is broken and gets the same answer the person is looking at.",
+      "acceptance_criteria": [
+        "A project declares its language servers by command and by the file patterns each serves; nothing is downloaded or installed by rEngine, and an undeclared project keeps answering an empty diagnostic list rather than guessing at a server.",
+        "A declared server that is missing from the machine is reported as unavailable, by name and with what was looked for, and the workspace keeps working — an editor pane still opens and edits files.",
+        "The worker owns the server processes and the LSP session: initialize with the workspace roots, textDocument/didOpen, didChange and didClose driven by what the editor actually has open, and shutdown when the last document closes or the worker retires, leaving no orphaned server process.",
+        "Document sync carries the editor's unsaved buffer, not the file on disk, so diagnostics describe what the person is looking at; positions cross the boundary as UTF-16 line and character, which is what the protocol counts, verified against tabs and multi-byte characters.",
+        "publishDiagnostics reaches two consumers from one store: the editor pane renders them, and mcp__ide__getDiagnostics answers with the same set for a file, so the agent and the person never disagree about what is broken.",
+        "A server that crashes is restarted with a bounded backoff, its diagnostics are cleared rather than left stale, and repeated failure is reported instead of retried forever.",
+        "Parsed output from a declared check action remains a second source merged into the same store, distinguishable by origin, because a build reports failures no language server sees.",
+        "Each regression was observed failing for its own reason."
+      ],
+      "passes": false,
+      "dependencies": [
+        99,
+        63
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "An LSP client owned by the workspace worker, the language-server block in the project declaration (contract 6), document sync from the native editor, and the diagnostics store behind getDiagnostics and the editor's own rendering. Charter D37; docs/specs/102-editor-as-claude-ide.md.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 103,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "An agent pane is connected to the editor it runs inside without anyone typing /ide: the workspace launches a supported CLI with its own auto-connect option when exactly one rEdit is published for that root.",
+      "acceptance_criteria": [
+        "A newly launched Claude pane is connected to rEdit without a slash command, and the pane says so once rather than on every turn.",
+        "A CLI with no such option, or a workspace publishing no lock, launches exactly as it does today with nothing added to its command line.",
+        "The option is carried by the agent launch configuration, so adding a CLI that supports it is a declaration rather than a code change.",
+        "A pane whose root has no published lock does not pass the flag, because auto-connect that finds nothing is a startup error the person did not ask for.",
+        "Recorded explicitly: the launch environment is composed by the retained session host, so this reaches an existing workspace only when its host is replaced; the row is not complete until that is stated in the runbook.",
+        "Each regression was observed failing for its own reason."
+      ],
+      "passes": false,
+      "dependencies": [
+        99
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The auto-connect option in the agent launch configuration (orchestrator/agents/config.mjs) and the runbook note about the host boundary.",
       "external_references": [],
       "evidence": []
     }

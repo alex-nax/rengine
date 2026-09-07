@@ -55,8 +55,9 @@ export async function startServer({ stateDir, port = 0 } = {}) {
         let value;
         if (request.method === 'GET') {
           switch (target.pathname) {
-            /* stateDir is said here so a worker above this host can find a credential without the process table (spec 101). */
-            case '/api/state': value = { instance, stateDir, capabilities: { handoff: 1, desktopActions: 1, formatRegistry: 1, dashboard: 1, projectGame: 1, projectGameLaunch: 1, recordings: 1, projectDevices: 1, externalDeclarations: 1, agentConversations: 1, tracker: 1 }, roots: store.state.roots, layout: store.state.layout, preferences: store.state.preferences, conversations: store.state.conversations ?? {},
+            /* stateDir and pid are said here so a worker above this host can find a credential, and name
+               the process a pane descends from, without the process table (specs 101 and 102). */
+            case '/api/state': value = { instance, stateDir, pid: process.pid, capabilities: { taskConversations: 1, handoff: 1, desktopActions: 1, formatRegistry: 1, dashboard: 1, projectGame: 1, projectGameLaunch: 1, recordings: 1, projectDevices: 1, externalDeclarations: 1, agentConversations: 1, tracker: 1 }, roots: store.state.roots, layout: store.state.layout, preferences: store.state.preferences, conversations: store.state.conversations ?? {},
               drafts: Object.values(store.state.drafts).map(({ rootId, path, updatedAt }) => ({ rootId, path, updatedAt })), sessions: sessions.list() }; break;
             case '/api/tree': value = await store.list(query.get('rootId'), query.get('path') ?? '', query.get('hidden') === 'true'); break;
             case '/api/file': value = await store.readText(query.get('rootId'), query.get('path')); break;
@@ -120,7 +121,7 @@ export async function startServer({ stateDir, port = 0 } = {}) {
             case '/api/resize': sessions.resize(data.id, data.cols, data.rows); value = { ok: true }; break;
             case '/api/stop': value = await sessions.stop(data.id); break;
             case '/api/agent-restart': value = await sessions.restartAgent(data.id); break;
-            case '/api/agent-conversation': value = await sessions.recordConversation(data.id, data.conversation, data.agent); break;
+            case '/api/agent-conversation': value = await sessions.recordConversation(data.id, data.conversation, data.agent, data.task); break;
             case '/api/desktop-action':
               if (data.action !== 'reload') fail('Unknown desktop action.');
               value = await desktops.reload(data.rootId, data.desktopId); break;

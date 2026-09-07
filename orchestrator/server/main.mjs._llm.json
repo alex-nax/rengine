@@ -19,8 +19,8 @@
       "id": "format-registry-routes",
       "kind": "rationale",
       "anchor": {
-        "start": 69,
-        "end": 69,
+        "start": 70,
+        "end": 70,
         "snippet": "case '/api/formats': value = await listFormats(store.root(query.get('rootId'))); break;"
       },
       "note": "The host serves the format registry so a directly connected desktop and the service tests need no supervisor; the replaceable worker serves the same three routes for the live layered runtime whose host predates them. Both advertise formatRegistry: 1. Declared commands run only from format-preview (explicit open/refresh/agent call), never from tree listing. dashboard: 1 and projectGame: 1 tell connectors that the dashboard routes and that game-config answer from the per-project declaration; projectGameLaunch: 1 says the same of the launch, and the host advertises it because it both preflights and spawns. The workspace worker advertises projectGame on its own (it serves game-config from its checkout) but mirrors projectGameLaunch from the host, whose Sessions and Surfaces own the spawn: an older host still launches the removed built-in game, so that half is refused by name rather than forwarded. game-config and game take an optional gameId selecting one declared game; omitted, both use the first declared record, which is what the launcher and an agent calling the tool without arguments get.",
@@ -32,11 +32,11 @@
       "id": "tracker-is-host-only",
       "kind": "constraint",
       "anchor": {
-        "start": 71,
-        "end": 74,
+        "start": 72,
+        "end": 75,
         "snippet": "case '/api/tracker': { const selected = store.root(query.get('rootId'));"
       },
-      "note": "The tracker routes are served here and nowhere else, which means a workspace whose session host predates them cannot get them by a layered update: an update replaces the worker, and the host is the one component it cannot replace. That is the KI-043 shape, and it bit the owner \u2014 their development workspace, running a host from the previous day, answered 404 for /api/tracker while the desktop binary beside it had the button. The durable fix is the one games took: serve the read from the worker and leave only what genuinely needs the host's own state here. Until that happens, a new route added in this file reaches a running workspace only when its host is replaced.",
+      "note": "The tracker routes are served here and nowhere else, which means a workspace whose session host predates them cannot get them by a layered update: an update replaces the worker, and the host is the one component it cannot replace. That is the KI-043 shape, and it bit the owner — their development workspace, running a host from the previous day, answered 404 for /api/tracker while the desktop binary beside it had the button. The durable fix is the one games took: serve the read from the worker and leave only what genuinely needs the host's own state here. Until that happens, a new route added in this file reaches a running workspace only when its host is replaced.",
       "refs": [
         "docs/specs/083-task-tracking.md",
         "known-issues.md"
@@ -45,7 +45,7 @@
   ],
   "source": {
     "path": "orchestrator/server/main.mjs",
-    "sha256": "ee0a7416b114082398aa0109b18704221b18a22a132aaba4846386854a9f625b",
+    "sha256": "ab4500ce41df1cc7419632d4191b5884f0eb860bfe548cdf0f4a115c2f2b5362",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

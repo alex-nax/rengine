@@ -4,7 +4,10 @@ import path from 'node:path';
 export const FEED_LIMIT = 1000;
 const TYPES = new Set(['token.claimed', 'token.contested', 'token.rejected', 'token.released', 'token.revoked',
   'game.started', 'game.ended', 'device-action.started', 'device-action.ended',
-  'capture.started', 'capture.committed', 'workspace.updated']);
+  'capture.started', 'capture.committed', 'workspace.updated',
+  /* Spec 103 decision 9: every task write and every spawn, so the holder's monitor sees the task
+     system move rather than only the processes it starts. */
+  'task.added', 'task.updated', 'agent.spawned']);
 
 /* One temporary per write, not one per process. Two writes to the same file in flight in the same
    process shared a name: the first rename moved the bytes both had written into place and the second
