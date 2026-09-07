@@ -1304,7 +1304,7 @@
         "A selection made in a focused editor pane reaches every connected CLI as selection_changed carrying the file path, the selected text and a start/end line and character range, and moving the caret without selecting reports the empty range rather than nothing.",
         "The range is line and character as the CLI counts them, verified against a file with tabs and multi-byte characters, not byte offsets into the buffer.",
         "Only the focused pane reports: switching panes or tabs changes what the agent sees, and a pane that loses focus stops reporting rather than leaving a stale selection standing.",
-        "An explicit gesture in the editor pane sends at_mentioned for the current file and selection, and is distinguishable in the CLI from the passive selection stream. MET: a labelled \"To agent\" control in the editor header, drawn only where the workspace serves the IDE routes, sending { filePath, lineStart, lineEnd } — the CLI's own schema, read from its binary rather than guessed. A key chord was rejected: an editor that grows a gesture nobody can find is worse than one that waits. LIVE, still outstanding: the shape has not yet been seen rendered by a real CLI, because the running worker predates the route.",
+        "An explicit gesture in the editor pane sends at_mentioned for the current file and selection, and is distinguishable in the CLI from the passive selection stream. MET: a labelled \"To agent\" control in the editor header, drawn only where the workspace serves the IDE routes, sending { filePath, lineStart, lineEnd } — the CLI's own schema, read from its binary rather than guessed. A key chord was rejected: an editor that grows a gesture nobody can find is worse than one that waits. LIVE 2026-09-07: the route answered `delivered: 1` against a really-connected CLI, which establishes that the notification reached it; how that CLI renders a mention was not observed.",
         "Reporting is bounded: a selection larger than a declared cap is reported as a range with truncated text rather than sending an unbounded buffer over the socket, and rapid selection changes are coalesced rather than sent per keystroke.",
         "With no CLI connected the desktop still runs unchanged and posts nothing, and a worker replaced under a live desktop resumes receiving without the desktop restarting.",
         "Each regression was observed failing for its own reason."
@@ -1446,7 +1446,8 @@
         "The report names the host it kept and each supervisor it stopped, including how many desktop windows close with it, so a vanishing editor window is predicted rather than surprising.",
         "It is reachable as a declared dashboard action, opening as a retained interactive script tab like every other action, and it asks for confirmation before signalling anything.",
         "Each regression was observed failing for its own reason: the host added to the stop list, the replacement left attached, --replace-host added to the launcher, and the plan computed after stopping had begun.",
-        "LIVE, still outstanding: run once against the owner's own workspace and record that the supervisor changed PID, the desktop reopened on its layout, and every retained session survived."
+        "LIVE, done 2026-09-07 17:27 on the owner's own workspace: the action's tool stopped supervisor 44390 (2 managed desktop windows) and started a detached replacement; the workspace came back as supervisor 57193, worker 57195 and desktop 57227 with all 13 sessions, and session host 33465 was never signalled. Recorded in docs/evidence/editor-as-claude-ide-2026-09-07.md.",
+        "Every criterion above is met including the live run, but this row stays passes: false because its prerequisite F94 (--replace-host, whose process-table helpers this is built on) is not itself verified. The dependency is real rather than bookkeeping: the refusals that keep the session host safe are F94's code."
       ],
       "passes": false,
       "dependencies": [
@@ -1458,7 +1459,8 @@
       "evidence": [
         "orchestrator/tests/restart-supervisor.test.mjs: the session host is never among the processes stopped",
         "orchestrator/tests/restart-supervisor.test.mjs: the replacement is detached, or it would die with the pane that asked for it",
-        "orchestrator/tests/restart-supervisor.test.mjs: a state directory with no live host is refused, and nothing is signalled"
+        "orchestrator/tests/restart-supervisor.test.mjs: a state directory with no live host is refused, and nothing is signalled",
+        "docs/evidence/editor-as-claude-ide-2026-09-07.md: the live supervisor restart on the owner's workspace"
       ]
     }
   ]

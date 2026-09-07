@@ -212,6 +212,29 @@ test('the deliberate mention is a different notification from the passive select
   } finally { await bridge.close(); await rm(dir, { recursive: true, force: true }); }
 });
 
+test('a reader that asks without a version is given the list, not told nothing changed', { timeout: 40000 }, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'rengine-ide-since-'));
+  process.env.RENGINE_IDE_DIRECTORY ??= path.join(dir, 'locks');
+  const project = path.join(dir, 'project');
+  await mkdir(project, { recursive: true });
+  await writeFile(path.join(project, 'a.c'), 'int main(void);\n');
+  const host = await startServer({ stateDir: path.join(dir, 'state') });
+  const root = await host.store.addRoot(project);
+  const worker = await startWorker({ url: host.url, token: host.token, instance: host.instance },
+    { directory: path.join(dir, 'runtime'), ideOptions: { directory: path.join(dir, 'locks'), hostPid: process.pid } });
+  try {
+    const ask = async query => (await (await fetch(`${worker.url}/api/diagnostics?rootId=${root.id}&path=a.c${query}`,
+      { headers: { authorization: `Bearer ${worker.token}` } })).json());
+    // Number(null) is 0 and the version starts at 0, so omitting `since` used to answer `unchanged`
+    // about a version the caller never held. Absent is not the same as zero.
+    const fresh = await ask('');
+    assert.equal(fresh.unchanged, undefined, `a caller with no version gets the list: ${JSON.stringify(fresh)}`);
+    assert.deepEqual(fresh.items, []);
+    const held = await ask(`&since=${fresh.version}`);
+    assert.equal(held.unchanged, true, 'and one that names the current version is told nothing changed');
+  } finally { await worker.close(); await host.close(); await rm(dir, { recursive: true, force: true }); }
+});
+
 test('the port survives a worker replacement, because the CLI reconnects to the one it read', async () => {
   const dir = await directory();
   // The worker being replaced still holds the port when its successor starts, which is exactly the

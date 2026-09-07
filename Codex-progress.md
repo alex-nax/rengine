@@ -1,5 +1,34 @@
 # Progress Log
 
+## Session 70 (macos) — 2026-09-07 — The restart, run for real, and the two bugs only running it found
+
+Supervisor 44390 → **57193**, worker → 57195, desktop → 57227 with all 13 sessions, session host
+33465 never signalled, and the IDE lock now at a port the descriptor keeps (`idePort: 65353`) rather
+than a new one every update. Everything that had been stranded behind the supervisor arrived at once:
+`ide: 1`, the LSP client, the diagnostics underlines, `To agent`.
+
+**Two defects surfaced by using the thing rather than by testing it.**
+
+The action's own wrapper was broken. The wizard imported the tool and passed its path as `argv[1]`,
+so the module's entry-point check fired and printed usage instead of reading the workspace. It failed
+safely at stage one with nothing signalled — but no unit test had that shape, because every test
+called the exported functions directly. The tool now has a `--plan` mode and the action invokes it as
+a program: one entry point rather than a caller that can impersonate it, with a regression that
+drives the command line the way the action does.
+
+And `since` absent was read as `since=0`. `Number(null)` is 0 and the diagnostics version starts at
+0, so a caller that omitted the parameter was told nothing had changed since a version it never held.
+The desktop always sends one, so nothing looked wrong until a hand probe asked without it. Absent is
+not the same as zero; the regression pins both halves and the sabotage reproduces the old answer.
+
+**F107 stays `passes: false` and the validator is why.** Every criterion including the live run is
+met, but its prerequisite F94 is unverified, and `features.py validate` refused the alternative:
+*"passing feature depends on non-passing F94"*. The dependency is real rather than bookkeeping — the
+refusals that keep the session host safe are F94's code. The row says so rather than being quietly
+downgraded.
+
+Gates: `npm test` 203/203, `./init.sh` and `features.py validate` clean, sidecar stamped.
+
 ## Session 69 (macos) — 2026-09-07 — Restarting the layer that cannot be updated (F107)
 
 The supervisor performs layered updates, so its own code can never arrive by one — the stable IDE

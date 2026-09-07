@@ -553,7 +553,9 @@ export async function startWorker(host, options = {}) {
         const selected = root(target.searchParams.get('rootId'));
         const group = await serversFor(selected);
         const version = group.version;
-        const since = Number(target.searchParams.get('since'));
+        /* `has`, not a parsed value: Number(null) is 0 and version starts at 0, so a caller that
+           omits `since` was being told nothing had changed since a version it never held. */
+        const since = target.searchParams.has('since') ? Number(target.searchParams.get('since')) : null;
         if (Number.isInteger(since) && since === version) { json(res, 200, { version, unchanged: true }); }
         else {
           const file = path.join(selected.path, target.searchParams.get('path') ?? '');

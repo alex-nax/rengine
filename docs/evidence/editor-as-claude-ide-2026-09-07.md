@@ -168,9 +168,44 @@ established anything. The assertion now samples six times over a second and requ
 cells the underline lands on. The draw loop tracks the protocol's column separately from the
 selection path's conversion, and that tracking runs on every frame but is not asserted positionally.
 
+---
+
+# The live restart, and what it finally delivered (F107, 17:27)
+
+The stable IDE port had been on `main` for hours unable to reach the running workspace, because the
+supervisor is the layer that *performs* layered updates and so cannot receive one. The restart action
+was built for exactly this and then run against the owner's own workspace.
+
+| | before | after |
+| --- | --- | --- |
+| supervisor | 44390 | **57193** |
+| workspace worker | 67302 | **57195** |
+| desktop | 67548 | **57227**, 13 sessions |
+| IDE lock | a new port on every update | **65353**, reserved in `runtime.json` as `idePort` |
+| session host | 33465 | **33465, never signalled** |
+
+With that in place the routes that had been unreachable answered on the live workspace: capabilities
+carry `ide: 1`, `POST /api/ide-mention` returned `delivered: 1` against a really-connected CLI, and
+`GET /api/diagnostics` answered.
+
+**Two things the live run found that the tests had not.**
+
+- **The action's own wrapper was broken.** The wizard imported the tool and passed its path as
+  `argv[1]`, so the module's entry-point check fired and printed usage instead of reading the
+  workspace. It failed safely at stage one with nothing signalled, but no unit test had that shape —
+  only running it through `open_script` exposed it. The tool grew a `--plan` mode and the action now
+  invokes it as a program: one entry point, rather than a caller that can impersonate it.
+- **`since` absent was read as `since=0`.** `Number(null)` is 0 and the diagnostics version starts at
+  0, so a caller that omitted the parameter was told nothing had changed since a version it never
+  held. The desktop always sends one, so nothing was visibly wrong — it surfaced only when a hand
+  probe asked without it. Absent is not the same as zero.
+
 ## What is not met, and said so in the row
 
 - Parsed check-action output as a second source is not built. Marked NOT MET.
+- F107 meets every criterion including the live run and still stays `passes: false`: its
+  prerequisite F94 is unverified, and the dependency is real rather than bookkeeping — the refusals
+  that keep the session host safe are F94's code. The inventory validator refused the alternative.
 
 ## What is not done
 
