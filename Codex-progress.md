@@ -1,5 +1,78 @@
 # Progress Log
 
+## Session 65 (macos) — 2026-09-07 — The Tasks pane spawns, decomposes and hands over the token (F105 criteria 4-5, spec 103)
+
+Spec 103 decision 5 and the Tasks-pane half of acceptance criteria 4 and 5, on branch
+`feat/tasks-pane-controls`. Each task row now carries **Spawn ▾** (agent · model), **Decompose** and
+**Hold token ▾** (live agents); a task the live agents record wears their labels (`claude 5b8d47c2`)
+after its title. Spawn opens an inline chooser — the agents the workspace has, then that CLI's models
+with the declared default preselected — and sends `agent-spawn` with `brief: 'task'`; Decompose sends
+the same route with `brief: 'decompose'` and the default agent and model, no chooser; Hold token sends
+the ledger's new `assign` through `re_token_action`'s sender, which the Sessions-tab lane had just
+made the desktop's only one.
+
+Seven things the code decided against the spec's paragraph, all recorded in its Surfaces section:
+
+- **The chooser is inline, not a popover.** An overlay costs one of microui's 32 root containers,
+  which fifteen leaf panes with a surface open already fill — the budget that keeps the token segment
+  out of microui — and a chooser that scrolls with its row cannot end up describing a different task
+  than the one under it.
+- **There is no live agent list "the dashboard already has"**: `GET /api/agents-menu` answers both
+  lists at once, fetched with the tracker refresh on the same gesture (`OP_AGENTS_MENU`, below
+  `OP_BYTES`) and never on a timer. Its absence never takes the task list down.
+- **Availability follows the workspace's capabilities as well as the provider.** `agentsMenu` decides
+  whether the menu is fetched at all, `agentSpawn` whether a spawn is sent, and `taskWrites` gates
+  **Decompose** in addition — a decomposition's only legitimate output is `task_add` calls, so a
+  worker that cannot write the inventory has nowhere to put the subtasks it would produce. Each is
+  refused by name in a note row of the pane, not discovered as a failed request.
+- **A spawn's answer belongs to the pane** (`OP_AGENT_SPAWN`): the worker's refusals name a whole
+  prerequisite — a session host predating task-driven panes — that a 512-byte status line truncates,
+  and its `detail` (started, retained, could not be shown; do not spawn it again) must not read as an
+  error to retry.
+- **Not every live agent can be given the token.** The ledger names a holder by `agentId`, which for a
+  workspace-launched pane is its conversation; a CLI that names its own carries none, so that row is
+  disabled with the reason rather than sending an assign the ledger would refuse by name.
+- **"Remote rows offer Spawn only" is literal**: no Decompose *and* no Hold token, because the token
+  names agents of a workspace that row is not in.
+- **The task's own criteria are shown** where the agent is chosen — rows carry `criteria` and the
+  prompt is built from them, so the pane shows what it is about to send. No new metric: the cluster
+  reuses the tracker's widths.
+
+Regressions: `orchestrator/tests/native-tasks-controls.spec.mjs`, six tests, in `test:desktop` (33
+specs). Twelve sabotage rows, each watched failing and confirmed not to be an earlier assertion —
+the model dropped from the body, decompose sending `task`, the assign naming a session id, a remote
+row offering Decompose, the default not preselected, the working label on every row, the menu never
+fetched, each capability gate removed, the answer routed to the generic operation, and the criteria
+not drawn. Table and method: `docs/evidence/tasks-pane-controls-2026-09-07.md`. **Two ways that table
+nearly lied**, both written down there: the first sweep ran uncommitted, so its `git checkout` restored
+the files to the *index* and every case after the first measured code that was not the code under test
+— the same trap Session 64 hit hours earlier — and one sabotage did not compile, so its test ran the
+previous case's binary and went red for the previous case's reason. The loop now captures the build
+output beside every run and starts from a committed tip.
+
+The worker half landed on `origin/main` mid-session, so this was rebuilt against the real shapes
+rather than only the pinned text: `live` entries carry `conversation`, rows carry `criteria`, the
+spawn answer carries `view`/`detail`, and the capabilities are the worker's. The fixture
+(`orchestrator/tests/tasks-controls-fixtures.mjs`) is kept anyway — what is under test is which body
+the *pane* sends for which gesture, and a fixture records that byte for byte without a ledger, an
+installed CLI and a real pane standing between the press and the assertion.
+
+Merged `origin/main` twice (a5bb1c8, then 2f3f924); both are ancestors of the tip. Conflicts were
+list-shaped and unioned: `package.json` (33 specs, main's `RENGINE_IDE_DIRECTORY` kept), and one
+sidecar anchor line. Gates: `npm run build` clean, zero warnings; `npm test` **188/188**; `npm run test:desktop`
+**59/60** — the one red is `native-format-hardening`'s "wide trees, malformed declarations and slow producers
+ never take the desktop down" (`dir6 expanded not reached`), which Session 64 reproduced on origin/main
+ itself in a clean worktree; it is now KI-067 rather than a second lane's undocumented observation. Sidecar anchors re-pointed for `app.c` and `token.c` with their source hashes refreshed;
+`tracker.c` gains one of its own — why the menu and the chooser are file scope, why the chooser is
+inline, and why the two capability gates are not one.
+
+Untouched: `orchestrator/runtime`, `orchestrator/agents`, `orchestrator/server`, and
+`orchestrator/native/workspace.c`. `token.{c,h}` changed only to let the one sender carry a root and
+an `agentId`, which is what "no second path" required. The tab enum is unchanged; the two new
+operations sort below `OP_BYTES` and each carries its own static assertion. F105 stays
+`passes: false` — criterion 5's end-to-end (a scripted agent whose `task_add` calls create child rows)
+and criterion 4's *Sessions tab and `workspace_info` show the task beside the agent* are not proved.
+
 ## Session 64 (macos) — 2026-09-07 — The Sessions tab revokes the token (F105 criterion 1, spec 103)
 
 Spec 103 decision 1 and acceptance criterion 1, built on branch `feat/sessions-token-controls`. In the
