@@ -63,6 +63,12 @@ test('the focused editor reports its selection in the units the protocol counts'
     const line = state.selection.split('|')[2];
     assert.equal(line, '1:0-1:23', `an astral character is two UTF-16 units, not one and not four bytes: ${line}`);
 
+    // This desktop is bound straight to a session host, which serves no ide-selection route. The
+    // selection is still known here — it is this desktop's own fact — but nothing is posted, because
+    // posting to a workspace without the route answers 404 and overwrites the person's status line.
+    assert.ok(!/Unknown workspace endpoint/.test(state.status ?? ''),
+      `no route is called that this workspace does not serve: ${state.status}`);
+
     // A pane that stops holding an editor stops reporting, rather than leaving a stale selection.
     await gui.control('toolbar', 'Tasks', -1);
     await delay(300);

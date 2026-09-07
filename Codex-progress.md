@@ -1,6 +1,6 @@
 # Progress Log
 
-## Session 65 (macos) — 2026-09-07 — The Tasks pane spawns, decomposes and hands over the token (F105 criteria 4-5, spec 103)
+## Session 66 (macos) — 2026-09-07 — The Tasks pane spawns, decomposes and hands over the token (F105 criteria 4-5, spec 103)
 
 Spec 103 decision 5 and the Tasks-pane half of acceptance criteria 4 and 5, on branch
 `feat/tasks-pane-controls`. Each task row now carries **Spawn ▾** (agent · model), **Decompose** and
@@ -73,6 +73,45 @@ operations sort below `OP_BYTES` and each carries its own static assertion. F105
 `passes: false` — criterion 5's end-to-end (a scripted agent whose `task_add` calls create child rows)
 and criterion 4's *Sessions tab and `workspace_info` show the task beside the agent* are not proved.
 
+## Session 65 (macos) — 2026-09-07 — rEdit speaks LSP, and an agent reads what the server said (F102, D37)
+
+`mcp__ide__getDiagnostics` no longer answers "nothing" honestly; it answers what the project's own
+declared language servers published, about the buffer the person is looking at rather than the file
+on disk. Contract 7 carries the `languageServers` block: id, command, match globs, optional
+languageId and initializationOptions. rEngine runs a declared server and never installs one, so a
+machine without it gets *"clangd is not on this machine; rEngine runs a declared language server but
+never installs one"* rather than an empty list that looks like good news.
+
+The client (`orchestrator/runtime/lsp.mjs`) is in the replaceable worker for the usual reason — no
+PTY, no surface, no store state — and covers the diagnostic half of the protocol only: initialize,
+didOpen/didChange/didClose, publishDiagnostics, shutdown, and a bounded backoff restart. Servers are
+per root and started on first use, because this workspace holds three projects and starting every
+declared toolchain at boot spends the machine on projects nobody opened.
+
+**Two bugs the tests found, both worth the paragraph.** `src/**/*.c` did not match `src/deep.c`:
+expanding the directory wildcard and *then* rewriting every remaining star rewrites the star inside
+that expansion. Reordering the passes would have worked and left the trap for the next person, so the
+rewrite became one pass over an alternation, which cannot have the bug. An intermediate version
+parked the wildcard behind a placeholder that ended up in the source as a literal NUL byte —
+invisible in a diff, and worse than the bug it fixed. Separately, the first crash test had the fake
+server publish and exit in the same millisecond, so the answer it asserted could never be observed;
+it now crashes on the second open, and the fake flushes stdout before exiting, because `process.exit`
+after a write to a pipe drops the write.
+
+**Two sabotages had to be written twice.** L1 and L3 first produced a syntax error rather than a
+failed assertion. A test that goes red because the file no longer parses has not been shown to catch
+anything, so both were rewritten as valid code doing the wrong thing. Six sabotages in the end, each
+red for its own assertion.
+
+Also fixed on the way: the contract ceiling in another lane's `task-writes.test.mjs` asserted 6 and
+is now 7 — that assertion is a tripwire and it worked, so it keeps its shape with a note for whoever
+raises the ceiling next.
+
+Gates: `npm test` 194/194, `native-ide-selection` green, `./init.sh` and `design.py check` clean,
+sidecars stamped in the house format. F102 `passes: false`, and the row now says which criteria are
+met: the editor pane does not render diagnostics yet, so "two consumers, one store" is only half true
+— an agent gets the real answer, the person still sees nothing — and parsed check-action output as a
+second source is not built.
 ## Session 64 (macos) — 2026-09-07 — The Sessions tab revokes the token (F105 criterion 1, spec 103)
 
 Spec 103 decision 1 and acceptance criterion 1, built on branch `feat/sessions-token-controls`. In the

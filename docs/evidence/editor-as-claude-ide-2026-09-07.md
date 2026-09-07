@@ -107,6 +107,49 @@ produces.
 
 Each was rebuilt, run alone against `native-ide-selection.spec.mjs`, and restored.
 
+---
+
+# Slice 2, part two: the Language Server Protocol (F102, charter D37)
+
+The owner chose the protocol over the narrower proposal — *"LSP adoption looks great"* — so
+`getDiagnostics` now answers with what a project's declared servers publish, driven by the buffer the
+desktop holds rather than by the file on disk.
+
+## The sabotages
+
+| | Sabotage | Red for |
+| --- | --- | --- |
+| L1 | the reader splits on the delimiter instead of honouring `Content-Length` | one message expected, none read |
+| L2 | an edited buffer is never sent as a change | `Timed out: the change is reflected` |
+| L3 | a missing command is swallowed instead of named | `Timed out: the absence is reported` |
+| L4 | a dead server's diagnostics are left standing | `Timed out: the dead server's diagnostics are cleared` |
+| L5 | closing a file keeps what the server said about it | the closed file still had diagnostics |
+| L6 | the single star is matched before the directory wildcard | `a ** pattern matches a nested file` |
+
+Two of these were written twice. The first attempts at L1 and L3 produced a *syntax error* rather
+than a failed assertion, which establishes nothing at all — a test that goes red because the file no
+longer parses has not been shown to catch anything. Both were rewritten as valid code doing the wrong
+thing.
+
+## Two bugs the tests found in the implementation
+
+- **The glob ordering (L6 for real).** `src/**/*.c` did not match `src/deep.c`. Expanding the
+  directory wildcard to its regular expression and *then* rewriting every remaining star rewrote the
+  star inside that expansion. Rather than reorder the two passes, the rewrite became a single pass
+  over an alternation, which cannot have the bug at all. An intermediate version used a placeholder
+  that ended up in the source as a literal NUL byte — invisible in a diff and worse than the bug.
+- **A crash that raced its own evidence.** The first version of the crash test had the fake server
+  exit immediately after publishing, so the answer and its retraction happened in the same
+  millisecond and the assertion could never observe the first. Moved to crashing on the second open,
+  which leaves a real window. Separately, the fake server needed to flush stdout before exiting —
+  `process.exit` after a write to a pipe drops the write.
+
+## What is not met, and said so in the row
+
+- The editor pane does not render diagnostics yet, so the "two consumers, one store" criterion is
+  only half true: an agent gets the real answer, the person still sees nothing. Marked PARTLY MET.
+- Parsed check-action output as a second source is not built. Marked NOT MET.
+
 ## What is not done
 
 `at_mentioned` has its transport but no gesture. Which affordance sends it — a key chord, a pane

@@ -61,9 +61,11 @@ export async function sweep(directory, { alive = pid => { try { process.kill(pid
   return removed;
 }
 
-/* The empty list is the true answer: rEdit runs no language server, so it knows of no diagnostics.
-   Refusing instead would make the CLI report the editor as broken rather than as quiet. */
-const diagnostics = uri => [{ uri, diagnostics: [] }];
+/* One store, two readers: whatever the project's declared language servers have published, answered
+   the same way to the editor pane and to an agent, so the person and the model cannot be told
+   different things about the same file (charter D37). A project that declares no server gets an
+   empty list, which is the true answer from an editor that runs nothing, not a refusal. */
+const diagnostics = (uri, source) => [{ uri, diagnostics: source?.(uri) ?? [] }];
 
 /* A worker replacement must not move the port. Claude Code reads a lock once and then reconnects to
    the port it read; it never goes back to the directory. An ephemeral port per worker therefore ends
@@ -88,7 +90,7 @@ async function listen(host, port) {
 }
 
 export async function startIdeBridge({ roots = [], hostPid, workerPid = process.pid, port: wanted = 0,
-  directory = ideDirectory(), host = '127.0.0.1', retakeTimeoutMs = RETAKE_TIMEOUT_MS } = {}) {
+  directory = ideDirectory(), host = '127.0.0.1', retakeTimeoutMs = RETAKE_TIMEOUT_MS, diagnosticsFor = null } = {}) {
   /* Without the host's pid there is nothing to publish: the CLI checks that the lock's pid is one of
      its own first ten ancestors, and the host is the only process in a pane's chain (spec 102 D2). */
   if (!Number.isInteger(hostPid)) {
@@ -116,12 +118,12 @@ export async function startIdeBridge({ roots = [], hostPid, workerPid = process.
     const mcp = new Server({ name: 'rengine-ide', version: '1.0.0' }, { capabilities: { tools: {} } });
     mcp.setRequestHandler(ListToolsRequestSchema, () => ({ tools: [{
       name: 'getDiagnostics',
-      description: 'Diagnostics rEdit holds for a file. rEdit runs no language server, so the list is empty rather than absent.',
+      description: 'Diagnostics rEdit holds for a file, from the language servers the project declares. A project that declares none answers an empty list rather than refusing.',
       inputSchema: { type: 'object', properties: { uri: { type: 'string' } } },
     }] }));
     mcp.setRequestHandler(CallToolRequestSchema, request => {
       if (request.params.name !== 'getDiagnostics') throw new Error(`${request.params.name} is not a tool rEdit serves yet.`);
-      return { content: [{ type: 'text', text: JSON.stringify(diagnostics(request.params.arguments?.uri ?? '')) }] };
+      return { content: [{ type: 'text', text: JSON.stringify(diagnostics(request.params.arguments?.uri ?? '', diagnosticsFor)) }] };
     });
     socket.mcp = mcp;
     sockets.add(socket);

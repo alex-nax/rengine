@@ -1357,9 +1357,9 @@
         "A declared server that is missing from the machine is reported as unavailable, by name and with what was looked for, and the workspace keeps working — an editor pane still opens and edits files.",
         "The worker owns the server processes and the LSP session: initialize with the workspace roots, textDocument/didOpen, didChange and didClose driven by what the editor actually has open, and shutdown when the last document closes or the worker retires, leaving no orphaned server process.",
         "Document sync carries the editor's unsaved buffer, not the file on disk, so diagnostics describe what the person is looking at; positions cross the boundary as UTF-16 line and character, which is what the protocol counts, verified against tabs and multi-byte characters.",
-        "publishDiagnostics reaches two consumers from one store: the editor pane renders them, and mcp__ide__getDiagnostics answers with the same set for a file, so the agent and the person never disagree about what is broken.",
+        "publishDiagnostics reaches two consumers from one store: the editor pane renders them, and mcp__ide__getDiagnostics answers with the same set for a file, so the agent and the person never disagree about what is broken. PARTLY MET: the store is one and getDiagnostics reads it, so an agent gets the real answer; the editor pane does not yet render them, so the person still sees nothing. The disagreement the criterion forbids cannot happen yet because only one consumer reads, but the criterion is not met until the pane draws them.",
         "A server that crashes is restarted with a bounded backoff, its diagnostics are cleared rather than left stale, and repeated failure is reported instead of retried forever.",
-        "Parsed output from a declared check action remains a second source merged into the same store, distinguishable by origin, because a build reports failures no language server sees.",
+        "Parsed output from a declared check action remains a second source merged into the same store, distinguishable by origin, because a build reports failures no language server sees. NOT MET: the second source is not built; only the protocol's own diagnostics are served.",
         "Each regression was observed failing for its own reason."
       ],
       "passes": false,
@@ -1370,7 +1370,13 @@
       "owner_workspace": "rengine",
       "deliverable": "An LSP client owned by the workspace worker, the language-server block in the project declaration (contract 6), document sync from the native editor, and the diagnostics store behind getDiagnostics and the editor's own rendering. Charter D37; docs/specs/102-editor-as-claude-ide.md.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "orchestrator/tests/lsp.test.mjs: a declared server is started, told the buffer, and its diagnostics are what getDiagnostics reads",
+        "orchestrator/tests/lsp.test.mjs: a declared server that is not on the machine is named, and the workspace keeps working",
+        "orchestrator/tests/lsp.test.mjs: a server that crashes is restarted, and its diagnostics do not outlive it",
+        "orchestrator/tests/ide.test.mjs: getDiagnostics answers with what the project's declared language server published",
+        "docs/evidence/editor-as-claude-ide-2026-09-07.md: the six LSP sabotages"
+      ]
     },
     {
       "id": 103,
@@ -1383,6 +1389,7 @@
         "A CLI with no such option, or a workspace publishing no lock, launches exactly as it does today with nothing added to its command line.",
         "The option is carried by the agent launch configuration, so adding a CLI that supports it is a declaration rather than a code change.",
         "A pane whose root has no published lock does not pass the flag, because auto-connect that finds nothing is a startup error the person did not ask for.",
+        "Two workspaces can publish a lock for the same folder — the rEngine workspace binds vtmb-vr as a root while vtmb-vr's own workspace serves it too — and both are valid for a pane whose ancestor chain reaches either host. Claude Code auto-connects only when exactly one valid IDE is offered, so in that case the flag must not be passed: auto-connect that finds two editors is a startup the person did not ask to answer. The pane still gets `/ide`.",
         "Recorded explicitly: the launch environment is composed by the retained session host, so this reaches an existing workspace only when its host is replaced; the row is not complete until that is stated in the runbook.",
         "Each regression was observed failing for its own reason."
       ],
