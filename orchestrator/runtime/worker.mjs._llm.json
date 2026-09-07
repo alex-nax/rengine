@@ -2,11 +2,25 @@
   "version": 1,
   "entries": [
     {
+      "id": "stale-session-filter",
+      "kind": "rationale",
+      "anchor": {
+        "start": 30,
+        "end": 30,
+        "snippet": "export function withoutEndedSessions(data, state) {"
+      },
+      "note": "The worker is the layer a live workspace can be given: `update_workspace` replaces it without touching the retained host or a PTY, while the host's own `Desktops` only changes at the next `--replace-host`. So the removal of sessions the host state no longer lists happens here too, against the `/api/state` the interception just refreshed, and the removed ids travel to `Desktops.register` as `dropped` so one `desktop-registered` frame names every id the registration lost. A frame whose `sessionIds` is not an array is passed through untouched, so a malformed registration is still refused by name rather than turned into an empty one. The interception also records the last registration it refused (`registerError`, published on `/api/runtime-desktops`) so the supervisor's waitView can say why a desktop never appeared. KI-064; the redundancy with the host layer is deliberate and the schedules differ.",
+      "refs": [
+        "docs/specs/098-replace-session-host.md",
+        "docs/specs/065-layered-workspace-updates.md"
+      ]
+    },
+    {
       "id": "legacy-host-adapter",
       "kind": "rationale",
       "anchor": {
-        "start": 36,
-        "end": 36,
+        "start": 37,
+        "end": 37,
         "snippet": "export async function startWorker(host, options = {}) {"
       },
       "note": "The original host remains the sole session and durable-state authority. This process forwards its APIs/PTY/game streams and supplies desktop actions even when that host predates them. Desktop registration is intercepted and validated against current host roots/sessions; other frames retain their order and binary/text kind. Existing streams can outlive a newer HTTP worker generation. Closing this worker only closes its views/proxies, never the host or its PTYs.",
@@ -15,40 +29,42 @@
       ]
     },
     {
-      "id": "script-view-consumer",
+      "id": "tracker-routes",
       "kind": "rationale",
       "anchor": {
-        "start": 372,
-        "end": 372,
-        "snippet": "json(res, 200, await openScript(host, desktops, data, state));"
+        "start": 43,
+        "end": 43,
+        "snippet": "  const located = await hostStateDirectory(host, state);"
       },
-      "note": "Script launch and session-view actions live in the replaceable worker above the retained host. Only this worker\u2019s connected desktop broker can attach a view; a desktop still connected through an older worker needs a native update first, not a duplicate process.",
+      "note": "The tracker routes were first added to the host only, and the owner's running editor could not reach them through eleven layered updates: the worker forwarded /api/tracker to a host from before the route existed, which answered 404. KI-043 again, so the routes are served here from runtime/tracker.mjs (the provider logic is imported, never repeated) and tracker: 1 is advertised here. The one thing the host has that the route needs is its state directory, where a credential lives. A host from this checkout says it on /api/state (stateDir); the retained one does not and is found the way --replace-host finds it, from the process table row whose sidecar.json names this host's INSTANCE. The instance is the key on purpose: this worker is often handed a proxy's URL rather than the descriptor's, and the machine runs a dozen hosts, so neither the URL nor the first row would do. Found once at startup because the instance cannot change under a worker that refuses an instance change anyway.",
       "refs": [
-        "docs/specs/071-interactive-script-tabs.md"
+        "docs/specs/101-live-capability-updates.md",
+        "docs/specs/083-task-tracking.md"
       ]
     },
     {
-      "id": "format-registry-worker",
-      "kind": "rationale",
+      "id": "ide-names-the-host",
+      "kind": "constraint",
       "anchor": {
-        "start": 376,
-        "end": 376,
-        "snippet": "} else if (req.method === 'GET' && target.pathname === '/api/formats') {"
+        "start": 47,
+        "end": 47,
+        "snippet": "const hostPid = located.pid ?? (Number.isInteger(state.pid) ? state.pid : undefined);"
       },
-      "note": "Format listing, preview/entry execution and raw byte windows are answered here instead of being forwarded, so a retained host that predates spec 074 still gains them through a workspace-layer update. Roots come from the refreshed host state; the boundary is store.mjs resolveInRoot, identical to the host's.",
+      "note": "The IDE lock this worker publishes must name the session host, never this worker and never the desktop. Claude Code validates a lock by checking that its `pid` is alive and is one of the CLI's own first ten ancestors; a pane's chain is CLI ← shell ← the PTY the host forked, so the host is the only candidate. A lock naming the worker is skipped in silence — no error anywhere, `/ide` simply lists nothing — which is why this is a constraint and not a preference. The pid comes from the host's own `/api/state` when it is new enough to say so, and otherwise from the process-table scan the tracker already does by instance, the same two-source shape spec 101 used for the state directory and for the same reason: a retained host cannot be taught to report anything. See docs/specs/102-editor-as-claude-ide.md.",
       "refs": [
-        "docs/specs/074-project-format-registry.md"
+        "docs/specs/102-editor-as-claude-ide.md",
+        "orchestrator/runtime/ide.mjs._llm.json#our-locks-are-ours-to-collect"
       ]
     },
     {
       "id": "game-routes",
       "kind": "rationale",
       "anchor": {
-        "start": 53,
-        "end": 53,
+        "start": 63,
+        "end": 63,
         "snippet": "const preflight = (rootId, gameId) => inspectGame(root(rootId), gameId);"
       },
-      "note": "The general rule this file keeps learning: a capability that only the retained host serves cannot be delivered by a layered update, because the capability flag comes from the host's own state. dashboard and formatRegistry are advertised here because the routes are served here; game-config was forwarded, so projectGame could never appear on a live workspace no matter how often update_workspace ran, and the forwarded answers came from the removed built-in game (one hard-coded config for every root and every gameId). Preflight now runs from this checkout through inspectGame, and projectGame is advertised beside dashboard. Launch is the deliberate exception: creating a game session needs the host's Sessions (PTY ownership), its Surfaces reservation for an embedded game and the session-id map behind its /surface upgrade, and its /api/terminal refuses type \"game\" by design \u2014 so it stays forwarded and is advertised as its own projectGameLaunch, mirrored from the host's own projectGame. Above an older host the launch is refused by name rather than forwarded into the built-in game.",
+      "note": "The general rule this file keeps learning: a capability that only the retained host serves cannot be delivered by a layered update, because the capability flag comes from the host's own state. dashboard and formatRegistry are advertised here because the routes are served here; game-config was forwarded, so projectGame could never appear on a live workspace no matter how often update_workspace ran, and the forwarded answers came from the removed built-in game (one hard-coded config for every root and every gameId). Preflight now runs from this checkout through inspectGame, and projectGame is advertised beside dashboard. Launch is the deliberate exception: creating a game session needs the host's Sessions (PTY ownership), its Surfaces reservation for an embedded game and the session-id map behind its /surface upgrade, and its /api/terminal refuses type \"game\" by design — so it stays forwarded and is advertised as its own projectGameLaunch, mirrored from the host's own projectGame. Above an older host the launch is refused by name rather than forwarded into the built-in game.",
       "refs": [
         "docs/specs/078-project-game-declaration.md",
         "docs/specs/065-layered-workspace-updates.md"
@@ -58,64 +74,24 @@
       "id": "remote-launch",
       "kind": "constraint",
       "anchor": {
-        "start": 68,
-        "end": 68,
+        "start": 78,
+        "end": 78,
         "snippet": "const refuseRemote = async (rootId, gameId) => {"
       },
-      "note": "The refusal is issued HERE, from the worker's own preflight, before anything is forwarded to the retained session host. That is the spec-078 / KI-043 lesson applied: a retained host predates contract 4, so asking it about a device would get a confident wrong answer from code that knows nothing about devices \u2014 exactly how the removed built-in NOLF config was once returned with HTTP 200 for a vtmb-vr root. The worker already computes preflight from its own checkout, so it holds the decision. Games.start refuses again on the same string for a caller that reaches the host directly.",
+      "note": "The refusal is issued HERE, from the worker's own preflight, before anything is forwarded to the retained session host. That is the spec-078 / KI-043 lesson applied: a retained host predates contract 4, so asking it about a device would get a confident wrong answer from code that knows nothing about devices — exactly how the removed built-in NOLF config was once returned with HTTP 200 for a vtmb-vr root. The worker already computes preflight from its own checkout, so it holds the decision. Games.start refuses again on the same string for a caller that reaches the host directly.",
       "refs": [
         "docs/specs/082-project-devices.md"
-      ]
-    },
-    {
-      "id": "recording-routes",
-      "kind": "rationale",
-      "anchor": {
-        "start": 416,
-        "end": 416,
-        "snippet": "      } else if (req.method === 'GET' && target.pathname === '/api/recordings') {"
-      },
-      "note": "Both recording routes are answered here, from this checkout, and never forwarded: reading committed segments is a filesystem walk over a project root with no session, PTY or surface state behind it. That is the whole reason the capability is deliverable by a layered workspace update, which is the lesson KI-043 and spec 078 paid for \u2014 a route only the retained session host can answer cannot be delivered without quiescence. recordings: 1 is therefore advertised unconditionally here, unlike projectGameLaunch, which is mirrored from the host because the host is the one that can honour it.",
-      "refs": [
-        "docs/specs/081-game-recording.md"
       ]
     },
     {
       "id": "token-gate",
       "kind": "rationale",
       "anchor": {
-        "start": 105,
-        "end": 105,
+        "start": 115,
+        "end": 115,
         "snippet": "const gate = async (req, rootId, tool) => {"
       },
-      "note": "Who is gated is decided by one thing: the presence of X-Rengine-Agent. The desktop never sends it, so decision 6 (\u201cthe person at the desktop is never gated\u201d) is a property of the transport rather than a list of exceptions somebody has to keep in step. The header is arbitration, not authentication \u2014 every caller already holds the workspace capability, so lying about an identity buys nothing that was not already reachable, and the code does not pretend otherwise. A free token is refused too: holding is deliberate, and token_contest claims a free one at once, so every hold is a frame on the feed rather than a side effect of the first launch somebody happened to make.",
-      "refs": [
-        "docs/specs/095-project-token.md"
-      ]
-    },
-    {
-      "id": "stop-interception",
-      "kind": "constraint",
-      "anchor": {
-        "start": 399,
-        "end": 399,
-        "snippet": "} else if (req.method === 'POST' && target.pathname === '/api/stop') {"
-      },
-      "note": "/api/stop is the retained host's route and this worker only forwarded it, so the gate has to intercept before forward() rather than ask the host to grow one (spec 065: the host is not extended). /api/update-workspace and /api/desktop-action are the mirror case \u2014 the runtime supervisor answers those two itself and forwards everything else, so the worker's copies of those gates only fire for a caller addressing it directly, and the live gate for them is in the tool worker.",
-      "refs": [
-        "docs/specs/095-project-token.md",
-        "docs/specs/065-layered-workspace-updates.md"
-      ]
-    },
-    {
-      "id": "feed-source",
-      "kind": "rationale",
-      "anchor": {
-        "start": 303,
-        "end": 303,
-        "snippet": "const subscribe = () => {"
-      },
-      "note": "The worker opens the retained host's /events itself, once, with no desktop behind it, and the message handler only ever reaches for data.type === 'session'. \u201cNo PTY output on the feed\u201d is therefore structural: an output frame is not filtered out downstream, it is never turned into a feed frame at all, and Feed.emit refuses a type it does not know. The launch attribution needs a queue rather than a map keyed by session id, because the host emits the session event before the launch call returns \u2014 the frame is built before the worker knows the id it would key on.",
+      "note": "Who is gated is decided by one thing: the presence of X-Rengine-Agent. The desktop never sends it, so decision 6 (“the person at the desktop is never gated”) is a property of the transport rather than a list of exceptions somebody has to keep in step. The header is arbitration, not authentication — every caller already holds the workspace capability, so lying about an identity buys nothing that was not already reachable, and the code does not pretend otherwise. A free token is refused too: holding is deliberate, and token_contest claims a free one at once, so every hold is a frame on the feed rather than a side effect of the first launch somebody happened to make.",
       "refs": [
         "docs/specs/095-project-token.md"
       ]
@@ -124,8 +100,8 @@
       "id": "retirement-handoff",
       "kind": "rationale",
       "anchor": {
-        "start": 201,
-        "end": 201,
+        "start": 211,
+        "end": 211,
         "snippet": "const retire = async () => {"
       },
       "note": "Spec 065 keeps a replaced worker's streams draining through it; spec 095 put a stateful service on one of those streams, and KI-061 was the collision. Retention is by kind: views keep draining here, the ledger and the feed hand off. On the supervisor's `retired` message this worker drops its host /events subscription and its ledger, so it mints nothing and never writes token.json or feed.json again; closes its own /feed clients with a reason that names retirement, so a monitor reattaches to the current worker by cursor; forwards the ledger's routes and its retained desktops' token-action/recording frames to the current worker through the supervisor named by runtime.json, carrying the desktop actor on X-Rengine-Desktop; and relays the pinned token push back by watching the current ledger's feed. The frame text on the desktop's socket is unchanged, so the native desktop needs no edit. Never send the message at the swap instead: a failed update restores the previous worker as current, and a worker told it was retired would forward to itself.",
@@ -136,37 +112,75 @@
       ]
     },
     {
-      "id": "tracker-routes",
+      "id": "feed-source",
       "kind": "rationale",
       "anchor": {
-        "start": 42,
-        "end": 42,
-        "snippet": "  const located = await hostStateDirectory(host, state);"
+        "start": 317,
+        "end": 317,
+        "snippet": "const subscribe = () => {"
       },
-      "note": "The tracker routes were first added to the host only, and the owner's running editor could not reach them through eleven layered updates: the worker forwarded /api/tracker to a host from before the route existed, which answered 404. KI-043 again, so the routes are served here from runtime/tracker.mjs (the provider logic is imported, never repeated) and tracker: 1 is advertised here. The one thing the host has that the route needs is its state directory, where a credential lives. A host from this checkout says it on /api/state (stateDir); the retained one does not and is found the way --replace-host finds it, from the process table row whose sidecar.json names this host's INSTANCE. The instance is the key on purpose: this worker is often handed a proxy's URL rather than the descriptor's, and the machine runs a dozen hosts, so neither the URL nor the first row would do. Found once at startup because the instance cannot change under a worker that refuses an instance change anyway.",
+      "note": "The worker opens the retained host's /events itself, once, with no desktop behind it, and the message handler only ever reaches for data.type === 'session'. “No PTY output on the feed” is therefore structural: an output frame is not filtered out downstream, it is never turned into a feed frame at all, and Feed.emit refuses a type it does not know. The launch attribution needs a queue rather than a map keyed by session id, because the host emits the session event before the launch call returns — the frame is built before the worker knows the id it would key on.",
       "refs": [
-        "docs/specs/101-live-capability-updates.md",
-        "docs/specs/083-task-tracking.md"
+        "docs/specs/095-project-token.md"
       ]
     },
     {
-      "id": "stale-session-filter",
+      "id": "script-view-consumer",
       "kind": "rationale",
       "anchor": {
-        "start": 29,
-        "end": 29,
-        "snippet": "export function withoutEndedSessions(data, state) {"
+        "start": 386,
+        "end": 386,
+        "snippet": "json(res, 200, await openScript(host, desktops, data, state));"
       },
-      "note": "The worker is the layer a live workspace can be given: `update_workspace` replaces it without touching the retained host or a PTY, while the host's own `Desktops` only changes at the next `--replace-host`. So the removal of sessions the host state no longer lists happens here too, against the `/api/state` the interception just refreshed, and the removed ids travel to `Desktops.register` as `dropped` so one `desktop-registered` frame names every id the registration lost. A frame whose `sessionIds` is not an array is passed through untouched, so a malformed registration is still refused by name rather than turned into an empty one. The interception also records the last registration it refused (`registerError`, published on `/api/runtime-desktops`) so the supervisor's waitView can say why a desktop never appeared. KI-064; the redundancy with the host layer is deliberate and the schedules differ.",
+      "note": "Script launch and session-view actions live in the replaceable worker above the retained host. Only this worker’s connected desktop broker can attach a view; a desktop still connected through an older worker needs a native update first, not a duplicate process.",
       "refs": [
-        "docs/specs/098-replace-session-host.md",
+        "docs/specs/071-interactive-script-tabs.md"
+      ]
+    },
+    {
+      "id": "format-registry-worker",
+      "kind": "rationale",
+      "anchor": {
+        "start": 390,
+        "end": 390,
+        "snippet": "} else if (req.method === 'GET' && target.pathname === '/api/formats') {"
+      },
+      "note": "Format listing, preview/entry execution and raw byte windows are answered here instead of being forwarded, so a retained host that predates spec 074 still gains them through a workspace-layer update. Roots come from the refreshed host state; the boundary is store.mjs resolveInRoot, identical to the host's.",
+      "refs": [
+        "docs/specs/074-project-format-registry.md"
+      ]
+    },
+    {
+      "id": "stop-interception",
+      "kind": "constraint",
+      "anchor": {
+        "start": 413,
+        "end": 413,
+        "snippet": "} else if (req.method === 'POST' && target.pathname === '/api/stop') {"
+      },
+      "note": "/api/stop is the retained host's route and this worker only forwarded it, so the gate has to intercept before forward() rather than ask the host to grow one (spec 065: the host is not extended). /api/update-workspace and /api/desktop-action are the mirror case — the runtime supervisor answers those two itself and forwards everything else, so the worker's copies of those gates only fire for a caller addressing it directly, and the live gate for them is in the tool worker.",
+      "refs": [
+        "docs/specs/095-project-token.md",
         "docs/specs/065-layered-workspace-updates.md"
+      ]
+    },
+    {
+      "id": "recording-routes",
+      "kind": "rationale",
+      "anchor": {
+        "start": 430,
+        "end": 430,
+        "snippet": "      } else if (req.method === 'GET' && target.pathname === '/api/recordings') {"
+      },
+      "note": "Both recording routes are answered here, from this checkout, and never forwarded: reading committed segments is a filesystem walk over a project root with no session, PTY or surface state behind it. That is the whole reason the capability is deliverable by a layered workspace update, which is the lesson KI-043 and spec 078 paid for — a route only the retained session host can answer cannot be delivered without quiescence. recordings: 1 is therefore advertised unconditionally here, unlike projectGameLaunch, which is mirrored from the host because the host is the one that can honour it.",
+      "refs": [
+        "docs/specs/081-game-recording.md"
       ]
     }
   ],
   "source": {
     "path": "orchestrator/runtime/worker.mjs",
-    "sha256": "45ccc7e7ed7289dc9ed5a291570eee2662eceb71c0164f16da90d23c9debc320",
+    "sha256": "e302894c2339fa8a28d8c11bc7ebc9fadf949d0a8ad901117f5903fc5cb5d243",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

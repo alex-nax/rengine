@@ -1,5 +1,51 @@
 # Progress Log
 
+## Session 59 (macos) — 2026-09-07 — rEdit is an IDE Claude Code will connect to (F99, spec 102, slice 1)
+
+The owner asked whether Claude Code's `/ide` integration could be used. It can, and now is: a real
+`claude` 2.1.263 in a pane shows **`Select IDE … 1. rEdit ✔`** and reports **`Connected to rEdit.`**
+
+**Read the binary first, then distrust it.** `/ide` discovers an editor by reading
+`~/.claude/ide/<port>.lock` — the port is the *filename*, nothing inside the file names it — and
+connecting over WebSocket. Two things the binary would not tell us decided the implementation, and
+both were settled by driving the real CLI rather than by reasoning:
+
+- **Print mode never connects.** `claude -p --ide` answered normally and opened zero sockets. Any
+  "verification" of this feature through `-p` would have been worthless. The probe moved to an
+  interactive CLI under a PTY.
+- **Where the token is presented** is not in the binary's strings. The first implementation hedged
+  across three plausible positions, which is the kind of hedge nothing ever disproves. The live
+  handshake settled it — `x-claude-code-ide-authorization`, plus a `mcp` subprotocol request — and
+  the hedge was deleted rather than left in.
+
+**The design point that would have failed silently.** The CLI only trusts a lock whose `pid` is
+alive and is one of the calling CLI's own first ten ancestors. In rEdit the desktop is never that:
+panes are PTYs the *session host* forked, so the chain is CLI ← shell ← host. The lock therefore
+names the session host — which has a second consequence, because the CLI collects a lock by noticing
+its pid is dead, and ours never will be. So the bridge unlinks its own lock at retirement and sweeps
+stale ones at startup, recognising its own by `rengineWorker`, a key the CLI's parser ignores. A lock
+naming the worker or the desktop produces no error anywhere; `/ide` just lists nothing.
+
+The bridge lives in the workspace worker (`orchestrator/runtime/ide.mjs`), which is spec 101's rule
+applied one more time: it needs no PTY, no surface and no store state, so it arrives by a routine
+layered update. The host gained one field — its own `pid` on `/api/state`, beside the `stateDir` of
+spec 101, for the same reason and with the same process-table fallback for a host too old to say it.
+
+Slice 1 serves `getDiagnostics` (an empty list, which is the honest answer from an editor with no
+language server), requires the token, echoes the subprotocol, and turns a selection posted by the
+desktop into `selection_changed`. Slice 2 is the desktop's own selection reporting, `at_mentioned`,
+and `openDiff` with accept/reject in a pane.
+
+Gates: `ide.test.mjs` 7/7 with all **eight** sabotages red for their own assertion (including one
+that would have deleted VS Code's locks, and one that dropped the subprotocol); `npm test` 177/177;
+`./init.sh`, `design.py check` and `features.py validate` clean; sidecars stamped and written back in
+the house format. F99 `passes: false` — F74 is still blocked. Evidence:
+`docs/evidence/editor-as-claude-ide-2026-09-07.md`.
+
+One side effect worth naming: a worker publishes a real lock, so the suite used to write into the
+`/ide` menu of whoever ran it. `RENGINE_IDE_DIRECTORY` now points every test script at
+`.cache/ide-locks`, with a temp-directory fallback for a spec run directly.
+
 ## Session 58 (macos) — 2026-09-07 — The layout a replaced host leaves behind (KI-064/065, spec 098)
 
 `--replace-host` (spec 098) landed this morning and the owner ran it. Twice today, on two different

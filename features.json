@@ -1232,6 +1232,39 @@
         "docs/evidence/live-capability-updates-2026-09-07.md: the read-only live probe of host PID 33465 and the sabotage table",
         "docs/evidence/live-capability-updates-2026-09-07.md: the live workspace,connector update on supervisor 44390 and the tracker it delivered"
       ]
+    },
+    {
+      "id": 99,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "rEdit is a Claude Code IDE: the workspace publishes the lock file the CLI reads, serves MCP over the WebSocket it names, and pushes the editor's selection, so an agent pane running in the workspace can connect to the editor it is running inside rather than to nothing.",
+      "acceptance_criteria": [
+        "The published lock is the one the CLI parses: named <port>.lock for the port actually listening, useWebSocket true, ideName rEdit, workspaceFolders the bound roots, and pid the SESSION HOST's — the only process in a pane's ancestor chain, which is what the CLI checks.",
+        "With no host pid to name, nothing is published and the reason says so, rather than leaving a lock the CLI silently skips.",
+        "A real MCP client over the socket completes initialize and tools/list and reads getDiagnostics, which answers an empty diagnostic list because rEdit runs no language server.",
+        "The socket requires the lock's token in the header the CLI actually uses, and refuses a connection without it with a policy close; the mcp subprotocol the CLI asks for is echoed back.",
+        "A selection posted by the desktop reaches every connected CLI as a selection_changed notification.",
+        "Stale rEdit locks are collected at startup and the bridge unlinks its own on retirement, because the lock names the long-lived host and the CLI's own sweep — which deletes locks whose pid is dead — can therefore never collect ours; another IDE's lock is left alone.",
+        "Each regression was observed failing for its own reason: the lock naming the worker, publishing without a host pid, diagnostics refusing, an untrusted connection admitted, the notification renamed, the sweep taking another IDE's lock, the subprotocol dropped, and close leaving its lock behind.",
+        "LIVE, done 2026-09-07: the real claude 2.1.263 in a PTY, cwd inside a bound root, showed 'Select IDE ... 1. rEdit' and reported 'Connected to rEdit.'; the accepted handshake presented the lock's token in x-claude-code-ide-authorization and negotiated the mcp subprotocol, and print mode was found never to connect at all. Recorded in docs/evidence/editor-as-claude-ide-2026-09-07.md.",
+        "FOLLOW-UP, not in this row: the desktop's own reporting of its editor selection over the POST route this serves, at_mentioned from an explicit send-to-Claude gesture, and openDiff with accept/reject rendered in a pane."
+      ],
+      "passes": false,
+      "dependencies": [
+        74
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/102-editor-as-claude-ide.md; orchestrator/runtime/ide.mjs; the bridge lifecycle and POST /api/ide-selection in orchestrator/runtime/worker.mjs; pid on /api/state in orchestrator/server/main.mjs; orchestrator/tests/ide.test.mjs.",
+      "external_references": [],
+      "evidence": [
+        "orchestrator/tests/ide.test.mjs: the lock file is the one Claude Code knows how to read",
+        "orchestrator/tests/ide.test.mjs: an MCP client over the socket lists the tools and reads diagnostics",
+        "orchestrator/tests/ide.test.mjs: a connection without the token is refused",
+        "orchestrator/tests/ide.test.mjs: a selection posted by the desktop reaches a connected CLI",
+        "orchestrator/tests/ide.test.mjs: stale locks are collected and the bridge removes its own",
+        "docs/evidence/editor-as-claude-ide-2026-09-07.md: the real CLI connecting, the observed handshake and the eight sabotages"
+      ]
     }
   ]
 }
