@@ -6,8 +6,12 @@
 #define STB_TEXTEDIT_UNDOCHARCOUNT 16384
 #include "stb_textedit.h"
 
+#define RE_EDITOR_DIAGNOSTICS 256
+typedef struct { int start_line, start_character, end_line, end_character, severity; } ReDiagnostic;
+
 struct ReEditor {
   uint32_t *text; int length, capacity, revision;
+  ReDiagnostic diagnostics[RE_EDITOR_DIAGNOSTICS]; int diagnostic_count;
   STB_TexteditState state;
   int scroll, horizontal, cw, lh;
   bool vim, insert, dragging, readonly; char pending, ignore_text;
@@ -124,6 +128,52 @@ static void position(const ReEditor *e, int offset, int *line, int *character) {
     if (e->text[i] == '\n') { (*line)++; *character = 0; }
     else *character += e->text[i] > 0xFFFF ? 2 : 1;
   }
+}
+
+/* Severity is the protocol's: 1 error, 2 warning, 3 information, 4 hint. Anything else is drawn as
+   information rather than dropped, because a server inventing a severity is still telling us
+   something is there. */
+static mu_Color diagnostic_colour(int severity) {
+  if (severity == 1) return RE_COLOR_ERR;
+  if (severity == 2) return RE_COLOR_WARN;
+  return RE_COLOR_INFO;
+}
+
+void re_editor_diagnostics(ReEditor *e, const cJSON *items) {
+  if (!e) return;
+  e->diagnostic_count = 0;
+  const cJSON *item = NULL;
+  cJSON_ArrayForEach(item, items) {
+    if (e->diagnostic_count >= RE_EDITOR_DIAGNOSTICS) break;
+    const cJSON *range = cJSON_GetObjectItemCaseSensitive(item, "range");
+    const cJSON *start = cJSON_GetObjectItemCaseSensitive(range, "start");
+    const cJSON *end = cJSON_GetObjectItemCaseSensitive(range, "end");
+    if (!cJSON_IsObject(start) || !cJSON_IsObject(end)) continue;
+    ReDiagnostic *d = &e->diagnostics[e->diagnostic_count++];
+    d->start_line = (int)re_number(start, "line"); d->start_character = (int)re_number(start, "character");
+    d->end_line = (int)re_number(end, "line"); d->end_character = (int)re_number(end, "character");
+    d->severity = (int)re_number(item, "severity");
+  }
+}
+
+int re_editor_diagnostic_count(const ReEditor *e) { return e ? e->diagnostic_count : 0; }
+
+/* Whether this cell is inside a reported range, given the row and the column counted the way the
+   protocol counts it. A zero-width range still marks one cell, or a diagnostic pointing at a missing
+   semicolon would be invisible. */
+static bool diagnostic_under(const ReEditor *e, int row, int character, mu_Color *colour) {
+  for (int i = 0; i < e->diagnostic_count; i++) {
+    const ReDiagnostic *d = &e->diagnostics[i];
+    if (row < d->start_line || row > d->end_line) continue;
+    if (row == d->start_line && character < d->start_character) continue;
+    if (row == d->end_line) {
+      int last = d->end_character > d->start_character || d->end_line > d->start_line ? d->end_character : d->start_character + 1;
+      if (character >= last) continue;
+    }
+    *colour = diagnostic_colour(d->severity);
+    return true;
+  }
+  return false;
 }
 
 void re_editor_selection(const ReEditor *e, ReSelection *selection, char *text, int size) {
@@ -339,12 +389,19 @@ void re_editor_draw(ReEditor *e, ReDraw *draw, mu_Rect r, bool focused) {
   ensure_states(e, e->scroll + rows + 1);
   ReLineKinds kinds; kinds.chars = 0;
   uint32_t carry = 0; int line_start = 0, drawn_row = -1;
-  int row = 0, col = 0, selection_a = re_min(e->state.select_start, e->state.select_end), selection_b = re_max(e->state.select_start, e->state.select_end);
+  /* `col` is where the cell is drawn, which tabs stretch; `character` is what the protocol counts,
+     which they do not. A diagnostic range has to be compared against the second. */
+  int row = 0, col = 0, character = 0;
+  int selection_a = re_min(e->state.select_start, e->state.select_end), selection_b = re_max(e->state.select_start, e->state.select_end);
   for (int i = 0; i <= e->length; i++) {
     int x = r.x + (col - e->horizontal) * e->cw, y = r.y + (row - e->scroll) * e->lh;
     if (y >= r.y + r.h) break;
     if (row >= e->scroll) {
       if (i >= selection_a && i < selection_b) re_draw_rect(draw, mu_rect(x, y, e->cw, e->lh), RE_COLOR_SELECTION);
+      mu_Color mark;
+      if (e->diagnostic_count && diagnostic_under(e, row, character, &mark)) {
+        re_draw_rect(draw, mu_rect(x, y + e->lh - RE_METRIC_EDITOR_DIAGNOSTIC_HEIGHT, e->cw, RE_METRIC_EDITOR_DIAGNOSTIC_HEIGHT), mark);
+      }
       if (focused && i == e->state.cursor) re_draw_rect(draw, mu_rect(x, y, e->vim && !e->insert ? e->cw : RE_METRIC_EDITOR_CARET_WIDTH, e->lh), RE_COLOR_CARET);
       if (i < e->length && e->text[i] != '\n' && e->text[i] != '\t') {
         if (e->language != RE_LANG_PLAIN && drawn_row != row) {
@@ -361,7 +418,9 @@ void re_editor_draw(ReEditor *e, ReDraw *draw, mu_Rect r, bool focused) {
         char text[5]; re_encode(e->text[i], text); re_draw_text(draw, text, -1, x, y, colour);
       }
     }
-    if (i < e->length && e->text[i] == '\n') { row++; col = 0; } else col += i < e->length && e->text[i] == '\t' ? RE_METRIC_EDITOR_TAB_CELLS : 1;
+    if (i < e->length && e->text[i] == '\n') { row++; col = 0; character = 0; }
+    else { col += i < e->length && e->text[i] == '\t' ? RE_METRIC_EDITOR_TAB_CELLS : 1;
+           character += i < e->length && e->text[i] > 0xFFFF ? 2 : 1; }
   }
   re_draw_clip(draw, NULL);
   re_scrollbar_draw(&e->vertical, draw); re_scrollbar_draw(&e->horizontal_bar, draw);

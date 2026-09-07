@@ -438,6 +438,7 @@
       "top": 59,
       "bottom": 85,
       "caret-width": 2,
+      "diagnostic-height": 2,
       "error-height": 23,
       "error-inset": 2,
       "tab-cells": 4
@@ -637,9 +638,9 @@
       "game exited"
     ],
     "token": [
-      "Token \u00b7 free",
-      "Token \u00b7 <holder label>",
-      "Contest \u00b7 <contester label> \u00b7 <n>s",
+      "Token · free",
+      "Token · <holder label>",
+      "Contest · <contester label> · <n>s",
       "Project token",
       "Nobody holds this project's token.",
       "Reject",

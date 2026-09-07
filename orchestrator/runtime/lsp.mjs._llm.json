@@ -30,8 +30,8 @@
       "id": "one-pass-glob",
       "kind": "history",
       "anchor": {
-        "start": 252,
-        "end": 252,
+        "start": 256,
+        "end": 256,
         "symbol": "matches",
         "snippet": "const source = pattern.replace(/\\*\\*\\/|\\*|\\?|[.+^${}()|\\\\]/g, token =>"
       },
@@ -43,7 +43,7 @@
   ],
   "source": {
     "path": "orchestrator/runtime/lsp.mjs",
-    "sha256": "28488c7f3dbdc6832496ac406ed0d21a1a0420b6cac0b485a46268ec2dd1c47e",
+    "sha256": "86abed25876d6bb7a83edc08a697b186637e407464ec7a8ff1be0a8e79e1cffe",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

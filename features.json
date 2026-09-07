@@ -1357,7 +1357,7 @@
         "A declared server that is missing from the machine is reported as unavailable, by name and with what was looked for, and the workspace keeps working — an editor pane still opens and edits files.",
         "The worker owns the server processes and the LSP session: initialize with the workspace roots, textDocument/didOpen, didChange and didClose driven by what the editor actually has open, and shutdown when the last document closes or the worker retires, leaving no orphaned server process.",
         "Document sync carries the editor's unsaved buffer, not the file on disk, so diagnostics describe what the person is looking at; positions cross the boundary as UTF-16 line and character, which is what the protocol counts, verified against tabs and multi-byte characters.",
-        "publishDiagnostics reaches two consumers from one store: the editor pane renders them, and mcp__ide__getDiagnostics answers with the same set for a file, so the agent and the person never disagree about what is broken. PARTLY MET: the store is one and getDiagnostics reads it, so an agent gets the real answer; the editor pane does not yet render them, so the person still sees nothing. The disagreement the criterion forbids cannot happen yet because only one consumer reads, but the criterion is not met until the pane draws them.",
+        "publishDiagnostics reaches two consumers from one store: the editor pane renders them, and mcp__ide__getDiagnostics answers with the same set for a file, so the agent and the person never disagree about what is broken. MET: the pane asks the worker twice a second, is answered `unchanged` almost every time, and draws an underline under each reported range coloured by severity; the same store answers mcp__ide__getDiagnostics. LIMIT, recorded rather than glossed: the spec asserts the count the pane holds and that it stays held, not the cells the underline lands on — the draw loop's own column tracking is exercised on every frame but not asserted positionally.",
         "A server that crashes is restarted with a bounded backoff, its diagnostics are cleared rather than left stale, and repeated failure is reported instead of retried forever.",
         "Parsed output from a declared check action remains a second source merged into the same store, distinguishable by origin, because a build reports failures no language server sees. NOT MET: the second source is not built; only the protocol's own diagnostics are served.",
         "Each regression was observed failing for its own reason."
@@ -1375,7 +1375,8 @@
         "orchestrator/tests/lsp.test.mjs: a declared server that is not on the machine is named, and the workspace keeps working",
         "orchestrator/tests/lsp.test.mjs: a server that crashes is restarted, and its diagnostics do not outlive it",
         "orchestrator/tests/ide.test.mjs: getDiagnostics answers with what the project's declared language server published",
-        "docs/evidence/editor-as-claude-ide-2026-09-07.md: the six LSP sabotages"
+        "docs/evidence/editor-as-claude-ide-2026-09-07.md: the six LSP sabotages",
+        "orchestrator/tests/native-diagnostics.spec.mjs: the editor pane draws what the project's language server said"
       ]
     },
     {

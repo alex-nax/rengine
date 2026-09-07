@@ -5,8 +5,8 @@
       "id": "window-layout-binding",
       "kind": "rationale",
       "anchor": {
-        "start": 13,
-        "end": 13,
+        "start": 14,
+        "end": 14,
         "snippet": "static int request_within(ReApp *a, int operation, int tab, const char *route, const cJSON *body, long timeout) {"
       },
       "note": "A supervisor-supplied window ID scopes only state/layout requests. File/draft/session requests retain their explicit tab root and the legacy desktop keeps its original global layout. Changing project focus never rewrites a tab or MCP binding.",
@@ -18,8 +18,8 @@
       "id": "row-cap-rules",
       "kind": "rationale",
       "anchor": {
-        "start": 97,
-        "end": 121,
+        "start": 98,
+        "end": 122,
         "symbol": "enforce_row_cap",
         "snippet": "static void enforce_row_cap(ReApp *a, int tab, const char *opening) {"
       },
@@ -33,8 +33,8 @@
       "id": "tab-strip-reveal-after-layout-change",
       "kind": "rationale",
       "anchor": {
-        "start": 142,
-        "end": 142,
+        "start": 143,
+        "end": 143,
         "snippet": "void re_app_layout_changed(ReApp *a) {"
       },
       "note": "Explicit selection, move, split, collapse and restore-related placement must reveal the selected header. Invalidate each ephemeral strip width on layout changes, including reuse of an old pane index with the same width/count/selected tab; comparing those values alone misses split/merge round trips after scrolling away from the selected tab. Header browsing itself does not call this function, so it can show other tabs without switching content.",
@@ -46,8 +46,8 @@
       "id": "draft-save-ordering",
       "kind": "rationale",
       "anchor": {
-        "start": 147,
-        "end": 147,
+        "start": 148,
+        "end": 148,
         "snippet": "static void checkpoint(ReApp *a, int tab) {"
       },
       "note": "Drafts and saves go through the same FIFO HTTP worker. Do not checkpoint with a stale base version while Save is in flight. A save acknowledgement updates the baseline without dropping later edits; Discard blocks editing until the replacement file arrives. Closing views retains editor buffers/drafts, and normal GUI exit waits for persistence requests. Native layout stores historical layout data without loading the retired browser renderer.",
@@ -59,8 +59,8 @@
       "id": "devices-route",
       "kind": "rationale",
       "anchor": {
-        "start": 210,
-        "end": 210,
+        "start": 211,
+        "end": 211,
         "snippet": "static void devices_request(ReApp *a, int tab, bool refresh) {"
       },
       "note": "A devices load runs every declared probe, so it cannot use the 5 s default deadline a filesystem answer needs: one ssh probe with ConnectTimeout=4 against a box that is off already eats most of it, and the contract caps a probe at 60 s. Hence RE_DEVICES_TIMEOUT_MS. The refresh flag is appended to the query rather than threaded through re_net_query, which builds only rootId and path; the service reads refresh=1 and bypasses its brief probe cache. The tab is deliberately NOT auto-opened the way the dashboard is: probes must run only on an explicit availability check, so opening the section or pressing Refresh is what triggers them, never a background probe on connect.",
@@ -72,8 +72,8 @@
       "id": "external-game-view",
       "kind": "rationale",
       "anchor": {
-        "start": 293,
-        "end": 293,
+        "start": 294,
+        "end": 294,
         "snippet": "static void open_view(ReApp *a, ReTab *t) {"
       },
       "note": "A game tab's view depends on the surface the workspace state reports for its session: embedded opens the frame socket, external opens the same retained-PTY terminal a shell uses (the process is already a node-pty child). The choice is made wherever a view opens (new tab, reuse, layout restore, session-browser Attach) so restored layouts pick the right view once state has loaded. RE_GAME stays the tab type so Sessions, Attach, Stop, detach and layout persistence are unchanged; only the presentation differs.",
@@ -85,8 +85,8 @@
       "id": "format-mode-decision",
       "kind": "rationale",
       "anchor": {
-        "start": 304,
-        "end": 304,
+        "start": 305,
+        "end": 305,
         "snippet": "void re_app_load(ReApp *a, int tab) {"
       },
       "note": "An editor tab decides its mode once the root's format list is known: a pending view waits for the formats response (fetched once per connection and after a root is added) instead of guessing, a match takes the declared default, no match drops the view so plain text files keep the unchanged editor path. Raw pages through the bytes route; preview posts format-preview with a per-request deadline of the declared timeoutMs plus transport overhead (review finding 6) and names the declared command before the reply so a failure still shows what ran. Persisted modes restore as chosen so the automatic raw fallback never overrides a user choice.",
@@ -98,8 +98,8 @@
       "id": "attach-session-view",
       "kind": "rationale",
       "anchor": {
-        "start": 376,
-        "end": 376,
+        "start": 377,
+        "end": 377,
         "snippet": "static bool session_tab(ReApp *a, const cJSON *session) {"
       },
       "note": "A script/session desktop action reuses the normal explicit-root tab path, returning success only when a tab can be allocated/reused. It creates a view, not a process. The worker checks the session root and desktop capability; native acknowledgement is distinct from later script completion.",
@@ -111,8 +111,8 @@
       "id": "show-resumed-agent",
       "kind": "rationale",
       "anchor": {
-        "start": 432,
-        "end": 432,
+        "start": 433,
+        "end": 433,
         "snippet": "static void state_loaded(ReApp *a, const cJSON *j) {"
       },
       "note": "Ordinary layout restoration does not reselect an initial session whose view is already visible: retain the selected editor and pane. Explicit handoff presentation still selects its pending resumed agent so the once-only readiness gate can open. Project windows load/save their own layout namespace and use each session’s original root even when the tree is a different project.",
@@ -125,8 +125,8 @@
       "id": "dashboard-auto-open",
       "kind": "rationale",
       "anchor": {
-        "start": 492,
-        "end": 492,
+        "start": 493,
+        "end": 493,
         "snippet": "static void dashboard_probed(ReApp *a, const cJSON *j) {"
       },
       "note": "Each root is probed once per connection after its format list arrives; a dashboard with groups opens a tab automatically only when the persisted layout records no earlier auto-open for that root and no dashboard tab is in the layout, and it never changes the active pane. A failed probe settles like a failed formats request so nothing waits on a null placeholder. Run requests reuse OP_CREATE so the returned session becomes a tab exactly like the toolbar's Shell; captures report the written path in the status line; reveal retargets the root's existing tree tab (or creates one) to the artifact's directory and selects it.",
@@ -138,8 +138,8 @@
       "id": "raw-fallback-and-staleness",
       "kind": "edge-case",
       "anchor": {
-        "start": 500,
-        "end": 500,
+        "start": 501,
+        "end": 501,
         "snippet": "static bool raw_fallback(ReApp *a, RePending *p, ReTab *t, int status) {"
       },
       "note": "Only a 400 from the text read (binary, invalid UTF-8, legacy line endings, over 2 MiB) flips an unchosen text tab to raw; 404/403/409 stay visible errors. Mode switches bump the tab generation and format replies also carry the mode they were requested for, so a reply from a previous mode is dropped rather than painted into the wrong view. Leaving text mode requires a clean buffer and closes the editor so hidden text can never receive keystrokes or checkpoints. A failed formats request settles its root as declared-with-error through the same formats_loaded path, so pending text tabs open normally and the status line shows the problem instead of waiting on a null placeholder forever (review finding 2); a transport timeout on a preview/entry request names the declared budget.",
@@ -151,8 +151,8 @@
       "id": "desktop-action-registration",
       "kind": "rationale",
       "anchor": {
-        "start": 638,
-        "end": 638,
+        "start": 666,
+        "end": 666,
         "snippet": "static void register_desktop(ReApp *a) {"
       },
       "note": "Register the current project and retained view bindings only when the same connected service advertises desktopActions version 1. Layout changes refresh these bindings; disconnect clears the ephemeral desktop ID so reconnection registers a new target. Older services receive no unsupported registration. Accept reload only for the assigned ID, reload-capable launcher and non-closing view; enqueue acknowledgement before setting reload_requested. This signals routine acceptance, not persistence/build completion. The native view never replaces its service, launches a CLI, or owns retained processes. Optional owner and per-spawn view stamps let the supervisor verify a newly presented replacement instead of accepting stale registration from its predecessor. They identify native views, not session ownership.",
@@ -164,8 +164,8 @@
       "id": "reattach-retained-streams",
       "kind": "rationale",
       "anchor": {
-        "start": 664,
-        "end": 664,
+        "start": 692,
+        "end": 692,
         "snippet": "if (!strcmp(type, \"connected\")) {"
       },
       "note": "Process at most 128 stream messages per tick so continuous output yields to SDL input and rendering. On connection, refresh initialized workspace state and attach existing terminal IDs without creating sessions or repeating a handoff prompt. Local editor buffers, layout and immutable root/session bindings survive this recovery. Inspection reports each terminal attachment separately: a retained old screen plus a live socket is not proof that a fresh snapshot arrived. Terminal text inspection follows the currently drawn viewport, with historyLines and scrollOffset for native acceptance checks.",
@@ -177,8 +177,8 @@
       "id": "recording-lifecycle",
       "kind": "rationale",
       "anchor": {
-        "start": 700,
-        "end": 700,
+        "start": 728,
+        "end": 728,
         "snippet": "  re_recording_sync(a);"
       },
       "note": "One call a tick owns the whole recorder lifecycle: it creates a recorder for a game tab that has a live surface, closes one whose tab lost its game, commits an open explicit segment when the session snapshot stops saying running, and drains a commit in flight. Putting it on the tick rather than in the tab-opening path means a restored layout, an Attach from the session browser and RENGINE_INITIAL_GAME all reach it without a third place to remember. Session output is routed separately, from the events loop above, because the recorder timestamps a log line when its newline arrives — the only clock it shares with the frames.",
@@ -190,8 +190,8 @@
       "id": "drain-terminal-input-before-quit",
       "kind": "rationale",
       "anchor": {
-        "start": 712,
-        "end": 712,
+        "start": 741,
+        "end": 741,
         "snippet": "bool re_app_quit(ReApp *a) {"
       },
       "note": "On the first close/reload attempt, release held terminal buttons before teardown. Keep ticking native input/rendering until the connected events socket has handed queued/in-flight output to libcurl, in addition to existing durable draft/layout requirements. An observed native test previously lost the final mouse-up when re_app_close queued it immediately before stopping the stream worker. Bound this send drain to two seconds; cancel close/reload visibly if the stream stays busy. Disconnected output is already discarded, so it does not become a replay queue. Drain is transport completion, not a remote application acknowledgement.",
@@ -203,8 +203,8 @@
       "id": "inspect-reports-window-size",
       "kind": "rationale",
       "anchor": {
-        "start": 739,
-        "end": 739,
+        "start": 768,
+        "end": 768,
         "snippet": "cJSON *re_app_inspect(ReApp *a) {"
       },
       "note": "Inspection reports the window size beside the control rectangles so a fixture can check that a row of controls adds up to it. The toolbar lays its cells out left to right with explicit rects and reserves the trailing cells' widths and gaps before sizing the path field, so adding or removing a cell without correcting that reservation still compiles and only renders one gap wrong. native-game-declaration.spec.mjs pins it: the last cell's right edge must land on the toolbar padding. The size is the drawn logical size re_app_ui was last called with, not the SDL window's pixels, so it matches the rects it is compared against on a HiDPI display."
@@ -213,8 +213,8 @@
       "id": "game-tab-surface-report",
       "kind": "rationale",
       "anchor": {
-        "start": 783,
-        "end": 783,
+        "start": 817,
+        "end": 817,
         "snippet": "      const char *surface = t->terminal ? \"external\" : game_session_surface(a, t->session);"
       },
       "note": "The view selection asks whether a session IS external, so every other surface opens the live game view -- which is what lets a newer server's cooperative session (spec 078, F77) render on a desktop that predates the value, with no native change. This report used to infer the surface back from the view (t->terminal ? external : embedded) and so called every streaming tab embedded; it now reports what the session declares, keeping 'embedded' only as the fallback for a game session that carries no surface at all -- which the fixtures in native-game.spec.mjs and native-recording.spec.mjs construct directly. Automation reads this, so a wrong label here is a test that cannot tell the two streaming surfaces apart."
@@ -223,8 +223,8 @@
       "id": "ended-session-views",
       "kind": "rationale",
       "anchor": {
-        "start": 285,
-        "end": 285,
+        "start": 286,
+        "end": 286,
         "snippet": "static bool session_known(ReApp *a, const char *id) {"
       },
       "note": "A restored layout can name sessions this workspace does not have: they ended with the host that owned them, and the layout in the store outlived it (spec 098). Such a view is marked `session_ended` rather than pretended to be live — nothing is attached for it, `register_desktop` leaves its id out of `sessionIds`, `re_app_inspect` reports `sessionEnded`, and the status bar says how many views are in that state and that Sessions has the conversation (spec 097/099). Advertising those ids used to make the host refuse the entire registration, which cost the workspace its whole runtime layer (KI-064). The tab itself is kept: it is the person's layout, and removing tabs to fix a protocol problem would be a worse trade.",
@@ -236,7 +236,7 @@
   ],
   "source": {
     "path": "orchestrator/native/app.c",
-    "sha256": "f0694e9701c1060ef0410444ab50a080d09f4abeae3a5c5f55d7006c640d5089",
+    "sha256": "469dec00f993eaaff109ccc3c27537b8ae0b59d7c5f7519f8e89630e6bb4d219",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

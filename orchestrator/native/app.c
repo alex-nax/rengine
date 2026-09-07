@@ -4,12 +4,13 @@
 /* Operations at or above OP_BYTES belong to a format view and carry its mode in `revision`;
  * everything else must sort below it, or the request path reads a format that is not there. */
 enum { OP_STATE = 1, OP_LOAD, OP_SAVE, OP_DRAFT, OP_DISCARD, OP_CREATE, OP_ROOT, OP_GENERIC, OP_LAYOUT, OP_EXPAND,
-       OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_SIGNIN, OP_BYTES, OP_PREVIEW, OP_ENTRY };
+       OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_SIGNIN, OP_DIAGNOSTICS, OP_BYTES, OP_PREVIEW, OP_ENTRY };
 /* Enforced rather than remembered. A merge that appends a new operation after OP_BYTES makes the
  * request path read a format a tracker or agent tab does not have, and the symptom is a request that
  * never completes rather than an error where the mistake was made. */
 typedef char re_signin_sorts_below_bytes[OP_SIGNIN < OP_BYTES ? 1 : -1];
 typedef char re_expand_sorts_below_bytes[OP_EXPAND < OP_BYTES ? 1 : -1];
+typedef char re_diagnostics_sorts_below_bytes[OP_DIAGNOSTICS < OP_BYTES ? 1 : -1];
 static int request_within(ReApp *a, int operation, int tab, const char *route, const cJSON *body, long timeout) {
   char scoped[160]; const char *window = getenv("RENGINE_WINDOW_ID");
   if (window && *window && (!strcmp(route, "state") || !strcmp(route, "layout"))) {
@@ -573,6 +574,16 @@ static void response(ReApp *a, ReMessage *m) {
     case OP_ROOT: re_copy(a->root, sizeof(a->root), re_string(j, "id")); request(a, OP_STATE, -1, "state", NULL); re_app_tab(a, RE_TREE, a->root, "", "", "Project"); break;
     case OP_CREATE: update_session(a, j); session_tab(a, j); break;
     case OP_GENERIC: if (*re_string(j, "id")) update_session(a, j); break;
+    /* The version is kept even when nothing changed, so the next ask is answered `unchanged` again
+       rather than re-sending a list the editor is already drawing. */
+    case OP_DIAGNOSTICS: {
+      if (!t || !t->editor) break;
+      t->diagnostic_version = re_number(j, "version");
+      if (!cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(j, "unchanged"))) {
+        re_editor_diagnostics(t->editor, cJSON_GetObjectItemCaseSensitive(j, "items"));
+      }
+      break;
+    }
     case OP_BYTES: if (re_format_bytes(t->format, j)) t->error[0] = 0; else re_copy(t->error, sizeof(t->error), "Byte window has an unexpected shape."); break;
     case OP_PREVIEW: case OP_ENTRY:
       if (re_format_result(t->format, j)) { if (p.operation == OP_PREVIEW) t->error[0] = 0; }
@@ -633,6 +644,23 @@ static void report_selection(ReApp *a, Uint64 now) {
   }
   request(a, OP_GENERIC, -1, "ide-selection", body);
   cJSON_Delete(body);
+}
+
+/* What the language servers said, asked for twice a second while an editor pane is focused and
+ * answered `unchanged` almost every time. A push would be better and belongs with the feed the
+ * worker already runs; this is the version that works without one. */
+static void poll_diagnostics(ReApp *a, Uint64 now) {
+  ReTab *t = a->focus >= 0 && a->focus < RE_TABS ? &a->tabs[a->focus] : NULL;
+  if (!a->net || !a->connected || !t || !t->used || !t->editor) return;
+  if (re_number(cJSON_GetObjectItemCaseSensitive(a->state, "capabilities"), "ide") != 1) return;
+  if (now < a->diagnostics_asked + 500) return;
+  a->diagnostics_asked = now;
+  char *route = re_net_query("diagnostics", t->root, t->path);
+  if (!route) return;
+  char scoped[2600];
+  snprintf(scoped, sizeof(scoped), "%s&since=%d", route, t->diagnostic_version);
+  free(route);
+  request(a, OP_DIAGNOSTICS, a->focus, scoped, NULL);
 }
 
 static void register_desktop(ReApp *a) {
@@ -700,6 +728,7 @@ void re_app_tick(ReApp *a) {
   re_recording_sync(a);
   Uint64 now = SDL_GetTicks64();
   report_selection(a, now);
+  poll_diagnostics(a, now);
   for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].editor) {
     ReTab *t = &a->tabs[i]; t->dirty = t->saved != re_editor_revision(t->editor);
     if (now >= t->edited + 250 || a->quitting) checkpoint(a, i);
@@ -769,7 +798,12 @@ cJSON *re_app_inspect(ReApp *a) {
       ReTerminalScroll scroll = re_terminal_scroll_state(t->terminal);
       cJSON_AddNumberToObject(tab, "historyLines", scroll.lines); cJSON_AddNumberToObject(tab, "scrollOffset", scroll.offset);
     }
-    if (t->editor) cJSON_AddStringToObject(tab, "mode", re_editor_mode(t->editor));
+    if (t->editor) {
+      cJSON_AddStringToObject(tab, "mode", re_editor_mode(t->editor));
+      /* How many the pane is drawing, so what the person sees is inspectable as a number
+         rather than only as pixels. */
+      cJSON_AddNumberToObject(tab, "diagnostics", re_editor_diagnostic_count(t->editor));
+    }
     if (t->terminal || t->editor) {
       cJSON *bars = cJSON_AddArrayToObject(tab, "scrollbars");
       if (t->terminal) re_terminal_scrollbars(t->terminal, bars); else re_editor_scrollbars(t->editor, bars);

@@ -194,7 +194,7 @@
   ],
   "source": {
     "path": "orchestrator/runtime/worker.mjs",
-    "sha256": "7ae4dade227118a8b7bd28889f8d1027f74b96c5c3ff78419fe1fb8651ac9a8b",
+    "sha256": "ba51b50b3f5c91622423304e0a3b1a6fb71a12293a936b4dbc18518b58efefb0",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

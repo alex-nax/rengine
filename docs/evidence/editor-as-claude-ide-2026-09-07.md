@@ -144,10 +144,32 @@ thing.
   which leaves a real window. Separately, the fake server needed to flush stdout before exiting —
   `process.exit` after a write to a pipe drops the write.
 
+## The pane draws them too
+
+The editor pane now asks the worker for its file's diagnostics twice a second — answered `unchanged`
+almost every time, against a version the pane already drew — and underlines each reported range in
+the severity's colour. A native spec drives the real desktop against a real worker with a real
+declared server: the file opens, the pane reports drawing one diagnostic, and typing an unsaved line
+takes it to two while the file on disk is untouched.
+
+| | Sabotage | Red for |
+| --- | --- | --- |
+| D1 | the pane never asks | `the pane draws the server's diagnostic not reached` |
+| D2 | an `unchanged` answer is taken as an empty list | the count did not stay drawn between polls |
+| D3 | the unsaved buffer is never sent | nothing to report, because the file on disk has no second TODO |
+
+**D2 passed the first time, and that mattered.** The original assertion was a poll-until, which the
+sabotaged build satisfied by flickering: the count alternated between one and none twice a second and
+the poll caught it on a good tick. A test that passes because it sampled at the right moment has not
+established anything. The assertion now samples six times over a second and requires the count to
+*stay*, which the sabotage fails.
+
+**A limit worth stating rather than glossing:** the spec asserts the count the pane holds, not the
+cells the underline lands on. The draw loop tracks the protocol's column separately from the
+selection path's conversion, and that tracking runs on every frame but is not asserted positionally.
+
 ## What is not met, and said so in the row
 
-- The editor pane does not render diagnostics yet, so the "two consumers, one store" criterion is
-  only half true: an agent gets the real answer, the person still sees nothing. Marked PARTLY MET.
 - Parsed check-action output as a second source is not built. Marked NOT MET.
 
 ## What is not done

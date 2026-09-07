@@ -5,8 +5,8 @@
       "id": "native-editor-scope",
       "kind": "rationale",
       "anchor": {
-        "start": 248,
-        "end": 248,
+        "start": 298,
+        "end": 298,
         "snippet": "static void vim_key(ReEditor *e, SDL_Keycode k) {"
       },
       "note": "The native buffer stores Unicode codepoints and delegates selection/edit/undo mechanics to pristine stb_textedit. Vim is the explicitly documented initial subset, not full Vim emulation. A mode-changing i/a/o key also generates SDL_TEXTINPUT in a real window; ignore that initiating character once so entering insert mode does not insert the command itself. Storage converts back to UTF-8 through the service, which enforces encoded byte and line-ending policies.",
@@ -18,8 +18,8 @@
       "id": "viewport-scroll-extents",
       "kind": "rationale",
       "anchor": {
-        "start": 215,
-        "end": 215,
+        "start": 265,
+        "end": 265,
         "snippet": "static mu_Rect viewport(ReEditor *e, mu_Rect r, int cw, int lh) {"
       },
       "note": "Cache line count and longest visual line by buffer revision, counting tabs as four columns to match drawing. Account for each overflow bar consuming space on the other axis, then clamp offsets after edits/resizes. Include one cursor column at the longest line. Bar input is handled before text selection, wheel uses signed precise deltas, and focus loss cancels both bar capture and selection dragging. Navigation never increments the document revision.",
@@ -31,8 +31,8 @@
       "id": "read-only-buffers",
       "kind": "constraint",
       "anchor": {
-        "start": 37,
-        "end": 37,
+        "start": 41,
+        "end": 41,
         "snippet": "static bool insert_chars(ReEditor *e, int at, const uint32_t *text, int length) {"
       },
       "note": "Read-only is enforced at the two stb_textedit mutation hooks so paste, cut, typing and Vim commands all become no-ops while navigation, selection and copy keep working; the revision never changes, so no draft is ever checkpointed for a preview or entry buffer. Set the flag after re_editor_open, which itself inserts the initial text through the same hook.",
@@ -43,7 +43,7 @@
   ],
   "source": {
     "path": "orchestrator/native/editor.c",
-    "sha256": "ae784a77326222d1d550af3b88d3925b79edbe57e14dc1e8b4b3540df0994221",
+    "sha256": "b0a24e043f114ed013b9f6ea98d65e9dc6ad924ada89ecd87c6e79ddde633b30",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

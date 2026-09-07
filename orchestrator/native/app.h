@@ -14,6 +14,7 @@ typedef struct {
   bool session_ended;                        /* its session is gone from the workspace state: it ended with a previous host (spec 098) */
   char root[65], session[65], path[2048], title[256], version[65], error[512];
   char selected[1024];                       /* the last row opened here; its branch is never collapsed */
+  int diagnostic_version;    /* the language servers' publish counter this tab has already drawn */
   cJSON *data; ReTerminal *terminal; ReEditor *editor; ReGame *game; ReFormatView *format; ReRecorder *recorder;
   mu_Rect rect, header; Uint64 edited;
 } ReTab;
@@ -59,6 +60,7 @@ typedef struct ReApp {
    * reported again and a held arrow key does not send a frame's worth of notifications. */
   char selection[192]; Uint64 selection_sent;
   char buffered[320];        /* file and revision of the last buffer sent to the language servers */
+  Uint64 diagnostics_asked;  /* when the focused editor last asked what the servers had said */
   int scene;
 } ReApp;
 /* The overlay layer. Opening one closes the other, so the kind is a single value (spec 080). */

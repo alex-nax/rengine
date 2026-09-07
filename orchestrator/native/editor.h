@@ -18,6 +18,10 @@ void re_editor_scrollbars(ReEditor *editor, cJSON *array);
  * selected, start and end are the caret. `text` receives the selected text, truncated to `size`. */
 typedef struct { int start_line, start_character, end_line, end_character; } ReSelection;
 void re_editor_selection(const ReEditor *editor, ReSelection *selection, char *text, int size);
+/* What the project's language servers said about this buffer, in the same units: the editor draws an
+ * underline under each range. Ranges outside the buffer are kept as given and simply never drawn. */
+void re_editor_diagnostics(ReEditor *editor, const cJSON *items);
+int re_editor_diagnostic_count(const ReEditor *editor);
 void re_editor_event(ReEditor *editor, const SDL_Event *event, mu_Rect rect, int cw, int lh);
 void re_editor_draw(ReEditor *editor, ReDraw *draw, mu_Rect rect, bool focused);
 #endif

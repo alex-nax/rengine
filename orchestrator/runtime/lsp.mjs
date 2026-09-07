@@ -197,6 +197,7 @@ export class LanguageServers {
     this.options = options;
     this.byId = new Map();
     this.diagnostics = new Map();        /* uri -> [{ from, items }] */
+    this.version = 0;
     for (const entry of declared ?? []) {
       this.byId.set(entry.id, new Server(entry, root, { ...options, onDiagnostics: (uri, items, from) => this.record(uri, items, from) }));
     }
@@ -205,6 +206,9 @@ export class LanguageServers {
   record(uri, items, from) {
     const others = (this.diagnostics.get(uri) ?? []).filter(entry => entry.from !== from);
     this.diagnostics.set(uri, items.length ? [...others, { from, items }] : others);
+    /* Bumped on every publish, including one that clears. A reader polls with the version it drew
+       and is told "nothing new" rather than being handed the same list to re-render. */
+    this.version++;
   }
 
   serving(file) {

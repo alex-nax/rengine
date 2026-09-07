@@ -546,6 +546,19 @@ export async function startWorker(host, options = {}) {
             task: item.task ?? remembered.get(item.conversation)?.task ?? null })) });
       } else if (req.method === 'POST' && target.pathname === '/api/tracker/signin') {
         const data = await body(req); await refresh(); json(res, 200, await trackerSignIn(root(data.rootId), located));
+      } else if (req.method === 'GET' && target.pathname === '/api/diagnostics') {
+        /* What the language servers have said about one file, for the editor pane to draw. The
+           version lets a poller skip a render: the desktop asks twice a second and almost always
+           gets told nothing changed. */
+        const selected = root(target.searchParams.get('rootId'));
+        const group = await serversFor(selected);
+        const version = group.version;
+        const since = Number(target.searchParams.get('since'));
+        if (Number.isInteger(since) && since === version) { json(res, 200, { version, unchanged: true }); }
+        else {
+          const file = path.join(selected.path, target.searchParams.get('path') ?? '');
+          json(res, 200, { version, items: group.for(uriFor(file)), unavailable: group.unavailable() });
+        }
       } else if (req.method === 'POST' && target.pathname === '/api/ide-selection') {
         /* The desktop reports a fact about itself — which file, which range — and this turns it into
            the notification Claude Code understands. The path is resolved here because roots live

@@ -1,5 +1,37 @@
 # Progress Log
 
+## Session 66 (macos) — 2026-09-07 — The pane draws what the server said, and a test that passed for the wrong reason
+
+F102's second consumer. The editor pane asks the worker for its file's diagnostics twice a second,
+is answered `unchanged` against a version it already drew almost every time, and underlines each
+reported range in the severity's colour — error, warning, or information, from the theme rather than
+from a literal. A native spec drives the real desktop against a real worker running a real declared
+server: the file opens, the pane reports one diagnostic, and typing an unsaved line takes it to two
+while the file on disk is untouched.
+
+**The sabotage that passed, and why that was the important one.** Three sabotages: the pane never
+asks, the unsaved buffer is never sent, and an `unchanged` answer is taken as an empty list. The
+first two went red. The third stayed **green** — and it should not have, because without the guard
+the pane flickers between one diagnostic and none twice a second. The original assertion was a
+poll-until, and the sabotaged build satisfied it by being right on the tick the poll happened to
+sample. A test that passes because it looked at a good moment has established nothing. The assertion
+now samples six times across a second and requires the count to *stay*, which the sabotage fails.
+This is the masked-control case from `docs/evidence/blind-regressions-2026-09-06.md` in a new shape:
+there the control hid the subject, here the polling hid the flicker.
+
+The column the underline uses is tracked in the draw loop separately from the conversion the
+selection path does, because one counts drawn cells (tabs stretch) and the other counts what the
+protocol counts (tabs do not). Recorded as a limit rather than glossed: the spec asserts the count
+the pane holds, not the cells the underline lands on.
+
+Metrics gained `editor.diagnostic-height` through `theme.json` and `design.py generate`, so the
+underline's size is a token like everything else and `design.py check` stays happy.
+
+Gates: `npm test` 194/194, `native-diagnostics` and `native-ide-selection` green and both registered
+in `test:desktop`, desktop build clean under the picky set, `./init.sh` and `design.py check` clean,
+sidecars stamped. F102's "two consumers, one store" criterion is now MET with its limit written into
+the row; parsed check-action output as a second source is still NOT MET.
+
 ## Session 65 (macos) — 2026-09-07 — rEdit speaks LSP, and an agent reads what the server said (F102, D37)
 
 `mcp__ide__getDiagnostics` no longer answers "nothing" honestly; it answers what the project's own
