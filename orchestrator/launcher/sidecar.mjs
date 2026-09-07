@@ -5,21 +5,26 @@ import { fileURLToPath } from 'node:url';
 
 const serverMain = fileURLToPath(new URL('../server/main.mjs', import.meta.url));
 const pause = () => new Promise(resolve => setTimeout(resolve, 75));
-const alive = pid => {
+export const alive = pid => {
   if (!Number.isSafeInteger(pid) || pid < 1) return false;
   try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; }
 };
 
-export async function request(instance, route, data) {
+/* Only X-Rengine-* names with printable ASCII values are carried, laid down before the fixed
+   headers, so a caller can never append to or displace Authorization. */
+const carried = headers => Object.fromEntries(Object.entries(headers)
+  .filter(([name, value]) => /^X-Rengine-[A-Za-z-]+$/.test(name) && typeof value === 'string' && /^[\x20-\x7e]{1,256}$/.test(value)));
+
+export async function request(instance, route, data, headers = {}) {
   const response = await fetch(`${instance.url}/api/${route}`, { method: data === undefined ? 'GET' : 'POST',
-    headers: { Authorization: `Bearer ${instance.token}`, 'Content-Type': 'application/json' },
+    headers: { ...carried(headers), Authorization: `Bearer ${instance.token}`, 'Content-Type': 'application/json' },
     ...(data === undefined ? {} : { body: JSON.stringify(data) }), signal: AbortSignal.timeout(10000) });
   const body = await response.json();
   if (!response.ok) throw new Error(body.error ?? `Sidecar returned ${response.status}`);
   return body;
 }
 
-async function discover(directory) {
+export async function discoverSidecar(directory) {
   let instance;
   try { instance = JSON.parse(await readFile(path.join(directory, 'sidecar.json'), 'utf8')); }
   catch (error) { if (error.code === 'ENOENT') return null; throw error; }
@@ -40,7 +45,7 @@ async function discover(directory) {
 
 export async function ensureSidecar(directory) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
-  const existing = await discover(directory);
+  const existing = await discoverSidecar(directory);
   if (existing) return existing;
   const lockPath = path.join(directory, 'startup.lock');
   let lock;
@@ -49,7 +54,7 @@ export async function ensureSidecar(directory) {
     try { lock = await open(lockPath, 'wx', 0o600); await lock.writeFile(JSON.stringify({ pid: process.pid })); }
     catch (error) {
       if (error.code !== 'EEXIST') throw error;
-      const ready = await discover(directory); if (ready) return ready;
+      const ready = await discoverSidecar(directory); if (ready) return ready;
       try {
         const owner = JSON.parse(await readFile(lockPath, 'utf8'));
         if (Number.isSafeInteger(owner.pid) && !alive(owner.pid)) { await rm(lockPath, { force: true }); continue; }
@@ -60,7 +65,7 @@ export async function ensureSidecar(directory) {
   }
   let release = true;
   try {
-    const ready = await discover(directory); if (ready) return ready;
+    const ready = await discoverSidecar(directory); if (ready) return ready;
     const log = await open(path.join(directory, 'sidecar.log'), 'a', 0o600);
     const child = spawn(process.execPath, [serverMain, '--state', directory], { detached: true, stdio: ['ignore', log.fd, log.fd], windowsHide: true,
       env: { ...process.env, ELECTRON_RUN_AS_NODE: undefined } });
@@ -75,7 +80,7 @@ export async function ensureSidecar(directory) {
     for (;;) {
       if (failure) { release = true; throw failure; }
       if (!alive(child.pid)) { release = true; throw new Error(`Sidecar exited during startup. See ${path.join(directory, 'sidecar.log')}.`); }
-      const started = await discover(directory);
+      const started = await discoverSidecar(directory);
       if (started) { release = true; return started; }
       if (Date.now() > deadline) throw new Error(`Sidecar PID ${child.pid} is still starting. Inspect sidecar.log; startup ownership is retained.`);
       await pause();

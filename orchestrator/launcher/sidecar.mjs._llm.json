@@ -14,7 +14,7 @@
   ],
   "source": {
     "path": "orchestrator/launcher/sidecar.mjs",
-    "sha256": "6eea153184ea65bd4b6d67ebf5e1c90a488f69228ba8268326d1579c36d614a7",
+    "sha256": "ecda3b32f2c759419909fb75be651a8863c933cf8cc8a0a3eee2d4e2ed9f21a0",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

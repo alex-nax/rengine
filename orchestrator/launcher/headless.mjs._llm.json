@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "no-desktop-from-here",
+      "kind": "constraint",
+      "anchor": {
+        "start": 7,
+        "end": 7,
+        "snippet": "export async function runHeadless({ state, project }) {"
+      },
+      "note": "This module deliberately imports neither build.mjs nor anything that resolves RENGINE_NATIVE_BINARY, and nothing may add such an import here: the whole point is that a headless host comes up on a machine with no C toolchain, which is what an SSH logon on the Windows box is. It reuses ensureSidecar rather than starting a second kind of service, so a headless instance is the same retained service the desktop discovers and authenticates through sidecar.json, reporting the same capabilities. The bind stays loopback with its capability token; reachability across machines is the caller's tunnel and never a routable bind. No agent session is created: a headless host serves sessions and starts no conversation, and launch.mjs refuses the flags that would mean otherwise."
+    },
+    {
+      "id": "ready-line-is-the-contract",
+      "kind": "rationale",
+      "anchor": {
+        "start": 11,
+        "end": 12,
+        "snippet": "console.log(`rengine headless ready url=${instance.url} instance=${instance.instance} pid=${instance.pid} state=${stateDir} root=${root?.id ?? '-'}`);"
+      },
+      "note": "The first line is the machine-readable one and its prefix is what a caller waits for; a wizard otherwise polls for sidecar.json to appear and learns nothing about why it did not. Keep the key=value shape and the 'rengine headless ready' prefix stable. The token is intentionally absent: a headless start is normally redirected into a log file, and mode-0600 sidecar.json is where the desktop launcher already reads the capability from."
+    },
+    {
+      "id": "supervise-without-owning",
+      "kind": "rationale",
+      "anchor": {
+        "start": 13,
+        "end": 22,
+        "snippet": "await new Promise(resolve => {"
+      },
+      "note": "Staying in the foreground gives a scheduled task or service wrapper a process to represent the instance and a non-zero exit when the sidecar dies, which a fire-and-forget start cannot. It does not own the sidecar: SIGINT/SIGTERM clear the interval and remove the handlers so the event loop empties and Node exits after flushing stdout, leaving the sidecar and its retained sessions alive exactly as desktop exit does. Do not replace that natural exit with process.exit(); on a pipe it truncates the final line."
+    }
+  ],
+  "source": {
+    "path": "orchestrator/launcher/headless.mjs",
+    "sha256": "f8e7ddc8e2a48aad1ac3099e91a09a73ac2a98decf360e9b1722c84364b3570d",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

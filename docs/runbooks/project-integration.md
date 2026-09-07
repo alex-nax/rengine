@@ -253,6 +253,27 @@ This adopts the original session host if needed and opens or reuses one window b
 project root, with the existing agent still bound to its own root. Details, inspection, focus,
 close/reopen and the durable `report_integration` transport: `docs/runbooks/project-window-dogfooding.md`.
 
+## 8b. Bind an agent the workspace never spawned
+
+An agent started in a plain terminal — a second lane, a session opened before the window was, an
+agent on a machine where the desktop is not running — has no MCP binding and can only ask a human to
+press the controls it cannot. Bind it by discovery from the rEngine checkout:
+
+```sh
+npm run bind -- --project /absolute/path/to/game-project --agent claude
+```
+
+It reads no `RENGINE_*` environment variable. It scans the sidecar descriptors under
+`${XDG_STATE_HOME:-$HOME/.local/state}/rengine` — the base directory and each of its children, since
+a consumer's `editor.sh` nests one state directory per checkout while this checkout's own default
+state directory is the base — asks every live instance which roots it serves, and picks the one whose
+root is that directory. Two instances claiming it is a refusal naming both, and `--state DIR` names
+the one you mean; none claiming it is a refusal listing every directory scanned, which usually means
+the project's `editor.sh` has not been run yet. The bound agent gets exactly what a pane-spawned one
+gets — its own identity in its own context file — and the command prints the MCP configuration path
+and the flag that consumes it (`claude --mcp-config …`, `codex -c mcp_servers.…`). Without `--agent`
+it prints the flag for each CLI that can consume the configuration as written.
+
 ## 9. Layered update after rEngine lands something
 
 ```sh

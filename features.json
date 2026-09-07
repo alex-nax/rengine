@@ -967,6 +967,30 @@
       "deliverable": "docs/specs/095-project-token.md; identity in orchestrator/agents/{config,launch}.mjs and a new bind.mjs; ledger, feed and gates in orchestrator/runtime/worker.mjs; token_*/feed_* tools and the identity header in orchestrator/agents/mcp-worker.mjs; the status-bar segment in orchestrator/native/app.c",
       "external_references": [],
       "evidence": []
+    },
+    {
+      "id": 85,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "A headless start: run the sidecar alone, with no desktop build, no desktop spawn and no agent, so an instance can be installed on a machine that has no C toolchain and be reached over the caller's own tunnel.",
+      "acceptance_criteria": [
+        "A headless start neither imports build.mjs nor resolves the native binary: it comes up on a machine where no cmake, nmake or compiler is on PATH, which is the condition an SSH logon on the Windows box has and always will.",
+        "It ensures the sidecar through ensureSidecar rather than starting a second kind of service, writes url/token/instance into the chosen --state directory, and answers /api/state with the same capability set the workspace service declares.",
+        "--project registers the root, so the instance is useful the moment it is up.",
+        "It starts no agent session and no terminal session, and it refuses --agent, --handoff, --launch-game, --inspect-ui and --declaration naming the flag and its reason, before any sidecar is started.",
+        "The bind stays 127.0.0.1 with its capability token; a connection to the same port on a routable address is refused.",
+        "It prints one machine-parseable ready line carrying the endpoint, then stays in the foreground; the sidecar and its retained sessions survive that process being stopped, and the process exits non-zero if the sidecar dies.",
+        "It is exposed the way start and resume are: a launcher flag and an npm script. The existing full start path still builds and spawns the desktop unchanged."
+      ],
+      "passes": true,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/090-headless-workspace-start.md, orchestrator/launcher/headless.mjs, the --headless branch in orchestrator/launch.mjs, the start:headless script, and orchestrator/tests/headless.test.mjs",
+      "external_references": [],
+      "evidence": [
+        "docs/evidence/headless-start-macos-2026-09-07.md"
+      ]
     }
   ]
 }
