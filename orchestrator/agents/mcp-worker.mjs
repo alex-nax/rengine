@@ -34,7 +34,7 @@ const server = new McpServer({ name: 'rengine-workspace', version: '1.0.0' }, {
   instructions: 'These tools address the project bound when this agent was launched. List sessions before selecting a process. Closing a workspace view retains the process; stop_session explicitly stops it. File reads use disk text unless useDraft is requested.',
 });
 const tool = (name, description, inputSchema, readOnlyHint, action) => server.registerTool(name, {
-  description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script', 'restart_agent'].includes(name), openWorldHint: ['open_script', 'preview_file', 'dashboard_capture', 'launch_game', 'devices'].includes(name) },
+  description, inputSchema, annotations: { readOnlyHint, destructiveHint: ['stop_session', 'open_script', 'restart_agent'].includes(name), openWorldHint: ['open_script', 'preview_file', 'dashboard_capture', 'launch_game', 'devices', 'list_tasks'].includes(name) },
 }, async values => {
   let state;
   try {
@@ -148,6 +148,13 @@ tool('devices', 'List the devices the project declares in .rengine/project.json 
 }, true, async ({ refresh }, state) => {
   deviceCapability(state);
   return call(`devices?${new URLSearchParams({ rootId: context.rootId, ...(refresh ? { refresh: '1' } : {}) })}`);
+});
+const trackerCapability = state => { if (state.capabilities.tracker !== 1) throw new Error('This retained service predates the task tracker (spec 083). Update the workspace layer first.'); };
+tool('list_tasks', 'List the bound project’s tasks from its declared tracker (contract 5): the local features.json inventory by default, GitHub Issues or Linear where the project declares one. Every row is the same neutral shape — key, title, state as (id, name, category), priority, labels, assignee, url, updatedAt, blockedBy — and the local state is the readiness tools/features.py reports. Read-only: nothing is written to any provider. A remote list that is empty says why: denied (no or refused credential, with signIn naming the provider), unavailable (unreachable, rate-limited, or the state directory unknown), or invalid with reasons. Remote answers are cached for 30 s; refresh bypasses that, and the local backend is always current.', {
+  refresh: z.boolean().default(false).describe('Bypass the 30 s cache of a remote provider.'),
+}, true, async ({ refresh }, state) => {
+  trackerCapability(state);
+  return call(`tracker?${new URLSearchParams({ rootId: context.rootId, ...(refresh ? { refresh: '1' } : {}) })}`);
 });
 const gameCapability = state => { if (state.capabilities.projectGame !== 1) throw new Error('This retained service predates per-project game declarations. Update the workspace layer first.'); };
 const launchCapability = state => {

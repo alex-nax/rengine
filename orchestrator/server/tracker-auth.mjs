@@ -145,6 +145,14 @@ export async function begin(stateDirectory, project, options = {}) {
   return { url: url.toString(), redirect, settled };
 }
 
+/* The sign-in route body, shared by the session host and the workspace worker so the two cannot
+   drift: before an application is registered there is nothing to open, so the answer is what to do. */
+export async function signIn(stateDirectory, project, options = {}) {
+  if (!(await client(stateDirectory))) return { ok: false, setup: setupInstructions(stateDirectory) };
+  const started = await begin(stateDirectory, project, options);
+  return { ok: true, url: started.url, redirect: started.redirect };
+}
+
 async function exchange(fetchImpl, { clientId, code, redirect, verifier }) {
   if (!code) throw new Error('the provider returned no code');
   const body = new URLSearchParams({

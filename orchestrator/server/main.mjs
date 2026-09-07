@@ -14,7 +14,7 @@ import { listFormats, formatPreview, readBytes, readDeclaration } from './format
 import { dashboardAction, dashboardActions, dashboardRunPayload, dashboardCapture } from './dashboard.mjs';
 import { projectDevices } from './devices.mjs';
 import { projectTracker } from './tracker.mjs';
-import { begin as beginSignIn, revoke as revokeSignIn, client as trackerClient, setupInstructions as trackerSetup } from './tracker-auth.mjs';
+import { revoke as revokeSignIn, signIn as trackerSignIn } from './tracker-auth.mjs';
 import { listRecordings, readRecording } from './recordings.mjs';
 
 const authorized = (value, token) => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value) && timingSafeEqual(Buffer.from(value), Buffer.from(token));
@@ -35,6 +35,7 @@ function json(response, status, value) {
 // Loopback authentication is required — see sidecar: local-session-capability.
 export async function startServer({ stateDir, port = 0 } = {}) {
   if (!stateDir) fail('The sidecar requires an explicit state directory.');
+  stateDir = path.resolve(stateDir);
   const store = await WorkspaceStore.open(stateDir);
   const sessions = new Sessions(store);
   const desktops = new Desktops(store, sessions);
@@ -54,7 +55,8 @@ export async function startServer({ stateDir, port = 0 } = {}) {
         let value;
         if (request.method === 'GET') {
           switch (target.pathname) {
-            case '/api/state': value = { instance, capabilities: { handoff: 1, desktopActions: 1, formatRegistry: 1, dashboard: 1, projectGame: 1, projectGameLaunch: 1, recordings: 1, projectDevices: 1, externalDeclarations: 1, agentConversations: 1 }, roots: store.state.roots, layout: store.state.layout, preferences: store.state.preferences, conversations: store.state.conversations ?? {},
+            /* stateDir is said here so a worker above this host can find a credential without the process table (spec 100). */
+            case '/api/state': value = { instance, stateDir, capabilities: { handoff: 1, desktopActions: 1, formatRegistry: 1, dashboard: 1, projectGame: 1, projectGameLaunch: 1, recordings: 1, projectDevices: 1, externalDeclarations: 1, agentConversations: 1, tracker: 1 }, roots: store.state.roots, layout: store.state.layout, preferences: store.state.preferences, conversations: store.state.conversations ?? {},
               drafts: Object.values(store.state.drafts).map(({ rootId, path, updatedAt }) => ({ rootId, path, updatedAt })), sessions: sessions.list() }; break;
             case '/api/tree': value = await store.list(query.get('rootId'), query.get('path') ?? '', query.get('hidden') === 'true'); break;
             case '/api/file': value = await store.readText(query.get('rootId'), query.get('path')); break;
@@ -89,10 +91,7 @@ export async function startServer({ stateDir, port = 0 } = {}) {
             case '/api/tracker/signin': {
               const selected = store.root(data.rootId);
               const declaration = await readDeclaration(selected);
-              const project = declaration.project ?? selected.id;
-              if (!(await trackerClient(stateDir))) { value = { ok: false, setup: trackerSetup(stateDir) }; break; }
-              const started = await beginSignIn(stateDir, project);
-              value = { ok: true, url: started.url, redirect: started.redirect };
+              value = await trackerSignIn(stateDir, declaration.project ?? selected.id);
               break;
             }
             case '/api/tracker/signout': {

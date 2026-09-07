@@ -19,8 +19,8 @@
       "id": "format-registry-routes",
       "kind": "rationale",
       "anchor": {
-        "start": 67,
-        "end": 67,
+        "start": 69,
+        "end": 69,
         "snippet": "case '/api/formats': value = await listFormats(store.root(query.get('rootId'))); break;"
       },
       "note": "The host serves the format registry so a directly connected desktop and the service tests need no supervisor; the replaceable worker serves the same three routes for the live layered runtime whose host predates them. Both advertise formatRegistry: 1. Declared commands run only from format-preview (explicit open/refresh/agent call), never from tree listing. dashboard: 1 and projectGame: 1 tell connectors that the dashboard routes and that game-config answer from the per-project declaration; projectGameLaunch: 1 says the same of the launch, and the host advertises it because it both preflights and spawns. The workspace worker advertises projectGame on its own (it serves game-config from its checkout) but mirrors projectGameLaunch from the host, whose Sessions and Surfaces own the spawn: an older host still launches the removed built-in game, so that half is refused by name rather than forwarded. game-config and game take an optional gameId selecting one declared game; omitted, both use the first declared record, which is what the launcher and an agent calling the tool without arguments get.",
@@ -31,7 +31,7 @@
   ],
   "source": {
     "path": "orchestrator/server/main.mjs",
-    "sha256": "4647f39c9b3f1c937008636a5317449abce5bb358196c2665c402f7c268a00da",
+    "sha256": "b62fc26bddfe1070e92d34ed9d61b77e6ee4992429947a8a4f0da63f168c1256",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

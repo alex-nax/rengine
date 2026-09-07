@@ -12,6 +12,7 @@ import { probeTools } from './tools.mjs';
 import { windowStore, nativeControl, inspectWindow } from './windows.mjs';
 
 const defaultWorker = fileURLToPath(new URL('./worker.mjs', import.meta.url));
+const defaultToolWorker = fileURLToPath(new URL('../agents/mcp-worker.mjs', import.meta.url));
 async function startWorker(host, filename) {
   const child = fork(filename, [], { stdio: ['ignore', 'ignore', 'pipe', 'ipc'], windowsHide: true });
   let diagnostics = ''; child.stderr.on('data', data => { diagnostics = (diagnostics + data).slice(-8000); });
@@ -33,9 +34,11 @@ async function startWorker(host, filename) {
 }
 
 export async function startRuntime({ host, directory, initial, binary = nativeBinary, workerFile = defaultWorker,
-  buildDesktop = prepareDesktop, toolWorkerFile, inspectUI = false, onDesktop = () => {} } = {}) {
+  buildDesktop = prepareDesktop, toolWorkerFile = defaultToolWorker, inspectUI = false, onDesktop = () => {} } = {}) {
   host = checkConnection(host);
   if (!path.isAbsolute(directory)) fail('Runtime directory must be absolute.');
+  /* Published in the descriptor so a facade runs the tool worker this supervisor probed — see sidecar: probed-worker-runs. */
+  toolWorkerFile = path.resolve(toolWorkerFile);
   const hostState = async () => { const state = await call(host, 'state'); if (state.instance !== host.instance) fail('Original session host is no longer available.'); return state; };
   await hostState(); await mkdir(directory, { recursive: true, mode: 0o700 });
   const windows = await windowStore(directory);
@@ -86,7 +89,7 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
   };
   const persist = async () => {
     const filename = path.join(directory, 'runtime.json');
-    await writeFile(`${filename}.${process.pid}.tmp`, JSON.stringify({ ...instance, url, connectorGeneration }), { mode: 0o600 });
+    await writeFile(`${filename}.${process.pid}.tmp`, JSON.stringify({ ...instance, url, connectorGeneration, toolWorker: toolWorkerFile }), { mode: 0o600 });
     await rename(`${filename}.${process.pid}.tmp`, filename);
   };
   const spawnView = record => {

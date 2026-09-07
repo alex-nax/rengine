@@ -1,5 +1,77 @@
 # Progress Log
 
+## Session 52 (macos) — 2026-09-07 — What a running workspace can and cannot be given (F97)
+
+The owner was told, more than once, that layered updates were in place, and today a new route could
+not reach the running editor. Measured first, read-only, before writing anything: the premise "no
+worker serves this workspace" was wrong. Supervisor 44390 has run above host 33465 since yesterday
+morning, its worker 79969 since 23:22, the editor (PID 88067, opened 12:34 today) talks to that
+supervisor, and `connectorGeneration` is 11. The mechanism was installed and had been used eleven
+times. What was true is narrower and worse: the tracker routes were added to `server/main.mjs` — the
+host — and to nothing else, so the worker forwarded `/api/tracker` to a process from before the route
+existed, which answered 404. KI-043 for the third time, with the lesson already written in two
+sidecars. Spec 100 records the measurements and the decisions; KI-062 records the shape.
+
+What changed. **The tracker routes are served by the worker** (`runtime/tracker.mjs`, importing
+`server/tracker.mjs` and `tracker-auth.mjs`; nothing about a provider repeated), and the worker
+advertises `tracker: 1` itself. The one thing the host has that the route needs is its state directory,
+where a credential lives: a host from this checkout now says it on `/api/state` (`stateDir` — the
+minimum host change for next time), and the retained one is found the way `--replace-host` finds it,
+from the `main.mjs --state DIR` process-table row whose `sidecar.json` names the host's **instance** —
+never the URL the worker was handed, which is often a proxy's, and never the first host row, of which
+this machine has a dozen. **The facade watches `runtime.json`** and refreshes its tool worker when the
+connector generation changes without waiting for a request, so a CLI that honours
+`tools/list_changed` has the new list before its next turn instead of a mid-turn surprise. **A stale
+tool name is answered with the way back** — the generation, the current names, and that Claude Code
+refreshes while Codex must be restarted — instead of the SDK's bare `Tool X not found`, which the SDK
+delivers as an `isError` result, not an exception, a detail the first version of the handler got wrong.
+**The facade runs the tool worker the supervisor probed** (`toolWorker` in `runtime.json`), not its
+sibling by assumption; in a checkout the two are the same file, and it is what gives a test two
+generations. And **`list_tasks`** exposes the tracker to agents, so there is a concrete new tool to see
+arriving.
+
+What was verified live, read-only, from this worktree against host 33465 (evidence in
+`docs/evidence/live-capability-updates-2026-09-07.md`): the route through supervisor 44390 still
+404s; a worker from this checkout answers it for all three roots (50, 1315 and 526 rows) and names
+`.cache/orchestrator-development/trackers/oauth.json` in the sign-in setup, found by instance; a
+scratch supervisor, worker and facade above the same host list `list_tasks`, and a connector update
+issued to that supervisor reached the idle facade in 914 ms with no request through it; `launch_nolf`
+at that facade got the way-back answer. Seventeen sessions before, seventeen after, nine running.
+And the client question was measured rather than read: a throwaway server driven by `claude -p` shows
+the installed Claude Code 2.1.263 re-listing tools in the same millisecond as the notification and
+calling the new tool in the same turn.
+
+What is genuinely impossible, so nobody is told a third time: the two pre-facade connectors (93041
+under the owner's `claude` pane — the pane this session runs in, `CLAUDE_PID=92680` — and 20159 under a
+`codex` pane) run code from before any refresh path existed and cannot be changed from outside; the
+Claude one reconnects from `/mcp` (Reconnect keeps the conversation and the pane), the Codex one
+restarts its CLI. A Codex session cannot gain a new tool *name* at all without a restart (openai/codex
+#10105, #19155, #33266; Codex 0.153.4 installed); it gains new behaviour behind stable names.
+Supervisor routes need a supervisor restart, which closes the editor windows and keeps every session.
+Host state — PTYs, store, `/events`, `/api/terminal`, `/api/game`, `agentConversations` — moves only
+with `--replace-host`, which ends the sessions.
+
+Eight sabotages, each red for its own assertion: the route forwarded to the retained host; `stateDir`
+dropped — first masked by the host-level assertion, then re-run with that lifted so the worker-level
+one was seen to discriminate alone; the URL as the key, and the first host row on trust; the watcher
+removed; the stale answer dropped; the sibling worker instead of the probed file. One existing test
+changed: `runtime.test.mjs` restores its tool-worker wrapper before killing the worker, because the
+facade now recreates a crashed worker from the published file and a crash while that file is broken
+on disk is the source edit's failure, not recovery's. `launcher` and `games` each dropped one test
+under the full suite's load and passed alone (KI-045's shape).
+
+Gates: `npm test` 132/132; `ctest` 6/6; `python3 tools/design.py check`, `features.py validate`,
+`./init.sh` clean; sidecars for the six annotated files repaired, reviewed and stamped on a disposable
+index; graph regenerated. `npm run test:desktop`: see the line below this entry.
+
+Not done here, deliberately: merging to `main` and running the update on supervisor 44390 — the
+supervisor forks `runtime/worker.mjs` from the main checkout's working tree, which other lanes were
+editing (the token ledger and `tracker: 1` on the host, both already in that tree). The first live
+run belongs to whoever merges: from any pane,
+`node orchestrator/runtime/client.mjs update --context "$RENGINE_WORKSPACE_CONTEXT" --layers workspace,connector`,
+then the Tasks tab and `list_tasks`. Branch `feat/live-hot-update`, not merged. F97 `passes: false`
+for that reason.
+
 ## Session 49 (macos) — 2026-09-07 — The Sessions tab resumes and attaches, where the owner asked for it (F95)
 
 The owner has asked three times for one thing and it kept landing on the wrong surface. Spec 097 built

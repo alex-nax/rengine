@@ -10,12 +10,15 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { Desktops } from '../server/desktops.mjs';
 import { request as call } from '../launcher/sidecar.mjs';
 import { authenticated, body, checkConnection, fail, forward, json } from './protocol.mjs';
+import { hostStateDirectory, readTasks, trackerSignIn, trackerSignOut } from './tracker.mjs';
 
 export async function startWorker(host) {
   checkConnection(host);
   const state = await call(host, 'state');
   if (state.instance !== host.instance) fail('Session host identity changed.');
   let bindings = state, url;
+  /* Found once: the host's instance does not change while this worker lives. See sidecar: tracker-routes. */
+  const located = await hostStateDirectory(host, state);
   const token = randomBytes(32).toString('hex');
   const root = id => bindings.roots.find(x => x.id === id) ?? fail('Unknown project root.', 404);
   const snapshot = id => bindings.sessions.find(x => x.id === id) ?? fail('Unknown session.', 404);
@@ -25,7 +28,7 @@ export async function startWorker(host) {
      the retained host, which owns the PTY and the embedded surface. See sidecar: game-routes. */
   const preflight = (rootId, gameId) => inspectGame(root(rootId), gameId);
   const capabilities = ({ projectGameLaunch, ...rest }) => ({ ...rest, desktopActions: 1, layeredUpdates: 1, scriptActions: 1,
-    formatRegistry: 1, dashboard: 1, projectGame: 1, recordings: 1, projectDevices: 1, ...(rest.projectGame === 1 ? { projectGameLaunch: 1 } : {}) });
+    formatRegistry: 1, dashboard: 1, projectGame: 1, recordings: 1, projectDevices: 1, tracker: 1, ...(rest.projectGame === 1 ? { projectGameLaunch: 1 } : {}) });
   /* Refused here, from the worker's own preflight, before anything reaches the retained host: the
      spec-078 / KI-043 lesson is that the host must not be the one to answer. See sidecar: remote-launch. */
   const refuseRemote = async (rootId, gameId) => {
@@ -72,6 +75,12 @@ export async function startWorker(host) {
       } else if (req.method === 'GET' && target.pathname === '/api/recording') {
         await refresh();
         json(res, 200, await readRecording(root(target.searchParams.get('rootId')), target.searchParams.get('id'), Object.fromEntries(target.searchParams)));
+      } else if (req.method === 'GET' && target.pathname === '/api/tracker') {
+        await refresh(); json(res, 200, await readTasks(root(target.searchParams.get('rootId')), located, { refresh: target.searchParams.get('refresh') === '1' }));
+      } else if (req.method === 'POST' && target.pathname === '/api/tracker/signin') {
+        const data = await body(req); await refresh(); json(res, 200, await trackerSignIn(root(data.rootId), located));
+      } else if (req.method === 'POST' && target.pathname === '/api/tracker/signout') {
+        const data = await body(req); await refresh(); json(res, 200, await trackerSignOut(root(data.rootId), located));
       } else if (req.method === 'GET' && target.pathname === '/api/dashboard') {
         await refresh(); json(res, 200, await dashboardActions(root(target.searchParams.get('rootId')), preflight));
       } else if (req.method === 'POST' && target.pathname === '/api/dashboard-run') {

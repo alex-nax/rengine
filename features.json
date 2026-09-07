@@ -1153,6 +1153,39 @@
       "deliverable": "A spec under docs/specs/; discovery beside orchestrator/agents/handoff.mjs, whose codex rollout lookup is the existing precedent; surfaced through the same /api/state conversations path the Sessions tab already reads.",
       "external_references": [],
       "evidence": []
+    },
+    {
+      "id": 97,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "New server capabilities reach a running workspace and its attached MCP agent sessions without restarting the session host: a route that needs no PTY, surface or store state is served by the replaceable workspace worker (the tracker routes are the proof, with the host’s state directory taken from its own /api/state or found in the process table by the descriptor’s instance), the MCP facade refreshes its tool worker when the connector generation changes without waiting for a request and announces tools/list_changed, a call naming a tool the workspace no longer has is answered with the current names and the way back, and list_tasks exposes the tracker to agents.",
+      "acceptance_criteria": [
+        "Above a retained host that answers /api/tracker with 404 and says nothing about its state directory, the worker serves GET /api/tracker, POST /api/tracker/signin and POST /api/tracker/signout from its own checkout, advertises tracker: 1, and the sign-in setup names that host’s own trackers directory, found through the process table by the descriptor’s instance.",
+        "A host from this checkout reports stateDir on /api/state, and a worker above it needs no process table to name the directory.",
+        "The state directory is keyed by the descriptor’s instance: a worker handed a proxy’s URL still finds the right directory, and a host that is not the first row in the table is not mistaken for another.",
+        "A connector-layer update issued to the supervisor reaches an idle facade: tools/list_changed is sent with no request through the facade, the next tools/list shows the probed worker’s tools, and update_status reports a new tool-worker pid.",
+        "A call naming a tool the current worker does not have is answered with the connector generation, the current tool names and the client guidance, not the SDK’s bare not-found.",
+        "list_tasks returns the tracker rows through the real facade.",
+        "Each regression was observed failing for its own reason: the route forwarded to the retained host; stateDir dropped from /api/state, with the host-level assertion lifted so the worker-level one discriminates alone; the URL as the key, and the first host row taken on trust; the descriptor watcher removed; the stale-name answer dropped; the facade running its sibling instead of the probed file.",
+        "LIVE, read-only, done 2026-09-07: a worker from this checkout started in-process against host PID 33465 answered /api/tracker for all three roots and named the live state directory, while the same route through supervisor 44390 still returned the host’s 404; a scratch supervisor, worker and facade from this checkout above the same host listed list_tasks and delivered a connector update to an idle facade in under a second; recorded in docs/evidence/live-capability-updates-2026-09-07.md.",
+        "LIVE, still outstanding: after this lands on main, `node orchestrator/runtime/client.mjs update --context \"$RENGINE_WORKSPACE_CONTEXT\" --layers workspace,connector` on supervisor 44390 from a pane, and the Tasks tab in the owner’s editor and list_tasks in a facade connector then answer; recorded under docs/evidence/."
+      ],
+      "passes": false,
+      "dependencies": [
+        74,
+        78
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/100-live-capability-updates.md; orchestrator/runtime/tracker.mjs; the tracker routes and tracker capability in orchestrator/runtime/worker.mjs; stateDir on /api/state in orchestrator/server/main.mjs with the shared signIn in orchestrator/server/tracker-auth.mjs; toolWorker in the supervisor descriptor (orchestrator/runtime/supervisor.mjs); the descriptor watcher, probed-worker choice and stale-name answer in orchestrator/agents/mcp.mjs; list_tasks in orchestrator/agents/mcp-worker.mjs; orchestrator/tests/hot-update.test.mjs with its stale-tool-worker.mjs fixture.",
+      "external_references": [],
+      "evidence": [
+        "orchestrator/tests/hot-update.test.mjs: the tracker routes are served by the worker above a retained host that never had them",
+        "orchestrator/tests/hot-update.test.mjs: a host that says where its state lives needs no process table",
+        "orchestrator/tests/hot-update.test.mjs: the state directory is keyed by the descriptor instance, never the URL or the first host row",
+        "orchestrator/tests/hot-update.test.mjs: an idle facade learns of a connector update without a request, and a stale name is refused with the way back",
+        "docs/evidence/live-capability-updates-2026-09-07.md: the read-only live probe of host PID 33465 and the sabotage table"
+      ]
     }
   ]
 }
