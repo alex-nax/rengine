@@ -48,7 +48,7 @@ export async function startWorker(host, options = {}) {
   const hostPid = located.pid ?? (Number.isInteger(state.pid) ? state.pid : undefined);
   let ide = null;
   if (options.ide !== false) {
-    ide = await startIdeBridge({ roots: state.roots.map(root => root.path), hostPid, ...options.ideOptions })
+    ide = await startIdeBridge({ roots: state.roots.map(root => root.path), hostPid, port: options.idePort ?? 0, ...options.ideOptions })
       .catch(error => ({ published: false, reason: error.message }));
   }
   const token = randomBytes(32).toString('hex');
@@ -576,7 +576,7 @@ export async function startWorker(host, options = {}) {
 if (process.send) {
   process.once('message', async message => {
     try {
-      const worker = await startWorker(message.host, { directory: message.directory });
+      const worker = await startWorker(message.host, { directory: message.directory, idePort: message.idePort });
       process.send({ type: 'ready', url: worker.url, token: worker.token, instance: worker.instance, pid: process.pid });
       /* Serialized, because a worker that is drained the instant it is replaced is told both things
          at once and the handoff has to finish before the process goes away. */

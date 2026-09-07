@@ -144,6 +144,30 @@ test('the worker resolves the desktop\'s root and path into the file path the CL
   } finally { await worker.close(); await host.close(); await rm(dir, { recursive: true, force: true }); }
 });
 
+test('the port survives a worker replacement, because the CLI reconnects to the one it read', async () => {
+  const dir = await directory();
+  // The worker being replaced still holds the port when its successor starts, which is exactly the
+  // shape of a layered update. Taking a different port would look like success and would end every
+  // IDE session on the machine, which is what KI-066 was.
+  const first = await startIdeBridge({ roots: ['/work'], hostPid: process.pid, workerPid: 1, directory: dir });
+  const second = await startIdeBridge({ roots: ['/work'], hostPid: process.pid, workerPid: 2, port: first.port,
+    directory: dir, retakeTimeoutMs: 10000 });
+  try {
+    assert.equal(second.published, false, 'the successor does not settle for another port');
+    assert.match(second.reason, /still held/);
+    await first.close();
+    assert.equal(await second.ready, true, `the successor takes the port once it is free: ${second.reason}`);
+    assert.equal(second.port, first.port, 'and it is the same port the CLI already knows');
+    assert.deepEqual(await readdir(dir), [`${first.port}.lock`], 'one lock, at the same path');
+    const lock = JSON.parse(await readFile(second.lock, 'utf8'));
+    assert.equal(lock.rengineWorker, 2, 'written by the worker that now owns it');
+    // And it really serves: a reconnection to that port is what the CLI would do.
+    const client = await connected(second);
+    assert.deepEqual((await client.listTools()).tools.map(t => t.name), ['getDiagnostics']);
+    await client.close();
+  } finally { await second.close(); await first.close(); await rm(dir, { recursive: true, force: true }); }
+});
+
 test('a lock left by a dead rEdit worker is collected, and another IDE is left alone', async () => {
   const dir = await directory();
   await mkdir(dir, { recursive: true });

@@ -1,5 +1,40 @@
 # Progress Log
 
+## Session 62 (macos) — 2026-09-07 — The IDE port may not move (KI-066)
+
+The layered update that delivered F100 ended this session's own IDE connection. That is the finding:
+not a hiccup, a defect in the feature shipped an hour earlier, and one that would have hit every
+connected pane on every update from then on.
+
+**What happened.** The bridge bound an ephemeral port per worker. `--layers workspace,desktop` moved
+rEdit from 49953 to 61709, and the CLI reported `WebSocket connection to 'ws://127.0.0.1:49953/'
+failed`. Claude Code reads a lock once and afterwards reconnects to the port it read; it never goes
+back to the directory to look again. So the feature whose entire premise is that new capabilities
+arrive *by* layered update was broken *by* layered updates, and the only visible symptom was an
+editor connection quietly gone.
+
+**The fix is where the lifetime is.** The port belongs to the runtime, not to the worker: the
+supervisor reserves one at startup, carries it in `runtime.json` as `idePort`, and hands the same
+number to every worker it starts. A worker starting during an update finds its predecessor still
+holding the port — the successor is started before the old one retires — so it retries for a bounded
+while instead of taking a free one. Taking a free one is the tempting fallback and it is precisely
+the bug: it succeeds, logs nothing, and silently ends every session. A worker that never gets the
+port publishes nothing and says why. Closing unlinks the lock before closing the socket, so the
+successor cannot bind and write the lock in the gap only for its predecessor to delete it.
+
+Regression: `the port survives a worker replacement, because the CLI reconnects to the one it read` —
+two bridges over one port, the second refusing to settle for another, taking it when the first closes,
+same port and same lock path, then serving a real client. Sabotage: restore the old
+fall-back-to-ephemeral and it goes red on `published` being true when it should be false.
+
+Gates: `npm test` 179/179, `native-updates` and `native-ide-selection` green against the supervisor
+change, `./init.sh` clean, sidecars stamped. KI-066 recorded and closed; spec 102 gains decision 8b.
+
+**The general lesson, since this is the second time this week.** A capability that rides the update
+path has to be tested *across* an update, not only after one. The tracker was reachable only after
+the host was replaced (KI-043 again, KI-062); this one worked perfectly until the first update and
+then died. Both were found by running the thing live rather than by reading the code.
+
 ## Session 61 (macos) — 2026-09-07 — The editor tells the agent where the caret is (F100), and LSP becomes the direction (D37)
 
 **The owner chose the protocol.** F102 had offered two ways to make `getDiagnostics` true: parse a

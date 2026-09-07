@@ -65,21 +65,42 @@ export async function sweep(directory, { alive = pid => { try { process.kill(pid
    Refusing instead would make the CLI report the editor as broken rather than as quiet. */
 const diagnostics = uri => [{ uri, diagnostics: [] }];
 
-export async function startIdeBridge({ roots = [], hostPid, workerPid = process.pid,
-  directory = ideDirectory(), host = '127.0.0.1' } = {}) {
+/* A worker replacement must not move the port. Claude Code reads a lock once and then reconnects to
+   the port it read; it never goes back to the directory. An ephemeral port per worker therefore ends
+   every IDE session on every layered update, silently — which is KI-066, found by this session's own
+   connection dying. So the supervisor keeps one port for the runtime's life and each worker takes it
+   over. The worker being replaced still holds it for a moment after its successor starts, so the
+   successor retries rather than settling for a different port: a different port is a session the CLI
+   cannot get back. See sidecar: the-port-may-not-move. */
+const RETAKE_INTERVAL_MS = 250;
+const RETAKE_TIMEOUT_MS = 20000;
+
+async function listen(host, port) {
+  const server = new WebSocketServer({ host, port, handleProtocols: offered => (offered.has('mcp') ? 'mcp' : false) });
+  try {
+    await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); });
+    return server;
+  } catch (error) {
+    server.close();
+    if (error.code === 'EADDRINUSE') return null;
+    throw error;
+  }
+}
+
+export async function startIdeBridge({ roots = [], hostPid, workerPid = process.pid, port: wanted = 0,
+  directory = ideDirectory(), host = '127.0.0.1', retakeTimeoutMs = RETAKE_TIMEOUT_MS } = {}) {
   /* Without the host's pid there is nothing to publish: the CLI checks that the lock's pid is one of
      its own first ten ancestors, and the host is the only process in a pane's chain (spec 102 D2). */
-  if (!Number.isInteger(hostPid)) return { published: false, reason: 'the session host process could not be identified, so no lock was written' };
+  if (!Number.isInteger(hostPid)) {
+    return { published: false, ready: Promise.resolve(false), clients: () => 0, selection: () => 0, close: async () => {},
+      reason: 'the session host process could not be identified, so no lock was written' };
+  }
   await mkdir(directory, { recursive: true, mode: 0o700 });
   await sweep(directory);
 
   const authToken = randomBytes(32).toString('hex');
-  const sockets = new Set();
-  const server = new WebSocketServer({ host, port: 0,
-    handleProtocols: offered => (offered.has('mcp') ? 'mcp' : false) });
-  await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); });
-  const port = server.address().port;
-  const lock = path.join(directory, `${port}.lock`);
+  const sockets = new Set(), observed = [];
+  let server = null, lock = null, closed = false;
 
   /* Measured, not assumed: `claude` 2.1.263 sends the lock's token in this header and asks for the
      `mcp` subprotocol. One place is checked because one place is what it uses; a version that moves
@@ -87,8 +108,7 @@ export async function startIdeBridge({ roots = [], hostPid, workerPid = process.
   const presented = request =>
     constantEqual(request.headers['x-claude-code-ide-authorization'], authToken) ? 'header' : null;
 
-  const observed = [];
-  server.on('connection', (socket, request) => {
+  const connection = (socket, request) => {
     const where = presented(request);
     observed.push({ at: new Date().toISOString(), accepted: where !== null, where,
       headers: Object.fromEntries(Object.entries(request.headers).filter(([name]) => !name.startsWith('sec-websocket-key'))) });
@@ -107,15 +127,10 @@ export async function startIdeBridge({ roots = [], hostPid, workerPid = process.
     sockets.add(socket);
     socket.on('close', () => sockets.delete(socket));
     mcp.connect(new SocketTransport(socket)).catch(() => socket.close());
-  });
+  };
 
-  await writeFile(lock, JSON.stringify({
-    pid: hostPid, workspaceFolders: roots, ideName: IDE_NAME, transport: 'ws',
-    useWebSocket: true, runningInWindows: false, authToken, rengineWorker: workerPid,
-  }, null, 2), { mode: 0o600 });
-
-  return {
-    published: true, port, lock, authToken, observed,
+  const bridge = {
+    published: false, authToken, observed, ready: null, port: null, lock: null, reason: null,
     clients: () => sockets.size,
     /* A selection is a fact about the editor; naming it `selection_changed` is this file's business. */
     selection(value) {
@@ -123,11 +138,44 @@ export async function startIdeBridge({ roots = [], hostPid, workerPid = process.
       return sockets.size;
     },
     async close() {
+      closed = true;
+      await bridge.ready?.catch(() => {});
+      /* Unlinked before the socket closes, so the successor that is waiting for this port cannot
+         bind and write the lock in the gap and then have this one delete it. */
+      if (lock) { try { await unlink(lock); } catch { /* already gone */ } }
       for (const socket of sockets) socket.close();
-      await new Promise(resolve => server.close(resolve));
-      /* The lock names the host's pid, which outlives this worker, so the CLI's own sweep would keep
-         a dead lock forever. Ours to write, ours to remove. */
-      try { await unlink(lock); } catch { /* already gone */ }
+      if (server) await new Promise(resolve => server.close(resolve));
     },
   };
+
+  const serve = async bound => {
+    server = bound;
+    server.on('connection', connection);
+    lock = path.join(directory, `${server.address().port}.lock`);
+    await writeFile(lock, JSON.stringify({
+      pid: hostPid, workspaceFolders: roots, ideName: IDE_NAME, transport: 'ws',
+      useWebSocket: true, runningInWindows: false, authToken, rengineWorker: workerPid,
+    }, null, 2), { mode: 0o600 });
+    bridge.published = true; bridge.port = server.address().port; bridge.lock = lock; bridge.reason = null;
+    return true;
+  };
+
+  const first = await listen(host, wanted);
+  if (first) { bridge.ready = serve(first); await bridge.ready; return bridge; }
+
+  bridge.reason = `port ${wanted} is still held by the worker being replaced`;
+  bridge.ready = (async () => {
+    const deadline = Date.now() + retakeTimeoutMs;
+    while (!closed && Date.now() < deadline) {
+      /* Not unref'd: the wait is bounded and `close` ends it, and a timer that lets the process
+         exit mid-retry would strand the bridge unpublished with nothing said. */
+      await new Promise(resolve => setTimeout(resolve, RETAKE_INTERVAL_MS));
+      if (closed) break;
+      const taken = await listen(host, wanted);
+      if (taken) return serve(taken);
+    }
+    bridge.reason = `port ${wanted} was never released by the worker being replaced`;
+    return false;
+  })();
+  return bridge;
 }
