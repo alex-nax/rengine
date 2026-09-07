@@ -5,6 +5,11 @@
  * everything else must sort below it, or the request path reads a format that is not there. */
 enum { OP_STATE = 1, OP_LOAD, OP_SAVE, OP_DRAFT, OP_DISCARD, OP_CREATE, OP_ROOT, OP_GENERIC, OP_LAYOUT, OP_EXPAND,
        OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_SIGNIN, OP_BYTES, OP_PREVIEW, OP_ENTRY };
+/* Enforced rather than remembered. A merge that appends a new operation after OP_BYTES makes the
+ * request path read a format a tracker or agent tab does not have, and the symptom is a request that
+ * never completes rather than an error where the mistake was made. */
+typedef char re_signin_sorts_below_bytes[OP_SIGNIN < OP_BYTES ? 1 : -1];
+typedef char re_expand_sorts_below_bytes[OP_EXPAND < OP_BYTES ? 1 : -1];
 static int request_within(ReApp *a, int operation, int tab, const char *route, const cJSON *body, long timeout) {
   char scoped[160]; const char *window = getenv("RENGINE_WINDOW_ID");
   if (window && *window && (!strcmp(route, "state") || !strcmp(route, "layout"))) {

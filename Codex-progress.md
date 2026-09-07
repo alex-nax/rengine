@@ -257,6 +257,48 @@ the same run, so the negative is not a quiet machine. `npm test` 107/107.
 F90 stays `passes: false`: criterion 9 is the stage-3 status-bar segment, and the desktop's
 `recording` frame is stage 3's to send. The exact frame shapes it owes the worker are written into
 spec 095's *Native desktop* section and exercised today by the fake desktop.
+## Session 49 (macos) — 2026-09-07 — The Sessions tab resumes and attaches, where the owner asked for it (F95)
+
+The owner has asked three times for one thing and it kept landing on the wrong surface. Spec 097 built
+the resume picker as a stdin prompt in `agent.sh`; the owner meant the native Sessions tab —
+"list all the available ids to resume or be available to attach if session is active." Spec 099 moves
+it there. Nothing about the data changed: past conversations already reach the desktop on `/api/state`
+as `conversations[rootId]` (097), live agent panes are the `type:'agent'` sessions each carrying a
+`conversation` when it holds one, and resume is the `POST /api/terminal` with `resume:true` that
+`spawnTerminal` already honours. This is a view over data that was all present at 64dc08e.
+
+`orchestrator/native/workspace.c` gains a Conversations section in `sessions_ui`, above the recovery
+drafts and below the unchanged raw process list. A live agent pane offers **Attach** (the existing
+session-view path); a conversation no pane holds offers **Resume**, which starts a pane already on that
+id; the two are deduplicated by conversation so a live one is never also offered for resume; and a live
+agent that names its own conversations — no id recorded — is attach-only and marked *not resumable*,
+which is the one place a resume affordance is withheld on purpose. `describe_age` mirrors the JS
+`describeAge` wording so a row says when it was last seen; the desktop formats the persisted
+`lastSeenAt` rather than asking for a string. No colour or row-size literal — design guard clean.
+
+`native-sessions.spec.mjs`, three tests through the automation bridge: past conversations become
+resume rows most-recent-first with no session started; Resume creates an agent session bound to that
+exact conversation id (a fresh launch would mint a random one, so the id is the proof it resumed); and
+a live menu agent is attach-only with no resume control while the raw list still stops it. Observed
+red first by reverting `workspace.c` to its committed state and rebuilding: all three failed for their
+own reason — the state dumps showed the conversations data and, for the third, the running agent with
+its `attach`/`stop` controls, but no `resume` or `conversation-attach` control, which is exactly the
+section that did not exist yet — then restored and rebuilt green.
+
+While here, one stale sidecar anchor in `workspace.c._llm.json` was repaired: `view-switcher-indices`
+had drifted at the tracker change (a066641) when a Tasks entry was inserted at switcher index 2,
+splitting the table across two lines; its note's example ("Devices at index 2") was corrected to
+"Tasks at 2, Devices at 3" and re-anchored to the stable declaration line.
+
+Commands: `npm run build` clean; `node --test orchestrator/tests/native-sessions.spec.mjs` 3/3;
+`verify.sh design` clean; unit suite, `test:desktop` and `init.sh` recorded below the commit;
+`tools/features.py validate` 48 features; graph regenerated; sidecars valid for workspace.c.
+
+Not verified live, deliberately, and `passes` stays false on F95: this session runs inside the old
+host, and the owner's real claude pane resume belongs to a host started from this change — the same
+live criterion 096 and 097 carry. F95 reads blocked because F93's own live criterion is still open;
+that is the dependency chain telling the truth, not a defect.
+
 ## Session 48 (macos) — 2026-09-07 — Replacing a session host on purpose, and why three restarts changed nothing (F94)
 
 Two tasks, one cause. First the merge that had been waiting on a dirty tree:
