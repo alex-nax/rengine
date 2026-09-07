@@ -94,6 +94,8 @@ export async function bind(argv) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const result = await bind(process.argv.slice(2));
-  console.log(result.usage ?? result.report);
+  /* A refusal is something a person reads and acts on, so it prints as text and exits, never as a
+     stack trace over the sentence naming what to do. */
+  try { const result = await bind(process.argv.slice(2)); console.log(result.usage ?? result.report); }
+  catch (error) { console.error(error.message); process.exit(2); }
 }
