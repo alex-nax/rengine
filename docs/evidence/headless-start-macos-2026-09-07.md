@@ -43,7 +43,9 @@ of the fixture now leaves zero `orchestrator/server/main.mjs` processes behind, 
 ## Gates
 
 Run in `.cache/worktrees/headless`, after merging `origin/main` at `8ca5bbf` (F79 and F81 landed from
-another lane while this was in flight; `origin/main` was fetched again immediately before these).
+another lane while this was in flight; `origin/main` was fetched again immediately before these). It
+moved twice more afterwards, `80d0aae`, with a spec and inventory pair carrying no code; that is
+merged in too and changes none of these numbers.
 
 | Gate | Result |
 | --- | --- |

@@ -932,6 +932,35 @@
       ]
     },
     {
+      "id": 90,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "The project token: the instance issues one token per project root; any bound agent can contest it and, absent a rejection by the holder or the person at the desktop within the window, the token transfers to the contester at the deadline; the holder alone may launch, stop, run scripts, capture, reload or replace layers over MCP, refused by name otherwise; every bound agent can watch a filtered lifecycle feed -- token transitions, game sessions, device-bound actions, captures, layer updates -- as a resumable WebSocket its monitor reads; each agent launch gets its own identity and an agent started outside the workspace binds by discovery; all of it ships through the replaceable layers with the session host untouched.",
+      "acceptance_criteria": [
+        "Two agents launched on one root receive distinct identities in per-launch context files and the shared root file is no longer what the tool worker reads; an agent bound from a plain terminal through bind.mjs receives the same shape and appears in token_status once it calls anything.",
+        "With the token held by A, each gated tool (launch_game, stop_session, open_script, dashboard_capture, reload_desktop, update_workspace) called by B is refused naming A, how long A has held it and token_contest, and nothing is launched, stopped, run or replaced; the same actions from the desktop succeed regardless of the holder.",
+        "A contest opens a window of the configured length; the holder's token_reject within it keeps the token and the contester reads the reason; silence transfers the token at the deadline as a frame with by: deadline; a rejected contester is refused a second contest until its cooldown ends, naming the time.",
+        "A contest against a holder whose pid is gone resolves at once, by: holder-gone.",
+        "Reject, Grant, Revoke and Free from the desktop take effect immediately and are frames with by: desktop.",
+        "Launching a game, a device-bound dashboard action starting and ending, a capture starting and being committed, a workspace layer replaced and every token transition each appear as one feed frame with a monotonic sequence; a monitor opened with after=N receives every retained frame after N; no PTY output ever appears on the feed, proven with a session that prints while the feed is watched.",
+        "Replacing the workspace worker while a contest is open keeps the holder and the deadline, and the contest resolves at the original time.",
+        "agentToken: 1 is advertised only by a worker serving the ledger; against an older worker the tools refuse naming the layer to update.",
+        "The status-bar segment shows free, held and the countdown, and its popover carries Reject, Grant, Revoke and Free."
+      ],
+      "passes": false,
+      "dependencies": [
+        74,
+        76,
+        80,
+        81
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/095-project-token.md; identity in orchestrator/agents/{config,launch}.mjs and a new bind.mjs; ledger, feed and gates in orchestrator/runtime/worker.mjs; token_*/feed_* tools and the identity header in orchestrator/agents/mcp-worker.mjs; the status-bar segment in orchestrator/native/app.c",
+      "external_references": [],
+      "evidence": []
+    },
+    {
       "id": 85,
       "milestone": "O1",
       "category": "workspace",

@@ -1,6 +1,6 @@
 # Progress Log
 
-## Session 43 (macos) — 2026-09-07 — A headless start: the sidecar without a desktop (F85)
+## Session 46 (macos) — 2026-09-07 — A headless start: the sidecar without a desktop (F85)
 
 Owner-directed. The vtmb-vr wizard `scripts/wizards/remote-rengine.sh` got all the way through
 installing rEngine on the Windows box — clone at the consumer's pin, `npm ci` compiling `node-pty`
@@ -56,7 +56,8 @@ of a same-server comparison move together. That is what makes it discriminate "t
 reddened.
 
 Gates. `origin/main` was fetched again before the final sweep and had moved by two commits (F79 and
-F81, another lane), so this branch merged it and every number below is post-merge. The merge touched
+F81, another lane), so this branch merged it and every number below is post-merge; it then moved
+twice more, by a spec-and-inventory pair (F90/spec 095) carrying no code, which is merged here too. The merge touched
 `launch.mjs`, `package.json` and `features.json`; `launch.mjs` was resolved by taking their file and
 re-applying the headless branch onto it, so the desktop path is theirs verbatim, indented.
 
@@ -89,6 +90,20 @@ launcher line at `--headless`, re-run it, and read `rengine headless ready` in
 `.state\headless.log` followed by the capability list through the tunnel. The recording-stub check
 for the full start path also skips on Windows, because Node refuses to spawn a `.cmd` without a
 shell. The consumer repository was not touched.
+## Session 45 (macos) — 2026-09-07 — The project token, recorded (F90, spec 095)
+
+Owner direction, given directly in the vtmb-vr workspace after three agents had acted on one
+checkout and the one the workspace never spawned had to ask the owner to press a control: the
+instance issues one token per project; any bound agent contests; silence within the window
+transfers it; the holder alone runs the extended commands and reads a monitor that carries the
+contest and the project's lifecycle — games starting, device deploys, captures. Spec 095 records
+the decisions with attribution, the facts it stands on (`sessions.mjs:132` shares one context per
+root; the facade declares only `listChanged`; the worker already intercepts `/events` frames; the
+agent runtime's monitor takes a WebSocket), the identity, ledger, feed and native segment, and why
+all of it lives in the replaceable layers with the host untouched. Two readings of "owner does not
+reject" exist; the spec takes the superset (holder or desktop may reject) and marks it for the
+owner. F90 added with nine criteria, `passes: false`; documentation only, graph regenerated.
+
 ## Session 42 (macos) — 2026-09-07 — Hirebase uses external rEdit capabilities (F81)
 
 Owner requested a home launcher for `~/hirebase-v2`, with every rEdit extension outside that
