@@ -3,7 +3,7 @@
   "project": "rengine",
   "created": "2026-09-05",
   "review_status": "approved",
-  "review_record": "docs/specs/055-nolf-workspace-goal.md — owner active implementation goal, 2026-09-05",
+  "review_record": "docs/specs/055-nolf-workspace-goal.md \u2014 owner active implementation goal, 2026-09-05",
   "features": [
     {
       "id": 32,
@@ -658,8 +658,8 @@
       "description": "Declare a project's games in .rengine/project.json (contract 3, games array) and launch any of them from the dashboard, the launcher and generic agent tools.",
       "acceptance_criteria": [
         "contracts/project-v1.schema.json accepts contracts 1 and 2 unchanged and contract 3 with an optional games array (1-16 records of id, title, executable candidates, literal args, env, cwd, requires, surface embedded or external) beside the optional dashboard of spec 075; declaring games requires contract 3, so an older reader answers unknown contract rather than unknown key; a bad games array is reported as gamesError by name without disabling the formats or the dashboard; duplicate ids, a 17th record, bad or reserved env keys, placeholders in args, more than 8 executables, unknown surfaces and keys, shell argv[0] and escaping requires/cwd paths are rejected.",
-        "game-config and game_preflight take an optional gameId (default: the first declared game; an unknown id names the declared ids) and report declared, title, surface, the first resolvable executable, args, env, cwd, requires, named issues (undeclared root, malformed declaration, missing candidates, each missing required file, a missing cwd, surface prerequisites) and ready without running anything; game, launch_game, the toolbar control and --launch-game reuse the running session of that root AND game id, or spawn it with the declared cwd and env, reserving a surface only for embedded; the session carries title <title> · <root name>, surface and game, and one root can run several declared games at once.",
-        "No specific game is named in server, native, agent, theme or package-script code and no nolf_* tool alias remains; an external game tab shows the retained output with a running/exited status row; service tests and a native fixture drive all of the above; the real-NOLF qualification runs through a written contract-3 declaration; the owner verifies the real consumers after a layered workspace/desktop/connector update. (Corrected 2026-09-06 by owner decision, recorded in spec 078 and Codex-progress session 27: the toolbar game control this criterion originally required — absent without games, a title button for one, a Games menu for several — was built in 0cf70b6 and then removed outright, because dashboard launches reached only a terminal tab. Launching moved to the dashboard game action of F72; a configurable toolbar is a later, separately scoped feature.)"
+        "game-config and game_preflight take an optional gameId (default: the first declared game; an unknown id names the declared ids) and report declared, title, surface, the first resolvable executable, args, env, cwd, requires, named issues (undeclared root, malformed declaration, missing candidates, each missing required file, a missing cwd, surface prerequisites) and ready without running anything; game, launch_game, the toolbar control and --launch-game reuse the running session of that root AND game id, or spawn it with the declared cwd and env, reserving a surface only for embedded; the session carries title <title> \u00b7 <root name>, surface and game, and one root can run several declared games at once.",
+        "No specific game is named in server, native, agent, theme or package-script code and no nolf_* tool alias remains; an external game tab shows the retained output with a running/exited status row; service tests and a native fixture drive all of the above; the real-NOLF qualification runs through a written contract-3 declaration; the owner verifies the real consumers after a layered workspace/desktop/connector update. (Corrected 2026-09-06 by owner decision, recorded in spec 078 and Codex-progress session 27: the toolbar game control this criterion originally required \u2014 absent without games, a title button for one, a Games menu for several \u2014 was built in 0cf70b6 and then removed outright, because dashboard launches reached only a terminal tab. Launching moved to the dashboard game action of F72; a configurable toolbar is a later, separately scoped feature.)"
       ],
       "passes": false,
       "dependencies": [
@@ -734,7 +734,7 @@
       "priority": "high",
       "description": "Serve the declaration-backed game preflight from the replaceable workspace worker, so a routine layered update delivers the per-project game capability.",
       "acceptance_criteria": [
-        "orchestrator/server/games.mjs exports inspectGame(root, gameId) — the single body Games.inspect delegates to — and orchestrator/runtime/worker.mjs serves GET /api/game-config from it, so the dashboard's game-action availability and game_preflight both answer from the project's own declaration above a retained session host that predates contract 3; the worker advertises projectGame: 1 beside dashboard: 1 and a layered workspace update alone lights the MCP guard up.",
+        "orchestrator/server/games.mjs exports inspectGame(root, gameId) \u2014 the single body Games.inspect delegates to \u2014 and orchestrator/runtime/worker.mjs serves GET /api/game-config from it, so the dashboard's game-action availability and game_preflight both answer from the project's own declaration above a retained session host that predates contract 3; the worker advertises projectGame: 1 beside dashboard: 1 and a layered workspace update alone lights the MCP guard up.",
         "Launching stays with the session host, which owns Sessions (PTY), the embedded Surfaces reservation and the session-id map behind /surface, and whose /api/terminal refuses type game; the worker advertises projectGameLaunch only by mirroring the host's own projectGame, refuses POST /api/game and the game branch of /api/dashboard-run by name above an older host instead of forwarding into the removed built-in game, and launch_game gates on projectGameLaunch with that message. supervisor.mjs claims neither capability in its workspaceWorkerUnavailable fallback, where the host answers.",
         "A regression drives a worker above a proxy that advertises only handoff: 1 and answers game-config with the removed built-in NOLF config: it asserts capabilities.projectGame is 1 and projectGameLaunch absent, that game-config returns each declared record (including an unknown gameId 404 naming the declared ids), that the dashboard marks a declared game available, that both launch paths and launch_game refuse by name, and that game_preflight through the real MCP connector answers from the declaration; the merged-host path keeps projectGameLaunch: 1 and launches through the worker's game route unchanged. npm test, npm run test:desktop, CTest, ./init.sh, design.py check, features.py validate and RENGINE_NOLF_ROOT=... npm run test:game-nolf pass, and both live consumer declarations re-validate through the fixed code. Passing waits on the owner's live verification after update_workspace, as F71/F72 do."
       ],
@@ -771,7 +771,7 @@
       "owner_workspace": "rengine",
       "deliverable": "docs/specs/081-game-recording.md, orchestrator/native/recording.c and jpeg.c, orchestrator/server/recordings.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, orchestrator/native/tests/recording_test.c, orchestrator/tests/recordings.test.mjs and native-recording.spec.mjs",
       "external_references": [
-        "capture-mcp (per-app audio and transcription) — KI-044"
+        "capture-mcp (per-app audio and transcription) \u2014 KI-044"
       ],
       "evidence": []
     },
@@ -880,7 +880,7 @@
       "external_references": [],
       "evidence": [
         "orchestrator/tests/native-identity.spec.mjs: an undeclared project shows rEdit in the chrome and in the operating system window title; a project declaring a title and glyph under contract 5 wears both, and the brand chip takes the declared token colour rather than the accent.",
-        "orchestrator/tests/native-identity.spec.mjs: identity comes from the window's primary root — selecting a second, declared root through the project menu does not rename the chrome. Verified failing when identity reads the selected root instead.",
+        "orchestrator/tests/native-identity.spec.mjs: identity comes from the window's primary root \u2014 selecting a second, declared root through the project menu does not rename the chrome. Verified failing when identity reads the selected root instead.",
         "orchestrator/tests/native-identity.spec.mjs: title and icon under contract 4 are refused naming the required version, and an icon token outside the design set is refused naming the token.",
         "Sabotages run separately, each failing only its own claim: identity read from the selected root; the declared token ignored in favour of the accent.",
         "Gates on macOS 2026-09-07: npm test 78/78, npm run test:desktop 38/38, CTest 6/6, python3 tools/design.py check."
@@ -1046,7 +1046,7 @@
         "orchestrator/tests/agent-config.test.mjs: rEngine names the conversation it launches and resumes that same one",
         "orchestrator/tests/sessions.test.mjs: restarting refuses anything it cannot put back into its own conversation",
         "orchestrator/tests/conversation-identity.test.mjs: a pane launch carries exactly one conversation, and that conversation is the identity",
-        "orchestrator/tests/conversation-identity.test.mjs: a person’s own --resume wins over the host’s conversation, and the record follows the launch",
+        "orchestrator/tests/conversation-identity.test.mjs: a person\u2019s own --resume wins over the host\u2019s conversation, and the record follows the launch",
         "orchestrator/tests/conversation-identity.test.mjs: a launch that continues or forks reports no conversation rather than claiming a minted one",
         "orchestrator/tests/conversation-identity.test.mjs: a restart puts the pane back on the same conversation, so the identity survives it",
         "docs/evidence/conversation-is-identity-2026-09-07.md"
@@ -1204,17 +1204,17 @@
       "milestone": "O1",
       "category": "workspace",
       "priority": "high",
-      "description": "New server capabilities reach a running workspace and its attached MCP agent sessions without restarting the session host: a route that needs no PTY, surface or store state is served by the replaceable workspace worker (the tracker routes are the proof, with the host’s state directory taken from its own /api/state or found in the process table by the descriptor’s instance), the MCP facade refreshes its tool worker when the connector generation changes without waiting for a request and announces tools/list_changed, a call naming a tool the workspace no longer has is answered with the current names and the way back, and list_tasks exposes the tracker to agents.",
+      "description": "New server capabilities reach a running workspace and its attached MCP agent sessions without restarting the session host: a route that needs no PTY, surface or store state is served by the replaceable workspace worker (the tracker routes are the proof, with the host\u2019s state directory taken from its own /api/state or found in the process table by the descriptor\u2019s instance), the MCP facade refreshes its tool worker when the connector generation changes without waiting for a request and announces tools/list_changed, a call naming a tool the workspace no longer has is answered with the current names and the way back, and list_tasks exposes the tracker to agents.",
       "acceptance_criteria": [
-        "Above a retained host that answers /api/tracker with 404 and says nothing about its state directory, the worker serves GET /api/tracker, POST /api/tracker/signin and POST /api/tracker/signout from its own checkout, advertises tracker: 1, and the sign-in setup names that host’s own trackers directory, found through the process table by the descriptor’s instance.",
+        "Above a retained host that answers /api/tracker with 404 and says nothing about its state directory, the worker serves GET /api/tracker, POST /api/tracker/signin and POST /api/tracker/signout from its own checkout, advertises tracker: 1, and the sign-in setup names that host\u2019s own trackers directory, found through the process table by the descriptor\u2019s instance.",
         "A host from this checkout reports stateDir on /api/state, and a worker above it needs no process table to name the directory.",
-        "The state directory is keyed by the descriptor’s instance: a worker handed a proxy’s URL still finds the right directory, and a host that is not the first row in the table is not mistaken for another.",
-        "A connector-layer update issued to the supervisor reaches an idle facade: tools/list_changed is sent with no request through the facade, the next tools/list shows the probed worker’s tools, and update_status reports a new tool-worker pid.",
-        "A call naming a tool the current worker does not have is answered with the connector generation, the current tool names and the client guidance, not the SDK’s bare not-found.",
+        "The state directory is keyed by the descriptor\u2019s instance: a worker handed a proxy\u2019s URL still finds the right directory, and a host that is not the first row in the table is not mistaken for another.",
+        "A connector-layer update issued to the supervisor reaches an idle facade: tools/list_changed is sent with no request through the facade, the next tools/list shows the probed worker\u2019s tools, and update_status reports a new tool-worker pid.",
+        "A call naming a tool the current worker does not have is answered with the connector generation, the current tool names and the client guidance, not the SDK\u2019s bare not-found.",
         "list_tasks returns the tracker rows through the real facade.",
         "Each regression was observed failing for its own reason: the route forwarded to the retained host; stateDir dropped from /api/state, with the host-level assertion lifted so the worker-level one discriminates alone; the URL as the key, and the first host row taken on trust; the descriptor watcher removed; the stale-name answer dropped; the facade running its sibling instead of the probed file.",
-        "LIVE, read-only, done 2026-09-07: a worker from this checkout started in-process against host PID 33465 answered /api/tracker for all three roots and named the live state directory, while the same route through supervisor 44390 still returned the host’s 404; a scratch supervisor, worker and facade from this checkout above the same host listed list_tasks and delivered a connector update to an idle facade in under a second; recorded in docs/evidence/live-capability-updates-2026-09-07.md.",
-        "LIVE, done 2026-09-07 13:45 after the merge: the workspace,connector update on supervisor 44390 succeeded in 337 ms; the supervisor then advertised tracker: 1 and answered GET /api/tracker with the 51 local rows where it had returned the retained host’s 404, a facade from this checkout listed and called list_tasks against the same workspace, and every retained session survived with host PID 33465 never signalled. The owner’s own connector, loaded before the facade existed, still needs /mcp → Reconnect to see list_tasks; recorded in docs/evidence/live-capability-updates-2026-09-07.md."
+        "LIVE, read-only, done 2026-09-07: a worker from this checkout started in-process against host PID 33465 answered /api/tracker for all three roots and named the live state directory, while the same route through supervisor 44390 still returned the host\u2019s 404; a scratch supervisor, worker and facade from this checkout above the same host listed list_tasks and delivered a connector update to an idle facade in under a second; recorded in docs/evidence/live-capability-updates-2026-09-07.md.",
+        "LIVE, done 2026-09-07 13:45 after the merge: the workspace,connector update on supervisor 44390 succeeded in 337 ms; the supervisor then advertised tracker: 1 and answered GET /api/tracker with the 51 local rows where it had returned the retained host\u2019s 404, a facade from this checkout listed and called list_tasks against the same workspace, and every retained session survived with host PID 33465 never signalled. The owner\u2019s own connector, loaded before the facade existed, still needs /mcp \u2192 Reconnect to see list_tasks; recorded in docs/evidence/live-capability-updates-2026-09-07.md."
       ],
       "passes": false,
       "dependencies": [
@@ -1232,6 +1232,34 @@
         "docs/evidence/live-capability-updates-2026-09-07.md: the read-only live probe of host PID 33465 and the sabotage table",
         "docs/evidence/live-capability-updates-2026-09-07.md: the live workspace,connector update on supervisor 44390 and the tracker it delivered"
       ]
+    },
+    {
+      "id": 105,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "Task-driven agents (spec 103): the project token serialises workspace-mediated writes to project state -- task_add/task_update/task_decompose run the project's declared write command for the holder only, one at a time; the Sessions tab marks the holder and revokes or frees the token beside it; the Tasks pane spawns a chosen agent and model on a task (a conversation that records the task) or decomposes it into subtasks through an agent brief; prompts are project files with shipped defaults; contract 6 adds tracker.write and agents.",
+      "acceptance_criteria": [
+        "On the Sessions tab the live agent holding the token is marked and offers Revoke; pressing it frees the token as a token.revoked frame by desktop and another agent's token_contest then claims it; a holder whose process is gone offers Free with the same effect.",
+        "task_add, task_update and task_decompose from a non-holder are refused naming the holder and token_contest with nothing written; from the holder they run the declared tracker.write command with the row as JSON; two holders in sequence never interleave a write, proved with a slow fake write command and two callers.",
+        "A project without tracker.write is told so by name; GitHub and Linear providers refuse writes by name.",
+        "Spawn from the Tasks pane starts an agent pane with the chosen CLI and model on a fresh conversation seeded with the task prompt, records task on the conversation, the Sessions tab and workspace_info show the task beside the agent, and agent.spawned is on the feed.",
+        "Decompose starts an agent on the decomposition prompt; with a scripted agent the resulting task_add calls create child rows with parent set and no other file changes.",
+        ".rengine/prompts/*.md override the shipped prompts, a missing file uses the default, and a misspelled placeholder is reported rather than emptied.",
+        "Contract 6 (tracker.write, agents) validates, a contract-5 declaration is accepted unchanged, and an older host is refused by name on the new keys.",
+        "Everything ships in replaceable layers; the host changes only to accept task on the conversation record, refused by name before the next replacement."
+      ],
+      "passes": false,
+      "dependencies": [
+        78,
+        90,
+        93,
+        95
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/103-task-driven-agents.md; Sessions-tab token controls in orchestrator/native/workspace.c; task write routes and agent-spawn in orchestrator/runtime/worker.mjs; task_*/spawn_agent tools in orchestrator/agents/mcp-worker.mjs; Tasks-pane controls in orchestrator/native/tracker.c; contract 6 in contracts/project-v1.schema.json; shipped prompts under orchestrator/templates/prompts",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }
