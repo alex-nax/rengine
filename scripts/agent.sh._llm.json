@@ -18,14 +18,24 @@
       "id": "menu-and-startup",
       "kind": "constraint",
       "anchor": {
-        "start": 94,
-        "end": 94,
+        "start": 127,
+        "end": 127,
         "snippet": "launch_agent() {"
       },
       "note": "Launch never silently installs or updates. The menu exposes those explicit actions. With an rEngine context, launch execs the Node provider adapter to supply project-bound MCP configuration; without a context it execs the selected CLI directly. Custom executable formats are not inferred: they receive a generic MCP configuration path and keep responsibility for consuming it. check-resume uses the same managed/PATH executable lookup and probes Codex resume help and login status without installing, updating or launching a coding session.",
       "refs": [
         "docs/specs/055-nolf-workspace-goal.md"
       ]
+    },
+    {
+      "id": "only-an-explicit-resume-suppresses-the-offer",
+      "kind": "rationale",
+      "anchor": {
+        "start": 101,
+        "end": 101,
+        "snippet": "if [ \"${RENGINE_AGENT_RESUME:-}\" = \"1\" ]; then return 0; fi"
+      },
+      "note": "Do not change this to test RENGINE_AGENT_CONVERSATION. That was the first implementation and it made the picker dead code: the workspace mints an identifier for every fresh pane before the pane runs, so the variable is effectively always set and the offer would never have appeared. It would have shipped looking correct, because the failure is an absence — nothing prompts, nothing errors. A minted id means 'this pane is new', not 'this pane has chosen'; only RENGINE_AGENT_RESUME, which restart_agent and this function itself set, means a conversation was actually decided. The test 'a workspace-minted conversation is still offered the history' exists to catch exactly this regression. Decision 5 of docs/specs/097-agent-conversation-persistence.md."
     }
   ],
   "source": {

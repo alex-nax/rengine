@@ -1,5 +1,41 @@
 # Progress Log
 
+## Session 39 (macos) — 2026-09-07 — Conversations that outlive the host, and a pane that offers them (F93)
+
+Spec 097, written because 096 shipped and did not solve the owner's problem. They restarted, opened
+a new agent tab, and still had to type `/resume` by hand. They were right to expect otherwise.
+
+096 recorded a pane's conversation and could restart a pane into it. What it missed is that session
+records live only in the host's memory — `Sessions` keeps a Map, and the state file persists roots,
+drafts, layout and preferences and nothing else. So every conversation a host knows dies with that
+host, which is precisely the event a person reaches for a resume after. The feature was shaped for
+the wrong event. There was a second gap of the same shape: 096 could restart an existing pane, but
+after a host restart the old pane is gone and what a person does is open a new one, and choosing a
+conversation for a new pane was the deferred native browser.
+
+So conversations are now persisted per root in the workspace state file, bounded at twenty, most
+recent first, re-recording touching a row rather than adding one. And the offer lives in the pane,
+where the agent is already chosen, rather than waiting for a browser: the workspace writes the
+project's conversations for the pane, the launcher lists them with when each was last seen, Enter
+starts a new one. The pane reports what it actually launched, because the person may have chosen
+something other than what was minted, so the record follows the pane rather than the intention.
+
+Decision 5 earned itself during the build, in the way these usually do. The first implementation
+suppressed the offer whenever the pane already had a conversation — which is always, because the
+workspace mints one before the pane runs, so the picker would have shipped and never appeared. A
+minted id means "this pane is new", not "this pane has chosen"; only an explicit resume suppresses
+the offer. The test that pins it is the one that caught it.
+
+Three regressions failing only for their own claim: the store methods absent, the offer never
+appearing, and the minted-id suppression above. Suite 108 pass, 0 fail, against 103 on main.
+
+Still not proven live, and `passes` stays false, for the same reason 096's did: a workspace whose
+host predates the change cannot exercise it. The first host started from this should record that a
+pane offered a prior conversation, that choosing it resumed rather than starting a second, and that
+the offer survived a host restart — the criterion 096 could not meet — which closes both features.
+Remaining after that: the native session browser, now a presentation change over a persisted list
+rather than a data one, and Codex, which names its own rollouts and so records nothing here.
+
 ## Session 38 (macos) — 2026-09-07 — Agent conversations, and the environment a pane inherits (F91, F92)
 
 Spec 096, from an incident in the hirebase-v2 workspace. Every pane there had lost its colour, and

@@ -5,8 +5,8 @@
       "id": "root-path-binding",
       "kind": "constraint",
       "anchor": {
-        "start": 13,
-        "end": 13,
+        "start": 17,
+        "end": 17,
         "snippet": "export async function resolveInRoot(root, relative = '', allowMissing = false) {"
       },
       "note": "Resolve paths using their stored root and real paths, including symlink targets. Roots identify distinct worktrees; a focused tree never supplies an implicit file root. File API confinement is separate from shell/agent OS access. Exported as a plain function so the replaceable workspace worker's format registry (spec 074) applies the identical root/symlink boundary without a store instance.",
@@ -19,8 +19,8 @@
       "id": "save-and-draft-order",
       "kind": "rationale",
       "anchor": {
-        "start": 152,
-        "end": 152,
+        "start": 156,
+        "end": 156,
         "snippet": "async saveText({ rootId, path: relative, text, version }) {"
       },
       "note": "Serialize saves per canonical file, check the disk hash before and after staging, and retain the draft on conflicts. Rename preserves a whole file version. This is not an OS-level compare-and-swap against arbitrary external writers; power-loss durability and draft checkpoint scheduling still require qualification.",
@@ -32,14 +32,24 @@
       "id": "external-declaration-binding",
       "kind": "constraint",
       "anchor": {
-        "start": 59,
-        "end": 59,
+        "start": 63,
+        "end": 63,
         "snippet": "async addRoot(directory, declarationFile) {"
       },
       "note": "The canonical declaration filename is durable metadata on the real project root, not a substitute root. Omitted declarations preserve an existing binding; a conflicting explicit filename is refused. The original host owns this state, so a worker update alone cannot add support to a legacy host. Registration checks file existence and type; later read errors belong to the declaration reader. No project-local configuration is written.",
       "refs": [
         "docs/specs/085-external-project-capabilities.md"
       ]
+    },
+    {
+      "id": "conversations-must-outlive-the-host",
+      "kind": "rationale",
+      "anchor": {
+        "start": 195,
+        "end": 195,
+        "snippet": "async recordConversation(rootId, { conversation, agent } = {}) {"
+      },
+      "note": "This exists because spec 096 shipped without it and was shaped for the wrong event. Session records live in the host's memory (Sessions keeps a Map), so a conversation recorded there dies with the host — and a host restart is precisely what a person reaches for a resume after. Persisting here, beside roots and drafts, is what makes resuming mean anything across the only event that matters. The bound is not decoration: this file is rewritten whole on every persist, so an unbounded per-root list would grow the write. Re-recording touches and re-fronts an existing row rather than appending, so a conversation resumed daily stays one row. See docs/specs/097-agent-conversation-persistence.md."
     }
   ],
   "source": {
