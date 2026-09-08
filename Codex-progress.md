@@ -38,9 +38,9 @@ longer exists. It records what was true when it passed; F111 records the superse
 would erase the fact that the key ever shipped.
 
 Commands: `npm test` 223/223 · `./init.sh` clean · `python3 tools/features.py validate` (63 features)
-· `python3 tools/design.py check` clean · `node --test orchestrator/tests/packs.test.mjs` 4/4 · the
-six `formats.mjs` sidecar anchors drifted +2 by the edit and were relocated by snippet, each found
-uniquely.
+· `python3 tools/design.py check` clean · `node --test orchestrator/tests/packs.test.mjs` 4/4 · five of
+`formats.mjs`'s six sidecar anchors drifted +2 by the edit and were relocated by snippet, each found
+uniquely; the sixth sits above the change and did not move.
 
 Remaining: the owner's sign-off on spec 111, which is now the only outstanding step of the first
 adoption; a rEngine-side check that a declared pack revision matches the submodule; VtMB as D09's
