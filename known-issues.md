@@ -4,7 +4,7 @@
 | --- | --- | --- |
 | KI-001 | Owner selected iklib as the first two-game library proof; exact profiles, parity measures and resource budgets remain open. | Complete `docs/specs/001-library-pilot.md`; shared command tooling remains supporting work. |
 | KI-002 | The active NOLF workspace goal authorizes 15 scoped features; the larger proposal remains separate. | Follow `features.json` and F55. The historical interactive review is not a new implementation gate. |
-| KI-003 | Powered-by minimum is confirmed as verified pinned capability adoption; its record format remains proposed. | Define exact capability/game/platform evidence rows. IDE/shared harness use stays optional. |
+| KI-003 | Powered-by minimum is confirmed as verified pinned capability adoption; its record format was proposed for a year. **Answered 2026-09-08 by charter D44 and spec 110**: the adopting project holds the evidence, and the proof is the owner's sign-off in a spec naming the pack, both halves of the pin, the project and what was seen. Closed as a question; the first actual sign-off is still owed, and F61 is the obvious candidate. | Record the first adoption when F61 lands. A declared check command was considered and rejected — it proves a command went green, not that the adoption is good — and remains the successor if this stops scaling. |
 | KI-004 | Both engines use an optional local `infra-vr` source path. | Plan reproducible packaging without duplicating its reporting/backend work. |
 | KI-005 | iklib host migrations are pending in its tracker. | Reference F131/F130/F133/F132; do not claim integration from presets alone. |
 | KI-006 | Reference worktrees are active and contain edits. | Re-pin and recheck changed files before any actual integration. |

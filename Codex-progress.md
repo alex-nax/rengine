@@ -1,5 +1,44 @@
 # Progress Log
 
+## Session 77 (macos) — 2026-09-08 — The four open questions, and the name that had to change back (specs 109–110, D42 revised, D44)
+
+**The naming resolved by a collision, not by taste.** The editor's name is per-edition: entertainment
+is **rEngine** with the editor **rEdit**; business is **RED Suite** with the editor **red**. The owner's
+reason is the whole argument — *"we had a CD Project Red studio with similar naming"*. In a games
+context "Red" borrows CD Projekt Red's identity; in a business context it does not. So one binary
+still, but the name it wears comes from the edition.
+
+That revises D42 as written this morning and revises D41 again, and it leaves a contradiction sitting
+in the tree right now: F110 shipped `product.retired: ["rEdit"]` with a guard that fails the build on
+a retired name, and I verified it — writing `"rEdit"` into any shipping file makes `design.py check`
+exit 1 naming it. rEdit is a live name again, so the guard currently rejects a correct one. F110's
+mechanism survives untouched; what it holds becomes edition-supplied and `rEdit` leaves the list.
+Recorded as the first implementation task rather than fixed here, because the spec comes first.
+
+**The other three.** The manifest is written by an install action in the suite (`install-edition.sh`,
+the shape `restart-supervisor.sh` and `integrate-project.sh` already use) rather than waiting on
+packaging, which KI-008 still holds open. A workspace holding both streams does nothing special — the
+install's brand wins, and refusing to bind would stop the owner working across their own projects in
+one window. And the pack lists were answered from the inventory rather than invented: entertainment
+has three unfinished candidates (the renderer at F61, D33's owned controls, iklib), business has none
+yet, and an edition naming zero packs is legitimate because it still carries a brand and a layout.
+
+**Library adoption (spec 110, D44)** answers the half of KI-003 that had been open since the first
+day. The declaration already existed — F109 shipped `library` facets, a two-part pin and `poweredBy`
+this morning — so what was missing was never the manifest but *who holds the evidence and what counts
+as evidence*. The adopting project holds it, because `AGENTS.md` already says a local task cannot mark
+another project's feature done and a curator recording "VtMB passed" would be doing exactly that.
+
+**The recommendation that lost, and why it deserved to.** I recommended a declared check command under
+the boundary that already runs previews and language servers, for reproducibility. The owner chose an
+owner's sign-off recorded in a spec, and the honest reading is that it is more truthful about who
+decides: a green command proves a command went green, and D24's bar — a curated capability actually
+carrying a game — is a judgement. Two costs are written down rather than left to be found: it does not
+scale past projects the owner personally watches, and a sign-off that does not name the checked
+revision is worthless once the pin moves.
+
+Nothing implemented. Specs 109 and 110 are the artifacts; the build order is the owner's.
+
 ## Session 76 (macos) — 2026-09-08 — The two streams, and what they cost (spec 109, D42–D43)
 
 The owner named the split — business **RED Suite** on Kohai (`~/hirebase-v2`), entertainment
