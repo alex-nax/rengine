@@ -1,0 +1,3 @@
+[submodule "third_party/iklib"]
+	path = third_party/iklib
+	url = git@github.com:alex-nax/iklib.git

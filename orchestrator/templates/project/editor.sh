@@ -107,9 +107,9 @@ esac
 # ---- 1. submodule ----------------------------------------------------------------
 if [ ! -f "$RENGINE/package.json" ]; then
     if [ "$MODE" = check ]; then
-        log "MISSING third_party/rengine (run: git submodule update --init third_party/rengine)"
+        log "MISSING third_party/rengine (run: git submodule update --init --recursive third_party/rengine)"
     else
-        run git -C "$ROOT" submodule update --init third_party/rengine
+        run git -C "$ROOT" submodule update --init --recursive third_party/rengine
     fi
 fi
 
@@ -192,7 +192,7 @@ if [ -d "$RENGINE" ]; then
 elif [ "$DRY" = 1 ]; then
     printf '+ cd %s\n' "$RENGINE"
 else
-    log "third_party/rengine is missing; run git submodule update --init third_party/rengine"; exit 1
+    log "third_party/rengine is missing; run git submodule update --init --recursive third_party/rengine"; exit 1
 fi
 [ -n "$NODE" ] && [ -x "$NODE" ] && export PATH="$(dirname "$NODE"):$PATH"
 

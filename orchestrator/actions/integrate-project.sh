@@ -163,6 +163,11 @@ elif [[ -e "$RE_PROJECT/third_party/rengine/.git" ]]; then
 else
   re_do 'Add the submodule' git -C "$RE_PROJECT" submodule add "$RE_URL" third_party/rengine
   re_do 'Check out the pin' git -C "$RE_PROJECT/third_party/rengine" checkout --detach "$RE_PIN"
+  # rEngine carries the curated packs as submodules of its own, so a project that stops at one level
+  # gets an empty third_party/iklib and a build that fails on a missing header rather than on a
+  # missing dependency. The recursion is the difference between connecting to rEngine and connecting
+  # to what rEngine curates.
+  re_do 'Check out what rEngine carries' git -C "$RE_PROJECT/third_party/rengine" submodule update --init --recursive
   re_do 'Record the pinned gitlink' git -C "$RE_PROJECT" add third_party/rengine
 fi
 

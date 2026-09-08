@@ -73,6 +73,38 @@ So the frame and unit questions spec 001 demanded be declared before migration a
 declared, by the library, against this host**. The adoption is not a port; it is replacing a
 hand-rolled block with a call the library already shaped for it.
 
+## Where iklib's bytes come from, decided 2026-09-08
+
+The owner: *"iklib should be referenced in rengine repo, so when we connect our ~/nolf-improved repo
+to rengine - we have code checked out"*. Two decisions, both taken against shapes this repository
+already uses rather than invented:
+
+**rEngine carries iklib as a git submodule at `third_party/iklib`, pinned.** That is the shape
+`integrate-project.sh` already uses to put rEngine into a host project, and it is right for a
+repository the owner develops: bumping the pin is a commit, and the history stays in iklib rather
+than being copied. The alternative considered and rejected was vendoring with per-file sha256 into
+`third_party/sources.json`, the way microui, stb and libvterm are carried — that convention is built
+for upstream code we do not own, and iklib is ours and moving, so every change would become a
+re-vendor. A fetch-on-demand reference was rejected outright: it is the one shape the boundaries
+forbid, because it is a hidden download.
+
+**rEngine's pin is the truth; a project's declared pack pin must match it.** The bytes that build are
+the submodule's, so that is what actually built. A project still declares the pack — that is how the
+powered-by claim of D24 and D44 is made — but a declared revision disagreeing with what is checked
+out is a refusal rather than a preference. One artifact, one truth, and a disagreement is caught
+instead of averaged.
+
+**The consequence that had to be chased into two more files.** A submodule of a submodule does not
+arrive with a plain `submodule update --init`. `integrate-project.sh` now recurses when it pins
+rEngine into a project, and so does the `editor.sh` the project is scaffolded with — the second one
+was found by its own test asserting the exact non-recursive command, which is what a test naming a
+command string is for. Without both, a connected project gets an empty `third_party/iklib` and a
+build that fails on a missing header rather than on a missing dependency.
+
+**Still outstanding**: nothing yet *enforces* that a project's declared revision matches the
+submodule's. The decision is recorded; the check is not written, and a claim nobody checks is the
+thing D44 was careful about.
+
 ## The first slice, as it should be done in the host's own repo
 
 `~/nolf-improved` has its own workflow (`AGENTS.md`, `CLAUDE.md`, `docs/harness-workflow.md`) and its

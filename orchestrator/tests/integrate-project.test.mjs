@@ -156,7 +156,10 @@ test('the scaffolded launcher bootstraps the pinned tree and never launches unde
   const commands = printed(result.stdout);
   for (const expected of ['npm ci', 'npm run build:surface', 'npm run build'])
     assert.ok(commands.includes(expected), `${expected} missing from ${JSON.stringify(commands)}`);
-  assert.ok(commands.some(command => command.includes('submodule update --init third_party/rengine')), commands);
+  // Recursive, because rEngine carries the curated packs as submodules of its own: a bootstrap that
+  // stops at one level leaves third_party/iklib empty and fails later on a missing header.
+  assert.ok(commands.some(command => command.includes('submodule update --init --recursive third_party/rengine')),
+    `the bootstrap reaches what rEngine carries: ${JSON.stringify(commands)}`);
   assert.ok(!commands.some(command => command.includes('launch.mjs')), commands);
 
   const launched = await execute(bashPath(), [path.join(root, 'editor.sh'), '--dry-run', '--agent', 'codex'], { cwd: root, timeout: 60000, encoding: 'utf8' });
