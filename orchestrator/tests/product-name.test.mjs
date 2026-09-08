@@ -17,7 +17,7 @@ import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { PRODUCT_NAME, PRODUCT_SUITE } from '../runtime/product.mjs';
+import { PRODUCT_NAME, PRODUCT_FAMILY } from '../runtime/product.mjs';
 import { startIdeBridge, IDE_NAME } from '../runtime/ide.mjs';
 import { LanguageServers } from '../runtime/lsp.mjs';
 import { begin, cancel } from '../server/tracker-auth.mjs';
@@ -53,14 +53,16 @@ process.stdin.on('data', chunk => {
 test('the published name is the one the owner settled, and changing it is a published change', () => {
   // The only hand-written product name left in the shipping tree. If this line has to change, the
   // change is visible in `/ide` menus that are not ours: it is a release note, not a refactor.
-  assert.equal(PRODUCT_NAME, 'Red');
-  assert.equal(PRODUCT_SUITE, 'Red Suite');
+  assert.equal(PRODUCT_NAME, 'rEdit');
+  // Red is the family word rEdit produced; the business edition wears it as RED Suite, and an
+  // edition supplies the editor's own name at run time (D42 revised, spec 109).
+  assert.equal(PRODUCT_FAMILY, 'Red');
 });
 
 test('the generated artifacts carry the declaration rather than a copy of it', async () => {
   const declared = JSON.parse(await readFile(path.join(ROOT, 'orchestrator/native/theme.json'), 'utf8')).product;
   assert.equal(PRODUCT_NAME, declared.name, 'the JS module is generated from the declaration');
-  assert.equal(PRODUCT_SUITE, declared.suite);
+  assert.equal(PRODUCT_FAMILY, declared.family);
 
   // The C side of the same declaration. Asserted by reading the generated header, so a stale one is
   // caught here as well as by `python3 tools/design.py check`.
@@ -68,12 +70,15 @@ test('the generated artifacts carry the declaration rather than a copy of it', a
   assert.match(header, /^#define RE_PRODUCT_NAME "(.*)"$/m);
   assert.equal(/^#define RE_PRODUCT_NAME "(.*)"$/m.exec(header)[1], declared.name,
     'theme.h names the declared product; app.h aliases RE_DEFAULT_TITLE to it');
-  assert.equal(/^#define RE_PRODUCT_SUITE "(.*)"$/m.exec(header)[1], declared.suite);
+  assert.equal(/^#define RE_PRODUCT_FAMILY "(.*)"$/m.exec(header)[1], declared.family);
 
   // A retired name is guarded like the current one, so a half-finished rename fails rather than
-  // lingering in a corner nobody greps.
-  assert.ok(Array.isArray(declared.retired) && declared.retired.length > 0);
-  assert.ok(!declared.retired.includes(declared.name));
+  // lingering in a corner nobody greps. The list is empty today and that is correct: rEdit was
+  // briefly retired by D41 and is the entertainment editor's name again under D42 revised, so
+  // nothing is actually gone. What must never happen is a live name sitting in it.
+  assert.ok(Array.isArray(declared.retired), 'the retired list exists even when nothing is retired');
+  assert.ok(!declared.retired.includes(declared.name), 'the current name is never retired');
+  assert.ok(!declared.retired.includes(declared.family), 'nor is the family word');
 });
 
 test('the lock file other people read publishes the declared name', async () => {
@@ -132,8 +137,10 @@ test('no shipping source hard-codes the product name, and the guard says so when
   const decoy = path.join(directory, 'decoy.mjs');
   await writeFile(decoy, [
     '// A comment naming Red is prose and must not fire; a file has to be able to say what it is.',
-    `export const NAME = '${report.retired[0]}';`,
-    'export const MATCH = /^Red\\b/;',
+    // The editor's own name as a string, and the family word as a regular expression: both are live
+    // names under D42 revised, and a regex is not a string, which is what the guard missed at first.
+    `export const NAME = '${report.name}';`,
+    `export const MATCH = /^${report.family}\\b/;`,
     ''].join('\n'));
   try {
     await assert.rejects(() => run(PYTHON, ['tools/design.py', 'product', decoy], { cwd: ROOT }),
