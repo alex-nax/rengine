@@ -101,9 +101,19 @@ was found by its own test asserting the exact non-recursive command, which is wh
 command string is for. Without both, a connected project gets an empty `third_party/iklib` and a
 build that fails on a missing header rather than on a missing dependency.
 
-**Still outstanding**: nothing yet *enforces* that a project's declared revision matches the
-submodule's. The decision is recorded; the check is not written, and a claim nobody checks is the
-thing D44 was careful about.
+**Enforced on the consumer side, 2026-09-08.** The outstanding check was written where it bites:
+NOLF's `cmake/iklib.cmake` holds the pin as a literal, and when the tree it is pointed at is a git
+checkout whose `HEAD` is not that revision, the configure **fails** and names both revisions. The
+build refuses rather than prefers, which is what "one artifact, one truth" was asking for. rEngine
+still has no check of its own — a project could declare a pack revision in `.rengine/project.json`
+that disagrees with both — so the gap is narrower than it was, not closed.
+
+**And the recursive fix was wrong about existing checkouts.** The paragraph above assumed a
+connected project only needed `submodule update --init --recursive` to pick iklib up. Measured in
+NOLF: its rEngine pin was `562b195`, which **predates `6e88a5c` and therefore has no `.gitmodules`
+at all**. At that pin iklib does not exist in rEngine and no `--recursive` can fetch it. An existing
+checkout needs the rEngine pin *bumped* first; the recursion is the second step, not the fix. The
+scaffold change stands for projects connected from now on.
 
 ## The first slice, as it should be done in the host's own repo
 
@@ -111,7 +121,9 @@ thing D44 was careful about.
 own inventory, and rEngine's own rule is that **a local task cannot mark another project's feature
 done**. So this spec stops at the seam and the work happens there, under those rules:
 
-1. Vendor `ik_lithtech.{h,cpp}` and add iklib at the pin above, consumed by `add_subdirectory` —
+1. ~~Vendor~~ **compile** `ik_lithtech.{h,cpp}` **from the pinned tree** (nothing is copied; the
+   preset is host-side by design but has exactly one source) and add iklib at the pin above,
+   consumed by `add_subdirectory` —
    the path its own CMakeLists is written for (it builds the library only when it is not the top
    project, and exposes `include/` publicly while keeping `src/` private).
 2. Replace the block at `vr_body_solve.h:236` with `ikRetargetArmLithTech(...)`, mapping NOLF's
@@ -121,13 +133,44 @@ done**. So this spec stops at the seam and the work happens there, under those r
    iklib's own F130 says it verifies ("whether NOLF's arm constants match").
 4. Record the result in NOLF's own evidence, and only then the owner's sign-off here (D44).
 
+## The sign-off this adoption is ready for (D44b)
+
+Spec 110 says an adoption becomes real when the **owner** records it. Every slot that record needs
+is now filled except the owner's own words, so it is set out here rather than asserted:
+
+- **pack**: `iklib`, both halves of the pin — version `0.0.0-620bff1` (spoken; iklib still carries no
+  tag), revision `620bff1a44904e441c44b588c3339c57d73bb9bc` (checked, and now checked by the build).
+- **project and checkout**: `~/nolf-improved`, branch `f1706-iklib-arm-retarget`, reaching iklib
+  through rEngine `6e88a5c` at `third_party/rengine/third_party/iklib`.
+- **what was run and seen**, in NOLF's own terms: `RetargetArm` delegates to
+  `ikRetargetArmLithTech` and `vr_body_solve.h` drops from 456 to 204 lines; the deleted solve is
+  kept verbatim as the test's oracle; equivalence over 20 240 scenes at 2.7e-5 worst deviation; the
+  inherited `test_vr_body` (17/17) and `test_vr_arm_latch` (8/8) unchanged; four sabotages applied,
+  observed failing for their own reasons, and restored — one of which first reproduced the previous
+  sabotage's output byte for byte because `make` had not rebuilt, and was rerun with the binary's
+  mtime checked. Evidence lives in NOLF's `docs/specs/feature-1706-iklib-arm-retarget.md`, which is
+  where D44 says it belongs.
+- **date and the owner's words**: *awaiting the owner.* This is the one thing no agent can supply,
+  and D44b exists precisely so that it is not supplied by one.
+
+Under D24 the powered-by minimum — one curated capability at a pinned version with passing game
+integration checks — is met on the evidence side. `poweredBy` is not yet written into NOLF's
+declaration, and should be written by the same hand that signs.
+
 ## What is not established
 
-- **Whether the numbers agree.** iklib F130 is open and its own verification note asks whether NOLF's
-  arm constants match. Nothing here has run a solve, and the two implementations having the same
-  *shape* says nothing about them producing the same *pose*. That is what step 3 is for, and it is
-  the step that can still say no.
-- **`playerReach`, `rollGain`, `twistFollow`, damping and the abort thresholds.** NOLF's call passes
-  none of them; the preset takes them. Which NOLF values map, and which are new behaviour that must
-  be defaulted to preserve today's, is unread.
+- ~~**Whether the numbers agree.**~~ **Answered 2026-09-08 by the adoption itself**, in
+  `~/nolf-improved/docs/specs/feature-1706-iklib-arm-retarget.md`. Over 20 240 scenes — iklib's own
+  240-record generator plus a 20 000-scene sweep across reach, side, roll gain, twist and clavicle
+  presence — the worst position deviation is **2.7e-5 LT (0.42 µm)** and the worst quaternion
+  component deviation **2.7e-5 (0.003°)**, with **zero** disagreements in entry count or node index.
+  One *functional* disagreement exists and is measure-zero: on an exactly antiparallel shortest-arc
+  input (within ~0.08°) the two libraries pick different 180° axes, so the bone points the same way
+  but its roll can differ; no random scene reached it, and a constructed one pins it. The finding is
+  recorded as a delta rather than tuned away.
+- ~~**`playerReach`, `rollGain`, `twistFollow`, damping and the abort thresholds.**~~ **Read, and
+  the premise was wrong**: NOLF's `RetargetArm` already takes `playerReachLT`, `rollGain` and
+  `twistFollow`, and both production call sites already pass them — the seam matched the preset
+  parameter for parameter. Every `IkArmParams` field is classified mapped / defaulted / matching in
+  F1706's spec, and the only numeric difference in the whole set is a 1e-6 rad flare constant.
 - **VtMB.** iklib F131 is the other half of D09's two-game proof and is untouched here.

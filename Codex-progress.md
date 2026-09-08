@@ -1,5 +1,45 @@
 # Progress Log
 
+## Session 79 (macos) — 2026-09-08 — the first adoption measured: iklib carries NOLF's arm
+
+The adoption spec 111 stopped at the seam is now done in the host's own repository, and it came back
+with numbers rather than an assurance. Over **20 240 scenes** — iklib's own 240-record generator plus
+a 20 000-scene sweep across reach, side, roll gain, twist and clavicle presence — the hand-rolled
+solve and `ikRetargetArmLithTech` agree to a worst **2.7e-5 LT (0.42 µm)** in position and **2.7e-5**
+in a quaternion component (0.003°), with zero disagreements in entry count or node index. NOLF's full
+suite is **487/487 in 747.57 s**, one test more than before, and the one added is the equivalence
+test. `vr_body_solve.h` goes 456 → 204 lines; the deleted solve is kept verbatim inside the test as
+its oracle, which is the only way an equivalence claim means anything.
+
+**One functional disagreement, and it was recorded rather than tuned away.** On an exactly
+antiparallel shortest-arc input — within ~0.08° — the two libraries pick different 180° axes, so the
+bone points the same way but its roll can differ by up to 180°. No random scene reached the branch; a
+constructed one pins it. iklib already records it as a deliberate delta. The instruction was *do not
+tune constants until the tests go green; if the poses differ, the finding is that they differ* — and
+that is what came back.
+
+**Two of this spec's open items were answered by being wrong.** The `playerReach`/`rollGain`/
+`twistFollow` question assumed NOLF passed none of them: it already passes all three, from both
+production call sites, and the seam matched the preset parameter for parameter. And the recursive
+bootstrap shipped in `6e88a5c` does **not** repair existing checkouts — NOLF's rEngine pin was
+`562b195`, which predates `.gitmodules` existing at all, so no `--recursive` could have fetched
+iklib. The pin has to be bumped first; the recursion is the second step. The scaffold change stands
+for projects connected from here on.
+
+**The outstanding check is written, on the consumer side.** `cmake/iklib.cmake` holds the pin as a
+literal and fails the configure when the tree it points at is a git checkout whose HEAD is not that
+revision, naming both. rEngine still has no check that a *declared* pack revision matches, so the
+gap is narrower rather than closed.
+
+Spec 111 now carries all of this, plus the D44b sign-off record with every slot filled but the
+owner's own words — which is the one slot no agent gets to fill.
+
+Commands: `python3 tools/features.py validate` (62 features, clean) · `python3 tools/design.py check`
+(clean) · NOLF `ctest --output-on-failure` 487/487, exit 0.
+
+Remaining: the owner's sign-off and `poweredBy` in NOLF's declaration; a rEngine-side check that a
+declared pack revision matches the submodule; VtMB as D09's second game.
+
 ## Session 78 (macos) — 2026-09-08 — rEdit is the name again, and the iklib seam read from both sides
 
 **The contradiction is gone.** F110 retired "rEdit" this morning and its guard fails the build on a
