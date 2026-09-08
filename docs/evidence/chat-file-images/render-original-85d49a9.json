@@ -1,0 +1,384 @@
+{
+  "platform": "darwin",
+  "backends": [
+    "opengl",
+    "metal",
+    "vulkan"
+  ],
+  "unavailable": {},
+  "validation": {
+    "vulkan": {
+      "messages": 0,
+      "first": []
+    }
+  },
+  "scenes": {
+    "workspace": {
+      "sdl": {
+        "backend": "sdl",
+        "frames": 42,
+        "buildMedianMs": 0.23227083333333332,
+        "executeMedianMs": 2.8328125,
+        "frameMedianMs": 3.0892083333333327,
+        "commands": 4217,
+        "overflow": false
+      },
+      "compare": {
+        "opengl": {
+          "width": 2560,
+          "height": 1600,
+          "pixels": 4096000,
+          "differing": 392,
+          "fraction": 0.000095703125,
+          "max_delta": 165,
+          "outside_edge_band": 0,
+          "edge_band": 2,
+          "failures": [],
+          "versusReference": 0.354
+        },
+        "metal": {
+          "width": 2560,
+          "height": 1600,
+          "pixels": 4096000,
+          "differing": 392,
+          "fraction": 0.000095703125,
+          "max_delta": 165,
+          "outside_edge_band": 0,
+          "edge_band": 2,
+          "failures": [],
+          "versusReference": 0.341
+        },
+        "vulkan": {
+          "width": 2560,
+          "height": 1600,
+          "pixels": 4096000,
+          "differing": 392,
+          "fraction": 0.000095703125,
+          "max_delta": 165,
+          "outside_edge_band": 0,
+          "edge_band": 2,
+          "failures": [],
+          "versusReference": 0.207
+        }
+      },
+      "cross": {
+        "opengl-vs-metal": {
+          "width": 2560,
+          "height": 1600,
+          "pixels": 4096000,
+          "differing": 0,
+          "fraction": 0,
+          "max_delta": 0,
+          "outside_edge_band": 0,
+          "edge_band": 2,
+          "failures": []
+        },
+        "opengl-vs-vulkan": {
+          "width": 2560,
+          "height": 1600,
+          "pixels": 4096000,
+          "differing": 0,
+          "fraction": 0,
+          "max_delta": 0,
+          "outside_edge_band": 0,
+          "edge_band": 2,
+          "failures": []
+        },
+        "metal-vs-vulkan": {
+          "width": 2560,
+          "height": 1600,
+          "pixels": 4096000,
+          "differing": 0,
+          "fraction": 0,
+          "max_delta": 0,
+          "outside_edge_band": 0,
+          "edge_band": 2,
+          "failures": []
+        }
+      },
+      "opengl": {
+        "backend": "opengl",
+        "frames": 42,
+        "buildMedianMs": 0.1806875,
+        "executeMedianMs": 0.9201041666666666,
+        "frameMedianMs": 1.0950208333333333,
+        "commands": 4217,
+        "overflow": false
+      },
+      "metal": {
+        "backend": "metal",
+        "frames": 42,
+        "buildMedianMs": 0.16285416666666666,
+        "executeMedianMs": 0.8825833333333333,
+        "frameMedianMs": 1.0529791666666666,
+        "commands": 4217,
+        "overflow": false
+      },
+      "vulkan": {
+        "backend": "vulkan",
+        "frames": 42,
+        "buildMedianMs": 0.21925,
+        "executeMedianMs": 0.4235625,
+        "frameMedianMs": 0.6398333333333334,
+        "commands": 4217,
+        "overflow": false
+      }
+    },
+    "terminal": {
+      "sdl": {
+        "backend": "sdl",
+        "frames": 42,
+        "buildMedianMs": 0.247,
+        "executeMedianMs": 3.874770833333333,
+        "frameMedianMs": 4.153479166666667,
+        "commands": 5542,
+        "overflow": false
+      },
+      "compare": {
+        "opengl": {
+          "width": 2560,
+          "height": 1600,
+          "pixels": 4096000,
+          "differing": 436,
+          "fraction": 0.0001064453125,
+          "max_delta": 165,
+          "outside_edge_band": 0,
+          "edge_band": 2,
+          "failures": [],
+          "versusReference": 0.492
+        },
+        "metal": {
+          "width": 2560,
+          "height": 1600,
+          "pixels": 4096000,
+          "differing": 436,
+          "fraction": 0.0001064453125,
+          "max_delta": 165,
+          "outside_edge_band": 0,
+          "edge_band": 2,
+          "failures": [],
+          "versusReference": 0.504
+        },
+        "vulkan": {
+          "width": 2560,
+          "height": 1600,
+          "pixels": 4096000,
+          "differing": 436,
+          "fraction": 0.0001064453125,
+          "max_delta": 165,
+          "outside_edge_band": 0,
+          "edge_band": 2,
+          "failures": [],
+          "versusReference": 0.288
+        }
+      },
+      "cross": {
+        "opengl-vs-metal": {
+          "width": 2560,
+          "height": 1600,
+          "pixels": 4096000,
+          "differing": 0,
+          "fraction": 0,
+          "max_delta": 0,
+          "outside_edge_band": 0,
+          "edge_band": 2,
+          "failures": []
+        },
+        "opengl-vs-vulkan": {
+          "width": 2560,
+          "height": 1600,
+          "pixels": 4096000,
+          "differing": 0,
+          "fraction": 0,
+          "max_delta": 0,
+          "outside_edge_band": 0,
+          "edge_band": 2,
+          "failures": []
+        },
+        "metal-vs-vulkan": {
+          "width": 2560,
+          "height": 1600,
+          "pixels": 4096000,
+          "differing": 0,
+          "fraction": 0,
+          "max_delta": 0,
+          "outside_edge_band": 0,
+          "edge_band": 2,
+          "failures": []
+        }
+      },
+      "opengl": {
+        "backend": "opengl",
+        "frames": 42,
+        "buildMedianMs": 0.3221875,
+        "executeMedianMs": 1.7051666666666665,
+        "frameMedianMs": 2.0418125,
+        "commands": 5542,
+        "overflow": false
+      },
+      "metal": {
+        "backend": "metal",
+        "frames": 42,
+        "buildMedianMs": 0.31647916666666664,
+        "executeMedianMs": 1.7845833333333332,
+        "frameMedianMs": 2.0923541666666665,
+        "commands": 5542,
+        "overflow": false
+      },
+      "vulkan": {
+        "backend": "vulkan",
+        "frames": 42,
+        "buildMedianMs": 0.3103958333333333,
+        "executeMedianMs": 0.883875,
+        "frameMedianMs": 1.1956041666666666,
+        "commands": 5542,
+        "overflow": false
+      }
+    },
+    "primitives": {
+      "sdl": {
+        "backend": "sdl",
+        "frames": 42,
+        "buildMedianMs": 0.25377083333333333,
+        "executeMedianMs": 4.919208333333334,
+        "frameMedianMs": 5.183416666666666,
+        "commands": 5607,
+        "overflow": false
+      },
+      "compare": {
+        "opengl": {
+          "width": 2560,
+          "height": 1600,
+          "pixels": 4096000,
+          "differing": 32195,
+          "fraction": 0.007860107421875,
+          "max_delta": 213,
+          "outside_edge_band": 0,
+          "edge_band": 2,
+          "failures": [],
+          "versusReference": 0.418
+        },
+        "metal": {
+          "width": 2560,
+          "height": 1600,
+          "pixels": 4096000,
+          "differing": 32195,
+          "fraction": 0.007860107421875,
+          "max_delta": 213,
+          "outside_edge_band": 0,
+          "edge_band": 2,
+          "failures": [],
+          "versusReference": 0.284
+        },
+        "vulkan": {
+          "width": 2560,
+          "height": 1600,
+          "pixels": 4096000,
+          "differing": 32195,
+          "fraction": 0.007860107421875,
+          "max_delta": 213,
+          "outside_edge_band": 0,
+          "edge_band": 2,
+          "failures": [],
+          "versusReference": 0.292
+        }
+      },
+      "cross": {
+        "opengl-vs-metal": {
+          "width": 2560,
+          "height": 1600,
+          "pixels": 4096000,
+          "differing": 0,
+          "fraction": 0,
+          "max_delta": 0,
+          "outside_edge_band": 0,
+          "edge_band": 2,
+          "failures": []
+        },
+        "opengl-vs-vulkan": {
+          "width": 2560,
+          "height": 1600,
+          "pixels": 4096000,
+          "differing": 0,
+          "fraction": 0,
+          "max_delta": 0,
+          "outside_edge_band": 0,
+          "edge_band": 2,
+          "failures": []
+        },
+        "metal-vs-vulkan": {
+          "width": 2560,
+          "height": 1600,
+          "pixels": 4096000,
+          "differing": 0,
+          "fraction": 0,
+          "max_delta": 0,
+          "outside_edge_band": 0,
+          "edge_band": 2,
+          "failures": []
+        }
+      },
+      "opengl": {
+        "backend": "opengl",
+        "frames": 42,
+        "buildMedianMs": 0.311375,
+        "executeMedianMs": 1.8349166666666665,
+        "frameMedianMs": 2.1655,
+        "commands": 5607,
+        "overflow": false
+      },
+      "metal": {
+        "backend": "metal",
+        "frames": 42,
+        "buildMedianMs": 0.1993333333333333,
+        "executeMedianMs": 1.274,
+        "frameMedianMs": 1.4719375,
+        "commands": 5607,
+        "overflow": false
+      },
+      "vulkan": {
+        "backend": "vulkan",
+        "frames": 42,
+        "buildMedianMs": 0.37035416666666665,
+        "executeMedianMs": 1.1502916666666665,
+        "frameMedianMs": 1.5116875,
+        "commands": 5607,
+        "overflow": false
+      }
+    }
+  },
+  "memory": {
+    "sdlKb": 149824,
+    "limitKb": 32768,
+    "sdlSamples": [
+      146464,
+      148784,
+      149936,
+      149824
+    ],
+    "openglKb": 183824,
+    "openglLimitKb": 32768,
+    "openglSamples": [
+      165024,
+      167424,
+      183824,
+      183840
+    ],
+    "metalKb": 145456,
+    "metalLimitKb": 32768,
+    "metalSamples": [
+      128224,
+      144928,
+      147600,
+      145456
+    ],
+    "vulkanKb": 146496,
+    "vulkanLimitKb": 32768,
+    "vulkanSamples": [
+      144752,
+      145760,
+      146496,
+      146512
+    ]
+  }
+}

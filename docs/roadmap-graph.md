@@ -161,6 +161,8 @@ flowchart TD
   F106 --> F109
   F110["F110: passing"]
   F79 --> F110
+  F111["F111: passing"]
+  F109 --> F111
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -227,3 +229,4 @@ flowchart TD
 | F108 | O1 | rengine | ready | An extension is an in-process native plugin (charter D38): a module built against one C header loads by absolute path, negotiates its ABI and draw-list versions, registers tabs through the owned layer and draws by appending to the frame's draw list — and a module that will not load, exports no entry point or declares an incompatible ABI is refused by name while the window keeps running. |
 | F109 | O1 | rengine | passing | A pack is one pinned, versioned artifact a project declares, and its facets say how it is consumed: contract 9 adds a packs block whose library facet is source and a CMake target a game consumes at build time and whose plugin facet is a module the editor loads at run time, with "Powered by rEngine" checkable on the library facet alone. |
 | F110 | O1 | rengine | passing | The product is Red, and its name stops being hard-coded: one declaration in orchestrator/native/theme.json is generated into theme.h for the desktop and orchestrator/runtime/product.mjs for the workspace layer, every consumer reads the generated value, and a guard fails when shipping code spells the name instead (charter D41, spec 108). |
+| F111 | O1 | rengine | passing | poweredBy leaves the pack manifest (charter D45): an adoption is recorded by the owner's sign-off in a spec, never claimed in a declaration. The key is removed from contract 9 and refused by name on either facet, with a message naming the successor rather than only saying no. D24's bar is unchanged; only the announcement is gone. This supersedes F109's criterion 5, which is left exactly as written because it records what was true when it passed. |

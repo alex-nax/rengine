@@ -285,6 +285,14 @@ static mu_Rect viewport(ReEditor *e, mu_Rect r, int cw, int lh) {
   e->scroll = e->vertical.value; e->horizontal = e->horizontal_bar.value; return body;
 }
 static void key(ReEditor *e, int k) { stb_textedit_key(e, &e->state, k); }
+void re_editor_goto(ReEditor *e, int line, int column) {
+  if (!e || line < 1) return;
+  int at = 0, row = 1, col = 1;
+  while (at < e->length && row < line) if (e->text[at++] == '\n') row++;
+  while (at < e->length && e->text[at] != '\n' && col < column) { col += e->text[at] > 0xffff ? 2 : 1; at++; }
+  e->state.cursor = e->state.select_start = e->state.select_end = at;
+  e->scroll = re_max(0, row - 2); e->horizontal = 0;
+}
 static void follow_cursor(ReEditor *e, int rows, int cols) {
   int row = 0, column = 0;
   for (int i = 0; i < e->state.cursor; i++) {

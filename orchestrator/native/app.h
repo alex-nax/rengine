@@ -8,6 +8,7 @@
 #include "recording.h"
 #include "token.h"
 #include "plugin.h"
+#include "imageview.h"
 enum { RE_TREE = 1, RE_EDITOR, RE_TERMINAL, RE_SESSIONS, RE_GAME, RE_DASHBOARD, RE_DEVICES, RE_TRACKER, RE_PLUGIN };
 #define RE_DEVICES_TIMEOUT_MS 45000L /* a devices load runs every declared probe; see sidecar: devices-route */
 typedef struct {
@@ -15,8 +16,9 @@ typedef struct {
   bool session_ended;                        /* its session is gone from the workspace state: it ended with a previous host (spec 098) */
   char root[65], session[65], path[2048], title[256], version[65], error[512];
   char selected[1024];                       /* the last row opened here; its branch is never collapsed */
+  int link_line, link_column;
   int diagnostic_version;    /* the language servers' publish counter this tab has already drawn */
-  cJSON *data; ReTerminal *terminal; ReEditor *editor; ReGame *game; ReFormatView *format; ReRecorder *recorder;
+  cJSON *data; ReTerminal *terminal; ReEditor *editor; ReGame *game; ReFormatView *format; ReImageView *image; ReRecorder *recorder;
   mu_Rect rect, header; Uint64 edited;
 } ReTab;
 typedef struct { int id, operation, tab, generation, revision, slot; char root[65]; long timeout; } RePending;
@@ -56,6 +58,7 @@ typedef struct ReApp {
   bool desktop_registered, reload_requested; char desktop_id[65];
   ReProjectToken token;                             /* the project token of the primary root (spec 095) */
   RePlugins *plugins;                               /* the in-process plugins this window loaded (spec 106) */
+  bool file_link_pressed;
   int focus, drag_tab, resize_pane, drag_x, drag_y, mouse_x, mouse_y;
   Uint64 layout_changed, quit_started;
   /* What the focused editor last told the workspace, so a caret that has not moved is not
@@ -105,6 +108,9 @@ bool re_app_quit(ReApp *app);
 cJSON *re_app_inspect(ReApp *app);
 int re_app_tab(ReApp *app, int type, const char *root, const char *path, const char *session, const char *title);
 void re_app_load(ReApp *app, int tab);
+bool re_app_open_reference(ReApp *app, int source, const char *target);
+bool re_app_file_link_event(ReApp *app, const SDL_Event *event);
+void re_image_ui(ReApp *app, mu_Context *ui, int tab, mu_Rect content);
 void re_app_load_entry(ReApp *app, int tab);
 void re_app_mode(ReApp *app, int tab, int mode);
 const cJSON *re_app_format_record(ReApp *app, ReTab *tab);

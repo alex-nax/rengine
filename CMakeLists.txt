@@ -210,9 +210,11 @@ set(rengine_desktop_core_SOURCES
 	"orchestrator/native/dashboard.c"
 	"orchestrator/native/devices.c"
 	"orchestrator/native/editor.c"
+	"orchestrator/native/filelink.c"
 	"orchestrator/native/formatview.c"
 	"orchestrator/native/game.c"
 	"orchestrator/native/hexview.c"
+	"orchestrator/native/imageview.c"
 	"orchestrator/native/layout.c"
 	"orchestrator/native/net.c"
 	"orchestrator/native/overlays.c"
@@ -614,6 +616,74 @@ if(BUILD_TESTING) # testing
 	if(WIN32)
 	  add_custom_command(TARGET rengine_plugin_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
 	    $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_plugin_test>)
+	endif()
+
+endif()
+# Target: rengine_filelink_test
+if(BUILD_TESTING) # testing
+	set(rengine_filelink_test_SOURCES
+		cmake.toml
+		"orchestrator/native/tests/filelink_test.c"
+	)
+
+	add_executable(rengine_filelink_test)
+
+	target_sources(rengine_filelink_test PRIVATE ${rengine_filelink_test_SOURCES})
+	source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${rengine_filelink_test_SOURCES})
+
+	target_link_libraries(rengine_filelink_test PRIVATE
+		rengine_desktop_core
+	)
+
+	get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
+	if(NOT CMKR_VS_STARTUP_PROJECT)
+		set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT rengine_filelink_test)
+	endif()
+
+	set(CMKR_TARGET rengine_filelink_test)
+	if(MSVC)
+	  target_compile_options(rengine_filelink_test PRIVATE /UNDEBUG)
+	else()
+	  target_compile_options(rengine_filelink_test PRIVATE -UNDEBUG)
+	endif()
+	add_test(NAME native_filelink COMMAND rengine_filelink_test)
+	if(WIN32)
+	  add_custom_command(TARGET rengine_filelink_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+	    $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_filelink_test>)
+	endif()
+
+endif()
+# Target: rengine_imageview_test
+if(BUILD_TESTING) # testing
+	set(rengine_imageview_test_SOURCES
+		cmake.toml
+		"orchestrator/native/tests/imageview_test.c"
+	)
+
+	add_executable(rengine_imageview_test)
+
+	target_sources(rengine_imageview_test PRIVATE ${rengine_imageview_test_SOURCES})
+	source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${rengine_imageview_test_SOURCES})
+
+	target_link_libraries(rengine_imageview_test PRIVATE
+		rengine_desktop_core
+	)
+
+	get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
+	if(NOT CMKR_VS_STARTUP_PROJECT)
+		set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT rengine_imageview_test)
+	endif()
+
+	set(CMKR_TARGET rengine_imageview_test)
+	if(MSVC)
+	  target_compile_options(rengine_imageview_test PRIVATE /UNDEBUG)
+	else()
+	  target_compile_options(rengine_imageview_test PRIVATE -UNDEBUG)
+	endif()
+	add_test(NAME native_imageview COMMAND rengine_imageview_test "${PROJECT_SOURCE_DIR}/orchestrator/native/tests/fixtures")
+	if(WIN32)
+	  add_custom_command(TARGET rengine_imageview_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+	    $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_imageview_test>)
 	endif()
 
 endif()

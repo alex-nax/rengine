@@ -113,7 +113,7 @@ type = "static"
 sources = [
   "orchestrator/native/layout.c", "orchestrator/native/net.c",
   "orchestrator/native/terminal.c", "orchestrator/native/editor.c", "orchestrator/native/syntax.c",
-  "orchestrator/native/app.c",
+  "orchestrator/native/app.c", "orchestrator/native/imageview.c", "orchestrator/native/filelink.c",
   "orchestrator/native/workspace.c", "orchestrator/native/overlays.c", "orchestrator/native/game.c", "orchestrator/native/scroll.c",
   "orchestrator/native/scene.c", "orchestrator/native/hexview.c", "orchestrator/native/formatview.c",
   "orchestrator/native/dashboard.c", "orchestrator/native/tracker.c", "orchestrator/native/recording.c", "orchestrator/native/devices.c",
@@ -327,5 +327,41 @@ add_test(NAME native_plugin COMMAND rengine_plugin_test
 if(WIN32)
   add_custom_command(TARGET rengine_plugin_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
     $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_plugin_test>)
+endif()
+"""
+
+[target.rengine_filelink_test]
+condition = "testing"
+type = "executable"
+sources = ["orchestrator/native/tests/filelink_test.c"]
+private-link-libraries = ["rengine_desktop_core"]
+cmake-after = """
+if(MSVC)
+  target_compile_options(rengine_filelink_test PRIVATE /UNDEBUG)
+else()
+  target_compile_options(rengine_filelink_test PRIVATE -UNDEBUG)
+endif()
+add_test(NAME native_filelink COMMAND rengine_filelink_test)
+if(WIN32)
+  add_custom_command(TARGET rengine_filelink_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_filelink_test>)
+endif()
+"""
+
+[target.rengine_imageview_test]
+condition = "testing"
+type = "executable"
+sources = ["orchestrator/native/tests/imageview_test.c"]
+private-link-libraries = ["rengine_desktop_core"]
+cmake-after = """
+if(MSVC)
+  target_compile_options(rengine_imageview_test PRIVATE /UNDEBUG)
+else()
+  target_compile_options(rengine_imageview_test PRIVATE -UNDEBUG)
+endif()
+add_test(NAME native_imageview COMMAND rengine_imageview_test "${PROJECT_SOURCE_DIR}/orchestrator/native/tests/fixtures")
+if(WIN32)
+  add_custom_command(TARGET rengine_imageview_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_imageview_test>)
 endif()
 """

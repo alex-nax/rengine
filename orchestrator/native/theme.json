@@ -537,6 +537,9 @@
       "row-height": 22,
       "action-height": 24,
       "action-width": 132
+    },
+    "image": {
+      "checker-cell": 32
     }
   },
   "metric-notes": {

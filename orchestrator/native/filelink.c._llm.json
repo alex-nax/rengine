@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "visible-reference-scope",
+      "kind": "constraint",
+      "anchor": {
+        "start": 11,
+        "end": 11,
+        "snippet": "bool re_file_reference(const char *text, size_t at, char *target, size_t capacity) {"
+      },
+      "note": "Interpret only the visible terminal cells supplied by re_terminal_file_at. Markdown label/target spans and plain file-looking tokens are supported; never execute a reference or infer an OSC-8 target from a label alone. The terminal provides UTF-8 byte offsets for clicked cells and includes nearby wrapped rows and stored history.",
+      "refs": [
+        "docs/specs/113-chat-file-image-tabs.md"
+      ]
+    },
+    {
+      "id": "terminal-root-boundary",
+      "kind": "constraint",
+      "anchor": {
+        "start": 50,
+        "end": 50,
+        "snippet": "bool re_file_target(const char *target, const char *root, char *relative, size_t capacity, int *line, int *column) {"
+      },
+      "note": "Percent-decode once, reject control bytes and nonlocal URI authorities, separate a positive source location, match absolute paths to the originating terminal root on a segment boundary, then normalize relative dot segments without escaping that root. The service still enforces canonical-path/symlink and regular-file boundaries. Root switching and tab movement must never substitute the active project. Existing editor buffers are focused without reloading or writing them.",
+      "refs": [
+        "docs/specs/113-chat-file-image-tabs.md"
+      ]
+    },
+    {
+      "id": "modified-click-pair",
+      "kind": "rationale",
+      "anchor": {
+        "start": 112,
+        "end": 112,
+        "snippet": "bool re_app_file_link_event(ReApp *a, const SDL_Event *e) {"
+      },
+      "note": "Cmd/Ctrl-click is a local open-file gesture; consume both mouse press and release so an agent with negotiated mouse tracking never receives half a click. Ordinary input and hover retain the terminal protocol. A modifier hover discloses the target in the status bar. The opening session and its process remain alive.",
+      "refs": [
+        "docs/specs/113-chat-file-image-tabs.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/filelink.c",
+    "sha256": "257f635f4ddab10807effe9f147317255c8efeaed6ca9ed17b0d2f318ef92e37",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}
