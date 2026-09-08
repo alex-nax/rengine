@@ -65,8 +65,9 @@ test('contract 9 carries a pack whose facets are a library and a plugin (spec 10
   assert.deepEqual(read.packs[0].plugin, { module: 'build/plugins/rengine-render.dylib', abi: 're-plugin-1' });
   assert.equal(read.formats[0].id, 'fixture-pack', 'the formats are untouched by the new block');
 
-  // iklib's own shape (D23, D24, spec 001): a library facet and the powered-by claim's subject.
-  const iklib = pack({ poweredBy: true, library: library() });
+  // iklib's own shape (D23, D24, spec 001): a library facet and nothing else. D45 removed the
+  // powered-by claim, so what a declaration says is what the project CONSUMES, and no more.
+  const iklib = pack({ library: library() });
   const adopted = await declare(directory, 'iklib', packed([iklib]));
   assert.equal(adopted.packsError, undefined, `iklib should be accepted: ${adopted.packsError}`);
   assert.deepEqual(adopted.packs, [iklib]);
@@ -143,11 +144,17 @@ test('each pack refusal names the pack and the key (spec 107)', async t => {
   refused(twice, /\$\.packs\[1\]\.name repeats "iklib"/, 'twice');
   assert.ok(!/\$\.packs\[0\]\.name repeats/.test(twice.packsError), 'the first occurrence is not the problem');
 
-  // D24 clarified: the claim is earned on the library facet. An editor plugin does not earn it.
-  const claiming = await refuse('claiming', [{ name: 'red-inspector', pin: { version: '0.1.2', revision: SHA256 }, poweredBy: true, plugin: plugin() }]);
-  refused(claiming, /\$\.packs\[0\] \(red-inspector\)\.poweredBy is earned by a library facet; an editor plugin does not earn it/, 'claiming');
-  const earned = await refuse('earned', [pack({ poweredBy: true, library: library() })]);
-  assert.equal(earned.packsError, undefined, 'the same key on a library facet is exactly what D24 defines');
+  // D45 (spec 112): poweredBy is gone. A declaration does not claim an adoption — the owner records
+  // one in a spec — so the key is refused on EITHER facet, and the refusal names where the record
+  // went. The library facet is the interesting half: that is the one D24 used to accept.
+  const onLibrary = await refuse('onLibrary', [pack({ poweredBy: true, library: library() })]);
+  refused(onLibrary, /\$\.packs\[0\] \(iklib\)\.poweredBy was removed: an adoption is recorded by the owner's sign-off in a spec \(charter D45\), not claimed in a declaration/, 'onLibrary');
+  const onPlugin = await refuse('onPlugin', [{ name: 'red-inspector', pin: { version: '0.1.2', revision: SHA256 }, poweredBy: true, plugin: plugin() }]);
+  refused(onPlugin, /\$\.packs\[0\] \(red-inspector\)\.poweredBy was removed/, 'onPlugin');
+  assert.ok(!/earned by a library facet/.test(onPlugin.packsError), 'the old facet reasoning is gone, not merely reworded');
+  // poweredBy: false is still the removed key. Presence is what is checked, as it always was.
+  const denying = await refuse('denying', [pack({ poweredBy: false, library: library() })]);
+  refused(denying, /\$\.packs\[0\] \(iklib\)\.poweredBy was removed/, 'denying');
 
   // A pin whose revision is a name is not a pin: tags move, and two machines saying 0.4.0 can hold
   // different bytes. The version is the label; the revision is the identity.

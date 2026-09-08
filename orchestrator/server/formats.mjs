@@ -95,11 +95,13 @@ function packsRules(block) {
         if (keys.includes(key) && typeof value[key] === 'string' && !rootRelative(value[key])) problems.push(`${where}.${facet}.${key} must be root-relative`);
       }
     }
-    /* D24 clarified by D39: the claim is earned on the library facet, so declaring it on a plugin
-       is refused rather than quietly accepted. Presence is what is checked, as with the tracker's
-       provider keys: a key that belongs elsewhere belongs elsewhere whatever its value. */
-    if (pack.poweredBy !== undefined && pack.library === undefined) {
-      problems.push(`${where}.poweredBy is earned by a library facet; an editor plugin does not earn it`);
+    /* D45 removed the key outright: a declaration says what a project CONSUMES, and an adoption is
+       recorded by the owner's sign-off in a spec, not announced by the project that made it. The
+       schema already refuses it as unknown; this says where the record went, which is the only half
+       of the two a person can act on. Presence is what is checked, as it always was here — the key
+       is gone whatever its value, so poweredBy:false is refused exactly like poweredBy:true. */
+    if (pack.poweredBy !== undefined) {
+      problems.push(`${where}.poweredBy was removed: an adoption is recorded by the owner's sign-off in a spec (charter D45), not claimed in a declaration`);
     }
     /* The version is the label and the revision is the identity; a tag in the revision collapses
        the two, and an integration check passed against one "0.4.0" says nothing about another. */

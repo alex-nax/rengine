@@ -1,5 +1,51 @@
 # Progress Log
 
+## Session 80 (macos) — 2026-09-08 — poweredBy leaves the manifest: a bar, not a badge (D45)
+
+Asked to sign the first adoption off and write `poweredBy` into NOLF's declaration, the owner
+declined the premise: *"'poweredBy' is just an abstract no need to brand it"*. That is the answer to
+the one question spec 110 left open, and it came with both conditions 110 set for itself already met
+— the first adoption is real and measured, and its sign-off record is written, so the duplication had
+stopped being theoretical. The adoption was about to be stated in two places and the second one was
+being asked for.
+
+**D45: the key is removed; an adoption is recorded, never claimed.** D24's bar is untouched — a
+pinned curated capability with passing game integration checks is still what powered-by means — and
+so is D44b's sign-off. What goes is the idea that a project *announces* having met it. A declaration
+says what a project consumes: a pack, its pin, its facets. This revises D44 in exactly one clause,
+annotated in place rather than rewritten, because a decision table that edits its own history is
+worth less than one that shows what it withdrew.
+
+**Nothing anywhere declares a `packs` block yet** — checked across NOLF, VtMB and Kohai's external
+declaration — so contract 9 being hours old made this the cheapest hour the removal will ever cost.
+Keeping the key and meaning nothing by it was rejected as the worst of the three options: a claim
+with no reader and no refuser.
+
+**The refusal names its successor.** Both layers report through `packsError`, joined: the schema
+says the key is unknown, and the rule says it was removed and that the record lives in a spec signed
+by the owner. Sabotage S3 is the one that earns the rule its place — delete it and the document is
+*still refused*, so a test asking only "is it refused" stays green while the person reading the error
+learns nothing.
+
+RED first for its own reason: with D24's old condition in place the new case reported *"onLibrary: no
+refusal was reported at all; the declaration was accepted"* — the library facet accepting the key,
+which is the exact behaviour D45 removes. Three sabotages, each applied, run, restored and
+byte-compared: the old facet condition fails the library case alone; truth-instead-of-presence fails
+`poweredBy: false` alone; deleting the named rule fails on the message.
+
+F109 keeps its criteria **exactly as written**, including criterion 5 describing the refusal that no
+longer exists. It records what was true when it passed; F111 records the supersession. Editing it
+would erase the fact that the key ever shipped.
+
+Commands: `npm test` 223/223 · `./init.sh` clean · `python3 tools/features.py validate` (63 features)
+· `python3 tools/design.py check` clean · `node --test orchestrator/tests/packs.test.mjs` 4/4 · the
+six `formats.mjs` sidecar anchors drifted +2 by the edit and were relocated by snippet, each found
+uniquely.
+
+Remaining: the owner's sign-off on spec 111, which is now the only outstanding step of the first
+adoption; a rEngine-side check that a declared pack revision matches the submodule; VtMB as D09's
+second game.
+
 ## Session 79 (macos) — 2026-09-08 — the first adoption measured: iklib carries NOLF's arm
 
 The adoption spec 111 stopped at the seam is now done in the host's own repository, and it came back

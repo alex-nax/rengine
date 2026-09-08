@@ -57,9 +57,13 @@ Not a schema — a spec is prose — but a sign-off that omits any of these cann
 
 ## What this does not decide
 
-- **Whether `poweredBy` should stay in the manifest at all.** It is a claim, and D44b makes the spec
-  the proof. Leaving both means two places say something about adoption. Worth revisiting once one
-  real sign-off exists and the duplication is concrete rather than theoretical.
+- ~~**Whether `poweredBy` should stay in the manifest at all.**~~ **Answered the same week, and it
+  does not**: charter **D45**, [spec 112](112-poweredby-removed.md). The condition this question set
+  for itself came true — the first adoption is real and measured (spec 111) and its sign-off record
+  is written — and at that moment the owner was asked to state the adoption a second time in a
+  manifest and declined the premise: *"'poweredBy' is just an abstract no need to brand it"*. The key
+  is gone from the schema and refused by name. **D44b is untouched**: the sign-off record below is
+  now the whole mechanism rather than half of it.
 - **The first adoption.** F61 — the renderer as a curated capability with one game adopting it — is
   still open, and it is the obvious first candidate. Nothing here starts it.
 - **Anything about acquisition.** KI-008 stands: where a pack's bytes come from is still unresolved,

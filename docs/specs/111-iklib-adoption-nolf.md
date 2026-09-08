@@ -30,8 +30,10 @@ Two corrections to earlier guesses fall out of reading the real thing:
   spoken half has nothing to say yet. Recorded rather than invented: a placeholder derived from the
   revision is honest; a `0.4.0` would not be.
 
-No `poweredBy` in that entry. Under D44 the flag is a claim and the badge is an owner's sign-off; the
-claim should be written when the adoption is real, not when the pack is first named.
+No `poweredBy` in that entry — and as of charter **D45** ([spec 112](112-poweredby-removed.md)) there
+is no such key to write. The reasoning that kept it out of this draft ("the claim should be written
+when the adoption is real, not when the pack is first named") was answered more simply: an adoption
+is recorded by the owner's sign-off, never claimed by the project, so the flag had no work left.
 
 ## The two sides of the seam, read
 
@@ -160,8 +162,8 @@ is now filled except the owner's own words, so it is set out here rather than as
   and D44b exists precisely so that it is not supplied by one.
 
 Under D24 the powered-by minimum — one curated capability at a pinned version with passing game
-integration checks — is met on the evidence side. `poweredBy` is not yet written into NOLF's
-declaration, and should be written by the same hand that signs.
+integration checks — is met on the evidence side. Nothing is pending in NOLF's declaration: **D45
+removed `poweredBy`**, so the sign-off above is the only thing outstanding, and it is the owner's.
 
 ## What is not established
 

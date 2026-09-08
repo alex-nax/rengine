@@ -1567,6 +1567,33 @@
         "orchestrator/tests/native-plugin.spec.mjs: the fixture's tab and its pixels in a real window, the clip, the restart; refusals with the window still answering",
         "docs/evidence/plugin-abi-2026-09-07.md: the sabotage table"
       ]
+    },
+    {
+      "id": 111,
+      "milestone": "O1",
+      "category": "integration",
+      "priority": "medium",
+      "description": "poweredBy leaves the pack manifest (charter D45): an adoption is recorded by the owner's sign-off in a spec, never claimed in a declaration. The key is removed from contract 9 and refused by name on either facet, with a message naming the successor rather than only saying no. D24's bar is unchanged; only the announcement is gone. This supersedes F109's criterion 5, which is left exactly as written because it records what was true when it passed.",
+      "acceptance_criteria": [
+        "A contract-9 declaration carrying packs[].poweredBy is refused whatever its value: poweredBy: true and poweredBy: false are both refused, on a library facet and on a plugin-only one, because presence rather than truth is what is checked.",
+        "The refusal names the successor: it says the key was removed and that an adoption is recorded by the owner's sign-off in a spec (charter D45), rather than reporting only that the key is unknown.",
+        "The named rule is not redundant with the schema: with $defs.pack carrying additionalProperties false, deleting the rule still refuses the document, and the difference is the message, which is what the test asserts.",
+        "Every other pack behaviour is unchanged: a pack declaring both facets still reads back whole, and a pack with no facet, a repeated name, a facet key under the wrong facet, a non-digest revision and an escaping library.path or plugin.module are each still refused by name.",
+        "Each regression was observed failing for its own reason: restoring D24's old facet condition fails the library case alone, checking truth instead of presence fails the poweredBy: false case alone, and deleting the named rule fails on the message while the document is still refused."
+      ],
+      "passes": true,
+      "dependencies": [
+        109
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/112-poweredby-removed.md, the removal of poweredBy from $defs.pack and the contract-9 description in contracts/project-v1.schema.json, the replaced rule in orchestrator/server/formats.mjs with its sidecar entry, and the D45 cases in orchestrator/tests/packs.test.mjs.",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/112-poweredby-removed.md: the decision, what it revises in D44, and the three sabotages with their observed failures",
+        "orchestrator/tests/packs.test.mjs: poweredBy is refused on either facet and whatever its value, and the refusal names the sign-off",
+        "orchestrator/tests/packs.test.mjs: the old facet reasoning is gone rather than reworded",
+        "docs/specs/000-charter.md: D45, and D44 annotated in place where its poweredBy clause was withdrawn"
+      ]
     }
   ]
 }

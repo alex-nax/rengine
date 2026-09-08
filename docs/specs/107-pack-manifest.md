@@ -44,7 +44,7 @@ build/run boundary it stands there.
 | `pin` | yes | `{ version, revision }`. See below; this is the part of the design that had a choice in it. |
 | `library` | one of the two | `{ path, target }`: source a game consumes at **build** time through CMake. |
 | `plugin` | one of the two | `{ module, abi }`: a module the editor loads at **run** time. |
-| `poweredBy` | no | `true` when this pack is the adoption D24's claim rests on. Refused without a `library` facet. |
+| ~~`poweredBy`~~ | — | **Removed by charter D45 on 2026-09-08** ([spec 112](112-poweredby-removed.md)): an adoption is recorded by the owner's sign-off in a spec, never claimed in a declaration. The key is refused by name on either facet. The rows below describing it record what shipped for one day. |
 
 A pack declaring neither facet is refused: an artifact with no facet is a name and a version with
 nothing on the other end of them.
@@ -134,7 +134,10 @@ a later reinterpretation of this one: a declaration that must differ per platfor
 contract 10, and a reader that predates it will say "unknown contract" rather than loading the wrong
 file.
 
-### `poweredBy`, which is where D24 becomes legible
+### ~~`poweredBy`, which is where D24 becomes legible~~ — removed by D45, spec 112
+
+> Superseded the day after it shipped. Kept because it is the reasoning D45 answered, and a spec that
+> quietly deletes the case it lost is worth less than one that leaves it standing.
 
 D24 is clarified by D39, not redefined: the claim is earned through the **library** facet at a pinned
 version with passing game integration checks. An editor plugin does not earn it. The manifest makes
