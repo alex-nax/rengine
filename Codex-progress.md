@@ -1,5 +1,48 @@
 # Progress Log
 
+## Session 78 (macos) — 2026-09-08 — rEdit is the name again, and the iklib seam read from both sides
+
+**The contradiction is gone.** F110 retired "rEdit" this morning and its guard fails the build on a
+retired name; D42 revised made rEdit the entertainment editor's name again, so the tree was rejecting
+a correct name. `product.name` is now `rEdit` — the fallback a workspace wears when no edition
+declares otherwise, and this repository is the entertainment stream — and `product.family` is `Red`,
+the word rEdit produced and the business edition wears as RED Suite. `suite` is gone, because an
+edition's brand belongs in the edition manifest rather than in a global constant naming one edition.
+`retired` is empty and that is correct: nothing is actually gone.
+
+The guard's decoy pointed at `retired[0]`, which no longer exists, so it now uses the live name as a
+string and the family as a regex — testing more than it did, since a regex is not a string and that
+is what the guard missed when it was first written. `native-identity` says it out loud: *"the
+workspace wears the project name, and rEdit when none is declared."*
+
+**Then the iklib seam, read rather than assumed (spec 111).** Two guesses died on contact. The CMake
+target is `iklib`, not the `iklib::ik` spec 107's illustration invented; and iklib carries no tags and
+no version, so F109's *spoken* half of the pin has nothing to say yet — recorded as a placeholder
+derived from the revision rather than inventing a `0.4.0`.
+
+I also nearly got this badly wrong. Grepping for `SolveTwoBoneIk` found only test call sites and I was
+one sentence from writing "no production consumer"; checking which files include `vr/vr_ik.h` found
+`src/engine/vr_body_solve.h:236`, the real one. The lesson is the ordinary one: the symbol grep
+answered a narrower question than the one I was asking.
+
+**The finding that changes the shape of the work.** iklib already ships
+`integrations/lithtech/ik_lithtech.h` — `ikFrameLithTech()`, `ikConfigLithTech()` and a
+`ikRetargetArmLithTech(...)` template over *the host's own* node, arm and override types. Its header
+cites `~/nolf-improved/CLAUDE.md:87` for the unit scale, and that line says exactly what the preset
+claims: X=Right, Y=Up, Z=Forward, ~1 LT unit ≈ 1.5625 cm. Verified today. So the frame and unit
+contract spec 001 demanded be declared before migration is already declared, by the library, against
+this host — and NOLF's hand-rolled block is doing by hand what `ikSolveArm` does, over a node array,
+an arm chain and an absolute-override output it already has.
+
+Nothing was changed in `~/iklib` or `~/nolf-improved`. The migration belongs in the host's repo under
+its own workflow, because a local task cannot mark another project's feature done, and what is *not*
+established is written down: whether the two implementations produce the same pose, and which of
+`playerReach`, `rollGain`, `twistFollow` and the abort thresholds map to NOLF values rather than
+being new behaviour that must be defaulted.
+
+Gates: `npm test` 223/223, `design.py check`, `./init.sh`, and the identity and IDE-selection desktop
+specs green.
+
 ## Session 77 (macos) — 2026-09-08 — The four open questions, and the name that had to change back (specs 109–110, D42 revised, D44)
 
 **The naming resolved by a collision, not by taste.** The editor's name is per-edition: entertainment
