@@ -1,5 +1,43 @@
 # Progress Log
 
+## Session 76 (macos) — 2026-09-08 — The two streams, and what they cost (spec 109, D42–D43)
+
+The owner named the split — business **RED Suite** on Kohai (`~/hirebase-v2`), entertainment
+**rEngine** on `~/nolf-improved` and `~/vtmb-vr` — and the declarations turn out to have been saying
+it already. Measured before asking anything: Kohai declares title, icon, **wordmark**, formats,
+dashboard and tracker and **no `games`**, from an **external** declaration under
+`~/.local/share/redit/` because Kohai is not ours to put files in; both game projects declare `games`
+from inside their own checkouts and neither declares a wordmark. The edition line falls exactly where
+the declarations already differ, which is the opposite of a marketing overlay on identical installs.
+
+**D42** settles a naming question that D41 had left ambiguous the moment a second stream existed: Red
+is the *product*, the editions are the *brands*. "Red Suite" is not an umbrella over both — it is the
+business edition's brand, and rEngine becomes the entertainment edition's. **D43** puts the edition
+manifest in the workspace state directory: it spans projects so no project can own it, and an install
+has to be able to differ from the checkout or a business customer receives the entertainment manifest
+in their tree. It lands beside the external declaration and the Linear token that Kohai's workspace
+already keeps there.
+
+**The recommendation that lost.** I recommended an edition vary packs and branding only, so that one
+contract means one thing everywhere. The owner added the **default layout of a fresh workspace**, and
+the reason it deserved to lose is first-run experience: two editions that open identically are not
+two products to the person opening them. What did not change is which declaration blocks exist — a
+contract still means the same thing in every install.
+
+**A cost named rather than discovered.** F110 shipped `PRODUCT_SUITE` this morning, generated and
+deliberately unconsumed, with that lane writing that editions would be its first consumer. They are,
+and D42 changes what it means: `"Red Suite"` is one edition's brand, not the umbrella, so a global
+constant holding it would make the entertainment build ship the business name. The brand moves into
+the edition manifest and `product.suite` is removed rather than quietly redefined;
+`product-name.test.mjs` asserts it today, so the removal is a visible edit rather than drift.
+
+Also recorded: an edition's layout is what a *fresh* workspace starts with and never an override, or
+an implementation would silently undo arranged panes on every start. Four open questions are named
+and left open, including what happens to a workspace holding projects from both streams — today's
+rEngine workspace binds three roots and a person could add Kohai to it.
+
+Nothing implemented. The spec is the artifact; the build order is the owner's.
+
 ## Session 73 (macos) — 2026-09-07 — The pack manifest: contract 9 packs and its facets (spec 107, F109)
 
 D39 implemented rather than reconsidered. A pack is one pinned, versioned artifact whose facets say
