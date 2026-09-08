@@ -104,7 +104,13 @@ build that fails on a missing header rather than on a missing dependency.
 **Enforced on the consumer side, 2026-09-08.** The outstanding check was written where it bites:
 NOLF's `cmake/iklib.cmake` holds the pin as a literal, and when the tree it is pointed at is a git
 checkout whose `HEAD` is not that revision, the configure **fails** and names both revisions. The
-build refuses rather than prefers, which is what "one artifact, one truth" was asking for. rEngine
+build refuses rather than prefers, which is what "one artifact, one truth" was asking for.
+
+Both refusals were **run, not read**, on 2026-09-08 from a scratch build directory, because a check
+nobody has seen fire is an assertion: pointed at a clone of iklib one commit off the pin, `cmake -S .
+-B <scratch>` exits **1** with *"is 2140f244…, not the pinned 620bff1a…"*; pointed at a path that
+does not exist, it exits **1** naming the recursive command an existing checkout needs. Neither the
+NOLF tree nor `~/iklib` was modified to produce them. rEngine
 still has no check of its own — a project could declare a pack revision in `.rengine/project.json`
 that disagrees with both — so the gap is narrower than it was, not closed.
 

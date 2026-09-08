@@ -26,16 +26,25 @@ bootstrap shipped in `6e88a5c` does **not** repair existing checkouts — NOLF's
 iklib. The pin has to be bumped first; the recursion is the second step. The scaffold change stands
 for projects connected from here on.
 
-**The outstanding check is written, on the consumer side.** `cmake/iklib.cmake` holds the pin as a
-literal and fails the configure when the tree it points at is a git checkout whose HEAD is not that
-revision, naming both. rEngine still has no check that a *declared* pack revision matches, so the
-gap is narrower rather than closed.
+**The outstanding check is written, on the consumer side — and I ran both of its refusals rather
+than reading them.** `cmake/iklib.cmake` holds the pin as a literal and fails the configure when the
+tree it points at is a git checkout whose HEAD is not that revision. Pointed at a clone one commit
+off the pin it exits 1 naming both revisions; pointed at a missing path it exits 1 naming the
+recursive command an existing checkout needs. I had already asserted this behaviour in a pushed
+commit having only read the source, which is the thing this repository's own rule warns about.
+rEngine still has no check that a *declared* pack revision matches, so the gap is narrower rather
+than closed.
 
 Spec 111 now carries all of this, plus the D44b sign-off record with every slot filled but the
 owner's own words — which is the one slot no agent gets to fill.
 
+NOLF landed it in five commits on `f1706-iklib-arm-retarget`, unpushed and in workflow order:
+`35a1b501` pin · `fe984103` spec · `57767968` test · `0c024625` feat · `31985f7d` docs. Its F1706 is
+deliberately `passes: false` — the location criterion is settled, the D44 sign-off is not.
+
 Commands: `python3 tools/features.py validate` (62 features, clean) · `python3 tools/design.py check`
-(clean) · NOLF `ctest --output-on-failure` 487/487, exit 0.
+(clean) · NOLF `ctest --output-on-failure` 487/487 in 747.57 s, exit 0 · two `cmake -S . -B <scratch>`
+runs against a wrong-pin clone and a missing path, both exit 1.
 
 Remaining: the owner's sign-off and `poweredBy` in NOLF's declaration; a rEngine-side check that a
 declared pack revision matches the submodule; VtMB as D09's second game.
