@@ -13,6 +13,7 @@ bool re_terminal_ready(ReTerminal *terminal);
 ReTerminalScroll re_terminal_scroll_state(ReTerminal *terminal);
 void re_terminal_scrollbars(ReTerminal *terminal, cJSON *array);
 void re_terminal_inspect_mouse(ReTerminal *terminal, cJSON *object);
+void re_terminal_inspect_output(ReTerminal *terminal, cJSON *object); /* messages, bytes, dropped */
 bool re_terminal_mouse(ReTerminal *terminal, const SDL_Event *event, int x, int y);
 bool re_terminal_mouse_held(ReTerminal *terminal);
 void re_terminal_release(ReTerminal *terminal);

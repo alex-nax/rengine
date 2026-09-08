@@ -73,3 +73,13 @@ The owner confirmed receipt was expected in this rEngine conversation. Candidate
 the report covers separate pane font/cell metrics, Cmd/Ctrl +/− and 0, a pointer control, layout
 persistence, and terminal resize without process restart. Verify the current renderer before
 implementation; the reporter's line references describe the checkout at report time.
+
+## KI-070 — a paste past ~128 characters was dropped in silence (fixed, spec 113)
+
+vterm calls the terminal's output callback once per character, and the callback queued one socket
+message each. `RE_NET_QUEUE` is 128, `push` refuses past it, and `re_socket_send`'s return value was
+never checked — so the tail of any large paste was freed and lost without a word, while the
+JSON-per-character work made what did arrive slow. Fixed by gathering one event's bytes and sending
+them together, chunked at 128 KiB (under the host's 2 MB `maxPayload`) and split only on UTF-8
+boundaries. **Still open**: a refused send is now counted through `re_terminal_inspect_output` but
+still not surfaced to the person who pasted.

@@ -1,5 +1,45 @@
 # Progress Log
 
+## Session 81 (macos) — 2026-09-08 — a paste reaches the PTY whole (KI-070, F112)
+
+The owner: *"copying large portions of text to our editor, the performance around it is terrible and
+only a small portion of text is being copied"*. Two symptoms, one cause, and the cause was in the
+path rather than in the amount of text.
+
+**vterm calls the output callback once per character.** For a paste, for typed text, for every
+wheel notch. That callback built a cJSON object, serialised it and queued **its own socket
+message** — one per character. `RE_NET_QUEUE` is 128, `push` refuses past it, and nobody ever looked
+at `re_socket_send`'s return value, so the tail of any paste over ~128 characters was freed and lost
+without a word. The malloc-and-serialise per character is the slowness; the queue refusing at 128 is
+the truncation. The same defect produced both complaints.
+
+Measured before fixing: with the counters in and the batching out, a 31-byte burst reported **31
+messages**. That is the RED, and it failed for its own reason rather than for something earlier.
+
+**Now one event's bytes leave together.** `output` appends to a buffer, `flush_output` sends it, and
+each public entry point runs its handler then flushes — the handlers became statics precisely so the
+early returns inside them cannot skip the flush.
+
+**The obvious fix would have been worse than the bug.** One message per event meets the session
+host's `maxPayload: 2 * 1024 * 1024`, and `ws` *closes the connection* on an oversized frame — so a
+big enough paste would have cost the session instead of the tail of the text. Chunked at 128 KiB,
+which survives JSON escaping's worst case of six characters per byte, and split only on UTF-8
+boundaries, because cJSON does not validate and half a sequence would travel into the PTY.
+
+The chunk boundary is not reachable from the headless harness — it needs >128 KiB and a clipboard —
+so it was verified directly instead, with the constant temporarily at 8: 26 bytes came out as
+7+7+8+4 with lead bytes `0x61`, `0xc3`, `0xe4`, `0x69`, **not one chunk starting on a continuation
+byte**. A naive split would have given 8+8+8+2 with two chunks cut mid-sequence. Constant restored.
+
+Commands: native suite 8/8 · `npm test` 223/223 · `design.py check` clean · `features.py validate`
+(64) · sidecar re-anchored and stamped — two entries had anchored to functions this change renamed
+to statics, so they were re-anchored to where the code actually went rather than force-matched.
+
+Remaining: a refused send is now *counted* (`re_terminal_inspect_output`) but still not surfaced to
+the person who pasted, and silent loss is what kept this invisible. Separately, `editor.c:228` drops
+the whole syntax line-state cache on every revision and rescans to the scroll position, so editing
+far down a large file is costly — real, unrelated to this report, and left for its own slice.
+
 ## Session 80 (macos) — 2026-09-08 — poweredBy leaves the manifest: a bar, not a badge (D45)
 
 Asked to sign the first adoption off and write `poweredBy` into NOLF's declaration, the owner

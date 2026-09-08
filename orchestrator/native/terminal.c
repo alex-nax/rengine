@@ -14,6 +14,10 @@ struct ReTerminal {
   ReScrollbar scrollbar;
   mu_Rect content; int cw, lh, mouse_mode, mouse_buttons;
   float mouse_wheel_x, mouse_wheel_y; bool mute_output;
+  /* vterm hands us keyboard/mouse bytes one call per character. One socket message per
+     character overran the 128-deep outgoing queue and lost the rest of a paste in silence,
+     so the bytes of one event are gathered here and leave as a single message. */
+  char *out; size_t out_len, out_cap; int out_messages; size_t out_bytes, out_dropped;
 };
 static size_t line_bytes(int cols) { return sizeof(HistoryLine) + (size_t)cols * sizeof(VTermScreenCell); }
 static void blank_cell(ReTerminal *t, VTermScreenCell *cell) {
@@ -65,11 +69,43 @@ static void send(ReTerminal *t, cJSON *j) {
   if (bytes) re_socket_send(t->socket, bytes); free(bytes); cJSON_Delete(j);
 }
 static void output(const char *bytes, size_t size, void *user) {
-  ReTerminal *t = user; if (t->mute_output) return;
-  char *text = malloc(size + 1); if (!text) return;
-  memcpy(text, bytes, size); text[size] = 0;
-  cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "type", "input"); cJSON_AddStringToObject(j, "data", text);
-  free(text); send(t, j);
+  ReTerminal *t = user; if (t->mute_output || !size) return;
+  if (t->out_len + size + 1 > t->out_cap) {
+    size_t cap = t->out_cap ? t->out_cap * 2 : 1024;
+    while (cap < t->out_len + size + 1) cap *= 2;
+    char *next = realloc(t->out, cap); if (!next) { t->out_dropped += size; return; }
+    t->out = next; t->out_cap = cap;
+  }
+  memcpy(t->out + t->out_len, bytes, size); t->out_len += size;
+}
+static void release(ReTerminal *t); /* the raw handler; the public wrapper adds the flush */
+/* One message would be simplest, but the session host reads these with maxPayload 2 MB and ws
+   CLOSES the connection on an oversized frame, so an unbounded paste would cost the session rather
+   than the tail of the text. Chunked well below it: JSON escaping can turn one control byte into
+   six characters, so 128 KiB of terminal bytes stays under the limit at any escaping. */
+#define RE_TERMINAL_CHUNK (128 * 1024)
+/* Every entry point that can make vterm emit ends here, so a paste, a burst of typing or a wheel
+   run crosses the socket in a handful of messages instead of one per character. */
+static void flush_output(ReTerminal *t) {
+  size_t at = 0;
+  while (at < t->out_len) {
+    size_t take = t->out_len - at < RE_TERMINAL_CHUNK ? t->out_len - at : RE_TERMINAL_CHUNK;
+    /* Never split a UTF-8 sequence: both halves would be invalid and cJSON would carry the damage
+       into the PTY. Walk back off any continuation byte; a lone oversized sequence cannot happen. */
+    if (at + take < t->out_len) {
+      size_t back = take;
+      while (back && ((unsigned char)t->out[at + back] & 0xC0) == 0x80) back--;
+      if (back) take = back;
+    }
+    char saved = t->out[at + take]; t->out[at + take] = 0;
+    cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "type", "input");
+    cJSON_AddStringToObject(j, "data", t->out + at);
+    t->out[at + take] = saved;
+    t->out_messages++; t->out_bytes += take;
+    send(t, j);
+    at += take;
+  }
+  t->out_len = 0;
 }
 static void resize(ReTerminal *t, int cols, int rows) {
   t->cols = cols; t->rows = rows; vterm_set_size(t->vt, rows, cols);
@@ -104,7 +140,7 @@ ReTerminal *re_terminal_open(ReSocket *socket, const char *id, int cols, int row
   if (!reset_screen(t)) { free(t); return NULL; }
   re_terminal_attach(t); return t;
 }
-void re_terminal_close(ReTerminal *t) { if (t) { re_terminal_release(t); history_clear(t); vterm_free(t->vt); free(t); } }
+void re_terminal_close(ReTerminal *t) { if (t) { release(t); history_clear(t); vterm_free(t->vt); free(t->out); free(t); } }
 bool re_terminal_ready(ReTerminal *t) { return t && t->attached; }
 ReTerminalScroll re_terminal_scroll_state(ReTerminal *t) { return (ReTerminalScroll){t->count, t->offset, t->history_bytes}; }
 void re_terminal_scrollbars(ReTerminal *t, cJSON *array) { re_scrollbar_inspect(&t->scrollbar, array); }
@@ -114,7 +150,7 @@ void re_terminal_inspect_mouse(ReTerminal *t, cJSON *object) {
   cJSON_AddItemToObject(object, "terminalSize", cJSON_CreateIntArray((int[]){t->cols, t->rows}, 2));
 }
 void re_terminal_attach(ReTerminal *t) {
-  re_terminal_release(t);
+  release(t);
   t->attached = t->presented = false;
   cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "type", "attach"); send(t, j);
 }
@@ -123,13 +159,13 @@ void re_terminal_presented(ReTerminal *t) {
   cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "type", "presented"); send(t, j);
   t->presented = true;
 }
-void re_terminal_message(ReTerminal *t, const cJSON *j) {
+static void message_in(ReTerminal *t, const cJSON *j) {
   const char *type = re_string(j, "type");
-  if (!strcmp(type, "disconnected")) { t->attached = t->presented = false; re_terminal_release(t); }
+  if (!strcmp(type, "disconnected")) { t->attached = t->presented = false; release(t); }
   else if (!strcmp(type, "attached")) {
     const cJSON *s = cJSON_GetObjectItemCaseSensitive(j, "session");
     if (strcmp(re_string(s, "id"), t->id)) return;
-    re_terminal_release(t); t->attached = false;
+    release(t); t->attached = false;
     t->waiting_for_view = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(s, "waitingForView"));
     int cols = re_number(s, "cols"), rows = re_number(s, "rows");
     if (cols >= 2 && cols <= 500 && rows >= 2 && rows <= 300) { t->cols = cols; t->rows = rows; }
@@ -150,14 +186,14 @@ static VTermModifier modifiers(SDL_Keymod mod) {
     ((mod & KMOD_ALT) ? VTERM_MOD_ALT : 0) | ((mod & KMOD_CTRL) ? VTERM_MOD_CTRL : 0));
 }
 bool re_terminal_mouse_held(ReTerminal *t) { return t && t->mouse_buttons; }
-void re_terminal_release(ReTerminal *t) {
+static void release(ReTerminal *t) {
   if (!t) return;
   t->mute_output = !t->attached;
   for (int button = 1; button <= 3; button++) if (t->mouse_buttons & (1 << button)) vterm_mouse_button(t->vt, button, false, VTERM_MOD_NONE);
   if (t->mouse_buttons) SDL_CaptureMouse(SDL_FALSE);
   t->mouse_buttons = 0; t->mouse_wheel_x = t->mouse_wheel_y = 0; t->mute_output = false;
 }
-bool re_terminal_mouse(ReTerminal *t, const SDL_Event *e, int x, int y) {
+static bool mouse_event(ReTerminal *t, const SDL_Event *e, int x, int y) {
   if (!t || !t->attached || !t->cw || !t->lh || t->scrollbar.dragging) return false;
   bool inside = re_inside(t->content, x, y);
   int button = e->type == SDL_MOUSEBUTTONDOWN || e->type == SDL_MOUSEBUTTONUP ?
@@ -184,9 +220,9 @@ bool re_terminal_mouse(ReTerminal *t, const SDL_Event *e, int x, int y) {
   }
   return true;
 }
-void re_terminal_event(ReTerminal *t, const SDL_Event *e) {
+static void key_event(ReTerminal *t, const SDL_Event *e) {
   if (!t) return;
-  if (e->type == SDL_WINDOWEVENT && e->window.event == SDL_WINDOWEVENT_FOCUS_LOST) re_terminal_release(t);
+  if (e->type == SDL_WINDOWEVENT && e->window.event == SDL_WINDOWEVENT_FOCUS_LOST) release(t);
   if (re_scrollbar_event(&t->scrollbar, e)) { t->offset = re_max(0, t->count - t->scrollbar.value); t->wheel = 0; return; }
   if (e->type == SDL_MOUSEWHEEL) {
     if (t->alternate) return;
@@ -236,6 +272,19 @@ void re_terminal_event(ReTerminal *t, const SDL_Event *e) {
   else if ((mod & (KMOD_CTRL | KMOD_ALT)) && key >= 32 && key < 127) {
     t->offset = 0; t->wheel = 0; vterm_keyboard_unichar(t->vt, (uint32_t)key, vm);
   }
+}
+/* The public boundary: run the handler, then let one message carry everything it produced. */
+void re_terminal_release(ReTerminal *t) { if (!t) return; release(t); flush_output(t); }
+bool re_terminal_mouse(ReTerminal *t, const SDL_Event *e, int x, int y) {
+  bool handled = mouse_event(t, e, x, y); if (t) flush_output(t); return handled;
+}
+void re_terminal_event(ReTerminal *t, const SDL_Event *e) { key_event(t, e); if (t) flush_output(t); }
+void re_terminal_message(ReTerminal *t, const cJSON *j) { message_in(t, j); if (t) flush_output(t); }
+void re_terminal_inspect_output(ReTerminal *t, cJSON *object) {
+  if (!t) return;
+  cJSON_AddNumberToObject(object, "outputMessages", t->out_messages);
+  cJSON_AddNumberToObject(object, "outputBytes", (double)t->out_bytes);
+  cJSON_AddNumberToObject(object, "outputDropped", (double)t->out_dropped);
 }
 void re_terminal_draw(ReTerminal *t, ReDraw *draw, mu_Rect r, bool focused) {
   if (palette_changed(t)) apply_palette(t); /* the preset switched under a live terminal */

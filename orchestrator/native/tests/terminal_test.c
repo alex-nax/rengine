@@ -18,6 +18,13 @@ static void key(ReTerminal *t, SDL_Keycode code) {
   SDL_Event e = {.type = SDL_KEYDOWN}; e.key.keysym.sym = code; e.key.keysym.mod = KMOD_SHIFT;
   re_terminal_event(t, &e);
 }
+static void counters(ReTerminal *t, int *messages, double *bytes) {
+  cJSON *j = cJSON_CreateObject(); re_terminal_inspect_output(t, j);
+  *messages = (int)cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(j, "outputMessages"));
+  *bytes = cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(j, "outputBytes"));
+  assert(cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(j, "outputDropped")) == 0);
+  cJSON_Delete(j);
+}
 static void expect(ReTerminal *t, const char *needle, bool present) {
   char *text = re_terminal_text(t); assert(text);
   if (!!strstr(text, needle) != present) fprintf(stderr, "Expected %s <%s> in <%s>\n", present ? "present" : "absent", needle, text);
@@ -72,5 +79,23 @@ int main(void) {
   assert(scroll.bytes <= 8 * 1024 * 1024 && scroll.lines > 0 && scroll.lines < 1490);
   attach(t, 40, 6, "REATTACHED\r\n"); assert(re_terminal_scroll_state(t).lines == 0);
   expect(t, "REATTACHED", true); expect(t, "WIDE", false);
-  re_terminal_close(t); puts("Terminal history, wheel, output anchoring, alternate screen and bounds passed."); return 0;
+  /* One event, one message. vterm calls the output callback once per character, and a message per
+     character overran the 128-deep outgoing queue: everything past the first ~128 characters of a
+     paste was dropped in silence, which is what made a large paste arrive truncated as well as
+     slow. The bytes still all arrive; they arrive together. */
+  attach(t, 40, 6, "");
+  int messages_before = 0, messages_after = 0; double bytes_before = 0, bytes_after = 0;
+  counters(t, &messages_before, &bytes_before);
+  SDL_Event typed = {.type = SDL_TEXTINPUT};
+  const char *burst = "abc\u00e9\u00e9\u00e9\u00e9def\u4e16\u754cghijkl";  /* multibyte: the bytes survive whole */
+  memcpy(typed.text.text, burst, strlen(burst) + 1);
+  re_terminal_event(t, &typed);
+  counters(t, &messages_after, &bytes_after);
+  if (messages_after - messages_before != 1)
+    fprintf(stderr, "Expected one message for a %zu-byte burst, got %d\n",
+            strlen(burst), messages_after - messages_before);
+  assert(messages_after - messages_before == 1);
+  assert(bytes_after - bytes_before == (double)strlen(burst));
+
+  re_terminal_close(t); puts("Terminal history, wheel, output anchoring, alternate screen, bounds and paste batching passed."); return 0;
 }

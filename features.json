@@ -1594,6 +1594,29 @@
         "orchestrator/tests/packs.test.mjs: the old facet reasoning is gone rather than reworded",
         "docs/specs/000-charter.md: D45, and D44 annotated in place where its poweredBy clause was withdrawn"
       ]
+    },
+    {
+      "id": 112,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "A paste reaches the PTY whole (KI-070): vterm calls the terminal's output callback once per character, and one socket message per character overran the 128-deep outgoing queue, so everything past roughly the first 128 characters of a paste was dropped in silence and the JSON-per-character churn made it slow as well. Bytes from one event are gathered and leave together, chunked below the session host's 2 MB frame limit and split only on UTF-8 boundaries.",
+      "acceptance_criteria": [
+        "One input event produces one outgoing message rather than one per character: a multi-byte text burst delivered as a single SDL_TEXTINPUT reports exactly one message carrying every byte, counted through re_terminal_inspect_output.",
+        "Every public entry point that can make vterm emit flushes what it produced: event, mouse, release and message each run their handler and then flush, so an early return inside a handler cannot strand bytes.",
+        "No message exceeds the session host's maxPayload: the buffer is chunked at 128 KiB, which stays under 2 MB even at JSON escaping's worst-case six characters per byte, so a large paste can never close the socket.",
+        "A chunk never begins on a UTF-8 continuation byte, so a split cannot put invalid UTF-8 into the PTY on either side of the cut.",
+        "The regression was observed failing for its own reason: with the counters present and the batching removed, a 31-byte burst reports 31 messages instead of 1."
+      ],
+      "passes": true,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "The output buffer, flush_output, the static handlers and re_terminal_inspect_output in orchestrator/native/terminal.c, its declaration in orchestrator/native/terminal.h, and the batching case in orchestrator/native/tests/terminal_test.c.",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/113-terminal-input-batching.md: the mechanism, the measured RED, and the chunk-boundary verification with its per-chunk lead bytes",
+        "orchestrator/native/tests/terminal_test.c: one event, one message, every byte, over multi-byte text"
+      ]
     }
   ]
 }
