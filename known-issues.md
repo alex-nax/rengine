@@ -86,3 +86,21 @@ JSON-per-character work made what did arrive slow. Fixed by gathering one event'
 them together, chunked at 128 KiB (under the host's 2 MB `maxPayload`) and split only on UTF-8
 boundaries. **Still open**: a refused send is now counted through `re_terminal_inspect_output` but
 still not surfaced to the person who pasted.
+
+## KI-071 — the IDE lock ignores CLAUDE_CONFIG_DIR
+
+`re_ide`'s `ideDirectory()` (`orchestrator/runtime/ide.mjs:27`) always writes the lock under
+`~/.claude/ide/`. Anthropic documents `CLAUDE_CONFIG_DIR` as moving that directory, and nothing in
+`orchestrator/` reads the variable, so a workspace whose Claude config lives elsewhere publishes a
+lock the CLI never reads and auto-connect silently finds no editor. Found by research for spec 114;
+carried as an acceptance criterion of F113 rather than fixed in isolation.
+
+## KI-072 — headset-free VR automation is closed to both games
+
+Meta XR Simulator requires Vulkan, Direct3D 11/12 or Metal and states plainly that "OpenGL and
+OpenGL ES are not supported" (developers.meta.com, page updated 2026-09-04, read 2026-09-09). Both
+games request `XR_KHR_OPENGL_ES_ENABLE` on Quest and `XR_KHR_OPENGL_ENABLE` on Windows
+(`nolf-improved/src/vr/vr_session.cpp:363-366`, `vtmb-vr/src/vr/vr_session.cpp:228-234`), so neither
+can run in the Simulator, and its Session Capture — the VRS record/replay that would give
+deterministic VR repro — is unavailable with it. Meta's AutoDriver does not support OpenXR at all.
+VR automation therefore needs real hardware, or a Vulkan binding in the games (charter D48).

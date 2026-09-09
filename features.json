@@ -1620,6 +1620,177 @@
         "docs/specs/113-terminal-input-batching.md: the mechanism, the measured RED, and the chunk-boundary verification with its per-chunk lead bytes",
         "orchestrator/native/tests/terminal_test.c: one event, one message, every byte, over multi-byte text"
       ]
+    },
+    {
+      "id": 113,
+      "milestone": "O2",
+      "category": "integration",
+      "priority": "high",
+      "description": "One declared agent recipe registry replaces the four private tables the launch path keeps today (NAMED and CONVERSATIONS in agents/config.mjs, FLAGS in agents/ide-connect.mjs, MODEL_FLAGS and KNOWN_AGENTS in server/tasks.mjs, and the case arms in scripts/agent.sh): each recipe names its package, install, model flag, conversation flags, MCP overlay, hooks overlay and ACP command, and every consumer reads the one table, so adding an agent is a data edit rather than five edits that can disagree (charter D46).",
+      "acceptance_criteria": [
+        "One registry is the single source for an agent's package, install command, model flag, conversation/resume flags, MCP config overlay and hooks overlay; config.mjs, tasks.mjs, ide-connect.mjs and agent.sh each read it rather than carrying their own table, and no agent name is spelled in more than one place.",
+        "Adding a recipe adds an agent end to end: a new entry makes the agent selectable, installable, launchable with its MCP overlay, and offered for a task spawn, with no other file edited.",
+        "An agent whose recipe omits a capability is refused by name for that capability alone and still works for the rest: no model flag means a task spawn refuses to pass a model rather than passing the wrong flag, as tasks.mjs already does for an unknown flag.",
+        "gemini's overlay still preserves prior defaults rather than replacing them, which is the behaviour the current file-overlay path has and a flat table would lose.",
+        "re_ide's lock directory honours CLAUDE_CONFIG_DIR when it is set, which Anthropic documents as moving the IDE lock directory and which runtime/ide.mjs ignores today.",
+        "Codex's conversation identity comes from its SessionStart hook the way Claude's already does, rather than from scanning its rollout directory, when the CLI accepts a per-launch hooks overlay; if it does not, the scan stays and the refusal is recorded rather than worked around.",
+        "Each regression was observed failing for its own reason, including a recipe missing a model flag and a consumer still reading its own private table."
+      ],
+      "passes": false,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "The recipe registry module and its schema, the rewired orchestrator/agents/config.mjs, orchestrator/agents/ide-connect.mjs, orchestrator/server/tasks.mjs and scripts/agent.sh, the CLAUDE_CONFIG_DIR fix in orchestrator/runtime/ide.mjs, and its tests.",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/114-dev-suite-roadmap.md: why protocol before embedding, and where the implicit registry lives today"
+      ]
+    },
+    {
+      "id": 114,
+      "milestone": "O2",
+      "category": "integration",
+      "priority": "medium",
+      "description": "An Agent Client Protocol session kind for the agents that speak it natively (gemini, opencode, kimi acp) and for Codex through codex-acp: the workspace speaks JSON-RPC over stdio instead of owning a terminal, hands session/new the same stdio MCP server entry the per-launch mcp.json already writes, and shows the transcript with approve and deny answered through session/request_permission. Claude deliberately stays on PTY plus /ide, because its Agent SDK forbids third-party products offering subscription login (charter D46).",
+      "acceptance_criteria": [
+        "A declared ACP agent starts, receives the per-launch MCP server entry through session/new, and its transcript reaches a workspace tab without a PTY carrying the conversation.",
+        "A permission request from the agent reaches the person as an explicit approve or deny and the answer reaches the agent through session/request_permission; a denied request is reported as denied rather than as an error.",
+        "Claude is not offered as an ACP agent, and the reason is recorded where the recipe is declared rather than left to be rediscovered.",
+        "Session ownership is decided against spec 101's rule that the workspace worker holds no store state: either the agent process lives beside the PTYs in the retained host, or it is rebuilt after a worker replacement through session/load, and an adapter that supports neither is refused by name rather than silently losing the conversation.",
+        "A workspace update does not lose an ACP conversation that the adapter can restore, and reports the loss plainly for one that cannot.",
+        "Each regression was observed failing for its own reason, including a permission answer that never reaches the agent and a session that silently vanishes across a worker replacement."
+      ],
+      "passes": false,
+      "dependencies": [
+        113
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The ACP client in the workspace runtime, the session kind and its declaration key, the transcript and permission surface, and its tests.",
+      "external_references": [
+        "agentclientprotocol/agent-client-protocol: the ACP schema and SDK this speaks"
+      ],
+      "evidence": [
+        "docs/specs/114-dev-suite-roadmap.md: which agents speak ACP natively and why Claude does not join them"
+      ]
+    },
+    {
+      "id": 115,
+      "milestone": "T0",
+      "category": "workspace",
+      "priority": "high",
+      "description": "A task carries the evidence that backs it: features.json rows already hold an evidence array naming the test and what it proves, and the local provider drops it on the way to the neutral row, so no surface in the workspace can answer what test backs a task. The field reaches the row beside criteria, and the Tasks tab draws each criterion with the evidence under it (charter D47).",
+      "acceptance_criteria": [
+        "A local task's evidence reaches the neutral row beside criteria and is drawn in the Tasks tab, so a person reading a task can see which test backs it without opening the inventory.",
+        "Providers that have no evidence to give answer with an empty list exactly as they already do for criteria, and their rows are unchanged.",
+        "The tracker.provider description in contracts/project-v1.schema.json stops claiming the local provider reads features.json through tools/features.py, which it does not: it reads the file directly and re-implements the readiness rule.",
+        "A row whose evidence is absent or malformed still renders with its criteria rather than failing the tab.",
+        "Each regression was observed failing for its own reason, including removing the mapping and watching the row lose its evidence while criteria survive."
+      ],
+      "passes": false,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "The evidence mapping in orchestrator/server/tracker.mjs, the neutral row field, the detail block in orchestrator/native/tracker.c, the schema description correction, and its tests.",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/114-dev-suite-roadmap.md: the dropped field, measured at tracker.mjs:104-116"
+      ]
+    },
+    {
+      "id": 116,
+      "milestone": "T0",
+      "category": "integration",
+      "priority": "medium",
+      "description": "Contract 10 adds a tests block: a project produces a manifest keyed by the task key its provider uses, and rEngine reads it and runs nothing. Each entry names the test and how to select it, states in prose what it asserts, says which acceptance criteria it backs, gives its tier and preconditions, carries the sabotage rows that prove it bites, and records the last result with the commit and time it was taken, so a person can judge whether a test is correct and what it covers without reading it (charter D47, D44).",
+      "acceptance_criteria": [
+        "A declared tests manifest is read and joined to tasks by the provider's own key, so it works for the local, github and linear providers alike rather than only for inventories rEngine can parse.",
+        "An entry carries identity, claim, the criteria it backs, tier, preconditions, sabotage rows and a last result with commit and timestamp; a manifest missing the sabotage rows is accepted but the entry is shown as unproven rather than as passing.",
+        "rEngine never runs a test and never derives passes from a manifest: a stale or failing manifest changes what is displayed and its stated age, never a task's state.",
+        "Staleness is visible: the manifest's commit and time are shown against the checkout the way devices and tracker views already report freshness.",
+        "The block requires contract 10 and is refused by name under an earlier contract, and a declaration that omits it reads exactly as it does today.",
+        "Each regression was observed failing for its own reason, including a manifest whose entries claim a criterion the task does not have."
+      ],
+      "passes": false,
+      "dependencies": [
+        115
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The tests block in contracts/project-v1.schema.json, its cross-field rules in orchestrator/server/formats.mjs, the reader and row join in the tracker path, the native surface, and its tests.",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/114-dev-suite-roadmap.md: what a task-to-test link must carry to be judgeable, and hirebase-v2's registry as the proven shape"
+      ]
+    },
+    {
+      "id": 117,
+      "milestone": "T0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "A verdict on a test becomes a task in the project that owns it: a person or an agent can flag a test as bad or propose a new one from the Tasks tab, and the judgement is written through the project's own declared tracker.write command rather than asserted by rEngine. The suite files; the project owns (charter D47, preserving D44).",
+      "acceptance_criteria": [
+        "Flagging a test as bad from the Tasks tab writes one task into the project's own inventory through its declared tracker.write, carrying which test, which task it backed and the stated reason.",
+        "Proposing a new test writes a task describing the gap in the project's own terms, and an agent may compose it, but the write goes through the same declared command and the same token gate as any other task write.",
+        "A project that declares no tracker.write is refused by name and told what is missing, exactly as the existing write path already refuses non-local providers.",
+        "rEngine's own view of the flagged test does not change: nothing marks the test bad in rEngine, and the record lives where the test lives.",
+        "Each regression was observed failing for its own reason, including a flag that silently succeeds when no write command is declared."
+      ],
+      "passes": false,
+      "dependencies": [
+        116
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The verdict gesture in orchestrator/native/tracker.c, its route through the existing task write path in orchestrator/server/tasks.mjs, the agent-facing tool, and its tests.",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/114-dev-suite-roadmap.md: why a verdict is filed rather than asserted"
+      ]
+    },
+    {
+      "id": 118,
+      "milestone": "H0",
+      "category": "workspace",
+      "priority": "high",
+      "description": "An agent can drive and observe a running game through the surface transport the workspace already ships: game_input delivers a bounded script of the input packets the pane already sends, game_frame returns the current frame the server already holds, and recording_toggle and recording_commit expose the gesture the desktop already performs. Input is refused while a person holds the pane rather than evicting them, which is what the surface's own ownership rule would otherwise do (charter D48).",
+      "acceptance_criteria": [
+        "An agent scripts input into a launched game through a bounded script of timed packets and the game receives them as its own input events, using the same packet kinds and the same ownership rules the native pane uses.",
+        "Input is refused by name while a person owns the pane, rather than taking ownership and evicting them, and the refusal says who holds it.",
+        "game_frame returns the current frame with its sequence number, so a caller can tell one frame from the next and detect that nothing changed.",
+        "An agent can start, stop and commit a recording, and the committed segment is the same artifact the desktop button produces.",
+        "The oracle is stronger than a pixel diff: a scripted run reaches a loaded world and the check asserts both the world-entry line in the session output and a rising keyframe sequence in the committed segment, which is the meaningful state oracle KI-024 asks for.",
+        "Launching and driving stay explicit and token-gated, and nothing here runs as a side effect of opening a workspace or attaching a session.",
+        "A run records evidence only: nothing here marks a feature passing, and the training boundary is unchanged.",
+        "Each regression was observed failing for its own reason, including input accepted while a person holds the pane and a run that passes when the world never loaded."
+      ],
+      "passes": false,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "The game_input, game_frame, recording_toggle and recording_commit tools in orchestrator/agents/mcp-worker.mjs, their routes and the ownership refusal in orchestrator/server/surfaces.mjs and the recording path, and its tests.",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/114-dev-suite-roadmap.md: the input seam measured at surfaces.mjs:63-82, and KI-024's missing oracle"
+      ]
+    },
+    {
+      "id": 119,
+      "milestone": "H0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "A scenario is an artifact a person can judge: a declared input script, the log facts it expects, and a checklist a human answers, producing a recording manifest and a verdict document rather than a boolean. Machine observation and human judgement stay separate and both are recorded, so a scripted run is evidence and never a substitute for a pending visual or headset criterion (charter D48).",
+      "acceptance_criteria": [
+        "A scenario names its script, the log facts expected from the run, and the checklist a person answers, and running it produces a recording manifest plus a verdict document holding both halves.",
+        "A scenario whose expected log facts are absent reports that plainly, and a scenario whose checklist is unanswered is reported as pending rather than as passing.",
+        "The verdict document records what was run, when, against which checkout, and by whom, so it can be judged later rather than only at the moment it was produced.",
+        "No scenario result sets passes on any feature in any inventory, and a scenario cannot mark another project's work done.",
+        "Each regression was observed failing for its own reason, including a scenario reported green while its checklist was never answered."
+      ],
+      "passes": false,
+      "dependencies": [
+        118
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The scenario declaration, the runner over F118's tools, the verdict document format, and its tests.",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/114-dev-suite-roadmap.md: the evidence shape, and NOLF's in-headset review documents as the human-verdict precedent"
+      ]
     }
   ]
 }

@@ -1,5 +1,56 @@
 # Progress Log
 
+## Session 82 (macos) — 2026-09-09 — steering the dev suite: three lanes researched, D46–D48, F113–F119
+
+The owner asked to steer development across an agent lane and a testing lane, with a comprehensive
+research pass behind it. Three Fable lanes ran in parallel; every load-bearing claim was re-verified
+directly before it reached a spec, and two of them changed the plan.
+
+**The task-to-test link already exists in our data and we throw it away.** Every `features.json` row
+carries an `evidence` array naming the test and what it proves. `localRows`
+(`orchestrator/server/tracker.mjs:104-116`) maps `acceptance_criteria` and **never maps `evidence`**,
+so no surface in the workspace can answer what test backs a task — the field dies one function before
+the UI. Same read found shipped drift: the schema claims the local provider goes "through
+tools/features.py"; `tracker.mjs:94` reads the file directly and re-implements the readiness rule.
+
+**An agent could drive a game today; only the tool is missing.** `surfaces.mjs:63-82` accepts input
+from *any* authenticated `/surface` viewer, and the interposer turns it back into SDL events in the
+game's own queue. The native pane is merely one such viewer. No MCP tool, route or CLI sends game
+input. One constraint that shapes the design: taking focus **evicts** the previous owner, so an agent
+would yank the pane from a person unless refused first.
+
+**Headset-free VR automation is closed, and this is the negative worth the whole lane.** Meta XR
+Simulator requires Vulkan/D3D/Metal and says outright that OpenGL and OpenGL ES are not supported —
+fetched from Meta's own page, updated five days ago — and both games bind GL/GLES for OpenXR. So the
+Simulator is out, its VRS Session Capture with it, and Operator-on-Simulator too. That kills a
+plausible plan before anyone spent a month on it.
+
+**Decisions.** D46 protocol before embedding: our agent layer is already protocol-shaped, and Claude
+stays on PTY plus `/ide` because its SDK forbids third-party subscription login. D47 rEngine reads a
+project's test evidence and never asserts it, but may *file* a verdict as a task through the
+project's own write path — which is what the owner asked for beyond read-only, and it preserves D44
+exactly. D48 flat harness first, with the graphics-API abstraction as the pack candidate that finally
+gives D30 its consumer need.
+
+**One correction to D48's premise, made rather than swallowed.** The owner's instinct that the
+rendering abstraction is a pack candidate is right, but it is not a drop-in for a game's OpenXR
+Vulkan binding: `render/draw_list.h` is 2D UI only, and `render/backend_vk.c` is SDL-window-bound
+where OpenXR supplies its own swapchain. Adoption means extracting a device layer that does not exist
+yet. Recorded in the spec so nobody plans on the shortcut.
+
+Rows: F113 agent recipe registry (one table replacing four private ones) · F114 ACP session kind ·
+F115 evidence on the task row · F116 contract-10 tests manifest, read never run · F117 flag a bad
+test as a filed task · F118 game_input/game_frame/recording tools, closing KI-024 · F119 scenario as
+evidence, never a boolean. New milestones T0 and H0; O2 extended. KI-071 (the IDE lock ignores
+CLAUDE_CONFIG_DIR) and KI-072 (the Simulator is closed to both games) recorded.
+
+Commands: `python3 tools/features.py validate` (71) · `graph` regenerated · `design.py check` ·
+`./init.sh` · `npm test` 223/223.
+
+Remaining: every row here is unimplemented and F113 is the one with no dependencies. The owner's
+sign-off on spec 111 is still outstanding, and P05 (the model provider) stays deferred — which D46's
+ordering is designed to keep true for as long as possible.
+
 ## Session 82 (macos) — 2026-09-09 — repair Codex word-wrapped file links and show hover cursor
 
 The owner reported that the PV assembly link opens but the wrapped viewer screenshot

@@ -77,9 +77,12 @@ shell or terminal-only app does not complete it. F43 is a real host-owned game i
 | O3 — live game and tool views | F42–F45 | Cooperative surface contract and actual host output/input; F43 supplies the first flat game, F44 adds reSource and F45 another tool separately. |
 | O5 — desktop v0 complete | F48 | Actual empty-to-split/edit/terminal/game-tab workflow, moves, detach/browser/reattach, GUI restart and explicit stop, on both desktops. |
 | O2 — CLI agent onboarding | F39–F41 | Bash selector/installer recipes and project MCP bootstrap work visibly and independently of the GUI. |
+| O2 (extended) — agent protocol | F113–F114 | One declared agent recipe registry replaces four private tables, then an ACP session kind for the agents that speak it natively; Claude stays on PTY and `/ide` because its SDK forbids third-party subscription login (D46). |
 | O4 — optional native XR control | F46–F47 | Native runtime compatibility and real session-specific Operator proof; no assumed Unity scene support. |
 | Q0–Q2 — Quest 2D client | F49–F52 | Delivery decision, paired desktop link, real editor/terminal access and live game stream on a headset with each desktop sidecar. |
 | A0 — external-app feasibility | F53 | Finite Mac/Windows app matrix for capture/control and optional Windows reparenting, with honest view-only/interactive limitations. |
+| T0 — tests attached to tasks | F115–F117 | A task shows the evidence that backs it, a project declares a tests manifest rEngine reads and never runs, and a verdict on a test is filed as a task in the project that owns it (D47). |
+| H0 — the game-driven harness | F118–F119 | An agent drives and observes a running game through the surface transport the workspace already ships, closing KI-024's missing state oracle; a scenario produces a recording manifest and a human verdict, never a boolean (D48). |
 | R0 — GPU renderer core and OpenGL | F56–F57 | Backend-neutral draw list with the SDL_Renderer reference adapter, then an OpenGL adapter matching it within recorded tolerance and measured budgets (macOS landed; Windows evidence is F62). |
 | R1 — Metal and Vulkan adapters | F58–F59 | Each adapter matches the reference on its platform with the same comparisons and measurements. |
 | R2 — theming update on the GPU renderer | F60 | The Claude Design cards are matched natively with presets, theme files and live reload; existing gates stay green. |
@@ -134,7 +137,11 @@ bounded follow-ups. Calendar dates and effort estimates await the selected proof
 - Later agent recipes/Windows Bash environment, Quest packaging and runtime-control ownership.
 - Adoption-record format for the confirmed pinned-capability minimum and independent upgrades.
 - infra-vr's product relationship and the meaning of the two streams.
-- In-game inference scope, training data boundaries and automation authority.
+- In-game inference scope and training data boundaries. **Automation authority is now partly settled**: D48 puts agent-driven
+  input and recording behind the existing explicit, token-gated launch path, and a run records evidence only.
+- Whether the graphics-API abstraction becomes a bundled pack, and what a game would actually adopt: D48 names the
+  consumer need, and spec 114 records that our draw list is 2D UI and our Vulkan backend is SDL-surface-bound, so
+  adoption means extracting a device layer that does not exist yet.
 - Renderer details (spec 066): icon set and license, UI font policy, owned control layer versus a
   microui fork, OpenGL floor, first Vulkan platform, and whether R0 starts before F48.
 

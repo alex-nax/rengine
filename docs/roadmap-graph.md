@@ -163,6 +163,18 @@ flowchart TD
   F79 --> F110
   F111["F111: passing"]
   F109 --> F111
+  F112["F112: passing"]
+  F113["F113: ready"]
+  F114["F114: blocked"]
+  F113 --> F114
+  F115["F115: ready"]
+  F116["F116: blocked"]
+  F115 --> F116
+  F117["F117: blocked"]
+  F116 --> F117
+  F118["F118: ready"]
+  F119["F119: blocked"]
+  F118 --> F119
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -230,3 +242,11 @@ flowchart TD
 | F109 | O1 | rengine | passing | A pack is one pinned, versioned artifact a project declares, and its facets say how it is consumed: contract 9 adds a packs block whose library facet is source and a CMake target a game consumes at build time and whose plugin facet is a module the editor loads at run time, with "Powered by rEngine" checkable on the library facet alone. |
 | F110 | O1 | rengine | passing | The product is Red, and its name stops being hard-coded: one declaration in orchestrator/native/theme.json is generated into theme.h for the desktop and orchestrator/runtime/product.mjs for the workspace layer, every consumer reads the generated value, and a guard fails when shipping code spells the name instead (charter D41, spec 108). |
 | F111 | O1 | rengine | passing | poweredBy leaves the pack manifest (charter D45): an adoption is recorded by the owner's sign-off in a spec, never claimed in a declaration. The key is removed from contract 9 and refused by name on either facet, with a message naming the successor rather than only saying no. D24's bar is unchanged; only the announcement is gone. This supersedes F109's criterion 5, which is left exactly as written because it records what was true when it passed. |
+| F112 | O1 | rengine | passing | A paste reaches the PTY whole (KI-070): vterm calls the terminal's output callback once per character, and one socket message per character overran the 128-deep outgoing queue, so everything past roughly the first 128 characters of a paste was dropped in silence and the JSON-per-character churn made it slow as well. Bytes from one event are gathered and leave together, chunked below the session host's 2 MB frame limit and split only on UTF-8 boundaries. |
+| F113 | O2 | rengine | ready | One declared agent recipe registry replaces the four private tables the launch path keeps today (NAMED and CONVERSATIONS in agents/config.mjs, FLAGS in agents/ide-connect.mjs, MODEL_FLAGS and KNOWN_AGENTS in server/tasks.mjs, and the case arms in scripts/agent.sh): each recipe names its package, install, model flag, conversation flags, MCP overlay, hooks overlay and ACP command, and every consumer reads the one table, so adding an agent is a data edit rather than five edits that can disagree (charter D46). |
+| F114 | O2 | rengine | blocked | An Agent Client Protocol session kind for the agents that speak it natively (gemini, opencode, kimi acp) and for Codex through codex-acp: the workspace speaks JSON-RPC over stdio instead of owning a terminal, hands session/new the same stdio MCP server entry the per-launch mcp.json already writes, and shows the transcript with approve and deny answered through session/request_permission. Claude deliberately stays on PTY plus /ide, because its Agent SDK forbids third-party products offering subscription login (charter D46). |
+| F115 | T0 | rengine | ready | A task carries the evidence that backs it: features.json rows already hold an evidence array naming the test and what it proves, and the local provider drops it on the way to the neutral row, so no surface in the workspace can answer what test backs a task. The field reaches the row beside criteria, and the Tasks tab draws each criterion with the evidence under it (charter D47). |
+| F116 | T0 | rengine | blocked | Contract 10 adds a tests block: a project produces a manifest keyed by the task key its provider uses, and rEngine reads it and runs nothing. Each entry names the test and how to select it, states in prose what it asserts, says which acceptance criteria it backs, gives its tier and preconditions, carries the sabotage rows that prove it bites, and records the last result with the commit and time it was taken, so a person can judge whether a test is correct and what it covers without reading it (charter D47, D44). |
+| F117 | T0 | rengine | blocked | A verdict on a test becomes a task in the project that owns it: a person or an agent can flag a test as bad or propose a new one from the Tasks tab, and the judgement is written through the project's own declared tracker.write command rather than asserted by rEngine. The suite files; the project owns (charter D47, preserving D44). |
+| F118 | H0 | rengine | ready | An agent can drive and observe a running game through the surface transport the workspace already ships: game_input delivers a bounded script of the input packets the pane already sends, game_frame returns the current frame the server already holds, and recording_toggle and recording_commit expose the gesture the desktop already performs. Input is refused while a person holds the pane rather than evicting them, which is what the surface's own ownership rule would otherwise do (charter D48). |
+| F119 | H0 | rengine | blocked | A scenario is an artifact a person can judge: a declared input script, the log facts it expects, and a checklist a human answers, producing a recording manifest and a verdict document rather than a boolean. Machine observation and human judgement stay separate and both are recorded, so a scripted run is evidence and never a substitute for a pending visual or headset criterion (charter D48). |
