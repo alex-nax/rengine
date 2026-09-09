@@ -68,11 +68,24 @@
       "refs": [
         "docs/specs/063-terminal-mouse-reporting.md"
       ]
+    },
+    {
+      "id": "wrapped-reference-cells",
+      "kind": "rationale",
+      "anchor": {
+        "start": 300,
+        "end": 300,
+        "snippet": "bool re_terminal_file_at(ReTerminal *t, int x, int y, char *target, size_t capacity) {"
+      },
+      "note": "Extract nearby displayed rows through the same history/live cell mapper as drawing. Trim terminal row padding before inserting a hard line break, preserve the clicked UTF-8 offset, and join rows filled to the right edge as before. Explicit application word wraps remain newlines for the reference parser to normalize only inside delimited targets. Blank cells are not link targets. The bounded buffer does not reconstruct arbitrary off-screen chat or hidden OSC-8 metadata.",
+      "refs": [
+        "docs/specs/113-chat-file-image-tabs.md"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/terminal.c",
-    "sha256": "271a300a0299946d478fc3b6e6bdb79e3199ab361c7265a6ded987f8cadbb9f8",
+    "sha256": "aac62ade0aed06d4f4d98c7219a39065b2383825d151e5f4b8182fe87471e685",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

@@ -39,6 +39,24 @@ It does not promise links whose target never appears in the displayed text.
 
 ## Verification
 
+### Wrapped references and hover correction, 2026-09-09
+
+The owner's screenshot exposes an uncovered case: Codex renders a link as
+`viewer screenshot (third_party/.../pv-` followed by `hands-viewer.png)` on the
+next row, before the terminal's right edge. Treat newline padding/indentation
+inside displayed parenthesized paths and Markdown targets as presentation wrapping.
+Clicking either row must open the complete path. Retain ordinary hard line breaks
+between unrelated references; preserve full-width terminal wrapping and scrollback.
+
+Hovering a valid local reference shows the system hand cursor without requiring
+Cmd/Ctrl first, plus the existing modifier-click hint. Opening still requires the
+modifier. Moving to ordinary text, opening an overlay, leaving the window or losing
+focus restores the default cursor. Refresh hover against the latest rendered cells
+so an output/layout change cannot leave an obsolete pointer. Cursor resources belong
+to the desktop lifetime. Add real native pointer regressions for the screenshot's
+two rows, resize/scrollback, cursor entry/exit and root-invalid references; inspect
+the actual SDL cursor selection, not only a desired hover flag.
+
 Before code, run the new `native-file-images.spec.mjs` checks against the existing
 binary and observe failures for image presentation and actual pointer activation.
 Then verify real PNG pixels from screenshots, two roots with identical filenames,

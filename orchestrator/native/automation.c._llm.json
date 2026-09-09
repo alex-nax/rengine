@@ -9,7 +9,7 @@
         "end": 16,
         "snippet": "Uint32 re_automation_start(void) {"
       },
-      "note": "Only explicit test-mode startup creates the stdin reader. Commands enqueue ordinary SDL key/mouse/text/focus events and expose read-only state/rendered snapshots. Pointer commands can set modifier state and wheel commands carry signed precise deltas plus inversion metadata to exercise production mouse reporting. It does not start a network listener or replace real file/session/game operations with fixtures. Tests clean their owned process; this remains separate from the agent desktop-action protocol. One command has a side effect beyond input: plugin (spec 106) loads a module into this window through re_app_plugin_load with the same three inputs the declaring lane will pass, so a real module is exercised in a real window before the declaration format exists; it is still only reachable through this opt-in channel.",
+      "note": "Only explicit test-mode startup creates the stdin reader. Commands enqueue ordinary SDL key/mouse/text/focus events and expose read-only state/rendered snapshots. Pointer commands can set modifier state and wheel commands carry signed precise deltas plus inversion metadata to exercise production mouse reporting. It does not start a network listener or replace real file/session/game operations with fixtures. Tests clean their owned process; this remains separate from the agent desktop-action protocol. One command has a side effect beyond input: plugin (spec 106) loads a module into this window through re_app_plugin_load with the same three inputs the declaring lane will pass, so a real module is exercised in a real window before the declaration format exists; it is still only reachable through this opt-in channel. fileLinkCursor compares SDL_GetCursor with the real desktop-owned hand cursor, so a missing SDL_SetCursor call cannot pass by merely setting a desired-state flag. Input commands enqueue events; cursor checks wait for the subsequent rendered frame.",
       "refs": [
         "docs/specs/056-native-desktop.md",
         "docs/specs/061-pane-scroll-controls.md",
@@ -21,7 +21,7 @@
   ],
   "source": {
     "path": "orchestrator/native/automation.c",
-    "sha256": "904220eb0f1dd2dbde3c15f14752edab2b6c89ca88d1c76ffa6b724466d0f124",
+    "sha256": "0c3b2cd214be26a78d68a2118938ed6fffe8dc4d5f1843256fa4dd7628050faa",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

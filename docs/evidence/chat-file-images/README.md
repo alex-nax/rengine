@@ -6,7 +6,7 @@ The broader F37 desktop/Windows prerequisites remain open; its accepted criteria
 Cmd-click on macOS or Ctrl-click on Windows/Linux opens a visible file reference
 in an editor tab. Plain paths, displayed Markdown labels/targets, local file URLs,
 and source locations use the clicked terminal's original project root. An existing
-buffer is reused. A modifier hover shows the target in the status bar; both halves
+buffer is reused. Hover shows a system hand cursor and the target in the status bar; both halves
 of the opening click are kept out of negotiated terminal mouse reporting.
 
 PNG/APNG, JPEG and GIF open in a read-only image view with dimensions, Fit, 100%,
@@ -70,6 +70,42 @@ RENGINE_IMAGE_PROOF=/absolute/path/to/project/evidence.png npm run test:desktop
 Without that variable, the optional supplied-image case is explicitly skipped; the
 two self-contained image/link regressions still run. Native source-location/decoder
 checks are registered with CTest. All desktop specs remain in the npm suite.
+
+## Wrapped-link and cursor correction — 2026-09-09
+
+The [owner screenshot](wrap-report.png) demonstrated a missed case in the first
+implementation: Codex wraps a displayed parenthesized target before the terminal
+edge, leaving padding after `pv-` and indentation before `hands-viewer.png`.
+The new acceptance failed on the exact truncated path at `a31f234`. The cursor
+check also failed before implementation, and the native path unit test failed
+on the same two-line target.
+
+Delimited path/Markdown spans now remove presentation newlines and their padding;
+independent plain references on separate lines stay separate. Both halves of the
+owner's path open the full PNG. Native checks cover resize, scrollback, full-width
+terminal wrapping, and reuse of the single existing image tab.
+
+Hover now selects the real SDL system hand cursor without a modifier. Cmd/Ctrl is
+still required to open. The test compares `SDL_GetCursor()` with the actual allocated
+hand cursor, and covers both lines, plain text, root-invalid paths, focus loss,
+menus and replacement text arriving without mouse movement. A native screenshot
+shows the [two-line fixture and complete status hint](wrapped-link-hover.png);
+the system cursor is outside SDL's framebuffer, so that PNG is not cursor evidence.
+
+Two deliberate sabotages were tested and restored: stop parsing a delimited span
+at its newline (fails on the truncated path), and keep SDL's default cursor even
+when a link is detected (fails the real-cursor assertion). Production bytes were
+restored exactly, the affected object removed, and the native build rerun. Four
+sidecars were reviewed, re-anchored and officially stamped clean.
+
+Final CTest: **10/10** (2.76 s). Final service: **223/223** (19.42 s). The baseline
+service launcher test timed out once; its isolated retry passed **2/2**, followed
+by the green final suite. The final desktop run passes **69/69**, zero skips,
+**226.62 s**: [test output](wrap-desktop.txt), [35-spec selection](wrap-desktop-specs.json).
+The already reproduced KI-071 renderer memory-budget test is excluded from this
+rerun; its source and renderer backends are unchanged. This selection runs the
+complete npm desktop list except `native-render.spec.mjs`, with
+`RENGINE_IMAGE_PROOF` set to the NOLF PV assembly PNG.
 
 ## Limits
 

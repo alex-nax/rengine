@@ -1,5 +1,47 @@
 # Progress Log
 
+## Session 82 (macos) — 2026-09-09 — repair Codex word-wrapped file links and show hover cursor
+
+The owner reported that the PV assembly link opens but the wrapped viewer screenshot
+link creates a tab for only its first line, and hovering gives no cursor feedback.
+Archived the supplied screenshot in `docs/evidence/chat-file-images/wrap-report.png`
+and extended spec 113 before code. This continues the same owner-directed F37 slice;
+F37 remains unpassed and the inventory stays 15/63 passing. The pinned editor checkout
+was clean at `a31f234`; work was serial and game/iklib code is untouched.
+
+The previous extraction only joined rows filled to the terminal edge. Codex inserts
+its own newline before that edge and renders the target in parentheses. Row padding
+is now trimmed without losing the clicked byte offset, and delimited target spans
+normalize their presentation newlines/indentation. Ordinary hard breaks remain
+separate. The native regression reproduced the exact `.../pv-` truncated tab before
+the fix; now either row opens the complete PNG, including after resize and in
+scrollback. Full-width terminal wrapping still resolves the same target.
+
+The desktop owns one SDL system hand cursor and refreshes hover after drawing has
+established the latest terminal cells and geometry. Hover uses the originating-root
+validator without requiring Cmd/Ctrl; opening still requires the modifier. Ordinary
+text, root-invalid references, menus, focus loss and replaced terminal text restore
+the default cursor. The test observes SDL_GetCursor itself. Its initial missing-cursor
+failure and a later deliberate default-cursor sabotage prove the observation is not
+a desired-state flag. A separate newline-stop sabotage reproduces the truncated tab.
+Both sabotages were restored byte-for-byte, the derived object removed and rebuilt.
+
+Verification: final native build, CTest **10/10** (2.76 s), service **223/223** (19.42 s),
+initialization/design/whitespace checks and four reviewed sidecars pass. Baseline
+service launcher timing failed once, its isolated retry passed 2/2, then the final
+complete service suite passed. The final 35-spec desktop run passes **69/69**,
+zero skips, **226.62 s**, including all five image/link cases with the real NOLF PNG.
+Its exact spec list and output are archived with the evidence. The previously
+reproduced KI-071 renderer memory-budget test is excluded from this rerun and remains
+open. No renderer or budget changes.
+
+Evidence and limits: `docs/evidence/chat-file-images/README.md`, including the reported
+layout and an inspected native screenshot of the two-line fixture and full hover hint.
+SDL framebuffer capture omits the OS cursor; the real SDL cursor observation is its
+gate. Hidden targets, native WebP, animation playback and Windows qualification remain
+KI-070. The NOLF delivery uses a local pin and a desktop-only layered update, retaining
+the existing agent process. Unrelated superproject files remain untouched.
+
 ## Session 81 (macos) — 2026-09-09 — chat file references open native image tabs
 
 Owner direction from the attached NOLF conversation: open the generated PV-hand PNGs

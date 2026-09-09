@@ -165,3 +165,114 @@ process.stdin.on('data', data => { fs.appendFileSync(${JSON.stringify(received)}
 
   } finally { await gui?.close(); await server?.close(); await rm(dir, { recursive: true, force: true }); }
 });
+
+async function wrappedChat(check) {
+  const dir = await mkdtemp(path.join(tmpdir(), 'redit-wrapped-links-'));
+  const target = 'third_party/rengine/docs/evidence/chat-file-images/pv-hands-viewer.png';
+  let server, gui;
+  try {
+    await mkdir(path.dirname(path.join(dir, target)), { recursive: true });
+    await writeFile(path.join(dir, target), redImage);
+    const script = path.join(dir, 'chat.cjs');
+    const display = '  viewer screenshot (\x1b[36mthird_party/rengine/docs/evidence/chat-file-images/pv-\r\n  hands-viewer.png\x1b[0m). Done.\r\n  plain words\r\n  /outside/no.png\r\n';
+    await writeFile(script, `process.stdin.setRawMode(true); process.stdin.resume();
+const draw = () => process.stdout.write('\\x1b[2J\\x1b[H' + ${JSON.stringify(display)});
+draw(); process.on('SIGWINCH', draw);
+process.stdin.on('data', data => {
+  if (data.toString() === 'h') process.stdout.write(Array.from({length:80}, (_, i) => 'history ' + i + '\\r\\n').join(''));
+  if (data.toString() === 'w') process.stdout.write('\\x1b[2J\\x1b[H' + require('node:fs').realpathSync(${JSON.stringify(dir)}) + '/' + ${JSON.stringify(target)} + '\\r\\n');
+  if (data.toString() === 'c') process.stdout.write('\\x1b[2J\\x1b[H  plain words\\r\\n');
+});`);
+    server = await startServer({ stateDir: path.join(dir, 'state') });
+    const root = await server.store.addRoot(dir);
+    const session = await server.sessions.terminal({ rootId: root.id, command: process.execPath, args: [script] });
+    gui = await nativeClient(server, { root: root.id, terminal: session.id });
+    const state = await gui.until(s => s.tabs.some(t => t?.session === session.id && t.text?.includes('hands-viewer.png')));
+    const term = state.tabs.findIndex(t => t?.session === session.id);
+    const point = async (col, row, mod = 0) => {
+      const t = (await gui.command({ op: 'state' })).tabs[term];
+      const p = { x: t.rect[0] + (col + 0.5) * t.cellSize[0], y: t.rect[1] + (row + 0.5) * t.cellSize[1], mod };
+      await gui.command({ op: 'motion', ...p }); await delay(60); return p;
+    };
+    const click = async (col, row) => {
+      await gui.control('tab', '', term);
+      const p = await point(col, row, process.platform === 'darwin' ? 0xc00 : 0xc0);
+      await gui.command({ op: 'button', ...p, down: true });
+      await gui.command({ op: 'button', ...p, down: false });
+      await gui.command({ op: 'motion', ...p, mod: 0 });
+      await delay(100);
+    };
+    await check({ gui, target, absolute: root.path + '/' + target, term, point, click });
+    assert.equal(server.sessions.snapshot(session.id).pid, session.pid);
+  } finally { await gui?.close(); await server?.close(); await rm(dir, { recursive: true, force: true }); }
+}
+
+test('Codex word-wrapped paths open completely from either row, resize and scrollback', { timeout: 30000 }, async () => {
+  await wrappedChat(async ({ gui, target, absolute, term, click }) => {
+    for (const [col, row] of [[25, 0], [5, 1]]) {
+      await click(col, row);
+      const state = await gui.command({ op: 'state' });
+      assert.equal(state.tabs[state.focus]?.path, target, 'both halves open the entire displayed path');
+      await gui.until(s => s.tabs.some(t => t?.path === target && t.image?.uploaded));
+      assert.equal(state.tabs.filter(t => t?.type === 2).length, 1, 'no truncated-path tab is created');
+    }
+    await gui.control('tab', '', term);
+    await gui.command({ op: 'resize', width: 1100, height: 740 });
+    await gui.until(s => s.width === 1100 && s.tabs[term].text.includes('hands-viewer.png'));
+    await click(5, 1);
+    assert.equal((await gui.command({ op: 'state' })).tabs.filter(t => t?.type === 2).length, 1);
+    await gui.control('tab', '', term);
+    const t = (await gui.command({ op: 'state' })).tabs[term];
+    await gui.click(t.rect[0] + 10, t.rect[1] + 10);
+    await gui.command({ op: 'text', text: 'h' });
+    await gui.until(s => s.tabs[term].historyLines > 0 && s.tabs[term].text.includes('history 79'));
+    await gui.key('Home', 3);
+    await gui.until(s => s.tabs[term].scrollOffset > 0 && s.tabs[term].text.includes('viewer screenshot'));
+    await click(5, 1);
+    const state = await gui.command({ op: 'state' });
+    assert.equal(state.tabs[state.focus]?.path, target);
+    await gui.control('tab', '', term);
+    const live = (await gui.command({ op: 'state' })).tabs[term];
+    await gui.click(live.rect[0] + 10, live.rect[1] + 10);
+    await gui.command({ op: 'text', text: 'w' });
+    await gui.until(s => s.tabs[term].scrollOffset === 0 && s.tabs[term].text.replaceAll('\n', '').startsWith(absolute));
+    for (const row of [0, 1]) {
+      await click(5, row);
+      const opened = await gui.command({ op: 'state' });
+      assert.equal(opened.tabs[opened.focus]?.path, target, 'full-width terminal wrapping still opens the same image');
+    }
+  });
+});
+
+test('file-reference hover selects the real system hand cursor and clears it outside links', { timeout: 30000 }, async () => {
+  await wrappedChat(async ({ gui, term, point }) => {
+    await point(25, 0);
+    await gui.until(s => s.fileLinkCursor === true, 'hover selects the SDL hand cursor without a modifier');
+    await point(5, 1);
+    assert.equal((await gui.command({ op: 'state' })).fileLinkCursor, true, 'the continuation is the same hover target');
+    await mkdir('.cache/evidence', { recursive: true });
+    await gui.command({ op: 'snapshot', path: path.resolve('.cache/evidence/wrapped-link-hover.bmp') });
+    await point(5, 2);
+    await gui.until(s => s.fileLinkCursor === false, 'plain text restores the default cursor');
+    await point(5, 3);
+    assert.equal((await gui.command({ op: 'state' })).fileLinkCursor, false, 'root-invalid references have no open-file cursor');
+    await point(25, 0);
+    await gui.command({ op: 'focus', focused: false });
+    await gui.until(s => s.fileLinkCursor === false, 'focus loss restores the default cursor');
+    await gui.command({ op: 'focus', focused: true });
+    await point(25, 0);
+    await gui.until(s => s.fileLinkCursor === true, 'hover restores the hand cursor');
+    await gui.control('toolbar', 'Root');
+    await point(25, 0);
+    assert.equal((await gui.command({ op: 'state' })).fileLinkCursor, false, 'an overlay releases the link cursor');
+    await gui.key('Escape');
+    const t = (await gui.command({ op: 'state' })).tabs[term];
+    await gui.click(t.rect[0] + 10, t.rect[1] + 10);
+    await point(25, 0);
+    await gui.until(s => s.fileLinkCursor === true, 'hand cursor before new terminal output');
+    await gui.command({ op: 'text', text: 'c' });
+    await gui.until(s => s.fileLinkCursor === false && !s.tabs[term].text.includes('viewer screenshot'), 'new output clears stale hover without mouse movement');
+    assert.equal((await gui.command({ op: 'state' })).tabs.filter(t => t?.type === 2).length, 0, 'hover never opens a file');
+    assert.ok(term >= 0);
+  });
+});

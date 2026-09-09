@@ -5,18 +5,36 @@
 #include <string.h>
 
 static bool copy_span(char *out, size_t capacity, const char *start, const char *end) {
-  if (end <= start || (size_t)(end - start) >= capacity) return false;
-  memcpy(out, start, (size_t)(end - start)); out[end - start] = 0; return true;
+  size_t n = 0;
+  for (const char *p = start; p < end; p++) {
+    if (*p == '\n' || *p == '\r') {
+      while (n && (out[n - 1] == ' ' || out[n - 1] == '\t')) n--;
+      while (p + 1 < end && strchr(" \t\r\n", p[1])) p++;
+      continue;
+    }
+    if (n + 1 >= capacity) return false; out[n++] = *p;
+  }
+  if (!n) return false; out[n] = 0; return true;
+}
+static const char *closing_paren(const char *start) {
+  int depth = 1;
+  for (const char *p = start; *p; p++) { if (*p == '(') depth++; if (*p == ')' && !--depth) return p; }
+  return NULL;
 }
 bool re_file_reference(const char *text, size_t at, char *target, size_t capacity) {
   if (!text || at >= strlen(text)) return false;
   for (const char *p = text; (p = strchr(p, '[')); p++) {
     const char *middle = strstr(p, "]("); if (!middle || (strchr(p, '\n') && strchr(p, '\n') < middle)) continue;
-    const char *start = middle + 2, *end = start; int depth = 1;
-    for (; *end && *end != '\n'; end++) { if (*end == '(') depth++; if (*end == ')' && !--depth) break; }
-    if (*end != ')' || depth || text + at < p || text + at > end) continue;
+    const char *start = middle + 2, *end = closing_paren(start);
+    if (!end || text + at < p || text + at > end) continue;
     if (*start == '<' && end > start + 1 && end[-1] == '>') { start++; end--; }
     return copy_span(target, capacity, start, end);
+  }
+  for (const char *p = text; (p = strchr(p, '(')); p++) {
+    const char *end = closing_paren(p + 1);
+    if (!end || text + at <= p || text + at >= end) continue;
+    if (!memchr(p, '/', (size_t)(end - p)) && !memchr(p, '.', (size_t)(end - p))) continue;
+    return copy_span(target, capacity, p + 1, end);
   }
   const char *start = text + at, *end = start;
   const char *delimiters = " \t\r\n\"'`<>[]()";
@@ -91,13 +109,16 @@ bool re_file_target(const char *target, const char *root, char *relative, size_t
   relative[n] = 0; return n != 0;
 }
 
-bool re_app_open_reference(ReApp *a, int source, const char *target) {
+static bool local_reference(ReApp *a, int source, const char *target, char *relative, size_t capacity, int *line, int *column) {
   if (source < 0 || source >= RE_TABS || !a->tabs[source].used) return false;
   const char *root_path = NULL; const cJSON *root;
   cJSON_ArrayForEach(root, cJSON_GetObjectItemCaseSensitive(a->state, "roots"))
     if (!strcmp(re_string(root, "id"), a->tabs[source].root)) root_path = re_string(root, "path");
+  return root_path && re_file_target(target, root_path, relative, capacity, line, column);
+}
+bool re_app_open_reference(ReApp *a, int source, const char *target) {
   char relative[2048]; int line, column;
-  if (!root_path || !re_file_target(target, root_path, relative, sizeof(relative), &line, &column)) {
+  if (!local_reference(a, source, target, relative, sizeof(relative), &line, &column)) {
     re_copy(a->status, sizeof(a->status), "File reference is invalid or outside this terminal's project."); return false;
   }
   const char *name = strrchr(relative, '/');
@@ -109,16 +130,32 @@ bool re_app_open_reference(ReApp *a, int source, const char *target) {
   snprintf(a->status, sizeof(a->status), "Opened %s", relative); return true;
 }
 
+void re_app_file_link_hover(ReApp *a) {
+  static const char hint[] = "Cmd/Ctrl-click to open ";
+  bool hover = false;
+  if (!a->file_link_inactive && !a->quitting && !a->overlay && !*a->dropdown && a->drag_tab < 0 && a->resize_pane < 0)
+    for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].terminal && re_inside(a->tabs[i].rect, a->mouse_x, a->mouse_y)) {
+      char target[4096], relative[2048]; int line, column;
+      if (re_terminal_file_at(a->tabs[i].terminal, a->mouse_x, a->mouse_y, target, sizeof(target)) &&
+          local_reference(a, i, target, relative, sizeof(relative), &line, &column)) {
+        hover = true; snprintf(a->status, sizeof(a->status), "%s%.470s", hint, target);
+      }
+      break;
+    }
+  SDL_Cursor *cursor = hover && a->file_link_cursor ? a->file_link_cursor : SDL_GetDefaultCursor();
+  if (SDL_GetCursor() != cursor) SDL_SetCursor(cursor);
+  if (!hover && !strncmp(a->status, hint, sizeof(hint) - 1)) a->status[0] = 0;
+}
+
 bool re_app_file_link_event(ReApp *a, const SDL_Event *e) {
   if (e->type == SDL_WINDOWEVENT && e->window.event == SDL_WINDOWEVENT_FOCUS_LOST) a->file_link_pressed = false;
   if (a->file_link_pressed && e->type == SDL_MOUSEBUTTONUP && e->button.button == SDL_BUTTON_LEFT) { a->file_link_pressed = false; return true; }
   if (a->quitting || a->drag_tab >= 0 || a->resize_pane >= 0 || !(SDL_GetModState() & (KMOD_GUI | KMOD_CTRL))) return false;
   bool click = e->type == SDL_MOUSEBUTTONDOWN && e->button.button == SDL_BUTTON_LEFT;
-  if (!click && e->type != SDL_MOUSEMOTION) return false;
+  if (!click) return false;
   for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].terminal && re_inside(a->tabs[i].rect, a->mouse_x, a->mouse_y)) {
     char target[4096];
     if (re_terminal_file_at(a->tabs[i].terminal, a->mouse_x, a->mouse_y, target, sizeof(target))) {
-      if (!click) { snprintf(a->status, sizeof(a->status), "Cmd/Ctrl-click to open %.470s", target); return false; }
       re_terminal_release(a->tabs[i].terminal); a->file_link_pressed = true;
       re_app_open_reference(a, i, target); return true;
     }
