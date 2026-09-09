@@ -95,6 +95,38 @@ test('a longer title changes no pixel to the right of its own column', { timeout
     }
     assert.equal(bled, 0,
       `the title bled past its column: ${bled} pixel(s) changed right of x=${x0} (device), first at ${firstX},${firstY}`);
+    /* Spec 119: the row trims, so the title itself opens the whole text wrapped. */
+
+    /* The description must WRAP, and the only self-calibrating way to see that is to measure the
+       same block twice: the gap the description opens above the row after it must be LARGER for a
+       long title than for a short one. A fixed threshold does not work — an earlier version used
+       one and a paragraph cut to a single line still cleared it, because the block's own spacing
+       ate most of the margin. Two measurements cannot be fooled that way: with no wrapping the two
+       gaps are identical. */
+    const blockGap = async (expect) => {
+      await gui.control('tracker-task', 'F1');
+      const opened = await gui.until(s => s.tracker?.chooser?.kind === 'details'
+                                       && s.tracker?.chooser?.taskKey === 'F1', `${expect} detail opens`);
+      assert.equal(opened.controls.filter(c => c.role === 'tracker-detail' && c.key === 'F1').length, 1,
+        `${expect}: the block is drawn once, under its own row`);
+      const head = opened.controls.find(c => c.role === 'tracker-detail' && c.key === 'F1');
+      const next = opened.controls.find(c => (c.role === 'tracker-detail-tags' || c.role === 'tracker-detail-criterion')
+                                          && c.key === 'F1');
+      assert.ok(head && next, `${expect}: the block draws a header and a row after the description`);
+      const measured = next.rect[1] - (head.rect[1] + head.rect[3]);
+      await gui.control('tracker-task', 'F1');            /* the title toggles, so this closes it */
+      await gui.until(s => s.tracker?.chooser?.kind !== 'details', `${expect} detail closes`);
+      return measured;
+    };
+
+    const longGap = await blockGap('long');
+    await writeFile(path.join(root, 'features.json'), JSON.stringify(inventory(SHORT), null, 2));
+    await gui.control('tracker-refresh', '');
+    await gui.until(s => s.tabs.find(t => t?.type === 8)?.tracker?.rows?.[0]?.title === SHORT, 'the short title returns');
+    const shortGap = await blockGap('short');
+    assert.ok(longGap > shortGap,
+      `a long description wraps onto more lines than a short one: ${longGap}px against ${shortGap}px`);
+
   } finally {
     await gui.close(); await server.close(); await rm(dir, { recursive: true, force: true });
   }

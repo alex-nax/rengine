@@ -287,7 +287,13 @@ static void contents(mu_Rect rect, const char *label, int icon, int opt, mu_Colo
     ui_icon((uint8_t)icon, mu_rect(x, rect.y, size, rect.h), color);
     x += icon_box;
   }
-  if (label) ui_text(label_face(opt), size, label, x, text_y, color);
+  /* A control's label stays inside the control: `contents` drew it with a bare ui_text, so a long
+   * button label ran over whatever sat beside it exactly as a long row title did (spec 118/119).
+   * The box stops before the caret, so text never runs under the chevron either. */
+  if (label) {
+    mu_Rect box = mu_rect(x, rect.y, rect.x + rect.w - pad - caret_box - x, rect.h);
+    if (box.w > 0) text_clipped(label_face(opt), size, label, x, text_y, color, box);
+  }
   if (caret_box) {
     ui_icon(RE_ICON_EXPANDED, mu_rect(rect.x + rect.w - pad - size, rect.y, size, rect.h),
                  opt & RE_UI_DISABLED ? RE_COLOR_TEXT_FAINT : RE_COLOR_TEXT_MUTED);
@@ -531,6 +537,49 @@ void re_ui_label_ex(mu_Context *ctx, const char *label, int opt) {
    * text_clipped keeps the batch when the text fits and narrows the scissor only when it does not. */
   text_clipped(opt & RE_UI_STRONG ? RE_FACE_UI_SEMIBOLD : RE_FACE_UI, size, label,
                rect.x, rect.y + (rect.h - size) / 2 - 1, label_color(opt, 0), rect);
+}
+
+/* Prose that has to be READ rather than scanned, wrapped to whatever width the layout gives it.
+ * Every other control here is a single clipped line, which is right for a table row and useless for
+ * a task's description — trimming it at the column was what made a detail view necessary at all.
+ *
+ * Each line takes its own layout row, so the container reserves real height and the pane scrolls
+ * over the whole paragraph instead of drawing outside itself. The width is read back from the first
+ * cell rather than assumed, because only the layout knows what the row actually got.
+ *
+ * Wrapping is by measured word: a word longer than the line is broken by character instead of
+ * overflowing, since a URL or a symbol name is exactly the case where overflow would return. */
+int re_ui_paragraph(mu_Context *ctx, const char *text, int opt) {
+  int size = label_size(opt), height = size + RE_METRIC_DESIGN_GAP, lines = 0;
+  uint8_t face = opt & RE_UI_STRONG ? RE_FACE_UI_SEMIBOLD : RE_FACE_UI;
+  const char *at = text;
+  if (!text || !*text) return 0;
+  while (*at && lines < RE_UI_PARAGRAPH_LINES) {
+    ui_scissor(ctx);
+    mu_layout_row(ctx, 1, (int[]){-1}, height);
+    mu_Rect rect = mu_layout_next(ctx);
+    while (*at == ' ') at++;                       /* a wrap point is not a leading space */
+    if (!*at) break;
+    int width = rect.w > 0 ? rect.w : 1, take = 0, fit = 0;
+    for (;;) {
+      int next = take;
+      while (at[next] && at[next] != ' ') next++;  /* one word */
+      if (!at[next] && next == take) break;
+      if (re_draw_text_width(ui.draw, face, size, at, next) > width) break;
+      fit = next; take = at[next] ? next + 1 : next;
+      if (!at[next]) { fit = next; break; }
+    }
+    if (!fit) {                                    /* one unbreakable word: break it by character */
+      while (at[fit] && re_draw_text_width(ui.draw, face, size, at, fit + 1) <= width) fit++;
+      if (!fit) fit = 1;                           /* never make no progress */
+    }
+    char line[512];
+    int copy = fit < (int)sizeof(line) - 1 ? fit : (int)sizeof(line) - 1;
+    memcpy(line, at, (size_t)copy); line[copy] = 0;
+    text_clipped(face, size, line, rect.x, rect.y + (rect.h - size) / 2 - 1, label_color(opt, 0), rect);
+    at += fit; lines++;
+  }
+  return lines;
 }
 
 void re_ui_separator(mu_Context *ctx) {

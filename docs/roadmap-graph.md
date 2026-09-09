@@ -186,6 +186,8 @@ flowchart TD
   F119 --> F122
   F123["F123: blocked"]
   F120 --> F123
+  F124["F124: passing"]
+  F115 --> F124
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -265,3 +267,4 @@ flowchart TD
 | F121 | H1 | rengine | blocked | Automated Meta XR Simulator replay as a harness tier: the workspace writes a session_capture block into the Simulator's persistent_data.json, launches the game against the Simulator runtime, lets a recorded VRS capture replay deterministically, and restores the file afterwards. The block persists across launches by Meta's own design, so it is acquired and released like a lock rather than left behind, and the run carries its own budget because completion only asks the application to exit (charter D48, D49). |
 | F122 | H1 | rengine | blocked | A recorded VRS capture becomes a versioned VR test fixture and a scenario variant: the script is the capture, the expected facts are log lines from the replay, and the verdict is a person's answer about what they saw, recorded the way the flat scenario already records one. Determinism is what makes the human answer meaningful across runs rather than a fresh opinion each time (charter D48). |
 | F123 | R3 | rengine | blocked | rEngine's first library pack from its own sources: the GPU device layer becomes a standalone, consumable unit a project outside this repository can build and link, with a public surface smaller than the tree, a two-part pin, and a consuming project that has actually built it. This is the gate a game's Vulkan OpenXR work waits behind, so that one curated capability is written once here rather than twice in two game repositories (charter D50, D49, D24). |
+| F124 | T0 | rengine | passing | A task can be read rather than scanned: the row trims its title to its column, so the title itself opens an inline detail block carrying the whole description wrapped, what the task is waiting on, its labels and assignee, and every acceptance criterion in full. The wrapping is an owned control, re_ui_paragraph, so prose anywhere in the suite can be read instead of clipped (spec 119). |

@@ -24,7 +24,7 @@ typedef struct {
   char preferred[64];                /* the menu's declared default for this CLI */
 } ReAgentEntry;
 typedef struct { char session[65], label[128], agent[65], task[80]; } ReLiveEntry;
-enum { RE_CHOOSER_NONE = 0, RE_CHOOSER_SPAWN, RE_CHOOSER_HOLD, RE_CHOOSER_TESTS };
+enum { RE_CHOOSER_NONE = 0, RE_CHOOSER_SPAWN, RE_CHOOSER_HOLD, RE_CHOOSER_TESTS, RE_CHOOSER_DETAILS };
 static struct {
   bool known;
   char root[65], error[256];
@@ -294,6 +294,73 @@ static void live_rows(ReApp *a, mu_Context *ui, int tab, bool answered) {
  * together. Criteria also appear in the Spawn chooser, where the prompt is being composed; here they
  * are the thing the evidence is evidence FOR, and reading them apart is what left the pane unable to
  * answer "which test backs this". A provider with nothing to say says so rather than drawing empty. */
+/* The task read rather than scanned (spec 119). The row trims its title to its column — which is
+ * correct for a list and is exactly why this exists — so everything the row cannot hold is here,
+ * wrapped: the whole description, what it is waiting on, and every criterion in full. Inline under
+ * its own row for the reason the other choosers are (see sidecar: chooser-is-inline-not-a-popover). */
+static void detail_rows(ReApp *a, mu_Context *ui, int tab, const char *key, const cJSON *task) {
+  static const char *const FIELDS[] = {"priority", "assignee"};
+  mu_layout_row(ui, 2, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+  re_ui_label_ex(ui, "Task", RE_UI_MUTED | RE_UI_SMALL);
+  re_ui_label_ex(ui, key, RE_UI_SMALL | RE_UI_STRONG);
+  re_app_control(a, ui, "tracker-detail", key, tab);
+
+  mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+  re_ui_label_ex(ui, "", 0); /* the description spans the row rather than sitting in a value column */
+  re_ui_paragraph(ui, re_string(task, "title"), RE_UI_SMALL);
+
+  char line[512]; line[0] = 0; size_t used = 0;
+  const cJSON *label = NULL;
+  cJSON_ArrayForEach(label, cJSON_GetObjectItemCaseSensitive(task, "labels")) {
+    if (!cJSON_IsString(label)) continue;
+    int written = snprintf(line + used, sizeof(line) - used, "%s%s", used ? " · " : "", label->valuestring);
+    if (written < 0 || (size_t)written >= sizeof(line) - used) break;
+    used += (size_t)written;
+  }
+  for (size_t i = 0; i < sizeof(FIELDS) / sizeof(*FIELDS); i++) {
+    const char *value = re_string(task, FIELDS[i]);
+    if (!*value) continue;
+    int written = snprintf(line + used, sizeof(line) - used, "%s%s", used ? " · " : "", value);
+    if (written < 0 || (size_t)written >= sizeof(line) - used) break;
+    used += (size_t)written;
+  }
+  if (used) {
+    mu_layout_row(ui, 2, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+    re_ui_label_ex(ui, "Tagged", RE_UI_MUTED | RE_UI_SMALL);
+    re_ui_label_ex(ui, line, RE_UI_MUTED | RE_UI_SMALL);
+    re_app_control(a, ui, "tracker-detail-tags", key, tab);
+  }
+
+  const cJSON *blocked = cJSON_GetObjectItemCaseSensitive(task, "blockedBy");
+  if (cJSON_IsArray(blocked) && cJSON_GetArraySize(blocked)) {
+    line[0] = 0; used = 0;
+    const cJSON *on = NULL;
+    cJSON_ArrayForEach(on, blocked) {
+      if (!cJSON_IsString(on)) continue;
+      int written = snprintf(line + used, sizeof(line) - used, "%s%s", used ? " · " : "", on->valuestring);
+      if (written < 0 || (size_t)written >= sizeof(line) - used) break;
+      used += (size_t)written;
+    }
+    mu_layout_row(ui, 2, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+    re_ui_label_ex(ui, "Waiting on", RE_UI_MUTED | RE_UI_SMALL);
+    re_ui_label_ex(ui, line, RE_UI_MUTED | RE_UI_SMALL);
+    re_app_control(a, ui, "tracker-detail-blocked", key, tab);
+  }
+
+  /* Criteria in full, wrapped. The Spawn chooser shows them clipped because it is composing a
+   * prompt; here they are the thing being read, and a trimmed acceptance criterion is worthless. */
+  const cJSON *criterion = NULL; bool first = true;
+  cJSON_ArrayForEach(criterion, cJSON_GetObjectItemCaseSensitive(task, "criteria")) {
+    if (!cJSON_IsString(criterion)) continue;
+    mu_layout_row(ui, 2, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+    re_ui_label_ex(ui, first ? "Criteria" : "", RE_UI_MUTED | RE_UI_SMALL);
+    re_ui_label_ex(ui, "", 0);
+    re_ui_paragraph(ui, criterion->valuestring, RE_UI_MUTED | RE_UI_SMALL);
+    re_app_control(a, ui, "tracker-detail-criterion", key, tab);
+    first = false;
+  }
+}
+
 /* One manifest entry (contract 10, spec 117). `proven` is drawn as its own line rather than folded
  * into the last result, because a green run and a test that bites are different claims and the
  * whole format exists to keep them apart. */
@@ -355,11 +422,12 @@ static void evidence_rows(ReApp *a, mu_Context *ui, int tab, const char *key,
   re_app_control(a, ui, "tracker-evidence-none", key, tab);
 }
 
-static void chooser_rows(ReApp *a, mu_Context *ui, int tab, const char *key, const cJSON *criteria,
-                         const cJSON *evidence, const cJSON *tests, bool answered) {
+static void chooser_rows(ReApp *a, mu_Context *ui, int tab, const char *key, const cJSON *task,
+                         const cJSON *criteria, const cJSON *evidence, const cJSON *tests, bool answered) {
   if (menu.kind == RE_CHOOSER_NONE || strcmp(menu.task, key)) return;
   mu_push_id(ui, "chooser", 7);
   if (menu.kind == RE_CHOOSER_SPAWN) agent_rows(a, ui, tab, key, criteria, answered);
+  else if (menu.kind == RE_CHOOSER_DETAILS) detail_rows(a, ui, tab, key, task);
   else if (menu.kind == RE_CHOOSER_TESTS) evidence_rows(a, ui, tab, key, criteria, evidence, tests);
   else live_rows(a, ui, tab, answered);
   mu_pop_id(ui);
@@ -396,7 +464,11 @@ static void task_row(ReApp *a, mu_Context *ui, int tab, const cJSON *task, bool 
     if (re_ui_button_ex(ui, title, RE_ICON_FILE, RE_UI_GHOST | RE_UI_ALIGN_LEFT)) re_app_open_url(a, url);
     re_app_control(a, ui, "tracker-open", key, tab);
   } else {
-    re_ui_label_ex(ui, title, 0);
+    /* The row trims the title, so the title itself opens the full text. No new column, and the
+     * gesture lands on the thing that was cut rather than on a control beside it. */
+    if (re_ui_button_ex(ui, title, RE_ICON_UNKNOWN, RE_UI_GHOST | RE_UI_ALIGN_LEFT
+                        | (menu.kind == RE_CHOOSER_DETAILS && !strcmp(menu.task, key) ? RE_UI_ON : 0)))
+      chooser_toggle(key, RE_CHOOSER_DETAILS);
     re_app_control(a, ui, "tracker-task", key, tab);
   }
   if (worked) {
@@ -425,7 +497,7 @@ static void task_row(ReApp *a, mu_Context *ui, int tab, const cJSON *task, bool 
     re_app_control(a, ui, "tracker-hold", key, tab);
   }
   re_ui_pill(ui, *name ? name : category, state_pill(category));
-  chooser_rows(a, ui, tab, key, cJSON_GetObjectItemCaseSensitive(task, "criteria"),
+  chooser_rows(a, ui, tab, key, task, cJSON_GetObjectItemCaseSensitive(task, "criteria"),
                cJSON_GetObjectItemCaseSensitive(task, "evidence"),
                cJSON_GetObjectItemCaseSensitive(task, "tests"), answered);
   mu_pop_id(ui);
@@ -534,5 +606,5 @@ void re_tracker_inspect(const ReApp *a, cJSON *out) {
   cJSON_AddStringToObject(chooser, "taskKey", menu.task);
   cJSON_AddStringToObject(chooser, "agent", menu.agent);
   cJSON_AddStringToObject(chooser, "model", menu.model);
-  cJSON_AddStringToObject(chooser, "kind", menu.kind == RE_CHOOSER_SPAWN ? "spawn" : menu.kind == RE_CHOOSER_HOLD ? "hold" : menu.kind == RE_CHOOSER_TESTS ? "tests" : "");
+  cJSON_AddStringToObject(chooser, "kind", menu.kind == RE_CHOOSER_SPAWN ? "spawn" : menu.kind == RE_CHOOSER_HOLD ? "hold" : menu.kind == RE_CHOOSER_TESTS ? "tests" : menu.kind == RE_CHOOSER_DETAILS ? "details" : "");
 }

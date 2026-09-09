@@ -1905,6 +1905,31 @@
       "evidence": [
         "docs/specs/115-gpu-device-layer-and-simulator.md: the pack gate, what proper means here, and why acquisition needs nothing new"
       ]
+    },
+    {
+      "id": 124,
+      "milestone": "T0",
+      "category": "editor",
+      "priority": "medium",
+      "description": "A task can be read rather than scanned: the row trims its title to its column, so the title itself opens an inline detail block carrying the whole description wrapped, what the task is waiting on, its labels and assignee, and every acceptance criterion in full. The wrapping is an owned control, re_ui_paragraph, so prose anywhere in the suite can be read instead of clipped (spec 119).",
+      "acceptance_criteria": [
+        "Opening a task's detail shows its whole description wrapped across as many lines as it needs, not one trimmed line, and the pane scrolls over the whole of it because each line takes its own layout row.",
+        "Every acceptance criterion is shown in full, wrapped, rather than trimmed the way the composing chooser shows them.",
+        "The gesture is the title itself, so the detail costs no column in a row that is already dense, and the thing that was cut is the thing that opens it.",
+        "A word longer than the line is broken by character rather than overflowing, so a path or a symbol name cannot reintroduce the bleed the wrapping exists to end.",
+        "Each regression was observed failing for its own reason, including a detail view that draws only one line."
+      ],
+      "passes": true,
+      "dependencies": [
+        115
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "re_ui_paragraph in orchestrator/native/ui/ui.{c,h}, the label clip in contents(), the detail chooser in orchestrator/native/tracker.c, and orchestrator/tests/native-label-clip.spec.mjs.",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/119-task-detail-view.md: the control, the gesture, and why buttons had the same overflow",
+        "orchestrator/tests/native-label-clip.spec.mjs: no bleed past the column, and the description wrapping onto several lines"
+      ]
     }
   ]
 }

@@ -56,6 +56,8 @@ int re_ui_hue_slider(mu_Context *ctx, float *hue);          /* 0-360 degrees; th
 int re_ui_menu_item(mu_Context *ctx, const char *label, int icon, const char *hint, bool marked);
 void re_ui_menu_separator(mu_Context *ctx);
 void re_ui_label_ex(mu_Context *ctx, const char *label, int opt);
+#define RE_UI_PARAGRAPH_LINES 64            /* a bound, not a budget: prose past it is a document, not a label */
+int re_ui_paragraph(mu_Context *ctx, const char *text, int opt); /* wraps to the layout width; returns lines drawn */
 void re_ui_separator(mu_Context *ctx);           /* vertical rule inside a row */
 /* One row of a list or tree: hover highlight, selection fill, an icon, an ellipsised name and a
    faint right-aligned meta column. `depth` indents by the tree indent token. */

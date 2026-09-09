@@ -1,5 +1,46 @@
 # Progress Log
 
+## Session 89 (macos) — 2026-09-09 — a task read rather than scanned (F124), and two more controls that never clipped
+
+The owner drew the right consequence from the trimming: *"Now that text is trimmed there - we need a
+detailed task view"*. What was actually missing was not a view but a **control** — every text control
+in `ui.h` drew one clipped line, which is right for a table row and useless for a description.
+
+**`re_ui_paragraph`** wraps to whatever width the layout gives it, takes a layout row per line so the
+container reserves real height and the pane scrolls the whole of it, reads the width back from the
+first cell rather than assuming it, and breaks an over-long word by character — a path or a symbol
+name being exactly the case where a word-only wrap would reintroduce the bleed.
+
+**The gesture is the title.** The row trims it, so the title opens the full text: no new column in a
+row already carrying four controls and a pill, and the thing that was cut is the thing you click.
+The block shows the description in full, labels, assignee, what the task waits on, and every
+criterion wrapped — the Spawn chooser clips criteria because it is composing a prompt; here they are
+the thing being read.
+
+**Making the title a button immediately failed spec 118's clip test — 715 pixels.** `contents()`,
+which draws every button, select and menu-item label, also ended in a bare `ui_text`: **controls had
+the same overflow labels did**, invisible only because no label had ever been long enough to reach
+anything. It now clips to a box stopping before the caret. With session 88's `apply_scissor` repair,
+clipping is finally real for every `text_clipped` caller — textboxes, tree rows, pills, tabs and
+buttons. All of them believed they were clipping; none of them were.
+
+**The wrap assertion took three attempts and the first two would have shipped as false evidence.**
+Counting pixel rows below the header passed with the paragraph cut to one line, because the rest of
+the block filled them. A fixed threshold of twice the row height also passed: measured, the gap is
+70px wrapped and **51px** unwrapped, and 48px cleared both — a number guessed from the layout rather
+than measured from it. What bites is comparing the same block twice, long description against short:
+cut to one line it reports *"51px against 51px"*, because with no wrapping the two are identical by
+construction. Nothing to calibrate, nothing to guess. `blind-regressions-2026-09-06.md` says this
+already; a threshold is the easiest kind of assertion to get wrong because it looks like a
+measurement.
+
+Commands: `npm test` 230/230 · `npm run test:desktop` 70/70 · `./init.sh` · `design.py check` ·
+`features.py validate` (76) · sidecars repaired, two notes extended, stamped.
+
+Not done, and named: the detail is inline under its row, not a pane. A task kept open beside an
+editor and surviving a restart needs a tab type, a binding and layout persistence — worth doing if
+the owner wants it, and not needed to stop the trimming from hiding the text.
+
 ## Session 88 (macos) — 2026-09-09 — the label fix that did not work, and the oracle that proves this one does
 
 The owner reported the Tasks titles running across the buttons a second time, after a fix I had

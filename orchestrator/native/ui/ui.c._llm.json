@@ -63,8 +63,8 @@
       "id": "microui-conventions",
       "kind": "rationale",
       "anchor": {
-        "start": 297,
-        "end": 297,
+        "start": 303,
+        "end": 303,
         "snippet": "static int control(mu_Context *ctx, const char *label, int icon, int opt, bool field) {",
         "symbol": "control"
       },
@@ -83,7 +83,7 @@
         "symbol": "text_clipped",
         "snippet": "static void text_clipped(uint8_t face, int size, const char *text, int x, int y, mu_Color color, mu_Rect box) {"
       },
-      "note": "A clip command breaks an adapter's batch and sets a scissor, so text that already fits its box is drawn without one. The check costs a width measurement, which the control has usually taken anyway, and it keeps ordinary rows of a long list to a single batch. CORRECTION (spec 118): until 2026-09-09 this described behaviour that did not happen. ui_clip narrowed the box, and the very next primitive called apply_scissor, which restored the container's wider scissor whenever ui.applied differed from it \u2014 exactly the state ui_clip had just created \u2014 so the narrow clip was emitted and undone before anything was drawn. text_clipped had never clipped, for any caller. apply_scissor now leaves an explicit clip alone until ui_clip(NULL) releases it, and the cost model above is finally true. Labels route through text_clipped as of the same change, because re_ui_label_ex drew at its cell origin and a long task title ran across the buttons beside it. There IS a regression now: orchestrator/tests/native-label-clip.spec.mjs snapshots two frames and asserts that lengthening a title changes no pixel right of its column \u2014 reverting this one condition bleeds 689 pixels to the pane edge.",
+      "note": "A clip command breaks an adapter's batch and sets a scissor, so text that already fits its box is drawn without one. The check costs a width measurement, which the control has usually taken anyway, and it keeps ordinary rows of a long list to a single batch. CORRECTION (spec 118): until 2026-09-09 this described behaviour that did not happen. ui_clip narrowed the box, and the very next primitive called apply_scissor, which restored the container's wider scissor whenever ui.applied differed from it \u2014 exactly the state ui_clip had just created \u2014 so the narrow clip was emitted and undone before anything was drawn. text_clipped had never clipped, for any caller. apply_scissor now leaves an explicit clip alone until ui_clip(NULL) releases it, and the cost model above is finally true. Labels route through text_clipped as of the same change, because re_ui_label_ex drew at its cell origin and a long task title ran across the buttons beside it. There IS a regression now: orchestrator/tests/native-label-clip.spec.mjs snapshots two frames and asserts that lengthening a title changes no pixel right of its column \u2014 reverting this one condition bleeds 689 pixels to the pane edge. Spec 119 extended it again: contents(), which draws every button, select and menu item label, also ended in a bare ui_text, so controls had the same overflow labels did \u2014 invisible only because no control's label had ever been long enough to reach anything. It clips to a box that stops before the caret, so a label cannot run under its own chevron.",
       "refs": [
         "docs/specs/067-draw-list-contract.md"
       ]
@@ -92,8 +92,8 @@
       "id": "menu-item",
       "kind": "rationale",
       "anchor": {
-        "start": 410,
-        "end": 435,
+        "start": 416,
+        "end": 441,
         "symbol": "re_ui_menu_item",
         "snippet": "int re_ui_menu_item(mu_Context *ctx, const char *label, int icon, const char *hint, bool marked) {"
       },
@@ -107,8 +107,8 @@
       "id": "hue-track",
       "kind": "rationale",
       "anchor": {
-        "start": 443,
-        "end": 473,
+        "start": 449,
+        "end": 479,
         "symbol": "re_ui_hue_slider",
         "snippet": "int re_ui_hue_slider(mu_Context *ctx, float *hue) {"
       },
@@ -121,7 +121,7 @@
   ],
   "source": {
     "path": "orchestrator/native/ui/ui.c",
-    "sha256": "52ae921e1c90e0127564b0f3d1cb0fa77f659cdf8e885ffa318b689aa614464b",
+    "sha256": "a5aa8bb4194854586f1ae831bed0ed8626870937a43b4bae6e4003f20b0cc292",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }
