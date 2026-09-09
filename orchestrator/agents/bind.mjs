@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, realpath } from 'node:fs/promises';
+import { mkdir, readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,15 +20,31 @@ const resolve = async value => { try { return await realpath(value); } catch { r
 
 /* A consumer's editor.sh puts the state directory at ~/.local/state/rengine/<name>-<cksum>, a
    Windows install puts it inside the checkout, and this development tree's own default IS the base
-   directory. So the base and each of its children are candidates. */
+   directory. So the base and each of its children are candidates.
+
+   Which directory a launcher chose is the launcher's business, though, and one named anything but
+   `rengine` used to be invisible here even with its sidecar descriptor in plain sight -- an owner's
+   own launcher naming its own (.../state/redit/<project>) could open a project that could then
+   never be bound. So beyond the base, the DESCRIPTOR is what identifies a state directory, at the
+   two depths a launcher plausibly uses. Directories without one are never opened. */
+const directories = async (parent, strict = false) => {
+  try { return (await readdir(parent, { withFileTypes: true })).filter(entry => entry.isDirectory())
+    .map(entry => path.join(parent, entry.name)); }
+  catch (error) { if (strict && error.code !== 'ENOENT') throw error; return []; }
+};
+const describesInstance = async directory => {
+  try { await stat(path.join(directory, 'sidecar.json')); return true; } catch { return false; }
+};
 export async function stateDirectories(explicit, home = process.env.XDG_STATE_HOME || path.join(homedir(), '.local/state')) {
   if (explicit) return [path.resolve(explicit)];
   const base = path.join(home, 'rengine');
-  const found = [base];
-  let entries = [];
-  try { entries = await readdir(base, { withFileTypes: true }); }
-  catch (error) { if (error.code !== 'ENOENT') throw error; }
-  for (const entry of entries) if (entry.isDirectory()) found.push(path.join(base, entry.name));
+  const found = [base, ...(await directories(base, true))];
+  const seen = new Set(found);
+  for (const directory of await directories(home)) {
+    if (seen.has(directory)) continue;
+    for (const candidate of (await describesInstance(directory)) ? [directory] : await directories(directory))
+      if (!seen.has(candidate) && await describesInstance(candidate)) { seen.add(candidate); found.push(candidate); }
+  }
   return found;
 }
 
