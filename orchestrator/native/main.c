@@ -69,6 +69,8 @@ int main(int argc, char **argv) {
   cJSON_Delete(descriptor);
   mu_Context *ui = calloc(1, sizeof(*ui));
   if (!app || !ui) { re_app_close(app); free(ui); re_draw_close(draw); SDL_DestroyWindow(window); SDL_Quit(); return 1; }
+  app->file_link_cursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
+  if (!app->file_link_cursor) fprintf(stderr, "Cannot create link cursor: %s\n", SDL_GetError());
   re_draw_bind(draw, ui);
   if (automation || control) app->controls = cJSON_CreateArray();
   Uint32 automation_event = (automation || control) ? re_automation_start() : 0;
@@ -79,6 +81,11 @@ int main(int argc, char **argv) {
     SDL_Event event; bool redraw = false;
     if (SDL_WaitEventTimeout(&event, smoke ? 1 : re_ui_animating() ? 16 : 250)) do {
       redraw = true;
+      if (event.type == SDL_MOUSEMOTION) app->file_link_inactive = false;
+      if (event.type == SDL_WINDOWEVENT) {
+        if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST || event.window.event == SDL_WINDOWEVENT_LEAVE) app->file_link_inactive = true;
+        if (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED || event.window.event == SDL_WINDOWEVENT_ENTER) app->file_link_inactive = false;
+      }
       if (event.type == SDL_QUIT) closing = true;
       else if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_r &&
                (event.key.keysym.mod & KMOD_SHIFT) && (event.key.keysym.mod & (KMOD_GUI | KMOD_CTRL))) {
@@ -122,7 +129,7 @@ int main(int argc, char **argv) {
     re_draw_begin(draw, width, height);
     mu_begin(ui); re_app_ui(app, ui, width, height); mu_end(ui);
     if (ui->hover_root != ui->next_hover_root) { SDL_Event settle = {.type = SDL_USEREVENT}; SDL_PushEvent(&settle); }
-    re_draw_commands(draw, ui); re_app_draw(app, draw); re_app_status(app, draw);
+    re_draw_commands(draw, ui); re_app_draw(app, draw); re_app_file_link_hover(app); re_app_status(app, draw);
     re_ui_overlay_flush(draw); /* the one overlay layer sits above every pane (spec 080) */
     if (capture) {
       bool ok = re_draw_snapshot(draw, re_string(capture, "path")); re_automation_reply(re_number(capture, "id"), cJSON_CreateBool(ok)); cJSON_Delete(capture); capture = NULL;
@@ -141,5 +148,6 @@ int main(int argc, char **argv) {
     }
     if (closing) { running = !re_app_quit(app); if (!app->quitting) closing = reload = false; }
   }
+  SDL_SetCursor(SDL_GetDefaultCursor()); SDL_FreeCursor(app->file_link_cursor);
   cJSON_Delete(capture); re_app_close(app); free(ui); re_draw_close(draw); SDL_DestroyWindow(window); SDL_Quit(); return reload ? 75 : result;
 }

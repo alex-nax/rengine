@@ -459,6 +459,7 @@ static void breadcrumb(char *out, size_t size, const char *path) {
   if (!used && size) re_copy(out, size, "Untitled");
 }
 static void editor_ui(ReApp *a, mu_Context *ui, int index, mu_Rect content, mu_Rect below) {
+  if (a->tabs[index].image) { re_image_ui(a, ui, index, content); return; }
   ReTab *t = &a->tabs[index]; int mode = t->format ? re_format_mode(t->format) : RE_MODE_TEXT, action = RE_FORMAT_NONE, top = RE_METRIC_EDITOR_TOP;
   if (t->format && mode != RE_MODE_PENDING) { action = re_format_ui(t->format, a, ui, re_app_format_record(a, t), index, t->error); top += RE_METRIC_FORMAT_ROW_ADVANCE; }
   if (mode == RE_MODE_TEXT || mode == RE_MODE_PENDING) {
@@ -543,6 +544,7 @@ static void pane_header(ReApp *a, mu_Context *ui, int n) {
     if (closed) {
       re_layout_remove(&a->layout, tab); a->focus = -1;
       re_recording_close(t->recorder); t->recorder = NULL;
+      if (t->image) { re_image_clear(t->image); t->generation++; }
       re_terminal_close(t->terminal); t->terminal = NULL; re_game_close(t->game); t->game = NULL;
       t->header = mu_rect(0, 0, 0, 0); re_app_layout_changed(a);
     }
@@ -589,6 +591,7 @@ static void close_view(ReApp *a) {
   int tab = p->tabs[p->selected]; ReTab *t = &a->tabs[tab];
   re_layout_remove(&a->layout, tab); a->focus = -1;
   re_recording_close(t->recorder); t->recorder = NULL;
+  if (t->image) { re_image_clear(t->image); t->generation++; }
   re_terminal_close(t->terminal); t->terminal = NULL; re_game_close(t->game); t->game = NULL;
   t->header = mu_rect(0, 0, 0, 0); re_app_layout_changed(a);
 }
@@ -778,6 +781,7 @@ void re_app_draw(ReApp *a, ReDraw *draw) {
     }
     if (t->rect.w <= 0 || t->rect.h <= 0) { if (t->terminal) re_terminal_release(t->terminal); continue; }
     if (t->terminal) re_terminal_draw(t->terminal, draw, t->rect, a->focus == i);
+    if (t->image) re_image_draw(t->image, draw, t->rect);
     if (t->editor) re_editor_draw(t->editor, draw, t->rect, a->focus == i);
     else if (t->format) re_format_draw(t->format, draw, t->rect, a->focus == i);
     if (t->game) re_game_draw(t->game, draw, t->rect);
@@ -869,9 +873,10 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
     }
   }
   if (e->type == SDL_MOUSEWHEEL && !a->quitting) {
-    for (int i = 0; i < RE_TABS; i++) if ((a->tabs[i].terminal || a->tabs[i].editor || a->tabs[i].format) && re_inside(a->tabs[i].rect, a->mouse_x, a->mouse_y)) {
+    for (int i = 0; i < RE_TABS; i++) if ((a->tabs[i].terminal || a->tabs[i].editor || a->tabs[i].format || a->tabs[i].image) && re_inside(a->tabs[i].rect, a->mouse_x, a->mouse_y)) {
       ReTab *t = &a->tabs[i];
       if (t->terminal) { if (!re_terminal_mouse(t->terminal, e, a->mouse_x, a->mouse_y)) re_terminal_event(t->terminal, e); }
+      else if (t->image) re_image_event(t->image, e);
       else if (t->editor) re_editor_event(t->editor, e, t->rect, re_draw_cell_width(draw), re_draw_line_height(draw));
       else re_format_event(t->format, e, t->rect, re_draw_cell_width(draw), re_draw_line_height(draw));
       return true;
@@ -927,6 +932,7 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
   }
   if (previous_focus >= 0 && previous_focus != a->focus && a->tabs[previous_focus].game) re_game_release(a->tabs[previous_focus].game);
   if (previous_focus >= 0 && previous_focus != a->focus && a->tabs[previous_focus].terminal) re_terminal_release(a->tabs[previous_focus].terminal);
+  if (re_app_file_link_event(a, e)) return true;
   if (!a->quitting && a->drag_tab < 0 && a->resize_pane < 0 && (e->type == SDL_MOUSEMOTION || e->type == SDL_MOUSEBUTTONDOWN || e->type == SDL_MOUSEBUTTONUP)) {
     for (int pass = 0; pass < 2; pass++) for (int i = 0; i < RE_TABS; i++) {
       ReTab *t = &a->tabs[i];

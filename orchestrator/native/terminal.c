@@ -1,4 +1,5 @@
 #include "terminal.h"
+#include "filelink.h"
 #include <vterm.h>
 
 #define RE_HISTORY_LINES 2000
@@ -344,4 +345,25 @@ char *re_terminal_text(ReTerminal *t) {
   }
   text[size] = 0;
   return text;
+}
+bool re_terminal_file_at(ReTerminal *t, int x, int y, char *target, size_t capacity) {
+  if (!t || !t->cw || !t->lh || !re_inside(t->content, x, y) || t->scrollbar.dragging) return false;
+  int row = (y - t->content.y) / t->lh, column = (x - t->content.x) / t->cw;
+  VTermScreenCell clicked;
+  if (!view_cell(t, row, column, &clicked) || !clicked.chars[0] || clicked.chars[0] == ' ') return false;
+  char text[16384]; size_t size = 0, at = 0;
+  for (int r = re_max(0, row - 2); r < re_min(t->rows, row + 3); r++) {
+    bool full = false; size_t end = size;
+    for (int c = 0; c < t->cols && size + 5 < sizeof(text); c++) {
+      VTermScreenCell cell; if (!view_cell(t, r, c, &cell)) break;
+      if (r == row && c == column) at = size;
+      if (cell.chars[0] == UINT32_MAX) { if (r == row && c == column && size) at = size - 1; continue; }
+      uint32_t ch = cell.chars[0] ? cell.chars[0] : ' '; char encoded[5];
+      int bytes = re_encode(ch, encoded); memcpy(text + size, encoded, (size_t)bytes); size += (size_t)bytes;
+      full = ch != ' ';
+      if (full) end = size;
+    }
+    if (!full) { size = end; if (size + 1 < sizeof(text)) text[size++] = '\n'; }
+  }
+  text[size] = 0; return re_file_reference(text, at, target, capacity);
 }

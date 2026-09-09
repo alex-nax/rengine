@@ -5,7 +5,7 @@
 /* Operations at or above OP_BYTES belong to a format view and carry its mode in `revision`;
  * everything else must sort below it, or the request path reads a format that is not there. */
 enum { OP_STATE = 1, OP_LOAD, OP_SAVE, OP_DRAFT, OP_DISCARD, OP_CREATE, OP_ROOT, OP_GENERIC, OP_LAYOUT, OP_EXPAND,
-       OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_SIGNIN, OP_DIAGNOSTICS, OP_AGENTS_MENU, OP_AGENT_SPAWN, OP_BYTES, OP_PREVIEW, OP_ENTRY };
+       OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_SIGNIN, OP_DIAGNOSTICS, OP_AGENTS_MENU, OP_AGENT_SPAWN, OP_IMAGE, OP_BYTES, OP_PREVIEW, OP_ENTRY };
 /* Enforced rather than remembered. A merge that appends a new operation after OP_BYTES makes the
  * request path read a format a tracker or agent tab does not have, and the symptom is a request that
  * never completes rather than an error where the mistake was made. */
@@ -334,6 +334,14 @@ void re_app_load(ReApp *a, int tab) {
   if (t->type == RE_TRACKER) { tracker_request(a, tab, false); return; }
   if (t->type == RE_DEVICES) { devices_request(a, tab, false); return; }
   if (t->type != RE_EDITOR) return;
+  if (re_image_path(t->path)) {
+    if (!t->image) t->image = re_image_open();
+    if (!t->image) { re_copy(t->error, sizeof(t->error), "Cannot allocate image view."); return; }
+    re_format_close(t->format); t->format = NULL;
+    t->generation++; re_image_clear(t->image); t->error[0] = 0;
+    char *route = re_net_query("image", t->root, t->path);
+    if (route) request(a, OP_IMAGE, tab, route, NULL); free(route); return;
+  }
   if (!t->format || re_format_mode(t->format) == RE_MODE_PENDING) {
     if (!t->format) t->format = re_format_open(RE_MODE_PENDING, false);
     if (!formats_for(a, t->root)) { fetch_formats(a, t->root); return; }
@@ -382,7 +390,7 @@ int re_app_tab(ReApp *a, int type, const char *root, const char *path, const cha
       open_view(a, t);
       /* Choosing the view a person already has open is the refresh gesture for a directory. The
        * expansions are keyed by path and survive it, as spec 080 decision 10 requires. */
-      if (type == RE_TREE) re_app_load(a, i);
+      if (type == RE_TREE || (t->image && re_layout_find(&a->layout, i) < 0)) re_app_load(a, i);
       int pane = re_layout_find(&a->layout, i);
       if (pane < 0) re_layout_add(&a->layout, a->layout.active, i);
       else { a->layout.active = pane; for (int k = 0; k < a->layout.panes[pane].count; k++) if (a->layout.panes[pane].tabs[k] == i) a->layout.panes[pane].selected = k; }
@@ -422,6 +430,7 @@ static cJSON *serialize(ReApp *a) {
     cJSON_AddNumberToObject(tab, "type", t->type); cJSON_AddStringToObject(tab, "root", t->root);
     cJSON_AddStringToObject(tab, "path", t->path); cJSON_AddStringToObject(tab, "session", t->session); cJSON_AddStringToObject(tab, "title", t->title);
     if (t->format && re_format_mode(t->format) != RE_MODE_PENDING) cJSON_AddStringToObject(tab, "mode", re_format_mode_name(re_format_mode(t->format)));
+    if (t->image) cJSON_AddBoolToObject(tab, "imageActual", re_image_is_actual(t->image));
   }
   cJSON_AddItemToObject(j, "dashboards", cJSON_Duplicate(a->dashboards_opened, 1));
   return j;
@@ -449,7 +458,9 @@ static bool restore(ReApp *a, const cJSON *j) {
     t->session_ended = *t->session && !session_known(a, t->session);
     if ((t->type == RE_TERMINAL || t->type == RE_GAME) && !t->session_ended && re_layout_find(&a->layout, i) >= 0) open_view(a, t);
     if (cJSON_HasObjectItem(tab, "mode")) t->format = re_format_open(re_format_mode_from(re_string(tab, "mode")), true);
-    re_app_load(a, i);
+    if (re_image_path(t->path) && re_layout_find(&a->layout, i) < 0) t->image = re_image_open();
+    else re_app_load(a, i);
+    if (t->image) re_image_actual(t->image, cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(tab, "imageActual")));
   }
   const cJSON *opened = cJSON_GetObjectItemCaseSensitive(j, "dashboards"), *root = NULL;
   cJSON_ArrayForEach(root, opened) if (cJSON_IsString(root) && strlen(root->valuestring) <= 64 && !listed(a->dashboards_opened, root->valuestring)) cJSON_AddItemToArray(a->dashboards_opened, cJSON_CreateString(root->valuestring));
@@ -536,6 +547,9 @@ static void response(ReApp *a, ReMessage *m) {
   if (!p.id || (p.tab >= 0 && p.generation != a->tabs[p.tab].generation)) return;
   ReTab *t = p.tab >= 0 ? &a->tabs[p.tab] : NULL;
   if (p.operation == OP_DRAFT && t) t->checkpoint_flight = 0;
+  if (p.operation == OP_IMAGE && t && m->status == 200) {
+    re_image_load(t->image, m->data, m->size, t->error, sizeof(t->error)); return;
+  }
   cJSON *j = cJSON_ParseWithLength(m->data, m->size);
   if (m->status != 200 || !j) {
     const char *error = j ? re_string(j, "error") : m->data; char budget[640];
@@ -590,6 +604,7 @@ static void response(ReApp *a, ReMessage *m) {
         ReEditor *editor = re_editor_open(re_string(dirty ? draft : j, "text"));
         if (!editor) { re_copy(t->error, sizeof(t->error), "Cannot allocate editor buffer."); break; }
         re_editor_close(t->editor); t->editor = editor; re_editor_vim(editor, a->vim); re_editor_language(editor, t->path);
+        if (t->link_line) { re_editor_goto(editor, t->link_line, t->link_column); t->link_line = t->link_column = 0; }
         t->saved = dirty ? -1 : 0; t->dirty = dirty; t->checkpoint = 0; t->conflict = dirty && strcmp(re_string(draft, "baseVersion"), re_string(j, "version"));
         re_copy(t->version, sizeof(t->version), re_string(dirty ? draft : j, dirty ? "baseVersion" : "version"));
       }
@@ -815,7 +830,7 @@ void re_app_close(ReApp *a) {
   if (!a) return;
   for (int i = 0; i < RE_TABS; i++) {
     cJSON_Delete(a->tabs[i].data); re_recording_close(a->tabs[i].recorder); re_terminal_close(a->tabs[i].terminal);
-    re_editor_close(a->tabs[i].editor); re_game_close(a->tabs[i].game); re_format_close(a->tabs[i].format);
+    re_editor_close(a->tabs[i].editor); re_game_close(a->tabs[i].game); re_format_close(a->tabs[i].format); re_image_close(a->tabs[i].image);
   }
   re_plugins_close(a->plugins);
   re_socket_close(a->events); re_net_close(a->net); cJSON_Delete(a->state); cJSON_Delete(a->previous_layout); cJSON_Delete(a->controls); cJSON_Delete(a->conversations); cJSON_Delete(a->formats); cJSON_Delete(a->dashboards); cJSON_Delete(a->dashboards_opened); free(a);
@@ -865,7 +880,10 @@ cJSON *re_app_inspect(ReApp *a) {
       ReTerminalScroll scroll = re_terminal_scroll_state(t->terminal);
       cJSON_AddNumberToObject(tab, "historyLines", scroll.lines); cJSON_AddNumberToObject(tab, "scrollOffset", scroll.offset);
     }
+    if (t->image) cJSON_AddItemToObject(tab, "image", re_image_inspect(t->image));
     if (t->editor) {
+      ReSelection caret; re_editor_selection(t->editor, &caret, NULL, 0);
+      cJSON_AddItemToObject(tab, "caret", cJSON_CreateIntArray((int[]){caret.start_line, caret.start_character}, 2));
       cJSON_AddStringToObject(tab, "mode", re_editor_mode(t->editor));
       /* How many the pane is drawing, so what the person sees is inspectable as a number
          rather than only as pixels. */

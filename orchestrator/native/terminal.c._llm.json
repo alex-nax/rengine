@@ -5,8 +5,8 @@
       "id": "real-vt-screen",
       "kind": "rationale",
       "anchor": {
-        "start": 162,
-        "end": 162,
+        "start": 163,
+        "end": 163,
         "snippet": "static void message_in(ReTerminal *t, const cJSON *j) {",
         "symbol": "message_in"
       },
@@ -21,8 +21,8 @@
       "id": "ready-after-attached-snapshot",
       "kind": "rationale",
       "anchor": {
-        "start": 157,
-        "end": 157,
+        "start": 158,
+        "end": 158,
         "snippet": "void re_terminal_presented(ReTerminal *t) {"
       },
       "note": "Only an attached snapshot explicitly waitingForView needs the presented message. Ordinary terminals and older services receive no new readiness traffic. Attachment sequence recovery resets local presentation state but never spawns or resumes a CLI; the retained service releases each handoff gate once.",
@@ -34,8 +34,8 @@
       "id": "bounded-primary-screen-history",
       "kind": "rationale",
       "anchor": {
-        "start": 32,
-        "end": 32,
+        "start": 33,
+        "end": 33,
         "snippet": "static int history_push(int cols, const VTermScreenCell *cells, void *user) {"
       },
       "note": "Store the actual evicted libvterm cells with their original column count in a ring capped at 2,000 rows and 8 MiB including each line header. Increment a nonzero viewing offset as output pushes rows so the same text stays visible; oldest-row eviction limits that guarantee. Pop newest rows on upstream height growth, padding missing cells with width 1 so libvterm resize iteration advances. History retains old widths and is clipped/padded rather than reflowed. libvterm excludes alternate-screen scrolling from push callbacks; changing alternate-screen mode returns the view to live. Fresh attached snapshots reset both screen and history before replay to avoid duplicates. This is view-owned memory; the sidecar raw-output retention bounds reconstruction after detach/reload.",
@@ -47,8 +47,8 @@
       "id": "scrolling-and-visible-text",
       "kind": "rationale",
       "anchor": {
-        "start": 223,
-        "end": 223,
+        "start": 224,
+        "end": 224,
         "snippet": "static void key_event(ReTerminal *t, const SDL_Event *e) {",
         "symbol": "key_event"
       },
@@ -62,13 +62,26 @@
       "id": "negotiated-mouse-events",
       "kind": "rationale",
       "anchor": {
-        "start": 278,
-        "end": 278,
+        "start": 279,
+        "end": 279,
         "snippet": "bool re_terminal_mouse(ReTerminal *t, const SDL_Event *e, int x, int y) {"
       },
       "note": "Use VTERM_PROP_MOUSE to select reporting and let pristine libvterm encode click/drag/move modes and SGR/X10 packets. Store the rendered logical cell size/content rectangle; exclude chrome, partial gutters and old history from application clicks. Match SDL left/middle/right to VT buttons 1/2/3 and signed vertical/horizontal wheel steps to 4/5/6/7, preserving fractional motion without a second direction inversion or extra application scroll multiplier. Shift+wheel uses local primary history. Capture a pressed button until release, clamp held motion outside content, and release on focus loss/hide/detach. Native scrollbar drags take precedence. Query inspection exposes negotiated mode and actual cell/grid sizes rather than stale service snapshot dimensions.",
       "refs": [
         "docs/specs/063-terminal-mouse-reporting.md"
+      ]
+    },
+    {
+      "id": "wrapped-reference-cells",
+      "kind": "rationale",
+      "anchor": {
+        "start": 349,
+        "end": 349,
+        "snippet": "bool re_terminal_file_at(ReTerminal *t, int x, int y, char *target, size_t capacity) {"
+      },
+      "note": "Extract nearby displayed rows through the same history/live cell mapper as drawing. Trim terminal row padding before inserting a hard line break, preserve the clicked UTF-8 offset, and join rows filled to the right edge as before. Explicit application word wraps remain newlines for the reference parser to normalize only inside delimited targets. Blank cells are not link targets. The bounded buffer does not reconstruct arbitrary off-screen chat or hidden OSC-8 metadata.",
+      "refs": [
+        "docs/specs/113-chat-file-image-tabs.md"
       ]
     }
   ],

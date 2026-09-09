@@ -32,6 +32,7 @@ void re_automation_command(ReApp *app, SDL_Window *window, const cJSON *j) {
     /* The real window title, so a test can hold the chrome and the operating system to the same
      * source rather than assuming they agree (spec 084 decision 4). */
     if (window) cJSON_AddStringToObject(state, "windowTitle", SDL_GetWindowTitle(window));
+    cJSON_AddBoolToObject(state, "fileLinkCursor", app->file_link_cursor && SDL_GetCursor() == app->file_link_cursor);
     re_automation_reply(id, state); return;
   }
   if (!strcmp(op, "stats")) {

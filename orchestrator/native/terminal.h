@@ -21,4 +21,5 @@ void re_terminal_message(ReTerminal *terminal, const cJSON *message);
 void re_terminal_event(ReTerminal *terminal, const SDL_Event *event);
 void re_terminal_draw(ReTerminal *terminal, ReDraw *draw, mu_Rect rect, bool focused);
 char *re_terminal_text(ReTerminal *terminal);
+bool re_terminal_file_at(ReTerminal *terminal, int x, int y, char *target, size_t capacity);
 #endif

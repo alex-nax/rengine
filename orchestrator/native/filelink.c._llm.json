@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "visible-reference-scope",
+      "kind": "constraint",
+      "anchor": {
+        "start": 24,
+        "end": 24,
+        "snippet": "bool re_file_reference(const char *text, size_t at, char *target, size_t capacity) {"
+      },
+      "note": "Interpret only the visible terminal cells supplied by re_terminal_file_at. Markdown label/target spans and plain file-looking tokens are supported; never execute a reference or infer an OSC-8 target from a label alone. The terminal provides UTF-8 byte offsets for clicked cells and includes nearby wrapped rows and stored history. Displayed parenthesized paths and Markdown targets can contain application-inserted newlines before the terminal edge. Remove only row-break padding/indentation inside those delimited spans; ordinary hard breaks between unrelated plain references remain delimiters. Clicking either displayed fragment resolves the same full target.",
+      "refs": [
+        "docs/specs/113-chat-file-image-tabs.md"
+      ]
+    },
+    {
+      "id": "terminal-root-boundary",
+      "kind": "constraint",
+      "anchor": {
+        "start": 68,
+        "end": 68,
+        "snippet": "bool re_file_target(const char *target, const char *root, char *relative, size_t capacity, int *line, int *column) {"
+      },
+      "note": "Percent-decode once, reject control bytes and nonlocal URI authorities, separate a positive source location, match absolute paths to the originating terminal root on a segment boundary, then normalize relative dot segments without escaping that root. The service still enforces canonical-path/symlink and regular-file boundaries. Root switching and tab movement must never substitute the active project. Existing editor buffers are focused without reloading or writing them.",
+      "refs": [
+        "docs/specs/113-chat-file-image-tabs.md"
+      ]
+    },
+    {
+      "id": "modified-click-pair",
+      "kind": "rationale",
+      "anchor": {
+        "start": 150,
+        "end": 150,
+        "snippet": "bool re_app_file_link_event(ReApp *a, const SDL_Event *e) {"
+      },
+      "note": "Cmd/Ctrl-click is a local open-file gesture; consume both mouse press and release so an agent with negotiated mouse tracking never receives half a click. Ordinary input retains the terminal protocol. Hover is refreshed separately after rendering, without requiring a modifier; click remains modifier-gated. The opening session and its process remain alive.",
+      "refs": [
+        "docs/specs/113-chat-file-image-tabs.md"
+      ]
+    },
+    {
+      "id": "system-link-hover",
+      "kind": "rationale",
+      "anchor": {
+        "start": 133,
+        "end": 133,
+        "snippet": "void re_app_file_link_hover(ReApp *a) {"
+      },
+      "note": "Use the same originating-root validator for the hover affordance and opening. Recompute against the latest rendered terminal rectangles/cells, so layout changes and new output release obsolete hover. Menus, drags and inactive windows suppress the cursor. Select the actual SDL hand cursor only for a valid local reference; restore the default otherwise. No file reads, decoding or per-frame allocation occur on hover. main.c owns the cursor resource and input enter/leave/focus state.",
+      "refs": [
+        "docs/specs/113-chat-file-image-tabs.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/filelink.c",
+    "sha256": "273e6680e17963a00e507a512e0d9bcd5faea15435814f9b4f29adc47668b659",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

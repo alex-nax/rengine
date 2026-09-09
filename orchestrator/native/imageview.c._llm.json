@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "bounded-native-decode",
+      "kind": "constraint",
+      "anchor": {
+        "start": 33,
+        "end": 33,
+        "snippet": "bool re_image_load(ReImageView *v, const void *bytes, size_t size, char *error, size_t capacity) {"
+      },
+      "note": "Read only the authenticated image response, with the same 8 MiB, 8192-per-axis and 16-megapixel bounds as the service. The pinned stb decoder enables PNG/JPEG/GIF only and displays the first frame. A successful metadata read is insufficient: full decoding must succeed. WebP is explicitly unavailable; SVG remains on the text path. Clear previous pixels before any refresh, retain only one CPU buffer until texture upload, and stop retrying a failed upload until Refresh.",
+      "refs": [
+        "docs/specs/113-chat-file-image-tabs.md"
+      ]
+    },
+    {
+      "id": "image-texture-ownership",
+      "kind": "rationale",
+      "anchor": {
+        "start": 26,
+        "end": 26,
+        "snippet": "void re_image_clear(ReImageView *v) {"
+      },
+      "note": "The native main thread owns the decoded buffer and backend-neutral texture. Clear and close are safe before upload and after it; successful upload frees CPU pixels. App response generations reject stale reads after refresh/detach. Detach releases pixels while retaining fit preference; reopening reloads the root/path. Hidden restored image tabs stay undecoded until opened.",
+      "refs": [
+        "docs/specs/113-chat-file-image-tabs.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/imageview.c",
+    "sha256": "819c1431543e87ea0a85c2a7cc4e8c8964c3cf499ddec0a6fb9cccc23a36fca5",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

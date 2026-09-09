@@ -6,6 +6,7 @@ typedef struct ReEditor ReEditor;
 ReEditor *re_editor_open(const char *text);
 void re_editor_close(ReEditor *editor);
 char *re_editor_text(ReEditor *editor);
+void re_editor_goto(ReEditor *editor, int line, int column);
 int re_editor_revision(const ReEditor *editor);
 void re_editor_vim(ReEditor *editor, bool enabled);
 void re_editor_readonly(ReEditor *editor, bool enabled);

@@ -1,5 +1,95 @@
 # Progress Log
 
+## Session 82 (macos) — 2026-09-09 — repair Codex word-wrapped file links and show hover cursor
+
+The owner reported that the PV assembly link opens but the wrapped viewer screenshot
+link creates a tab for only its first line, and hovering gives no cursor feedback.
+Archived the supplied screenshot in `docs/evidence/chat-file-images/wrap-report.png`
+and extended spec 113 before code. This continues the same owner-directed F37 slice;
+F37 remains unpassed and the inventory stays 15/63 passing. The pinned editor checkout
+was clean at `a31f234`; work was serial and game/iklib code is untouched.
+
+The previous extraction only joined rows filled to the terminal edge. Codex inserts
+its own newline before that edge and renders the target in parentheses. Row padding
+is now trimmed without losing the clicked byte offset, and delimited target spans
+normalize their presentation newlines/indentation. Ordinary hard breaks remain
+separate. The native regression reproduced the exact `.../pv-` truncated tab before
+the fix; now either row opens the complete PNG, including after resize and in
+scrollback. Full-width terminal wrapping still resolves the same target.
+
+The desktop owns one SDL system hand cursor and refreshes hover after drawing has
+established the latest terminal cells and geometry. Hover uses the originating-root
+validator without requiring Cmd/Ctrl; opening still requires the modifier. Ordinary
+text, root-invalid references, menus, focus loss and replaced terminal text restore
+the default cursor. The test observes SDL_GetCursor itself. Its initial missing-cursor
+failure and a later deliberate default-cursor sabotage prove the observation is not
+a desired-state flag. A separate newline-stop sabotage reproduces the truncated tab.
+Both sabotages were restored byte-for-byte, the derived object removed and rebuilt.
+
+Verification: final native build, CTest **10/10** (2.76 s), service **223/223** (19.42 s),
+initialization/design/whitespace checks and four reviewed sidecars pass. Baseline
+service launcher timing failed once, its isolated retry passed 2/2, then the final
+complete service suite passed. The final 35-spec desktop run passes **69/69**,
+zero skips, **226.62 s**, including all five image/link cases with the real NOLF PNG.
+Its exact spec list and output are archived with the evidence. The previously
+reproduced KI-071 renderer memory-budget test is excluded from this rerun and remains
+open. No renderer or budget changes.
+
+Evidence and limits: `docs/evidence/chat-file-images/README.md`, including the reported
+layout and an inspected native screenshot of the two-line fixture and full hover hint.
+SDL framebuffer capture omits the OS cursor; the real SDL cursor observation is its
+gate. Hidden targets, native WebP, animation playback and Windows qualification remain
+KI-070. The NOLF delivery uses a local pin and a desktop-only layered update, retaining
+the existing agent process. Unrelated superproject files remain untouched.
+
+## Session 81 (macos) — 2026-09-09 — chat file references open native image tabs
+
+Owner direction from the attached NOLF conversation: open the generated PV-hand PNGs
+from chat in editor tabs and add image viewing. This authorizes spec 113's bounded
+native slice of F37; the broader desktop/Windows prerequisites remain blocked and
+**F37 stays `passes: false`**. The inventory remains 15/63 passing. Work was serial
+in NOLF's pinned `third_party/rengine` checkout, initially clean at `85d49a9`.
+
+Cmd/Ctrl-click resolves visible terminal paths and displayed Markdown links against
+the clicked session's original root, including scrollback and source locations.
+The target appears on modifier hover; existing buffers are reused, and both mouse
+press/release are consumed. PNG/APNG, JPEG and GIF now use native read-only image
+tabs with dimensions, Fit/100%, Refresh, checkerboard transparency and wheel pan.
+Authenticated image reads retain the filesystem boundary. Decoding repeats byte,
+dimension and pixel limits; generation checks reject stale responses, refresh and
+detach release old pixels, and hidden restored tabs wait until opened to decode.
+The new upstream header is pristine at the existing stb pin, with its hash recorded.
+
+Spec and failing image/pointer checks preceded implementation. The initial UI showed
+raw bytes and did not open the displayed Markdown target. The final checks use actual
+pointer input and exact fixture pixels in the image pane, not an opening-handler call.
+Two roots with identical names, unrelated project focus, source caret position, tab
+movement, desktop restart, errors/retry, source-file integrity and retained agent PID
+are covered. Removing file dispatch, removing texture drawing and bypassing traversal
+refusal each fail their intended regression; all three sabotages were restored and
+byte-compared, affected objects removed, and the final build rerun.
+
+The optional owner-image case ran with NOLF's 768×768 `pv_assembly_Reload_external.png`:
+the terminal prints the path, a modified click opens it, and the real native snapshot
+is saved and visually inspected in `docs/evidence/chat-file-images/pv-hands-viewer.png`.
+All three focused acceptance cases pass. Six affected sidecars were reviewed,
+re-anchored and stamped with the bundled tool; final indexed status is clean.
+
+Verification: baseline build, 8 CTest checks and 223 service tests passed. Final build
+has no new warnings; CTest **10/10** (2.55 s), service **223/223** (22.44 s), initialization,
+design and whitespace checks pass. Full desktop acceptance with the owner image is
+**67/68**, with no skips; the only failure is the existing renderer test's OpenGL RSS
+delta (35,776 KiB against 32,768 KiB). Its isolated rerun also fails (33,712 KiB).
+Pixel tolerances, frame-time budgets and Vulkan validation pass in both reports.
+An isolated build of unchanged `85d49a9` fails the same check at **34,000 KiB**;
+183 original source files were byte-checked against that commit. This establishes
+the inherited failure (KI-071), not a green full suite. All three reports are saved
+with the image evidence. No budget or renderer code was changed to pass it.
+
+Remaining: KI-070 tracks WebP decoding, animated playback, hidden-target OSC-8 links
+and Windows runtime evidence. Visible-cell parsing is not a shell cwd probe. Accepted
+criteria were not rewritten; only evidence links were appended and the graph regenerated
+(also restoring its previously missing F111 row). No game or iklib code changed.
 ## Session 81 (macos) — 2026-09-08 — a paste reaches the PTY whole (KI-070, F112)
 
 The owner: *"copying large portions of text to our editor, the performance around it is terrible and

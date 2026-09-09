@@ -123,7 +123,10 @@
       "owner_workspace": "rengine",
       "deliverable": "file/tree/editor providers and edit-path evidence",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/specs/113-chat-file-image-tabs.md",
+        "docs/evidence/chat-file-images/README.md"
+      ]
     },
     {
       "id": 38,
