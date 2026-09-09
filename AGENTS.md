@@ -123,6 +123,18 @@ Interactive script tabs are a first-class workflow UI before native controls exi
 `open_script`/`show_session`, retain PTYs/logs, and let the human use the prompts. Offer explicit
 arguments for automatable stages, keep logs and propagate failures. No unselected external skills or global installs are required.
 
+**Before handing a workspace operation back to the owner, call `dashboard_actions` and check whether
+one already exists.** It lists every declared action with its script, args, prerequisites and current
+availability, and it is the discovery entry point for what this workspace can already do — agents
+repeatedly re-derive or delegate work the dashboard already performs. In particular, a native change
+does **not** require the owner to restart anything by hand: `restart-supervisor` (F107, spec 098)
+stops this workspace's update supervisor and starts a detached one from the current checkout, closing
+and reopening only its desktop windows while the session host and every retained terminal, agent and
+draft are untouched. It takes `--state DIR`; find the right directory by running
+`orchestrator/launcher/restart-supervisor.mjs --state DIR --plan`, which is read-only and names the
+host it would leave alone. Its confirm prompt has no non-interactive bypass by design, so open it as
+a script tab and let the owner answer.
+
 Use the bundled `llm-sidecar` skill for annotated edits and non-obvious file-local rationale.
 Its CLI is `.claude/skills/llm-sidecar/scripts/sidecar_tool.py`; pass `--root . --index
 .cache/sidecars.sqlite`, batch affected paths, review notes before stamping, then check. Generated `.cache` state and pinned `third_party` sources are excluded. Use `rg` for simple code lookup; the measured tradeoff is in

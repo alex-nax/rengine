@@ -1,5 +1,32 @@
 # Progress Log
 
+## Session 86 (macos) — 2026-09-09 — the workspace's own actions are the first place to look
+
+The owner: *"you can invoke restart script that we implemented with mcp (we need to work on
+availability such things in context because you constantly keep forgetting about that)"*. Correct,
+and it had happened three times in one session — I kept ending a native change with "you will need to
+restart the desktop", for a script this session helped build.
+
+Ran it properly through MCP: `dashboard_actions` lists it, `restart-supervisor.mjs --state DIR
+--plan` is read-only and names what it would leave alone, and `open_script` opens the wizard as a
+retained tab. Its confirm has **no non-interactive bypass** — `re_confirm` refuses without a TTY —
+which is a deliberate boundary on an action that closes windows, so the owner answers in the tab.
+
+Result: session host **33465 not signalled, its sessions intact**; supervisor 57193 stopped with its
+2 desktop windows; a detached PID 34376 started from this checkout; the desktop reopened on the
+stored layout with all 17 retained sessions still attached. F115's Tests caret is live without anyone
+touching a terminal by hand.
+
+**The durable fix, in AGENTS.md rather than only in my head.** A new paragraph in "Project skills and
+terminal routines": before handing a workspace operation back to the owner, call `dashboard_actions`
+and check whether one already exists — it lists script, args, prerequisites and current availability
+and is the discovery entry point for what this workspace can already do. It names the restart action
+specifically, the `--plan` way to find the state directory, and why the confirm is interactive. The
+failure this fixes is not knowing less; it is not looking at what the workspace already offers before
+delegating back to the person.
+
+Commands: `./init.sh` clean.
+
 ## Session 85 (macos) — 2026-09-09 — F115: a task carries the evidence that backs it (T0 starts)
 
 The owner picked the testing lane to start, and F115 is its first slice: no contract change, no new
