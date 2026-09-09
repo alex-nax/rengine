@@ -10,9 +10,12 @@ and the games wait behind it.
 **Why the ordering earns its keep.** Without the gate, two games each write their own Vulkan OpenXR
 binding in parallel in their own repositories — the duplicated implementation D01 and D08 exist to
 prevent, and exactly what D24's "one curated capability at a pinned version" was written against.
-With it, the library thesis takes its first proof from rEngine's **own** sources rather than from
-iklib, which we merely carry, and F61's "one game adopting the renderer through an adapter" gets a
-mechanism instead of an aspiration.
+With it, F61's "one game adopting the renderer through an adapter" gets a mechanism instead of an
+aspiration — **beside** iklib rather than instead of it. iklib is the pilot pack (D09, D23) and it
+proved the *consumption* path: pinned submodule, `add_subdirectory`, a linked target, an adoption
+measured and signed off. F123 proves the *production* path, which iklib never had to answer because
+it lives in its own repository with its own source and feature authority. A capability inside
+rEngine's own tree has never been consumable from outside it.
 
 **What "proper" has to mean, measured against the tree.** `rengine_render` is already a static
 library target, but **nothing here is installable or exportable** — no `install()`, no export set —

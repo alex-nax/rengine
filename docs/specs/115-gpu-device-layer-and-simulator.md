@@ -153,9 +153,25 @@ delivery vehicle for rEngine's first library pack from its own sources**, and th
 **Why the ordering is right, not merely tidy.** Without it, two games each write their own Vulkan
 OpenXR binding, in parallel, in their own repos — which is precisely the duplicated implementation
 D01 and D08 exist to prevent, and precisely what D24's "one curated capability at a pinned version"
-was written against. With it, rEngine's library thesis gets its first proof from its own sources
-rather than from a library it merely carries, and F61's "one game adopting the renderer through an
+was written against. With it, F61's "one game adopting the renderer through an
 adapter" finally has a mechanism instead of an aspiration.
+
+**How this stands beside iklib, which is the pilot.** iklib is not a library we happen to carry: D23
+selected it as *the* first library to prove in both games, `AGENTS.md` calls it "the selected first
+two-game library proof", and spec 111 records it as the first adoption D24's "Powered by rEngine"
+was ever defined against. The two packs prove **different halves of the same thesis**:
+
+- **iklib proved the consumption path** — a pinned submodule, `add_subdirectory`, a CMake target a
+  game links, and an adoption measured and signed off. That half is done and it is why F123 is cheap:
+  the shape is known rather than invented.
+- **F123 would prove the production path** — a pack built *from this repository's own tree*, which is
+  today a monolithic application build with nothing installable or exportable. iklib never had to
+  answer that question, because it lives in its own repository and keeps its own source and feature
+  authority (`AGENTS.md`).
+
+So the gate is not "our library instead of theirs". Both are the owner's. It is that a curated
+capability which lives *in rEngine's tree* has never been consumable from outside it, and a game
+should not write Vulkan code against something that cannot yet be delivered.
 
 **What "proper library pack" has to mean here.** Measured against what the tree does today:
 `rengine_render` is already a static-library target, but **nothing in this repository is installable
