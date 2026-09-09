@@ -1791,6 +1791,88 @@
       "evidence": [
         "docs/specs/114-dev-suite-roadmap.md: the evidence shape, and NOLF's in-headset review documents as the human-verdict precedent"
       ]
+    },
+    {
+      "id": 120,
+      "milestone": "R3",
+      "category": "rendering",
+      "priority": "medium",
+      "description": "Extract an SDL-free GPU device layer from the Vulkan backend: instance creation taking required extensions from its caller, physical-device selection taking a caller-supplied constraint, device, queues, memory, command pools and submission, with render targets supplied from outside. The desktop drives it with a surface it made from an SDL window; an OpenXR host drives the same layer with runtime-supplied swapchain images and no surface at all. SDL stays the platform layer everywhere else (charter D49).",
+      "acceptance_criteria": [
+        "The device layer compiles and links with no windowing symbol in it: no SDL header, no surface creation, no present, no drawable-size query, and a build that reintroduces one fails.",
+        "The caller supplies required instance extensions and a physical-device constraint, so a host that must use the adapter its runtime names gets that adapter rather than a desktop heuristic's choice.",
+        "Render targets come from outside: the layer renders into images it is handed and never creates a swapchain.",
+        "The desktop renders identically after the extraction, judged by the reference comparison R0 and R1 already use against the SDL_Renderer oracle and within the recorded tolerance and budgets.",
+        "SDL_Renderer remains available as the reference backend and is not removed by this change.",
+        "Each regression was observed failing for its own reason, including a caller-supplied extension list that is ignored and a device chosen against the supplied constraint."
+      ],
+      "passes": false,
+      "dependencies": [
+        59
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The device layer interface and implementation split out of orchestrator/native/render/backend_vk.c, the desktop backend rewired onto it, and its comparison tests.",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/115-gpu-device-layer-and-simulator.md: the measured SDL surface, and why the device path is the only part worth cutting"
+      ]
+    },
+    {
+      "id": 121,
+      "milestone": "H1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "Automated Meta XR Simulator replay as a harness tier: the workspace writes a session_capture block into the Simulator's persistent_data.json, launches the game against the Simulator runtime, lets a recorded VRS capture replay deterministically, and restores the file afterwards. The block persists across launches by Meta's own design, so it is acquired and released like a lock rather than left behind, and the run carries its own budget because completion only asks the application to exit (charter D48, D49).",
+      "acceptance_criteria": [
+        "A recorded VRS capture replays without a person driving it, and the run is reproducible: the same capture produces the same head and input motion on every run.",
+        "The Simulator's persistent_data.json is treated as an acquired resource: the prior contents are restored on every exit path including a crash or a kill, and a run that cannot restore it says so rather than leaving the block behind.",
+        "A leftover block from an earlier run is detected and refused rather than silently replayed, because Meta's own documentation says a stale block triggers another replay on the next launch.",
+        "The run has its own frame or wall budget and fails rather than hanging when the application does not act on the session-exit request, which the runtime only asks for and cannot compel.",
+        "Whether each game honours the session-exit request is recorded as a measured fact per game before any gate depends on it.",
+        "Nothing here marks a feature passing: a replay produces evidence, and the training boundary is unchanged.",
+        "Each regression was observed failing for its own reason, including a restore that silently does nothing and a hung application reported as a pass."
+      ],
+      "passes": false,
+      "dependencies": [
+        118,
+        120
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Simulator replay harness, its persistent_data.json acquire and restore, the run budget, and its tests.",
+      "external_references": [
+        "Meta XR Simulator Session Capture: the session_capture block, its fields, and the stale-block and application-exit hazards",
+        "Each game: a Vulkan OpenXR binding, without which the Simulator refuses the application entirely (KI-072)"
+      ],
+      "evidence": [
+        "docs/specs/115-gpu-device-layer-and-simulator.md: the staged plan and who owns each stage"
+      ]
+    },
+    {
+      "id": 122,
+      "milestone": "H1",
+      "category": "workspace",
+      "priority": "low",
+      "description": "A recorded VRS capture becomes a versioned VR test fixture and a scenario variant: the script is the capture, the expected facts are log lines from the replay, and the verdict is a person's answer about what they saw, recorded the way the flat scenario already records one. Determinism is what makes the human answer meaningful across runs rather than a fresh opinion each time (charter D48).",
+      "acceptance_criteria": [
+        "A VR scenario names its capture, its expected log facts and its checklist, and running it produces a replay output, a log slice and a verdict document holding both the machine and human halves.",
+        "The capture is versioned beside the game's own reference data and identified by revision, so a verdict can be read later against the exact fixture that produced it.",
+        "A scenario whose capture no longer replays is reported as unrunnable rather than as failing, so a stale fixture is distinguishable from a regression.",
+        "No VR scenario result sets passes on any feature in any inventory.",
+        "Each regression was observed failing for its own reason, including a scenario reported green while its checklist was unanswered."
+      ],
+      "passes": false,
+      "dependencies": [
+        121,
+        119
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The VR scenario variant over the flat scenario format, the fixture identification, and its tests.",
+      "external_references": [
+        "Each game: storing and versioning its own VRS fixtures"
+      ],
+      "evidence": [
+        "docs/specs/115-gpu-device-layer-and-simulator.md: why a deterministic capture is what makes a human verdict reusable"
+      ]
     }
   ]
 }

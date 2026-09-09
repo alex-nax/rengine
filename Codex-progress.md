@@ -1,5 +1,49 @@
 # Progress Log
 
+## Session 83 (macos) — 2026-09-09 — SDL stays, the device layer leaves; the Simulator planned (D49, F120–F122)
+
+Two owner questions that turned out to be one: whether to ditch SDL, and how the Simulator gets
+integrated once a real Vulkan renderer exists. The only part of SDL worth removing is the part
+standing between us and OpenXR, and removing it is what makes the Simulator reachable.
+
+**Measured before answering.** `orchestrator/native/` uses **172 distinct SDL symbols** — 37 window
+and graphics binding, 32 events and input, 26 `SDL_Renderer`, 20 threads and sync, plus cursors,
+timers, clipboard, `SDL_OpenURL`. Replacing that is precisely the work SDL exists to do, on two
+platforms, and Windows is already the weak one (KI-038). The games are SDL games besides: the
+embedded pane works by interposing SDL *inside the game's process*, and the input wire protocol is
+SDL-shaped. Ditching SDL would not remove SDL from the seam; it would leave us speaking two input
+vocabularies across it.
+
+**But `render/backend_vk.c` uses SDL 23 times in 750 lines**, and they are concentrated in
+`SDL_Vulkan_GetDrawableSize`, surface creation, an error string and a BMP helper. Instance, physical
+device, queues, memory and `vkQueueSubmit2` are already SDL-free. Those 23 references are exactly
+what OpenXR takes over — the runtime dictates instance and device creation and hands the application
+images from `xrCreateSwapchain`, with no `VkSurfaceKHR` and no window at all. So the coupling that
+blocks VR is thin, exact, and worth cutting. D49: **SDL stays the platform layer and leaves the
+device layer.**
+
+**The Simulator plan is staged and honestly gated.** Everything is blocked on a game binding Vulkan
+for OpenXR, which each game owns. S1 the game runs under the Simulator at all (Windows first — NOLF
+says outright it has no macOS VR runtime). S2 record a capture by hand. S3 automated replay. S4 the
+capture becomes a versioned fixture. S5 Operator on top, which is F46/F47 delivered with no headset.
+
+**Two hazards taken from Meta's own page rather than discovered later.** The `session_capture` block
+in `persistent_data.json` *persists* — a leftover block replays again on the next launch — so the
+harness must acquire and restore that file on every exit path, the discipline the ctest gate lock
+already uses; it is someone else's global mutable configuration and our boundaries forbid depending
+on such a thing. And completion only *asks* the application to exit its OpenXR session: the runtime
+cannot compel it, so an unhandled request hangs rather than fails, and whether either game honours it
+is unverified and recorded as something to measure before a gate leans on it.
+
+Rows: F120 the SDL-free device layer (R3, depends on F59) · F121 automated Simulator replay ·
+F122 the capture as a versioned VR fixture behind a human verdict. New milestone H1; R3 extended.
+
+Commands: `features.py validate` (74) · `graph` regenerated · `design.py check` · `./init.sh` ·
+`npm test` 226/226.
+
+Remaining: F120 is startable now and needs no game; F121 and F122 cannot start until a game binds
+Vulkan, and no game has agreed to. The owner's sign-off on spec 111 is still outstanding.
+
 ## Session 82 (macos) — 2026-09-09 — steering the dev suite: three lanes researched, D46–D48, F113–F119
 
 The owner asked to steer development across an agent lane and a testing lane, with a comprehensive
