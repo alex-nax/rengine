@@ -1,5 +1,44 @@
 # Progress Log
 
+## Session 84 (macos) — 2026-09-09 — the pack gate: no game Vulkan work until rEngine ships a pack (D50, F123)
+
+The owner: *"The game vulkan work should be started once we have a proper library pack implemented in
+rengine sources"*. That changes what F120 is. It was a refactor with the desktop as its only
+consumer; it becomes the delivery vehicle for **rEngine's first library pack from its own sources**,
+and the games wait behind it.
+
+**Why the ordering earns its keep.** Without the gate, two games each write their own Vulkan OpenXR
+binding in parallel in their own repositories — the duplicated implementation D01 and D08 exist to
+prevent, and exactly what D24's "one curated capability at a pinned version" was written against.
+With it, the library thesis takes its first proof from rEngine's **own** sources rather than from
+iklib, which we merely carry, and F61's "one game adopting the renderer through an adapter" gets a
+mechanism instead of an aspiration.
+
+**What "proper" has to mean, measured against the tree.** `rengine_render` is already a static
+library target, but **nothing here is installable or exportable** — no `install()`, no export set —
+so a consumer today would absorb the whole build and depend on an internal target name. The pack
+needs a standalone build, a public surface smaller than the tree, a two-part pin, and a project
+outside this repository that has actually built it. The shape is already proven in our own family:
+iklib's `if(NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)`, `include/` public and `src/`
+private.
+
+**Acquisition needs nothing new, and KI-008 does not have to be settled first.** `~/nolf-improved`
+already pins `third_party/rengine` as a submodule — bumped to `6e88a5c` this week for iklib — so a
+pack built from rEngine's own sources arrives with a pin the project already holds, through the
+recursive bootstrap that already works. No download, no new mechanism. That is a property of
+rEngine's own packs and does not generalise to third-party ones; KI-008 stays open for those.
+
+Rows: F123 the first library pack (R3, depends on F120). F121 re-gated to depend on it, and its
+external reference now says the game work starts only after F123 ships. The order is: F120 extract →
+F123 package → a game adopts and writes its Vulkan binding → F121 replay → F122 fixture → F61 the
+adoption recorded with the owner's sign-off.
+
+Commands: `features.py validate` (75) · `graph` regenerated · `design.py check` · `npm test` 226/226.
+
+Remaining: F120 is startable now and needs no game. Still nobody has agreed to adopt — D48 gave the
+abstraction a consumer need and D50 gives it a shippable form, but neither gives it a consumer, and
+that conversation is with each game's roadmap.
+
 ## Session 83 (macos) — 2026-09-09 — SDL stays, the device layer leaves; the Simulator planned (D49, F120–F122)
 
 Two owner questions that turned out to be one: whether to ditch SDL, and how the Simulator gets

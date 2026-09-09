@@ -82,13 +82,13 @@ shell or terminal-only app does not complete it. F43 is a real host-owned game i
 | Q0–Q2 — Quest 2D client | F49–F52 | Delivery decision, paired desktop link, real editor/terminal access and live game stream on a headset with each desktop sidecar. |
 | A0 — external-app feasibility | F53 | Finite Mac/Windows app matrix for capture/control and optional Windows reparenting, with honest view-only/interactive limitations. |
 | T0 — tests attached to tasks | F115–F117 | A task shows the evidence that backs it, a project declares a tests manifest rEngine reads and never runs, and a verdict on a test is filed as a task in the project that owns it (D47). |
-| H1 — deterministic VR without a headset | F121–F122 | Once a game binds Vulkan for OpenXR, Meta XR Simulator replays a recorded VRS capture with no person driving and no headset, and the capture becomes a versioned VR fixture behind a human verdict (D48, D49). Gated on work each game owns. |
+| H1 — deterministic VR without a headset | F121–F122 | Once F123's pack ships and a game binds Vulkan for OpenXR against it (D50), Meta XR Simulator replays a recorded VRS capture with no person driving and no headset, and the capture becomes a versioned VR fixture behind a human verdict (D48, D49). Gated on work each game owns. |
 | H0 — the game-driven harness | F118–F119 | An agent drives and observes a running game through the surface transport the workspace already ships, closing KI-024's missing state oracle; a scenario produces a recording manifest and a human verdict, never a boolean (D48). |
 | R0 — GPU renderer core and OpenGL | F56–F57 | Backend-neutral draw list with the SDL_Renderer reference adapter, then an OpenGL adapter matching it within recorded tolerance and measured budgets (macOS landed; Windows evidence is F62). |
 | R1 — Metal and Vulkan adapters | F58–F59 | Each adapter matches the reference on its platform with the same comparisons and measurements. |
 | R2 — theming update on the GPU renderer | F60 | The Claude Design cards are matched natively with presets, theme files and live reload; existing gates stay green. |
 | R3 — rendering library candidacy | F61 | Library-quality record, conformance checks and one game adoption through an adapter. |
-| R3 (extended) — the device layer | F120 | An SDL-free GPU device layer split out of the Vulkan backend, with render targets supplied from outside, so the desktop drives it with an SDL surface and an OpenXR host drives it with runtime swapchain images (D49). |
+| R3 (extended) — the device layer and the first pack | F120, F123 | An SDL-free GPU device layer split out of the Vulkan backend, then packaged as rEngine's first library pack from its own sources — the gate a game's Vulkan work waits behind, so one curated capability is written here once rather than twice in two game repositories (D49, D50). |
 
 The O/Q/A names identify independent branches; their numbers do not override dependency order.
 F32 is independently selectable ahead of the broader library-charter feature F1. The owner

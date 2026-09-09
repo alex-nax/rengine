@@ -1835,13 +1835,14 @@
       "passes": false,
       "dependencies": [
         118,
-        120
+        120,
+        123
       ],
       "owner_workspace": "rengine",
       "deliverable": "The Simulator replay harness, its persistent_data.json acquire and restore, the run budget, and its tests.",
       "external_references": [
         "Meta XR Simulator Session Capture: the session_capture block, its fields, and the stale-block and application-exit hazards",
-        "Each game: a Vulkan OpenXR binding, without which the Simulator refuses the application entirely (KI-072)"
+        "Each game: a Vulkan OpenXR binding written against rEngine's device-layer pack, which under charter D50 starts only after F123 ships"
       ],
       "evidence": [
         "docs/specs/115-gpu-device-layer-and-simulator.md: the staged plan and who owns each stage"
@@ -1872,6 +1873,32 @@
       ],
       "evidence": [
         "docs/specs/115-gpu-device-layer-and-simulator.md: why a deterministic capture is what makes a human verdict reusable"
+      ]
+    },
+    {
+      "id": 123,
+      "milestone": "R3",
+      "category": "rendering",
+      "priority": "high",
+      "description": "rEngine's first library pack from its own sources: the GPU device layer becomes a standalone, consumable unit a project outside this repository can build and link, with a public surface smaller than the tree, a two-part pin, and a consuming project that has actually built it. This is the gate a game's Vulkan OpenXR work waits behind, so that one curated capability is written once here rather than twice in two game repositories (charter D50, D49, D24).",
+      "acceptance_criteria": [
+        "The pack builds standalone: a project that adds it as a subdirectory gets the device layer and nothing else, with no desktop, tests, terminal, image or SVG targets configured, and it defines only its library when it is not the top-level project.",
+        "The public surface is the device layer's headers alone; internal headers stay private, and a consumer that reaches for one fails to compile rather than succeeding by accident.",
+        "The pack carries identity a declaration can pin: a name and a two-part pin whose version is spoken and whose revision is checked, in the shape contract 9 already accepts.",
+        "A project outside this repository declares and builds it, and that build is the evidence: a pack nobody has built from outside is a claim rather than a pack.",
+        "rEngine's own desktop still builds and renders identically from the same sources, so the pack is the same code the suite uses rather than a copy that can drift.",
+        "No new acquisition mechanism is introduced: a project that already pins rEngine as a submodule receives the pack through the bootstrap that already works, and nothing downloads anything.",
+        "Each regression was observed failing for its own reason, including a consumer that accidentally configures the desktop targets and a private header that stays reachable."
+      ],
+      "passes": false,
+      "dependencies": [
+        120
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The pack's own build definition and public include surface, the split from the desktop build, its pin identity, and the outside-consumer check that proves it builds.",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/115-gpu-device-layer-and-simulator.md: the pack gate, what proper means here, and why acquisition needs nothing new"
       ]
     }
   ]

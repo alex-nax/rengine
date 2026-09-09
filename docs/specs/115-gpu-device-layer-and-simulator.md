@@ -142,11 +142,61 @@ than the other way round.
 Nothing above needs a Quest. The hardware path (Operator on device) stays as F46/F47 describe it and
 is not replaced by this — a headset still tests things a simulated runtime cannot.
 
+## The pack gate (D50): the games do not move until rEngine ships a pack
+
+The owner, 2026-09-09: *"The game vulkan work should be started once we have a proper library pack
+implemented in rengine sources"*.
+
+This changes what F120 is. It was a refactor with the desktop as its only consumer; it is now **the
+delivery vehicle for rEngine's first library pack from its own sources**, and the games wait for it.
+
+**Why the ordering is right, not merely tidy.** Without it, two games each write their own Vulkan
+OpenXR binding, in parallel, in their own repos — which is precisely the duplicated implementation
+D01 and D08 exist to prevent, and precisely what D24's "one curated capability at a pinned version"
+was written against. With it, rEngine's library thesis gets its first proof from its own sources
+rather than from a library it merely carries, and F61's "one game adopting the renderer through an
+adapter" finally has a mechanism instead of an aspiration.
+
+**What "proper library pack" has to mean here.** Measured against what the tree does today:
+`rengine_render` is already a static-library target, but **nothing in this repository is installable
+or exportable** — no `install()`, no export set — so a consumer would have to absorb the whole build
+and depend on an internal target name. The pack therefore needs:
+
+1. **A standalone build.** The pattern is already proven in our own family: iklib's
+   `if(NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)` defines the library only when it is
+   not the top-level project, exposes `include/` PUBLIC and keeps `src/` PRIVATE. A consumer must be
+   able to `add_subdirectory` the pack without dragging in the desktop, the tests, vterm, jpeg or svg.
+2. **A public surface that is smaller than the tree.** The device layer's headers, and nothing else.
+3. **Pack identity**: a name and a two-part pin — the version that is spoken and the revision that is
+   checked — in the shape contract 9 already carries (F109), declared by the consuming project.
+4. **A consuming project that proves it**, because a pack nobody has built from outside is a claim.
+
+**The acquisition question answers itself for this one.** KI-008 — where a pack's bytes come from —
+is still open in general, but not here: `~/nolf-improved` **already pins `third_party/rengine` as a
+submodule** (bumped to `6e88a5c` this week for iklib). A pack built from rEngine's own sources
+arrives with a pin the project already has, through the recursive bootstrap that already works. No
+new acquisition mechanism, no hidden download, nothing for KI-008 to decide first. That is a property
+of rEngine's *own* packs specifically, and it does not generalise to third-party ones.
+
+**The resulting order**, with the owner's gate in it:
+
+```
+F120  extract the SDL-free device layer            (rEngine; startable now)
+F123  package it as rEngine's first library pack   (rEngine; the gate)
+      ── a game adopts the pack and writes its Vulkan OpenXR binding  (each game owns this)
+F121  automated Simulator replay                   (rEngine)
+F122  the capture as a versioned VR fixture        (rEngine)
+F61   the adoption recorded as library-quality evidence, with the owner's sign-off (D44/D44b)
+```
+
+Nothing above asks a game to start before the pack exists, which is the point.
+
 ## What this does not decide
 
 - **Whether either game will do the Vulkan work.** Games own their runtimes and their roadmaps;
   `AGENTS.md` is explicit that a local task cannot decide another project's adoption. D48 gives the
-  abstraction a consumer need; it does not give it a consumer.
+  abstraction a consumer need and D50 gives it a shippable form; neither gives it a consumer, and
+  the conversation with each game's roadmap still has to happen.
 - **Whether the device layer ships as a pack.** KI-008 still holds: where a pack's bytes come from is
   unresolved, and F61's library-quality record is unwritten.
 - **macOS VR at all.** NOLF says outright it has no macOS runtime. The Simulator does run on macOS
