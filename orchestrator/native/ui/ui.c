@@ -27,7 +27,7 @@ typedef struct {
 #define RE_UI_OVERLAY_COMMANDS 512
 
 static struct { ReDraw *draw; double seconds; bool animating, recording; int count;
-                mu_Rect scissor, applied; bool scissor_on, applied_on;
+                mu_Rect scissor, applied; bool scissor_on, applied_on, clipped;
                 OverlayCommand commands[RE_UI_OVERLAY_COMMANDS]; Transition slots[RE_UI_TRANSITIONS]; } ui;
 
 static OverlayCommand *record(uint8_t kind, mu_Rect rect, mu_Color color) {
@@ -75,8 +75,12 @@ static mu_Rect intersect(mu_Rect a, mu_Rect b) {
 static bool same_rect(mu_Rect a, mu_Rect b) { return a.x == b.x && a.y == b.y && a.w == b.w && a.h == b.h; }
 static void emit_clip(const mu_Rect *rect);
 static void ui_scissor(mu_Context *ctx) { ui.scissor = mu_get_clip_rect(ctx); ui.scissor_on = true; }
+/* A control that narrowed the clip through ui_clip is drawing INSIDE that narrower box, so restoring
+ * the container's scissor here would undo it before the very next primitive — which is precisely
+ * what happened: text_clipped narrowed the box, ui_text called this, and the wider clip came back
+ * before the glyphs were drawn, so text_clipped never clipped anything (spec 118). */
 static void apply_scissor(void) {
-  if (!ui.scissor_on) return;
+  if (!ui.scissor_on || ui.clipped) return;
   if (ui.applied_on && same_rect(ui.applied, ui.scissor)) return;
   emit_clip(&ui.scissor); ui.applied = ui.scissor; ui.applied_on = true;
 }
@@ -141,17 +145,18 @@ static void emit_clip(const mu_Rect *rect) {
  * container's clip rather than to the whole window. */
 static void ui_clip(const mu_Rect *rect) {
   if (!rect) {
+    ui.clipped = false;
     if (ui.scissor_on) { emit_clip(&ui.scissor); ui.applied = ui.scissor; ui.applied_on = true; }
     else { emit_clip(NULL); ui.applied_on = false; }
     return;
   }
   mu_Rect box = ui.scissor_on ? intersect(*rect, ui.scissor) : *rect;
-  emit_clip(&box); ui.applied = box; ui.applied_on = true;
+  emit_clip(&box); ui.applied = box; ui.applied_on = true; ui.clipped = true;
 }
 
 void re_ui_begin(ReDraw *draw, double seconds) {
   ui.draw = draw; ui.seconds = seconds; ui.animating = false;
-  ui.scissor_on = false; ui.applied_on = false;
+  ui.scissor_on = false; ui.applied_on = false; ui.clipped = false;
 }
 bool re_ui_animating(void) { return ui.animating; }
 

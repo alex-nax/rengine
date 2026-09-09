@@ -1,5 +1,45 @@
 # Progress Log
 
+## Session 88 (macos) — 2026-09-09 — the label fix that did not work, and the oracle that proves this one does
+
+The owner reported the Tasks titles running across the buttons a second time, after a fix I had
+shipped as done. They were right, and the reason is worth more than the fix.
+
+**Two layers.** `re_ui_label_ex` drew at its cell origin and never clipped — that was layer one, and
+routing it through `text_clipped` was the obvious repair. It changed nothing, because
+**`text_clipped` had never clipped anything**: it narrows the box with `ui_clip`, and the very next
+`ui_text` calls `apply_scissor`, which restores the container's wider scissor whenever `ui.applied`
+differs from it — precisely the state `ui_clip` had just created. The narrow clip was emitted and
+undone before a glyph was drawn, for every caller, buttons included. It only ever showed when text
+was long enough to reach something. The `clip-cost` sidecar note had been describing behaviour that
+did not happen, and is now corrected rather than quietly extended.
+
+**The fix is three lines**: `ui_clip` records that an explicit clip is in force and `apply_scissor`
+leaves it alone until `ui_clip(NULL)` releases it.
+
+**The part worth keeping is the oracle.** KI-074 said no test here builds an owned UI control, which
+is why the first fix went out on reasoning alone. The missing harness turned out not to be needed:
+the desktop already answers `op: 'snapshot'` and the automation snapshot already reports every
+control's rect. So — **lengthening a title must not change one pixel to the right of its own
+column.** Everything right of it is drawn from data the edit does not touch, so a difference there
+*is* the bleed. No colours, no golden image, both frames from one process.
+
+Reverting only the `apply_scissor` half — the exact state my first fix left the tree in — bleeds
+**689 pixels, first at x=2517**, the pane's right edge, which is what the owner photographed.
+
+Two things the first run of the test got wrong, recorded because they will catch the next person:
+the snapshot is the **drawable**, 2560x1600 for a 1280x800 window, so logical rects need the device
+scale derived rather than assumed; and the sanity assertion that the longer title *did* change pixels
+inside its own column earns its place, because a change that stopped drawing the title at all would
+pass a bleed check perfectly.
+
+Commands: `npm test` 230/230 · the new `native-label-clip.spec.mjs` plus `native-tracker`,
+`native-render` and `native-tasks-controls` 10/10 · `./init.sh` · `design.py check` · registered in
+`test:desktop` so it is not invisible in a green report · sidecar corrected and stamped.
+
+KI-074 is narrowed rather than closed: the draw-list form, which would name the missing clip command
+instead of showing its consequence, still does not exist.
+
 ## Session 87 (macos) — 2026-09-09 — F116: contract 10, and the field that answers "is this test correct"
 
 F115 put the inventory's `evidence` strings on the row, which answers *where* a test is. It cannot

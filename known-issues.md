@@ -115,7 +115,7 @@ draw it on every provider's rows is implemented and unverified in the desktop. T
 covered — a GitHub row is asserted to answer with an empty evidence list. Closing this needs a
 native fixture that can serve remote rows.
 
-## KI-074 — no test builds an owned UI control, so label clipping has no regression
+## KI-074 — no test builds an owned UI control (narrowed: labels now have a pixel regression)
 
 `re_ui_label_ex` drew at its cell's origin without clipping to it, so a long label ran across
 whatever the row put beside it; found by the owner in the Tasks view once F115's Tests caret
@@ -125,3 +125,11 @@ the automation snapshot reports a control's cell rect, which was correct both be
 defect was the text drawn *beyond* it. Closing this needs a UI-level test harness that renders an
 owned control and inspects the emitted draw list for the clip command; it would cover every control,
 not just labels.
+
+**Narrowed 2026-09-09 (spec 118).** The label case now has a real regression that fails for its own
+reason: `orchestrator/tests/native-label-clip.spec.mjs` snapshots two frames through the desktop's
+own `op: 'snapshot'` and asserts that lengthening a task title changes no pixel to the right of its
+column. It caught that the first fix was insufficient — `text_clipped` had never clipped, because
+`apply_scissor` restored the wider scissor before anything was drawn. What remains open is the
+*draw-list* form: a harness that renders an owned control and names the missing clip command
+directly. The pixel test proves what reached the screen; it cannot say why.
