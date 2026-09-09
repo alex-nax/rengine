@@ -1,6 +1,7 @@
 #include "filelink.h"
 #include "app.h"
 #include <ctype.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -88,7 +89,25 @@ bool re_file_target(const char *target, const char *root, char *relative, size_t
     *colon = 0; *line = last; char *before = strrchr(decoded, ':');
     if (before && number(before + 1, line)) { *column = last; *before = 0; }
   }
-  s = decoded; bool drive = isalpha((unsigned char)s[0]) && s[1] == ':' && s[2] == '/';
+  s = decoded;
+  /* Claude Code writes an @-mention for a file picked in its composer, and prose paths under ~.
+     Neither is a path this resolver can use verbatim: they become a literal "@…" or "~" directory
+     inside the project, so the hover offers a link that opens nothing. Only a LEADING @ is dropped,
+     which leaves node_modules/@scope/… alone. ~ expands and then faces the same root check as any
+     absolute path, so a home path outside the clicked terminal's root is still refused. */
+  if (*s == '@' && s[1]) s++;
+  char home_path[4096];
+  if (*s == '~' && (!s[1] || s[1] == '/')) {
+    const char *home = getenv("HOME");
+#ifdef _WIN32
+    if (!home || !*home) home = getenv("USERPROFILE");
+#endif
+    if (!home || !*home) return false;
+    if ((size_t)snprintf(home_path, sizeof(home_path), "%s%s", home, s + 1) >= sizeof(home_path)) return false;
+    for (char *p = home_path; *p; p++) if (*p == '\\') *p = '/';
+    s = home_path;
+  }
+  bool drive = isalpha((unsigned char)s[0]) && s[1] == ':' && s[2] == '/';
   if (*s == '/' || drive) {
     size_t root_length = strlen(root); while (root_length > 1 && (root[root_length - 1] == '/' || root[root_length - 1] == '\\')) root_length--;
     if (!path_prefix(s, root, root_length)) return false;

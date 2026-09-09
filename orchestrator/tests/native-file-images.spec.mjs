@@ -113,10 +113,11 @@ test('modified pointer clicks open chat file references without sending mouse in
   try {
     await writeFile(path.join(dir, 'proof.png'), redImage);
     await writeFile(path.join(dir, 'note.txt'), 'first\nsecond\nthird\n');
+    await writeFile(path.join(dir, 'picked.txt'), 'alpha\nbeta\ngamma\n');
     const script = path.join(dir, 'chat.cjs'), received = path.join(dir, 'received');
     await writeFile(received, '');
     await writeFile(script, `const fs = require('node:fs'); process.stdin.setRawMode(true);
-const draw = () => process.stdout.write('\\x1b[2J\\x1b[H[Before](proof.png)\\r\\nnote.txt:3:2\\r\\n');
+const draw = () => process.stdout.write('\\x1b[2J\\x1b[H[Before](proof.png)\\r\\nnote.txt:3:2\\r\\n@picked.txt:2\\r\\n');
 process.stdout.write('\\x1b[?1000h\\x1b[?1006h'); draw(); process.on('SIGWINCH', draw);
 process.stdin.on('data', data => { fs.appendFileSync(${JSON.stringify(received)}, data); if (data.toString() === 'h') process.stdout.write(Array.from({length:80}, (_, i) => 'history ' + i + '\\r\\n').join('')); });`);
     server = await startServer({ stateDir: path.join(dir, 'state') });
@@ -147,7 +148,14 @@ process.stdin.on('data', data => { fs.appendFileSync(${JSON.stringify(received)}
     state = await gui.until(s => s.tabs.some(t => t?.path === 'note.txt' && t.text));
     const note = state.tabs.find(t => t?.path === 'note.txt');
     assert.equal(note.root, root.id); assert.deepEqual(note.caret, [2, 1]);
-    assert.equal(await readFile(received, 'utf8'), '', 'opening both references sends neither mouse press nor release to the agent');
+    /* Claude Code renders a file picked in its composer as an @-mention. The marker is not part of
+       the path, and before this it resolved to a literal "@picked.txt" the project does not have —
+       the hover still offered the link. */
+    await click(3, 2);
+    state = await gui.until(s => s.tabs.some(t => t?.path === 'picked.txt' && t.text));
+    const picked = state.tabs.find(t => t?.path === 'picked.txt');
+    assert.equal(picked.root, root.id); assert.deepEqual(picked.caret, [1, 0]);
+    assert.equal(await readFile(received, 'utf8'), '', 'opening every reference sends neither mouse press nor release to the agent');
     assert.equal(server.sessions.snapshot(session.id).pid, session.pid);
     await gui.control('tab', '', term);
     let t = (await gui.command({ op: 'state' })).tabs[term];

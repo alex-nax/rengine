@@ -1,6 +1,7 @@
 #include "filelink.h"
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 int main(void) {
@@ -27,6 +28,27 @@ int main(void) {
     "file://remote/work/project/a.png", "https://site/a.png", "javascript:alert.png", "%2e%2e/out.png",
     "file:///work/project/x%00.png", "bad%zz.png", "bad%2.png", "bad%0a.png", "bad.png:0", "bad.png#L-1"};
   for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) assert(!re_file_target(bad[i], "/work/project", path, sizeof(path), &line, &column));
+  /* Claude Code's own shapes. It writes an @-mention for a file picked in its composer and prose
+     paths under ~; kept verbatim both resolve to a literal "@…"/"~" directory inside the project,
+     so the hover advertises a link that opens nothing. A scoped package keeps its @ because the
+     marker is only stripped when it LEADS the reference — node_modules/@scope/… is untouched. */
+  assert(re_file_target("@apps/api/foo.ts", "/work/project", path, sizeof(path), &line, &column));
+  assert(!strcmp(path, "apps/api/foo.ts"));
+  assert(re_file_target("node_modules/@scope/pkg/index.js", "/work/project", path, sizeof(path), &line, &column));
+  assert(!strcmp(path, "node_modules/@scope/pkg/index.js"));
+  {
+    const char *home = getenv("HOME");
+    if (home && *home) {
+      char root[2048], reference[2048];
+      snprintf(root, sizeof(root), "%s/project", home);
+      snprintf(reference, sizeof(reference), "~/project/src/main.c:9");
+      assert(re_file_target(reference, root, path, sizeof(path), &line, &column));
+      assert(!strcmp(path, "src/main.c") && line == 9);
+      /* ~ outside the clicked terminal's root is still refused. */
+      snprintf(reference, sizeof(reference), "~/elsewhere/main.c");
+      assert(!re_file_target(reference, root, path, sizeof(path), &line, &column));
+    }
+  }
   assert(!re_file_reference("ordinary words", 2, path, sizeof(path)));
   assert(!re_file_target("long.png", "/work/project", path, 4, &line, &column));
   puts("File references preserve locations, decode local URLs and reject root escapes."); return 0;

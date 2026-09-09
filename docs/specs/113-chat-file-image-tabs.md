@@ -57,6 +57,32 @@ to the desktop lifetime. Add real native pointer regressions for the screenshot'
 two rows, resize/scrollback, cursor entry/exit and root-invalid references; inspect
 the actual SDL cursor selection, not only a desired hover flag.
 
+### Claude Code's own reference shapes, 2026-09-09
+
+Owner direction: the same Cmd/Ctrl-click must work when the pane runs Claude Code, not only
+Codex. Nothing in the mechanism is agent-specific — the dispatch walks every tab holding a
+terminal, the parser reads the rendered cells, and resolution uses that pane's recorded root —
+and the shapes Claude Code shares with Codex (`path:line[:column]`, Markdown links, bare and
+parenthesised paths, wrapping) already resolved. Two shapes it writes that Codex does not did
+not:
+
+- **`@name`** — how it renders a file the user picked in its composer.
+- **`~/…`** — how it writes a home-relative path in prose.
+
+Both parsed as references and then resolved to a literal `@…` or `~` directory inside the
+project, so hover offered "Cmd/Ctrl-click to open" and the click opened a tab whose only content
+was `ENOENT`. Advertising a link that cannot open is worse than not recognising one.
+
+A leading `@` is dropped, and only a leading one, so `node_modules/@scope/…` keeps its marker;
+a reference that is genuinely a scoped package name is the accepted cost. `~` expands against
+`HOME` (`USERPROFILE` on Windows) and then faces the same containment check as any absolute
+path, so a home path outside the clicked terminal's root stays refused rather than becoming
+reachable.
+
+Cover the mention through the real pointer path in `native-file-images.spec.mjs`; `~` is string
+resolution with no pointer component and is covered in `filelink_test.c`, where the refusal of
+an out-of-root home path is asserted beside it.
+
 Before code, run the new `native-file-images.spec.mjs` checks against the existing
 binary and observe failures for image presentation and actual pointer activation.
 Then verify real PNG pixels from screenshots, two roots with identical filenames,
