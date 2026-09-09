@@ -1685,13 +1685,15 @@
         "A row whose evidence is absent or malformed still renders with its criteria rather than failing the tab.",
         "Each regression was observed failing for its own reason, including removing the mapping and watching the row lose its evidence while criteria survive."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [],
       "owner_workspace": "rengine",
       "deliverable": "The evidence mapping in orchestrator/server/tracker.mjs, the neutral row field, the detail block in orchestrator/native/tracker.c, the schema description correction, and its tests.",
       "external_references": [],
       "evidence": [
-        "docs/specs/114-dev-suite-roadmap.md: the dropped field, measured at tracker.mjs:104-116"
+        "docs/specs/116-task-evidence.md: the dropped field, the five sabotages, and the coverage gap S4 exposed",
+        "orchestrator/tests/tracker.test.mjs: a local row carries its evidence and a GitHub row answers with an empty list",
+        "orchestrator/tests/native-tracker.spec.mjs: the Tests caret opens the claim and what proves it, and says so when there is none"
       ]
     },
     {

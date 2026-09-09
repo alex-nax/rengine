@@ -1,5 +1,46 @@
 # Progress Log
 
+## Session 85 (macos) — 2026-09-09 — F115: a task carries the evidence that backs it (T0 starts)
+
+The owner picked the testing lane to start, and F115 is its first slice: no contract change, no new
+declaration key, no producer in any project — the data was already there and already read.
+
+**The defect in one line.** Every `features.json` row carries an `evidence` array naming the test and
+what it proves, and `localRows` mapped `acceptance_criteria` and never mapped `evidence`, so the
+field died one function before the UI. `row()` has carried `criteria` since spec 103 for exactly this
+kind of reason; evidence was simply never added beside it.
+
+**The pane gets a third chooser kind.** Spawn and Hold token already draw inline rows under their
+task — not a popover, for reasons `tracker.c` records — so `RE_CHOOSER_TESTS` joins them behind a
+**Tests** caret, pairing each claim with what proves it. Criteria appear in the Spawn chooser because
+that is where the prompt is composed; they appear here because "what does this task claim" and "what
+proves it" are one question, and reading them apart is what left the tab unable to answer it.
+
+**Two things the sabotages taught, both worth more than the feature.**
+
+S3 — dropping `row()`'s default — did not bite at first. It failed on the *first* assertion, because
+the field vanished for local and remote alike, so the remote-provider default was never isolated. The
+GitHub row test now asserts `evidence: []` explicitly, which is the only place that default carries
+weight, since no remote path sets the field.
+
+S4 — drawing the Tests caret only on local rows — **stayed green**, and that is a coverage gap rather
+than a pass. Every row the native harness can reach comes from a `local` provider, because the
+desktop binary makes its own tracker requests and a fixture cannot inject a remote response the way
+the node test can. So the decision to draw the caret on every provider's rows is implemented and
+unverified in the desktop. Recorded as KI-073 rather than papered over.
+
+Also corrected: the schema described the `local` provider as reading features.json "through
+tools/features.py". It reads the file directly and re-implements the readiness rule; the description
+has been wrong since contract 5.
+
+Commands: `tracker.test.mjs` 8/8 · `native-tracker.spec.mjs` 2/2 · `native-tasks-controls.spec.mjs`
+unchanged · `npm test` 227/227 · `./init.sh` · `design.py check` · `features.py validate` (75) ·
+sidecars re-anchored, notes extended for the third chooser kind, stamped.
+
+Remaining in T0: F116 the contract-10 tests manifest, which is what carries tiers, preconditions,
+sabotage rows and last results — the fields that answer "is this test correct" rather than only
+"where is it". Then F117, filing a verdict as a task. KI-073 wants a native remote-row fixture.
+
 ## Session 84 (macos) — 2026-09-09 — the pack gate: no game Vulkan work until rEngine ships a pack (D50, F123)
 
 The owner: *"The game vulkan work should be started once we have a proper library pack implemented in

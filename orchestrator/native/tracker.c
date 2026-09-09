@@ -24,7 +24,7 @@ typedef struct {
   char preferred[64];                /* the menu's declared default for this CLI */
 } ReAgentEntry;
 typedef struct { char session[65], label[128], agent[65], task[80]; } ReLiveEntry;
-enum { RE_CHOOSER_NONE = 0, RE_CHOOSER_SPAWN, RE_CHOOSER_HOLD };
+enum { RE_CHOOSER_NONE = 0, RE_CHOOSER_SPAWN, RE_CHOOSER_HOLD, RE_CHOOSER_TESTS };
 static struct {
   bool known;
   char root[65], error[256];
@@ -290,10 +290,45 @@ static void live_rows(ReApp *a, mu_Context *ui, int tab, bool answered) {
   }
 }
 
-static void chooser_rows(ReApp *a, mu_Context *ui, int tab, const char *key, const cJSON *criteria, bool answered) {
+/* F115 (spec 116): what a criterion claims and what proves it are one question, so they are read
+ * together. Criteria also appear in the Spawn chooser, where the prompt is being composed; here they
+ * are the thing the evidence is evidence FOR, and reading them apart is what left the pane unable to
+ * answer "which test backs this". A provider with nothing to say says so rather than drawing empty. */
+static void evidence_rows(ReApp *a, mu_Context *ui, int tab, const char *key,
+                          const cJSON *criteria, const cJSON *evidence) {
+  const cJSON *item = NULL; bool first = true;
+  cJSON_ArrayForEach(item, criteria) {
+    if (!cJSON_IsString(item)) continue;
+    mu_layout_row(ui, 2, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+    re_ui_label_ex(ui, first ? "Claims" : "", RE_UI_MUTED | RE_UI_SMALL);
+    re_ui_label_ex(ui, item->valuestring, RE_UI_MUTED | RE_UI_SMALL);
+    re_app_control(a, ui, "tracker-claim", key, tab);
+    first = false;
+  }
+  first = true;
+  cJSON_ArrayForEach(item, evidence) {
+    if (!cJSON_IsString(item)) continue;
+    mu_layout_row(ui, 2, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+    re_ui_label_ex(ui, first ? "Proven by" : "", RE_UI_MUTED | RE_UI_SMALL);
+    re_ui_label_ex(ui, item->valuestring, RE_UI_MUTED | RE_UI_SMALL);
+    re_app_control(a, ui, "tracker-evidence", key, tab);
+    first = false;
+  }
+  if (!first) return;
+  /* Named rather than hidden, the way an uninstalled CLI is: an empty block reads as "this task has
+   * no tests", and only this line can say the difference between that and "this provider cannot". */
+  mu_layout_row(ui, 2, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+  re_ui_label_ex(ui, "Proven by", RE_UI_MUTED | RE_UI_SMALL);
+  re_ui_label_ex(ui, "This task records no evidence.", RE_UI_MUTED | RE_UI_SMALL);
+  re_app_control(a, ui, "tracker-evidence-none", key, tab);
+}
+
+static void chooser_rows(ReApp *a, mu_Context *ui, int tab, const char *key, const cJSON *criteria,
+                         const cJSON *evidence, bool answered) {
   if (menu.kind == RE_CHOOSER_NONE || strcmp(menu.task, key)) return;
   mu_push_id(ui, "chooser", 7);
   if (menu.kind == RE_CHOOSER_SPAWN) agent_rows(a, ui, tab, key, criteria, answered);
+  else if (menu.kind == RE_CHOOSER_TESTS) evidence_rows(a, ui, tab, key, criteria, evidence);
   else live_rows(a, ui, tab, answered);
   mu_pop_id(ui);
 }
@@ -309,15 +344,17 @@ static void task_row(ReApp *a, mu_Context *ui, int tab, const cJSON *task, bool 
   char working[512];
   working[0] = 0;
   bool worked = answered && working_labels(key, working, sizeof(working)) > 0;
-  int cluster = RE_METRIC_TRACKER_REFRESH_WIDTH
+  /* Tests is drawn on every row, so its column is reserved on every row (5a0bc38's rule). */
+  int cluster = RE_METRIC_TRACKER_REFRESH_WIDTH + RE_METRIC_TRACKER_REFRESH_WIDTH
               + (local ? RE_METRIC_TRACKER_REFRESH_WIDTH + RE_METRIC_TRACKER_STATE_WIDTH : 0);
   int trailing = cluster + RE_METRIC_TRACKER_STATE_WIDTH;
-  int widths[8], n = 0;
+  int widths[10], n = 0; /* key, title, working, Tests, Spawn, Decompose, Hold, pill — 8 in use */
   mu_push_id(ui, key, (int)strlen(key));
   widths[n++] = RE_METRIC_TRACKER_KEY_WIDTH;
   widths[n++] = -(trailing + (worked ? RE_METRIC_TRACKER_STATE_WIDTH : 0));
   if (worked) widths[n++] = -trailing;
-  widths[n++] = RE_METRIC_TRACKER_REFRESH_WIDTH;
+  widths[n++] = RE_METRIC_TRACKER_REFRESH_WIDTH; /* Tests */
+  widths[n++] = RE_METRIC_TRACKER_REFRESH_WIDTH; /* Spawn */
   if (local) { widths[n++] = RE_METRIC_TRACKER_REFRESH_WIDTH; widths[n++] = RE_METRIC_TRACKER_STATE_WIDTH; }
   widths[n++] = -1;
   mu_layout_row(ui, n, widths, RE_METRIC_TRACKER_ROW_HEIGHT);
@@ -334,6 +371,10 @@ static void task_row(ReApp *a, mu_Context *ui, int tab, const cJSON *task, bool 
     re_ui_label_ex(ui, working, RE_UI_MUTED | RE_UI_SMALL);
     re_app_control(a, ui, "tracker-working", key, tab);
   }
+  if (re_ui_button_ex(ui, "Tests", RE_ICON_FILE,
+                      RE_UI_SMALL | RE_UI_CARET | (menu.kind == RE_CHOOSER_TESTS && !strcmp(menu.task, key) ? RE_UI_ON : 0)))
+    chooser_toggle(key, RE_CHOOSER_TESTS);
+  re_app_control(a, ui, "tracker-tests", key, tab);
   if (re_ui_button_ex(ui, "Spawn", RE_ICON_AGENT,
                       RE_UI_SMALL | RE_UI_CARET | (menu.kind == RE_CHOOSER_SPAWN && !strcmp(menu.task, key) ? RE_UI_ON : 0)))
     chooser_toggle(key, RE_CHOOSER_SPAWN);
@@ -352,7 +393,8 @@ static void task_row(ReApp *a, mu_Context *ui, int tab, const cJSON *task, bool 
     re_app_control(a, ui, "tracker-hold", key, tab);
   }
   re_ui_pill(ui, *name ? name : category, state_pill(category));
-  chooser_rows(a, ui, tab, key, cJSON_GetObjectItemCaseSensitive(task, "criteria"), answered);
+  chooser_rows(a, ui, tab, key, cJSON_GetObjectItemCaseSensitive(task, "criteria"),
+               cJSON_GetObjectItemCaseSensitive(task, "evidence"), answered);
   mu_pop_id(ui);
 }
 
@@ -459,5 +501,5 @@ void re_tracker_inspect(const ReApp *a, cJSON *out) {
   cJSON_AddStringToObject(chooser, "taskKey", menu.task);
   cJSON_AddStringToObject(chooser, "agent", menu.agent);
   cJSON_AddStringToObject(chooser, "model", menu.model);
-  cJSON_AddStringToObject(chooser, "kind", menu.kind == RE_CHOOSER_SPAWN ? "spawn" : menu.kind == RE_CHOOSER_HOLD ? "hold" : "");
+  cJSON_AddStringToObject(chooser, "kind", menu.kind == RE_CHOOSER_SPAWN ? "spawn" : menu.kind == RE_CHOOSER_HOLD ? "hold" : menu.kind == RE_CHOOSER_TESTS ? "tests" : "");
 }

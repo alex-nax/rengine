@@ -10,7 +10,8 @@ import { nativeClient } from './native-client.mjs';
 const INVENTORY = {
   schema_version: 1, project: 'fixture', review_status: 'approved',
   features: [
-    { id: 1, description: 'Finished work', passes: true, dependencies: [], milestone: 'O1', category: 'workspace', priority: 'high' },
+    { id: 1, description: 'Finished work', passes: true, dependencies: [], milestone: 'O1', category: 'workspace', priority: 'high',
+      acceptance_criteria: ['the work is finished'], evidence: ['tests/finished.test.mjs: the work is finished'] },
     { id: 2, description: 'Ready to start', passes: false, dependencies: [1], milestone: 'O1', category: 'workspace', priority: 'medium' },
     { id: 3, description: 'Waiting on another', passes: false, dependencies: [2], milestone: 'O2', category: 'design', priority: 'low' },
   ],
@@ -56,6 +57,26 @@ test('the Tasks tab lists the project inventory with the readiness the tool repo
     assert.deepEqual(controls.sort(), ['F1', 'F2', 'F3'], `every task is a reachable row: ${JSON.stringify(controls)}`);
     assert.ok(state.controls.some(c => c.role === 'tracker-refresh'), 'and a refresh control');
     assert.equal(state.tabs.find(t => t?.type === 8).tracker.provider, 'local');
+
+    /* F115 (spec 116): the evidence that backs a task is on the surface, behind its own caret.
+       Every row carries the caret, including a provider that has nothing to say, because an absent
+       control reads as "no tests" rather than "cannot say". */
+    const tests = state.controls.filter(c => c.role === 'tracker-tests').map(c => c.key);
+    assert.deepEqual(tests.sort(), ['F1', 'F2', 'F3'], `every task offers its evidence: ${JSON.stringify(tests)}`);
+    await gui.control('tracker-tests', 'F1');
+    state = await gui.until(s => s.tracker?.chooser?.kind === 'tests', 'the evidence opens');
+    assert.equal(state.tracker.chooser.taskKey, 'F1', 'and it describes the row it sits under');
+    const roles = state.controls.filter(c => c.role.startsWith('tracker-')).map(c => c.role);
+    assert.ok(state.controls.some(c => c.role === 'tracker-evidence' && c.key === 'F1'),
+      `F1 records evidence, so the block shows it: ${JSON.stringify(roles)}`);
+    assert.ok(state.controls.some(c => c.role === 'tracker-claim' && c.key === 'F1'),
+      'and the claim it backs is read beside it, not in a different chooser');
+
+    /* F2 records none. The block says so rather than drawing empty, which would read as "no tests". */
+    await gui.control('tracker-tests', 'F2');
+    state = await gui.until(s => s.tracker?.chooser?.taskKey === 'F2', 'the second row opens');
+    assert.ok(state.controls.some(c => c.role === 'tracker-evidence-none' && c.key === 'F2'),
+      'a task with no evidence says there is none rather than showing an empty block');
   } finally {
     await gui.close(); await server.close(); await rm(dir, { recursive: true, force: true });
   }

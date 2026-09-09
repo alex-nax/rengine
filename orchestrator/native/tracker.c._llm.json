@@ -9,7 +9,7 @@
         "end": 36,
         "snippet": "static struct {"
       },
-      "note": "The agent menu and the open chooser are file-scope here rather than fields on ReApp because one window draws one Tasks surface at a time and one row has a chooser open at a time, nothing outside this file reads either, and fixed arrays mean nothing is owned that a close path would have to free. The menu carries the root it answered for: a second Tasks tab on another project must not inherit this one's agent list, so every use is behind menu_answers(tab root) and a chooser opened before the answer says \"Reading the agent menu\" rather than listing another project's CLIs.",
+      "note": "The agent menu and the open chooser are file-scope here rather than fields on ReApp because one window draws one Tasks surface at a time and one row has a chooser open at a time, nothing outside this file reads either, and fixed arrays mean nothing is owned that a close path would have to free. The menu carries the root it answered for: a second Tasks tab on another project must not inherit this one's agent list, so every use is behind menu_answers(tab root) and a chooser opened before the answer says \"Reading the agent menu\" rather than listing another project's CLIs. The kinds are mutually exclusive by construction: chooser_toggle writes one `kind` and one `task`, so opening Tests on a row closes a Spawn chooser open elsewhere. That is deliberate \u2014 two open blocks would each claim to describe \"the\" task, which is the confusion the inline layout exists to prevent.",
       "refs": [
         "docs/specs/103-task-driven-agents.md",
         "orchestrator/tests/native-tasks-controls.spec.mjs"
@@ -23,7 +23,7 @@
         "end": 217,
         "snippet": "static void agent_rows(ReApp *a, mu_Context *ui, int tab, const char *key, const cJSON *criteria, bool answered) {"
       },
-      "note": "The chooser draws as rows under its task instead of as an overlay for three reasons, in order of weight: an overlay costs one of microui's 32 root containers, which fifteen leaf panes with a surface open already fill (the same budget that keeps the token segment out of microui); a chooser that scrolls with its row cannot end up describing a different task than the one under it; and the pane is already a scrolled list, so nothing about the layer is gained. The row's control cluster reserves its columns by negative width the way the trailing pill does -- a leading -1 would fill to the right edge and push everything after it out of the pane (5a0bc38).",
+      "note": "The chooser draws as rows under its task instead of as an overlay for three reasons, in order of weight: an overlay costs one of microui's 32 root containers, which fifteen leaf panes with a surface open already fill (the same budget that keeps the token segment out of microui); a chooser that scrolls with its row cannot end up describing a different task than the one under it; and the pane is already a scrolled list, so nothing about the layer is gained. The row's control cluster reserves its columns by negative width the way the trailing pill does -- a leading -1 would fill to the right edge and push everything after it out of the pane (5a0bc38). F115 (spec 116) adds a third kind, RE_CHOOSER_TESTS, drawing the task's claims and the evidence that backs them; it follows this rule for the same three reasons rather than becoming the popover the other two refused to be. Its Tests caret is drawn on EVERY row, including a provider that answers with an empty evidence list, because an absent control reads as \"this task has no tests\" rather than \"this provider cannot say\" \u2014 so its column is reserved unconditionally, unlike Decompose and Hold token which are local-only. That rendering choice is not covered by the native suite (KI-073): every row the harness can reach comes from a local provider, so gating the caret on `local` leaves the suite green.",
       "refs": [
         "docs/specs/103-task-driven-agents.md"
       ]
@@ -45,7 +45,7 @@
   ],
   "source": {
     "path": "orchestrator/native/tracker.c",
-    "sha256": "fe5f0f83581127242afe4759685accc921e20dbc284492ea7cffb916a365810f",
+    "sha256": "51c3786151a4d1dad246f9b7252a18c6975929fb91ffc4b6d2a2f0f1e6157712",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

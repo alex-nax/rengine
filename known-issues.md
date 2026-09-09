@@ -104,3 +104,13 @@ games request `XR_KHR_OPENGL_ES_ENABLE` on Quest and `XR_KHR_OPENGL_ENABLE` on W
 can run in the Simulator, and its Session Capture — the VRS record/replay that would give
 deterministic VR repro — is unavailable with it. Meta's AutoDriver does not support OpenXR at all.
 VR automation therefore needs real hardware, or a Vulkan binding in the games (charter D48).
+
+## KI-073 — the native tracker harness cannot reach a remote provider's rows
+
+`native-tracker.spec.mjs` drives a real desktop binary, which makes its own tracker requests, so a
+fixture cannot inject a Linear or GitHub response the way `tracker.test.mjs` can with its `fetch`
+argument. Every row the native suite sees comes from a `local` provider. Found by sabotage S4 of
+spec 116: gating the Tests caret on `local` left the whole native suite green, so the decision to
+draw it on every provider's rows is implemented and unverified in the desktop. The data half is
+covered — a GitHub row is asserted to answer with an empty evidence list. Closing this needs a
+native fixture that can serve remote rows.

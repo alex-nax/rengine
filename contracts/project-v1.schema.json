@@ -102,7 +102,7 @@
             "github",
             "linear"
           ],
-          "description": "local reads the project's own features.json through tools/features.py; github reads repository issues; linear reads a team's issues."
+          "description": "local reads the project's own features.json directly, deriving the same readiness rule tools/features.py applies; github reads repository issues; linear reads a team's issues."
         },
         "repository": {
           "type": "string",

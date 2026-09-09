@@ -79,6 +79,10 @@ const row = value => ({
      the local backend has that written down. A remote row answers with an empty list rather than
      with the issue body, which is prose rather than criteria. */
   criteria: value.criteria ?? [],
+  /* Added for spec 116: what a criterion claims and what proves it are one question, and reading
+     them apart is what left the Tasks tab unable to answer "which test backs this". Same empty-list
+     rule as criteria, and for the same reason — an issue body is prose, not an evidence list. */
+  evidence: value.evidence ?? [],
 });
 
 /* Local. Readiness follows the same rule tools/features.py applies, so the view and the command
@@ -111,6 +115,7 @@ async function localRows(root, block) {
       assignee: feature.owner_workspace ?? null,
       blockedBy: (feature.dependencies ?? []).map(id => `F${id}`),
       criteria: Array.isArray(feature.acceptance_criteria) ? feature.acceptance_criteria : [],
+      evidence: Array.isArray(feature.evidence) ? feature.evidence.filter(item => typeof item === 'string') : [],
     })),
   };
 }

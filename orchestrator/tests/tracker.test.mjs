@@ -22,11 +22,38 @@ const read = async root => projectTracker(root, await readDeclaration(root));
 const INVENTORY = {
   schema_version: 1, project: 'kohai', review_status: 'approved',
   features: [
-    { id: 1, description: 'done', passes: true, dependencies: [], milestone: 'O1', category: 'workspace', priority: 'high' },
+    { id: 1, description: 'done', passes: true, dependencies: [], milestone: 'O1', category: 'workspace', priority: 'high',
+      acceptance_criteria: ['the thing happens'], evidence: ['orchestrator/tests/thing.test.mjs: the thing happens'] },
     { id: 2, description: 'ready', passes: false, dependencies: [1], milestone: 'O1', category: 'workspace', priority: 'medium' },
     { id: 3, description: 'blocked', passes: false, dependencies: [2], milestone: 'O2', category: 'design', priority: 'low' },
   ],
 };
+
+/* F115 (spec 116). The inventory has always carried the evidence that backs a row — the test and
+   what it proves — and localRows mapped criteria and dropped it, so nothing in the workspace could
+   answer "what test backs this task". A remote provider answers with an empty list for the same
+   reason it does for criteria: an issue body is prose, not an evidence list. */
+test('a task carries the evidence that backs it, and a provider with none says so with an empty list', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-tracker-evidence-'));
+  try {
+    const declared = await project(directory, 'declared', base({ provider: 'local' }), INVENTORY);
+    const result = await read(declared);
+    const byKey = Object.fromEntries(result.rows.map(row => [row.key, row]));
+    assert.deepEqual(byKey.F1.evidence, ['orchestrator/tests/thing.test.mjs: the thing happens'],
+      'the evidence reaches the row verbatim, the way criteria already do');
+    assert.deepEqual(byKey.F1.criteria, ['the thing happens'], 'and criteria are undisturbed by it');
+    assert.deepEqual(byKey.F2.evidence, [], 'a row that records none answers empty rather than undefined');
+
+    /* Malformed evidence is not a reason to lose the row: the criteria still render. */
+    const bent = { ...INVENTORY, features: [{ ...INVENTORY.features[0], id: 9, evidence: 'a string, not a list' }] };
+    const odd = await project(directory, 'odd', base({ provider: 'local' }), bent);
+    const read9 = await read(odd);
+    assert.deepEqual(read9.rows[0].evidence, [], 'a non-array is refused into an empty list');
+    assert.deepEqual(read9.rows[0].criteria, ['the thing happens'], 'and the rest of the row survives it');
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 test('the local backend reads the inventory and derives the same readiness the tool reports', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-tracker-local-'));
@@ -210,6 +237,11 @@ test('a GitHub repository reaches the same row, and pull requests are not tasks'
     assert.equal(result.rows[0].key, '#7');
     assert.equal(result.rows[0].state.category, 'unstarted');
     assert.equal(result.rows[1].state.category, 'canceled', 'closed as not planned is not completed');
+    /* F115 (spec 116): a provider that cannot say answers with an empty list rather than undefined —
+       an issue body is prose, not an evidence list, and guessing at one would be worse than nothing.
+       This is the only place the row's own default is load-bearing, since no remote path sets it. */
+    assert.deepEqual(result.rows[0].evidence, [], 'a GitHub row carries no evidence, and says so with a list');
+    assert.deepEqual(result.rows[0].criteria, [], 'exactly as it already does for criteria');
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
