@@ -44,8 +44,13 @@ test('contract 9 carries a pack whose facets are a library and a plugin (spec 10
   t.after(() => rm(directory, { recursive: true, force: true }));
 
   // The ceiling moved with the block; a reader that predates contract 9 must say "unknown contract"
-  // rather than "unknown key", which is only true while these two agree.
-  assert.equal(CONTRACTS.at(-1), 9, 'the ceiling moved with the packs block');
+  // rather than "unknown key", which is only true while the block's floor and the ceiling agreed
+  // when it shipped. This stays a tripwire: whoever raises the ceiling comes here and confirms the
+  // pack assertions below still read as they do.
+  // Confirmed for 10: tests is its own block with its own SECTIONS floor, reaches nothing in packs,
+  // and every assertion below ran unchanged.
+  assert.ok(CONTRACTS.at(-1) >= 9, 'the ceiling is at least the packs floor');
+  assert.equal(CONTRACTS.at(-1), 10, 'the ceiling moved with the tests block');
   assert.ok(schema.properties.contract.enum.includes(9), 'the schema knows contract 9 too');
 
   // The renderer's shape (D30): one artifact, one pin, consumed at build time by a game and loaded
@@ -113,7 +118,8 @@ test('packs on contract 8 is refused for the contract it needs, not as an unknow
   const beyond = CONTRACTS.at(-1) + 1;
   const future = await declare(directory, 'future', packed([pack({ library: library() })], { contract: beyond }));
   assert.match(future.error, new RegExp(`unknown contract ${beyond}`), 'a contract past the ceiling is refused whole');
-  assert.match(future.error, /supports contracts 1, 2, 3, 4, 5, 6, 7, 8 and 9/, 'and the refusal names what it does support');
+  assert.match(future.error, new RegExp(`supports contracts ${CONTRACTS.slice(0, -1).join(', ')} and ${CONTRACTS.at(-1)}`),
+    'and the refusal names what it does support, from the list rather than from a copy of it');
 });
 
 test('each pack refusal names the pack and the key (spec 107)', async t => {

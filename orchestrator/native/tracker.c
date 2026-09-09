@@ -294,8 +294,39 @@ static void live_rows(ReApp *a, mu_Context *ui, int tab, bool answered) {
  * together. Criteria also appear in the Spawn chooser, where the prompt is being composed; here they
  * are the thing the evidence is evidence FOR, and reading them apart is what left the pane unable to
  * answer "which test backs this". A provider with nothing to say says so rather than drawing empty. */
+/* One manifest entry (contract 10, spec 117). `proven` is drawn as its own line rather than folded
+ * into the last result, because a green run and a test that bites are different claims and the
+ * whole format exists to keep them apart. */
+static void manifest_rows(ReApp *a, mu_Context *ui, int tab, const char *key, const cJSON *tests) {
+  const cJSON *entry = NULL; bool first = true; char line[512];
+  cJSON_ArrayForEach(entry, tests) {
+    const cJSON *test = cJSON_GetObjectItemCaseSensitive(entry, "test");
+    const char *path = re_string(test, "path"), *name = re_string(test, "name");
+    snprintf(line, sizeof(line), "%s%s%s", path, *name ? " · " : "", name);
+    mu_layout_row(ui, 2, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+    re_ui_label_ex(ui, first ? "Test" : "", RE_UI_MUTED | RE_UI_SMALL);
+    re_ui_label_ex(ui, line, RE_UI_MUTED | RE_UI_SMALL);
+    re_app_control(a, ui, "tracker-test", key, tab);
+
+    const cJSON *sabotage = cJSON_GetObjectItemCaseSensitive(entry, "sabotage");
+    bool proven = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(entry, "proven"));
+    int count = cJSON_IsArray(sabotage) ? cJSON_GetArraySize(sabotage) : 0;
+    const cJSON *last = cJSON_GetObjectItemCaseSensitive(entry, "last");
+    const char *result = re_string(last, "result"), *at = re_string(last, "at");
+    if (proven) snprintf(line, sizeof(line), "%d sabotage%s recorded · last %s%s%s", count, count == 1 ? "" : "s",
+                         *result ? result : "unrun", *at ? " " : "", at);
+    else snprintf(line, sizeof(line), "UNPROVEN — no sabotage recorded%s%s%s", *result ? " · last " : "",
+                  *result ? result : "", *result && *at ? at : "");
+    mu_layout_row(ui, 2, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+    re_ui_label_ex(ui, "", RE_UI_MUTED | RE_UI_SMALL);
+    re_ui_label_ex(ui, line, RE_UI_MUTED | RE_UI_SMALL);
+    re_app_control(a, ui, proven ? "tracker-test-proven" : "tracker-test-unproven", key, tab);
+    first = false;
+  }
+}
+
 static void evidence_rows(ReApp *a, mu_Context *ui, int tab, const char *key,
-                          const cJSON *criteria, const cJSON *evidence) {
+                          const cJSON *criteria, const cJSON *evidence, const cJSON *tests) {
   const cJSON *item = NULL; bool first = true;
   cJSON_ArrayForEach(item, criteria) {
     if (!cJSON_IsString(item)) continue;
@@ -314,7 +345,8 @@ static void evidence_rows(ReApp *a, mu_Context *ui, int tab, const char *key,
     re_app_control(a, ui, "tracker-evidence", key, tab);
     first = false;
   }
-  if (!first) return;
+  manifest_rows(a, ui, tab, key, tests);
+  if (!first || (cJSON_IsArray(tests) && cJSON_GetArraySize(tests))) return;
   /* Named rather than hidden, the way an uninstalled CLI is: an empty block reads as "this task has
    * no tests", and only this line can say the difference between that and "this provider cannot". */
   mu_layout_row(ui, 2, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
@@ -324,11 +356,11 @@ static void evidence_rows(ReApp *a, mu_Context *ui, int tab, const char *key,
 }
 
 static void chooser_rows(ReApp *a, mu_Context *ui, int tab, const char *key, const cJSON *criteria,
-                         const cJSON *evidence, bool answered) {
+                         const cJSON *evidence, const cJSON *tests, bool answered) {
   if (menu.kind == RE_CHOOSER_NONE || strcmp(menu.task, key)) return;
   mu_push_id(ui, "chooser", 7);
   if (menu.kind == RE_CHOOSER_SPAWN) agent_rows(a, ui, tab, key, criteria, answered);
-  else if (menu.kind == RE_CHOOSER_TESTS) evidence_rows(a, ui, tab, key, criteria, evidence);
+  else if (menu.kind == RE_CHOOSER_TESTS) evidence_rows(a, ui, tab, key, criteria, evidence, tests);
   else live_rows(a, ui, tab, answered);
   mu_pop_id(ui);
 }
@@ -394,7 +426,8 @@ static void task_row(ReApp *a, mu_Context *ui, int tab, const cJSON *task, bool 
   }
   re_ui_pill(ui, *name ? name : category, state_pill(category));
   chooser_rows(a, ui, tab, key, cJSON_GetObjectItemCaseSensitive(task, "criteria"),
-               cJSON_GetObjectItemCaseSensitive(task, "evidence"), answered);
+               cJSON_GetObjectItemCaseSensitive(task, "evidence"),
+               cJSON_GetObjectItemCaseSensitive(task, "tests"), answered);
   mu_pop_id(ui);
 }
 

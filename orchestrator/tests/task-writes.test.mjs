@@ -51,7 +51,9 @@ test('contract 6 carries tracker.write and the agent menu, and a contract-5 decl
   // agents, and the assertions below ran unchanged.
   // Confirmed for 9: packs is its own block with its own SECTIONS floor, reaches neither
   // tracker.write nor agents, and the assertions below ran unchanged.
-  assert.equal(CONTRACTS.at(-1), 9, 'the ceiling moved with the keys');
+  // Confirmed for 10: tests is its own block naming one file, with its own SECTIONS floor; it
+  // reaches neither tracker.write nor agents, and the assertions below ran unchanged.
+  assert.equal(CONTRACTS.at(-1), 10, 'the ceiling moved with the keys');
 
   const document = taskDeclaration({ agents: [{ cli: 'claude', models: ['claude-opus-5', 'claude-sonnet-5'], default: 'claude-opus-5' }] });
   assert.deepEqual(validateSchema(schema, document), [], 'a contract-6 document validates structurally');

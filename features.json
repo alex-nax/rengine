@@ -1710,7 +1710,7 @@
         "The block requires contract 10 and is refused by name under an earlier contract, and a declaration that omits it reads exactly as it does today.",
         "Each regression was observed failing for its own reason, including a manifest whose entries claim a criterion the task does not have."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         115
       ],
@@ -1718,7 +1718,10 @@
       "deliverable": "The tests block in contracts/project-v1.schema.json, its cross-field rules in orchestrator/server/formats.mjs, the reader and row join in the tracker path, the native surface, and its tests.",
       "external_references": [],
       "evidence": [
-        "docs/specs/114-dev-suite-roadmap.md: what a task-to-test link must carry to be judgeable, and hirebase-v2's registry as the proven shape"
+        "docs/specs/117-task-tests-manifest.md: the shape, the four sabotages, and the three contract tripwires that fired",
+        "contracts/task-tests-v1.schema.json: the manifest's own schema, with sabotage as the field the format exists for",
+        "orchestrator/tests/tracker.test.mjs: the join by provider key, unproven without sabotage rows, criterion drift refused, and no entry moving a row",
+        "orchestrator/tests/native-tracker.spec.mjs: the entry drawn with its own proven or UNPROVEN line"
       ]
     },
     {

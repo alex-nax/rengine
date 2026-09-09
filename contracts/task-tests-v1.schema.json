@@ -1,0 +1,167 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://rengine.local/contracts/task-tests-v1.schema.json",
+  "title": "Task tests manifest, version 1",
+  "description": "Produced by a project, read by rEngine, keyed by the task key the project's own tracker provider uses (F123, BAS-1020, #42). rEngine joins on that key and never parses its meaning. An entry with no sabotage rows is UNPROVEN however green its last run was: AGENTS.md defines a regression as established only once observed failing for its own reason, and a passing command is not that. See docs/specs/117-task-tests-manifest.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "entries"
+  ],
+  "properties": {
+    "version": {
+      "const": 1,
+      "description": "Bumped when the entry shape changes, so an older reader says \"unknown version\" rather than misreading."
+    },
+    "at": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "When the manifest was produced. Shown, never compared to now."
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$|^[0-9a-f]{64}$",
+      "description": "The revision it was produced at, so a reader can say whether it describes the checkout in front of them."
+    },
+    "entries": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task",
+        "test",
+        "claim"
+      ],
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "The provider's own task key. Not parsed."
+        },
+        "test": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "description": "Root-relative path to the test. Never opened by this reader."
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 512,
+              "description": "How the runner selects it: a test name, ctest name or grep tag."
+            }
+          }
+        },
+        "claim": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "One sentence saying what the test asserts, in the project's own words."
+        },
+        "criteria": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "description": "Which of the task's acceptance criteria this test backs, 1-based. Checked against the task where the provider knows its criteria; a claim pointing past them reads as coverage the task does not have."
+        },
+        "tier": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "The project's own tier word: gate, slow, deployed, manual. Not interpreted, only shown and grouped."
+        },
+        "preconditions": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": "What must be present for it to run at all: game data, a device, a token, a flag."
+        },
+        "sabotage": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "break",
+              "red"
+            ],
+            "properties": {
+              "break": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 600,
+                "description": "The specific edit that was made to the implementation."
+              },
+              "red": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 600,
+                "description": "What went red because of it, and for its own reason rather than something earlier."
+              }
+            }
+          },
+          "description": "The evidence that the test bites. An entry without these is unproven; this is the field the whole format exists for."
+        },
+        "last": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "result"
+          ],
+          "properties": {
+            "result": {
+              "enum": [
+                "pass",
+                "fail",
+                "skip"
+              ],
+              "description": "What the project last saw. A claim about a run, never about the task."
+            },
+            "at": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "commit": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$|^[0-9a-f]{64}$"
+            },
+            "host": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "log": {
+              "type": "string",
+              "maxLength": 1024,
+              "description": "Where the project kept the output. Not opened."
+            }
+          }
+        }
+      }
+    }
+  }
+}

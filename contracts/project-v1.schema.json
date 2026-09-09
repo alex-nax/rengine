@@ -21,7 +21,8 @@
         6,
         7,
         8,
-        9
+        9,
+        10
       ]
     },
     "project": {
@@ -221,6 +222,20 @@
         "$ref": "#/$defs/pack"
       },
       "description": "Contract 9: the packs this project stands on — the library packs its build consumes and the plugins the editor loads for it, in one list because a pack is one concept (charter D39, docs/specs/107-pack-manifest.md). Declaring it requires contract 9, so a reader that predates it answers \"unknown contract\" instead of \"unknown key\"."
+    },
+    "tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest"
+      ],
+      "description": "Contract 10 (docs/specs/117-task-tests-manifest.md, charter D47). Names the file this project produces describing the tests behind its tasks. rEngine READS it and runs nothing: no entry changes a task's state, and a manifest saying everything failed leaves every row where its provider put it. The file's own shape is contracts/task-tests-v1.schema.json.",
+      "properties": {
+        "manifest": {
+          "$ref": "#/$defs/relativePath",
+          "description": "The manifest, root-relative and refused when it escapes; declaration-relative for a project declared outside its checkout. The project's own tooling writes it; nothing here fetches or generates it."
+        }
+      }
     }
   },
   "$defs": {

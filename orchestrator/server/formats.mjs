@@ -112,7 +112,7 @@ function packsRules(block) {
   return problems;
 }
 
-export const CONTRACTS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+export const CONTRACTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 /* Brand-mark colours a project may name. Each is a saturated fill the design system pairs with
    the on-accent ink, which is what keeps the letter legible in every preset. */
 export const ICON_TOKENS = ['accent', 'ok', 'warn', 'err', 'info'];
@@ -230,13 +230,27 @@ export async function readDeclaration(root) {
     formats: value.formats.map(format => ({ ...format, preview: bounded(format.preview), entry: bounded(format.entry) })) };
   /* devices, games and dashboard are each reported separately so none can disable the formats, and
      devices settles first so both of the others can resolve a device binding; see sidecar: declaration-reporting */
-  const withPacks = section(result, 'packs', packs, value.contract); /* references nothing and is referenced by nothing, so it settles first and cannot disturb the order the others depend on */
+  /* tests names a file and nothing else, so like packs it references nothing and is referenced by
+     nothing; it settles first for the same reason. */
+  const withTests = section(result, 'tests', value.tests, value.contract);
+  const withPacks = section(withTests, 'packs', packs, value.contract); /* references nothing and is referenced by nothing, so it settles first and cannot disturb the order the others depend on */
   const withServers = section(withPacks, 'languageServers', value.languageServers, value.contract);
   const withTracker = section(withServers, 'tracker', tracker, value.contract);
   const withDevices = section(withTracker, 'devices', devices, value.contract);
   return section(section(withDevices, 'games', games, value.contract), 'dashboard', dashboard, value.contract);
 }
+/* Contract 10 (spec 117). The declaration only names the file; its contents are the project's
+   artifact and are read where the rows are built, not here. The path is confined the way every other
+   declared path is, because a manifest outside the root is not this project describing itself. */
+function testsRules(block) {
+  const problems = [];
+  if (typeof block.manifest === 'string' && !rootRelative(block.manifest)) {
+    problems.push('$.tests.manifest must be root-relative');
+  }
+  return problems;
+}
 const SECTIONS = {
+  tests: { minimum: 10, rules: testsRules, node: () => schema.properties.tests },
   packs: { minimum: 9, rules: packsRules, node: () => schema.properties.packs },
   languageServers: { minimum: 7, rules: languageServerRules, node: () => schema.properties.languageServers },
   tracker: { minimum: 5, rules: trackerRules, node: () => schema.properties.tracker },

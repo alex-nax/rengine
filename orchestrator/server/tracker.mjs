@@ -12,6 +12,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fail } from './store.mjs';
 import { parseCredential, expiring, refresh } from './tracker-auth.mjs';
+import { validateSchema } from './schema.mjs';
 
 const PROBE_TTL_MS = 30000;          /* one poll every 30 s is about 5% of a Linear key's budget */
 const CACHE_LIMIT = 64;
@@ -83,6 +84,9 @@ const row = value => ({
      them apart is what left the Tasks tab unable to answer "which test backs this". Same empty-list
      rule as criteria, and for the same reason — an issue body is prose, not an evidence list. */
   evidence: value.evidence ?? [],
+  /* Added for spec 117: the entries a project's own tests manifest records for this task. rEngine
+     joins them by the provider's key and runs nothing; an entry never moves a row. */
+  tests: value.tests ?? [],
 });
 
 /* Local. Readiness follows the same rule tools/features.py applies, so the view and the command
@@ -220,6 +224,74 @@ async function githubRows(block, token, fetchImpl) {
   };
 }
 
+/* The project's tests manifest (contract 10, spec 117). Read here rather than in the declaration
+   because it is the project's own artifact with its own lifetime, exactly as the local inventory is.
+   Nothing in here opens a test, runs anything, or lets an entry change a row's state. */
+const TESTS_SCHEMA = JSON.parse(await readFile(new URL('../../contracts/task-tests-v1.schema.json', import.meta.url), 'utf8'));
+
+/* The checkout's own revision, read from files and never by running git: a subprocess for a display
+   detail is a cost and a permission this reader should not take. A layout it cannot follow answers
+   null, so "stale" and "cannot tell" stay different answers. */
+async function headCommit(rootPath) {
+  try {
+    const head = (await readFile(path.join(rootPath, '.git', 'HEAD'), 'utf8')).trim();
+    if (/^[0-9a-f]{40}$/.test(head)) return head;
+    const ref = head.startsWith('ref: ') ? head.slice(5).trim() : null;
+    if (!ref) return null;
+    const value = (await readFile(path.join(rootPath, '.git', ref), 'utf8')).trim();
+    return /^[0-9a-f]{40}$/.test(value) ? value : null; /* packed refs are a follow-up; unknown beats a guess */
+  } catch { return null; }
+}
+
+async function withTests(root, declared, result) {
+  const manifest = declared?.tests?.manifest;
+  if (!manifest) return result;
+  let parsed;
+  try {
+    parsed = JSON.parse(await readFile(path.join(root.path, manifest), 'utf8'));
+  } catch (error) {
+    const missing = error.code === 'ENOENT';
+    return { ...result, testsError: `${manifest}: ${missing ? 'the declared tests manifest is not in this project.' : error.message}` };
+  }
+  const problems = validateSchema(TESTS_SCHEMA, parsed, TESTS_SCHEMA, '$');
+  if (problems.length) return { ...result, testsError: `${manifest}: ${problems.slice(0, 3).join('; ')}` };
+
+  const byTask = new Map();
+  for (const entry of parsed.entries ?? []) {
+    if (!byTask.has(entry.task)) byTask.set(entry.task, []);
+    byTask.get(entry.task).push(entry);
+  }
+  /* A manifest drifts from its inventory the moment a criterion is renumbered, and a claim pointing
+     past the task's criteria reads as coverage it does not have — worse than claiming none. Only a
+     provider that knows its own criteria can be checked, so the others carry the index unjudged. */
+  const drift = [];
+  for (const row of result.rows ?? []) {
+    for (const entry of byTask.get(row.key) ?? []) {
+      for (const index of entry.criteria ?? []) {
+        if (row.criteria.length && index > row.criteria.length) {
+          drift.push(`${manifest}: ${row.key} claims criterion ${index}, but the task has ${row.criteria.length} criterion${row.criteria.length === 1 ? '' : 's'}`);
+        }
+      }
+    }
+  }
+  const head = await headCommit(root.path);
+  const rows = (result.rows ?? []).map(row => ({
+    ...row,
+    tests: (byTask.get(row.key) ?? []).map(entry => ({
+      ...entry,
+      /* The field the format exists for: a green run says a command went green, and only a sabotage
+         row says the test can go red for its own reason (AGENTS.md). Never collapsed into one word. */
+      proven: Array.isArray(entry.sabotage) && entry.sabotage.length > 0,
+    })),
+  }));
+  return {
+    ...result, rows,
+    tests: { at: parsed.at ?? null, commit: parsed.commit ?? null, count: parsed.entries?.length ?? 0,
+             current: head && parsed.commit ? head === parsed.commit : null },
+    ...(drift.length ? { testsError: drift.slice(0, 3).join('; ') } : {}),
+  };
+}
+
 export async function projectTracker(root, declared, options = {}) {
   const fetchImpl = options.fetch ?? globalThis.fetch;
   const base = { rootId: root.id, declared: declared.declared === true, provider: null, rows: [], categories: CATEGORIES };
@@ -235,7 +307,7 @@ export async function projectTracker(root, declared, options = {}) {
      value, which the tests caught by asserting the variable that reaches the query. */
   const named = { ...block, identity: declared.project ?? root.id };
   const result = { ...base, contract: declared.contract, provider: block.provider };
-  if (block.provider === 'local') return { ...result, ...(await localRows(root, block)), fresh: true };
+  if (block.provider === 'local') return withTests(root, declared, { ...result, ...(await localRows(root, block)), fresh: true });
 
   if (typeof fetchImpl !== 'function') fail('This build cannot reach a network tracker.', 501);
   const token = await credential(options.stateDirectory, named.identity, options);
@@ -248,5 +320,5 @@ export async function projectTracker(root, declared, options = {}) {
     : githubRows(named, token, fetchImpl));
   const entry = await coalesced(key, produce);
   const at = cache.get(key)?.at ?? Date.now();
-  return { ...result, ...entry, fresh: Date.now() - at < PROBE_TTL_MS, checkedAt: new Date(at).toISOString() };
+  return withTests(root, declared, { ...result, ...entry, fresh: Date.now() - at < PROBE_TTL_MS, checkedAt: new Date(at).toISOString() });
 }

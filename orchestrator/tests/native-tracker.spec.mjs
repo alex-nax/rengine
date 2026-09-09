@@ -17,10 +17,23 @@ const INVENTORY = {
   ],
 };
 
+const MANIFEST = {
+  version: 1, at: '2026-09-09T12:00:00Z',
+  entries: [
+    { task: 'F1', test: { path: 'tests/one.test.mjs', name: 'the work is finished' },
+      claim: 'the work is finished', criteria: [1], tier: 'gate',
+      sabotage: [{ break: 'return early', red: 'the work is finished' }],
+      last: { result: 'pass', at: '2026-09-09T12:00:00Z' } },
+    { task: 'F2', test: { path: 'tests/two.test.mjs' }, claim: 'the other thing', tier: 'gate',
+      sabotage: [], last: { result: 'pass', at: '2026-09-09T12:00:00Z' } },
+  ],
+};
+
 async function fixture(directory, declaration) {
   const root = path.join(directory, 'project');
   await mkdir(path.join(root, '.rengine'), { recursive: true });
   await writeFile(path.join(root, 'features.json'), JSON.stringify(INVENTORY, null, 2));
+  await writeFile(path.join(root, '.rengine', 'tests.json'), JSON.stringify(MANIFEST, null, 2));
   await writeFile(path.join(root, 'a.txt'), 'x\n');
   if (declaration) await writeFile(path.join(root, '.rengine', 'project.json'), JSON.stringify(declaration, null, 2));
   return root;
@@ -33,7 +46,9 @@ const rows = state => {
 
 test('the Tasks tab lists the project inventory with the readiness the tool reports', { timeout: 90000 }, async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-tracker-view-'));
-  const project = await fixture(dir, null);
+  const project = await fixture(dir, { contract: 10, project: 'fixture',
+    formats: [{ id: 'text', title: 'Text', match: ['*.txt'], modes: ['raw'], default: 'raw' }],
+    tracker: { provider: 'local' }, tests: { manifest: '.rengine/tests.json' } });
   const server = await startServer({ stateDir: path.join(dir, 'state') });
   const root = await server.store.addRoot(project);
   const gui = await nativeClient(server, { root: root.id });
@@ -72,11 +87,18 @@ test('the Tasks tab lists the project inventory with the readiness the tool repo
     assert.ok(state.controls.some(c => c.role === 'tracker-claim' && c.key === 'F1'),
       'and the claim it backs is read beside it, not in a different chooser');
 
+    /* F116 (spec 117): a declared manifest entry is shown with its own proven/unproven line, because
+       a green run and a test that bites are different claims. */
+    assert.ok(state.controls.some(c => c.role === 'tracker-test' && c.key === 'F1'),
+      'the manifest entry names its test');
+    assert.ok(state.controls.some(c => c.role === 'tracker-test-proven' && c.key === 'F1'),
+      'a sabotaged entry reads as proven');
+
     /* F2 records none. The block says so rather than drawing empty, which would read as "no tests". */
     await gui.control('tracker-tests', 'F2');
     state = await gui.until(s => s.tracker?.chooser?.taskKey === 'F2', 'the second row opens');
-    assert.ok(state.controls.some(c => c.role === 'tracker-evidence-none' && c.key === 'F2'),
-      'a task with no evidence says there is none rather than showing an empty block');
+    assert.ok(state.controls.some(c => c.role === 'tracker-test-unproven' && c.key === 'F2'),
+      'an entry with no sabotage rows says UNPROVEN, however green its last run was');
   } finally {
     await gui.close(); await server.close(); await rm(dir, { recursive: true, force: true });
   }

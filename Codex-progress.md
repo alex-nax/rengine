@@ -1,5 +1,52 @@
 # Progress Log
 
+## Session 87 (macos) — 2026-09-09 — F116: contract 10, and the field that answers "is this test correct"
+
+F115 put the inventory's `evidence` strings on the row, which answers *where* a test is. It cannot
+answer whether the test is any good, because `AGENTS.md` defines a regression as established only
+once **observed failing for its own reason**, and prose cannot carry that. So contract 10's manifest
+carries the **sabotage rows** — what was broken, what went red — and that is the field the whole
+format exists for.
+
+**The shape.** The declaration names a file and nothing more; the manifest is the project's own
+artifact with its own schema (`contracts/task-tests-v1.schema.json`), keyed by the task key its own
+provider uses, so one format serves `F123`, `BAS-1020` and `#42` alike. rEngine joins on the key and
+never parses its meaning.
+
+**Three rules that make it worth having.** An entry with no sabotage rows is **unproven**, however
+green its last run was — a passing command says a command passed. An entry claiming a criterion the
+task does not have is refused by name, because a claim pointing past the criteria reads as coverage
+rather than as absence. And no entry ever moves a row: a manifest saying everything failed leaves
+every task where its provider put it, which is D44 and D47 as written and the rule a later reader is
+most likely to break in good faith, because a failing test *looks* like it should block a task.
+Sabotage S3 exists to catch exactly that.
+
+**Staleness is shown, not judged.** The reader resolves the checkout's commit from `.git` by reading
+files, never by running git — a subprocess for a display detail is a cost and a permission this
+reader should not take — and answers *unknown* on a layout it cannot follow, because "stale" and
+"cannot tell" are different answers.
+
+**Three contract tripwires fired, which is what they are for.** `packs.test.mjs` and
+`task-writes.test.mjs` pin `CONTRACTS.at(-1)` so whoever raises the ceiling comes and confirms the
+earlier blocks still read as they did; both now carry a *Confirmed for 10* note beside 8 and 9. The
+third asserted the supported-contract list as a literal string and now derives it from `CONTRACTS`,
+so it states the invariant instead of a copy that must be retyped on every bump.
+
+**A defect the owner caught, fixed on the way.** The Tests caret narrowed the title column and made
+an old bug visible: `re_ui_label_ex` drew at its cell origin and never clipped to it, so a long task
+title ran straight across the buttons and out to the pane edge. `ui.c` already had `text_clipped` —
+which keeps the adapters' batch when the text fits and narrows the scissor only when it does not —
+and the label simply was not using it. **No automated regression**, and that is recorded rather than
+glossed: nothing here builds an owned control in a test, and the automation snapshot reports the
+cell rect, which was correct both before and after. KI-074 wants a UI-level draw-list harness.
+
+Commands: `npm test` 230/230 · `native-tracker.spec.mjs` 2/2 · `native-tasks-controls` and
+`native-format-hardening` unchanged · `./init.sh` · `design.py check` · `features.py validate` (75)
+· four sidecars re-anchored, two notes extended, all stamped.
+
+Remaining in T0: F117, filing a verdict on a bad test as a task through the project's own write path.
+No project produces a manifest yet — rEngine's own is the natural first, and is not this slice.
+
 ## Session 86 (macos) — 2026-09-09 — the workspace's own actions are the first place to look
 
 The owner: *"you can invoke restart script that we implemented with mcp (we need to work on

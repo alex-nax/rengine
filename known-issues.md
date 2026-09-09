@@ -114,3 +114,14 @@ spec 116: gating the Tests caret on `local` left the whole native suite green, s
 draw it on every provider's rows is implemented and unverified in the desktop. The data half is
 covered — a GitHub row is asserted to answer with an empty evidence list. Closing this needs a
 native fixture that can serve remote rows.
+
+## KI-074 — no test builds an owned UI control, so label clipping has no regression
+
+`re_ui_label_ex` drew at its cell's origin without clipping to it, so a long label ran across
+whatever the row put beside it; found by the owner in the Tasks view once F115's Tests caret
+narrowed the title column, fixed by routing the label through `text_clipped` (spec 117). The fix has
+no automated regression: `orchestrator/native/tests/draw_list_test.c` works below the UI layer, and
+the automation snapshot reports a control's cell rect, which was correct both before and after — the
+defect was the text drawn *beyond* it. Closing this needs a UI-level test harness that renders an
+owned control and inspects the emitted draw list for the clip command; it would cover every control,
+not just labels.

@@ -5,8 +5,8 @@
       "id": "tree-sanitization",
       "kind": "rationale",
       "anchor": {
-        "start": 314,
-        "end": 314,
+        "start": 328,
+        "end": 328,
         "snippet": "function sanitizeTree(value) {"
       },
       "note": "Only name/dirs/files with name/path/size survive; producer extras (relith-rez offset/time/type) are dropped so the native client and agents see one shape. Depth 64 and 200,000 nodes bound recursion and memory below the 4 MiB stdout default; a malformed node fails the whole preview rather than showing a partial tree.",
@@ -22,7 +22,7 @@
         "end": 147,
         "snippet": "export async function readDeclaration(root) {"
       },
-      "note": "A malformed, oversized or unknown-contract declaration is returned as { declared: true, error, formats: [] } rather than thrown: the listing route shows it and the workspace, editor and other roots keep working. Structural (schema) problems are reported before cross-field rules run, and the cross-field pass guards every shape it touches, because a thrown TypeError here surfaced as a 500 that left native editors waiting (review finding 2). Only the first three problems are reported to keep the status line readable. Later contracts are read in stages: the contract-1 part (everything but dashboard and games) decides error/formats, then the shared section helper validates each optional block on its own into dashboard/dashboardError and games/gamesError. The SECTIONS table gives each block the contract it needs \u2014 dashboard 2, games 3, devices 4, tracker 5, languageServers 7, packs 9 \u2014 so a block under too low a contract is reported by name and ignored instead of disabling previews, and the two blocks stay independent of each other. Spec 085 accepts a root record carrying declarationFile, while string callers retain project-local discovery. The selected filename is returned as source and used in every error. An explicitly missing external declaration is an error, never absence and never permission to read the project-local file. Pass the complete root record from every runtime consumer; passing only root.path silently drops the binding. The packs block (contract 9) references nothing and is referenced by nothing, so it settles first in the chain and cannot disturb the devices-then-games-then-dashboard order the others depend on. The contract ceiling is CONTRACTS, and raising it is what makes a new block answer \"unknown contract\" to an older reader rather than \"unknown key\".",
+      "note": "A malformed, oversized or unknown-contract declaration is returned as { declared: true, error, formats: [] } rather than thrown: the listing route shows it and the workspace, editor and other roots keep working. Structural (schema) problems are reported before cross-field rules run, and the cross-field pass guards every shape it touches, because a thrown TypeError here surfaced as a 500 that left native editors waiting (review finding 2). Only the first three problems are reported to keep the status line readable. Later contracts are read in stages: the contract-1 part (everything but dashboard and games) decides error/formats, then the shared section helper validates each optional block on its own into dashboard/dashboardError and games/gamesError. The SECTIONS table gives each block the contract it needs \u2014 dashboard 2, games 3, devices 4, tracker 5, languageServers 7, packs 9 \u2014 so a block under too low a contract is reported by name and ignored instead of disabling previews, and the two blocks stay independent of each other. Spec 085 accepts a root record carrying declarationFile, while string callers retain project-local discovery. The selected filename is returned as source and used in every error. An explicitly missing external declaration is an error, never absence and never permission to read the project-local file. Pass the complete root record from every runtime consumer; passing only root.path silently drops the binding. The packs block (contract 9) references nothing and is referenced by nothing, so it settles first in the chain and cannot disturb the devices-then-games-then-dashboard order the others depend on. The contract ceiling is CONTRACTS, and raising it is what makes a new block answer \"unknown contract\" to an older reader rather than \"unknown key\". Contract 10 adds `tests` (spec 117), which like packs references nothing and is referenced by nothing, so it settles first for the same reason. It names a file and validates only the path; the manifest itself is the project's artifact and is read where the rows are built, not here \u2014 the same split the local inventory already uses.",
       "refs": [
         "docs/specs/074-project-format-registry.md",
         "docs/specs/085-external-project-capabilities.md",
@@ -33,8 +33,8 @@
       "id": "execution-boundary",
       "kind": "constraint",
       "anchor": {
-        "start": 276,
-        "end": 276,
+        "start": 290,
+        "end": 290,
         "snippet": "export async function runCommand(root, spec, values) {"
       },
       "note": "The runner takes the root record and a root-relative file and re-confines it through resolveInRoot immediately before the spawn, passing that resolved path; it never trusts a caller-supplied absolute path. Argv is literal after substituting only ${file}/${entry}; no shell, stdin closed, cwd = root, the sidecar's shell environment. The child is its own POSIX process group, so timeout and oversized output kill the whole tree (taskkill /T /F on Windows), close the pipes and wait for the exit before rejecting (review finding 4). The window between this resolution and the producer's own open cannot be closed for a path-taking executable; spec 074 and KI-037 state it.",
@@ -46,8 +46,8 @@
       "id": "raw-read-confinement",
       "kind": "constraint",
       "anchor": {
-        "start": 357,
-        "end": 357,
+        "start": 371,
+        "end": 371,
         "snippet": "export async function readBytes(root, { path: relative, offset = 0, length = MAX_RAW_WINDOW }) {"
       },
       "note": "Open first, then fstat the handle, then confine a fresh resolution of the same relative path and require the same dev/inode as the opened handle; a swap between resolution and open is reported as a 409 rather than served. Node has no frealpath, so inode identity is the strongest confinement of what was actually opened.",
@@ -86,7 +86,7 @@
   ],
   "source": {
     "path": "orchestrator/server/formats.mjs",
-    "sha256": "a5997600fb3d60ce55b287b196c03f20c8d066eff59ab54f8cde06c60d4669fe",
+    "sha256": "e5b75c18f3efc4d64638087f647c288496b0b404b765c4d11578ddea96c9749c",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

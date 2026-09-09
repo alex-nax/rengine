@@ -521,8 +521,11 @@ void re_ui_label_ex(mu_Context *ctx, const char *label, int opt) {
   ui_scissor(ctx);
   mu_Rect rect = mu_layout_next(ctx);
   int size = label_size(opt);
-  ui_text(opt & RE_UI_STRONG ? RE_FACE_UI_SEMIBOLD : RE_FACE_UI, size, label,
-          rect.x, rect.y + (rect.h - size) / 2 - 1, label_color(opt, 0));
+  /* A label is drawn into a layout cell, and a long one used to run straight over whatever the row
+   * put beside it — the Tasks rows made that visible once a title column had buttons after it.
+   * text_clipped keeps the batch when the text fits and narrows the scissor only when it does not. */
+  text_clipped(opt & RE_UI_STRONG ? RE_FACE_UI_SEMIBOLD : RE_FACE_UI, size, label,
+               rect.x, rect.y + (rect.h - size) / 2 - 1, label_color(opt, 0), rect);
 }
 
 void re_ui_separator(mu_Context *ctx) {

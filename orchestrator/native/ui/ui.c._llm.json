@@ -83,7 +83,7 @@
         "symbol": "text_clipped",
         "snippet": "static void text_clipped(uint8_t face, int size, const char *text, int x, int y, mu_Color color, mu_Rect box) {"
       },
-      "note": "A clip command breaks an adapter's batch and sets a scissor, so text that already fits its box is drawn without one. The check costs a width measurement, which the control has usually taken anyway, and it keeps ordinary rows of a long list to a single batch.",
+      "note": "A clip command breaks an adapter's batch and sets a scissor, so text that already fits its box is drawn without one. The check costs a width measurement, which the control has usually taken anyway, and it keeps ordinary rows of a long list to a single batch. Labels route through this too since spec 117: re_ui_label_ex drew at its cell origin and never clipped to it, so a long label ran across whatever the row put beside it \u2014 visible in the Tasks rows once a title column had buttons after it. Note there is no automated regression for that (KI-074): nothing here builds an owned control in a test, and the automation snapshot reports the cell rect, which was correct in both the broken and the fixed version.",
       "refs": [
         "docs/specs/067-draw-list-contract.md"
       ]
@@ -118,5 +118,11 @@
         "docs/specs/080-settings-popover.md"
       ]
     }
-  ]
+  ],
+  "source": {
+    "path": "orchestrator/native/ui/ui.c",
+    "sha256": "ac78c964bad66eb8f2414d5ea25533c848710f476fd154b32e7be762dc69702b",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
 }

@@ -55,6 +55,82 @@ test('a task carries the evidence that backs it, and a provider with none says s
   }
 });
 
+/* F116 (spec 117). An evidence string says where a test is; only the sabotage rows say whether it
+   bites, which is what AGENTS.md means by a regression being established. The manifest is the
+   project's artifact and rEngine only reads it: nothing here runs a test or moves a row. */
+const MANIFEST = {
+  version: 1, at: '2026-09-09T12:00:00Z', commit: '0dd8c66aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  entries: [
+    { task: 'F1', test: { path: 'tests/one.test.mjs', name: 'the thing happens' },
+      claim: 'the thing happens when asked', criteria: [1], tier: 'gate', preconditions: ['node'],
+      sabotage: [{ break: 'return early', red: 'the thing happens' }],
+      last: { result: 'pass', at: '2026-09-09T12:00:00Z', commit: '0dd8c66aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', host: 'macos' } },
+    { task: 'F2', test: { path: 'tests/two.test.mjs', name: 'the other thing' },
+      claim: 'the other thing', criteria: [], tier: 'slow', preconditions: [],
+      sabotage: [],
+      last: { result: 'pass', at: '2026-09-09T12:00:00Z', commit: '0dd8c66aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', host: 'macos' } },
+  ],
+};
+
+test('a project declares the tests behind its tasks, and an unsabotaged one is unproven rather than passing', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-tracker-tests-'));
+  try {
+    const root = await project(directory, 'declared',
+      { ...base({ provider: 'local' }), contract: 10, tests: { manifest: '.rengine/tests.json' } }, INVENTORY);
+    await writeFile(path.join(root.path, '.rengine', 'tests.json'), JSON.stringify(MANIFEST));
+    const result = await read(root);
+    const byKey = Object.fromEntries(result.rows.map(row => [row.key, row]));
+
+    assert.equal(byKey.F1.tests.length, 1, 'the entry joins to its task by the provider\'s own key');
+    assert.equal(byKey.F1.tests[0].test.path, 'tests/one.test.mjs');
+    assert.equal(byKey.F1.tests[0].claim, 'the thing happens when asked');
+    assert.equal(byKey.F1.tests[0].proven, true, 'a sabotage row is what makes it proven');
+
+    assert.equal(byKey.F2.tests[0].proven, false,
+      'no sabotage rows means unproven, however green its last run was');
+    assert.equal(byKey.F2.tests[0].last.result, 'pass', 'and the green run is still reported, not hidden');
+
+    assert.deepEqual(byKey.F3.tests, [], 'a task the manifest says nothing about carries an empty list');
+    assert.equal(byKey.F1.state.category, 'completed', 'and no entry moves a row');
+    assert.equal(byKey.F2.state.category, 'unstarted', 'not even one whose test is unproven');
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a tests manifest that claims a criterion the task does not have is refused by name', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-tracker-tests-drift-'));
+  try {
+    const root = await project(directory, 'drift',
+      { ...base({ provider: 'local' }), contract: 10, tests: { manifest: '.rengine/tests.json' } }, INVENTORY);
+    await writeFile(path.join(root.path, '.rengine', 'tests.json'), JSON.stringify({
+      ...MANIFEST, entries: [{ ...MANIFEST.entries[0], criteria: [7] }] }));
+    const result = await read(root);
+    assert.match(result.testsError ?? '', /F1.*criterion 7.*1 criterion/,
+      `a claim pointing past the task's criteria reads as coverage it does not have: ${result.testsError}`);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('the tests block needs contract 10, and a declaration without one reads exactly as before', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-tracker-tests-contract-'));
+  try {
+    const early = await project(directory, 'early',
+      { ...base({ provider: 'local' }), contract: 9, tests: { manifest: '.rengine/tests.json' } }, INVENTORY);
+    const declaration = await readDeclaration(early);
+    assert.match(declaration.testsError ?? '', /tests requires contract 10 \(declared contract 9\)/);
+    assert.equal(declaration.error, undefined, 'and the rest of the declaration still reads');
+
+    const silent = await project(directory, 'silent', base({ provider: 'local' }), INVENTORY);
+    const plain = await read(silent);
+    assert.equal(plain.rows.length, 3, 'a project that declares no tests is untouched');
+    assert.deepEqual(plain.rows[0].tests, [], 'and its rows carry an empty list rather than nothing');
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('the local backend reads the inventory and derives the same readiness the tool reports', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-tracker-local-'));
   try {
