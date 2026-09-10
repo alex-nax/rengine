@@ -1819,7 +1819,9 @@
       "deliverable": "The device layer interface and implementation split out of orchestrator/native/render/backend_vk.c, the desktop backend rewired onto it, and its comparison tests.",
       "external_references": [],
       "evidence": [
-        "docs/specs/115-gpu-device-layer-and-simulator.md: the measured SDL surface, and why the device path is the only part worth cutting"
+        "docs/specs/122-gpu-device-layer.md: what moved, what deliberately did not, the guard's two observed failures, and what verification is owed",
+        "tools/design.py native_gpu_device_layer: the gate refusing SDL, VkSurface, Swapchain or Present in the device layer, sabotage-verified",
+        "known-issues.md KI-079: the Vulkan render-identity check owed on a host with a Vulkan loader, which is why this row is not passing"
       ]
     },
     {

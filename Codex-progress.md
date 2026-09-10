@@ -1,5 +1,46 @@
 # Progress Log
 
+## Session 95 (macos) — 2026-09-10 — F120: the GPU device layer extracted, and what it cannot prove here
+
+First of the pre-adoption work (D49, and D52's layer 1). `render/gpu_device.{h,c}` now owns the
+loader entry points, the instance, physical-device selection, the device, the queue and the
+memory-type lookup, with **no windowing symbol at all**.
+
+**Only creation moved.** The backend keeps its own `Vk` table, its surface, its swapchain, its
+present and the whole drawing path, and fills that table through `re_gpu_instance_proc` /
+`re_gpu_device_proc`. That was deliberate: this code cannot be executed on this machine, so the
+change is the smallest one that removes the coupling, and the parts nobody can observe are the parts
+that were copied unchanged.
+
+**The two things the caller supplies are the two that differ between a window and a headset**: the
+required extensions, and a predicate saying which physical device is acceptable. The desktop asks
+"can this queue family present to my surface"; an OpenXR host asks "is this the adapter the runtime
+named". The layer can ask neither. The desktop's predicate creates its surface on the first call,
+which is the only moment it can — the surface needs the instance, and the instance is made inside
+`re_gpu_open`.
+
+**A gate, not a review note.** `tools/design.py check` gained `native_gpu_device_layer`: the device
+layer may not mention `SDL_`, `VkSurface`, `Swapchain` or `Present`. Observed failing twice, each
+naming the symbol and line — a `VkSurfaceKHR` field, and an `SDL_GetError` reference.
+
+**What is verified, and what is owed, kept apart.** Verified: it builds clean under the picky set,
+zero `SDL_` in the layer, `npm test` 230/230, `test:desktop` 71/71, `native-render.spec.mjs` green
+with SDL/OpenGL/Metal still matching under tolerance. Owed: that the **Vulkan** backend still renders
+identically — impossible here, because there is no Vulkan loader. `--renderer vulkan` answers
+"Failed to load Vulkan Portability library" both before and after, from `SDL_Vulkan_LoadLibrary`
+before any of the new code runs, so the failure mode is unchanged rather than introduced.
+
+**F120 therefore stays `passes: false`.** Its fourth criterion is render-identity, and that cannot be
+judged where the backend will not start. KI-079 records what closes it: a Windows host, where F59 was
+verified, or MoltenVK here. Marking it green would put a passing row against a claim nobody has
+tested.
+
+Commands: `npm test` 230/230 · `test:desktop` 71/71 · `native-render.spec.mjs` · `./init.sh` ·
+`design.py check` · `features.py validate` (80) · sidecars written and stamped.
+
+Next in the pre-adoption work: F123, the pack — the standalone build, the public surface, the pin,
+and the resource-and-draw seam generalised from VtMB's `device.h`.
+
 ## Session 94 (macos) — 2026-09-10 — the rendering library planned, and VtMB had already written most of it
 
 The owner asked to plan a rendering abstraction switchable between OpenGL and Vulkan, for later

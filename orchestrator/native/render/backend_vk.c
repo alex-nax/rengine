@@ -8,6 +8,7 @@
 #include <SDL.h>
 #include <SDL_vulkan.h>
 #include "render/backend_vk.h"
+#include "render/gpu_device.h"
 #include "render/utf8.h"
 #include "render/shaders/ui_spv.h"
 #include <stdio.h>
@@ -26,12 +27,11 @@
 enum { MODE_SOLID = 0, MODE_FILL = 1, MODE_RING = 2, MODE_SHADOW = 3, MODE_COVERAGE = 4, MODE_RGBA = 5 };
 enum { PREPARE_OK, PREPARE_ATLAS_FULL, PREPARE_FRAME_FULL };
 
-#define RE_VK_GLOBAL(X) X(vkCreateInstance) X(vkEnumerateInstanceExtensionProperties) X(vkEnumerateInstanceLayerProperties)
-#define RE_VK_INSTANCE(X) X(vkDestroyInstance) X(vkEnumeratePhysicalDevices) X(vkGetPhysicalDeviceProperties) \
-  X(vkGetPhysicalDeviceQueueFamilyProperties) X(vkGetPhysicalDeviceSurfaceSupportKHR) X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR) \
-  X(vkGetPhysicalDeviceSurfaceFormatsKHR) X(vkGetPhysicalDeviceMemoryProperties) X(vkGetPhysicalDeviceFeatures2) \
-  X(vkEnumerateDeviceExtensionProperties) X(vkCreateDevice) X(vkGetDeviceProcAddr) X(vkDestroySurfaceKHR)
-#define RE_VK_DEVICE(X) X(vkDestroyDevice) X(vkGetDeviceQueue) X(vkCreateSwapchainKHR) X(vkDestroySwapchainKHR) \
+/* Creation moved to render/gpu_device.c (spec 122); what stays here is what this backend calls
+ * itself. The surface and swapchain entry points are deliberately loaded HERE rather than there —
+ * the device layer must remain usable by a host that has no window at all. */
+#define RE_VK_INSTANCE(X) X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR) X(vkGetPhysicalDeviceSurfaceFormatsKHR) X(vkDestroySurfaceKHR)
+#define RE_VK_DEVICE(X) X(vkCreateSwapchainKHR) X(vkDestroySwapchainKHR) \
   X(vkGetSwapchainImagesKHR) X(vkAcquireNextImageKHR) X(vkQueuePresentKHR) X(vkCreateImageView) X(vkDestroyImageView) \
   X(vkCreateCommandPool) X(vkDestroyCommandPool) X(vkAllocateCommandBuffers) X(vkBeginCommandBuffer) X(vkEndCommandBuffer) \
   X(vkCreateFence) X(vkDestroyFence) X(vkWaitForFences) X(vkResetFences) X(vkCreateSemaphore) X(vkDestroySemaphore) \
@@ -46,11 +46,8 @@ enum { PREPARE_OK, PREPARE_ATLAS_FULL, PREPARE_FRAME_FULL };
 
 typedef struct {
 #define RE_VK_FIELD(name) PFN_##name name;
-  RE_VK_GLOBAL(RE_VK_FIELD) RE_VK_INSTANCE(RE_VK_FIELD) RE_VK_DEVICE(RE_VK_FIELD)
+  RE_VK_INSTANCE(RE_VK_FIELD) RE_VK_DEVICE(RE_VK_FIELD)
 #undef RE_VK_FIELD
-  PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
-  PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT;
-  PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT;
 } Vk;
 
 /* float4 attributes first so their offsets are 16-byte aligned; 60-byte stride (as backend_metal.m). */
@@ -64,9 +61,9 @@ typedef struct Texture {
   bool dirty, initialised; int pending_frame; struct Texture *next;
 } Texture;
 typedef struct {
-  ReBackend base; SDL_Window *window; Vk vk;
-  VkInstance instance; VkDebugUtilsMessengerEXT messenger; VkSurfaceKHR surface; VkPhysicalDevice physical; VkDevice device;
-  VkQueue queue; uint32_t family; bool portability_subset;
+  ReBackend base; SDL_Window *window; Vk vk; ReGpu *gpu; PFN_vkGetInstanceProcAddr gipa;
+  VkInstance instance; VkSurfaceKHR surface; VkPhysicalDevice physical; VkDevice device;
+  VkQueue queue; uint32_t family;
   VkSwapchainKHR swapchain; VkFormat format; VkExtent2D extent; uint32_t image_count;
   VkImage images[MAX_IMAGES]; VkImageView views[MAX_IMAGES]; VkSemaphore finished[MAX_IMAGES]; bool outdated;
   VkCommandPool pool; Frame frames[FRAMES]; int frame; uint32_t image_index; bool recording, rendering, submitted;
@@ -93,9 +90,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_message(VkDebugUtilsMessageSeverityF
 
 /* --- memory, buffers, images, descriptor sets --- */
 static uint32_t memory_type(VkBackend *b, uint32_t bits, VkMemoryPropertyFlags props) {
-  VkPhysicalDeviceMemoryProperties m; b->vk.vkGetPhysicalDeviceMemoryProperties(b->physical, &m);
-  for (uint32_t i = 0; i < m.memoryTypeCount; i++) if ((bits & (1u << i)) && (m.memoryTypes[i].propertyFlags & props) == props) return i;
-  return UINT32_MAX;
+  return re_gpu_memory_type(b->gpu, bits, props);
 }
 static bool buffer_create(VkBackend *b, Buffer *out, VkDeviceSize size, VkBufferUsageFlags usage) {
   VkBufferCreateInfo ci = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, .size = size, .usage = usage, .sharingMode = VK_SHARING_MODE_EXCLUSIVE};
@@ -545,100 +540,59 @@ static void texture_destroy(ReTexture *texture) {
 }
 
 /* --- setup and teardown --- */
-static bool has_extension(const VkExtensionProperties *props, uint32_t n, const char *name) {
-  for (uint32_t i = 0; i < n; i++) if (!strcmp(props[i].extensionName, name)) return true;
-  return false;
+/* The host's half of device selection (spec 122). The device layer cannot ask whether a queue
+ * family can present, because that needs a surface — and a surface is exactly what a headset host
+ * does not have. So it asks this, which owns the window and can answer. The surface is created on
+ * the first call, once the instance exists, which is the only moment it can be. */
+static VkBool32 present_supported(VkBackend *b, VkInstance instance, VkPhysicalDevice physical, uint32_t family) {
+  if (!b->surface && !SDL_Vulkan_CreateSurface(b->window, instance, &b->surface)) return VK_FALSE;
+  PFN_vkGetPhysicalDeviceSurfaceSupportKHR supported =
+    (PFN_vkGetPhysicalDeviceSurfaceSupportKHR)b->gipa(instance, "vkGetPhysicalDeviceSurfaceSupportKHR");
+  if (!supported) return VK_FALSE;
+  VkBool32 present = VK_FALSE;
+  supported(physical, family, b->surface, &present);
+  return present;
 }
-static bool open_instance(VkBackend *b) {
+static bool accepts_device(void *user, VkInstance instance, VkPhysicalDevice physical, uint32_t family) {
+  return present_supported((VkBackend *)user, instance, physical, family) == VK_TRUE;
+}
+
+static bool open_gpu(VkBackend *b) {
   if (SDL_Vulkan_LoadLibrary(NULL) != 0) return false;
-  PFN_vkGetInstanceProcAddr gipa = (PFN_vkGetInstanceProcAddr)SDL_Vulkan_GetVkGetInstanceProcAddr();
-  if (!gipa) { SDL_SetError("Vulkan: the loader has no vkGetInstanceProcAddr"); return false; }
-  b->vk.vkGetInstanceProcAddr = gipa;
-#define RE_VK_LOAD(name) if (!(b->vk.name = (PFN_##name)gipa(VK_NULL_HANDLE, #name))) { SDL_SetError("Vulkan: the loader lacks " #name); return false; }
-  RE_VK_GLOBAL(RE_VK_LOAD)
-#undef RE_VK_LOAD
+  b->gipa = (PFN_vkGetInstanceProcAddr)SDL_Vulkan_GetVkGetInstanceProcAddr();
+  if (!b->gipa) { SDL_SetError("Vulkan: the loader has no vkGetInstanceProcAddr"); return false; }
+
   unsigned count = 0; const char *ext[24];
-  if (!SDL_Vulkan_GetInstanceExtensions(b->window, &count, NULL) || count > 20) { if (count > 20) SDL_SetError("Vulkan: too many instance extensions"); return false; }
-  if (!SDL_Vulkan_GetInstanceExtensions(b->window, &count, ext)) return false;
-  uint32_t n = 0; b->vk.vkEnumerateInstanceExtensionProperties(NULL, &n, NULL);
-  VkExtensionProperties *props = calloc(n ? n : 1, sizeof(*props)); if (!props) return false;
-  b->vk.vkEnumerateInstanceExtensionProperties(NULL, &n, props);
-  bool portability = has_extension(props, n, "VK_KHR_portability_enumeration"), debug = has_extension(props, n, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-  free(props);
-  if (portability) ext[count++] = "VK_KHR_portability_enumeration";
-  const char *validation = getenv("RENGINE_VULKAN_VALIDATION"); b->validation = validation && *validation && strcmp(validation, "0") != 0;
-  static const char *layers[1] = {"VK_LAYER_KHRONOS_validation"}; uint32_t layer_count = 0;
-  if (b->validation) {
-    uint32_t ln = 0; b->vk.vkEnumerateInstanceLayerProperties(&ln, NULL);
-    VkLayerProperties *lp = calloc(ln ? ln : 1, sizeof(*lp)); if (!lp) return false;
-    b->vk.vkEnumerateInstanceLayerProperties(&ln, lp); bool found = false;
-    for (uint32_t i = 0; i < ln; i++) if (!strcmp(lp[i].layerName, layers[0])) found = true;
-    free(lp);
-    if (!found || !debug) { SDL_SetError("Vulkan: RENGINE_VULKAN_VALIDATION is set but VK_LAYER_KHRONOS_validation or VK_EXT_debug_utils is not installed"); return false; }
-    layer_count = 1; ext[count++] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
+  if (!SDL_Vulkan_GetInstanceExtensions(b->window, &count, NULL) || count > 20) {
+    if (count > 20) SDL_SetError("Vulkan: too many instance extensions");
+    return false;
   }
-  VkDebugUtilsMessengerCreateInfoEXT dm = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-    .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-    .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT, .pfnUserCallback = debug_message, .pUserData = b};
-  VkApplicationInfo app = {.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO, .pApplicationName = "rengine", .apiVersion = VK_API_VERSION_1_3};
-  VkInstanceCreateInfo ci = {.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO, .pNext = b->validation ? &dm : NULL,
-    .flags = portability ? VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR : 0, .pApplicationInfo = &app, .enabledLayerCount = layer_count, .ppEnabledLayerNames = layers,
-    .enabledExtensionCount = count, .ppEnabledExtensionNames = ext};
-  CHECK(b->vk.vkCreateInstance(&ci, NULL, &b->instance), "vkCreateInstance");
-#define RE_VK_LOAD(name) if (!(b->vk.name = (PFN_##name)gipa(b->instance, #name))) { SDL_SetError("Vulkan: the instance lacks " #name); return false; }
+  if (!SDL_Vulkan_GetInstanceExtensions(b->window, &count, ext)) return false;
+
+  const char *validation = getenv("RENGINE_VULKAN_VALIDATION");
+  b->validation = validation && *validation && strcmp(validation, "0") != 0;
+  static const char *device_ext[1] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+  ReGpuOpen options = {
+    .get_instance_proc_addr = b->gipa,
+    .instance_extensions = ext, .instance_extension_count = count,
+    .device_extensions = device_ext, .device_extension_count = 1,
+    .accepts = accepts_device, .user = b,
+    .validation = b->validation, .on_message = debug_message, .message_user = b,
+  };
+  char error[256];
+  b->gpu = re_gpu_open(&options, error, sizeof(error));
+  if (!b->gpu) { SDL_SetError("Vulkan: %s", error); return false; }
+
+  b->instance = re_gpu_instance(b->gpu); b->physical = re_gpu_physical(b->gpu);
+  b->device = re_gpu_device(b->gpu); b->queue = re_gpu_queue(b->gpu); b->family = re_gpu_family(b->gpu);
+#define RE_VK_LOAD(name) if (!(b->vk.name = (PFN_##name)re_gpu_instance_proc(b->gpu, #name))) { SDL_SetError("Vulkan: the instance lacks " #name); return false; }
   RE_VK_INSTANCE(RE_VK_LOAD)
 #undef RE_VK_LOAD
-  if (b->validation) {
-    b->vk.vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)gipa(b->instance, "vkCreateDebugUtilsMessengerEXT");
-    b->vk.vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)gipa(b->instance, "vkDestroyDebugUtilsMessengerEXT");
-    if (!b->vk.vkCreateDebugUtilsMessengerEXT || !b->vk.vkDestroyDebugUtilsMessengerEXT) { SDL_SetError("Vulkan: debug messenger functions are missing"); return false; }
-    CHECK(b->vk.vkCreateDebugUtilsMessengerEXT(b->instance, &dm, NULL, &b->messenger), "vkCreateDebugUtilsMessengerEXT");
-  }
-  if (!SDL_Vulkan_CreateSurface(b->window, b->instance, &b->surface)) return false;
-  return true;
-}
-static bool open_device(VkBackend *b) {
-  uint32_t n = 0; CHECK(b->vk.vkEnumeratePhysicalDevices(b->instance, &n, NULL), "vkEnumeratePhysicalDevices");
-  VkPhysicalDevice devices[16]; if (n > 16) n = 16;
-  CHECK(b->vk.vkEnumeratePhysicalDevices(b->instance, &n, devices), "vkEnumeratePhysicalDevices");
-  VkPhysicalDeviceProperties chosen_props; memset(&chosen_props, 0, sizeof(chosen_props));
-  for (uint32_t i = 0; i < n && !b->physical; i++) {
-    VkPhysicalDeviceProperties props; b->vk.vkGetPhysicalDeviceProperties(devices[i], &props);
-    if (props.apiVersion < VK_API_VERSION_1_3) continue;
-    VkPhysicalDeviceVulkan13Features f13 = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
-    VkPhysicalDeviceFeatures2 f2 = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = &f13};
-    b->vk.vkGetPhysicalDeviceFeatures2(devices[i], &f2);
-    if (!f13.dynamicRendering || !f13.synchronization2 || !f13.shaderDemoteToHelperInvocation) continue;
-    uint32_t en = 0; b->vk.vkEnumerateDeviceExtensionProperties(devices[i], NULL, &en, NULL);
-    VkExtensionProperties *ext = calloc(en ? en : 1, sizeof(*ext)); if (!ext) return false;
-    b->vk.vkEnumerateDeviceExtensionProperties(devices[i], NULL, &en, ext);
-    bool swapchain = has_extension(ext, en, VK_KHR_SWAPCHAIN_EXTENSION_NAME), portability = has_extension(ext, en, "VK_KHR_portability_subset");
-    free(ext);
-    if (!swapchain) continue;
-    uint32_t qn = 0; b->vk.vkGetPhysicalDeviceQueueFamilyProperties(devices[i], &qn, NULL);
-    VkQueueFamilyProperties *queues = calloc(qn ? qn : 1, sizeof(*queues)); if (!queues) return false;
-    b->vk.vkGetPhysicalDeviceQueueFamilyProperties(devices[i], &qn, queues);
-    for (uint32_t q = 0; q < qn && !b->physical; q++) {
-      VkBool32 present = VK_FALSE; b->vk.vkGetPhysicalDeviceSurfaceSupportKHR(devices[i], q, b->surface, &present);
-      if ((queues[q].queueFlags & VK_QUEUE_GRAPHICS_BIT) && present) { b->physical = devices[i]; b->family = q; b->portability_subset = portability; chosen_props = props; }
-    }
-    free(queues);
-  }
-  if (!b->physical) { SDL_SetError("Vulkan: no device offers API 1.3 with dynamic rendering, synchronization2, shader demote and presentation"); return false; }
-  float priority = 1.0f;
-  VkDeviceQueueCreateInfo queue = {.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO, .queueFamilyIndex = b->family, .queueCount = 1, .pQueuePriorities = &priority};
-  VkPhysicalDeviceVulkan13Features enable13 = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES, .shaderDemoteToHelperInvocation = VK_TRUE, .synchronization2 = VK_TRUE, .dynamicRendering = VK_TRUE};
-  VkPhysicalDeviceFeatures2 enable2 = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = &enable13};
-  const char *ext[2] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, "VK_KHR_portability_subset"};
-  VkDeviceCreateInfo ci = {.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, .pNext = &enable2, .queueCreateInfoCount = 1, .pQueueCreateInfos = &queue,
-    .enabledExtensionCount = b->portability_subset ? 2 : 1, .ppEnabledExtensionNames = ext};
-  CHECK(b->vk.vkCreateDevice(b->physical, &ci, NULL, &b->device), "vkCreateDevice");
-#define RE_VK_LOAD(name) if (!(b->vk.name = (PFN_##name)b->vk.vkGetDeviceProcAddr(b->device, #name))) { SDL_SetError("Vulkan: the device lacks " #name); return false; }
+#define RE_VK_LOAD(name) if (!(b->vk.name = (PFN_##name)re_gpu_device_proc(b->gpu, #name))) { SDL_SetError("Vulkan: the device lacks " #name); return false; }
   RE_VK_DEVICE(RE_VK_LOAD)
 #undef RE_VK_LOAD
-  b->vk.vkGetDeviceQueue(b->device, b->family, 0, &b->queue);
-  fprintf(stderr, "Vulkan device: %s, API %u.%u.%u, driver %u%s\n", chosen_props.deviceName, VK_API_VERSION_MAJOR(chosen_props.apiVersion),
-          VK_API_VERSION_MINOR(chosen_props.apiVersion), VK_API_VERSION_PATCH(chosen_props.apiVersion), chosen_props.driverVersion, b->validation ? ", validation on" : "");
+
+  fprintf(stderr, "Vulkan device: %s%s\n", re_gpu_device_name(b->gpu), b->validation ? ", validation on" : "");
   return true;
 }
 static bool open_pipeline(VkBackend *b) {
@@ -729,12 +683,11 @@ static void close_backend(ReBackend *backend) {
     if (b->descriptor_pool) b->vk.vkDestroyDescriptorPool(b->device, b->descriptor_pool, NULL);
     if (b->set_layout) b->vk.vkDestroyDescriptorSetLayout(b->device, b->set_layout, NULL);
     swapchain_destroy(b);
-    b->vk.vkDestroyDevice(b->device, NULL);
   }
+  /* The surface is this file's, so it goes before the layer takes the instance with it. */
   if (b->surface && b->vk.vkDestroySurfaceKHR) b->vk.vkDestroySurfaceKHR(b->instance, b->surface, NULL);
-  if (b->messenger && b->vk.vkDestroyDebugUtilsMessengerEXT) b->vk.vkDestroyDebugUtilsMessengerEXT(b->instance, b->messenger, NULL);
-  if (b->instance && b->vk.vkDestroyInstance) b->vk.vkDestroyInstance(b->instance, NULL);
-  if (b->vk.vkGetInstanceProcAddr) SDL_Vulkan_UnloadLibrary();
+  re_gpu_close(b->gpu);
+  if (b->gipa) SDL_Vulkan_UnloadLibrary();
   free(b);
 }
 static const ReBackendOps ops = {"vulkan", density, begin, execute, present, snapshot, texture_create, texture_update, texture_destroy, close_backend};
@@ -744,7 +697,7 @@ Uint32 re_backend_vk_window_flags(void) { return SDL_WINDOW_VULKAN; }
 ReBackend *re_backend_vk_open(SDL_Window *window, ReFontSet *fonts) {
   VkBackend *b = calloc(1, sizeof(*b)); if (!b) return NULL;
   b->window = window; b->base.ops = &ops; b->base.fonts = fonts; b->density = 1.0f;
-  if (!open_instance(b) || !open_device(b) || !swapchain_create(b) || !open_pipeline(b) || !open_frames(b)) { close_backend(&b->base); return NULL; }
+  if (!open_gpu(b) || !swapchain_create(b) || !open_pipeline(b) || !open_frames(b)) { close_backend(&b->base); return NULL; }
   atlas_reset(b);
   return &b->base;
 }

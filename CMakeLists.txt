@@ -131,6 +131,7 @@ set(rengine_render_SOURCES
 	"orchestrator/native/render/backend_vk.c"
 	"orchestrator/native/render/draw_list.c"
 	"orchestrator/native/render/font.c"
+	"orchestrator/native/render/gpu_device.c"
 	"orchestrator/native/render/utf8.c"
 	"orchestrator/native/theme.c"
 	"orchestrator/native/theme_file.c"

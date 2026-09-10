@@ -5,8 +5,8 @@
       "id": "glyph-prepass",
       "kind": "edge-case",
       "anchor": {
-        "start": 230,
-        "end": 230,
+        "start": 225,
+        "end": 225,
         "snippet": "static int glyph_prepare(VkBackend *b, Frame *f, uint8_t face, int16_t size, uint32_t cp) {",
         "symbol": "glyph_prepare"
       },
@@ -17,8 +17,8 @@
       "id": "shared-shading",
       "kind": "rationale",
       "anchor": {
-        "start": 351,
-        "end": 351,
+        "start": 346,
+        "end": 346,
         "snippet": "static void draw_text(VkBackend *b, ReColor color, uint8_t face, int size, int x, int y, const char *s, const char *end) {",
         "symbol": "draw_text"
       },
@@ -33,8 +33,8 @@
       "id": "gradient-strips",
       "kind": "rationale",
       "anchor": {
-        "start": 330,
-        "end": 350,
+        "start": 325,
+        "end": 345,
         "symbol": "gradient",
         "snippet": "static void gradient(VkBackend *b, const ReCommand *c) {"
       },
@@ -48,8 +48,8 @@
       "id": "frame-lifecycle",
       "kind": "constraint",
       "anchor": {
-        "start": 381,
-        "end": 381,
+        "start": 376,
+        "end": 376,
         "snippet": "static float density(ReBackend *backend, int logical_width) {",
         "symbol": "density"
       },
@@ -58,5 +58,11 @@
         "docs/specs/073-vulkan-adapter.md"
       ]
     }
-  ]
+  ],
+  "source": {
+    "path": "orchestrator/native/render/backend_vk.c",
+    "sha256": "4d228703ee05fa25fa2131546d089b8fb74ffa15ebb64d49b0d312a308cbc591",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
 }

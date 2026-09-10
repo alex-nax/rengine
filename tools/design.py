@@ -818,10 +818,40 @@ def native_render_layering():
     for path in sorted(list(NATIVE.rglob("*.c")) + list(NATIVE.rglob("*.h")) + list(NATIVE.rglob("*.m"))):
         if path.parent.name == "render" and path.name.startswith("backend_") and path.suffix in (".c", ".m"):
             continue
+        # The GPU device layer is below the draw list by construction (spec 122): it is the piece a
+        # backend and an OpenXR host both build on, so it holds Vulkan symbols for the same reason a
+        # backend does. What it may NOT hold is windowing, which native_gpu_device_layer checks.
+        if path.parent.name == "render" and path.stem == "gpu_device":
+            continue
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             match = RENDER_API.search(line)
             if match:
                 problems.append("%s:%d: %s belongs below the draw list (render/backend_*.c or .m only)" % (rel(path), number, match.group(0)))
+    return problems
+
+
+GPU_DEVICE_WINDOWING = re.compile(r"SDL_|VkSurface|vkCreateSurface|Swapchain|SWAPCHAIN|vkQueuePresent|PresentKHR")
+
+
+def native_gpu_device_layer():
+    """The device layer must stay usable by a host that has no window (charter D49, spec 122).
+
+    OpenXR dictates instance and device creation and then hands the application its swapchain
+    images, so a device layer that reaches for a surface or a swapchain cannot serve a headset at
+    all. That is the whole reason the layer exists, and it is one grep away from being lost, so it
+    is a gate rather than a review note."""
+    problems = []
+    for name in ("gpu_device.c", "gpu_device.h"):
+        path = NATIVE / "render" / name
+        if not path.exists():
+            continue
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if line.lstrip().startswith(("*", "/*", "//")):
+                continue  # prose may name what the layer refuses to depend on
+            match = GPU_DEVICE_WINDOWING.search(line)
+            if match:
+                problems.append("%s:%d: %s is windowing; the GPU device layer must stay usable "
+                                "without a window (spec 122)" % (rel(path), number, match.group(0)))
     return problems
 
 
@@ -874,6 +904,7 @@ def check():
     for name in ["default"] + list(presets):
         resolve_preset(layers, presets, name)
     problems += native_literals(tokens) + native_layout_rows() + native_render_layering() + native_build_files()
+    problems += native_gpu_device_layer()
     problems += product_literals(tokens)
     for problem in problems:
         print("ERROR: " + problem)

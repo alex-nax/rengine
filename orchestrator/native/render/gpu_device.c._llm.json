@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "the-host-answers-which-device",
+      "kind": "rationale",
+      "anchor": {
+        "start": 101,
+        "end": 101,
+        "symbol": "open_device",
+        "snippet": "static bool open_device(ReGpu *gpu, const ReGpuOpen *options, char *error, size_t size) {"
+      },
+      "note": "The `accepts` callback is the whole reason this layer can serve both a window and a headset, and it is the part a later editor is most likely to 'simplify' back into a surface check.\n\nSelecting a physical device needs a question this layer cannot ask. The desktop's question is \"can this queue family present to my surface\" \u2014 which needs a VkSurfaceKHR, and creating one here would make the layer useless to OpenXR, where there is no surface at all and the runtime instead names the adapter its headset is on. So the layer enumerates and filters on what is universal (API 1.3, dynamic rendering, synchronization2, shader demote, the caller's extensions) and hands each candidate to the host.\n\nThe desktop's callback creates its surface on the first call, because that is the only moment it can: the surface needs the instance, and the instance is created inside re_gpu_open. Windowing therefore lives in backend_vk.c where it belongs, and tools/design.py's native_gpu_device_layer gate fails the build if a surface, swapchain, present or SDL symbol appears here.\n\nNOT verified on this machine: there is no Vulkan loader here, so nothing in this file has ever executed (KI-079). It was written as a move of backend_vk.c's own creation code rather than a rewrite for exactly that reason.",
+      "refs": [
+        "docs/specs/122-gpu-device-layer.md",
+        "known-issues.md",
+        "docs/specs/121-rendering-library.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/render/gpu_device.c",
+    "sha256": "92110e4b0bf01a2ac7b8b58b4c1fc4bf191ad2aff30066ab51d62d35934118cf",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

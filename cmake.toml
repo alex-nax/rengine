@@ -75,6 +75,7 @@ sources = [
   "orchestrator/native/render/utf8.c", "orchestrator/native/render/draw_list.c",
   "orchestrator/native/render/font.c", "orchestrator/native/render/backend_sdl.c",
   "orchestrator/native/render/backend_gl.c", "orchestrator/native/render/backend_vk.c",
+  "orchestrator/native/render/gpu_device.c",
 ]
 include-directories = ["orchestrator/native"]
 link-libraries = ["SDL2::SDL2", "rengine_microui", "rengine_json"]

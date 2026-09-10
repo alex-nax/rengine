@@ -189,3 +189,17 @@ measures after the scrollbar is drawn. Closing or shortening a tall chooser near
 list therefore draws one frame with stale thumb geometry and possibly empty space below the content,
 corrected on the next frame. Pre-existing and independent of virtualisation — exact spacers keep the
 content height right but cannot change the ordering. Found by a cross-vendor review of spec 120.
+
+## KI-079 — F120's Vulkan render-identity check is owed on a Vulkan-capable host
+
+The GPU device layer is extracted, guarded and building (spec 122), and the SDL, OpenGL and Metal
+backends are unchanged and still match under the recorded tolerance. What cannot be checked on this
+machine is F120's fourth criterion — that the **Vulkan** backend still renders identically —
+because there is no Vulkan loader here: `--renderer vulkan --smoke-test` answers "Failed to load
+Vulkan Portability library", and `native-render.spec.mjs` probes for exactly that and skips the
+backend with a printed reason. It answered the same before the change, from `SDL_Vulkan_LoadLibrary`
+in the host, so the failure mode is unchanged rather than introduced.
+
+Closing this needs a host with a loader: Windows, where F59 was verified, or MoltenVK installed
+here. Until then F120 stays `passes: false` and the change should be described as a compile-checked,
+guard-checked move — which is why it was scoped as a move rather than a rewrite.
