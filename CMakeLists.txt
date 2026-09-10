@@ -38,6 +38,16 @@ set(RENGINE_VENDOR "${PROJECT_SOURCE_DIR}/third_party")
 find_program(RENGINE_NODE_EXECUTABLE NAMES node REQUIRED)
 file(TO_CMAKE_PATH "${RENGINE_NODE_EXECUTABLE}" RENGINE_NODE_PATH)
 
+# Subdirectory: packs/gpu
+set(CMKR_CMAKE_FOLDER ${CMAKE_FOLDER})
+if(CMAKE_FOLDER)
+	set(CMAKE_FOLDER "${CMAKE_FOLDER}/packs/gpu")
+else()
+	set(CMAKE_FOLDER "packs/gpu")
+endif()
+add_subdirectory("packs/gpu")
+set(CMAKE_FOLDER ${CMKR_CMAKE_FOLDER})
+
 # Target: rengine_microui
 set(rengine_microui_SOURCES
 	cmake.toml
@@ -131,7 +141,6 @@ set(rengine_render_SOURCES
 	"orchestrator/native/render/backend_vk.c"
 	"orchestrator/native/render/draw_list.c"
 	"orchestrator/native/render/font.c"
-	"orchestrator/native/render/gpu_device.c"
 	"orchestrator/native/render/utf8.c"
 	"orchestrator/native/theme.c"
 	"orchestrator/native/theme_file.c"
@@ -158,6 +167,7 @@ target_link_libraries(rengine_render PUBLIC
 	SDL2::SDL2
 	rengine_microui
 	rengine_json
+	rengine_gpu
 )
 
 set(CMKR_TARGET rengine_render)

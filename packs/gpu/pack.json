@@ -1,0 +1,16 @@
+{
+  "name": "rengine-gpu",
+  "version": "0.1.0",
+  "description": "The GPU device layer: instance, physical-device selection, device, queue and memory, with render targets supplied from outside and no windowing symbol. Charter D49; spec 122.",
+  "target": "rengine_gpu",
+  "alias": "rengine::gpu",
+  "include": "include",
+  "publicHeaders": [
+    "rengine/gpu_device.h"
+  ],
+  "note": "The revision below is the commit a consumer pins, and it is rEngine's own: a project that already carries third_party/rengine receives this pack with a pin it already holds, so nothing here fetches anything (spec 111, KI-008). The version is spoken and the revision is checked, which is the two-part pin contract 9 takes (spec 107).",
+  "pin": {
+    "version": "0.1.0",
+    "revision": "197b53980120287578622b73feed155d425d8f54"
+  }
+}

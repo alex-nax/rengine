@@ -8,7 +8,7 @@
 #include <SDL.h>
 #include <SDL_vulkan.h>
 #include "render/backend_vk.h"
-#include "render/gpu_device.h"
+#include "rengine/gpu_device.h"
 #include "render/utf8.h"
 #include "render/shaders/ui_spv.h"
 #include <stdio.h>

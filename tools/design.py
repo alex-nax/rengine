@@ -821,7 +821,7 @@ def native_render_layering():
         # The GPU device layer is below the draw list by construction (spec 122): it is the piece a
         # backend and an OpenXR host both build on, so it holds Vulkan symbols for the same reason a
         # backend does. What it may NOT hold is windowing, which native_gpu_device_layer checks.
-        if path.parent.name == "render" and path.stem == "gpu_device":
+        if path.stem == "gpu_device":
             continue
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             match = RENDER_API.search(line)
@@ -841,8 +841,8 @@ def native_gpu_device_layer():
     all. That is the whole reason the layer exists, and it is one grep away from being lost, so it
     is a gate rather than a review note."""
     problems = []
-    for name in ("gpu_device.c", "gpu_device.h"):
-        path = NATIVE / "render" / name
+    root = NATIVE.parent.parent / "packs" / "gpu"
+    for path in (root / "src" / "gpu_device.c", root / "include" / "rengine" / "gpu_device.h"):
         if not path.exists():
             continue
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):

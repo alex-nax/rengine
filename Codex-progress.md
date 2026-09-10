@@ -1,5 +1,45 @@
 # Progress Log
 
+## Session 96 (macos) — 2026-09-10 — F123's pack ships, and the seam hits a language boundary
+
+The device layer moved out of `orchestrator/native/render/` into **`packs/gpu/`**, and rEngine now
+consumes it from there — so the suite builds the same bytes a project outside this repository does,
+rather than a copy that can drift. One public header, private `src/`, a hand-written CMakeLists that
+returns early when it is not the top-level project (iklib's shape), and a `pack.json` carrying the
+two-part pin.
+
+**Vulkan headers are a PUBLIC dependency**, because the public header includes `<vulkan/vulkan.h>`.
+rEngine vendors them beside the pack; a consumer passes `-DRENGINE_GPU_VULKAN_INCLUDE=<dir>`, the
+same shape `NOLF_IKLIB_DIR` uses, and a missing directory refuses by saying what to pass.
+
+**The evidence is a project outside this build.** `pack-gpu.test.mjs` writes a CMake project that has
+never heard of rEngine, adds the pack, links `rengine::gpu`, includes the header and runs the binary.
+Two sabotages, both observed: publishing `src/` makes the implementation reachable; dropping the
+not-top-level return leaks `rengine_desktop_core` into the consumer. The second assertion originally
+asked `CMakeCache.txt`, which mentions target names for unrelated reasons and therefore **always
+passed** — it now asks the build system's own target list.
+
+**A design obstacle found only because the pack exists.** D52 says the pack also carries the
+resource-and-draw seam generalised from VtMB's `device.h`. But **VtMB's seam is C++ and this pack is
+C** — `namespace`, `enum class`, struct member initialisers, fifteen C++ constructs in one header —
+and D52 has VtMB adopting *by deleting its own copy*, which cannot happen across a language boundary
+unless the pack becomes C++ or VtMB rewrites every call site. That is the owner's decision and it is
+now in spec 122; the seam is deliberately not authored blind.
+
+**A red row that is not ours, chased to attribution.** `native-render.spec.mjs`'s 32 MiB OpenGL
+memory ceiling now fails by 2–10% (33152 … 36160 KiB) and passed repeatedly earlier the same day. A
+clean worktree built from `197b539`, before the device layer and the pack, **fails identically** at
+33152 KiB under the same conditions. It is host load, not the change; the machine was at 39% free.
+Recorded as KI-080 and deliberately not "fixed" by raising the ceiling — a budget that moves whenever
+it is exceeded is not a budget.
+
+**Both F120 and F123 stay `passes: false`**, and for good reasons rather than for want of effort:
+F120's render-identity criterion needs a Vulkan loader this machine does not have (KI-079), and
+F123's seam criterion is the half blocked on the language decision above.
+
+Commands: `npm test` 231/231 · `pack-gpu.test.mjs` with both sabotages · `./init.sh` ·
+`design.py check` · `features.py validate` (80) · sidecars stamped.
+
 ## Session 95 (macos) — 2026-09-10 — F120: the GPU device layer extracted, and what it cannot prove here
 
 First of the pre-adoption work (D49, and D52's layer 1). `render/gpu_device.{h,c}` now owns the

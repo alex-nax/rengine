@@ -19,8 +19,8 @@
     }
   ],
   "source": {
-    "path": "orchestrator/native/render/gpu_device.c",
-    "sha256": "92110e4b0bf01a2ac7b8b58b4c1fc4bf191ad2aff30066ab51d62d35934118cf",
+    "path": "packs/gpu/src/gpu_device.c",
+    "sha256": "d2b6c4092d36b0c8c4bee2ba9ca50c25115b31e61701feb3159d0721669f38bf",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

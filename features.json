@@ -1906,8 +1906,9 @@
       "deliverable": "The pack's own build definition and public include surface, the split from the desktop build, its pin identity, and the outside-consumer check that proves it builds.",
       "external_references": [],
       "evidence": [
-        "docs/specs/115-gpu-device-layer-and-simulator.md: the pack gate, what proper means here, and why acquisition needs nothing new",
-        "docs/specs/121-rendering-library.md: the two layers, the measured file counts, and why VtMB's design leads"
+        "docs/specs/122-gpu-device-layer.md: the pack's shape, the outside-consumer evidence with its two sabotages, and the C/C++ obstacle the seam runs into",
+        "orchestrator/tests/pack-gpu.test.mjs: a project outside this build adds the pack, links it, runs it, and gets no other rEngine target",
+        "packs/gpu/pack.json: the two-part pin, whose revision is rEngine's own commit"
       ]
     },
     {

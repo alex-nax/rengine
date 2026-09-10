@@ -61,7 +61,7 @@
   ],
   "source": {
     "path": "orchestrator/native/render/backend_vk.c",
-    "sha256": "4d228703ee05fa25fa2131546d089b8fb74ffa15ebb64d49b0d312a308cbc591",
+    "sha256": "44f88cf822712dd8b841396148a211c03e5e47f301c1df929318cafbec4ec64a",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

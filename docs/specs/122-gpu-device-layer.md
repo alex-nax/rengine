@@ -86,3 +86,52 @@ after the extraction, judged by R0/R1's reference comparison, and that cannot be
 backend cannot start. The work is done; the verification is owed on a host with a Vulkan loader.
 Recorded as KI-079 rather than waved through, because marking this passing would put a green row
 against a claim nobody has tested.
+
+## The pack (F123's shipped half)
+
+The device layer is not in `orchestrator/native/render/` any more: it lives at **`packs/gpu/`**, and
+rEngine consumes it from there. That ordering matters — the suite builds the same bytes a project
+outside this repository does, rather than a copy that can drift, which is F123's fifth criterion.
+
+- `packs/gpu/include/rengine/gpu_device.h` — the entire public surface, one header.
+- `packs/gpu/src/gpu_device.c` — private; a consumer cannot reach it, and that is asserted.
+- `packs/gpu/CMakeLists.txt` — hand-written, because a pack is consumed by projects that have never
+  heard of cmkr and should not need a generator to read one library. It returns early when it is not
+  the top-level project, which is the shape iklib already proves in this family.
+- `packs/gpu/pack.json` — the two-part pin contract 9 takes: a spoken version and a checked revision.
+
+**Vulkan headers are a PUBLIC dependency, not a private one**, because the public header includes
+`<vulkan/vulkan.h>`. rEngine vendors them beside the pack; a consumer with its own passes
+`-DRENGINE_GPU_VULKAN_INCLUDE=<dir>`, the same shape `NOLF_IKLIB_DIR` uses. A missing directory is a
+refusal that says what to pass, rather than a header-not-found fifty lines later.
+
+### The evidence, which is a project outside this build
+
+`orchestrator/tests/pack-gpu.test.mjs` writes a CMake project that has never heard of rEngine's
+build, `add_subdirectory`s the pack, links `rengine::gpu`, includes the public header, and runs the
+resulting binary. It then asserts the two properties that make this a pack rather than a directory,
+and both were observed failing for their own reason:
+
+| Sabotage | Observed |
+| --- | --- |
+| publish `src/` alongside `include/` | *"Missing expected rejection: the implementation is not reachable through the public include path"* |
+| drop the not-top-level early return, leaking a target into the consumer | *"the consumer configured the pack's library and no other rEngine target: … rengine_desktop_core, rengine_gpu …"* |
+
+The second assertion first asked `CMakeCache.txt`, which mentions target names for unrelated reasons
+and therefore always passed. It now asks the build system's own target list, which is the thing that
+actually answers the question.
+
+## What F123 still owes, and a design obstacle found while doing it
+
+D52 says the pack also carries **the resource-and-draw seam generalised from VtMB's `device.h`**, with
+GL and Vulkan backends. That is not written, and it should not be written blind:
+
+**VtMB's seam is C++ and this pack is C.** `device.h` uses `namespace vtmb::renderer::gpu`,
+`enum class BufferUsage : std::uint8_t` and struct member initialisers — fifteen C++ constructs in
+one header — while `packs/gpu` is `c_std_11`, as all of rEngine's native code is. D52 says VtMB
+adopts the pack *by deleting its own copy*, and that cannot happen across a language boundary without
+either the pack becoming C++ (a language rEngine's native tree does not currently contain) or VtMB
+rewriting every call site (which is the opposite of adopting by deletion).
+
+That is a decision, not a detail, and it was not visible until the pack existed. It belongs to the
+owner before the seam is authored.

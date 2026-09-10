@@ -203,3 +203,19 @@ in the host, so the failure mode is unchanged rather than introduced.
 Closing this needs a host with a loader: Windows, where F59 was verified, or MoltenVK installed
 here. Until then F120 stays `passes: false` and the change should be described as a compile-checked,
 guard-checked move — which is why it was scoped as a move rather than a rewrite.
+
+## KI-080 — the render spec's OpenGL memory budget fails intermittently on a loaded machine
+
+`native-render.spec.mjs` asserts a 32 MiB resident-memory ceiling per backend. On this machine it
+now fails for OpenGL by 2–10% — 33152, 33232, 33376, 33456 and 36160 KiB across runs — and the same
+spec passed repeatedly earlier the same day. It is **not** caused by the GPU device layer or the
+pack: a clean worktree built from `197b539`, before either, fails identically at 33152 KiB under the
+same conditions, and both builds pass when the machine is quieter. The worst number came from a full
+`test:desktop` run, where 72 specs spawn desktops; system free memory was 39% at the time.
+
+Deliberately **not** fixed by raising the ceiling. A budget that moves whenever it is exceeded stops
+being a budget, and `AGENTS.md` forbids rewriting a requirement so it passes. What would close this
+is a measurement less sensitive to host load — a median of several samples, or measuring the delta
+against a same-run baseline process rather than an absolute ceiling — or simply running the suite on
+an idle machine. Until then a red row here should be checked against a quiet run before it is
+believed.

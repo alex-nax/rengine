@@ -1,6 +1,6 @@
-/* See gpu_device.h. Creation only: the drawing path stays in whichever backend owns it, and this
+/* See include/rengine/gpu_device.h. Creation only: the drawing path stays in whichever backend owns it, and this
  * file mentions no surface, no swapchain and no present — `tools/design.py check` enforces that. */
-#include "render/gpu_device.h"
+#include "rengine/gpu_device.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
