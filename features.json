@@ -1885,7 +1885,7 @@
       "milestone": "R3",
       "category": "rendering",
       "priority": "high",
-      "description": "rEngine's first library pack from its own sources: the GPU device layer becomes a standalone, consumable unit a project outside this repository can build and link, with a public surface smaller than the tree, a two-part pin, and a consuming project that has actually built it. This is the gate a game's Vulkan OpenXR work waits behind, so that one curated capability is written once here rather than twice in two game repositories (charter D50, D49, D24).",
+      "description": "rEngine's first library pack from its own sources: the GPU device layer plus the resource-and-draw seam generalised from vtmb-vr's proven src/renderer/gpu/device.h, with OpenGL and Vulkan backends selected at build time, as a standalone consumable unit a project outside this repository can build and link. This is the gate a game's Vulkan work waits behind, so that one curated capability is written once here rather than twice in two game repositories (charter D50, D51, D52, D49, D24).",
       "acceptance_criteria": [
         "The pack builds standalone: a project that adds it as a subdirectory gets the device layer and nothing else, with no desktop, tests, terminal, image or SVG targets configured, and it defines only its library when it is not the top-level project.",
         "The public surface is the device layer's headers alone; internal headers stay private, and a consumer that reaches for one fails to compile rather than succeeding by accident.",
@@ -1893,7 +1893,8 @@
         "A project outside this repository declares and builds it, and that build is the evidence: a pack nobody has built from outside is a claim rather than a pack.",
         "rEngine's own desktop still builds and renders identically from the same sources, so the pack is the same code the suite uses rather than a copy that can drift.",
         "No new acquisition mechanism is introduced: a project that already pins rEngine as a submodule receives the pack through the bootstrap that already works, and nothing downloads anything.",
-        "Each regression was observed failing for its own reason, including a consumer that accidentally configures the desktop targets and a private header that stays reachable."
+        "Each regression was observed failing for its own reason, including a consumer that accidentally configures the desktop targets and a private header that stays reachable.",
+        "The pack carries both layers a game needs: a device and context layer whose render targets are supplied from outside, so an OpenXR host can hand it swapchain images with no window; and a resource-and-draw seam generalised from vtmb-vr's device.h, with GL and Vulkan backends chosen at build time and no call-site difference between them."
       ],
       "passes": false,
       "dependencies": [
@@ -1903,7 +1904,8 @@
       "deliverable": "The pack's own build definition and public include surface, the split from the desktop build, its pin identity, and the outside-consumer check that proves it builds.",
       "external_references": [],
       "evidence": [
-        "docs/specs/115-gpu-device-layer-and-simulator.md: the pack gate, what proper means here, and why acquisition needs nothing new"
+        "docs/specs/115-gpu-device-layer-and-simulator.md: the pack gate, what proper means here, and why acquisition needs nothing new",
+        "docs/specs/121-rendering-library.md: the two layers, the measured file counts, and why VtMB's design leads"
       ]
     },
     {
@@ -1960,6 +1962,79 @@
         "docs/specs/120-virtualised-task-list.md: the measurement, why immediate mode needs no height estimate, and the sabotage",
         "orchestrator/tests/native-tracker-virtual.spec.mjs: the draw list stays flat as the inventory grows, and the visible rows are pixel-identical",
         "known-issues.md KI-076: the stale-hover submit a cross-vendor review found in this feature, fixed in the owned control layer"
+      ]
+    },
+    {
+      "id": 126,
+      "milestone": "R3",
+      "category": "rendering",
+      "priority": "high",
+      "description": "VtMB adopts the rendering pack for the files already behind its own GPU seam, deleting src/renderer/gpu/ in favour of the pinned pack, and a Vulkan backend serves them. This is the verdict on D14c's untested bet that resource+draw granularity can carry Vulkan with command buffers, render passes and barriers built inside the backend — tested on 13 files rather than after migrating 49 more onto a seam that may not hold it (charter D52).",
+      "acceptance_criteria": [
+        "The files already behind VtMB's seam compile and render against the pack's interface with its own gpu/device.h deleted, so there is one seam rather than two.",
+        "Both backends build from the same call sites with no call-site edits between them, which is what the seam claims and what D14c bet on.",
+        "The Vulkan backend builds command buffers, render passes and barriers internally, or the attempt records precisely which resource+draw call cannot be expressed that way — a refusal is a result here, not a failure.",
+        "The GL build stays the reference: it renders what it rendered before the adoption, judged by the project's own comparison under a recorded tolerance rather than by eye.",
+        "Frame time and allocations per frame are measured on the target for both backends and recorded, because a rendering adoption that reports only correctness repeats the gap spec 110 now closes.",
+        "Each regression was observed failing for its own reason."
+      ],
+      "passes": false,
+      "dependencies": [
+        123
+      ],
+      "owner_workspace": "vtmb-vr",
+      "deliverable": "vtmb-vr adopting the pinned rendering pack across its already-migrated renderer files, its own src/renderer/gpu/ removed, and the comparison and budget evidence in its own documents.",
+      "external_references": [
+        "vtmb-vr F801/D14: the seam this adopts and the compile-time selection D51 upholds"
+      ],
+      "evidence": [
+        "docs/specs/121-rendering-library.md: the measurement, the two layers, and why the first proof is the smallest surface"
+      ]
+    },
+    {
+      "id": 127,
+      "milestone": "R3",
+      "category": "rendering",
+      "priority": "medium",
+      "description": "VtMB's remaining GL-touching files move behind the rendering pack, so the whole renderer talks to one seam and a backend choice reaches all of it rather than a fraction. Measured at the time of planning: 62 files touch GL and 13 were behind the seam (charter D52).",
+      "acceptance_criteria": [
+        "No renderer file calls a GL entry point directly; what remains outside the seam is named with the reason it is outside.",
+        "Both backends still build from the same call sites after the migration, and the GL build still matches its own reference under the recorded tolerance.",
+        "The migration is file by file with the project's tests green at each step, as F801 already works, rather than one change nobody can bisect."
+      ],
+      "passes": false,
+      "dependencies": [
+        126
+      ],
+      "owner_workspace": "vtmb-vr",
+      "deliverable": "vtmb-vr's remaining renderer files behind the pinned pack, with its own per-file migration record.",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/121-rendering-library.md: the file counts this is measured against"
+      ]
+    },
+    {
+      "id": 128,
+      "milestone": "R3",
+      "category": "rendering",
+      "priority": "medium",
+      "description": "NOLF gains the GPU seam it has never had: its GL-touching files move behind the pinned rendering pack so it can build against either backend. Measured at planning time: 102 GL symbols across 39 files, none behind any abstraction. Planned rather than committed — a local task cannot decide another project's adoption (charter D52).",
+      "acceptance_criteria": [
+        "NOLF builds and renders against the pack's interface with no renderer file calling a GL entry point directly, or the files that must is named with its reason.",
+        "The GL build renders what it rendered before, judged against NOLF's own reference captures under a recorded tolerance.",
+        "Frame time and allocations per frame are measured on the target for both backends and recorded before either is called done."
+      ],
+      "passes": false,
+      "dependencies": [
+        126
+      ],
+      "owner_workspace": "nolf-improved",
+      "deliverable": "nolf-improved's renderer behind the pinned rendering pack, with its own comparison and budget evidence.",
+      "external_references": [
+        "nolf-improved: no GPU abstraction exists there today; this creates one"
+      ],
+      "evidence": [
+        "docs/specs/121-rendering-library.md: the measurement and why NOLF follows VtMB rather than leading"
       ]
     }
   ]

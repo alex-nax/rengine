@@ -88,7 +88,7 @@ shell or terminal-only app does not complete it. F43 is a real host-owned game i
 | R1 — Metal and Vulkan adapters | F58–F59 | Each adapter matches the reference on its platform with the same comparisons and measurements. |
 | R2 — theming update on the GPU renderer | F60 | The Claude Design cards are matched natively with presets, theme files and live reload; existing gates stay green. |
 | R3 — rendering library candidacy | F61 | Library-quality record, conformance checks and one game adoption through an adapter. |
-| R3 (extended) — the device layer and the first pack | F120, F123 | An SDL-free GPU device layer split out of the Vulkan backend, then packaged as rEngine's first library pack from its own sources — the gate a game's Vulkan work waits behind, so one curated capability is written here once rather than twice in two game repositories (D49, D50). |
+| R3 (extended) — the rendering library | F120, F123, F126–F128 | An SDL-free GPU device layer, packaged with the resource-and-draw seam generalised from vtmb-vr's proven `device.h` and GL/Vulkan backends chosen at build time (D51, D52). VtMB adopts it first on the surface already behind its own seam — the cheap verdict on D14c — then the rest of its renderer, then NOLF, which has no abstraction today. |
 
 The O/Q/A names identify independent branches; their numbers do not override dependency order.
 F32 is independently selectable ahead of the broader library-charter feature F1. The owner

@@ -334,8 +334,8 @@ static void detail_field(ReApp *a, mu_Context *ui, int tab, const char *key,
   re_app_control(a, ui, role, key, tab);
 }
 
-/* The task read rather than scanned (spec 119), laid out against the design card rather than by eye
- * (spec 121). The row above trimmed the title, so the description leads and is not labelled — and
+/* The task read rather than scanned, laid out against the design card rather than by eye (spec 119).
+ * The row above trimmed the title, so the description leads and is not labelled — and
  * there is no repeated key, because the row this hangs from already carries it. */
 static void detail_rows(ReApp *a, mu_Context *ui, int tab, const char *key, const cJSON *task) {
   static const char *const TAGS[] = {"priority", "assignee"};

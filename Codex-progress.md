@@ -1,5 +1,55 @@
 # Progress Log
 
+## Session 94 (macos) — 2026-09-10 — the rendering library planned, and VtMB had already written most of it
+
+The owner asked to plan a rendering abstraction switchable between OpenGL and Vulkan, for later
+integration into both games with GL kept to catch regressions and performance issues. Measured before
+designing, and the measurement changed the plan:
+
+| | GL symbols | files touching GL | behind a seam |
+| --- | --- | --- | --- |
+| `~/vtmb-vr` | 125 | 62 | **13** |
+| `~/nolf-improved` | 102 | 39 | 0 |
+
+**VtMB has already written most of this.** `src/renderer/gpu/device.h` carries F801's decisions with
+their reasoning: D14 renderer code never touches GL directly; D14b selection is compile-time because
+*"Quest is the constrained target, several of these calls are per-draw, and we never ship two
+backends in one binary"*; D14c granularity is resource+draw, explicitly **not** command buffers,
+render passes or barriers, on the bet that *"a Vulkan backend can build those internally"*.
+
+So the expensive part is not the Vulkan backend. **A backend only serves files that go through the
+seam** — 13 of 62 in VtMB, none at all in NOLF.
+
+**D51: the switch stays compile-time**, upholding D14b rather than revising it. "Switch to OpenGL"
+means build both and compare, which is the discipline rEngine already runs on its own adapters
+(`native-render.spec.mjs`, `tools/render_compare.py`, recorded tolerance and measured budgets). The
+cost is named: catching a regression on a headset means a rebuild and a redeploy, and no in-session
+A/B.
+
+**D52: the pack's design starts from VtMB's `device.h`**, generalised — curation as D01/D08 describe
+it, a shape earned in a real renderer rather than invented in the suite — and VtMB adopts by deleting
+its own copy. The **first Vulkan backend is written against the 13 files already migrated**, because
+that is the cheap verdict on D14c's untested bet. If resource+draw cannot carry Vulkan, we learn it
+at 13 files rather than after migrating 49 more onto a seam that cannot hold it.
+
+**The library is two layers and a game needs both**, which is what the earlier plan conflated: the
+device and context layer (F120 — instance, device, queues, submission, render targets supplied from
+outside so OpenXR can hand it swapchain images with no window), and the resource-and-draw seam on top
+of it. VtMB's `device.h` has no layer 1; it never needed one, because SDL made its context.
+
+**D50 needs no revision.** The Vulkan backend lives in the pack, not in a game, so "a game's Vulkan
+work starts once rEngine ships a pack" still holds — what a game does at F126 is adopt, not author.
+
+Rows: F123 extended to carry both layers and both backends · F126 VtMB adopts on its 13 files (the
+D14c verdict) · F127 its remaining 49 · F128 NOLF's 39, planned not committed. Order:
+F120 → F123 → F126 → F127/F128 → F61's sign-off.
+
+Also fixed a dangling reference: `tracker.c` cited "spec 121" for the design pairing, which lives in
+spec 119 — 121 is now the rendering library, so the citation would have pointed at the wrong document.
+
+Commands: `npm test` 230/230 · `./init.sh` · `design.py check` · `features.py validate` (80) · graph
+regenerated.
+
 ## Session 93 (macos) — 2026-09-10 — NOLF's editor updated, and what the first adoption's aftermath taught
 
 **NOLF's editor is on rEngine main and restarted.** Its pin had drifted onto `f9af9e5`, a commit on
