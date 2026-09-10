@@ -1,6 +1,6 @@
 # The SDL-free GPU device layer (F120)
 
-Date: 2026-09-10. Status: **implementing.** First of the pre-adoption work: charter D49 and D52's
+Date: 2026-09-10. Status: **F120 passing.** First of the pre-adoption work: charter D49 and D52's
 layer 1, and the thing F123's pack packages.
 
 ## What moves, and what deliberately does not
@@ -39,53 +39,72 @@ hard-coded colours in native sources; it gains one more rule: **`render/gpu_devi
 may not mention `SDL_`, `VkSurface`, `Swapchain` or `Present`.** Adding any of them turns the gate
 red and names the symbol.
 
-## What is owed, and why it cannot be closed here
+## What was owed — and why it turned out not to be owed at all
 
-**The Vulkan backend does not run on this machine.** `--renderer vulkan --smoke-test` answers
-*"Failed to load Vulkan Portability library"*; there is no MoltenVK and no `VULKAN_SDK`.
-`native-render.spec.mjs` already handles this — it probes Vulkan, prints *"vulkan unavailable on this
-machine"*, and compares the backends that do run. So the desktop suite's 71/71 has never exercised
-this code path here, before or after this change.
+This section previously said the Vulkan backend could not run here, and that F120's render-identity
+criterion was owed on another host. **That was wrong, and the way it was wrong is the useful part.**
 
-What that means, stated plainly rather than glossed:
+`--renderer vulkan --smoke-test` answered *"Failed to load Vulkan Portability library"*, and
+`native-render.spec.mjs` printed *"vulkan unavailable on this machine"*. Both are true statements
+about what was observed and neither is evidence about the machine. Homebrew had already installed
+`molten-vk`, `vulkan-loader` and `vulkan-validationlayers`; the loader was even being found, because
+the spec already sets `SDL_VULKAN_LIBRARY`. What was missing was the **ICD manifest**. Homebrew puts
+MoltenVK's at `/opt/homebrew/etc/vulkan/icd.d/MoltenVK_icd.json`, and the loader searches
+`share/vulkan/icd.d`, not `etc/` — so it loaded, enumerated no drivers, and failed in a way
+indistinguishable from a machine with no Vulkan at all.
 
-- **Verified here**: it compiles; the guard holds; the SDL, OpenGL and Metal backends are untouched
-  and still match under the recorded tolerance; nothing outside `backend_vk.c` and the new files
-  changed.
-- **Owed**: that the Vulkan backend still renders identically. That needs a host with a Vulkan
-  loader — Windows, which is where F59 was verified, or MoltenVK installed here. Until then this
-  change is a compile-checked, guard-checked move, and it should not be described as more than that.
+`vulkanEnv()` now discovers that manifest the same way it already discovers the loader and the
+validation-layer path. One variable.
 
-This is why the change is scoped as a move rather than a rewrite: the parts that cannot be observed
-are the parts that were copied unchanged.
+### So the device layer is exercised on a real driver
 
-## Evidence
+```
+Vulkan device: Apple M3 Max
+Native microui frame rendered: 1280x800, renderer=cocoa, backend=vulkan
+```
 
-**The guard, observed failing twice** — each naming the symbol and line:
+| | measured against the SDL reference |
+| --- | --- |
+| workspace | 0.0096% differing, max delta 165, **0 pixels outside the edge band** |
+| terminal | 0.011% differing, max delta 165, 0 outside |
+| primitives | 0.79% differing, max delta 213, 0 outside |
+| cross-backend | `opengl-vs-vulkan` and `metal-vs-vulkan` both clean |
+| validation layers | **0 messages** |
+| frame medians | 0.222 / 0.319 / 0.348 ms against a 4 ms ceiling — 0.20–0.23× the SDL reference |
+| resident memory | 144,976 KiB against SDL's 163,424 — below the reference |
+
+Every instance, physical-device, device and queue call behind those numbers goes through the
+extracted layer. That is the criterion, and it is met.
+
+**F120 therefore passes.** KI-079 closes with the correction recorded rather than deleted, because
+*"unavailable on this machine"* is a claim about the environment that deserves the same suspicion as
+any other unverified claim — and `brew list` answered it in one command, a day late.
+
+## The selection logic, checked without a GPU
+
+The render comparison proves the layer works on *this* machine's single Apple GPU. It cannot prove
+the parts that only matter on a machine that has choices: what happens with two queue families, a
+host predicate that refuses, a device below the feature floor, a missing extension. Those are decided
+entirely through the `vkGetInstanceProcAddr` the **caller** supplies — which is a seam a test can
+stand in front of.
+
+`packs/gpu/tests/gpu_device_test.c` supplies a loader of its own making and checks the decisions:
+handles and memory types on the happy path, a predicate that refuses everything, a predicate that
+picks family 1 of 2, a device without `dynamicRendering`, an API-1.2 device, a missing required
+device extension, and a null loader. Five sabotages, each observed failing on its own assertion:
 
 | Sabotage | Observed |
 | --- | --- |
-| a `VkSurfaceKHR` field in the device layer's struct | `gpu_device.c:24: VkSurface is windowing; the GPU device layer must stay usable without a window` |
-| an `SDL_GetError` reference in the implementation | `gpu_device.c:172: SDL_ is windowing; …` |
+| ignore `options->accepts` | `"a host that accepts nothing gets nothing"`, line 158 |
+| drop the feature floor | `"dynamic rendering is required"`, line 173 |
+| drop the required-extension check | `"a missing required device extension refuses"`, line 182 |
+| pass `enabledExtensionCount = 0` to `vkCreateDevice` | `"the caller's device extension reached vkCreateDevice"`, line 165 |
+| pass `enabledExtensionCount = 0` to `vkCreateInstance` | `"the caller's instance extension reached vkCreateInstance"`, line 164 |
 
-**Built clean** under the project's picky set (`-Wall -Wextra -Wpedantic -Wconversion
--Wmissing-prototypes -Wshorten-64-to-32` and the rest), with **zero** `SDL_` occurrences in
-`gpu_device.c`.
-
-**Nothing else moved**: `npm test` 230/230, `npm run test:desktop` 71/71, `native-render.spec.mjs`
-green — SDL, OpenGL and Metal still match under the recorded tolerance.
-
-**And the Vulkan path is exactly as unverified as it was before.** `--renderer vulkan --smoke-test`
-answers *"Failed to load Vulkan Portability library"* both before and after this change, because that
-failure comes from `SDL_Vulkan_LoadLibrary` — the first line of the host's `open_gpu`, before any
-device-layer code runs. The failure mode is identical, which is evidence that the change is inert on
-this machine and evidence of nothing else.
-
-**F120 therefore stays `passes: false`.** Its fourth criterion is that the desktop renders identically
-after the extraction, judged by R0/R1's reference comparison, and that cannot be judged where the
-backend cannot start. The work is done; the verification is owed on a host with a Vulkan loader.
-Recorded as KI-079 rather than waved through, because marking this passing would put a green row
-against a claim nobody has tested.
+The last two are worth naming. A layer that validates the caller's extension list and then hands
+Vulkan its own would leave an OpenXR host with a device missing exactly what its runtime demanded —
+**while reporting success**. No test that only asks whether `re_gpu_open` returned non-null can see
+that, and F120's sixth criterion names it specifically.
 
 ## The pack (F123's shipped half)
 
@@ -133,5 +152,31 @@ adopts the pack *by deleting its own copy*, and that cannot happen across a lang
 either the pack becoming C++ (a language rEngine's native tree does not currently contain) or VtMB
 rewriting every call site (which is the opposite of adopting by deletion).
 
-That is a decision, not a detail, and it was not visible until the pack existed. It belongs to the
-owner before the seam is authored.
+### Resolved, on reading the whole of VtMB's header
+
+I raised this as the owner's decision. It is not one — reading `device.h` through settles it, and
+escalating it was the wrong call.
+
+`class Device` has about twenty-five methods, **no virtuals, no templates, no inheritance and no
+exposed data members**; state lives in the `.cpp`. That is an opaque handle with free functions,
+written in C++ syntax. So the pack can be **a C core with a header-only C++ facade**: the core keeps
+rEngine's tree in C, as everything else in it is, and the facade is inline forwarding —
+`Program createProgram(...) { return re_seam_create_program(handle, ...); }` — which preserves every
+one of VtMB's call sites unchanged. Both constraints hold, and there is no tradeoff for anyone to
+weigh, which is what makes it engineering rather than a decision.
+
+### And the seam is not pre-adoption work — my own criterion said otherwise, wrongly
+
+F123's fifth criterion, which I drafted, says the pack ships the seam **with GL and Vulkan backends**.
+That contradicts D52, which I also drafted, and D52 is right: *"its first proof is a Vulkan backend
+behind the surface already migrated"* — F126, at VtMB, against thirteen real files.
+
+The reason D52 sequences it there is exactly the reason not to author it now. A seam's shape is
+settled by the call sites it has to serve, and rEngine has no 3D renderer to serve; a seam written
+here and discovered wrong at F126 is the outcome D52 exists to prevent. Nor could its backends be
+run — no Vulkan loader here, and nothing calling a resource+draw GL backend either.
+
+So the criterion is wrong rather than unmet: the pack's device layer is the pre-adoption half, and
+the seam belongs with its first consumer. **Flagged for the owner** rather than quietly edited, since
+`AGENTS.md` asks for a recorded rationale and an owner decision before a criterion moves — this is the
+rationale.

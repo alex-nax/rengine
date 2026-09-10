@@ -51,6 +51,14 @@ function vulkanEnv() {
   // Homebrew's layer manifest names its library by bare filename, which dyld only finds with a library path.
   const layerLib = ['/opt/homebrew/lib', '/usr/local/lib'].find(p => existsSync(path.join(p, 'libVkLayer_khronos_validation.dylib')));
   if (layerLib && !process.env.DYLD_LIBRARY_PATH) env.DYLD_LIBRARY_PATH = layerLib;
+  // And the loader finds a driver through an ICD manifest. Homebrew installs MoltenVK's under etc/,
+  // which is not on the loader's default search path — so the loader loads, reports no physical
+  // device, and the failure reads like "no Vulkan on this machine" when the driver is right there.
+  // This one variable is the whole difference between the backend being unrunnable here and running.
+  const icd = ['/opt/homebrew/etc/vulkan/icd.d/MoltenVK_icd.json', '/usr/local/etc/vulkan/icd.d/MoltenVK_icd.json',
+               '/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json', '/usr/local/share/vulkan/icd.d/MoltenVK_icd.json']
+    .find(p => existsSync(p));
+  if (icd && !process.env.VK_ICD_FILENAMES && !process.env.VK_DRIVER_FILES) env.VK_ICD_FILENAMES = icd;
   return env;
 }
 // Spec 073 decision 11: probe once, record 'unavailable' with the reason instead of failing on machines without a loader or layer.

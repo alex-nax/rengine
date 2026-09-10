@@ -153,6 +153,20 @@ endif()
 
 # --- CTest executables (BUILD_TESTING); -UNDEBUG keeps their assertions live in release builds ---
 
+[target.rengine_gpu_device_test]
+condition = "testing"
+type = "executable"
+sources = ["packs/gpu/tests/gpu_device_test.c"]
+private-link-libraries = ["rengine_gpu"]
+cmake-after = """
+if(MSVC)
+  target_compile_options(rengine_gpu_device_test PRIVATE /UNDEBUG)
+else()
+  target_compile_options(rengine_gpu_device_test PRIVATE -UNDEBUG)
+endif()
+add_test(NAME native_gpu_device COMMAND rengine_gpu_device_test)
+"""
+
 [target.rengine_layout_test]
 condition = "testing"
 type = "executable"

@@ -1811,7 +1811,7 @@
         "SDL_Renderer remains available as the reference backend and is not removed by this change.",
         "Each regression was observed failing for its own reason, including a caller-supplied extension list that is ignored and a device chosen against the supplied constraint."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         59
       ],
@@ -1821,7 +1821,10 @@
       "evidence": [
         "docs/specs/122-gpu-device-layer.md: what moved, what deliberately did not, the guard's two observed failures, and what verification is owed",
         "tools/design.py native_gpu_device_layer: the gate refusing SDL, VkSurface, Swapchain or Present in the device layer, sabotage-verified",
-        "known-issues.md KI-079: the Vulkan render-identity check owed on a host with a Vulkan loader, which is why this row is not passing"
+        "known-issues.md KI-079: the Vulkan render-identity check owed on a host with a Vulkan loader, which is why this row is not passing",
+        "docs/specs/122-gpu-device-layer.md: the Vulkan backend runs here after all — Homebrew's MoltenVK ICD manifest lives under etc/, off the loader's search path; one variable closed KI-079",
+        "orchestrator/tests/native-render.spec.mjs: vulkanEnv() discovers the ICD manifest; Vulkan matches the SDL reference on all three scenes with 0 pixels outside the edge band and 0 validation messages",
+        "packs/gpu/tests/gpu_device_test.c: the selection logic against a mock loader — five sabotages, each observed failing on its own assertion"
       ]
     },
     {
@@ -1979,7 +1982,8 @@
         "The Vulkan backend builds command buffers, render passes and barriers internally, or the attempt records precisely which resource+draw call cannot be expressed that way — a refusal is a result here, not a failure.",
         "The GL build stays the reference: it renders what it rendered before the adoption, judged by the project's own comparison under a recorded tolerance rather than by eye.",
         "Frame time and allocations per frame are measured on the target for both backends and recorded, because a rendering adoption that reports only correctness repeats the gap spec 110 now closes.",
-        "Each regression was observed failing for its own reason."
+        "Each regression was observed failing for its own reason.",
+        "The pack's resource-and-draw seam is authored here, with its first consumer: a C core keeping rEngine's tree in C, and a header-only C++ facade of inline forwarding so vtmb-vr's call sites are unchanged when it deletes its own copy. Its shape is settled by the thirteen files it must serve rather than guessed before them."
       ],
       "passes": false,
       "dependencies": [
@@ -1991,7 +1995,8 @@
         "vtmb-vr F801/D14: the seam this adopts and the compile-time selection D51 upholds"
       ],
       "evidence": [
-        "docs/specs/121-rendering-library.md: the measurement, the two layers, and why the first proof is the smallest surface"
+        "docs/specs/121-rendering-library.md: the measurement, the two layers, and why the first proof is the smallest surface",
+        "docs/specs/122-gpu-device-layer.md: why the seam belongs with its first consumer, and why a C core with a C++ facade needs no language tradeoff"
       ]
     },
     {

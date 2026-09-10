@@ -190,19 +190,34 @@ list therefore draws one frame with stale thumb geometry and possibly empty spac
 corrected on the next frame. Pre-existing and independent of virtualisation — exact spacers keep the
 content height right but cannot change the ordering. Found by a cross-vendor review of spec 120.
 
-## KI-079 — F120's Vulkan render-identity check is owed on a Vulkan-capable host
+## KI-079 — F120's Vulkan render-identity check (**closed 2026-09-10**; the loader was here all along)
 
-The GPU device layer is extracted, guarded and building (spec 122), and the SDL, OpenGL and Metal
-backends are unchanged and still match under the recorded tolerance. What cannot be checked on this
-machine is F120's fourth criterion — that the **Vulkan** backend still renders identically —
-because there is no Vulkan loader here: `--renderer vulkan --smoke-test` answers "Failed to load
-Vulkan Portability library", and `native-render.spec.mjs` probes for exactly that and skips the
-backend with a printed reason. It answered the same before the change, from `SDL_Vulkan_LoadLibrary`
-in the host, so the failure mode is unchanged rather than introduced.
+Recorded as owed because `--renderer vulkan --smoke-test` answered "Failed to load Vulkan Portability
+library" and `native-render.spec.mjs` printed *"vulkan unavailable on this machine"*. That reading was
+wrong, and the correction is worth keeping because the failure was indistinguishable from a machine
+with no Vulkan at all.
 
-Closing this needs a host with a loader: Windows, where F59 was verified, or MoltenVK installed
-here. Until then F120 stays `passes: false` and the change should be described as a compile-checked,
-guard-checked move — which is why it was scoped as a move rather than a rewrite.
+**Homebrew had already installed `molten-vk`, `vulkan-loader` and `vulkan-validationlayers`.** The
+loader was found — the spec already sets `SDL_VULKAN_LIBRARY`. What was missing is the **ICD
+manifest**: Homebrew installs MoltenVK's at `/opt/homebrew/etc/vulkan/icd.d/MoltenVK_icd.json`, and
+the loader's default search path covers `share/vulkan/icd.d`, not `etc/`. So the loader loaded,
+enumerated zero drivers, and the failure surfaced through SDL as though Vulkan were absent.
+
+One variable, `VK_ICD_FILENAMES`, is the whole difference. `vulkanEnv()` now discovers that manifest
+the same way it already discovers the loader and the layer path, and the result is:
+
+| | measured |
+| --- | --- |
+| Vulkan vs the SDL reference | workspace 0.0096%, terminal 0.011%, primitives 0.79% differing — all within tolerance, **0 pixels outside the edge band** |
+| Cross-backend | `opengl-vs-vulkan` and `metal-vs-vulkan` both clean |
+| Validation layers | **0 messages** |
+| Frame medians | 0.222 / 0.319 / 0.348 ms, against a 4 ms ceiling |
+| Resident memory | 144,976 KiB against SDL's 163,424 — **below** the reference, budget met |
+
+**F120's fourth criterion is therefore met on this machine**, and the device layer is exercised on a
+real driver rather than compile-checked. The general lesson: *"unavailable on this machine"* is a
+claim about the environment, and it deserves the same suspicion as any other unverified claim —
+`brew list` answered it in one command after the conclusion had stood for a day.
 
 ## KI-080 — the render spec's OpenGL memory budget fails intermittently on a loaded machine
 
@@ -213,9 +228,26 @@ pack: a clean worktree built from `197b539`, before either, fails identically at
 same conditions, and both builds pass when the machine is quieter. The worst number came from a full
 `test:desktop` run, where 72 specs spawn desktops; system free memory was 39% at the time.
 
+It recurs: two further full-suite runs on 2026-09-10 gave 33648 KiB and a clean pass, back to back,
+with nothing changed between them but how busy the machine was.
+
 Deliberately **not** fixed by raising the ceiling. A budget that moves whenever it is exceeded stops
 being a budget, and `AGENTS.md` forbids rewriting a requirement so it passes. What would close this
 is a measurement less sensitive to host load — a median of several samples, or measuring the delta
 against a same-run baseline process rather than an absolute ceiling — or simply running the suite on
 an idle machine. Until then a red row here should be checked against a quiet run before it is
 believed.
+
+## KI-081 — the Sessions resume spec times out waiting for conversations after a reconnect
+
+`native-sessions.spec.mjs`'s *"offers a project's past conversations for resume"* failed once in
+three consecutive full-suite runs on 2026-09-10, timing out after 9.5 s with `conversations: []` in
+the client view while the host state held both rows. The captured view shows the reason: the status
+line reads *"Session connection restored. Reattaching retained processes."* — the client had just
+reconnected, and the conversation list had not been pushed again by the time the wait expired. The
+two specs immediately after it, which use the same feature, passed in the same run.
+
+Unrelated to the GPU work; recorded rather than re-run until green. What would close it is either a
+push of the conversation list on reconnect, or a wait keyed to the reconnect rather than a fixed
+timeout. Until then a red row here should be checked against a quiet run before it is believed, the
+same as KI-080.

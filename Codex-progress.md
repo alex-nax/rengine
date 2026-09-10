@@ -1,5 +1,62 @@
 # Progress Log
 
+## Session 97 (macos) — 2026-09-10 — the Vulkan loader was here the whole time; F120 passes
+
+**A conclusion I had recorded twice turned out to be wrong, and cheaply.** Spec 122 and KI-079 both
+said F120's render-identity criterion was owed on another host, because `--renderer vulkan
+--smoke-test` answers *"Failed to load Vulkan Portability library"* and `native-render.spec.mjs`
+prints *"vulkan unavailable on this machine"*. Both statements are true about what was observed and
+neither is evidence about the machine. `brew list` shows **molten-vk, vulkan-loader and
+vulkan-validationlayers already installed**. The loader was even being found — the spec sets
+`SDL_VULKAN_LIBRARY`. What was missing is the **ICD manifest**: Homebrew installs MoltenVK's under
+`/opt/homebrew/etc/vulkan/icd.d/`, and the loader searches `share/vulkan/icd.d`, not `etc/`. So it
+loaded, enumerated zero drivers, and failed indistinguishably from a machine with no Vulkan at all.
+
+One variable. `vulkanEnv()` now discovers the manifest the way it already discovers the loader and
+the layer path, and the Vulkan backend — every instance, device and queue call of it through the
+**extracted device layer** — matches the SDL reference:
+
+| | measured |
+| --- | --- |
+| workspace / terminal / primitives | 0.0096% / 0.011% / 0.79% differing, **0 pixels outside the edge band** on all three |
+| cross-backend | `opengl-vs-vulkan`, `metal-vs-vulkan` both clean |
+| validation layers | **0 messages** |
+| frame medians | 0.222 / 0.319 / 0.348 ms against a 4 ms ceiling, 0.20–0.23× the SDL reference |
+| resident memory | 144,976 KiB against SDL's 163,424 — below the reference |
+
+**F120 passes.** KI-079 closes with the correction written down rather than deleted: *"unavailable on
+this machine"* is a claim about the environment and deserves the same suspicion as any other
+unverified claim.
+
+**The selection logic, checked without a GPU.** The comparison proves the layer on this machine's one
+Apple GPU; it cannot reach the parts that only matter where there are choices. `gpu_device_test.c`
+hands the layer a `vkGetInstanceProcAddr` of its own making and checks the decisions — handles and
+memory types, a predicate that refuses everything, a predicate that picks family 1 of 2, a device
+below the feature floor, an API-1.2 device, a missing extension, a null loader. **Five sabotages,
+each observed failing on its own assertion.** Two are new and close F120's sixth criterion: passing
+`enabledExtensionCount = 0` to `vkCreateDevice`, and to `vkCreateInstance`. A layer that validates the
+caller's extension list and then hands Vulkan its own would leave an OpenXR host with a device missing
+exactly what its runtime demanded — **while reporting success** — and no test that only asks whether
+`re_gpu_open` returned non-null can see it.
+
+**The C/C++ question, resolved rather than escalated.** I put it to the owner as a decision; it is
+not one. VtMB's `class Device` has ~25 methods, **no virtuals, no templates, no inheritance, no
+exposed data** — an opaque handle with free functions in C++ syntax. So the pack is a **C core with a
+header-only C++ facade** of inline forwarding: rEngine's tree stays C, and VtMB's call sites are
+untouched when it deletes its own copy. No tradeoff for anyone to weigh.
+
+**Two red rows, both load and neither ours.** Three full `test:desktop` runs back to back: 71/71
+clean, then OpenGL RSS 33,648 KiB over the 32 MiB ceiling (KI-080, which a clean `197b539` worktree
+already reproduced), then a `native-sessions.spec.mjs` timeout with `conversations: []` right after
+the status line read *"Session connection restored"* — recorded as **KI-081**, not re-run until green.
+
+Commands: `npm test` 231/231 · `native-render.spec.mjs` with all three GPU backends compared ·
+`native_gpu_device` ctest with five sabotages · `./init.sh` · `design.py check`
+
+Remaining: **F123's eighth criterion** — the resource-and-draw seam. Its shape is settled by the call
+sites it must serve, and rEngine has no 3D renderer to serve; the argument for authoring it against
+VtMB's thirteen migrated files instead is in spec 122, for the owner.
+
 ## Session 96 (macos) — 2026-09-10 — F123's pack ships, and the seam hits a language boundary
 
 The device layer moved out of `orchestrator/native/render/` into **`packs/gpu/`**, and rEngine now

@@ -309,6 +309,36 @@ if(WIN32)
     $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine>)
 endif()
 
+# Target: rengine_gpu_device_test
+if(BUILD_TESTING) # testing
+	set(rengine_gpu_device_test_SOURCES
+		cmake.toml
+		"packs/gpu/tests/gpu_device_test.c"
+	)
+
+	add_executable(rengine_gpu_device_test)
+
+	target_sources(rengine_gpu_device_test PRIVATE ${rengine_gpu_device_test_SOURCES})
+	source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${rengine_gpu_device_test_SOURCES})
+
+	target_link_libraries(rengine_gpu_device_test PRIVATE
+		rengine_gpu
+	)
+
+	get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
+	if(NOT CMKR_VS_STARTUP_PROJECT)
+		set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT rengine_gpu_device_test)
+	endif()
+
+	set(CMKR_TARGET rengine_gpu_device_test)
+	if(MSVC)
+	  target_compile_options(rengine_gpu_device_test PRIVATE /UNDEBUG)
+	else()
+	  target_compile_options(rengine_gpu_device_test PRIVATE -UNDEBUG)
+	endif()
+	add_test(NAME native_gpu_device COMMAND rengine_gpu_device_test)
+
+endif()
 # Target: rengine_layout_test
 if(BUILD_TESTING) # testing
 	set(rengine_layout_test_SOURCES
