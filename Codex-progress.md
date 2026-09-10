@@ -7,8 +7,8 @@ vtmb-vr's own call sites compile through it unchanged.
 
 **Spec 122 said this could not be written yet. That was wrong.** The reason given was that "a seam's
 shape is settled by the call sites it has to serve, and rEngine has no 3D renderer to serve". The
-first half is right; the conclusion is not. **The call sites exist** — thirteen files in `~/vtmb-vr`,
-readable and compilable against today. Waiting for F126 to read them was waiting for nothing.
+first half is right; the conclusion is not. **The call sites exist** — thirteen files and 195 call sites in
+`~/vtmb-vr`, readable and compilable against today. Waiting for F126 to read them was waiting for nothing.
 
 **Measured before designing:** `device.h` is 174 lines and 25 methods with **no virtuals, no
 templates, no inheritance and no data members**; 13 files call it; 23 distinct methods are used.

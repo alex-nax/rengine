@@ -23,7 +23,7 @@ the last section. The interface and the GL backend can, and now are.
 | `device_gl.cpp` | 319 lines |
 | Files calling the seam | **13** |
 | Distinct methods actually called | **23** of 25 |
-| Call sites that must change to adopt | **1** (see *The one call that changes*) |
+| Call sites that must change to adopt | **1** of **195** (see *The one call that changes*) |
 
 The shape of `class Device` is the whole language answer: it is an opaque handle with free functions,
 written in C++ syntax. So the pack is **a C core with a header-only C++ facade of inline forwarding**.
@@ -155,8 +155,8 @@ packs/gpu/src/gpu_seam_gl.c:399: SDL_ is windowing; the seam draws into whatever
 
 ## The one call that changes
 
-`AGENTS.md` asks for adoption costs to be stated rather than discovered. Of roughly 140 call sites,
-**one** must change: `menu_eye_renderer.h:77`, `m_draw.init(nullptr)`, commented *"no loader on
+`AGENTS.md` asks for adoption costs to be stated rather than discovered. Of **195** call sites across
+those thirteen files, **one** must change: `menu_eye_renderer.h:77`, `m_draw.init(nullptr)`, commented *"no loader on
 GLES; nullptr is the documented no-op path"*. VtMB's backend reads a null window as "glad already
 ran, use the global entry points". A library that links no GL has no global entry points to use —
 and that is the same property that lets a consumer keep its own loader and lets the pack build on a
@@ -185,7 +185,7 @@ Measured in the code that would have to use it:
 
 | | files | calls |
 | --- | --- | --- |
-| behind the seam (`gpu::Device`) | 13 | ~140 |
+| behind the seam (`gpu::Device`) | 13 | 195 |
 | binding a render target with raw `glBindFramebuffer` | **13** | 63 |
 | **in both sets** | **0** | — |
 
