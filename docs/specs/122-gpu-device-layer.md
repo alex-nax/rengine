@@ -140,43 +140,18 @@ The second assertion first asked `CMakeCache.txt`, which mentions target names f
 and therefore always passed. It now asks the build system's own target list, which is the thing that
 actually answers the question.
 
-## What F123 still owes, and a design obstacle found while doing it
+## What F123 still owed, and where it went
 
-D52 says the pack also carries **the resource-and-draw seam generalised from VtMB's `device.h`**, with
-GL and Vulkan backends. That is not written, and it should not be written blind:
+The seam is now written: **spec 123** carries it, along with the language answer, the shader-form
+answer, the handle-width answer, and the reason its Vulkan backend is sequenced with the files that
+need a render-target API rather than written here.
 
-**VtMB's seam is C++ and this pack is C.** `device.h` uses `namespace vtmb::renderer::gpu`,
-`enum class BufferUsage : std::uint8_t` and struct member initialisers — fifteen C++ constructs in
-one header — while `packs/gpu` is `c_std_11`, as all of rEngine's native code is. D52 says VtMB
-adopts the pack *by deleting its own copy*, and that cannot happen across a language boundary without
-either the pack becoming C++ (a language rEngine's native tree does not currently contain) or VtMB
-rewriting every call site (which is the opposite of adopting by deletion).
+Two things recorded in this spec were wrong and are corrected there rather than deleted:
 
-### Resolved, on reading the whole of VtMB's header
-
-I raised this as the owner's decision. It is not one — reading `device.h` through settles it, and
-escalating it was the wrong call.
-
-`class Device` has about twenty-five methods, **no virtuals, no templates, no inheritance and no
-exposed data members**; state lives in the `.cpp`. That is an opaque handle with free functions,
-written in C++ syntax. So the pack can be **a C core with a header-only C++ facade**: the core keeps
-rEngine's tree in C, as everything else in it is, and the facade is inline forwarding —
-`Program createProgram(...) { return re_seam_create_program(handle, ...); }` — which preserves every
-one of VtMB's call sites unchanged. Both constraints hold, and there is no tradeoff for anyone to
-weigh, which is what makes it engineering rather than a decision.
-
-### And the seam is not pre-adoption work — my own criterion said otherwise, wrongly
-
-F123's fifth criterion, which I drafted, says the pack ships the seam **with GL and Vulkan backends**.
-That contradicts D52, which I also drafted, and D52 is right: *"its first proof is a Vulkan backend
-behind the surface already migrated"* — F126, at VtMB, against thirteen real files.
-
-The reason D52 sequences it there is exactly the reason not to author it now. A seam's shape is
-settled by the call sites it has to serve, and rEngine has no 3D renderer to serve; a seam written
-here and discovered wrong at F126 is the outcome D52 exists to prevent. Nor could its backends be
-run — no Vulkan loader here, and nothing calling a resource+draw GL backend either.
-
-So the criterion is wrong rather than unmet: the pack's device layer is the pre-adoption half, and
-the seam belongs with its first consumer. **Flagged for the owner** rather than quietly edited, since
-`AGENTS.md` asks for a recorded rationale and an owner decision before a criterion moves — this is the
-rationale.
+- **"VtMB's seam is C++ and this pack is C" was raised as the owner's decision.** It is not one.
+  `class Device` has no virtuals, no templates, no inheritance and no data members — an opaque handle
+  with free functions in C++ syntax — so a C core with a header-only C++ facade satisfies both
+  constraints with nothing left to trade off.
+- **"A seam's shape is settled by the call sites it has to serve, and rEngine has no 3D renderer to
+  serve"** — the first half is right, the conclusion was not. The call sites exist, in `~/vtmb-vr`,
+  and can be read and compiled against today. Waiting for F126 to read them was waiting for nothing.

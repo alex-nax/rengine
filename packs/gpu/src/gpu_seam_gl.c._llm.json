@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "why-the-loader-is-the-callers",
+      "kind": "rationale",
+      "anchor": {
+        "start": 79,
+        "end": 79,
+        "symbol": "RE_SEAM_GL_FUNCTIONS",
+        "snippet": "#define RE_SEAM_GL_FUNCTIONS(X)                                                                     \\"
+      },
+      "note": "This table is why the pack links no graphics library, and it is the first thing a well-meaning editor would replace with `#include <glad/gl.h>` to save forty lines.\n\nTwo reasons it must not be. First, a consumer already has a loader: vtmb-vr links glad, and a second glad implementation in the same binary is a duplicate-symbol link error, not a dependency. Second, the pack has to build on a machine with no GL headers at all \u2014 the same property the device layer gets from VK_NO_PROTOTYPES. Taking entry points from the host's own glGetProcAddress gives both, and it makes the two layers of this pack follow one rule rather than two.\n\nThe X-macro generates the struct members, the loads and the 'the host's loader has no <name>' message from one list, so adding a GL call cannot silently skip its load. tools/design.py fails the build if a GL, GLES, glad, SDL or vulkan header is included here.",
+      "refs": [
+        "docs/specs/123-gpu-seam.md",
+        "packs/gpu/include/rengine/gpu_seam.h"
+      ]
+    },
+    {
+      "id": "the-glsl-guard-is-load-bearing",
+      "kind": "constraint",
+      "anchor": {
+        "start": 194,
+        "end": 194,
+        "symbol": "compile",
+        "snippet": "static GLuint compile(ReSeam *seam, GLenum type, const ReSeamShader *stage, const char *debug_name) {"
+      },
+      "note": "The `stage->glsl == NULL` check is not defensive tidiness: removing it SEGFAULTS. glShaderSource is handed a source array whose one entry is null, and the driver dereferences it. That was observed (exit 139, no output at all) during the sabotage pass for spec 123.\n\nThe message it produces matters as much as the guard. A consumer whose shader generator emits SPIR-V but not GLSL meets 'the OpenGL backend needs ReSeamShader.glsl, which the shader generator emits alongside SPIR-V' \u2014 naming the build step. The alternative is a compile error from inside a driver about an empty shader, which points at the wrong place entirely.\n\nAlso note what this function does NOT do: VtMB's device_gl.cpp prepends glslPrefixFor(source) here. A library cannot know a consumer's preamble convention, and ReSeamShader exists so the build hands over a complete stage. A consumer whose shaders lack #version prepends it in its own generator.",
+      "refs": [
+        "docs/specs/123-gpu-seam.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "packs/gpu/src/gpu_seam_gl.c",
+    "sha256": "2b5cf7463c51a311178fbea3a3abcf07be478ebc3362b0681a4ce7301cdceabb",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

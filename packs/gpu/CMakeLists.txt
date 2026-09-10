@@ -10,10 +10,32 @@
 cmake_minimum_required(VERSION 3.21)
 project(rengine_gpu C)
 
-add_library(rengine_gpu STATIC "${CMAKE_CURRENT_SOURCE_DIR}/src/gpu_device.c")
+# The seam's backend is chosen at BUILD time and exactly one is compiled in (charter D14b/D51: Quest
+# is the constrained target, several of these calls are per-draw, and we never ship two backends in
+# one binary). Two binaries and a comparison is the regression story, not a runtime toggle.
+set(RENGINE_GPU_SEAM_BACKEND "opengl" CACHE STRING "Which graphics API the resource-and-draw seam uses")
+set_property(CACHE RENGINE_GPU_SEAM_BACKEND PROPERTY STRINGS opengl vulkan)
+if(RENGINE_GPU_SEAM_BACKEND STREQUAL "opengl")
+  set(RENGINE_GPU_SEAM_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/gpu_seam_gl.c")
+elseif(RENGINE_GPU_SEAM_BACKEND STREQUAL "vulkan")
+  message(FATAL_ERROR
+    "rengine-gpu: the seam's Vulkan backend is not written yet. It is sequenced with its first "
+    "consumer (charter D52, F126) so its shape is settled by real call sites; the device layer this "
+    "pack already ships is what a Vulkan backend will be built on. Build with "
+    "-DRENGINE_GPU_SEAM_BACKEND=opengl until then.")
+else()
+  message(FATAL_ERROR "rengine-gpu: unknown RENGINE_GPU_SEAM_BACKEND '${RENGINE_GPU_SEAM_BACKEND}'; "
+                      "the choices are opengl and vulkan")
+endif()
+
+add_library(rengine_gpu STATIC
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/gpu_device.c"
+  "${RENGINE_GPU_SEAM_SOURCE}")
 add_library(rengine::gpu ALIAS rengine_gpu)
 
-# The public surface is one header. `src/` is private, and there is nothing else to reach for.
+# The public surface is the two layers' headers. `src/` is private, and there is nothing else to
+# reach for. `gpu_seam.hpp` is header-only C++ over the C core, so a C consumer never compiles it and
+# a C++ consumer needs no extra library.
 target_include_directories(rengine_gpu PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_compile_features(rengine_gpu PUBLIC c_std_11)
 

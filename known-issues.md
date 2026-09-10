@@ -251,3 +251,32 @@ Unrelated to the GPU work; recorded rather than re-run until green. What would c
 push of the conversation list on reconnect, or a wait keyed to the reconnect rather than a fixed
 timeout. Until then a red row here should be checked against a quiet run before it is believed, the
 same as KI-080.
+
+## KI-082 — F123 and F126 each wait on the other, and only the owner can cut it
+
+F123's eighth criterion says the pack carries the seam **"with GL and Vulkan backends chosen at build
+time"**. F126 — which is where a Vulkan backend can first be judged on something other than a compile
+— **depends on F123**. So as written, F123 cannot pass until F126 does, and F126 cannot start until
+F123 passes. I drafted both rows, so this is mine.
+
+The knot is not merely bureaucratic. Spec 123 measured why a Vulkan backend cannot be written here:
+the seam has no render-target concept, because GL let its call sites bind a framebuffer behind its
+back. In vtmb-vr, **13 files bind a render target with raw `glBindFramebuffer` (63 calls) and not one
+of them is among the 13 files behind the seam.** Every call site that would shape the missing API is
+in the *unmigrated* 49.
+
+Three ways out, for the owner:
+
+1. **Amend F123's criterion 8** to what the pack can actually deliver before a consumer exists: the
+   seam and the GL backend, with the Vulkan backend moved to F126 where its evidence lives. This is
+   the recommendation — it matches D52's own wording, *"its first proof is a Vulkan backend behind
+   the surface already migrated"*, which places the proof at VtMB, not here.
+2. **Leave the criterion and accept F123 stays `passes: false`** until F126 lands, treating the row
+   as a container rather than a gate. Honest, but it makes D50's "a game's Vulkan work waits behind
+   the pack" unresolvable by inspection.
+3. **Write a Vulkan backend here and gate it on compiling.** Rejected in the writing: it is exactly
+   the standard spec 122 refused for the device layer, and refusing it there is what led to finding
+   the loader and actually running the thing.
+
+`AGENTS.md` requires an owner decision before a criterion moves, so nothing is edited pending that.
+

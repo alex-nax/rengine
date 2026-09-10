@@ -833,13 +833,21 @@ def native_render_layering():
 GPU_DEVICE_WINDOWING = re.compile(r"SDL_|VkSurface|vkCreateSurface|Swapchain|SWAPCHAIN|vkQueuePresent|PresentKHR")
 
 
-def native_gpu_device_layer():
-    """The device layer must stay usable by a host that has no window (charter D49, spec 122).
+GPU_SEAM_LINKED_API = re.compile(r"#\s*include\s*[<\"](?:GL|GLES|OpenGL|glad|SDL|vulkan)")
 
-    OpenXR dictates instance and device creation and then hands the application its swapchain
-    images, so a device layer that reaches for a surface or a swapchain cannot serve a headset at
-    all. That is the whole reason the layer exists, and it is one grep away from being lost, so it
-    is a gate rather than a review note."""
+
+def native_gpu_device_layer():
+    """Neither pack layer may grow a dependency it exists to avoid (charter D49/D52, spec 122).
+
+    The DEVICE layer must stay usable by a host that has no window. OpenXR dictates instance and
+    device creation and then hands the application its swapchain images, so a device layer that
+    reaches for a surface or a swapchain cannot serve a headset at all. That is the whole reason the
+    layer exists, and it is one grep away from being lost, so it is a gate rather than a review note.
+
+    The SEAM must link no graphics library. Its entry points come from the host's own loader, which
+    is what lets a consumer keep the loader it already links — vtmb-vr links glad, and two glad
+    implementations in one binary is a symbol clash rather than a dependency. Including a GL header
+    is how that would be lost, silently, because it would keep building here."""
     problems = []
     root = NATIVE.parent.parent / "packs" / "gpu"
     for path in (root / "src" / "gpu_device.c", root / "include" / "rengine" / "gpu_device.h"):
@@ -852,6 +860,23 @@ def native_gpu_device_layer():
             if match:
                 problems.append("%s:%d: %s is windowing; the GPU device layer must stay usable "
                                 "without a window (spec 122)" % (rel(path), number, match.group(0)))
+    seam = [root / "include" / "rengine" / "gpu_seam.h", root / "include" / "rengine" / "gpu_seam.hpp"]
+    seam += sorted((root / "src").glob("gpu_seam_*.c"))
+    for path in seam:
+        if not path.exists():
+            continue
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if line.lstrip().startswith(("*", "/*", "//")):
+                continue
+            match = GPU_SEAM_LINKED_API.search(line)
+            if match:
+                problems.append("%s:%d: %s links a graphics API into the pack; the seam takes its "
+                                "entry points from the host's loader so a consumer can keep its own "
+                                "(spec 122)" % (rel(path), number, match.group(0)))
+            windowing = re.search(r"SDL_", line)
+            if windowing:
+                problems.append("%s:%d: SDL_ is windowing; the seam draws into whatever target the "
+                                "host bound and never makes one (spec 122)" % (rel(path), number))
     return problems
 
 

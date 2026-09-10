@@ -1911,7 +1911,10 @@
       "evidence": [
         "docs/specs/122-gpu-device-layer.md: the pack's shape, the outside-consumer evidence with its two sabotages, and the C/C++ obstacle the seam runs into",
         "orchestrator/tests/pack-gpu.test.mjs: a project outside this build adds the pack, links it, runs it, and gets no other rEngine target",
-        "packs/gpu/pack.json: the two-part pin, whose revision is rEngine's own commit"
+        "packs/gpu/pack.json: the two-part pin, whose revision is rEngine's own commit",
+        "docs/specs/123-gpu-seam.md: the seam generalised from vtmb-vr's device.h — a C core with a header-only C++ facade, its OpenGL backend, and why the Vulkan one is sequenced with the files that need a render-target API",
+        "packs/gpu/tests/gpu_seam_test.c: the GL backend judged on real pixels through a real driver; thirteen sabotages, four of which found gaps the first version of the test could not see",
+        "orchestrator/tests/pack-gpu-seam.test.mjs: a C++ project outside this repository builds the pack and compiles every one of vtmb-vr's 23 called methods unchanged, with a drift check against the real call sites"
       ]
     },
     {
@@ -1982,8 +1985,7 @@
         "The Vulkan backend builds command buffers, render passes and barriers internally, or the attempt records precisely which resource+draw call cannot be expressed that way — a refusal is a result here, not a failure.",
         "The GL build stays the reference: it renders what it rendered before the adoption, judged by the project's own comparison under a recorded tolerance rather than by eye.",
         "Frame time and allocations per frame are measured on the target for both backends and recorded, because a rendering adoption that reports only correctness repeats the gap spec 110 now closes.",
-        "Each regression was observed failing for its own reason.",
-        "The pack's resource-and-draw seam is authored here, with its first consumer: a C core keeping rEngine's tree in C, and a header-only C++ facade of inline forwarding so vtmb-vr's call sites are unchanged when it deletes its own copy. Its shape is settled by the thirteen files it must serve rather than guessed before them."
+        "Each regression was observed failing for its own reason."
       ],
       "passes": false,
       "dependencies": [
@@ -1996,7 +1998,7 @@
       ],
       "evidence": [
         "docs/specs/121-rendering-library.md: the measurement, the two layers, and why the first proof is the smallest surface",
-        "docs/specs/122-gpu-device-layer.md: why the seam belongs with its first consumer, and why a C core with a C++ facade needs no language tradeoff"
+        "docs/specs/123-gpu-seam.md: the seam vtmb-vr adopts, and the render-target gap a Vulkan backend has to close — 13 files bind a framebuffer with raw GL and none of them is among the 13 behind the seam"
       ]
     },
     {

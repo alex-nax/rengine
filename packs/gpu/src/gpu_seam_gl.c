@@ -1,0 +1,397 @@
+/* The seam's OpenGL backend, serving desktop GL 4.1 and GLES 3.2 from one implementation.
+ *
+ * Ported from vtmb-vr's `src/renderer/gpu/device_gl.cpp`, which is the proven version of this code;
+ * the differences are deliberate and each one is marked GENERALISED below. Backend selection is
+ * compile-time (D14b/D51), so exactly one of these files is compiled into a binary and no call in
+ * here is reached through a pointer the frame path has to chase.
+ *
+ * GENERALISED, 1: entry points come from the host's loader rather than from a linked GL. The pack
+ * links no graphics library, which is what lets a consumer keep the loader it already has — vtmb-vr
+ * links glad, and two glad implementations in one binary is a symbol clash, not a dependency.
+ *
+ * GENERALISED, 2: no dialect prefix is injected before compiling a stage. VtMB's backend prepends
+ * `glslPrefixFor(source)`, which is empty for a shader its F800 step cross-compiled (those carry
+ * their own #version) and a version line for one embedded verbatim. A library cannot know a
+ * consumer's preamble convention, and the shader descriptor exists precisely so the build hands over
+ * a complete stage. A consumer whose shaders do not carry #version prepends it in its generator.
+ *
+ * GENERALISED, 3: diagnostics are handed back through the caller's callback instead of a logger the
+ * library picked.
+ */
+#include "rengine/gpu_seam.h"
+
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* GL types, spelled out rather than included: this file must compile on a machine with no GL headers
+ * at all, which is the same reason the device layer declares VK_NO_PROTOTYPES. */
+typedef unsigned int GLenum;
+typedef unsigned char GLboolean;
+typedef unsigned int GLbitfield;
+typedef int GLint;
+typedef unsigned int GLuint;
+typedef int GLsizei;
+typedef float GLfloat;
+typedef char GLchar;
+typedef unsigned char GLubyte_t;
+typedef ptrdiff_t GLsizeiptr;
+
+#define GL_FALSE 0
+#define GL_TRUE 1
+#define GL_TRIANGLES 0x0004
+#define GL_LINES 0x0001
+#define GL_DEPTH_BUFFER_BIT 0x00000100
+#define GL_COLOR_BUFFER_BIT 0x00004000
+#define GL_CULL_FACE 0x0B44
+#define GL_DEPTH_TEST 0x0B71
+#define GL_BLEND 0x0BE2
+#define GL_BACK 0x0405
+#define GL_TEXTURE_2D 0x0DE1
+#define GL_UNSIGNED_BYTE 0x1401
+#define GL_FLOAT 0x1406
+#define GL_RGBA 0x1908
+#define GL_VERSION 0x1F02
+#define GL_NEAREST 0x2600
+#define GL_LINEAR 0x2601
+#define GL_TEXTURE_MAG_FILTER 0x2800
+#define GL_TEXTURE_MIN_FILTER 0x2801
+#define GL_TEXTURE_WRAP_S 0x2802
+#define GL_TEXTURE_WRAP_T 0x2803
+#define GL_REPEAT 0x2901
+#define GL_CLAMP_TO_EDGE 0x812F
+#define GL_UNPACK_ALIGNMENT 0x0CF5
+#define GL_SRC_ALPHA 0x0302
+#define GL_ONE_MINUS_SRC_ALPHA 0x0303
+#define GL_ONE 1
+#define GL_ARRAY_BUFFER 0x8892
+#define GL_STATIC_DRAW 0x88E4
+#define GL_DYNAMIC_DRAW 0x88E8
+#define GL_FRAGMENT_SHADER 0x8B30
+#define GL_VERTEX_SHADER 0x8B31
+#define GL_COMPILE_STATUS 0x8B81
+#define GL_LINK_STATUS 0x8B82
+#define GL_TEXTURE0 0x84C0
+
+/* Every entry point this backend uses, in one list: the table, the loader and the "which one is
+ * missing" message are all generated from it, so adding a GL call cannot silently skip its load. */
+#define RE_SEAM_GL_FUNCTIONS(X)                                                                     \
+  X(GLuint, glCreateShader, (GLenum type))                                                          \
+  X(void, glShaderSource, (GLuint shader, GLsizei count, const GLchar *const *string, const GLint *length)) \
+  X(void, glCompileShader, (GLuint shader))                                                         \
+  X(void, glGetShaderiv, (GLuint shader, GLenum pname, GLint *params))                              \
+  X(void, glGetShaderInfoLog, (GLuint shader, GLsizei size, GLsizei *length, GLchar *log))          \
+  X(void, glDeleteShader, (GLuint shader))                                                          \
+  X(GLuint, glCreateProgram, (void))                                                                \
+  X(void, glAttachShader, (GLuint program, GLuint shader))                                          \
+  X(void, glLinkProgram, (GLuint program))                                                          \
+  X(void, glGetProgramiv, (GLuint program, GLenum pname, GLint *params))                            \
+  X(void, glGetProgramInfoLog, (GLuint program, GLsizei size, GLsizei *length, GLchar *log))         \
+  X(void, glDeleteProgram, (GLuint program))                                                        \
+  X(void, glUseProgram, (GLuint program))                                                           \
+  X(GLint, glGetUniformLocation, (GLuint program, const GLchar *name))                              \
+  X(void, glUniform1i, (GLint location, GLint v0))                                                  \
+  X(void, glUniform1f, (GLint location, GLfloat v0))                                                \
+  X(void, glUniform4f, (GLint location, GLfloat x, GLfloat y, GLfloat z, GLfloat w))                \
+  X(void, glUniformMatrix4fv, (GLint location, GLsizei count, GLboolean transpose, const GLfloat *value)) \
+  X(void, glGenBuffers, (GLsizei n, GLuint *buffers))                                               \
+  X(void, glDeleteBuffers, (GLsizei n, const GLuint *buffers))                                      \
+  X(void, glBindBuffer, (GLenum target, GLuint buffer))                                             \
+  X(void, glBufferData, (GLenum target, GLsizeiptr size, const void *data, GLenum usage))           \
+  X(void, glGenVertexArrays, (GLsizei n, GLuint *arrays))                                           \
+  X(void, glDeleteVertexArrays, (GLsizei n, const GLuint *arrays))                                  \
+  X(void, glBindVertexArray, (GLuint array))                                                        \
+  X(void, glVertexAttribPointer, (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer)) \
+  X(void, glEnableVertexAttribArray, (GLuint index))                                                \
+  X(void, glGenTextures, (GLsizei n, GLuint *textures))                                             \
+  X(void, glDeleteTextures, (GLsizei n, const GLuint *textures))                                    \
+  X(void, glBindTexture, (GLenum target, GLuint texture))                                           \
+  X(void, glTexParameteri, (GLenum target, GLenum pname, GLint param))                              \
+  X(void, glPixelStorei, (GLenum pname, GLint param))                                               \
+  X(void, glTexImage2D, (GLenum target, GLint level, GLint internal, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void *pixels)) \
+  X(void, glActiveTexture, (GLenum texture))                                                        \
+  X(void, glEnable, (GLenum cap))                                                                   \
+  X(void, glDisable, (GLenum cap))                                                                  \
+  X(void, glBlendFunc, (GLenum src, GLenum dst))                                                    \
+  X(void, glDepthMask, (GLboolean flag))                                                            \
+  X(void, glCullFace, (GLenum mode))                                                                \
+  X(void, glViewport, (GLint x, GLint y, GLsizei width, GLsizei height))                            \
+  X(void, glClearColor, (GLfloat r, GLfloat g, GLfloat b, GLfloat a))                               \
+  X(void, glClear, (GLbitfield mask))                                                               \
+  X(void, glDrawArrays, (GLenum mode, GLint first, GLsizei count))                                  \
+  X(const GLubyte_t *, glGetString, (GLenum name))
+
+struct ReSeam {
+#define RE_SEAM_GL_MEMBER(ret, name, args) ret(*name) args;
+  RE_SEAM_GL_FUNCTIONS(RE_SEAM_GL_MEMBER)
+#undef RE_SEAM_GL_MEMBER
+  ReSeamOnMessage on_message;
+  void *message_user;
+};
+
+/* The current seam is per thread because a graphics context is: two render threads with two contexts
+ * must not see each other's. `_Thread_local` is C11, which this pack already requires. */
+static _Thread_local ReSeam *current;
+
+static bool say(char *error, size_t size, const char *format, ...) {
+  if (error != NULL && size > 0) {
+    va_list args;
+    va_start(args, format);
+    vsnprintf(error, size, format, args);
+    va_end(args);
+  }
+  return false;
+}
+
+static void report(ReSeam *seam, const char *format, ...) {
+  if (seam == NULL || seam->on_message == NULL) return;
+  char message[1024];
+  va_list args;
+  va_start(args, format);
+  vsnprintf(message, sizeof(message), format, args);
+  va_end(args);
+  seam->on_message(seam->message_user, message);
+}
+
+ReSeam *re_seam_open(const ReSeamOpen *options, char *error, size_t error_size) {
+  if (options == NULL || options->get_proc == NULL) {
+    say(error, error_size, "re_seam_open needs the host's glGetProcAddress: the pack links no GL");
+    return NULL;
+  }
+  ReSeam *seam = calloc(1, sizeof(*seam));
+  if (seam == NULL) {
+    say(error, error_size, "out of memory");
+    return NULL;
+  }
+  seam->on_message = options->on_message;
+  seam->message_user = options->message_user;
+#define RE_SEAM_GL_LOAD(ret, name, args)                                                            \
+  seam->name = (ret(*) args)options->get_proc(options->user, #name);                                \
+  if (seam->name == NULL) {                                                                         \
+    say(error, error_size, "the host's loader has no %s", #name);                                    \
+    free(seam);                                                                                      \
+    return NULL;                                                                                     \
+  }
+  RE_SEAM_GL_FUNCTIONS(RE_SEAM_GL_LOAD)
+#undef RE_SEAM_GL_LOAD
+  return seam;
+}
+
+void re_seam_close(ReSeam *seam) {
+  if (seam == NULL) return;
+  if (current == seam) current = NULL;
+  free(seam);
+}
+
+void re_seam_make_current(ReSeam *seam) { current = seam; }
+ReSeam *re_seam_current(void) { return current; }
+
+const char *re_seam_backend(void) { return "opengl"; }
+
+/* ---- programs --------------------------------------------------------------------------------- */
+
+static GLuint compile(ReSeam *seam, GLenum type, const ReSeamShader *stage, const char *debug_name) {
+  if (stage == NULL || stage->glsl == NULL) {
+    /* Naming the build step is the whole point: a consumer that switched its generator to emit only
+       SPIR-V would otherwise meet an empty-source compile error from the driver. */
+    report(seam, "gpu: %s has no GLSL for this stage — the OpenGL backend needs ReSeamShader.glsl, "
+                 "which the shader generator emits alongside SPIR-V", debug_name);
+    return 0;
+  }
+  const GLchar *sources[1] = {stage->glsl};
+  GLuint shader = seam->glCreateShader(type);
+  seam->glShaderSource(shader, 1, sources, NULL);
+  seam->glCompileShader(shader);
+  GLint ok = 0;
+  seam->glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
+  if (ok == 0) {
+    char log[512] = {0};
+    seam->glGetShaderInfoLog(shader, (GLsizei)sizeof(log), NULL, log);
+    report(seam, "gpu: %s shader compile: %s", debug_name, log);
+    seam->glDeleteShader(shader);
+    return 0;
+  }
+  return shader;
+}
+
+ReSeamProgram re_seam_program(ReSeam *seam, const ReSeamShader *vertex, const ReSeamShader *fragment,
+                              const char *debug_name) {
+  ReSeamProgram program = {0};
+  if (seam == NULL) return program;
+  GLuint vs = compile(seam, GL_VERTEX_SHADER, vertex, debug_name);
+  GLuint fs = compile(seam, GL_FRAGMENT_SHADER, fragment, debug_name);
+  if (vs == 0 || fs == 0) {
+    /* Whichever stage did compile is still a live GL object; dropping it here would leak one shader
+       per failed program. (VtMB's note, and the reason its version does the same.) */
+    if (vs != 0) seam->glDeleteShader(vs);
+    if (fs != 0) seam->glDeleteShader(fs);
+    return program;
+  }
+  GLuint id = seam->glCreateProgram();
+  seam->glAttachShader(id, vs);
+  seam->glAttachShader(id, fs);
+  seam->glLinkProgram(id);
+  seam->glDeleteShader(vs);
+  seam->glDeleteShader(fs);
+  GLint linked = 0;
+  seam->glGetProgramiv(id, GL_LINK_STATUS, &linked);
+  if (linked == 0) {
+    char log[512] = {0};
+    seam->glGetProgramInfoLog(id, (GLsizei)sizeof(log), NULL, log);
+    report(seam, "gpu: %s program link: %s", debug_name, log);
+    seam->glDeleteProgram(id);
+    return program;
+  }
+  program.id = id;
+  return program;
+}
+
+void re_seam_program_destroy(ReSeam *seam, ReSeamProgram *program) {
+  if (seam == NULL || program == NULL) return;
+  if (program->id != 0) seam->glDeleteProgram(program->id);
+  program->id = 0;
+}
+
+void re_seam_program_use(ReSeam *seam, ReSeamProgram program) { seam->glUseProgram(program.id); }
+
+int re_seam_uniform_location(ReSeam *seam, ReSeamProgram program, const char *name) {
+  return seam->glGetUniformLocation(program.id, name);
+}
+
+void re_seam_uniform_int(ReSeam *seam, int location, int value) { seam->glUniform1i(location, value); }
+void re_seam_uniform_float(ReSeam *seam, int location, float value) { seam->glUniform1f(location, value); }
+void re_seam_uniform_vec4(ReSeam *seam, int location, float x, float y, float z, float w) {
+  seam->glUniform4f(location, x, y, z, w);
+}
+void re_seam_uniform_mat4(ReSeam *seam, int location, const float *value) {
+  seam->glUniformMatrix4fv(location, 1, GL_FALSE, value);
+}
+
+/* ---- buffers ----------------------------------------------------------------------------------- */
+
+ReSeamBuffer re_seam_buffer(ReSeam *seam) {
+  ReSeamBuffer buffer = {0};
+  seam->glGenBuffers(1, &buffer.id);
+  return buffer;
+}
+
+void re_seam_buffer_destroy(ReSeam *seam, ReSeamBuffer *buffer) {
+  if (seam == NULL || buffer == NULL) return;
+  if (buffer->id != 0) seam->glDeleteBuffers(1, &buffer->id);
+  buffer->id = 0;
+}
+
+void re_seam_buffer_update(ReSeam *seam, ReSeamBuffer buffer, const void *data, size_t bytes,
+                           ReSeamBufferUsage usage) {
+  seam->glBindBuffer(GL_ARRAY_BUFFER, buffer.id);
+  seam->glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)bytes, data,
+                     usage == RE_SEAM_BUFFER_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+}
+
+/* ---- vertex layout ------------------------------------------------------------------------------ */
+
+ReSeamVertexArray re_seam_vertex_array(ReSeam *seam, ReSeamBuffer buffer, const ReSeamVertexLayout *layout) {
+  ReSeamVertexArray array = {0};
+  seam->glGenVertexArrays(1, &array.id);
+  seam->glBindVertexArray(array.id);
+  seam->glBindBuffer(GL_ARRAY_BUFFER, buffer.id);
+  for (int i = 0; layout != NULL && i < layout->count; i++) {
+    const ReSeamVertexAttribute *attr = &layout->attributes[i];
+    seam->glVertexAttribPointer((GLuint)attr->location, attr->components, GL_FLOAT, GL_FALSE,
+                                (GLsizei)layout->stride, (const void *)attr->offset);
+    seam->glEnableVertexAttribArray((GLuint)attr->location);
+  }
+  seam->glBindVertexArray(0);
+  return array;
+}
+
+void re_seam_vertex_array_destroy(ReSeam *seam, ReSeamVertexArray *array) {
+  if (seam == NULL || array == NULL) return;
+  if (array->id != 0) seam->glDeleteVertexArrays(1, &array->id);
+  array->id = 0;
+}
+
+void re_seam_vertex_array_bind(ReSeam *seam, ReSeamVertexArray array) { seam->glBindVertexArray(array.id); }
+
+/* ---- textures ------------------------------------------------------------------------------------ */
+
+ReSeamTexture re_seam_texture_2d(ReSeam *seam, const void *rgba, int width, int height,
+                                 ReSeamFilter filter, ReSeamWrap wrap) {
+  ReSeamTexture texture = {0};
+  GLint gl_filter = filter == RE_SEAM_FILTER_NEAREST ? GL_NEAREST : GL_LINEAR;
+  GLint gl_wrap = wrap == RE_SEAM_WRAP_REPEAT ? GL_REPEAT : GL_CLAMP_TO_EDGE;
+  texture.width = width;
+  texture.height = height;
+  seam->glGenTextures(1, &texture.id);
+  seam->glBindTexture(GL_TEXTURE_2D, texture.id);
+  seam->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter);
+  seam->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter);
+  seam->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, gl_wrap);
+  seam->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, gl_wrap);
+  seam->glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  seam->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+  seam->glBindTexture(GL_TEXTURE_2D, 0);
+  return texture;
+}
+
+void re_seam_texture_destroy(ReSeam *seam, ReSeamTexture *texture) {
+  if (seam == NULL || texture == NULL) return;
+  if (texture->id != 0) seam->glDeleteTextures(1, &texture->id);
+  texture->id = 0;
+  texture->width = 0;
+  texture->height = 0;
+}
+
+void re_seam_texture_bind(ReSeam *seam, ReSeamTexture texture, int unit) {
+  seam->glActiveTexture((GLenum)(GL_TEXTURE0 + unit));
+  seam->glBindTexture(GL_TEXTURE_2D, texture.id);
+}
+
+/* ---- state and draw ------------------------------------------------------------------------------ */
+
+void re_seam_blend(ReSeam *seam, ReSeamBlend blend) {
+  if (blend == RE_SEAM_BLEND_NONE) {
+    seam->glDisable(GL_BLEND);
+    return;
+  }
+  seam->glEnable(GL_BLEND);
+  seam->glBlendFunc(GL_SRC_ALPHA, blend == RE_SEAM_BLEND_ADDITIVE ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA);
+}
+
+void re_seam_depth(ReSeam *seam, ReSeamDepthTest test, ReSeamDepthWrite write) {
+  if (test == RE_SEAM_DEPTH_TEST_ENABLED) seam->glEnable(GL_DEPTH_TEST);
+  else seam->glDisable(GL_DEPTH_TEST);
+  seam->glDepthMask(write == RE_SEAM_DEPTH_WRITE_ENABLED ? GL_TRUE : GL_FALSE);
+}
+
+void re_seam_cull(ReSeam *seam, ReSeamCull cull) {
+  if (cull == RE_SEAM_CULL_BACK) {
+    seam->glEnable(GL_CULL_FACE);
+    seam->glCullFace(GL_BACK);
+    return;
+  }
+  seam->glDisable(GL_CULL_FACE);
+}
+
+void re_seam_viewport(ReSeam *seam, int x, int y, int width, int height) {
+  seam->glViewport(x, y, (GLsizei)width, (GLsizei)height);
+}
+
+void re_seam_clear(ReSeam *seam, float r, float g, float b, float a, bool depth) {
+  seam->glClearColor(r, g, b, a);
+  GLbitfield mask = GL_COLOR_BUFFER_BIT;
+  /* A depth clear is a no-op unless depth writes are on — GL masks the clear too. Forcing the write
+     here would be a hidden state change; a call site that clears depth sets the write itself. */
+  if (depth) mask |= GL_DEPTH_BUFFER_BIT;
+  seam->glClear(mask);
+}
+
+void re_seam_draw(ReSeam *seam, ReSeamPrimitive primitive, int first, int count) {
+  seam->glDrawArrays(primitive == RE_SEAM_PRIMITIVE_LINES ? GL_LINES : GL_TRIANGLES, first, (GLsizei)count);
+}
+
+const char *re_seam_api_version(ReSeam *seam) {
+  const GLubyte_t *version = seam->glGetString(GL_VERSION);
+  return version != NULL ? (const char *)version : "unknown";
+}

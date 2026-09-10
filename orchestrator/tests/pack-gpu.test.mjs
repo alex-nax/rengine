@@ -53,9 +53,14 @@ int main(void) {
     assert.deepEqual(targets.filter(t => t.startsWith('rengine')), ['rengine_gpu'],
       `the consumer configured the pack's library and no other rEngine target: ${targets.join(', ')}`);
 
-    /* The public surface is one header. src/ is private and must not be on the include path. */
+    /* The public surface is these three headers and nothing else: the device layer, the seam's C
+       core, and the seam's header-only C++ facade. src/ is private and must not be on the include
+       path. Named rather than counted, so adding a fourth is a deliberate edit here — an accidental
+       one (an internal header moved to include/ to fix a build) fails instead of widening the
+       surface a consumer then depends on. */
     const published = await readdir(path.join(PACK, 'include', 'rengine'));
-    assert.deepEqual(published, ['gpu_device.h'], `the pack publishes one header: ${published}`);
+    assert.deepEqual(published, ['gpu_device.h', 'gpu_seam.h', 'gpu_seam.hpp'],
+      `the pack publishes its two layers' headers and no more: ${published}`);
     /* A separate project, so this cannot depend on an incremental build noticing a rewrite. */
     const probe = path.join(dir, 'probe');
     await mkdir(probe, { recursive: true });

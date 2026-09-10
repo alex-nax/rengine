@@ -1,5 +1,77 @@
 # Progress Log
 
+## Session 98 (macos) — 2026-09-10 — the seam, generalised from VtMB and judged on pixels
+
+F123's second half. The seam is written, its OpenGL backend runs against a real driver, and
+vtmb-vr's own call sites compile through it unchanged.
+
+**Spec 122 said this could not be written yet. That was wrong.** The reason given was that "a seam's
+shape is settled by the call sites it has to serve, and rEngine has no 3D renderer to serve". The
+first half is right; the conclusion is not. **The call sites exist** — thirteen files in `~/vtmb-vr`,
+readable and compilable against today. Waiting for F126 to read them was waiting for nothing.
+
+**Measured before designing:** `device.h` is 174 lines and 25 methods with **no virtuals, no
+templates, no inheritance and no data members**; 13 files call it; 23 distinct methods are used.
+That shape is the language answer — an opaque handle with free functions in C++ syntax — so the pack
+is a **C core with a header-only C++ facade**. rEngine's tree stays C; VtMB's call sites are
+untouched. There was never an owner decision here.
+
+**Three questions spec 121 left open, answered:**
+
+- **Shaders.** `createProgram` takes GLSL and Vulkan cannot compile GLSL — except VtMB's own build
+  already runs `glslang → SPIR-V → SPIRV-Cross` and **throws the SPIR-V away** in a work directory.
+  The form a Vulkan backend needs is one the build already produces. `ReSeamShader` carries every
+  form; call sites do not change, because the type is the generator's business.
+- **Handle width.** The id is the *backend's* name for the object — a GL name here, a slot index
+  where the API's handle is 64 bits. `0 == none` and the structs keep the size call sites assume.
+- **Loading.** `re_seam_open` takes a `glGetProcAddress` exactly as `re_gpu_open` takes a
+  `vkGetInstanceProcAddr`. Both layers now take entry points from the host, which is one rule rather
+  than two, and it is why the pack cannot clash with the glad a consumer already links.
+
+**Judged on pixels.** `gpu_seam_test.c` opens a real GL context (`4.1 Metal - 89.4`), renders through
+the seam into a framebuffer **the test made itself**, and reads it back. **Thirteen sabotages**, and
+the pass is the story: **four of them found gaps the first version of the test could not see** —
+every sample sat at a clamped edge where nearest and linear agree; every uv stayed inside [0, 1]
+where clamp and repeat agree; nothing but triangles was ever drawn; and uv ran the same direction as
+position, so reading the wrong attribute offset produced the same two halves. A fifth was a
+test-design fault: the coverage assertion used a uniform-coloured shader, so dropping `setUniform`
+failed *"the draw covered the vertices it was given"* — an assertion claiming what it was not
+testing. A sixth was in the wording: the wrong-form check asked for "GLSL", which a *driver's* own
+error also says.
+
+Two are honestly uncatchable and recorded as such: removing the null-GLSL guard **segfaults** rather
+than failing an assertion (the driver dereferences the source pointer), and the buffer usage hint has
+no observable behaviour at all.
+
+**The facade preserves the call sites, checked by compiling them.** `gpu_seam_facade_test.cpp`
+writes VtMB's expressions as VtMB writes them, and `pack-gpu-seam.test.mjs` builds it as a **C++
+project outside this repository** that adds the pack. The same spec re-derives the 23 methods VtMB
+calls and fails if any is missing from the facade or the fixture, so the hand-written fixture cannot
+drift. Anchoring on the declared variables is what makes that number mean anything — grepping method
+names alone counted 442 calls to `clear`, nearly all `std::vector::clear`.
+
+**Adoption cost, stated rather than discovered: one call site.** `menu_eye_renderer.h:77`'s
+`init(nullptr)` means "glad already ran, use the globals". A library that links no GL has no globals
+— the same property that lets a consumer keep its loader. It fails to **compile**, which is the right
+way to fail.
+
+**Why no Vulkan backend, with a measurement instead of a preference.** The seam has no render-target
+concept, because GL let call sites bind a framebuffer behind its back. In vtmb-vr **13 files bind one
+with raw `glBindFramebuffer` (63 calls) and not one is among the 13 behind the seam** — two disjoint
+groups of thirteen. Every call site that would shape the missing API is in the unmigrated 49, so it
+would be guessed here and found wrong there. `RENGINE_GPU_SEAM_BACKEND=vulkan` fails the configure
+saying so.
+
+**That leaves a knot only the owner can cut (KI-082):** F123's criterion 8 wants a Vulkan backend,
+F126 is where one can be judged, and F126 depends on F123. Recommendation is in the known issue;
+nothing edited, because `AGENTS.md` wants an owner decision before a criterion moves.
+
+The guard gained a second rule: the seam's sources may include no graphics API header and mention no
+`SDL_`. Observed failing by name and line, twice.
+
+Commands: `npm test` 233/233 · `ctest -R native_gpu` 2/2 · thirteen seam sabotages · three
+facade/pack sabotages · two guard sabotages · `./init.sh` · `design.py check`
+
 ## Session 97 (macos) — 2026-09-10 — the Vulkan loader was here the whole time; F120 passes
 
 **A conclusion I had recorded twice turned out to be wrong, and cheaply.** Spec 122 and KI-079 both
