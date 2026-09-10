@@ -142,6 +142,16 @@
       }
     },
     {
+      "path": "previews/views/tasks.html",
+      "name": "Tasks",
+      "group": "Views",
+      "subtitle": "Task rows with trimmed titles and controls, and one opened detail: description, tags, criteria, evidence",
+      "viewport": {
+        "width": 960,
+        "height": 420
+      }
+    },
+    {
       "path": "previews/views/terminal.html",
       "name": "Terminal",
       "group": "Views",

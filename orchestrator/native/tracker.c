@@ -299,17 +299,21 @@ static void live_rows(ReApp *a, mu_Context *ui, int tab, bool answered) {
  * wrapped: the whole description, what it is waiting on, and every criterion in full. Inline under
  * its own row for the reason the other choosers are (see sidecar: chooser-is-inline-not-a-popover). */
 static void detail_rows(ReApp *a, mu_Context *ui, int tab, const char *key, const cJSON *task) {
-  static const char *const FIELDS[] = {"priority", "assignee"};
-  mu_layout_row(ui, 2, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
-  re_ui_label_ex(ui, "Task", RE_UI_MUTED | RE_UI_SMALL);
-  re_ui_label_ex(ui, key, RE_UI_SMALL | RE_UI_STRONG);
+  static const char *const TAGS[] = {"priority", "assignee"};
+  char line[512];
+  /* The block is indented to the key column so it reads as belonging to the row above rather than to
+   * the pane, and every value sits in one column under a right-aligned kicker — the design card's
+   * `.detail` rail and `.field` rows (design/previews/views/tasks.html). */
+  const int RAIL = RE_METRIC_TRACKER_KEY_WIDTH, KICK = RE_METRIC_TRACKER_STATE_WIDTH;
+
+  /* The description first and unlabelled: the row above trimmed it, so it is what the reader came
+   * for. No "Task F115" line — the key is already on the row this block hangs from. */
+  mu_layout_row(ui, 2, (int[]){RAIL, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+  re_ui_label_ex(ui, "", 0);
+  re_ui_paragraph(ui, re_string(task, "title"), 0);
   re_app_control(a, ui, "tracker-detail", key, tab);
 
-  mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_TRACKER_ROW_HEIGHT);
-  re_ui_label_ex(ui, "", 0); /* the description spans the row rather than sitting in a value column */
-  re_ui_paragraph(ui, re_string(task, "title"), RE_UI_SMALL);
-
-  char line[512]; line[0] = 0; size_t used = 0;
+  line[0] = 0; size_t used = 0;
   const cJSON *label = NULL;
   cJSON_ArrayForEach(label, cJSON_GetObjectItemCaseSensitive(task, "labels")) {
     if (!cJSON_IsString(label)) continue;
@@ -317,15 +321,16 @@ static void detail_rows(ReApp *a, mu_Context *ui, int tab, const char *key, cons
     if (written < 0 || (size_t)written >= sizeof(line) - used) break;
     used += (size_t)written;
   }
-  for (size_t i = 0; i < sizeof(FIELDS) / sizeof(*FIELDS); i++) {
-    const char *value = re_string(task, FIELDS[i]);
+  for (size_t i = 0; i < sizeof(TAGS) / sizeof(*TAGS); i++) {
+    const char *value = re_string(task, TAGS[i]);
     if (!*value) continue;
     int written = snprintf(line + used, sizeof(line) - used, "%s%s", used ? " · " : "", value);
     if (written < 0 || (size_t)written >= sizeof(line) - used) break;
     used += (size_t)written;
   }
   if (used) {
-    mu_layout_row(ui, 2, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+    mu_layout_row(ui, 3, (int[]){RAIL, KICK, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+    re_ui_label_ex(ui, "", 0);
     re_ui_label_ex(ui, "Tagged", RE_UI_MUTED | RE_UI_SMALL);
     re_ui_label_ex(ui, line, RE_UI_MUTED | RE_UI_SMALL);
     re_app_control(a, ui, "tracker-detail-tags", key, tab);
@@ -341,22 +346,43 @@ static void detail_rows(ReApp *a, mu_Context *ui, int tab, const char *key, cons
       if (written < 0 || (size_t)written >= sizeof(line) - used) break;
       used += (size_t)written;
     }
-    mu_layout_row(ui, 2, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+    mu_layout_row(ui, 3, (int[]){RAIL, KICK, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+    re_ui_label_ex(ui, "", 0);
     re_ui_label_ex(ui, "Waiting on", RE_UI_MUTED | RE_UI_SMALL);
     re_ui_label_ex(ui, line, RE_UI_MUTED | RE_UI_SMALL);
     re_app_control(a, ui, "tracker-detail-blocked", key, tab);
   }
 
-  /* Criteria in full, wrapped. The Spawn chooser shows them clipped because it is composing a
-   * prompt; here they are the thing being read, and a trimmed acceptance criterion is worthless. */
-  const cJSON *criterion = NULL; bool first = true;
+  /* Numbered and tight. Unnumbered paragraphs separated by blank lines read as prose and cannot be
+   * referred to — a tests manifest that says "criterion 3" needs a visible 3 (spec 117). */
+  const cJSON *criterion = NULL; int index = 0;
   cJSON_ArrayForEach(criterion, cJSON_GetObjectItemCaseSensitive(task, "criteria")) {
     if (!cJSON_IsString(criterion)) continue;
-    mu_layout_row(ui, 2, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
-    re_ui_label_ex(ui, first ? "Criteria" : "", RE_UI_MUTED | RE_UI_SMALL);
+    char number[8]; snprintf(number, sizeof(number), "%d", ++index);
+    mu_layout_row(ui, 3, (int[]){RAIL, KICK, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+    re_ui_label_ex(ui, "", 0);
+    re_ui_label_ex(ui, index == 1 ? "Criteria" : "", RE_UI_MUTED | RE_UI_SMALL);
+    re_ui_label_ex(ui, number, RE_UI_MUTED | RE_UI_SMALL);
+    mu_layout_row(ui, 2, (int[]){RAIL + KICK, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
     re_ui_label_ex(ui, "", 0);
     re_ui_paragraph(ui, criterion->valuestring, RE_UI_MUTED | RE_UI_SMALL);
     re_app_control(a, ui, "tracker-detail-criterion", key, tab);
+  }
+
+  /* What proves it, read here rather than behind a second caret: the reader is already looking at
+   * what the task claims, and the evidence is the answer to the next question they have. */
+  const cJSON *evidence = cJSON_GetObjectItemCaseSensitive(task, "evidence"), *item = NULL;
+  bool first = true;
+  cJSON_ArrayForEach(item, evidence) {
+    if (!cJSON_IsString(item)) continue;
+    mu_layout_row(ui, 3, (int[]){RAIL, KICK, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+    re_ui_label_ex(ui, "", 0);
+    re_ui_label_ex(ui, first ? "Proven by" : "", RE_UI_MUTED | RE_UI_SMALL);
+    re_ui_label_ex(ui, "", 0);
+    mu_layout_row(ui, 2, (int[]){RAIL + KICK, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+    re_ui_label_ex(ui, "", 0);
+    re_ui_paragraph(ui, item->valuestring, RE_UI_MUTED | RE_UI_SMALL);
+    re_app_control(a, ui, "tracker-detail-evidence", key, tab);
     first = false;
   }
 }

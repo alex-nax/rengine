@@ -133,3 +133,17 @@ column. It caught that the first fix was insufficient — `text_clipped` had nev
 `apply_scissor` restored the wider scissor before anything was drawn. What remains open is the
 *draw-list* form: a harness that renders an owned control and names the missing clip command
 directly. The pixel test proves what reached the screen; it cannot say why.
+
+## KI-075 — native-game.spec.mjs receives scancode 0 instead of the key it sent
+
+`native-game.spec.mjs` asserts that a scancode pressed over the game pane reaches the fixture, and
+it now receives `key 0 1` — `SDL_SCANCODE_UNKNOWN` — where it expects `key 26 1` (`W`). The pane and
+the surface transport are working: the fixture is reached, and only the scancode is wrong, so the
+failure is in translating the automation event's keycode to a scancode.
+
+**Not caused by the current work.** The same spec fails at `737b58a`, the commit before this
+session's native changes, in a clean worktree built from that revision. It passed earlier the same
+day (`npm run test:desktop` 70/70), so the likely cause is machine state that
+`SDL_GetScancodeFromKey` depends on — the active keyboard layout or input source — rather than a
+code change. Recorded rather than absorbed; diagnosing it is its own task, and until then the
+desktop suite reads 69/70 with this one red for a reason that is written down.

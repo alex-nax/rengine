@@ -81,6 +81,41 @@ is the easiest kind to get wrong, because it looks like a measurement.
 Gates: `npm test` 230/230, the desktop suite 70/70, `./init.sh`, `design.py check`,
 `features.py validate` 76.
 
+## Paired with Claude Design (2026-09-10)
+
+The owner, seeing the first version: *"the data is correct - but you'd better improve design of it -
+can we pair up with Claude Design?"* Both halves were fair. The first version was laid out by
+guessing: a redundant `Task F115` header repeating the key from the row it hung under, blank spacer
+rows opening gaps wider than the text they separated, and criteria as unnumbered paragraphs floating
+at the pane's left edge with no relationship to the row above.
+
+The pairing already existed and was the right answer. `design/previews/` holds a self-contained HTML
+card per surface, `design.py generate` compiles them into `cards.json`/`manifest.json`, and
+`native-design.spec.mjs` asserts native snapshots against the generated measurements. There was no
+card for the Tasks view — so the native layout had nothing to be wrong against.
+
+**`design/previews/views/tasks.html`** now exists, and is pushed to the owner's `rEngine native
+workspace` design project. It settles four things the first version got wrong:
+
+- **The block belongs to its row.** Inset by the key column with a left accent rail and a sunken
+  ground, so a reader never has to work out which task the prose under a row describes.
+- **One value column under a right-aligned kicker.** `Tagged`, `Waiting on`, `Criteria`, `Proven by`
+  read as a column of labels rather than as prose starting at four different indents.
+- **Criteria are numbered and tight.** Unnumbered paragraphs separated by blank lines read as prose
+  and cannot be referred to — and a tests manifest that says *criterion 3* (spec 117) needs a
+  visible 3.
+- **No repeated key and no spacer rows.** The description leads, because the row above trimmed it
+  and that is what the reader came for.
+
+The card's guard bites, incidentally: `design.py check` refused two symbols the preview used that no
+entry in `orchestrator/native/icons.json` claims, which is exactly the drift it exists to stop.
+
+**One measurement had to move with the design.** The wrap assertion anchored on the `tracker-detail`
+control, which used to be the header row; with the header gone that anchor sits inside the
+description and the gap collapsed to 4px either way. It now measures from the task's own row — which
+does not move — down to the first field after the description, so the distance *is* the description's
+rendered height. Cut to one line it reports `52px against 52px` and fails.
+
 ## What this is not
 
 - **It is not a pane.** The detail is inline under its row, which suits reading one task while

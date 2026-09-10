@@ -1,0 +1,72 @@
+<!-- @dsCard group="Views" viewport="960x420" name="Tasks" subtitle="Task rows with trimmed titles and controls, and one opened detail: description, tags, criteria, evidence" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>rEngine · Tasks</title>
+<link rel="stylesheet" href="../../styles.css">
+<style>
+.re-pane{left:8px;top:8px;width:944px;height:404px}
+.hdr{border-bottom:1px solid var(--ui-border);background:var(--ui-surface-sunken)}
+.list .re-row{border-bottom:1px solid var(--ui-border-soft);height:30px}
+.list .re-row:hover{background:var(--ui-highlight)}
+.k{flex:0 0 56px}
+/* The title is a ghost button, left-aligned, and TRIMS: the row stays one line per task so the list
+   stays scannable, and the detail below is where the whole text is read. */
+.t{flex:1;min-width:0}
+.t .re-button{width:100%;justify-content:flex-start;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;display:block;line-height:20px}
+.ctl{flex:0 0 auto;display:flex;gap:4px}
+.st{flex:0 0 84px;display:flex;justify-content:flex-end}
+.pill{display:inline-flex;align-items:center;gap:6px;height:18px;padding:0 8px;border-radius:9px;background:var(--ui-control);font-size:var(--ui-size-sm);color:var(--ui-fg)}
+.pill .dot{width:6px;height:6px;border-radius:50%;background:var(--ui-ok)}
+.pill.wait .dot{background:var(--ui-warn)}
+
+/* The opened detail. It belongs to the row above it, so it is inset and railed rather than floating:
+   a reader must never have to work out which task the prose under a row is describing. */
+.detail{background:var(--ui-surface-sunken);border-bottom:1px solid var(--ui-border-soft);
+        border-left:2px solid var(--ui-accent);padding:8px 12px 10px 10px;margin-left:56px}
+.detail .body{font-size:var(--ui-size);line-height:var(--ui-leading-lg);color:var(--ui-fg);max-width:78ch}
+.field{display:flex;gap:12px;margin-top:8px;align-items:baseline}
+.field .re-kicker{flex:0 0 76px;text-align:right}
+.field .val{flex:1;min-width:0;font-size:var(--ui-size-sm);color:var(--ui-fg-muted);line-height:var(--ui-leading)}
+/* Criteria are numbered and tight. Unnumbered paragraphs separated by blank lines read as prose and
+   cannot be referred to; a manifest that says "criterion 3" needs a visible 3. */
+ol.crit{margin:0;padding:0;list-style:none;counter-reset:c}
+ol.crit li{counter-increment:c;position:relative;padding-left:22px;margin:0 0 5px 0;
+           font-size:var(--ui-size-sm);color:var(--ui-fg-muted);line-height:var(--ui-leading)}
+ol.crit li:last-child{margin-bottom:0}
+ol.crit li::before{content:counter(c);position:absolute;left:0;top:0;width:15px;text-align:right;
+                   color:var(--ui-fg-faint);font-variant-numeric:tabular-nums}
+.ev{font-family:var(--ui-mono);font-size:var(--ui-mono-size);color:var(--ui-fg-muted)}
+.ev .proved{color:var(--ui-ok)}
+</style>
+</head>
+<body>
+<div class="re-pane">
+  <div class="re-tabs"><span class="re-tab is-active"><span class="re-icon">▣</span><span class="title">Tasks</span><span class="close">✕</span></span></div>
+  <div class="re-content">
+    <div class="re-row hdr gap-lg"><span class="re-kicker k">Key</span><span class="re-kicker t">Task</span><span class="re-kicker ctl"></span><span class="re-kicker st">State</span></div>
+    <div class="list">
+      <div class="re-row gap-lg"><span class="re-label muted k">F113</span><span class="t"><span class="re-button ghost">One declared agent recipe registry replaces the four private tables the launch path keeps today</span></span><span class="ctl"><span class="re-button">Tests ▾</span><span class="re-button">Spawn ▾</span><span class="re-button">Decompose</span><span class="re-button">Hold token ▾</span></span><span class="st"><span class="pill wait"><span class="dot"></span>ready</span></span></div>
+
+      <div class="re-row gap-lg"><span class="re-label muted k">F115</span><span class="t"><span class="re-button ghost is-active">A task carries the evidence that backs it: features.json rows already hold an evidence array naming the test</span></span><span class="ctl"><span class="re-button">Tests ▾</span><span class="re-button">Spawn ▾</span><span class="re-button">Decompose</span><span class="re-button">Hold token ▾</span></span><span class="st"><span class="pill"><span class="dot"></span>passing</span></span></div>
+      <div class="detail">
+        <div class="body">A task carries the evidence that backs it: features.json rows already hold an evidence array naming the test and what it proves, and the local provider drops it on the way to the neutral row, so no surface in the workspace can answer what test backs a task. The field reaches the row beside criteria, and the Tasks tab draws each criterion with the evidence under it (charter D47).</div>
+        <div class="field"><span class="re-kicker">Tagged</span><span class="val">T0 · workspace · high · rengine</span></div>
+        <div class="field"><span class="re-kicker">Waiting on</span><span class="val">F109</span></div>
+        <div class="field"><span class="re-kicker">Criteria</span><span class="val">
+          <ol class="crit">
+            <li>A local task's evidence reaches the neutral row beside criteria and is drawn in the Tasks tab, so a person reading a task can see which test backs it without opening the inventory.</li>
+            <li>Providers that have no evidence to give answer with an empty list exactly as they already do for criteria, and their rows are unchanged.</li>
+            <li>A row whose evidence is absent or malformed still renders with its criteria rather than failing the tab.</li>
+          </ol>
+        </span></div>
+        <div class="field"><span class="re-kicker">Proven by</span><span class="val ev">orchestrator/tests/tracker.test.mjs <span class="proved">· 3 sabotages · last pass</span></span></div>
+      </div>
+
+      <div class="re-row gap-lg"><span class="re-label muted k">F116</span><span class="t"><span class="re-button ghost">Contract 10 adds a tests block: a project produces a manifest keyed by the task key its provider uses</span></span><span class="ctl"><span class="re-button">Tests ▾</span><span class="re-button">Spawn ▾</span><span class="re-button">Decompose</span><span class="re-button">Hold token ▾</span></span><span class="st"><span class="pill"><span class="dot"></span>passing</span></span></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -109,10 +109,14 @@ test('a longer title changes no pixel to the right of its own column', { timeout
                                        && s.tracker?.chooser?.taskKey === 'F1', `${expect} detail opens`);
       assert.equal(opened.controls.filter(c => c.role === 'tracker-detail' && c.key === 'F1').length, 1,
         `${expect}: the block is drawn once, under its own row`);
-      const head = opened.controls.find(c => c.role === 'tracker-detail' && c.key === 'F1');
+      assert.ok(!opened.controls.some(c => c.role === 'tracker-detail' && c.key !== 'F1'),
+        `${expect}: no other row opened one`);
+      /* Measured from the task's own row, which does not move, down to the first field after the
+         description. The description sits between them, so this distance IS its rendered height. */
+      const head = opened.controls.find(c => c.role === 'tracker-task' && c.key === 'F1');
       const next = opened.controls.find(c => (c.role === 'tracker-detail-tags' || c.role === 'tracker-detail-criterion')
                                           && c.key === 'F1');
-      assert.ok(head && next, `${expect}: the block draws a header and a row after the description`);
+      assert.ok(head && next, `${expect}: the block draws the row and a field after the description`);
       const measured = next.rect[1] - (head.rect[1] + head.rect[3]);
       await gui.control('tracker-task', 'F1');            /* the title toggles, so this closes it */
       await gui.until(s => s.tracker?.chooser?.kind !== 'details', `${expect} detail closes`);

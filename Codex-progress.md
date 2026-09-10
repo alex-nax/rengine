@@ -1,5 +1,44 @@
 # Progress Log
 
+## Session 90 (macos) — 2026-09-10 — the task detail paired with Claude Design, and one red that is not ours
+
+The owner: *"the data is correct - but you'd better improve design of it - can we pair up with Claude
+Design?"* Both halves fair. The first detail view was laid out by guessing — a redundant `Task F115`
+header repeating the key from the row above it, blank spacer rows opening gaps wider than the text
+they separated, and criteria as unnumbered paragraphs floating at the pane's left edge.
+
+**The pairing already existed, and the gap was that no card covered this surface.**
+`design/previews/` holds a self-contained HTML card per view, `design.py generate` compiles them into
+`cards.json`, and `native-design.spec.mjs` asserts native snapshots against the generated
+measurements. With no Tasks card, the native layout had nothing to be wrong against.
+`design/previews/views/tasks.html` now exists and is pushed to the owner's *rEngine native workspace*
+project — 20 cards, and `design.py check` clean.
+
+It settles four things: the block is inset by the key column with a left accent rail so it visibly
+belongs to its row; values sit in one column under right-aligned kickers instead of starting at four
+indents; criteria are numbered and tight, because unnumbered paragraphs cannot be referred to and a
+tests manifest saying *criterion 3* needs a visible 3; and the repeated key and spacer rows are gone,
+so the description leads.
+
+The card guard earned its keep on the way in: `design.py check` refused two symbols the preview used
+that no entry in `icons.json` claims — exactly the drift it exists to stop.
+
+**A measurement had to move with the design.** The wrap assertion anchored on `tracker-detail`, which
+used to be the header row; with the header gone that anchor sits inside the description and the gap
+collapsed to 4px either way — it would have passed while measuring nothing. It now measures from the
+task's own row, which does not move, to the first field after the description, so the distance *is*
+the description's height. Cut to one line: `52px against 52px`, red.
+
+**One desktop spec is red and it is not ours.** `native-game.spec.mjs` receives `key 0 1` —
+`SDL_SCANCODE_UNKNOWN` — where it expects `key 26 1`. The pane and the surface transport work; only
+the keycode-to-scancode translation fails. It fails identically at `737b58a`, before any of this
+session's native work, in a clean worktree built from that revision, and it passed earlier the same
+day — so the likely cause is machine state `SDL_GetScancodeFromKey` depends on, not a code change.
+KI-075, recorded rather than absorbed.
+
+Commands: `npm test` 230/230 · `npm run test:desktop` 69/70 with KI-075 the only red ·
+`design.py check` (20 cards) · `features.py validate` (76).
+
 ## Session 89 (macos) — 2026-09-09 — a task read rather than scanned (F124), and two more controls that never clipped
 
 The owner drew the right consequence from the trimming: *"Now that text is trimmed there - we need a
