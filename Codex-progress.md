@@ -1,5 +1,51 @@
 # Progress Log
 
+## Session 93 (macos) — 2026-09-10 — NOLF's editor updated, and what the first adoption's aftermath taught
+
+**NOLF's editor is on rEngine main and restarted.** Its pin had drifted onto `f9af9e5`, a commit on
+rEngine's `feat/chat-file-image-tabs` **branch** rather than main — checked as an ancestor of main
+before moving, so nothing was lost. Bumped to `8f6b820` (15 commits) as NOLF's `290f1b68`, with iklib
+following at `620bff1` through the recursive bootstrap and still matching `NOLF_IKLIB_PIN`. Restart:
+host **60124 not signalled**, supervisor 60259 replaced by 56219, desktop back on a fresh snapshot
+whose binary carries the new strings. Only `third_party/rengine` was staged — a peer has active
+uncommitted PV-hands work there and nothing was pushed, because NOLF's main is six commits ahead with
+their unpushed work.
+
+The list virtualisation matters most in that checkout: 1317 tasks, **35 213 draw commands a frame
+down to 842**.
+
+**Then the owner's question: the problem after the iklib integration is fixed — is there an insight?**
+There is, and it is about our doctrine rather than about iklib.
+
+NOLF's `ApplyArmEntriesToPose`, the applicator consuming the solve's output, constructed **three
+`std::vector`s per invocation** on a path called from the display-time late-latch
+(`app_vr_arm_latch.cpp:263`) and the PV-hands path (`vr_pv_hands.cpp:222`) — per arm, per frame, in
+VR. Fixed with retained `static thread_local` buffers; NOLF's KI-526 is closed.
+
+**iklib did not cause it.** Those allocations were F715's and pre-dated the adoption, which is what
+makes it worth writing down: F1706 reviewed that seam more carefully than anything else in either
+repository — 20 240 scenes, worst deviation 2.7e-5 LT, four sabotages, the deleted solve kept
+verbatim as an oracle — and its spec mentions allocation, frame time, budget or profiling **zero
+times**. It was exhaustive about the half it was asked to be exhaustive about.
+
+**And the requirement already existed, in a document nobody reads at sign-off time.**
+`docs/roadmap.md` M2 has always said *"integration cost, resource behavior and rollback are
+recorded"*; spec 110's sign-off record — the thing an adoption is actually judged against — listed
+pack, pin, project, what was run and seen, date and owner's words, and no cost. The two have
+disagreed since D44b was written and the first adoption fell straight through the gap.
+
+**It recurred the next day in a different lane**, which is the argument that it is systematic: spec
+115 records that extracting the GPU device layer moves a per-frame solve from a header-only inline
+into a linked library, and says plainly that nobody has measured it.
+
+Changed: spec 110 gains a required **measured cost on the adopted path** (an addition to D44b's
+record, not a reversal — worth the owner's confirmation at the next sign-off, since the format is
+theirs); spec 111's sign-off slot now carries an honest *not measured*; and the integration runbook
+gains section 12, asking for per-call cost before and after, **every** production call site, and the
+budget it sits inside.
+
+Commands: `./init.sh` · `features.py validate` (77).
+
 ## Session 92 (macos) — 2026-09-10 — the design actually landed, and a cross-vendor review found a real regression
 
 The owner asked whether the design was proper yet. It was not, and the honest way to find out was to

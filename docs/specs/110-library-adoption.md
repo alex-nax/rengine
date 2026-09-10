@@ -53,7 +53,44 @@ Not a schema — a spec is prose — but a sign-off that omits any of these cann
 - the **project** that adopted it, and the checkout it was verified in;
 - **what was actually run and seen**, in the project's own terms — its gates, its game, its evidence
   document — rather than "the checks passed";
-- the **date and the owner's own words**, as the charter's decision rows already carry.
+- the **date and the owner's own words**, as the charter's decision rows already carry;
+- **what it costs on the path it took over** — a measured number, not a reassurance. See below.
+
+## The field this list was missing, found by the first adoption (2026-09-10)
+
+The four items above are all about **correctness**, and the first real adoption proved correctness to
+an almost excessive standard: F1706 compared 20 240 scenes and reported a worst deviation of 2.7e-5
+LT. Its spec mentions allocation, frame time, budget and profiling **zero times**.
+
+The defect that surfaced afterwards was a *cost* defect, on exactly the path the adoption had taken
+over. NOLF's `ApplyArmEntriesToPose` — the applicator that consumes the solve's output — constructed
+**three `std::vector`s per invocation**, on a path called from the display-time late-latch
+(`app_vr_arm_latch.cpp:263`) and the PV-hands path (`vr_pv_hands.cpp:222`): per arm, per frame, in
+VR. It is now fixed with retained `static thread_local` buffers, and NOLF's KI-526 is closed.
+
+**The adoption did not cause it.** The allocations were F715's, pre-dating iklib. That is what makes
+it worth writing down rather than filing as a bug: the adoption reviewed that seam more carefully
+than anything else in the repository, and never looked at what it cost, because nothing asked it to.
+
+**The requirement already existed — in the wrong document.** `docs/roadmap.md`'s M2 exit condition
+says *"integration cost, resource behavior and rollback are recorded"*, and M1 asks for *"resource
+requirements"*. This list, which is what an adoption is actually judged against, did not carry it. So
+the roadmap and the record format have disagreed since D44b was written, and the first adoption fell
+straight through the gap.
+
+**And it recurred the next day, in a different lane.** [Spec 115](115-gpu-device-layer-and-simulator.md)
+records that extracting the GPU device layer moves a per-frame solve from a header-only inline into a
+linked library, and says plainly that nobody has measured it. Same class of gap, one day later — which
+is the argument that this is systematic rather than a single oversight.
+
+A cost line does not need to be elaborate. For F1706 it would have been one sentence: *allocations per
+solve, before and after; the two call sites; the frame budget it sits in.* That sentence would have
+found KI-526 during the adoption instead of two features later.
+
+**This adds a field to D44b's record; it does not reverse it.** D44b remains that the proof is the
+owner's sign-off in a spec rather than a command rEngine runs — a measured number is part of what the
+owner is signing, not a check that replaces the signature. Worth the owner's explicit confirmation at
+the next sign-off, since the record format is theirs.
 
 ## What this does not decide
 

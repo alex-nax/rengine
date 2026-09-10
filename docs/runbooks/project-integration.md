@@ -324,6 +324,33 @@ declaration is well-formed and its commands run, not that the pane looks right.
    into `project.json` with `contract: 2` once the pin carries the dashboard, and a single `game`
    object becomes a one-record `games` array at `contract: 3` once the pin carries game targets.
 
+## 12. Adopting a library from the suite — measure what it costs, not only that it agrees
+
+A project consuming a pack through its `library` facet (charter D24, D39) writes the adoption
+evidence its own sign-off rests on (D44). The correctness half is well understood: keep the code you
+are replacing as the test's oracle, compare over enough inputs to be convincing, and sabotage the
+comparison so you have seen it fail for its own reason.
+
+**Measure the cost too, and record it as a number.** This is the half the first adoption missed.
+`~/nolf-improved`'s iklib adoption (F1706) compared 20 240 scenes and reported a worst deviation of
+2.7e-5 LT — and its spec mentions allocation, frame time, budget and profiling zero times. The defect
+that surfaced afterwards was a cost defect on exactly the path the adoption had taken over: the
+applicator consuming the solve's output allocated three vectors per invocation, on a path called per
+arm per frame from a display-time late-latch. It was pre-existing rather than caused by the library,
+which is the point — the seam was reviewed more carefully than anything else in the repository and
+nobody looked at what it cost, because nothing asked them to.
+
+So before the sign-off, add a sentence carrying:
+
+- **what the adopted path does per call now, and did before** — allocations, or work per frame,
+  whichever the path is sensitive to;
+- **every production call site**, because "it is only called once" is the assumption that hides this;
+- **the budget it sits inside** — a VR frame, a tick, a request.
+
+`docs/roadmap.md`'s M2 exit condition has always said *"integration cost, resource behavior and
+rollback are recorded"*; it simply was not in the sign-off record that an adoption is judged against
+(`docs/specs/110-library-adoption.md`), and now it is.
+
 ## Worked instance — nolf-improved (reLith), 2026-09-06
 
 The formats, dashboard and tests below are live; the `games` array is **the shape this project is

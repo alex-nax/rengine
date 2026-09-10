@@ -160,10 +160,39 @@ is now filled except the owner's own words, so it is set out here rather than as
   where D44 says it belongs.
 - **date and the owner's words**: *awaiting the owner.* This is the one thing no agent can supply,
   and D44b exists precisely so that it is not supplied by one.
+- **what it costs on the path it took over**: *not measured during the adoption, and that was the
+  gap* — added to spec 110's required fields on 2026-09-10 because of what happened here, below.
 
 Under D24 the powered-by minimum — one curated capability at a pinned version with passing game
 integration checks — is met on the evidence side. Nothing is pending in NOLF's declaration: **D45
 removed `poweredBy`**, so the sign-off above is the only thing outstanding, and it is the owner's.
+
+## What the adoption missed, found afterwards (2026-09-10)
+
+The owner asked whether the problem that appeared after this integration, and has since been fixed,
+teaches anything. It does — and the lesson is about this spec, not about iklib.
+
+**What happened.** NOLF's `ApplyArmEntriesToPose` — the applicator that consumes the solve's output,
+not iklib's code — constructed **three `std::vector`s on every invocation**, on a path called from
+the display-time late-latch (`app_vr_arm_latch.cpp:263`) and the PV-hands path
+(`vr_pv_hands.cpp:222`). Per arm, per frame, in VR. It is fixed: those buffers are now retained
+`static thread_local` and reused, and NOLF's **KI-526 is closed**.
+
+**iklib did not cause it.** The allocations were F715's and pre-dated the adoption. That is exactly
+why it is worth recording: F1706 reviewed this seam more carefully than anything else in either
+repository — 20 240 scenes, worst deviation 2.7e-5 LT, four sabotages, the deleted solve kept
+verbatim as an oracle — and its spec mentions allocation, frame time, budget or profiling **zero
+times**. It was exhaustive about the half it was asked to be exhaustive about.
+
+**The doctrine asked for the other half, in a document nobody reads at sign-off time.**
+`docs/roadmap.md` M2: *"integration cost, resource behavior and rollback are recorded."* Spec 110's
+sign-off record: pack, pin, project, what was run and seen, date and owner's words. No cost. The two
+have disagreed since D44b was written, and this adoption fell straight through the gap.
+
+**So spec 110 now requires a measured cost on the adopted path**, and the sign-off above carries the
+slot with an honest *not measured*. The missing sentence is small and still worth having before the
+owner signs: allocations per solve before and after, the two call sites, and the frame budget they
+sit in.
 
 ## What is not established
 
