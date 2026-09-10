@@ -527,7 +527,9 @@
       "note-height": 24,
       "refresh-width": 90,
       "key-width": 70,
-      "state-width": 110
+      "state-width": 110,
+      "rail-width": 2,
+      "detail-indent": 16
     },
     "token": {
       "segment-pad": 10,

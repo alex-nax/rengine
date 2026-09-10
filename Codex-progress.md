@@ -1,5 +1,54 @@
 # Progress Log
 
+## Session 92 (macos) — 2026-09-10 — the design actually landed, and a cross-vendor review found a real regression
+
+The owner asked whether the design was proper yet. It was not, and the honest way to find out was to
+render it and look — `native-design.spec.mjs` only asserts chrome geometry against `cards.json`, so
+**nothing machine-checked the Tasks view against its card**. Captured through the desktop's own
+`op: 'snapshot'`: each criterion's number stranded on its own line with its text ninety pixels below,
+`Proven by` stranded the same way, values starting at x≈475 while their kickers sat at x≈590, and no
+rail at all.
+
+**The cause was structural.** `re_ui_paragraph` calls `mu_layout_row(1, {-1})` internally, so it
+always seizes the whole row and cannot live in a column — every value it drew escaped its field.
+`mu_layout_begin_column`/`end_column` is the fix: `end_column` carries the child's `next_row` and
+`max` back, so a wrapped value pushes the rows below it down and grows `content_size` correctly.
+Fields are now `[gutter][kicker][column: value]`, criteria `[gutter][kicker][number][column: text]` —
+the card's hanging indent.
+
+**The rail is drawn once, after the block.** Per-row it came out as chunky segments with gaps
+wherever a value wrapped, because a row's cell is the *unwrapped* height; an immediate-mode block
+cannot paint behind itself. Its width and indent are `theme.json` metrics now — the first attempt
+used `RE_METRIC_DESIGN_SEPARATOR_HEIGHT`, which is **16**, hence a 16-pixel orange slab. And it is
+asserted rather than admired: a run of pixels spanning 80% of the block's height that appears only
+when the detail opens, so no colour is hard-coded.
+
+**The cross-vendor gate earned its keep.** `ask-codex` reviewed six numbered claims about the
+virtualisation, agreed with five, and found a **defect the feature had introduced**. `mu_update_control`
+takes focus on `hover == id && mouse_pressed` without rechecking mouseover, and clears a stale hover
+only when that control is updated again — so a control that stops being emitted keeps its hover. That
+was unreachable while every row was drawn. Reproduced: hover a Spawn button, scroll it out of the
+window, press empty space, and the chooser opens **for F132, a task not on screen**. Decompose spawns
+an agent. Fixed in the owned layer (`control()` now also requires `mu_mouse_over`), which protects
+every owned control and leaves upstream pristine; regression added and observed failing.
+
+It also caught a claim of mine that was **wrong but masked**: I modelled the visible band as
+`scroll.y … scroll.y + body.h`, but `push_container_body` insets by the style padding before the
+scroll is subtracted. 112px of overscan hid a 5px error. A coordinate model that is only right
+because it is generous is not right; the padding is subtracted explicitly now. And it fairly noted
+the spec never scrolled — the new P1 regression does.
+
+Two pre-existing microui defects recorded rather than fixed: scrollbar arithmetic overflows above
+~40 000 rows (KI-077), and a shrinking chooser leaves one frame of stale thumb geometry (KI-078).
+Neither is reachable at 1317 rows. KI-076 stays open for the microui hover behaviour itself.
+
+**KI-075 passes again** — twice alone and in a full 71/71 desktop run, with nothing touched in the
+game or automation paths. That confirms it depends on machine state `SDL_GetScancodeFromKey` reads.
+Left open rather than closed: an intermittent test nobody can explain is worse than a red one.
+
+Commands: `npm test` 230/230 · `npm run test:desktop` **71/71** · `./init.sh` · `design.py check` (20
+cards) · `features.py validate` (77) · sidecars repaired, a constraint entry added, stamped.
+
 ## Session 91 (macos) — 2026-09-10 — a task list costs the viewport, not the inventory (F125)
 
 The owner asked for VirtualizedList's technique adapted to C and microui, for

@@ -82,6 +82,45 @@ command-count check and fail this one.
 Gates: `npm test` 230/230, the desktop suite, `./init.sh`, `design.py check`, `features.py validate`
 77. Registered in `test:desktop` so it cannot go missing from a green report.
 
+## The cross-vendor review, and the regression it found
+
+Gated with `ask-codex` (GPT, read-only over the real repo) on six numbered claims. It agreed with
+five and **found a defect the whole feature had introduced**, which is exactly what the gate is for.
+
+**P1 — a stale hover could submit a button that was no longer drawn.** `mu_update_control` takes
+focus on `ctx->hover == id && ctx->mouse_pressed` **without** rechecking `mouseover`, and it clears a
+stale hover only when that same control is updated again (`microui.c:691`). A control that stops
+being emitted therefore keeps the hover it had — which never happened before, because every row was
+always emitted. Reproduced: hover a row's Spawn button, scroll it out of the window, press anywhere
+harmless, and the chooser opens **for a task that is not on screen**:
+
+```
+a press away from any control must not submit a button that is no longer drawn
+(chooser became {"taskKey":"F132","kind":"spawn"})
+```
+
+Decompose spawns an agent, so this was not cosmetic. Fixed in the owned layer, leaving upstream
+pristine: `control()` now also requires `mu_mouse_over(ctx, rect)` before it submits, which protects
+every owned control rather than just the tracker's. Regression added to this spec's suite and
+observed failing for its own reason. Kept open as KI-076, because microui's behaviour is unchanged
+and a future control that reads `ctx->hover` directly can still be caught by it.
+
+**Claim 4 was wrong and I corrected it.** I claimed the visible band was `scroll.y` to
+`scroll.y + body.h`. `push_container_body` insets the body by the style padding *before*
+`push_layout` subtracts the scroll, so the band is shifted by that padding. The window was still
+conservative — 112px of overscan covered a 5px error — but a coordinate model that is only right
+because it is generous is not right, and the padding is now subtracted explicitly.
+
+**Two pre-existing defects, recorded not fixed.** microui's scrollbar multiplies scroll by track
+length in `int` and overflows above roughly 40 000 rows (KI-077); and a chooser that shrinks leaves
+one frame with stale thumb geometry, because the scrollbar is computed from the previous frame's
+`content_size` (KI-078). Virtualising preserves the true content height and therefore preserves both.
+Neither is reachable at 1317 rows.
+
+**A fair criticism of the test, taken.** The review noted the spec compares two initial viewports and
+never scrolls or changes a chooser. The P1 regression added above now does both — it hovers, scrolls
+far enough to evict a row, and presses — so the suite exercises the transition it was missing.
+
 ## What this does not do
 
 - **It does not virtualise anything else.** The Sessions, Devices and Dashboard lists have the same

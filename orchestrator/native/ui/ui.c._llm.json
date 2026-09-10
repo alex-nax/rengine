@@ -92,8 +92,8 @@
       "id": "menu-item",
       "kind": "rationale",
       "anchor": {
-        "start": 416,
-        "end": 441,
+        "start": 425,
+        "end": 450,
         "symbol": "re_ui_menu_item",
         "snippet": "int re_ui_menu_item(mu_Context *ctx, const char *label, int icon, const char *hint, bool marked) {"
       },
@@ -107,8 +107,8 @@
       "id": "hue-track",
       "kind": "rationale",
       "anchor": {
-        "start": 449,
-        "end": 479,
+        "start": 458,
+        "end": 488,
         "symbol": "re_ui_hue_slider",
         "snippet": "int re_ui_hue_slider(mu_Context *ctx, float *hue) {"
       },
@@ -117,11 +117,27 @@
         "docs/specs/076-design-foundations.md",
         "docs/specs/080-settings-popover.md"
       ]
+    },
+    {
+      "id": "submit-needs-the-pointer",
+      "kind": "constraint",
+      "anchor": {
+        "start": 303,
+        "end": 303,
+        "symbol": "control",
+        "snippet": "static int control(mu_Context *ctx, const char *label, int icon, int opt, bool field) {"
+      },
+      "note": "microui takes focus on `ctx->hover == id && ctx->mouse_pressed` WITHOUT rechecking mouseover (microui.c:691), and it clears a stale hover only when that same control is updated again. A control that stops being drawn therefore keeps the hover it had. That was unreachable while every control was emitted every frame; virtualising the task list (spec 120) made it reachable and harmful \u2014 hover a row's button, scroll it out of the window, press anywhere, and the vanished button submits. Reproduced opening the Spawn chooser for F132, a task not on screen; Decompose spawns an agent, so it is not cosmetic.\n\nHence the mu_mouse_over check here. Do not remove it as redundant with focus: focus is exactly what the stale hover grants. Upstream microui stays pristine, so the guard belongs in this layer and protects every owned control rather than only the tracker's. Found by a cross-vendor review; KI-076 stays open because the microui behaviour is unchanged and any future control reading ctx->hover directly can still be caught.",
+      "refs": [
+        "docs/specs/120-virtualised-task-list.md",
+        "known-issues.md",
+        "orchestrator/tests/native-tracker-virtual.spec.mjs"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/ui/ui.c",
-    "sha256": "a5aa8bb4194854586f1ae831bed0ed8626870937a43b4bae6e4003f20b0cc292",
+    "sha256": "64c9e08ebf726a6b4a511424c95f3405906a944effbd158cebf8e433a06b25c0",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

@@ -134,7 +134,7 @@ column. It caught that the first fix was insufficient — `text_clipped` had nev
 *draw-list* form: a harness that renders an owned control and names the missing clip command
 directly. The pixel test proves what reached the screen; it cannot say why.
 
-## KI-075 — native-game.spec.mjs receives scancode 0 instead of the key it sent
+## KI-075 — native-game.spec.mjs intermittently receives scancode 0 instead of the key it sent
 
 `native-game.spec.mjs` asserts that a scancode pressed over the game pane reaches the fixture, and
 it now receives `key 0 1` — `SDL_SCANCODE_UNKNOWN` — where it expects `key 26 1` (`W`). The pane and
@@ -147,3 +147,45 @@ day (`npm run test:desktop` 70/70), so the likely cause is machine state that
 `SDL_GetScancodeFromKey` depends on — the active keyboard layout or input source — rather than a
 code change. Recorded rather than absorbed; diagnosing it is its own task, and until then the
 desktop suite reads 69/70 with this one red for a reason that is written down.
+
+**Update 2026-09-10: it passes again**, twice in a row and in a full `test:desktop` run (71/71), with
+no change to the game, surface or automation paths in between. That confirms the diagnosis above —
+the failure depends on machine state `SDL_GetScancodeFromKey` reads, most likely the active keyboard
+layout, not on the code. Left open rather than closed: an intermittent test that nobody can explain
+is worse than a red one, and the next person to see `key 0 1` should find this entry rather than
+re-derive it. Closing it needs the spec to stop depending on a layout-sensitive keycode-to-scancode
+translation — sending a scancode directly would do it.
+
+## KI-076 — microui takes focus on a stale hover without rechecking the pointer
+
+`mu_update_control` sets focus when `ctx->hover == id && ctx->mouse_pressed`, **without** rechecking
+`mouseover`, and it only clears a stale hover when that same control is updated again
+(`third_party/microui/microui.c:691`). A control that stops being drawn therefore keeps the hover it
+had. Virtualising the task list (spec 120) made that reachable and harmful: hovering a row's button,
+scrolling it out of the window, then pressing anywhere submitted the vanished button — reproduced as
+*"a press away from any control must not submit a button that is no longer drawn (chooser became
+F132 spawn)"*, for a task not on screen. **Decompose** spawns an agent, so it was not cosmetic.
+
+Fixed in the owned layer rather than upstream, which stays pristine: `control()` in
+`orchestrator/native/ui/ui.c` now also requires `mu_mouse_over(ctx, rect)` before it submits, which
+protects every owned control and not only the tracker's. Kept open because the underlying microui
+behaviour is unchanged, so any future control that reads `ctx->hover` or `ctx->focus` directly can
+still be surprised by it. Found by a cross-vendor review of spec 120.
+
+## KI-077 — microui's scrollbar arithmetic overflows on a very large content height
+
+`third_party/microui/microui.c:1014` multiplies the scroll position by the track length in `int`.
+With about 40 000 rows in a 2 000-pixel body the product is ~2.23e9 and exceeds signed 32-bit range,
+so thumb placement is undefined; the drag path has the same unchecked multiplication. Pre-existing
+and upstream: virtualising the list preserves the true content height and therefore preserves this,
+and no inventory in the field is near that size (`~/nolf-improved` keeps 1317). Recorded so a future
+list that *is* that large does not rediscover it as a mystery. Found by a cross-vendor review of
+spec 120.
+
+## KI-078 — a chooser that shrinks leaves one frame scrolled past the new content end
+
+microui computes the scrollbar from the *previous* frame's `content_size`, because `pop_container`
+measures after the scrollbar is drawn. Closing or shortening a tall chooser near the bottom of the
+list therefore draws one frame with stale thumb geometry and possibly empty space below the content,
+corrected on the next frame. Pre-existing and independent of virtualisation — exact spacers keep the
+content height right but cannot change the ordering. Found by a cross-vendor review of spec 120.

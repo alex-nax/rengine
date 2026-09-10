@@ -300,19 +300,52 @@ static void live_rows(ReApp *a, mu_Context *ui, int tab, bool answered) {
  * correct for a list and is exactly why this exists — so everything the row cannot hold is here,
  * wrapped: the whole description, what it is waiting on, and every criterion in full. Inline under
  * its own row for the reason the other choosers are (see sidecar: chooser-is-inline-not-a-popover). */
+/* The rail down the left of an open detail (design/previews/views/tasks.html `.detail`). It is drawn
+ * ONCE, after the block, because an immediate-mode block does not know its own height until it has
+ * been laid out — and a per-row segment leaves a gap wherever a value wrapped, which is what the
+ * first attempt looked like. Nothing else occupies that column, so drawing it last is free. */
+static mu_Rect detail_gutter(mu_Context *ui) {
+  mu_Rect cell = mu_layout_next(ui);
+  return cell;
+}
+
+static void detail_rail(mu_Context *ui, mu_Rect gutter, int bottom) {
+  ReDraw *draw = re_draw_active();
+  if (!draw || bottom <= gutter.y) return;
+  re_ui_clip(ui);
+  re_ui_panel(draw, mu_rect(gutter.x + RE_METRIC_TRACKER_DETAIL_INDENT, gutter.y,
+                            RE_METRIC_TRACKER_RAIL_WIDTH, bottom - gutter.y), RE_COLOR_ACCENT);
+}
+
+/* One field of the detail: a right-hand value that may wrap, under a kicker, behind the rail. The
+ * value goes in its OWN layout column — re_ui_paragraph takes a whole row, so without a column it
+ * would seize the full pane width and the labels would float over nothing (which is exactly what the
+ * first attempt did). mu_layout_end_column carries the column's height back, so the rows below it
+ * move down by however much the value wrapped. */
+static void detail_field(ReApp *a, mu_Context *ui, int tab, const char *key,
+                         const char *kicker, const char *value, const char *role) {
+  mu_layout_row(ui, 3, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, RE_METRIC_TRACKER_STATE_WIDTH, -1},
+                RE_METRIC_TRACKER_ROW_HEIGHT);
+  detail_gutter(ui);
+  re_ui_label_ex(ui, kicker, RE_UI_MUTED | RE_UI_SMALL);
+  mu_layout_begin_column(ui);
+  re_ui_paragraph(ui, value, RE_UI_MUTED | RE_UI_SMALL);
+  mu_layout_end_column(ui);
+  re_app_control(a, ui, role, key, tab);
+}
+
+/* The task read rather than scanned (spec 119), laid out against the design card rather than by eye
+ * (spec 121). The row above trimmed the title, so the description leads and is not labelled — and
+ * there is no repeated key, because the row this hangs from already carries it. */
 static void detail_rows(ReApp *a, mu_Context *ui, int tab, const char *key, const cJSON *task) {
   static const char *const TAGS[] = {"priority", "assignee"};
   char line[512];
-  /* The block is indented to the key column so it reads as belonging to the row above rather than to
-   * the pane, and every value sits in one column under a right-aligned kicker — the design card's
-   * `.detail` rail and `.field` rows (design/previews/views/tasks.html). */
-  const int RAIL = RE_METRIC_TRACKER_KEY_WIDTH, KICK = RE_METRIC_TRACKER_STATE_WIDTH;
 
-  /* The description first and unlabelled: the row above trimmed it, so it is what the reader came
-   * for. No "Task F115" line — the key is already on the row this block hangs from. */
-  mu_layout_row(ui, 2, (int[]){RAIL, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
-  re_ui_label_ex(ui, "", 0);
+  mu_layout_row(ui, 2, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+  mu_Rect gutter = detail_gutter(ui);
+  mu_layout_begin_column(ui);
   re_ui_paragraph(ui, re_string(task, "title"), 0);
+  mu_layout_end_column(ui);
   re_app_control(a, ui, "tracker-detail", key, tab);
 
   line[0] = 0; size_t used = 0;
@@ -330,13 +363,7 @@ static void detail_rows(ReApp *a, mu_Context *ui, int tab, const char *key, cons
     if (written < 0 || (size_t)written >= sizeof(line) - used) break;
     used += (size_t)written;
   }
-  if (used) {
-    mu_layout_row(ui, 3, (int[]){RAIL, KICK, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
-    re_ui_label_ex(ui, "", 0);
-    re_ui_label_ex(ui, "Tagged", RE_UI_MUTED | RE_UI_SMALL);
-    re_ui_label_ex(ui, line, RE_UI_MUTED | RE_UI_SMALL);
-    re_app_control(a, ui, "tracker-detail-tags", key, tab);
-  }
+  if (used) detail_field(a, ui, tab, key, "Tagged", line, "tracker-detail-tags");
 
   const cJSON *blocked = cJSON_GetObjectItemCaseSensitive(task, "blockedBy");
   if (cJSON_IsArray(blocked) && cJSON_GetArraySize(blocked)) {
@@ -348,45 +375,36 @@ static void detail_rows(ReApp *a, mu_Context *ui, int tab, const char *key, cons
       if (written < 0 || (size_t)written >= sizeof(line) - used) break;
       used += (size_t)written;
     }
-    mu_layout_row(ui, 3, (int[]){RAIL, KICK, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
-    re_ui_label_ex(ui, "", 0);
-    re_ui_label_ex(ui, "Waiting on", RE_UI_MUTED | RE_UI_SMALL);
-    re_ui_label_ex(ui, line, RE_UI_MUTED | RE_UI_SMALL);
-    re_app_control(a, ui, "tracker-detail-blocked", key, tab);
+    detail_field(a, ui, tab, key, "Waiting on", line, "tracker-detail-blocked");
   }
 
-  /* Numbered and tight. Unnumbered paragraphs separated by blank lines read as prose and cannot be
-   * referred to — a tests manifest that says "criterion 3" needs a visible 3 (spec 117). */
+  /* Numbered with a hanging indent: the number sits in its own gutter on the first line and the text
+   * wraps under itself, so a criterion is one block rather than a stranded digit above a paragraph.
+   * A tests manifest that says "criterion 3" (spec 117) needs a 3 that can be pointed at. */
   const cJSON *criterion = NULL; int index = 0;
   cJSON_ArrayForEach(criterion, cJSON_GetObjectItemCaseSensitive(task, "criteria")) {
     if (!cJSON_IsString(criterion)) continue;
     char number[8]; snprintf(number, sizeof(number), "%d", ++index);
-    mu_layout_row(ui, 3, (int[]){RAIL, KICK, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
-    re_ui_label_ex(ui, "", 0);
+    mu_layout_row(ui, 4, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, RE_METRIC_TRACKER_STATE_WIDTH,
+                                 RE_METRIC_DESIGN_GAP_LG * 2, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+    detail_gutter(ui);
     re_ui_label_ex(ui, index == 1 ? "Criteria" : "", RE_UI_MUTED | RE_UI_SMALL);
     re_ui_label_ex(ui, number, RE_UI_MUTED | RE_UI_SMALL);
-    mu_layout_row(ui, 2, (int[]){RAIL + KICK, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
-    re_ui_label_ex(ui, "", 0);
+    mu_layout_begin_column(ui);
     re_ui_paragraph(ui, criterion->valuestring, RE_UI_MUTED | RE_UI_SMALL);
+    mu_layout_end_column(ui);
     re_app_control(a, ui, "tracker-detail-criterion", key, tab);
   }
 
-  /* What proves it, read here rather than behind a second caret: the reader is already looking at
-   * what the task claims, and the evidence is the answer to the next question they have. */
-  const cJSON *evidence = cJSON_GetObjectItemCaseSensitive(task, "evidence"), *item = NULL;
-  bool first = true;
-  cJSON_ArrayForEach(item, evidence) {
+  const cJSON *item = NULL; bool first = true;
+  cJSON_ArrayForEach(item, cJSON_GetObjectItemCaseSensitive(task, "evidence")) {
     if (!cJSON_IsString(item)) continue;
-    mu_layout_row(ui, 3, (int[]){RAIL, KICK, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
-    re_ui_label_ex(ui, "", 0);
-    re_ui_label_ex(ui, first ? "Proven by" : "", RE_UI_MUTED | RE_UI_SMALL);
-    re_ui_label_ex(ui, "", 0);
-    mu_layout_row(ui, 2, (int[]){RAIL + KICK, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
-    re_ui_label_ex(ui, "", 0);
-    re_ui_paragraph(ui, item->valuestring, RE_UI_MUTED | RE_UI_SMALL);
-    re_app_control(a, ui, "tracker-detail-evidence", key, tab);
+    detail_field(a, ui, tab, key, first ? "Proven by" : "", item->valuestring, "tracker-detail-evidence");
     first = false;
   }
+  /* Now the block's height is known, so the rail is one line rather than a column of segments. */
+  mu_Layout *layout = &ui->layout_stack.items[ui->layout_stack.idx - 1];
+  detail_rail(ui, gutter, layout->body.y + layout->next_row - ui->style->spacing);
 }
 
 /* One manifest entry (contract 10, spec 117). `proven` is drawn as its own line rather than folded
@@ -625,8 +643,12 @@ void re_tracker_ui(ReApp *a, mu_Context *ui, int tab) {
   int row_h = RE_METRIC_TRACKER_ROW_HEIGHT + ui->style->spacing;
   bool windowed = view && view->body.h > 0 && row_h > 0;
   int over = RE_TRACKER_OVERSCAN * row_h;
-  int top = windowed ? view->scroll.y - over : 0;
-  int bottom = windowed ? view->scroll.y + view->body.h + over : 0;
+  /* The container's body is inset by the style's padding BEFORE the scroll is subtracted, so the
+   * visible band in layout coordinates is shifted by it. Overscan hid the difference; a coordinate
+   * model that is only right because it is generous is not right (cross-vendor review of spec 120). */
+  int pad = ui->style->padding;
+  int top = windowed ? view->scroll.y - pad - over : 0;
+  int bottom = windowed ? view->scroll.y + view->body.h - pad + over : 0;
   bool opened = menu.kind != RE_CHOOSER_NONE;
   int skipped = 0;
 

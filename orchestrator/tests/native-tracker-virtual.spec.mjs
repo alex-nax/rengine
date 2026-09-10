@@ -95,6 +95,32 @@ test('drawing a task list costs the viewport, not the inventory', { timeout: 180
       for (let x = 0; x < a.width; x++) if (a.at(x, y) !== b.at(x, y)) differing++;
     }
     assert.equal(differing, 0, `the visible rows render identically whatever is below them: ${differing} pixels differ`);
+    /* The regression a cross-vendor review of this feature found. microui takes focus on
+       `hover == id && mouse_pressed` without rechecking that the pointer is over the control, and it
+       only clears a stale hover when that control is updated again — so a row that stops being
+       emitted keeps its hover. Hover a row's button, scroll it far out of the window, then press
+       somewhere harmless: before the fix the vanished button submitted. Decompose spawns an agent,
+       so this was not cosmetic. */
+    const rows = (await gui.command({ op: 'state' })).controls.filter(c => c.role === 'tracker-spawn');
+    assert.ok(rows.length > 3, 'the list drew spawn controls to hover');
+    const victim = rows[2];
+    await gui.command({ op: 'motion', x: victim.rect[0] + victim.rect[2] / 2, y: victim.rect[1] + victim.rect[3] / 2 });
+    await gui.until(() => true, 'a frame with the pointer over the button');
+
+    /* Far enough that the row is well outside the window and its overscan. */
+    for (let i = 0; i < 40; i++) await gui.command({ op: 'wheel', preciseY: -3 });
+    const scrolled = await gui.until(s => !s.controls.some(c => c.role === 'tracker-spawn' && c.key === victim.key),
+      'the hovered row leaves the window');
+
+    /* Press in the pane, away from any control. Nothing may open. */
+    const before = scrolled.tracker?.chooser?.kind ?? '';
+    const empty = scrolled.controls.find(c => c.role === 'tracker-task');
+    await gui.command({ op: 'button', x: empty.rect[0] + empty.rect[2] + 4, y: empty.rect[1] - 6, down: true });
+    await gui.command({ op: 'button', x: empty.rect[0] + empty.rect[2] + 4, y: empty.rect[1] - 6, down: false });
+    const after = await gui.until(() => true, 'a frame after the press');
+    assert.equal(after.tracker?.chooser?.kind ?? '', before,
+      `a press away from any control must not submit a button that is no longer drawn `
+      + `(chooser became ${JSON.stringify(after.tracker?.chooser)})`);
   } finally {
     await gui.close(); await server.close(); await rm(dir, { recursive: true, force: true });
   }

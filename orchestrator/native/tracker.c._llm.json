@@ -46,8 +46,8 @@
       "id": "rows-are-windowed",
       "kind": "perf",
       "anchor": {
-        "start": 467,
-        "end": 467,
+        "start": 485,
+        "end": 485,
         "symbol": "list_spacer",
         "snippet": "static int list_spacer(mu_Context *ui, int height) {"
       },
@@ -60,7 +60,7 @@
   ],
   "source": {
     "path": "orchestrator/native/tracker.c",
-    "sha256": "3cb4a113472d8245a2e2231d2b4a59ee354fcedf238027078bc9e8df67166435",
+    "sha256": "94c18233e6f2e73d96dd7f82ab4faa438b4415aef191d39d5e00c31cefc9ce50",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

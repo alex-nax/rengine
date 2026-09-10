@@ -116,6 +116,41 @@ description and the gap collapsed to 4px either way. It now measures from the ta
 does not move — down to the first field after the description, so the distance *is* the description's
 rendered height. Cut to one line it reports `52px against 52px` and fails.
 
+## The design actually landed, verified by looking (2026-09-10)
+
+The owner asked whether the design was proper *yet*. It was not, and the honest way to find out was
+to render it and look — `native-design.spec.mjs` only asserts chrome geometry (toolbar, tab strip,
+status bar) against `cards.json`, so **nothing machine-checked the Tasks view against its card**.
+Captured through the desktop's own `op: 'snapshot'`, the first attempt was clearly wrong:
+
+- each criterion's **number was stranded on its own line** with its text about ninety pixels below,
+  so the block read as a column of digits interleaved with unrelated paragraphs;
+- `Proven by` was stranded the same way, its evidence on the far-left margin;
+- values did not line up under anything — text began at x≈475 while the kickers sat at x≈590;
+- there was no rail and no inset, so the block did not visibly belong to its row.
+
+The cause was structural rather than cosmetic: **`re_ui_paragraph` calls `mu_layout_row(1, {-1})`
+internally**, so it always seizes the whole row and cannot live in a column. Every value it drew
+escaped its field.
+
+`mu_layout_begin_column` / `mu_layout_end_column` is the fix — it makes a cell into a sub-layout, and
+`end_column` carries the child's `next_row` and `max` back to the parent, so a wrapped value pushes
+the rows below it down and grows `content_size` correctly. Each field is now
+`[gutter][kicker][column: value]`, and a criterion is `[gutter][kicker][number][column: text]`, which
+is the card's hanging indent.
+
+**The rail is drawn once, after the block.** Drawn per row it came out as chunky segments with gaps
+wherever a value wrapped — visible in the second capture — because a row's cell is the *unwrapped*
+height. An immediate-mode block cannot paint behind itself, so the gutter cell is taken during
+layout and the rail is filled at the end, when `next_row` finally says how tall the block became.
+Its width and indent are `theme.json` metrics (`tracker.rail-width`, `tracker.detail-indent`), not
+literals — the first attempt used `RE_METRIC_DESIGN_SEPARATOR_HEIGHT`, which is **16**, hence a
+16-pixel orange slab.
+
+**And it is now asserted, not just looked at.** The spec opens the detail, snapshots with it open and
+closed, and requires a run of pixels spanning at least 80% of the block's height that appears only
+when it opens — the rail, without hard-coding a colour. Removing the rail call fails it.
+
 ## What this is not
 
 - **It is not a pane.** The detail is inline under its row, which suits reading one task while

@@ -123,6 +123,32 @@ test('a longer title changes no pixel to the right of its own column', { timeout
       return measured;
     };
 
+    /* Spec 121: the detail carries an accent rail down its gutter, which is what makes the block
+       read as belonging to the row above rather than floating under it. Asserted against the same
+       frame with the detail closed, so no colour is hard-coded here: the rail is simply a tall run
+       of pixels that appear when the block opens and are absent when it does not. */
+    const closed = path.join(dir, 'closed.bmp');
+    assert.equal(await gui.command({ op: 'snapshot', path: closed }), true);
+    await gui.control('tracker-task', 'F1');
+    const openState = await gui.until(s => s.tracker?.chooser?.kind === 'details', 'the detail opens for the rail');
+    const opened = path.join(dir, 'opened.bmp');
+    assert.equal(await gui.command({ op: 'snapshot', path: opened }), true);
+    const shut = await pixels(closed), open = await pixels(opened);
+    const scale2 = open.width / openState.width;
+    const anchor = openState.controls.find(c => c.role === 'tracker-detail' && c.key === 'F1');
+    const tail = openState.controls.filter(c => c.role.startsWith('tracker-detail')).pop();
+    let railX = -1, railRun = 0;
+    for (let x = 0; x < Math.round(openState.width * 0.4 * scale2) && railX < 0; x++) {
+      let run = 0;
+      for (let y = anchor.rect[1] * scale2; y < (tail.rect[1] + tail.rect[3]) * scale2; y++) {
+        if (open.at(x, y) !== shut.at(x, y)) run++;
+      }
+      if (run > (tail.rect[1] + tail.rect[3] - anchor.rect[1]) * scale2 * 0.8) { railX = x; railRun = run; }
+    }
+    assert.ok(railX >= 0, 'the detail draws a rail spanning its own height, so the block belongs to its row');
+    await gui.control('tracker-task', 'F1');
+    await gui.until(s => s.tracker?.chooser?.kind !== 'details', 'the detail closes again');
+
     const longGap = await blockGap('long');
     await writeFile(path.join(root, 'features.json'), JSON.stringify(inventory(SHORT), null, 2));
     await gui.control('tracker-refresh', '');

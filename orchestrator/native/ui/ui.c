@@ -307,7 +307,16 @@ static int control(mu_Context *ctx, const char *label, int icon, int opt, bool f
   int res = 0;
   if (!(opt & RE_UI_DISABLED)) {
     mu_update_control(ctx, id, rect, 0);
-    if (ctx->mouse_pressed == MU_MOUSE_LEFT && ctx->focus == id) res |= MU_RES_SUBMIT;
+    /* The pointer must actually be over the control, not merely focused on it. microui takes focus
+     * on `hover == id && mouse_pressed` WITHOUT rechecking mouseover, and it only clears a stale
+     * hover when that same control is updated again — so a control that stops being drawn keeps the
+     * hover it had. Once the Tasks list was virtualised (spec 120) that became reachable: hover a
+     * row's button, scroll it out of the window so it is no longer emitted, then press elsewhere,
+     * and the vanished button submits. Decompose spawns an agent, so the cost of that is not
+     * cosmetic. Found by a cross-vendor review of spec 120; see sidecar: submit-needs-the-pointer. */
+    if (ctx->mouse_pressed == MU_MOUSE_LEFT && ctx->focus == id && mu_mouse_over(ctx, rect)) {
+      res |= MU_RES_SUBMIT;
+    }
   }
   bool hovered = !(opt & RE_UI_DISABLED) && ctx->hover == id;
   float hover = progress(id, hovered || (opt & RE_UI_ON) != 0);
