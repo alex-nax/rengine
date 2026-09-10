@@ -24,6 +24,8 @@ typedef struct {
   char preferred[64];                /* the menu's declared default for this CLI */
 } ReAgentEntry;
 typedef struct { char session[65], label[128], agent[65], task[80]; } ReLiveEntry;
+/* Rows kept either side of the viewport, so a scroll of a row or two draws nothing new. */
+#define RE_TRACKER_OVERSCAN 4
 enum { RE_CHOOSER_NONE = 0, RE_CHOOSER_SPAWN, RE_CHOOSER_HOLD, RE_CHOOSER_TESTS, RE_CHOOSER_DETAILS };
 static struct {
   bool known;
@@ -459,6 +461,16 @@ static void chooser_rows(ReApp *a, mu_Context *ui, int tab, const char *key, con
   mu_pop_id(ui);
 }
 
+/* A run of rows nobody can see, kept as the height they would have taken. Without it the scrollbar
+ * would measure only what is drawn, and the list would appear to be as long as the viewport. The
+ * emitted row is one spacing shorter because the layout adds a spacing after every row. */
+static int list_spacer(mu_Context *ui, int height) {
+  if (height <= 0) return 0;
+  mu_layout_row(ui, 1, (int[]){-1}, height - ui->style->spacing);
+  mu_layout_next(ui);
+  return 0;
+}
+
 /* A row whose trailing pill is a fixed column reserves that column in the leading ones, or a
    negative width fills to the right edge and pushes the pill past the pane (5a0bc38). The control
    cluster reserves its own columns the same way, and a remote row reserves only Spawn's. */
@@ -596,8 +608,39 @@ void re_tracker_ui(ReApp *a, mu_Context *ui, int tab) {
      (spec 103, "Surfaces"). The menu the cluster reads is this tab's root's, or none. */
   bool local = !strcmp(provider, "local");
   bool answered = menu_answers(t->root);
+
+  /* Virtualised rows (spec 120). A project with a thousand tasks laid out, measured and emitted draw
+   * commands for every one of them on every frame, and microui then clipped almost all of it away —
+   * the work was done and thrown out. Only the rows the viewport can reach are emitted; each run of
+   * skipped rows becomes one spacer of exactly their height, so the scrollbar measures the whole
+   * list and a scroll position still lands where it would have.
+   *
+   * React Native's VirtualizedList has to ESTIMATE row heights and correct once it has measured
+   * them. Immediate mode does not have to: after a spacer, the layout's own `next_row` IS the
+   * content offset of the row about to be drawn, so the window is computed from truth. The one row
+   * whose chooser is open is always emitted, because its block reaches into the viewport when the
+   * row itself does not. */
+  mu_Container *view = mu_get_current_container(ui);
+  mu_Layout *layout = &ui->layout_stack.items[ui->layout_stack.idx - 1];
+  int row_h = RE_METRIC_TRACKER_ROW_HEIGHT + ui->style->spacing;
+  bool windowed = view && view->body.h > 0 && row_h > 0;
+  int over = RE_TRACKER_OVERSCAN * row_h;
+  int top = windowed ? view->scroll.y - over : 0;
+  int bottom = windowed ? view->scroll.y + view->body.h + over : 0;
+  bool opened = menu.kind != RE_CHOOSER_NONE;
+  int skipped = 0;
+
   const cJSON *task = NULL;
-  cJSON_ArrayForEach(task, tasks) task_row(a, ui, tab, task, local, answered);
+  cJSON_ArrayForEach(task, tasks) {
+    int y = layout->next_row + skipped;
+    bool wanted = !windowed
+               || (opened && !strcmp(re_string(task, "key"), menu.task))
+               || (y + row_h > top && y < bottom);
+    if (!wanted) { skipped += row_h; continue; }
+    skipped = list_spacer(ui, skipped);
+    task_row(a, ui, tab, task, local, answered);
+  }
+  list_spacer(ui, skipped);
 }
 
 void re_tracker_inspect(const ReApp *a, cJSON *out) {

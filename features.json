@@ -1930,6 +1930,33 @@
         "docs/specs/119-task-detail-view.md: the control, the gesture, and why buttons had the same overflow",
         "orchestrator/tests/native-label-clip.spec.mjs: no bleed past the column, and the description wrapping onto several lines"
       ]
+    },
+    {
+      "id": 125,
+      "milestone": "T0",
+      "category": "workspace",
+      "priority": "high",
+      "description": "Drawing a task list costs the viewport rather than the inventory: the Tasks tab emitted layout, text measurement and draw commands for every row on every frame and microui clipped almost all of it away, so a project with 1317 tasks paid for 1317 rows to show about twenty. Only the rows the viewport can reach are emitted; each run of skipped rows becomes one spacer of exactly their height, so the scrollbar and the scroll position are unchanged (spec 120).",
+      "acceptance_criteria": [
+        "The rows a frame draws depend on the viewport and not on the inventory: two lists that both exceed the viewport draw the same number of rows, and the draw list does not grow in proportion to the task count.",
+        "What a person sees is unchanged: the visible rows of a long list render pixel-identically to the same rows of a short one.",
+        "The scrollbar still measures the whole list and a scroll position still lands where it would have, because skipped rows are kept as height rather than dropped.",
+        "The row whose chooser is open is always emitted even when its own row is outside the viewport, because its block reaches into the viewport when the row does not.",
+        "Each regression was observed failing for its own reason: emitting every row again makes the draw list grow with the inventory rather than staying flat."
+      ],
+      "passes": true,
+      "dependencies": [
+        124
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The windowed row loop and list_spacer in orchestrator/native/tracker.c, and orchestrator/tests/native-tracker-virtual.spec.mjs.",
+      "external_references": [
+        "reactnative.dev/docs/virtualizedlist: the windowing technique this adapts, minus its height estimation"
+      ],
+      "evidence": [
+        "docs/specs/120-virtualised-task-list.md: the measurement, why immediate mode needs no height estimate, and the sabotage",
+        "orchestrator/tests/native-tracker-virtual.spec.mjs: the draw list stays flat as the inventory grows, and the visible rows are pixel-identical"
+      ]
     }
   ]
 }

@@ -1,5 +1,52 @@
 # Progress Log
 
+## Session 91 (macos) — 2026-09-10 — a task list costs the viewport, not the inventory (F125)
+
+The owner asked for VirtualizedList's technique adapted to C and microui, for
+`~/nolf-improved`'s 1317-task list. Measured first, through the automation `stats` op:
+
+| Tasks | draw commands/frame before | after |
+| --- | --- | --- |
+| 200 | 5 513 | **842** |
+| 1300 | 35 213 | **842** |
+
+`re_tracker_ui` ended in `cJSON_ArrayForEach(task, tasks) task_row(...)` — every row every frame,
+each laying out eight columns and having its **whole description measured** by `re_draw_text_width`,
+after which microui clipped almost all of it away. The work was done and thrown out. 42x fewer
+commands on the long list, and the shape went from O(inventory) to O(viewport), which matters more
+than the factor.
+
+**Immediate mode drops VirtualizedList's hardest part.** That list must estimate row heights and
+correct once measured, because it builds a retained tree before laying it out. Here rows are emitted
+in order, so after a spacer the layout's own `next_row` **is** the content offset of the row about to
+be drawn: the window is computed from truth every frame, with nothing estimated and nothing to
+correct.
+
+Two details that are load-bearing rather than incidental, both recorded in the sidecar. A run of
+skipped rows becomes **one** spacer of the run's exact height minus one `style->spacing`, because the
+layout adds a spacing after every row — get that wrong and `content_size` shrinks, so the scrollbar
+reports the viewport instead of the list. And the row `menu.task` names is **always** emitted even
+when outside the window, because an open chooser's block is far taller than its row and reaches into
+the viewport when the row does not.
+
+**The first assertion was the test's own bug, not the code's.** It compared 1300 rows against **ten**
+and required the drawn rows to be within overscan: 23 against 10, red. Ten rows is shorter than the
+viewport, so it draws ten for a reason unrelated to virtualising. Comparing two lists that both
+exceed the viewport is the honest form — the only difference between them is what is below the fold,
+so the rows drawn must be equal.
+
+The regression asserts both halves: the draw list stays flat as the inventory grows, **and** the
+visible rows are pixel-identical between the 200- and 1300-row lists. A window that drew the wrong
+rows would pass a command count and fail the pixels. Sabotage — `wanted = true`, the original loop —
+reports *"35213 commands for 1300 tasks against 5513 for 200"*.
+
+Commands: `npm test` 230/230 · the five affected native specs 11/11 · `./init.sh` · `design.py check`
+· `features.py validate` (77) · registered in `test:desktop` · sidecar entry added and stamped.
+
+Not done: nothing else is virtualised. Sessions, Devices and Dashboard have the same shape and none
+has thousands of rows today; `list_spacer` and this loop are the pattern when one does. And no
+filtering — a person hunting one task among 1317 still scrolls, which is a different feature.
+
 ## Session 90 (macos) — 2026-09-10 — the task detail paired with Claude Design, and one red that is not ours
 
 The owner: *"the data is correct - but you'd better improve design of it - can we pair up with Claude
