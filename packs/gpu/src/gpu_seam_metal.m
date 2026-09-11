@@ -59,7 +59,7 @@
 typedef struct { id<MTLBuffer> buffer; size_t size; } BufferSlot;
 typedef struct {
   id<MTLTexture> texture; id<MTLSamplerState> sampler;
-  int width, height; bool depth;
+  int width, height; bool depth, coverage;
 } TextureSlot;
 typedef struct {
   id<MTLFunction> vertex, fragment;
@@ -246,9 +246,11 @@ ReSeamTexture re_seam_texture_2d_for(ReSeam *seam, const void *rgba, int width, 
   slot->width = width;
   slot->height = height;
   slot->depth = use == RE_SEAM_TEXTURE_DEPTH;
+  slot->coverage = use == RE_SEAM_TEXTURE_COVERAGE;
 
   MTLTextureDescriptor *descriptor = [MTLTextureDescriptor
-    texture2DDescriptorWithPixelFormat:(slot->depth ? MTLPixelFormatDepth32Float : MTLPixelFormatRGBA8Unorm)
+    texture2DDescriptorWithPixelFormat:(slot->depth ? MTLPixelFormatDepth32Float
+                                        : slot->coverage ? MTLPixelFormatR8Unorm : MTLPixelFormatRGBA8Unorm)
                                  width:(NSUInteger)width height:(NSUInteger)height mipmapped:NO];
   descriptor.usage = MTLTextureUsageShaderRead |
                      (use == RE_SEAM_TEXTURE_SAMPLED ? 0 : MTLTextureUsageRenderTarget);
@@ -263,7 +265,8 @@ ReSeamTexture re_seam_texture_2d_for(ReSeam *seam, const void *rgba, int width, 
   }
   if (rgba != NULL && !slot->depth)
     [slot->texture replaceRegion:MTLRegionMake2D(0, 0, (NSUInteger)width, (NSUInteger)height)
-                     mipmapLevel:0 withBytes:rgba bytesPerRow:(NSUInteger)width * 4];
+                     mipmapLevel:0 withBytes:rgba
+                     bytesPerRow:(NSUInteger)width * (slot->coverage ? 1u : 4u)];
 
   MTLSamplerDescriptor *sampler = [[MTLSamplerDescriptor alloc] init];
   MTLSamplerMinMagFilter mode = filter == RE_SEAM_FILTER_NEAREST ? MTLSamplerMinMagFilterNearest
@@ -294,7 +297,8 @@ void re_seam_texture_update(ReSeam *seam, ReSeamTexture texture, int x, int y, i
   TextureSlot *slot = &seam->textures[texture.id - 1];
   [slot->texture replaceRegion:MTLRegionMake2D((NSUInteger)x, (NSUInteger)y, (NSUInteger)width,
                                                (NSUInteger)height)
-                   mipmapLevel:0 withBytes:rgba bytesPerRow:(NSUInteger)width * 4];
+                   mipmapLevel:0 withBytes:rgba
+                   bytesPerRow:(NSUInteger)width * (slot->coverage ? 1u : 4u)];
 }
 
 void re_seam_texture_destroy(ReSeam *seam, ReSeamTexture *texture) {

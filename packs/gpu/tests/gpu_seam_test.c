@@ -107,6 +107,13 @@ static const char *textured_vertex =
   "layout(location = 1) in vec2 a_uv;\n"
   "out vec2 v_uv;\n"
   "void main() { v_uv = a_uv; gl_Position = vec4(a_pos, 0.0, 1.0); }\n";
+/* Reads the single channel a coverage texture has, the way a glyph atlas is read. */
+static const char *coverage_fragment =
+  "#version 330 core\n"
+  "uniform sampler2D u_texture;\n"
+  "in vec2 v_uv;\n"
+  "out vec4 o_color;\n"
+  "void main() { o_color = vec4(0.0, 1.0, 0.0, texture(u_texture, v_uv).r); }\n";
 static const char *textured_fragment =
   "#version 330 core\n"
   "uniform sampler2D u_texture;\n"
@@ -493,6 +500,42 @@ int main(void) {
   re_seam_frame_end(seam);
   assert(strstr(messages, "outside a frame") != NULL && "and so is an end without a begin");
   re_seam_frame_begin(seam, screen);
+
+  /* ---- a one-channel texture, which is what a glyph atlas is ------------------------------------- */
+  /* Four texels, one byte each: a page uploaded and sampled at one byte per pixel rather than four.
+     A backend that treated these bytes as RGBA would read all four as one pixel and sample nothing
+     like this. The alpha the blend below reads is the channel under test. */
+  const unsigned char coverage[4] = {0, 255, 64, 192};
+  ReSeamTexture page = re_seam_texture_2d_for(seam, coverage, 4, 1, RE_SEAM_FILTER_NEAREST,
+                                              RE_SEAM_WRAP_CLAMP_TO_EDGE, RE_SEAM_TEXTURE_COVERAGE);
+  assert(page.id != 0 && "a one-channel page is made");
+  ReSeamShader coverage_stage = {0};
+  coverage_stage.glsl = coverage_fragment;
+  ReSeamProgram covered = re_seam_program(seam, &tvs, &coverage_stage, "coverage");
+  assert(covered.id != 0);
+  re_seam_clear(seam, 0.0f, 0.0f, 0.0f, 1.0f, false);
+  re_seam_program_use(seam, covered);
+  re_seam_uniform_int(seam, re_seam_uniform_location(seam, covered, "u_texture"), 0);
+  re_seam_texture_bind(seam, page, 0);
+  re_seam_vertex_array_bind(seam, quad_array);
+  re_seam_buffer_update(seam, quad_buffer, quad, sizeof(quad), RE_SEAM_BUFFER_DYNAMIC);
+  re_seam_blend(seam, RE_SEAM_BLEND_ALPHA);
+  re_seam_draw(seam, RE_SEAM_PRIMITIVE_TRIANGLES, 0, 6);
+  re_seam_blend(seam, RE_SEAM_BLEND_NONE);
+  /* uv runs right to left, so the left of the quad samples the LAST texel. Green at that texel's
+     own coverage, blended over black, is that byte back again: 192. Which makes the assertion the
+     tightest one available — the channel that comes out IS the byte that went in. */
+  Pixel covered_left = pixel_at(2, H / 2);
+  describe("coverage, last texel (192)", covered_left);
+  assert(near(covered_left.g, 192) && near(covered_left.r, 0) &&
+         "the single channel was read as coverage, not as one pixel of an RGBA page");
+  re_seam_texture_destroy(seam, &page);
+  re_seam_program_destroy(seam, &covered);
+  /* Put back what this case changed. A destroyed program left current is a dangling bind, and the
+     driver says so — "texture unloadable ... using zero texture" — several assertions later, which
+     is a confusing way to learn that a test did not clean up after itself. */
+  re_seam_program_use(seam, textured);
+  re_seam_texture_bind(seam, texture, 3);
 
   /* ---- failures are reported, not swallowed ------------------------------------------------------ */
   messages[0] = '\0';

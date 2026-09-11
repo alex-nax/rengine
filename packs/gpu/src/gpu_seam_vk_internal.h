@@ -49,7 +49,7 @@
 typedef struct { VkBuffer buffer; VkDeviceMemory memory; void *mapped; VkDeviceSize size; } BufferSlot;
 typedef struct {
   VkImage image; VkDeviceMemory memory; VkImageView view; VkSampler sampler;
-  int width, height; VkFormat format; bool depth;
+  int width, height; VkFormat format; bool depth, coverage;
 } TextureSlot;
 typedef struct {
   VkShaderModule vertex, fragment;

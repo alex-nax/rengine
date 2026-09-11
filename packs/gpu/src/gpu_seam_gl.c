@@ -81,6 +81,9 @@ typedef ptrdiff_t GLsizeiptr;
 #define GL_FRAMEBUFFER_COMPLETE 0x8CD5
 #define GL_DEPTH_COMPONENT 0x1902
 #define GL_DEPTH_COMPONENT24 0x81A6
+#define GL_RED 0x1903
+#define GL_R8 0x8229
+#define GL_TEXTURE_INTERNAL_FORMAT 0x1003
 #define GL_UNSIGNED_INT 0x1405
 #define GL_NEVER 0x0200
 #define GL_LESS 0x0201
@@ -122,6 +125,7 @@ typedef ptrdiff_t GLsizeiptr;
   X(void, glDeleteTextures, (GLsizei n, const GLuint *textures))                                    \
   X(void, glBindTexture, (GLenum target, GLuint texture))                                           \
   X(void, glTexParameteri, (GLenum target, GLenum pname, GLint param))                              \
+  X(void, glGetTexLevelParameteriv, (GLenum target, GLint level, GLenum pname, GLint *params))      \
   X(void, glPixelStorei, (GLenum pname, GLint param))                                               \
   X(void, glTexImage2D, (GLenum target, GLint level, GLint internal, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void *pixels)) \
   X(void, glActiveTexture, (GLenum texture))                                                        \
@@ -382,8 +386,10 @@ ReSeamTexture re_seam_texture_2d_for(ReSeam *seam, const void *rgba, int width, 
   GLint gl_wrap = wrap == RE_SEAM_WRAP_REPEAT ? GL_REPEAT : GL_CLAMP_TO_EDGE;
   /* A depth attachment has no colour format; asking GL for RGBA here yields an incomplete
      framebuffer later, which reports as "status 0x8CD6" and says nothing about the cause. */
-  GLint internal = use == RE_SEAM_TEXTURE_DEPTH ? GL_DEPTH_COMPONENT24 : GL_RGBA;
-  GLenum format = use == RE_SEAM_TEXTURE_DEPTH ? GL_DEPTH_COMPONENT : GL_RGBA;
+  GLint internal = use == RE_SEAM_TEXTURE_DEPTH ? GL_DEPTH_COMPONENT24
+                 : use == RE_SEAM_TEXTURE_COVERAGE ? GL_R8 : GL_RGBA;
+  GLenum format = use == RE_SEAM_TEXTURE_DEPTH ? GL_DEPTH_COMPONENT
+                : use == RE_SEAM_TEXTURE_COVERAGE ? GL_RED : GL_RGBA;
   GLenum type = use == RE_SEAM_TEXTURE_DEPTH ? GL_UNSIGNED_INT : GL_UNSIGNED_BYTE;
   texture.width = width;
   texture.height = height;
@@ -404,8 +410,13 @@ void re_seam_texture_update(ReSeam *seam, ReSeamTexture texture, int x, int y, i
   if (seam == NULL || texture.id == 0 || rgba == NULL || width <= 0 || height <= 0) return;
   seam->glBindTexture(GL_TEXTURE_2D, texture.id);
   seam->glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-  seam->glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, (GLsizei)width, (GLsizei)height, GL_RGBA,
-                        GL_UNSIGNED_BYTE, rgba);
+  /* Asked rather than remembered: GL already knows what this texture is, so a one-channel page and
+     a four-channel one take the right upload without the seam keeping a table or the handle growing
+     a field that vtmb-vr's call sites would have to carry. */
+  GLint internal = GL_RGBA;
+  seam->glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT, &internal);
+  seam->glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, (GLsizei)width, (GLsizei)height,
+                        internal == GL_R8 ? GL_RED : GL_RGBA, GL_UNSIGNED_BYTE, rgba);
   seam->glBindTexture(GL_TEXTURE_2D, 0);
 }
 

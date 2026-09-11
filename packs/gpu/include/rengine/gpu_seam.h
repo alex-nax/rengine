@@ -86,9 +86,14 @@ typedef enum {
  * rather than uploaded, and a depth attachment has no colour format at all — so the two cases a
  * render target needs are named rather than inferred from a null pixel pointer. */
 typedef enum {
-  RE_SEAM_TEXTURE_SAMPLED = 0,  /* uploaded and read by a shader — the ordinary case */
+  RE_SEAM_TEXTURE_SAMPLED = 0,  /* four channels, uploaded and read by a shader — the ordinary case */
   RE_SEAM_TEXTURE_COLOR = 1,    /* rendered into, then sampled */
-  RE_SEAM_TEXTURE_DEPTH = 2     /* rendered into as depth; sampling it is not promised */
+  RE_SEAM_TEXTURE_DEPTH = 2,    /* rendered into as depth; sampling it is not promised */
+  /* One channel, read in `.r`. A glyph atlas is the case this exists for, and the case that found
+   * it: rEngine's draw list keeps coverage in a 2048-square page, which is 4 MiB at one byte a
+   * pixel and 16 MiB at four. vtmb-vr's font page pays the four today because nothing offered it
+   * anything else. Uploads are one byte per pixel, not four. */
+  RE_SEAM_TEXTURE_COVERAGE = 3
 } ReSeamTextureUse;
 
 /* How a vertex attribute's bytes are read. VtMB's seam had only floats, with a note saying a type

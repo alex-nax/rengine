@@ -525,3 +525,48 @@ paths in the tree and only half-proves the point.
 The recommendation is the first: it is what D51 already decided for the consumers this pack exists to
 serve, and the reference frames make a per-binary comparison as trustworthy as the runtime one was.
 The cost is a longer desktop build in the suite, and it is worth stating before it is paid.
+
+
+## F133, second step: one shader, and a third API gap
+
+**The draw list's shader is now one source.** `shaders/ui.glsl` produces OpenGL 3.30, Vulkan SPIR-V
+and Metal MSL into a committed `ui_shaders.h`, with a source hash so the header cannot drift from it.
+
+Reading the three copies side by side to write it found more drift than the earlier count suggested.
+They agreed on the signed-distance maths, and **disagreed about their own interfaces**:
+
+| | attribute order | Y |
+| --- | --- | --- |
+| `backend_gl.c` | pos, uv, color, shape, radii, extra | `1.0 - y/h*2` |
+| `shaders/ui.vert` | **shape, radii, pos, uv, extra, color** | `y/h*2 - 1` |
+| `backend_metal.m` | shape, radii first, for 16-byte alignment | its own |
+
+One layout now, and one Y — the OpenGL formula, everywhere, because the seam's backends already
+store NDC −1 in row 0 on every API. The generated GLSL was checked by building a program on a real
+GL driver, not by `glslc`: glslc always emits SPIR-V and so demands explicit locations and uniform
+bindings that a GL 3.30 driver does not.
+
+### A third gap the port found: the glyph atlas is one channel
+
+`backend_gl.c` keeps coverage in a `GL_RED` page, and the seam had only RGBA. A 2048-square atlas is
+**4 MiB at one byte a pixel and 16 MiB at four**, and vtmb-vr's font page pays the four today because
+nothing offered it anything else.
+
+`RE_SEAM_TEXTURE_COVERAGE` is the third addition this migration has produced, after the render target
+and the packed-byte attribute — and like both of those it was found by writing a real consumer rather
+than by imagining one. The OpenGL backend asks GL for the texture's own format at upload time rather
+than keeping a table or growing the handle vtmb-vr's call sites carry; Vulkan and Metal already had
+slot tables to record it in.
+
+Two sabotages. Uploading a coverage page four bytes to the pixel is caught by the channel that comes
+back — *"the single channel was read as coverage, not as one pixel of an RGBA page"*. Making the page
+RGBA internally is **not**, and honestly cannot be: GL expands R to (r, 0, 0, 1), `.r` survives, and
+the pixels are identical. What that sabotage costs is memory, which no pixel test can see — the same
+category as the buffer usage hint spec 123 already records as untestable.
+
+### The transition is checked, not trusted
+
+`ui.vert` and `ui.frag` still feed `backend_vk.c` through `ui_spv.h` until `backend_seam.c` replaces
+it. Leaving that pair unchecked while the new source is checked would have created, for the length of
+the transition, exactly the drift this change removes — so `shaders.py check` verifies both, and says
+so, until the old ones are deleted with the backend that reads them.

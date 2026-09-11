@@ -115,6 +115,7 @@ enum class TextureUse : std::uint8_t
     Sampled,
     Color,
     Depth,
+    Coverage,
 };
 
 enum class AttributeType : std::uint8_t
@@ -162,6 +163,7 @@ static_assert(static_cast<int>(DepthCompare::Always) == RE_SEAM_DEPTH_ALWAYS);
 static_assert(static_cast<int>(TextureUse::Sampled) == RE_SEAM_TEXTURE_SAMPLED);
 static_assert(static_cast<int>(TextureUse::Color) == RE_SEAM_TEXTURE_COLOR);
 static_assert(static_cast<int>(TextureUse::Depth) == RE_SEAM_TEXTURE_DEPTH);
+static_assert(static_cast<int>(TextureUse::Coverage) == RE_SEAM_TEXTURE_COVERAGE);
 
 // A shader stage in whichever forms the build produced. `Shader{someGlsl}` is the common case, so
 // the GLSL member is first and the constructor from a string literal is implicit on purpose.

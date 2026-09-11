@@ -269,7 +269,7 @@ static void barrier(ReSeam *seam, VkImage image, VkImageAspectFlags aspect) {
 
 static void upload(ReSeam *seam, TextureSlot *slot, int x, int y, int width, int height, const void *rgba) {
   BufferSlot staging = {0};
-  size_t bytes = (size_t)width * (size_t)height * 4u;
+  size_t bytes = (size_t)width * (size_t)height * (slot->coverage ? 1u : 4u);
   if (!make_buffer(seam, &staging, bytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT)) {
     report(seam, "gpu: no staging memory for a %dx%d upload", width, height);
     return;
@@ -339,7 +339,9 @@ ReSeamTexture re_seam_texture_2d_for(ReSeam *seam, const void *rgba, int width, 
   slot->width = width;
   slot->height = height;
   slot->depth = use == RE_SEAM_TEXTURE_DEPTH;
-  slot->format = slot->depth ? VK_FORMAT_D32_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM;
+  slot->coverage = use == RE_SEAM_TEXTURE_COVERAGE;
+  slot->format = slot->depth ? VK_FORMAT_D32_SFLOAT
+               : slot->coverage ? VK_FORMAT_R8_UNORM : VK_FORMAT_R8G8B8A8_UNORM;
 
   VkImageCreateInfo info = {
     .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, .imageType = VK_IMAGE_TYPE_2D,
