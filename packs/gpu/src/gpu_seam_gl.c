@@ -159,6 +159,7 @@ struct ReSeam {
   ReSeamOnMessage on_message;
   void *message_user;
   bool in_frame;
+  bool es;                /* the context reported an OpenGL ES version, so ES dialects are preferred */
   ReSeamTarget frame_target;
   ReSeamTarget bound;   /* whose height turns a top-left rectangle into a bottom-left one */
 };
@@ -208,6 +209,10 @@ ReSeam *re_seam_open(const ReSeamOpen *options, char *error, size_t error_size) 
   }
   RE_SEAM_GL_FUNCTIONS(RE_SEAM_GL_LOAD)
 #undef RE_SEAM_GL_LOAD
+  /* Which GL this is, asked once. An ES context's GL_VERSION begins "OpenGL ES"; a desktop one does
+     not. It decides which shader dialect every later compile takes (charter D59). */
+  const GLubyte_t *version = seam->glGetString(GL_VERSION);
+  seam->es = version != NULL && strncmp((const char *)version, "OpenGL ES", 9) == 0;
   return seam;
 }
 
@@ -225,14 +230,20 @@ const char *re_seam_backend(void) { return "opengl"; }
 /* ---- programs --------------------------------------------------------------------------------- */
 
 static GLuint compile(ReSeam *seam, GLenum type, const ReSeamShader *stage, const char *debug_name) {
-  if (stage == NULL || stage->glsl == NULL) {
+  /* `#version 330 core` and `#version 320 es` are different languages, and only this backend knows
+     which context it opened — so the choice is made here rather than by the caller (charter D59). A
+     desktop consumer sets glsl alone and meets exactly the behaviour it always had. */
+  const char *source = stage == NULL ? NULL
+                     : (seam->es && stage->glsl_es != NULL) ? stage->glsl_es : stage->glsl;
+  if (source == NULL) {
     /* Naming the build step is the whole point: a consumer that switched its generator to emit only
        SPIR-V would otherwise meet an empty-source compile error from the driver. */
-    report(seam, "gpu: %s has no GLSL for this stage — the OpenGL backend needs ReSeamShader.glsl, "
-                 "which the shader generator emits alongside SPIR-V", debug_name);
+    report(seam, "gpu: %s has no %s for this stage — the OpenGL backend needs ReSeamShader.%s, "
+                 "which the shader generator emits alongside SPIR-V", debug_name,
+           seam->es ? "GLSL ES" : "GLSL", seam->es ? "glsl_es" : "glsl");
     return 0;
   }
-  const GLchar *sources[1] = {stage->glsl};
+  const GLchar *sources[1] = {source};
   GLuint shader = seam->glCreateShader(type);
   seam->glShaderSource(shader, 1, sources, NULL);
   seam->glCompileShader(shader);

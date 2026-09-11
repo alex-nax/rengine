@@ -18,7 +18,15 @@ const read = async p => readFile(path.join(ROOT, p), 'utf8');
 
 test('the companion compiles the desktop C modules from their place in this repository', async () => {
   const cmake = await read('apps/companion/app/src/main/cpp/CMakeLists.txt');
-  const shared = [...cmake.matchAll(/\$\{RE_ROOT\}\/([^"\s]+)/g)].map(m => m[1]);
+  /* Two of the paths end in a CMake variable — which host and which seam backend this build carries
+     is chosen by RE_COMPANION_BACKEND (charter D59). Those are resolved to every value the file
+     offers, so both arms are checked rather than only the default one. */
+  const backends = [...cmake.matchAll(/set\(RE_COMPANION_HOST "([^"]+)"\)/g)].map(m => m[1]);
+  assert.ok(backends.length >= 2, `the build offers a host per graphics API: ${backends.join(', ')}`);
+  const raw = [...cmake.matchAll(/\$\{RE_ROOT\}\/([^"\s)]+)/g)].map(m => m[1]);
+  const shared = raw.flatMap(source => source.includes('${RE_COMPANION_HOST}')
+    ? backends.map(host => source.replace('${RE_COMPANION_HOST}', host))
+    : [source]).filter(source => !source.includes('${'));
   assert.ok(shared.length >= 4, `the native build reaches into the repository: ${shared.join(', ')}`);
   for (const source of shared) {
     assert.ok(existsSync(path.join(ROOT, source)), `${source} is where the companion expects it`);

@@ -60,6 +60,22 @@ GL_PREAMBLE = """#version 330 core
 #define NDC_Y(t) (1.0 - (t) * 2.0)
 """
 
+# OpenGL ES 3.2, for Android (charter D59). Same language as the desktop's GL dialect down to the
+# NDC_Y expression — an ES framebuffer has row 0 at the bottom exactly as a desktop GL one does — so
+# the only differences are the version line and the precision qualifiers ES requires and desktop GL
+# does not have.
+GLES_PREAMBLE = """#version 320 es
+precision highp float;
+precision highp int;
+#define IN(loc) layout(location = loc) in
+#define OUT(loc) out
+#define FLAT_OUT(loc) flat out
+#define IN_F(loc) in
+#define FLAT_IN(loc) flat in
+#define OUT_COLOR out vec4 o_color;
+#define NDC_Y(t) (1.0 - (t) * 2.0)
+"""
+
 VK_PREAMBLE = """#version 450
 #define IN(loc) layout(location = loc) in
 #define OUT(loc) layout(location = loc) out
@@ -120,13 +136,14 @@ def digest(path):
 
 
 def stage_sources(stage):
-    """The three dialects of one stage, as (gl_source, spirv_words, msl_source)."""
+    """The four dialects of one stage, as (gl_source, gles_source, spirv_words, msl_source)."""
     glslc = shutil.which("glslc")
     if not glslc:
         sys.exit("glslc not found; install the Vulkan SDK or `brew install shaderc`")
     body = SOURCE.read_text(encoding="utf-8")
     define = "#define VERTEX 1\n" if stage == "vertex" else ""
     gl = GL_PREAMBLE + define + declarations(body, False)
+    gles = GLES_PREAMBLE + define + declarations(body, False)
     with tempfile.TemporaryDirectory() as tmp:
         work = pathlib.Path(tmp)
         source = work / ("ui." + ("vert" if stage == "vertex" else "frag"))
@@ -161,7 +178,7 @@ def stage_sources(stage):
             if done.returncode != 0:
                 sys.exit("spirv-cross failed on ui.glsl (%s):\n%s" % (stage, done.stderr))
             metal = done.stdout
-    return gl, words, metal
+    return gl, gles, words, metal
 
 
 def generate():
@@ -183,9 +200,12 @@ def generate():
         "",
     ]
     for stage in ("vertex", "fragment"):
-        gl, words, metal = stage_sources(stage)
+        gl, gles, words, metal = stage_sources(stage)
         parts.append("static const char re_ui_%s_glsl[] = {" % stage)
         parts.append(c_bytes(gl))
+        parts.append("};")
+        parts.append("static const char re_ui_%s_glsl_es[] = {" % stage)
+        parts.append(c_bytes(gles))
         parts.append("};")
         parts.append("static const char re_ui_%s_msl[] = {" % stage)
         parts.append(c_bytes(metal))
@@ -209,7 +229,7 @@ def check():
         sys.exit("%s changed since %s was generated.\nRun `python3 tools/shaders.py generate` and commit the result."
                  % (SOURCE.name, HEADER.name))
     for stage in ("vertex", "fragment"):
-        for form in ("glsl", "msl", "spv"):
+        for form in ("glsl", "glsl_es", "msl", "spv"):
             if ("re_ui_%s_%s" % (stage, form)) not in text:
                 sys.exit("%s is missing re_ui_%s_%s; regenerate it" % (HEADER.name, stage, form))
     print("draw-list shader: %s matches ui.glsl in all three dialects." % HEADER.name)

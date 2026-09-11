@@ -12,16 +12,24 @@
 #define RENGINE_SEAM_HOST_H
 
 #include "rengine/gpu_seam.h"
-#include <SDL.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef struct ReSeamHost ReSeamHost;
 
 /* The window flags this API needs, set before the window is made — the same shape
- * re_backend_gl_window_flags already has, because SDL wants some attributes set first. */
-Uint32 re_seam_host_flags(void);
-/* Opens the device or context on `window`, then the seam on it. */
-ReSeamHost *re_seam_host_open(SDL_Window *window, char *error, size_t error_size);
+ * re_backend_gl_window_flags already has, because SDL wants some attributes set first. Zero on a
+ * platform that hands its window over ready-made, which is every mobile one. */
+uint32_t re_seam_host_flags(void);
+/* Opens the device or context on `window`, then the seam on it.
+ *
+ * `window` is OPAQUE on purpose: an SDL_Window* on the desktop, an ANativeWindow* on Android. The
+ * host is the windowing boundary, so it is the only thing that should know which — and typing this
+ * as SDL_Window* was what kept backend_seam.c, an SDL-free file, from compiling for a phone. */
+ReSeamHost *re_seam_host_open(void *window, char *error, size_t error_size);
+/* Reports a failure the way this platform reports failures: SDL_SetError on the desktop, the log on
+ * Android. backend_seam.c has errors of its own to report and no business knowing which. */
+void re_seam_host_fail(const char *message);
 void re_seam_host_close(ReSeamHost *host);
 
 ReSeam *re_seam_host_seam(ReSeamHost *host);

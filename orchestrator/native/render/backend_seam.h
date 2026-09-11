@@ -2,7 +2,8 @@
 #ifndef RENGINE_BACKEND_SEAM_H
 #define RENGINE_BACKEND_SEAM_H
 #include "render/backend.h"
-#include <SDL.h>
-Uint32 re_backend_seam_window_flags(void);
-ReBackend *re_backend_seam_open(SDL_Window *window, ReFontSet *fonts);
+#include <stdint.h>
+uint32_t re_backend_seam_window_flags(void);
+/* `window` is opaque: SDL_Window* on the desktop, ANativeWindow* on Android. See seam_host.h. */
+ReBackend *re_backend_seam_open(void *window, ReFontSet *fonts);
 #endif

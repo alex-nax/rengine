@@ -1,5 +1,48 @@
 # Progress Log
 
+## Session 115 (macos) — 2026-09-11 — the companion draws the desktop's UI on a phone (D59)
+
+The owner asked to try the Android phone rather than the Quest, and the phone refused to render:
+its **Adreno 619 on a 2022 driver reports Vulkan 1.1.128 and its device extension list lacks
+`VK_KHR_dynamic_rendering` and `VK_KHR_synchronization2`** — both of which the seam's Vulkan backend
+is built on. Not a conservative feature flag: the loader reports 1.3 and the device reports 1.1, and
+the extension list was enumerated on the handset. The control ran the same build on a Quest 3
+(Adreno 740, Vulkan 1.3.295), where the device layer, the swapchain and the renderer all came up —
+so the Android host was correct and the phone was simply below the floor.
+
+**The owner amended their own decision** (D58's "Vulkan-only on Android, no GL path") after seeing
+that: **charter D59** gives Android an OpenGL ES path beside Vulkan. The justification is in the
+measurement plus F145's premise — *a phone on cellular* means mid-range hardware — and the fact that
+all 56 GL entry points the seam loads exist in OpenGL ES 3.x.
+
+**It renders**: 60 fps steady, 30 draw-list commands, 37 ms slowest frame (the first, paying for
+shader compilation), density 2.75, on the phone. microui's frame, `draw_list.c`'s commands, executed
+by **`backend_seam.c` — the desktop's renderer, unchanged**. The only Android-specific renderer file
+is `seam_host_android_gl.c`, 146 lines of EGL, the fifth member of spec 124's one-file-per-platform
+split.
+
+Two additions made that possible, both of which left the desktop byte-identical on all three
+backends:
+
+- **`ReSeamShader.glsl_es`** — `#version 330 core` and `#version 320 es` are different languages, and
+  only the backend knows which context it opened, so the GL backend reads `GL_VERSION` once at open
+  and prefers the ES dialect on an ES context. `tools/shaders.py` emits a fourth dialect.
+- **The window handle above the host is opaque.** `seam_host.h` took an `SDL_Window *`, which is what
+  kept `backend_seam.c` — a file containing no SDL — from compiling for a phone. It takes a `void *`
+  now, and error reporting moved to `re_seam_host_fail` so each platform uses its own channel.
+
+`RE_COMPANION_BACKEND` picks `opengl` or `vulkan` at build time; both arms were built. A runtime
+choice is what D56's prefixed copies exist for and nothing needs it yet.
+
+**One thing on screen was a lie and is fixed**: the renderer label was hardcoded to "seam - vulkan"
+and displayed exactly that while running on OpenGL. It reads `backend->ops->name` now.
+
+**Still not met**: criterion 2 wants a frame budget *set before the run* and a smoke snapshot in the
+suite; what exists is a measurement taken afterwards and a screenshot taken by hand. Criterion 3's
+C ABI round-trip waits on F141. F144 stays `passes: false`.
+
+`npm test`: 273/273. `npm run test:native`: 15/15. `./init.sh`, `design.py check` clean.
+
 ## Session 114 (macos) — 2026-09-11 — the companion exists, and it is the same code (F144, first slice)
 
 `apps/companion` is an Android app that **builds and runs on a real device**, and the point of it is

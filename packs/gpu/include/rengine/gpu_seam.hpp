@@ -172,6 +172,9 @@ static_assert(static_cast<int>(TextureUse::Coverage) == RE_SEAM_TEXTURE_COVERAGE
 struct Shader
 {
     const char* glsl = nullptr;
+    // The OpenGL ES dialect, preferred by the GL backend when the context it opened is an ES one
+    // (charter D59). A desktop-only consumer leaves it null.
+    const char* glslEs = nullptr;
     const std::uint32_t* spirv = nullptr;
     std::size_t spirvBytes = 0;
     const char* msl = nullptr;
@@ -188,6 +191,7 @@ inline ReSeamShader raw(const Shader& shader)
 {
     ReSeamShader out{};
     out.glsl = shader.glsl;
+    out.glsl_es = shader.glslEs;
     out.spirv = shader.spirv;
     out.spirv_bytes = shader.spirvBytes;
     out.msl = shader.msl;

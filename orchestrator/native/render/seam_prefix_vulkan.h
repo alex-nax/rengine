@@ -41,6 +41,7 @@
 #define re_seam_frame_end            re_vulkan_seam_frame_end
 #define re_seam_host_acquire         re_vulkan_seam_host_acquire
 #define re_seam_host_close           re_vulkan_seam_host_close
+#define re_seam_host_fail            re_vulkan_seam_host_fail
 #define re_seam_host_flags           re_vulkan_seam_host_flags
 #define re_seam_host_name            re_vulkan_seam_host_name
 #define re_seam_host_open            re_vulkan_seam_host_open

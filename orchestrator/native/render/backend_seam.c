@@ -43,7 +43,7 @@ typedef struct { ReTexture base; ReSeamTexture texture; } SeamTexture;
 
 typedef struct {
   ReBackend base;
-  SDL_Window *window;
+  void *window;
   ReSeamHost *host;
   ReSeam *seam;
   ReSeamProgram program;
@@ -303,33 +303,33 @@ static void close_backend(ReBackend *backend) {
 static ReBackendOps ops = {NULL, density, begin, execute, present, snapshot,
                                  texture_create, texture_update, texture_destroy, close_backend};
 
-Uint32 re_backend_seam_window_flags(void) { return re_seam_host_flags(); }
+uint32_t re_backend_seam_window_flags(void) { return re_seam_host_flags(); }
 
-ReBackend *re_backend_seam_open(SDL_Window *window, ReFontSet *fonts) {
+ReBackend *re_backend_seam_open(void *window, ReFontSet *fonts) {
   SeamBackend *b = calloc(1, sizeof(*b)); if (!b) return NULL;
   b->window = window; b->base.ops = &ops; b->base.fonts = fonts; b->density = 1.0f;
   ops.name = re_seam_host_name();
   char error[256] = {0};
   b->host = re_seam_host_open(window, error, sizeof(error));
-  if (!b->host) { SDL_SetError("%s", error); close_backend(&b->base); return NULL; }
+  if (!b->host) { re_seam_host_fail(error); close_backend(&b->base); return NULL; }
   b->seam = re_seam_host_seam(b->host);
 
   ReSeamShader vertex = {0}, fragment = {0};
   vertex.glsl = re_ui_vertex_glsl; vertex.spirv = re_ui_vertex_spv; vertex.spirv_bytes = sizeof(re_ui_vertex_spv);
-  vertex.msl = re_ui_vertex_msl;
+  vertex.msl = re_ui_vertex_msl; vertex.glsl_es = re_ui_vertex_glsl_es;
   fragment.glsl = re_ui_fragment_glsl; fragment.spirv = re_ui_fragment_spv; fragment.spirv_bytes = sizeof(re_ui_fragment_spv);
-  fragment.msl = re_ui_fragment_msl;
+  fragment.msl = re_ui_fragment_msl; fragment.glsl_es = re_ui_fragment_glsl_es;
   b->program = re_seam_program(b->seam, &vertex, &fragment, "ui");
   if (!b->program.id) { close_backend(&b->base); return NULL; }
   b->u_size = re_seam_uniform_location(b->seam, b->program, "u_size");
   b->u_texture = re_seam_uniform_location(b->seam, b->program, "u_texture");
   if (b->u_size < 0 || b->u_texture < 0) {
-    SDL_SetError("the draw-list shader does not expose u_size and u_texture");
+    re_seam_host_fail("the draw-list shader does not expose u_size and u_texture");
     close_backend(&b->base); return NULL;
   }
 
   b->vertices = malloc(sizeof(Vertex) * BATCH_VERTICES);
-  if (!b->vertices) { SDL_SetError("Cannot allocate the vertex batch"); close_backend(&b->base); return NULL; }
+  if (!b->vertices) { re_seam_host_fail("Cannot allocate the vertex batch"); close_backend(&b->base); return NULL; }
   b->buffer = re_seam_buffer(b->seam);
   re_seam_buffer_update(b->seam, b->buffer, NULL, sizeof(Vertex) * BATCH_VERTICES, RE_SEAM_BUFFER_DYNAMIC);
   const ReSeamVertexAttribute attributes[6] = {
@@ -345,7 +345,7 @@ ReBackend *re_backend_seam_open(SDL_Window *window, ReFontSet *fonts) {
 
   b->atlas = re_seam_texture_2d_for(b->seam, NULL, ATLAS_SIZE, ATLAS_SIZE, RE_SEAM_FILTER_NEAREST,
                                     RE_SEAM_WRAP_CLAMP_TO_EDGE, RE_SEAM_TEXTURE_COVERAGE);
-  if (!b->atlas.id) { SDL_SetError("Cannot allocate the glyph atlas"); close_backend(&b->base); return NULL; }
+  if (!b->atlas.id) { re_seam_host_fail("Cannot allocate the glyph atlas"); close_backend(&b->base); return NULL; }
   atlas_reset(b);
   return &b->base;
 }

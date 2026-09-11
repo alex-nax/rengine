@@ -1,45 +1,46 @@
-/* The Vulkan host for the seam-backed draw list (spec 124, F133).
+/* The Android host for the seam-backed draw list (charter D57, spec 128 decisions 7 and 8).
  *
- * The swapchain, and only the swapchain. The pack creates no surface and no swapchain by design —
- * the device layer because a headset host has neither (spec 122), the seam because a window's back
- * buffer belongs to whoever owns the window — so everything between "there is a window" and "there
- * is an image to draw into" lives here. It is the largest of the three hosts for that reason, and
- * it is still a fifth of backend_vk.c, which had to carry a renderer as well.
+ * The fourth host, and the first that is not the desktop. It is `seam_host_vk.c` with the three
+ * things only the platform decides swapped out: the loader is `libvulkan.so` through dlopen rather
+ * than SDL's, the surface comes from `vkCreateAndroidSurfaceKHR` on an `ANativeWindow` rather than
+ * from `SDL_Vulkan_CreateSurface`, and the drawable size is the window's own.
  *
- * Synchronisation is deliberately CPU-side. re_seam_frame_end submits with no semaphores and then
- * waits the queue idle — one frame in flight, which the seam documents as its model — so a host
- * that acquired with a semaphore would have nothing to hand it. Acquiring with a FENCE and waiting
- * on it before the frame gives the same guarantee through the only channel the seam leaves open,
- * and costs nothing that the seam's own wait did not already cost.
+ * Everything above it is the desktop's: `backend_seam.c` draws the same draw list through the same
+ * seam, and it compiles here unchanged because the window handle is opaque above this boundary. That
+ * is the whole claim decision 10 makes — one UI layer, not a fork — and this file is where it stops
+ * being a claim.
+ *
+ * Vulkan-only on Android by decision 8: no GL path on mobile, and a native Metal backend for iOS
+ * when that platform ships.
  */
 #include "render/seam_host.h"
 
-#include <rengine/gpu_device.h>
-#include <SDL_vulkan.h>
-
+#include <android/log.h>
+#include <android/native_window.h>
+#include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include <rengine/gpu_device.h>
+
+#define TAG "rengine.companion"
 #define MAX_IMAGES 8
 
-/* Surface, swapchain and present are loaded HERE, never by the pack: that is spec 122's rule, and
- * tools/design.py enforces that the device layer's translation unit never mentions them. */
 #define RE_HOST_VK_INSTANCE(X) X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR) X(vkGetPhysicalDeviceSurfaceFormatsKHR) \
-  X(vkDestroySurfaceKHR) X(vkGetPhysicalDeviceSurfaceSupportKHR)
+  X(vkDestroySurfaceKHR) X(vkGetPhysicalDeviceSurfaceSupportKHR) X(vkCreateAndroidSurfaceKHR)
 #define RE_HOST_VK_DEVICE(X) X(vkCreateSwapchainKHR) X(vkDestroySwapchainKHR) X(vkGetSwapchainImagesKHR) \
   X(vkAcquireNextImageKHR) X(vkQueuePresentKHR) X(vkCreateImageView) X(vkDestroyImageView) \
   X(vkCreateCommandPool) X(vkDestroyCommandPool) X(vkAllocateCommandBuffers) X(vkBeginCommandBuffer) \
-  X(vkEndCommandBuffer) X(vkCmdPipelineBarrier2) X(vkCmdCopyImageToBuffer) X(vkQueueSubmit) \
-  X(vkCreateFence) X(vkDestroyFence) X(vkWaitForFences) X(vkResetFences) X(vkDeviceWaitIdle) \
-  X(vkCreateBuffer) X(vkDestroyBuffer) X(vkAllocateMemory) X(vkFreeMemory) X(vkBindBufferMemory) \
-  X(vkMapMemory) X(vkGetBufferMemoryRequirements)
+  X(vkEndCommandBuffer) X(vkCmdPipelineBarrier2) X(vkQueueSubmit) \
+  X(vkCreateFence) X(vkDestroyFence) X(vkWaitForFences) X(vkResetFences) X(vkDeviceWaitIdle)
 
 struct ReSeamHost {
-  SDL_Window *window;
+  ANativeWindow *window;
   ReGpu *gpu;
   ReSeam *seam;
   PFN_vkGetInstanceProcAddr gipa;
+  void *loader;
   VkInstance instance;
   VkPhysicalDevice physical;
   VkDevice device;
@@ -53,12 +54,8 @@ struct ReSeamHost {
   VkImageView views[MAX_IMAGES];
   uint32_t image_count, image_index;
   VkCommandPool pool;
-  VkCommandBuffer cmd;      /* the host's own: layout transitions and the snapshot copy */
-  VkFence fence;            /* acquire and the host's submits both settle on this */
-  VkBuffer readback;
-  VkDeviceMemory readback_memory;
-  void *readback_map;
-  VkDeviceSize readback_size;
+  VkCommandBuffer cmd;
+  VkFence fence;
   ReSeamTarget target;
   int width, height;
   bool outdated, acquired;
@@ -70,37 +67,30 @@ struct ReSeamHost {
   } vk;
 };
 
+/* There is no SDL_SetError here and nothing reads a thread-local error string, so a failure goes
+   where a person on this platform will actually see it. */
+void re_seam_host_fail(const char *message) {
+  __android_log_print(ANDROID_LOG_ERROR, TAG, "%s", message);
+}
 static bool fail(const char *what, VkResult r) {
-  SDL_SetError("Vulkan: %s failed (%d)", what, (int)r);
+  __android_log_print(ANDROID_LOG_ERROR, TAG, "Vulkan: %s failed (%d)", what, (int)r);
   return false;
 }
-static void on_message(void *user, const char *message) { (void)user; SDL_SetError("%s", message); }
 
-/* The validation layers have to reach the same place backend_vk.c sends them, or a run with
-   RENGINE_VULKAN_VALIDATION set would report zero messages because nothing was listening — which is
-   the failure mode a validation gate exists to prevent. This host writes its own barriers, its own
-   layout transitions and its own present, so it is exactly the code that needs them. */
-static VKAPI_ATTR VkBool32 VKAPI_CALL validation_message(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
-                                                         VkDebugUtilsMessageTypeFlagsEXT type,
-                                                         const VkDebugUtilsMessengerCallbackDataEXT *data,
-                                                         void *user) {
-  (void)severity; (void)type; (void)user;
-  const char *log = getenv("RENGINE_VULKAN_VALIDATION_LOG");
-  fprintf(stderr, "[vulkan validation] %s\n", data->pMessage);
-  if (log && *log) { FILE *f = fopen(log, "a"); if (f) { fprintf(f, "%s\n", data->pMessage); fclose(f); } }
-  return VK_FALSE;
-}
-
-uint32_t re_seam_host_flags(void) { return SDL_WINDOW_VULKAN; }
-void re_seam_host_fail(const char *message) { SDL_SetError("%s", message); }
+/* Android hands the app a window already made, so there are no attributes to set beforehand. */
+uint32_t re_seam_host_flags(void) { return 0; }
 const char *re_seam_host_name(void) { return "vulkan"; }
 
-/* The host's half of device selection (spec 122): the device layer cannot ask whether a queue family
-   can present, because that needs a surface. The surface is created on the first call, once the
-   instance exists, which is the only moment it can be. */
 static bool accepts_device(void *user, VkInstance instance, VkPhysicalDevice physical, uint32_t family) {
   ReSeamHost *host = (ReSeamHost *)user;
-  if (!host->surface && !SDL_Vulkan_CreateSurface(host->window, instance, &host->surface)) return false;
+  if (host->surface == VK_NULL_HANDLE) {
+    PFN_vkCreateAndroidSurfaceKHR create =
+      (PFN_vkCreateAndroidSurfaceKHR)host->gipa(instance, "vkCreateAndroidSurfaceKHR");
+    if (!create) return false;
+    VkAndroidSurfaceCreateInfoKHR info = {.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR,
+                                          .window = host->window};
+    if (create(instance, &info, NULL, &host->surface) != VK_SUCCESS) return false;
+  }
   PFN_vkGetPhysicalDeviceSurfaceSupportKHR supported =
     (PFN_vkGetPhysicalDeviceSurfaceSupportKHR)host->gipa(instance, "vkGetPhysicalDeviceSurfaceSupportKHR");
   if (!supported) return false;
@@ -128,31 +118,19 @@ static bool swapchain_create(ReSeamHost *host) {
   if (count > 64) count = 64;
   r = host->vk.vkGetPhysicalDeviceSurfaceFormatsKHR(host->physical, host->surface, &count, formats);
   if (r != VK_SUCCESS || count == 0) return fail("vkGetPhysicalDeviceSurfaceFormatsKHR", r);
-
-  /* Whatever the surface offers, preferring BGRA8 in sRGB — the same choice backend_vk.c makes, and
-     on MoltenVK the only 8-bit one there is. The seam is TOLD this format when the view is adopted;
-     it used to assume R8G8B8A8_UNORM, which no surface here offers at all. */
+  /* Whatever the surface offers, preferring the 8-bit UNORM pair. The seam is TOLD this format when
+     the view is adopted, which is the gap spec 124 closed for exactly this kind of host. */
   VkSurfaceFormatKHR chosen = formats[0];
   for (uint32_t i = 0; i < count; i++)
-    if (formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR &&
-        (chosen.colorSpace != VK_COLOR_SPACE_SRGB_NONLINEAR_KHR ||
-         (formats[i].format == VK_FORMAT_B8G8R8A8_UNORM && chosen.format != VK_FORMAT_B8G8R8A8_UNORM)))
-      chosen = formats[i];
+    if ((formats[i].format == VK_FORMAT_R8G8B8A8_UNORM || formats[i].format == VK_FORMAT_B8G8R8A8_UNORM) &&
+        formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) { chosen = formats[i]; break; }
 
-  int dw = 0, dh = 0;
-  SDL_Vulkan_GetDrawableSize(host->window, &dw, &dh);
   VkExtent2D extent = caps.currentExtent;
   if (extent.width == UINT32_MAX) {
-    extent.width = (uint32_t)(dw > 0 ? dw : 1);
-    extent.height = (uint32_t)(dh > 0 ? dh : 1);
+    extent.width = (uint32_t)ANativeWindow_getWidth(host->window);
+    extent.height = (uint32_t)ANativeWindow_getHeight(host->window);
   }
-  if (extent.width < caps.minImageExtent.width) extent.width = caps.minImageExtent.width;
-  if (extent.height < caps.minImageExtent.height) extent.height = caps.minImageExtent.height;
-  if (extent.width > caps.maxImageExtent.width) extent.width = caps.maxImageExtent.width;
-  if (extent.height > caps.maxImageExtent.height) extent.height = caps.maxImageExtent.height;
-  if (!extent.width || !extent.height) return fail("swapchain extent (the window has no drawable area)", VK_ERROR_OUT_OF_DATE_KHR);
-  if (!(caps.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT))
-    return fail("swapchain transfer-source usage (the snapshot reads the image back)", VK_ERROR_FEATURE_NOT_PRESENT);
+  if (!extent.width || !extent.height) return fail("swapchain extent (the window has no area)", VK_ERROR_OUT_OF_DATE_KHR);
 
   uint32_t images = caps.minImageCount + 1;
   if (caps.maxImageCount && images > caps.maxImageCount) images = caps.maxImageCount;
@@ -164,7 +142,7 @@ static bool swapchain_create(ReSeamHost *host) {
     .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR, .surface = host->surface,
     .minImageCount = images, .imageFormat = chosen.format, .imageColorSpace = chosen.colorSpace,
     .imageExtent = extent, .imageArrayLayers = 1,
-    .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+    .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
     .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE, .preTransform = caps.currentTransform,
     .compositeAlpha = alpha, .presentMode = VK_PRESENT_MODE_FIFO_KHR, .clipped = VK_TRUE};
   r = host->vk.vkCreateSwapchainKHR(host->device, &ci, NULL, &host->swapchain);
@@ -185,11 +163,11 @@ static bool swapchain_create(ReSeamHost *host) {
     r = host->vk.vkCreateImageView(host->device, &vi, NULL, &host->views[i]);
     if (r != VK_SUCCESS) return fail("vkCreateImageView (swapchain)", r);
   }
+  __android_log_print(ANDROID_LOG_INFO, TAG, "companion: swapchain %ux%u, %u image(s), format %d",
+                      extent.width, extent.height, n, (int)chosen.format);
   return true;
 }
 
-/* One command buffer, recorded and waited on the spot. Everything the host does to an image is a
-   barrier or a copy, and both are cheap next to the frame the seam already waits for. */
 static bool host_commands_begin(ReSeamHost *host) {
   VkCommandBufferBeginInfo bi = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
                                  .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
@@ -218,39 +196,89 @@ static void image_barrier(ReSeamHost *host, VkImage image, VkImageLayout from, V
 }
 
 ReSeamHost *re_seam_host_open(void *opaque, char *error, size_t error_size) {
-  SDL_Window *window = (SDL_Window *)opaque;
   ReSeamHost *host = calloc(1, sizeof(*host));
   if (!host) { snprintf(error, error_size, "out of memory"); return NULL; }
-  host->window = window;
-  if (SDL_Vulkan_LoadLibrary(NULL) != 0) { snprintf(error, error_size, "no Vulkan loader (%s)", SDL_GetError()); free(host); return NULL; }
-  host->gipa = (PFN_vkGetInstanceProcAddr)SDL_Vulkan_GetVkGetInstanceProcAddr();
-  if (!host->gipa) { snprintf(error, error_size, "the loader has no vkGetInstanceProcAddr"); free(host); return NULL; }
+  host->window = (ANativeWindow *)opaque;
 
-  unsigned count = 0;
-  const char *instance_ext[24];
-  if (!SDL_Vulkan_GetInstanceExtensions(window, &count, NULL) || count > 20) {
-    snprintf(error, error_size, "instance extensions (%s)", SDL_GetError()); free(host); return NULL;
-  }
-  if (!SDL_Vulkan_GetInstanceExtensions(window, &count, instance_ext)) {
-    snprintf(error, error_size, "instance extensions (%s)", SDL_GetError()); free(host); return NULL;
-  }
-  const char *validation = getenv("RENGINE_VULKAN_VALIDATION");
+  /* Android's loader is libvulkan.so, present since API 24 on any device with a driver. Loaded by
+     name here for the same reason the pack takes its entry points from the host: the seam links no
+     graphics library of its own. */
+  host->loader = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
+  if (!host->loader) { snprintf(error, error_size, "no libvulkan.so on this device"); free(host); return NULL; }
+  host->gipa = (PFN_vkGetInstanceProcAddr)dlsym(host->loader, "vkGetInstanceProcAddr");
+  if (!host->gipa) { snprintf(error, error_size, "libvulkan.so has no vkGetInstanceProcAddr"); free(host); return NULL; }
+
+  static const char *instance_ext[2] = {VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_ANDROID_SURFACE_EXTENSION_NAME};
   static const char *device_ext[1] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
   ReGpuOpen options = {
     .get_instance_proc_addr = host->gipa,
-    .instance_extensions = instance_ext, .instance_extension_count = count,
+    .instance_extensions = instance_ext, .instance_extension_count = 2,
     .device_extensions = device_ext, .device_extension_count = 1,
     .accepts = accepts_device, .user = host,
-    .validation = validation && *validation && strcmp(validation, "0") != 0,
-    .on_message = validation_message, .message_user = host,
   };
+  /* Before asking the device layer for a device, say what this driver actually offers. Its refusal
+     names a floor but not what fell short of it, and "the phone cannot" and "the predicate is
+     broken" are different problems that read identically in a log. */
+  {
+    PFN_vkCreateInstance create = (PFN_vkCreateInstance)host->gipa(NULL, "vkCreateInstance");
+    PFN_vkEnumerateInstanceVersion instance_version =
+      (PFN_vkEnumerateInstanceVersion)host->gipa(NULL, "vkEnumerateInstanceVersion");
+    uint32_t loader = 0;
+    if (instance_version && instance_version(&loader) == VK_SUCCESS)
+      __android_log_print(ANDROID_LOG_INFO, TAG, "companion: Vulkan loader reports %u.%u.%u",
+                          VK_VERSION_MAJOR(loader), VK_VERSION_MINOR(loader), VK_VERSION_PATCH(loader));
+    VkApplicationInfo app = {.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO, .apiVersion = VK_API_VERSION_1_1};
+    VkInstanceCreateInfo ii = {.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO, .pApplicationInfo = &app};
+    VkInstance probe = VK_NULL_HANDLE;
+    if (create && create(&ii, NULL, &probe) == VK_SUCCESS) {
+      PFN_vkEnumeratePhysicalDevices list = (PFN_vkEnumeratePhysicalDevices)host->gipa(probe, "vkEnumeratePhysicalDevices");
+      PFN_vkGetPhysicalDeviceProperties props = (PFN_vkGetPhysicalDeviceProperties)host->gipa(probe, "vkGetPhysicalDeviceProperties");
+      PFN_vkDestroyInstance destroy = (PFN_vkDestroyInstance)host->gipa(probe, "vkDestroyInstance");
+      uint32_t n = 0;
+      if (list && props && list(probe, &n, NULL) == VK_SUCCESS && n) {
+        VkPhysicalDevice devices[8];
+        if (n > 8) n = 8;
+        list(probe, &n, devices);
+        for (uint32_t i = 0; i < n; i++) {
+          VkPhysicalDeviceProperties p;
+          props(devices[i], &p);
+          __android_log_print(ANDROID_LOG_INFO, TAG, "companion: device %u is %s, Vulkan %u.%u.%u",
+                              i, p.deviceName, VK_VERSION_MAJOR(p.apiVersion),
+                              VK_VERSION_MINOR(p.apiVersion), VK_VERSION_PATCH(p.apiVersion));
+          /* A device below 1.3 can still offer the seam's requirements as extensions, and that is
+             the difference between "this phone never" and "this phone with a lower floor". */
+          PFN_vkEnumerateDeviceExtensionProperties exts =
+            (PFN_vkEnumerateDeviceExtensionProperties)host->gipa(probe, "vkEnumerateDeviceExtensionProperties");
+          uint32_t count = 0;
+          if (exts && exts(devices[i], NULL, &count, NULL) == VK_SUCCESS && count) {
+            VkExtensionProperties *have = calloc(count, sizeof(*have));
+            if (have && exts(devices[i], NULL, &count, have) == VK_SUCCESS) {
+              const char *wanted[] = {"VK_KHR_dynamic_rendering", "VK_KHR_synchronization2",
+                                      "VK_EXT_shader_demote_to_helper_invocation", "VK_KHR_swapchain"};
+              for (size_t w = 0; w < sizeof(wanted) / sizeof(wanted[0]); w++) {
+                bool found = false;
+                for (uint32_t e = 0; e < count; e++)
+                  if (!strcmp(have[e].extensionName, wanted[w])) { found = true; break; }
+                __android_log_print(ANDROID_LOG_INFO, TAG, "companion:   %s %s",
+                                    found ? "has" : "LACKS", wanted[w]);
+              }
+            }
+            free(have);
+          }
+        }
+      }
+      if (destroy) destroy(probe, NULL);
+    }
+  }
+
   host->gpu = re_gpu_open(&options, error, error_size);
-  if (!host->gpu) { free(host); return NULL; }
+  if (!host->gpu) { re_seam_host_close(host); return NULL; }
   host->instance = re_gpu_instance(host->gpu);
   host->physical = re_gpu_physical(host->gpu);
   host->device = re_gpu_device(host->gpu);
   host->queue = re_gpu_queue(host->gpu);
   host->family = re_gpu_family(host->gpu);
+  __android_log_print(ANDROID_LOG_INFO, TAG, "companion: Vulkan device %s", re_gpu_device_name(host->gpu));
 #define RE_HOST_VK_LOAD_INSTANCE(name) \
   if (!(host->vk.name = (PFN_##name)re_gpu_instance_proc(host->gpu, #name))) { \
     snprintf(error, error_size, "the instance lacks %s", #name); re_seam_host_close(host); return NULL; }
@@ -278,13 +306,10 @@ ReSeamHost *re_seam_host_open(void *opaque, char *error, size_t error_size) {
   if (host->vk.vkCreateFence(host->device, &fi, NULL, &host->fence) != VK_SUCCESS) {
     snprintf(error, error_size, "vkCreateFence failed"); re_seam_host_close(host); return NULL;
   }
-  if (!swapchain_create(host)) {
-    snprintf(error, error_size, "%s", SDL_GetError()); re_seam_host_close(host); return NULL;
-  }
+  if (!swapchain_create(host)) { snprintf(error, error_size, "the swapchain could not be created"); re_seam_host_close(host); return NULL; }
 
   ReSeamOpen seam_options = {0};
-  seam_options.user = host->gpu;      /* the Vulkan seam takes the device layer, not a proc loader */
-  seam_options.on_message = on_message;
+  seam_options.user = host->gpu;
   host->seam = re_seam_open(&seam_options, error, error_size);
   if (!host->seam) { re_seam_host_close(host); return NULL; }
   return host;
@@ -295,20 +320,20 @@ void re_seam_host_close(ReSeamHost *host) {
   if (host->device && host->vk.vkDeviceWaitIdle) host->vk.vkDeviceWaitIdle(host->device);
   if (host->target.id) re_seam_target_destroy(host->seam, &host->target);
   re_seam_close(host->seam);
-  if (host->readback_map) host->vk.vkFreeMemory(host->device, host->readback_memory, NULL);
-  if (host->readback) host->vk.vkDestroyBuffer(host->device, host->readback, NULL);
   if (host->fence) host->vk.vkDestroyFence(host->device, host->fence, NULL);
   if (host->pool) host->vk.vkDestroyCommandPool(host->device, host->pool, NULL);
   if (host->swapchain) swapchain_destroy(host);
   if (host->surface && host->vk.vkDestroySurfaceKHR) host->vk.vkDestroySurfaceKHR(host->instance, host->surface, NULL);
   re_gpu_close(host->gpu);
+  if (host->loader) dlclose(host->loader);
   free(host);
 }
 
 ReSeam *re_seam_host_seam(ReSeamHost *host) { return host->seam; }
 
 void re_seam_host_size(ReSeamHost *host, int *width, int *height) {
-  SDL_Vulkan_GetDrawableSize(host->window, &host->width, &host->height);
+  host->width = (int)host->extent.width;
+  host->height = (int)host->extent.height;
   *width = host->width;
   *height = host->height;
 }
@@ -318,31 +343,19 @@ ReSeamTarget re_seam_host_acquire(ReSeamHost *host) {
   if (host->target.id) re_seam_target_destroy(host->seam, &host->target);
   host->target = none;
   host->acquired = false;
-  SDL_Vulkan_GetDrawableSize(host->window, &host->width, &host->height);
-  if (host->width < 1 || host->height < 1) return none;
-  if (host->outdated || (uint32_t)host->width != host->extent.width ||
-      (uint32_t)host->height != host->extent.height) {
+  if (host->outdated) {
     host->vk.vkDeviceWaitIdle(host->device);
     swapchain_destroy(host);
     if (!swapchain_create(host)) return none;
   }
-  /* A fence, not a semaphore: re_seam_frame_end submits with neither, so a semaphore signalled here
-     would have nothing to wait on it. Waiting on the CPU before the frame starts is the same
-     guarantee through the channel the seam leaves open. */
   host->vk.vkResetFences(host->device, 1, &host->fence);
   VkResult r = host->vk.vkAcquireNextImageKHR(host->device, host->swapchain, UINT64_MAX,
                                               VK_NULL_HANDLE, host->fence, &host->image_index);
-  if (r == VK_ERROR_OUT_OF_DATE_KHR) {
-    host->outdated = true;
-    return none;
-  }
+  if (r == VK_ERROR_OUT_OF_DATE_KHR) { host->outdated = true; return none; }
   if (r != VK_SUCCESS && r != VK_SUBOPTIMAL_KHR) { fail("vkAcquireNextImageKHR", r); return none; }
   host->vk.vkWaitForFences(host->device, 1, &host->fence, VK_TRUE, UINT64_MAX);
   host->acquired = true;
 
-  /* The seam keeps every image in GENERAL and never transitions one it did not create, so the two
-     ends of the swapchain's layout cycle are the host's: UNDEFINED to GENERAL here, GENERAL to
-     PRESENT_SRC before presenting. */
   if (!host_commands_begin(host)) return none;
   image_barrier(host, host->images[host->image_index], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
   if (!host_commands_submit(host)) return none;
@@ -360,8 +373,6 @@ void re_seam_host_present(ReSeamHost *host) {
                   VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
     host_commands_submit(host);
   }
-  /* No wait semaphores: re_seam_frame_end waited the queue idle and the barrier above waited on a
-     fence, so everything this image needs is already complete on the GPU. */
   VkPresentInfoKHR pi = {.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR, .swapchainCount = 1,
                          .pSwapchains = &host->swapchain, .pImageIndices = &host->image_index};
   VkResult r = host->vk.vkQueuePresentKHR(host->queue, &pi);
@@ -371,49 +382,10 @@ void re_seam_host_present(ReSeamHost *host) {
   host->acquired = false;
 }
 
-static bool readback_ensure(ReSeamHost *host, VkDeviceSize needed) {
-  if (host->readback_size >= needed) return true;
-  if (host->readback_map) { host->vk.vkFreeMemory(host->device, host->readback_memory, NULL); host->readback_map = NULL; }
-  if (host->readback) host->vk.vkDestroyBuffer(host->device, host->readback, NULL);
-  VkBufferCreateInfo bi = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, .size = needed,
-                           .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT, .sharingMode = VK_SHARING_MODE_EXCLUSIVE};
-  if (host->vk.vkCreateBuffer(host->device, &bi, NULL, &host->readback) != VK_SUCCESS) return false;
-  VkMemoryRequirements need;
-  host->vk.vkGetBufferMemoryRequirements(host->device, host->readback, &need);
-  uint32_t type = re_gpu_memory_type(host->gpu, need.memoryTypeBits,
-                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-  if (type == UINT32_MAX) return false;
-  VkMemoryAllocateInfo ai = {.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, .allocationSize = need.size,
-                             .memoryTypeIndex = type};
-  if (host->vk.vkAllocateMemory(host->device, &ai, NULL, &host->readback_memory) != VK_SUCCESS) return false;
-  if (host->vk.vkBindBufferMemory(host->device, host->readback, host->readback_memory, 0) != VK_SUCCESS) return false;
-  if (host->vk.vkMapMemory(host->device, host->readback_memory, 0, VK_WHOLE_SIZE, 0, &host->readback_map) != VK_SUCCESS) return false;
-  host->readback_size = needed;
-  return true;
-}
-
+/* The read-back the desktop hosts use for reference frames is not here yet: the smoke snapshot this
+   platform needs is `adb exec-out screencap`, which judges what the compositor actually showed
+   rather than what the app believes it drew. F144's criterion 2 asks for that one. */
 bool re_seam_host_snapshot(ReSeamHost *host, const char *path) {
-  if (!host->acquired) return false;
-  int w = (int)host->extent.width, h = (int)host->extent.height;
-  if (!readback_ensure(host, (VkDeviceSize)w * h * 4)) return false;
-  if (!host_commands_begin(host)) return false;
-  image_barrier(host, host->images[host->image_index], VK_IMAGE_LAYOUT_GENERAL,
-                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-  VkBufferImageCopy region = {.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
-                              .imageExtent = {(uint32_t)w, (uint32_t)h, 1}};
-  host->vk.vkCmdCopyImageToBuffer(host->cmd, host->images[host->image_index],
-                                  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, host->readback, 1, &region);
-  image_barrier(host, host->images[host->image_index], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                VK_IMAGE_LAYOUT_GENERAL);
-  if (!host_commands_submit(host)) return false;
-  /* No flip: Vulkan's row 0 is the top, as the seam's targets are everywhere. */
-  SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(
-    0, w, h, 32, host->format == VK_FORMAT_B8G8R8A8_UNORM ? SDL_PIXELFORMAT_BGRA32 : SDL_PIXELFORMAT_RGBA32);
-  if (!surface) return false;
-  for (int y = 0; y < h; y++)
-    memcpy((char *)surface->pixels + (size_t)y * (size_t)surface->pitch,
-           (const char *)host->readback_map + (size_t)y * (size_t)w * 4, (size_t)w * 4);
-  bool ok = SDL_SaveBMP(surface, path) == 0;
-  SDL_FreeSurface(surface);
-  return ok;
+  (void)host; (void)path;
+  return false;
 }

@@ -9,6 +9,8 @@
  */
 #include "render/seam_host.h"
 
+#include <SDL.h>
+
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
 
@@ -27,7 +29,8 @@ struct ReSeamHost {
 
 static void on_message(void *user, const char *message) { (void)user; SDL_SetError("%s", message); }
 
-Uint32 re_seam_host_flags(void) { return SDL_WINDOW_METAL; }
+uint32_t re_seam_host_flags(void) { return SDL_WINDOW_METAL; }
+void re_seam_host_fail(const char *message) { SDL_SetError("%s", message); }
 const char *re_seam_host_name(void) { return "metal"; }
 
 /* One frame's drawable and the target that wrapped it. Both are per-frame on this backend — unlike
@@ -40,7 +43,8 @@ static void release_frame(ReSeamHost *host) {
   if (host->drawable) { [host->drawable release]; host->drawable = nil; }
 }
 
-ReSeamHost *re_seam_host_open(SDL_Window *window, char *error, size_t error_size) {
+ReSeamHost *re_seam_host_open(void *opaque, char *error, size_t error_size) {
+  SDL_Window *window = (SDL_Window *)opaque;
   ReSeamHost *host = calloc(1, sizeof(*host));
   if (!host) { snprintf(error, error_size, "out of memory"); return NULL; }
   host->window = window;

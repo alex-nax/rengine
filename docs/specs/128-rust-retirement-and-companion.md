@@ -268,3 +268,61 @@ refuses, and that is a decision rather than a slip: unlike cargo, which the desk
 drives, this toolchain builds only `apps/companion`. A fatal check would gate every contributor's
 harness on a mobile SDK to no purpose. The message names the pin it read from the build file and the
 `sdkmanager` line that installs it.
+
+### Decision 8 amended: Android gets a GL ES path (D59)
+
+Decision 8 said Vulkan-only on Android and had no GL path. **Measurement on the owner's own phone
+reversed it**, and the measurement is the point:
+
+| | phone — Adreno 619, 2022 driver | Quest 3 — Adreno 740 |
+| --- | --- | --- |
+| Vulkan device version | **1.1.128** | 1.3.295 |
+| `VK_KHR_dynamic_rendering` | **absent** | present |
+| `VK_KHR_synchronization2` | **absent** | present |
+| the seam's Vulkan backend opens | no | yes |
+
+That is the device's own extension list, not a conservative feature flag: the loader reports 1.3 and
+the *device* reports 1.1. The seam's Vulkan backend is built on dynamic rendering and
+synchronization2 throughout, so on this handset it cannot run at all — and F145's premise is "a phone
+on cellular", which means exactly this class of hardware.
+
+The pack already has an OpenGL backend, and **all 56 GL entry points it loads exist in OpenGL ES
+3.x** — none of the desktop-only ones (`glPolygonMode`, `glDrawBuffer`, `glMapBuffer`,
+`glGetTexImage`) are among them, and the backend has no hard 3.3 gate, only a `glGetString` it
+reports. What was missing was a shader dialect and a host.
+
+This is not D29's GL-first order returning to mobile. It is one backend the pack already carries
+reaching one more class of device, and Vulkan stays the path wherever the device offers it — proved
+on the Quest before this was written.
+
+### What the phone actually draws
+
+`--` the companion renders the desktop's UI on a Xiaomi 22111317PG (Android 14, Adreno 619) through
+OpenGL ES 3.2: **60 fps steady, 30 draw-list commands, 37 ms slowest frame** (the first, paying for
+shader compilation) at density 2.75.
+
+What makes it worth more than a screenshot is what is *not* in `apps/`. The frame is microui's, the
+commands are `draw_list.c`'s, and the thing that executed them is `backend_seam.c` — the desktop's
+renderer, compiled from its own place in the tree and unchanged, running on the pack's OpenGL
+backend. The only Android-specific file in the renderer is `seam_host_android_gl.c`, 146 lines of
+EGL, which is the fifth member of the one-file-per-platform split spec 124 established.
+
+Two additions made that possible:
+
+- **`ReSeamShader.glsl_es`.** `#version 330 core` and `#version 320 es` are different languages, and
+  only the backend knows which context it opened — so the GL backend reads `GL_VERSION` once at open
+  and prefers the ES dialect when it is an ES context. A desktop consumer sets `glsl` alone and meets
+  exactly the behaviour it always had; the three desktop renderers are byte-identical across this
+  change.
+- **The window handle above the host is opaque.** `seam_host.h` took an `SDL_Window *`, which is what
+  kept `backend_seam.c` — a file with no SDL in it — from compiling for a phone. It now takes a
+  `void *` that each host casts back, and error reporting moved to `re_seam_host_fail` so the
+  platform's own channel is used (`SDL_SetError` on the desktop, the log on Android).
+
+`RE_COMPANION_BACKEND` selects `opengl` or `vulkan` at build time — one binary, one backend, as D14b
+has it for a game. Both arms were built. A runtime choice between them is what the desktop's prefixed
+copies (D56) exist for, and nothing needs it yet.
+
+**Still not met**: criterion 2 asks for a frame budget *set before the run* and a smoke snapshot in
+the suite; what exists is a measurement taken after the fact and a screenshot taken by hand.
+Criterion 3's C ABI round-trip still waits on F141.

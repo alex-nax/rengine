@@ -131,6 +131,11 @@ typedef struct { const ReSeamVertexAttribute *attributes; int count; size_t stri
  * one generator emits one header, and each backend reads its own half. */
 typedef struct {
   const char *glsl;         /* dialect source for a GL backend, or NULL */
+  /* The OpenGL ES dialect, or NULL. The GL backend prefers this when the context it opened reports
+     an ES version, because `#version 330 core` and `#version 320 es` are different languages and
+     only the backend knows which context it got. A consumer that ships one desktop binary leaves it
+     NULL and nothing changes; one that also runs on a phone sets both (charter D59). */
+  const char *glsl_es;
   const uint32_t *spirv;    /* SPIR-V words for a Vulkan backend, or NULL */
   size_t spirv_bytes;       /* size of `spirv` in bytes, not words */
   const char *msl;          /* Metal Shading Language source for a Metal backend, or NULL */

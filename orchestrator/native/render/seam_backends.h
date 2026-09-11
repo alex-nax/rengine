@@ -8,15 +8,15 @@
 #ifndef RENGINE_SEAM_BACKENDS_H
 #define RENGINE_SEAM_BACKENDS_H
 #include "render/backend.h"
-#include <SDL.h>
+#include <stdint.h>
 
-ReBackend *re_opengl_backend_seam_open(SDL_Window *window, ReFontSet *fonts);
-Uint32 re_opengl_backend_seam_window_flags(void);
-ReBackend *re_vulkan_backend_seam_open(SDL_Window *window, ReFontSet *fonts);
-Uint32 re_vulkan_backend_seam_window_flags(void);
+ReBackend *re_opengl_backend_seam_open(void *window, ReFontSet *fonts);
+uint32_t re_opengl_backend_seam_window_flags(void);
+ReBackend *re_vulkan_backend_seam_open(void *window, ReFontSet *fonts);
+uint32_t re_vulkan_backend_seam_window_flags(void);
 #ifdef __APPLE__
-ReBackend *re_metal_backend_seam_open(SDL_Window *window, ReFontSet *fonts);
-Uint32 re_metal_backend_seam_window_flags(void);
+ReBackend *re_metal_backend_seam_open(void *window, ReFontSet *fonts);
+uint32_t re_metal_backend_seam_window_flags(void);
 #endif
 
 #endif

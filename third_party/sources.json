@@ -71,7 +71,7 @@
   {
     "name": "vulkan-headers",
     "upstream": "https://github.com/KhronosGroup/Vulkan-Headers",
-    "revision": "tag v1.4.328 (VK_HEADER_VERSION 328); core headers plus include/vk_video, no platform headers",
+    "revision": "tag v1.4.328 (VK_HEADER_VERSION 328); core headers plus include/vk_video, and the one platform header a target actually needs: vulkan_android.h, for the companion\u2019s ANativeWindow surface (spec 128 decision 8). The NDK ships its own Vulkan headers at VK_HEADER_VERSION 275, which the pack\u2019s exact-version guard refuses \u2014 so Android builds against the same pinned set as everything else rather than a second one.",
     "files": {
       "LICENSE.md": "ac24e5ea920e4318e4d02c4086ae51f53cfb03feed06c18df1019e7ada1ec7bc",
       "vk_platform.h": "2fa47dd60cd94eb6fd8d7615953878f5664eb57fdff3b1b9b856c1d8f1496737",
@@ -88,7 +88,8 @@
       "vk_video/vulkan_video_codec_vp9std_decode.h": "318a21532405f31a7b977c340effbf5bff30790734153c29ed6ad9a8230efbaf",
       "vk_video/vulkan_video_codecs_common.h": "7afc98e84d3bea72e40a65161463abbd4be2ff1e1853eca3f8c331afb7329a8b",
       "vulkan.h": "20c7e1ac42fe62b3ed526612c52ddfc21e2265f5c69ca9a5e9dd182cc4c8625b",
-      "vulkan_core.h": "fb8ef9af80116f26eb4967c83666dff72df8b19e9d0f4191ed64d4627718fa07"
+      "vulkan_core.h": "fb8ef9af80116f26eb4967c83666dff72df8b19e9d0f4191ed64d4627718fa07",
+      "vulkan_android.h": "78fab3e0a766fd6eba180fa2796b349fb0a99cb0a9299449bb30d8f65f92a0dc"
     }
   },
   {

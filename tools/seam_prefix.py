@@ -96,7 +96,7 @@ def backends_text(names):
         "#ifndef RENGINE_SEAM_BACKENDS_H",
         "#define RENGINE_SEAM_BACKENDS_H",
         '#include "render/backend.h"',
-        "#include <SDL.h>",
+        "#include <stdint.h>",
         "",
     ]
     for api in APIS:
@@ -104,8 +104,8 @@ def backends_text(names):
         if guard:
             lines.append(guard)
         for name in mine:
-            signature = "Uint32 %s(void);" if name.endswith("window_flags") else \
-                        "ReBackend *%s(SDL_Window *window, ReFontSet *fonts);"
+            signature = "uint32_t %s(void);" if name.endswith("window_flags") else \
+                        "ReBackend *%s(void *window, ReFontSet *fonts);"
             lines.append(signature % renamed(name, api))
         if guard:
             lines.append("#endif")
