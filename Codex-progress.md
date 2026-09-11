@@ -1,5 +1,42 @@
 # Progress Log
 
+## Session 106 (macos) — 2026-09-11 — the scene in a tab, and a test's artifacts (spec 126, D55/D56)
+
+A `/grill-me` interview, no implementation. Ten decisions in spec 126; the owner overruled the
+recommendation twice and those two are most of the document.
+
+**What the codebase answered so it was not asked:** a tab can already show rendered output
+(`RE_CMD_TEXTURE`, which the game view fills with pixels another process streamed); the example is
+already split so `scene.c`/`obj.c` call only the seam; F116 already draws each task's manifest entries
+with proven/UNPROVEN; the contract has **no artifacts field**, only `last.log`, documented as "Not
+opened"; and the desktop idles at **250 ms** per frame on purpose, so a continuously animating tab
+costs the window rather than itself.
+
+**The two overrules and what they cost.** The scene will **share one seam with the desktop**, so it
+waits for F133 — rather than opening its own seam on the desktop's live device, which works today on
+the shipped renderer. And it is **F108's first plugin** rather than a desktop view. Together they put
+"show me the level" behind two unbuilt features, one of which has to grow first. That is written
+down in the spec as a chain rather than discovered later.
+
+**The tension the interview found, which is the interesting part.** Spec 106 deferred plugin textures
+for one stated reason: *"a plugin holding one across a backend switch is a use-after-free the desktop
+cannot see."* The owner then chose to keep `--renderer` a **runtime** switch (three prefixed seam
+copies, pack untouched, D56) **and** to make the scene a **plugin** — which is exactly that hazard.
+It is resolved rather than managed: a plugin asks for a render target each frame and gets a handle
+good for that frame only, so nothing survives a backend switch to dangle. Same discipline tabs
+already use, where a generation invalidates work in flight.
+
+**D55** widens D38 by exactly two things, both with the containment the clip already has: a
+frame-scoped render target, and pointer/buttons/wheel inside the plugin's own tab. Keyboard,
+shortcuts, controls, unloading and any reach into store, session or host state stay refused.
+
+**New rows.** F135 the widened ABI · F136 the scene plugin (an `.obj` opens a Scene tab as a `.png`
+opens the image view; still by default) · **F137 the test artifacts, which depends on none of the
+rendering chain and should not wait** — contract 10 gains `last.artifacts`, and the Tasks tab shows
+and opens them.
+
+Commands: `features.py validate` 89 features · `./init.sh`
+
 ## Session 105 (macos) — 2026-09-11 — a closed view never gave its slot back (F134)
 
 Owner report: *"new tabs seems not to be opening in this instance of editor anymore, eg. i click

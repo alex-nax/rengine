@@ -2214,6 +2214,82 @@
         "docs/specs/125-view-slot-reclaim.md: the owner's own window held 64 slots with 4 views on screen and 60 closed, and a restart would have restored the exhaustion rather than clearing it"
       ],
       "passes": true
+    },
+    {
+      "id": 135,
+      "milestone": "R3",
+      "category": "desktop",
+      "priority": "medium",
+      "description": "The plugin ABI widens by exactly two things, so a plugin can render and be pointed at without holding anything the renderer owns (charter D55, spec 126): a render target requested by size each frame and valid only for that frame, drawn into the tab through the TEXTURE command the game view already uses; and pointer position, buttons and wheel while the pointer is inside the plugin's own tab. Everything D38 refuses stays refused.",
+      "deliverable": "The widened plugin host table, its version bump, and regressions for the frame scope of both additions.",
+      "acceptance_criteria": [
+        "A plugin renders into a target it asked for by size and the result appears inside its tab, read back from a snapshot.",
+        "A target does not outlive the frame it was asked for: a plugin that keeps the handle and uses it again is refused rather than drawing, and a renderer change between frames costs nothing because nothing was held.",
+        "A plugin receives pointer position, buttons and wheel only while the pointer is inside its own tab, and receives nothing at all for any other tab.",
+        "The ABI version is bumped and a plugin built against the older one is refused by name with both versions, as criterion 2 of F108 already requires.",
+        "Keyboard, shortcuts, controls, unloading and any reach into store, session or host state remain refused, and a plugin fault still costs the window and never a session.",
+        "Each regression was observed failing for its own reason, including a target used after its frame and a pointer event delivered for another tab."
+      ],
+      "dependencies": [
+        108
+      ],
+      "owner_workspace": "rengine",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/126-scene-view-and-test-artifacts.md: why frame-scoped targets remove the hazard spec 106 named rather than policing it"
+      ],
+      "passes": false
+    },
+    {
+      "id": 136,
+      "milestone": "R3",
+      "category": "rendering",
+      "priority": "medium",
+      "description": "The scene renders in a tab, on the device the window already has, through the seam the desktop itself renders with — not streamed from another process as a game surface is. An .obj in the explorer opens a Scene tab the way a .png opens the image view, and a command opens the built-in procedural scene. It is still by default: one frame on open, frames while dragging, continuous only when explicitly played (charter D55, spec 126).",
+      "deliverable": "The scene plugin built on the widened ABI, sharing the example's scene sources, and the explorer binding that opens a model in it.",
+      "acceptance_criteria": [
+        "An .obj opened from the explorer appears rendered inside its own tab, read back from a snapshot, with no second process and no surface transport involved.",
+        "A command opens the built-in procedural scene, which has no file.",
+        "The plugin and the pack's standalone example render the same scene from the same sources, so the in-tab view cannot drift from the one the backend comparison judges.",
+        "A still scene costs no frames: the window returns to its idle wait when the tab is not being dragged or played, and the desktop's own frame budget is unchanged with a Scene tab open.",
+        "Dragging orbits the camera through the tab-scoped pointer the ABI provides, and the tab reaches no keyboard or shortcut.",
+        "Each regression was observed failing for its own reason, including a scene tab that holds the window at its animating cadence while still."
+      ],
+      "dependencies": [
+        133,
+        135,
+        132
+      ],
+      "owner_workspace": "rengine",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/126-scene-view-and-test-artifacts.md: the owner's distinction — render on the tab surface, not capture from a running process"
+      ],
+      "passes": false
+    },
+    {
+      "id": 137,
+      "milestone": "R3",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "A test's artifacts are where its task is. Contract 10's last block gains an artifacts array of root-relative paths with an optional label each, and the Tasks tab draws them beside the result F116 already shows, opening each in the view rEngine already has for it. rEngine still runs nothing and still opens nothing it was not given (spec 126).",
+      "deliverable": "The contract addition, the reader, the rows in the Tasks tab and the open gesture.",
+      "acceptance_criteria": [
+        "A manifest entry that names artifacts shows them under its result, labelled where the project labelled them, and a manifest without them is unchanged.",
+        "Opening one opens it in the view that already handles it — an image in the image view, a declared format through the registry — and a path that escapes the root or does not exist is refused by name rather than opened.",
+        "rEngine still runs nothing: no artifact is produced, refreshed or regenerated by opening it, and log stays the text output it already was.",
+        "An older manifest without the field is read without complaint, and a newer version is refused by name as the format's version rule already requires.",
+        "Each regression was observed failing for its own reason, including an artifact path that escapes the project root."
+      ],
+      "dependencies": [
+        116
+      ],
+      "owner_workspace": "rengine",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/126-scene-view-and-test-artifacts.md: artifacts are declared rather than guessed at from what log points to"
+      ],
+      "passes": false
     }
   ]
 }

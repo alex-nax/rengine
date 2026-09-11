@@ -208,6 +208,14 @@ flowchart TD
   F130 --> F133
   F131 --> F133
   F134["F134: passing"]
+  F135["F135: blocked"]
+  F108 --> F135
+  F136["F136: blocked"]
+  F133 --> F136
+  F135 --> F136
+  F132 --> F136
+  F137["F137: ready"]
+  F116 --> F137
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -298,3 +306,6 @@ flowchart TD
 | F132 | R3 | rengine | blocked | A scene example inside the pack that renders through the seam: a procedural scene committed as code that every gate renders, and an optional real model a person can point it at. It is the consumer whose call sites shape the render-target API and whose pixels judge the backends, and building it is also the outside-consumer proof that the pack stands alone (spec 124). |
 | F133 | R3 | rengine | blocked | rEngine's own 2D draw list renders through the seam, making the pack load-bearing in shipped code rather than only in an example, and SDL_Renderer stops being a shipping path as charter D49 already decided. Because SDL is the only backend that shares no code with the others, its frames are captured first and committed as the reference the comparison judges against, so retiring the path does not retire the independent witness (owner, 2026-09-11; spec 124). |
 | F134 | R3 | rengine | passing | A view that is closed gives its slot back. Closing a view keeps its tab so reopening restores it, which is the refresh gesture spec 080 describes, but a window has 64 slots and nothing ever reclaimed one: after 64 distinct views a long-lived window could open nothing at all, and the only symptom was a status line. When every slot is taken the window releases the least recently used CLOSED view and names it, the way the explorer already releases the least recently opened folder at its row cap. |
+| F135 | R3 | rengine | blocked | The plugin ABI widens by exactly two things, so a plugin can render and be pointed at without holding anything the renderer owns (charter D55, spec 126): a render target requested by size each frame and valid only for that frame, drawn into the tab through the TEXTURE command the game view already uses; and pointer position, buttons and wheel while the pointer is inside the plugin's own tab. Everything D38 refuses stays refused. |
+| F136 | R3 | rengine | blocked | The scene renders in a tab, on the device the window already has, through the seam the desktop itself renders with — not streamed from another process as a game surface is. An .obj in the explorer opens a Scene tab the way a .png opens the image view, and a command opens the built-in procedural scene. It is still by default: one frame on open, frames while dragging, continuous only when explicitly played (charter D55, spec 126). |
+| F137 | R3 | rengine | ready | A test's artifacts are where its task is. Contract 10's last block gains an artifacts array of root-relative paths with an optional label each, and the Tasks tab draws them beside the result F116 already shows, opening each in the view rEngine already has for it. rEngine still runs nothing and still opens nothing it was not given (spec 126). |
