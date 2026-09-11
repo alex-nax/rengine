@@ -15,6 +15,7 @@
 
 #include <stdbool.h>
 #include <time.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -114,8 +115,14 @@ int main(int argc, char **argv) {
     double *taken = malloc((size_t)(frames + 1) * sizeof(double));
     struct timespec run_start;
     clock_gettime(CLOCK_MONOTONIC, &run_start);
+    /* The first frame allocates everything the scene needs — every pipeline, every buffer — and the
+       steady state should allocate NOTHING. Counting from after the first frame is what makes that
+       measurable: a backend that renders the right pixels while making a pipeline per draw is wrong
+       in a way the comparison cannot see. */
+    uint64_t warm = 0;
     for (int frame = 0; frame <= frames; frame++) {
       struct timespec start, stop;
+      if (frame == 1) warm = re_seam_counters(seam).allocations;
       clock_gettime(CLOCK_MONOTONIC, &start);
       scene_draw(&scene, seam, screen, frame);
       clock_gettime(CLOCK_MONOTONIC, &stop);
@@ -142,6 +149,12 @@ int main(int argc, char **argv) {
              "%.1f ms total for %d frames = %.3f ms/frame\n",
              taken[(frames + 1) / 2], taken[0], taken[frames], total, frames + 1,
              total / (double)(frames + 1));
+      ReSeamCounters counted = re_seam_counters(seam);
+      printf("scene: %llu GPU allocations in total, %llu after the first frame (%d steady frames), "
+             "%llu draws\n",
+             (unsigned long long)counted.allocations,
+             (unsigned long long)(counted.allocations - warm), frames,
+             (unsigned long long)counted.draws);
     }
     free(taken);
     unsigned char *pixels = malloc((size_t)width * (size_t)height * 4);

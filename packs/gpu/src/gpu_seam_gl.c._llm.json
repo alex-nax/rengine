@@ -20,8 +20,8 @@
       "id": "the-glsl-guard-is-load-bearing",
       "kind": "constraint",
       "anchor": {
-        "start": 226,
-        "end": 226,
+        "start": 227,
+        "end": 227,
         "symbol": "compile",
         "snippet": "static GLuint compile(ReSeam *seam, GLenum type, const ReSeamShader *stage, const char *debug_name) {"
       },
@@ -33,7 +33,7 @@
   ],
   "source": {
     "path": "packs/gpu/src/gpu_seam_gl.c",
-    "sha256": "d6fb09b5b476245f71425b2e3b449c24a043ad7078e0adc084fe314e84bd869a",
+    "sha256": "d22d6e51d8d5b9817bbce1904dbacc89dc12c2107d64ffd37e964f6ee6ceeec9",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

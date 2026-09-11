@@ -31,6 +31,7 @@
 #define re_seam_buffer_update        re_opengl_seam_buffer_update
 #define re_seam_clear                re_opengl_seam_clear
 #define re_seam_close                re_opengl_seam_close
+#define re_seam_counters             re_opengl_seam_counters
 #define re_seam_cull                 re_opengl_seam_cull
 #define re_seam_current              re_opengl_seam_current
 #define re_seam_depth                re_opengl_seam_depth

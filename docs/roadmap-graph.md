@@ -184,27 +184,27 @@ flowchart TD
   F122["F122: blocked"]
   F121 --> F122
   F119 --> F122
-  F123["F123: ready"]
+  F123["F123: passing"]
   F120 --> F123
   F124["F124: passing"]
   F115 --> F124
   F125["F125: passing"]
   F124 --> F125
-  F126["F126: blocked"]
+  F126["F126: host handoff"]
   F123 --> F126
   F127["F127: blocked"]
   F126 --> F127
   F128["F128: blocked"]
   F126 --> F128
-  F129["F129: blocked"]
+  F129["F129: passing"]
   F123 --> F129
-  F130["F130: blocked"]
+  F130["F130: passing"]
   F132 --> F130
-  F131["F131: blocked"]
+  F131["F131: passing"]
   F132 --> F131
-  F132["F132: blocked"]
+  F132["F132: passing"]
   F129 --> F132
-  F133["F133: blocked"]
+  F133["F133: passing"]
   F130 --> F133
   F131 --> F133
   F134["F134: passing"]
@@ -295,17 +295,17 @@ flowchart TD
 | F120 | R3 | rengine | passing | Extract an SDL-free GPU device layer from the Vulkan backend: instance creation taking required extensions from its caller, physical-device selection taking a caller-supplied constraint, device, queues, memory, command pools and submission, with render targets supplied from outside. The desktop drives it with a surface it made from an SDL window; an OpenXR host drives the same layer with runtime-supplied swapchain images and no surface at all. SDL stays the platform layer everywhere else (charter D49). |
 | F121 | H1 | rengine | blocked | Automated Meta XR Simulator replay as a harness tier: the workspace writes a session_capture block into the Simulator's persistent_data.json, launches the game against the Simulator runtime, lets a recorded VRS capture replay deterministically, and restores the file afterwards. The block persists across launches by Meta's own design, so it is acquired and released like a lock rather than left behind, and the run carries its own budget because completion only asks the application to exit (charter D48, D49). |
 | F122 | H1 | rengine | blocked | A recorded VRS capture becomes a versioned VR test fixture and a scenario variant: the script is the capture, the expected facts are log lines from the replay, and the verdict is a person's answer about what they saw, recorded the way the flat scenario already records one. Determinism is what makes the human answer meaningful across runs rather than a fresh opinion each time (charter D48). |
-| F123 | R3 | rengine | ready | rEngine's first library pack from its own sources: the GPU device layer plus the resource-and-draw seam generalised from vtmb-vr's proven src/renderer/gpu/device.h, with OpenGL and Vulkan backends selected at build time, as a standalone consumable unit a project outside this repository can build and link. This is the gate a game's Vulkan work waits behind, so that one curated capability is written once here rather than twice in two game repositories (charter D50, D51, D52, D49, D24). |
+| F123 | R3 | rengine | passing | rEngine's first library pack from its own sources: the GPU device layer plus the resource-and-draw seam generalised from vtmb-vr's proven src/renderer/gpu/device.h, with OpenGL and Vulkan backends selected at build time, as a standalone consumable unit a project outside this repository can build and link. This is the gate a game's Vulkan work waits behind, so that one curated capability is written once here rather than twice in two game repositories (charter D50, D51, D52, D49, D24). |
 | F124 | T0 | rengine | passing | A task can be read rather than scanned: the row trims its title to its column, so the title itself opens an inline detail block carrying the whole description wrapped, what the task is waiting on, its labels and assignee, and every acceptance criterion in full. The wrapping is an owned control, re_ui_paragraph, so prose anywhere in the suite can be read instead of clipped (spec 119). |
 | F125 | T0 | rengine | passing | Drawing a task list costs the viewport rather than the inventory: the Tasks tab emitted layout, text measurement and draw commands for every row on every frame and microui clipped almost all of it away, so a project with 1317 tasks paid for 1317 rows to show about twenty. Only the rows the viewport can reach are emitted; each run of skipped rows becomes one spacer of exactly their height, so the scrollbar and the scroll position are unchanged (spec 120). |
-| F126 | R3 | vtmb-vr | blocked | VtMB adopts the rendering pack for the files already behind its own GPU seam, deleting src/renderer/gpu/ in favour of the pinned pack, and a Vulkan backend serves them. This is the verdict on D14c's untested bet that resource+draw granularity can carry Vulkan with command buffers, render passes and barriers built inside the backend — tested on 13 files rather than after migrating 49 more onto a seam that may not hold it (charter D52). |
+| F126 | R3 | vtmb-vr | host handoff | VtMB adopts the rendering pack for the files already behind its own GPU seam, deleting src/renderer/gpu/ in favour of the pinned pack, and a Vulkan backend serves them. This is the verdict on D14c's untested bet that resource+draw granularity can carry Vulkan with command buffers, render passes and barriers built inside the backend — tested on 13 files rather than after migrating 49 more onto a seam that may not hold it (charter D52). |
 | F127 | R3 | vtmb-vr | blocked | VtMB's remaining GL-touching files move behind the rendering pack, so the whole renderer talks to one seam and a backend choice reaches all of it rather than a fraction. Measured at the time of planning: 62 files touch GL and 13 were behind the seam (charter D52). |
 | F128 | R3 | nolf-improved | blocked | NOLF gains the GPU seam it has never had: its GL-touching files move behind the pinned rendering pack so it can build against either backend. Measured at planning time: 102 GL symbols across 39 files, none behind any abstraction. Planned rather than committed — a local task cannot decide another project's adoption (charter D52). |
-| F129 | R3 | rengine | blocked | The resource-and-draw seam grows what a real renderer needs and a windowing-free backend can still provide: a render target made from colour and depth textures the host owns, a frame bracket a command-buffer backend can record into, scissor, texture sub-upload, separate alpha blending, a vec2 uniform and a depth compare function. Every addition is justified by measured call sites in two independent consumers rather than anticipated (spec 124). |
-| F130 | R3 | rengine | blocked | The seam's Vulkan backend: pipeline state coalesced at draw time into a cached pipeline, textures through descriptor sets, uniforms looked up by name through SPIR-V reflection into a push-constant block, staging uploads, and dynamic rendering into targets supplied from outside. This is the verdict on D14c's bet that resource+draw granularity can carry Vulkan with command buffers and render passes built inside the backend — reached in rEngine, on the scene example, before a game adopts (charter D52, spec 124). |
-| F131 | R3 | rengine | blocked | The seam's Metal backend, so the pack serves the third graphics API rEngine's desktop already ships and charter D29 already orders. Shaders reach it as MSL from the same glslang and SPIRV-Cross pipeline that feeds the other two, so one authored source still serves every backend (owner, 2026-09-11; spec 124). |
-| F132 | R3 | rengine | blocked | A scene example inside the pack that renders through the seam: a procedural scene committed as code that every gate renders, and an optional real model a person can point it at. It is the consumer whose call sites shape the render-target API and whose pixels judge the backends, and building it is also the outside-consumer proof that the pack stands alone (spec 124). |
-| F133 | R3 | rengine | blocked | rEngine's own 2D draw list renders through the seam, making the pack load-bearing in shipped code rather than only in an example, and SDL_Renderer stops being a shipping path as charter D49 already decided. Because SDL is the only backend that shares no code with the others, its frames are captured first and committed as the reference the comparison judges against, so retiring the path does not retire the independent witness (owner, 2026-09-11; spec 124). |
+| F129 | R3 | rengine | passing | The resource-and-draw seam grows what a real renderer needs and a windowing-free backend can still provide: a render target made from colour and depth textures the host owns, a frame bracket a command-buffer backend can record into, scissor, texture sub-upload, separate alpha blending, a vec2 uniform and a depth compare function. Every addition is justified by measured call sites in two independent consumers rather than anticipated (spec 124). |
+| F130 | R3 | rengine | passing | The seam's Vulkan backend: pipeline state coalesced at draw time into a cached pipeline, textures through descriptor sets, uniforms looked up by name through SPIR-V reflection into a push-constant block, staging uploads, and dynamic rendering into targets supplied from outside. This is the verdict on D14c's bet that resource+draw granularity can carry Vulkan with command buffers and render passes built inside the backend — reached in rEngine, on the scene example, before a game adopts (charter D52, spec 124). |
+| F131 | R3 | rengine | passing | The seam's Metal backend, so the pack serves the third graphics API rEngine's desktop already ships and charter D29 already orders. Shaders reach it as MSL from the same glslang and SPIRV-Cross pipeline that feeds the other two, so one authored source still serves every backend (owner, 2026-09-11; spec 124). |
+| F132 | R3 | rengine | passing | A scene example inside the pack that renders through the seam: a procedural scene committed as code that every gate renders, and an optional real model a person can point it at. It is the consumer whose call sites shape the render-target API and whose pixels judge the backends, and building it is also the outside-consumer proof that the pack stands alone (spec 124). |
+| F133 | R3 | rengine | passing | rEngine's own 2D draw list renders through the seam, making the pack load-bearing in shipped code rather than only in an example, and SDL_Renderer stops being a shipping path as charter D49 already decided. Because SDL is the only backend that shares no code with the others, its frames are captured first and committed as the reference the comparison judges against, so retiring the path does not retire the independent witness (owner, 2026-09-11; spec 124). |
 | F134 | R3 | rengine | passing | A view that is closed gives its slot back. Closing a view keeps its tab so reopening restores it, which is the refresh gesture spec 080 describes, but a window has 64 slots and nothing ever reclaimed one: after 64 distinct views a long-lived window could open nothing at all, and the only symptom was a status line. When every slot is taken the window releases the least recently used CLOSED view and names it, the way the explorer already releases the least recently opened folder at its row cap. |
 | F135 | R3 | rengine | blocked | The plugin ABI widens by exactly two things, so a plugin can render and be pointed at without holding anything the renderer owns (charter D55, spec 126): a render target requested by size each frame and valid only for that frame, drawn into the tab through the TEXTURE command the game view already uses; and pointer position, buttons and wheel while the pointer is inside the plugin's own tab. Everything D38 refuses stays refused. |
 | F136 | R3 | rengine | blocked | The scene renders in a tab, on the device the window already has, through the seam the desktop itself renders with — not streamed from another process as a game surface is. An .obj in the explorer opens a Scene tab the way a .png opens the image view, and a command opens the built-in procedural scene. It is still by default: one frame on open, frames while dragging, continuous only when explicitly played (charter D55, spec 126). |

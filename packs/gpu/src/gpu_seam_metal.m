@@ -103,6 +103,7 @@ struct ReSeam {
   id<MTLCommandQueue> queue;
   id<MTLCommandBuffer> commands;
   id<MTLRenderCommandEncoder> encoder;
+  ReSeamCounters counters;
   id<MTLBuffer> uniform_ring;
   size_t uniform_offset;
   ReSeamOnMessage on_message;
@@ -261,6 +262,7 @@ void re_seam_buffer_update(ReSeam *seam, ReSeamBuffer buffer, const void *data, 
   if (slot->pool_size[generation] < bytes) {
     [slot->pool[generation] release];
     slot->pool[generation] = [seam->device newBufferWithLength:bytes options:MTLResourceStorageModeShared];
+    seam->counters.allocations++;
     if (slot->pool[generation] == nil) { report(seam, "gpu: a %zu-byte buffer was refused", bytes); return; }
     slot->pool_size[generation] = bytes;
   }
@@ -268,6 +270,11 @@ void re_seam_buffer_update(ReSeam *seam, ReSeamBuffer buffer, const void *data, 
   slot->buffer = slot->pool[generation];
   slot->size = slot->pool_size[generation];
   if (data != NULL) memcpy([slot->buffer contents], data, bytes);
+}
+
+ReSeamCounters re_seam_counters(ReSeam *seam) {
+  ReSeamCounters none = {0, 0, 0};
+  return seam ? seam->counters : none;
 }
 
 /* ---- textures ------------------------------------------------------------------------------------- */
@@ -296,6 +303,7 @@ ReSeamTexture re_seam_texture_2d_for(ReSeam *seam, const void *rgba, int width, 
      host can read a frame back through re_seam_texture_handle without a blit of its own. */
   descriptor.storageMode = slot->depth ? MTLStorageModePrivate : MTLStorageModeManaged;
   slot->texture = [seam->device newTextureWithDescriptor:descriptor];
+  seam->counters.allocations++;
   if (slot->texture == nil) {
     report(seam, "gpu: a %dx%d texture was refused", width, height);
     memset(slot, 0, sizeof(*slot));
@@ -316,6 +324,7 @@ ReSeamTexture re_seam_texture_2d_for(ReSeam *seam, const void *rgba, int width, 
   sampler.sAddressMode = address;
   sampler.tAddressMode = address;
   slot->sampler = [seam->device newSamplerStateWithDescriptor:sampler];
+  seam->counters.allocations++;
   [sampler release];
 
   handle.id = id;
@@ -668,6 +677,7 @@ void re_seam_frame_begin(ReSeam *seam, ReSeamTarget target) {
   if (seam->in_frame) report(seam, "gpu: re_seam_frame_begin inside a frame that never ended");
   seam->pool = [[NSAutoreleasePool alloc] init];
   seam->commands = [[seam->queue commandBuffer] retain];
+  seam->counters.frames++;
   seam->uniform_offset = 0;
   /* Every buffer starts the frame at its first generation: the previous frame was waited on at its
      end, so nothing still reads them. */
@@ -795,6 +805,7 @@ static bool pipeline_for(ReSeam *seam, const PipelineKey *key, id<MTLRenderPipel
       key->blend_alpha == RE_SEAM_BLEND_NONE ? MTLBlendFactorZero : destination(key->blend_alpha);
   }
   NSError *failure = nil;
+  seam->counters.allocations++;   /* a pipeline is the allocation a frame must never make */
   id<MTLRenderPipelineState> made = [seam->device newRenderPipelineStateWithDescriptor:descriptor
                                                                                 error:&failure];
   [descriptor release];
@@ -820,6 +831,7 @@ static bool pipeline_for(ReSeam *seam, const PipelineKey *key, id<MTLRenderPipel
 }
 
 void re_seam_draw(ReSeam *seam, ReSeamPrimitive primitive, int first, int count) {
+  if (seam) seam->counters.draws++;
   if (seam == NULL || !seam->encoding || seam->program == 0 || seam->array == 0 || count <= 0) return;
   const ArraySlot *array = &seam->arrays[seam->array - 1];
   if (array->buffer == 0 || seam->buffers[array->buffer - 1].buffer == nil) return;

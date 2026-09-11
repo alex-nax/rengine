@@ -968,3 +968,62 @@ example's *off-screen* mirror pass and not only for a window.
 draw list through the pack have only ever run on macOS. `RE_DEFAULT_BACKEND` there is now `opengl`,
 on the strength of adapter evidence from 2026-09-06 that measured the *deleted* backend. The code
 path is the one all three macOS copies share, and the host in KI-014 is where that gets answered.
+
+
+## The bookkeeping pass that was not bookkeeping (KI-085)
+
+Settling F123 and F129–F133 was supposed to be reading recorded evidence against recorded criteria.
+Three criteria turned out not to be met, and each was the kind of gap that only shows when someone
+actually checks rather than remembers.
+
+**The pack's manifest described one layer.** `pack.json` said "the GPU device layer", listed
+`rengine/gpu_device.h` as its only public header, and carried a pin from before the seam existed —
+while F123's eighth criterion is that the pack carries *both* layers. Worse, `pack-gpu.test.mjs`, the
+evidence that a project outside this repository can build it, only ever called `re_gpu_memory_type`.
+So "and a resource-and-draw seam" was a claim about a file nobody outside had linked. The outside
+project now includes `rengine/gpu_seam.h` and calls into it; building the pack with only
+`gpu_device.c` was observed failing with undefined `_re_seam_backend` and `_re_seam_counters`.
+
+**The fetch script had four guarantees and no test.** F132's fifth criterion asks that it verify a
+recorded checksum, write outside the repository, refuse a destination inside it, and state the
+model's licence. It does all four — and every one of them was a claim about a file nobody ran. The
+script has a `--dry-run` that prints its plan, which is what lets a test check all four without an
+80 MB download. Removing the repository guard and blanking the checksum were each observed failing.
+
+### Allocations per frame, which nothing recorded
+
+F130's sixth criterion and F131's fourth both ask for frame time **and allocations per frame**, "because
+a rendering change that reports only correctness repeats the gap spec 110 names". Frame time was
+recorded. Allocations were not recorded anywhere, by anything.
+
+`re_seam_counters` is the answer: GPU objects created, draws issued, frames bracketed. The number
+worth reading is a difference across a steady-state frame, and it should be zero — everything a frame
+needs is made once at start-up or reused, pipelines cached by state and buffers taking a generation
+they already own. The example reports it, counting from after the first frame because the first frame
+legitimately pays for everything.
+
+| backend | total | per steady frame | draws per frame |
+| --- | --- | --- | --- |
+| OpenGL | 14 | **0** | 32 |
+| Metal | 20 | **0** | 32 |
+| Vulkan | 1,969 | **32** | 32 |
+
+**Vulkan allocates exactly one object per draw**, and the counter is the only thing in this repository
+that could have said so: all three render the same frame to within 5 pixels. It is a descriptor set,
+allocated because `re_seam_frame_begin` resets the pool and a set cannot outlive that — pool
+suballocation rather than a heap allocation, and an idiomatic Vulkan pattern, so it is a cost rather
+than a defect. It is **KI-086**, and fixing it means not resetting the pool and keying a cache on
+everything that affects a set's contents: a change to the Vulkan backend's frame model.
+
+What is gated meanwhile is the *shape* rather than a number — a steady frame may not allocate more
+than it draws — so a regression that allocated twice per draw, or per vertex, fails. Two per draw was
+observed failing it: *"vulkan allocates no more than once per draw in a steady frame: 3840 over 60
+frames against 1952 draws"*.
+
+### Where the rows landed
+
+F123, F129, F130, F131, F132 and F133 all pass. The inventory goes from 23 passing to 31. What is
+left is **KI-086** above and **KI-087**: nothing evidences any of this on Windows — not the prefixed
+copies, not the `/FI` force-include MSVC needs in place of `-include`, not the draw list through the
+pack — while the default renderer there moved to `opengl` on the strength of evidence that measured
+the backend this migration deleted.

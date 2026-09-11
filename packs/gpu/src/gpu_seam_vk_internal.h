@@ -108,6 +108,7 @@ struct ReSeam {
   BufferSlot uniform_ring;
   VkDeviceSize uniform_stride, uniform_offset;
 
+  ReSeamCounters counters;
   VertexBuffer buffers[MAX_BUFFERS];
   TextureSlot textures[MAX_TEXTURES];
   ProgramSlot programs[MAX_PROGRAMS];

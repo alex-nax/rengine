@@ -1906,7 +1906,7 @@
         "Each regression was observed failing for its own reason, including a consumer that accidentally configures the desktop targets and a private header that stays reachable.",
         "The pack carries both layers a game needs: a device and context layer whose render targets are supplied from outside, so an OpenXR host can hand it swapchain images with no window; and a resource-and-draw seam generalised from vtmb-vr's device.h, with GL and Vulkan backends chosen at build time and no call-site difference between them."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         120
       ],
@@ -1919,7 +1919,10 @@
         "packs/gpu/pack.json: the two-part pin, whose revision is rEngine's own commit",
         "docs/specs/123-gpu-seam.md: the seam generalised from vtmb-vr's device.h — a C core with a header-only C++ facade, its OpenGL backend, and why the Vulkan one is sequenced with the files that need a render-target API",
         "packs/gpu/tests/gpu_seam_test.c: the GL backend judged on real pixels through a real driver; thirteen sabotages, four of which found gaps the first version of the test could not see",
-        "orchestrator/tests/pack-gpu-seam.test.mjs: a C++ project outside this repository builds the pack and compiles every one of vtmb-vr's 23 called methods unchanged, with a drift check against the real call sites"
+        "orchestrator/tests/pack-gpu-seam.test.mjs: a C++ project outside this repository builds the pack and compiles every one of vtmb-vr's 23 called methods unchanged, with a drift check against the real call sites",
+        "orchestrator/tests/pack-gpu.test.mjs: the outside project links and calls BOTH layers — the device layer and the seam — which is criterion 8's other half; shipping only gpu_device.c was observed failing it with undefined _re_seam_backend and _re_seam_counters",
+        "packs/gpu/pack.json: names both layers and all three public headers (gpu_device.h, gpu_seam.h, gpu_seam.hpp); it described only the device layer until 2026-09-11",
+        "orchestrator/tests/pack-gpu-seam.test.mjs: a C++ project outside this repository builds the pack and uses the header-only facade, and the fixture is re-derived against vtmb-vr's real call sites"
       ]
     },
     {
@@ -2076,9 +2079,11 @@
         "docs/specs/124-seam-three-backends.md: the measured call counts behind each addition — ~140 framebuffer calls in vtmb-vr and six missing entry points in rEngine's own draw-list backend",
         "packs/gpu/tests/gpu_seam_test.c: every addition observed in rendered pixels through a real GL 4.1 driver; ten sabotages each failing on the assertion that owns the claim",
         "docs/specs/124-seam-three-backends.md: the frame takes its target because Vulkan has no default framebuffer — an API question failed into by a test rather than guessed",
-        "Its work and evidence are complete; the row waits because F123 cannot pass until the Vulkan and Metal backends land (F130, F131), which is KI-082's knot rather than anything owed here."
+        "Its work and evidence are complete; the row waits because F123 cannot pass until the Vulkan and Metal backends land (F130, F131), which is KI-082's knot rather than anything owed here.",
+        "docs/specs/124-seam-three-backends.md: ten sabotages, each observed failing on the assertion that owns it, including one that was blind when written and was caught by the pass",
+        "orchestrator/tests/pack-gpu-seam.test.mjs: the C++ facade compiles vtmb-vr's call sites, and the fixture cannot drift away from them"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": 130,
@@ -2106,9 +2111,11 @@
         "packs/gpu/src/gpu_seam_vk.c and gpu_seam_vk_draw.c: pipelines coalesced at draw time and cached, dynamic rendering, descriptor sets per draw, uniforms reflected out of SPIR-V by name",
         "orchestrator/tests/pack-gpu-backends.test.mjs: the same call sites on both backends — 2 of 921,600 pixels differ on the built-in scene and 61 on Sponza's 393 draws, none outside a 2px edge band, with zero validation messages",
         "docs/specs/124-seam-three-backends.md: the y-axis decision a consumer inherits, and why frame-time totals rather than per-frame medians are the comparable number",
-        "Its work and evidence are complete; the row waits on F123, as F129's and F132's do (KI-082)."
+        "Its work and evidence are complete; the row waits on F123, as F129's and F132's do (KI-082).",
+        "orchestrator/tests/pack-gpu-backends.test.mjs: the same scene.c renders on OpenGL and Vulkan, 1 of 921,600 pixels differing and none outside the 2px edge band, with zero validation messages",
+        "criterion 6, allocations per frame: re_seam_counters was added 2026-09-11 because nothing recorded them. OpenGL and Metal allocate 0 per steady frame; Vulkan allocates 32, exactly one descriptor set per draw (KI-086). The test gates the shape — no more than one allocation per draw — and a second per draw was observed failing it"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": 131,
@@ -2134,9 +2141,11 @@
         "packs/gpu/src/gpu_seam_metal.m: the third backend, 800 lines, sharing the SPIR-V reflector because SPIRV-Cross preserves the std140 layout when it emits MSL",
         "orchestrator/tests/pack-gpu-backends.test.mjs: Metal differs from the OpenGL reference in 2 of 921,600 pixels, none outside a 2px edge band",
         "docs/specs/124-seam-three-backends.md: the Y axis answered differently for all three APIs, and the two Metal sabotages that are honest limits rather than gaps",
-        "Its work and evidence are complete; the row waits on F123, as F129's, F132's and F130's do (KI-082)."
+        "Its work and evidence are complete; the row waits on F123, as F129's, F132's and F130's do (KI-082).",
+        "orchestrator/tests/pack-gpu-backends.test.mjs: the same scene.c renders on Metal, 5 of 921,600 pixels differing and none outside the edge band",
+        "criterion 4, allocations per frame: 0 per steady frame on Metal, recorded beside OpenGL's 0 and Vulkan's 32 by the counters added 2026-09-11"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": 132,
@@ -2163,9 +2172,10 @@
         "packs/gpu/examples/scene: 14 parts, three programs, both filters and both wraps, an off-screen pass sampled by a later draw, and a blended overlay — all through the seam",
         "orchestrator/tests/pack-gpu-scene.test.mjs: built by a project outside this repository and judged on pixels; five sabotages each failing on the assertion that owns it",
         "Crytek Sponza loads as 786,801 vertices in 393 parts, which is the per-draw state stress a Vulkan backend has to survive",
-        "Its work and evidence are complete; the row waits on F123, as F129's does (KI-082)."
+        "Its work and evidence are complete; the row waits on F123, as F129's does (KI-082).",
+        "orchestrator/tests/pack-gpu-scene.test.mjs: criterion 5's first test — the fetch script refuses a destination inside the repository before creating anything, names the sha256 it will verify, and states CC BY 3.0 and the model's author. Removing the guard and blanking the checksum were each observed failing it"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": 133,
@@ -2198,9 +2208,13 @@
         "docs/specs/124-seam-three-backends.md: the five increments, eleven sabotages and the six defects writing real consumers found in the seam",
         "orchestrator/tests/native-render.spec.mjs: opengl, metal and vulkan are three compile-time copies of the seam, judged against the recorded frames — 392 / 436 / 32,195 px, 0 outside the 2px band, identical to what the hand-written backends produced",
         "2,082 lines across 15 files deleted: backend_gl.c, backend_metal.m, backend_vk.c, backend_sdl.c, their headers and sidecars, and shaders/ui.vert, ui.frag, ui_spv.h",
+        "tools/design.py: the render-layering rule now allows a graphics API only in render/seam_host_*.c, so the migration's claim is what the build refuses rather than what a spec asserts",
+        "docs/specs/124-seam-three-backends.md: the five increments, the sabotages and the six defects that writing real consumers found in the seam",
+        "orchestrator/tests/native-render.spec.mjs: opengl, metal and vulkan are three compile-time copies of the seam, judged against the recorded frames — 392 / 436 / 32,195 px, 0 outside the 2px band, identical to what the hand-written backends produced",
+        "2,082 lines across 15 files deleted: backend_gl.c, backend_metal.m, backend_vk.c, backend_sdl.c, their headers and sidecars, and shaders/ui.vert, ui.frag, ui_spv.h",
         "tools/design.py: the render-layering rule now allows a graphics API only in render/seam_host_*.c, so the migration's claim is what the build refuses rather than what a spec asserts"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": 134,

@@ -31,6 +31,7 @@
 #define re_seam_buffer_update        re_vulkan_seam_buffer_update
 #define re_seam_clear                re_vulkan_seam_clear
 #define re_seam_close                re_vulkan_seam_close
+#define re_seam_counters             re_vulkan_seam_counters
 #define re_seam_cull                 re_vulkan_seam_cull
 #define re_seam_current              re_vulkan_seam_current
 #define re_seam_depth                re_vulkan_seam_depth

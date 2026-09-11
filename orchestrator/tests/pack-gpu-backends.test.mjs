@@ -20,6 +20,18 @@ import { promisify } from 'node:util';
 import path from 'node:path';
 
 const run = promisify(execFile);
+
+/* "N GPU allocations in total, M after the first frame (F steady frames), D draws" — the line the
+ * example prints, which is F130's sixth criterion and F131's fourth. What is being gated is not a
+ * number but a SHAPE: a steady frame may not allocate more than it draws. OpenGL and Metal allocate
+ * nothing at all once warm; Vulkan allocates exactly one descriptor set per draw, because its pool is
+ * reset at frame_begin and a set cannot outlive that (KI-086). A regression that started allocating
+ * per vertex, or a second object per draw, fails here. */
+function allocations(stdout) {
+  const m = /(\d+) GPU allocations in total, (\d+) after the first frame \((\d+) steady frames\), (\d+) draws/.exec(stdout);
+  return m && { total: +m[1], steady: +m[2], frames: +m[3], draws: +m[4] };
+}
+
 const PACK = path.resolve('packs/gpu');
 const EXAMPLE = path.join(PACK, 'examples/scene');
 const PYTHON = process.env.PYTHON ?? 'python3';
@@ -113,6 +125,14 @@ test('the same call sites render the same frame on every backend', { timeout: 12
       assert.ok(report.fraction < 0.01, `and there are few of them: ${report.differing} pixels`);
       console.log(`pack-gpu-backends: ${backend} differs from OpenGL in ${report.differing} of ` +
                   `${report.pixels} pixels, all within the edge band`);
+      const counted = allocations(`${produced.stdout}`);
+      assert.ok(counted, `${backend} reported its allocation counters`);
+      const perFrame = counted.steady / counted.frames, drawsPerFrame = counted.draws / (counted.frames + 1);
+      assert.ok(counted.steady <= counted.draws - drawsPerFrame,
+        `${backend} allocates no more than once per draw in a steady frame: ${counted.steady} over ` +
+        `${counted.frames} frames against ${counted.draws} draws`);
+      console.log(`pack-gpu-backends: ${backend} allocated ${counted.total} objects in total, ` +
+                  `${perFrame.toFixed(1)} per steady frame against ${drawsPerFrame.toFixed(0)} draws`);
       await mkdir('.cache/evidence', { recursive: true });
       await copyFile(frame, `.cache/evidence/scene-${backend}.bmp`);
       compared++;

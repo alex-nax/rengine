@@ -1,5 +1,53 @@
 # Progress Log
 
+## Session 112 (macos) — 2026-09-11 — the bookkeeping pass that was not bookkeeping (KI-085)
+
+Settling F123 and F129–F133 was meant to be reading recorded evidence against recorded criteria.
+**Three criteria turned out not to be met**, each the kind of gap that only shows when someone checks
+rather than remembers.
+
+**The pack's manifest described one layer.** `pack.json` said "the GPU device layer", listed
+`gpu_device.h` as its only public header, and carried a pin from before the seam existed — while
+F123's eighth criterion is that the pack carries *both*. Worse, `pack-gpu.test.mjs` — the evidence
+that a project outside this repository can build it — only ever called `re_gpu_memory_type`. "And a
+resource-and-draw seam" was a claim about a file nobody outside had linked. The outside project now
+includes `rengine/gpu_seam.h` and calls into it; shipping only `gpu_device.c` was observed failing
+with undefined `_re_seam_backend` and `_re_seam_counters`.
+
+**The fetch script had four guarantees and no test.** Checksum, writes outside the repository,
+refuses a destination inside it, states the licence — all four implemented, all four claims about a
+file nobody ran. Its `--dry-run` is what lets a test check them without an 80 MB download. Removing
+the repository guard and blanking the checksum were each observed failing.
+
+**Allocations per frame were recorded nowhere.** F130 c6 and F131 c4 both ask for frame time *and*
+allocations per frame, "because a rendering change that reports only correctness repeats the gap spec
+110 names". Frame time was recorded; allocations were not, by anything. `re_seam_counters` is the
+addition — GPU objects created, draws issued, frames bracketed — and the example reports the
+difference across steady frames, which should be zero.
+
+| backend | total | per steady frame | draws/frame |
+| --- | --- | --- | --- |
+| OpenGL | 14 | **0** | 32 |
+| Metal | 20 | **0** | 32 |
+| Vulkan | 1,969 | **32** | 32 |
+
+**Vulkan allocates exactly one object per draw** and the counter is the only thing here that could
+have said so — all three render the same frame to within 5 pixels. It is a descriptor set, because
+`frame_begin` resets the pool and a set cannot outlive that: pool suballocation, idiomatic, a cost
+rather than a defect. **KI-086**. What is gated meanwhile is the shape, not the number — a steady
+frame may not allocate more than it draws — and two per draw was observed failing it.
+
+**F123, F129, F130, F131, F132 and F133 all pass. The inventory goes from 23 passing to 31**, and the
+graph is regenerated. KI-085 closes.
+
+**KI-087 opens**: nothing evidences this migration on Windows — not the prefixed copies, not the
+`/FI` force-include MSVC needs in place of `-include`, not the draw list through the pack — while
+`RE_DEFAULT_BACKEND` there moved to `opengl` on the strength of evidence that measured the backend
+this migration deleted.
+
+`npm test`: 259/259. `npm run test:desktop`: 73 tests, 72 pass, 0 fail, 1 pre-existing opt-in skip.
+`npm run test:native`: 13/13. `./init.sh`, `design.py check`, `seam_prefix.py check` clean.
+
 ## Session 111 (macos) — 2026-09-11 — the four hand-written backends are gone (F133)
 
 `--renderer opengl|metal|vulkan` now names **one compile-time copy of the seam each**, reached through

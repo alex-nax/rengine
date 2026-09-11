@@ -152,6 +152,7 @@ typedef ptrdiff_t GLsizeiptr;
   X(const GLubyte_t *, glGetString, (GLenum name))
 
 struct ReSeam {
+  ReSeamCounters counters;
 #define RE_SEAM_GL_MEMBER(ret, name, args) ret(*name) args;
   RE_SEAM_GL_FUNCTIONS(RE_SEAM_GL_MEMBER)
 #undef RE_SEAM_GL_MEMBER
@@ -261,6 +262,7 @@ ReSeamProgram re_seam_program(ReSeam *seam, const ReSeamShader *vertex, const Re
     return program;
   }
   GLuint id = seam->glCreateProgram();
+  seam->counters.allocations++;
   seam->glAttachShader(id, vs);
   seam->glAttachShader(id, fs);
   seam->glLinkProgram(id);
@@ -308,6 +310,7 @@ void re_seam_uniform_mat4(ReSeam *seam, int location, const float *value) {
 ReSeamBuffer re_seam_buffer(ReSeam *seam) {
   ReSeamBuffer buffer = {0};
   seam->glGenBuffers(1, &buffer.id);
+  seam->counters.allocations++;
   return buffer;
 }
 
@@ -329,6 +332,7 @@ void re_seam_buffer_update(ReSeam *seam, ReSeamBuffer buffer, const void *data, 
 ReSeamVertexArray re_seam_vertex_array(ReSeam *seam, ReSeamBuffer buffer, const ReSeamVertexLayout *layout) {
   ReSeamVertexArray array = {0};
   seam->glGenVertexArrays(1, &array.id);
+  seam->counters.allocations++;
   seam->glBindVertexArray(array.id);
   seam->glBindBuffer(GL_ARRAY_BUFFER, buffer.id);
   for (int i = 0; layout != NULL && i < layout->count; i++) {
@@ -395,6 +399,7 @@ ReSeamTexture re_seam_texture_2d_for(ReSeam *seam, const void *rgba, int width, 
   texture.width = width;
   texture.height = height;
   seam->glGenTextures(1, &texture.id);
+  seam->counters.allocations++;
   seam->glBindTexture(GL_TEXTURE_2D, texture.id);
   seam->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter);
   seam->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter);
@@ -430,6 +435,7 @@ ReSeamTarget re_seam_target(ReSeam *seam, ReSeamTexture color, ReSeamTexture dep
     return target;
   }
   seam->glGenFramebuffers(1, &target.id);
+  seam->counters.allocations++;
   seam->glBindFramebuffer(GL_FRAMEBUFFER, target.id);
   seam->glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color.id, 0);
   if (depth.id != 0)
@@ -487,6 +493,7 @@ void re_seam_target_bind(ReSeam *seam, ReSeamTarget target) {
 
 void re_seam_frame_begin(ReSeam *seam, ReSeamTarget target) {
   if (seam == NULL) return;
+  seam->counters.frames++;
   if (seam->in_frame) report(seam, "gpu: re_seam_frame_begin inside a frame that never ended");
   seam->in_frame = true;
   seam->frame_target = target;
@@ -582,7 +589,13 @@ void re_seam_clear(ReSeam *seam, float r, float g, float b, float a, bool depth)
   seam->glClear(mask);
 }
 
+ReSeamCounters re_seam_counters(ReSeam *seam) {
+  ReSeamCounters none = {0, 0, 0};
+  return seam ? seam->counters : none;
+}
+
 void re_seam_draw(ReSeam *seam, ReSeamPrimitive primitive, int first, int count) {
+  if (seam) seam->counters.draws++;
   seam->glDrawArrays(primitive == RE_SEAM_PRIMITIVE_LINES ? GL_LINES : GL_TRIANGLES, first, (GLsizei)count);
 }
 

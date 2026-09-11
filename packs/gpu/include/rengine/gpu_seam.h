@@ -297,6 +297,24 @@ void re_seam_depth_compare(ReSeam *seam, ReSeamDepthCompare compare);
 void re_seam_clear(ReSeam *seam, float r, float g, float b, float a, bool depth);
 void re_seam_draw(ReSeam *seam, ReSeamPrimitive primitive, int first, int count);
 
+/* ---- counters ----------------------------------------------------------------------------------
+ * What the backend ALLOCATED and DREW since it opened. `allocations` counts GPU objects the seam
+ * created — buffers, textures, programs, pipelines, targets, descriptor sets — and it exists because
+ * correctness is the easy half to report: a backend that renders the right frame while allocating a
+ * pipeline per draw is wrong in a way no pixel comparison can see.
+ *
+ * The number a caller actually wants is a DIFFERENCE across a steady-state frame, and that number
+ * should be zero. Everything a frame needs is either made once at start-up or reused: pipelines are
+ * cached by their state, and a buffer refilled inside a frame takes a generation it already owns
+ * (which is the fix Metal and Vulkan both needed — see spec 124). A frame that allocates is a frame
+ * that will stutter, and this is how a consumer finds out without a profiler. */
+typedef struct {
+  uint64_t allocations;   /* GPU objects created since re_seam_open */
+  uint64_t draws;         /* re_seam_draw calls issued */
+  uint64_t frames;        /* frames bracketed by re_seam_frame_begin */
+} ReSeamCounters;
+ReSeamCounters re_seam_counters(ReSeam *seam);
+
 /* Human-readable backend/API version, for a startup log. Never parse it — a runtime feature check
  * that matters should query the capability rather than sniff a string. */
 const char *re_seam_api_version(ReSeam *seam);

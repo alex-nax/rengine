@@ -418,6 +418,9 @@ class Device
         re_seam_draw(seam(), static_cast<ReSeamPrimitive>(primitive), first, count);
     }
 
+    // What this backend allocated and drew since it opened. The number worth reading is a
+    // difference across a steady-state frame, and it should be zero.
+    ReSeamCounters counters() { return re_seam_counters(seam()); }
     const char* apiVersion() { return re_seam_api_version(seam()); }
     static const char* backend() { return re_seam_backend(); }
 

@@ -31,6 +31,7 @@
 #define re_seam_buffer_update        re_metal_seam_buffer_update
 #define re_seam_clear                re_metal_seam_clear
 #define re_seam_close                re_metal_seam_close
+#define re_seam_counters             re_metal_seam_counters
 #define re_seam_cull                 re_metal_seam_cull
 #define re_seam_current              re_metal_seam_current
 #define re_seam_depth                re_metal_seam_depth

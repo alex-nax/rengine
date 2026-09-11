@@ -79,6 +79,7 @@ static bool make_buffer(ReSeam *seam, BufferSlot *slot, VkDeviceSize size, VkBuf
                                    .allocationSize = need.size, .memoryTypeIndex = type};
   if (seam->vkAllocateMemory(seam->device, &allocate, NULL, &slot->memory) != VK_SUCCESS) return false;
   seam->vkBindBufferMemory(seam->device, slot->buffer, slot->memory, 0);
+  seam->counters.allocations++;
   if (seam->vkMapMemory(seam->device, slot->memory, 0, VK_WHOLE_SIZE, 0, &slot->mapped) != VK_SUCCESS)
     return false;
   slot->size = size;
@@ -271,6 +272,11 @@ void re_seam_buffer_update(ReSeam *seam, ReSeamBuffer buffer, const void *data, 
   if (data != NULL) memcpy(slot->mapped, data, bytes);
 }
 
+ReSeamCounters re_seam_counters(ReSeam *seam) {
+  ReSeamCounters none = {0, 0, 0};
+  return seam ? seam->counters : none;
+}
+
 /* ---- textures ------------------------------------------------------------------------------------- */
 
 static void barrier(ReSeam *seam, VkImage image, VkImageAspectFlags aspect) {
@@ -401,6 +407,7 @@ ReSeamTexture re_seam_texture_2d_for(ReSeam *seam, const void *rgba, int width, 
                          .levelCount = 1, .layerCount = 1},
   };
   seam->vkCreateImageView(seam->device, &view, NULL, &slot->view);
+  seam->counters.allocations++;
 
   VkFilter gl_filter = filter == RE_SEAM_FILTER_NEAREST ? VK_FILTER_NEAREST : VK_FILTER_LINEAR;
   VkSamplerAddressMode mode = wrap == RE_SEAM_WRAP_REPEAT ? VK_SAMPLER_ADDRESS_MODE_REPEAT
@@ -792,6 +799,7 @@ void re_seam_frame_begin(ReSeam *seam, ReSeamTarget target) {
   VkCommandBufferBeginInfo begin = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
                                     .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
   seam->vkBeginCommandBuffer(seam->cmd, &begin);
+  seam->counters.frames++;
   seam->in_frame = true;
   seam->frame_target = target;
   begin_pass(seam, target);

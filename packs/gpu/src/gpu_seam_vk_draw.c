@@ -122,6 +122,7 @@ static VkPipeline build(ReSeam *seam, const PipelineKey *key) {
     .pDepthStencilState = &depth, .pColorBlendState = &blend, .pDynamicState = &dynamic,
     .layout = program->layout};
   VkPipeline pipeline = VK_NULL_HANDLE;
+  seam->counters.allocations++;   /* a pipeline is the allocation a frame must never make */
   if (seam->vkCreateGraphicsPipelines(seam->device, VK_NULL_HANDLE, 1, &info, NULL, &pipeline) != VK_SUCCESS)
     return VK_NULL_HANDLE;
   return pipeline;
@@ -147,6 +148,7 @@ static VkPipeline pipeline_for(ReSeam *seam, const PipelineKey *key) {
 }
 
 void re_seam_draw(ReSeam *seam, ReSeamPrimitive primitive, int first, int count) {
+  if (seam) seam->counters.draws++;
   if (seam == NULL || !seam->pass_open || seam->program == 0 || seam->array == 0 || count <= 0) return;
   const ArraySlot *array = &seam->arrays[seam->array - 1];
   if (array->buffer == 0 || seam->buffers[array->buffer - 1].current.buffer == VK_NULL_HANDLE) return;
@@ -178,6 +180,7 @@ void re_seam_draw(ReSeam *seam, ReSeamPrimitive primitive, int first, int count)
                                           .descriptorPool = seam->descriptors, .descriptorSetCount = 1,
                                           .pSetLayouts = &program->set_layout};
   VkDescriptorSet set = VK_NULL_HANDLE;
+  seam->counters.allocations++;
   if (seam->vkAllocateDescriptorSets(seam->device, &allocate, &set) != VK_SUCCESS) {
     re_seam_vk_report(seam, "gpu: out of descriptor sets this frame");
     return;

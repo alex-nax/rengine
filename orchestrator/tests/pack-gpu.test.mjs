@@ -26,12 +26,21 @@ add_subdirectory("${PACK}" pack)
 add_executable(consumer main.c)
 target_link_libraries(consumer PRIVATE rengine::gpu)
 `);
-    /* Uses the pack the way a host would: the public header, and a call that needs no device. */
+    /* Uses the pack the way a host would: the public headers, and calls that need no device.
+       BOTH layers, because F123's eighth criterion is that the pack carries both — a consumer that
+       only ever reached the device layer would leave "and a resource-and-draw seam" as a claim
+       about a file rather than about something anybody outside has linked. */
     await writeFile(path.join(dir, 'main.c'), `
 #include <rengine/gpu_device.h>
+#include <rengine/gpu_seam.h>
+#include <string.h>
 int main(void) {
-  /* No loader is needed to prove the seam links: a null device has no memory types. */
-  return re_gpu_memory_type(0, 0, 0) == UINT32_MAX ? 0 : 1;
+  /* No loader is needed to prove either layer links: a null device has no memory types, a null seam
+     has no counters, and the backend this binary was built with can name itself without one. */
+  if (re_gpu_memory_type(0, 0, 0) != UINT32_MAX) return 1;
+  if (re_seam_counters(0).allocations != 0) return 2;
+  if (re_seam_backend() == 0 || strlen(re_seam_backend()) == 0) return 3;
+  return 0;
 }
 `);
     const build = path.join(dir, 'build');

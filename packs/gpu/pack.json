@@ -1,16 +1,18 @@
 {
   "name": "rengine-gpu",
   "version": "0.1.0",
-  "description": "The GPU device layer: instance, physical-device selection, device, queue and memory, with render targets supplied from outside and no windowing symbol. Charter D49; spec 122.",
+  "description": "Two layers a game needs, in one pack. The GPU device layer: instance, physical-device selection, device, queue and memory, with render targets supplied from outside and no windowing symbol. And the resource-and-draw seam generalised from vtmb-vr's src/renderer/gpu/device.h: buffers, textures, programs, a small pipeline state and a draw, with OpenGL, Vulkan and Metal backends chosen at build time and no call-site difference between them. Charter D49/D52; specs 122-124.",
   "target": "rengine_gpu",
   "alias": "rengine::gpu",
   "include": "include",
   "publicHeaders": [
-    "rengine/gpu_device.h"
+    "rengine/gpu_device.h",
+    "rengine/gpu_seam.h",
+    "rengine/gpu_seam.hpp"
   ],
-  "note": "The revision below is the commit a consumer pins, and it is rEngine's own: a project that already carries third_party/rengine receives this pack with a pin it already holds, so nothing here fetches anything (spec 111, KI-008). The version is spoken and the revision is checked, which is the two-part pin contract 9 takes (spec 107).",
+  "note": "The revision below is the commit a consumer pins, and it is rEngine's own: a project that already carries third_party/rengine receives this pack with a pin it already holds, so nothing here fetches anything (spec 111, KI-008). The version is spoken and the revision is checked, which is the two-part pin contract 9 takes (spec 107). gpu_seam.hpp is header-only C++ over the C core: a C consumer never compiles it and a C++ consumer needs no extra library.",
   "pin": {
     "version": "0.1.0",
-    "revision": "197b53980120287578622b73feed155d425d8f54"
+    "revision": "f68e19f1fd6e7723401b23b6ca7410dbecf0a528"
   }
 }

@@ -13,7 +13,8 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, rm, readFile, copyFile, mkdir } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, readFile, copyFile, mkdir, readdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -159,4 +160,43 @@ test('the example renders a model it is given, and needs none to run', { timeout
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+/* F132's fifth criterion, which had no test until 2026-09-11: the fetch script is the one thing in
+ * this pack that reaches the network, and every guard on it was a claim about a file nobody ran.
+ * None of this downloads anything — --dry-run prints the plan and --dest is judged before any of it.
+ */
+test('the fetch script refuses the repository, records a checksum and states the licence', async () => {
+  const script = path.join(EXAMPLE ?? path.resolve('packs/gpu/examples/scene'), 'fetch-sponza.sh');
+  const sh = async (args, cwd) => {
+    try { return { code: 0, ...(await run('sh', [script, ...args], { cwd, maxBuffer: 1 << 20 })) }; }
+    catch (error) { return { code: error.code ?? 1, stdout: error.stdout ?? '', stderr: error.stderr ?? '' }; }
+  };
+
+  /* An 80 MB model inside a checkout that two games pin as a submodule is everyone's problem, and
+     `git add -A` in a hurry is all it would take. */
+  const inside = await sh(['--dest', path.resolve('.cache/sponza-should-be-refused'), '--dry-run']);
+  assert.equal(inside.code, 2, 'a destination inside the repository is refused');
+  assert.match(inside.stderr, /inside .*; choose a path outside the repository/);
+  assert.ok(!existsSync(path.resolve('.cache/sponza-should-be-refused')),
+    'and it refused before creating anything');
+
+  /* Outside, the plan is printed and names the checksum it will check — the whole point of fetching
+     bytes from a third party over HTTPS. */
+  const out = await mkdtemp(path.join(tmpdir(), 'rengine-sponza-plan-'));
+  try {
+    const plan = await sh(['--dest', out, '--dry-run']);
+    assert.equal(plan.code, 0, `a destination outside is accepted: ${plan.stderr}`);
+    const recorded = /shasum -a 256 -c\s+# expecting ([0-9a-f]{64})/.exec(plan.stdout);
+    assert.ok(recorded, `the plan names the checksum it will verify: ${plan.stdout}`);
+    assert.notEqual(recorded[1], 'REPLACE_ME');
+    assert.match(plan.stdout, /curl -fL/, 'and the download it will make');
+    assert.equal((await readdir(out)).length, 0, 'a dry run writes nothing');
+  } finally { await rm(out, { recursive: true, force: true }); }
+
+  /* The model is someone else's work and the terms travel with it. */
+  const help = await sh(['--help']);
+  assert.equal(help.code, 0);
+  assert.match(help.stdout, /CC BY 3\.0/, 'the licence is stated');
+  assert.match(help.stdout, /Crytek|Frank Meinl/, 'and who made the model');
 });
