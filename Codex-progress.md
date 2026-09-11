@@ -1,5 +1,49 @@
 # Progress Log
 
+## Session 113 (macos) — 2026-09-11 — Rust retirement planned: libp2p façade and the Android companion (spec 128, D57–D58)
+
+The owner opened a new direction: *"plan our js retirement in favour of rust"*, first component a
+libp2p server, motivation a mobile companion app — *"connect from anywhere (pilot - android, use
+microui for rendering on vulkan using ndk so that we share interface modules later with ios)"*.
+Ran the grill-me workflow (three rounds, nine questions) instead of guessing, because this is the
+widest design space the suite has opened since the desktop itself.
+
+**The homework did half the interview.** The repo already held: the exact JS surface being retired
+(`orchestrator/{server,runtime,launcher,agents}`, ~40 `.mjs`); Android+Vulkan already on the
+rendering roadmap (spec 066) with the D49 device layer extracting exactly the surfaceless seam a
+phone needs; a complete remote-client architecture sketch in the Quest research plus proposed
+F49–F53 (pairing, root scoping, staged channels); and the F113 agent registry as the thing the
+phone's "same functionality for everyone" must serve. One recorded constraint is reversed:
+spec 114's "a Rust toolchain we do not have".
+
+**Decisions taken** (full attribution in spec 128's table): full JS retirement by strangler path
+with the Rust server as a **façade** over the live host; Rust wired **into cmkr/CMake from day one**
+(owner overruled standalone-cargo-first); self-relay + dcutr + mDNS with no public bootstrap;
+**protobuf schema-first** (owner overruled the JSON mirror — accepted a second contract, controlled
+by live-host contract tests); Ed25519 peer IDs + QR pairing + revocation rows; **C drives, Rust
+serves** inside the app (the desktop's `app.c`/`net.c` shape exactly); Vulkan-only on Android with
+**native Metal for iOS** (owner overruled MoltenVK, scoping D29's GL-first order to the desktop);
+v0.1 = *see, chat, approve*; the app lives in this repo at `apps/companion/` and the Quest track
+becomes a packaging variant, superseding F49–F52's paired-socket transport.
+
+**Artifacts**: `docs/specs/128-rust-retirement-and-companion.md` (decisions, architecture,
+strangler sequence, evidence plan incl. pairing sabotage rows and forced-relay loopback, proposed
+rows F139–F145 in a new N0 lane); charter D57–D58; AGENTS.md boundary paragraph naming the Rust
+direction so future agents stop extending the Node layer. Charter rows land at D57/D58, not the
+D50/D51 first drafted — the parallel rendering session had already taken D50–D56; renumbered
+before writing.
+
+**Commands/results**: docs-only change — `git status` confirms only these four paths plus the
+pre-existing untracked `.claude/worktrees/`; no inventory change, so no graph regeneration;
+no design-token change, so `design.py check` not implicated.
+
+**Remaining**: owner review of spec 128; filing F139–F145 into `features.json` on approval;
+F139 (toolchain + `red/` workspace) is the first implementable row. The refresh of the live
+workspace's worker code offered in Session 110 is still unanswered. F114 (ACP session kind)
+remains the open O2 follow-up.
+
+---
+
 ## Session 112 (macos) — 2026-09-11 — the bookkeeping pass that was not bookkeeping (KI-085)
 
 Settling F123 and F129–F133 was meant to be reading recorded evidence against recorded criteria.

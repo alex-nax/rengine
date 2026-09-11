@@ -106,6 +106,15 @@ a coherent change. Preserve other sessions' entries and unrelated edits.
   then Metal, then Vulkan (charter D29); SDL_Renderer is the interim reference path. The renderer
   is a candidate curated library (D30) and never a mandatory game dependency. Spec 066 owns the
   draw-list contract; keep upstream microui pristine and add controls in an owned layer.
+- The orchestrator's target language is **Rust** (charter D57, spec 128). New server and network
+  components are Rust in the `red/` cargo workspace, built through cmkr/CMake via pinned Corrosion
+  with `rust-toolchain.toml`; the Node modules under `orchestrator/{server,runtime,launcher,
+  agents}` retire one feature row at a time behind the `red-link` libp2p façade instead of gaining
+  new subsystems. The mobile companion (charter D58) lives in `apps/companion/`: the shared C
+  interface modules drive the frame loop over the D49 device layer — Vulkan on Android, native
+  Metal on iOS — with Rust `red-core` as the networking library behind a small C ABI. Remote
+  access runs on owner-pinned relay infrastructure with QR-paired Ed25519 peer identities; never
+  the public libp2p bootstrap network.
 - Honor the training project's held-out-data and grader boundaries. Recording a run does not
   authorize training, data export, or model creation.
 - Do not delegate by default. Spawn agents only when the user or an applicable skill asks for it.
