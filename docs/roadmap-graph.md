@@ -214,7 +214,7 @@ flowchart TD
   F133 --> F136
   F135 --> F136
   F132 --> F136
-  F137["F137: ready"]
+  F137["F137: passing"]
   F116 --> F137
 ```
 
@@ -308,4 +308,4 @@ flowchart TD
 | F134 | R3 | rengine | passing | A view that is closed gives its slot back. Closing a view keeps its tab so reopening restores it, which is the refresh gesture spec 080 describes, but a window has 64 slots and nothing ever reclaimed one: after 64 distinct views a long-lived window could open nothing at all, and the only symptom was a status line. When every slot is taken the window releases the least recently used CLOSED view and names it, the way the explorer already releases the least recently opened folder at its row cap. |
 | F135 | R3 | rengine | blocked | The plugin ABI widens by exactly two things, so a plugin can render and be pointed at without holding anything the renderer owns (charter D55, spec 126): a render target requested by size each frame and valid only for that frame, drawn into the tab through the TEXTURE command the game view already uses; and pointer position, buttons and wheel while the pointer is inside the plugin's own tab. Everything D38 refuses stays refused. |
 | F136 | R3 | rengine | blocked | The scene renders in a tab, on the device the window already has, through the seam the desktop itself renders with — not streamed from another process as a game surface is. An .obj in the explorer opens a Scene tab the way a .png opens the image view, and a command opens the built-in procedural scene. It is still by default: one frame on open, frames while dragging, continuous only when explicitly played (charter D55, spec 126). |
-| F137 | R3 | rengine | ready | A test's artifacts are where its task is. Contract 10's last block gains an artifacts array of root-relative paths with an optional label each, and the Tasks tab draws them beside the result F116 already shows, opening each in the view rEngine already has for it. rEngine still runs nothing and still opens nothing it was not given (spec 126). |
+| F137 | R3 | rengine | passing | A test's artifacts are where its task is. Contract 10's last block gains an artifacts array of root-relative paths with an optional label each, and the Tasks tab draws them beside the result F116 already shows, opening each in the view rEngine already has for it. rEngine still runs nothing and still opens nothing it was not given (spec 126). |

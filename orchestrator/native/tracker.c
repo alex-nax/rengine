@@ -434,6 +434,26 @@ static void manifest_rows(ReApp *a, mu_Context *ui, int tab, const char *key, co
     re_ui_label_ex(ui, "", RE_UI_MUTED | RE_UI_SMALL);
     re_ui_label_ex(ui, line, RE_UI_MUTED | RE_UI_SMALL);
     re_app_control(a, ui, proven ? "tracker-test-proven" : "tracker-test-unproven", key, tab);
+
+    /* What the run produced, beside what it claimed (spec 126). An artifact the project declared is
+     * opened in the view this workspace already has for it — an image in the image view, a declared
+     * format through its registry — and one the server could not settle says which it is rather than
+     * failing when someone clicks it. Nothing here runs or regenerates anything. */
+    const cJSON *artifacts = cJSON_GetObjectItemCaseSensitive(last, "artifacts"), *artifact = NULL;
+    cJSON_ArrayForEach(artifact, artifacts) {
+      const char *file = re_string(artifact, "path"), *label = re_string(artifact, "label");
+      const char *state = re_string(artifact, "state");
+      bool ready = !strcmp(state, "ok");
+      snprintf(line, sizeof(line), "%s%s%s", *label ? label : file,
+               ready ? "" : (!strcmp(state, "missing") ? " · not on disk" : " · outside this project"),
+               ready && *label ? "" : "");
+      mu_layout_row(ui, 2, (int[]){RE_METRIC_TRACKER_KEY_WIDTH, -1}, RE_METRIC_TRACKER_ROW_HEIGHT);
+      re_ui_label_ex(ui, "", RE_UI_MUTED | RE_UI_SMALL);
+      if (re_ui_button_ex(ui, line, RE_ICON_FILE, RE_UI_GHOST | RE_UI_ALIGN_LEFT | RE_UI_SMALL
+                          | (ready ? 0 : RE_UI_DISABLED)) && ready)
+        re_app_tab(a, RE_EDITOR, a->tabs[tab].root, file, "", *label ? label : file);
+      re_app_control(a, ui, ready ? "tracker-artifact" : "tracker-artifact-unavailable", key, tab);
+    }
     first = false;
   }
 }

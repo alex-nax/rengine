@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://rengine.local/contracts/task-tests-v1.schema.json",
   "title": "Task tests manifest, version 1",
-  "description": "Produced by a project, read by rEngine, keyed by the task key the project's own tracker provider uses (F123, BAS-1020, #42). rEngine joins on that key and never parses its meaning. An entry with no sabotage rows is UNPROVEN however green its last run was: AGENTS.md defines a regression as established only once observed failing for its own reason, and a passing command is not that. See docs/specs/117-task-tests-manifest.md.",
+  "description": "Produced by a project, read by rEngine, keyed by the task key the project's own tracker provider uses (F123, BAS-1020, #42). rEngine joins on that key and never parses its meaning. An entry with no sabotage rows is UNPROVEN however green its last run was: AGENTS.md defines a regression as established only once observed failing for its own reason, and a passing command is not that. A run's artifacts are declared rather than guessed at from what `log` points to (spec 126). See docs/specs/117-task-tests-manifest.md.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -158,6 +158,30 @@
               "type": "string",
               "maxLength": 1024,
               "description": "Where the project kept the output. Not opened."
+            },
+            "artifacts": {
+              "type": "array",
+              "maxItems": 16,
+              "description": "What the run produced that is worth looking at: a rendered frame, a diff image, a report. Root-relative paths the project wrote. rEngine opens one when asked and produces, refreshes and regenerates nothing — `log` stays the text output it always was, because \"where the output went\" and \"what the run produced\" are different claims and one field cannot make both.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "maxLength": 1024,
+                    "description": "Root-relative. A path that escapes the project root is refused by name and never opened."
+                  },
+                  "label": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "description": "What it is, in the project's own words. Shown in place of the file name when given."
+                  }
+                }
+              }
             }
           }
         }

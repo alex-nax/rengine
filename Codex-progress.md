@@ -1,5 +1,39 @@
 # Progress Log
 
+## Session 107 (macos) — 2026-09-11 — a test's artifacts, where its task is (F137)
+
+The half of spec 126 that depends on none of the rendering chain, and the one asked for first.
+
+**Contract 10's `last` gains `artifacts`**: root-relative paths with an optional label, at most
+sixteen. `log` is untouched — "where the output went" and "what the run produced" are different
+claims and one field cannot make both.
+
+**Answered at read time, not on click.** Each path goes through `resolveInRoot` — the helper the
+editor's own open path already uses, symlinks included — then a `stat`, and arrives as `ok`,
+`missing` or `outside`. An escaping path is also named in the manifest's error line, the way
+criterion drift already is. rEngine still opens nothing it was not asked to and produces nothing.
+
+**Drawn under the result F116 already shows.** A ready artifact is a ghost row that opens the file in
+whatever view this workspace already has for it; one that is not ready is disabled and says which —
+"not on disk" or "outside this project" — rather than hidden or left to fail on a click.
+
+**Three sabotages, all caught**, all on the assertion that owns the claim: a path escaping the root
+settled as ok, a missing artifact settled as ok, and every artifact offered whatever its state.
+
+**Two things the test had to learn, neither of them defects.** Waiting for the opened artifact's
+editor text never succeeded, because this fixture's declaration routes a `.txt` through the format
+registry and the tab opens in `raw` mode with no editor — WHICH view opens is the registry's answer,
+which is exactly what "opened in the view rEngine already has for it" means, so the test asserts the
+right file opened under the label the project gave it. And opening an artifact focuses it, as
+clicking a file in the explorer does, so the task list stopped being visible and the rest of the test
+lost its controls; coming back is what a person does.
+
+Commands: `npm test` 236/236 · `native-tracker.spec.mjs` with three sabotages · `design.py check` ·
+`./init.sh`. `test:desktop` 71/71 but for KI-080's OpenGL RSS budget on a loaded machine (34,080
+against 32,768), which a clean worktree at `197b539` already reproduces.
+
+Remaining in spec 126: F133, then F108 and its widened ABI (F135), then the scene plugin (F136).
+
 ## Session 106 (macos) — 2026-09-11 — the scene in a tab, and a test's artifacts (spec 126, D55/D56)
 
 A `/grill-me` interview, no implementation. Ten decisions in spec 126; the owner overruled the

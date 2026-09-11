@@ -2287,9 +2287,12 @@
       "owner_workspace": "rengine",
       "external_references": [],
       "evidence": [
-        "docs/specs/126-scene-view-and-test-artifacts.md: artifacts are declared rather than guessed at from what log points to"
+        "docs/specs/126-scene-view-and-test-artifacts.md: artifacts are declared rather than guessed at from what log points to",
+        "contracts/task-tests-v1.schema.json: last.artifacts, root-relative paths with an optional label; log stays the text output it was",
+        "orchestrator/server/tracker.mjs: each artifact settled at read time through resolveInRoot and a stat, so a row says ok, missing or outside before anyone clicks",
+        "orchestrator/tests/native-tracker.spec.mjs: one artifact on disk, one named but not written, one escaping the root; three sabotages each caught"
       ],
-      "passes": false
+      "passes": true
     }
   ]
 }

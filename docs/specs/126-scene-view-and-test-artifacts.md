@@ -1,6 +1,6 @@
 # A scene rendered in a tab, and a test's artifacts where its task is (F135–F137)
 
-Date: 2026-09-11. Status: **designed; nothing implemented.** Asked for by the owner:
+Date: 2026-09-11. Status: **designed; F137 implemented, the rendering chain not started.** Asked for by the owner:
 
 > once we have rendering scene - we should be able to browse its tests, see test outcomes and their
 > artifacts(the thing that I ask you for testing interface) also we should be able to launch it
@@ -108,3 +108,46 @@ another process, and a scene plugin renders in this one, on the device the windo
 in F136 touches `RENGINE_SURFACE_PORT`, the SDL2 interpose adapter, or the game view. The owner's
 phrase for the difference — "use the tab surface to render on, not capturing from a running process"
 — is the whole distinction, and it is why this is a plugin tab rather than a fourth surface kind.
+
+
+## F137's evidence
+
+The half that depends on none of the rendering chain, and the one asked for first.
+
+**Contract 10's `last` gains `artifacts`** — root-relative paths with an optional label, at most
+sixteen. `log` is untouched, because "where the output went" and "what the run produced" are
+different claims and one field cannot make both.
+
+**The server answers for them at read time, not on click.** Each path goes through `resolveInRoot`,
+which the editor's own open path already uses and which follows symlinks, and then a `stat`. Each
+artifact arrives as `ok`, `missing` or `outside`, and an escaping path is also named in the
+manifest's error line the way criterion drift already is. rEngine opens nothing it was not asked to,
+and produces, refreshes and regenerates nothing.
+
+**The Tasks tab draws them under the result F116 already shows.** A ready one is a ghost row that
+opens the file in whatever view this workspace already has for it; one that is not ready is drawn
+disabled saying which — "not on disk" or "outside this project" — rather than hidden or left to fail
+when someone clicks it.
+
+Three sabotages, all caught, all on the assertion that owns the claim — `the artifact the project
+wrote is offered`, with `and the one it did not write and the one outside the root are shown as
+unavailable, not hidden` catching the third as well:
+
+| Sabotage | Observed |
+| --- | --- |
+| a path escaping the root is settled as `ok` | two artifacts offered where one should be |
+| a missing artifact is settled as `ok` | the same |
+| every artifact is offered whatever its state | three offered, none unavailable |
+
+### Two things the test had to learn
+
+**The assertion had to be about identity, not content.** Waiting for the opened artifact's editor
+text never succeeded, and the reason is not a defect: the fixture's declaration routes a `.txt`
+through the format registry, so the tab opens in `raw` mode with no editor at all. Which view opens
+is the registry's answer — that is what "opened in the view rEngine already has for it" means — so
+the test asserts the right file opened under the label the project gave it, and leaves the view to
+the specs that own it.
+
+**Opening an artifact focuses it**, exactly as clicking a file in the explorer does, so the task list
+is no longer the visible view and the rest of the test could not find its controls. Coming back is
+what a person does; the test now does it too.

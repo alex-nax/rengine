@@ -8,9 +8,9 @@
  * the local backend is a file read whose conflicts are git merges resolved by a person, and forcing
  * it to speak in status codes would distort the backend this project actually uses.
  */
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { fail } from './store.mjs';
+import { fail, resolveInRoot } from './store.mjs';
 import { parseCredential, expiring, refresh } from './tracker-auth.mjs';
 import { validateSchema } from './schema.mjs';
 
@@ -275,15 +275,35 @@ async function withTests(root, declared, result) {
     }
   }
   const head = await headCommit(root.path);
-  const rows = (result.rows ?? []).map(row => ({
+  /* An artifact is answered for HERE rather than when someone clicks it, so a row can say "missing"
+     or "outside this project" instead of a click failing. rEngine still opens nothing it was not
+     asked to open and still produces nothing: this is a resolve and a stat (spec 126). */
+  const outside = [];
+  const settle = async artifact => {
+    const label = typeof artifact.label === 'string' ? artifact.label : '';
+    try {
+      const { relative } = await resolveInRoot(root, artifact.path, true);
+      let state = 'ok';
+      try { await stat(path.join(root.path, relative)); } catch { state = 'missing'; }
+      return { path: relative, label, state };
+    } catch {
+      outside.push(artifact.path);
+      return { path: artifact.path, label, state: 'outside' };
+    }
+  };
+  const rows = await Promise.all((result.rows ?? []).map(async row => ({
     ...row,
-    tests: (byTask.get(row.key) ?? []).map(entry => ({
+    tests: await Promise.all((byTask.get(row.key) ?? []).map(async entry => ({
       ...entry,
       /* The field the format exists for: a green run says a command went green, and only a sabotage
          row says the test can go red for its own reason (AGENTS.md). Never collapsed into one word. */
       proven: Array.isArray(entry.sabotage) && entry.sabotage.length > 0,
-    })),
-  }));
+      ...(Array.isArray(entry.last?.artifacts)
+        ? { last: { ...entry.last, artifacts: await Promise.all(entry.last.artifacts.map(settle)) } }
+        : {}),
+    }))),
+  })));
+  if (outside.length) drift.push(`${manifest}: ${outside.slice(0, 3).map(p => `${p} is outside this project`).join('; ')}`);
   return {
     ...result, rows,
     tests: { at: parsed.at ?? null, commit: parsed.commit ?? null, count: parsed.entries?.length ?? 0,

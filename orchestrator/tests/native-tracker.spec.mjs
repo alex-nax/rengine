@@ -23,7 +23,12 @@ const MANIFEST = {
     { task: 'F1', test: { path: 'tests/one.test.mjs', name: 'the work is finished' },
       claim: 'the work is finished', criteria: [1], tier: 'gate',
       sabotage: [{ break: 'return early', red: 'the work is finished' }],
-      last: { result: 'pass', at: '2026-09-09T12:00:00Z' } },
+      /* Three artifacts on purpose: one the project wrote, one it names but did not write, and one
+         that escapes the root. All three are answered before anyone clicks (spec 126). */
+      last: { result: 'pass', at: '2026-09-09T12:00:00Z',
+              artifacts: [{ path: 'evidence/frame.txt', label: 'The frame' },
+                          { path: 'evidence/gone.txt' },
+                          { path: '../outside.txt', label: 'Elsewhere' }] } },
     { task: 'F2', test: { path: 'tests/two.test.mjs' }, claim: 'the other thing', tier: 'gate',
       sabotage: [], last: { result: 'pass', at: '2026-09-09T12:00:00Z' } },
   ],
@@ -35,6 +40,8 @@ async function fixture(directory, declaration) {
   await writeFile(path.join(root, 'features.json'), JSON.stringify(INVENTORY, null, 2));
   await writeFile(path.join(root, '.rengine', 'tests.json'), JSON.stringify(MANIFEST, null, 2));
   await writeFile(path.join(root, 'a.txt'), 'x\n');
+  await mkdir(path.join(root, 'evidence'), { recursive: true });
+  await writeFile(path.join(root, 'evidence', 'frame.txt'), 'the artifact this run produced\n');
   if (declaration) await writeFile(path.join(root, '.rengine', 'project.json'), JSON.stringify(declaration, null, 2));
   return root;
 }
@@ -93,6 +100,32 @@ test('the Tasks tab lists the project inventory with the readiness the tool repo
       'the manifest entry names its test');
     assert.ok(state.controls.some(c => c.role === 'tracker-test-proven' && c.key === 'F1'),
       'a sabotaged entry reads as proven');
+
+    /* F137 (spec 126): what the run PRODUCED, beside what it claimed. One artifact is on disk and
+       opens; two cannot and say which, before anyone clicks rather than when they do — the whole
+       reason the server settles them at read time. */
+    const ready = state.controls.filter(c => c.role === 'tracker-artifact' && c.key === 'F1');
+    const unavailable = state.controls.filter(c => c.role === 'tracker-artifact-unavailable' && c.key === 'F1');
+    assert.equal(ready.length, 1, 'the artifact the project wrote is offered');
+    assert.equal(unavailable.length, 2,
+      'and the one it did not write and the one outside the root are shown as unavailable, not hidden');
+
+    await gui.control('tracker-artifact', 'F1');
+    state = await gui.until(s => s.tabs.some(t => t?.path === 'evidence/frame.txt'),
+      'the artifact opens as a view of its own');
+    /* Asserted on the view's identity, not its contents: WHICH view opens is the format registry's
+       answer and this project's declaration routes a .txt through it, so reading editor text here
+       would be testing the registry. What F137 claims is that the right file opened under the name
+       the project gave it. */
+    const opened = state.tabs.find(t => t?.path === 'evidence/frame.txt');
+    assert.equal(opened.title, 'The frame', 'under the label the project gave it, not the file name');
+    assert.equal(opened.root, state.tabs.find(t => t?.type === 8).root,
+      'and in the project that declared it');
+    /* Opening an artifact focuses it, exactly as clicking a file in the explorer does, so the task
+       list is no longer the visible view. Coming back is what a person does and what the rest of
+       this test needs. */
+    await gui.control('toolbar', 'Tasks', -1);
+    await gui.until(s => s.controls.some(c => c.role === 'tracker-tests'), 'the task list is back');
 
     /* F2 records none. The block says so rather than drawing empty, which would read as "no tests". */
     await gui.control('tracker-tests', 'F2');
