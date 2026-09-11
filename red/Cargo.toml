@@ -1,0 +1,8 @@
+# The Rust orchestrator workspace (charter D57, spec 128): red-core carries the protocol contract
+# and shared primitives, red-link is the libp2p façade/relay binary. F139 ships the skeletons with
+# zero registry dependencies, so every fetch stays behind the two pins (this toolchain and the
+# Corrosion commit in cmake.toml); the dependency-vendoring policy arrives with the first real
+# dependency in F140 (prost).
+[workspace]
+resolver = "2"
+members = ["red-core", "red-link"]

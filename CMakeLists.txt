@@ -63,6 +63,24 @@ unset(RENGINE_GPU_TARGET_NAME)
 unset(RENGINE_GPU_SEAM_BACKEND)
 unset(RENGINE_GPU_FORCE_INCLUDE)
 
+# --- the Rust orchestrator (charter D57, spec 128) ---
+# Corrosion is build tooling, pinned by full commit sha and fetched at configure into the build
+# tree -- the same shape as the pinned cmkr bootstrap in cmake/cmkr.cmake, not a vendored compiled
+# source (third_party/README.md records both). rust-toolchain.toml at the repo root pins the
+# toolchain every cargo invocation under it uses.
+include(FetchContent)
+FetchContent_Declare(corrosion
+  GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
+  GIT_TAG 1499b14e4906a2890f5cee1547c8848db261753d) # v0.6.1
+FetchContent_MakeAvailable(corrosion)
+corrosion_import_crate(MANIFEST_PATH red/Cargo.toml CRATES red-core red-link)
+if(BUILD_TESTING)
+  # Cargo runs from the workspace root so the rustup shim resolves the repo's rust-toolchain.toml;
+  # the smoke tests prove the pinned toolchain builds and tests both crates.
+  add_test(NAME rust_red_core COMMAND cargo test -p red-core WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/red)
+  add_test(NAME rust_red_link COMMAND cargo test -p red-link WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/red)
+endif()
+
 # Subdirectory: packs/gpu
 set(CMKR_CMAKE_FOLDER ${CMAKE_FOLDER})
 if(CMAKE_FOLDER)

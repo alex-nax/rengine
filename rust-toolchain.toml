@@ -1,0 +1,6 @@
+# The one Rust toolchain for every Rust component in this repository (charter D57, spec 128).
+# rustup honours this file for any cargo invocation under the repo root — red/ today,
+# apps/companion later. init.sh checks the pinned toolchain is installed and instructs; nothing
+# installs it silently.
+[toolchain]
+channel = "1.93.1"

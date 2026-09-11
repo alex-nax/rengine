@@ -1,0 +1,8 @@
+[package]
+name = "red-link"
+version = "0.1.0"
+edition = "2021"
+description = "The libp2p façade and relay of the Rust orchestrator (spec 128, D57)"
+
+[dependencies]
+red-core = { path = "../red-core" }

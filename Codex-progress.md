@@ -58,6 +58,27 @@ of the live workspace's worker code offered in Session 110 is still unanswered. 
 kind) remains the open O2 follow-up — spec 129 records that it may land in JS first without
 contradicting the epic.
 
+**Addendum 2 — F139 taken, built and passed (the first slice).** The owner said "take up one
+slice", and the epic's own rule named F139 (zero J0 rows were ready). Landed: `rust-toolchain.toml`
+(`channel = "1.93.1"`, verified repo-scoped via `rustup show active-toolchain` — inside the repo
+`1.93.1 (overridden by rust-toolchain.toml)`, outside it the default `stable`); the `red/`
+workspace with `red-core` (rlib) and `red-link` skeletons, zero registry deps and a committed
+two-package `Cargo.lock`; Corrosion `v0.6.1` pinned by full sha in `cmake.toml` via FetchContent
+(the cmkr-bootstrap shape, recorded in `third_party/README.md` — not a submodule, it's build
+tooling); `rust_red_core`/`rust_red_link` on the ctest path; init.sh requiring cargo + the pin
+and instructing rather than installing. Installed the pin through the owner's rustup by hand
+(`rustup toolchain install 1.93.1`; reversible). **The non-obvious finding**: Corrosion's
+`FindRust` picks the toolchain rustup marks active — provably `1.93.1` here
+(`CMakeCache.txt: Rust_TOOLCHAIN:STRING=1.93.1-aarch64-apple-darwin`), which today equals
+`stable`, so the cache line is the only evidence the right one was picked; recorded with the
+`-DRust_TOOLCHAIN` escape hatch in `docs/evidence/rust-workspace-f139-2026-09-11.md`.
+Checks established red-first: 7 acceptance subtests failed on absence, then four sabotages went
+red for their own reason (channel→stable, sha→one-char-off, cargo off PATH, pin→9.99.9) and were
+restored. Gates: clean-tree rebuild (`rm -rf .cache/desktop && npm run build`) with fresh
+FetchContent clones + ctest 15/15; npm test 266/266; init.sh, design.py check, features.py
+validate all green. F139 `passes: true` with four evidence entries; graph regenerated. The chain
+unlocked as designed: **F140 ready in N0; F146, F147, F148 now ready in J0** — the loop has work.
+
 ---
 
 ## Session 112 (macos) — 2026-09-11 — the bookkeeping pass that was not bookkeeping (KI-085)

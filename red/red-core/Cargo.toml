@@ -1,0 +1,10 @@
+[package]
+name = "red-core"
+version = "0.1.0"
+edition = "2021"
+description = "Protocol contract and shared primitives for the Rust orchestrator (spec 128, D57)"
+
+# rlib only for now: the cdylib with the C ABI arrives with the slice that has a consumer for it
+# (the companion's C layer, spec 128 decision 7), not before.
+[lib]
+crate-type = ["rlib"]

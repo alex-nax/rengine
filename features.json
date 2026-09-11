@@ -2361,14 +2361,19 @@
         "init.sh without cargo fails with instructions; with cargo it proceeds; nothing is installed silently.",
         "Both crates' smoke tests run through ctest, not a hand-run cargo command."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [],
       "owner_workspace": "rengine",
       "deliverable": "rust-toolchain.toml, the Corrosion pin in cmake.toml, the red/ workspace with red-core and red-link skeleton crates, their smoke tests on the ctest path, and the init.sh toolchain check.",
       "external_references": [
         "github.com/corrosion-rs/corrosion: the CMake-cargo bridge and its pinning; doc.rust-lang.org/rustup: rust-toolchain.toml toolchain pinning"
       ],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/rust-workspace-f139-2026-09-11.md: criterion-by-criterion results, the sabotage table, the Corrosion toolchain-resolution finding, and the in-slice decisions",
+        "orchestrator/tests/rust-workspace.test.mjs: seven subtests pinning the exact toolchain pin, the workspace skeletons, the zero-registry-dependency guarantee, the exact Corrosion sha, the regenerated CMakeLists, the ctest wiring and the init.sh check — each observed red for its own reason before passing",
+        "rust-toolchain.toml, red/Cargo.toml, red/Cargo.lock: the exact 1.93.1 channel and the two-local-package lockfile proving no fetch outside the pins",
+        "cmake.toml: the Corrosion v0.6.1 commit pin, corrosion_import_crate for red-core and red-link, and the rust_red_core/rust_red_link ctest entries"
+      ]
     },
     {
       "id": 140,
