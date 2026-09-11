@@ -2487,7 +2487,13 @@
       "owner_workspace": "rengine",
       "deliverable": "The apps/companion tree, the pinned build, the Vulkan surface on the device layer, the red-core cdylib link, and the on-device smoke snapshot.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "apps/companion: the Android app builds with pinned Gradle 8.13 (wrapper distribution verified by SHA-256), AGP 8.7.3, Kotlin 2.0.21, NDK 27.2.12479018 and CMake 3.22.1, arm64 only",
+        "apps/companion/app/src/main/cpp/CMakeLists.txt: criterion 1 — microui, the draw list, utf8 and theme are compiled from their places in this repository, and a missing origin is refused by name rather than fallen back on",
+        "Ran on a Quest 3 (Horizon OS, API 34), which is spec 128 decision 10's case: 'draw list carries 12 command(s) from the desktop's own UI layer' — the screen the desktop builds, built on the device",
+        "orchestrator/tests/companion-build.test.mjs: three sabotages observed failing — a copied microui under apps/, an NDK pin floated to 27.+, and a wrapper that stopped verifying its distribution",
+        "NOT met: criterion 2 (no Vulkan surface on the device layer yet, so no snapshot and no measured frame budget) and criterion 3 (the C ABI round-trip waits on F141's façade). ui.c is excluded until common.h stops pulling SDL.h, recorded in the CMake"
+      ]
     },
     {
       "id": 145,

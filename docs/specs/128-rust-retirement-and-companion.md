@@ -215,3 +215,56 @@ nothing enters the tree without a pin a reader can check — and both halves wer
 `protoc` is a prerequisite like SDL2 rather than a binary this repository ships: a vendored compiler
 would be a compiled third-party artifact with none of the provenance the rest of `third_party`
 records. `init.sh` refuses without it and says how to install it.
+
+## F144, first slice: the companion exists and is the same code
+
+`apps/companion` is an Android app that **builds and runs on a real device**, and the point of it is
+where its C comes from. Decision 10 put the app in this repository for one reason — the shared C
+modules cannot be "shared with iOS later" across a pin boundary while they are churning — so the
+native build reaches *up* into the tree and compiles `third_party/microui/microui.c`,
+`render/draw_list.c`, `render/utf8.c` and `theme.c` from their own places. There are no copies under
+`apps/`, and a test looks for one, because a vendored second microui would satisfy every build and
+defeat the entire arrangement.
+
+Run on a **Quest 3** (Horizon OS, API 34), which is decision 10's case exactly — Horizon runs Android
+apps in 2D panels, so the Quest track is a packaging variant of this app rather than a second client:
+
+```
+companion: native layer up, draw-list contract v2
+companion: window ready; building one shared-UI frame
+companion: draw list carries 12 command(s) from the desktop's own UI layer
+```
+
+Twelve commands, built on the headset by the desktop's own microui and draw list. That is criterion
+1's real evidence: not that an APK compiled, but that the screen it built is the screen the desktop
+builds.
+
+### What it does not do yet, stated plainly
+
+- **No GPU.** Criterion 2 — a microui screen rendered through the D49 device layer on an
+  `ANativeWindow` Vulkan surface, with a snapshot and a frame budget set before the run — is the next
+  slice. A frame that *exists* is the thing to prove before something draws it.
+- **No red-core.** Criterion 3's C ABI round-trip waits on F141's façade; there is nothing to connect
+  to yet. `Companion.kt` carries the protocol string and nothing else.
+- **Not the owned control layer.** `ui.c` (D33) is SDL-free in itself — it draws through the draw
+  list and nothing else — but it includes `orchestrator/native/common.h`, which includes `SDL.h`.
+  Splitting that header is its own change. Pulling the layer in before it is split would mean either
+  an SDL dependency on Android or a copied module, which are the two things this arrangement exists
+  to avoid, so the CMake says so where the source list would otherwise look incomplete.
+
+**F144's row stays `passes: false`**: two of its three criteria are unmet, and it depends on
+F141–F143, none of which are done. This is the skeleton the integration wires into, which is what was
+asked for.
+
+### Pins, and one deliberate softening
+
+Gradle 8.13 by wrapper **with its distribution SHA-256 verified before it runs** — the same guarantee
+`third_party/sources.json` gives a vendored archive, and the published checksum was fetched and
+compared rather than recalled. AGP 8.7.3, Kotlin 2.0.21, NDK 27.2.12479018, CMake 3.22.1, compileSdk
+35, minSdk 29, arm64 only. Each is exact; a floating `27.+` was sabotage-verified as a failure.
+
+Spec 128 says `init.sh` "checks and instructs" for the Android toolchain. It **reports** rather than
+refuses, and that is a decision rather than a slip: unlike cargo, which the desktop build itself now
+drives, this toolchain builds only `apps/companion`. A fatal check would gate every contributor's
+harness on a mobile SDK to no purpose. The message names the pin it read from the build file and the
+`sdkmanager` line that installs it.

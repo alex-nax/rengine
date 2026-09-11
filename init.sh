@@ -14,6 +14,20 @@ command -v cargo >/dev/null 2>&1 || { echo "ERROR: Rust (cargo) is required for 
 # protoc builds the red-core contract (spec 128 decision 5). A prerequisite like SDL2, not something
 # this repository ships: prost-build shells out to it, and a vendored compiler binary would be a
 # compiled third-party artifact with none of the provenance third_party/sources.json records.
+# The Android SDK and the pinned NDK build apps/companion (spec 128, decision 10). Reported rather
+# than required: unlike cargo, which the desktop build itself now drives, this toolchain is needed
+# only to build the companion — gating desktop work on a mobile SDK would be a worse trade than
+# saying plainly what is missing and where it matters.
+RENGINE_NDK_PIN=$(sed -n 's/.*ndkVersion = "\(.*\)".*/\1/p' apps/companion/app/build.gradle.kts 2>/dev/null)
+if [ -n "$RENGINE_NDK_PIN" ]; then
+    RENGINE_SDK=${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}
+    if [ ! -d "$RENGINE_SDK" ]; then
+        echo "NOTE: no Android SDK at $RENGINE_SDK; apps/companion cannot be built here. Set ANDROID_HOME, or install Android Studio's SDK. Nothing else needs it."
+    elif [ ! -d "$RENGINE_SDK/ndk/$RENGINE_NDK_PIN" ]; then
+        echo "NOTE: the pinned Android NDK $RENGINE_NDK_PIN is not installed under $RENGINE_SDK/ndk. Install it with: sdkmanager \"ndk;$RENGINE_NDK_PIN\". Only apps/companion needs it."
+    fi
+fi
+
 command -v protoc >/dev/null 2>&1 || { echo "ERROR: protoc is required to build the red/ contract (charter D57, spec 128). Install it: brew install protobuf, or apt-get install -y protobuf-compiler"; exit 1; }
 RENGINE_RUST_PIN="$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)"
 if [ -n "$RENGINE_RUST_PIN" ] && command -v rustup >/dev/null 2>&1; then

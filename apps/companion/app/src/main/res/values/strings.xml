@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Neutral until editions reach mobile: the companion's shown name comes from the D42/D43 edition
+     manifest when it does, never from a string typed into shipping code (spec 128). -->
+<resources>
+    <string name="app_name">rEngine companion</string>
+</resources>

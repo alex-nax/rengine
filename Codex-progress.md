@@ -1,5 +1,51 @@
 # Progress Log
 
+## Session 114 (macos) — 2026-09-11 — the companion exists, and it is the same code (F144, first slice)
+
+`apps/companion` is an Android app that **builds and runs on a real device**, and the point of it is
+where its C comes from. Decision 10 put the app in this repository because the shared C modules
+cannot be "shared with iOS later" across a pin boundary while they churn — so the native build
+reaches *up* into the tree and compiles `third_party/microui/microui.c`, `render/draw_list.c`,
+`render/utf8.c` and `theme.c` from their own places. No copies under `apps/`, and a test looks for
+one: a vendored second microui would satisfy every build and defeat the entire arrangement.
+
+**Run on a Quest 3** (Horizon OS, API 34) — decision 10's case exactly, since Horizon runs Android
+apps in 2D panels, making the Quest track a packaging variant rather than a second client:
+
+    companion: native layer up, draw-list contract v2
+    companion: window ready; building one shared-UI frame
+    companion: draw list carries 12 command(s) from the desktop's own UI layer
+
+Twelve commands built on the headset by the desktop's own microui and draw list. That is criterion
+1's real evidence: not that an APK compiled, but that the screen it built is the screen the desktop
+builds.
+
+**What it does not do, stated plainly.** No GPU: criterion 2's Vulkan surface on the D49 device layer,
+its snapshot and its measured frame budget are the next slice — a frame that exists is the thing to
+prove before something draws it. No red-core: criterion 3's C ABI round-trip waits on F141's façade.
+And not `ui.c`: the D33 control layer is SDL-free in itself but includes `common.h`, which includes
+`SDL.h`; splitting that header is its own change, and pulling the layer in early would mean either an
+SDL dependency on Android or a copied module. **F144 stays `passes: false`** — two of three criteria
+unmet, and it depends on F141–F143.
+
+**Pins**: Gradle 8.13 by wrapper with its distribution SHA-256 verified before it runs — and the
+published checksum was fetched and compared rather than recalled, because I had written it from
+memory. AGP 8.7.3, Kotlin 2.0.21, NDK 27.2.12479018, CMake 3.22.1, compileSdk 35, minSdk 29, arm64.
+
+**One deliberate softening, recorded as a decision**: spec 128 says `init.sh` "checks and instructs"
+for the Android toolchain. It **reports** rather than refuses — unlike cargo, which the desktop build
+now drives, this toolchain builds only the companion, and a fatal check would gate every
+contributor's harness on a mobile SDK for nothing.
+
+Three sabotages, each observed: a copied microui under `apps/`, an NDK pin floated to `27.+`, and a
+wrapper that stopped verifying its distribution.
+
+**One unrelated failure recorded**: `project-token.test.mjs`'s extended-routes test failed once in a
+full run and passed alone and on an immediate full re-run. It is the suite's most timing-sensitive
+spec and this was the first run also carrying the F140 harness and the F144 test. **KI-088**.
+
+`npm test`: 273/273 on the re-run. `./init.sh`, `design.py check` clean.
+
 ## Session 113 (macos) — 2026-09-11 — the libp2p wire contract, and the harness that keeps it honest (F140)
 
 First step toward the Android companion: **`red.v1`**, the protobuf contract the façade and the phone

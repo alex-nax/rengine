@@ -20,3 +20,11 @@ artifacts.local/
 .env.*
 !.env.example
 Testing/
+
+# The companion's Gradle outputs. apps/companion/gradle/wrapper/ IS committed: the wrapper and its
+# pinned distribution checksum are the build's pin, exactly as red/Cargo.lock is the Rust one.
+/apps/companion/build/
+/apps/companion/.gradle/
+/apps/companion/app/build/
+/apps/companion/app/.cxx/
+/apps/companion/local.properties
