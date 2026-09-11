@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
-"""Compare two native snapshots (BMP files written by the desktop) under a recorded tolerance.
+"""Compare two native snapshots under a recorded tolerance.
 
-  render_compare.py REFERENCE.bmp CANDIDATE.bmp [--max-fraction F] [--max-delta D] [--edge-band N] [--json]
+  render_compare.py REFERENCE CANDIDATE [--max-fraction F] [--max-delta D] [--edge-band N] [--json]
+
+Either side may be a BMP written by the desktop or a PNG. PNG is read because a committed reference
+frame has to live in the repository, and 2560x1600 is 16 MiB as a BMP and about 100 KiB as a PNG
+(charter D54, spec 124): once SDL_Renderer stops being a shipping path, the oracle it served has to
+become data rather than a code path, and data that large cannot be committed.
 
 Reports the fraction of pixels whose RGB differs, the largest per-channel difference, and, with
 --edge-band N, how many differing pixels lie farther than N pixels from an edge of the reference
@@ -11,6 +16,69 @@ limit is exceeded. Alpha is ignored. Standard library only; see docs/specs/068-o
 import json
 import struct
 import sys
+
+
+def read_png(path):
+    """Enough of PNG to read what bmp_to_png.py writes: 8-bit RGB or RGBA, no interlacing."""
+    import zlib
+    data = open(path, "rb").read()
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise SystemExit("ERROR: %s is not a PNG file" % path)
+    width = height = depth = colour = None
+    pixels = bytearray()
+    at = 8
+    while at + 8 <= len(data):
+        length, kind = struct.unpack_from(">I4s", data, at)
+        body = data[at + 8: at + 8 + length]
+        at += 12 + length                       # length, type, body, CRC
+        if kind == b"IHDR":
+            width, height, depth, colour, _, _, interlace = struct.unpack_from(">IIBBBBB", body, 0)
+            if depth != 8 or colour not in (2, 6):
+                raise SystemExit("ERROR: %s is %d-bit colour type %d; 8-bit RGB or RGBA only"
+                                 % (path, depth, colour))
+            if interlace:
+                raise SystemExit("ERROR: %s is interlaced" % path)
+        elif kind == b"IDAT":
+            pixels += body
+        elif kind == b"IEND":
+            break
+    if width is None:
+        raise SystemExit("ERROR: %s has no header" % path)
+    channels = 4 if colour == 6 else 3
+    raw = zlib.decompress(bytes(pixels))
+    stride = width * channels
+    rows, previous = [], bytearray(stride)
+    offset = 0
+    for _ in range(height):
+        filter_kind = raw[offset]
+        line = bytearray(raw[offset + 1: offset + 1 + stride])
+        offset += 1 + stride
+        # The five PNG filters, undone in place. Each byte is predicted from the one `channels` to
+        # its left, the one above, or both; this is the whole of PNG decoding that is not zlib.
+        for i in range(stride):
+            left = line[i - channels] if i >= channels else 0
+            up = previous[i]
+            upper_left = previous[i - channels] if i >= channels else 0
+            if filter_kind == 1:
+                line[i] = (line[i] + left) & 0xff
+            elif filter_kind == 2:
+                line[i] = (line[i] + up) & 0xff
+            elif filter_kind == 3:
+                line[i] = (line[i] + ((left + up) >> 1)) & 0xff
+            elif filter_kind == 4:
+                estimate = left + up - upper_left
+                da, db, dc = abs(estimate - left), abs(estimate - up), abs(estimate - upper_left)
+                nearest = left if (da <= db and da <= dc) else (up if db <= dc else upper_left)
+                line[i] = (line[i] + nearest) & 0xff
+            elif filter_kind != 0:
+                raise SystemExit("ERROR: %s uses filter %d" % (path, filter_kind))
+        rows.append([tuple(line[x * channels: x * channels + 3]) for x in range(width)])
+        previous = line
+    return width, height, rows
+
+
+def read_image(path):
+    return read_png(path) if path.lower().endswith(".png") else read_bmp(path)
 
 
 def read_bmp(path):
@@ -67,8 +135,8 @@ def edge_mask(width, height, rows, band):
 
 
 def compare(reference, candidate, band):
-    width, height, a = read_bmp(reference)
-    cw, ch, b = read_bmp(candidate)
+    width, height, a = read_image(reference)
+    cw, ch, b = read_image(candidate)
     if (width, height) != (cw, ch):
         raise SystemExit("ERROR: size mismatch %dx%d vs %dx%d" % (width, height, cw, ch))
     differing, max_delta, outside = 0, 0, 0

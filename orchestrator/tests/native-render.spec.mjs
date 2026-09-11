@@ -168,7 +168,28 @@ test('GPU adapters match the SDL reference within the recorded tolerances and bu
         scene.cross[`${backends[i]}-vs-${backends[j]}`] = await compare(gpu[backends[i]].snapshots[name], gpu[backends[j]].snapshots[name], name);
       report.scenes[name] = scene;
     }
+    /* And against the COMMITTED reference frames, which are the oracle that survives SDL_Renderer
+       retiring as a shipping path (charter D49/D54, spec 124). The live comparison above is only as
+       independent as SDL is: once every backend renders through one seam, a seam defect moves pixels
+       in all of them at once and cross-comparison sees nothing. A recorded frame cannot drift along
+       with the code it judges, which is the whole point of keeping one. */
+    report.reference = {};
+    for (const name of Object.keys(TOLERANCE)) {
+      const recorded = path.join('orchestrator/tests/references', `render-${name}.png`);
+      if (!existsSync(recorded)) continue;
+      report.reference[name] = {};
+      for (const backend of [...backends, 'sdl']) {
+        const shot = backend === 'sdl' ? sdl.snapshots[name] : gpu[backend].snapshots[name];
+        report.reference[name][backend] = await compare(recorded, shot, name);
+      }
+    }
     await writeFile('.cache/evidence/render-compare.json', JSON.stringify(report, null, 2));
+    for (const name of Object.keys(report.reference)) {
+      for (const [backend, result] of Object.entries(report.reference[name])) {
+        assert.deepEqual(result.failures, [],
+          `${backend} ${name} still matches the recorded frame: ${JSON.stringify(result)}`);
+      }
+    }
     for (const backend of backends) {
       for (const name of Object.keys(TOLERANCE)) {
         const scene = report.scenes[name];

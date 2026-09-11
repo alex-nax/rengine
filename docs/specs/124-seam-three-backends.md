@@ -441,3 +441,50 @@ has no mid-pass clear**, because a clear is a load action chosen when an encoder
 carries one consequence a call site could see: a clear is not clipped by the scissor here. Nothing in
 this repository clears inside a scissor; something that did would differ, and that is written down
 rather than discovered.
+
+
+## F133, first step: the oracle, captured before the path that served it retires
+
+D54's ordering is the whole point, so it was done first: **the reference frames were captured from
+SDL_Renderer while it is still a shipping path.** Doing it afterwards would have meant recording
+whatever the seam produced and calling it correct.
+
+`orchestrator/tests/references/render-{workspace,terminal,primitives}.png` — 432 KiB for all three at
+2560x1600, because 16 MiB of BMP each cannot live in a repository two games pin as a submodule.
+`render_compare.py` gained a PNG reader (zlib plus the five PNG filters, about fifty lines, standard
+library only) and `native-render.spec.mjs` now judges every backend against them.
+
+Every backend matches: 392, 436 and 32,195 differing pixels on the three scenes, **none outside the
+2px edge band**, and SDL matches its own recording exactly at zero.
+
+### The sabotage that justifies the whole exercise
+
+Charter D54 predicted that retiring SDL_Renderer would retire the only independent witness, because
+once every backend renders through one seam a defect in that seam moves all of them together. That is
+not a guess any more. Nudging one shared colour — `--re-gray-1`, the window clear — and rebuilding:
+
+| gate | what it saw |
+| --- | --- |
+| cross-backend, OpenGL vs Metal vs Vulkan | **0 failures** — all three moved identically |
+| the live SDL oracle | **0 failures** — SDL moved too |
+| **the committed reference frames** | **2,467,394 pixels** outside the edge band on one scene alone |
+
+A defect that moves everything at once is invisible to every comparison that shares the code, and
+visible immediately to one that does not. The witness had to become data, and now it is.
+
+### What F133 still owes
+
+The migration itself: rEngine's draw list rendering through the seam, and SDL_Renderer removed from
+the selectable renderers. One design question has to be answered first and it is the owner's, because
+it changes how the desktop is built and tested:
+
+**The seam's backend is chosen at compile time (D14b/D51), and rEngine's desktop chooses its renderer
+at run time (`--renderer opengl|metal|vulkan|sdl`).** Those cannot both survive the migration. Either
+the desktop ships one binary per backend — which is what D51 intends for a game, and which means
+`native-render.spec.mjs` builds three desktops instead of running one three times — or the desktop
+keeps its own runtime-dispatched backends and gains the seam as a fourth, which leaves two OpenGL
+paths in the tree and only half-proves the point.
+
+The recommendation is the first: it is what D51 already decided for the consumers this pack exists to
+serve, and the reference frames make a per-binary comparison as trustworthy as the runtime one was.
+The cost is a longer desktop build in the suite, and it is worth stating before it is paid.

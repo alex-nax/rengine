@@ -1,5 +1,43 @@
 # Progress Log
 
+## Session 103 (macos) — 2026-09-11 — the oracle, captured before the path that served it retires
+
+F133's first step, and D54's ordering is the whole point of doing it first: **the reference frames
+were captured from SDL_Renderer while it is still a shipping path.** Afterwards would have meant
+recording whatever the seam produced and calling it correct.
+
+`orchestrator/tests/references/render-{workspace,terminal,primitives}.png` — **432 KiB for all three**
+at 2560x1600, because 16 MiB of BMP each cannot live in a repository two games pin as a submodule.
+`render_compare.py` gained a PNG reader (zlib and the five PNG filters, ~50 lines, standard library),
+and `native-render.spec.mjs` judges every backend against them: 392, 436 and 32,195 differing pixels
+across the three scenes, **none outside the 2px edge band**, with SDL matching its own recording at
+zero.
+
+**The sabotage that justifies the exercise.** D54 predicted that retiring SDL_Renderer would retire
+the only independent witness, because once every backend renders through one seam a defect moves all
+of them together. Nudging one shared colour — `--re-gray-1`, the window clear — and rebuilding:
+
+| gate | what it saw |
+| --- | --- |
+| cross-backend, OpenGL vs Metal vs Vulkan | **0 failures** — all three moved identically |
+| the live SDL oracle | **0 failures** — SDL moved too |
+| **the committed reference frames** | **2,467,394 pixels** outside the edge band, on one scene |
+
+Not a guess any more.
+
+**What F133 still owes, and the one question that is the owner's.** The migration itself: the draw
+list through the seam, and SDL removed from the selectable renderers. First, a conflict has to be
+settled, because it changes how the desktop is built and tested — **the seam's backend is chosen at
+compile time (D14b/D51) and the desktop chooses its renderer at run time.** Both cannot survive.
+Either the desktop ships one binary per backend, which is what D51 intends for a game and means the
+render spec builds three desktops rather than running one three times; or the desktop keeps its own
+runtime-dispatched backends and gains the seam as a fourth, leaving two OpenGL paths in the tree and
+half-proving the point. Recommendation is the first, and the cost — a longer desktop build in the
+suite — is worth stating before it is paid.
+
+Commands: `npm test` 236/236 · `native-render.spec.mjs` against the committed references · the
+shared-defect sabotage · `./init.sh` · `design.py check`
+
 ## Session 102 (macos) — 2026-09-11 — three backends, one frame, two pixels each
 
 F131. The Metal backend lands, and the scene example now renders the same frame through all three:
