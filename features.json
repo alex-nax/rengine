@@ -2192,6 +2192,28 @@
         "docs/specs/124-seam-three-backends.md: the desktop maintains its UI shader in three hand-written copies (inline GLSL, shaders/ui.*, inline MSL) implementing the same five SDF modes — they agree today, by hand"
       ],
       "passes": false
+    },
+    {
+      "id": 134,
+      "milestone": "R3",
+      "category": "desktop",
+      "priority": "high",
+      "description": "A view that is closed gives its slot back. Closing a view keeps its tab so reopening restores it, which is the refresh gesture spec 080 describes, but a window has 64 slots and nothing ever reclaimed one: after 64 distinct views a long-lived window could open nothing at all, and the only symptom was a status line. When every slot is taken the window releases the least recently used CLOSED view and names it, the way the explorer already releases the least recently opened folder at its row cap.",
+      "deliverable": "The reclaim in re_app_tab, the status line that names what it released, and a regression that drives the reported gesture past the slot count.",
+      "acceptance_criteria": [
+        "A window that has opened and closed more views than it has slots still opens another, and says which closed view it released rather than refusing.",
+        "Only a view that no pane shows is reclaimed: one on screen is never taken out from under the person using it.",
+        "A reply or a tree expansion still in flight for the reclaimed view does not land on the view that takes its slot.",
+        "A window whose slots are all on screen refuses in terms that are true, naming what to do about it.",
+        "Each regression was observed failing for its own reason, including the leak as originally reported."
+      ],
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/125-view-slot-reclaim.md: the owner's own window held 64 slots with 4 views on screen and 60 closed, and a restart would have restored the exhaustion rather than clearing it"
+      ],
+      "passes": true
     }
   ]
 }

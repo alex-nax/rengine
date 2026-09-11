@@ -86,3 +86,50 @@ test('native tab overflow, reordering and pane merging preserve files and retain
     assert.equal(await server.store.readText(root.id, 'file-0.txt').then(f => f.text), 'content 0\n');
   } finally { await gui?.close(); await server?.close(); await rm(directory, { recursive: true, force: true }); }
 });
+
+/* A slot leaked on every close, and the workspace stopped opening anything (spec 125).
+ *
+ * Closing a view removes it from its pane and deliberately KEEPS its tab, so reopening restores what
+ * was there — that is the reuse path in re_app_tab and the refresh gesture spec 080 describes. What
+ * nothing did was give the slot back. After 64 distinct views a long-lived window could open nothing
+ * at all: a click on Shell still made the session, so it appeared in the Sessions tab, but the client
+ * could not make a tab for it and the only symptom was one line in the status bar. Sixty of the
+ * sixty-four slots in the owner's own window were closed views when this was found.
+ *
+ * Driven with the gesture that was reported — clicking Shell — rather than by opening files, because
+ * that is what a long day in one window actually looks like. */
+const PLATFORM_MODIFIER = process.platform === 'darwin' ? 0x0c00 : 0x00c0;
+
+test('a window that has opened and closed more views than it has slots can still open one', { timeout: 300000 }, async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-native-slots-'));
+  const project = path.join(directory, 'project'); await mkdir(project);
+  let server, gui;
+  try {
+    server = await startServer({ stateDir: path.join(directory, 'state') });
+    const root = await server.store.addRoot(project);
+    gui = await nativeClient(server, { root: root.id });
+    await gui.until(s => s.tabs.some(t => t?.type === 1));
+    /* Counted from the LAYOUT, never from the tab array: a closed view keeps its tab, which is the
+       very thing under test, so the tab array cannot say whether anything is on screen. */
+    const shown = s => s.layout.panes.flatMap(p => p?.tabs ?? []).filter(t => s.tabs[t]?.type === 3).length;
+    const rounds = 70;                    /* more than the 64 slots, with room for the starting views */
+    let state;
+    for (let i = 0; i < rounds; i++) {
+      const before = shown(await gui.command({ op: 'state' }));
+      await gui.control('toolbar', 'Shell');
+      state = await gui.until(s => shown(s) > before,
+        `shell ${i} opened a view; the window ran out of slots after ${i} opens and closes`);
+      await gui.key('W', PLATFORM_MODIFIER);
+      await gui.until(s => shown(s) <= before, `shell ${i} closed again`);
+    }
+    /* Past the slot count, the window says which closed view it gave back rather than refusing. */
+    assert.match(state.status, /Released the closed view/,
+      `the window reclaimed a closed view instead of refusing: ${state.status}`);
+    assert.ok(state.tabs.filter(Boolean).length <= 64,
+      'and it never holds more views than it has slots');
+  } finally {
+    if (gui) await gui.close();
+    if (server) await server.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});

@@ -380,6 +380,38 @@ void re_app_action(ReApp *a, const char *route, const cJSON *body) {
   int operation = !strcmp(route, "terminal") || !strcmp(route, "game") ? OP_CREATE : !strcmp(route, "roots") ? OP_ROOT : OP_GENERIC;
   request(a, operation, -1, route, body);
 }
+/* Give back the least recently used view that is CLOSED — one this window still holds but no pane
+ * shows. Closing a view deliberately keeps its tab so that reopening restores it, which is the
+ * reuse loop in re_app_tab and the refresh gesture spec 080 describes; the cost, until now, was that
+ * a slot was claimed for the life of the window. Sixty-four distinct views later the workspace could
+ * open nothing at all: clicking Shell made the session, the client could not make a tab, and the
+ * only symptom was one line in the status bar. The explorer already solves the same problem the same
+ * way — enforce_row_cap collapses the least recently opened folder and says so. */
+static int reclaim_view(ReApp *a, char *closing, size_t size) {
+  int oldest = -1;
+  for (int i = 0; i < RE_TABS; i++) {
+    if (!a->tabs[i].used || re_layout_find(&a->layout, i) >= 0) continue;
+    if (oldest < 0 || a->tabs[i].touched < a->tabs[oldest].touched) oldest = i;
+  }
+  if (oldest < 0) return -1;
+  ReTab *t = &a->tabs[oldest];
+  /* Copy the name out first: everything below clears the buffer it lives in, and a status line
+     naming the view it released would otherwise name an empty string. enforce_row_cap learned the
+     same thing about paths a few functions up. */
+  re_copy(closing, size, *t->title ? t->title : "with no title");
+  re_app_expansions_clear(a, oldest);
+  cJSON_Delete(t->data); re_recording_close(t->recorder); re_terminal_close(t->terminal);
+  re_editor_close(t->editor); re_game_close(t->game); re_format_close(t->format); re_image_close(t->image);
+  /* The generation survives and advances: a reply or an expansion still in flight for the old view
+   * must not land on the new one, and every such record carries the generation it was made under. */
+  int generation = t->generation;
+  Uint64 touched = t->touched;
+  memset(t, 0, sizeof(*t));
+  t->generation = generation + 1;
+  t->touched = touched;
+  return oldest;
+}
+
 int re_app_tab(ReApp *a, int type, const char *root, const char *path, const char *session, const char *title) {
   if (strlen(root) >= sizeof(a->tabs[0].root) || strlen(path) >= sizeof(a->tabs[0].path) || strlen(session) >= sizeof(a->tabs[0].session)) {
     re_copy(a->status, sizeof(a->status), "View identity exceeds the supported length."); return -1;
@@ -394,18 +426,32 @@ int re_app_tab(ReApp *a, int type, const char *root, const char *path, const cha
       int pane = re_layout_find(&a->layout, i);
       if (pane < 0) re_layout_add(&a->layout, a->layout.active, i);
       else { a->layout.active = pane; for (int k = 0; k < a->layout.panes[pane].count; k++) if (a->layout.panes[pane].tabs[k] == i) a->layout.panes[pane].selected = k; }
-      a->focus = i; re_app_layout_changed(a); return i;
+      a->focus = i; t->touched = SDL_GetTicks64(); re_app_layout_changed(a); return i;
     }
   }
-  for (int i = 0; i < RE_TABS; i++) if (!a->tabs[i].used) {
+  int slot = -1;
+  for (int i = 0; i < RE_TABS && slot < 0; i++) if (!a->tabs[i].used) slot = i;
+  if (slot < 0) {
+    char closing[sizeof(a->tabs[0].title)] = {0};
+    int oldest = reclaim_view(a, closing, sizeof(closing));
+    if (oldest < 0) {
+      re_copy(a->status, sizeof(a->status),
+              "Every one of the 64 views in this window is open; close one to open another.");
+      return -1;
+    }
+    slot = oldest;
+    snprintf(a->status, sizeof(a->status), "Released the closed view %s to open another.", closing);
+  }
+  {
+    int i = slot;
     ReTab *t = &a->tabs[i]; t->used = true; t->generation++; t->type = type; t->session_ended = false;
     re_copy(t->root, sizeof(t->root), root); re_copy(t->path, sizeof(t->path), path);
     re_copy(t->session, sizeof(t->session), session); re_copy(t->title, sizeof(t->title), title);
+    t->touched = SDL_GetTicks64();
     re_layout_add(&a->layout, a->layout.active, i); a->focus = i;
     open_view(a, t);
     re_app_load(a, i); re_app_layout_changed(a); return i;
   }
-  re_copy(a->status, sizeof(a->status), "The workspace supports 64 retained views in this build."); return -1;
 }
 static bool session_tab(ReApp *a, const cJSON *session) {
   return re_app_tab(a, !strcmp(re_string(session, "type"), "game") ? RE_GAME : RE_TERMINAL,

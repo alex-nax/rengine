@@ -1,5 +1,51 @@
 # Progress Log
 
+## Session 105 (macos) — 2026-09-11 — a closed view never gave its slot back (F134)
+
+Owner report: *"new tabs seems not to be opening in this instance of editor anymore, eg. i click
+shell - it shows in sessions tab but I cannot neither attach to it nor new tab opens at all"*.
+
+Both halves of that are right, and they have different causes. **The session was made** — the server
+made it, so it appeared in the Sessions tab with a live PID. **The tab was not**: `re_app_tab` needs
+one of the window's 64 slots, there were none, and it returned −1 after writing one line to the
+status bar that is easy to miss.
+
+**Measured in the owner's own window**, from `.cache/orchestrator-development/workspace.json`:
+
+| | |
+| --- | --- |
+| slots used | **64 of 64** |
+| views actually in a pane | **4** |
+| orphans | **60** — 30 editors, 24 terminals and agents, 3 dashboards, Devices, Tasks, a tree |
+
+Closing a view removes it from its pane and deliberately keeps its tab, so reopening restores what
+was there — the reuse path in `re_app_tab`, and spec 080's refresh gesture. Nothing ever gave a slot
+back. **And a restart would not have fixed it**: `re_app_restore` marks every serialised tab `used`
+again, so the exhausted window would have come back exhausted.
+
+**The fix** is the one the explorer already uses a few functions away: when every slot is taken,
+release the least recently used view that is **closed**, and say which one — `enforce_row_cap`
+collapses the least recently opened folder at the tree's row cap and names it. If every slot is on
+screen, refuse in terms that are true. The generation advances so a reply or expansion still in
+flight cannot land on the view that takes the slot, and the name is copied before the clear because
+the status line names it — the same comment `enforce_row_cap` carries about paths.
+
+**Two sabotages, each on its own reason:** nothing reclaimed reproduces the report exactly (*"ran out
+of slots after 63 opens and closes"*), and reclaiming a view that is on screen breaks the close.
+
+**Two earlier versions of the test would have passed for the wrong reason**, and both are recorded:
+opening files through the tree ran out at `slot-4.txt` because the tree sorts alphabetically and that
+is the forty-fifth row, so the test was measuring window height; and counting terminals from the tab
+array can never see a close at all, because the tab persists — the bug wearing the test's clothes.
+
+Commands: `npm test` 236/236 · `native-layout.spec.mjs` with both sabotages · `design.py check` ·
+`./init.sh`. `test:desktop` showed a different single failure on each of two runs (the game specs'
+KI-075 scancode flake, then a tree-expansion wait); all pass in isolation, and this machine has been
+building three graphics backends all day.
+
+Owed: the owner's running window still has the old binary. The fix self-heals a restored 64-slot
+state, so it needs a desktop restart and no state surgery.
+
 ## Session 104 (macos) — 2026-09-11 — two API gaps and a third copy, all found by writing the port
 
 F133, continued. No migration yet — and the reason is that writing the draw list against the seam

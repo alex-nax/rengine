@@ -20,6 +20,7 @@ typedef struct {
   int diagnostic_version;    /* the language servers' publish counter this tab has already drawn */
   cJSON *data; ReTerminal *terminal; ReEditor *editor; ReGame *game; ReFormatView *format; ReImageView *image; ReRecorder *recorder;
   mu_Rect rect, header; Uint64 edited;
+  Uint64 touched;            /* when this view was last opened or chosen; the eviction order (spec 125) */
 } ReTab;
 typedef struct { int id, operation, tab, generation, revision, slot; char root[65]; long timeout; } RePending;
 /* Nested explorer rows (spec 080 decisions 7-10). One entry per directory expanded in place; the
