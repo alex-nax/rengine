@@ -863,3 +863,108 @@ The last two are the argument for extending the validation gate to this path rat
 on `backend_vk.c` alone. Neither moves a pixel the reference comparison would notice — a format
 mismatch on this driver renders the frame anyway — so without the layers listening, both would have
 shipped green.
+
+
+## F133, last step: the four backends are gone
+
+`--renderer opengl|metal|vulkan` now names **one compile-time copy of the seam each**, reached through
+`seam_backends.h`. The pack stays compile-time selected, so D14b's zero indirection holds for the games
+it serves; the only runtime choice is which of the three copies a window opens. **2,082 lines across
+15 files deleted**: `backend_gl.c`, `backend_metal.m`, `backend_vk.c`, `backend_sdl.c`, their headers
+and sidecars, and `shaders/ui.vert`, `ui.frag`, `ui_spv.h`.
+
+All three renderers are byte-identical to the frame the OpenGL backend drew before any of this began.
+
+### SDL_Renderer, retired
+
+`--renderer sdl` now answers *"Unknown renderer 'sdl'; use opengl, metal or vulkan."* That is charter
+D49 carried out, and the reference frames are what make it safe: they were captured from that path
+while it was still shipping, which is the ordering D54 required and the reason this could not have
+been done in the other order.
+
+The render spec loses its SDL capture, and two gates change shape as a consequence. Both are stated
+here rather than absorbed, which criterion 4 asks for:
+
+- **The live SDL comparison is gone** and the recorded frames are the only gate. Cross-backend
+  comparison stays in the report as *information*: every backend now shares the seam, so agreeing with
+  each other says only that they run the same code. A missing reference file is now a **failure**
+  rather than a skip — silently having no oracle is the one way this suite could go green while
+  measuring nothing.
+- **The memory budget becomes absolute.** It was "32 MiB more than SDL_Renderer's resident set", and
+  that figure is no longer a path that runs. SDL measured 164–170 MiB across runs, so the old rule
+  effectively enforced about 200 MiB; the new ceiling is **208 MiB**, which keeps that with room for
+  run-to-run variance and is still well clear of the 146–169 MiB the three copies measure.
+
+Frame time is unchanged: the same absolute 8 ms ceiling, which never depended on SDL.
+
+### The boundary is now checked, not described
+
+`tools/design.py`'s render-layering rule allowed graphics-API symbols in `render/backend_*.c` because
+the four hand-written backends each carried their own. They are gone, and the one backend left draws
+through the pack and mentions no API at all — so the rule now allows **`render/seam_host_*.c` only**.
+That is the migration's whole claim, expressed as something the build refuses rather than something a
+spec asserts.
+
+`tools/shaders.py` loses `check_legacy()` with the pair it was guarding. It existed to stop `ui.vert`
+and `ui.frag` drifting from `ui.glsl` during the transition, and the transition is over.
+
+### Windows
+
+`RE_DEFAULT_BACKEND` there was `sdl`, "until it has its own evidence (KI-014)". It has had that
+evidence since 2026-09-06 for both OpenGL and Vulkan, so the default is now `opengl`. What is **not**
+verified on Windows is this migration: the seam copies, the `/FI` force-include and the draw list
+through the pack have only ever run on macOS. The code path is the same one all three macOS copies
+share, and the Windows host that produced the adapter evidence is the place to confirm it.
+
+### What the suite says with the transition over
+
+| scene | all three, against the recorded frame | outside the 2px band | cross-backend (information) |
+| --- | --- | --- | --- |
+| workspace | 392 px | **0** | 0 |
+| terminal | 436 px | **0** | 0 |
+| primitives | 32,195 px | **0** | 0 |
+
+Vulkan validation: 0 messages. Memory 185,296 / 146,528 / 147,664 KiB against the 208 MiB ceiling.
+Medians 0.56–1.45 (OpenGL), 1.80–2.50 (Metal), 3.95–4.81 (Vulkan) against 8 ms — **Vulkan is the one
+worth watching**, at about 60% of the ceiling, for the three-submits-per-frame reason recorded above.
+
+The spec also runs in **189 seconds instead of 821**: six backends and fifteen pairwise comparisons
+became three and three.
+
+**The missing-reference assertion was sabotage-verified** by taking `render-terminal.png` away — *"the
+recorded reference frame … is the only oracle left and is missing"*. It matters more than it looks:
+with SDL gone, a deleted or unreadable reference is the one way this suite could report success while
+comparing nothing at all.
+
+### F133's criteria, against what is here
+
+1. **The desktop renders through the seam on every graphics API it supports.** Three copies, three
+   `--renderer` values, workspace and terminal and primitives captured on each.
+2. **The reference frames were captured from SDL_Renderer before it stopped shipping**, in the
+   increment that added them, and every backend is judged against them.
+3. **`--renderer sdl` says what to use instead**: *"Unknown renderer 'sdl'; use opengl, metal or
+   vulkan."*
+4. **The budgets are met, and the two that changed shape are stated** in this section rather than
+   absorbed.
+5. **Each regression was observed failing for its own reason** — eleven sabotages across the five
+   increments, including the shared-defect one that only the recorded frames could catch.
+6. **Nothing was lost in the move**: the frames are identical to the ones the hand-written backends
+   produced, on all three scenes, to the pixel.
+
+### The rows, and what is still owed
+
+**F133's work is done and every criterion above is met; its row still reads `passes: false`.**
+`features.py validate` refuses a passing feature whose dependencies are not passing, and F130 and
+F131 have never been settled — KI-082's F123/F126 knot left the whole chain waiting. That is a
+bookkeeping pass over F123 and F129–F132 against evidence this spec already records, not more
+implementation, and it is **KI-085**.
+
+Today's run re-confirmed several of those criteria incidentally, because the seam changed underneath
+the example: it still **builds from the pack alone** on all three backends, and renders within **1, 4
+and 5 pixels** of itself across them — which also shows the OpenGL scissor conversion is right for the
+example's *off-screen* mirror pass and not only for a window.
+
+**What no evidence covers anywhere is Windows.** The seam copies, the `/FI` force-include and the
+draw list through the pack have only ever run on macOS. `RE_DEFAULT_BACKEND` there is now `opengl`,
+on the strength of adapter evidence from 2026-09-06 that measured the *deleted* backend. The code
+path is the one all three macOS copies share, and the host in KI-014 is where that gets answered.

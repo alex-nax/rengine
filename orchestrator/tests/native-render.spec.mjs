@@ -11,8 +11,10 @@ import { startServer } from '../server/main.mjs';
 import { nativeClient } from './native-client.mjs';
 
 const run = promisify(execFile);
-// Tolerances and budgets recorded before the run in docs/specs/068-opengl-adapter.md (decisions 5 and 6);
-// specs 072 and 073 gate Metal and Vulkan against the same SDL reference and record GPU-versus-GPU as information.
+// Tolerances and budgets recorded before the run in docs/specs/068-opengl-adapter.md (decisions 5 and 6).
+// They were written when SDL_Renderer was the live reference; the same numbers now gate against the
+// frames recorded FROM it before it stopped shipping (charter D49, spec 124), which is the same
+// comparison against an oracle that can no longer move.
 // The current-UI scenes gained anti-aliased rounded controls with the design update (spec 076), so
 // they carry the edge-band rule the owner set for the primitives scene instead of a channel limit:
 // the differing fraction stays tight and nothing may differ outside a 2px band of a shape's edge.
@@ -21,32 +23,33 @@ const TOLERANCE = {
   terminal: ['--max-fraction', '0.001', '--edge-band', '2'],
   primitives: ['--max-fraction', '0.02', '--edge-band', '2'],
 };
-// Frame time is gated on an absolute ceiling per scene, which is what a 60Hz workspace needs; the
-// SDL comparison stays in the report as information. Spec 068 decision 6 as amended on 2026-09-06
+// Frame time is gated on an absolute ceiling per scene, which is what a 60Hz workspace needs.
+// Spec 068 decision 6 as amended on 2026-09-06
 // (spec 076): the adapters now anti-alias shapes the reference draws hard-edged, so the old
 // at-or-below-the-reference rule no longer compares like with like.
-const SCENE_CEILING_MS = 8, MEMORY_LIMIT_KB = 32 * 1024;
+// Frame time keeps its absolute ceiling. Memory becomes an absolute ceiling too, because the figure
+// it used to be measured against — SDL_Renderer's resident set — is no longer a path that runs. The
+// number is the one the old rule effectively enforced: SDL measured 164–170 MiB across runs with a
+// 32 MiB delta allowed on top, so ~200 MiB. 208 MiB keeps that with room for run-to-run variance and
+// is still well above the 146–169 MiB the three copies actually measure.
+const SCENE_CEILING_MS = 8, MEMORY_LIMIT_KB = 208 * 1024;
 const WIN = process.platform === 'win32';
 // Spec 068 decision 6 as amended on 2026-09-06 (spec 073 status): Vulkan on Windows carries the NVIDIA driver's
 // process baseline, so its resident-memory ceiling is 64 MiB there; every other backend keeps 32 MiB.
 const memoryLimitKb = backend => (WIN && backend === 'vulkan' ? 64 * 1024 : MEMORY_LIMIT_KB);
 const PYTHON = WIN ? 'python' : 'python3'; // Windows ships no python3 alias
 const BINARY = process.env.RENGINE_NATIVE_BINARY ?? path.resolve('.cache/desktop/bin', WIN ? 'Release/rengine.exe' : 'rengine');
-// The seam-* backends are the draw list rendered through packs/gpu's seam, one copy per graphics
-// API (F133, spec 124, spec 126 decision 3). They are listed here for
-// the length of the transition, while the three hand-written backends still exist: every gate below —
-// the recorded frames, the SDL comparison, the cross-backend comparison, the frame ceiling and the
-// memory budget — then judges it against the paths it is meant to replace, before any of them are
-// deleted. When the seam carries all three APIs, this list names them again and the seam-* values
-// lose their prefix.
-const GPU_BACKENDS = process.platform === 'darwin'
-  ? ['opengl', 'metal', 'vulkan', 'seam-opengl', 'seam-metal', 'seam-vulkan']
-  : ['opengl', 'vulkan', 'seam-opengl', 'seam-vulkan'];
+// Each of these is one compile-time copy of packs/gpu's seam rendering rEngine's draw list (F133).
+// The four hand-written backends they replaced are gone, and so is SDL_Renderer as a shipping path
+// (charter D49) — which is why the recorded reference frames below are now the ONLY independent
+// oracle: every remaining backend shares the seam, so a defect in it moves pixels in all of them at
+// once and cross-comparison cannot see it. A recorded frame cannot drift with the code it judges.
+const GPU_BACKENDS = process.platform === 'darwin' ? ['opengl', 'metal', 'vulkan'] : ['opengl', 'vulkan'];
 const TERMINAL_SCRIPT = WIN
   ? "1..40 | % { ('{0}[3{1}m{2:D3}{0}[0m row of the render scene with colour and text' -f [char]27, ($_ % 7 + 1), $_) }; 'RENDER_DONE'\r\n"
   : "for i in $(seq 1 40); do printf '\\033[3%dm%03d\\033[0m row of the render scene with colour and text\\n' $((i % 7 + 1)) $i; done; printf 'RENDER_DONE\\n'\n";
 // A plain shell with a fixed prompt: the login shell's asynchronous prompt segments redraw after the
-// stable-text wait and made the SDL capture disagree with the GPU captures on prompt and scrollbar pixels.
+// stable-text wait, which made captures disagree with each other on prompt and scrollbar pixels.
 const SHELL = WIN ? { command: 'powershell.exe', args: ['-NoLogo', '-NoProfile'] } : { command: '/bin/bash', args: ['--noprofile', '--norc'], env: { PS1: 'render$ ' } };
 
 // SDL honours SDL_VULKAN_LIBRARY; on macOS the Homebrew loader (with MoltenVK) lives outside the default search path.
@@ -131,7 +134,7 @@ async function capture(project, backend, dir, extraEnv = {}, tag = backend) {
   return result;
 }
 
-test('GPU adapters match the SDL reference within the recorded tolerances and budgets', { timeout: 2100000 }, async () => {
+test('every renderer matches the recorded reference frames within the tolerances and budgets', { timeout: 2100000 }, async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-native-render-'));
   const project = path.join(dir, 'project'); await mkdir(project);
   await writeFile(path.join(project, 'render.txt'), 'render scene\n');
@@ -145,7 +148,6 @@ test('GPU adapters match the SDL reference within the recorded tolerances and bu
       if (reason) unavailable[backend] = reason; else backends.push(backend);
     }
     for (const [backend, reason] of Object.entries(unavailable)) console.log(`render spec: ${backend} unavailable on this machine (${reason})`);
-    const sdl = await capture(project, 'sdl', dir);
     const gpu = {};
     for (const backend of backends) gpu[backend] = await capture(project, backend, dir, envFor(backend));
     // Spec 073 decision 9: one validation-layer run of the Vulkan backend; every message is a failure.
@@ -160,36 +162,32 @@ test('GPU adapters match the SDL reference within the recorded tolerances and bu
       validation[backend] = { messages: messages.length, first: messages.slice(0, 5) };
     }
     await mkdir('.cache/evidence', { recursive: true });
-    const report = { platform: process.platform, backends, unavailable, validation, scenes: {}, memory: { sdlKb: sdl.rss, limitKb: MEMORY_LIMIT_KB } };
-    report.memory.sdlSamples = sdl.samples;
+    const report = { platform: process.platform, backends, unavailable, validation, scenes: {}, memory: { limitKb: MEMORY_LIMIT_KB } };
     for (const backend of backends) { report.memory[`${backend}Kb`] = gpu[backend].rss; report.memory[`${backend}LimitKb`] = memoryLimitKb(backend); report.memory[`${backend}Samples`] = gpu[backend].samples; }
     for (const name of Object.keys(TOLERANCE)) {
-      await copyFile(sdl.snapshots[name], `.cache/evidence/render-${name}-sdl.bmp`);
-      const scene = { sdl: sdl.stats[name], compare: {}, cross: {} };
+      const scene = { cross: {} };
       for (const backend of backends) {
         await copyFile(gpu[backend].snapshots[name], `.cache/evidence/render-${name}-${backend}.bmp`);
         scene[backend] = gpu[backend].stats[name];
-        scene.compare[backend] = await compare(sdl.snapshots[name], gpu[backend].snapshots[name], name);
-        scene.compare[backend].versusReference = Number((scene[backend].frameMedianMs / sdl.stats[name].frameMedianMs).toFixed(3));
       }
+      // Kept as information, not as the gate: every backend now shares the seam, so agreeing with
+      // each other says only that they run the same code. The recorded frames below are the gate.
       for (let i = 0; i < backends.length; i++) for (let j = i + 1; j < backends.length; j++)
         scene.cross[`${backends[i]}-vs-${backends[j]}`] = await compare(gpu[backends[i]].snapshots[name], gpu[backends[j]].snapshots[name], name);
       report.scenes[name] = scene;
     }
-    /* And against the COMMITTED reference frames, which are the oracle that survives SDL_Renderer
-       retiring as a shipping path (charter D49/D54, spec 124). The live comparison above is only as
-       independent as SDL is: once every backend renders through one seam, a seam defect moves pixels
-       in all of them at once and cross-comparison sees nothing. A recorded frame cannot drift along
-       with the code it judges, which is the whole point of keeping one. */
+    /* THE gate, now that SDL_Renderer has stopped shipping (charter D49/D54, spec 124). It was added
+       while SDL was still live, for exactly the situation that has now arrived: every backend renders
+       through one seam, so a seam defect moves pixels in all of them at once and cross-comparison
+       sees nothing. A recorded frame cannot drift along with the code it judges.
+       A missing reference is a failure now, not a skip — silently having no oracle is the one way
+       this suite could go green while measuring nothing. */
     report.reference = {};
     for (const name of Object.keys(TOLERANCE)) {
       const recorded = path.join('orchestrator/tests/references', `render-${name}.png`);
-      if (!existsSync(recorded)) continue;
+      assert.ok(existsSync(recorded), `the recorded reference frame ${recorded} is the only oracle left and is missing`);
       report.reference[name] = {};
-      for (const backend of [...backends, 'sdl']) {
-        const shot = backend === 'sdl' ? sdl.snapshots[name] : gpu[backend].snapshots[name];
-        report.reference[name][backend] = await compare(recorded, shot, name);
-      }
+      for (const backend of backends) report.reference[name][backend] = await compare(recorded, gpu[backend].snapshots[name], name);
     }
     await writeFile('.cache/evidence/render-compare.json', JSON.stringify(report, null, 2));
     for (const name of Object.keys(report.reference)) {
@@ -201,12 +199,11 @@ test('GPU adapters match the SDL reference within the recorded tolerances and bu
     for (const backend of backends) {
       for (const name of Object.keys(TOLERANCE)) {
         const scene = report.scenes[name];
-        assert.deepEqual(scene.compare[backend].failures, [], `${backend} ${name}: ${JSON.stringify(scene.compare[backend])}`);
         assert.ok(!scene[backend].overflow, `${backend} ${name}: the draw list overflowed`);
         assert.ok(scene[backend].frameMedianMs <= SCENE_CEILING_MS,
           `${backend} ${name}: median ${scene[backend].frameMedianMs.toFixed(3)} ms exceeds the ${SCENE_CEILING_MS} ms ceiling`);
       }
-      assert.ok(gpu[backend].rss - sdl.rss <= memoryLimitKb(backend), `${backend}: resident memory delta ${gpu[backend].rss - sdl.rss} KiB exceeds ${memoryLimitKb(backend)} KiB`);
+      assert.ok(gpu[backend].rss <= memoryLimitKb(backend), `${backend}: resident memory ${gpu[backend].rss} KiB exceeds ${memoryLimitKb(backend)} KiB`);
     }
     for (const [backend, result] of Object.entries(validation)) {
       if (result.unavailable) { console.log(`render spec: ${backend} validation unavailable on this machine (${result.unavailable})`); continue; }

@@ -200,28 +200,6 @@ def generate():
     print("wrote %s from %s" % (HEADER.relative_to(ROOT), SOURCE.name))
 
 
-# The Vulkan adapter still compiles ui.vert/ui.frag into ui_spv.h, and will until backend_seam.c
-# replaces it (F133). Leaving that pair unchecked while the new source is checked would create, for
-# the length of the transition, exactly the drift this change exists to remove — so both are checked
-# until the old ones are deleted with the backend that reads them.
-LEGACY = [("ui.vert", "re_ui_vert_spv"), ("ui.frag", "re_ui_frag_spv")]
-LEGACY_HEADER = SHADERS / "ui_spv.h"
-
-
-def check_legacy():
-    if not LEGACY_HEADER.exists():
-        return []
-    text = LEGACY_HEADER.read_text(encoding="utf-8")
-    problems = []
-    for name, symbol in LEGACY:
-        if not (SHADERS / name).exists():
-            continue
-        expected = '#define %s_SOURCE_SHA256 "%s"' % (symbol.upper(), digest(SHADERS / name))
-        if expected not in text:
-            problems.append("%s changed since ui_spv.h was generated (the Vulkan adapter still reads it)" % name)
-    return problems
-
-
 def check():
     if not HEADER.exists():
         sys.exit("%s is missing; run `python3 tools/shaders.py generate`" % HEADER.relative_to(ROOT))
@@ -234,11 +212,7 @@ def check():
         for form in ("glsl", "msl", "spv"):
             if ("re_ui_%s_%s" % (stage, form)) not in text:
                 sys.exit("%s is missing re_ui_%s_%s; regenerate it" % (HEADER.name, stage, form))
-    stale = check_legacy()
-    if stale:
-        sys.exit("\n".join(stale) + "\nThe Vulkan adapter has not moved to the seam yet; regenerate ui_spv.h too.")
-    print("draw-list shader: %s matches ui.glsl in all three dialects%s." %
-          (HEADER.name, " and ui_spv.h still matches its own pair" if LEGACY_HEADER.exists() else ""))
+    print("draw-list shader: %s matches ui.glsl in all three dialects." % HEADER.name)
 
 
 if __name__ == "__main__":

@@ -294,10 +294,13 @@ static void close_backend(ReBackend *backend) {
   free(b);
 }
 
-/* Each copy reports the --renderer value that selected it, built from its host's own name, because
-   this file is compiled once per graphics API and cannot be told apart any other way. */
-static char ops_name[16];
-static const ReBackendOps ops = {ops_name, density, begin, execute, present, snapshot,
+/* Each copy reports the --renderer value that selected it -- which is just its host's name, now that
+   the hand-written backends are gone and these ARE opengl, vulkan and metal. This file is compiled
+   once per graphics API and cannot be told apart any other way. */
+/* Not const, because the name is the one field a compiled-once-per-API file cannot write down: it
+   comes from whichever seam_host_*.c this copy was linked against. Every open in a copy writes the
+   same value. */
+static ReBackendOps ops = {NULL, density, begin, execute, present, snapshot,
                                  texture_create, texture_update, texture_destroy, close_backend};
 
 Uint32 re_backend_seam_window_flags(void) { return re_seam_host_flags(); }
@@ -305,7 +308,7 @@ Uint32 re_backend_seam_window_flags(void) { return re_seam_host_flags(); }
 ReBackend *re_backend_seam_open(SDL_Window *window, ReFontSet *fonts) {
   SeamBackend *b = calloc(1, sizeof(*b)); if (!b) return NULL;
   b->window = window; b->base.ops = &ops; b->base.fonts = fonts; b->density = 1.0f;
-  snprintf(ops_name, sizeof(ops_name), "seam-%s", re_seam_host_name());
+  ops.name = re_seam_host_name();
   char error[256] = {0};
   b->host = re_seam_host_open(window, error, sizeof(error));
   if (!b->host) { SDL_SetError("%s", error); close_backend(&b->base); return NULL; }

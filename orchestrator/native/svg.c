@@ -75,7 +75,7 @@ bool re_svg_rasterize(const char *path, int box_w, int box_h, ReSvgImage *out) {
   nsvgDelete(doc);
 
   /* No alpha conversion. nanosvg writes straight (non-premultiplied) RGBA, and both backends blend
-   * with a SourceAlpha source factor (backend_gl.c glBlendFuncSeparate, backend_metal.m
+   * with a SourceAlpha source factor (the seam's re_seam_blend_separate, and before it backend_gl.c's glBlendFuncSeparate and backend_metal.m
    * sourceRGBBlendFactor) — straight alpha is what they expect. Premultiplying here would
    * double-apply alpha and darken every antialiased edge. */
 

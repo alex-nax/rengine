@@ -5,8 +5,8 @@
       "id": "generated-theme",
       "kind": "constraint",
       "anchor": {
-        "start": 101,
-        "end": 103,
+        "start": 84,
+        "end": 86,
         "snippet": "void re_draw_bind(ReDraw *d, mu_Context *ui) {",
         "symbol": "re_draw_bind"
       },
@@ -21,8 +21,8 @@
       "id": "deferred-flush",
       "kind": "constraint",
       "anchor": {
-        "start": 119,
-        "end": 123,
+        "start": 102,
+        "end": 106,
         "snippet": "static void flush(ReDraw *d) {",
         "symbol": "flush"
       },
@@ -33,25 +33,25 @@
       ]
     },
     {
-      "id": "seam-is-a-transitional-renderer-value",
-      "kind": "history",
+      "id": "renderer-names-are-seam-copies",
+      "kind": "rationale",
       "anchor": {
-        "start": 50,
-        "end": 50,
+        "start": 44,
+        "end": 48,
         "symbol": "re_draw_select",
-        "snippet": "if (!strcmp(choice, \"seam-opengl\")) return \"seam-opengl\";"
+        "snippet": "if (!strcmp(choice, \"opengl\")) return \"opengl\";"
       },
-      "note": "`seam-opengl`, `seam-vulkan` and `seam-metal` are not graphics APIs and are not meant to survive. They exist so each copy of the draw list's new path through `packs/gpu` can be selected beside the hand-written backend it replaces and judged against it by `native-render.spec.mjs` \u2014 which they are, to 0 differing pixels across all 15 cross-backend pairs \u2014 **before** any of those backends is deleted.\n\nWhat replaces them (spec 126 decision 3, owner-confirmed): `opengl`, `metal` and `vulkan` dispatch straight into the prefixed copies. `--renderer` stays a runtime switch, the pack stays compile-time selected so D14b's zero indirection holds for the games it serves, and these branches go together with `backend_gl.c`, `backend_metal.m`, `backend_vk.c` and `backend_sdl.c`. All three exist now.",
+      "note": "Each of these three names is one compile-time copy of `packs/gpu`'s seam, linked with its public symbols renamed and reached through the generated `seam_backends.h`. There is no `backend_gl.c` any more, and no fourth `sdl` value.\n\n**Why a runtime switch at all**, when the pack is emphatically compile-time selected: a game ships one backend and pays no indirection, which is the whole of charter D14b; rEngine's desktop is not a game, and being able to ask the same binary for all three is what makes the render suite a comparison rather than three builds. The owner chose this shape over one-binary-per-backend (spec 126 decision 3). The cost is paid once per window, in `re_draw_open`, not once per draw.\n\nSDL's own 2D renderer used to be a fourth value and the suite's live oracle. It is retired (charter D49) and the oracle is now `orchestrator/tests/references/*.png`, captured from it while it still shipped \u2014 data rather than a code path, which is the point: every backend left shares the seam, so a seam defect moves pixels in all of them at once and only a recorded frame can see it.",
       "refs": [
         "docs/specs/124-seam-three-backends.md",
         "docs/specs/126-scene-view-and-test-artifacts.md",
-        "orchestrator/native/render/backend_seam.c._llm.json#no-graphics-api-here"
+        "orchestrator/native/render/seam_backends.h"
       ]
     }
   ],
   "source": {
     "path": "orchestrator/native/draw.c",
-    "sha256": "b682e802d20a7c719b70628326f19e100d9207437c6e3793ccbe43544d81f362",
+    "sha256": "588526814eee8526dde0530bc362d7ca36e75f8348f7cb90d02cc3994c8cb1e9",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

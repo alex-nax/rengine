@@ -35,8 +35,8 @@
       "id": "atlas-is-single-channel",
       "kind": "rationale",
       "anchor": {
-        "start": 344,
-        "end": 344,
+        "start": 347,
+        "end": 347,
         "symbol": "re_backend_seam_open",
         "snippet": "RE_SEAM_WRAP_CLAMP_TO_EDGE, RE_SEAM_TEXTURE_COVERAGE);"
       },
@@ -62,11 +62,11 @@
       "id": "no-graphics-api-here",
       "kind": "constraint",
       "anchor": {
-        "start": 300,
-        "end": 301,
-        "snippet": "static const ReBackendOps ops = {ops_name, density, begin, execute, present, snapshot,"
+        "start": 303,
+        "end": 304,
+        "snippet": "static ReBackendOps ops = {NULL, density, begin, execute, present, snapshot,"
       },
-      "note": "Everything below the draw list that knows a graphics API lives in `seam_host_*.c`; this file reaches one through `seam_host.h` and otherwise calls only the pack. `tools/design.py`'s `native_render_layering` enforces that \u2014 it allows API symbols in `render/backend_*.c` and `render/seam_host_*.c` and nowhere else, and `backend_seam.c` is a `backend_` file only by name, carrying none.\n\nKeeping it true is what makes the eventual three prefixed seam copies a link-time question (spec 126 decision 3) instead of a source one.\n\nThat stayed true, and it is what made the three prefixed copies a LINK-time question rather than a source one: this file is compiled once per graphics API with a rename header force-included, and the only thing that differs between the copies is which seam and which `seam_host_*.c` they were linked against. `ops_name` is built from the host's own name because there is no other way for one source, compiled three times, to say which copy it is.",
+      "note": "Everything below the draw list that knows a graphics API lives in `seam_host_*.c`; this file reaches one through `seam_host.h` and otherwise calls only the pack. `tools/design.py`'s `native_render_layering` enforces that \u2014 it allows API symbols in `render/backend_*.c` and `render/seam_host_*.c` and nowhere else, and `backend_seam.c` is a `backend_` file only by name, carrying none.\n\nKeeping it true is what makes the eventual three prefixed seam copies a link-time question (spec 126 decision 3) instead of a source one.\n\nThat stayed true, and it is what made the three prefixed copies a LINK-time question rather than a source one: this file is compiled once per graphics API with a rename header force-included, and the only thing that differs between the copies is which seam and which `seam_host_*.c` they were linked against. `ops.name` is written from the host's own name at open because there is no other way for one source, compiled three times, to say which copy it is \u2014 and since the hand-written backends were deleted, that name IS the `--renderer` value: opengl, vulkan or metal.",
       "refs": [
         "tools/design.py",
         "docs/specs/126-scene-view-and-test-artifacts.md"
@@ -75,7 +75,7 @@
   ],
   "source": {
     "path": "orchestrator/native/render/backend_seam.c",
-    "sha256": "286882653ef4a527542ed7df98c5c242f9f983743389fde1e13bbbfe23e87c8e",
+    "sha256": "0c010f71a0266f73dc0b59b9073748268624b798a87448e66b1a13241a2ca255",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

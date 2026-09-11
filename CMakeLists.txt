@@ -181,7 +181,7 @@ target_include_directories(rengine_seam_opengl PUBLIC
 	"orchestrator/native"
 )
 
-target_link_libraries(rengine_seam_opengl PUBLIC
+target_link_libraries(rengine_seam_opengl PRIVATE
 	SDL2::SDL2
 	rengine_microui
 	rengine_gpu_opengl
@@ -223,7 +223,7 @@ target_include_directories(rengine_seam_vulkan PUBLIC
 	"orchestrator/native"
 )
 
-target_link_libraries(rengine_seam_vulkan PUBLIC
+target_link_libraries(rengine_seam_vulkan PRIVATE
 	SDL2::SDL2
 	rengine_microui
 	rengine_gpu_vulkan
@@ -262,7 +262,7 @@ if(APPLE) # apple
 		"orchestrator/native"
 	)
 
-	target_link_libraries(rengine_seam_metal PUBLIC
+	target_link_libraries(rengine_seam_metal PRIVATE
 		SDL2::SDL2
 		rengine_microui
 		rengine_gpu_metal
@@ -292,9 +292,6 @@ endif()
 set(rengine_render_SOURCES
 	cmake.toml
 	"orchestrator/native/draw.c"
-	"orchestrator/native/render/backend_gl.c"
-	"orchestrator/native/render/backend_sdl.c"
-	"orchestrator/native/render/backend_vk.c"
 	"orchestrator/native/render/draw_list.c"
 	"orchestrator/native/render/font.c"
 	"orchestrator/native/render/utf8.c"
@@ -323,7 +320,6 @@ target_link_libraries(rengine_render PUBLIC
 	SDL2::SDL2
 	rengine_microui
 	rengine_json
-	rengine_gpu
 	rengine_seam_opengl
 	rengine_seam_vulkan
 )
@@ -337,11 +333,6 @@ if(NOT MSVC)
 endif()
 if(APPLE)
   target_link_libraries(rengine_render PUBLIC rengine_seam_metal)
-  # spec 072: the Metal adapter is the one Objective-C file, compiled with ARC and linked to Apple's frameworks.
-  enable_language(OBJC)
-  target_sources(rengine_render PRIVATE orchestrator/native/render/backend_metal.m)
-  set_source_files_properties(orchestrator/native/render/backend_metal.m PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
-  target_link_libraries(rengine_render PUBLIC "-framework Metal" "-framework QuartzCore" "-framework Foundation")
 endif()
 
 # Target: rengine_ui

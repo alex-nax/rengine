@@ -1,17 +1,14 @@
 #include "draw.h"
-#include "render/backend_sdl.h"
-#include "render/backend_gl.h"
-#include "render/backend_vk.h"
 #include "render/seam_backends.h"
-#ifdef __APPLE__
-#include "render/backend_metal.h"
-#endif
 
 #define RE_STAT_FRAMES 120
 #ifdef __APPLE__
-#define RE_DEFAULT_BACKEND "metal" /* spec 072 decision 2; OpenGL stays selectable */
+#define RE_DEFAULT_BACKEND "metal"  /* spec 072 decision 2; OpenGL and Vulkan stay selectable */
 #else
-#define RE_DEFAULT_BACKEND "sdl"    /* Windows keeps SDL until it has its own evidence (KI-014) */
+/* SDL's own 2D renderer was the default here while Windows had no GPU evidence of its own. It has
+   both now (docs/evidence/{opengl,vulkan}-adapter-windows-2026-09-06.md), and charter D49 retired
+   that path from shipping, so the default is the one both of those measured. */
+#define RE_DEFAULT_BACKEND "opengl"
 #endif
 
 struct ReDraw {
@@ -39,31 +36,23 @@ static void measure(ReDraw *d) {
 const char *re_draw_select(const char *name) {
   const char *choice = name && *name ? name : getenv("RENGINE_RENDERER");
   if (!choice || !*choice) choice = RE_DEFAULT_BACKEND;
+  /* Each name is one compile-time copy of the seam, linked under its own symbol prefix and reached
+     through seam_backends.h (spec 126 decision 3). The pack itself stays compile-time selected, so
+     D14b's zero indirection holds for the games it serves; the only runtime choice is which of the
+     three copies this window opens. SDL's own 2D renderer is no longer among them (charter D49): it
+     is the recorded reference frames now, an oracle that cannot drift with the code it judges. */
   if (!strcmp(choice, "opengl")) return "opengl";
+  if (!strcmp(choice, "vulkan")) return "vulkan";
 #ifdef __APPLE__
   if (!strcmp(choice, "metal")) return "metal";
 #endif
-  if (!strcmp(choice, "vulkan")) return "vulkan";
-  /* The draw list through the pack's seam, one value per copy (F133). Selectable alongside the
-     hand-written backends for the length of the transition, so the suite can judge each against the
-     one it replaces before any of them goes; then these lose the prefix and those are deleted. */
-  if (!strcmp(choice, "seam-opengl")) return "seam-opengl";
-  if (!strcmp(choice, "seam-vulkan")) return "seam-vulkan";
-#ifdef __APPLE__
-  if (!strcmp(choice, "seam-metal")) return "seam-metal";
-#endif
-  return !strcmp(choice, "sdl") ? "sdl" : NULL;
+  return NULL;
 }
 Uint32 re_draw_window_flags(const char *backend) {
-  if (backend && !strcmp(backend, "opengl")) return re_backend_gl_window_flags();
+  if (backend && !strcmp(backend, "opengl")) return re_opengl_backend_seam_window_flags();
+  if (backend && !strcmp(backend, "vulkan")) return re_vulkan_backend_seam_window_flags();
 #ifdef __APPLE__
-  if (backend && !strcmp(backend, "metal")) return re_backend_metal_window_flags();
-#endif
-  if (backend && !strcmp(backend, "vulkan")) return re_backend_vk_window_flags();
-  if (backend && !strcmp(backend, "seam-opengl")) return re_opengl_backend_seam_window_flags();
-  if (backend && !strcmp(backend, "seam-vulkan")) return re_vulkan_backend_seam_window_flags();
-#ifdef __APPLE__
-  if (backend && !strcmp(backend, "seam-metal")) return re_metal_backend_seam_window_flags();
+  if (backend && !strcmp(backend, "metal")) return re_metal_backend_seam_window_flags();
 #endif
   return 0;
 }
@@ -74,17 +63,11 @@ ReDraw *re_draw_open(SDL_Window *window, const char *font_path, const char *back
   d->fonts = re_font_open(font_path, getenv("RENGINE_UI_FONT"));
   if (!d->fonts) { SDL_SetError("%s", re_font_error()); free(d); return NULL; }
 #ifdef __APPLE__
-  if (backend && !strcmp(backend, "metal")) d->backend = re_backend_metal_open(window, d->fonts);
+  if (backend && !strcmp(backend, "metal")) d->backend = re_metal_backend_seam_open(window, d->fonts);
   else
 #endif
-  if (backend && !strcmp(backend, "vulkan")) d->backend = re_backend_vk_open(window, d->fonts);
-  else if (backend && !strcmp(backend, "seam-opengl")) d->backend = re_opengl_backend_seam_open(window, d->fonts);
-  else if (backend && !strcmp(backend, "seam-vulkan")) d->backend = re_vulkan_backend_seam_open(window, d->fonts);
-#ifdef __APPLE__
-  else if (backend && !strcmp(backend, "seam-metal")) d->backend = re_metal_backend_seam_open(window, d->fonts);
-#endif
-  else
-  d->backend = backend && !strcmp(backend, "opengl") ? re_backend_gl_open(window, d->fonts) : re_backend_sdl_open(window, d->fonts);
+  if (backend && !strcmp(backend, "vulkan")) d->backend = re_vulkan_backend_seam_open(window, d->fonts);
+  else d->backend = re_opengl_backend_seam_open(window, d->fonts);
   if (!d->backend) { re_font_close(d->fonts); free(d); return NULL; }
   re_draw_list_init(&d->list);
   int width, height; SDL_GetWindowSize(window, &width, &height);

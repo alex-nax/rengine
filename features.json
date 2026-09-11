@@ -2194,7 +2194,11 @@
         "tools/render_compare.py: a PNG reader, so a committed reference can be data rather than a code path",
         "docs/specs/124-seam-three-backends.md: the sabotage that justifies it — one shared colour changed, cross-backend comparison and the live SDL oracle both saw nothing, the recorded frames saw 2,467,394 pixels",
         "packs/gpu/include/rengine/gpu_seam.h: the vertex layout gained a second attribute type, because rEngine's UI vertex packs colour as bytes and the seam could only describe floats — implemented and sabotage-verified on all three backends",
-        "docs/specs/124-seam-three-backends.md: the desktop maintains its UI shader in three hand-written copies (inline GLSL, shaders/ui.*, inline MSL) implementing the same five SDF modes — they agree today, by hand"
+        "docs/specs/124-seam-three-backends.md: the desktop maintains its UI shader in three hand-written copies (inline GLSL, shaders/ui.*, inline MSL) implementing the same five SDF modes — they agree today, by hand",
+        "docs/specs/124-seam-three-backends.md: the five increments, eleven sabotages and the six defects writing real consumers found in the seam",
+        "orchestrator/tests/native-render.spec.mjs: opengl, metal and vulkan are three compile-time copies of the seam, judged against the recorded frames — 392 / 436 / 32,195 px, 0 outside the 2px band, identical to what the hand-written backends produced",
+        "2,082 lines across 15 files deleted: backend_gl.c, backend_metal.m, backend_vk.c, backend_sdl.c, their headers and sidecars, and shaders/ui.vert, ui.frag, ui_spv.h",
+        "tools/design.py: the render-layering rule now allows a graphics API only in render/seam_host_*.c, so the migration's claim is what the build refuses rather than what a spec asserts"
       ],
       "passes": false
     },

@@ -816,12 +816,12 @@ def native_build_files():
 def native_render_layering():
     problems = []
     for path in sorted(list(NATIVE.rglob("*.c")) + list(NATIVE.rglob("*.h")) + list(NATIVE.rglob("*.m"))):
-        # A seam host is the same layer as a backend, not a layer above it: it owns the context, the
-        # swap and the readback, which is exactly the windowing half a backend used to hold itself
-        # (spec 124, F133). backend_seam.c draws through the pack and knows no graphics API at all;
-        # seam_host_*.c is where the API that was factored out of it went.
-        if path.parent.name == "render" and path.suffix in (".c", ".m") and (
-                path.name.startswith("backend_") or path.name.startswith("seam_host_")):
+        # ONLY a seam host may name a graphics API now. The rule used to allow render/backend_*.c
+        # too, because the four hand-written backends each carried their own; they are gone (F133),
+        # and the one backend left — backend_seam.c — draws through the pack and mentions no API at
+        # all. Narrowing the rule to match is the point of having done the migration: the boundary
+        # is now checked rather than described.
+        if path.parent.name == "render" and path.suffix in (".c", ".m") and path.name.startswith("seam_host_"):
             continue
         # The GPU device layer is below the draw list by construction (spec 122): it is the piece a
         # backend and an OpenXR host both build on, so it holds Vulkan symbols for the same reason a
@@ -831,7 +831,7 @@ def native_render_layering():
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             match = RENDER_API.search(line)
             if match:
-                problems.append("%s:%d: %s belongs below the draw list (render/backend_*.c or .m only)" % (rel(path), number, match.group(0)))
+                problems.append("%s:%d: %s belongs below the draw list (render/seam_host_*.c or .m only)" % (rel(path), number, match.group(0)))
     return problems
 
 

@@ -1,5 +1,53 @@
 # Progress Log
 
+## Session 111 (macos) — 2026-09-11 — the four hand-written backends are gone (F133)
+
+`--renderer opengl|metal|vulkan` now names **one compile-time copy of the seam each**, reached through
+`seam_backends.h`. The pack stays compile-time selected, so D14b's zero indirection holds for the games
+it serves; the only runtime choice is which copy a window opens (spec 126 decision 3).
+
+**2,082 lines across 15 files deleted**: `backend_gl.c`, `backend_metal.m`, `backend_vk.c`,
+`backend_sdl.c`, their headers and sidecars, `shaders/ui.vert`, `ui.frag`, `ui_spv.h`. All three
+renderers are **byte-identical to the frame the OpenGL backend drew before any of this began**.
+
+**SDL_Renderer retired.** `--renderer sdl` answers *"Unknown renderer 'sdl'; use opengl, metal or
+vulkan."* — charter D49 carried out, safe only because the reference frames were captured from that
+path while it was still shipping, which is the ordering D54 required.
+
+**Two gates changed shape, stated rather than absorbed** (F133 criterion 4). The live SDL comparison
+is gone and the recorded frames are the only gate; cross-backend comparison stays as *information*,
+since every backend now shares the seam and agreeing with each other says only that they run the same
+code. A missing reference file is now a **failure**, not a skip — sabotage-verified by taking
+`render-terminal.png` away — because with SDL gone that is the one way this suite could go green while
+comparing nothing. And the memory budget becomes absolute: it was "32 MiB over SDL's resident set",
+SDL measured 164–170 MiB, so the ceiling is now **208 MiB** against the 146–185 MiB actually measured.
+
+**The boundary is checked now, not described.** `design.py`'s render-layering rule allowed a graphics
+API in `render/backend_*.c` because four backends each carried one. It now allows
+**`render/seam_host_*.c` only** — the migration's whole claim, as something the build refuses.
+`shaders.py` loses `check_legacy()` with the pair it guarded.
+
+**The pack's example was the thing most at risk and it is fine.** It only builds when the pack is
+top-level, so the `re_seam_target_adopt` signature change could have broken it silently. It builds
+standalone on all three backends and renders within **1, 4 and 5 pixels** of itself across them —
+which also shows the OpenGL scissor conversion is right for its *off-screen* mirror pass, not only
+for a window.
+
+Suite: 392 / 436 / 32,195 px against the recorded frames on all three, **0 outside the 2px band**, 0
+Vulkan validation messages, and the spec runs in **189 s instead of 821** — six backends and fifteen
+pairwise comparisons became three and three. Vulkan is the one to watch at 3.95–4.81 ms against the
+8 ms ceiling, for the three-submits-per-frame reason spec 124 records.
+
+**F133's row still reads `passes: false`** and that is deliberate: `features.py validate` refuses a
+passing feature whose dependencies are not passing, and F130/F131 were never settled because KI-082's
+knot left the chain waiting. A bookkeeping pass over F123 and F129–F132 is **KI-085**. **Windows is
+not evidenced**: the seam copies, `/FI` and the draw list through the pack have only run on macOS,
+while `RE_DEFAULT_BACKEND` there moved to `opengl` on the strength of evidence that measured the
+deleted backend.
+
+`npm run test:desktop`: 73 tests, 72 pass, 0 fail, 1 pre-existing opt-in skip. `npm run test:native`:
+13/13. `./init.sh`, `design.py check`, `seam_prefix.py check` clean.
+
 ## Session 110 (macos) — 2026-09-11 — the Vulkan host, and the Y story this project had wrong (F133)
 
 `seam_host_vk.c` (410 lines) is the third and last host: surface, formats, images, views, acquire, the

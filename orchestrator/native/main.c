@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "--font") && i + 1 < argc) font = argv[++i];
     else if (!strcmp(argv[i], "--connection") && i + 1 < argc) connection = argv[++i];
     else if (!strcmp(argv[i], "--renderer") && i + 1 < argc) renderer = argv[++i];
-    else if (!strcmp(argv[i], "--help")) { puts("rengine [--connection sidecar.json] [--font FILE] [--renderer opengl|metal|vulkan|sdl|seam-opengl|seam-vulkan|seam-metal] [--smoke-test --snapshot FILE.bmp] [--automation]\nAutomation accepts local stdin test events only when explicitly enabled."); return 0; }
+    else if (!strcmp(argv[i], "--help")) { puts("rengine [--connection sidecar.json] [--font FILE] [--renderer opengl|metal|vulkan] [--smoke-test --snapshot FILE.bmp] [--automation]\nAutomation accepts local stdin test events only when explicitly enabled."); return 0; }
     else { fprintf(stderr, "Unknown or incomplete option: %s\n", argv[i]); return 2; }
   }
   if (!automation && !smoke && getenv("RENGINE_CAN_RELOAD") && !getenv("RENGINE_LAYERED_CHILD")) {
@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Layered bootstrap failed; opening the retained workspace with the legacy launcher.\n");
   }
   const char *backend = re_draw_select(renderer);
-  if (!backend) { fprintf(stderr, "Unknown renderer '%s'; use opengl, metal, vulkan, sdl, seam-opengl, seam-vulkan or seam-metal.\n", renderer ? renderer : ""); return 2; }
+  if (!backend) { fprintf(stderr, "Unknown renderer '%s'; use opengl, metal or vulkan.\n", renderer ? renderer : ""); return 2; }
   SDL_SetMainReady();
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) { fprintf(stderr, "%s\n", SDL_GetError()); return 1; }
   SDL_Window *window = SDL_CreateWindow(automation ? RE_DEFAULT_TITLE " — automated verification" : RE_DEFAULT_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
