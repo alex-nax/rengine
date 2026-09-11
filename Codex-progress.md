@@ -33,14 +33,30 @@ direction so future agents stop extending the Node layer. Charter rows land at D
 D50/D51 first drafted — the parallel rendering session had already taken D50–D56; renumbered
 before writing.
 
+**Addendum — the J0 epic and the hourly loop.** The owner approved filing and asked for an epic
+the hourly loop can consume: *"every hour it takes a little (spec'ed and documented) slice in
+favour of getting rid ourselves of js code. Rust is much safer."* So: `docs/specs/129-js-retirement-epic.md`
+defines the loop contract (first ready J0 row from `features.py next`; one row per run; split
+proposals to known-issues instead of partial slices), four invariants (API/proto shapes frozen,
+JS deleted in the same commit its replacement passes, coverage ported never dropped, undocumented
+quirks documented in evidence), the live-coupling hazards (mcp-worker is the connection this very
+session uses; `RENGINE_NODE_EXECUTABLE`; the 736-line worker; tracker.mjs's re-implemented
+readiness rule; surfaces focus eviction), and the 20-slice table F146–F165 ending in a node-free
+dogfood day. 27 rows filed (F139–F145 N0 + F146–F165 J0); features.py validates 117 features;
+`next` shows F139 as the only ready N0 row and zero J0 rows — the chain unlocks exactly one slice
+at a time by construction. roadmap.md gained the N0/J0 lanes and the Q-row's supersession note;
+graph regenerated (+87, insertions only). One cosmetic repair after filing: 27 descriptions had a
+stray paren from string composition; fixed in place and re-validated.
+
 **Commands/results**: docs-only change — `git status` confirms only these four paths plus the
 pre-existing untracked `.claude/worktrees/`; no inventory change, so no graph regeneration;
 no design-token change, so `design.py check` not implicated.
 
-**Remaining**: owner review of spec 128; filing F139–F145 into `features.json` on approval;
-F139 (toolchain + `red/` workspace) is the first implementable row. The refresh of the live
-workspace's worker code offered in Session 110 is still unanswered. F114 (ACP session kind)
-remains the open O2 follow-up.
+**Remaining**: the owner points the hourly loop at spec 129's contract; F139 (toolchain + `red/`
+workspace) is the first implementable row and the only ready one in either new lane. The refresh
+of the live workspace's worker code offered in Session 110 is still unanswered. F114 (ACP session
+kind) remains the open O2 follow-up — spec 129 records that it may land in JS first without
+contradicting the epic.
 
 ---
 

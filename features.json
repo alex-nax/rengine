@@ -2348,6 +2348,557 @@
         "real machine 2026-09-11: scripts/agent.sh --action list detects kimi 0.42.0 at ~/.kimi-code/bin/kimi; a scripted agentLaunch against a tmp repo writes the exact .kimi-code/mcp.json kimi reads and reports identity kimi 3f85774e with resume line kimi --session session_3f85774e-…; bootstrap-agent-hooks.sh --agent kimi --dry-run shows the change and writes nothing. A live orchestrator pane launch and the real hook install are the owner's explicit gestures, not this session's side effect"
       ],
       "passes": true
+    },
+    {
+      "id": 139,
+      "milestone": "N0",
+      "category": "workspace",
+      "priority": "high",
+      "description": "The Rust toolchain and the red/ cargo workspace become first-class citizens of the build: rust-toolchain.toml pins the toolchain, a pinned Corrosion inside cmkr drives cargo from the same CMake entry point that builds the desktop, and init.sh checks the toolchain and instructs rather than downloading anything. This reverses spec 114's recorded 'a Rust toolchain we do not have' (owner, 2026-09-11; spec 128, D57).",
+      "acceptance_criteria": [
+        "cmake --build of the desktop tree also builds red-core and red-link from clean, with cmkr's generated CMakeLists committed and design.py check green.",
+        "The toolchain is pinned in rust-toolchain.toml and Corrosion is pinned by commit; no fetch happens outside those two pins.",
+        "init.sh without cargo fails with instructions; with cargo it proceeds; nothing is installed silently.",
+        "Both crates' smoke tests run through ctest, not a hand-run cargo command."
+      ],
+      "passes": false,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "rust-toolchain.toml, the Corrosion pin in cmake.toml, the red/ workspace with red-core and red-link skeleton crates, their smoke tests on the ctest path, and the init.sh toolchain check.",
+      "external_references": [
+        "github.com/corrosion-rs/corrosion: the CMake-cargo bridge and its pinning; doc.rust-lang.org/rustup: rust-toolchain.toml toolchain pinning"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 140,
+      "milestone": "N0",
+      "category": "workspace",
+      "priority": "high",
+      "description": "red-core holds the protobuf contract v1 for everything the façade and companion need first — sessions, tasks, the F113 agent registry and conversations, token contests, dashboard actions, feed events — and a contract-test harness validates every translated shape against the live session host, so JSON-to-proto drift fails a test instead of a phone. The owner chose schema-first over the JSON-mirror recommendation; this harness is the control that makes the second contract safe (owner, 2026-09-11; spec 128, decision 5).",
+      "acceptance_criteria": [
+        "Every proto message the façade v1 emits is validated against the live host API: field presence, enum values, and the feed event shapes.",
+        "A deliberate host-side shape change in the fixture turns the contract test red for that reason — observed once before the harness is trusted.",
+        "Proto package and libp2p protocol name carry the same version, and a mismatched peer is refused with the version named."
+      ],
+      "passes": false,
+      "dependencies": [
+        139
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "red-core .proto definitions, the prost-generated types, and the live-host contract-test harness with its fixture session host.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 141,
+      "milestone": "N0",
+      "category": "workspace",
+      "priority": "high",
+      "description": "red-link attaches to a live session host over the same internal HTTP/WS surface the worker and MCP connector use, and serves the F140 contract over libp2p streams — with loopback evidence that forces the relay path, so the NAT code runs before any phone exists (owner, 2026-09-11; spec 128, decisions 2 and 4).",
+      "acceptance_criteria": [
+        "A client on the same machine, forbidden any direct connection, completes the full v0.1 read surface through circuit-relay v2.",
+        "Feed events arrive on the long-lived stream in order with monotonic sequence; a reconnect resumes from a cursor exactly as /feed clients do today.",
+        "The session host and every existing consumer are untouched: npm test stays green with red-link running."
+      ],
+      "passes": false,
+      "dependencies": [
+        140
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The red-link binary in façade mode, the stream protocol, the /feed mapping onto a long-lived stream, and the forced-relay loopback test.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 142,
+      "milestone": "N0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "Remote trust lands: static Ed25519 peer identities, a dashboard action whose QR carries the desktop peer ID, relay multiaddr and a one-time PIN, the PIN proven over Noise, allowed-phone rows persisted in the workspace state directory, and revocation by deleting a row — the Syncthing model, satisfying the pairing/revocation/root-scoping criteria F50 already records (owner, 2026-09-11; spec 128, decision 6).",
+      "acceptance_criteria": [
+        "Pairing succeeds end-to-end: QR shown, PIN proven over Noise, the phone's peer ID persisted in the workspace state directory.",
+        "Sabotage observed red for its own reason before passing: wrong PIN refused, revoked peer refused, unknown peer refused, tampered QR multiaddr refused.",
+        "Revocation takes effect on the next connection attempt with no host or red-link restart.",
+        "The QR action is a declared dashboard action with availability, per AGENTS.md's dashboard-first rule."
+      ],
+      "passes": false,
+      "dependencies": [
+        141
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The identity store, the QR pairing dashboard action, the Noise PIN proof, the revocation rows, and the four refusal sabotage tests.",
+      "external_references": [
+        "libp2p Noise handshake spec; circuit-relay v2 addressing for the multiaddr carried in the QR"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 143,
+      "milestone": "N0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "Reachability from anywhere: red-link --relay on owner-controlled infrastructure, dcutr direct upgrade, mDNS on LAN, and one real cellular run as evidence — never the public bootstrap network, because an admin channel does not ride untrusted third parties (owner, 2026-09-11; spec 128, decision 4).",
+      "acceptance_criteria": [
+        "Rendezvous through the owner-pinned relay succeeds from a network behind a different NAT.",
+        "A dcutr direct upgrade is observed in logs during the cellular run; the relay carries setup only in the common case.",
+        "mDNS finds the desktop on LAN with no relay configured; absence of mDNS on a wrong network is reported, not retried forever.",
+        "A network switch (wifi to cellular) reconnects the session without duplicating anything, per the inherited F50 criteria."
+      ],
+      "passes": false,
+      "dependencies": [
+        142
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "red-link's relay mode, the dcutr upgrade path, mDNS LAN discovery, the pinned relay deployment, and the cellular-run evidence record.",
+      "external_references": [
+        "libp2p circuit-relay v2 and dcutr specifications"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 144,
+      "milestone": "N0",
+      "category": "integration",
+      "priority": "medium",
+      "description": "apps/companion exists as an Android skeleton: pinned Gradle wrapper and NDK, externalNativeBuild pointing at this repository's CMake so the app compiles the same C UI modules the desktop compiles, a Kotlin shell, and an ANativeWindow Vulkan surface through the D49 device layer — C drives the frame loop, red-core serves it through the C ABI (owner, 2026-09-11; spec 128, decisions 7 and 8).",
+      "acceptance_criteria": [
+        "The app builds with pinned Gradle/NDK and compiles the desktop's C UI sources from one origin — no copied modules.",
+        "A shared microui screen renders on a real device through the device layer, with a smoke snapshot and a frame budget set before the run and measured.",
+        "The C ABI round-trips from the C layer: connect, one request/response, one event."
+      ],
+      "passes": false,
+      "dependencies": [
+        143
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The apps/companion tree, the pinned build, the Vulkan surface on the device layer, the red-core cdylib link, and the on-device smoke snapshot.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 145,
+      "milestone": "N0",
+      "category": "integration",
+      "priority": "medium",
+      "description": "Companion v0.1 — see, chat, approve: from a phone on cellular, the roots/sessions view of the F113 registry, agent conversation read and send input, token contests and permission approvals, and dashboard actions with their confirm prompts. No terminal emulator and no game frames yet; the phone acts with desktop-class power only through the same project-token semantics (owner, 2026-09-11; spec 128, decision 9).",
+      "acceptance_criteria": [
+        "From a phone on cellular through the relay: sessions list matching the F113 registry's view, conversation read + send input, one token contest answered, one dashboard action invoked with its confirm honored.",
+        "Every phone action is indistinguishable on the host from the same action by the native desktop: same routes, same token semantics.",
+        "The v0.1 line is held — no terminal attach, no game frames; both are named follow-ups."
+      ],
+      "passes": false,
+      "dependencies": [
+        144
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The v0.1 screens on the shared UI modules, wired through red-core to red-link, with end-to-end cellular evidence.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 146,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "tools/design.py learns a Rust target: the product name and theme tokens are generated into a Rust source beside the .mjs and .h outputs, so no Rust code ever hand-writes what D41 made a data edit. The slice that unblocks every other J0 row's need for generated constants (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "design.py generate emits the Rust source; design.py check fails on a hand-written product-name occurrence in Rust sources, as for the other targets.",
+        "red-core and red-link compile against the generated constants, and a rename rehearsal changes only theme.json."
+      ],
+      "passes": false,
+      "dependencies": [
+        139
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Rust generator in design.py, the generated red crate sources, and the extended design.py check.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 147,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "red-store replaces server/store.mjs and server/schema.mjs: project and session persistence in Rust with the on-disk format byte-compatible, deleted in the same commit the replacement passes (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "Rust reads every store file the JS host wrote in the fixtures and vice versa, byte-for-byte, both directions.",
+        "The JS files are deleted in the same commit the Rust replacement goes green; the host's external API is unchanged.",
+        "Each ported test was observed failing for the absence of the module before the implementation made it pass."
+      ],
+      "passes": false,
+      "dependencies": [
+        139
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Rust store crate, the parity corpus, and the ported store tests; store.mjs and schema.mjs removed.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 148,
+      "milestone": "J0",
+      "category": "agents",
+      "priority": "medium",
+      "description": "The F113 agent recipe registry becomes declarative data: one TOML document that the remaining JS and the new Rust side both parse, with spawn-environment composition (the RENGINE_AGENT_* context) ported (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "One TOML recipe document is the only recipe table; JS (until F149) and Rust resolve identical recipes for every CLI.",
+        "Composed spawn environments for kimi, claude and codex launches match the current JS output exactly.",
+        "RENGINE_AGENT_REGISTRY_EXTRA still adds agents as data with no code edit, now through the TOML path."
+      ],
+      "passes": false,
+      "dependencies": [
+        139
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The registry TOML, its Rust parser, the JS-side consumption of the same file, and the parity test.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 149,
+      "milestone": "J0",
+      "category": "agents",
+      "priority": "medium",
+      "description": "red-agents replaces agents/registry.mjs, agents/config.mjs, agents/report-session.mjs and agents/bind.mjs: conversation discovery for all five CLIs, hook overlays, and the codex trust-hash math, with agent.sh keeping its CLI surface while dispatching to the Rust binary (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "report-session for all five providers emits byte-identical payloads to the JS version on recorded hook fixtures, including codex SessionStart and claude's hook.",
+        "Codex hook key and trust-hash computation matches codexHookKey/codexHookTrustHash byte-exactly on the docs/evidence/codex-sessionstart-hook-2026-09-11.md fixture set.",
+        "agent.sh's CLI (list/show/check-resume/install/update) is unchanged to its callers while dispatching to red-agents."
+      ],
+      "passes": false,
+      "dependencies": [
+        148
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The red-agents binary, the ported hook/conversation logic, the agent.sh dispatch, and the fixture-parity tests; the four JS modules removed.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 150,
+      "milestone": "J0",
+      "category": "agents",
+      "priority": "high",
+      "description": "red-mcp replaces agents/mcp-worker.mjs and the runtime/tools.mjs probe: the root-bound MCP server in Rust over stdio, serving the same tool surface from the façade/host API, with the native desktop taught to exec red-mcp instead of node. This is the connection every agent pane uses, so the consumer-path evidence is live panes, not only fixtures (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "tools/list and tools/call for the full root-bound surface return responses identical to the JS worker's on a recorded fixture conversation.",
+        "A real pane of each CLI — kimi, claude, codex — connects to the Rust MCP and completes one task-scoped action.",
+        "Running panes survive the cutover (their MCP is spawned per launch); only new launches pick up red-mcp."
+      ],
+      "passes": false,
+      "dependencies": [
+        141,
+        149
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Rust MCP server, the native exec change, the fixture-identical tool surface, and the live-pane evidence; mcp-worker.mjs and tools.mjs removed.",
+      "external_references": [
+        "modelcontextprotocol.io specification: stdio transport, tools/list and tools/call"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 151,
+      "milestone": "J0",
+      "category": "terminal",
+      "priority": "medium",
+      "description": "red-pty replaces server/sessions.mjs: retained PTY sessions in Rust on portable-pty, with spawn, attach, scrollback replay, resize and kill identical to the JS session host, and retention across host restart as specs 059/060 promise (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "Spawn/attach/scrollback/resize/kill behave identically on the native terminal suite's scenario set, ported to drive the Rust host.",
+        "A retained session survives the Rust host's restart exactly as today's sidecar retention promises, with the spec 059/060 behaviors named in the ported tests."
+      ],
+      "passes": false,
+      "dependencies": [
+        147
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Rust PTY retention layer, the ported terminal-suite scenarios, and the restart-retention evidence; sessions.mjs removed.",
+      "external_references": [
+        "github.com/wezterm/wezterm portable-pty crate: cross-platform PTY for the Rust host"
+      ],
+      "evidence": []
+    },
+    {
+      "id": 152,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "red-host I: the Rust host core replaces server/main.mjs, server/desktops.mjs and server/surfaces.mjs with surface-protocol.mjs — the native desktop connects with zero native changes, and the surfaces focus-eviction semantic (surfaces.mjs:72-76, spec 114 finding 2) is preserved verbatim (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "The native desktop connects to red-host unchanged: same routes, same frames, same surface protocol; the cooperative surface suite passes.",
+        "Focus eviction behaves exactly as before — an agent viewer still cannot silently yank a pane from a person.",
+        "Game and desktop identity headers (X-Rengine-Desktop and friends) are parsed and refused identically on the contract fixtures."
+      ],
+      "passes": false,
+      "dependencies": [
+        150,
+        151
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Rust host core with desktop and surface routes, the ported surface/desktops suites, and the zero-native-change evidence; the four JS modules removed.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 153,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "red-host II: server/tasks.mjs and the local half of server/tracker.mjs become Rust — the local backend's rows, readiness and criteria rendering, plus token-serialized tracker writes. tracker.mjs re-implements the features.py readiness rule while its schema text wrongly claims a shell-out (spec 114 finding 1): port the real behavior and correct the text (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "Rows, readiness and criteria rendering for this repository's own features.json match the JS output byte-for-byte.",
+        "Token-serialized task_add/task_update/task_decompose keep exactly-once ordering under two concurrent writers (the task-writes suite, ported).",
+        "The tracker.provider schema description names the real read path."
+      ],
+      "passes": false,
+      "dependencies": [
+        152
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Rust local tracker and task-write path, the byte-compared fixtures, the corrected schema description, and the two-writer test; the JS removed.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 154,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "red-host III: the remote tracker providers move to Rust — GitHub and Linear read-only with the 30-second cache, refresh bypass, and the denied/unavailable/invalid taxonomy rendered exactly as today (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "denied, unavailable and invalid states render identically to the JS version on recorded provider fixtures, including the signIn naming.",
+        "refresh bypasses the cache exactly as before; remote reads never become writes — a write attempt is refused by name."
+      ],
+      "passes": false,
+      "dependencies": [
+        153
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Rust remote providers with recorded-fixture parity and the explicit write refusals; the remote half of tracker.mjs and tracker-auth.mjs removed.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 155,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "red-host IV: dashboard, devices and games move to Rust — dashboard-rules availability composition, device probes and reachability caching, game preflight and launch gating (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "dashboard_actions availability (device reachability composed with action prerequisites) matches the JS engine on the native-dashboard and native-devices scenario sets.",
+        "Game preflight issues, launch gating and argument-mismatch reuse refusals behave identically on the ported games suites.",
+        "A declared probe stays the only thing run for reachability — bounded and side-effect-light, as contract 4 states."
+      ],
+      "passes": false,
+      "dependencies": [
+        152
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Rust dashboard/devices/games routes and rule engines with scenario parity; the six JS modules removed.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 156,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "red-host V: formats, images and recordings move to Rust — sanitized preview subtrees with the 32k budget and paging, image dimension sniffing without the image-dimensions npm package, and recording manifest/keyframe/log reads (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "Preview budgets, depth/limit shrinking and nextOffset paging match the JS output on the format-hardening fixtures.",
+        "Image sniffing accepts and refuses identically on the fuzz corpus, with the replacement dependency pinned.",
+        "Recording reads (manifest, timestamped log tail, keyframe pages) match the JS output on the recording fixtures."
+      ],
+      "passes": false,
+      "dependencies": [
+        152
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Rust formats/images/recordings routes, the pinned replacement for image-dimensions, and the fixture parity; the three JS modules removed.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 157,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "red-feed and red-token replace runtime/feed.mjs and runtime/token.mjs: the lifecycle feed ring with cursors and the project-token protocol — contest windows, segment frames, relayed pushes, retirement — with frames byte-identical to the pinned flat shapes the desktop expects (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "Token frames are byte-identical to the pinned shapes from the token-retirement evidence, including the relayed-push path.",
+        "Contest, reject, transfer-at-deadline and retirement behave per specs 095/101 on the ported end-to-end suite.",
+        "Feed cursors resume exactly as today, including the retainedFrom gap reporting."
+      ],
+      "passes": false,
+      "dependencies": [
+        152
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Rust feed and token protocol, the ported token-e2e and token-retirement suites; the two JS modules removed.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 158,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "red-worker replaces runtime/worker.mjs (736 lines): the root-bound worker in Rust — MCP route forwarding, token/recording frame forwarding, and the layered workspace updates of spec 065 with completion kept distinct from acceptance (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "A worker replacement mid-session retains every retained session and desktop (the hot-update suite, ported).",
+        "update_workspace drives the layers with update_status reporting completion separately from acceptance, exactly as today.",
+        "Token-action and recording frames forward with the desktop header semantics the token-retirement evidence pins."
+      ],
+      "passes": false,
+      "dependencies": [
+        157
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Rust worker, the ported hot-update suite, and the layered-update parity; worker.mjs removed.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 159,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "red-supervisor and the launchers replace runtime/supervisor.mjs and launcher/headless.mjs, replace.mjs, restart-supervisor.mjs and sidecar.mjs — including restart-supervisor's confirm prompt with no non-interactive bypass and its read-only --plan mode, which AGENTS.md's hand-back rule names (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "restart-supervisor keeps its confirm prompt with no bypass and its read-only --plan; the dashboard action of the same name keeps working.",
+        "Host replacement per spec 098 preserves the original PTY host and CLI on update; headless start per spec 090 works with no desktop.",
+        "The sidecar request/ensure path the remaining Rust binaries use is one shared implementation."
+      ],
+      "passes": false,
+      "dependencies": [
+        158
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Rust supervisor and launchers, the ported replace-host/headless suites; the five JS modules removed.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 160,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "red-client replaces runtime/client.mjs and runtime/discovery.mjs: the routine-update CLI and runtime discovery with spec 101's distrust rules (state dir from /api/state, process-table fallback, never the URL as key, never the first host row on trust) (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "update_status/update_workspace through the CLI behave identically against the Rust host with an existing context.",
+        "Discovery follows spec 101's rules on its fixture set, including saying why a remote backend cannot be read rather than misreporting sign-in."
+      ],
+      "passes": false,
+      "dependencies": [
+        159
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Rust client CLI and discovery, with fixture parity; the two JS modules removed.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 161,
+      "milestone": "J0",
+      "category": "editor",
+      "priority": "medium",
+      "description": "red-ide replaces runtime/ide.mjs and runtime/lsp.mjs: editor discovery and lock reading honoring CLAUDE_CONFIG_DIR (the F113 repair) and the editor-as-IDE evidence doc's distrust rules, plus the editor surface's LSP wiring (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "Editor lock discovery honors CLAUDE_CONFIG_DIR and every distrust rule of docs/evidence/editor-as-claude-ide-2026-09-07.md on the ported fixtures.",
+        "The LSP path behaves per spec 079's fixtures, or the re-scope is recorded with its reason in the slice's evidence."
+      ],
+      "passes": false,
+      "dependencies": [
+        160
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Rust editor-integration crate, the ported ide fixtures, and the LSP behavior or its recorded re-scope; the two JS modules removed.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 162,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "red-util replaces runtime/scripts.mjs, runtime/windows.mjs, runtime/desktop.mjs, runtime/bootstrap.mjs and orchestrator/external-project.mjs: script tabs with their retain/show semantics (spec 071), project-window lifecycle (spec 069), bootstrap helpers, and external capability declarations (spec 085) (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "Script-tab open/show/retain and failure propagation behave identically on the ported script suites.",
+        "Project-window open/focus/close/reopen and durable report exchange behave per the spec 069 dogfooding contract.",
+        "External-project capability declarations parse and refuse identically on the spec 085 contract fixtures."
+      ],
+      "passes": false,
+      "dependencies": [
+        160
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Rust script-tab, project-window and bootstrap modules, the ported suites; the five JS modules removed.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 163,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "Entry points move off Node: orchestrator/build.mjs, launch.mjs and prepare.mjs are replaced by cmake/cargo entry points, the RENGINE_NODE_EXECUTABLE coupling and build.lock dance are gone, package.json shrinks to metadata or disappears, and node_modules leaves the boot path (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "A clean machine without node builds and launches the full stack through the documented entry points.",
+        "RENGINE_NODE_EXECUTABLE appears nowhere in the build; the native desktop execs only Rust helpers.",
+        "No gate, script or runbook references npm test or npm run for the retired paths."
+      ],
+      "passes": false,
+      "dependencies": [
+        159
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The CMake/cargo build and launch entry points, the shrunk package.json, and the node-free boot evidence; the three JS modules removed.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 164,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "The JS test suite sunsets: every row of orchestrator/tests/suite-coverage.test.mjs has a named Rust-side or native-side equivalent or a recorded reason, the suite-coverage mechanism itself is ported so no fixture silently leaves the report, and node --test exits every gate (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "Every suite-coverage row names its Rust/native equivalent or its recorded reason; the ported ledger itself fails on an unnamed spec.",
+        "./init.sh passes on a machine without node, and node --test appears in no gate."
+      ],
+      "passes": false,
+      "dependencies": [
+        154,
+        155,
+        156,
+        161,
+        162,
+        163
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The ported suite-coverage ledger, the reason column for every moved or dropped fixture, and the node-free init.sh evidence.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 165,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "high",
+      "description": "Epic close: one full dogfood day on the Rust-only stack — panes of every CLI, terminals, updates, recordings, dashboard actions, this MCP — with the evidence logged, AGENTS.md's D57 bullet rewritten past tense, and node gone from the runtime (owner, 2026-09-11; spec 129, D57).",
+      "acceptance_criteria": [
+        "The full working day completes on the Rust-only stack with every listed surface exercised and the evidence logged.",
+        "AGENTS.md describes the JS orchestrator in the past tense, and nothing in the repository requires node at runtime."
+      ],
+      "passes": false,
+      "dependencies": [
+        164
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The dogfood-day evidence record in Codex-progress.md, the AGENTS.md rewrite, and any known-issues rows the day revealed.",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }

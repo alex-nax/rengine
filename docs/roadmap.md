@@ -79,7 +79,7 @@ shell or terminal-only app does not complete it. F43 is a real host-owned game i
 | O2 — CLI agent onboarding | F39–F41 | Bash selector/installer recipes and project MCP bootstrap work visibly and independently of the GUI. |
 | O2 (extended) — agent protocol | F113–F114 | One declared agent recipe registry replaces four private tables, then an ACP session kind for the agents that speak it natively; Claude stays on PTY and `/ide` because its SDK forbids third-party subscription login (D46). |
 | O4 — optional native XR control | F46–F47 | Native runtime compatibility and real session-specific Operator proof; no assumed Unity scene support. |
-| Q0–Q2 — Quest 2D client | F49–F52 | Delivery decision, paired desktop link, real editor/terminal access and live game stream on a headset with each desktop sidecar. |
+| Q0–Q2 — Quest 2D client | F49–F52 | Delivery decision, paired desktop link, real editor/terminal access and live game stream on a headset with each desktop sidecar. The paired-socket transport is superseded by D58: the Quest client becomes a packaging variant of the companion app (spec 128). |
 | A0 — external-app feasibility | F53 | Finite Mac/Windows app matrix for capture/control and optional Windows reparenting, with honest view-only/interactive limitations. |
 | T0 — tests attached to tasks | F115–F117 | A task shows the evidence that backs it, a project declares a tests manifest rEngine reads and never runs, and a verdict on a test is filed as a task in the project that owns it (D47). |
 | H1 — deterministic VR without a headset | F121–F122 | Once F123's pack ships and a game binds Vulkan for OpenXR against it (D50), Meta XR Simulator replays a recorded VRS capture with no person driving and no headset, and the capture becomes a versioned VR fixture behind a human verdict (D48, D49). Gated on work each game owns. |
@@ -89,6 +89,8 @@ shell or terminal-only app does not complete it. F43 is a real host-owned game i
 | R2 — theming update on the GPU renderer | F60 | The Claude Design cards are matched natively with presets, theme files and live reload; existing gates stay green. |
 | R3 — rendering library candidacy | F61 | Library-quality record, conformance checks and one game adoption through an adapter. |
 | R3 (extended) — the rendering library | F120, F123, F126–F128 | An SDL-free GPU device layer, packaged with the resource-and-draw seam generalised from vtmb-vr's proven `device.h` and GL/Vulkan backends chosen at build time (D51, D52). VtMB adopts it first on the surface already behind its own seam — the cheap verdict on D14c — then the rest of its renderer, then NOLF, which has no abstraction today. |
+| N0 — remote access and the companion | F139–F145 | Rust toolchain in the build, the protobuf contract proven against the live host, the red-link libp2p façade, QR-paired trust, owner-relay reachability with hole-punch upgrade, and the Android companion's see/chat/approve v0.1 (D57, D58; spec 128). |
+| J0 — JS retirement | F146–F165 | The Node orchestrator retires slice by slice behind the façade's stable protocol — store, agents, MCP, PTY, host routes, token/feed, worker, supervisor, clients, entry points, test suite — until a node-free dogfood day closes the epic (D57; spec 129). |
 
 The O/Q/A names identify independent branches; their numbers do not override dependency order.
 F32 is independently selectable ahead of the broader library-charter feature F1. The owner

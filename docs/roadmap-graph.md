@@ -217,6 +217,66 @@ flowchart TD
   F137["F137: passing"]
   F116 --> F137
   F138["F138: passing"]
+  F139["F139: ready"]
+  F140["F140: blocked"]
+  F139 --> F140
+  F141["F141: blocked"]
+  F140 --> F141
+  F142["F142: blocked"]
+  F141 --> F142
+  F143["F143: blocked"]
+  F142 --> F143
+  F144["F144: blocked"]
+  F143 --> F144
+  F145["F145: blocked"]
+  F144 --> F145
+  F146["F146: blocked"]
+  F139 --> F146
+  F147["F147: blocked"]
+  F139 --> F147
+  F148["F148: blocked"]
+  F139 --> F148
+  F149["F149: blocked"]
+  F148 --> F149
+  F150["F150: blocked"]
+  F141 --> F150
+  F149 --> F150
+  F151["F151: blocked"]
+  F147 --> F151
+  F152["F152: blocked"]
+  F150 --> F152
+  F151 --> F152
+  F153["F153: blocked"]
+  F152 --> F153
+  F154["F154: blocked"]
+  F153 --> F154
+  F155["F155: blocked"]
+  F152 --> F155
+  F156["F156: blocked"]
+  F152 --> F156
+  F157["F157: blocked"]
+  F152 --> F157
+  F158["F158: blocked"]
+  F157 --> F158
+  F159["F159: blocked"]
+  F158 --> F159
+  F160["F160: blocked"]
+  F159 --> F160
+  F161["F161: blocked"]
+  F160 --> F161
+  F162["F162: blocked"]
+  F160 --> F162
+  F163["F163: blocked"]
+  F159 --> F163
+  F164["F164: blocked"]
+  F154 --> F164
+  F155 --> F164
+  F156 --> F164
+  F161 --> F164
+  F162 --> F164
+  F163 --> F164
+  F165["F165: blocked"]
+  F164 --> F165
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -311,3 +371,30 @@ flowchart TD
 | F136 | R3 | rengine | blocked | The scene renders in a tab, on the device the window already has, through the seam the desktop itself renders with — not streamed from another process as a game surface is. An .obj in the explorer opens a Scene tab the way a .png opens the image view, and a command opens the built-in procedural scene. It is still by default: one frame on open, frames while dragging, continuous only when explicitly played (charter D55, spec 126). |
 | F137 | R3 | rengine | passing | A test's artifacts are where its task is. Contract 10's last block gains an artifacts array of root-relative paths with an optional label each, and the Tasks tab draws them beside the result F116 already shows, opening each in the view rEngine already has for it. rEngine still runs nothing and still opens nothing it was not given (spec 126). |
 | F138 | O2 | rengine | passing | Kimi Code is a named agent with the same pane functionality as the other four CLIs, because the owner directed unified integration — the same for everyone, including session listing+discovery. A kimi pane is detected, installed and updated through agent.sh; its launch wires the workspace MCP through the project-level .kimi-code/mcp.json (the only per-project channel kimi publishes), owning exactly one namespaced key and preserving every foreign entry; its session identity comes from its own --session flags with kimi --session <id> as the resume line and an honest unknown for -c or the selector; and live session reporting arrives through a SessionStart hook installed only by an explicit, reversible guided dashboard action, never by a silent write to the person's global config (owner, 2026-09-11; spec 127). F113 stays the follow-up that collapses the per-consumer tables into one registry. |
+| F139 | N0 | rengine | ready | The Rust toolchain and the red/ cargo workspace become first-class citizens of the build: rust-toolchain.toml pins the toolchain, a pinned Corrosion inside cmkr drives cargo from the same CMake entry point that builds the desktop, and init.sh checks the toolchain and instructs rather than downloading anything. This reverses spec 114's recorded 'a Rust toolchain we do not have' (owner, 2026-09-11; spec 128, D57). |
+| F140 | N0 | rengine | blocked | red-core holds the protobuf contract v1 for everything the façade and companion need first — sessions, tasks, the F113 agent registry and conversations, token contests, dashboard actions, feed events — and a contract-test harness validates every translated shape against the live session host, so JSON-to-proto drift fails a test instead of a phone. The owner chose schema-first over the JSON-mirror recommendation; this harness is the control that makes the second contract safe (owner, 2026-09-11; spec 128, decision 5). |
+| F141 | N0 | rengine | blocked | red-link attaches to a live session host over the same internal HTTP/WS surface the worker and MCP connector use, and serves the F140 contract over libp2p streams — with loopback evidence that forces the relay path, so the NAT code runs before any phone exists (owner, 2026-09-11; spec 128, decisions 2 and 4). |
+| F142 | N0 | rengine | blocked | Remote trust lands: static Ed25519 peer identities, a dashboard action whose QR carries the desktop peer ID, relay multiaddr and a one-time PIN, the PIN proven over Noise, allowed-phone rows persisted in the workspace state directory, and revocation by deleting a row — the Syncthing model, satisfying the pairing/revocation/root-scoping criteria F50 already records (owner, 2026-09-11; spec 128, decision 6). |
+| F143 | N0 | rengine | blocked | Reachability from anywhere: red-link --relay on owner-controlled infrastructure, dcutr direct upgrade, mDNS on LAN, and one real cellular run as evidence — never the public bootstrap network, because an admin channel does not ride untrusted third parties (owner, 2026-09-11; spec 128, decision 4). |
+| F144 | N0 | rengine | blocked | apps/companion exists as an Android skeleton: pinned Gradle wrapper and NDK, externalNativeBuild pointing at this repository's CMake so the app compiles the same C UI modules the desktop compiles, a Kotlin shell, and an ANativeWindow Vulkan surface through the D49 device layer — C drives the frame loop, red-core serves it through the C ABI (owner, 2026-09-11; spec 128, decisions 7 and 8). |
+| F145 | N0 | rengine | blocked | Companion v0.1 — see, chat, approve: from a phone on cellular, the roots/sessions view of the F113 registry, agent conversation read and send input, token contests and permission approvals, and dashboard actions with their confirm prompts. No terminal emulator and no game frames yet; the phone acts with desktop-class power only through the same project-token semantics (owner, 2026-09-11; spec 128, decision 9). |
+| F146 | J0 | rengine | blocked | tools/design.py learns a Rust target: the product name and theme tokens are generated into a Rust source beside the .mjs and .h outputs, so no Rust code ever hand-writes what D41 made a data edit. The slice that unblocks every other J0 row's need for generated constants (owner, 2026-09-11; spec 129, D57). |
+| F147 | J0 | rengine | blocked | red-store replaces server/store.mjs and server/schema.mjs: project and session persistence in Rust with the on-disk format byte-compatible, deleted in the same commit the replacement passes (owner, 2026-09-11; spec 129, D57). |
+| F148 | J0 | rengine | blocked | The F113 agent recipe registry becomes declarative data: one TOML document that the remaining JS and the new Rust side both parse, with spawn-environment composition (the RENGINE_AGENT_* context) ported (owner, 2026-09-11; spec 129, D57). |
+| F149 | J0 | rengine | blocked | red-agents replaces agents/registry.mjs, agents/config.mjs, agents/report-session.mjs and agents/bind.mjs: conversation discovery for all five CLIs, hook overlays, and the codex trust-hash math, with agent.sh keeping its CLI surface while dispatching to the Rust binary (owner, 2026-09-11; spec 129, D57). |
+| F150 | J0 | rengine | blocked | red-mcp replaces agents/mcp-worker.mjs and the runtime/tools.mjs probe: the root-bound MCP server in Rust over stdio, serving the same tool surface from the façade/host API, with the native desktop taught to exec red-mcp instead of node. This is the connection every agent pane uses, so the consumer-path evidence is live panes, not only fixtures (owner, 2026-09-11; spec 129, D57). |
+| F151 | J0 | rengine | blocked | red-pty replaces server/sessions.mjs: retained PTY sessions in Rust on portable-pty, with spawn, attach, scrollback replay, resize and kill identical to the JS session host, and retention across host restart as specs 059/060 promise (owner, 2026-09-11; spec 129, D57). |
+| F152 | J0 | rengine | blocked | red-host I: the Rust host core replaces server/main.mjs, server/desktops.mjs and server/surfaces.mjs with surface-protocol.mjs — the native desktop connects with zero native changes, and the surfaces focus-eviction semantic (surfaces.mjs:72-76, spec 114 finding 2) is preserved verbatim (owner, 2026-09-11; spec 129, D57). |
+| F153 | J0 | rengine | blocked | red-host II: server/tasks.mjs and the local half of server/tracker.mjs become Rust — the local backend's rows, readiness and criteria rendering, plus token-serialized tracker writes. tracker.mjs re-implements the features.py readiness rule while its schema text wrongly claims a shell-out (spec 114 finding 1): port the real behavior and correct the text (owner, 2026-09-11; spec 129, D57). |
+| F154 | J0 | rengine | blocked | red-host III: the remote tracker providers move to Rust — GitHub and Linear read-only with the 30-second cache, refresh bypass, and the denied/unavailable/invalid taxonomy rendered exactly as today (owner, 2026-09-11; spec 129, D57). |
+| F155 | J0 | rengine | blocked | red-host IV: dashboard, devices and games move to Rust — dashboard-rules availability composition, device probes and reachability caching, game preflight and launch gating (owner, 2026-09-11; spec 129, D57). |
+| F156 | J0 | rengine | blocked | red-host V: formats, images and recordings move to Rust — sanitized preview subtrees with the 32k budget and paging, image dimension sniffing without the image-dimensions npm package, and recording manifest/keyframe/log reads (owner, 2026-09-11; spec 129, D57). |
+| F157 | J0 | rengine | blocked | red-feed and red-token replace runtime/feed.mjs and runtime/token.mjs: the lifecycle feed ring with cursors and the project-token protocol — contest windows, segment frames, relayed pushes, retirement — with frames byte-identical to the pinned flat shapes the desktop expects (owner, 2026-09-11; spec 129, D57). |
+| F158 | J0 | rengine | blocked | red-worker replaces runtime/worker.mjs (736 lines): the root-bound worker in Rust — MCP route forwarding, token/recording frame forwarding, and the layered workspace updates of spec 065 with completion kept distinct from acceptance (owner, 2026-09-11; spec 129, D57). |
+| F159 | J0 | rengine | blocked | red-supervisor and the launchers replace runtime/supervisor.mjs and launcher/headless.mjs, replace.mjs, restart-supervisor.mjs and sidecar.mjs — including restart-supervisor's confirm prompt with no non-interactive bypass and its read-only --plan mode, which AGENTS.md's hand-back rule names (owner, 2026-09-11; spec 129, D57). |
+| F160 | J0 | rengine | blocked | red-client replaces runtime/client.mjs and runtime/discovery.mjs: the routine-update CLI and runtime discovery with spec 101's distrust rules (state dir from /api/state, process-table fallback, never the URL as key, never the first host row on trust) (owner, 2026-09-11; spec 129, D57). |
+| F161 | J0 | rengine | blocked | red-ide replaces runtime/ide.mjs and runtime/lsp.mjs: editor discovery and lock reading honoring CLAUDE_CONFIG_DIR (the F113 repair) and the editor-as-IDE evidence doc's distrust rules, plus the editor surface's LSP wiring (owner, 2026-09-11; spec 129, D57). |
+| F162 | J0 | rengine | blocked | red-util replaces runtime/scripts.mjs, runtime/windows.mjs, runtime/desktop.mjs, runtime/bootstrap.mjs and orchestrator/external-project.mjs: script tabs with their retain/show semantics (spec 071), project-window lifecycle (spec 069), bootstrap helpers, and external capability declarations (spec 085) (owner, 2026-09-11; spec 129, D57). |
+| F163 | J0 | rengine | blocked | Entry points move off Node: orchestrator/build.mjs, launch.mjs and prepare.mjs are replaced by cmake/cargo entry points, the RENGINE_NODE_EXECUTABLE coupling and build.lock dance are gone, package.json shrinks to metadata or disappears, and node_modules leaves the boot path (owner, 2026-09-11; spec 129, D57). |
+| F164 | J0 | rengine | blocked | The JS test suite sunsets: every row of orchestrator/tests/suite-coverage.test.mjs has a named Rust-side or native-side equivalent or a recorded reason, the suite-coverage mechanism itself is ported so no fixture silently leaves the report, and node --test exits every gate (owner, 2026-09-11; spec 129, D57). |
+| F165 | J0 | rengine | blocked | Epic close: one full dogfood day on the Rust-only stack — panes of every CLI, terminals, updates, recordings, dashboard actions, this MCP — with the evidence logged, AGENTS.md's D57 bullet rewritten past tense, and node gone from the runtime (owner, 2026-09-11; spec 129, D57). |

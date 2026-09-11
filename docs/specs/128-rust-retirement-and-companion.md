@@ -107,8 +107,9 @@ Nothing here starts from zero. Each load-bearing seam existed before this spec:
 ## Proposed feature rows
 
 New lane, milestone **N0** (remote access). Numbers continue the inventory (max is F138).
-Filing these into `features.json` is the next owner-approved step; this spec is the plan of
-record until then.
+**Filed in `features.json` on 2026-09-11** (owner approved the same day: "plan new features"),
+together with the JS-retirement epic — lane **J0**, rows F146–F165, documented in
+[spec 129](129-js-retirement-epic.md), which the owner's hourly retirement loop consumes.
 
 | Row | What |
 | --- | --- |
