@@ -2386,14 +2386,22 @@
         "A deliberate host-side shape change in the fixture turns the contract test red for that reason — observed once before the harness is trusted.",
         "Proto package and libp2p protocol name carry the same version, and a mismatched peer is refused with the version named."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         139
       ],
       "owner_workspace": "rengine",
       "deliverable": "red-core .proto definitions, the prost-generated types, and the live-host contract-test harness with its fixture session host.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "red/red-core/proto/red/v1/red.proto: the red.v1 contract — workspace and roots, sessions, the contract-2 dashboard, contract-5 tasks, the F113 agent registry, the project token and the feed as a oneof",
+        "red/red-core/src/translate.rs: the strict translation. A field the contract expects and the host did not send, a wrong type, an unknown enum value, and a field the host sent that nothing consumed are all drift; a field v1 deliberately does not carry is declared by name",
+        "orchestrator/tests/red-contract.test.mjs: criterion 1 — a real session host and runtime worker, a declared project, a running session and an exited one, a live /events socket, and red-contract judging all of it; 7 shapes with nothing left over",
+        "docs/specs/128-rust-retirement-and-companion.md: the four disagreements the harness found on its first real run, including a tracker's denied/unavailable/invalid answers that v1 had missed",
+        "criterion 2, three sabotages each observed failing for its own reason: a renamed field, a renamed session state, and a feed event the contract does not carry. The enum sabotage did NOT fire first time — the fixture's only session never exited — and the harness now produces both states and asserts it did",
+        "red/red-core/src/version.rs: criterion 3 — PROTOCOL_VERSION is one constant, the proto package and the libp2p protocol name are both built from it, a test reads the .proto on disk to prove its package line agrees, and negotiate() refuses a mismatched peer naming both versions",
+        "orchestrator/tests/rust-workspace.test.mjs: Cargo.lock is the dependency pin F139 deferred to F140 — exact version and SHA-256 per crate, sabotage-verified — and init.sh refuses without protoc"
+      ]
     },
     {
       "id": 141,

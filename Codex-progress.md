@@ -1,5 +1,50 @@
 # Progress Log
 
+## Session 113 (macos) — 2026-09-11 — the libp2p wire contract, and the harness that keeps it honest (F140)
+
+First step toward the Android companion: **`red.v1`**, the protobuf contract the façade and the phone
+will speak (charter D57, spec 128 decision 5) — workspace and roots, sessions, the contract-2
+dashboard, contract-5 tasks, the F113 agent registry, the project token, and the feed as a **oneof**
+so an event the companion cannot read is a decode error rather than a silent drop.
+
+**The contract is the easy half; the control is the feature.** The owner chose schema-first over
+mirroring the host's JSON, accepting a second description of one API. So `red-core` translates the
+LIVE host's JSON into those types and refuses anything it cannot carry — a missing field, a wrong
+type, an unknown enum value, and **a field the host sent that nothing consumed**. That last one is
+what a host gaining a feature looks like, and it is the change that would otherwise reach a phone as
+a feature nobody implemented. What v1 deliberately drops is declared by name, so "we decided not to"
+and "nobody looked" read differently in the source.
+
+**It found four disagreements on its first real run**, written from the host's own responses:
+`tasks.unavailable` — a tracker that cannot answer says *why* (`denied`/`unavailable`/`invalid`, with
+`signIn` naming the provider), because "no tasks" and "no credential" look identical on a phone;
+`evidence` on task rows; and contract 10's `tests` manifest, now recorded as deliberately not carried
+in v1.
+
+**Three sabotages, and the one that did not fire is the finding.** A renamed field and an invented
+feed event were both caught by name. Renaming the `exited` session state changed **nothing** — the
+fixture spawned one shell and left it running, so a whole enum value was validated by nothing. The
+harness now spawns a second short-lived session and asserts the live host produced both states; its
+precondition waits for "no longer running" rather than for the word, so a renamed state reaches the
+checker and is reported as an unknown enum instead of failing on the fixture's own wait loop.
+
+**Version in three places that cannot drift**: `PROTOCOL_VERSION` is one constant, the proto package
+`red.v1` and the libp2p protocol `/red/1` are built from it, a test reads the `.proto` on disk to
+prove its package line agrees, and `negotiate()` refuses a mismatched peer naming what it speaks,
+what we speak and the contract version — a person reads that, so "handshake failed" is not enough.
+
+**The dependency policy F139 deferred to here**: `Cargo.lock` is the pin — exact version and SHA-256
+per crate, the same guarantee `third_party/sources.json` gives the vendored C sources. F139's "every
+dependency is a path dependency" assertion is replaced by the invariant it was protecting, both
+halves sabotage-verified. `protoc` is a prerequisite like SDL2, not a binary this repository ships;
+`init.sh` refuses without it and says how to install it.
+
+F140 passes; 33 features passing. Next on the road to the phone is **F141**: red-link attaching to a
+live host and serving this contract over libp2p streams.
+
+`npm test`: 269/269. `npm run test:native`: 15/15 including both Rust crates. `./init.sh`,
+`design.py check` clean.
+
 ## Session 113 (macos) — 2026-09-11 — Rust retirement planned: libp2p façade and the Android companion (spec 128, D57–D58)
 
 The owner opened a new direction: *"plan our js retirement in favour of rust"*, first component a

@@ -6,3 +6,6 @@ description = "The libp2p façade and relay of the Rust orchestrator (spec 128, 
 
 [dependencies]
 red-core = { path = "../red-core" }
+
+[dev-dependencies]
+red-core = { path = "../red-core" }

@@ -8,3 +8,19 @@ description = "Protocol contract and shared primitives for the Rust orchestrator
 # (the companion's C layer, spec 128 decision 7), not before.
 [lib]
 crate-type = ["rlib"]
+
+# The first registry dependencies (F140). Cargo.lock is the pin: it records the exact version and a
+# SHA-256 for every crate, which is the same guarantee third_party/sources.json gives the vendored
+# C sources. protoc is a build prerequisite like SDL2 — init.sh checks for it and instructs.
+[dependencies]
+prost = "0.13"
+serde_json = "1"
+
+[build-dependencies]
+prost-build = "0.13"
+
+# The contract checker: reads a JSON bundle captured from a live session host and reports drift.
+# It is a binary rather than a test so the JS harness that owns the live host can run it.
+[[bin]]
+name = "red-contract"
+path = "src/bin/red_contract.rs"

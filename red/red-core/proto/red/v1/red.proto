@@ -1,0 +1,268 @@
+// The wire contract the façade speaks and the companion consumes (charter D57, spec 128 decision 5).
+//
+// Schema-first, overruling the recommendation to mirror the host's JSON shapes. The cost the owner
+// accepted is a second contract describing the same API; the control that makes it safe is the
+// contract test, which runs this translation against a LIVE session host and fails when the two
+// drift. So the rule for editing this file is: a shape here exists because the host emits it, and
+// `red-core`'s translator must consume every field the host sends or name it as deliberately
+// ignored. A field nobody decided about is drift.
+//
+// The package carries the protocol version and so does the libp2p protocol name; `version.rs` holds
+// the single constant both are built from, and a test reads this file to prove they agree.
+syntax = "proto3";
+
+package red.v1;
+
+// ---- roots and sessions -------------------------------------------------------------------------
+
+message Root {
+  string id = 1;
+  string path = 2;
+  string name = 3;
+}
+
+enum SessionKind {
+  SESSION_KIND_UNSPECIFIED = 0;
+  SESSION_KIND_TERMINAL = 1;
+  SESSION_KIND_AGENT = 2;
+  SESSION_KIND_GAME = 3;
+}
+
+enum SessionState {
+  SESSION_STATE_UNSPECIFIED = 0;
+  SESSION_STATE_RUNNING = 1;
+  SESSION_STATE_EXITED = 2;
+}
+
+// Where an agent's conversation was checkpointed, so a pane can be resumed rather than restarted.
+message Handoff {
+  string session_id = 1;
+  string checkpoint = 2;
+}
+
+message Session {
+  string id = 1;
+  string root_id = 2;
+  SessionKind kind = 3;
+  // Empty unless kind is SESSION_KIND_AGENT: which CLI this pane runs.
+  string agent = 4;
+  string title = 5;
+  uint32 pid = 6;
+  SessionState state = 7;
+  // Present only once the process has exited; a signal of 0 means it exited on its own.
+  optional int32 exit_code = 8;
+  optional int32 signal = 9;
+  int64 created_at = 10;
+  optional int64 ended_at = 11;
+  uint32 cols = 12;
+  uint32 rows = 13;
+  // Monotonic per session: the companion uses it to tell a stale snapshot from a current one.
+  uint64 sequence = 14;
+  optional Handoff handoff = 15;
+  bool waiting_for_view = 16;
+}
+
+message Workspace {
+  string instance = 1;
+  string state_dir = 2;
+  uint32 pid = 3;
+  // The host's own capability map, carried through rather than flattened: a companion that meets an
+  // older desktop has to be able to ask what it can do, and the set grows without a contract bump.
+  map<string, uint32> capabilities = 4;
+  repeated Root roots = 5;
+  repeated Session sessions = 6;
+}
+
+// ---- the project dashboard (contract 2) ----------------------------------------------------------
+
+message Device {
+  string id = 1;
+  string kind = 2;
+  string title = 3;
+  bool reachable = 4;
+  string checked_at = 5;
+  repeated string issues = 6;
+}
+
+enum ActionKind {
+  ACTION_KIND_UNSPECIFIED = 0;
+  ACTION_KIND_SCRIPT = 1;
+  ACTION_KIND_LOG = 2;
+  ACTION_KIND_CAPTURE = 3;
+  ACTION_KIND_GAME = 4;
+}
+
+message DashboardAction {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  ActionKind kind = 4;
+  string script = 5;
+  repeated string args = 6;
+  repeated string requires = 7;
+  repeated string tools = 8;
+  repeated string artifacts = 9;
+  repeated string command = 10;
+  repeated string filters = 11;
+  string into = 12;
+  string format = 13;
+  string game_id = 14;
+  optional Device device = 15;
+  bool available = 16;
+  repeated string missing = 17;
+  map<string, string> env = 18;
+}
+
+message DashboardGroup {
+  string id = 1;
+  string title = 2;
+  repeated DashboardAction actions = 3;
+}
+
+message Dashboard {
+  string root_id = 1;
+  bool declared = 2;
+  uint32 contract = 3;
+  string title = 4;
+  repeated DashboardGroup groups = 5;
+}
+
+// ---- tasks (contract 5) --------------------------------------------------------------------------
+
+message TaskState {
+  string id = 1;
+  string name = 2;
+  string category = 3;
+}
+
+message Task {
+  string id = 1;
+  string key = 2;
+  string title = 3;
+  TaskState state = 4;
+  string priority = 5;
+  repeated string labels = 6;
+  string assignee = 7;
+  string url = 8;
+  string updated_at = 9;
+  repeated string blocked_by = 10;
+  repeated string criteria = 11;
+  // The local inventory's evidence lines. Empty for a remote provider, whose issue body is prose.
+  repeated string evidence = 12;
+}
+
+message TaskList {
+  string root_id = 1;
+  bool declared = 2;
+  // "local", "github" or "linear": which declared tracker answered.
+  string provider = 3;
+  uint32 contract = 4;
+  bool fresh = 5;
+  repeated string categories = 6;
+  repeated Task rows = 7;
+  // Why an empty list is empty. A remote tracker that cannot answer must say which of these it is,
+  // because "no tasks" and "no credential" look identical on a phone otherwise: denied is a
+  // credential problem the person can fix (sign_in names the provider), unavailable is the
+  // provider being unreachable or rate-limited, and invalid carries the reasons it gave.
+  string denied = 8;
+  string unavailable = 9;
+  repeated string invalid = 10;
+  string sign_in = 11;
+}
+
+// ---- the F113 agent registry ---------------------------------------------------------------------
+
+message AgentRecipe {
+  string cli = 1;
+  bool installed = 2;
+  repeated string models = 3;
+  // Empty when the CLI starts on whatever it chooses for itself.
+  string default_model = 4;
+}
+
+message LiveAgent {
+  string session_id = 1;
+  string conversation = 2;
+  string label = 3;
+  string task = 4;
+}
+
+message AgentMenu {
+  string root_id = 1;
+  bool declared = 2;
+  repeated AgentRecipe agents = 3;
+  repeated LiveAgent live = 4;
+}
+
+// ---- the project token (charter D45) -------------------------------------------------------------
+
+message TokenParty {
+  string kind = 1;
+  uint32 pid = 2;
+  string id = 3;
+  string label = 4;
+}
+
+message TokenEvent {
+  uint64 sequence = 1;
+  string at = 2;
+  string type = 3;
+  optional TokenParty by = 4;
+}
+
+message TokenContest {
+  optional TokenParty by = 1;
+  string deadline = 2;
+  uint32 seconds_left = 3;
+}
+
+message Token {
+  string root_id = 1;
+  optional TokenParty holder = 2;
+  uint32 window_ms = 3;
+  optional TokenContest contest = 4;
+  bool holds_token = 5;
+  optional bool holder_alive = 6;
+  uint64 sequence = 7;
+  uint64 token_sequence = 8;
+  uint64 feed_cursor = 9;
+  repeated TokenEvent history = 10;
+  map<string, string> cooldown = 11;
+  repeated TokenParty identities = 12;
+}
+
+// ---- the feed ------------------------------------------------------------------------------------
+// One oneof rather than a type string, because an unknown variant must be a decode error the
+// companion can report rather than a silently ignored message.
+
+message Hello {
+  string instance = 1;
+}
+
+message SessionChanged {
+  Session session = 1;
+}
+
+message Output {
+  string session_id = 1;
+  uint64 sequence = 2;
+  bytes data = 3;
+}
+
+message Attached {
+  Session session = 1;
+}
+
+message FeedError {
+  string message = 1;
+}
+
+message FeedEvent {
+  oneof event {
+    Hello hello = 1;
+    SessionChanged session = 2;
+    Output output = 3;
+    Attached attached = 4;
+    FeedError error = 5;
+  }
+}

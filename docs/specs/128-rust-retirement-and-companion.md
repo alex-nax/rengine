@@ -138,3 +138,80 @@ for the MCP connector, runtime client, server routes, worker/feed and supervisor
   it gated stays deferred until a business-edition customer needs it (D46 unchanged).
 - F49–F52's transport half superseded (decision 10); their criteria this spec inherits are cited,
   not dropped.
+
+## F140: the wire contract, and the harness that keeps it honest
+
+Decision 5 chose a schema-first contract over mirroring the host's JSON, overruling the
+recommendation and accepting a second description of one API. **The control that makes that safe is
+the whole of this feature**, and it is worth being precise about what it does: `red-core` translates
+the live host's JSON into the `red.v1` types and refuses anything it cannot carry —
+
+- a field the contract expects and the host did not send,
+- a field whose type is not what the contract says,
+- an enum value the contract does not know, and
+- **a field the host sent that nothing consumed.**
+
+The last one is the case worth the trouble. It is what a host *gaining* a feature looks like, and it
+is exactly the change that would otherwise reach a phone as a feature nobody implemented. A field v1
+deliberately does not carry is declared with `Fields::ignore`, so "we decided not to" and "nobody
+looked" are different things in the source: the terminal's live output buffer (attach is v0.2),
+contract 10's per-task test manifest, and the token route's caller-specific answers are all ignored
+by name.
+
+### It found four disagreements on its first real run
+
+Written from the host's actual responses, and still wrong in four places the moment it met a live
+workspace with a declared project:
+
+| What the host sent | What it turned out to be |
+| --- | --- |
+| `tasks.unavailable` | a tracker that cannot answer says **why** — `denied`, `unavailable` or `invalid`, with `signIn` naming the provider. "No tasks" and "no credential" look identical on a phone otherwise. |
+| `tasks.rows[].evidence` | the local inventory's evidence lines, now carried |
+| `tasks.rows[].tests` | contract 10's test manifest — **deliberately not carried** in v1, recorded as such |
+
+That is the harness doing its job before it was ever asked to, which is the best evidence it works.
+
+### Version, in three places that cannot drift apart
+
+`PROTOCOL_VERSION` is one constant. The proto package `red.v1` and the libp2p protocol name `/red/1`
+are both built from it, `negotiate()` refuses a peer that names anything else, and the refusal says
+what the peer speaks, what this build speaks and the contract version — a person reads it, so
+"handshake failed" is not good enough. A test reads the `.proto` **on disk** and asserts its
+`package` line agrees with the constant, because a contract whose version is a comment is a contract
+nobody can check.
+
+### The sabotages, and the one that did not fire
+
+Criterion 2 asks for a deliberate host-side shape change observed turning the test red. Three were
+run, one per thing criterion 1 names:
+
+| Sabotage | Observed |
+| --- | --- |
+| the host renames `rootId` to `root` | *"workspace.sessions[0].rootId: expected a string, the host sent nothing"* and *"…root: the host sends this and the contract does not carry it"* |
+| the host renames the `exited` session state to `finished` | *"the host sent the session state \"finished\", which the contract does not know"* |
+| the host emits a `telemetry` feed event | *"the host sent the feed event \"telemetry\", which the contract does not carry"* |
+
+**The enum sabotage did not fire the first time, and that is the finding.** The fixture spawned one
+shell and left it running, so `exited` never occurred and the contract's knowledge of it was never
+tested — a whole enum value validated by nothing. The harness now spawns a second, short-lived
+session and asserts the live host produced **both** states before judging anything.
+
+Its precondition waits for "no longer running" rather than for the word `exited`, so a host that
+renames the state reaches the checker and is reported as an unknown enum, instead of failing on the
+fixture's own wait loop. A test that goes red for the wrong reason is only accidentally a test.
+
+The harness also refuses a bundle carrying no shape it knows, and names every section it must
+capture rather than judging whatever happens to be there — the same failure the `seam_symbols.py`
+gate had on the day it was written, and not one worth repeating.
+
+### The dependency policy F139 deferred to here
+
+`red/Cargo.toml` said the vendoring policy would arrive with the first real dependency. It is:
+**`Cargo.lock` is the pin.** It records an exact version and a SHA-256 for every crate, which is the
+same guarantee `third_party/sources.json` gives the vendored C sources, and it is committed. F139's
+"every dependency is a path dependency" assertion is replaced by the invariant it was protecting —
+nothing enters the tree without a pin a reader can check — and both halves were sabotage-verified.
+
+`protoc` is a prerequisite like SDL2 rather than a binary this repository ships: a vendored compiler
+would be a compiled third-party artifact with none of the provenance the rest of `third_party`
+records. `init.sh` refuses without it and says how to install it.

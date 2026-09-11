@@ -32,14 +32,36 @@ test('the red/ workspace holds the red-core and red-link skeleton crates', async
   }
 });
 
-test('the skeleton crates fetch nothing: every dependency is a path dependency', async () => {
-  for (const member of ['red-core', 'red-link']) {
-    const manifest = await read(`red/${member}/Cargo.toml`);
-    const deps = manifest.match(/^\[dependencies\]$([^[]*)/m)?.[1] ?? '';
-    for (const line of deps.split('\n').filter((l) => /^\w/.test(l))) {
-      assert.ok(line.includes('path'), `${member} dependency is not a path dependency: ${line}`);
-    }
+/* F139 asserted that every dependency was a path dependency, because the skeletons had none and a
+ * silent first fetch would have set the policy by accident. F140 brought the first real ones
+ * (prost, serde_json), which that feature's own manifest comment anticipated — so the invariant
+ * moves to what it was always protecting: nothing enters the tree without a pin a reader can check.
+ * Cargo.lock is that pin, recording an exact version and a SHA-256 per crate, and it is committed. */
+test('every registry dependency is pinned by version and checksum in a committed Cargo.lock', async () => {
+  const lock = await read('red/Cargo.lock');
+  const packages = [...lock.matchAll(/^\[\[package\]\]\nname = "([^"]+)"\nversion = "([^"]+)"\n(source = "([^"]*)"\n)?(checksum = "([0-9a-f]{64})"\n)?/gm)]
+    .map(([, name, version, , source, , checksum]) => ({ name, version, source, checksum }));
+  assert.ok(packages.length > 2, `Cargo.lock lists the tree: ${packages.length} package(s)`);
+  const local = new Set(['red-core', 'red-link']);
+  const fetched = packages.filter((p) => !local.has(p.name));
+  assert.ok(fetched.length > 0, 'there are registry dependencies to check; F140 brought the first');
+  for (const { name, version, source, checksum } of fetched) {
+    assert.ok(source?.startsWith('registry+'), `${name} comes from a registry, not a git or path source: ${source}`);
+    assert.match(version, /^\d+\.\d+/, `${name} is pinned to an exact version`);
+    assert.ok(checksum, `${name} ${version} carries a SHA-256 in the lock file`);
   }
+  for (const name of local) {
+    assert.ok(packages.some((p) => p.name === name && !p.source), `${name} is a path member, not fetched`);
+  }
+});
+
+/* The contract's own dependency is protoc, which is not a crate and cannot ride Cargo.lock. It is a
+ * prerequisite the harness gate refuses to proceed without, so a missing one is a sentence rather
+ * than a build failure fifty lines deep in prost-build. */
+test('init.sh refuses to pass without protoc, and says how to install it', async () => {
+  const init = await read('init.sh');
+  assert.match(init, /command -v protoc/, 'init.sh checks for protoc');
+  assert.match(init, /brew install protobuf|protobuf-compiler/, 'and names how to install it');
 });
 
 test('Corrosion is pinned by commit in cmake.toml', async () => {

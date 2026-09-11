@@ -11,6 +11,10 @@ python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else "ERROR: Py
 # The red/ workspace (charter D57, spec 128): cargo must exist and the pinned toolchain must be
 # installed. init.sh instructs; nothing is installed silently.
 command -v cargo >/dev/null 2>&1 || { echo "ERROR: Rust (cargo) is required for the red/ workspace (charter D57, spec 128). Install rustup from https://rustup.rs, then run: rustup toolchain install $(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)"; exit 1; }
+# protoc builds the red-core contract (spec 128 decision 5). A prerequisite like SDL2, not something
+# this repository ships: prost-build shells out to it, and a vendored compiler binary would be a
+# compiled third-party artifact with none of the provenance third_party/sources.json records.
+command -v protoc >/dev/null 2>&1 || { echo "ERROR: protoc is required to build the red/ contract (charter D57, spec 128). Install it: brew install protobuf, or apt-get install -y protobuf-compiler"; exit 1; }
 RENGINE_RUST_PIN="$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)"
 if [ -n "$RENGINE_RUST_PIN" ] && command -v rustup >/dev/null 2>&1; then
     rustup toolchain list | grep -q "^${RENGINE_RUST_PIN}" || { echo "ERROR: the pinned Rust toolchain ${RENGINE_RUST_PIN} is not installed. Run: rustup toolchain install ${RENGINE_RUST_PIN}"; exit 1; }
