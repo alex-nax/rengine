@@ -108,10 +108,22 @@ def spirv(glslc, path, stage, name):
         source.write_text(VK_PREAMBLE + define + declarations(path.read_text(encoding="utf-8"), True),
                           encoding="utf-8")
         out = work / "out.spv"
-        done = subprocess.run([glslc, "--target-env=" + TARGET, "-O", "-o", str(out), str(source)],
+        # NOT glslc -O. The seam looks uniforms up by name, and the Vulkan backend recovers those
+        # names by reflecting the module — but glslc's -O strips OpName and OpMemberName, with or
+        # without -g, leaving a module whose uniforms cannot be found by name at all. spirv-opt -O
+        # runs the same optimisations and KEEPS them, so the two steps are separated here. A project
+        # that wants stripped modules must have its generator emit an offset table instead; that is
+        # the real cost of name-based lookup on Vulkan, and it is one tool flag either way.
+        done = subprocess.run([glslc, "--target-env=" + TARGET, "-o", str(out), str(source)],
                               capture_output=True, text=True)
         if done.returncode != 0:
             sys.exit("glslc failed on %s (%s):\n%s" % (path.name, stage, done.stderr))
+        optimiser = shutil.which("spirv-opt")
+        if optimiser:
+            done = subprocess.run([optimiser, "-O", str(out), "-o", str(out)],
+                                  capture_output=True, text=True)
+            if done.returncode != 0:
+                sys.exit("spirv-opt failed on %s (%s):\n%s" % (path.name, stage, done.stderr))
         data = out.read_bytes()
     return [int.from_bytes(data[i:i + 4], "little") for i in range(0, len(data), 4)]
 

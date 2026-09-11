@@ -336,6 +336,12 @@ class Device
                                                          static_cast<ReSeamTextureUse>(use));
         return Texture{raw.id, raw.width, raw.height};
     }
+    // The backend's own object behind a texture, for a host that must do something the seam does not
+    // offer — read a frame back, or hand an image to a runtime.
+    std::uintptr_t textureHandle(Texture texture)
+    {
+        return re_seam_texture_handle(seam(), ReSeamTexture{texture.id, texture.width, texture.height});
+    }
     void updateTexture(Texture texture, int x, int y, int width, int height, const void* rgba)
     {
         re_seam_texture_update(seam(), ReSeamTexture{texture.id, texture.width, texture.height},

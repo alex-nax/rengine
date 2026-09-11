@@ -179,6 +179,15 @@ void re_seam_texture_update(ReSeam *seam, ReSeamTexture texture, int x, int y, i
                             const void *rgba);
 void re_seam_texture_destroy(ReSeam *seam, ReSeamTexture *texture);
 void re_seam_texture_bind(ReSeam *seam, ReSeamTexture texture, int unit);
+/* The backend's own object behind a texture: a texture name on OpenGL, a `VkImage` on Vulkan, an
+ * `id<MTLTexture>` on Metal. The mirror of `re_seam_target_adopt`, and the second and last place the
+ * seam is not API-neutral.
+ *
+ * It exists because a host sometimes has to do something to an image the seam made — read a frame
+ * back, hand it to a video encoder, pass it to an XR runtime — and the alternative is for the seam to
+ * grow those features itself. Read-back in particular is a synchronisation point, and a frame path
+ * whose whole value is being thin is the wrong place for one. */
+uintptr_t re_seam_texture_handle(ReSeam *seam, ReSeamTexture texture);
 
 /* ---- render targets ----------------------------------------------------------------------------
  * `depth` may be a zero handle for a colour-only target. Binding a zero target returns to whatever

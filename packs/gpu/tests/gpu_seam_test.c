@@ -434,6 +434,24 @@ int main(void) {
   readPixels(1, 1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, probe);
   describe("equal depth under EQUAL", (Pixel){probe[0], probe[1], probe[2], probe[3]});
   assert(near(probe[0], 255) && near(probe[1], 0) && "EQUAL accepts it — the compare function is the caller's");
+  /* A depth clear is masked by the depth write mask, in OpenGL and therefore in every backend that
+     claims call sites see no difference. With writes off, the clear below must do NOTHING: the
+     depth the green draw wrote is still there, and LESS still rejects the red draw at the same
+     depth. Preserved deliberately from vtmb-vr — "a call site that clears depth sets the write
+     itself" — and until now nothing checked it, which is how the scene example walked straight into
+     it and spent an afternoon looking like a broken render target. */
+  re_seam_depth_compare(seam, RE_SEAM_DEPTH_LESS);   /* back to rejecting a tie */
+  re_seam_depth(seam, RE_SEAM_DEPTH_TEST_ENABLED, RE_SEAM_DEPTH_WRITE_DISABLED);
+  re_seam_clear(seam, 0.0f, 0.0f, 0.0f, 1.0f, true);
+  re_seam_program_use(seam, solid);
+  re_seam_uniform_vec4(seam, re_seam_uniform_location(seam, solid, "u_color"), 0.0f, 0.0f, 1.0f, 1.0f);
+  re_seam_draw(seam, RE_SEAM_PRIMITIVE_TRIANGLES, 0, 3);
+  readPixels(1, 1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, probe);
+  describe("after a clear with depth writes off", (Pixel){probe[0], probe[1], probe[2], probe[3]});
+  assert(near(probe[2], 0) &&
+         "the depth clear was masked away, so the old depth still rejected this draw — had the "
+         "clear taken effect, this pixel would be blue");
+
   re_seam_depth_compare(seam, RE_SEAM_DEPTH_LESS);
   re_seam_depth(seam, RE_SEAM_DEPTH_TEST_DISABLED, RE_SEAM_DEPTH_WRITE_DISABLED);
   re_seam_target_bind(seam, (ReSeamTarget){0, 0, 0});

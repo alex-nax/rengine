@@ -53,7 +53,7 @@ cmake_minimum_required(VERSION 3.21)
 project(scene_consumer C)
 find_package(SDL2 REQUIRED CONFIG)
 add_subdirectory("${PACK}" pack)
-add_executable(scene "${EXAMPLE}/main.c" "${EXAMPLE}/scene.c" "${EXAMPLE}/obj.c")
+add_executable(scene "${EXAMPLE}/main.c" "${EXAMPLE}/scene.c" "${EXAMPLE}/obj.c" "${EXAMPLE}/host_gl.c")
 target_link_libraries(scene PRIVATE rengine::gpu SDL2::SDL2 m)
 target_compile_features(scene PRIVATE c_std_11)
 `);
@@ -103,7 +103,14 @@ test('a project outside this repository builds the scene example and it renders 
        near green 92 and an unblended one at exactly 191 — the two are not near each other. */
     const band = image.at(640, 700);
     const aboveBand = image.at(640, 560);
-    assert.ok(band.b > aboveBand.b + 60, `the overlay band is present (blue ${band.b} over ${aboveBand.b})`);
+    /* Judged on the band's HUE, not its brightness: the overlay is cyan, so blue runs about 100
+       above red inside it and about 14 above red outside. An absolute-brightness threshold was the
+       first attempt and it broke the moment the scene's lighting was fixed — a test that moves when
+       something unrelated gets brighter is measuring the wrong thing. */
+    const cast = p => p.b - p.r;
+    assert.ok(cast(band) > 60, `the overlay band is present (blue-over-red ${cast(band)} at 640,700)`);
+    assert.ok(cast(aboveBand) < 40,
+      `and it stops where it should (blue-over-red ${cast(aboveBand)} above it)`);
     assert.ok(band.g < 140, `and it is blended rather than opaque (green ${band.g}, unblended would be 191)`);
 
     /* The animation is a function of the frame number: a different count is a different image, and

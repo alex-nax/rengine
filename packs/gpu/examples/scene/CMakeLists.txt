@@ -12,10 +12,20 @@ if(NOT SDL2_FOUND)
   return()
 endif()
 
+# The host is chosen by the same option that chose the seam's backend: opening a GL context and
+# opening a Vulkan device are different acts, and host.h is where the example admits that. Everything
+# above it — scene.c, the shaders, the call sites — is identical either way, which is the claim.
+if(RENGINE_GPU_SEAM_BACKEND STREQUAL "vulkan")
+  set(RENGINE_GPU_SCENE_HOST "${CMAKE_CURRENT_SOURCE_DIR}/host_vk.c")
+else()
+  set(RENGINE_GPU_SCENE_HOST "${CMAKE_CURRENT_SOURCE_DIR}/host_gl.c")
+endif()
+
 add_executable(rengine_gpu_scene
   "${CMAKE_CURRENT_SOURCE_DIR}/main.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/scene.c"
-  "${CMAKE_CURRENT_SOURCE_DIR}/obj.c")
+  "${CMAKE_CURRENT_SOURCE_DIR}/obj.c"
+  "${RENGINE_GPU_SCENE_HOST}")
 target_link_libraries(rengine_gpu_scene PRIVATE rengine::gpu SDL2::SDL2)
 target_compile_features(rengine_gpu_scene PRIVATE c_std_11)
 if(NOT MSVC)

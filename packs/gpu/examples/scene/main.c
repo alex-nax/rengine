@@ -4,42 +4,23 @@
  * set of call sites — which is the D14c question, and the reason charter D53 has rEngine proving the
  * seam on itself rather than waiting for a game to do it.
  *
- * SDL is used for the window, the GL context and the entry-point loader. That is the host's job in
- * this design: the seam links no graphics library and takes `glGetProcAddress` from whoever opened
- * the context. A different host would use GLFW, or a platform window, or an OpenXR session.
+ * Everything platform-shaped lives behind `host.h` — the window, the device, the read-back — with
+ * one implementation per backend. That split is what makes "no call-site difference between
+ * backends" a precise claim rather than a vague one: `scene.c` is byte-identical across all of them,
+ * and the host is where they genuinely differ, because opening a GL context and opening a Vulkan
+ * device are not the same act and the seam never claimed to hide it.
  */
+#include "host.h"
 #include "scene.h"
 
-#include <SDL.h>
+#include <stdbool.h>
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-/* The host's own render-target plumbing, which the seam deliberately does not provide: making a
- * framebuffer is the host's business in exactly the way making a window is. */
-static void (*genFramebuffers)(int, unsigned *);
-static void (*bindFramebuffer)(unsigned, unsigned);
-static void (*framebufferTexture2D)(unsigned, unsigned, unsigned, unsigned, int);
-static void (*readPixels)(int, int, int, int, unsigned, unsigned, void *);
-#define GL_FRAMEBUFFER 0x8D40
-#define GL_COLOR_ATTACHMENT0 0x8CE0
-#define GL_DEPTH_ATTACHMENT 0x8D00
-#define GL_TEXTURE_2D 0x0DE1
-#define GL_RGBA 0x1908
-#define GL_UNSIGNED_BYTE 0x1401
-
-static void *load_proc(void *user, const char *name) {
-  (void)user;
-  return SDL_GL_GetProcAddress(name);
-}
-static void on_message(void *user, const char *message) {
-  (void)user;
-  fprintf(stderr, "%s\n", message);
-}
-
 /* A bottom-up 32-bit BMP: the format every snapshot in this repository already uses, so
- * tools/render_compare.py and tools/bmp_to_png.py read it without being told anything. Thirty-two
- * bits also means no row padding, which is one fewer thing to get wrong. */
+ * tools/render_compare.py and tools/bmp_to_png.py read it without being told anything. */
 static bool write_bmp(const char *path, const unsigned char *rgba, int width, int height) {
   FILE *file = fopen(path, "wb");
   if (file == NULL) return false;
@@ -52,7 +33,7 @@ static bool write_bmp(const char *path, const unsigned char *rgba, int width, in
   memcpy(header + 10, &offset, 4);
   memcpy(header + 14, &info, 4);
   memcpy(header + 18, &width, 4);
-  memcpy(header + 22, &height, 4);   /* positive: bottom-up, which is the order GL read them in */
+  memcpy(header + 22, &height, 4);
   memcpy(header + 26, &planes, 2);
   memcpy(header + 28, &bits, 2);
   memcpy(header + 34, &image, 4);
@@ -104,48 +85,18 @@ int main(int argc, char **argv) {
     return 2;
   }
 
-  if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-    fprintf(stderr, "scene: SDL video unavailable (%s)\n", SDL_GetError());
-    return 1;
-  }
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
-  SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-  /* A snapshot renders into its own target, so its window stays hidden and never steals focus — a
-     test that grabs the screen is a test nobody runs twice. */
-  Uint32 flags = SDL_WINDOW_OPENGL | (snapshot != NULL ? SDL_WINDOW_HIDDEN : SDL_WINDOW_SHOWN);
-  SDL_Window *window = SDL_CreateWindow("rengine-gpu scene", SDL_WINDOWPOS_CENTERED,
-                                        SDL_WINDOWPOS_CENTERED, width, height, flags);
-  if (window == NULL) {
-    fprintf(stderr, "scene: no window (%s)\n", SDL_GetError());
-    SDL_Quit();
-    return 1;
-  }
-  SDL_GLContext context = SDL_GL_CreateContext(window);
-  if (context == NULL) {
-    fprintf(stderr, "scene: no GL context (%s)\n", SDL_GetError());
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-    return 1;
-  }
-
   char error[512] = {0};
-  ReSeamOpen options = {0};
-  options.get_proc = load_proc;
-  options.on_message = on_message;
-  ReSeam *seam = re_seam_open(&options, error, sizeof(error));
-  if (seam == NULL) {
+  Host *host = host_open(width, height, snapshot != NULL, error, sizeof(error));
+  if (host == NULL) {
     fprintf(stderr, "scene: %s\n", error);
     return 1;
   }
+  ReSeam *seam = host_seam(host);
   printf("scene: %s backend, %s\n", re_seam_backend(), re_seam_api_version(seam));
-
   Scene scene;
   if (!scene_open(&scene, seam, width, height, model, error, sizeof(error))) {
     fprintf(stderr, "scene: %s\n", error);
-    re_seam_close(seam);
+    host_close(host);
     return 1;
   }
   if (orbit > 0.0f) scene.orbit = orbit;
@@ -154,66 +105,67 @@ int main(int argc, char **argv) {
          scene.geometry.vertex_count, scene.geometry.part_count, model != NULL ? " (loaded)" : "",
          (double)scene.centre.x, (double)scene.centre.y, (double)scene.centre.z, (double)scene.radius);
 
-  ReSeamTarget screen;
-  unsigned capture_fbo = 0;
-  ReSeamTexture capture_color = {0}, capture_depth = {0};
-  if (snapshot != NULL) {
-    /* Render into a texture the host owns and read it back. Rendering to the window's back buffer
-       and reading that would depend on a compositor nobody controls; this does not. */
-    genFramebuffers = (void (*)(int, unsigned *))SDL_GL_GetProcAddress("glGenFramebuffers");
-    bindFramebuffer = (void (*)(unsigned, unsigned))SDL_GL_GetProcAddress("glBindFramebuffer");
-    framebufferTexture2D = (void (*)(unsigned, unsigned, unsigned, unsigned, int))SDL_GL_GetProcAddress("glFramebufferTexture2D");
-    readPixels = (void (*)(int, int, int, int, unsigned, unsigned, void *))SDL_GL_GetProcAddress("glReadPixels");
-    capture_color = re_seam_texture_2d_for(seam, NULL, width, height, RE_SEAM_FILTER_NEAREST,
-                                           RE_SEAM_WRAP_CLAMP_TO_EDGE, RE_SEAM_TEXTURE_COLOR);
-    capture_depth = re_seam_texture_2d_for(seam, NULL, width, height, RE_SEAM_FILTER_NEAREST,
-                                           RE_SEAM_WRAP_CLAMP_TO_EDGE, RE_SEAM_TEXTURE_DEPTH);
-    genFramebuffers(1, &capture_fbo);
-    bindFramebuffer(GL_FRAMEBUFFER, capture_fbo);
-    framebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, capture_color.id, 0);
-    framebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, capture_depth.id, 0);
-    screen = re_seam_target_adopt(seam, capture_fbo, width, height);
-  } else {
-    screen = re_seam_target_adopt(seam, 0, width, height);   /* the window's back buffer */
-  }
-
+  ReSeamTarget screen = host_target(host);
   int status = 0;
   if (snapshot != NULL) {
-    for (int frame = 0; frame <= frames; frame++) scene_draw(&scene, seam, screen, frame);
+    /* The median rather than the mean: the first frame pays for every pipeline the scene needs and
+       every buffer it uploads, and an average over sixty frames hides that in a way that flatters
+       whichever backend front-loads more. Reporting both is what makes the number comparable. */
+    double *taken = malloc((size_t)(frames + 1) * sizeof(double));
+    struct timespec run_start;
+    clock_gettime(CLOCK_MONOTONIC, &run_start);
+    for (int frame = 0; frame <= frames; frame++) {
+      struct timespec start, stop;
+      clock_gettime(CLOCK_MONOTONIC, &start);
+      scene_draw(&scene, seam, screen, frame);
+      clock_gettime(CLOCK_MONOTONIC, &stop);
+      if (taken != NULL)
+        taken[frame] = (double)(stop.tv_sec - start.tv_sec) * 1000.0 +
+                       (double)(stop.tv_nsec - start.tv_nsec) / 1000000.0;
+    }
+    if (taken != NULL && frames > 0) {
+      for (int i = 1; i <= frames; i++)          /* insertion sort: sixty items, once */
+        for (int k = i; k > 0 && taken[k] < taken[k - 1]; k--) {
+          double swap = taken[k]; taken[k] = taken[k - 1]; taken[k - 1] = swap;
+        }
+      struct timespec run_stop;
+      clock_gettime(CLOCK_MONOTONIC, &run_stop);
+      double total = (double)(run_stop.tv_sec - run_start.tv_sec) * 1000.0 +
+                     (double)(run_stop.tv_nsec - run_start.tv_nsec) / 1000000.0;
+      /* Two numbers, because one would mislead. The per-frame median is what the CALL SITE waited
+         for, and the backends do not promise the same thing there: the OpenGL backend's frame ends
+         with a flush and returns while the GPU is still working, and the Vulkan backend's submits
+         and waits. Comparing those medians would report a difference in synchronisation as a
+         difference in speed. The total covers the whole run and ends with a read-back that forces
+         both to finish, so it is the one that compares like with like. */
+      printf("scene: frame median %.3f ms (call-site wait), first %.3f ms, slowest %.3f ms; "
+             "%.1f ms total for %d frames = %.3f ms/frame\n",
+             taken[(frames + 1) / 2], taken[0], taken[frames], total, frames + 1,
+             total / (double)(frames + 1));
+    }
+    free(taken);
     unsigned char *pixels = malloc((size_t)width * (size_t)height * 4);
     if (pixels == NULL) {
       fprintf(stderr, "scene: out of memory for the snapshot\n");
       status = 1;
+    } else if (!host_read(host, pixels, error, sizeof(error))) {
+      fprintf(stderr, "scene: %s\n", error);
+      status = 1;
+    } else if (!write_bmp(snapshot, pixels, width, height)) {
+      fprintf(stderr, "scene: cannot write %s\n", snapshot);
+      status = 1;
     } else {
-      bindFramebuffer(GL_FRAMEBUFFER, capture_fbo);
-      readPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-      if (!write_bmp(snapshot, pixels, width, height)) {
-        fprintf(stderr, "scene: cannot write %s\n", snapshot);
-        status = 1;
-      } else {
-        printf("scene: wrote %s after %d frames\n", snapshot, frames);
-      }
-      free(pixels);
+      printf("scene: wrote %s after %d frames\n", snapshot, frames);
     }
+    free(pixels);
   } else {
-    bool running = true;
-    for (int frame = 0; running; frame++) {
-      SDL_Event event;
-      while (SDL_PollEvent(&event))
-        if (event.type == SDL_QUIT ||
-            (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE))
-          running = false;
+    for (int frame = 0; host_poll(host); frame++) {
       scene_draw(&scene, seam, screen, frame);
-      SDL_GL_SwapWindow(window);
+      host_present(host);
     }
   }
 
-  re_seam_texture_destroy(seam, &capture_color);
-  re_seam_texture_destroy(seam, &capture_depth);
   scene_close(&scene, seam);
-  re_seam_close(seam);
-  SDL_GL_DeleteContext(context);
-  SDL_DestroyWindow(window);
-  SDL_Quit();
+  host_close(host);
   return status;
 }

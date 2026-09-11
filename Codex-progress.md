@@ -1,5 +1,60 @@
 # Progress Log
 
+## Session 101 (macos) — 2026-09-11 — D14c's bet holds: 2 pixels between OpenGL and Vulkan
+
+F130. The scene example renders through a Vulkan backend with **no change to `scene.c` at all** — a
+test asserts it calls no graphics API and includes no graphics header — and the two backends agree:
+
+| | differing | outside a 2px edge band | validation |
+| --- | --- | --- | --- |
+| built-in scene, 14 draws | **2** of 921,600 | **0** | **0** |
+| Crytek Sponza, 393 draws | **61** of 921,600 | **0** | **0** |
+
+Every difference is a rasterisation tie at a shared edge. So resource+draw granularity *can* carry
+Vulkan with command buffers, render passes, barriers and pipelines built inside the backend. **D14c
+is no longer a bet.**
+
+Uniforms by name survive through **SPIR-V reflection**: the backend reads member names and std140
+offsets out of the module, so a consumer's shader build changes in exactly one way — it keeps the
+SPIR-V it already produces and throws away. That needed one discovery: **`glslc -O` strips `OpName`**,
+with or without `-g`, so an optimised module has no names to look up. `spirv-opt -O` runs the same
+passes and keeps them, so the generator does the two steps separately.
+
+**The y-axis decision, which a consumer inherits.** OpenGL stores NDC −1 in row 0; Vulkan's
+framebuffer row 0 is the top. The usual negative-height viewport was the first version here, and it
+made the main pass match exactly while inverting **every render-to-texture** — the off-screen inset
+was the only part of the frame that disagreed, which is how it was found. There is no flip now: both
+store NDC −1 in row 0, so a texture means the same thing on both. The cost is that a presented
+Vulkan window is upside down and a windowed host must flip for its own final pass — which is the
+right place, since presentation belongs to whoever owns the swapchain.
+
+**Nine sabotages, each caught. Three were not, at first, and each was a real gap:** the scene never
+used a depth compare other than LESS, never drew anything whose back faces were visible, and always
+enabled depth writes before clearing — so three of the seam's own additions were uncovered by the
+comparison meant to judge them. The scene gained a decal drawn twice; the OpenGL pixel test gained a
+masked-clear assertion.
+
+**And the first decal was a z-fighting test in disguise** — laid exactly on the floor, relying on
+LESS_EQUAL to win a tie between two *different* pieces of geometry whose depths differ in the last
+bits. 4,737 pixels apart, 133 outside the edge band. Priming depth from the same geometry makes it
+decisive and identical on both.
+
+**The validation layers earned their place**: `TRANSFER_SRC` missing from the seam's images meant a
+host could not copy out of an image the seam had handed it — the very thing `re_seam_texture_handle`
+exists for. It worked on this driver and would not have elsewhere.
+
+**Frame time, measured so both numbers mean the same thing.** 0.281 vs 1.010 ms/frame at 14 draws,
+1.321 vs 2.512 at 393. These are run totals, not per-frame medians: OpenGL's frame ends with a flush
+and returns while the GPU works, Vulkan's submits and waits, so comparing medians (0.09 vs 0.91)
+would report synchronisation as speed. Vulkan is slower and **the ratio narrows as draws rise**,
+which is a fixed per-frame cost rather than a per-draw one — all four causes are simplifications
+named at the top of `gpu_seam_vk.c`, none about the seam's shape.
+
+Commands: `npm test` 236/236 · `ctest` 12/12 · nine Vulkan sabotages · validation layers clean on
+both scenes · `./init.sh` · `design.py check` · `shaders/generate.py check`
+
+Next: **F131**, the Metal backend, judged the same way.
+
 ## Session 100 (macos) — 2026-09-11 — the scene example renders, and three defects only a picture found
 
 F132. `packs/gpu/examples/scene` is the pack's consumer: 14 parts, three programs, two textures at

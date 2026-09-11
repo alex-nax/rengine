@@ -410,6 +410,41 @@ void scene_draw(Scene *scene, ReSeam *seam, ReSeamTarget target, int frame) {
   re_seam_clear(seam, 0.02f, 0.02f, 0.04f, 1.0f, true);
   draw_parts(scene, seam, view_proj, frame);
 
+  /* A decal, drawn twice from the SAME geometry to make the depth compare function decisive.
+
+     The first attempt laid it exactly on the floor and relied on LESS_EQUAL to let it tie with the
+     floor's depth. That is z-fighting: the two planes come from different geometry, so their
+     interpolated depths differ in the last bits and each rasteriser resolves the tie its own way —
+     4,737 pixels apart between the backends, 133 of them nowhere near an edge. It was testing
+     floating point, not the seam.
+
+     So the decal sits clear of the floor and primes its own depth first. The second pass is the same
+     quad at the same depth, blended: under LESS_EQUAL it draws over the first and the decal ends up
+     a blend of the two colours; under LESS it is rejected and the decal stays the first colour
+     alone. Identical geometry means identical depth on both backends, so the comparison is decisive
+     rather than a coin toss. This is the depth-pre-pass pattern vtmb-vr makes fourteen glDepthFunc
+     calls for. */
+  Mat4 decal = mat4_multiply(mat4_translate(scene->centre.x, r * 0.004f, scene->centre.z),
+                             mat4_multiply(mat4_rotate_x(-1.5707963268f),
+                                           mat4_scale(r * 0.22f, r * 0.22f, 1.0f)));
+  re_seam_program_use(seam, scene->flat);
+  re_seam_uniform_mat4(seam, scene->flat_view_proj, view_proj.m);
+  re_seam_uniform_mat4(seam, scene->flat_model, decal.m);
+  re_seam_cull(seam, RE_SEAM_CULL_NONE);
+  re_seam_vertex_array_bind(seam, scene->overlay_array);
+  re_seam_blend(seam, RE_SEAM_BLEND_NONE);
+  re_seam_depth(seam, RE_SEAM_DEPTH_TEST_ENABLED, RE_SEAM_DEPTH_WRITE_ENABLED);
+  re_seam_uniform_vec4(seam, scene->flat_tint, 0.95f, 0.35f, 0.15f, 1.0f);
+  re_seam_draw(seam, RE_SEAM_PRIMITIVE_TRIANGLES, 0, 6);
+
+  re_seam_depth(seam, RE_SEAM_DEPTH_TEST_ENABLED, RE_SEAM_DEPTH_WRITE_DISABLED);
+  re_seam_depth_compare(seam, RE_SEAM_DEPTH_LESS_EQUAL);
+  re_seam_blend(seam, RE_SEAM_BLEND_ALPHA);
+  re_seam_uniform_vec4(seam, scene->flat_tint, 0.1f, 0.35f, 0.95f, 0.6f);
+  re_seam_draw(seam, RE_SEAM_PRIMITIVE_TRIANGLES, 0, 6);
+  re_seam_depth_compare(seam, RE_SEAM_DEPTH_LESS);
+  re_seam_blend(seam, RE_SEAM_BLEND_NONE);
+
   /* The off-screen result, shown in the corner with depth off — the sample that proves pass one
      rendered somewhere other than here. */
   re_seam_depth(seam, RE_SEAM_DEPTH_TEST_DISABLED, RE_SEAM_DEPTH_WRITE_DISABLED);

@@ -2097,7 +2097,11 @@
       "owner_workspace": "rengine",
       "external_references": [],
       "evidence": [
-        "docs/specs/124-seam-three-backends.md: one shader source reaches all three backends through glslang and SPIRV-Cross, so no runtime compiler is introduced"
+        "docs/specs/124-seam-three-backends.md: one shader source reaches all three backends through glslang and SPIRV-Cross, so no runtime compiler is introduced",
+        "packs/gpu/src/gpu_seam_vk.c and gpu_seam_vk_draw.c: pipelines coalesced at draw time and cached, dynamic rendering, descriptor sets per draw, uniforms reflected out of SPIR-V by name",
+        "orchestrator/tests/pack-gpu-backends.test.mjs: the same call sites on both backends — 2 of 921,600 pixels differ on the built-in scene and 61 on Sponza's 393 draws, none outside a 2px edge band, with zero validation messages",
+        "docs/specs/124-seam-three-backends.md: the y-axis decision a consumer inherits, and why frame-time totals rather than per-frame medians are the comparable number",
+        "Its work and evidence are complete; the row waits on F123, as F129's and F132's do (KI-082)."
       ],
       "passes": false
     },

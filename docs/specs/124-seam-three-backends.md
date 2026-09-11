@@ -129,7 +129,7 @@ without taking the witness with it.
 ```
 F129  the seam grows render targets, frames, scissor, sub-upload and the state above   (rEngine) DONE
 F132  the scene example: procedural by default, --scene for a real model               (rEngine) DONE
-F130  the seam's Vulkan backend, judged against GL on the example's pixels             (rEngine)
+F130  the seam's Vulkan backend, judged against GL on the example's pixels             (rEngine) DONE
 F131  the seam's Metal backend, judged the same way                                    (rEngine)
 F133  rEngine's draw list moves onto the seam; SDL_Renderer stops shipping and its
       frames become the committed reference                                            (rEngine)
@@ -280,3 +280,100 @@ brightness against the area above it, which broke the moment the lighting was fi
 the band's **hue** — blue runs about 100 above red inside the band and 14 above it outside — because
 that is what "the cyan overlay is present" actually means, and it does not move when something
 unrelated gets brighter.
+
+
+## F130: the D14c verdict
+
+**The bet holds.** The scene example renders through a Vulkan backend with **no change to `scene.c`
+at all** — a test asserts it calls no graphics API and includes no graphics header — and the two
+backends produce the same frame:
+
+| | differing pixels | outside a 2px edge band | validation messages |
+| --- | --- | --- | --- |
+| built-in scene, 14 draws | **2** of 921,600 | **0** | **0** |
+| Crytek Sponza, 393 draws | **61** of 921,600 | **0** | **0** |
+
+Every difference is a rasterisation tie at a shared edge, which is the same tolerance this repository
+already applies to its own backends. So resource+draw granularity *can* carry Vulkan with command
+buffers, render passes, barriers and pipelines built inside the backend. D14c was right, and it is no
+longer a bet.
+
+### How the three hard parts were answered
+
+- **Uniforms by name.** The backend reflects each program's SPIR-V for member names and std140
+  offsets, so `uniformLocation("u_model")` answers with a byte offset and `setUniform` writes into a
+  CPU-side block flushed to a ring buffer per draw. A consumer's shader build changes in exactly one
+  way: **it keeps the SPIR-V it already produces and throws away.**
+- **Pipeline state.** Blend, depth, cull, primitive and vertex layout are recorded and resolved at
+  draw time into a cached pipeline. The whole of the coalescing is one file, `gpu_seam_vk_draw.c`, so
+  its cost can be read at a glance.
+- **Render passes.** Dynamic rendering, which the device layer already required as a floor.
+
+### What the sabotage pass and the validation layers found
+
+Nine sabotages, each observed failing:
+
+| Sabotage | Caught by |
+| --- | --- |
+| the pipeline ignores the blend state | pixels outside the edge band |
+| the depth compare function is always LESS | the decal's second pass vanishes |
+| the pipeline always culls back faces | the backdrop vanishes |
+| the pipeline never culls | pixels outside the edge band |
+| the front face is not adjusted for Vulkan's Y axis | geometry inverts |
+| every draw shares one uniform slot | every draw takes the last one's uniforms |
+| the viewport is flipped, as it was at first | the off-screen inset inverts |
+| a depth clear ignores the write mask | the masked clear takes effect |
+| textures lose TRANSFER_SRC | **3 validation messages** |
+
+**Three of those were not caught at first, and each was a real gap rather than a flaky test.** The
+scene never used a depth compare other than LESS, never drew anything whose back faces were visible,
+and always enabled depth writes before clearing — so three of the seam's own additions were
+uncovered by the comparison that was supposed to judge them. The scene gained a decal drawn twice,
+and the OpenGL pixel test gained a masked-clear assertion.
+
+**And the first decal was a z-fighting test in disguise.** Laid exactly on the floor and relying on
+LESS_EQUAL to win a tie, it put 4,737 pixels between the backends with 133 outside the edge band —
+because the two planes come from different geometry and their interpolated depths differ in the last
+bits. It was testing floating point. Priming depth from the *same* geometry makes the compare
+decisive and the result identical on both.
+
+### Two things the validation layers caught that nothing else would
+
+`TRANSFER_SRC` missing from the seam's images, so a host could not copy out of an image the seam had
+handed it — the very thing `re_seam_texture_handle` exists to allow. It worked on this driver and
+would not have elsewhere.
+
+### The y-axis decision, which is the one a consumer inherits
+
+OpenGL stores NDC −1 in row 0; Vulkan's framebuffer row 0 is the top of the screen. The usual fix is
+a negative-height viewport, which is what this backend did first — and it made the main pass match
+exactly while inverting **every render-to-texture**, because the flip puts NDC −1 in the last row
+where OpenGL puts it in the first. The example's off-screen inset was the only part of the frame that
+disagreed, which is how it was found.
+
+There is no flip now. Both APIs store NDC −1 in row 0, so a texture rendered into and then sampled
+means the same thing on both, and a read-back needs no correction. The cost is the presented window:
+a swapchain image drawn this way is upside down, and a windowed Vulkan host must flip for its own
+final pass. That is the right place for it — presentation belongs to whoever owns the swapchain,
+which the seam deliberately is not — and it keeps the property a call site actually depends on.
+
+### Frame time, measured so the two numbers mean the same thing
+
+| scene | OpenGL | Vulkan |
+| --- | --- | --- |
+| built-in, 14 draws | 0.281 ms/frame | 1.010 ms/frame |
+| Sponza, 393 draws | 1.321 ms/frame | 2.512 ms/frame |
+
+**These are totals across the run, not per-frame medians, and the difference matters.** The OpenGL
+backend's frame ends with a flush and returns while the GPU is still working; the Vulkan backend's
+submits and waits. Comparing what the call site waited for would report a difference in
+synchronisation as a difference in speed — the medians are 0.09 ms against 0.91 ms, which says
+almost nothing. The totals end with a read-back that forces both to finish.
+
+Vulkan is slower here, and the ratio **narrows as draws rise** — 3.6× at 14 draws, 1.9× at 393 —
+which is the signature of a fixed per-frame cost rather than a per-draw one. The named causes are all
+deliberate simplifications recorded at the top of `gpu_seam_vk.c`: one frame in flight with a full
+queue wait, a descriptor set allocated per draw, host-visible vertex buffers, and every image in
+`VK_IMAGE_LAYOUT_GENERAL`. None of them is about the seam's shape, which is what this feature was
+asked to test; all of them are what a production backend does differently, and F131 and F133 will say
+whether they need to change before a game adopts.

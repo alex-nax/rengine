@@ -18,11 +18,10 @@ set_property(CACHE RENGINE_GPU_SEAM_BACKEND PROPERTY STRINGS opengl vulkan)
 if(RENGINE_GPU_SEAM_BACKEND STREQUAL "opengl")
   set(RENGINE_GPU_SEAM_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/gpu_seam_gl.c")
 elseif(RENGINE_GPU_SEAM_BACKEND STREQUAL "vulkan")
-  message(FATAL_ERROR
-    "rengine-gpu: the seam's Vulkan backend is not written yet. It is sequenced with its first "
-    "consumer (charter D52, F126) so its shape is settled by real call sites; the device layer this "
-    "pack already ships is what a Vulkan backend will be built on. Build with "
-    "-DRENGINE_GPU_SEAM_BACKEND=opengl until then.")
+  set(RENGINE_GPU_SEAM_SOURCE
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/gpu_seam_vk.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/gpu_seam_vk_draw.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/gpu_seam_vk_spirv.c")
 else()
   message(FATAL_ERROR "rengine-gpu: unknown RENGINE_GPU_SEAM_BACKEND '${RENGINE_GPU_SEAM_BACKEND}'; "
                       "the choices are opengl and vulkan")

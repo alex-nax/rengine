@@ -358,6 +358,11 @@ void re_seam_texture_destroy(ReSeam *seam, ReSeamTexture *texture) {
   texture->height = 0;
 }
 
+uintptr_t re_seam_texture_handle(ReSeam *seam, ReSeamTexture texture) {
+  (void)seam;
+  return texture.id;   /* on OpenGL the seam's id and the API's name are the same number */
+}
+
 void re_seam_texture_bind(ReSeam *seam, ReSeamTexture texture, int unit) {
   seam->glActiveTexture((GLenum)(GL_TEXTURE0 + unit));
   seam->glBindTexture(GL_TEXTURE_2D, texture.id);
