@@ -62,3 +62,8 @@ if(NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   return()
 endif()
 message(STATUS "rengine-gpu: standalone build; a consumer normally add_subdirectory()s this instead")
+
+# The example is built only here, when the pack IS the project being built. A consumer that adds the
+# pack must receive the library and nothing else — F123's first criterion — so an example target
+# appearing in someone else's build would be a defect, not a convenience.
+add_subdirectory(examples/scene)

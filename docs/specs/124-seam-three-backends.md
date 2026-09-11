@@ -1,6 +1,6 @@
 # The seam carries a real renderer: render targets, three backends, and the D14c verdict here
 
-Date: 2026-09-11. Status: **F129 implemented and evidenced; F132 next.**
+Date: 2026-09-11. Status: **F129 and F132 implemented and evidenced; F130 next.**
 
 F129's row stays `passes: false` and not for want of evidence: `features.py validate` refuses a
 passing feature that depends on a non-passing one, and F129 depends on F123, which cannot pass until
@@ -128,7 +128,7 @@ without taking the witness with it.
 
 ```
 F129  the seam grows render targets, frames, scissor, sub-upload and the state above   (rEngine) DONE
-F132  the scene example: procedural by default, --scene for a real model               (rEngine)
+F132  the scene example: procedural by default, --scene for a real model               (rEngine) DONE
 F130  the seam's Vulkan backend, judged against GL on the example's pixels             (rEngine)
 F131  the seam's Metal backend, judged the same way                                    (rEngine)
 F133  rEngine's draw list moves onto the seam; SDL_Renderer stops shipping and its
@@ -190,3 +190,55 @@ Two arithmetic corrections worth recording rather than hiding: the separate-alph
 written as "alpha above 200" from intuition, and the real values are 191 for accumulated alpha
 against 127 for a single blend mode — so the test now states both and asserts the measured one. An
 expectation nobody computed is not a measurement.
+
+
+## F132's evidence
+
+`packs/gpu/examples/scene` renders through the seam and nothing else: 14 parts, three programs, two
+textures at both filters and both wraps, depth and culling toggled per part, an overhead pass into an
+off-screen target that a later draw samples into the corner, and a blended overlay last. A project
+outside this repository builds it from the pack and runs it; the pack itself builds it only when the
+pack is the top-level project, so a consumer still receives the library and nothing else.
+
+**With the optional model:** Crytek Sponza loads as **786,801 vertices in 393 parts** — 393 draws
+with per-draw state, which is the per-draw stress a Vulkan backend has to survive, and far more of it
+than the built-in scene alone would give.
+
+Five sabotages, each observed failing on the assertion that owns it:
+
+| Sabotage | Observed |
+| --- | --- |
+| the off-screen pass renders to the frame's target instead | `the off-screen pass reached its inset (luma 0.0 at 1150,60)` |
+| the overlay is drawn opaque | `and it is blended rather than opaque (green 191, unblended would be 191)` |
+| the overlay is not drawn at all | `the overlay band is present (blue 14 over 23)` |
+| the scene stops advancing with the frame number | `frame 20 and frame 60 are different images` |
+| the render is not reproducible between runs | `the same frame number renders the same bytes` |
+
+Two of those sabotages did not work on the first attempt, and neither was a gap in the test. Freezing
+`t` in `scene_draw` left `box_transform` computing its own, so the boxes still moved; and an unseeded
+`rand()` returns the same sequence in every process, so two runs still matched. A sabotage that does
+not do what it claims produces a false "not caught", which is the same lie in the other direction.
+
+### Three defects the pictures found that no assertion would have
+
+Each one rendered without an error and looked plausible until the image was actually examined.
+
+**A backdrop animating.** `draw_parts` decided which parts move by testing `part->tint[2] < 0.35f`,
+and the sky box's blue channel is 0.28. So the backdrop took the spinning-box transform and swung
+through the scene, hiding the floor from the overhead pass. Parts now carry an `animate` flag.
+Recovering an intent by sniffing a value that data could have carried is exactly how that happens.
+
+**A depth clear that did nothing.** The frame ends with depth writes off for the blended overlay, so
+from frame one the next frame's `clear(..., depth: true)` was a no-op — GL masks a depth clear by the
+depth write mask, which the seam documents and preserves deliberately, quoting VtMB: *"a call site
+that clears depth sets the write itself."* The overhead camera is static, so its floor then failed
+`LESS` against its own stale depth while the moving boxes sometimes passed. It looked exactly like a
+broken render target. The seam was right and the call site was wrong.
+
+**A camera fitted to the wrong thing.** Fitting the orbit to the geometry's bounding sphere put the
+camera outside the ±20 backdrop, looking at its back — a black frame. Backdrops now carry a flag
+excluding them from the bounds, because "which geometry is the subject" is data, not a rule.
+
+Framing itself is now the caller's: `--orbit` and `--eye`, in multiples of the fitted radius. One
+heuristic cannot frame both a six-unit scene and a building you want to stand inside, and Sponza
+wants about `--orbit 0.22 --eye 0.03`.

@@ -2146,7 +2146,11 @@
       "owner_workspace": "rengine",
       "external_references": [],
       "evidence": [
-        "docs/specs/124-seam-three-backends.md: why the gate renders a procedural scene and Sponza is for humans"
+        "docs/specs/124-seam-three-backends.md: why the gate renders a procedural scene and Sponza is for humans",
+        "packs/gpu/examples/scene: 14 parts, three programs, both filters and both wraps, an off-screen pass sampled by a later draw, and a blended overlay — all through the seam",
+        "orchestrator/tests/pack-gpu-scene.test.mjs: built by a project outside this repository and judged on pixels; five sabotages each failing on the assertion that owns it",
+        "Crytek Sponza loads as 786,801 vertices in 393 parts, which is the per-draw state stress a Vulkan backend has to survive",
+        "Its work and evidence are complete; the row waits on F123, as F129's does (KI-082)."
       ],
       "passes": false
     },

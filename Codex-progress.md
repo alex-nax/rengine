@@ -1,5 +1,47 @@
 # Progress Log
 
+## Session 100 (macos) — 2026-09-11 — the scene example renders, and three defects only a picture found
+
+F132. `packs/gpu/examples/scene` is the pack's consumer: 14 parts, three programs, two textures at
+both filters and both wraps, depth and culling toggled per part, an overhead pass into an off-screen
+target that a later draw samples into the corner, and a blended overlay last. A project outside this
+repository builds it from the pack; the pack builds it only when the pack is the top-level project,
+so a consumer still gets the library and nothing else.
+
+**Crytek Sponza loads as 786,801 vertices in 393 parts.** That is 393 draws with per-draw state —
+the stress a Vulkan backend has to survive, and far more of it than the built-in scene gives. The
+built-in scene is still what every gate renders; nothing requires the model.
+
+**Five sabotages, each on its own assertion**, including one that predicted its own number:
+*"and it is blended rather than opaque (green 191, unblended would be 191)"*. Two sabotages failed on
+the first attempt and neither was a gap in the test — freezing `t` in `scene_draw` left
+`box_transform` computing its own, and an unseeded `rand()` returns the same sequence in every
+process. A sabotage that does not do what it claims produces a false "not caught".
+
+**Three defects the pictures found that no assertion would have.** Each rendered without an error and
+looked plausible until the image was examined:
+
+- **A backdrop animating.** `draw_parts` decided which parts move by testing `tint[2] < 0.35f`, and
+  the sky box's blue is 0.28 — so the backdrop took the spinning-box transform and swung through the
+  scene. Parts now carry an `animate` flag. Sniffing a value to recover an intent that data could
+  have carried is exactly how that happens, and I wrote it.
+- **A depth clear that did nothing.** The frame ends with depth writes off for the blended overlay,
+  so from frame one the next `clear(..., depth: true)` was a no-op — GL masks a depth clear by the
+  write mask, which the seam documents and preserves deliberately (VtMB's *"a call site that clears
+  depth sets the write itself"*). The static overhead camera then failed `LESS` against its own stale
+  depth while the moving boxes sometimes passed. **It looked exactly like a broken render target.**
+  The seam was right; the call site was wrong.
+- **A camera fitted to the wrong thing.** Fitting the orbit to the bounding sphere put the camera
+  outside the ±20 backdrop looking at its back — a black frame. Backdrops now carry a flag excluding
+  them from the bounds. Framing is the caller's: `--orbit` and `--eye`, because one heuristic cannot
+  frame both a six-unit scene and a building you want to stand inside.
+
+Commands: `npm test` 235/235 (with `RENGINE_SCENE_MODEL` set, so the Sponza half ran) ·
+`ctest` 12/12 · five scene sabotages · standalone pack build with the example · `./init.sh` ·
+`design.py check`
+
+Next: **F130**, the Vulkan backend, judged against OpenGL on these pixels.
+
 ## Session 99 (macos) — 2026-09-11 — the seam grows a render target, and Sponza gets a fetch script
 
 Owner direction: prove the seam in rEngine rather than wait for vtmb-vr (option 4), carry **Metal**
