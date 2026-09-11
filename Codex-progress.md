@@ -46,10 +46,17 @@ Commands/evidence: `npm test` 250/250 · failing-first on every new assertion ·
 real machine: `agent.sh --action list` detects kimi 0.42.0, a scripted `agentLaunch` writes the
 exact project file kimi reads, bootstrap `--dry-run` shows the hook and writes nothing.
 
-Owed / next: a live orchestrator pane launch and the real hook install are the owner's explicit
-gestures, not this session's side effect. F113 (agent recipe registry) remains the follow-up that
-collapses the per-consumer tables kimi was added to; F114 owns the ACP session kind (`kimi acp`).
-`.kimi-code/` is git-ignored here; consumers choose per the runbook note.
+Owed / next: F113 (agent recipe registry) remains the follow-up that collapses the per-consumer
+tables kimi was added to; F114 owns the ACP session kind (`kimi acp`). `.kimi-code/` is git-ignored
+here; consumers choose per the runbook note.
+
+Completed after this commit, same day: the owner restarted the supervisor through the script tab
+opened over the workspace MCP (plan named the kept host; windows closed and reopened, sessions
+untouched), ran `bootstrap-agent-hooks` from the dashboard, and the hook is verified in
+`~/.kimi-code/config.toml` (marked block, absolute node + reporter, `--provider kimi`), `kimi
+doctor` clean, backup `config.toml.rengine-backup-20260911T143316Z` beside it. From the next kimi
+pane on, the session record follows the CLI's own report — the final consumer path of F138,
+verified live.
 
 ## Session 108 (macos) — 2026-09-11 — the draw list renders through the seam (F133, third step)
 
