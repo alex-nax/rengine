@@ -5,12 +5,12 @@
       "id": "counted-the-way-the-cli-counted",
       "kind": "history",
       "anchor": {
-        "start": 24,
-        "end": 24,
+        "start": 25,
+        "end": 25,
         "symbol": "offeredEditors",
         "snippet": "export async function offeredEditors(directory, { locks = ideDirectory(), alive = living } = {}) {"
       },
-      "note": "The CLI's discovery code contains two filters: `workspaceFolders` against the working directory, and a check that the lock's pid is one of the CLI's first ten ancestors. Reading it, the ancestry check looks like the one that disambiguates two workspaces publishing the same folder — and that reasoning is wrong.\n\nMeasured on 2026-09-07 by publishing four locks over `/Users/alex/rengine` and driving a real CLI with `/ide`: all four were listed, including one belonging to another workspace's host, which is nobody's ancestor here. The only filter that fired was folders-against-cwd, and the locks it excluded were reported separately as not matching the cwd. So the ancestry gate is conditional on something not true in a real pane.\n\nThis counts the way the CLI was observed to count. If a future version starts applying ancestry, this becomes conservative — it will decline to auto-connect where the CLI would have found exactly one — which is the safe direction: a pane that does not auto-connect is a `/ide` away, and a pane that auto-connects into a menu is a question nobody asked.",
+      "note": "The CLI's discovery code contains two filters: `workspaceFolders` against the working directory, and a check that the lock's pid is one of the CLI's first ten ancestors. Reading it, the ancestry check looks like the one that disambiguates two workspaces publishing the same folder \u2014 and that reasoning is wrong.\n\nMeasured on 2026-09-07 by publishing four locks over `/Users/alex/rengine` and driving a real CLI with `/ide`: all four were listed, including one belonging to another workspace's host, which is nobody's ancestor here. The only filter that fired was folders-against-cwd, and the locks it excluded were reported separately as not matching the cwd. So the ancestry gate is conditional on something not true in a real pane.\n\nThis counts the way the CLI was observed to count. If a future version starts applying ancestry, this becomes conservative \u2014 it will decline to auto-connect where the CLI would have found exactly one \u2014 which is the safe direction: a pane that does not auto-connect is a `/ide` away, and a pane that auto-connects into a menu is a question nobody asked.",
       "refs": [
         "docs/evidence/editor-as-claude-ide-2026-09-07.md",
         "docs/specs/102-editor-as-claude-ide.md"
@@ -20,12 +20,12 @@
       "id": "naming-the-port-beats-counting",
       "kind": "rationale",
       "anchor": {
-        "start": 47,
-        "end": 47,
+        "start": 48,
+        "end": 48,
         "symbol": "autoConnect",
         "snippet": "export async function autoConnect(agent, directory, options = {}) {"
       },
-      "note": "`--ide` alone auto-connects only when exactly one editor is valid, and on a machine where two workspaces bind the same project that is never true — the first version of this declined forever on the owner's own checkout, correctly and uselessly.\n\nThe CLI has a second path: a lock whose port equals `CLAUDE_CODE_SSE_PORT` is valid regardless of the other checks, and the selection then returns that editor alone. So the question becomes which editor is *this pane's*, and ancestry answers it without asking anything of anyone: the session host forks every pane, so its pid is in this process's ancestor chain, and the lock naming it is ours.\n\nAn earlier attempt asked the host for its pid on `/api/state` and got `undefined` — that field is newer than the running host, and a host is exactly the thing that does not get replaced. Ancestry needs no cooperation from it. Counting survives as the fallback for when the chain matches none of the offered editors.",
+      "note": "`--ide` alone auto-connects only when exactly one editor is valid, and on a machine where two workspaces bind the same project that is never true \u2014 the first version of this declined forever on the owner's own checkout, correctly and uselessly.\n\nThe CLI has a second path: a lock whose port equals `CLAUDE_CODE_SSE_PORT` is valid regardless of the other checks, and the selection then returns that editor alone. So the question becomes which editor is *this pane's*, and ancestry answers it without asking anything of anyone: the session host forks every pane, so its pid is in this process's ancestor chain, and the lock naming it is ours.\n\nAn earlier attempt asked the host for its pid on `/api/state` and got `undefined` \u2014 that field is newer than the running host, and a host is exactly the thing that does not get replaced. Ancestry needs no cooperation from it. Counting survives as the fallback for when the chain matches none of the offered editors.",
       "refs": [
         "docs/evidence/editor-as-claude-ide-2026-09-07.md"
       ]
@@ -33,7 +33,7 @@
   ],
   "source": {
     "path": "orchestrator/agents/ide-connect.mjs",
-    "sha256": "2d3d69d27fe1984a98745aac72e5c8c90188834753fd8149be524ec501b78e75",
+    "sha256": "b3ef2ee0a6fe67ac4240c3dcd4ced943637ac357d5f3f4066b271807d722e8fe",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

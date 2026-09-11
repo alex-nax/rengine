@@ -10,10 +10,44 @@ extra=()
 extra_count=0
 launcher_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
+# The one table every agent fact comes from (spec 114, charter D46): packages, update modes,
+# resume spellings. The registry is JavaScript, so reading it needs the node the launcher itself
+# runs on; a shell that cannot offer one is told so rather than shown a stale copy of the table.
+REGISTRY="$launcher_dir/../orchestrator/agents/registry.mjs"
+re_node="${RENGINE_NODE:-$(command -v node || true)}"
+registered_names=""
+have_names=0
+
+registry_names() {
+  if [ "$have_names" = 0 ]; then
+    have_names=1
+    if [ -n "$re_node" ]; then
+      registered_names="$("$re_node" "$REGISTRY" list --names)" || registered_names=""
+    else
+      echo "Node.js is required to read the agent registry; listing nothing." >&2
+      registered_names=""
+    fi
+  fi
+  printf '%s' "$registered_names"
+}
+
+is_registered() {
+  registry_names | grep -qx -- "$1"
+}
+
+registry_field() {
+  [ -n "$re_node" ] || return 127
+  "$re_node" "$REGISTRY" show "$1" "$2" 2>/dev/null
+}
+
 usage() {
-  cat <<'HELP'
+  local names
+  names="$(registry_names | tr '\n' '|')"
+  names="${names%|}"
+  [ -n "$names" ] || names="AGENT"
+  cat <<HELP
 rEngine agent launcher
-  agent.sh --project DIR [--agent codex|claude|gemini|opencode|kimi|EXECUTABLE]
+  agent.sh --project DIR [--agent $names|EXECUTABLE]
            [--action menu|list|launch|install|update|check-resume] [--version VERSION] [-- ARGS...]
 Install/download uses an isolated npm prefix under RENGINE_AGENT_HOME.
 Launch never silently installs or updates an agent. Choose that action explicitly.
@@ -39,27 +73,25 @@ case "$action" in menu|list|launch|install|update|check-resume) ;; *) echo "Unkn
 case "$version" in ''|*[!a-zA-Z0-9._+-]*) echo "Invalid package version." >&2; exit 2;; esac
 
 package_for() {
-  case "$1" in
-    codex) printf '%s' '@openai/codex' ;;
-    claude) printf '%s' '@anthropic-ai/claude-code' ;;
-    gemini) printf '%s' '@google/gemini-cli' ;;
-    opencode) printf '%s' 'opencode-ai' ;;
-    kimi) printf '%s' '@moonshot-ai/kimi-code' ;;
-    *) echo "No install recipe for '$1'; supply an installed executable to launch it." >&2; return 2 ;;
-  esac
+  local package
+  if ! package="$(registry_field "$1" PACKAGE)"; then
+    echo "No install recipe for '$1'; supply an installed executable to launch it." >&2
+    return 2
+  fi
+  printf '%s' "$package"
 }
 
 find_agent() {
-  case "$1" in
-    codex|claude|gemini|opencode|kimi)
-      if [ -x "$agent_home/$1/node_modules/.bin/$1" ]; then printf '%s\n' "$agent_home/$1/node_modules/.bin/$1"; return; fi ;;
-  esac
+  if is_registered "$1" && [ -x "$agent_home/$1/node_modules/.bin/$1" ]; then
+    printf '%s\n' "$agent_home/$1/node_modules/.bin/$1"
+    return
+  fi
   command -v -- "$1" 2>/dev/null
 }
 
 list_agents() {
   local item found
-  for item in codex claude gemini opencode kimi; do
+  for item in $(registry_names); do
     found="$(find_agent "$item" || true)"
     printf '%s\t%s\n' "$item" "${found:-not installed}"
   done
@@ -80,16 +112,17 @@ install_agent() {
 }
 
 update_agent() {
-  local executable
+  local executable kind subcommand
   executable="$(find_agent "$agent" || true)"
   [ -n "$executable" ] || { echo "Agent is missing; choose Install first." >&2; return 127; }
   case "$executable" in "$agent_home"/*) install_agent; return;; esac
   printf 'Updating installed agent: %s\n' "$executable"
-  case "$agent" in
-    codex|claude) "$executable" update ;;
-    opencode) "$executable" upgrade ;;
-    kimi) "$executable" upgrade ;;
-    gemini) install_agent ;;
+  kind="$(registry_field "$agent" UPDATE_KIND || true)"
+  case "$kind" in
+    self)
+      subcommand="$(registry_field "$agent" UPDATE_COMMAND)"
+      "$executable" $subcommand ;;
+    reinstall) install_agent ;;
     *) echo "No update recipe for this custom executable." >&2; return 2 ;;
   esac
 }
@@ -107,7 +140,7 @@ choose_conversation() {
   # this asks is already answered. See sidecar: only-an-explicit-resume-suppresses-the-offer.
   if [ "$extra_count" -gt 0 ]; then return 0; fi
   [ -n "${RENGINE_AGENT_CONVERSATIONS:-}" ] && [ -s "${RENGINE_AGENT_CONVERSATIONS}" ] || return 0
-  local ids=() whens=() id owner when count=0 index choice
+  local ids=() whens=() id owner when count=0 index choice strip shown
   while IFS=$'\t' read -r id owner when || [ -n "${id:-}" ]; do
     [ -n "${id:-}" ] || continue
     [ "${owner:-}" = "$agent" ] || continue
@@ -116,11 +149,12 @@ choose_conversation() {
   [ "$count" -gt 0 ] || return 0
   printf '\nConversations for %s in this project:\n' "$agent"
   index=1
+  strip="$(registry_field "$agent" STRIP_PREFIX || true)"
   # The first eight characters are the name this conversation goes by everywhere else — the pane
-  # title, the identity label, the token segment — so the row leads with them, skipping the
-  # `session_` prefix every kimi id carries.
+  # title, the identity label, the token segment — so the row leads with them, skipping the prefix
+  # the recipe says this CLI's ids carry (kimi's `session_`), which would otherwise be all they said.
   while [ "$index" -le "$count" ]; do
-    shown="${ids[index-1]#session_}"
+    shown="${ids[index-1]#$strip}"
     printf '  %d) %s %s\t%s\t%s\n' "$index" "$agent" "${shown:0:8}" "${whens[index-1]}" "${ids[index-1]}"
     index=$((index + 1))
   done

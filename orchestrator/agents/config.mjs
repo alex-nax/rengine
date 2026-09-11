@@ -1,29 +1,23 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import path from 'node:path';
 import { parse } from 'jsonc-parser';
 import { request } from '../launcher/sidecar.mjs';
 import { autoConnect } from './ide-connect.mjs';
 import { checkConnection } from '../runtime/protocol.mjs';
+import { recipe } from './registry.mjs';
 
 const mcpMain = fileURLToPath(new URL('./mcp.mjs', import.meta.url));
 const reportMain = fileURLToPath(new URL('./report-session.mjs', import.meta.url));
-const NAMED = ['claude', 'codex', 'gemini', 'opencode', 'kimi'];
-const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
-/* The shapes kimi resumes by, observed (`session_<uuid>`) and documented (a ULID); the `session_`
-   prefix is part of the id the CLI reports on its SessionStart hook. */
-const KIMI_SESSION = /^(?:session_)?(?:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-HJKMNP-TV-Z]{26})$/i;
+
 // Which CLIs accept being told the conversation they are starting, and how to resume that one.
-// The two are separate capabilities: kimi can be put back into a conversation (--session) but has
-// no spelling for being told which one to START, so its start is null and rEngine never mints one.
-// An agent absent from this table names its own; rEngine records no identifier it cannot resume.
-const CONVERSATIONS = {
-  claude: { start: id => ['--session-id', id], resume: id => ['--resume', id] },
-  kimi: { start: null, resume: id => ['--session', id] },
-};
-export const agentConversation = agent => CONVERSATIONS[agent] ?? null;
+// The two are separate capabilities the recipe declares: kimi can be put back into a conversation
+// (--session) but has no spelling for being told which one to START, so its start is null and
+// rEngine never mints one. An agent whose recipe declares no conversation names its own; rEngine
+// records no identifier it cannot resume.
+export const agentConversation = agent => recipe(agent)?.conversation ?? null;
 const object = (text, name) => {
   const errors = [];
   const value = parse(text, errors, { allowTrailingComma: true });
@@ -38,56 +32,21 @@ const add = (values, key, value) => {
 async function privateJson(filename, value) { await writeFile(filename, JSON.stringify(value, null, 2), { mode: 0o600 }); return filename; }
 
 export function agentCli(agent, executable) {
-  if (NAMED.includes(agent)) return agent;
+  if (recipe(agent)) return agent;
   const base = path.basename(executable ?? agent ?? '').replace(/\.(exe|cmd|bat)$/i, '');
   return base || 'agent';
 }
 /* Two sessions of one CLI on one root are two identities, and the status bar has to tell them
-   apart, so the label carries the first eight characters of the id the CLI resumes by — skipping
-   the `session_` prefix every kimi id carries, which would otherwise be all the eight said. */
-export const shortAgentId = (agent, id) => (agent === 'kimi' ? id.replace(/^session_/i, '') : id).slice(0, 8);
+   apart, so the label carries the first eight characters of the id the CLI resumes by — the
+   recipe's short form, which skips the `session_` prefix every kimi id carries, a prefix that
+   would otherwise be all the eight said. */
+export const shortAgentId = (agent, id) => (recipe(agent)?.conversation?.short ?? (value => value.slice(0, 8)))(id);
 export const agentLabel = (agent, executable, agentId) =>
   agentId ? `${agentCli(agent, executable)} ${shortAgentId(agent, agentId)}` : agentCli(agent, executable);
 
-/* What the CLI's own flags say about which conversation this launch will be. `--session-id`/`--resume`
-   name it; `--continue` and a fork mint one inside the CLI, where rEngine cannot see it. */
-export function claudeSession(args = []) {
-  let named = null, opaque = false;
-  for (let index = 0; index < args.length; index++) {
-    const arg = args[index];
-    const [flag, inline] = arg.startsWith('--') && arg.includes('=') ? [arg.slice(0, arg.indexOf('=')), arg.slice(arg.indexOf('=') + 1)] : [arg, null];
-    if (flag === '--fork-session' || flag === '-c' || flag === '--continue') opaque = true;
-    else if (['--session-id', '--resume', '-r'].includes(flag)) {
-      const value = inline ?? args[index + 1];
-      if (inline === null) index++;
-      if (UUID.test(value ?? '')) named = value.toLowerCase(); else opaque = true;
-    }
-  }
-  if (named && !opaque) return { id: named, source: 'flag' };
-  return { id: null, source: opaque ? 'unknown' : 'minted' };
-}
-/* kimi's spellings for the conversation it resumes: --session/-S and the hidden -r/--resume
-   aliases name it; a bare --session opens the CLI's own selector and -c/--continue takes the most
-   recent — each a conversation only the CLI knows. There is no start-with-id spelling at all. */
-export function kimiSession(args = []) {
-  let named = null, opaque = false;
-  for (let index = 0; index < args.length; index++) {
-    const arg = args[index];
-    const [flag, inline] = arg.startsWith('--') && arg.includes('=') ? [arg.slice(0, arg.indexOf('=')), arg.slice(arg.indexOf('=') + 1)] : [arg, null];
-    if (flag === '-c' || flag === '--continue') opaque = true;
-    else if (['--session', '-S', '--resume', '-r'].includes(flag)) {
-      const value = inline ?? args[index + 1];
-      if (inline === null) index++;
-      if (KIMI_SESSION.test(value ?? '')) named = value; else opaque = true;
-    }
-  }
-  if (named && !opaque) return { id: named, source: 'flag' };
-  return { id: null, source: opaque ? 'unknown' : 'minted' };
-}
 /* The identity IS the agent's session id, so the launcher can hand back the line that resumes it. */
-const RESUME_LINE = { claude: id => `claude --resume ${id}`, codex: id => `codex resume ${id}`, kimi: id => `kimi --session ${id}` };
 function sessionOf(provider, id, source) {
-  return { provider, id, known: source !== 'unknown', source, resume: RESUME_LINE[provider](id) };
+  return { provider, id, known: source !== 'unknown', source, resume: recipe(provider).conversation.resumeLine(id) };
 }
 /* The conversation IS the identity, so exactly one identifier is ever named, and only when rEngine
    is the one naming it: a launch whose own flags carry a session is passed through untouched, and a
@@ -110,44 +69,35 @@ export function describeSession(identity) {
 async function listedSessions(context) {
   try { return (await request(checkConnection(context), 'state')).sessions ?? []; } catch { return []; }
 }
-/* Where the id comes from, in the order that decides it. The person's own flags win over the
-   workspace's, because the pane reports back what actually launched and the record follows the
-   launch; the workspace's minted conversation is the identity for every ordinary pane. */
-function claudeIdentity({ args, session, conversation, resume }) {
-  const named = claudeSession(args);
+/* Where the id comes from, in the order that decides it, for any CLI whose recipe declares a
+   conversation: the person's own flags win over the workspace's, because the pane reports back what
+   actually launched and the record follows the launch; the workspace's minted conversation is the
+   identity for every ordinary pane. A conversation the CLI cannot be told (no resume, no start
+   spelling) is not this pane's to claim. */
+function recipeIdentity(talk, { args, session, handoff, conversation, resume }) {
+  const named = talk.parse(args);
   if (named.id || named.source === 'unknown') return named;
-  if (session) return { id: session, source: 'bound' };
+  const bound = session ?? handoff?.sessionId;
+  if (bound) return { id: bound, source: 'bound' };
   if (conversation) {
-    if (typeof conversation !== 'string' || !UUID.test(conversation)) throw new Error('An agent conversation must be a UUID rEngine minted.');
-    return { id: conversation.toLowerCase(), source: 'workspace' };
-  }
-  return { id: null, source: 'minted' };
-}
-/* Where kimi's id comes from, in the same order as claude's: the person's own flags, the workspace's
-   recorded conversation being resumed — and then nothing. A conversation that cannot be told to the
-   CLI (no resume, no start spelling) is not this pane's to claim. */
-function kimiIdentity({ args, session, conversation, resume }) {
-  const named = kimiSession(args);
-  if (named.id || named.source === 'unknown') return named;
-  if (session) return { id: session, source: 'bound' };
-  if (conversation) {
-    if (typeof conversation !== 'string' || !KIMI_SESSION.test(conversation)) throw new Error('An agent conversation must be a session id in a shape kimi resumes by.');
-    return resume ? { id: conversation, source: 'workspace' } : { id: null, source: 'minted' };
+    if (typeof conversation !== 'string' || !talk.ids.test(conversation))
+      throw new Error(`An agent conversation must be a session id in a shape ${talk.provider} resumes by.`);
+    return talk.start || resume ? { id: talk.normalize(conversation), source: 'workspace' } : { id: null, source: 'minted' };
   }
   return { id: null, source: 'minted' };
 }
 export async function agentIdentity({ agent, executable, args = [], handoff, session, conversation, resume = false, pid = process.pid, sessions = [] }) {
-  const claude = agent === 'claude' ? claudeIdentity({ args, session, conversation, resume }) : null;
-  const codex = agent === 'codex' ? (session ?? handoff?.sessionId ?? null) : null;
-  const kimi = agent === 'kimi' ? kimiIdentity({ args, session, conversation, resume }) : null;
-  const agentId = claude?.id ?? codex ?? kimi?.id ?? session ?? randomUUID();
+  const talk = agentConversation(agent);
+  const ident = talk ? recipeIdentity(talk, { args, session, handoff, conversation, resume }) : null;
+  const agentId = ident?.id ?? session ?? randomUUID();
+  /* A launch that names nothing claims nothing: the CLI mints its own conversation, and a session
+     object here would invent one rEngine cannot resume — unless the recipe has a start spelling
+     (claude), because then the minted id is told to the CLI at launch. An opaque launch (a
+     continue, a fork, a bare selector) still records that it does not know. */
   const identity = { agentId, label: agentLabel(agent, executable, agentId), pid, startedAt: new Date().toISOString(),
-    ...(claude ? { session: sessionOf('claude', agentId, claude.source) } : {}),
-    ...(codex ? { session: sessionOf('codex', agentId, 'flag') } : {}),
-    /* A kimi launch that names nothing claims nothing: the CLI mints its own conversation, and a
-       session object here would invent one rEngine cannot resume. An opaque launch (its -c, or a
-       bare --session selector) still records that it does not know. */
-    ...(kimi?.id ? { session: sessionOf('kimi', kimi.id, kimi.source) } : kimi?.source === 'unknown' ? { session: sessionOf('kimi', agentId, 'unknown') } : {}) };
+    ...(ident?.id ? { session: sessionOf(agent, ident.id, ident.source) }
+      : ident?.source === 'unknown' ? { session: sessionOf(agent, agentId, 'unknown') }
+      : talk?.start ? { session: sessionOf(agent, agentId, 'minted') } : {}) };
   if (process.platform === 'win32') return identity;
   const owners = new Set([process.pid, process.ppid].filter(value => Number.isSafeInteger(value) && value > 1));
   const pty = sessions.find(item => item?.type === 'agent' && owners.has(item.pid));
@@ -169,6 +119,24 @@ const hookQuote = value => process.platform === 'win32'
 export const claudeSettings = contextFile => ({ hooks: { SessionStart: [{ hooks: [{ type: 'command',
   command: [process.execPath, reportMain, '--context', contextFile].map(hookQuote).join(' ') }] }] } });
 export const claudeSettingsFile = (directory, contextFile) => privateJson(path.join(directory, 'settings.json'), claudeSettings(contextFile));
+
+/* Codex runs only hooks it trusts: a non-managed hook needs a hooks.state."<key>".trusted_hash
+   entry naming the sha256 of its normalized identity (codex-rs hooks/src/engine/discovery.rs
+   hook_hash over config/src/fingerprint.rs version_for_toml). The key for a hook injected through
+   -c is codex's synthetic session-flags layer path plus the event and the handler's position, and
+   the identity is the hook's own definition with the defaults codex fills (timeout 600, async
+   false, unset fields omitted). The launcher trusts exactly the command it composed, in the same
+   -c layer that carries it, so the person's own hooks keep their review gate and nothing is
+   written to ~/.codex — verified live against codex 0.153.4 (docs/evidence/codex-sessionstart-hook-2026-09-11.md). */
+export const codexHookKey = (group = 0, handler = 0) =>
+  `${process.platform === 'win32' ? 'C:\\<session-flags>\\config.toml' : '/<session-flags>/config.toml'}:session_start:${group}:${handler}`;
+export function codexHookTrustHash(command, matcher = 'startup|resume') {
+  const canonical = value => Array.isArray(value) ? value.map(canonical)
+    : value && typeof value === 'object'
+      ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
+  const identity = { event_name: 'session_start', matcher, hooks: [{ type: 'command', command, timeout: 600, async: false }] };
+  return `sha256:${createHash('sha256').update(JSON.stringify(canonical(identity)), 'utf8').digest('hex')}`;
+}
 export function describeInvocation(plan) {
   return [...Object.entries(plan.consumes.env).map(([key, value]) => `${key}=${shellQuote(value)}`),
     shellQuote(plan.executable), ...plan.consumes.args.map(shellQuote)].join(' ');
@@ -211,22 +179,43 @@ export async function agentLaunch({ agent, executable, args = [], contextFile, c
   const generic = await privateJson(path.join(home, 'mcp.json'), { mcpServers: { [name]: server } });
   const consumes = { args: [], env: {} };
   const plan = { executable, name, generic, consumes, identity: bound, contextFile: boundFile, directory: home };
-  if (agent === 'codex') {
+  const declared = recipe(agent);
+  const overlay = declared?.mcp?.kind;
+  if (overlay === 'config-args') {
     consumes.args = ['-c', `mcp_servers.${name}.command=${JSON.stringify(server.command)}`,
       '-c', `mcp_servers.${name}.args=${JSON.stringify(server.args)}`, '-c', `mcp_servers.${name}.required=true`];
-  } else if (agent === 'claude') {
-    plan.settings = await claudeSettingsFile(home, boundFile);
-    /* Told to connect to the editor it runs inside, but only when exactly one is published for this
-       directory — the CLI's own rule, and a menu nobody opened is worse than typing /ide. */
-    const connect = cwd ? await ide(agent, cwd, { ourPids }) : { flags: [], env: {}, reason: 'No working directory was given, so auto-connect was not considered.' };
-    plan.ide = connect;
-    consumes.args = ['--mcp-config', generic, '--settings', plan.settings,
-      ...connect.flags, ...conversationArgs(agent, bound, resume)];
-  } else if (agent === 'opencode') {
-    const previous = env.OPENCODE_CONFIG_CONTENT ? object(env.OPENCODE_CONFIG_CONTENT, 'OpenCode runtime configuration') : {};
-    consumes.env.OPENCODE_CONFIG_CONTENT = JSON.stringify({ ...previous,
+    /* The SessionStart hook rides the same -c channel as the MCP wiring: codex loads hooks from
+       every config layer, so the person's own ~/.codex entries run beside this launch's, untouched.
+       The reporter is given this launch's context on its own command line and told its provider,
+       exactly like claude's settings-file hook, and the feature is enabled for this launch only.
+       Codex runs a non-managed hook only when its exact definition is trusted, so the same layer
+       carries this launch's trusted_hash — the launcher trusts what it composed, nothing else, and
+       nothing is written to ~/.codex. */
+    if (declared.hooks?.kind === 'per-launch-config') {
+      const command = [process.execPath, reportMain, '--provider', agent, '--context', boundFile].map(hookQuote).join(' ');
+      consumes.args.push('-c', 'features.hooks=true',
+        '-c', `hooks.SessionStart=[{matcher="startup|resume",hooks=[{type="command",command=${JSON.stringify(command)}}]}]`,
+        '-c', `hooks.state={${JSON.stringify(codexHookKey())}={trusted_hash=${JSON.stringify(codexHookTrustHash(command))}}}`);
+    }
+    consumes.args.push(...conversationArgs(agent, bound, resume));
+  } else if (overlay === 'flag') {
+    /* Told to report what it runs, and to connect to the editor it runs inside, only when the
+       recipe says the CLI accepts either — and for the editor only when exactly one is published
+       for this directory, the CLI's own rule: a menu nobody opened is worse than typing /ide. */
+    if (declared.hooks?.kind === 'per-launch-settings') plan.settings = await claudeSettingsFile(home, boundFile);
+    if (declared.ide) {
+      plan.ide = cwd ? await ide(agent, cwd, { ourPids })
+        : { flags: [], env: {}, reason: 'No working directory was given, so auto-connect was not considered.' };
+    }
+    consumes.args = ['--mcp-config', generic,
+      ...(plan.settings ? ['--settings', plan.settings] : []),
+      ...(plan.ide?.flags ?? []), ...conversationArgs(agent, bound, resume)];
+  } else if (overlay === 'env-inline') {
+    const envVar = declared.mcp.envVar;
+    const previous = env[envVar] ? object(env[envVar], `${envVar} runtime configuration`) : {};
+    consumes.env[envVar] = JSON.stringify({ ...previous,
       mcp: add(previous.mcp, name, { type: 'local', command: [server.command, ...server.args], enabled: true }) });
-  } else if (agent === 'gemini') {
+  } else if (overlay === 'env-defaults') {
     const defaults = env.GEMINI_CLI_SYSTEM_DEFAULTS_PATH ?? (process.platform === 'darwin' ? '/Library/Application Support/GeminiCli/system-defaults.json'
       : process.platform === 'win32' ? path.join(env.ProgramData ?? 'C:\\ProgramData', 'gemini-cli/system-defaults.json') : '/etc/gemini-cli/system-defaults.json');
     let previous = {};
@@ -235,13 +224,13 @@ export async function agentLaunch({ agent, executable, args = [], contextFile, c
     consumes.env.GEMINI_CLI_SYSTEM_DEFAULTS_PATH = await privateJson(path.join(home, 'gemini-defaults.json'), {
       ...previous, mcpServers: add(previous.mcpServers, name, { command: server.command, args: server.args }),
     });
-  } else if (agent === 'kimi') {
+  } else if (overlay === 'project-file') {
     plan.kimi = await kimiMcpFile(cwd ?? process.cwd(), name, server);
     consumes.args = conversationArgs(agent, bound, resume);
   } else plan.custom = true;
   /* What the host's record should say this pane holds. `null` is the honest answer for a launch
      that continues or forks: the identity is rEngine's own and no record may claim it names the
-     conversation. An agent absent from the table is recorded with nothing at all. */
+     conversation. An agent whose recipe declares no conversation is recorded with nothing at all. */
   if (agentConversation(agent)) plan.conversation = bound.session?.known ? bound.agentId : null;
   plan.args = [...consumes.args, ...args];
   plan.env = { ...env, RENGINE_MCP_CONFIG: generic, ...consumes.env, ...(plan.ide?.env ?? {}) };

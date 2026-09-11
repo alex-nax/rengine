@@ -16,6 +16,7 @@ import path from 'node:path';
 import { fail } from './store.mjs';
 import { runCommand, DEFAULT_MAX_BYTES } from './formats.mjs';
 import { bashPath, shellEnvironment } from './sessions.mjs';
+import { agentNames, recipe } from '../agents/registry.mjs';
 
 const agentScript = fileURLToPath(new URL('../../scripts/agent.sh', import.meta.url));
 const shippedPrompts = fileURLToPath(new URL('../templates/prompts/', import.meta.url));
@@ -28,20 +29,17 @@ const MAX_STDOUT = 32000;
 /* The write is a project command like every other declared command, so it is bounded like one. */
 const WRITE_TIMEOUT_MS = 60000;
 
-/* The CLIs rEngine can hand a model to, and the flag each one spells it with. A CLI absent from this
-   table is refused by name rather than started without the model the caller asked for: a spawn that
-   silently drops the model is a pane running the wrong thing that looks right. */
-const MODEL_FLAGS = { claude: model => ['--model', model], codex: model => ['-m', model], kimi: model => ['-m', model] };
-/* What the menu offers when a project declares no `agents` block. claude's list is rEngine's own
-   knowledge; codex's comes from `codex --help` at call time, because its names move faster than this
-   file does; gemini, opencode and kimi offer none, so their panes start on the CLI's own default. */
-export const KNOWN_AGENTS = [
-  { cli: 'claude', models: ['claude-fable-5-1', 'claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5-20251001'], default: 'claude-opus-5' },
-  { cli: 'codex', models: [], default: '' },
-  { cli: 'gemini', models: [], default: '' },
-  { cli: 'opencode', models: [], default: '' },
-  { cli: 'kimi', models: [], default: '' },
-];
+/* What the menu offers when a project declares no `agents` block: the registry's recipes, each
+   with the model list rEngine can offer it. A static list is rEngine's own knowledge; a list of
+   kind 'help' is empty here and filled from the CLI's own --help at call time, because its names
+   move faster than this file does; the rest offer none, so their panes start on the CLI's own
+   default. */
+export function knownAgents() {
+  return agentNames().map(cli => {
+    const models = recipe(cli)?.models ?? { kind: 'none' };
+    return { cli, models: models.kind === 'static' ? [...models.list] : [], default: models.kind === 'static' ? models.default : '' };
+  });
+}
 
 const bounded = value => String(value ?? '').slice(0, MAX_STDOUT);
 const decode = bytes => { try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch { return null; } };
@@ -137,7 +135,10 @@ export function promptValues(row) {
 export function modelArgs(cli, model) {
   if (model === undefined || model === null || model === '') return [];
   if (typeof model !== 'string' || model.length > 128 || !/^[A-Za-z0-9][A-Za-z0-9._:@/-]*$/.test(model)) fail('A model is a plain identifier the CLI accepts.');
-  const flag = MODEL_FLAGS[cli];
+  const flag = recipe(cli)?.model;
+  /* A CLI whose recipe names no model flag is refused by name rather than started without the model
+     the caller asked for: a spawn that silently drops the model is a pane running the wrong thing
+     that looks right. */
   if (!flag) fail(`rEngine does not know how ${cli} is told which model to run, so it will not guess a flag: start ${cli} without a model, or declare the flagged CLI you meant. Nothing was started.`, 409);
   return flag(model);
 }
@@ -162,7 +163,6 @@ const runBounded = (file, args, timeoutMs = 10000) => new Promise(resolve => {
     (error, stdout) => resolve(error && !stdout ? '' : String(stdout ?? '')));
 });
 export const listInstalled = root => runBounded(bashPath(), [agentScript, '--project', root.path, '--action', 'list']);
-export const readCodexHelp = () => runBounded('codex', ['--help'], 8000);
 
 export function parseInstalled(text) {
   const installed = new Map();
@@ -177,15 +177,15 @@ export function parseInstalled(text) {
 /* The menu the Tasks pane offers. A declaration wins outright — a project that lists its agents has
    said which ones it wants used — and rEngine's own lists fill in only when it has not. */
 export async function agentsMenu(root, declared, options = {}) {
-  const list = options.list ?? listInstalled, help = options.help ?? readCodexHelp;
+  const list = options.list ?? listInstalled, help = options.help ?? (cli => runBounded(cli, ['--help'], 8000));
   const installed = parseInstalled(await list(root));
   const declaredAgents = Array.isArray(declared?.agents) ? declared.agents : null;
-  const records = declaredAgents ?? KNOWN_AGENTS;
+  const records = declaredAgents ?? knownAgents();
   const agents = [];
   for (const record of records) {
     let models = [...(record.models ?? [])], fallback = record.default ?? '';
-    if (!declaredAgents && record.cli === 'codex' && installed.get('codex')) {
-      models = codexModels(await help());
+    if (!declaredAgents && recipe(record.cli)?.models.kind === 'help' && installed.get(record.cli)) {
+      models = codexModels(await help(record.cli));
       fallback = models[0] ?? '';
     }
     agents.push({ cli: record.cli, installed: installed.get(record.cli) ?? false, models, default: fallback });

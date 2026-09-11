@@ -4,8 +4,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { discoverSidecar, request } from '../launcher/sidecar.mjs';
 import { agentIdentity, agentLaunch, claudeSettingsFile, describeInvocation, describeSession, shellQuote } from './config.mjs';
+import { agentNames } from './registry.mjs';
 
-const USAGE = `node orchestrator/agents/bind.mjs --project DIR [--agent claude|codex|gemini|opencode|kimi|EXECUTABLE]
+const USAGE = `node orchestrator/agents/bind.mjs --project DIR [--agent ${agentNames().join('|')}|EXECUTABLE]
                                    [--session UUID] [--state DIR]
 Binds an agent this workspace never spawned: finds the live instance that already serves DIR,
 gives this agent an identity, and writes the MCP configuration to start the agent with.

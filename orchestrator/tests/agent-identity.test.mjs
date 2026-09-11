@@ -114,6 +114,9 @@ test('a claude launch IS its claude session: minted and named to the CLI, or tak
     args: ['resume', SESSION], handoff: { sessionId: SESSION } });
   assert.equal(handed.identity.agentId, SESSION, "codex's handoff names the conversation, and it is the identity");
   assert.deepEqual(handed.identity.session, { provider: 'codex', id: SESSION, known: true, source: 'flag', resume: `codex resume ${SESSION}` });
+  const flagged = await agentLaunch({ agent: 'codex', executable: 'codex', contextFile: shared, env: {}, args: ['resume', SESSION] });
+  assert.equal(flagged.identity.agentId, SESSION, 'and the resume subcommand names it without a handoff (F113: codex has resume parity)');
+  assert.deepEqual(flagged.identity.session, { provider: 'codex', id: SESSION, known: true, source: 'flag', resume: `codex resume ${SESSION}` });
   const plain = await agentLaunch({ agent: 'codex', executable: 'codex', contextFile: shared, env: {} });
   assert.equal(plain.identity.session, undefined, 'a codex launch with no handoff claims no session');
   const gemini = await agentLaunch({ agent: 'gemini', executable: 'gemini', contextFile: shared, env: {} });

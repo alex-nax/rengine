@@ -49,7 +49,7 @@ test('rEngine names the conversation it launches and resumes that same one', asy
   const resumed = await agentLaunch({ agent: 'claude', executable: '/installed/claude', contextFile, env: {}, conversation, resume: true });
   assert.deepEqual(resumed.args.slice(-2), ['--resume', conversation], 'a restart resumes rather than starting a second conversation');
   const codex = await agentLaunch({ agent: 'codex', executable: '/installed/codex', contextFile, env: {}, conversation });
-  assert.equal(codex.conversation, undefined, 'an agent that cannot be told its conversation id is not given a fake one');
+  assert.equal(codex.conversation, null, 'codex cannot be told a conversation to start either (F113: resume-only), so the record is actively cleared rather than given a fake one');
   assert.equal(codex.args.includes(conversation), false);
   await assert.rejects(agentLaunch({ agent: 'claude', executable: '/installed/claude', contextFile, env: {}, conversation: 'not-a-uuid' }),
     /conversation/i, 'and an identifier we did not mint is refused');

@@ -1,5 +1,47 @@
 # Progress Log
 
+## Session 110 (macos) — 2026-09-11 — one agent recipe registry, and codex's hook trust gate (F113)
+
+**The four private tables are one declared registry.** `orchestrator/agents/registry.mjs` is now the
+single source for an agent's package, update mode, model flag, conversation/resume spellings with
+their id shapes and argv parsers, MCP overlay kind, hooks overlay kind and IDE connect — cooked from
+declarative data so an extra registry named in `RENGINE_AGENT_REGISTRY_EXTRA` adds an agent as DATA.
+Every consumer reads it: `config.mjs` (identity, overlays, short ids), `tasks.mjs` (`knownAgents()`,
+`modelArgs`, the `--help` model discovery now generic over recipes of kind `help`), `ide-connect.mjs`,
+`store.mjs` (conversation id shapes), `worker.mjs` (spawn mints a conversation only for a recipe with
+a START spelling — which also un-broke codex decomposition spawns the resume capability had just made
+refuse), `report-session.mjs` (`--provider codex` with no table edit), `bind.mjs`, and `agent.sh`,
+whose shell surface is the registry's own `list`/`show` CLI rather than a copy. The killer test adds
+`testcli` as data and watches it become selectable, installable, launchable and spawnable with no
+source edit; sabotage checks reddened each consumer class (private model table → killer red; dropped
+`features.hooks` → overlay red; hardcoded agent.sh list → listing red), each restored.
+
+**Codex's SessionStart hook needed a gate nobody had mapped.** The `-c` hook overlay parses fine
+(an `exec` probe died only at the model call — the account is usage-limited to Sep 15), but the hook
+never ran: codex runs a non-managed hook only when `hooks.state."<key>".trusted_hash` matches the
+sha256 of its normalized definition. From the `rust-v0.153.0` source and the live app-server
+`hooks/list`, the formula is now exact: key `/<session-flags>/config.toml:session_start:0:0` (the
+synthetic layer codex makes for `-c`), hash over canonical JSON of the normalized identity — verified
+byte-identical against codex 0.153.4, `trustStatus: "trusted"` when supplied in the same `-c` layer,
+`"modified"` when wrong by one byte. The launch therefore trusts exactly the command it composed, per
+key, with no write to `~/.codex` and no `--dangerously-bypass-hook-trust` (which would also waive
+review for untrusted project-layer hooks — the attack the gate exists for). Then the live chain
+fired end to end: TUI under a PTY → SessionStart with `session_id`/ `source: startup` →
+`report-session.mjs --provider codex` → `POST /api/agent-conversation` on the stub host.
+`docs/evidence/codex-sessionstart-hook-2026-09-11.md` has the whole map, including the update-nag
+modal and the exec-doesn't-fire-hooks caveats. `ideDirectory()` also honours `CLAUDE_CONFIG_DIR` now
+(criterion 5), with rEngine's own override still first.
+
+**Verification.** npm test 258/258 (six new registry tests, the codex provider case, the codex
+resume-subcommand identity parity); `./init.sh`, `features.py validate`, `design.py check` all clean;
+graph regenerated. Sidecars: two notes moved to the new `registry.mjs._llm.json` with their ids
+retained, five updated (config, report-session, agent.sh, worker, plus `codex-hooks-trust-themselves`
+new), all stamped clean on `.cache/sidecars-kimi-f138.sqlite`. features.json F113 → `passes: true`.
+
+**Remaining.** F114 (ACP session kind) is the O2 follow-up and untouched. If a codex upgrade changes
+the hook normalization, the trust hash stops matching and the hook waits for review — re-verification
+is the `hooks/list` call in the evidence file.
+
 ## Session 109 (macos) — 2026-09-11 — two seams in one binary, and the three defects that found (F133)
 
 `--renderer` stays a runtime switch (spec 126 decision 3), so **the pack learned to build prefixed

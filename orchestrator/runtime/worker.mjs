@@ -14,6 +14,7 @@ import { request as call } from '../launcher/sidecar.mjs';
 import { authenticated, body, checkConnection, fail, forward, json } from './protocol.mjs';
 import { hostStateDirectory, readTasks, trackerSignIn, trackerSignOut } from './tracker.mjs';
 import { agentsMenu, modelArgs, promptFor, promptValues, taskWrite } from '../server/tasks.mjs';
+import { recipe } from '../agents/registry.mjs';
 import { startIdeBridge } from './ide.mjs';
 import { LanguageServers, uriFor } from './lsp.mjs';
 import { runtimeDirectory, alive, discoverRuntime } from './discovery.mjs';
@@ -200,8 +201,12 @@ export async function startWorker(host, options = {}) {
     const brief = data.brief ?? 'task';
     const row = await taskRow(rootId, data.taskKey);
     const args = [...modelArgs(agent, data.model), (await promptFor(root(rootId), brief, promptValues(row))).text];
-    /* Named here rather than left to the host. See sidecar: a-spawn-names-its-conversation. */
-    const session = await call(host, 'terminal', { rootId, type: 'agent', agent, action: 'launch', args, conversation: randomUUID() });
+    /* Named here rather than left to the host, and only for a CLI that accepts being told which
+       conversation to start: one that can only resume (codex, kimi) or names its own is started
+       unnamed and records none — the same treatment the pane launcher gives it, never a refusal
+       for a spawn that names nothing the caller chose. See sidecar: a-spawn-names-its-conversation. */
+    const session = await call(host, 'terminal', { rootId, type: 'agent', agent, action: 'launch', args,
+      ...(recipe(agent)?.conversation?.start ? { conversation: randomUUID() } : {}) });
     /* A CLI rEngine can name a conversation for has one already; one that names its own has none to
        carry the task, and the frame says so rather than inventing an id. */
     if (session?.conversation) {

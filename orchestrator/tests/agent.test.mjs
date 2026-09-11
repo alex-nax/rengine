@@ -13,7 +13,11 @@ async function fixture(t) {
   const bin = path.join(dir, 'bin');
   await mkdir(project); await mkdir(bin);
   await writeFile(path.join(bin, 'codex'), '#!/bin/bash\nprintf "cwd=%s\\n" "$PWD"\nprintf "arg=%s\\n" "$@"\n', { mode: 0o755 });
-  const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, RENGINE_AGENT_HOME: path.join(dir, 'managed') };
+  /* Ambient RENGINE_* from the pane this suite itself runs in must not leak into the standalone
+     script's environment: a workspace pane carries a workspace context and a conversation of its
+     own agent's shape, which another CLI's launch would rightly refuse as unresumable. */
+  const ambient = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('RENGINE_')));
+  const env = { ...ambient, PATH: `${bin}${path.delimiter}${process.env.PATH}`, RENGINE_AGENT_HOME: path.join(dir, 'managed') };
   return { dir, bin, project, env, run: args => spawnSync('bash', [script, '--project', project, ...args], { env, encoding: 'utf8', timeout: 10000 }) };
 }
 

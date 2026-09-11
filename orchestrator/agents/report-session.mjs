@@ -4,8 +4,8 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { request } from '../launcher/sidecar.mjs';
+import { recipe } from './registry.mjs';
 
-const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const read = async filename => JSON.parse(await readFile(filename, 'utf8'));
 
 /* Where this launch's context is, in the order that finds it. The per-launch settings file names it
@@ -46,18 +46,17 @@ const connection = value => {
 
 /* The conversation IS the identity (spec 095), so a reported id replaces the whole of it: the
    agentId, the eight characters the label goes by, and the line that resumes it. Which CLI the
-   report speaks for comes from --provider: claude's hook is wired per launch, kimi's by the guided
-   bootstrap action (spec 127), and each resumes in its own spelling. The pid and the moment this
-   launch started belong to the launcher and are not the CLI's to change. */
-const PROVIDERS = {
-  claude: { pattern: UUID, short: id => id.slice(0, 8), resume: id => `claude --resume ${id}`, normalize: id => id.toLowerCase() },
-  kimi: {
-    pattern: /^(?:session_)?(?:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-HJKMNP-TV-Z]{26})$/i,
-    short: id => id.replace(/^session_/i, '').slice(0, 8), resume: id => `kimi --session ${id}`, normalize: id => id,
-  },
+   report speaks for comes from --provider, and what an id for that CLI looks like, how its short
+   form reads and how it is resumed are all the recipe's (registry.mjs): claude's hook is wired per
+   launch, kimi's by the guided bootstrap action (spec 127), codex's per launch through its -c
+   channel, and each resumes in its own spelling. The pid and the moment this launch started belong
+   to the launcher and are not the CLI's to change. */
+const providerOf = name => {
+  const talk = recipe(name)?.conversation;
+  return talk ? { pattern: talk.ids, short: talk.short, resume: talk.resumeLine, normalize: talk.normalize } : null;
 };
 export function reportedIdentity(identity, conversation, provider = 'claude') {
-  const kind = PROVIDERS[provider];
+  const kind = providerOf(provider);
   return { ...identity, agentId: conversation, label: `${provider} ${kind.short(conversation)}`,
     session: { provider, id: conversation, known: true, source: 'reported', resume: kind.resume(conversation) } };
 }
@@ -77,7 +76,7 @@ export async function report({ env = process.env, argv = process.argv.slice(2), 
   if (!contextFile) return { bound: false, rewrote: false, posted: false };
   const at = argv.indexOf('--provider');
   const provider = at >= 0 ? argv[at + 1] : 'claude';
-  const kind = PROVIDERS[provider];
+  const kind = providerOf(provider);
   if (!kind) throw new Error(`Unknown agent provider: ${provider}`);
   const conversation = kind.normalize(String(input?.session_id ?? ''));
   if (!kind.pattern.test(conversation)) throw new Error(`${input?.hook_event_name ?? 'The hook'} carried no session id.`);

@@ -78,8 +78,11 @@ test('a launch that continues or forks reports no conversation rather than claim
     assert.match(describeSession(plan.identity), /unknown/);
   }
   const codex = await agentLaunch({ agent: 'codex', executable: '/installed/codex', contextFile, env: {}, conversation: HOST });
-  assert.equal(codex.conversation, undefined, 'an agent that names its own conversations is recorded with nothing at all');
+  assert.equal(codex.conversation, null, 'codex cannot be told a conversation to start (F113: resume-only), so the record is actively cleared too');
   assert.equal(codex.args.includes(HOST), false);
+  const gemini = await agentLaunch({ agent: 'gemini', executable: '/installed/gemini', contextFile, env: {}, conversation: HOST });
+  assert.equal(gemini.conversation, undefined, 'an agent that names its own conversations is recorded with nothing at all');
+  assert.equal(gemini.args.includes(HOST), false);
 });
 
 // The pane's own record must follow the pane. `null` clears it, so restart_agent refuses by name

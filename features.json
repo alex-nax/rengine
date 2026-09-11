@@ -1636,13 +1636,18 @@
         "Codex's conversation identity comes from its SessionStart hook the way Claude's already does, rather than from scanning its rollout directory, when the CLI accepts a per-launch hooks overlay; if it does not, the scan stays and the refusal is recorded rather than worked around.",
         "Each regression was observed failing for its own reason, including a recipe missing a model flag and a consumer still reading its own private table."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [],
       "owner_workspace": "rengine",
       "deliverable": "The recipe registry module and its schema, the rewired orchestrator/agents/config.mjs, orchestrator/agents/ide-connect.mjs, orchestrator/server/tasks.mjs and scripts/agent.sh, the CLAUDE_CONFIG_DIR fix in orchestrator/runtime/ide.mjs, and its tests.",
       "external_references": [],
       "evidence": [
-        "docs/specs/114-dev-suite-roadmap.md: why protocol before embedding, and where the implicit registry lives today"
+        "docs/specs/114-dev-suite-roadmap.md: why protocol before embedding, and where the implicit registry lives today",
+        "orchestrator/agents/registry.mjs: the one declared table (package, update mode, model flag, conversation/resume spellings with id shapes and parsers, MCP overlay kind, hooks overlay kind, IDE connect) plus its shell surface (list/show) for agent.sh; config.mjs, tasks.mjs, ide-connect.mjs, store.mjs, worker.mjs, report-session.mjs, bind.mjs and agent.sh all read it",
+        "orchestrator/tests/agent-registry.test.mjs: recipe validity, every consumer reading the one table, a recipe added as DATA becoming an agent end to end (selectable, installable, launchable, spawnable) with no file edited, per-capability named refusal, the codex hook overlay, and CLAUDE_CONFIG_DIR",
+        "docs/evidence/codex-sessionstart-hook-2026-09-11.md: codex's hook trust gate, the verified self-trust formula (key + trusted_hash in the same -c layer, no ~/.codex write), SessionStart's live payload, and the end-to-end report to the workspace route under provider codex",
+        "sabotage checks 2026-09-11: a private model-flag table in tasks.mjs reddened the data-added-agent test, a dropped features.hooks reddened the overlay test, and a hardcoded agent.sh list reddened both listing tests — each restored green",
+        "consumer path 2026-09-11: bash scripts/agent.sh --action list reflects this machine through the registry; scripted agentLaunch for all five CLIs composes the right overlays; npm test 258/258"
       ]
     },
     {

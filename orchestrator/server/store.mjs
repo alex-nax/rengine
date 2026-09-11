@@ -1,6 +1,7 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename, rm, realpath, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { recipe } from '../agents/registry.mjs';
 
 export const MAX_TEXT_BYTES = 2 * 1024 * 1024;
 export const hash = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -12,10 +13,10 @@ const RECORDING = { seconds: [5, 900], bytes: [4 * 1024 * 1024, 1024 * 1024 * 10
 /* Conversations are remembered per root because the host's own session list dies with the host,
    and surviving exactly that is the point of resuming into one. Bounded, most recent first. */
 const CONVERSATION_LIMIT = 20;
+/* A conversation recorded under an agent's own name takes the id shape that agent's recipe says it
+   resumes by (kimi's observed `session_<uuid>` and documented ULID among them); with no agent
+   named, only the plain UUID rEngine mints is accepted. */
 const CONVERSATION_ID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
-/* kimi names its own conversations; the shapes it resumes by (observed `session_<uuid>`, documented
-   ULID) are accepted for a conversation recorded under kimi's own name and nobody else's. */
-const KIMI_CONVERSATION_ID = /^(?:session_)?(?:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-HJKMNP-TV-Z]{26})$/i;
 const within = (root, file) => { const rel = path.relative(root, file); return rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel); };
 export async function resolveInRoot(root, relative = '', allowMissing = false) {
   if (typeof relative !== 'string' || relative.includes('\0') || path.isAbsolute(relative)) fail('Use a path relative to its project root.');
@@ -196,7 +197,7 @@ export class WorkspaceStore {
   }
 
   async recordConversation(rootId, { conversation, agent, task } = {}) {
-    const shaped = agent === 'kimi' ? KIMI_CONVERSATION_ID.test(conversation) : CONVERSATION_ID.test(conversation);
+    const shaped = (agent && recipe(agent)?.conversation?.ids) ? recipe(agent).conversation.ids.test(conversation) : CONVERSATION_ID.test(conversation);
     if (typeof conversation !== 'string' || !shaped) fail('An agent conversation must be a UUID rEngine minted, or a session id in the shape the named CLI resumes by.');
     if (agent !== undefined && (typeof agent !== 'string' || agent.length > 256)) fail('Invalid agent name for a conversation.');
     // `task` is the one join between the task system and the agent system (spec 103 decision 6): a

@@ -5,24 +5,25 @@
       "id": "ask-the-cli-never-infer",
       "kind": "rationale",
       "anchor": {
-        "start": 75,
-        "end": 75,
+        "start": 74,
+        "end": 74,
         "snippet": "export async function report({ env = process.env, argv = process.argv.slice(2), input } = {}) {"
       },
-      "note": "The launcher decides a pane's conversation from the launch's own flags and is blind afterwards. A person who resumes a different conversation from inside the running CLI moves the process without touching a flag; observed live 2026-09-07, a pane launched as b9e2114c ran 5b8d47c2 while the pane record, workspace_info, the ledger identity and the Sessions tab all still said b9e2114c. The forbidden repair is to infer the id afterwards from the transcript directory, a rollout file or the process tree -- an earlier attempt did that and kept getting it wrong, which is why spec 095 decides at launch. This module is the other answer: the CLI is asked, through the SessionStart hook Claude Code runs on startup, --resume, an in-CLI /resume, /clear and after compaction. It posts to the same /api/agent-conversation route launch.mjs reports on, so there is one way a pane's conversation is ever recorded, and it rewrites the per-launch context so the tool worker's identity header and workspace_info follow too. It posts on every session start rather than only on a change, because a record the launcher could not write -- a -c or --fork-session launch reports conversation:null and leaves the pane holding nothing -- then heals at the next start instead of staying unknown for the pane's life. Which CLI a report speaks for comes from --provider (PROVIDERS): claude by default, wired per launch; kimi via the guided bootstrap action (spec 127), with its own id shapes (session_<uuid>, ULID), its own label (the eight characters after the session_ prefix) and its own resume spelling (kimi --session <id>). Binding discovery deliberately does NOT grow a cwd-based lookup of .kimi-code/mcp.json: a kimi session started outside any pane shares that project file, and reporting through it would rewrite a live pane's recorded identity.",
+      "note": "The launcher decides a pane's conversation from the launch's own flags and is blind afterwards. A person who resumes a different conversation from inside the running CLI moves the process without touching a flag; observed live 2026-09-07, a pane launched as b9e2114c ran 5b8d47c2 while the pane record, workspace_info, the ledger identity and the Sessions tab all still said b9e2114c. The forbidden repair is to infer the id afterwards from the transcript directory, a rollout file or the process tree -- an earlier attempt did that and kept getting it wrong, which is why spec 095 decides at launch. This module is the other answer: the CLI is asked, through the SessionStart hook Claude Code runs on startup, --resume, an in-CLI /resume, /clear and after compaction. It posts to the same /api/agent-conversation route launch.mjs reports on, so there is one way a pane's conversation is ever recorded, and it rewrites the per-launch context so the tool worker's identity header and workspace_info follow too. It posts on every session start rather than only on a change, because a record the launcher could not write -- a -c or --fork-session launch reports conversation:null and leaves the pane holding nothing -- then heals at the next start instead of staying unknown for the pane's life. Which CLI a report speaks for comes from --provider, and everything provider-specific \u2014 the id shape, the label short form, the resume spelling \u2014 is the recipe's (agents/registry.mjs, spec 114), so codex joined with no table edit here: claude by default, wired per launch via --settings; kimi via the guided bootstrap action (spec 127), with its own id shapes (session_<uuid>, ULID); codex per launch through its -c channel with a same-launch trusted_hash (spec 114, docs/evidence/codex-sessionstart-hook-2026-09-11.md). Binding discovery deliberately does NOT grow a cwd-based lookup of .kimi-code/mcp.json: a kimi session started outside any pane shares that project file, and reporting through it would rewrite a live pane's recorded identity.",
       "refs": [
         "docs/specs/095-project-token.md",
         "docs/specs/096-agent-session-resume.md",
         "docs/specs/127-kimi-agent-integration.md",
-        "docs/evidence/report-session-hook-2026-09-07.md"
+        "docs/evidence/report-session-hook-2026-09-07.md",
+        "docs/evidence/codex-sessionstart-hook-2026-09-11.md"
       ]
     },
     {
       "id": "a-hook-must-not-hurt-the-cli",
       "kind": "gotcha",
       "anchor": {
-        "start": 102,
-        "end": 102,
+        "start": 101,
+        "end": 101,
         "snippet": "if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {"
       },
       "note": "Three properties, each a way this could damage the thing it runs inside, and each pinned by a test. (1) Never fail the CLI: every error goes to stderr and the exit status is always 0, so a workspace defect can never stop a person's session from starting. (2) Never write to stdout: a SessionStart hook's stdout is ADDED to that CLI's context, so a status line here would appear as text in the person's own conversation. Notes are written with writeSync(2) so they are flushed before the explicit exit. (3) The explicit process.exit(0) is not decoration -- the report leaves an undici keep-alive socket open, and without it the hook lingers for seconds on every session start while the CLI waits.",
@@ -47,7 +48,7 @@
   ],
   "source": {
     "path": "orchestrator/agents/report-session.mjs",
-    "sha256": "1ebf4dc9bf0d8e6e3edcbe87dec016b647e21efeb9b0bd9ae6fb408e78e355a2",
+    "sha256": "2fb6b405d875855d3db8c07195f97bb25c89bc1860d16eb2d73eac462dce7ffe",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

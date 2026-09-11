@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "conversation-naming-is-a-declared-capability",
+      "kind": "rationale",
+      "anchor": {
+        "start": 81,
+        "end": 81,
+        "snippet": "const SHIPPED = {"
+      },
+      "note": "rEngine names the conversation at launch rather than discovering it afterwards: it decides the UUID and tells the CLI, so the identifier exists before the first byte of output and no rollout directory has to be scraped for it. The Codex handoff path (handoff.mjs) is the discovery version of this and shows the cost \u2014 it reads an external manifest, walks ~/.codex/sessions, and validates metadata, all to learn a fact the launcher could simply have chosen. Membership of this table is a capability claim, not an assumption, and since spec 127 the claim is per capability (start vs resume): kimi is a member with start null \u2014 it can be put back into a recorded conversation (--session) but has no start-with-id spelling, so it is never minted one and a named conversation without resume is refused by name. An agent whose recipe has no conversation entry at all names its own conversations, is recorded with none (plan.conversation stays undefined), and is refused by name on restart. Inventing an identifier for such an agent would produce a restart that silently opens a SECOND conversation while appearing to resume the first, which is worse than refusing.",
+      "refs": [
+        "docs/specs/096-agent-session-resume.md",
+        "docs/specs/114-dev-suite-roadmap.md"
+      ]
+    },
+    {
+      "id": "session-is-the-identity",
+      "kind": "rationale",
+      "anchor": {
+        "start": 25,
+        "end": 25,
+        "snippet": "export function claudeFlags(args = []) {"
+      },
+      "note": "Read the launch's own flags rather than inferring the conversation afterwards from a transcript, a process tree or a hook \u2014 an earlier attempt did that and kept getting it wrong. --session-id/--resume/-r with a valid UUID name the session, so it becomes the agentId and the args are left alone; -c/--continue, --resume with a search term instead of an id, and --fork-session all mint the id inside the CLI where rEngine cannot see it, so the identity is rEngine's own and records known:false rather than guessing. Values are lowercased because the ledger's header check is lowercase hex. Since spec 114 the parser lives in the recipe registry (as the conversation.parser the recipe names), shared by every consumer rather than re-derived per module.",
+      "refs": [
+        "docs/specs/095-project-token.md",
+        "docs/specs/114-dev-suite-roadmap.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/agents/registry.mjs",
+    "sha256": "b65d818d75120bf111084a540ee80677c8f2f89940c8748b27b1303016ac8fba",
+    "format": "text",
+    "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
+  }
+}

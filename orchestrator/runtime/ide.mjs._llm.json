@@ -5,8 +5,8 @@
       "id": "our-locks-are-ours-to-collect",
       "kind": "constraint",
       "anchor": {
-        "start": 53,
-        "end": 53,
+        "start": 56,
+        "end": 56,
         "symbol": "sweep",
         "snippet": "export async function sweep(directory, { alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } } } = {}) {"
       },
@@ -20,8 +20,8 @@
       "id": "the-port-may-not-move",
       "kind": "history",
       "anchor": {
-        "start": 81,
-        "end": 81,
+        "start": 84,
+        "end": 84,
         "snippet": "const RETAKE_INTERVAL_MS = 250;"
       },
       "note": "The first version bound an ephemeral port per worker, which looked obviously right and was obviously wrong the first time a layered update ran: the port moved from 49953 to 61709 and the owner's own connected session reported `WebSocket connection to 'ws://127.0.0.1:49953/' failed`. Claude Code reads a lock once, then reconnects to the port it read; it does not go back to the directory to look again. So an IDE whose port moves is an IDE that dies on every update \u2014 in a feature whose entire premise is that capabilities arrive *by* update (KI-066).\n\nThe port therefore belongs to the runtime, not to the worker: the supervisor reserves it once and hands the same number to every worker it starts. A worker starting during an update finds its predecessor still holding it, because the successor is started before the old one retires, so it retries for a bounded while instead of taking a free port. Taking a free port is the tempting fallback and it is the bug: it succeeds, logs nothing, and silently ends every session. Failing to get the port leaves the bridge unpublished with a reason, which someone can see.",
@@ -34,8 +34,8 @@
       "id": "token-arrival",
       "kind": "history",
       "anchor": {
-        "start": 114,
-        "end": 114,
+        "start": 117,
+        "end": 117,
         "symbol": "presented",
         "snippet": "const presented = request =>"
       },
@@ -47,7 +47,7 @@
   ],
   "source": {
     "path": "orchestrator/runtime/ide.mjs",
-    "sha256": "e9dd699592fa58d4fc153c04c493e8d1a15d264921a0854458b4cc1b12d28064",
+    "sha256": "6b7713b15aff34397511b7323eba4f84c670c5a15d1fac60d9a3230a9e390305",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

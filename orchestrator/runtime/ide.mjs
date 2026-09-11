@@ -1,7 +1,8 @@
 /* Red as a Claude Code IDE (spec 102).
  *
- * Claude Code finds an editor by reading `~/.claude/ide/<port>.lock` and connecting to the port its
- * filename names. This serves that socket from the workspace worker, which is the replaceable layer:
+ * Claude Code finds an editor by reading `<config>/ide/<port>.lock` and connecting to the port its
+ * filename names, where `<config>` is ~/.claude unless CLAUDE_CONFIG_DIR moves it. This serves that
+ * socket from the workspace worker, which is the replaceable layer:
  * the bridge needs no PTY, no surface and no store state, only the root paths, so it arrives by a
  * routine layered update rather than needing the retained host to change (spec 101).
  *
@@ -23,8 +24,10 @@ import { PRODUCT_NAME } from './product.mjs';
 export const IDE_NAME = PRODUCT_NAME;
 /* The CLI reads this one path, so it is the default rather than a setting — but it stays an explicit
    input, because a test that publishes into the developer's own `/ide` menu is a test with a side
-   effect on the person running it. */
-export const ideDirectory = () => process.env.RENGINE_IDE_DIRECTORY || path.join(os.homedir(), '.claude', 'ide');
+   effect on the person running it. CLAUDE_CONFIG_DIR moves the lock directory with it, as Anthropic
+   documents; rEngine's own override still wins. */
+export const ideDirectory = () => process.env.RENGINE_IDE_DIRECTORY
+  || path.join(process.env.CLAUDE_CONFIG_DIR ?? path.join(os.homedir(), '.claude'), 'ide');
 
 /* MCP over a WebSocket, which the SDK has no server transport for: a frame is one JSON-RPC message. */
 class SocketTransport {

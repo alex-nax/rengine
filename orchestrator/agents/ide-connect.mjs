@@ -12,6 +12,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { ideDirectory, IDE_NAME } from '../runtime/ide.mjs';
+import { recipe } from './registry.mjs';
 
 const living = pid => { try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; } };
 
@@ -36,10 +37,10 @@ export async function offeredEditors(directory, { locks = ideDirectory(), alive 
   return found;
 }
 
-/* Which CLIs accept being told to connect on startup, and what says it. A CLI absent from this table
-   launches exactly as it does today, with nothing added to its command line. */
-const FLAGS = { claude: ['--ide'] };
-export const ideConnectFlag = agent => FLAGS[agent] ?? null;
+/* Which CLIs accept being told to connect on startup, and what says it: the recipe's `ide` block.
+   A CLI whose recipe names none launches exactly as it does today, with nothing added to its
+   command line. */
+export const ideConnectFlag = agent => recipe(agent)?.ide?.flags ?? null;
 
 /* The decision, its environment, and the sentence explaining it — a pane that silently does not
    connect is a support question, so the reason is always available even when the answer is "no".

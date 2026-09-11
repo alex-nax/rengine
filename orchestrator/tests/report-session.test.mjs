@@ -193,6 +193,34 @@ test('a kimi SessionStart hook reports the session the CLI is running, with its 
   assert.equal(workspace.posted.length, 1, 'and nothing more was reported');
 });
 
+test('a codex SessionStart hook reports the session the CLI is running, with its own resume line', async t => {
+  /* codex's documented hooks carry SessionStart on startup and resume; the launch injects the hook
+     through the same -c channel as its MCP wiring (F113 criterion 6), running this reporter with
+     --provider codex. */
+  const workspace = await host(t);
+  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-report-codex-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const contextFile = path.join(directory, 'root-context.json');
+  await writeFile(contextFile, JSON.stringify({ url: workspace.url, token: TOKEN, instance: INSTANCE, rootId: ROOT_ID }));
+  const plan = await agentLaunch({ agent: 'codex', executable: '/installed/codex', contextFile, env: {} });
+  const env = { RENGINE_MCP_CONFIG: plan.generic, RENGINE_ORCHESTRATOR_SESSION: 'pane-codex-1' };
+  const payload = { session_id: RESUMED, transcript_path: `/Users/someone/.codex/sessions/2026/09/11/${RESUMED}.jsonl`,
+    cwd: '/tmp/project', hook_event_name: 'SessionStart', source: 'resume' };
+
+  const result = await report({ env, argv: ['--provider', 'codex'], input: payload });
+  assert.equal(result.bound, true);
+  assert.equal(result.rewrote, true);
+  assert.equal(result.posted, true);
+  assert.deepEqual(workspace.posted, [{ id: 'pane-codex-1', conversation: RESUMED, agent: 'codex' }],
+    'the host is told over the same route, under codex’s own name');
+
+  const identity = JSON.parse(await readFile(plan.contextFile, 'utf8')).agent;
+  assert.equal(identity.agentId, RESUMED);
+  assert.equal(identity.label, `codex ${RESUMED.slice(0, 8)}`);
+  assert.deepEqual(identity.session, { provider: 'codex', id: RESUMED, known: true, source: 'reported',
+    resume: `codex resume ${RESUMED}` }, 'and the line that resumes it is codex’s own spelling');
+});
+
 test('the tool worker’s next call carries the conversation the CLI reported', async t => {
   const workspace = await host(t);
   const { plan, env } = await pane(t, workspace, { conversation: LAUNCHED });
