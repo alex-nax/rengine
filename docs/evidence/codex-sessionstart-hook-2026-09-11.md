@@ -91,3 +91,13 @@ context rewrite on identity change is covered by `orchestrator/tests/report-sess
   probe ran against a limited account).
 - `codex exec` does not run SessionStart hooks at all; rEngine launches interactive panes, so
   this does not affect the integration, but a headless `exec` path would need another channel.
+
+## Control check: claude still reports, same day
+
+Claude's per-launch `--settings` path (the reference this codex work mirrors) was re-verified live
+against Claude Code 2.1.266 the same day: launched exactly as `agentLaunch` composes it under a
+PTY, SessionStart fired at startup with no approval prompt — claude has no trust gate for this
+channel — and the stub received
+`POST /api/agent-conversation {"id":"claude-probe-pane","conversation":"63244892-c75b-4574-bf3f-af42a936f8dd","agent":"claude"}`,
+the conversation being exactly the id the launcher minted (`source: "minted"`). No prompt was
+sent, so the check spent no model tokens.
