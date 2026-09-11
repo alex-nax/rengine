@@ -5,7 +5,7 @@
  * else in the module is skipped by word count, which is why an instruction this does not understand
  * costs nothing and breaks nothing.
  */
-#include "gpu_seam_vk_spirv.h"
+#include "gpu_seam_spirv.h"
 
 #include <stdio.h>
 #include <string.h>

@@ -107,7 +107,8 @@ typedef struct {
   const char *glsl;         /* dialect source for a GL backend, or NULL */
   const uint32_t *spirv;    /* SPIR-V words for a Vulkan backend, or NULL */
   size_t spirv_bytes;       /* size of `spirv` in bytes, not words */
-  const char *entry_point;  /* SPIR-V entry point; NULL means "main" */
+  const char *msl;          /* Metal Shading Language source for a Metal backend, or NULL */
+  const char *entry_point;  /* entry point name; NULL means each backend's default */
 } ReSeamShader;
 
 /* ---- opening ----------------------------------------------------------------------------------
@@ -232,7 +233,15 @@ void re_seam_scissor(ReSeam *seam, int x, int y, int width, int height);
 void re_seam_blend_separate(ReSeam *seam, ReSeamBlend color, ReSeamBlend alpha);
 void re_seam_depth_compare(ReSeam *seam, ReSeamDepthCompare compare);
 /* `depth` is separate from the colour clear because a call site that clears colour only must keep
- * doing so; clearing depth as well would be a behaviour change smuggled in by a refactor. */
+ * doing so; clearing depth as well would be a behaviour change smuggled in by a refactor.
+ *
+ * A depth clear is masked by the depth write state, in every backend, because OpenGL masks it and a
+ * call site relying on that must see the same thing everywhere. There is deliberately NO depth-only
+ * clear — vtmb-vr's seam has none and nothing has asked for one — and the cost of that showed up
+ * while testing: the masking rule cannot be exercised by a scene, because doing so means clearing
+ * the colour that scene is being compared on. It is verified on OpenGL by the pack's pixel test and
+ * carried by construction on the others. A depth-only clear would close that, and is the right thing
+ * to add the first time a call site wants one rather than the first time a test does. */
 void re_seam_clear(ReSeam *seam, float r, float g, float b, float a, bool depth);
 void re_seam_draw(ReSeam *seam, ReSeamPrimitive primitive, int first, int count);
 

@@ -164,6 +164,7 @@ struct Shader
     const char* glsl = nullptr;
     const std::uint32_t* spirv = nullptr;
     std::size_t spirvBytes = 0;
+    const char* msl = nullptr;
     const char* entryPoint = nullptr;
 
     constexpr Shader() = default;
@@ -179,6 +180,7 @@ inline ReSeamShader raw(const Shader& shader)
     out.glsl = shader.glsl;
     out.spirv = shader.spirv;
     out.spirv_bytes = shader.spirvBytes;
+    out.msl = shader.msl;
     out.entry_point = shader.entryPoint;
     return out;
 }

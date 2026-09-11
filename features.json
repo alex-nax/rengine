@@ -2125,7 +2125,11 @@
       "owner_workspace": "rengine",
       "external_references": [],
       "evidence": [
-        "docs/specs/124-seam-three-backends.md: the owner's decision to carry Metal in the pack rather than leave rEngine's third backend outside the seam"
+        "docs/specs/124-seam-three-backends.md: the owner's decision to carry Metal in the pack rather than leave rEngine's third backend outside the seam",
+        "packs/gpu/src/gpu_seam_metal.m: the third backend, 800 lines, sharing the SPIR-V reflector because SPIRV-Cross preserves the std140 layout when it emits MSL",
+        "orchestrator/tests/pack-gpu-backends.test.mjs: Metal differs from the OpenGL reference in 2 of 921,600 pixels, none outside a 2px edge band",
+        "docs/specs/124-seam-three-backends.md: the Y axis answered differently for all three APIs, and the two Metal sabotages that are honest limits rather than gaps",
+        "Its work and evidence are complete; the row waits on F123, as F129's, F132's and F130's do (KI-082)."
       ],
       "passes": false
     },

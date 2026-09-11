@@ -17,6 +17,8 @@ endif()
 # above it — scene.c, the shaders, the call sites — is identical either way, which is the claim.
 if(RENGINE_GPU_SEAM_BACKEND STREQUAL "vulkan")
   set(RENGINE_GPU_SCENE_HOST "${CMAKE_CURRENT_SOURCE_DIR}/host_vk.c")
+elseif(RENGINE_GPU_SEAM_BACKEND STREQUAL "metal")
+  set(RENGINE_GPU_SCENE_HOST "${CMAKE_CURRENT_SOURCE_DIR}/host_metal.m")
 else()
   set(RENGINE_GPU_SCENE_HOST "${CMAKE_CURRENT_SOURCE_DIR}/host_gl.c")
 endif()
@@ -27,6 +29,10 @@ add_executable(rengine_gpu_scene
   "${CMAKE_CURRENT_SOURCE_DIR}/obj.c"
   "${RENGINE_GPU_SCENE_HOST}")
 target_link_libraries(rengine_gpu_scene PRIVATE rengine::gpu SDL2::SDL2)
+if(RENGINE_GPU_SEAM_BACKEND STREQUAL "metal")
+  set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/host_metal.m"
+                              PROPERTIES COMPILE_OPTIONS "-fno-objc-arc")
+endif()
 target_compile_features(rengine_gpu_scene PRIVATE c_std_11)
 if(NOT MSVC)
   target_compile_options(rengine_gpu_scene PRIVATE -Wall -Wextra)

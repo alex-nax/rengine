@@ -130,7 +130,7 @@ without taking the witness with it.
 F129  the seam grows render targets, frames, scissor, sub-upload and the state above   (rEngine) DONE
 F132  the scene example: procedural by default, --scene for a real model               (rEngine) DONE
 F130  the seam's Vulkan backend, judged against GL on the example's pixels             (rEngine) DONE
-F131  the seam's Metal backend, judged the same way                                    (rEngine)
+F131  the seam's Metal backend, judged the same way                                    (rEngine) DONE
 F133  rEngine's draw list moves onto the seam; SDL_Renderer stops shipping and its
       frames become the committed reference                                            (rEngine)
 ```
@@ -377,3 +377,67 @@ queue wait, a descriptor set allocated per draw, host-visible vertex buffers, an
 `VK_IMAGE_LAYOUT_GENERAL`. None of them is about the seam's shape, which is what this feature was
 asked to test; all of them are what a production backend does differently, and F131 and F133 will say
 whether they need to change before a game adopts.
+
+
+## F131: three backends, one frame
+
+| | differs from OpenGL | outside a 2px edge band | ms/frame |
+| --- | --- | --- | --- |
+| OpenGL (the reference, D51) | — | — | 0.306 |
+| Vulkan | **2** of 921,600 | **0** | 0.931 |
+| Metal | **2** of 921,600 | **0** | 0.923 |
+
+`scene.c` is the same source all three compile, and the spec asserts it calls no graphics API and
+includes no graphics header. One authored shader reaches all three through glslang and SPIRV-Cross,
+with no runtime compiler anywhere.
+
+### One reflection serves Vulkan and Metal
+
+SPIRV-Cross preserves a std140 block's memory layout when it emits MSL — `float4x4` at 64 bytes,
+`float4` at 16 — so the offsets reflected once out of the SPIR-V are the offsets a Metal buffer
+wants. The reflector is therefore not named for Vulkan and lives in `gpu_seam_spirv.c`. Set 0
+binding 0 becomes `[[buffer(0)]]`; binding *n* becomes `[[texture(n-1)]]`.
+
+### The Y axis, for the third time — and the three answers are all different
+
+This is the part a consumer inherits, and it is worth stating once in full:
+
+| | clip space | framebuffer row 0 | so NDC −1 lands in | what the seam does |
+| --- | --- | --- | --- | --- |
+| OpenGL | +Y up | bottom | row 0 | nothing |
+| Vulkan | **+Y down** | top | row 0 | nothing — it already agrees |
+| Metal | +Y up | top | the **last** row | flips, in the shader |
+
+Vulkan needs no flip *because two differences cancel*, which is why the negative-height viewport that
+seemed obvious was wrong there. Metal has only one of those differences, so it needs a flip and has
+no negative viewport height to do it with — `spirv-cross --flip-vert-y` negates `gl_Position.y` in
+the generated MSL instead. The flip is in the build, costs nothing at run time, and no call site can
+see it.
+
+### Sabotages
+
+Seven, five caught by the comparison: the front face unadjusted for Metal's Y axis, the cull mode
+ignored, the depth compare always LESS, blending never enabled, and every draw sharing one uniform
+slot. Two were not, and both are honest limits rather than flaky tests:
+
+**A depth clear that ignores the write mask.** The masking rule cannot be exercised by a scene at
+all, and finding out why is worth more than the test would have been: `re_seam_clear` always clears
+colour, so a scene that clears depth with writes off destroys the very frame it is being compared on.
+Tried, reverted, and the observation recorded on the API — vtmb-vr's seam has no depth-only clear
+either, and the right time to add one is when a call site wants it rather than when a test does. The
+rule is verified on OpenGL by the pack's pixel test and carried by construction on the other two.
+
+**A frame that never synchronises its managed target.** Undetectable on Apple Silicon, where unified
+memory makes a managed texture readable without the blit. It would matter on a discrete GPU, and the
+blit stays for that reason; this machine cannot be the evidence.
+
+### What Metal cost, and what it did not
+
+The backend is 800 lines against the Vulkan backend's 990, and the difference is where you would
+expect: no instance, no physical-device selection, no descriptor sets, no explicit image layouts or
+barriers. What it added is one genuine structural difference, stated at the top of the file: **Metal
+has no mid-pass clear**, because a clear is a load action chosen when an encoder begins. So
+`re_seam_clear` ends the encoder and begins another — which is what Metal applications do, and which
+carries one consequence a call site could see: a clear is not clipped by the scissor here. Nothing in
+this repository clears inside a scissor; something that did would differ, and that is written down
+rather than discovered.

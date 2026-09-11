@@ -1,6 +1,11 @@
-/* What the Vulkan backend needs to read out of a SPIR-V module (F130, spec 124). */
-#ifndef RENGINE_GPU_SEAM_VK_SPIRV_H
-#define RENGINE_GPU_SEAM_VK_SPIRV_H
+/* What a backend needs to read out of a SPIR-V module (F130/F131, spec 124).
+ *
+ * Not Vulkan-only, which is why it does not live in a file named for Vulkan: the Metal backend needs
+ * the same answers. SPIRV-Cross preserves a std140 block's memory layout when it emits MSL —
+ * float4x4 at 64 bytes, float4 at 16 — so one reflection of the SPIR-V gives the offsets both
+ * backends bind their uniform buffer with, and neither needs a reflector of its own. */
+#ifndef RENGINE_GPU_SEAM_SPIRV_H
+#define RENGINE_GPU_SEAM_SPIRV_H
 
 #include <stdbool.h>
 #include <stddef.h>

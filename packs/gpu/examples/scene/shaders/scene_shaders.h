@@ -2,8 +2,9 @@
  * Regenerate with `python3 generate.py generate`; `check` verifies the source hash below.
  * Compiler: shaderc v2023.8 unknown hash, 2025-09-26, target vulkan1.2.
  *
- * Each stage is here twice: OpenGL 3.30 source, and SPIR-V for Vulkan. ReSeamShader carries
- * both, so one symbol per stage serves every backend and no call site changes. */
+ * Each stage is here three times: OpenGL 3.30 source, SPIR-V for Vulkan, and MSL for Metal.
+ * ReSeamShader carries all three, so one symbol per stage serves every backend and no call
+ * site changes. All three come from one authored source through glslang and SPIRV-Cross. */
 #ifndef RE_SCENE_SHADERS_H
 #define RE_SCENE_SHADERS_H
 #include <stdint.h>
@@ -30,6 +31,38 @@ static const char re_scene_flat_vertex_glsl[] =
   "OUT_COLOR\n"
   "void main() { o_color = u_tint; }\n"
   "#endif\n";
+static const char re_scene_flat_vertex_msl[] =
+  "#include <metal_stdlib>\n"
+  "#include <simd/simd.h>\n"
+  "\n"
+  "using namespace metal;\n"
+  "\n"
+  "struct Uniforms\n"
+  "{\n"
+  "    float4x4 u_view_proj;\n"
+  "    float4x4 u_model;\n"
+  "    float4 u_tint;\n"
+  "    float4 u_light;\n"
+  "};\n"
+  "\n"
+  "struct main0_out\n"
+  "{\n"
+  "    float4 gl_Position [[position]];\n"
+  "};\n"
+  "\n"
+  "struct main0_in\n"
+  "{\n"
+  "    float3 a_position [[attribute(0)]];\n"
+  "};\n"
+  "\n"
+  "vertex main0_out main0(main0_in in [[stage_in]], constant Uniforms& _19 [[buffer(0)]])\n"
+  "{\n"
+  "    main0_out out = {};\n"
+  "    out.gl_Position = (_19.u_view_proj * _19.u_model) * float4(in.a_position, 1.0);\n"
+  "    out.gl_Position.y = -(out.gl_Position.y);    // Invert Y-axis for Metal\n"
+  "    return out;\n"
+  "}\n"
+  "\n";
 static const uint32_t re_scene_flat_vertex_spv[] = {
   0x07230203u, 0x00010500u, 0x000d000bu, 0x00000027u, 0x00000000u, 0x00020011u, 0x00000001u, 0x0006000bu,
   0x00000001u, 0x4c534c47u, 0x6474732eu, 0x3035342eu, 0x00000000u, 0x0003000eu, 0x00000000u, 0x00000001u,
@@ -97,6 +130,32 @@ static const char re_scene_flat_fragment_glsl[] =
   "OUT_COLOR\n"
   "void main() { o_color = u_tint; }\n"
   "#endif\n";
+static const char re_scene_flat_fragment_msl[] =
+  "#include <metal_stdlib>\n"
+  "#include <simd/simd.h>\n"
+  "\n"
+  "using namespace metal;\n"
+  "\n"
+  "struct Uniforms\n"
+  "{\n"
+  "    float4x4 u_view_proj;\n"
+  "    float4x4 u_model;\n"
+  "    float4 u_tint;\n"
+  "    float4 u_light;\n"
+  "};\n"
+  "\n"
+  "struct main0_out\n"
+  "{\n"
+  "    float4 o_color [[color(0)]];\n"
+  "};\n"
+  "\n"
+  "fragment main0_out main0(constant Uniforms& _13 [[buffer(0)]])\n"
+  "{\n"
+  "    main0_out out = {};\n"
+  "    out.o_color = _13.u_tint;\n"
+  "    return out;\n"
+  "}\n"
+  "\n";
 static const uint32_t re_scene_flat_fragment_spv[] = {
   0x07230203u, 0x00010500u, 0x000d000bu, 0x00000013u, 0x00000000u, 0x00020011u, 0x00000001u, 0x0006000bu,
   0x00000001u, 0x4c534c47u, 0x6474732eu, 0x3035342eu, 0x00000000u, 0x0003000eu, 0x00000000u, 0x00000001u,
@@ -162,6 +221,44 @@ static const char re_scene_lit_vertex_glsl[] =
   "  o_color = vec4(albedo.rgb * (0.35 + 0.65 * lambert), u_tint.a);\n"
   "}\n"
   "#endif\n";
+static const char re_scene_lit_vertex_msl[] =
+  "#include <metal_stdlib>\n"
+  "#include <simd/simd.h>\n"
+  "\n"
+  "using namespace metal;\n"
+  "\n"
+  "struct Uniforms\n"
+  "{\n"
+  "    float4x4 u_view_proj;\n"
+  "    float4x4 u_model;\n"
+  "    float4 u_tint;\n"
+  "    float4 u_light;\n"
+  "};\n"
+  "\n"
+  "struct main0_out\n"
+  "{\n"
+  "    float3 v_normal [[user(locn0)]];\n"
+  "    float2 v_uv [[user(locn1)]];\n"
+  "    float4 gl_Position [[position]];\n"
+  "};\n"
+  "\n"
+  "struct main0_in\n"
+  "{\n"
+  "    float3 a_position [[attribute(0)]];\n"
+  "    float3 a_normal [[attribute(1)]];\n"
+  "    float2 a_uv [[attribute(2)]];\n"
+  "};\n"
+  "\n"
+  "vertex main0_out main0(main0_in in [[stage_in]], constant Uniforms& _14 [[buffer(0)]])\n"
+  "{\n"
+  "    main0_out out = {};\n"
+  "    out.v_normal = float3x3(_14.u_model[0].xyz, _14.u_model[1].xyz, _14.u_model[2].xyz) * in.a_normal;\n"
+  "    out.v_uv = in.a_uv;\n"
+  "    out.gl_Position = (_14.u_view_proj * _14.u_model) * float4(in.a_position, 1.0);\n"
+  "    out.gl_Position.y = -(out.gl_Position.y);    // Invert Y-axis for Metal\n"
+  "    return out;\n"
+  "}\n"
+  "\n";
 static const uint32_t re_scene_lit_vertex_spv[] = {
   0x07230203u, 0x00010500u, 0x000d000bu, 0x0000003cu, 0x00000000u, 0x00020011u, 0x00000001u, 0x0006000bu,
   0x00000001u, 0x4c534c47u, 0x6474732eu, 0x3035342eu, 0x00000000u, 0x0003000eu, 0x00000000u, 0x00000001u,
@@ -262,6 +359,38 @@ static const char re_scene_lit_fragment_glsl[] =
   "  o_color = vec4(albedo.rgb * (0.35 + 0.65 * lambert), u_tint.a);\n"
   "}\n"
   "#endif\n";
+static const char re_scene_lit_fragment_msl[] =
+  "#include <metal_stdlib>\n"
+  "#include <simd/simd.h>\n"
+  "\n"
+  "using namespace metal;\n"
+  "\n"
+  "struct Uniforms\n"
+  "{\n"
+  "    float4x4 u_view_proj;\n"
+  "    float4x4 u_model;\n"
+  "    float4 u_tint;\n"
+  "    float4 u_light;\n"
+  "};\n"
+  "\n"
+  "struct main0_out\n"
+  "{\n"
+  "    float4 o_color [[color(0)]];\n"
+  "};\n"
+  "\n"
+  "struct main0_in\n"
+  "{\n"
+  "    float3 v_normal [[user(locn0)]];\n"
+  "    float2 v_uv [[user(locn1)]];\n"
+  "};\n"
+  "\n"
+  "fragment main0_out main0(main0_in in [[stage_in]], constant Uniforms& _18 [[buffer(0)]], texture2d<float> u_texture [[texture(0)]], sampler u_textureSmplr [[sampler(0)]])\n"
+  "{\n"
+  "    main0_out out = {};\n"
+  "    out.o_color = float4((u_texture.sample(u_textureSmplr, in.v_uv) * _18.u_tint).xyz * (0.3499999940395355224609375 + (0.64999997615814208984375 * fast::max(dot(fast::normalize(in.v_normal), fast::normalize(_18.u_light.xyz)), 0.0))), _18.u_tint.w);\n"
+  "    return out;\n"
+  "}\n"
+  "\n";
 static const uint32_t re_scene_lit_fragment_spv[] = {
   0x07230203u, 0x00010500u, 0x000d000bu, 0x00000040u, 0x00000000u, 0x00020011u, 0x00000001u, 0x0006000bu,
   0x00000001u, 0x4c534c47u, 0x6474732eu, 0x3035342eu, 0x00000000u, 0x0003000eu, 0x00000000u, 0x00000001u,
@@ -349,6 +478,42 @@ static const char re_scene_screen_vertex_glsl[] =
   "OUT_COLOR\n"
   "void main() { o_color = texture(u_texture, v_uv); }\n"
   "#endif\n";
+static const char re_scene_screen_vertex_msl[] =
+  "#include <metal_stdlib>\n"
+  "#include <simd/simd.h>\n"
+  "\n"
+  "using namespace metal;\n"
+  "\n"
+  "struct Uniforms\n"
+  "{\n"
+  "    float4x4 u_view_proj;\n"
+  "    float4x4 u_model;\n"
+  "    float4 u_tint;\n"
+  "    float4 u_light;\n"
+  "    float2 u_extent;\n"
+  "};\n"
+  "\n"
+  "struct main0_out\n"
+  "{\n"
+  "    float2 v_uv [[user(locn1)]];\n"
+  "    float4 gl_Position [[position]];\n"
+  "};\n"
+  "\n"
+  "struct main0_in\n"
+  "{\n"
+  "    float3 a_position [[attribute(0)]];\n"
+  "    float2 a_uv [[attribute(2)]];\n"
+  "};\n"
+  "\n"
+  "vertex main0_out main0(main0_in in [[stage_in]], constant Uniforms& _30 [[buffer(0)]])\n"
+  "{\n"
+  "    main0_out out = {};\n"
+  "    out.v_uv = in.a_uv;\n"
+  "    out.gl_Position = float4((in.a_position.xy * _30.u_extent) + float2(1.0 - _30.u_extent.x, 1.0 - _30.u_extent.y), 0.0, 1.0);\n"
+  "    out.gl_Position.y = -(out.gl_Position.y);    // Invert Y-axis for Metal\n"
+  "    return out;\n"
+  "}\n"
+  "\n";
 static const uint32_t re_scene_screen_vertex_spv[] = {
   0x07230203u, 0x00010500u, 0x000d000bu, 0x00000035u, 0x00000000u, 0x00020011u, 0x00000001u, 0x0006000bu,
   0x00000001u, 0x4c534c47u, 0x6474732eu, 0x3035342eu, 0x00000000u, 0x0003000eu, 0x00000000u, 0x00000001u,
@@ -438,6 +603,29 @@ static const char re_scene_screen_fragment_glsl[] =
   "OUT_COLOR\n"
   "void main() { o_color = texture(u_texture, v_uv); }\n"
   "#endif\n";
+static const char re_scene_screen_fragment_msl[] =
+  "#include <metal_stdlib>\n"
+  "#include <simd/simd.h>\n"
+  "\n"
+  "using namespace metal;\n"
+  "\n"
+  "struct main0_out\n"
+  "{\n"
+  "    float4 o_color [[color(0)]];\n"
+  "};\n"
+  "\n"
+  "struct main0_in\n"
+  "{\n"
+  "    float2 v_uv [[user(locn1)]];\n"
+  "};\n"
+  "\n"
+  "fragment main0_out main0(main0_in in [[stage_in]], texture2d<float> u_texture [[texture(0)]], sampler u_textureSmplr [[sampler(0)]])\n"
+  "{\n"
+  "    main0_out out = {};\n"
+  "    out.o_color = u_texture.sample(u_textureSmplr, in.v_uv);\n"
+  "    return out;\n"
+  "}\n"
+  "\n";
 static const uint32_t re_scene_screen_fragment_spv[] = {
   0x07230203u, 0x00010500u, 0x000d000bu, 0x00000014u, 0x00000000u, 0x00020011u, 0x00000001u, 0x0006000bu,
   0x00000001u, 0x4c534c47u, 0x6474732eu, 0x3035342eu, 0x00000000u, 0x0003000eu, 0x00000000u, 0x00000001u,

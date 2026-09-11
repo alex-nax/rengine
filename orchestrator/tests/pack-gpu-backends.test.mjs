@@ -43,12 +43,13 @@ async function buildFor(backend, dir) {
   await mkdir(where, { recursive: true });
   await writeFile(path.join(where, 'CMakeLists.txt'), `
 cmake_minimum_required(VERSION 3.21)
-project(scene_${backend} CXX C)
+project(scene_${backend} CXX C${backend === 'metal' ? ' OBJC' : ''})
 find_package(SDL2 REQUIRED CONFIG)
 set(RENGINE_GPU_SEAM_BACKEND ${backend} CACHE STRING "" FORCE)
 add_subdirectory("${PACK}" pack)
 add_executable(scene "${EXAMPLE}/main.c" "${EXAMPLE}/scene.c" "${EXAMPLE}/obj.c"
-                     "${EXAMPLE}/host_${backend === 'vulkan' ? 'vk' : 'gl'}.c")
+                     "${EXAMPLE}/${{opengl: 'host_gl.c', vulkan: 'host_vk.c', metal: 'host_metal.m'}[backend]}")
+${backend === 'metal' ? `set_source_files_properties("${EXAMPLE}/host_metal.m" PROPERTIES COMPILE_OPTIONS "-fno-objc-arc")` : ''}
 target_link_libraries(scene PRIVATE rengine::gpu SDL2::SDL2 m)
 target_compile_features(scene PRIVATE c_std_11)
 `);
@@ -58,7 +59,7 @@ target_compile_features(scene PRIVATE c_std_11)
   return path.join(build, process.platform === 'win32' ? 'Debug/scene.exe' : 'scene');
 }
 
-test('the same call sites render the same frame on OpenGL and on Vulkan', { timeout: 900000 }, async () => {
+test('the same call sites render the same frame on every backend', { timeout: 1200000 }, async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-backends-'));
   try {
     const gl = await buildFor('opengl', dir);
@@ -74,45 +75,51 @@ test('the same call sites render the same frame on OpenGL and on Vulkan', { time
       throw error;
     }
 
-    const vulkan = await buildFor('vulkan', dir);
-    const vkFrame = path.join(dir, 'vulkan.bmp');
-    const env = { ...process.env, ...vulkanEnv(), RENGINE_SCENE_VALIDATION: '1' };
-    let vk;
-    try {
-      vk = await run(vulkan, ['--snapshot', vkFrame, '--frames', '60'], { env, maxBuffer: 1 << 24 });
-    } catch (error) {
-      const text = `${error.stdout ?? ''}${error.stderr ?? ''}`;
-      /* No loader, or a driver that cannot meet the device layer's floor, is this machine's news and
-         not a defect. Say it and skip — never turn an absence into green. */
-      if (/no Vulkan loader|no device|SDL video unavailable/.test(text)) {
-        console.log(`pack-gpu-backends: vulkan unavailable (${text.trim().split('\n')[0]}); skipping the comparison`);
-        return;
+    /* Each remaining backend is judged against the OpenGL frame, which charter D51 already named as
+       the reference. A backend this machine cannot run is said aloud and skipped; an absence is never
+       turned into green, and a run where nothing could be compared fails rather than passing empty. */
+    let compared = 0;
+    for (const backend of ['vulkan', 'metal']) {
+      if (backend === 'metal' && process.platform !== 'darwin') continue;
+      const binary = await buildFor(backend, dir);
+      const frame = path.join(dir, `${backend}.bmp`);
+      const env = { ...process.env, ...vulkanEnv(), RENGINE_SCENE_VALIDATION: '1' };
+      let produced;
+      try {
+        produced = await run(binary, ['--snapshot', frame, '--frames', '60'], { env, maxBuffer: 1 << 24 });
+      } catch (error) {
+        const text = `${error.stdout ?? ''}${error.stderr ?? ''}`;
+        if (/no Vulkan loader|no Metal device|no device|SDL video unavailable/.test(text)) {
+          console.log(`pack-gpu-backends: ${backend} unavailable (${text.trim().split('\n')[0]}); skipped`);
+          continue;
+        }
+        throw error;
       }
-      throw error;
-    }
 
-    /* Every validation message is a failure: a frame that renders correctly by luck on one driver is
-       not evidence about any other. */
-    const messages = `${vk.stderr}`.split('\n').filter(line => line.startsWith('validation:'));
-    assert.deepEqual(messages, [], `the Vulkan backend drew legally: ${messages.slice(0, 3).join(' | ')}`);
+      /* Every validation message is a failure: a frame that renders correctly by luck on one driver
+         is not evidence about any other. */
+      const messages = `${produced.stderr}`.split('\n').filter(line => line.startsWith('validation:'));
+      assert.deepEqual(messages, [], `${backend} drew legally: ${messages.slice(0, 3).join(' | ')}`);
 
-    /* The same tolerance this repository already applies to its own backends: pixels may differ where
-       two rasterisers break a tie at a shared edge, and nowhere else. `outside_edge_band` is the
-       number that matters, and it must be zero. */
-    /* No --max-fraction: the tool exits 1 when a limit it was given is exceeded, and an exit status
-       thrown as an exception would hide the numbers behind "Command failed". The report is read and
-       this spec does the judging, so a failure says what differed and by how much. */
-    const compared = await run(PYTHON, ['tools/render_compare.py', glFrame, vkFrame,
+      /* The same tolerance this repository already applies to its own backends: pixels may differ
+         where two rasterisers break a tie at a shared edge, and nowhere else. No --max-fraction,
+         because the tool exits 1 on a limit it was given and an exit status thrown as an exception
+         would hide the numbers behind "Command failed" — this spec reads the report and judges. */
+      const output = await run(PYTHON, ['tools/render_compare.py', glFrame, frame,
                                         '--edge-band', '2', '--json'], { maxBuffer: 1 << 24 });
-    const report = JSON.parse(compared.stdout);
-    assert.equal(report.outside_edge_band, 0,
-      `every difference between the backends is at an edge: ${JSON.stringify(report)}`);
-    assert.ok(report.fraction < 0.01, `and there are few of them: ${report.differing} pixels`);
-    console.log(`pack-gpu-backends: ${report.differing} of ${report.pixels} pixels differ, all within the edge band`);
-
+      const report = JSON.parse(output.stdout);
+      assert.equal(report.outside_edge_band, 0,
+        `every difference between ${backend} and OpenGL is at an edge: ${JSON.stringify(report)}`);
+      assert.ok(report.fraction < 0.01, `and there are few of them: ${report.differing} pixels`);
+      console.log(`pack-gpu-backends: ${backend} differs from OpenGL in ${report.differing} of ` +
+                  `${report.pixels} pixels, all within the edge band`);
+      await mkdir('.cache/evidence', { recursive: true });
+      await copyFile(frame, `.cache/evidence/scene-${backend}.bmp`);
+      compared++;
+    }
+    assert.ok(compared > 0, 'at least one other backend was compared; otherwise this proved nothing');
     await mkdir('.cache/evidence', { recursive: true });
     await copyFile(glFrame, '.cache/evidence/scene-opengl.bmp');
-    await copyFile(vkFrame, '.cache/evidence/scene-vulkan.bmp');
 
     /* scene.c is what both builds compiled. If a backend needed its own copy, the claim that the
        call sites do not change would be empty — so this asserts the thing the comparison rests on. */

@@ -219,7 +219,7 @@ static ReSeamTexture make_gradient(ReSeam *seam) {
 
 #define STAGE(symbol) \
   ((ReSeamShader){.glsl = re_scene_##symbol##_glsl, .spirv = re_scene_##symbol##_spv, \
-                  .spirv_bytes = sizeof(re_scene_##symbol##_spv)})
+                  .spirv_bytes = sizeof(re_scene_##symbol##_spv), .msl = re_scene_##symbol##_msl})
 
 static ReSeamProgram program_of(ReSeam *seam, ReSeamShader vertex, ReSeamShader fragment, const char *name) {
   return re_seam_program(seam, &vertex, &fragment, name);

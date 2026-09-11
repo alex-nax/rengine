@@ -1,5 +1,51 @@
 # Progress Log
 
+## Session 102 (macos) — 2026-09-11 — three backends, one frame, two pixels each
+
+F131. The Metal backend lands, and the scene example now renders the same frame through all three:
+
+| | differs from OpenGL | outside a 2px edge band | ms/frame |
+| --- | --- | --- | --- |
+| OpenGL (the reference, D51) | — | — | 0.306 |
+| Vulkan | **2** of 921,600 | **0** | 0.931 |
+| Metal | **2** of 921,600 | **0** | 0.923 |
+
+`scene.c` is the same source all three compile, and the spec asserts it names no graphics API at all.
+One authored shader reaches all three through glslang and SPIRV-Cross; no runtime compiler anywhere.
+
+**One reflection serves two backends.** SPIRV-Cross preserves a std140 block's memory layout when it
+emits MSL, so the offsets reflected once out of the SPIR-V are the offsets a Metal buffer wants. The
+reflector is no longer named for Vulkan.
+
+**The Y axis, answered differently for all three — and the reason Vulkan's answer looked wrong.**
+OpenGL: +Y up, row 0 at the bottom. Vulkan: **+Y down**, row 0 at the top — two differences that
+cancel, which is why it needs no flip and why the "obvious" negative-height viewport was wrong there.
+Metal: +Y up but row 0 at the top, so one difference stands and it does need a flip — and Metal has
+no negative viewport height, so `spirv-cross --flip-vert-y` puts it in the generated MSL. In the
+build, costing nothing at run time, invisible to every call site.
+
+**Seven sabotages, five caught. Two are honest limits, and one of them taught something:**
+
+- *A depth clear that ignores the write mask* cannot be exercised by a scene at all — `re_seam_clear`
+  always clears colour, so clearing depth with writes off destroys the frame being compared. Tried,
+  reverted, and recorded on the API instead: vtmb-vr's seam has no depth-only clear either, and the
+  right time to add one is when a call site wants it rather than when a test does.
+- *A frame that never synchronises its managed target* is undetectable on Apple Silicon, where
+  unified memory makes a managed texture readable without the blit. It would matter on a discrete
+  GPU; this machine cannot be the evidence, so the blit stays and the limit is written down.
+
+**What Metal cost:** 800 lines against Vulkan's 990 — no instance, no device selection, no descriptor
+sets, no image layouts or barriers. What it added is one real structural difference: **Metal has no
+mid-pass clear**, so `re_seam_clear` ends the encoder and begins another with clear load actions.
+One consequence a call site could see, stated rather than discovered: a clear is not clipped by the
+scissor there.
+
+Commands: `npm test` 236/236 · seven Metal sabotages · standalone pack builds for all three backends
+· validation layers clean · `./init.sh` · `design.py check` · `shaders/generate.py check`
+
+Next: **F133** — rEngine's own draw list onto the seam, and SDL_Renderer retiring to committed
+reference frames.
+
 ## Session 101 (macos) — 2026-09-11 — D14c's bet holds: 2 pixels between OpenGL and Vulkan
 
 F130. The scene example renders through a Vulkan backend with **no change to `scene.c` at all** — a

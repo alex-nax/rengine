@@ -9,7 +9,7 @@
 
 #include "rengine/gpu_device.h"
 #include "rengine/gpu_seam.h"
-#include "gpu_seam_vk_spirv.h"
+#include "gpu_seam_spirv.h"
 
 #include <stdbool.h>
 #include <stddef.h>

@@ -125,7 +125,28 @@ def spirv(glslc, path, stage, name):
             if done.returncode != 0:
                 sys.exit("spirv-opt failed on %s (%s):\n%s" % (path.name, stage, done.stderr))
         data = out.read_bytes()
-    return [int.from_bytes(data[i:i + 4], "little") for i in range(0, len(data), 4)]
+        metal = ""
+        cross = shutil.which("spirv-cross")
+        if cross:
+            # The third dialect, from the same module. SPIRV-Cross preserves the block's memory
+            # layout exactly — float4x4 at 64 bytes, float4 at 16 — so the offsets the Vulkan
+            # backend reflects out of the SPIR-V are the offsets Metal's buffer wants too, and one
+            # reflection serves both. Set 0 binding 0 becomes [[buffer(0)]], and the entry point is
+            # renamed "main0", which is SPIRV-Cross's convention rather than a choice made here.
+            # --flip-vert-y negates gl_Position.y, which SPIRV-Cross documents as equivalent to a
+            # negative viewport height. Metal needs it and Vulkan does not, and the difference is
+            # not arbitrary: Vulkan's clip space has +Y DOWN, so NDC -1 already lands in row 0 where
+            # OpenGL puts it, while Metal's clip space has +Y up like OpenGL's but its framebuffer
+            # origin is top-left — so NDC -1 lands in the last row unless something flips it. Metal
+            # has no negative viewport height, so the flip goes here, in the build, where it costs
+            # nothing at run time and no call site can see it.
+            flip = ["--flip-vert-y"] if stage == "vertex" else []
+            done = subprocess.run([cross, "--msl", "--msl-version", "20000"] + flip + [str(out)],
+                                  capture_output=True, text=True)
+            if done.returncode != 0:
+                sys.exit("spirv-cross failed on %s (%s):\n%s" % (path.name, stage, done.stderr))
+            metal = done.stdout
+    return [int.from_bytes(data[i:i + 4], "little") for i in range(0, len(data), 4)], metal
 
 
 def generate():
@@ -139,8 +160,9 @@ def generate():
         " * Regenerate with `python3 generate.py generate`; `check` verifies the source hash below.",
         " * Compiler: %s, target %s." % (version, TARGET),
         " *",
-        " * Each stage is here twice: OpenGL 3.30 source, and SPIR-V for Vulkan. ReSeamShader carries",
-        " * both, so one symbol per stage serves every backend and no call site changes. */",
+        " * Each stage is here three times: OpenGL 3.30 source, SPIR-V for Vulkan, and MSL for Metal.",
+        " * ReSeamShader carries all three, so one symbol per stage serves every backend and no call",
+        " * site changes. All three come from one authored source through glslang and SPIRV-Cross. */",
         "#ifndef RE_SCENE_SHADERS_H",
         "#define RE_SCENE_SHADERS_H",
         "#include <stdint.h>",
@@ -153,10 +175,12 @@ def generate():
         for stage in ("vertex", "fragment"):
             define = "#define VERTEX 1\n" if stage == "vertex" else ""
             gl = GL_PREAMBLE + define + declarations(path.read_text(encoding="utf-8"), False)
-            words = spirv(glslc, path, stage, name)
+            words, metal = spirv(glslc, path, stage, name)
             symbol = "%s_%s" % (name, stage)
             parts.append("static const char re_scene_%s_glsl[] =" % symbol)
             parts.append(c_string(gl) + ";")
+            parts.append("static const char re_scene_%s_msl[] =" % symbol)
+            parts.append(c_string(metal) + ";")
             parts.append("static const uint32_t re_scene_%s_spv[] = {" % symbol)
             for i in range(0, len(words), 8):
                 parts.append("  " + " ".join("0x%08xu," % w for w in words[i:i + 8]))

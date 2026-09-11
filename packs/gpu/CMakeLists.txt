@@ -14,17 +14,25 @@ project(rengine_gpu C)
 # is the constrained target, several of these calls are per-draw, and we never ship two backends in
 # one binary). Two binaries and a comparison is the regression story, not a runtime toggle.
 set(RENGINE_GPU_SEAM_BACKEND "opengl" CACHE STRING "Which graphics API the resource-and-draw seam uses")
-set_property(CACHE RENGINE_GPU_SEAM_BACKEND PROPERTY STRINGS opengl vulkan)
+set_property(CACHE RENGINE_GPU_SEAM_BACKEND PROPERTY STRINGS opengl vulkan metal)
 if(RENGINE_GPU_SEAM_BACKEND STREQUAL "opengl")
   set(RENGINE_GPU_SEAM_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/gpu_seam_gl.c")
 elseif(RENGINE_GPU_SEAM_BACKEND STREQUAL "vulkan")
   set(RENGINE_GPU_SEAM_SOURCE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/gpu_seam_vk.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/gpu_seam_vk_draw.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/gpu_seam_vk_spirv.c")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/gpu_seam_spirv.c")
+elseif(RENGINE_GPU_SEAM_BACKEND STREQUAL "metal")
+  if(NOT APPLE)
+    message(FATAL_ERROR "rengine-gpu: the Metal backend needs an Apple platform")
+  endif()
+  enable_language(OBJC)
+  set(RENGINE_GPU_SEAM_SOURCE
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/gpu_seam_metal.m"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/gpu_seam_spirv.c")
 else()
   message(FATAL_ERROR "rengine-gpu: unknown RENGINE_GPU_SEAM_BACKEND '${RENGINE_GPU_SEAM_BACKEND}'; "
-                      "the choices are opengl and vulkan")
+                      "the choices are opengl, vulkan and metal")
 endif()
 
 add_library(rengine_gpu STATIC
@@ -54,6 +62,14 @@ target_include_directories(rengine_gpu SYSTEM PUBLIC "${RENGINE_GPU_VULKAN_INCLU
 
 if(NOT MSVC)
   target_compile_options(rengine_gpu PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+if(RENGINE_GPU_SEAM_BACKEND STREQUAL "metal")
+  # Without ARC, deliberately: this file owns Metal objects in plain C tables with create/destroy
+  # pairs, which is the discipline the rest of the pack follows. See the note at the top of the file.
+  set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/src/gpu_seam_metal.m"
+                              PROPERTIES COMPILE_OPTIONS "-fno-objc-arc")
+  target_link_libraries(rengine_gpu PUBLIC "-framework Metal" "-framework Foundation")
 endif()
 
 # Only when this IS the top-level project: everything below is for someone building the pack alone.
