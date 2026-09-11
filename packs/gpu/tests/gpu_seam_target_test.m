@@ -46,7 +46,7 @@ int main(void) {
     /* The loop is the test. A host acquires an image, wraps it, draws, presents and lets it go --
        and does that sixty times a second for as long as the window is open. */
     for (int round = 0; round < ROUNDS; round++) {
-      ReSeamTarget target = re_seam_target_adopt(seam, (uintptr_t)(__bridge void *)image, 64, 64);
+      ReSeamTarget target = re_seam_target_adopt(seam, (uintptr_t)(__bridge void *)image, 64, 64, 0);
       if (target.id == 0) {
         printf("adopt refused on round %d of %d: the seam ran out of slots, so destroy is not "
                "giving back what adopt took\n", round, ROUNDS);
@@ -61,7 +61,7 @@ int main(void) {
        host still owns what it lent, and is about to use it again. ARC will not let a test count
        references, so the check is the one that matters anyway -- the image is still an image. */
     assert(image.width == 64 && image.height == 64 && "the caller's image outlived every target");
-    ReSeamTarget last = re_seam_target_adopt(seam, (uintptr_t)(__bridge void *)image, 64, 64);
+    ReSeamTarget last = re_seam_target_adopt(seam, (uintptr_t)(__bridge void *)image, 64, 64, 0);
     assert(last.id != 0 && "the image survived every adopt and destroy");
     re_seam_target_destroy(seam, &last);
 

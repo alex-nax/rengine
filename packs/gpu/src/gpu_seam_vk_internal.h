@@ -47,6 +47,22 @@
   X(vkCmdBeginRendering) X(vkCmdEndRendering)
 
 typedef struct { VkBuffer buffer; VkDeviceMemory memory; void *mapped; VkDeviceSize size; } BufferSlot;
+
+/* A vertex buffer is not ONE buffer. Vulkan records draw commands that read their vertex data when
+   the command buffer is SUBMITTED, not when the draw is recorded -- so a consumer that fills, draws,
+   refills and draws again inside one frame (which is what every batching 2D renderer does, and what
+   rEngine's draw list does on every clip change) would have all of its draws read the last fill.
+   OpenGL hides this: glBufferData orphans the storage and the driver renames it underneath.
+   So the seam does the renaming explicitly. Each update inside a frame takes the next generation,
+   the counter resets at frame_begin, and frame_end waits the queue idle -- so generations are reused
+   every frame and the steady state allocates nothing. The Metal backend carries the same structure
+   for the same reason; this was KI-083, opened when Metal was fixed and nothing here could yet see
+   it fail. */
+typedef struct {
+  BufferSlot current;      /* the generation the next draw binds; a copy, so draw paths are unchanged */
+  BufferSlot *pool;
+  int capacity, used;
+} VertexBuffer;
 typedef struct {
   VkImage image; VkDeviceMemory memory; VkImageView view; VkSampler sampler;
   int width, height; VkFormat format; bool depth, coverage;
@@ -92,7 +108,7 @@ struct ReSeam {
   BufferSlot uniform_ring;
   VkDeviceSize uniform_stride, uniform_offset;
 
-  BufferSlot buffers[MAX_BUFFERS];
+  VertexBuffer buffers[MAX_BUFFERS];
   TextureSlot textures[MAX_TEXTURES];
   ProgramSlot programs[MAX_PROGRAMS];
   ArraySlot arrays[MAX_ARRAYS];

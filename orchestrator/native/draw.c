@@ -48,6 +48,7 @@ const char *re_draw_select(const char *name) {
      hand-written backends for the length of the transition, so the suite can judge each against the
      one it replaces before any of them goes; then these lose the prefix and those are deleted. */
   if (!strcmp(choice, "seam-opengl")) return "seam-opengl";
+  if (!strcmp(choice, "seam-vulkan")) return "seam-vulkan";
 #ifdef __APPLE__
   if (!strcmp(choice, "seam-metal")) return "seam-metal";
 #endif
@@ -60,6 +61,7 @@ Uint32 re_draw_window_flags(const char *backend) {
 #endif
   if (backend && !strcmp(backend, "vulkan")) return re_backend_vk_window_flags();
   if (backend && !strcmp(backend, "seam-opengl")) return re_opengl_backend_seam_window_flags();
+  if (backend && !strcmp(backend, "seam-vulkan")) return re_vulkan_backend_seam_window_flags();
 #ifdef __APPLE__
   if (backend && !strcmp(backend, "seam-metal")) return re_metal_backend_seam_window_flags();
 #endif
@@ -77,6 +79,7 @@ ReDraw *re_draw_open(SDL_Window *window, const char *font_path, const char *back
 #endif
   if (backend && !strcmp(backend, "vulkan")) d->backend = re_backend_vk_open(window, d->fonts);
   else if (backend && !strcmp(backend, "seam-opengl")) d->backend = re_opengl_backend_seam_open(window, d->fonts);
+  else if (backend && !strcmp(backend, "seam-vulkan")) d->backend = re_vulkan_backend_seam_open(window, d->fonts);
 #ifdef __APPLE__
   else if (backend && !strcmp(backend, "seam-metal")) d->backend = re_metal_backend_seam_open(window, d->fonts);
 #endif

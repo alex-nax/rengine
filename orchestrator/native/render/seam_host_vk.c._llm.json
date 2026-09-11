@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "fence-not-semaphore",
+      "kind": "constraint",
+      "anchor": {
+        "start": 332,
+        "end": 332,
+        "snippet": "VK_NULL_HANDLE, host->fence, &host->image_index);",
+        "symbol": "re_seam_host_acquire"
+      },
+      "note": "The semaphore slot is deliberately `VK_NULL_HANDLE` and the fence carries the wait instead.\n\n`re_seam_frame_end` submits the frame with no `pWaitSemaphores` and then calls `vkQueueWaitIdle` \u2014 one frame in flight, which the seam documents as its model. A host that signalled an acquire semaphore would have nothing to wait on it, and the GPU could write the image before the presentation engine had finished reading it. Waiting on a fence here, on the CPU, before the frame begins, is the same guarantee through the only channel the seam leaves open, and costs nothing the seam's own wait did not already cost.\n\nIf the seam ever pipelines, this is the first thing that should change: the fence wait becomes the serialisation point that makes pipelining pointless.",
+      "refs": [
+        "docs/specs/124-seam-three-backends.md",
+        "packs/gpu/src/gpu_seam_vk.c"
+      ]
+    },
+    {
+      "id": "layout-cycle-is-the-hosts",
+      "kind": "rationale",
+      "anchor": {
+        "start": 345,
+        "end": 345,
+        "snippet": "image_barrier(host, host->images[host->image_index], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);",
+        "symbol": "re_seam_host_acquire"
+      },
+      "note": "The seam keeps every image it owns in `GENERAL` and never transitions one it did not create, so both ends of the swapchain's layout cycle belong here: `UNDEFINED` to `GENERAL` before the frame, `GENERAL` to `PRESENT_SRC_KHR` after it.\n\nNeither is optional and neither moves a pixel. Presenting straight from `GENERAL` renders a frame that looks perfect and is invalid \u2014 the validation layers say so in six messages, and nothing else does. That is why the render spec runs a validation capture for this path and not only for `backend_vk.c`.",
+      "refs": [
+        "docs/specs/124-seam-three-backends.md",
+        "orchestrator/tests/native-render.spec.mjs"
+      ]
+    },
+    {
+      "id": "the-format-only-the-host-knows",
+      "kind": "constraint",
+      "anchor": {
+        "start": 350,
+        "end": 350,
+        "snippet": "(int)host->format);",
+        "symbol": "re_seam_host_acquire"
+      },
+      "note": "A `VkImageView` cannot be asked what format it has, and with dynamic rendering a pipeline's colour format must equal its attachment's exactly. So the format travels with the handle.\n\n`re_seam_target_adopt` assumed `VK_FORMAT_R8G8B8A8_UNORM` until this host asked MoltenVK for a swapchain: it offers BGRA8, BGRA8_SRGB and three HDR formats, and **no RGBA8 at all**. The assumption did not narrow what could be adopted here, it made adopting a swapchain image impossible.\n\nPassing 0 instead of the real format is a sabotage the pixel comparison does NOT catch \u2014 the driver renders the frame anyway \u2014 and the validation layers name it precisely.",
+      "refs": [
+        "packs/gpu/include/rengine/gpu_seam.h",
+        "docs/specs/124-seam-three-backends.md"
+      ]
+    },
+    {
+      "id": "three-submits-per-frame",
+      "kind": "perf",
+      "anchor": {
+        "start": 197,
+        "end": 197,
+        "snippet": "static bool host_commands_submit(ReSeamHost *host) {",
+        "symbol": "host_commands_submit"
+      },
+      "note": "Each call is a submit and a fence wait, and a frame makes two of them around the seam's own \u2014 which also waits. Three serialisation points per frame is why `seam-vulkan` measures 2.90 / 3.17 / 3.31 ms against an 8 ms ceiling, roughly five times `backend_vk.c`, which had one.\n\nThis is the seam's frame model showing through, not this host's drawing: `re_seam_frame_end` submits and waits by design, so there is no command buffer for the host to append its transitions to. Fixing it properly means giving the seam a pipelined frame \u2014 a deletion queue, fences per frame in flight, and semaphores a host can join \u2014 which is worth doing when a consumer needs the frames and not before.",
+      "refs": [
+        "docs/specs/124-seam-three-backends.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/render/seam_host_vk.c",
+    "sha256": "f0f91fdb1204816200ab5b34c2e73ee5370e9c2935ec7a9c1147d7af456482ef",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

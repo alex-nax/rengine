@@ -92,6 +92,15 @@ static void drop_buffer(ReSeam *seam, BufferSlot *slot) {
   memset(slot, 0, sizeof(*slot));
 }
 
+static void drop_generations(ReSeam *seam, VertexBuffer *vertex) {
+  for (int i = 0; i < vertex->capacity; i++) drop_buffer(seam, &vertex->pool[i]);
+  free(vertex->pool);
+  vertex->pool = NULL;
+  vertex->capacity = 0;
+  vertex->used = 0;
+  memset(&vertex->current, 0, sizeof(vertex->current));
+}
+
 /* ---- open and close ------------------------------------------------------------------------------
  * The host has already made a device: `options->user` is its `ReGpu *`. The OpenGL backend takes a
  * `glGetProcAddress` for the same reason — entry points are the host's, and on Vulkan the host's
@@ -175,7 +184,7 @@ void re_seam_close(ReSeam *seam) {
   seam->vkDeviceWaitIdle(seam->device);
   for (uint32_t i = 0; i < seam->pipeline_count; i++)
     seam->vkDestroyPipeline(seam->device, seam->pipelines[i].pipeline, NULL);
-  for (int i = 0; i < MAX_BUFFERS; i++) if (seam->buffers[i].buffer) drop_buffer(seam, &seam->buffers[i]);
+  for (int i = 0; i < MAX_BUFFERS; i++) drop_generations(seam, &seam->buffers[i]);
   for (int i = 0; i < MAX_TEXTURES; i++) {
     TextureSlot *t = &seam->textures[i];
     if (t->view) seam->vkDestroyImageView(seam->device, t->view, NULL);
@@ -215,7 +224,7 @@ static uint32_t claim(const void *table, size_t stride, int count, size_t live_o
 ReSeamBuffer re_seam_buffer(ReSeam *seam) {
   ReSeamBuffer handle = {0};
   if (seam == NULL) return handle;
-  uint32_t id = claim(seam->buffers, sizeof(BufferSlot), MAX_BUFFERS, offsetof(BufferSlot, buffer));
+  uint32_t id = claim(seam->buffers, sizeof(VertexBuffer), MAX_BUFFERS, offsetof(VertexBuffer, current.buffer));
   if (id == 0) { report(seam, "gpu: out of buffer slots"); return handle; }
   /* Vulkan needs a size up front and the seam's API does not carry one, so a buffer starts empty and
      re_seam_buffer_update makes it the size it is asked for. */
@@ -225,7 +234,7 @@ ReSeamBuffer re_seam_buffer(ReSeam *seam) {
 
 void re_seam_buffer_destroy(ReSeam *seam, ReSeamBuffer *buffer) {
   if (seam == NULL || buffer == NULL || buffer->id == 0) return;
-  drop_buffer(seam, &seam->buffers[buffer->id - 1]);
+  drop_generations(seam, &seam->buffers[buffer->id - 1]);
   buffer->id = 0;
 }
 
@@ -233,7 +242,17 @@ void re_seam_buffer_update(ReSeam *seam, ReSeamBuffer buffer, const void *data, 
                            ReSeamBufferUsage usage) {
   (void)usage;   /* a hint with no Vulkan equivalent; recorded as untested in spec 123 */
   if (seam == NULL || buffer.id == 0 || bytes == 0) return;
-  BufferSlot *slot = &seam->buffers[buffer.id - 1];
+  VertexBuffer *vertex = &seam->buffers[buffer.id - 1];
+  int generation = vertex->used;
+  if (generation >= vertex->capacity) {
+    int capacity = vertex->capacity ? vertex->capacity * 2 : 8;
+    BufferSlot *pool = realloc(vertex->pool, (size_t)capacity * sizeof(*pool));
+    if (pool == NULL) { report(seam, "gpu: out of memory growing a buffer pool"); return; }
+    memset(pool + vertex->capacity, 0, (size_t)(capacity - vertex->capacity) * sizeof(*pool));
+    vertex->pool = pool;
+    vertex->capacity = capacity;
+  }
+  BufferSlot *slot = &vertex->pool[generation];
   if (slot->size < bytes) {
     /* Growing means the old buffer may still be referenced by commands in flight. The frame is
        submitted and waited on at its end, so nothing is in flight here — a pipelined backend would
@@ -247,6 +266,8 @@ void re_seam_buffer_update(ReSeam *seam, ReSeamBuffer buffer, const void *data, 
       return;
     }
   }
+  vertex->used = generation + 1;
+  vertex->current = *slot;
   if (data != NULL) memcpy(slot->mapped, data, bytes);
 }
 
@@ -689,7 +710,7 @@ ReSeamTarget re_seam_target(ReSeam *seam, ReSeamTexture color, ReSeamTexture dep
   return handle;
 }
 
-ReSeamTarget re_seam_target_adopt(ReSeam *seam, uintptr_t handle, int width, int height) {
+ReSeamTarget re_seam_target_adopt(ReSeam *seam, uintptr_t handle, int width, int height, int format) {
   ReSeamTarget target = {0};
   if (seam == NULL || handle == 0) return target;
   uint32_t id = 0;
@@ -697,12 +718,11 @@ ReSeamTarget re_seam_target_adopt(ReSeam *seam, uintptr_t handle, int width, int
   if (id == 0) { report(seam, "gpu: out of render-target slots"); return target; }
   TargetSlot *slot = &seam->targets[id - 1];
   memset(slot, 0, sizeof(*slot));
-  /* The host's handle is a VkImageView here, as the header says. It brings no depth attachment and
-     no format the seam can query, so the colour format is assumed to be the one every swapchain this
-     pack's device layer would choose. A host needing another passes a target made from its own
-     textures instead. */
+  /* The host's handle is a VkImageView here, as the header says, and it brings no depth attachment.
+     Its FORMAT the host must state, because a view cannot be asked for one and the pipeline needs
+     it exactly right; 0 keeps the long-standing assumption for a caller that has none. */
   slot->color = (VkImageView)handle;
-  slot->color_format = VK_FORMAT_R8G8B8A8_UNORM;
+  slot->color_format = format ? (VkFormat)format : VK_FORMAT_R8G8B8A8_UNORM;
   slot->width = width;
   slot->height = height;
   target.id = id;
@@ -766,6 +786,9 @@ void re_seam_frame_begin(ReSeam *seam, ReSeamTarget target) {
   if (seam->in_frame) report(seam, "gpu: re_seam_frame_begin inside a frame that never ended");
   seam->vkResetDescriptorPool(seam->device, seam->descriptors, 0);
   seam->uniform_offset = 0;
+  /* Every buffer starts the frame at its first generation: the previous frame was waited on at its
+     end, so nothing still reads them. */
+  for (int i = 0; i < MAX_BUFFERS; i++) seam->buffers[i].used = 0;
   VkCommandBufferBeginInfo begin = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
                                     .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
   seam->vkBeginCommandBuffer(seam->cmd, &begin);

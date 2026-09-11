@@ -181,7 +181,7 @@ int main(void) {
   /* The test is the host, so the framebuffer it made is the frame's target. On a desktop this would
      be the window's back buffer and on a headset the runtime's image; the seam does not care which,
      which is the property being demonstrated. */
-  ReSeamTarget screen = re_seam_target_adopt(seam, fbo, W, H);
+  ReSeamTarget screen = re_seam_target_adopt(seam, fbo, W, H, 0);
   re_seam_frame_begin(seam, screen);
   re_seam_viewport(seam, 0, 0, W, H);
 

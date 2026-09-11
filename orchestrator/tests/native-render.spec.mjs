@@ -40,8 +40,8 @@ const BINARY = process.env.RENGINE_NATIVE_BINARY ?? path.resolve('.cache/desktop
 // deleted. When the seam carries all three APIs, this list names them again and the seam-* values
 // lose their prefix.
 const GPU_BACKENDS = process.platform === 'darwin'
-  ? ['opengl', 'metal', 'vulkan', 'seam-opengl', 'seam-metal']
-  : ['opengl', 'vulkan', 'seam-opengl'];
+  ? ['opengl', 'metal', 'vulkan', 'seam-opengl', 'seam-metal', 'seam-vulkan']
+  : ['opengl', 'vulkan', 'seam-opengl', 'seam-vulkan'];
 const TERMINAL_SCRIPT = WIN
   ? "1..40 | % { ('{0}[3{1}m{2:D3}{0}[0m row of the render scene with colour and text' -f [char]27, ($_ % 7 + 1), $_) }; 'RENDER_DONE'\r\n"
   : "for i in $(seq 1 40); do printf '\\033[3%dm%03d\\033[0m row of the render scene with colour and text\\n' $((i % 7 + 1)) $i; done; printf 'RENDER_DONE\\n'\n";
@@ -131,16 +131,17 @@ async function capture(project, backend, dir, extraEnv = {}, tag = backend) {
   return result;
 }
 
-test('GPU adapters match the SDL reference within the recorded tolerances and budgets', { timeout: 1500000 }, async () => {
+test('GPU adapters match the SDL reference within the recorded tolerances and budgets', { timeout: 2100000 }, async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-native-render-'));
   const project = path.join(dir, 'project'); await mkdir(project);
   await writeFile(path.join(project, 'render.txt'), 'render scene\n');
   try {
-    const envFor = backend => (backend === 'vulkan' ? vulkanEnv() : {});
+    const isVulkan = backend => backend === 'vulkan' || backend === 'seam-vulkan';
+    const envFor = backend => (isVulkan(backend) ? vulkanEnv() : {});
     const unavailable = {};
     const backends = [];
     for (const backend of GPU_BACKENDS) {
-      const reason = backend === 'vulkan' ? await probe(backend, envFor(backend), dir) : null;
+      const reason = isVulkan(backend) ? await probe(backend, envFor(backend), dir) : null;
       if (reason) unavailable[backend] = reason; else backends.push(backend);
     }
     for (const [backend, reason] of Object.entries(unavailable)) console.log(`render spec: ${backend} unavailable on this machine (${reason})`);
@@ -149,16 +150,14 @@ test('GPU adapters match the SDL reference within the recorded tolerances and bu
     for (const backend of backends) gpu[backend] = await capture(project, backend, dir, envFor(backend));
     // Spec 073 decision 9: one validation-layer run of the Vulkan backend; every message is a failure.
     const validation = {};
-    if (backends.includes('vulkan')) {
-      const log = path.join(dir, 'vulkan-validation.log');
-      const reason = await probe('vulkan', { ...vulkanEnv(), RENGINE_VULKAN_VALIDATION: '1', RENGINE_VULKAN_VALIDATION_LOG: log }, dir);
-      if (reason) validation.vulkan = { unavailable: reason };
-      else {
-        await capture(project, 'vulkan', dir, { ...vulkanEnv(), RENGINE_VULKAN_VALIDATION: '1', RENGINE_VULKAN_VALIDATION_LOG: log }, 'vulkan-validation');
-        const text = existsSync(log) ? await readFile(log, 'utf8') : '';
-        const messages = text.split('\n').filter(Boolean);
-        validation.vulkan = { messages: messages.length, first: messages.slice(0, 5) };
-      }
+    for (const backend of backends.filter(isVulkan)) {
+      const log = path.join(dir, `${backend}-validation.log`);
+      const reason = await probe(backend, { ...vulkanEnv(), RENGINE_VULKAN_VALIDATION: '1', RENGINE_VULKAN_VALIDATION_LOG: log }, dir);
+      if (reason) { validation[backend] = { unavailable: reason }; continue; }
+      await capture(project, backend, dir, { ...vulkanEnv(), RENGINE_VULKAN_VALIDATION: '1', RENGINE_VULKAN_VALIDATION_LOG: log }, `${backend}-validation`);
+      const text = existsSync(log) ? await readFile(log, 'utf8') : '';
+      const messages = text.split('\n').filter(Boolean);
+      validation[backend] = { messages: messages.length, first: messages.slice(0, 5) };
     }
     await mkdir('.cache/evidence', { recursive: true });
     const report = { platform: process.platform, backends, unavailable, validation, scenes: {}, memory: { sdlKb: sdl.rss, limitKb: MEMORY_LIMIT_KB } };
@@ -209,8 +208,10 @@ test('GPU adapters match the SDL reference within the recorded tolerances and bu
       }
       assert.ok(gpu[backend].rss - sdl.rss <= memoryLimitKb(backend), `${backend}: resident memory delta ${gpu[backend].rss - sdl.rss} KiB exceeds ${memoryLimitKb(backend)} KiB`);
     }
-    if (validation.vulkan && !validation.vulkan.unavailable) assert.equal(validation.vulkan.messages, 0, `vulkan validation: ${JSON.stringify(validation.vulkan.first)}`);
-    if (validation.vulkan?.unavailable) console.log(`render spec: vulkan validation unavailable on this machine (${validation.vulkan.unavailable})`);
+    for (const [backend, result] of Object.entries(validation)) {
+      if (result.unavailable) { console.log(`render spec: ${backend} validation unavailable on this machine (${result.unavailable})`); continue; }
+      assert.equal(result.messages, 0, `${backend} validation: ${JSON.stringify(result.first)}`);
+    }
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

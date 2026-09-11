@@ -93,7 +93,7 @@ ReSeamTarget re_seam_host_acquire(ReSeamHost *host) {
   if (!host->drawable) { ReSeamTarget none = {0, 0, 0}; return none; }
   /* The drawable's texture is what the header means by "an id<MTLTexture> on Metal". */
   host->target = re_seam_target_adopt(host->seam, (uintptr_t)host->drawable.texture,
-                                      host->width, host->height);
+                                      host->width, host->height, 0);
   return host->target;
 }
 

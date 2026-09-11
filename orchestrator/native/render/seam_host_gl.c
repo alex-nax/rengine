@@ -73,7 +73,7 @@ ReSeamTarget re_seam_host_acquire(ReSeamHost *host) {
   SDL_GL_GetDrawableSize(host->window, &host->width, &host->height);
   /* Framebuffer zero IS the back buffer on OpenGL, so the window's own surface is adopted rather
      than created. On Vulkan and Metal this is where a swapchain image would be acquired instead. */
-  return re_seam_target_adopt(host->seam, 0, host->width, host->height);
+  return re_seam_target_adopt(host->seam, 0, host->width, host->height, 0);
 }
 
 void re_seam_host_present(ReSeamHost *host) { SDL_GL_SwapWindow(host->window); }

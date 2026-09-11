@@ -458,9 +458,10 @@ void re_seam_target_destroy(ReSeam *seam, ReSeamTarget *target) {
   target->height = 0;
 }
 
-ReSeamTarget re_seam_target_adopt(ReSeam *seam, uintptr_t handle, int width, int height) {
+ReSeamTarget re_seam_target_adopt(ReSeam *seam, uintptr_t handle, int width, int height, int format) {
   ReSeamTarget target = {0};
   (void)seam;
+  (void)format;   /* a framebuffer name carries its own attachments; GL has nothing to be told */
   /* On OpenGL the host's handle IS a framebuffer name, and 0 is the window's back buffer — a legal
      value, which is why a zero target means "the frame's target" rather than "no target". */
   target.id = (uint32_t)handle;

@@ -34,7 +34,7 @@ FLAT_OUT(5) vec2 v_extra;
 void main() {
   v_pos = a_pos; v_uv = a_uv; v_color = a_color;
   v_shape = a_shape; v_radii = a_radii; v_extra = a_extra;
-  gl_Position = vec4(a_pos.x / u_size.x * 2.0 - 1.0, 1.0 - a_pos.y / u_size.y * 2.0, 0.0, 1.0);
+  gl_Position = vec4(a_pos.x / u_size.x * 2.0 - 1.0, NDC_Y(a_pos.y / u_size.y), 0.0, 1.0);
 }
 #else
 IN_F(0) vec2 v_pos;

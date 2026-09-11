@@ -1,5 +1,64 @@
 # Progress Log
 
+## Session 110 (macos) — 2026-09-11 — the Vulkan host, and the Y story this project had wrong (F133)
+
+`seam_host_vk.c` (410 lines) is the third and last host: surface, formats, images, views, acquire, the
+two layout transitions the seam will not make, present, read-back. **All six GPU backends now match
+the recorded frames identically** — 392 / 436 / 32,195 px, 0 outside the 2px band — and all fifteen
+cross-backend pairs are zero. `vulkan` and `seam-vulkan` both report 0 validation messages.
+
+**Synchronisation is CPU-side on purpose.** `re_seam_frame_end` submits with no semaphores and waits
+the queue idle, so a host acquiring with a semaphore would have nothing to hand it; acquiring with a
+**fence** is the same guarantee through the channel the seam leaves open.
+
+**Three more defects, and one of them is this project's own claim.**
+
+1. **`re_seam_target_adopt` hardcoded `VK_FORMAT_R8G8B8A8_UNORM`.** The header called that a
+   narrowing. It was not: MoltenVK's surface offers BGRA8, BGRA8_SRGB and three HDR formats and **no
+   RGBA8 at all**, so adopting a swapchain image — the entire point of the call — was impossible on
+   this platform. `adopt` now takes the format in the API's own terms, beside the handle it already
+   took in the API's own terms. OpenGL and Metal ignore it; Vulkan is the only backend that cannot
+   recover it, because a `VkImageView` cannot be asked.
+
+2. **The per-API Y was not drift, and spec 124 said it was.** The seam promises NDC −1 lands in row 0
+   on every API — a promise about *memory*, right for a render target. It settles nothing about which
+   way is up on a **window**, whose image has row 0 at the bottom on OpenGL and at the top on Vulkan
+   and Metal. One formula cannot serve both, and the Vulkan copy drew the toolbar along the bottom.
+   `backend_gl.c`'s `1 - y/h*2` and `ui.vert`'s `y/h*2 - 1` were **both right**; `ui.glsl` now writes
+   `NDC_Y(t)` and each dialect defines it. The spec carries the correction at the point of the claim.
+
+   **Why nothing caught it**: the pack's example established cross-backend parity by reading each
+   frame back and comparing — and its OpenGL and Vulkan hosts **both read back without flipping**.
+   That compares memory to memory. No assertion in this repository had ever asked a viewer which way
+   was up.
+
+3. **KI-083 closed, having been watched failing first.** With the flip corrected and the format
+   accepted, the Vulkan frame came back right way up and with most of its geometry replaced by the
+   last batch's — exactly the picture Metal had shown, and exactly why the KI was opened instead of
+   fixed blind. The Metal answer ported directly.
+
+**The validation gate now covers every Vulkan path, and it was proved to be listening.** A clean first
+run reported zero messages, which is what a run with nothing attached would also report — `re_gpu_open`
+was being given no `on_message`. Presenting straight from `GENERAL` told the two apart: six messages
+naming the layout, then zero again once restored.
+
+Four sabotages: Vulkan taking OpenGL's `NDC_Y` (520,509 px outside the band), collapsed buffer
+generations (1,393,629), the host not stating the format (validation names the exact format
+mismatch), and the missing present transition (6 messages). **The last two move no pixel the
+reference comparison would notice** — a format mismatch renders the frame anyway on this driver — so
+without the layers listening, both would have shipped green.
+
+**`seam-vulkan` is the slowest path in the suite**, 2.90 / 3.17 / 3.31 ms against the 8 ms ceiling and
+about five times `backend_vk.c`. Not the seam's drawing: three submits-and-waits per frame where the
+old backend had one, because the seam submits and waits at `frame_end` by design and the host adds a
+fence-waited submit on each side for the layout transitions. Pipelining is a change to the seam's
+frame model, worth doing when a consumer needs the frames.
+
+`npm run test:desktop`: 73 tests, 71 pass, **1 fail**, 1 pre-existing opt-in skip. The failure is `native-project-windows` waiting on a reopened window's recovery draft, which came back as `"Retain this drafgame disk text"` — the draft run together with the file's disk contents. An immediate re-run passed and two earlier full-suite runs the same day passed; it is a draft-restore race in a path this change does not touch, recorded as **KI-084** rather than waved through. `npm run test:native`: 13/13. `./init.sh`, `design.py check`, `seam_prefix.py check` and the sidecar check clean.
+
+`features.json` untouched — F129–F133 stay `passes: false` while the `seam-*` values still exist beside the backends they replace, and a parallel session holds uncommitted work in this tree.
+
+
 ## Session 110 (macos) — 2026-09-11 — one agent recipe registry, and codex's hook trust gate (F113)
 
 **The four private tables are one declared registry.** `orchestrator/agents/registry.mjs` is now the

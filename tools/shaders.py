@@ -25,6 +25,24 @@ import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SHADERS = ROOT / "orchestrator" / "native" / "render" / "shaders"
+# Why NDC_Y is per-dialect, when everything else in this generator is one source:
+#
+# The seam promises that NDC -1 lands in ROW 0 of the target on every API, which is what lets an
+# off-screen image rendered by one backend be sampled by another. That is a promise about MEMORY,
+# and it is the right one for a render target. It says nothing about which way is up on a WINDOW,
+# because the window's image has a different memory orientation per API: OpenGL's default
+# framebuffer has row 0 at the bottom, and a Vulkan swapchain image and a Metal drawable have it at
+# the top. Under one convention the two cannot both be visually correct.
+#
+# So the draw list's top is NDC +1 on OpenGL and NDC -1 on Vulkan (and on Metal, whose MSL is
+# cross-compiled from the Vulkan SPIR-V and then flipped). backend_gl.c used `1 - y/h*2` and
+# ui.vert used `y/h*2 - 1`, and spec 124 called that drift when it consolidated them into one
+# formula. It was not drift; it was the difference above, and consolidating it turned the Vulkan
+# and Metal copies of the draw list upside down the first time either one had a window.
+#
+# The pack's example could not have caught this: its GL and Vulkan hosts both read pixels back
+# WITHOUT flipping, so the comparison that established cross-backend parity compared memory to
+# memory and never asked a viewer which way was up.
 HEADER = SHADERS / "ui_shaders.h"
 SOURCE = SHADERS / "ui.glsl"
 TARGET = "vulkan1.3"
@@ -36,6 +54,10 @@ GL_PREAMBLE = """#version 330 core
 #define IN_F(loc) in
 #define FLAT_IN(loc) flat in
 #define OUT_COLOR out vec4 o_color;
+/* NDC_Y turns a 0..1 top-down position into this API's clip-space Y such that the TOP of the
+   draw list is the top of the WINDOW. It is not the same expression on every API, and the three
+   hand-written backends were right to disagree about it -- see the note in tools/shaders.py. */
+#define NDC_Y(t) (1.0 - (t) * 2.0)
 """
 
 VK_PREAMBLE = """#version 450
@@ -45,6 +67,7 @@ VK_PREAMBLE = """#version 450
 #define IN_F(loc) layout(location = loc) in
 #define FLAT_IN(loc) layout(location = loc) flat in
 #define OUT_COLOR layout(location = 0) out vec4 o_color;
+#define NDC_Y(t) ((t) * 2.0 - 1.0)
 """
 
 # The uniforms are declared once in a comment block and this script writes the dialect, because a
@@ -125,15 +148,12 @@ def stage_sources(stage):
         metal = ""
         cross = shutil.which("spirv-cross")
         if cross:
-            # NO flip, and this one is the opposite of the pack example's answer for a reason worth
-            # keeping. A flip is what makes an OFF-SCREEN image come out the same way up on every
-            # API, because there "the same way up" is a question about memory. This shader draws to
-            # the WINDOW, where the question is what the viewer sees: NDC +1 is the top of the image
-            # on OpenGL and on Metal alike, so a flip here puts the toolbar at the bottom — which is
-            # exactly what the Metal copy of the draw list did until this line went away (spec 124).
-            # The OpenGL host's snapshot still flips, because glReadPixels is bottom-up; that is a
-            # read-back concern and it belongs in the host, not in the shader.
-            flip = []
+            # --flip-vert-y for the vertex stage, the same answer the pack example's generator gives,
+            # and for the same reason: it is what makes Metal store NDC -1 in row 0 like OpenGL and
+            # Vulkan do, which is the seam's memory convention. Combined with VK_PREAMBLE's NDC_Y --
+            # which the MSL inherits, because MSL is cross-compiled from the Vulkan SPIR-V -- the
+            # draw list's top lands at the top of the drawable. See the NDC_Y note above.
+            flip = ["--flip-vert-y"] if stage == "vertex" else []
             # MSL 2.3: the shader discards, and SPIRV-Cross refuses to emit discard_fragment() below that
             # version because it does not formally have demote semantics there. macOS 11 and later.
             done = subprocess.run([cross, "--msl", "--msl-version", "20300"] + flip + [str(out)],

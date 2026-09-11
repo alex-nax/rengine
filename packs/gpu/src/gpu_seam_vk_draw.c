@@ -149,7 +149,7 @@ static VkPipeline pipeline_for(ReSeam *seam, const PipelineKey *key) {
 void re_seam_draw(ReSeam *seam, ReSeamPrimitive primitive, int first, int count) {
   if (seam == NULL || !seam->pass_open || seam->program == 0 || seam->array == 0 || count <= 0) return;
   const ArraySlot *array = &seam->arrays[seam->array - 1];
-  if (array->buffer == 0 || seam->buffers[array->buffer - 1].buffer == VK_NULL_HANDLE) return;
+  if (array->buffer == 0 || seam->buffers[array->buffer - 1].current.buffer == VK_NULL_HANDLE) return;
   const TargetSlot *target = &seam->targets[seam->bound.id - 1];
   ProgramSlot *program = &seam->programs[seam->program - 1];
 
@@ -214,7 +214,7 @@ void re_seam_draw(ReSeam *seam, ReSeamPrimitive primitive, int first, int count)
   seam->vkCmdBindDescriptorSets(seam->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, program->layout, 0, 1, &set,
                                 1, &dynamic_offset);
   VkDeviceSize zero = 0;
-  seam->vkCmdBindVertexBuffers(seam->cmd, 0, 1, &seam->buffers[array->buffer - 1].buffer, &zero);
+  seam->vkCmdBindVertexBuffers(seam->cmd, 0, 1, &seam->buffers[array->buffer - 1].current.buffer, &zero);
   seam->vkCmdSetViewport(seam->cmd, 0, 1, &seam->viewport);
   seam->vkCmdSetScissor(seam->cmd, 0, 1, &seam->scissor);
   seam->vkCmdDraw(seam->cmd, (uint32_t)count, 1, (uint32_t)first, 0);

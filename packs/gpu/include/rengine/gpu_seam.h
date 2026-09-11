@@ -230,7 +230,18 @@ ReSeamTarget re_seam_target(ReSeam *seam, ReSeamTexture color, ReSeamTexture dep
  * has the same escape hatch for the same reason: `re_gpu_instance` hands back a `VkInstance`.
  *
  * A host that only ever renders off-screen never calls this. */
-ReSeamTarget re_seam_target_adopt(ReSeam *seam, uintptr_t handle, int width, int height);
+/* `format` is the image's format in the SAME API's own terms -- a `VkFormat` on Vulkan -- or 0 for
+ * the backend's default. It is the second thing about an adopted image only the host can know, and
+ * it is here because on Vulkan there is no way to recover it: a `VkImageView` cannot be queried for
+ * its format, and with dynamic rendering a pipeline's colour format must match its attachment's
+ * exactly. OpenGL ignores it (a framebuffer name carries its own attachments) and Metal ignores it
+ * (an `id<MTLTexture>` answers for itself).
+ *
+ * It was a hardcoded `VK_FORMAT_R8G8B8A8_UNORM` until rEngine's Vulkan host asked MoltenVK for a
+ * swapchain and was offered BGRA8, BGRA8_SRGB and three HDR formats -- and no RGBA8 at all. The
+ * assumption did not merely narrow what a host could adopt; on that platform it made adopting a
+ * swapchain image impossible (spec 124, F133). */
+ReSeamTarget re_seam_target_adopt(ReSeam *seam, uintptr_t handle, int width, int height, int format);
 /* Destroy gives back everything the seam allocated and nothing the caller owns. For a target made by
  * `re_seam_target` that is the target slot alone -- the textures stay yours. For an ADOPTED one it is
  * also the wrapper the seam had to build around your image, which is why an adopted target must be

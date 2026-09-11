@@ -80,9 +80,9 @@ Host *host_open(int width, int height, bool offscreen, char *error, size_t error
     host->bindFramebuffer(GL_FRAMEBUFFER, host->fbo);
     host->framebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, host->color.id, 0);
     host->framebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, host->depth.id, 0);
-    host->target = re_seam_target_adopt(host->seam, host->fbo, width, height);
+    host->target = re_seam_target_adopt(host->seam, host->fbo, width, height, 0);
   } else {
-    host->target = re_seam_target_adopt(host->seam, 0, width, height);   /* the back buffer */
+    host->target = re_seam_target_adopt(host->seam, 0, width, height, 0);   /* the back buffer */
   }
   return host;
 }

@@ -379,9 +379,11 @@ class Device
     void bindTarget(Target target) { re_seam_target_bind(seam(), ReSeamTarget{target.id, target.width, target.height}); }
     // The target the host already owns, in the backend's own terms — the one place this API is not
     // neutral, because a window's back buffer belongs to the host and each API names it differently.
-    Target adoptTarget(std::uintptr_t handle, int width, int height)
+    // `format` is the image's format in that same API's terms, or 0 for the backend's default; only
+    // Vulkan needs it, because a VkImageView cannot be asked what format it has.
+    Target adoptTarget(std::uintptr_t handle, int width, int height, int format = 0)
     {
-        const ReSeamTarget raw = re_seam_target_adopt(seam(), handle, width, height);
+        const ReSeamTarget raw = re_seam_target_adopt(seam(), handle, width, height, format);
         return Target{raw.id, raw.width, raw.height};
     }
 

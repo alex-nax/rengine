@@ -542,7 +542,13 @@ They agreed on the signed-distance maths, and **disagreed about their own interf
 | `backend_metal.m` | shape, radii first, for 16-byte alignment | its own |
 
 One layout now, and one Y — the OpenGL formula, everywhere, because the seam's backends already
-store NDC −1 in row 0 on every API. The generated GLSL was checked by building a program on a real
+store NDC −1 in row 0 on every API.
+
+> **Corrected on 2026-09-11 — the Y half of this is wrong.** Storing NDC −1 in row 0 is a promise
+> about memory and it holds; it does not settle which way is up on a *window*, whose image has a
+> different memory orientation per API. One formula cannot serve OpenGL and Vulkan at once, and the
+> three backends' differing expressions were not drift. See *"The correction: the per-API Y was not
+> drift"* below. The attribute-layout half of this paragraph stands. The generated GLSL was checked by building a program on a real
 GL driver, not by `glslc`: glslc always emits SPIR-V and so demands explicit locations and uniform
 bindings that a GL 3.30 driver does not.
 
@@ -749,3 +755,111 @@ window at all, and fails on round 256 naming the reason. It is checkable **only 
 links a prefixed copy per API** — the pack's own seam test builds against whichever single backend the
 pack was configured with, and this is a question about one backend in particular. The prefix work paid
 for itself before it shipped.
+
+
+## F133, fifth step: the Vulkan host, and the Y story this spec had wrong
+
+`seam_host_vk.c` is 410 lines and is the swapchain, nothing else: surface, formats, images, views,
+acquire, the two layout transitions the seam will not make, present, and the read-back. It is still a
+fifth of `backend_vk.c`, which had to carry a renderer as well.
+
+**Synchronisation is CPU-side on purpose.** `re_seam_frame_end` submits with no semaphores and waits
+the queue idle — one frame in flight, which the seam documents as its model — so a host that acquired
+with a semaphore would have nothing to hand it. Acquiring with a **fence** and waiting before the
+frame is the same guarantee through the only channel the seam leaves open, and costs nothing the
+seam's own wait did not already cost. The layout cycle is the host's for the same reason: the seam
+keeps every image in `GENERAL` and never transitions one it did not create, so `UNDEFINED → GENERAL`
+before the frame and `GENERAL → PRESENT_SRC` after it are written here.
+
+### The format gap: a swapchain that could not be adopted at all
+
+`re_seam_target_adopt` hardcoded `VK_FORMAT_R8G8B8A8_UNORM`, and the header called that a narrowing a
+host could work around. It was not a narrowing. MoltenVK's surface offers BGRA8, BGRA8_SRGB and three
+HDR formats and **no RGBA8 at all**, and with dynamic rendering a pipeline's colour format must match
+its attachment's exactly — so on this platform adopting a swapchain image was impossible, which is
+the entire point of the call.
+
+`adopt` now takes the format in the API's own terms, alongside the handle it already took in the
+API's own terms. OpenGL ignores it (a framebuffer name carries its attachments) and Metal ignores it
+(an `id<MTLTexture>` answers for itself); Vulkan is the only backend that cannot recover it, because
+a `VkImageView` cannot be asked.
+
+### The correction: the per-API Y was not drift
+
+**This spec said, when it consolidated three shaders into one, that the backends "disagreed about
+their own interfaces" in attribute order and in Y, and that one Y — the OpenGL formula — would serve
+everywhere. The attribute half was right. The Y half was wrong, and the Vulkan host is what proved
+it.**
+
+The seam promises NDC −1 lands in **row 0** of the target on every API. That is a promise about
+*memory*, and it is the right one for a render target: it is what lets an image one backend rendered
+be sampled by another. It says nothing about which way is up on a **window**, because a window's image
+has a different memory orientation per API — OpenGL's default framebuffer has row 0 at the bottom, a
+Vulkan swapchain image and a Metal drawable have it at the top. Under one Y formula the two cannot
+both be visually correct, and they were not: the Vulkan copy drew the toolbar along the bottom edge.
+
+So the draw list's top is NDC **+1** on OpenGL and NDC **−1** on Vulkan — and on Metal, whose MSL is
+cross-compiled from the Vulkan SPIR-V and then flipped back by `--flip-vert-y`, which is what makes
+Metal keep the seam's memory promise. `backend_gl.c` used `1 - y/h*2` and `ui.vert` used `y/h*2 - 1`,
+and **they were both right**. `ui.glsl` now writes `NDC_Y(t)` and each dialect's preamble defines it.
+
+**Why nothing caught this earlier is the part worth keeping.** The pack's example established
+cross-backend parity by reading each backend's frame back and comparing — and its OpenGL host and its
+Vulkan host **both read pixels back without flipping**. That comparison is memory against memory. It
+is a real result about the seam's memory promise and it was never a result about orientation on a
+screen: no assertion in this repository had ever asked a viewer which way was up.
+
+### KI-083, observed failing and then closed
+
+The Vulkan seam's `re_seam_buffer_update` had the defect Metal's had — one buffer, `memcpy`ed into,
+while the frame's draws are only recorded — and it was opened as KI-083 rather than fixed blind,
+because nothing here exercised it and a fix could not have been watched going red. The Vulkan host is
+that consumer. With the flip corrected and the format accepted, the frame came back with the toolbar
+right way up and **most of its geometry replaced by the last batch's** — the same picture Metal had
+shown. The Metal answer ported directly: a buffer generation per in-frame update, the counter reset at
+`frame_begin`, reuse safe because `frame_end` waits.
+
+### Validation, and proving the layers were listening
+
+The new host writes its own barriers, its own layout transitions and its own present, so the render
+spec now runs a validation capture for **every** Vulkan path, not just `backend_vk.c`'s.
+
+A clean first run reported zero messages, which is the same reading a run with nothing listening
+would give — `re_gpu_open` was being handed no `on_message` at all. Presenting straight from `GENERAL`
+instead of `PRESENT_SRC` was used to tell the two apart, and the layers answered: *"images passed to
+present must be in layout VK_IMAGE_LAYOUT_PRESENT_SRC_KHR … but VkImage 0"*. Six messages, then zero
+again with the transition restored. The zero is a result now.
+
+### Six GPU backends in the suite
+
+| scene | all six, against the recorded frame | outside the 2px band | all 15 pairs |
+| --- | --- | --- | --- |
+| workspace | 392 px | **0** | **0 pixels differ** |
+| terminal | 436 px | **0** | **0 pixels differ** |
+| primitives | 32,195 px | **0** | **0 pixels differ** |
+
+`vulkan` and `seam-vulkan` both report **0 validation messages**. Resident memory: `seam-opengl`
+168,944 KiB, `seam-metal` 146,240, `seam-vulkan` 146,960, against SDL's 164,384 and a 32 MiB delta
+budget.
+
+**`seam-vulkan` is the slowest path in the suite** — 2.90 / 3.17 / 3.31 ms medians against the 8 ms
+ceiling, roughly five times `backend_vk.c`'s. That is not mysterious and it is not the seam's drawing:
+it is three submits-and-waits per frame where the old backend had one. The seam submits and waits at
+`frame_end` by design (one frame in flight, no deletion queue), and the host adds a fence-waited
+submit on each side of it for the two layout transitions. Pipelining is a real answer and it is a
+change to the seam's frame model, not to this host; it is worth doing when a consumer needs the
+frames, and worth not doing before that.
+
+### Sabotages
+
+| Sabotage | Observed |
+| --- | --- |
+| the Vulkan dialect takes OpenGL's `NDC_Y` — the single formula this spec used to claim | `seam-vulkan`, 520,509 px outside the band |
+| every in-frame Vulkan buffer update takes generation 0 again (KI-083's defect) | `seam-vulkan`, 1,393,629 px outside the band |
+| the host stops telling `adopt` the swapchain's format | validation: *"imageView format (VK_FORMAT_B8G8R8A8_UNORM) must match … pColorAttachmentFormats[0] (VK_FORMAT_R8G8B8A8_UNORM)"* |
+| present straight from `GENERAL` instead of `PRESENT_SRC` | validation: *"images passed to present must be in layout VK_IMAGE_LAYOUT_PRESENT_SRC_KHR … but VkImage 0"*, 6 messages |
+
+The last two are the argument for extending the validation gate to this path rather than leaving it
+on `backend_vk.c` alone. Neither moves a pixel the reference comparison would notice — a format
+mismatch on this driver renders the frame anyway — so without the layers listening, both would have
+shipped green.

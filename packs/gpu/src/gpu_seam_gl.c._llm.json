@@ -33,7 +33,7 @@
   ],
   "source": {
     "path": "packs/gpu/src/gpu_seam_gl.c",
-    "sha256": "c297f04f93fff39ffd0a482a91e4ad0fd69665af26d020e94b247a94a1684a9c",
+    "sha256": "d6fb09b5b476245f71425b2e3b449c24a043ad7078e0adc084fe314e84bd869a",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

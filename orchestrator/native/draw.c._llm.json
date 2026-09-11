@@ -5,8 +5,8 @@
       "id": "generated-theme",
       "kind": "constraint",
       "anchor": {
-        "start": 98,
-        "end": 100,
+        "start": 101,
+        "end": 103,
         "snippet": "void re_draw_bind(ReDraw *d, mu_Context *ui) {",
         "symbol": "re_draw_bind"
       },
@@ -21,8 +21,8 @@
       "id": "deferred-flush",
       "kind": "constraint",
       "anchor": {
-        "start": 116,
-        "end": 120,
+        "start": 119,
+        "end": 123,
         "snippet": "static void flush(ReDraw *d) {",
         "symbol": "flush"
       },
@@ -41,7 +41,7 @@
         "symbol": "re_draw_select",
         "snippet": "if (!strcmp(choice, \"seam-opengl\")) return \"seam-opengl\";"
       },
-      "note": "`seam-opengl` and `seam-metal` are not graphics APIs and are not meant to survive. They exist so each copy of the draw list's new path through `packs/gpu` can be selected beside the hand-written backend it replaces and judged against it by `native-render.spec.mjs` \u2014 which they are, to 0 differing pixels across 21 cross-backend comparisons \u2014 **before** any of those backends is deleted.\n\nWhat replaces them (spec 126 decision 3, owner-confirmed): `opengl`, `metal` and `vulkan` dispatch straight into the prefixed copies. `--renderer` stays a runtime switch, the pack stays compile-time selected so D14b's zero indirection holds for the games it serves, and these branches go together with `backend_gl.c`, `backend_metal.m`, `backend_vk.c` and `backend_sdl.c`. `seam-vulkan` joins them when `seam_host_vk.c` lands.",
+      "note": "`seam-opengl`, `seam-vulkan` and `seam-metal` are not graphics APIs and are not meant to survive. They exist so each copy of the draw list's new path through `packs/gpu` can be selected beside the hand-written backend it replaces and judged against it by `native-render.spec.mjs` \u2014 which they are, to 0 differing pixels across all 15 cross-backend pairs \u2014 **before** any of those backends is deleted.\n\nWhat replaces them (spec 126 decision 3, owner-confirmed): `opengl`, `metal` and `vulkan` dispatch straight into the prefixed copies. `--renderer` stays a runtime switch, the pack stays compile-time selected so D14b's zero indirection holds for the games it serves, and these branches go together with `backend_gl.c`, `backend_metal.m`, `backend_vk.c` and `backend_sdl.c`. All three exist now.",
       "refs": [
         "docs/specs/124-seam-three-backends.md",
         "docs/specs/126-scene-view-and-test-artifacts.md",
@@ -51,7 +51,7 @@
   ],
   "source": {
     "path": "orchestrator/native/draw.c",
-    "sha256": "1bf3fed085899627393906e905de8fdd431770fb15847e470d73cb81c89ab25e",
+    "sha256": "b682e802d20a7c719b70628326f19e100d9207437c6e3793ccbe43544d81f362",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

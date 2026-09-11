@@ -579,8 +579,9 @@ ReSeamTarget re_seam_target(ReSeam *seam, ReSeamTexture color, ReSeamTexture dep
   return handle;
 }
 
-ReSeamTarget re_seam_target_adopt(ReSeam *seam, uintptr_t handle, int width, int height) {
+ReSeamTarget re_seam_target_adopt(ReSeam *seam, uintptr_t handle, int width, int height, int format) {
   ReSeamTarget target = {0};
+  (void)format;   /* an id<MTLTexture> answers for itself; re_seam_target reads its pixelFormat */
   if (seam == NULL || handle == 0) return target;
   /* The host's handle is an id<MTLTexture> — a drawable's texture, usually. It is wrapped in a
      texture slot so everything downstream treats it like any other target; the slot does not own it,
