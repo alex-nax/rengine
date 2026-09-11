@@ -48,6 +48,14 @@ add_library(companion SHARED
   "${RE_ROOT}/orchestrator/native/render/utf8.c"
   "${RE_ROOT}/orchestrator/native/render/font.c"
   "${RE_ROOT}/orchestrator/native/theme.c"
+  # The draw glue and the D33 owned control layer — the desktop's real look, not microui's defaults.
+  # Both were unreachable here until draw.h stopped pulling common.h (and with it SDL); ui.c was
+  # SDL-free all along and only its header's include chain kept it on the desktop (charter D59).
+  "${RE_ROOT}/orchestrator/native/draw.c"
+  "${RE_ROOT}/orchestrator/native/ui/ui.c"
+  # draw.h's stats are cJSON; the desktop reports them over its API and the companion will over the
+  # façade, so the type comes along rather than being conditioned out.
+  "${RE_ROOT}/third_party/cjson/cJSON.c"
   # The renderer, unchanged: backend_seam.c is the draw list on the pack's seam and it compiles here
   # exactly as it does on the desktop, because the window handle above the host is opaque. The host
   # beside it is the one file per platform (spec 124's split, now with a fourth member).
@@ -57,16 +65,14 @@ add_library(companion SHARED
   ${RE_COMPANION_SEAM}
 )
 
-# ui.c — the D33 owned control layer — is NOT here yet, and the reason is worth writing down: it
-# includes orchestrator/native/common.h, which includes SDL.h. The layer itself is SDL-free (it
-# draws through the draw list and nothing else); the header it leans on is not. Splitting that
-# header is its own change, and pulling the layer in before it is split would mean either an SDL
-# dependency on Android or a copied module — the two things decision 10 exists to avoid.
+# What is still NOT here is the desktop's window, tabs and views: app.c, the editor, the terminal
+# and the SDL event pump are the desktop's half of the boundary, and the companion brings its own.
 
 target_include_directories(companion PRIVATE
   "${RE_ROOT}/orchestrator/native"
   "${RE_ROOT}/third_party/microui"
   "${RE_ROOT}/third_party/stb"
+  "${RE_ROOT}/third_party/cjson"
   "${RE_ROOT}/third_party"
   "${RE_ROOT}/packs/gpu/include"
 )
@@ -77,6 +83,16 @@ target_include_directories(companion PRIVATE
 # third_party/sources.json with its hash (spec 122's "no platform headers" was true until now).
 # Vulkan-only on Android (spec 128, decision 8) and the surface extension that needs declaring.
 target_compile_definitions(companion PRIVATE VK_USE_PLATFORM_ANDROID_KHR VK_NO_PROTOTYPES)
+# The desktop's own symbol-prefix mechanism (D56), reused. draw.c dispatches to the prefixed entry
+# points seam_backends.h declares, so the one backend this binary carries has to answer to those
+# names — which is what the generated rename header does, and why no #ifdef appears in draw.c.
+target_compile_options(companion PRIVATE
+  "SHELL:-include ${RE_ROOT}/orchestrator/native/render/seam_prefix_${RE_COMPANION_BACKEND}.h")
+if(RE_COMPANION_BACKEND STREQUAL "opengl")
+  target_compile_definitions(companion PRIVATE RE_COMPANION_OPENGL)
+else()
+  target_compile_definitions(companion PRIVATE RE_COMPANION_VULKAN)
+endif()
 
 # The glue that lets a NativeActivity hand its window to C. Shipped with the NDK, compiled from
 # there rather than copied, for the same reason the modules above are.

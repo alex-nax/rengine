@@ -1,6 +1,7 @@
 #include "app.h"
 #include "ui/ui.h"
 #include "automation.h"
+#include "render/font.h"   /* re_font_error: the reason a draw open failed, now that draw.c does not set SDL's */
 
 int re_bootstrap(const char *binary);
 
@@ -57,7 +58,13 @@ int main(int argc, char **argv) {
   }
   SDL_SetWindowMinimumSize(window, RE_METRIC_WINDOW_MIN_WIDTH, RE_METRIC_WINDOW_MIN_HEIGHT);
   ReDraw *draw = re_draw_open(window, font, backend);
-  if (!draw) { fprintf(stderr, "%s\n", SDL_GetError()); SDL_DestroyWindow(window); SDL_Quit(); return 1; }
+  /* The font's own reason when it has one — re_draw_open no longer sets SDL's error, because it no
+     longer knows what SDL is — and the backend's through SDL otherwise. */
+  if (!draw) {
+    const char *why = re_font_error();
+    fprintf(stderr, "%s\n", why && *why ? why : SDL_GetError());
+    SDL_DestroyWindow(window); SDL_Quit(); return 1;
+  }
   cJSON *descriptor = NULL;
   if (connection) {
     size_t size = 0; char *bytes = SDL_LoadFile(connection, &size);

@@ -326,3 +326,44 @@ copies (D56) exist for, and nothing needs it yet.
 **Still not met**: criterion 2 asks for a frame budget *set before the run* and a smoke snapshot in
 the suite; what exists is a measurement taken after the fact and a screenshot taken by hand.
 Criterion 3's C ABI round-trip still waits on F141.
+
+### The companion uses the desktop's control layer, not microui's defaults
+
+Three things were wrong with the first rendering companion, and the third is the one that mattered:
+it was not clickable, it did not adjust on rotation, and it drew raw microui rather than the
+product's own look.
+
+**Input.** Touch is microui's mouse — microui was built for a pointer and one finger is a pointer.
+The move has to land before the press, because microui resolves hover before it resolves a click and
+a finger arrives already pressed; without that the first tap goes to whatever was hovered last, which
+on a touch screen is nothing. On release the pointer is parked off-screen, because a touch UI has no
+hover and a button that stays lit after a tap looks stuck.
+
+**Rotation.** microui remembers a window's rect by name after the first frame — right for a desktop
+where a person moves it, wrong for a phone where the display decides. A rotation gave a new surface
+and the same remembered rect. The container's rect is now written every frame.
+
+**The look.** The D33 owned control layer is the product's appearance, and the companion now compiles
+it: `re_ui_button_ex`, `re_ui_label_ex`, `re_ui_separator`, with the generated theme's palette and
+metrics, driven through `re_draw_begin` / `re_draw_commands` / `re_draw_end` — the same frame flow
+`main.c` runs.
+
+Reaching it meant finishing the portability work D59 started, because `ui.c` was SDL-free all along
+and only its header's include chain kept it on the desktop:
+
+- **`draw.h` stopped including `common.h`.** That header pulls SDL, and `ui/ui.h` leans on `draw.h`.
+  It now takes the three helpers it actually needs, and the desktop headers that had been getting
+  SDL transitively through it (`editor.h`, `formatview.h`, `hexview.h`, `imageview.h`, `scroll.h`)
+  include it themselves — which they should, since they name `SDL_Event`.
+- **`draw.c` lost its four SDL uses.** The window handle is opaque; the open-time `SDL_GetWindowSize`
+  was redundant because density is recomputed every `re_draw_begin`; the performance counter became a
+  portable monotonic clock; and the font failure is reported by the caller, which has somewhere to
+  put it, rather than by reaching for the seam host's reporter and coupling the draw glue to whichever
+  backend the binary linked.
+- **The companion reuses the desktop's prefix mechanism (D56)** rather than gaining an `#ifdef`:
+  `draw.c` dispatches to the prefixed entry points, so the one backend this binary carries is
+  compiled under the matching rename header, and the backends it does not carry answer with a refusal
+  in the app's own file — which is where "this binary has one backend" is true.
+
+The desktop is byte-identical on all three renderers across every step of this, and the render spec
+still passes against the recorded frames.

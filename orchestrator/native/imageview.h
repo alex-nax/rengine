@@ -1,5 +1,6 @@
 #ifndef RENGINE_IMAGEVIEW_H
 #define RENGINE_IMAGEVIEW_H
+#include "common.h"   /* SDL_Event and friends: named below, so included here */
 #include "draw.h"
 typedef struct ReImageView ReImageView;
 bool re_image_path(const char *path);

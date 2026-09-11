@@ -1,11 +1,29 @@
 #ifndef RENGINE_DRAW_H
 #define RENGINE_DRAW_H
-#include "common.h"
+/* Not common.h: that pulls SDL, and this header is the one the owned control layer (ui/ui.h) leans
+   on — which is what kept a layer with no windowing in it from compiling for a phone (charter D59). */
+#include <stdint.h>
+#include "microui.h"
+#include "theme.h"
+#include "cJSON.h"
 #include "render/draw_list.h"
+#include "render/utf8.h"
+
+/* The three helpers this header's consumers use, which used to arrive through common.h along with
+   SDL. common.h keeps its own copies guarded, so the files that still include it are unchanged. */
+#ifndef RE_ARRAY_SIZE
+#define RE_ARRAY_SIZE(a) ((int)(sizeof(a) / sizeof((a)[0])))
+#endif
+#ifndef RE_MIN_MAX_DEFINED
+#define RE_MIN_MAX_DEFINED
+static inline int re_min(int a, int b) { return a < b ? a : b; }
+static inline int re_max(int a, int b) { return a > b ? a : b; }
+#endif
 typedef struct ReDraw ReDraw;
 const char *re_draw_select(const char *name);            /* argument > RENGINE_RENDERER > platform default; NULL if unknown */
-Uint32 re_draw_window_flags(const char *backend);        /* call before SDL_CreateWindow */
-ReDraw *re_draw_open(SDL_Window *window, const char *font, const char *backend);
+uint32_t re_draw_window_flags(const char *backend);      /* call before the window is made */
+/* `window` is opaque: SDL_Window* on the desktop, ANativeWindow* on Android. See seam_host.h. */
+ReDraw *re_draw_open(void *window, const char *font, const char *backend);
 ReDraw *re_draw_active(void);
 cJSON *re_draw_stats(const ReDraw *draw);
 void re_draw_stats_reset(ReDraw *draw);

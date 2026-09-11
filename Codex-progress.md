@@ -1,5 +1,49 @@
 # Progress Log
 
+## Session 116 (macos) — 2026-09-11 — the companion uses the desktop's control layer (D59)
+
+Three things were wrong with the first rendering companion — not clickable, no adjustment on
+rotation, and raw microui instead of the product's look — and the third is the one that mattered.
+
+**Input.** Touch is microui's mouse. The move has to land before the press, because microui resolves
+hover before it resolves a click and a finger arrives already pressed; without that the first tap
+goes to whatever was hovered last, which on a touch screen is nothing. On release the pointer parks
+off-screen, because a touch UI has no hover and a button left lit looks stuck.
+
+**Rotation.** microui remembers a window's rect by name after the first frame — right for a desktop
+where a person moves it, wrong for a phone where the display decides. A rotation gave a new surface
+and the same remembered rect. The container's rect is written every frame now.
+
+**The look.** The companion compiles the **D33 owned control layer**: `re_ui_button_ex`,
+`re_ui_label_ex`, `re_ui_separator`, the generated theme's palette and metrics, driven through
+`re_draw_begin` / `re_draw_commands` / `re_draw_end` — `main.c`'s own frame flow.
+
+Reaching it finished the portability work D59 started, because **`ui.c` was SDL-free all along** and
+only its header's include chain kept it on the desktop:
+
+- `draw.h` stopped including `common.h` (which pulls SDL) and takes the three helpers it needs. The
+  desktop headers that had been getting SDL transitively through it — `editor.h`, `formatview.h`,
+  `hexview.h`, `imageview.h`, `scroll.h` — include it themselves now, which they should, since they
+  name `SDL_Event`.
+- `draw.c` lost its four SDL uses: the window handle is opaque, the open-time `SDL_GetWindowSize` was
+  redundant (density is recomputed every `re_draw_begin`), the performance counter became a portable
+  monotonic clock, and the font failure is reported by the caller rather than by reaching for the
+  seam host's reporter — which would have coupled the draw glue to whichever backend was linked.
+- The companion **reuses the desktop's prefix mechanism (D56)** instead of gaining an `#ifdef`:
+  `draw.c` dispatches to prefixed entry points, so the single backend this binary carries is compiled
+  under the matching rename header, and the ones it does not carry answer with a refusal in the app's
+  own file — where "this binary has one backend" is a true statement.
+
+**The desktop is byte-identical on all three renderers across every step**, and the render spec
+passes against the recorded frames.
+
+**Not verified on the device**: the phone dozed off mid-session and would not wake from adb, so the
+control-layer build is installed and logs "renderer up on the opengl backend at density 2.75, drawing
+the desktop's control layer" but its frames, the taps and the rotation have not been seen. That is
+the first thing to check when the screen is on.
+
+`npm test`: 273/273. `npm run test:native`: 15/15. The render spec: pass.
+
 ## Session 115 (macos) — 2026-09-11 — the companion draws the desktop's UI on a phone (D59)
 
 The owner asked to try the Android phone rather than the Quest, and the phone refused to render:

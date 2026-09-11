@@ -10,7 +10,9 @@
 #include "theme.h"
 #include "cJSON.h"
 
+#ifndef RE_ARRAY_SIZE
 #define RE_ARRAY_SIZE(a) ((int)(sizeof(a) / sizeof((a)[0])))
+#endif
 static inline const char *re_string(const cJSON *j, const char *key) {
   const cJSON *v = cJSON_GetObjectItemCaseSensitive(j, key);
   return cJSON_IsString(v) ? v->valuestring : "";
@@ -25,8 +27,11 @@ static inline void re_copy(char *dst, size_t size, const char *src) {
 static inline bool re_inside(mu_Rect r, int x, int y) {
   return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
 }
+#ifndef RE_MIN_MAX_DEFINED
+#define RE_MIN_MAX_DEFINED
 static inline int re_min(int a, int b) { return a < b ? a : b; }
 static inline int re_max(int a, int b) { return a > b ? a : b; }
+#endif
 uint32_t re_utf8(const char **text);
 int re_encode(uint32_t cp, char bytes[5]);
 #endif

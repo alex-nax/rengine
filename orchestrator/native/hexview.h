@@ -1,5 +1,6 @@
 #ifndef RENGINE_HEXVIEW_H
 #define RENGINE_HEXVIEW_H
+#include "common.h"   /* SDL_Event and friends: named below, so included here */
 #include "draw.h"
 #include "scroll.h"
 #define RE_HEX_WINDOW 65536

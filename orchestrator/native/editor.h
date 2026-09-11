@@ -1,5 +1,6 @@
 #ifndef RENGINE_EDITOR_H
 #define RENGINE_EDITOR_H
+#include "common.h"   /* SDL_Event and friends: named below, so included here */
 #include "draw.h"
 #include "scroll.h"
 typedef struct ReEditor ReEditor;

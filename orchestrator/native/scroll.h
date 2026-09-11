@@ -1,5 +1,6 @@
 #ifndef RENGINE_SCROLL_H
 #define RENGINE_SCROLL_H
+#include "common.h"   /* SDL_Event and friends: named below, so included here */
 #include "draw.h"
 typedef struct {
   mu_Rect track, thumb; int total, page, value, maximum, grab; bool horizontal, dragging, hover;

@@ -1,3 +1,4 @@
+#include <string.h>   /* strcmp: reached through common.h until draw.h stopped pulling it */
 #include "scene.h"
 
 enum { SCENE_NONE = 0, SCENE_PRIMITIVES = 1 };

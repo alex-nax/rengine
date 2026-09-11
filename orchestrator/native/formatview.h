@@ -1,5 +1,6 @@
 #ifndef RENGINE_FORMATVIEW_H
 #define RENGINE_FORMATVIEW_H
+#include "common.h"   /* SDL_Event and friends: named below, so included here */
 #include "hexview.h"
 #include "editor.h"
 enum { RE_MODE_TEXT = 0, RE_MODE_RAW, RE_MODE_PREVIEW, RE_MODE_PENDING };

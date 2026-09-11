@@ -1,4 +1,8 @@
 #include "draw.h"
+
+#include <time.h>
+#include <stdlib.h>
+#include <string.h>
 #include "render/seam_backends.h"
 
 #define RE_STAT_FRAMES 120
@@ -14,9 +18,21 @@
 struct ReDraw {
   ReBackend *backend; ReFontSet *fonts; ReDrawList list; mu_Context *ui;
   int cell_width, line_height; float density; bool flushed;
-  double build[RE_STAT_FRAMES], execute[RE_STAT_FRAMES]; int stat_count, stat_next; Uint64 frame_start;
+  double build[RE_STAT_FRAMES], execute[RE_STAT_FRAMES]; int stat_count, stat_next; double frame_start;
 };
 static ReDraw *active;
+
+/* Frame timing, without a windowing library. CLOCK_MONOTONIC where there is one — every platform
+   this builds for except MSVC, which gets C11's timespec_get. Only differences matter here. */
+static double re_now_ms(void) {
+  struct timespec t;
+#if defined(CLOCK_MONOTONIC)
+  clock_gettime(CLOCK_MONOTONIC, &t);
+#else
+  timespec_get(&t, TIME_UTC);
+#endif
+  return (double)t.tv_sec * 1000.0 + (double)t.tv_nsec / 1000000.0;
+}
 
 static ReColor color_of(mu_Color c) { return re_color(c.r, c.g, c.b, c.a); }
 static ReRect rect_of(mu_Rect r) { return re_rect(r.x, r.y, r.w, r.h); }
@@ -48,7 +64,7 @@ const char *re_draw_select(const char *name) {
 #endif
   return NULL;
 }
-Uint32 re_draw_window_flags(const char *backend) {
+uint32_t re_draw_window_flags(const char *backend) {
   if (backend && !strcmp(backend, "opengl")) return re_opengl_backend_seam_window_flags();
   if (backend && !strcmp(backend, "vulkan")) return re_vulkan_backend_seam_window_flags();
 #ifdef __APPLE__
@@ -57,11 +73,14 @@ Uint32 re_draw_window_flags(const char *backend) {
   return 0;
 }
 ReDraw *re_draw_active(void) { return active; }
-ReDraw *re_draw_open(SDL_Window *window, const char *font_path, const char *backend) {
+ReDraw *re_draw_open(void *window, const char *font_path, const char *backend) {
   ReDraw *d = calloc(1, sizeof(*d));
   if (!d) return NULL;
   d->fonts = re_font_open(font_path, getenv("RENGINE_UI_FONT"));
-  if (!d->fonts) { SDL_SetError("%s", re_font_error()); free(d); return NULL; }
+  /* No reporting here: re_font_error() holds the reason and the caller is the one with a place to
+     put it. Reaching for the seam host's reporter would tie this file to whichever graphics backend
+     the binary linked, which is exactly the coupling this header split removed. */
+  if (!d->fonts) { free(d); return NULL; }
 #ifdef __APPLE__
   if (backend && !strcmp(backend, "metal")) d->backend = re_metal_backend_seam_open(window, d->fonts);
   else
@@ -70,8 +89,9 @@ ReDraw *re_draw_open(SDL_Window *window, const char *font_path, const char *back
   else d->backend = re_opengl_backend_seam_open(window, d->fonts);
   if (!d->backend) { re_font_close(d->fonts); free(d); return NULL; }
   re_draw_list_init(&d->list);
-  int width, height; SDL_GetWindowSize(window, &width, &height);
-  d->density = d->backend->ops->density(d->backend, width);
+  /* Density is recomputed from the size every re_draw_begin, so asking the window for it here was
+     only ever an initial guess — and the one call in this file that needed to know what a window is. */
+  d->density = 1.0f;
   measure(d); active = d;
   return d;
 }
@@ -96,17 +116,17 @@ void re_draw_begin(ReDraw *d, int w, int h) {
   float density = d->backend->ops->density(d->backend, w);
   if (density != d->density) { d->density = density; measure(d); }
   re_draw_list_reset(&d->list, w, h, density, color_of(RE_COLOR_CANVAS));
-  d->flushed = false; d->frame_start = SDL_GetPerformanceCounter();
+  d->flushed = false; d->frame_start = re_now_ms();
 }
 /* Every frame flushes once; snapshot and end share it — see sidecar: deferred-flush */
 static void flush(ReDraw *d) {
   if (d->flushed) return;
   d->flushed = true;
-  Uint64 started = SDL_GetPerformanceCounter();
+  double started = re_now_ms();
   if (d->backend->ops->begin(d->backend, &d->list)) d->backend->ops->execute(d->backend, &d->list);
   if (d->frame_start) {
-    double ms = 1000.0 / (double)SDL_GetPerformanceFrequency();
-    d->build[d->stat_next] = (double)(started - d->frame_start) * ms; d->execute[d->stat_next] = (double)(SDL_GetPerformanceCounter() - started) * ms;
+    d->build[d->stat_next] = started - d->frame_start;
+    d->execute[d->stat_next] = re_now_ms() - started;
     d->stat_next = (d->stat_next + 1) % RE_STAT_FRAMES; if (d->stat_count < RE_STAT_FRAMES) d->stat_count++;
   }
 }
