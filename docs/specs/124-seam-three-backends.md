@@ -242,3 +242,41 @@ excluding them from the bounds, because "which geometry is the subject" is data,
 Framing itself is now the caller's: `--orbit` and `--eye`, in multiples of the fitted radius. One
 heuristic cannot frame both a six-unit scene and a building you want to stand inside, and Sponza
 wants about `--orbit 0.22 --eye 0.03`.
+
+
+## The example's shaders, and a build step that failed silently
+
+F130 and F131 need the example's shaders in three forms, and spec 123 already said where they come
+from: one source, compiled by the build, carried by `ReSeamShader`. `shaders/generate.py` does it —
+OpenGL 3.30 source and Vulkan SPIR-V from each `.glsl`, committed into `scene_shaders.h`, with a
+source hash so the binary cannot drift from its source. `glslc` is needed to regenerate, never to
+build, which is the rule `tools/shaders.py` already follows for the desktop.
+
+**The first version expressed the dialect difference with a function-like GLSL macro** taking the
+whole uniform list as one argument. The GLSL preprocessor does not accept a macro invocation spanning
+lines. It expanded to **nothing**; the shaders compiled, linked, and reported no error; every uniform
+location came back `-1`; and writing to `-1` is silently ignored by every graphics API. The scene
+rendered black with nothing anywhere saying why.
+
+Two changes came out of it, and the second matters more than the first:
+
+- The uniforms are declared once in a comment block that only the generator reads, and **the
+  generator writes the dialect**. A build step that cannot fail loudly is worse than one that cannot
+  do the job, and dialect work belongs in the build rather than in a preprocessor that is allowed to
+  quietly disagree.
+- **The scene now refuses to start when a uniform it needs is missing.** That check would have turned
+  a black frame into one sentence naming the uniform, and it costs ten lines.
+
+### And the lighting had never worked
+
+Switching to generated shaders changed every pixel in the frame. The inline version declared
+`uniform vec3 u_light` while the scene set it with a four-float call; GL rejects the type mismatch,
+so the light stayed at zero, `normalize(0,0,0)` gave no contribution, and everything rendered at the
+0.35 ambient term. It looked like a dim scene, which is a thing scenes are allowed to be — so nothing
+about it read as wrong until a change that should have been inert moved 921,600 pixels.
+
+A test assertion was measuring the same thing badly: the overlay band was checked by absolute
+brightness against the area above it, which broke the moment the lighting was fixed. It now measures
+the band's **hue** — blue runs about 100 above red inside the band and 14 above it outside — because
+that is what "the cyan overlay is present" actually means, and it does not move when something
+unrelated gets brighter.

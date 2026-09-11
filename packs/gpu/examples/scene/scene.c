@@ -210,80 +210,19 @@ static ReSeamTexture make_gradient(ReSeam *seam) {
                             RE_SEAM_WRAP_CLAMP_TO_EDGE);
 }
 
-/* ---- shaders -------------------------------------------------------------------------------------
- * GLSL 3.30 core, which is also GLSL ES 3.00 with a different version line — the dialect problem the
- * shader descriptor exists to solve. Written so SPIRV-Cross can carry them to SPIR-V and MSL without
- * an authored second copy: no default-block layout tricks, every uniform named, no gl_ extras. */
+/* ---- shaders ---------------------------------------------------------------------------------
+ * Generated from the shaders/ sources into both dialects at once: OpenGL 3.30 source and Vulkan SPIR-V,
+ * committed so a consumer needs no shader toolchain to build. `ReSeamShader` carries both and each
+ * backend takes its own half, which is the whole reason the seam takes a descriptor rather than a
+ * source string — see spec 123. Regenerate with `python3 shaders/generate.py generate`. */
+#include "shaders/scene_shaders.h"
 
-static const char *lit_vertex =
-  "#version 330 core\n"
-  "layout(location = 0) in vec3 a_position;\n"
-  "layout(location = 1) in vec3 a_normal;\n"
-  "layout(location = 2) in vec2 a_uv;\n"
-  "uniform mat4 u_view_proj;\n"
-  "uniform mat4 u_model;\n"
-  "out vec3 v_normal;\n"
-  "out vec2 v_uv;\n"
-  "void main() {\n"
-  "  v_normal = mat3(u_model) * a_normal;\n"
-  "  v_uv = a_uv;\n"
-  "  gl_Position = u_view_proj * u_model * vec4(a_position, 1.0);\n"
-  "}\n";
+#define STAGE(symbol) \
+  ((ReSeamShader){.glsl = re_scene_##symbol##_glsl, .spirv = re_scene_##symbol##_spv, \
+                  .spirv_bytes = sizeof(re_scene_##symbol##_spv)})
 
-static const char *lit_fragment =
-  "#version 330 core\n"
-  "uniform sampler2D u_texture;\n"
-  "uniform vec4 u_tint;\n"
-  "uniform vec3 u_light;\n"
-  "in vec3 v_normal;\n"
-  "in vec2 v_uv;\n"
-  "out vec4 o_color;\n"
-  "void main() {\n"
-  "  float lambert = max(dot(normalize(v_normal), normalize(u_light)), 0.0);\n"
-  "  vec4 albedo = texture(u_texture, v_uv) * u_tint;\n"
-  "  o_color = vec4(albedo.rgb * (0.35 + 0.65 * lambert), u_tint.a);\n"
-  "}\n";
-
-static const char *flat_vertex =
-  "#version 330 core\n"
-  "layout(location = 0) in vec3 a_position;\n"
-  "uniform mat4 u_view_proj;\n"
-  "uniform mat4 u_model;\n"
-  "void main() { gl_Position = u_view_proj * u_model * vec4(a_position, 1.0); }\n";
-
-static const char *flat_fragment =
-  "#version 330 core\n"
-  "uniform vec4 u_tint;\n"
-  "out vec4 o_color;\n"
-  "void main() { o_color = u_tint; }\n";
-
-/* The screen quad is in clip space already, so it needs no matrices — and it takes `u_extent` as a
- * vec2, which is the only place that uniform form is used and therefore the only place a backend
- * that dropped it would be caught. */
-static const char *screen_vertex =
-  "#version 330 core\n"
-  "layout(location = 0) in vec3 a_position;\n"
-  "layout(location = 2) in vec2 a_uv;\n"
-  "uniform vec2 u_extent;\n"
-  "out vec2 v_uv;\n"
-  "void main() {\n"
-  "  v_uv = a_uv;\n"
-  "  gl_Position = vec4(a_position.xy * u_extent + vec2(1.0 - u_extent.x, 1.0 - u_extent.y), 0.0, 1.0);\n"
-  "}\n";
-
-static const char *screen_fragment =
-  "#version 330 core\n"
-  "uniform sampler2D u_texture;\n"
-  "in vec2 v_uv;\n"
-  "out vec4 o_color;\n"
-  "void main() { o_color = texture(u_texture, v_uv); }\n";
-
-static ReSeamProgram program_from_glsl(ReSeam *seam, const char *vertex, const char *fragment,
-                                       const char *name) {
-  ReSeamShader vs = {0}, fs = {0};
-  vs.glsl = vertex;
-  fs.glsl = fragment;
-  return re_seam_program(seam, &vs, &fs, name);
+static ReSeamProgram program_of(ReSeam *seam, ReSeamShader vertex, ReSeamShader fragment, const char *name) {
+  return re_seam_program(seam, &vertex, &fragment, name);
 }
 
 /* ---- open and close -------------------------------------------------------------------------------- */
@@ -306,9 +245,9 @@ bool scene_open(Scene *scene, ReSeam *seam, int width, int height, const char *m
 
   measure(&scene->geometry, &scene->centre, &scene->radius);
 
-  scene->lit = program_from_glsl(seam, lit_vertex, lit_fragment, "lit");
-  scene->flat = program_from_glsl(seam, flat_vertex, flat_fragment, "flat");
-  scene->screen = program_from_glsl(seam, screen_vertex, screen_fragment, "screen");
+  scene->lit = program_of(seam, STAGE(lit_vertex), STAGE(lit_fragment), "lit");
+  scene->flat = program_of(seam, STAGE(flat_vertex), STAGE(flat_fragment), "flat");
+  scene->screen = program_of(seam, STAGE(screen_vertex), STAGE(screen_fragment), "screen");
   if (scene->lit.id == 0 || scene->flat.id == 0 || scene->screen.id == 0) {
     snprintf(error, error_size, "a program did not build; the seam reported why");
     return false;
@@ -324,6 +263,24 @@ bool scene_open(Scene *scene, ReSeam *seam, int width, int height, const char *m
   scene->screen_texture = re_seam_uniform_location(seam, scene->screen, "u_texture");
   scene->screen_extent = re_seam_uniform_location(seam, scene->screen, "u_extent");
 
+  /* A uniform the shader does not expose comes back as -1, and writing to -1 is silently ignored by
+     every backend — so the scene renders, plausibly, with that value missing. That is exactly how
+     the first version of the shader generator failed: a macro the GLSL preprocessor would not expand
+     left every uniform undeclared, the programs compiled and linked without a word, and the frame
+     was black. Nothing downstream could have told anyone why. It is a refusal now. */
+  const struct { const char *name; int location; } required[] = {
+    {"lit u_view_proj", scene->lit_view_proj}, {"lit u_model", scene->lit_model},
+    {"lit u_tint", scene->lit_tint}, {"lit u_texture", scene->lit_texture},
+    {"lit u_light", scene->lit_light}, {"flat u_view_proj", scene->flat_view_proj},
+    {"flat u_model", scene->flat_model}, {"flat u_tint", scene->flat_tint},
+    {"screen u_texture", scene->screen_texture}, {"screen u_extent", scene->screen_extent},
+  };
+  for (size_t i = 0; i < sizeof(required) / sizeof(required[0]); i++)
+    if (required[i].location < 0) {
+      snprintf(error, error_size, "the shaders do not expose %s; writing to it would be ignored and "
+               "the frame would render without it", required[i].name);
+      return false;
+    }
   scene->buffer = re_seam_buffer(seam);
   re_seam_buffer_update(seam, scene->buffer, scene->geometry.vertices,
                         scene->geometry.vertex_count * sizeof(SceneVertex), RE_SEAM_BUFFER_STATIC);
