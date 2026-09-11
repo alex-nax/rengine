@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define TAG "rengine.companion"
 
@@ -137,10 +138,44 @@ void re_seam_host_present(ReSeamHost *host) {
   eglSwapBuffers(host->display, host->surface);
 }
 
-/* The smoke snapshot this platform needs is `adb exec-out screencap`, which judges what the
-   compositor showed rather than what the app believes it drew. A glReadPixels read-back would answer
-   a different, weaker question. */
+/* The read-back, which F144's criterion 2 wants for a smoke snapshot and which is also the only way
+   to ask what the GPU actually wrote rather than what the compositor chose to show. Called between
+   the draw and the swap, as the desktop hosts' snapshots are. */
 bool re_seam_host_snapshot(ReSeamHost *host, const char *path) {
-  (void)host; (void)path;
-  return false;
+  int w = host->width, h = host->height;
+  if (w <= 0 || h <= 0) return false;
+  unsigned char *pixels = malloc((size_t)w * (size_t)h * 4);
+  if (!pixels) return false;
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+  /* glReadPixels is bottom-up; the centre is the centre either way. */
+  const unsigned char *centre = pixels + ((size_t)(h / 2) * (size_t)w + (size_t)(w / 2)) * 4;
+  __android_log_print(ANDROID_LOG_INFO, TAG, "companion: read-back centre rgba=%u,%u,%u,%u",
+                      centre[0], centre[1], centre[2], centre[3]);
+  bool ok = false;
+  if (path != NULL) {
+    FILE *file = fopen(path, "wb");
+    if (file) {
+      /* A 32-bit bottom-up BMP, which is what tools/render_compare.py already reads. */
+      unsigned int size = 54u + (unsigned)(w * h * 4), offset = 54u;
+      unsigned char header[54] = {0};
+      header[0] = 'B'; header[1] = 'M';
+      memcpy(header + 2, &size, 4); memcpy(header + 10, &offset, 4);
+      unsigned int info = 40; memcpy(header + 14, &info, 4);
+      memcpy(header + 18, &w, 4); memcpy(header + 22, &h, 4);
+      unsigned short planes = 1, bits = 32;
+      memcpy(header + 26, &planes, 2); memcpy(header + 28, &bits, 2);
+      fwrite(header, 1, sizeof(header), file);
+      for (int y = 0; y < h; y++) {
+        const unsigned char *row = pixels + (size_t)y * (size_t)w * 4;
+        for (int x = 0; x < w; x++) {
+          unsigned char bgra[4] = {row[x * 4 + 2], row[x * 4 + 1], row[x * 4 + 0], row[x * 4 + 3]};
+          fwrite(bgra, 1, 4, file);
+        }
+      }
+      ok = fclose(file) == 0;
+    }
+  }
+  free(pixels);
+  return ok;
 }

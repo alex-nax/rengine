@@ -1,5 +1,49 @@
 # Progress Log
 
+## Session 117 (macos) — 2026-09-12 — the phone's UI is themed and full-width; input and the control layer are not done
+
+Relaunched on the unlocked phone and worked the three things the owner reported. Two are fixed, one
+is not, and a fourth turned up on the way.
+
+**Rotation — fixed.** The cause was not the surface: microui remembers a window's rect by name after
+the first frame, which is right for a desktop where a person moves it and wrong for a phone where the
+display decides. A rotation gave a new surface and the same remembered rect. The container's rect is
+written every frame and the window is the full surface.
+
+**Styling — partly.** The companion applies the generated theme (`re_theme_apply`), so the palette,
+metrics and spacing are the product's rather than microui's defaults. It is **not** yet the D33 owned
+control layer, and that is **KI-089**.
+
+**Input — not fixed, and now understood.** `android_app->onInputEvent` is assigned and the handler is
+**never called**, verified by logging on entry while tapping. So the mapping from touch to microui's
+mouse is untested; the fault is upstream of it. **KI-090**.
+
+**KI-089, with the bisect that found it.** Both `draw.c` and `ui/ui.c` now compile for Android, and
+driving a frame through `re_draw_begin` / `re_draw_commands` / `re_draw_end` draws **rects but no
+text**. Bisected on the device rather than reasoned about:
+
+- the same build with the app file reverted to direct `backend->ops->begin/execute/present` renders
+  **148 distinct colours** — so the build changes (the prefix header, draw.c and ui.c compiled in)
+  are innocent;
+- through `ReDraw`, a **full-screen probe rect renders** and **no glyph does**;
+- `text_width("HELLO")=40`, GL reports **no error**, program and VAO bound, viewport 1080x2400, and a
+  read-back taken before the swap shows the clear colour;
+- the face is not the cause: mono and UI both render on the direct path.
+
+So it is something `re_draw_begin`/`re_draw_end` do that a direct begin/execute/present does not, for
+MODE_COVERAGE geometry specifically. The glyph atlas upload during a frame is where to look next,
+since MODE_SOLID survives and the mode that samples the atlas does not.
+
+**Two false trails worth recording.** A screenshot that came back entirely black read like a
+regression and was a sleeping phone (`mWakefulness=Dozing`). And a read-back showing `rgba=0,0,0,0`
+read like "the GPU wrote nothing" and was my own probe placed *after* the swap — moved before it, the
+same read-back showed the clear colour and the investigation became tractable.
+
+**The Android host gained its read-back** (`glReadPixels` into a bottom-up BMP), which F144's
+criterion 2 wants for a smoke snapshot and which is what made the bisect possible at all.
+
+The desktop is byte-identical on all three renderers. `npm test`: 273/273. `./init.sh` clean.
+
 ## Session 116 (macos) — 2026-09-11 — the companion uses the desktop's control layer (D59)
 
 Three things were wrong with the first rendering companion — not clickable, no adjustment on

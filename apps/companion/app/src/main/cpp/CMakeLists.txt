@@ -82,7 +82,7 @@ target_include_directories(companion PRIVATE
 # nothing had needed until this target; it is now vendored from the same tag and recorded in
 # third_party/sources.json with its hash (spec 122's "no platform headers" was true until now).
 # Vulkan-only on Android (spec 128, decision 8) and the surface extension that needs declaring.
-target_compile_definitions(companion PRIVATE VK_USE_PLATFORM_ANDROID_KHR VK_NO_PROTOTYPES)
+target_compile_definitions(companion PRIVATE VK_USE_PLATFORM_ANDROID_KHR VK_NO_PROTOTYPES RE_DRAW_TRACE)
 # The desktop's own symbol-prefix mechanism (D56), reused. draw.c dispatches to the prefixed entry
 # points seam_backends.h declares, so the one backend this binary carries has to answer to those
 # names — which is what the generated rename header does, and why no #ifdef appears in draw.c.
