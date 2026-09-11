@@ -196,6 +196,17 @@ flowchart TD
   F126 --> F127
   F128["F128: blocked"]
   F126 --> F128
+  F129["F129: blocked"]
+  F123 --> F129
+  F130["F130: blocked"]
+  F132 --> F130
+  F131["F131: blocked"]
+  F132 --> F131
+  F132["F132: blocked"]
+  F129 --> F132
+  F133["F133: blocked"]
+  F130 --> F133
+  F131 --> F133
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -280,3 +291,8 @@ flowchart TD
 | F126 | R3 | vtmb-vr | blocked | VtMB adopts the rendering pack for the files already behind its own GPU seam, deleting src/renderer/gpu/ in favour of the pinned pack, and a Vulkan backend serves them. This is the verdict on D14c's untested bet that resource+draw granularity can carry Vulkan with command buffers, render passes and barriers built inside the backend — tested on 13 files rather than after migrating 49 more onto a seam that may not hold it (charter D52). |
 | F127 | R3 | vtmb-vr | blocked | VtMB's remaining GL-touching files move behind the rendering pack, so the whole renderer talks to one seam and a backend choice reaches all of it rather than a fraction. Measured at the time of planning: 62 files touch GL and 13 were behind the seam (charter D52). |
 | F128 | R3 | nolf-improved | blocked | NOLF gains the GPU seam it has never had: its GL-touching files move behind the pinned rendering pack so it can build against either backend. Measured at planning time: 102 GL symbols across 39 files, none behind any abstraction. Planned rather than committed — a local task cannot decide another project's adoption (charter D52). |
+| F129 | R3 | rengine | blocked | The resource-and-draw seam grows what a real renderer needs and a windowing-free backend can still provide: a render target made from colour and depth textures the host owns, a frame bracket a command-buffer backend can record into, scissor, texture sub-upload, separate alpha blending, a vec2 uniform and a depth compare function. Every addition is justified by measured call sites in two independent consumers rather than anticipated (spec 124). |
+| F130 | R3 | rengine | blocked | The seam's Vulkan backend: pipeline state coalesced at draw time into a cached pipeline, textures through descriptor sets, uniforms looked up by name through SPIR-V reflection into a push-constant block, staging uploads, and dynamic rendering into targets supplied from outside. This is the verdict on D14c's bet that resource+draw granularity can carry Vulkan with command buffers and render passes built inside the backend — reached in rEngine, on the scene example, before a game adopts (charter D52, spec 124). |
+| F131 | R3 | rengine | blocked | The seam's Metal backend, so the pack serves the third graphics API rEngine's desktop already ships and charter D29 already orders. Shaders reach it as MSL from the same glslang and SPIRV-Cross pipeline that feeds the other two, so one authored source still serves every backend (owner, 2026-09-11; spec 124). |
+| F132 | R3 | rengine | blocked | A scene example inside the pack that renders through the seam: a procedural scene committed as code that every gate renders, and an optional real model a person can point it at. It is the consumer whose call sites shape the render-target API and whose pixels judge the backends, and building it is also the outside-consumer proof that the pack stands alone (spec 124). |
+| F133 | R3 | rengine | blocked | rEngine's own 2D draw list renders through the seam, making the pack load-bearing in shipped code rather than only in an example, and SDL_Renderer stops being a shipping path as charter D49 already decided. Because SDL is the only backend that shares no code with the others, its frames are captured first and committed as the reference the comparison judges against, so retiring the path does not retire the independent witness (owner, 2026-09-11; spec 124). |

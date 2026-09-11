@@ -60,6 +60,11 @@ typedef struct { uint32_t id; } ReSeamBuffer;
 typedef struct { uint32_t id; int width; int height; } ReSeamTexture;
 typedef struct { uint32_t id; } ReSeamProgram;
 typedef struct { uint32_t id; } ReSeamVertexArray;
+/* A place to render. Made from textures the host already owns — the seam never creates one, which is
+ * the same rule the device layer follows and the reason an OpenXR host can hand either layer images
+ * from `xrCreateSwapchain`. A zero handle means "the target this frame was begun with", so an
+ * off-screen pass returns to the frame's own target without having to remember what it was. */
+typedef struct { uint32_t id; int width; int height; } ReSeamTarget;
 
 /* ---- small enumerations -----------------------------------------------------------------------
  * The values are VtMB's declaration order deliberately: the C++ facade static_asserts each mapping,
@@ -72,6 +77,19 @@ typedef enum { RE_SEAM_PRIMITIVE_TRIANGLES = 0, RE_SEAM_PRIMITIVE_LINES = 1 } Re
 typedef enum { RE_SEAM_DEPTH_TEST_DISABLED = 0, RE_SEAM_DEPTH_TEST_ENABLED = 1 } ReSeamDepthTest;
 typedef enum { RE_SEAM_DEPTH_WRITE_DISABLED = 0, RE_SEAM_DEPTH_WRITE_ENABLED = 1 } ReSeamDepthWrite;
 typedef enum { RE_SEAM_CULL_NONE = 0, RE_SEAM_CULL_BACK = 1 } ReSeamCull;
+/* Depth comparison. `LESS` is every backend's default and what a call site gets without asking;
+ * `LESS_EQUAL` and `EQUAL` are what a depth pre-pass needs, which is 14 calls in vtmb-vr. */
+typedef enum {
+  RE_SEAM_DEPTH_LESS = 0, RE_SEAM_DEPTH_LESS_EQUAL = 1, RE_SEAM_DEPTH_EQUAL = 2, RE_SEAM_DEPTH_ALWAYS = 3
+} ReSeamDepthCompare;
+/* How a texture's memory is used. A target's colour and depth attachments are written by the GPU
+ * rather than uploaded, and a depth attachment has no colour format at all — so the two cases a
+ * render target needs are named rather than inferred from a null pixel pointer. */
+typedef enum {
+  RE_SEAM_TEXTURE_SAMPLED = 0,  /* uploaded and read by a shader — the ordinary case */
+  RE_SEAM_TEXTURE_COLOR = 1,    /* rendered into, then sampled */
+  RE_SEAM_TEXTURE_DEPTH = 2     /* rendered into as depth; sampling it is not promised */
+} ReSeamTextureUse;
 
 /* One float vertex attribute. `components` is 1-4; everything on this path is float, and adding a
  * type enum before a second type exists would be speculative (VtMB's note, and still true). */
@@ -133,6 +151,7 @@ void re_seam_program_use(ReSeam *seam, ReSeamProgram program);
 int re_seam_uniform_location(ReSeam *seam, ReSeamProgram program, const char *name);
 void re_seam_uniform_int(ReSeam *seam, int location, int value);
 void re_seam_uniform_float(ReSeam *seam, int location, float value);
+void re_seam_uniform_vec2(ReSeam *seam, int location, float x, float y);
 void re_seam_uniform_vec4(ReSeam *seam, int location, float x, float y, float z, float w);
 void re_seam_uniform_mat4(ReSeam *seam, int location, const float *value);
 
@@ -150,14 +169,59 @@ void re_seam_vertex_array_bind(ReSeam *seam, ReSeamVertexArray array);
 /* ---- textures --------------------------------------------------------------------------------- */
 ReSeamTexture re_seam_texture_2d(ReSeam *seam, const void *rgba, int width, int height,
                                  ReSeamFilter filter, ReSeamWrap wrap);
+/* The same, saying what the texture is for. `re_seam_texture_2d` is this with SAMPLED, kept because
+ * it is what every existing call site writes. */
+ReSeamTexture re_seam_texture_2d_for(ReSeam *seam, const void *rgba, int width, int height,
+                                     ReSeamFilter filter, ReSeamWrap wrap, ReSeamTextureUse use);
+/* Replace a rectangle of an existing texture. A glyph atlas writes one of these per glyph, and
+ * re-uploading the whole page for a 12x16 rectangle is the difference between a frame and a stall. */
+void re_seam_texture_update(ReSeam *seam, ReSeamTexture texture, int x, int y, int width, int height,
+                            const void *rgba);
 void re_seam_texture_destroy(ReSeam *seam, ReSeamTexture *texture);
 void re_seam_texture_bind(ReSeam *seam, ReSeamTexture texture, int unit);
+
+/* ---- render targets ----------------------------------------------------------------------------
+ * `depth` may be a zero handle for a colour-only target. Binding a zero target returns to whatever
+ * the host had bound, which is how the window's back buffer stays the host's business. */
+ReSeamTarget re_seam_target(ReSeam *seam, ReSeamTexture color, ReSeamTexture depth);
+/* The target the HOST already has, named in the backend's own terms: a framebuffer object on
+ * OpenGL, a `VkImageView` on Vulkan, an `id<MTLTexture>` on Metal.
+ *
+ * This is the one place the seam is not API-neutral, and it is unavoidable rather than an oversight.
+ * A window's back buffer belongs to the host — the seam creates no swapchain, exactly as the device
+ * layer creates no surface — and every graphics API names that image differently. The alternative is
+ * for the seam to own a window, which is the coupling both layers exist to refuse. The device layer
+ * has the same escape hatch for the same reason: `re_gpu_instance` hands back a `VkInstance`.
+ *
+ * A host that only ever renders off-screen never calls this. */
+ReSeamTarget re_seam_target_adopt(ReSeam *seam, uintptr_t handle, int width, int height);
+void re_seam_target_destroy(ReSeam *seam, ReSeamTarget *target);
+void re_seam_target_bind(ReSeam *seam, ReSeamTarget target);
+
+/* ---- the frame ----------------------------------------------------------------------------------
+ * Everything between these two calls is one submission. OpenGL needs no such bracket and treats it
+ * as a flush; Vulkan and Metal need somewhere to record commands and a moment to submit them, and
+ * without the bracket they would have to guess where a frame ends — which is the one thing an
+ * immediate-mode-looking API cannot infer.
+ *
+ * The frame takes the target it renders into, because Vulkan has no default framebuffer to fall back
+ * on: the image a frame draws to is the host's, chosen per frame, and on a desktop it is whichever
+ * swapchain image came free. Binding a zero target inside the frame returns here. */
+void re_seam_frame_begin(ReSeam *seam, ReSeamTarget target);
+void re_seam_frame_end(ReSeam *seam);
 
 /* ---- state and draw ---------------------------------------------------------------------------- */
 void re_seam_blend(ReSeam *seam, ReSeamBlend blend);
 void re_seam_depth(ReSeam *seam, ReSeamDepthTest test, ReSeamDepthWrite write);
 void re_seam_cull(ReSeam *seam, ReSeamCull cull);
 void re_seam_viewport(ReSeam *seam, int x, int y, int width, int height);
+/* Clip to a rectangle in the same coordinates as the viewport. A width or height below zero turns
+ * clipping off. Every panel microui draws is clipped, so this is per-control, not per-frame. */
+void re_seam_scissor(ReSeam *seam, int x, int y, int width, int height);
+/* Separate alpha blending, for a call site that composites premultiplied colour. `re_seam_blend`'s
+ * three modes stay the common path; this is the escape hatch, not a replacement. */
+void re_seam_blend_separate(ReSeam *seam, ReSeamBlend color, ReSeamBlend alpha);
+void re_seam_depth_compare(ReSeam *seam, ReSeamDepthCompare compare);
 /* `depth` is separate from the colour clear because a call site that clears colour only must keep
  * doing so; clearing depth as well would be a behaviour change smuggled in by a refactor. */
 void re_seam_clear(ReSeam *seam, float r, float g, float b, float a, bool depth);

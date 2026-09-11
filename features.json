@@ -943,6 +943,30 @@
       ]
     },
     {
+      "id": 85,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "A headless start: run the sidecar alone, with no desktop build, no desktop spawn and no agent, so an instance can be installed on a machine that has no C toolchain and be reached over the caller's own tunnel.",
+      "acceptance_criteria": [
+        "A headless start neither imports build.mjs nor resolves the native binary: it comes up on a machine where no cmake, nmake or compiler is on PATH, which is the condition an SSH logon on the Windows box has and always will.",
+        "It ensures the sidecar through ensureSidecar rather than starting a second kind of service, writes url/token/instance into the chosen --state directory, and answers /api/state with the same capability set the workspace service declares.",
+        "--project registers the root, so the instance is useful the moment it is up.",
+        "It starts no agent session and no terminal session, and it refuses --agent, --handoff, --launch-game, --inspect-ui and --declaration naming the flag and its reason, before any sidecar is started.",
+        "The bind stays 127.0.0.1 with its capability token; a connection to the same port on a routable address is refused.",
+        "It prints one machine-parseable ready line carrying the endpoint, then stays in the foreground; the sidecar and its retained sessions survive that process being stopped, and the process exits non-zero if the sidecar dies.",
+        "It is exposed the way start and resume are: a launcher flag and an npm script. The existing full start path still builds and spawns the desktop unchanged."
+      ],
+      "passes": true,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/090-headless-workspace-start.md, orchestrator/launcher/headless.mjs, the --headless branch in orchestrator/launch.mjs, the start:headless script, and orchestrator/tests/headless.test.mjs",
+      "external_references": [],
+      "evidence": [
+        "docs/evidence/headless-start-macos-2026-09-07.md"
+      ]
+    },
+    {
       "id": 90,
       "milestone": "O1",
       "category": "workspace",
@@ -975,30 +999,6 @@
         "docs/evidence/token-desktop-2026-09-07.md",
         "docs/evidence/project-token-e2e-2026-09-07.md",
         "docs/evidence/conversation-is-identity-2026-09-07.md"
-      ]
-    },
-    {
-      "id": 85,
-      "milestone": "O1",
-      "category": "workspace",
-      "priority": "high",
-      "description": "A headless start: run the sidecar alone, with no desktop build, no desktop spawn and no agent, so an instance can be installed on a machine that has no C toolchain and be reached over the caller's own tunnel.",
-      "acceptance_criteria": [
-        "A headless start neither imports build.mjs nor resolves the native binary: it comes up on a machine where no cmake, nmake or compiler is on PATH, which is the condition an SSH logon on the Windows box has and always will.",
-        "It ensures the sidecar through ensureSidecar rather than starting a second kind of service, writes url/token/instance into the chosen --state directory, and answers /api/state with the same capability set the workspace service declares.",
-        "--project registers the root, so the instance is useful the moment it is up.",
-        "It starts no agent session and no terminal session, and it refuses --agent, --handoff, --launch-game, --inspect-ui and --declaration naming the flag and its reason, before any sidecar is started.",
-        "The bind stays 127.0.0.1 with its capability token; a connection to the same port on a routable address is refused.",
-        "It prints one machine-parseable ready line carrying the endpoint, then stays in the foreground; the sidecar and its retained sessions survive that process being stopped, and the process exits non-zero if the sidecar dies.",
-        "It is exposed the way start and resume are: a launcher flag and an npm script. The existing full start path still builds and spawns the desktop unchanged."
-      ],
-      "passes": true,
-      "dependencies": [],
-      "owner_workspace": "rengine",
-      "deliverable": "docs/specs/090-headless-workspace-start.md, orchestrator/launcher/headless.mjs, the --headless branch in orchestrator/launch.mjs, the start:headless script, and orchestrator/tests/headless.test.mjs",
-      "external_references": [],
-      "evidence": [
-        "docs/evidence/headless-start-macos-2026-09-07.md"
       ]
     },
     {
@@ -1237,34 +1237,6 @@
       ]
     },
     {
-      "id": 105,
-      "milestone": "O1",
-      "category": "workspace",
-      "priority": "high",
-      "description": "Task-driven agents (spec 103): the project token serialises workspace-mediated writes to project state -- task_add/task_update/task_decompose run the project's declared write command for the holder only, one at a time; the Sessions tab marks the holder and revokes or frees the token beside it; the Tasks pane spawns a chosen agent and model on a task (a conversation that records the task) or decomposes it into subtasks through an agent brief; prompts are project files with shipped defaults; contract 6 adds tracker.write and agents.",
-      "acceptance_criteria": [
-        "On the Sessions tab the live agent holding the token is marked and offers Revoke; pressing it frees the token as a token.revoked frame by desktop and another agent's token_contest then claims it; a holder whose process is gone offers Free with the same effect.",
-        "task_add, task_update and task_decompose from a non-holder are refused naming the holder and token_contest with nothing written; from the holder they run the declared tracker.write command with the row as JSON; two holders in sequence never interleave a write, proved with a slow fake write command and two callers.",
-        "A project without tracker.write is told so by name; GitHub and Linear providers refuse writes by name.",
-        "Spawn from the Tasks pane starts an agent pane with the chosen CLI and model on a fresh conversation seeded with the task prompt, records task on the conversation, the Sessions tab and workspace_info show the task beside the agent, and agent.spawned is on the feed.",
-        "Decompose starts an agent on the decomposition prompt; with a scripted agent the resulting task_add calls create child rows with parent set and no other file changes.",
-        ".rengine/prompts/*.md override the shipped prompts, a missing file uses the default, and a misspelled placeholder is reported rather than emptied.",
-        "Contract 6 (tracker.write, agents) validates, a contract-5 declaration is accepted unchanged, and an older host is refused by name on the new keys.",
-        "Everything ships in replaceable layers; the host changes only to accept task on the conversation record, refused by name before the next replacement."
-      ],
-      "passes": false,
-      "dependencies": [
-        78,
-        90,
-        93,
-        95
-      ],
-      "owner_workspace": "rengine",
-      "deliverable": "docs/specs/103-task-driven-agents.md; Sessions-tab token controls in orchestrator/native/workspace.c; task write routes and agent-spawn in orchestrator/runtime/worker.mjs; task_*/spawn_agent tools in orchestrator/agents/mcp-worker.mjs; Tasks-pane controls in orchestrator/native/tracker.c; contract 6 in contracts/project-v1.schema.json; shipped prompts under orchestrator/templates/prompts",
-      "external_references": [],
-      "evidence": []
-    },
-    {
       "id": 99,
       "milestone": "O1",
       "category": "workspace",
@@ -1418,6 +1390,34 @@
       ]
     },
     {
+      "id": 105,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "Task-driven agents (spec 103): the project token serialises workspace-mediated writes to project state -- task_add/task_update/task_decompose run the project's declared write command for the holder only, one at a time; the Sessions tab marks the holder and revokes or frees the token beside it; the Tasks pane spawns a chosen agent and model on a task (a conversation that records the task) or decomposes it into subtasks through an agent brief; prompts are project files with shipped defaults; contract 6 adds tracker.write and agents.",
+      "acceptance_criteria": [
+        "On the Sessions tab the live agent holding the token is marked and offers Revoke; pressing it frees the token as a token.revoked frame by desktop and another agent's token_contest then claims it; a holder whose process is gone offers Free with the same effect.",
+        "task_add, task_update and task_decompose from a non-holder are refused naming the holder and token_contest with nothing written; from the holder they run the declared tracker.write command with the row as JSON; two holders in sequence never interleave a write, proved with a slow fake write command and two callers.",
+        "A project without tracker.write is told so by name; GitHub and Linear providers refuse writes by name.",
+        "Spawn from the Tasks pane starts an agent pane with the chosen CLI and model on a fresh conversation seeded with the task prompt, records task on the conversation, the Sessions tab and workspace_info show the task beside the agent, and agent.spawned is on the feed.",
+        "Decompose starts an agent on the decomposition prompt; with a scripted agent the resulting task_add calls create child rows with parent set and no other file changes.",
+        ".rengine/prompts/*.md override the shipped prompts, a missing file uses the default, and a misspelled placeholder is reported rather than emptied.",
+        "Contract 6 (tracker.write, agents) validates, a contract-5 declaration is accepted unchanged, and an older host is refused by name on the new keys.",
+        "Everything ships in replaceable layers; the host changes only to accept task on the conversation record, refused by name before the next replacement."
+      ],
+      "passes": false,
+      "dependencies": [
+        78,
+        90,
+        93,
+        95
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/specs/103-task-driven-agents.md; Sessions-tab token controls in orchestrator/native/workspace.c; task write routes and agent-spawn in orchestrator/runtime/worker.mjs; task_*/spawn_agent tools in orchestrator/agents/mcp-worker.mjs; Tasks-pane controls in orchestrator/native/tracker.c; contract 6 in contracts/project-v1.schema.json; shipped prompts under orchestrator/templates/prompts",
+      "external_references": [],
+      "evidence": []
+    },
+    {
       "id": 106,
       "milestone": "O1",
       "category": "workspace",
@@ -1473,6 +1473,38 @@
         "orchestrator/tests/restart-supervisor.test.mjs: the replacement is detached, or it would die with the pane that asked for it",
         "orchestrator/tests/restart-supervisor.test.mjs: a state directory with no live host is refused, and nothing is signalled",
         "docs/evidence/editor-as-claude-ide-2026-09-07.md: the live supervisor restart on the owner's workspace"
+      ]
+    },
+    {
+      "id": 108,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "An extension is an in-process native plugin (charter D38): a module built against one C header loads by absolute path, negotiates its ABI and draw-list versions, registers tabs through the owned layer and draws by appending to the frame's draw list — and a module that will not load, exports no entry point or declares an incompatible ABI is refused by name while the window keeps running.",
+      "acceptance_criteria": [
+        "A plugin built against orchestrator/native/plugin_abi.h loads from its absolute module path in a real window; the tab it registered appears in the layout with its title, and its draw-list commands reach the frame — the identifiable colour it draws is read back from a snapshot inside the tab's rectangle.",
+        "The ABI is versioned separately from the draw list and a plugin declares both: an ABI version other than the desktop's — older or newer — is refused naming the module path and both versions, and its start is never called; a newer draw-list version is refused the same way and an older one is accepted, because the list is additive (spec 067).",
+        "A declaration whose abi string is not this desktop's is refused before the module file is touched; a path that will not open, a file that is not a module, a relative path, a module without re_plugin_entry, a descriptor whose name disagrees with the declaration, and a start that declines are each refused by name and skipped, and the window keeps answering and rendering afterwards.",
+        "Every plugin the window was asked to load has a row in the inspected state as loaded or refused with its reason; loading the same name twice is one plugin and one tab, so a declaration that arrives repeatedly does not touch the module again.",
+        "A plugin's frame opens with the clip set to its tab's area, a clip it sets can only narrow that area, the frame closes with a clip reset whatever the plugin did, registration outside start is refused, and a theme colour is resolved by token name from the live theme so a preset switch reaches the plugin on the next frame.",
+        "A plugin tab is persisted by identity like any other view: a restarted window restores it as a placeholder naming the plugin, and the same tab — not a second one — comes alive when the plugin loads again.",
+        "The plugin reaches no store, session or host state: the host table it receives holds registration, drawing, clipping, measurement and colour lookup and nothing else (D38). Controls, textures, input, a reopen menu and unloading are deferred with their reasons in spec 106.",
+        "NOT MET — Windows: the loader compiles to LoadLibrary/GetProcAddress and the fixture modules build as DLLs from the same TOML, but no plugin has been loaded on Windows while the desktop suite's repair (KI-038) is outstanding. This row stays passes: false until that evidence exists.",
+        "Each regression was observed failing for its own reason: the sabotage table in docs/evidence/plugin-abi-2026-09-07.md."
+      ],
+      "passes": false,
+      "dependencies": [
+        56,
+        60
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "orchestrator/native/plugin_abi.h (the header a plugin compiles against), orchestrator/native/plugin.{c,h} (registry, version negotiation, the one dlopen/LoadLibrary wrapper), orchestrator/native/pluginview.{c,h} (RE_PLUGIN views and re_app_plugin_load for the declaring lane), the automation `plugin` op, the fixture modules under orchestrator/native/tests/plugins/, rengine_plugin_test (CTest native_plugin), orchestrator/tests/native-plugin.spec.mjs; docs/specs/106-plugin-abi.md.",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/106-plugin-abi.md",
+        "orchestrator/native/tests/plugin_test.c (native_plugin): real modules loaded and refused by name for each reason, the ten-command frame, idempotence, colour by token",
+        "orchestrator/tests/native-plugin.spec.mjs: the fixture's tab and its pixels in a real window, the clip, the restart; refusals with the window still answering",
+        "docs/evidence/plugin-abi-2026-09-07.md: the sabotage table"
       ]
     },
     {
@@ -1537,38 +1569,6 @@
         "orchestrator/tests/product-name.test.mjs: the sign-in callback page wears the declared name, read off the page it serves",
         "orchestrator/tests/product-name.test.mjs: no shipping source hard-codes the product name, and the guard goes red on a decoy that holds one in a string and in a regular expression while its comment is left alone",
         "docs/evidence/product-name-2026-09-07.md: the sabotage table, including the two runs that break the generated path"
-      ]
-    },
-    {
-      "id": 108,
-      "milestone": "O1",
-      "category": "workspace",
-      "priority": "medium",
-      "description": "An extension is an in-process native plugin (charter D38): a module built against one C header loads by absolute path, negotiates its ABI and draw-list versions, registers tabs through the owned layer and draws by appending to the frame's draw list — and a module that will not load, exports no entry point or declares an incompatible ABI is refused by name while the window keeps running.",
-      "acceptance_criteria": [
-        "A plugin built against orchestrator/native/plugin_abi.h loads from its absolute module path in a real window; the tab it registered appears in the layout with its title, and its draw-list commands reach the frame — the identifiable colour it draws is read back from a snapshot inside the tab's rectangle.",
-        "The ABI is versioned separately from the draw list and a plugin declares both: an ABI version other than the desktop's — older or newer — is refused naming the module path and both versions, and its start is never called; a newer draw-list version is refused the same way and an older one is accepted, because the list is additive (spec 067).",
-        "A declaration whose abi string is not this desktop's is refused before the module file is touched; a path that will not open, a file that is not a module, a relative path, a module without re_plugin_entry, a descriptor whose name disagrees with the declaration, and a start that declines are each refused by name and skipped, and the window keeps answering and rendering afterwards.",
-        "Every plugin the window was asked to load has a row in the inspected state as loaded or refused with its reason; loading the same name twice is one plugin and one tab, so a declaration that arrives repeatedly does not touch the module again.",
-        "A plugin's frame opens with the clip set to its tab's area, a clip it sets can only narrow that area, the frame closes with a clip reset whatever the plugin did, registration outside start is refused, and a theme colour is resolved by token name from the live theme so a preset switch reaches the plugin on the next frame.",
-        "A plugin tab is persisted by identity like any other view: a restarted window restores it as a placeholder naming the plugin, and the same tab — not a second one — comes alive when the plugin loads again.",
-        "The plugin reaches no store, session or host state: the host table it receives holds registration, drawing, clipping, measurement and colour lookup and nothing else (D38). Controls, textures, input, a reopen menu and unloading are deferred with their reasons in spec 106.",
-        "NOT MET — Windows: the loader compiles to LoadLibrary/GetProcAddress and the fixture modules build as DLLs from the same TOML, but no plugin has been loaded on Windows while the desktop suite's repair (KI-038) is outstanding. This row stays passes: false until that evidence exists.",
-        "Each regression was observed failing for its own reason: the sabotage table in docs/evidence/plugin-abi-2026-09-07.md."
-      ],
-      "passes": false,
-      "dependencies": [
-        56,
-        60
-      ],
-      "owner_workspace": "rengine",
-      "deliverable": "orchestrator/native/plugin_abi.h (the header a plugin compiles against), orchestrator/native/plugin.{c,h} (registry, version negotiation, the one dlopen/LoadLibrary wrapper), orchestrator/native/pluginview.{c,h} (RE_PLUGIN views and re_app_plugin_load for the declaring lane), the automation `plugin` op, the fixture modules under orchestrator/native/tests/plugins/, rengine_plugin_test (CTest native_plugin), orchestrator/tests/native-plugin.spec.mjs; docs/specs/106-plugin-abi.md.",
-      "external_references": [],
-      "evidence": [
-        "docs/specs/106-plugin-abi.md",
-        "orchestrator/native/tests/plugin_test.c (native_plugin): real modules loaded and refused by name for each reason, the ten-command frame, idempotence, colour by token",
-        "orchestrator/tests/native-plugin.spec.mjs: the fixture's tab and its pixels in a real window, the clip, the restart; refusals with the window still answering",
-        "docs/evidence/plugin-abi-2026-09-07.md: the sabotage table"
       ]
     },
     {
@@ -2046,6 +2046,135 @@
       "evidence": [
         "docs/specs/121-rendering-library.md: the measurement and why NOLF follows VtMB rather than leading"
       ]
+    },
+    {
+      "id": 129,
+      "milestone": "R3",
+      "category": "rendering",
+      "priority": "high",
+      "description": "The resource-and-draw seam grows what a real renderer needs and a windowing-free backend can still provide: a render target made from colour and depth textures the host owns, a frame bracket a command-buffer backend can record into, scissor, texture sub-upload, separate alpha blending, a vec2 uniform and a depth compare function. Every addition is justified by measured call sites in two independent consumers rather than anticipated (spec 124).",
+      "deliverable": "The seam's extended C surface and C++ facade, its OpenGL implementation, and pixel-level regressions for each addition.",
+      "acceptance_criteria": [
+        "A render target is made from textures the host owns, bound, rendered into and unbound, and a later draw samples what was rendered — so an off-screen pass works without the seam ever creating a target of its own.",
+        "A frame bracket exists that a command-buffer backend can record into and submit at its end, and the OpenGL backend implements it without changing what it draws.",
+        "Scissor, texture sub-upload, separate alpha blending, a vec2 uniform and a depth compare function are expressible, and each is observable in rendered pixels rather than only in a call log.",
+        "The seam still links no graphics library and still mentions no windowing symbol: entry points come from the host's loader and the guard fails a build that regresses either.",
+        "The C++ facade carries every addition with no call-site difference from the C core, and vtmb-vr's existing call sites still compile unchanged.",
+        "Each regression was observed failing for its own reason, including a render target that renders to the default framebuffer anyway and a scissor rectangle that is ignored."
+      ],
+      "dependencies": [
+        123
+      ],
+      "owner_workspace": "rengine",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/124-seam-three-backends.md: the measured call counts behind each addition — ~140 framebuffer calls in vtmb-vr and six missing entry points in rEngine's own draw-list backend",
+        "packs/gpu/tests/gpu_seam_test.c: every addition observed in rendered pixels through a real GL 4.1 driver; ten sabotages each failing on the assertion that owns the claim",
+        "docs/specs/124-seam-three-backends.md: the frame takes its target because Vulkan has no default framebuffer — an API question failed into by a test rather than guessed",
+        "Its work and evidence are complete; the row waits because F123 cannot pass until the Vulkan and Metal backends land (F130, F131), which is KI-082's knot rather than anything owed here."
+      ],
+      "passes": false
+    },
+    {
+      "id": 130,
+      "milestone": "R3",
+      "category": "rendering",
+      "priority": "high",
+      "description": "The seam's Vulkan backend: pipeline state coalesced at draw time into a cached pipeline, textures through descriptor sets, uniforms looked up by name through SPIR-V reflection into a push-constant block, staging uploads, and dynamic rendering into targets supplied from outside. This is the verdict on D14c's bet that resource+draw granularity can carry Vulkan with command buffers and render passes built inside the backend — reached in rEngine, on the scene example, before a game adopts (charter D52, spec 124).",
+      "deliverable": "packs/gpu/src/gpu_seam_vk.c built on the pack's own device layer, and the comparison against the OpenGL backend through one set of call sites.",
+      "acceptance_criteria": [
+        "The scene example renders through the Vulkan backend with no call-site edit of any kind, which is what the seam claims and what D14c bet on.",
+        "Its output matches the OpenGL backend's under a recorded tolerance, judged by the comparison this repository already uses rather than by eye.",
+        "Uniforms are still looked up by name: the backend reflects SPIR-V into offsets rather than making call sites carry binding numbers.",
+        "Command buffers, render passes and barriers are built inside the backend, or the attempt records precisely which resource+draw call cannot be expressed that way — a refusal is a result here, not a failure.",
+        "The Vulkan validation layers report nothing across a full run of the example.",
+        "Frame time and allocations per frame are recorded for both backends, because a rendering change that reports only correctness repeats the gap spec 110 closes.",
+        "Each regression was observed failing for its own reason."
+      ],
+      "dependencies": [
+        132
+      ],
+      "owner_workspace": "rengine",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/124-seam-three-backends.md: one shader source reaches all three backends through glslang and SPIRV-Cross, so no runtime compiler is introduced"
+      ],
+      "passes": false
+    },
+    {
+      "id": 131,
+      "milestone": "R3",
+      "category": "rendering",
+      "priority": "medium",
+      "description": "The seam's Metal backend, so the pack serves the third graphics API rEngine's desktop already ships and charter D29 already orders. Shaders reach it as MSL from the same glslang and SPIRV-Cross pipeline that feeds the other two, so one authored source still serves every backend (owner, 2026-09-11; spec 124).",
+      "deliverable": "The pack's Metal implementation of the seam and its comparison against the OpenGL backend on the scene example.",
+      "acceptance_criteria": [
+        "The scene example renders through the Metal backend with no call-site edit, and its output matches the OpenGL backend's under the recorded tolerance.",
+        "Shader stages reach it as MSL produced by the same pipeline that produces the GLSL and SPIR-V, with no separately authored source and no runtime compiler.",
+        "The backend is selected at build time like the others, with exactly one compiled into a binary.",
+        "Frame time and allocations per frame are recorded alongside the other backends'.",
+        "Each regression was observed failing for its own reason."
+      ],
+      "dependencies": [
+        132
+      ],
+      "owner_workspace": "rengine",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/124-seam-three-backends.md: the owner's decision to carry Metal in the pack rather than leave rEngine's third backend outside the seam"
+      ],
+      "passes": false
+    },
+    {
+      "id": 132,
+      "milestone": "R3",
+      "category": "rendering",
+      "priority": "high",
+      "description": "A scene example inside the pack that renders through the seam: a procedural scene committed as code that every gate renders, and an optional real model a person can point it at. It is the consumer whose call sites shape the render-target API and whose pixels judge the backends, and building it is also the outside-consumer proof that the pack stands alone (spec 124).",
+      "deliverable": "packs/gpu/examples/scene with its procedural scene, a minimal OBJ reader, a snapshot mode, and the fetch script for the optional model.",
+      "acceptance_criteria": [
+        "The example builds from the pack alone, as a project that has never heard of rEngine's build, and renders without any asset on disk.",
+        "The procedural scene exercises what the backends differ on: many draws with state changes between them, depth test and write toggled, culling on and off, several programs, textures at both filters and both wraps, an off-screen pass sampled by a later draw, and an alpha-blended overlay.",
+        "A snapshot mode renders a fixed number of frames from a fixed camera and writes an image, so two backends can be compared without a human watching.",
+        "The same call sites render an optional external model when one is supplied, and no build, test or gate requires that model to be present.",
+        "The fetch script for the optional model verifies a recorded checksum, writes outside the repository, refuses a destination inside it, and states the model's licence and attribution.",
+        "Each regression was observed failing for its own reason."
+      ],
+      "dependencies": [
+        129
+      ],
+      "owner_workspace": "rengine",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/124-seam-three-backends.md: why the gate renders a procedural scene and Sponza is for humans"
+      ],
+      "passes": false
+    },
+    {
+      "id": 133,
+      "milestone": "R3",
+      "category": "rendering",
+      "priority": "medium",
+      "description": "rEngine's own 2D draw list renders through the seam, making the pack load-bearing in shipped code rather than only in an example, and SDL_Renderer stops being a shipping path as charter D49 already decided. Because SDL is the only backend that shares no code with the others, its frames are captured first and committed as the reference the comparison judges against, so retiring the path does not retire the independent witness (owner, 2026-09-11; spec 124).",
+      "deliverable": "A draw-list backend implemented on the seam, the committed reference frames, the comparison rewired onto them, and SDL_Renderer removed from the selectable renderers.",
+      "acceptance_criteria": [
+        "The desktop renders through the seam on every graphics API it supports, and the workspace is usable on each: terminals, editors, tabs and the tracker draw and respond as before.",
+        "The committed reference frames were captured from SDL_Renderer before it stopped shipping, and the comparison judges every backend against them under the recorded tolerance.",
+        "SDL_Renderer is no longer a selectable renderer, and a command line that names it says what to use instead rather than failing obscurely.",
+        "The recorded frame-time and memory budgets are still met by every backend, and any change to them is stated rather than absorbed.",
+        "Each regression was observed failing for its own reason, including a seam defect that moves pixels in every backend at once, which the reference frames catch and cross-comparison cannot.",
+        "No microui control, owned control or draw-list op is lost in the move: what the desktop drew before, it draws after."
+      ],
+      "dependencies": [
+        130,
+        131
+      ],
+      "owner_workspace": "rengine",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/124-seam-three-backends.md: why a reference-image gate replaces SDL_Renderer as the oracle"
+      ],
+      "passes": false
     }
   ]
 }

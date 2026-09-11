@@ -171,6 +171,11 @@ int main(void) {
   bindFramebuffer(GL_FRAMEBUFFER, fbo);
   framebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, target.id, 0);
   assert(checkFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+  /* The test is the host, so the framebuffer it made is the frame's target. On a desktop this would
+     be the window's back buffer and on a headset the runtime's image; the seam does not care which,
+     which is the property being demonstrated. */
+  ReSeamTarget screen = re_seam_target_adopt(seam, fbo, W, H);
+  re_seam_frame_begin(seam, screen);
   re_seam_viewport(seam, 0, 0, W, H);
 
   /* ---- clear ------------------------------------------------------------------------------------ */
@@ -331,6 +336,145 @@ int main(void) {
   assert(is_rgb(below_it, 0, 0, 0) && "and only along it");
   re_seam_vertex_array_destroy(seam, &line_array);
   re_seam_buffer_destroy(seam, &line_buffer);
+
+  /* ---- scissor ------------------------------------------------------------------------------------ */
+  /* Clip to the left half and clear: the clear must respect the clip, which is what makes scissor
+     worth having at all in an immediate-mode UI — every panel clears its own ground. */
+  re_seam_clear(seam, 0.0f, 0.0f, 0.0f, 1.0f, false);
+  re_seam_scissor(seam, 0, 0, W / 2, H);
+  re_seam_clear(seam, 0.0f, 1.0f, 1.0f, 1.0f, false);
+  re_seam_scissor(seam, 0, 0, -1, -1);
+  Pixel clipped_in = pixel_at(4, H / 2);
+  Pixel clipped_out = pixel_at(W - 5, H / 2);
+  describe("inside the scissor", clipped_in);
+  describe("outside the scissor", clipped_out);
+  assert(is_rgb(clipped_in, 0, 255, 255) && "the clipped clear reached inside the rectangle");
+  assert(is_rgb(clipped_out, 0, 0, 0) && "and stopped at its edge");
+  /* And turning it off restores the whole surface. This has to clear to a colour that is not already
+     there: the first version cleared black onto a black right half, so it passed with clipping still
+     on — a scissor that never released would have gone unnoticed until a later, unrelated assertion. */
+  re_seam_clear(seam, 1.0f, 0.0f, 1.0f, 1.0f, false);
+  assert(is_rgb(pixel_at(4, H / 2), 255, 0, 255) && is_rgb(pixel_at(W - 5, H / 2), 255, 0, 255) &&
+         "a negative rectangle turns clipping off, and the next clear reaches both halves");
+  re_seam_clear(seam, 0.0f, 0.0f, 0.0f, 1.0f, false);
+
+  /* ---- a sub-rectangle of a texture --------------------------------------------------------------- */
+  /* A glyph atlas writes one rectangle per glyph. Replacing only the left texel must leave the right
+     one alone — an implementation that re-uploaded the whole image would pass a test that checked
+     only the rectangle it wrote. */
+  const unsigned char one_texel[4] = {0, 0, 255, 255};
+  re_seam_texture_update(seam, texture, 0, 0, 1, 1, one_texel);
+  re_seam_clear(seam, 0.0f, 0.0f, 0.0f, 1.0f, false);
+  re_seam_program_use(seam, textured);
+  re_seam_uniform_int(seam, re_seam_uniform_location(seam, textured, "u_texture"), 3);
+  re_seam_texture_bind(seam, texture, 3);
+  re_seam_vertex_array_bind(seam, quad_array);
+  re_seam_buffer_update(seam, quad_buffer, quad, sizeof(quad), RE_SEAM_BUFFER_DYNAMIC);
+  re_seam_draw(seam, RE_SEAM_PRIMITIVE_TRIANGLES, 0, 6);
+  Pixel replaced = pixel_at(W - 5, H / 2);   /* uv runs right to left, so this samples texel 0 */
+  Pixel untouched = pixel_at(4, H / 2);
+  describe("the replaced texel", replaced);
+  describe("the texel left alone", untouched);
+  assert(is_rgb(replaced, 0, 0, 255) && "the sub-rectangle replaced the texel it named");
+  assert(is_rgb(untouched, 255, 255, 0) && "and left the one it did not name");
+
+  /* ---- a render target the seam made, sampled by a later draw -------------------------------------- */
+  /* This is the addition F129 exists for. Render into an off-screen colour texture, then sample that
+     texture in a draw to the main target. If the target were ignored and the pass went to the
+     default framebuffer, the sample would read an untouched texture and the final pixel would be
+     black — so one assertion covers both halves. */
+  ReSeamTexture offscreen = re_seam_texture_2d_for(seam, NULL, 8, 8, RE_SEAM_FILTER_NEAREST,
+                                                   RE_SEAM_WRAP_CLAMP_TO_EDGE, RE_SEAM_TEXTURE_COLOR);
+  ReSeamTexture offscreen_depth = re_seam_texture_2d_for(seam, NULL, 8, 8, RE_SEAM_FILTER_NEAREST,
+                                                         RE_SEAM_WRAP_CLAMP_TO_EDGE, RE_SEAM_TEXTURE_DEPTH);
+  ReSeamTarget pass = re_seam_target(seam, offscreen, offscreen_depth);
+  assert(pass.id != 0 && pass.width == 8 && pass.height == 8 && "a target made from the host's textures");
+
+  re_seam_target_bind(seam, pass);
+  re_seam_viewport(seam, 0, 0, 8, 8);
+  re_seam_clear(seam, 1.0f, 0.5f, 0.0f, 1.0f, true);   /* an orange nobody else in this test uses */
+  re_seam_target_bind(seam, (ReSeamTarget){0, 0, 0});   /* back to the frame's target */
+  re_seam_viewport(seam, 0, 0, W, H);
+
+  re_seam_clear(seam, 0.0f, 0.0f, 0.0f, 1.0f, false);
+  re_seam_texture_bind(seam, offscreen, 3);
+  re_seam_draw(seam, RE_SEAM_PRIMITIVE_TRIANGLES, 0, 6);
+  Pixel sampled = pixel_at(W / 2, H / 2);
+  describe("the off-screen pass, sampled", sampled);
+  assert(is_rgb(sampled, 255, 128, 0) && "the pass rendered into the target and a later draw read it");
+  /* And the frame's target was not what the pass cleared: if it had been, this corner would be
+     green. This is the assertion that separates "a zero target is the frame's" from "a zero target
+     is the window": with the latter, the drawing above lands on a 1x1 window and this reads nothing. */
+  re_seam_target_bind(seam, pass);
+  re_seam_clear(seam, 0.0f, 1.0f, 0.0f, 1.0f, false);
+  re_seam_target_bind(seam, (ReSeamTarget){0, 0, 0});
+  assert(is_rgb(pixel_at(2, 2), 255, 128, 0) &&
+         "clearing the off-screen target left the frame's target alone");
+
+  /* ---- depth, compared the way the caller asked ---------------------------------------------------- */
+  /* Two draws at the same depth. With LESS the second is rejected; with EQUAL it wins. Nothing else
+     in this test enables depth at all, so this is the only place the depth state is observable. */
+  re_seam_target_bind(seam, pass);
+  re_seam_viewport(seam, 0, 0, 8, 8);
+  re_seam_clear(seam, 0.0f, 0.0f, 0.0f, 1.0f, true);
+  re_seam_depth(seam, RE_SEAM_DEPTH_TEST_ENABLED, RE_SEAM_DEPTH_WRITE_ENABLED);
+  re_seam_program_use(seam, constant);
+  re_seam_vertex_array_bind(seam, array);
+  re_seam_blend(seam, RE_SEAM_BLEND_NONE);
+  re_seam_draw(seam, RE_SEAM_PRIMITIVE_TRIANGLES, 0, 3);        /* green, writes depth */
+  re_seam_program_use(seam, solid);
+  re_seam_uniform_vec4(seam, re_seam_uniform_location(seam, solid, "u_color"), 1.0f, 0.0f, 0.0f, 1.0f);
+  re_seam_draw(seam, RE_SEAM_PRIMITIVE_TRIANGLES, 0, 3);        /* red, same depth: LESS rejects it */
+  unsigned char probe[4] = {0};
+  readPixels(1, 1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, probe);
+  describe("equal depth under LESS", (Pixel){probe[0], probe[1], probe[2], probe[3]});
+  assert(near(probe[1], 255) && near(probe[0], 0) && "LESS rejects a fragment at the same depth");
+  re_seam_depth_compare(seam, RE_SEAM_DEPTH_EQUAL);
+  re_seam_draw(seam, RE_SEAM_PRIMITIVE_TRIANGLES, 0, 3);
+  readPixels(1, 1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, probe);
+  describe("equal depth under EQUAL", (Pixel){probe[0], probe[1], probe[2], probe[3]});
+  assert(near(probe[0], 255) && near(probe[1], 0) && "EQUAL accepts it — the compare function is the caller's");
+  re_seam_depth_compare(seam, RE_SEAM_DEPTH_LESS);
+  re_seam_depth(seam, RE_SEAM_DEPTH_TEST_DISABLED, RE_SEAM_DEPTH_WRITE_DISABLED);
+  re_seam_target_bind(seam, (ReSeamTarget){0, 0, 0});
+  re_seam_viewport(seam, 0, 0, W, H);
+  re_seam_target_destroy(seam, &pass);
+  assert(pass.id == 0);
+  re_seam_texture_destroy(seam, &offscreen);
+  re_seam_texture_destroy(seam, &offscreen_depth);
+
+  /* ---- separate alpha blending ---------------------------------------------------------------------- */
+  /* Colour blends with the source alpha while the alpha channel accumulates instead. Over a ground
+     of alpha 0.5 with a source of alpha 0.5 the two modes are far apart and the arithmetic is worth
+     writing down, because "roughly higher" is not a test:
+         both channels Alpha:  0.5*0.5 + 0.5*(1-0.5) = 0.50 -> 127
+         alpha channel added:  0.5*0.5 + 0.5*1       = 0.75 -> 191
+     so the alpha this reads separates the two beyond any rounding. */
+  re_seam_clear(seam, 0.0f, 0.0f, 0.0f, 0.5f, false);
+  re_seam_program_use(seam, solid);
+  re_seam_vertex_array_bind(seam, array);
+  re_seam_uniform_vec4(seam, re_seam_uniform_location(seam, solid, "u_color"), 1.0f, 1.0f, 1.0f, 0.5f);
+  re_seam_blend_separate(seam, RE_SEAM_BLEND_ALPHA, RE_SEAM_BLEND_ADDITIVE);
+  re_seam_draw(seam, RE_SEAM_PRIMITIVE_TRIANGLES, 0, 3);
+  Pixel separate = pixel_at(2, 2);
+  describe("separate alpha", separate);
+  assert(near(separate.r, 127) && "colour still blended with the source alpha");
+  assert(near(separate.a, 191) &&
+         "while the alpha channel accumulated — a single blend mode for both would leave 127 here");
+  re_seam_blend(seam, RE_SEAM_BLEND_NONE);
+
+  /* ---- the frame bracket ------------------------------------------------------------------------------ */
+  /* OpenGL needs no bracket, so the only thing observable here is that it is tracked: a second begin
+     without an end is a mistake a command-buffer backend cannot survive, and it is reported now
+     rather than discovered there. */
+  messages[0] = '\0';
+  re_seam_frame_begin(seam, screen);
+  assert(strstr(messages, "never ended") != NULL && "an unbalanced frame is named, not ignored");
+  re_seam_frame_end(seam);
+  messages[0] = '\0';
+  re_seam_frame_end(seam);
+  assert(strstr(messages, "outside a frame") != NULL && "and so is an end without a begin");
+  re_seam_frame_begin(seam, screen);
 
   /* ---- failures are reported, not swallowed ------------------------------------------------------ */
   messages[0] = '\0';

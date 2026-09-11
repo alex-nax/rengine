@@ -73,6 +73,19 @@ typedef ptrdiff_t GLsizeiptr;
 #define GL_COMPILE_STATUS 0x8B81
 #define GL_LINK_STATUS 0x8B82
 #define GL_TEXTURE0 0x84C0
+#define GL_SCISSOR_TEST 0x0C11
+#define GL_FRAMEBUFFER 0x8D40
+#define GL_COLOR_ATTACHMENT0 0x8CE0
+#define GL_DEPTH_ATTACHMENT 0x8D00
+#define GL_FRAMEBUFFER_COMPLETE 0x8CD5
+#define GL_DEPTH_COMPONENT 0x1902
+#define GL_DEPTH_COMPONENT24 0x81A6
+#define GL_UNSIGNED_INT 0x1405
+#define GL_NEVER 0x0200
+#define GL_LESS 0x0201
+#define GL_EQUAL 0x0202
+#define GL_LEQUAL 0x0203
+#define GL_ALWAYS 0x0207
 
 /* Every entry point this backend uses, in one list: the table, the loader and the "which one is
  * missing" message are all generated from it, so adding a GL call cannot silently skip its load. */
@@ -120,6 +133,17 @@ typedef ptrdiff_t GLsizeiptr;
   X(void, glClearColor, (GLfloat r, GLfloat g, GLfloat b, GLfloat a))                               \
   X(void, glClear, (GLbitfield mask))                                                               \
   X(void, glDrawArrays, (GLenum mode, GLint first, GLsizei count))                                  \
+  X(void, glScissor, (GLint x, GLint y, GLsizei width, GLsizei height))                             \
+  X(void, glBlendFuncSeparate, (GLenum srcRGB, GLenum dstRGB, GLenum srcA, GLenum dstA))            \
+  X(void, glDepthFunc, (GLenum func))                                                               \
+  X(void, glUniform2f, (GLint location, GLfloat v0, GLfloat v1))                                    \
+  X(void, glTexSubImage2D, (GLenum target, GLint level, GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, const void *pixels)) \
+  X(void, glGenFramebuffers, (GLsizei n, GLuint *framebuffers))                                     \
+  X(void, glDeleteFramebuffers, (GLsizei n, const GLuint *framebuffers))                            \
+  X(void, glBindFramebuffer, (GLenum target, GLuint framebuffer))                                   \
+  X(void, glFramebufferTexture2D, (GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level)) \
+  X(GLenum, glCheckFramebufferStatus, (GLenum target))                                              \
+  X(void, glFlush, (void))                                                                          \
   X(const GLubyte_t *, glGetString, (GLenum name))
 
 struct ReSeam {
@@ -128,6 +152,8 @@ struct ReSeam {
 #undef RE_SEAM_GL_MEMBER
   ReSeamOnMessage on_message;
   void *message_user;
+  bool in_frame;
+  ReSeamTarget frame_target;
 };
 
 /* The current seam is per thread because a graphics context is: two render threads with two contexts
@@ -261,6 +287,9 @@ int re_seam_uniform_location(ReSeam *seam, ReSeamProgram program, const char *na
 
 void re_seam_uniform_int(ReSeam *seam, int location, int value) { seam->glUniform1i(location, value); }
 void re_seam_uniform_float(ReSeam *seam, int location, float value) { seam->glUniform1f(location, value); }
+void re_seam_uniform_vec2(ReSeam *seam, int location, float x, float y) {
+  seam->glUniform2f(location, x, y);
+}
 void re_seam_uniform_vec4(ReSeam *seam, int location, float x, float y, float z, float w) {
   seam->glUniform4f(location, x, y, z, w);
 }
@@ -318,21 +347,7 @@ void re_seam_vertex_array_bind(ReSeam *seam, ReSeamVertexArray array) { seam->gl
 
 ReSeamTexture re_seam_texture_2d(ReSeam *seam, const void *rgba, int width, int height,
                                  ReSeamFilter filter, ReSeamWrap wrap) {
-  ReSeamTexture texture = {0};
-  GLint gl_filter = filter == RE_SEAM_FILTER_NEAREST ? GL_NEAREST : GL_LINEAR;
-  GLint gl_wrap = wrap == RE_SEAM_WRAP_REPEAT ? GL_REPEAT : GL_CLAMP_TO_EDGE;
-  texture.width = width;
-  texture.height = height;
-  seam->glGenTextures(1, &texture.id);
-  seam->glBindTexture(GL_TEXTURE_2D, texture.id);
-  seam->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter);
-  seam->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter);
-  seam->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, gl_wrap);
-  seam->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, gl_wrap);
-  seam->glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-  seam->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
-  seam->glBindTexture(GL_TEXTURE_2D, 0);
-  return texture;
+  return re_seam_texture_2d_for(seam, rgba, width, height, filter, wrap, RE_SEAM_TEXTURE_SAMPLED);
 }
 
 void re_seam_texture_destroy(ReSeam *seam, ReSeamTexture *texture) {
@@ -346,6 +361,119 @@ void re_seam_texture_destroy(ReSeam *seam, ReSeamTexture *texture) {
 void re_seam_texture_bind(ReSeam *seam, ReSeamTexture texture, int unit) {
   seam->glActiveTexture((GLenum)(GL_TEXTURE0 + unit));
   seam->glBindTexture(GL_TEXTURE_2D, texture.id);
+}
+
+/* ---- textures, continued ------------------------------------------------------------------------ */
+
+ReSeamTexture re_seam_texture_2d_for(ReSeam *seam, const void *rgba, int width, int height,
+                                     ReSeamFilter filter, ReSeamWrap wrap, ReSeamTextureUse use) {
+  ReSeamTexture texture = {0};
+  GLint gl_filter = filter == RE_SEAM_FILTER_NEAREST ? GL_NEAREST : GL_LINEAR;
+  GLint gl_wrap = wrap == RE_SEAM_WRAP_REPEAT ? GL_REPEAT : GL_CLAMP_TO_EDGE;
+  /* A depth attachment has no colour format; asking GL for RGBA here yields an incomplete
+     framebuffer later, which reports as "status 0x8CD6" and says nothing about the cause. */
+  GLint internal = use == RE_SEAM_TEXTURE_DEPTH ? GL_DEPTH_COMPONENT24 : GL_RGBA;
+  GLenum format = use == RE_SEAM_TEXTURE_DEPTH ? GL_DEPTH_COMPONENT : GL_RGBA;
+  GLenum type = use == RE_SEAM_TEXTURE_DEPTH ? GL_UNSIGNED_INT : GL_UNSIGNED_BYTE;
+  texture.width = width;
+  texture.height = height;
+  seam->glGenTextures(1, &texture.id);
+  seam->glBindTexture(GL_TEXTURE_2D, texture.id);
+  seam->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter);
+  seam->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter);
+  seam->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, gl_wrap);
+  seam->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, gl_wrap);
+  seam->glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  seam->glTexImage2D(GL_TEXTURE_2D, 0, internal, width, height, 0, format, type, rgba);
+  seam->glBindTexture(GL_TEXTURE_2D, 0);
+  return texture;
+}
+
+void re_seam_texture_update(ReSeam *seam, ReSeamTexture texture, int x, int y, int width, int height,
+                            const void *rgba) {
+  if (seam == NULL || texture.id == 0 || rgba == NULL || width <= 0 || height <= 0) return;
+  seam->glBindTexture(GL_TEXTURE_2D, texture.id);
+  seam->glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  seam->glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, (GLsizei)width, (GLsizei)height, GL_RGBA,
+                        GL_UNSIGNED_BYTE, rgba);
+  seam->glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+/* ---- render targets ------------------------------------------------------------------------------ */
+
+ReSeamTarget re_seam_target(ReSeam *seam, ReSeamTexture color, ReSeamTexture depth) {
+  ReSeamTarget target = {0};
+  if (seam == NULL || color.id == 0) {
+    report(seam, "gpu: a render target needs a colour texture");
+    return target;
+  }
+  seam->glGenFramebuffers(1, &target.id);
+  seam->glBindFramebuffer(GL_FRAMEBUFFER, target.id);
+  seam->glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color.id, 0);
+  if (depth.id != 0)
+    seam->glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth.id, 0);
+  GLenum status = seam->glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  seam->glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  if (status != GL_FRAMEBUFFER_COMPLETE) {
+    /* Naming the sizes is the whole diagnostic: mismatched attachments are what this is, nearly
+       every time, and the status code alone sends the reader to a table instead of to the bug. */
+    report(seam, "gpu: render target incomplete (status 0x%X) with colour %dx%d and depth %dx%d",
+           (unsigned)status, color.width, color.height, depth.width, depth.height);
+    seam->glDeleteFramebuffers(1, &target.id);
+    target.id = 0;
+    return target;
+  }
+  target.width = color.width;
+  target.height = color.height;
+  return target;
+}
+
+void re_seam_target_destroy(ReSeam *seam, ReSeamTarget *target) {
+  if (seam == NULL || target == NULL) return;
+  if (target->id != 0) seam->glDeleteFramebuffers(1, &target->id);
+  target->id = 0;
+  target->width = 0;
+  target->height = 0;
+}
+
+ReSeamTarget re_seam_target_adopt(ReSeam *seam, uintptr_t handle, int width, int height) {
+  ReSeamTarget target = {0};
+  (void)seam;
+  /* On OpenGL the host's handle IS a framebuffer name, and 0 is the window's back buffer — a legal
+     value, which is why a zero target means "the frame's target" rather than "no target". */
+  target.id = (uint32_t)handle;
+  target.width = width;
+  target.height = height;
+  return target;
+}
+
+void re_seam_target_bind(ReSeam *seam, ReSeamTarget target) {
+  if (seam == NULL) return;
+  /* A zero handle is "back to the frame's target", not "the window". The distinction is invisible on
+     a desktop that renders straight to the back buffer and decisive anywhere else: a headset renders
+     into a runtime image, and a test renders into its own framebuffer. */
+  if (target.id == 0) target = seam->frame_target;
+  seam->glBindFramebuffer(GL_FRAMEBUFFER, target.id);
+}
+
+/* ---- the frame ------------------------------------------------------------------------------------
+ * OpenGL has no command buffer to open, so this pair is bookkeeping here and real work in the other
+ * two backends. It is still tracked rather than ignored: a call site that forgets the bracket would
+ * otherwise work on OpenGL and draw nothing on Vulkan, which is the worst way to find out. */
+
+void re_seam_frame_begin(ReSeam *seam, ReSeamTarget target) {
+  if (seam == NULL) return;
+  if (seam->in_frame) report(seam, "gpu: re_seam_frame_begin inside a frame that never ended");
+  seam->in_frame = true;
+  seam->frame_target = target;
+  seam->glBindFramebuffer(GL_FRAMEBUFFER, target.id);
+}
+
+void re_seam_frame_end(ReSeam *seam) {
+  if (seam == NULL) return;
+  if (!seam->in_frame) report(seam, "gpu: re_seam_frame_end outside a frame");
+  seam->in_frame = false;
+  seam->glFlush();
 }
 
 /* ---- state and draw ------------------------------------------------------------------------------ */
@@ -376,6 +504,38 @@ void re_seam_cull(ReSeam *seam, ReSeamCull cull) {
 
 void re_seam_viewport(ReSeam *seam, int x, int y, int width, int height) {
   seam->glViewport(x, y, (GLsizei)width, (GLsizei)height);
+}
+
+void re_seam_scissor(ReSeam *seam, int x, int y, int width, int height) {
+  if (width < 0 || height < 0) {
+    seam->glDisable(GL_SCISSOR_TEST);
+    return;
+  }
+  seam->glEnable(GL_SCISSOR_TEST);
+  seam->glScissor(x, y, (GLsizei)width, (GLsizei)height);
+}
+
+static GLenum blend_source(ReSeamBlend blend) { return blend == RE_SEAM_BLEND_NONE ? GL_ONE : GL_SRC_ALPHA; }
+static GLenum blend_dest(ReSeamBlend blend) {
+  if (blend == RE_SEAM_BLEND_NONE) return 0;                     /* unused; blending is off */
+  return blend == RE_SEAM_BLEND_ADDITIVE ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA;
+}
+
+void re_seam_blend_separate(ReSeam *seam, ReSeamBlend color, ReSeamBlend alpha) {
+  if (color == RE_SEAM_BLEND_NONE && alpha == RE_SEAM_BLEND_NONE) {
+    seam->glDisable(GL_BLEND);
+    return;
+  }
+  seam->glEnable(GL_BLEND);
+  seam->glBlendFuncSeparate(blend_source(color), blend_dest(color), blend_source(alpha), blend_dest(alpha));
+}
+
+void re_seam_depth_compare(ReSeam *seam, ReSeamDepthCompare compare) {
+  GLenum func = GL_LESS;
+  if (compare == RE_SEAM_DEPTH_LESS_EQUAL) func = GL_LEQUAL;
+  else if (compare == RE_SEAM_DEPTH_EQUAL) func = GL_EQUAL;
+  else if (compare == RE_SEAM_DEPTH_ALWAYS) func = GL_ALWAYS;
+  seam->glDepthFunc(func);
 }
 
 void re_seam_clear(ReSeam *seam, float r, float g, float b, float a, bool depth) {

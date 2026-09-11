@@ -53,6 +53,14 @@ struct VertexArray
 {
     std::uint32_t id = 0;
 };
+// A place to render, made from textures the caller owns. A default-constructed one means "whatever
+// the host had bound" — the window's back buffer, or a headset runtime's image.
+struct Target
+{
+    std::uint32_t id = 0;
+    int width = 0;
+    int height = 0;
+};
 
 enum class BufferUsage : std::uint8_t
 {
@@ -95,6 +103,19 @@ enum class Cull : std::uint8_t
     None,
     Back,
 };
+enum class DepthCompare : std::uint8_t
+{
+    Less,
+    LessEqual,
+    Equal,
+    Always,
+};
+enum class TextureUse : std::uint8_t
+{
+    Sampled,
+    Color,
+    Depth,
+};
 
 struct VertexAttribute
 {
@@ -128,6 +149,13 @@ static_assert(static_cast<int>(DepthWrite::Disabled) == RE_SEAM_DEPTH_WRITE_DISA
 static_assert(static_cast<int>(DepthWrite::Enabled) == RE_SEAM_DEPTH_WRITE_ENABLED);
 static_assert(static_cast<int>(Cull::None) == RE_SEAM_CULL_NONE);
 static_assert(static_cast<int>(Cull::Back) == RE_SEAM_CULL_BACK);
+static_assert(static_cast<int>(DepthCompare::Less) == RE_SEAM_DEPTH_LESS);
+static_assert(static_cast<int>(DepthCompare::LessEqual) == RE_SEAM_DEPTH_LESS_EQUAL);
+static_assert(static_cast<int>(DepthCompare::Equal) == RE_SEAM_DEPTH_EQUAL);
+static_assert(static_cast<int>(DepthCompare::Always) == RE_SEAM_DEPTH_ALWAYS);
+static_assert(static_cast<int>(TextureUse::Sampled) == RE_SEAM_TEXTURE_SAMPLED);
+static_assert(static_cast<int>(TextureUse::Color) == RE_SEAM_TEXTURE_COLOR);
+static_assert(static_cast<int>(TextureUse::Depth) == RE_SEAM_TEXTURE_DEPTH);
 
 // A shader stage in whichever forms the build produced. `Shader{someGlsl}` is the common case, so
 // the GLSL member is first and the constructor from a string literal is implicit on purpose.
@@ -243,6 +271,7 @@ class Device
     }
     void setUniform(int location, int value) { re_seam_uniform_int(seam(), location, value); }
     void setUniform(int location, float value) { re_seam_uniform_float(seam(), location, value); }
+    void setUniform(int location, float x, float y) { re_seam_uniform_vec2(seam(), location, x, y); }
     void setUniform(int location, float x, float y, float z, float w)
     {
         re_seam_uniform_vec4(seam(), location, x, y, z, w);
@@ -297,6 +326,50 @@ class Device
     {
         re_seam_texture_bind(seam(), ReSeamTexture{texture.id, texture.width, texture.height}, unit);
     }
+    // Says what the texture is for. A depth attachment has no colour format, so this cannot be
+    // inferred from the pixels being null — an attachment is made with no pixels either.
+    Texture createTexture2D(const void* rgba, int width, int height, Filter filter, Wrap wrap, TextureUse use)
+    {
+        const ReSeamTexture raw = re_seam_texture_2d_for(seam(), rgba, width, height,
+                                                         static_cast<ReSeamFilter>(filter),
+                                                         static_cast<ReSeamWrap>(wrap),
+                                                         static_cast<ReSeamTextureUse>(use));
+        return Texture{raw.id, raw.width, raw.height};
+    }
+    void updateTexture(Texture texture, int x, int y, int width, int height, const void* rgba)
+    {
+        re_seam_texture_update(seam(), ReSeamTexture{texture.id, texture.width, texture.height},
+                               x, y, width, height, rgba);
+    }
+
+    // --- render targets ---------------------------------------------------------------------
+    Target createTarget(Texture color, Texture depth = Texture{})
+    {
+        const ReSeamTarget raw = re_seam_target(seam(), ReSeamTexture{color.id, color.width, color.height},
+                                                ReSeamTexture{depth.id, depth.width, depth.height});
+        return Target{raw.id, raw.width, raw.height};
+    }
+    void destroyTarget(Target& target)
+    {
+        ReSeamTarget raw{target.id, target.width, target.height};
+        re_seam_target_destroy(seam(), &raw);
+        target = Target{};
+    }
+    void bindTarget(Target target) { re_seam_target_bind(seam(), ReSeamTarget{target.id, target.width, target.height}); }
+    // The target the host already owns, in the backend's own terms — the one place this API is not
+    // neutral, because a window's back buffer belongs to the host and each API names it differently.
+    Target adoptTarget(std::uintptr_t handle, int width, int height)
+    {
+        const ReSeamTarget raw = re_seam_target_adopt(seam(), handle, width, height);
+        return Target{raw.id, raw.width, raw.height};
+    }
+
+    // --- the frame --------------------------------------------------------------------------
+    void beginFrame(Target target = Target{})
+    {
+        re_seam_frame_begin(seam(), ReSeamTarget{target.id, target.width, target.height});
+    }
+    void endFrame() { re_seam_frame_end(seam()); }
 
     // --- state + draw -----------------------------------------------------------------------
     void setBlend(Blend blend) { re_seam_blend(seam(), static_cast<ReSeamBlend>(blend)); }
@@ -306,6 +379,16 @@ class Device
     }
     void setCull(Cull cull) { re_seam_cull(seam(), static_cast<ReSeamCull>(cull)); }
     void setViewport(int x, int y, int width, int height) { re_seam_viewport(seam(), x, y, width, height); }
+    // A negative width or height turns clipping off, which is what "no scissor" means everywhere.
+    void setScissor(int x, int y, int width, int height) { re_seam_scissor(seam(), x, y, width, height); }
+    void setBlendSeparate(Blend color, Blend alpha)
+    {
+        re_seam_blend_separate(seam(), static_cast<ReSeamBlend>(color), static_cast<ReSeamBlend>(alpha));
+    }
+    void setDepthCompare(DepthCompare compare)
+    {
+        re_seam_depth_compare(seam(), static_cast<ReSeamDepthCompare>(compare));
+    }
     void clear(float r, float g, float b, float a, bool depth) { re_seam_clear(seam(), r, g, b, a, depth); }
     void draw(Primitive primitive, int first, int count)
     {

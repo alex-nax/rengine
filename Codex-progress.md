@@ -1,5 +1,56 @@
 # Progress Log
 
+## Session 99 (macos) — 2026-09-11 — the seam grows a render target, and Sponza gets a fetch script
+
+Owner direction: prove the seam in rEngine rather than wait for vtmb-vr (option 4), carry **Metal**
+in the pack too, **retire plain SDL**, and add a scene example like ForwardPlus_Vulkan's. Recorded as
+**D53** and **D54**; planned in **spec 124**; decomposed into **F129–F133**.
+
+**The measurements the API rests on.** Two consumers that have never coordinated name the same
+missing call. vtmb-vr's renderer makes **~140 framebuffer and renderbuffer calls** the seam cannot
+express (`glBindFramebuffer` alone is 63), plus 29 calls that only exist to save and restore ambient
+state and 25 of pipeline state outside the small set. rEngine's own draw-list backend is missing six
+entry points: `glScissor`, `glTexSubImage2D`, `glBlendFuncSeparate`, `glUniform2f`, `glReadPixels`,
+`glFlush`. And the check that the seam is not simply thin: **the thirteen files already behind
+vtmb-vr's seam contain zero raw GL calls** — D14's "never to GL directly" holds exactly for what it
+serves.
+
+**F129 is implemented and evidenced**: render targets made from the host's own textures, a frame
+bracket, scissor, texture sub-upload, separate alpha blending, a `vec2` uniform, a depth compare
+function. **Ten sabotages, each observed failing on the assertion that owns its claim.**
+
+**The API question spec 123 said would be guessed was failed into instead, in about a minute.** The
+first cut let a zero render target mean "the default framebuffer". The pixel test renders into its
+own framebuffer, so "the default" was a 1×1 hidden window and everything after the first off-screen
+pass read nothing. **Vulkan has no default framebuffer at all** — so the frame takes its target,
+`re_seam_frame_begin(seam, target)`, and a zero target means *back to the frame's target*. That
+forces exactly one escape hatch, `re_seam_target_adopt`, taking the host's own handle; it is the only
+place the seam is not API-neutral, for the same reason `re_gpu_instance` hands back a `VkInstance`.
+
+**One assertion was blind when written and the pass caught it.** *"A negative rectangle turns
+clipping off"* cleared black onto an already-black half, so it passed with clipping still enabled —
+the failure surfaced two assertions later against something else. Second time in this pack's history.
+Also corrected: the separate-alpha assertion said "alpha above 200" from intuition; the real values
+are **191** accumulated against **127** for a single blend mode, and the test now states both.
+
+**Sponza.** `packs/gpu/examples/scene/fetch-sponza.sh` fetches Crytek Sponza (Frank Meinl, Crytek,
+via Morgan McGuire's archive; CC BY 3.0) — run once to record its SHA-256, so the check is real:
+`da005cbe…`. 80 MB zip, 21 MB OBJ, 393 materials, 54 textures. It writes outside the repository and
+**refuses a `--dest` inside it** — an 80 MB model in a checkout two games pin as a submodule is
+everyone's problem. Nothing in any build, test or gate references it; the committed procedural scene
+is what the gates render.
+
+**F129's row stays `passes: false`**, and not for want of evidence: `validate` refuses a passing
+feature depending on a non-passing one, and F123 cannot pass until its eighth criterion has the
+Vulkan and Metal backends. The chain completes at F131 and flips backwards. That is KI-082 showing
+itself in the inventory.
+
+Commands: `npm test` 233/233 · `ctest -R native_gpu` 2/2 · ten F129 sabotages · facade compile
+against vtmb-vr's call sites · `./init.sh` · `design.py check`
+
+Next: **F132**, the scene example — the consumer whose pixels will judge the Vulkan and Metal
+backends.
+
 ## Session 98 (macos) — 2026-09-10 — the seam, generalised from VtMB and judged on pixels
 
 F123's second half. The seam is written, its OpenGL backend runs against a real driver, and
