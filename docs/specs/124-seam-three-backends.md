@@ -490,6 +490,25 @@ as floats on either of the others garbles the vertex stream.
 The comparison after it: Vulkan differs from OpenGL in **1** pixel, Metal in **5**, none outside the
 edge band.
 
+### A third finding: the desktop already maintains its shader three times by hand
+
+Measured while planning the port, and it strengthens the case for doing it:
+
+| copy | form | where |
+| --- | --- | --- |
+| `backend_gl.c` | GLSL 3.30, inline | `vertex_source` / `fragment_source` |
+| `shaders/ui.{vert,frag}` | GLSL, compiled to SPIR-V by `tools/shaders.py` | for the Vulkan backend |
+| `backend_metal.m` | MSL, inline, translated by hand | `shader_source` |
+
+All three implement the same five signed-distance modes, and they currently **agree** — the box
+function, the corner selection, the ring's inner and outer clamps, the coverage and RGBA sampling are
+the same expressions in three languages. Agreement maintained by hand is a risk that has not fired
+yet, not an absence of risk: a fix to the ring's inner radius has to be made three times, in three
+dialects, and nothing fails if it is made twice.
+
+The pack's generator already turns one source into all three forms. Collapsing these into it is part
+of the migration and worth doing for its own sake.
+
 ### What F133 still owes
 
 The migration itself: rEngine's draw list rendering through the seam, and SDL_Renderer removed from

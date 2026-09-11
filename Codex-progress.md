@@ -1,5 +1,35 @@
 # Progress Log
 
+## Session 104 (macos) — 2026-09-11 — two API gaps and a third copy, all found by writing the port
+
+F133, continued. No migration yet — and the reason is that writing the draw list against the seam
+kept finding things, which is what this exercise is for.
+
+**The seam's vertex layout could only describe floats.** rEngine's UI vertex packs colour as four
+bytes; VtMB's note said a type enum before a second type exists would be speculative, and that held
+right up until the second type turned up. Twelve bytes per vertex on a 65,536-vertex batch is 768 KiB
+a frame. `ReSeamVertexAttribute` gained a `type` defaulting to float, implemented on all three
+backends, exercised by a packed per-vertex colour in the scene so **three drivers agree it works**
+rather than three implementations merely existing. Three sabotages, each caught. Vulkan then differs
+from OpenGL in 1 pixel and Metal in 5, none outside the edge band.
+
+**The desktop maintains its UI shader three times by hand** — inline GLSL in `backend_gl.c`,
+`shaders/ui.{vert,frag}` for Vulkan, inline MSL in `backend_metal.m`. All five signed-distance modes,
+the same expressions in three languages. They agree today, kept that way by hand: a fix to the ring's
+inner radius has to be made three times and nothing fails if it is made twice. The pack's generator
+already turns one source into all three forms.
+
+**The decision that gates the rest, and it is the owner's.** The seam's backend is chosen at compile
+time (D14b/D51) and rEngine's desktop chooses its renderer at run time. Both cannot survive the
+migration. Either the desktop ships one binary per backend — what D51 intends for a game, and what
+makes `native-render.spec.mjs` build three desktops rather than run one three times — or the desktop
+keeps its runtime-dispatched backends and gains the seam as a fourth, leaving two OpenGL
+implementations in the tree and half-proving the point. Recommendation is the first. It is a
+user-visible change to a tool the owner uses daily, so it is not being made quietly.
+
+Commands: `npm test` 236/236 · three attribute sabotages across three backends · the facade still
+compiles vtmb-vr's call sites · `./init.sh` · `design.py check` · `shaders/generate.py check`
+
 ## Session 103 (macos) — 2026-09-11 — the oracle, captured before the path that served it retires
 
 F133's first step, and D54's ordering is the whole point of doing it first: **the reference frames
