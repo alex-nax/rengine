@@ -5,14 +5,15 @@
       "id": "ask-the-cli-never-infer",
       "kind": "rationale",
       "anchor": {
-        "start": 57,
-        "end": 57,
+        "start": 75,
+        "end": 75,
         "snippet": "export async function report({ env = process.env, argv = process.argv.slice(2), input } = {}) {"
       },
-      "note": "The launcher decides a pane's conversation from the launch's own flags and is blind afterwards. A person who resumes a different conversation from inside the running CLI moves the process without touching a flag; observed live 2026-09-07, a pane launched as b9e2114c ran 5b8d47c2 while the pane record, workspace_info, the ledger identity and the Sessions tab all still said b9e2114c. The forbidden repair is to infer the id afterwards from the transcript directory, a rollout file or the process tree -- an earlier attempt did that and kept getting it wrong, which is why spec 095 decides at launch. This module is the other answer: the CLI is asked, through the SessionStart hook Claude Code runs on startup, --resume, an in-CLI /resume, /clear and after compaction. It posts to the same /api/agent-conversation route launch.mjs reports on, so there is one way a pane's conversation is ever recorded, and it rewrites the per-launch context so the tool worker's identity header and workspace_info follow too. It posts on every session start rather than only on a change, because a record the launcher could not write -- a -c or --fork-session launch reports conversation:null and leaves the pane holding nothing -- then heals at the next start instead of staying unknown for the pane's life.",
+      "note": "The launcher decides a pane's conversation from the launch's own flags and is blind afterwards. A person who resumes a different conversation from inside the running CLI moves the process without touching a flag; observed live 2026-09-07, a pane launched as b9e2114c ran 5b8d47c2 while the pane record, workspace_info, the ledger identity and the Sessions tab all still said b9e2114c. The forbidden repair is to infer the id afterwards from the transcript directory, a rollout file or the process tree -- an earlier attempt did that and kept getting it wrong, which is why spec 095 decides at launch. This module is the other answer: the CLI is asked, through the SessionStart hook Claude Code runs on startup, --resume, an in-CLI /resume, /clear and after compaction. It posts to the same /api/agent-conversation route launch.mjs reports on, so there is one way a pane's conversation is ever recorded, and it rewrites the per-launch context so the tool worker's identity header and workspace_info follow too. It posts on every session start rather than only on a change, because a record the launcher could not write -- a -c or --fork-session launch reports conversation:null and leaves the pane holding nothing -- then heals at the next start instead of staying unknown for the pane's life. Which CLI a report speaks for comes from --provider (PROVIDERS): claude by default, wired per launch; kimi via the guided bootstrap action (spec 127), with its own id shapes (session_<uuid>, ULID), its own label (the eight characters after the session_ prefix) and its own resume spelling (kimi --session <id>). Binding discovery deliberately does NOT grow a cwd-based lookup of .kimi-code/mcp.json: a kimi session started outside any pane shares that project file, and reporting through it would rewrite a live pane's recorded identity.",
       "refs": [
         "docs/specs/095-project-token.md",
         "docs/specs/096-agent-session-resume.md",
+        "docs/specs/127-kimi-agent-integration.md",
         "docs/evidence/report-session-hook-2026-09-07.md"
       ]
     },
@@ -20,8 +21,8 @@
       "id": "a-hook-must-not-hurt-the-cli",
       "kind": "gotcha",
       "anchor": {
-        "start": 80,
-        "end": 80,
+        "start": 102,
+        "end": 102,
         "snippet": "if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {"
       },
       "note": "Three properties, each a way this could damage the thing it runs inside, and each pinned by a test. (1) Never fail the CLI: every error goes to stderr and the exit status is always 0, so a workspace defect can never stop a person's session from starting. (2) Never write to stdout: a SessionStart hook's stdout is ADDED to that CLI's context, so a status line here would appear as text in the person's own conversation. Notes are written with writeSync(2) so they are flushed before the explicit exit. (3) The explicit process.exit(0) is not decoration -- the report leaves an undici keep-alive socket open, and without it the hook lingers for seconds on every session start while the CLI waits.",
@@ -33,19 +34,20 @@
       "id": "binding-env-is-plumbing-not-configuration",
       "kind": "rationale",
       "anchor": {
-        "start": 18,
-        "end": 18,
-        "snippet": "export async function bindingContext(env = process.env, argv = process.argv.slice(2)) {"
+        "start": 21,
+        "end": 21,
+        "snippet": "export async function bindingContext(env = process.env, argv = process.argv.slice(2), { envFirst = false } = {}) {"
       },
-      "note": "How this hook knows which launch it belongs to, in the order that finds it. The per-launch settings file names the context on the hook's own command line, and that is what makes bind.mjs work: a person runs the printed line in their own shell, which inherits none of the launcher's environment, so without --context a bound session would silently report nothing. RENGINE_MCP_CONFIG and RENGINE_WORKSPACE_CONTEXT are the fallback for a pane; they are set by the launcher and the session host for their own children, are not user configuration, and nothing asks a person to set them -- so their absence, with no --context either, is the honest signal that this CLI is nobody's and the hook does nothing at all, silently, exit 0. The mcp.json is followed to its server's own --context argument rather than assuming context.json sits beside it, because that argument is what actually binds the tool worker; the shared root file is the last fallback and carries the host connection but no identity, so nothing is rewritten through it.",
+      "note": "How this hook knows which launch it belongs to, in the order that finds it. The per-launch settings file names the context on the hook's own command line, and that is what makes bind.mjs work: a person runs the printed line in their own shell, which inherits none of the launcher's environment, so without --context a bound session would silently report nothing. RENGINE_MCP_CONFIG and RENGINE_WORKSPACE_CONTEXT are the fallback for a pane; they are set by the launcher and the session host for their own children, are not user configuration, and nothing asks a person to set them -- so their absence, with no --context either, is the honest signal that this CLI is nobody's and the hook does nothing at all, silently, exit 0. The mcp.json is followed to its server's own --context argument rather than assuming context.json sits beside it, because that argument is what actually binds the tool worker; the shared root file is the last fallback and carries the host connection but no identity, so nothing is rewritten through it. The envFirst option reverses the order for exactly one caller: the MCP facade (mcp.mjs), whose argv comes from kimi's project-level .kimi-code/mcp.json \u2014 shared per project and last-writer-wins, so it can name another pane's launch while the pane's own environment always names its own (spec 127 decision 5).",
       "refs": [
-        "docs/specs/095-project-token.md"
+        "docs/specs/095-project-token.md",
+        "docs/specs/127-kimi-agent-integration.md"
       ]
     }
   ],
   "source": {
     "path": "orchestrator/agents/report-session.mjs",
-    "sha256": "066a0488306a7973af73916742cabc484d49fa54a17e19c9a0b324c03a46b215",
+    "sha256": "1ebf4dc9bf0d8e6e3edcbe87dec016b647e21efeb9b0bd9ae6fb408e78e355a2",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

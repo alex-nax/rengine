@@ -1,5 +1,7 @@
 .DS_Store
 .cache/
+# The launcher-written .kimi-code/mcp.json carries per-launch absolute paths: machine-local (spec 127).
+.kimi-code/
 __pycache__/
 *.py[cod]
 .venv/

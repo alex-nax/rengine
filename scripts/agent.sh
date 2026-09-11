@@ -13,7 +13,7 @@ launcher_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 usage() {
   cat <<'HELP'
 rEngine agent launcher
-  agent.sh --project DIR [--agent codex|claude|gemini|opencode|EXECUTABLE]
+  agent.sh --project DIR [--agent codex|claude|gemini|opencode|kimi|EXECUTABLE]
            [--action menu|list|launch|install|update|check-resume] [--version VERSION] [-- ARGS...]
 Install/download uses an isolated npm prefix under RENGINE_AGENT_HOME.
 Launch never silently installs or updates an agent. Choose that action explicitly.
@@ -44,13 +44,14 @@ package_for() {
     claude) printf '%s' '@anthropic-ai/claude-code' ;;
     gemini) printf '%s' '@google/gemini-cli' ;;
     opencode) printf '%s' 'opencode-ai' ;;
+    kimi) printf '%s' '@moonshot-ai/kimi-code' ;;
     *) echo "No install recipe for '$1'; supply an installed executable to launch it." >&2; return 2 ;;
   esac
 }
 
 find_agent() {
   case "$1" in
-    codex|claude|gemini|opencode)
+    codex|claude|gemini|opencode|kimi)
       if [ -x "$agent_home/$1/node_modules/.bin/$1" ]; then printf '%s\n' "$agent_home/$1/node_modules/.bin/$1"; return; fi ;;
   esac
   command -v -- "$1" 2>/dev/null
@@ -58,7 +59,7 @@ find_agent() {
 
 list_agents() {
   local item found
-  for item in codex claude gemini opencode; do
+  for item in codex claude gemini opencode kimi; do
     found="$(find_agent "$item" || true)"
     printf '%s\t%s\n' "$item" "${found:-not installed}"
   done
@@ -87,6 +88,7 @@ update_agent() {
   case "$agent" in
     codex|claude) "$executable" update ;;
     opencode) "$executable" upgrade ;;
+    kimi) "$executable" upgrade ;;
     gemini) install_agent ;;
     *) echo "No update recipe for this custom executable." >&2; return 2 ;;
   esac
@@ -115,9 +117,11 @@ choose_conversation() {
   printf '\nConversations for %s in this project:\n' "$agent"
   index=1
   # The first eight characters are the name this conversation goes by everywhere else — the pane
-  # title, the identity label, the token segment — so the row leads with them.
+  # title, the identity label, the token segment — so the row leads with them, skipping the
+  # `session_` prefix every kimi id carries.
   while [ "$index" -le "$count" ]; do
-    printf '  %d) %s %s\t%s\t%s\n' "$index" "$agent" "${ids[index-1]:0:8}" "${whens[index-1]}" "${ids[index-1]}"
+    shown="${ids[index-1]#session_}"
+    printf '  %d) %s %s\t%s\t%s\n' "$index" "$agent" "${shown:0:8}" "${whens[index-1]}" "${ids[index-1]}"
     index=$((index + 1))
   done
   printf 'Resume which? (Enter starts a new conversation): '

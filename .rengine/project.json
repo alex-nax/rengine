@@ -219,6 +219,25 @@
             "tools": [
               "node"
             ]
+          },
+          {
+            "id": "bootstrap-agent-hooks",
+            "title": "Bootstrap agent hooks (kimi)",
+            "description": "Interactive: installs kimi's SessionStart hook so its sessions report the conversation they run back to this workspace (spec 127). Shown, confirmed, backed up and doctor-verified; restores on failure. Optional — panes work without it.",
+            "kind": "script",
+            "script": "orchestrator/actions/bootstrap-agent-hooks.sh",
+            "args": [
+              "--agent",
+              "kimi"
+            ],
+            "requires": [
+              "orchestrator/actions/bootstrap-agent-hooks.sh",
+              "orchestrator/agents/report-session.mjs"
+            ],
+            "tools": [
+              "node",
+              "kimi"
+            ]
           }
         ]
       }

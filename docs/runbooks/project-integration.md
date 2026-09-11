@@ -225,6 +225,9 @@ prints none, and `--check` reports every prerequisite while running no command.
 
 - Keep skills under `.claude/skills/` and commit `.agents/skills` as a symlink to it so Codex/Kimi
   discover the same set.
+- A kimi pane launch writes the project `.kimi-code/mcp.json` itself (spec 127): it carries
+  per-launch absolute paths, so it is machine-local. Commit it only if the project deliberately
+  shares one static server list; otherwise gitignore `.kimi-code/` the way rEngine does.
 - Add **one line** to the project's CLAUDE.md/AGENTS.md naming the launching point, for example:
   "Open this checkout in the rEngine orchestrator with `./editor.sh` (pinned at
   `third_party/rengine`; prerequisites: `./editor.sh --check`)."

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -243,6 +243,15 @@ test('binding by discovery finds the one instance serving the directory, and ref
     'the start line resumes that session rather than naming a new one');
   await assert.rejects(bind(['--project', path.join(directory, 'project'), '--state', servers[0].stateDir, '--agent', 'claude', '--session', 'session-one']),
     /--session takes the agent session/, 'a session id that is not one is refused rather than bound');
+
+  /* kimi reads its MCP servers from the project's own file (spec 127 decision 8), so a binding
+     writes it at the bound root — not wherever this command happened to run from. */
+  const kimi = await bind(['--project', path.join(directory, 'project'), '--state', servers[0].stateDir, '--agent', 'kimi']);
+  assert.equal(kimi.plan.kimi, path.join(await realpath(directory), 'project', '.kimi-code', 'mcp.json'));
+  const wired = JSON.parse(await readFile(kimi.plan.kimi, 'utf8'));
+  assert.equal(wired.mcpServers[kimi.plan.name].args.at(-1), kimi.plan.contextFile, 'the project file names this binding’s own context');
+  assert.match(kimi.report, /project MCP .*\.kimi-code\/mcp\.json/, 'and the report says where the wiring went');
+  assert.equal(kimi.identity.session, undefined, 'a binding names no conversation the CLI has not started');
 });
 
 async function withStateHome(home, action) {

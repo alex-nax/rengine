@@ -91,6 +91,30 @@ test('the project’s conversations are offered to a bare pane only', { timeout:
   assert.equal(resumed.conversation, earlier, 'and is put back into the one it was told');
 });
 
+// kimi names its own conversations and has no start-with-id spelling (spec 127 decisions 3–4), so
+// the host mints it nothing, refuses a named conversation without resume by name, and still puts a
+// restart back into the recorded one.
+test('kimi is never minted a conversation: naming one without resume is refused by name', { timeout: 30000 }, async t => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'rengine-kimi-mint-'));
+  const store = await WorkspaceStore.open(path.join(dir, 'state'));
+  const root = await store.addRoot(dir);
+  const sessions = new Sessions(store);
+  sessions.workspaceContext = { url: 'http://127.0.0.1:1', token: 'unreachable', instance: 'test' };
+  t.after(async () => { await sessions.shutdown(); await rm(dir, { recursive: true, force: true }); });
+  await fakeCli(store.directory, 'kimi');
+  const kimiSession = 'session_3f85774e-05bb-4791-bb9f-1c90dc37d0e6';
+  await store.recordConversation(root.id, { conversation: kimiSession, agent: 'kimi' });
+
+  const bare = await sessions.terminal({ rootId: root.id, type: 'agent', agent: 'kimi' });
+  assert.equal(bare.conversation, undefined, 'a bare kimi pane is minted nothing: the CLI names its own');
+
+  await assert.rejects(sessions.terminal({ rootId: root.id, type: 'agent', agent: 'kimi', conversation: kimiSession }),
+    /names its own conversations/, 'and being told one without resume is refused rather than silently claimed');
+
+  const resumed = await sessions.terminal({ rootId: root.id, type: 'agent', agent: 'kimi', conversation: kimiSession, resume: true });
+  assert.equal(resumed.conversation, kimiSession, 'but a restart is put back into the recorded one');
+});
+
 // The host composes a pane's environment from its own, and a host started from inside an agent pane
 // inherits that pane's listing. Nothing but this launch may decide what this pane is offered.
 test('a listing inherited from the host’s own environment never reaches a pane', { timeout: 15000 }, async t => {

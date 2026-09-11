@@ -10,7 +10,7 @@ import path from 'node:path';
 import pty from 'node-pty';
 import { fail } from './store.mjs';
 import { readHandoff, checkResume } from '../agents/handoff.mjs';
-import { agentConversation } from '../agents/config.mjs';
+import { agentConversation, shortAgentId } from '../agents/config.mjs';
 
 const execute = promisify(execFile);
 const agentScript = fileURLToPath(new URL('../../scripts/agent.sh', import.meta.url));
@@ -21,7 +21,7 @@ const MINUTE = 60000, HOUR = 60 * MINUTE, DAY = 24 * HOUR;
 /* One conversation, one set of eight characters: the pane title, the picker row, the identity label
    and the token segment all show the same prefix, so a person recognises the same thing in each. */
 export const agentTitle = (agent, conversation, rootName) =>
-  `${agent || 'Choose agent'}${conversation ? ` ${conversation.slice(0, 8)}` : ''} · ${rootName}`;
+  `${agent || 'Choose agent'}${conversation ? ` ${shortAgentId(agent, conversation)}` : ''} · ${rootName}`;
 export function describeAge(when, now = Date.now()) {
   const gap = Math.max(0, now - when);
   if (gap < 2 * MINUTE) return 'just now';
@@ -165,9 +165,14 @@ export class Sessions extends EventEmitter {
         await rename(temporary, filename);
         env = { ...env, RENGINE_WORKSPACE_CONTEXT: filename, RENGINE_NODE: process.execPath, RENGINE_BASH: file };
         // Name the conversation now, for a CLI that accepts being told, so this pane can be put
-        // back into the same one later. An agent that names its own is recorded with none.
-        if (agentConversation(agent)) {
-          conversation = conversation ?? randomUUID();
+        // back into the same one later. An agent that names its own is recorded with none — and
+        // one like kimi, which can resume but never be told which conversation to START, is never
+        // minted one: a named conversation without resume is refused rather than silently claimed.
+        const capability = agentConversation(agent);
+        if (capability && conversation === undefined && capability.start) conversation = randomUUID();
+        if (capability && conversation !== undefined && !capability.start && !resume)
+          fail(`${agent} names its own conversations: rEngine can put this CLI back into a recorded one but cannot tell it which to start. Resume it explicitly, or start without naming one.`);
+        if (capability && conversation !== undefined) {
           env = { ...env, RENGINE_AGENT_CONVERSATION: conversation, ...(resume ? { RENGINE_AGENT_RESUME: '1' } : {}) };
           await this.store.recordConversation(root.id, { conversation, agent });
         }

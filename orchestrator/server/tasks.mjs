@@ -31,15 +31,16 @@ const WRITE_TIMEOUT_MS = 60000;
 /* The CLIs rEngine can hand a model to, and the flag each one spells it with. A CLI absent from this
    table is refused by name rather than started without the model the caller asked for: a spawn that
    silently drops the model is a pane running the wrong thing that looks right. */
-const MODEL_FLAGS = { claude: model => ['--model', model], codex: model => ['-m', model] };
+const MODEL_FLAGS = { claude: model => ['--model', model], codex: model => ['-m', model], kimi: model => ['-m', model] };
 /* What the menu offers when a project declares no `agents` block. claude's list is rEngine's own
    knowledge; codex's comes from `codex --help` at call time, because its names move faster than this
-   file does; gemini and opencode offer none, so their panes start on the CLI's own default. */
+   file does; gemini, opencode and kimi offer none, so their panes start on the CLI's own default. */
 export const KNOWN_AGENTS = [
   { cli: 'claude', models: ['claude-fable-5-1', 'claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5-20251001'], default: 'claude-opus-5' },
   { cli: 'codex', models: [], default: '' },
   { cli: 'gemini', models: [], default: '' },
   { cli: 'opencode', models: [], default: '' },
+  { cli: 'kimi', models: [], default: '' },
 ];
 
 const bounded = value => String(value ?? '').slice(0, MAX_STDOUT);

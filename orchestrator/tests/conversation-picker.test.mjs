@@ -56,9 +56,30 @@ test('Enter starts a new conversation, and an out-of-range choice does not resum
   assert.match(bogus.stdout, /conversation=none/, 'an out-of-range choice starts a new conversation rather than guessing');
 });
 
+test('a kimi row is shown by the eight characters after its session_ prefix, and resumes with the full id', async t => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'rengine-picker-kimi-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const project = path.join(dir, 'project');
+  const bin = path.join(dir, 'bin');
+  await mkdir(project); await mkdir(bin);
+  await writeFile(path.join(bin, 'kimi'),
+    '#!/bin/bash\nprintf "conversation=%s\\n" "${RENGINE_AGENT_CONVERSATION:-none}"\nprintf "resume=%s\\n" "${RENGINE_AGENT_RESUME:-none}"\n', { mode: 0o755 });
+  const KIMI = 'session_3f85774e-05bb-4791-bb9f-1c90dc37d0e6';
+  const listing = path.join(dir, 'conversations.tsv');
+  await writeFile(listing, `${KIMI}\tkimi\t2 hours ago\n${NEWER}\tcodex\tyesterday\n`);
+  const clean = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('RENGINE_')));
+  const env = { ...clean, PATH: `${bin}${path.delimiter}${process.env.PATH}`, RENGINE_AGENT_HOME: path.join(dir, 'managed'), RENGINE_AGENT_CONVERSATIONS: listing };
+  const result = spawnSync('bash', [script, '--project', project, '--agent', 'kimi', '--action', 'launch'], { env, input: '1\n', encoding: 'utf8', timeout: 10000 });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /kimi 3f85774e/, 'the row leads with the same eight the pane title and the identity label go by');
+  assert.doesNotMatch(result.stdout, /kimi session_/, 'the prefix is not the name it goes by');
+  assert.doesNotMatch(result.stdout, new RegExp(NEWER), 'and another agent’s conversations are not offered to it');
+  assert.match(result.stdout, new RegExp(`conversation=${KIMI}`), 'but the id it resumes by is the full one, prefix included');
+  assert.match(result.stdout, /resume=1/);
+});
+
 test('the picker stays out of the way when there is nothing to offer', async t => {
-  const { run, dir, listing } = await fixture(t);
-  const none = run('', {});
+  const { run, dir, listing } = await fixture(t);  const none = run('', {});
   assert.equal(none.status, 0, none.stderr);
   assert.equal(/Resume/.test(none.stdout), false, 'no listing, no prompt');
   assert.match(none.stdout, /conversation=none/);

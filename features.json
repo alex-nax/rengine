@@ -2293,6 +2293,38 @@
         "orchestrator/tests/native-tracker.spec.mjs: one artifact on disk, one named but not written, one escaping the root; three sabotages each caught"
       ],
       "passes": true
+    },
+    {
+      "id": 138,
+      "milestone": "O2",
+      "category": "integration",
+      "priority": "high",
+      "description": "Kimi Code is a named agent with the same pane functionality as the other four CLIs, because the owner directed unified integration — the same for everyone, including session listing+discovery. A kimi pane is detected, installed and updated through agent.sh; its launch wires the workspace MCP through the project-level .kimi-code/mcp.json (the only per-project channel kimi publishes), owning exactly one namespaced key and preserving every foreign entry; its session identity comes from its own --session flags with kimi --session <id> as the resume line and an honest unknown for -c or the selector; and live session reporting arrives through a SessionStart hook installed only by an explicit, reversible guided dashboard action, never by a silent write to the person's global config (owner, 2026-09-11; spec 127). F113 stays the follow-up that collapses the per-consumer tables into one registry.",
+      "deliverable": "The kimi entries in orchestrator/agents/config.mjs, orchestrator/server/tasks.mjs and scripts/agent.sh, the .kimi-code/mcp.json merge, env-preferred context resolution in orchestrator/agents/mcp.mjs, --provider kimi in orchestrator/agents/report-session.mjs, the orchestrator/actions/bootstrap-agent-hooks.sh guided action declared in .rengine/project.json, the usage-string updates, the AGENTS.md entry-points refresh, and the tests that saw each behavior fail first.",
+      "acceptance_criteria": [
+        "kimi is named everywhere the other four CLIs are named: launcher and bind usage strings, agent.sh list/install/update, KNOWN_AGENTS and MODEL_FLAGS.",
+        "A kimi pane launch wires the workspace MCP through .kimi-code/mcp.json at the pane's repository root: the file is created when absent, every foreign entry is preserved, only rEngine's own rengine_<rootId12> key is replaced, and invalid existing JSON is refused with the file left untouched.",
+        "A pane started with --session <id> in any documented spelling is recorded with that conversation and offers kimi --session <id> as its resume line; -c, --continue or a bare --session records an honest unknown, and rEngine never mints a kimi conversation id (kimi has no start-with-id flag).",
+        "The bootstrap-agent-hooks action detects the CLI, shows the exact change, requires confirmation or --yes, backs up config.toml, appends the SessionStart hook idempotently, verifies with kimi doctor, restores the backup on failure, prints removal instructions, and a second run reports already-bootstrapped while changing nothing.",
+        "With the hook installed, a SessionStart payload reports the real kimi session id over the same agent-conversation route Claude's hook uses, and the pane record follows it (tested with simulated payloads, never a live CLI).",
+        "Two kimi panes on one root keep their own identities: the MCP facade's context resolution prefers the pane's own environment over the shared project file's argv, which is last-writer-wins.",
+        "Each regression was observed failing for its own reason before the implementation made it pass."
+      ],
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "external_references": [
+        "kimi.com/code/docs (Agent Skills, MCP, Hooks, Configuration files, Environment variables, kimi command, FAQ), fetched 2026-09-11: mcp.json levels, --session resume spellings, SessionStart hook payload and config.toml location, @moonshot-ai/kimi-code package, kimi doctor and kimi upgrade"
+      ],
+      "evidence": [
+        "docs/specs/127-kimi-agent-integration.md: the owner direction, the verified channel facts, and the ten decisions",
+        "orchestrator/tests/agent-kimi.test.mjs: the .kimi-code/mcp.json wiring (foreign entries preserved, stale rengine_ keys reclaimed, invalid JSON refused with the file untouched), the --session flag spellings with honest unknowns and no minting, the picker/restart resume spelling, and the facade's env-first context resolution (red before implementation: connection closed on the unreachable second pane)",
+        "orchestrator/tests/report-session.test.mjs: a kimi SessionStart payload reports the real id over POST /api/agent-conversation with kimi's own label and resume line",
+        "orchestrator/tests/agent-hooks.test.mjs: the bootstrap action's stages against a fake kimi and throwaway KIMI_CODE_HOME — preserve+append, idempotence, doctor-verify with byte-for-byte restore, dry-run, confirmation gating, named refusals",
+        "orchestrator/tests/agent.test.mjs, task-writes.test.mjs, conversation-picker.test.mjs, sessions.test.mjs, conversations.test.mjs, agent-identity.test.mjs: list/install/update parity, the agent menu and -m model flag, the picker's prefix-stripped row resuming the full id, the host's no-mint/refuse/restart gate, the store's per-agent id shapes, and a binding writing the project file at the bound root",
+        "sabotage observations 2026-09-11: dropping foreign-key preservation reds 'a foreign entry is preserved'; accepting kimi-shaped ids under any name reds the cross-name rejection in conversations.test.mjs",
+        "real machine 2026-09-11: scripts/agent.sh --action list detects kimi 0.42.0 at ~/.kimi-code/bin/kimi; a scripted agentLaunch against a tmp repo writes the exact .kimi-code/mcp.json kimi reads and reports identity kimi 3f85774e with resume line kimi --session session_3f85774e-…; bootstrap-agent-hooks.sh --agent kimi --dry-run shows the change and writes nothing. A live orchestrator pane launch and the real hook install are the owner's explicit gestures, not this session's side effect"
+      ],
+      "passes": true
     }
   ]
 }

@@ -5,8 +5,8 @@
       "id": "recipe-ownership",
       "kind": "rationale",
       "anchor": {
-        "start": 67,
-        "end": 67,
+        "start": 68,
+        "end": 68,
         "snippet": "install_agent() {"
       },
       "note": "Install/download uses an isolated npm prefix and verifies the newly managed executable. Existing global native installations use their own supported update command. A custom executable has no inferred installer, updater or configuration format. Every launch argument remains an argv element; never replace this with eval.",
@@ -18,8 +18,8 @@
       "id": "menu-and-startup",
       "kind": "constraint",
       "anchor": {
-        "start": 134,
-        "end": 134,
+        "start": 138,
+        "end": 138,
         "snippet": "launch_agent() {"
       },
       "note": "Launch never silently installs or updates. The menu exposes those explicit actions. With an rEngine context, launch execs the Node provider adapter to supply project-bound MCP configuration; without a context it execs the selected CLI directly. Custom executable formats are not inferred: they receive a generic MCP configuration path and keep responsibility for consuming it. check-resume uses the same managed/PATH executable lookup and probes Codex resume help and login status without installing, updating or launching a coding session.",
@@ -31,8 +31,8 @@
       "id": "only-an-explicit-resume-suppresses-the-offer",
       "kind": "rationale",
       "anchor": {
-        "start": 103,
-        "end": 103,
+        "start": 105,
+        "end": 105,
         "snippet": "if [ \"${RENGINE_AGENT_RESUME:-}\" = \"1\" ]; then return 0; fi"
       },
       "note": "Do not change this to test RENGINE_AGENT_CONVERSATION. That was the first implementation and it made the picker dead code: the workspace mints an identifier for every fresh pane before the pane runs, so the variable is effectively always set and the offer would never have appeared. It would have shipped looking correct, because the failure is an absence \u2014 nothing prompts, nothing errors. A minted id means 'this pane is new', not 'this pane has chosen'; only RENGINE_AGENT_RESUME, which restart_agent and this function itself set, means a conversation was actually decided. The test 'a workspace-minted conversation is still offered the history' exists to catch exactly this regression. Decision 5 of docs/specs/097-agent-conversation-persistence.md. Corrected 2026-09-07 (KI-068): an explicit resume is not the only launch that has already chosen. A launch carrying trailing arguments after `--` is a pane the workspace started on a task with a rendered prompt (spec 103); it was told what to do, its stdin belongs to the CLI, and the picker's read stole the first keystroke that reached the new pane and resumed the spawning agent's own conversation with it. `extra_count` is captured at option parsing rather than tested as ${#extra[@]} here, so the guard is a plain integer under `set -u` on bash 3.2 as well. The picker is now for an interactive bare launch only.",
@@ -44,7 +44,7 @@
   ],
   "source": {
     "path": "scripts/agent.sh",
-    "sha256": "b96c339f754b2a8be6fe6d6c5216ab61caeb0f74dc5172b16218f1497ac221ae",
+    "sha256": "44863a587efd355822c28f6b708e8fcd35b6d43e35a7d8f3c2b48d4506bd3a04",
     "format": "shell",
     "format_fingerprint": "0c07404ffdecc7f9c766fddf6b5a92dfedbae0728eaef728c4c42a67f47f7f4a"
   }

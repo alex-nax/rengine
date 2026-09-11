@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { discoverSidecar, request } from '../launcher/sidecar.mjs';
 import { agentIdentity, agentLaunch, claudeSettingsFile, describeInvocation, describeSession, shellQuote } from './config.mjs';
 
-const USAGE = `node orchestrator/agents/bind.mjs --project DIR [--agent claude|codex|gemini|opencode|EXECUTABLE]
+const USAGE = `node orchestrator/agents/bind.mjs --project DIR [--agent claude|codex|gemini|opencode|kimi|EXECUTABLE]
                                    [--session UUID] [--state DIR]
 Binds an agent this workspace never spawned: finds the live instance that already serves DIR,
 gives this agent an identity, and writes the MCP configuration to start the agent with.
@@ -96,14 +96,18 @@ export async function bind(argv) {
      the process that is actually alive while this agent works. */
   const owner = Number.isSafeInteger(process.ppid) && process.ppid > 1 ? process.ppid : process.pid;
   const identity = await agentIdentity({ agent: options.agent, executable: options.agent ?? 'custom', pid: owner, session });
-  const plan = await agentLaunch({ agent: options.agent, executable: options.agent ?? 'custom', context, directory: bindings, identity });
+  /* kimi reads its MCP servers from the project's own .kimi-code/mcp.json, so the wiring goes to
+     the bound root, not to whichever directory this command happens to run from. */
+  const plan = await agentLaunch({ agent: options.agent, executable: options.agent ?? 'custom', context, directory: bindings, identity,
+    ...(options.agent === 'kimi' ? { cwd: root.path } : {}) });
   const described = describeSession(identity);
   const lines = [`Bound to ${root.name} (${root.path})`,
     `  instance ${instance.instance} at ${instance.url}, discovered through ${path.join(directory, 'sidecar.json')}`,
     `  identity ${identity.label} — ${identity.agentId} (pid ${identity.pid})`,
     ...(described ? [`  ${described}`] : []),
     `  context  ${plan.contextFile}`,
-    `  MCP configuration ${plan.generic}`];
+    `  MCP configuration ${plan.generic}`,
+    ...(plan.kimi ? [`  project MCP ${plan.kimi} (rEngine owns only the ${plan.name} entry)`] : [])];
   if (plan.custom) {
     /* claude and codex consume this configuration as it stands; gemini and opencode need an overlay
        written for them, so bind writes that only for the CLI the caller names. */
@@ -118,7 +122,8 @@ export async function bind(argv) {
       `  codex ${['-c', `mcp_servers.${plan.name}.command=${JSON.stringify(server.command)}`,
         '-c', `mcp_servers.${plan.name}.args=${JSON.stringify(server.args)}`,
         '-c', `mcp_servers.${plan.name}.required=true`].map(shellQuote).join(' ')}`,
-      '  gemini, opencode: re-run with --agent gemini or --agent opencode, which writes the overlay those CLIs read.');
+      '  gemini, opencode: re-run with --agent gemini or --agent opencode, which writes the overlay those CLIs read.',
+      '  kimi: re-run with --agent kimi, which writes the project .kimi-code/mcp.json the CLI reads.');
   } else lines.push(`Start the agent from ${root.path} with:`, `  ${describeInvocation(plan)}`);
   return { instance, root, identity, plan, report: lines.join('\n') };
 }

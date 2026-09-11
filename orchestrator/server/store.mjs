@@ -13,6 +13,9 @@ const RECORDING = { seconds: [5, 900], bytes: [4 * 1024 * 1024, 1024 * 1024 * 10
    and surviving exactly that is the point of resuming into one. Bounded, most recent first. */
 const CONVERSATION_LIMIT = 20;
 const CONVERSATION_ID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+/* kimi names its own conversations; the shapes it resumes by (observed `session_<uuid>`, documented
+   ULID) are accepted for a conversation recorded under kimi's own name and nobody else's. */
+const KIMI_CONVERSATION_ID = /^(?:session_)?(?:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-HJKMNP-TV-Z]{26})$/i;
 const within = (root, file) => { const rel = path.relative(root, file); return rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel); };
 export async function resolveInRoot(root, relative = '', allowMissing = false) {
   if (typeof relative !== 'string' || relative.includes('\0') || path.isAbsolute(relative)) fail('Use a path relative to its project root.');
@@ -193,7 +196,8 @@ export class WorkspaceStore {
   }
 
   async recordConversation(rootId, { conversation, agent, task } = {}) {
-    if (typeof conversation !== 'string' || !CONVERSATION_ID.test(conversation)) fail('An agent conversation must be a UUID rEngine minted.');
+    const shaped = agent === 'kimi' ? KIMI_CONVERSATION_ID.test(conversation) : CONVERSATION_ID.test(conversation);
+    if (typeof conversation !== 'string' || !shaped) fail('An agent conversation must be a UUID rEngine minted, or a session id in the shape the named CLI resumes by.');
     if (agent !== undefined && (typeof agent !== 'string' || agent.length > 256)) fail('Invalid agent name for a conversation.');
     // `task` is the one join between the task system and the agent system (spec 103 decision 6): a
     // conversation started from a task carries that task's key, so the Sessions tab and

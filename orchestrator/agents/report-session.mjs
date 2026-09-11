@@ -14,19 +14,28 @@ const read = async filename => JSON.parse(await readFile(filename, 'utf8'));
    launcher's own plumbing, read the way the tool worker reads it: RENGINE_MCP_CONFIG names the
    per-launch mcp.json whose server is started on that same file, and RENGINE_WORKSPACE_CONTEXT is
    the root file a pane inherits, which carries the host connection but no identity. None of the
-   three means this CLI is not running under rEngine at all, and there is nothing to report to. */
-export async function bindingContext(env = process.env, argv = process.argv.slice(2)) {
-  const named = argv.indexOf('--context');
-  if (named >= 0 && argv[named + 1]) return argv[named + 1];
-  if (env.RENGINE_MCP_CONFIG) {
-    const servers = (await read(env.RENGINE_MCP_CONFIG)).mcpServers;
-    for (const server of Object.values(servers ?? {})) {
-      const args = Array.isArray(server?.args) ? server.args : [];
-      const at = args.indexOf('--context');
-      if (at >= 0 && typeof args[at + 1] === 'string') return args[at + 1];
+   three means this CLI is not running under rEngine at all, and there is nothing to report to.
+   envFirst reverses the order for the MCP facade: kimi's mcp.json is shared per project and
+   last-writer-wins, so the argv it passes can name another pane's launch while the pane's own
+   environment always names its own (spec 127 decision 5). */
+export async function bindingContext(env = process.env, argv = process.argv.slice(2), { envFirst = false } = {}) {
+  const fromArgv = () => {
+    const named = argv.indexOf('--context');
+    return named >= 0 && argv[named + 1] ? argv[named + 1] : null;
+  };
+  const fromEnv = async () => {
+    if (env.RENGINE_MCP_CONFIG) {
+      const servers = (await read(env.RENGINE_MCP_CONFIG)).mcpServers;
+      for (const server of Object.values(servers ?? {})) {
+        const args = Array.isArray(server?.args) ? server.args : [];
+        const at = args.indexOf('--context');
+        if (at >= 0 && typeof args[at + 1] === 'string') return args[at + 1];
+      }
     }
-  }
-  return env.RENGINE_WORKSPACE_CONTEXT || null;
+    return env.RENGINE_WORKSPACE_CONTEXT || null;
+  };
+  const [first, second] = envFirst ? [fromEnv, fromArgv] : [fromArgv, fromEnv];
+  return await first() ?? await second();
 }
 
 const connection = value => {
@@ -36,12 +45,21 @@ const connection = value => {
 };
 
 /* The conversation IS the identity (spec 095), so a reported id replaces the whole of it: the
-   agentId, the eight characters the label goes by, and the line that resumes it. This hook is Claude
-   Code's own, so the provider is claude by construction. The pid and the moment this launch started
-   belong to the launcher and are not the CLI's to change. */
-export function reportedIdentity(identity, conversation) {
-  return { ...identity, agentId: conversation, label: `claude ${conversation.slice(0, 8)}`,
-    session: { provider: 'claude', id: conversation, known: true, source: 'reported', resume: `claude --resume ${conversation}` } };
+   agentId, the eight characters the label goes by, and the line that resumes it. Which CLI the
+   report speaks for comes from --provider: claude's hook is wired per launch, kimi's by the guided
+   bootstrap action (spec 127), and each resumes in its own spelling. The pid and the moment this
+   launch started belong to the launcher and are not the CLI's to change. */
+const PROVIDERS = {
+  claude: { pattern: UUID, short: id => id.slice(0, 8), resume: id => `claude --resume ${id}`, normalize: id => id.toLowerCase() },
+  kimi: {
+    pattern: /^(?:session_)?(?:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-HJKMNP-TV-Z]{26})$/i,
+    short: id => id.replace(/^session_/i, '').slice(0, 8), resume: id => `kimi --session ${id}`, normalize: id => id,
+  },
+};
+export function reportedIdentity(identity, conversation, provider = 'claude') {
+  const kind = PROVIDERS[provider];
+  return { ...identity, agentId: conversation, label: `${provider} ${kind.short(conversation)}`,
+    session: { provider, id: conversation, known: true, source: 'reported', resume: kind.resume(conversation) } };
 }
 
 async function replaceJson(filename, value) {
@@ -57,21 +75,25 @@ async function replaceJson(filename, value) {
 export async function report({ env = process.env, argv = process.argv.slice(2), input } = {}) {
   const contextFile = await bindingContext(env, argv);
   if (!contextFile) return { bound: false, rewrote: false, posted: false };
-  const conversation = String(input?.session_id ?? '').toLowerCase();
-  if (!UUID.test(conversation)) throw new Error(`${input?.hook_event_name ?? 'The hook'} carried no session id.`);
+  const at = argv.indexOf('--provider');
+  const provider = at >= 0 ? argv[at + 1] : 'claude';
+  const kind = PROVIDERS[provider];
+  if (!kind) throw new Error(`Unknown agent provider: ${provider}`);
+  const conversation = kind.normalize(String(input?.session_id ?? ''));
+  if (!kind.pattern.test(conversation)) throw new Error(`${input?.hook_event_name ?? 'The hook'} carried no session id.`);
   const context = await read(contextFile);
   const identity = context.agent;
   const result = { bound: true, contextFile, conversation, source: input?.source ?? null, rewrote: false, posted: false };
-  if (identity && typeof identity === 'object' && UUID.test(identity.agentId ?? '') && identity.agentId !== conversation) {
+  if (identity && typeof identity === 'object' && kind.pattern.test(identity.agentId ?? '') && identity.agentId !== conversation) {
     result.was = identity.agentId;
-    await replaceJson(contextFile, { ...context, agent: reportedIdentity(identity, conversation) });
+    await replaceJson(contextFile, { ...context, agent: reportedIdentity(identity, conversation, provider) });
     result.rewrote = true;
   }
   /* Posting every time, not only on a change: this is the one report that comes from the CLI itself,
      so a record the launcher could not write — a launch that continued or forked and claimed
      nothing — heals on the next session start rather than staying unknown. */
   if (env.RENGINE_ORCHESTRATOR_SESSION) {
-    await request(connection(context), 'agent-conversation', { id: env.RENGINE_ORCHESTRATOR_SESSION, conversation, agent: 'claude' });
+    await request(connection(context), 'agent-conversation', { id: env.RENGINE_ORCHESTRATOR_SESSION, conversation, agent: provider });
     result.posted = true;
   }
   return result;

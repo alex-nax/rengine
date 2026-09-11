@@ -1,5 +1,56 @@
 # Progress Log
 
+## Session 109 (macos) — 2026-09-11 — kimi is a named agent (F138, spec 127)
+
+Owner direction, in a Kimi Code session on this checkout: *"integrate our rengine environment
+better with kimi ... unified integration so it would be the same functionality for everyone
+including session listing+discovery"*, and reviewing the first plan draft: *"I think we can make a
+user guided action to bootstrap hooks for agent"*. Also: *"update agents.md because it states
+deprecated info"* (scope chosen: entry points + skills + a full stale sweep; the Orient pause block
+was deliberately left alone). Numbering moved mid-session — the parallel seam session took
+F135–F137 and spec 126, so this landed as **F138 / spec 127**.
+
+**What a kimi pane gets that it did not.** kimi joins the named CLIs everywhere the other four are
+named (`config.mjs` NAMED, `agent.sh` list/install/update via `@moonshot-ai/kimi-code` and
+`kimi upgrade`, `KNOWN_AGENTS`/`MODEL_FLAGS -m`, launcher and bind usage strings). Its launch wires
+the workspace MCP through the project-level `.kimi-code/mcp.json` — **the only per-project channel
+kimi publishes** (no flag, no env override), written at the repo root found from the pane's cwd:
+foreign entries preserved, rEngine's `rengine_` namespace reclaimed, invalid JSON refused with the
+file untouched (sabotage observed red). Its session comes from its own `--session` flags in every
+documented spelling (`session_<uuid>` and ULID shapes), with `kimi --session <id>` as the resume
+line and an honest unknown for `-c`/the selector; **rEngine never mints a kimi conversation** (no
+start-with-id flag exists), so `CONVERSATIONS` is now per-capability and the host refuses a named
+kimi conversation without resume by name. Labels, pane titles and the picker all go by the eight
+characters after the `session_` prefix — the same eight everywhere.
+
+**Two subtleties worth reading the spec for.** One: the project file is last-writer-wins across
+panes, so the MCP facade resolves its context from the pane's own environment *before* the shared
+file's argv (spec 127 decision 5) — two kimi panes on one root keep their own identities; observed
+red pre-implementation as a connection closed on the unreachable second pane. Two: kimi's
+SessionStart hook lives only in the person's global `config.toml`, so live report parity is
+delivered by **`bootstrap-agent-hooks`, a guided dashboard action** — detect, show, confirm,
+back up, append idempotently, `kimi doctor` verify, self-restore on failure, removal printed.
+It is the one edit rEngine ever offers to a global CLI config, and it is never required.
+`report-session.mjs --provider kimi` reports over the same `agent-conversation` route claude's
+hook uses; binding deliberately does no cwd discovery, because a kimi session started outside a
+pane would otherwise rewrite a live pane's identity.
+
+**AGENTS.md refresh.** Entry points now describe all three CLIs uniformly (`.agents/skills/`
+discovered by Codex and Kimi Code, canonical definitions in `.claude/skills/`, invocation
+`/skill:name` for Kimi Code), the workflow table has a Kimi Code column, and the stale sweep
+verified every other referenced path, tool, pin and MCP tool name as current.
+
+Commands/evidence: `npm test` 250/250 · failing-first on every new assertion · two sabotages
+(kimiMcpFile foreign-key preservation, store cross-name id rejection) each red on its own reason ·
+`./init.sh` · `design.py check` · `features.py validate` + regenerated `docs/roadmap-graph.md` ·
+real machine: `agent.sh --action list` detects kimi 0.42.0, a scripted `agentLaunch` writes the
+exact project file kimi reads, bootstrap `--dry-run` shows the hook and writes nothing.
+
+Owed / next: a live orchestrator pane launch and the real hook install are the owner's explicit
+gestures, not this session's side effect. F113 (agent recipe registry) remains the follow-up that
+collapses the per-consumer tables kimi was added to; F114 owns the ACP session kind (`kimi acp`).
+`.kimi-code/` is git-ignored here; consumers choose per the runbook note.
+
 ## Session 108 (macos) — 2026-09-11 — the draw list renders through the seam (F133, third step)
 
 `backend_seam.c`: rEngine's 2D draw list on `packs/gpu`'s seam. **342 lines, and it names no graphics

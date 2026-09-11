@@ -1,4 +1,5 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
@@ -9,12 +10,18 @@ import { checkConnection } from '../runtime/protocol.mjs';
 
 const mcpMain = fileURLToPath(new URL('./mcp.mjs', import.meta.url));
 const reportMain = fileURLToPath(new URL('./report-session.mjs', import.meta.url));
-const NAMED = ['claude', 'codex', 'gemini', 'opencode'];
+const NAMED = ['claude', 'codex', 'gemini', 'opencode', 'kimi'];
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+/* The shapes kimi resumes by, observed (`session_<uuid>`) and documented (a ULID); the `session_`
+   prefix is part of the id the CLI reports on its SessionStart hook. */
+const KIMI_SESSION = /^(?:session_)?(?:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-HJKMNP-TV-Z]{26})$/i;
 // Which CLIs accept being told the conversation they are starting, and how to resume that one.
+// The two are separate capabilities: kimi can be put back into a conversation (--session) but has
+// no spelling for being told which one to START, so its start is null and rEngine never mints one.
 // An agent absent from this table names its own; rEngine records no identifier it cannot resume.
 const CONVERSATIONS = {
   claude: { start: id => ['--session-id', id], resume: id => ['--resume', id] },
+  kimi: { start: null, resume: id => ['--session', id] },
 };
 export const agentConversation = agent => CONVERSATIONS[agent] ?? null;
 const object = (text, name) => {
@@ -35,10 +42,12 @@ export function agentCli(agent, executable) {
   const base = path.basename(executable ?? agent ?? '').replace(/\.(exe|cmd|bat)$/i, '');
   return base || 'agent';
 }
-/* Two Claude sessions on one root are two identities, and the status bar has to tell them apart, so
-   the label carries the first eight characters of the id the CLI itself resumes by. */
+/* Two sessions of one CLI on one root are two identities, and the status bar has to tell them
+   apart, so the label carries the first eight characters of the id the CLI resumes by — skipping
+   the `session_` prefix every kimi id carries, which would otherwise be all the eight said. */
+export const shortAgentId = (agent, id) => (agent === 'kimi' ? id.replace(/^session_/i, '') : id).slice(0, 8);
 export const agentLabel = (agent, executable, agentId) =>
-  agentId ? `${agentCli(agent, executable)} ${agentId.slice(0, 8)}` : agentCli(agent, executable);
+  agentId ? `${agentCli(agent, executable)} ${shortAgentId(agent, agentId)}` : agentCli(agent, executable);
 
 /* What the CLI's own flags say about which conversation this launch will be. `--session-id`/`--resume`
    name it; `--continue` and a fork mint one inside the CLI, where rEngine cannot see it. */
@@ -57,10 +66,28 @@ export function claudeSession(args = []) {
   if (named && !opaque) return { id: named, source: 'flag' };
   return { id: null, source: opaque ? 'unknown' : 'minted' };
 }
+/* kimi's spellings for the conversation it resumes: --session/-S and the hidden -r/--resume
+   aliases name it; a bare --session opens the CLI's own selector and -c/--continue takes the most
+   recent — each a conversation only the CLI knows. There is no start-with-id spelling at all. */
+export function kimiSession(args = []) {
+  let named = null, opaque = false;
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index];
+    const [flag, inline] = arg.startsWith('--') && arg.includes('=') ? [arg.slice(0, arg.indexOf('=')), arg.slice(arg.indexOf('=') + 1)] : [arg, null];
+    if (flag === '-c' || flag === '--continue') opaque = true;
+    else if (['--session', '-S', '--resume', '-r'].includes(flag)) {
+      const value = inline ?? args[index + 1];
+      if (inline === null) index++;
+      if (KIMI_SESSION.test(value ?? '')) named = value; else opaque = true;
+    }
+  }
+  if (named && !opaque) return { id: named, source: 'flag' };
+  return { id: null, source: opaque ? 'unknown' : 'minted' };
+}
 /* The identity IS the agent's session id, so the launcher can hand back the line that resumes it. */
+const RESUME_LINE = { claude: id => `claude --resume ${id}`, codex: id => `codex resume ${id}`, kimi: id => `kimi --session ${id}` };
 function sessionOf(provider, id, source) {
-  const resume = provider === 'codex' ? `codex resume ${id}` : `claude --resume ${id}`;
-  return { provider, id, known: source !== 'unknown', source, resume };
+  return { provider, id, known: source !== 'unknown', source, resume: RESUME_LINE[provider](id) };
 }
 /* The conversation IS the identity, so exactly one identifier is ever named, and only when rEngine
    is the one naming it: a launch whose own flags carry a session is passed through untouched, and a
@@ -70,7 +97,7 @@ export function conversationArgs(agent, identity, resume = false) {
   const session = identity?.session;
   if (!talk || !session || session.provider !== agent) return [];
   if (session.source === 'bound') return talk.resume(session.id);
-  if (session.source === 'minted' || session.source === 'workspace') return resume ? talk.resume(session.id) : talk.start(session.id);
+  if (session.source === 'minted' || session.source === 'workspace') return resume ? talk.resume(session.id) : talk.start?.(session.id) ?? [];
   return [];
 }
 export function describeSession(identity) {
@@ -96,13 +123,31 @@ function claudeIdentity({ args, session, conversation, resume }) {
   }
   return { id: null, source: 'minted' };
 }
+/* Where kimi's id comes from, in the same order as claude's: the person's own flags, the workspace's
+   recorded conversation being resumed — and then nothing. A conversation that cannot be told to the
+   CLI (no resume, no start spelling) is not this pane's to claim. */
+function kimiIdentity({ args, session, conversation, resume }) {
+  const named = kimiSession(args);
+  if (named.id || named.source === 'unknown') return named;
+  if (session) return { id: session, source: 'bound' };
+  if (conversation) {
+    if (typeof conversation !== 'string' || !KIMI_SESSION.test(conversation)) throw new Error('An agent conversation must be a session id in a shape kimi resumes by.');
+    return resume ? { id: conversation, source: 'workspace' } : { id: null, source: 'minted' };
+  }
+  return { id: null, source: 'minted' };
+}
 export async function agentIdentity({ agent, executable, args = [], handoff, session, conversation, resume = false, pid = process.pid, sessions = [] }) {
   const claude = agent === 'claude' ? claudeIdentity({ args, session, conversation, resume }) : null;
   const codex = agent === 'codex' ? (session ?? handoff?.sessionId ?? null) : null;
-  const agentId = claude?.id ?? codex ?? session ?? randomUUID();
+  const kimi = agent === 'kimi' ? kimiIdentity({ args, session, conversation, resume }) : null;
+  const agentId = claude?.id ?? codex ?? kimi?.id ?? session ?? randomUUID();
   const identity = { agentId, label: agentLabel(agent, executable, agentId), pid, startedAt: new Date().toISOString(),
     ...(claude ? { session: sessionOf('claude', agentId, claude.source) } : {}),
-    ...(codex ? { session: sessionOf('codex', agentId, 'flag') } : {}) };
+    ...(codex ? { session: sessionOf('codex', agentId, 'flag') } : {}),
+    /* A kimi launch that names nothing claims nothing: the CLI mints its own conversation, and a
+       session object here would invent one rEngine cannot resume. An opaque launch (its -c, or a
+       bare --session selector) still records that it does not know. */
+    ...(kimi?.id ? { session: sessionOf('kimi', kimi.id, kimi.source) } : kimi?.source === 'unknown' ? { session: sessionOf('kimi', agentId, 'unknown') } : {}) };
   if (process.platform === 'win32') return identity;
   const owners = new Set([process.pid, process.ppid].filter(value => Number.isSafeInteger(value) && value > 1));
   const pty = sessions.find(item => item?.type === 'agent' && owners.has(item.pid));
@@ -127,6 +172,31 @@ export const claudeSettingsFile = (directory, contextFile) => privateJson(path.j
 export function describeInvocation(plan) {
   return [...Object.entries(plan.consumes.env).map(([key, value]) => `${key}=${shellQuote(value)}`),
     shellQuote(plan.executable), ...plan.consumes.args.map(shellQuote)].join(' ');
+}
+
+/* Where kimi looks for project-level MCP servers: .kimi-code/mcp.json at the repository root — the
+   only per-project channel the CLI publishes (there is no flag and no environment override). The
+   file is the project's, so every entry outside rEngine's rengine_ namespace is preserved verbatim
+   and an unreadable file is refused rather than rewritten; the namespace itself is reclaimed whole,
+   because a stale key in it points at a per-launch context that no longer exists. */
+async function kimiMcpFile(directory, name, server) {
+  let root = path.resolve(directory);
+  for (;;) {
+    if (existsSync(path.join(root, '.git'))) break;
+    const parent = path.dirname(root);
+    if (parent === root) { root = path.resolve(directory); break; }
+    root = parent;
+  }
+  const file = path.join(root, '.kimi-code', 'mcp.json');
+  let previous = {};
+  try { previous = object(await readFile(file, 'utf8'), 'Kimi MCP configuration'); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  if (previous.mcpServers !== undefined && (!previous.mcpServers || typeof previous.mcpServers !== 'object' || Array.isArray(previous.mcpServers)))
+    throw new Error('Existing Kimi MCP configuration is not an object; it was preserved.');
+  const kept = Object.fromEntries(Object.entries(previous.mcpServers ?? {}).filter(([key]) => !key.startsWith('rengine_')));
+  await mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
+  await privateJson(file, { ...previous, mcpServers: { ...kept, [name]: { command: server.command, args: server.args } } });
+  return file;
 }
 
 export async function agentLaunch({ agent, executable, args = [], contextFile, context, directory, identity, handoff, conversation, resume = false, env = process.env, cwd = null, ourPids = [], ide = autoConnect }) {
@@ -165,6 +235,9 @@ export async function agentLaunch({ agent, executable, args = [], contextFile, c
     consumes.env.GEMINI_CLI_SYSTEM_DEFAULTS_PATH = await privateJson(path.join(home, 'gemini-defaults.json'), {
       ...previous, mcpServers: add(previous.mcpServers, name, { command: server.command, args: server.args }),
     });
+  } else if (agent === 'kimi') {
+    plan.kimi = await kimiMcpFile(cwd ?? process.cwd(), name, server);
+    consumes.args = conversationArgs(agent, bound, resume);
   } else plan.custom = true;
   /* What the host's record should say this pane holds. `null` is the honest answer for a launch
      that continues or forks: the identity is rEngine's own and no record may claim it names the

@@ -48,3 +48,23 @@ test('managed install is explicit, verified and discoverable without global pack
   assert.doesNotMatch(args, /--global/);
   assert.match(run(['--action', 'list']).stdout, /gemini\t.*managed/);
 });
+
+test('kimi is listed like the other four, installs from its npm package and updates through its own upgrade', async t => {
+  const { dir, bin, run } = await fixture(t);
+  assert.match(run(['--action', 'list']).stdout, /^kimi\t.+$/m, 'kimi appears in the launcher’s own listing, whatever this machine has installed');
+
+  /* A kimi the person installed themselves is updated through the CLI's own subcommand. */
+  await writeFile(path.join(bin, 'kimi'), '#!/bin/bash\nprintf "arg=%s\\n" "$@"\n', { mode: 0o755 });
+  const updated = run(['--agent', 'kimi', '--action', 'update']);
+  assert.equal(updated.status, 0, updated.stderr);
+  assert.match(updated.stdout, /arg=upgrade/);
+  await rm(path.join(bin, 'kimi'));
+
+  /* And a managed install names kimi's npm package and is discoverable afterwards. */
+  await writeFile(path.join(bin, 'npm'), '#!/bin/bash\nset -eu\nprintf "%s\\n" "$@" > "$RENGINE_AGENT_HOME/npm-args"\nwhile [ "$1" != --prefix ]; do shift; done\nshift\nmkdir -p "$1/node_modules/.bin"\nprintf "#!/bin/bash\\nprintf managed-kimi\\n" > "$1/node_modules/.bin/kimi"\nchmod +x "$1/node_modules/.bin/kimi"\n', { mode: 0o755 });
+  const installed = run(['--agent', 'kimi', '--action', 'install', '--version', '9.9.9']);
+  assert.equal(installed.status, 0, installed.stderr);
+  assert.match(installed.stdout, /Installation verified/);
+  assert.match(await readFile(path.join(dir, 'managed/npm-args'), 'utf8'), /@moonshot-ai\/kimi-code@9\.9\.9/);
+  assert.match(run(['--action', 'list']).stdout, /kimi\t.*managed/);
+});

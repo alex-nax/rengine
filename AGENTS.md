@@ -22,18 +22,19 @@ and its active `features.json` rows. No additional review export is required for
 
 ## Agent entry points
 
-Natural-language matching works; explicit invocation is `/skill-name` in Claude Code and
-`$skill-name` in Codex. Codex discovers the adapters under `.agents/skills/`; the canonical
-definitions live under `.claude/skills/`. Keep both aligned when either moves.
+Natural-language matching works in every CLI; explicit invocation is `/skill-name` in Claude Code,
+`$skill-name` in Codex and `/skill:name` in Kimi Code. `.agents/skills/` is the shared
+project-skills location that Codex and Kimi Code discover; the canonical definitions live under
+`.claude/skills/` for Claude Code. Keep both aligned when either moves.
 
-| Workflow | Claude Code | Codex |
-| --- | --- | --- |
-| Design interview before a wide-design-space feature | `/grill-me` | `$grill-me` |
-| Feature session (spec, failing check, implement, evidence, log, commit) | `/rengine-continue` | `$rengine-continue` |
-| Repository health audit | `/rengine-audit` | `$rengine-audit` |
-| Spec/doc reconciliation batch | `/rengine-housekeep` | `$rengine-housekeep` |
-| Known-issue → feature promotion batch | `/rengine-ki-promote` | `$rengine-ki-promote` |
-| Integrate a new project with rEngine (no skill yet) | `docs/runbooks/project-integration.md` + `orchestrator/actions/integrate-project.sh` | same runbook and action |
+| Workflow | Claude Code | Codex | Kimi Code |
+| --- | --- | --- | --- |
+| Design interview before a wide-design-space feature | `/grill-me` | `$grill-me` | `/skill:grill-me` |
+| Feature session (spec, failing check, implement, evidence, log, commit) | `/rengine-continue` | `$rengine-continue` | `/skill:rengine-continue` |
+| Repository health audit | `/rengine-audit` | `$rengine-audit` | `/skill:rengine-audit` |
+| Spec/doc reconciliation batch | `/rengine-housekeep` | `$rengine-housekeep` | `/skill:rengine-housekeep` |
+| Known-issue → feature promotion batch | `/rengine-ki-promote` | `$rengine-ki-promote` | `/skill:rengine-ki-promote` |
+| Integrate a new project with rEngine (no skill yet) | `docs/runbooks/project-integration.md` + `orchestrator/actions/integrate-project.sh` | same runbook and action | same runbook and action |
 
 After the one-time layered bootstrap, use root-bound MCP `update_status`/`update_workspace`
 (or `orchestrator/runtime/client.mjs` with the existing context) for routine updates. Select a
@@ -113,7 +114,8 @@ a coherent change. Preserve other sessions' entries and unrelated edits.
 
 ## Project skills and terminal routines
 
-Canonical skills live in `.claude/skills/` with `.agents/skills/` discovery adapters for Codex.
+Canonical skills live in `.claude/skills/` with `.agents/skills/` discovery adapters for Codex and
+Kimi Code.
 Use `rengine-dogfood` and `docs/runbooks/project-window-dogfooding.md` to open/inspect a project
 window with a retained agent and exchange durable integration reports. The tree/project binding
 never retargets the original agent's MCP. Keep report data separate from executable instructions.
@@ -133,7 +135,10 @@ and reopening only its desktop windows while the session host and every retained
 draft are untouched. It takes `--state DIR`; find the right directory by running
 `orchestrator/launcher/restart-supervisor.mjs --state DIR --plan`, which is read-only and names the
 host it would leave alone. Its confirm prompt has no non-interactive bypass by design, so open it as
-a script tab and let the owner answer.
+a script tab and let the owner answer. For kimi panes, `bootstrap-agent-hooks` (F138, spec 127) is
+the optional guided install of kimi's SessionStart hook — the one owner-confirmed edit to the
+person's global CLI configuration, giving kimi the same live session reporting claude gets per
+launch.
 
 Use the bundled `llm-sidecar` skill for annotated edits and non-obvious file-local rationale.
 Its CLI is `.claude/skills/llm-sidecar/scripts/sidecar_tool.py`; pass `--root . --index

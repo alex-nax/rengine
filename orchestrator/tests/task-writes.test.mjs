@@ -328,11 +328,11 @@ test('the desktop assigns the token to a chosen agent, settling an open contest 
 
 test('the agent menu is the declaration’s when it has one and rEngine’s known lists otherwise', async () => {
   const root = { id: 'r', path: '/nowhere' };
-  const list = async () => 'codex\t/usr/bin/codex\nclaude\tnot installed\ngemini\tnot installed\nopencode\tnot installed\n';
+  const list = async () => 'codex\t/usr/bin/codex\nclaude\tnot installed\ngemini\tnot installed\nopencode\tnot installed\nkimi\tnot installed\n';
   const help = async () => '  -m, --model <MODEL>\n          Model the agent should use [possible values: gpt-5, gpt-5-codex]\n';
   const known = await agentsMenu(root, { declared: true, contract: 5 }, { list, help });
   assert.equal(known.declared, false);
-  assert.deepEqual(known.agents.map(entry => entry.cli), ['claude', 'codex', 'gemini', 'opencode']);
+  assert.deepEqual(known.agents.map(entry => entry.cli), ['claude', 'codex', 'gemini', 'opencode', 'kimi']);
   const claude = known.agents.find(entry => entry.cli === 'claude');
   assert.equal(claude.default, 'claude-opus-5');
   assert.deepEqual(claude.models, ['claude-fable-5-1', 'claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5-20251001']);
@@ -341,6 +341,7 @@ test('the agent menu is the declaration’s when it has one and rEngine’s know
   assert.equal(codex.installed, true);
   assert.deepEqual(codex.models, ['gpt-5', 'gpt-5-codex'], 'codex’s list is whatever its own --help names');
   assert.deepEqual(known.agents.find(entry => entry.cli === 'gemini').models, [], 'and a CLI rEngine knows no list for offers none');
+  assert.deepEqual(known.agents.find(entry => entry.cli === 'kimi').models, [], 'kimi’s aliases are the person’s own configuration, so rEngine offers none');
 
   const declared = await agentsMenu(root, { declared: true, contract: 6, agents: [{ cli: 'claude', models: ['claude-opus-5'], default: 'claude-opus-5' }] },
     { list, help: async () => { throw new Error('a declared menu asks no CLI anything'); } });
@@ -351,6 +352,7 @@ test('the agent menu is the declaration’s when it has one and rEngine’s know
   assert.deepEqual(codexModels('  --profile <P>  [possible values: a, b]\n'), [], 'a possible-values list belonging to another flag is not a model list');
   assert.deepEqual(modelArgs('claude', 'claude-opus-5'), ['--model', 'claude-opus-5']);
   assert.deepEqual(modelArgs('codex', 'gpt-5'), ['-m', 'gpt-5']);
+  assert.deepEqual(modelArgs('kimi', 'kimi-code/kimi-for-coding'), ['-m', 'kimi-code/kimi-for-coding'], 'kimi spells its model flag -m');
   assert.deepEqual(modelArgs('gemini', undefined), [], 'a spawn with no model needs no flag from anybody');
   assert.throws(() => modelArgs('opencode', 'anything'), /does not know how opencode is told which model/);
 

@@ -160,6 +160,39 @@ test('a launch that continued or forked becomes known once the CLI reports', asy
     'so the pane the launcher had to leave empty can be restarted into its conversation');
 });
 
+test('a kimi SessionStart hook reports the session the CLI is running, with its own resume line', async t => {
+  /* kimi's hook lives in the person's own config.toml and is installed by the guided bootstrap
+     action (spec 127 decision 6); what lands there is this reporter with --provider kimi. */
+  const workspace = await host(t);
+  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-report-kimi-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const contextFile = path.join(directory, 'root-context.json');
+  await writeFile(contextFile, JSON.stringify({ url: workspace.url, token: TOKEN, instance: INSTANCE, rootId: ROOT_ID }));
+  const plan = await agentLaunch({ agent: 'kimi', executable: '/installed/kimi', contextFile, env: {}, cwd: directory });
+  const env = { RENGINE_MCP_CONFIG: plan.generic, RENGINE_ORCHESTRATOR_SESSION: 'pane-kimi-1' };
+  const KIMI_SESSION = 'session_5b8d47c2-2222-4222-8222-222222222222';
+  /* The payload shape kimi's SessionStart documents: the base fields every hook gets. */
+  const payload = { session_id: KIMI_SESSION, session_title: 'a kimi pane', client_type: 'kimi_code_cli', cwd: '/tmp/project',
+    hook_event_name: 'SessionStart', source: 'startup', model: 'kimi-for-coding', profile: 'default' };
+
+  const result = await report({ env, argv: ['--provider', 'kimi'], input: payload });
+  assert.equal(result.bound, true);
+  assert.equal(result.rewrote, true);
+  assert.equal(result.posted, true);
+  assert.deepEqual(workspace.posted, [{ id: 'pane-kimi-1', conversation: KIMI_SESSION, agent: 'kimi' }],
+    'the host is told over the same route claude’s hook uses, under kimi’s own name');
+
+  const identity = JSON.parse(await readFile(plan.contextFile, 'utf8')).agent;
+  assert.equal(identity.agentId, KIMI_SESSION, 'the conversation IS the identity, prefix included');
+  assert.equal(identity.label, `kimi ${KIMI_SESSION.slice(8, 16)}`, 'labelled by the eight characters after the session_ prefix');
+  assert.deepEqual(identity.session, { provider: 'kimi', id: KIMI_SESSION, known: true, source: 'reported',
+    resume: `kimi --session ${KIMI_SESSION}` }, 'and the line that resumes it is kimi’s own spelling');
+
+  await assert.rejects(report({ env, argv: ['--provider', 'kimi'], input: { ...payload, session_id: 'not a session' } }), /session id/i,
+    'a payload in no shape kimi resumes by is refused (and the wrapper still exits 0, so the CLI is never failed)');
+  assert.equal(workspace.posted.length, 1, 'and nothing more was reported');
+});
+
 test('the tool worker’s next call carries the conversation the CLI reported', async t => {
   const workspace = await host(t);
   const { plan, env } = await pane(t, workspace, { conversation: LAUNCHED });

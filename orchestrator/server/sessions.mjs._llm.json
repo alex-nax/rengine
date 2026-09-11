@@ -81,8 +81,8 @@
       "id": "a-pane-restart-is-not-a-host-restart",
       "kind": "rationale",
       "anchor": {
-        "start": 271,
-        "end": 271,
+        "start": 276,
+        "end": 276,
         "snippet": "async restartAgent(id) {"
       },
       "note": "Replacing one agent child is deliberately much smaller than replacing the session host. The host keeps its PTYs, its drafts and every other pane, so this is not a quiescence event under spec 065 and costs no other conversation. It exists because the alternative was observed and was unacceptable: an environment defect baked into the host could only be cleared by killing the host, which destroys every live agent conversation on it, leaving the owner to choose between a broken environment and their work. The two guards are the whole contract \u2014 a non-agent session has no conversation to return to, and an agent recorded without one cannot be resumed, so it is refused by name rather than restarted into a second conversation that would look like the first. See docs/specs/096-agent-session-resume.md."
@@ -91,14 +91,15 @@
       "id": "the-record-follows-the-launch",
       "kind": "rationale",
       "anchor": {
-        "start": 251,
-        "end": 251,
+        "start": 256,
+        "end": 256,
         "snippet": "async recordConversation(id, conversation, agent, task) {"
       },
-      "note": "The host pre-mints a conversation so a pane has one before its first byte of output, but the launcher's identity is the single source: the person at the pane may pick another from the offered list, and their own --resume beats both. So the pane reports what actually launched and this method takes it, rather than the host keeping what it intended. null is a distinct answer from 'nothing reported': it means the launch continues or forks a conversation the CLI names itself, so the pane must be left holding nothing \u2014 keeping the pre-minted id there would make restart_agent resume a conversation this pane never had, which looks like a resume and is a second conversation. The title is refreshed with it because the first eight characters are how a person recognises the same conversation in the pane, the picker, the identity label and the token segment.",
+      "note": "The host pre-mints a conversation so a pane has one before its first byte of output, but the launcher's identity is the single source: the person at the pane may pick another from the offered list, and their own --resume beats both. So the pane reports what actually launched and this method takes it, rather than the host keeping what it intended. null is a distinct answer from 'nothing reported': it means the launch continues or forks a conversation the CLI names itself, so the pane must be left holding nothing \u2014 keeping the pre-minted id there would make restart_agent resume a conversation this pane never had, which looks like a resume and is a second conversation. The title is refreshed with it because the first eight characters are how a person recognises the same conversation in the pane, the picker, the identity label and the token segment. Since spec 127 the pre-mint is gated on the agent's declared start capability: kimi can resume but has no start-with-id spelling, so it is minted nothing, a named kimi conversation without resume is refused by name, and a kimi id goes by the eight characters after its session_ prefix everywhere the short form is shown (shortAgentId).",
       "refs": [
         "docs/specs/095-project-token.md",
         "docs/specs/096-agent-session-resume.md",
+        "docs/specs/127-kimi-agent-integration.md",
         "docs/evidence/conversation-is-identity-2026-09-07.md"
       ]
     },
@@ -134,7 +135,7 @@
   ],
   "source": {
     "path": "orchestrator/server/sessions.mjs",
-    "sha256": "26516964b4800bc6f55b64c55a8297d10dd9a319779bfd8694e24bf5a51d8811",
+    "sha256": "746588dcc298743147754f0e927198c793f900893d03cc2948bbc0737f378a07",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }

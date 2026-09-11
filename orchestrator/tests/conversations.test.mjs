@@ -37,6 +37,24 @@ test('conversations outlive the session host that recorded them', async t => {
   await assert.rejects(second.recordConversation('00000000-0000-0000-0000-000000000000', { conversation: '33333333-3333-3333-3333-333333333333', agent: 'claude' }), /root/i);
 });
 
+/* kimi names its own conversations, so the shapes kimi resumes by are recorded under kimi's own
+   name (spec 127); everything else keeps the UUID-only rule it always had. */
+test('a conversation id is accepted in the shape the named CLI resumes by, and no other', async t => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'rengine-conversations-kimi-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const store = await WorkspaceStore.open(path.join(dir, 'state'));
+  const root = await store.addRoot(dir);
+
+  const session = 'session_3f85774e-05bb-4791-bb9f-1c90dc37d0e6';
+  await store.recordConversation(root.id, { conversation: session, agent: 'kimi' });
+  assert.equal(store.listConversations(root.id)[0].id, session);
+  await store.recordConversation(root.id, { conversation: '01HZYJ8K3M4N5P6Q7R8S9T0V1W', agent: 'kimi' });
+  assert.equal(store.listConversations(root.id).length, 2, 'the documented ULID shape is one too');
+  await assert.rejects(store.recordConversation(root.id, { conversation: session, agent: 'claude' }), /conversation/i,
+    'a kimi-shaped id under another name is not a conversation rEngine can vouch for');
+  await assert.rejects(store.recordConversation(root.id, { conversation: 'not-a-session', agent: 'kimi' }), /conversation/i);
+});
+
 test('the remembered list is bounded, so a long-lived project cannot grow it without limit', async t => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-conversations-bound-'));
   t.after(() => rm(dir, { recursive: true, force: true }));

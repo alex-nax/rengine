@@ -7,10 +7,16 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { resolveRuntime, runtimeDirectory } from '../runtime/discovery.mjs';
+import { bindingContext } from './report-session.mjs';
 
-const index = process.argv.indexOf('--context');
-if (index < 0 || !process.argv[index + 1]) throw new Error('A workspace context file is required.');
-const filename = process.argv[index + 1], context = JSON.parse(await readFile(filename, 'utf8'));
+/* The pane's own environment names this launch's context before the argv does: kimi reads its MCP
+   servers from the project-level .kimi-code/mcp.json, which is shared and last-writer-wins across
+   panes, so the --context a kimi session passes can name another pane's launch. RENGINE_MCP_CONFIG
+   and RENGINE_WORKSPACE_CONTEXT are this pane's own (spec 127 decision 5). A CLI started outside
+   any pane has neither and falls back to argv, which is all it ever had. */
+const filename = await bindingContext(process.env, process.argv.slice(2), { envFirst: true });
+if (!filename) throw new Error('A workspace context file is required.');
+const context = JSON.parse(await readFile(filename, 'utf8'));
 const siblingWorker = fileURLToPath(new URL('./mcp-worker.mjs', import.meta.url));
 const descriptor = path.join(context.runtimeDirectory ?? runtimeDirectory(context), 'runtime.json');
 let worker, generation, workerFile, serial = Promise.resolve(), refreshing, closed = false;
