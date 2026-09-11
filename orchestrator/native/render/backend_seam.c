@@ -19,6 +19,7 @@
 #include "render/shaders/ui_shaders.h"
 #include "render/utf8.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -171,10 +172,11 @@ static void set_clip(SeamBackend *b, const ReCommand *c) {
   flush(b);
   if (c->flags & RE_CLIP_RESET) { re_seam_scissor(b->seam, 0, 0, -1, -1); return; }
   int w = c->rect.w > 0 ? c->rect.w : 0, h = c->rect.h > 0 ? c->rect.h : 0;
-  /* The scissor's origin is the bottom-left in every backend, because the seam made row 0 mean the
-     same thing everywhere — so this is backend_gl.c's expression unchanged. */
+  /* The draw list's rectangles already put row 0 at the top, and so does the seam — so this is a
+     scale and nothing else. It was backend_gl.c's bottom-left expression until the Metal copy drew
+     every pane upside down and showed that the three backends had never agreed (spec 124). */
   re_seam_scissor(b->seam, (int)((float)c->rect.x * b->density),
-                  (int)((float)b->dh - (float)(c->rect.y + h) * b->density),
+                  (int)((float)c->rect.y * b->density),
                   (int)((float)w * b->density), (int)((float)h * b->density));
 }
 
@@ -292,7 +294,10 @@ static void close_backend(ReBackend *backend) {
   free(b);
 }
 
-static const ReBackendOps ops = {"seam", density, begin, execute, present, snapshot,
+/* Each copy reports the --renderer value that selected it, built from its host's own name, because
+   this file is compiled once per graphics API and cannot be told apart any other way. */
+static char ops_name[16];
+static const ReBackendOps ops = {ops_name, density, begin, execute, present, snapshot,
                                  texture_create, texture_update, texture_destroy, close_backend};
 
 Uint32 re_backend_seam_window_flags(void) { return re_seam_host_flags(); }
@@ -300,6 +305,7 @@ Uint32 re_backend_seam_window_flags(void) { return re_seam_host_flags(); }
 ReBackend *re_backend_seam_open(SDL_Window *window, ReFontSet *fonts) {
   SeamBackend *b = calloc(1, sizeof(*b)); if (!b) return NULL;
   b->window = window; b->base.ops = &ops; b->base.fonts = fonts; b->density = 1.0f;
+  snprintf(ops_name, sizeof(ops_name), "seam-%s", re_seam_host_name());
   char error[256] = {0};
   b->host = re_seam_host_open(window, error, sizeof(error));
   if (!b->host) { SDL_SetError("%s", error); close_backend(&b->base); return NULL; }

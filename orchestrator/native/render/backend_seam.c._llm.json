@@ -5,8 +5,8 @@
       "id": "blend-alpha-is-premultiplied",
       "kind": "constraint",
       "anchor": {
-        "start": 201,
-        "end": 201,
+        "start": 203,
+        "end": 203,
         "symbol": "begin",
         "snippet": "re_seam_blend_separate(b->seam, RE_SEAM_BLEND_ALPHA, RE_SEAM_BLEND_PREMULTIPLIED);"
       },
@@ -17,25 +17,26 @@
       ]
     },
     {
-      "id": "scissor-origin-bottom-left",
+      "id": "scissor-origin-is-top-left",
       "kind": "constraint",
       "anchor": {
-        "start": 174,
-        "end": 175,
+        "start": 175,
+        "end": 177,
         "symbol": "set_clip",
-        "snippet": "/* The scissor's origin is the bottom-left in every backend, because the seam made row 0 mean the"
+        "snippet": "/* The draw list's rectangles already put row 0 at the top, and so does the seam \u2014 so this is a"
       },
-      "note": "The seam deliberately gives row 0 the same meaning on all three APIs (spec 124's Y-axis section), so this expression is `backend_gl.c`'s unchanged and needs no per-API branch \u2014 the thing the three hand-written backends each got right separately and could each have got wrong.\n\nReading the origin as top-left instead was run as a sabotage: 212,381 pixels outside the 2px edge band on the workspace scene. It is caught loudly, which is why the expression can stay terse.",
+      "note": "This was `backend_gl.c`'s bottom-left expression, carried over with a comment claiming the seam had made the origin uniform across backends. **It had not.** Vulkan's `VkRect2D` and Metal's `MTLScissorRect` are measured from the top, OpenGL's from the bottom, and the seam handed each API these numbers unchanged \u2014 so the Metal copy drew every pane's clip upside down the first time one existed.\n\nThe seam's header now states top-left, matching `re_seam_texture_update`, and the OpenGL backend converts using the bound target's height. Nothing in the repository could have caught the disagreement beforehand: every caller clipped either the full height or nothing.\n\nRemoving the OpenGL conversion is a sabotage worth knowing is caught \u2014 212,381 pixels outside the 2px band on the workspace scene \u2014 so this expression can stay a plain scale.",
       "refs": [
-        "docs/specs/124-seam-three-backends.md"
+        "docs/specs/124-seam-three-backends.md",
+        "packs/gpu/src/gpu_seam_gl.c"
       ]
     },
     {
       "id": "atlas-is-single-channel",
       "kind": "rationale",
       "anchor": {
-        "start": 338,
-        "end": 338,
+        "start": 344,
+        "end": 344,
         "symbol": "re_backend_seam_open",
         "snippet": "RE_SEAM_WRAP_CLAMP_TO_EDGE, RE_SEAM_TEXTURE_COVERAGE);"
       },
@@ -48,8 +49,8 @@
       "id": "colour-is-four-bytes",
       "kind": "perf",
       "anchor": {
-        "start": 30,
-        "end": 32,
+        "start": 31,
+        "end": 33,
         "snippet": "/* The one vertex layout, matching shaders/ui.glsl's one set of attribute locations. The colour is"
       },
       "note": "Twelve bytes saved per vertex across a 65,536-vertex batch is 768 KiB of upload per full batch. This is why the seam grew `RE_SEAM_ATTRIBUTE_UNORM8` as a second attribute type rather than letting the draw list widen four bytes into four floats on the way in.\n\nThe shader reads it as normalised, so `ui.glsl` sees the same `vec4` in 0..1 it would have seen from floats \u2014 the layout change is invisible above the attribute declaration, which is the property that let this be a port rather than a rewrite.",
@@ -61,11 +62,11 @@
       "id": "no-graphics-api-here",
       "kind": "constraint",
       "anchor": {
-        "start": 295,
-        "end": 295,
-        "snippet": "static const ReBackendOps ops = {\"seam\", density, begin, execute, present, snapshot,"
+        "start": 300,
+        "end": 301,
+        "snippet": "static const ReBackendOps ops = {ops_name, density, begin, execute, present, snapshot,"
       },
-      "note": "Everything below the draw list that knows a graphics API lives in `seam_host_*.c`; this file reaches one through `seam_host.h` and otherwise calls only the pack. `tools/design.py`'s `native_render_layering` enforces that \u2014 it allows API symbols in `render/backend_*.c` and `render/seam_host_*.c` and nowhere else, and `backend_seam.c` is a `backend_` file only by name, carrying none.\n\nKeeping it true is what makes the eventual three prefixed seam copies a link-time question (spec 126 decision 3) instead of a source one.",
+      "note": "Everything below the draw list that knows a graphics API lives in `seam_host_*.c`; this file reaches one through `seam_host.h` and otherwise calls only the pack. `tools/design.py`'s `native_render_layering` enforces that \u2014 it allows API symbols in `render/backend_*.c` and `render/seam_host_*.c` and nowhere else, and `backend_seam.c` is a `backend_` file only by name, carrying none.\n\nKeeping it true is what makes the eventual three prefixed seam copies a link-time question (spec 126 decision 3) instead of a source one.\n\nThat stayed true, and it is what made the three prefixed copies a LINK-time question rather than a source one: this file is compiled once per graphics API with a rename header force-included, and the only thing that differs between the copies is which seam and which `seam_host_*.c` they were linked against. `ops_name` is built from the host's own name because there is no other way for one source, compiled three times, to say which copy it is.",
       "refs": [
         "tools/design.py",
         "docs/specs/126-scene-view-and-test-artifacts.md"
@@ -74,7 +75,7 @@
   ],
   "source": {
     "path": "orchestrator/native/render/backend_seam.c",
-    "sha256": "e76590e6a7e14fa2075d7d472a15fc6da37d19455147dd41ef7bfc516cf7ec2e",
+    "sha256": "286882653ef4a527542ed7df98c5c242f9f983743389fde1e13bbbfe23e87c8e",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

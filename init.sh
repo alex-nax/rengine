@@ -10,6 +10,7 @@ python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else "ERROR: Py
 
 python3 tools/features.py validate
 python3 tools/shaders.py check
+python3 tools/seam_prefix.py check
 python3 tools/features.py status
 
 if [ -d .git ] || [ -f .git ]; then

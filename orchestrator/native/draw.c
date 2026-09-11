@@ -2,7 +2,7 @@
 #include "render/backend_sdl.h"
 #include "render/backend_gl.h"
 #include "render/backend_vk.h"
-#include "render/backend_seam.h"
+#include "render/seam_backends.h"
 #ifdef __APPLE__
 #include "render/backend_metal.h"
 #endif
@@ -44,9 +44,13 @@ const char *re_draw_select(const char *name) {
   if (!strcmp(choice, "metal")) return "metal";
 #endif
   if (!strcmp(choice, "vulkan")) return "vulkan";
-  /* The draw list through the pack's seam (F133). Selectable alongside the hand-written backends
-     for the length of the transition, so the suite can judge it against them before they go. */
-  if (!strcmp(choice, "seam")) return "seam";
+  /* The draw list through the pack's seam, one value per copy (F133). Selectable alongside the
+     hand-written backends for the length of the transition, so the suite can judge each against the
+     one it replaces before any of them goes; then these lose the prefix and those are deleted. */
+  if (!strcmp(choice, "seam-opengl")) return "seam-opengl";
+#ifdef __APPLE__
+  if (!strcmp(choice, "seam-metal")) return "seam-metal";
+#endif
   return !strcmp(choice, "sdl") ? "sdl" : NULL;
 }
 Uint32 re_draw_window_flags(const char *backend) {
@@ -55,7 +59,10 @@ Uint32 re_draw_window_flags(const char *backend) {
   if (backend && !strcmp(backend, "metal")) return re_backend_metal_window_flags();
 #endif
   if (backend && !strcmp(backend, "vulkan")) return re_backend_vk_window_flags();
-  if (backend && !strcmp(backend, "seam")) return re_backend_seam_window_flags();
+  if (backend && !strcmp(backend, "seam-opengl")) return re_opengl_backend_seam_window_flags();
+#ifdef __APPLE__
+  if (backend && !strcmp(backend, "seam-metal")) return re_metal_backend_seam_window_flags();
+#endif
   return 0;
 }
 ReDraw *re_draw_active(void) { return active; }
@@ -69,7 +76,10 @@ ReDraw *re_draw_open(SDL_Window *window, const char *font_path, const char *back
   else
 #endif
   if (backend && !strcmp(backend, "vulkan")) d->backend = re_backend_vk_open(window, d->fonts);
-  else if (backend && !strcmp(backend, "seam")) d->backend = re_backend_seam_open(window, d->fonts);
+  else if (backend && !strcmp(backend, "seam-opengl")) d->backend = re_opengl_backend_seam_open(window, d->fonts);
+#ifdef __APPLE__
+  else if (backend && !strcmp(backend, "seam-metal")) d->backend = re_metal_backend_seam_open(window, d->fonts);
+#endif
   else
   d->backend = backend && !strcmp(backend, "opengl") ? re_backend_gl_open(window, d->fonts) : re_backend_sdl_open(window, d->fonts);
   if (!d->backend) { re_font_close(d->fonts); free(d); return NULL; }

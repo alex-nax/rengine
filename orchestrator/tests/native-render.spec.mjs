@@ -32,12 +32,16 @@ const WIN = process.platform === 'win32';
 const memoryLimitKb = backend => (WIN && backend === 'vulkan' ? 64 * 1024 : MEMORY_LIMIT_KB);
 const PYTHON = WIN ? 'python' : 'python3'; // Windows ships no python3 alias
 const BINARY = process.env.RENGINE_NATIVE_BINARY ?? path.resolve('.cache/desktop/bin', WIN ? 'Release/rengine.exe' : 'rengine');
-// 'seam' is the draw list rendered through packs/gpu's seam (F133, spec 124). It is listed here for
+// The seam-* backends are the draw list rendered through packs/gpu's seam, one copy per graphics
+// API (F133, spec 124, spec 126 decision 3). They are listed here for
 // the length of the transition, while the three hand-written backends still exist: every gate below —
 // the recorded frames, the SDL comparison, the cross-backend comparison, the frame ceiling and the
 // memory budget — then judges it against the paths it is meant to replace, before any of them are
-// deleted. When the seam carries all three APIs, this list names them again and 'seam' goes away.
-const GPU_BACKENDS = process.platform === 'darwin' ? ['opengl', 'metal', 'vulkan', 'seam'] : ['opengl', 'vulkan', 'seam'];
+// deleted. When the seam carries all three APIs, this list names them again and the seam-* values
+// lose their prefix.
+const GPU_BACKENDS = process.platform === 'darwin'
+  ? ['opengl', 'metal', 'vulkan', 'seam-opengl', 'seam-metal']
+  : ['opengl', 'vulkan', 'seam-opengl'];
 const TERMINAL_SCRIPT = WIN
   ? "1..40 | % { ('{0}[3{1}m{2:D3}{0}[0m row of the render scene with colour and text' -f [char]27, ($_ % 7 + 1), $_) }; 'RENDER_DONE'\r\n"
   : "for i in $(seq 1 40); do printf '\\033[3%dm%03d\\033[0m row of the render scene with colour and text\\n' $((i % 7 + 1)) $i; done; printf 'RENDER_DONE\\n'\n";
@@ -127,7 +131,7 @@ async function capture(project, backend, dir, extraEnv = {}, tag = backend) {
   return result;
 }
 
-test('GPU adapters match the SDL reference within the recorded tolerances and budgets', { timeout: 900000 }, async () => {
+test('GPU adapters match the SDL reference within the recorded tolerances and budgets', { timeout: 1500000 }, async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-native-render-'));
   const project = path.join(dir, 'project'); await mkdir(project);
   await writeFile(path.join(project, 'render.txt'), 'render scene\n');

@@ -20,6 +20,23 @@ const DELIBERATELY_UNRUN = {
   'sdl.spec.mjs': 'needs the separately built surface fixture in .cache/native; run by hand, see docs/evidence/gameplay-input-macos-2026-09-05.md',
 };
 
+// The same hole, one layer down: the native tests are declared in cmake.toml as CTest targets and
+// run by ctest, which no npm script invoked at all until 2026-09-11 — so native_gpu_seam and
+// native_gpu_device had been passing into a report nobody generated. A narrowing -R filter would
+// reintroduce exactly the invisibility this file exists to prevent, so the runner must take none.
+test('the native CTest targets are reachable from a script that runs all of them', async () => {
+  const manifest = JSON.parse(await readFile(path.join(ROOT, 'package.json'), 'utf8'));
+  const declared = [...(await readFile(path.join(ROOT, 'cmake.toml'), 'utf8'))
+    .matchAll(/add_test\(NAME\s+(\S+)/g)].map(m => m[1]);
+  assert.ok(declared.length > 0, 'cmake.toml declares CTest targets');
+  const runners = Object.values(manifest.scripts).filter(s => /\bctest\b/.test(s));
+  assert.ok(runners.length > 0,
+    `cmake.toml declares ${declared.join(', ')} but no npm script runs ctest, so none of them is in any report`);
+  for (const runner of runners)
+    assert.ok(!/\s-R\b/.test(runner),
+      `"${runner}" narrows ctest with -R, which hides every target it does not name`);
+});
+
 test('every desktop spec runs somewhere, or says why it does not', async () => {
   const manifest = JSON.parse(await readFile(path.join(ROOT, 'package.json'), 'utf8'));
   const scripts = Object.values(manifest.scripts).join(' ');

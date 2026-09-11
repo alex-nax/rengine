@@ -231,6 +231,12 @@ ReSeamTarget re_seam_target(ReSeam *seam, ReSeamTexture color, ReSeamTexture dep
  *
  * A host that only ever renders off-screen never calls this. */
 ReSeamTarget re_seam_target_adopt(ReSeam *seam, uintptr_t handle, int width, int height);
+/* Destroy gives back everything the seam allocated and nothing the caller owns. For a target made by
+ * `re_seam_target` that is the target slot alone -- the textures stay yours. For an ADOPTED one it is
+ * also the wrapper the seam had to build around your image, which is why an adopted target must be
+ * destroyed even though the image inside it was never the seam's. A host that acquires a swapchain
+ * image per frame therefore destroys per frame; one that adopts a constant image (an OpenGL host
+ * adopting framebuffer zero) can adopt once and keep it. */
 void re_seam_target_destroy(ReSeam *seam, ReSeamTarget *target);
 void re_seam_target_bind(ReSeam *seam, ReSeamTarget target);
 
@@ -250,6 +256,15 @@ void re_seam_frame_end(ReSeam *seam);
 void re_seam_blend(ReSeam *seam, ReSeamBlend blend);
 void re_seam_depth(ReSeam *seam, ReSeamDepthTest test, ReSeamDepthWrite write);
 void re_seam_cull(ReSeam *seam, ReSeamCull cull);
+/* Both rectangles are in PIXELS OF THE BOUND TARGET WITH ROW 0 AT THE TOP -- the same convention
+ * re_seam_texture_update already takes, and the opposite of glViewport/glScissor.
+ *
+ * This is stated rather than inherited because the three backends did not agree and nothing noticed.
+ * Vulkan's VkRect2D and Metal's MTLScissorRect are both measured from the top; OpenGL's are measured
+ * from the bottom, and the seam used to hand each API the caller's numbers unchanged. Every caller
+ * in this repository happened to clip either the full height or nothing, so no test could tell --
+ * until rEngine's draw list clipped a pane on Metal and the panes were upside down (spec 124, F133).
+ * The OpenGL backend now converts; the other two pass through, as they always did. */
 void re_seam_viewport(ReSeam *seam, int x, int y, int width, int height);
 /* Clip to a rectangle in the same coordinates as the viewport. A width or height below zero turns
  * clipping off. Every panel microui draws is clipped, so this is per-control, not per-frame. */

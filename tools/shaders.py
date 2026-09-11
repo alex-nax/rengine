@@ -125,11 +125,15 @@ def stage_sources(stage):
         metal = ""
         cross = shutil.which("spirv-cross")
         if cross:
-            # --flip-vert-y for the vertex stage only: Metal's clip space has +Y up like OpenGL's but
-            # its framebuffer origin is top-left, so without this NDC -1 lands in the last row where
-            # OpenGL puts it in the first. Vulkan needs no flip because its clip space is already
-            # Y-down — two differences that cancel. See spec 124.
-            flip = ["--flip-vert-y"] if stage == "vertex" else []
+            # NO flip, and this one is the opposite of the pack example's answer for a reason worth
+            # keeping. A flip is what makes an OFF-SCREEN image come out the same way up on every
+            # API, because there "the same way up" is a question about memory. This shader draws to
+            # the WINDOW, where the question is what the viewer sees: NDC +1 is the top of the image
+            # on OpenGL and on Metal alike, so a flip here puts the toolbar at the bottom — which is
+            # exactly what the Metal copy of the draw list did until this line went away (spec 124).
+            # The OpenGL host's snapshot still flips, because glReadPixels is bottom-up; that is a
+            # read-back concern and it belongs in the host, not in the shader.
+            flip = []
             # MSL 2.3: the shader discards, and SPIRV-Cross refuses to emit discard_fragment() below that
             # version because it does not formally have demote semantics there. macOS 11 and later.
             done = subprocess.run([cross, "--msl", "--msl-version", "20300"] + flip + [str(out)],

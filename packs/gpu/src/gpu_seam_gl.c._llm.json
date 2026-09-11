@@ -5,8 +5,8 @@
       "id": "why-the-loader-is-the-callers",
       "kind": "rationale",
       "anchor": {
-        "start": 79,
-        "end": 79,
+        "start": 96,
+        "end": 96,
         "symbol": "RE_SEAM_GL_FUNCTIONS",
         "snippet": "#define RE_SEAM_GL_FUNCTIONS(X)                                                                     \\"
       },
@@ -20,8 +20,8 @@
       "id": "the-glsl-guard-is-load-bearing",
       "kind": "constraint",
       "anchor": {
-        "start": 194,
-        "end": 194,
+        "start": 226,
+        "end": 226,
         "symbol": "compile",
         "snippet": "static GLuint compile(ReSeam *seam, GLenum type, const ReSeamShader *stage, const char *debug_name) {"
       },
@@ -33,7 +33,7 @@
   ],
   "source": {
     "path": "packs/gpu/src/gpu_seam_gl.c",
-    "sha256": "2b5cf7463c51a311178fbea3a3abcf07be478ebc3362b0681a4ce7301cdceabb",
+    "sha256": "c297f04f93fff39ffd0a482a91e4ad0fd69665af26d020e94b247a94a1684a9c",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

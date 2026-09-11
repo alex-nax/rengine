@@ -159,6 +159,7 @@ struct ReSeam {
   void *message_user;
   bool in_frame;
   ReSeamTarget frame_target;
+  ReSeamTarget bound;   /* whose height turns a top-left rectangle into a bottom-left one */
 };
 
 /* The current seam is per thread because a graphics context is: two render threads with two contexts
@@ -474,6 +475,7 @@ void re_seam_target_bind(ReSeam *seam, ReSeamTarget target) {
      a desktop that renders straight to the back buffer and decisive anywhere else: a headset renders
      into a runtime image, and a test renders into its own framebuffer. */
   if (target.id == 0) target = seam->frame_target;
+  seam->bound = target;
   seam->glBindFramebuffer(GL_FRAMEBUFFER, target.id);
 }
 
@@ -487,6 +489,7 @@ void re_seam_frame_begin(ReSeam *seam, ReSeamTarget target) {
   if (seam->in_frame) report(seam, "gpu: re_seam_frame_begin inside a frame that never ended");
   seam->in_frame = true;
   seam->frame_target = target;
+  seam->bound = target;
   seam->glBindFramebuffer(GL_FRAMEBUFFER, target.id);
 }
 
@@ -531,17 +534,25 @@ void re_seam_cull(ReSeam *seam, ReSeamCull cull) {
   seam->glDisable(GL_CULL_FACE);
 }
 
+/* The header's rectangles put row 0 at the top; OpenGL's put it at the bottom. Vulkan and Metal need
+   no such conversion, which is why this lives here and not in the caller. */
+static int gl_bottom(const ReSeam *seam, int y, int height) {
+  return seam->bound.height - (y + height);
+}
+
 void re_seam_viewport(ReSeam *seam, int x, int y, int width, int height) {
-  seam->glViewport(x, y, (GLsizei)width, (GLsizei)height);
+  if (seam == NULL) return;
+  seam->glViewport(x, gl_bottom(seam, y, height), (GLsizei)width, (GLsizei)height);
 }
 
 void re_seam_scissor(ReSeam *seam, int x, int y, int width, int height) {
+  if (seam == NULL) return;
   if (width < 0 || height < 0) {
     seam->glDisable(GL_SCISSOR_TEST);
     return;
   }
   seam->glEnable(GL_SCISSOR_TEST);
-  seam->glScissor(x, y, (GLsizei)width, (GLsizei)height);
+  seam->glScissor(x, gl_bottom(seam, y, height), (GLsizei)width, (GLsizei)height);
 }
 
 void re_seam_blend_separate(ReSeam *seam, ReSeamBlend color, ReSeamBlend alpha) {

@@ -56,7 +56,21 @@
 #define UNIFORM_STRIDE 256
 #define SAMPLER_LOCATION_BIT 0x40000000
 
-typedef struct { id<MTLBuffer> buffer; size_t size; } BufferSlot;
+/* A buffer is not ONE buffer. Metal records draw commands that read their vertex data when the
+   command buffer executes, not when the draw is encoded — so a consumer that fills, draws, refills
+   and draws again inside one frame (which is what every batching 2D renderer does, and what
+   rEngine's draw list does on every clip change) would have all of its draws read the last fill.
+   OpenGL hides this: glBufferData orphans the storage and the driver renames it underneath.
+   So the seam does the renaming explicitly. Each update inside a frame takes the next generation,
+   the counter resets at frame_begin, and frame_end waits — so generations are reused every frame
+   and steady state allocates nothing. */
+typedef struct {
+  id<MTLBuffer> buffer;      /* the generation the next draw binds */
+  size_t size;
+  id<MTLBuffer> *pool;
+  size_t *pool_size;
+  int capacity, used;
+} BufferSlot;
 typedef struct {
   id<MTLTexture> texture; id<MTLSamplerState> sampler;
   int width, height; bool depth, coverage;
@@ -76,6 +90,7 @@ typedef struct {
   uint32_t color_texture, depth_texture;
   int width, height;
   MTLPixelFormat color_format, depth_format;
+  bool adopted;   /* the colour texture is a slot this target made, not one the caller owns */
 } TargetSlot;
 typedef struct {
   uint32_t program, array;
@@ -168,13 +183,25 @@ ReSeam *re_seam_open(const ReSeamOpen *options, char *error, size_t error_size) 
   return seam;
 }
 
+static void drop_generations(BufferSlot *slot) {
+  for (int i = 0; i < slot->capacity; i++) [slot->pool[i] release];
+  free(slot->pool);
+  free(slot->pool_size);
+  slot->pool = NULL;
+  slot->pool_size = NULL;
+  slot->capacity = 0;
+  slot->used = 0;
+  slot->buffer = nil;
+  slot->size = 0;
+}
+
 void re_seam_close(ReSeam *seam) {
   if (seam == NULL) return;
   for (uint32_t i = 0; i < seam->pipeline_count; i++) {
     [seam->pipelines[i].pipeline release];
     [seam->pipelines[i].depth release];
   }
-  for (int i = 0; i < MAX_BUFFERS; i++) [seam->buffers[i].buffer release];
+  for (int i = 0; i < MAX_BUFFERS; i++) drop_generations(&seam->buffers[i]);
   for (int i = 0; i < MAX_TEXTURES; i++) {
     [seam->textures[i].texture release];
     [seam->textures[i].sampler release];
@@ -211,10 +238,7 @@ ReSeamBuffer re_seam_buffer(ReSeam *seam) {
 
 void re_seam_buffer_destroy(ReSeam *seam, ReSeamBuffer *buffer) {
   if (seam == NULL || buffer == NULL || buffer->id == 0) return;
-  BufferSlot *slot = &seam->buffers[buffer->id - 1];
-  [slot->buffer release];
-  slot->buffer = nil;
-  slot->size = 0;
+  drop_generations(&seam->buffers[buffer->id - 1]);
   buffer->id = 0;
 }
 
@@ -223,12 +247,26 @@ void re_seam_buffer_update(ReSeam *seam, ReSeamBuffer buffer, const void *data, 
   (void)usage;
   if (seam == NULL || buffer.id == 0 || bytes == 0) return;
   BufferSlot *slot = &seam->buffers[buffer.id - 1];
-  if (slot->size < bytes) {
-    [slot->buffer release];
-    slot->buffer = [seam->device newBufferWithLength:bytes options:MTLResourceStorageModeShared];
-    if (slot->buffer == nil) { report(seam, "gpu: a %zu-byte buffer was refused", bytes); return; }
-    slot->size = bytes;
+  int generation = slot->used;
+  if (generation >= slot->capacity) {
+    int capacity = slot->capacity ? slot->capacity * 2 : 8;
+    id<MTLBuffer> *pool = realloc(slot->pool, (size_t)capacity * sizeof(*pool));
+    size_t *sizes = realloc(slot->pool_size, (size_t)capacity * sizeof(*sizes));
+    if (pool) slot->pool = pool;
+    if (sizes) slot->pool_size = sizes;
+    if (pool == NULL || sizes == NULL) { report(seam, "gpu: out of memory growing a buffer pool"); return; }
+    for (int i = slot->capacity; i < capacity; i++) { slot->pool[i] = nil; slot->pool_size[i] = 0; }
+    slot->capacity = capacity;
   }
+  if (slot->pool_size[generation] < bytes) {
+    [slot->pool[generation] release];
+    slot->pool[generation] = [seam->device newBufferWithLength:bytes options:MTLResourceStorageModeShared];
+    if (slot->pool[generation] == nil) { report(seam, "gpu: a %zu-byte buffer was refused", bytes); return; }
+    slot->pool_size[generation] = bytes;
+  }
+  slot->used = generation + 1;
+  slot->buffer = slot->pool[generation];
+  slot->size = slot->pool_size[generation];
   if (data != NULL) memcpy([slot->buffer contents], data, bytes);
 }
 
@@ -557,12 +595,25 @@ ReSeamTarget re_seam_target_adopt(ReSeam *seam, uintptr_t handle, int width, int
   texture->height = height;
   ReSeamTexture wrapper = {texture_id, width, height};
   ReSeamTexture none = {0, 0, 0};
-  return re_seam_target(seam, wrapper, none);
+  ReSeamTarget wrapped = re_seam_target(seam, wrapper, none);
+  if (wrapped.id != 0) seam->targets[wrapped.id - 1].adopted = true;
+  return wrapped;
 }
 
 void re_seam_target_destroy(ReSeam *seam, ReSeamTarget *target) {
   if (seam == NULL || target == NULL || target->id == 0) return;
-  memset(&seam->targets[target->id - 1], 0, sizeof(TargetSlot));
+  TargetSlot *slot = &seam->targets[target->id - 1];
+  /* An adopted target wrapped the host's image in a texture slot of its own making, so destroying it
+     has to give that slot back. Without this a host acquiring a drawable per frame -- which is what
+     a swapchain IS -- exhausts all 256 texture slots in four seconds and retains every drawable it
+     ever saw. A target built from the caller's own textures owns neither and releases neither. */
+  if (slot->adopted && slot->color_texture != 0) {
+    TextureSlot *texture = &seam->textures[slot->color_texture - 1];
+    [texture->texture release];
+    [texture->sampler release];
+    memset(texture, 0, sizeof(*texture));
+  }
+  memset(slot, 0, sizeof(TargetSlot));
   target->id = 0;
   target->width = 0;
   target->height = 0;
@@ -617,6 +668,9 @@ void re_seam_frame_begin(ReSeam *seam, ReSeamTarget target) {
   seam->pool = [[NSAutoreleasePool alloc] init];
   seam->commands = [[seam->queue commandBuffer] retain];
   seam->uniform_offset = 0;
+  /* Every buffer starts the frame at its first generation: the previous frame was waited on at its
+     end, so nothing still reads them. */
+  for (int i = 0; i < MAX_BUFFERS; i++) seam->buffers[i].used = 0;
   seam->in_frame = true;
   seam->frame_target = target;
   begin_encoder(seam, target, false, NULL, false);

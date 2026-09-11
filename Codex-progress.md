@@ -1,5 +1,71 @@
 # Progress Log
 
+## Session 109 (macos) — 2026-09-11 — two seams in one binary, and the three defects that found (F133)
+
+`--renderer` stays a runtime switch (spec 126 decision 3), so **the pack learned to build prefixed
+copies**: set `RENGINE_GPU_TARGET_NAME`, `RENGINE_GPU_SEAM_BACKEND` and `RENGINE_GPU_FORCE_INCLUDE`,
+add the directory again with its own binary directory. The rename header is applied `PUBLIC`, so
+whatever links that copy compiles against the same names. The pack's sources are untouched and a game,
+shipping one backend, sets none of it. `tools/seam_prefix.py` derives all 67 renames from the pack's
+own headers; `init.sh` checks they still match.
+
+**The guard mattered more than the generator.** A missed symbol does not fail the link — the linker
+takes the first definition and two renderers quietly share one backend's function — so
+`tools/seam_symbols.py` asks each archive after every build whether every exported `re_*` carries its
+prefix. Its first version matched `re_seam_`/`re_gpu_`, which a *correctly* renamed
+`re_metal_seam_open` does not start with, so it **examined zero symbols and called both copies
+clean**. It now checks `re_` and fails when it examines nothing.
+
+**`seam_host_metal.m`** (121 lines) is the second host. `--renderer seam-opengl|seam-metal` both
+render, and both are byte-for-byte identical to all three hand-written backends: 0 differing pixels
+across 21 cross-backend comparisons, and 392 / 436 / 32,195 against the recorded frames with **0
+outside the 2px band** — the same counts the other three produce. `seam-metal` holds 146,288 KiB,
+below SDL's 164,800.
+
+**Writing the second consumer found three real defects, none of them findable by reading:**
+
+1. **The draw list's MSL was flipped.** `--flip-vert-y` is right for an OFF-SCREEN image, where "the
+   same way up" is a question about memory. This shader draws to the WINDOW, where NDC +1 is the top
+   on OpenGL and Metal alike — so the toolbar rendered along the bottom edge.
+2. **`re_seam_scissor`/`re_seam_viewport` had no defined origin and the three backends disagreed** —
+   Vulkan and Metal measure from the top, OpenGL from the bottom, and the seam passed the caller's
+   numbers through unchanged. Every caller in the repository clipped either full height or nothing, so
+   **no test could tell.** The header now states top-left; OpenGL converts. That the OpenGL copy stayed
+   byte-identical across the change is the evidence both halves were right.
+3. **`re_seam_buffer_update` had no meaning for reuse inside a frame.** Metal and Vulkan `memcpy` into
+   one buffer while the frame's draws are only *recorded*, so every draw reads the **last** fill.
+   OpenGL hides it — `glBufferData` orphans — and the pack's example uploads once at setup. Every
+   batching 2D renderer hits it immediately. Metal now takes a new buffer *generation* per in-frame
+   update, reset at `frame_begin`, reused every frame because `frame_end` waits.
+
+**Vulkan has defect 3 too and is NOT fixed here** — nothing in the repository exercises it, so a fix
+could not be observed failing first. **KI-083**, to be closed by F133's Vulkan host.
+
+**A fourth, found by reading the first three**: `re_seam_target_adopt` on Metal wraps the host's image
+in a texture slot it retains, and destroy cleared only the target slot — so a host acquiring a drawable
+per frame exhausts all 256 texture slots in four seconds.
+
+**And that one exposed the suite measuring the wrong thing.** With the leak in place the render spec
+still **passed**: three scenes at forty frames uses about half the slots. `gpu_seam_target_test.m`
+adopts and releases 2,048 times with no window and fails on round 256 naming the reason — checkable
+only because rEngine now links a copy per API. The prefix work paid for itself before it shipped.
+
+Four sabotages, each red on the right backend for its own reason: the MSL flip (`seam-metal`, 520,509
+px outside the band), collapsed buffer generations (`seam-metal`, 1,393,629), the unreleased adopted
+slot (`native_seam_target`, *"adopt refused on round 256 of 2048"*), the dropped OpenGL scissor
+conversion (`seam-opengl`, 212,381).
+
+**A hole found on the way out: no npm script ran `ctest`.** Thirteen native CTest targets —
+`native_gpu_seam`, `native_draw_list`, `native_editor`, `native_terminal` and nine more — had been
+passing into a report nobody generated. `npm run test:native` runs them, and
+`suite-coverage.test.mjs` now fails if no script runs ctest or if one narrows it with `-R`; both
+branches were observed failing.
+
+`npm run test:desktop`: 73 tests, 72 pass, 0 fail, 1 pre-existing opt-in skip. `npm run test:native`: 13/13. `./init.sh`, `tools/design.py check`, `tools/seam_prefix.py check` and the sidecar check all clean.
+
+`features.json` is untouched — F129–F133 stay `passes: false` while the Vulkan host, the third copy and the deletions are owed, and a parallel session holds uncommitted F138 work in this tree.
+
+
 ## Session 109 (macos) — 2026-09-11 — kimi is a named agent (F138, spec 127)
 
 Owner direction, in a Kimi Code session on this checkout: *"integrate our rengine environment

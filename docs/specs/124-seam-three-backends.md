@@ -638,3 +638,114 @@ switch (spec 126 decision 3, which supersedes the per-binary recommendation reco
 confirmed prefixed copies so one desktop build still serves the suite). Only then do `backend_gl.c`,
 `backend_metal.m`, `backend_vk.c`, `backend_sdl.c`, `ui.vert`, `ui.frag` and `ui_spv.h` go, and
 `seam` stops being a `--renderer` value of its own.
+
+
+## F133, fourth step: two copies in one binary, and the three defects that found
+
+`--renderer` stays a runtime switch (spec 126 decision 3), so one binary holds more than one seam —
+and the seam's public symbols exist once per copy. **The pack learned to make prefixed copies**, which
+is where the capability belongs: a consumer sets `RENGINE_GPU_TARGET_NAME`, `RENGINE_GPU_SEAM_BACKEND`
+and `RENGINE_GPU_FORCE_INCLUDE` and adds the directory again with its own binary directory. The
+force-included header is applied `PUBLIC`, so whatever links that copy is compiled against the same
+names and needs no knowledge of the scheme. The pack's sources are untouched and a game, which ships
+one backend, sets none of it.
+
+`tools/seam_prefix.py` derives the rename — 67 symbols — from the pack's own headers plus rEngine's
+two halves, rather than from a list maintained beside them. `init.sh` checks the generated headers
+still match their sources.
+
+### The guard that mattered more than the generator
+
+A derivation can go stale, and a missed symbol **does not fail the link**: the linker takes the first
+definition and two renderers quietly share one backend's function. So the archives are asked directly
+after every build. `tools/seam_symbols.py` runs as a POST_BUILD step on each copy and requires every
+exported `re_*` symbol to carry that copy's prefix.
+
+It asks about `re_` rather than about the five families the rename covers, and the reason is the first
+version of this file: it matched `re_seam_`, `re_gpu_` and friends — which a *correctly* renamed
+`re_metal_seam_open` does not start with — so it examined **zero symbols and reported both copies
+clean**. It now also fails when it examines nothing, because a check that looked at nothing has not
+found nothing wrong. 65 and 66 symbols are what it actually checks.
+
+### Three defects, all found by the second consumer
+
+The Metal copy's first frame was wrong three separate ways. None of them could have been found by
+reading, and none would have been found by a fourth backend written the same way as the first three.
+
+**One: the draw list's MSL was flipped.** `tools/shaders.py` passed `--flip-vert-y`, copied from the
+pack example's generator where it is right. A flip makes an OFF-SCREEN image come out the same way up
+on every API, because there "the same way up" is a question about memory. This shader draws to the
+WINDOW, where the question is what the viewer sees — and NDC +1 is the top of the image on OpenGL and
+Metal alike. With the flip, the toolbar rendered along the bottom edge. The OpenGL host's snapshot
+still flips, because `glReadPixels` is specified bottom-up; that is a read-back concern and it stayed
+in the host.
+
+**Two: `re_seam_scissor` and `re_seam_viewport` had no defined origin, and the three backends
+disagreed.** Vulkan's `VkRect2D` and Metal's `MTLScissorRect` are measured from the top; OpenGL's are
+measured from the bottom; the seam handed each API the caller's numbers unchanged. Every caller in the
+repository happened to clip either the full height or nothing — `gpu_seam_test.c` clips the left half
+at full height, the example only ever sets a full-surface viewport — so **no test could tell**, and
+`backend_seam.c` carried `backend_gl.c`'s bottom-left expression with a comment claiming the seam had
+made the origin uniform. It had not. The header now states top-left, matching
+`re_seam_texture_update`; the OpenGL backend converts using the bound target's height; the other two
+pass through as they always did. That the OpenGL copy stayed **byte-identical** across this change is
+the evidence both halves were right: the seam gained a flip and the draw list lost one.
+
+**Three: `re_seam_buffer_update` had no meaning for reuse inside a frame.** Metal and Vulkan both
+`memcpy` into one buffer while the frame's draws are only *recorded*, so every draw in the frame reads
+the **last** fill. OpenGL hides this — `glBufferData` orphans the storage and the driver renames it
+underneath — and the pack's own example never noticed because it uploads its vertices once at setup.
+Every batching 2D renderer hits it on the first frame: rEngine's draw list flushes on every clip
+change, and the header itself says clipping is "per-control, not per-frame".
+
+The Metal backend now does the renaming explicitly. Each update inside a frame takes the next
+*generation* of its buffer, the counter resets at `frame_begin`, and `frame_end` waits — so
+generations are reused every frame and the steady state allocates nothing. It is the same answer the
+uniform ring beside it already used.
+
+**Vulkan has the identical defect and is not fixed here**, because nothing in this repository exercises
+it yet: the Vulkan seam is driven only by the example and the pixel test, both of which upload once.
+It is KI-083, and F133's Vulkan host is the increment that can actually verify a fix.
+
+### A fourth, found by reading the first three
+
+`re_seam_target_adopt` on Metal wraps the host's image in a texture slot of its own making and retains
+it; `re_seam_target_destroy` cleared only the target slot. A host that acquires a drawable per frame —
+which is what a swapchain *is* — exhausts all 256 texture slots in four seconds and retains every
+drawable it ever saw. The OpenGL host never showed this because framebuffer zero is a constant it
+adopts once, and `adopt` allocates nothing at all on that backend.
+
+Destroy now gives back everything adopt allocated and nothing the caller owns, and the header says so.
+The three backends' adopt/destroy pairs had drifted the same way the scissor had, and for the same
+reason: only one of them had ever had a real host.
+
+### What the recorded frames say, with five GPU backends in the suite
+
+| scene | every one of the five | outside the 2px band | each pair of the five |
+| --- | --- | --- | --- |
+| workspace | 392 px against the recorded frame | **0** | **0 pixels differ** |
+| terminal | 436 px | **0** | **0 pixels differ** |
+| primitives | 32,195 px | **0** | **0 pixels differ** |
+
+Twenty-one cross-backend comparisons, all zero. `seam-metal` holds 146,288 KiB resident — *below*
+SDL's 164,800 — and both copies sit under the 8 ms ceiling.
+
+### Sabotages
+
+| Sabotage | Observed |
+| --- | --- |
+| `--flip-vert-y` back on the draw list's MSL | `seam-metal`, 520,509 px outside the band |
+| every in-frame buffer update takes generation 0 again | `seam-metal`, 1,393,629 px outside the band |
+| `re_seam_target_destroy` keeps the slot `adopt` made | `native_seam_target`, *"adopt refused on round 256 of 2048"* |
+| the OpenGL scissor conversion removed | `seam-opengl`, 212,381 px outside the band |
+
+**The third one needed a test built for it, and that is the finding.** Run against the render suite,
+the leak passed: three scenes at forty frames exhausts about half of the 256 texture slots, so a
+defect that would kill a real window in four seconds is invisible in a captured frame. The suite was
+measuring the wrong thing, not measuring it badly.
+
+`packs/gpu/tests/gpu_seam_target_test.m` adopts and releases the host's image 2,048 times with no
+window at all, and fails on round 256 naming the reason. It is checkable **only because rEngine now
+links a prefixed copy per API** — the pack's own seam test builds against whichever single backend the
+pack was configured with, and this is a question about one backend in particular. The prefix work paid
+for itself before it shipped.
