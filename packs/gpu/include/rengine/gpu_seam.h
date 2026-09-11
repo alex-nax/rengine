@@ -72,7 +72,14 @@ typedef struct { uint32_t id; int width; int height; } ReSeamTarget;
 typedef enum { RE_SEAM_BUFFER_STATIC = 0, RE_SEAM_BUFFER_DYNAMIC = 1 } ReSeamBufferUsage;
 typedef enum { RE_SEAM_FILTER_NEAREST = 0, RE_SEAM_FILTER_LINEAR = 1 } ReSeamFilter;
 typedef enum { RE_SEAM_WRAP_CLAMP_TO_EDGE = 0, RE_SEAM_WRAP_REPEAT = 1 } ReSeamWrap;
-typedef enum { RE_SEAM_BLEND_NONE = 0, RE_SEAM_BLEND_ALPHA = 1, RE_SEAM_BLEND_ADDITIVE = 2 } ReSeamBlend;
+/* `PREMULTIPLIED` takes the source as already multiplied by its own alpha: src + dst*(1-srcA).
+ * It is what the ALPHA channel of an ordinary composite needs — rEngine's draw list has always
+ * asked GL for exactly this and the seam could not say it, because `ALPHA` on the alpha channel
+ * squares the coverage. Found by porting a real renderer onto the seam rather than by design. */
+typedef enum {
+  RE_SEAM_BLEND_NONE = 0, RE_SEAM_BLEND_ALPHA = 1, RE_SEAM_BLEND_ADDITIVE = 2,
+  RE_SEAM_BLEND_PREMULTIPLIED = 3
+} ReSeamBlend;
 typedef enum { RE_SEAM_PRIMITIVE_TRIANGLES = 0, RE_SEAM_PRIMITIVE_LINES = 1 } ReSeamPrimitive;
 typedef enum { RE_SEAM_DEPTH_TEST_DISABLED = 0, RE_SEAM_DEPTH_TEST_ENABLED = 1 } ReSeamDepthTest;
 typedef enum { RE_SEAM_DEPTH_WRITE_DISABLED = 0, RE_SEAM_DEPTH_WRITE_ENABLED = 1 } ReSeamDepthWrite;

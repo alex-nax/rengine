@@ -816,7 +816,12 @@ def native_build_files():
 def native_render_layering():
     problems = []
     for path in sorted(list(NATIVE.rglob("*.c")) + list(NATIVE.rglob("*.h")) + list(NATIVE.rglob("*.m"))):
-        if path.parent.name == "render" and path.name.startswith("backend_") and path.suffix in (".c", ".m"):
+        # A seam host is the same layer as a backend, not a layer above it: it owns the context, the
+        # swap and the readback, which is exactly the windowing half a backend used to hold itself
+        # (spec 124, F133). backend_seam.c draws through the pack and knows no graphics API at all;
+        # seam_host_*.c is where the API that was factored out of it went.
+        if path.parent.name == "render" and path.suffix in (".c", ".m") and (
+                path.name.startswith("backend_") or path.name.startswith("seam_host_")):
             continue
         # The GPU device layer is below the draw list by construction (spec 122): it is the piece a
         # backend and an OpenXR host both build on, so it holds Vulkan symbols for the same reason a

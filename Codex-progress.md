@@ -1,5 +1,58 @@
 # Progress Log
 
+## Session 108 (macos) — 2026-09-11 — the draw list renders through the seam (F133, third step)
+
+`backend_seam.c`: rEngine's 2D draw list on `packs/gpu`'s seam. **342 lines, and it names no graphics
+API** — against `backend_gl.c`'s 520, `backend_metal.m`'s 690 and `backend_vk.c`'s 703. The API half
+went to `seam_host_gl.c` (context, drawable size, present, readback), which is the piece that will
+have a Vulkan and a Metal sibling next.
+
+**Wired in as a fourth renderer before anything that works is deleted.** `--renderer seam` is
+selectable for the length of the transition, and `native-render.spec.mjs` names `seam` beside
+`opengl`, `metal` and `vulkan` so the new path faces every gate the old ones pass.
+
+**It is byte-for-byte the same frame as all three.** 0 differing pixels against each of them on all
+three scenes; against the committed reference PNGs, 392 / 436 / 32,195 pixels — *the same counts the
+three hand-written backends produce* — with 0 outside the 2px edge band. 0.476 / 0.614 / 0.655 ms
+medians against the 8 ms ceiling, 13,728 KiB over SDL against a 32 MiB budget, Vulkan validation
+still at 0 messages.
+
+**Three sabotages, each turning only the `seam` row red on its own assertion**: the scissor never
+narrowing (129 px outside the band), the scissor origin read as top-left (212,381 outside), and the
+glyph's coverage never reaching the atlas (fraction 0.01002 over 0.001).
+
+**The third one earns its place.** Text vanishing completely left **0 pixels outside the edge band** —
+every glyph is thin enough to be within 2px of an edge — so the band rule alone would pass a frame
+with no text in it. The differing-fraction rule caught it. Both halves of that tolerance are
+load-bearing and this is the case that proves it.
+
+**`design.py`'s render-layering rule now names `seam_host_*.c` too**, because a seam host is the same
+layer a backend was; `backend_seam.c`, which draws, stays under the rule and mentions nothing. The
+rule was confirmed still to catch a GL symbol above the line.
+
+**A C limit worth recording**: `ui_shaders.h` now emits each dialect as a brace-initialised `char[]`.
+C99 guarantees only 4,095 characters for a string literal **and applies it to the concatenation**, so
+splitting across adjacent literals — the obvious first fix — does not help. SPIRV-Cross writes a 4,898
+character MSL body on one line.
+
+`native-render.spec.mjs`'s timeout went 420s → 900s: a fourth GPU backend is one more capture and, because
+cross-comparison is pairwise, six more whole-image compares.
+
+Owed next: `seam_host_vk.c`, `seam_host_metal.m`, the three prefixed seam copies keeping `--renderer`
+a runtime switch (spec 126 decision 3), then the four old backends and `ui.vert`/`ui.frag`/`ui_spv.h`.
+
+`npm run test:desktop`: **73 tests, 72 pass, 0 fail**, 1 skip — `native-file-images`'s pre-existing
+`RENGINE_IMAGE_PROOF` opt-in. `./init.sh`, `tools/design.py check`, `tools/features.py validate` and
+the sidecar check all clean.
+
+Commands: `python3 tools/shaders.py generate|check`, `npm run build`, `npx node --test
+orchestrator/tests/native-render.spec.mjs`, `npm run test:desktop`, `./init.sh`, `python3
+tools/design.py check`.
+
+`features.json` is untouched: F129–F133 stay `passes: false` while the Vulkan and Metal hosts, the
+prefixed copies and the deletions are owed. A parallel session holds uncommitted F138/agent work in
+this tree, which this commit leaves alone.
+
 ## Session 107 (macos) — 2026-09-11 — a test's artifacts, where its task is (F137)
 
 The half of spec 126 that depends on none of the rendering chain, and the one asked for first.

@@ -570,3 +570,71 @@ category as the buffer usage hint spec 123 already records as untestable.
 it. Leaving that pair unchecked while the new source is checked would have created, for the length of
 the transition, exactly the drift this change removes — so `shaders.py check` verifies both, and says
 so, until the old ones are deleted with the backend that reads them.
+
+
+## F133, third step: the draw list renders through the seam, and is judged by the oracle
+
+`backend_seam.c` is rEngine's draw list on the pack. It is **342 lines against `backend_gl.c`'s 520,
+`backend_metal.m`'s 690 and `backend_vk.c`'s 703** — and it names no graphics API at all. The pieces
+that used to be three near-copies (the vertex struct, the atlas, the shape and gradient emitters, the
+glyph path, the clip handling) are now one, and the API-specific half that is left went into
+`seam_host_gl.c`: the context, the drawable size, present, and the readback the snapshot needs.
+
+That split is now stated in the build gate rather than reviewed. `design.py`'s render-layering rule
+allowed graphics-API symbols in `render/backend_*.c` only; it now also allows `render/seam_host_*.c`,
+because a seam host is the same layer a backend was — while `backend_seam.c` itself, which draws, sits
+under the rule and mentions no API. The rule was confirmed still to catch a leak above the line.
+
+### What the recorded frames say
+
+`native-render.spec.mjs` names `seam` alongside `opengl`, `metal` and `vulkan` for the length of the
+transition, so every gate the three hand-written backends pass is applied to the new path **before**
+any of them is deleted — the recorded frames, the live SDL comparison, cross-backend comparison, the
+frame ceiling and the memory budget.
+
+| scene | against the recorded frame | outside the 2px band | vs. opengl / metal / vulkan |
+| --- | --- | --- | --- |
+| workspace | 392 of 4,096,000 px (0.0096%) | **0** | **0 pixels differ** |
+| terminal | 436 px (0.011%) | **0** | **0 pixels differ** |
+| primitives | 32,195 px (0.79%) | **0** | **0 pixels differ** |
+
+The differing counts are *identical* to the three existing backends', which is the strong statement
+here: the seam path is byte-for-byte the same frame as each of them, and the residual against the
+recorded PNG is the anti-aliasing difference every GPU backend already carried against SDL.
+
+Frame medians 0.476 / 0.614 / 0.655 ms against the 8 ms ceiling — between OpenGL's and Metal's, as a
+path that renders through OpenGL should be. Resident memory 185,824 KiB, 13,728 above SDL's, inside
+the 32 MiB budget. Vulkan's validation run stayed at 0 messages.
+
+### Sabotages
+
+The gate is only worth its runtime if it fails for its own reason, and it does — each of these turned
+the `seam` row red on the recorded-frame assertion while the other three backends stayed green:
+
+| Sabotage | Observed |
+| --- | --- |
+| the scissor never narrows | 129 differing pixels outside the 2px band |
+| the scissor origin read as top-left | 212,381 outside the band, fraction 0.065 |
+| the glyph's coverage never reaches the atlas | fraction 0.01002 exceeds 0.001 |
+
+The third is worth naming. Text vanishing entirely left **0 pixels outside the edge band** — every
+glyph is thin enough that its interior is within two pixels of an edge — so the band rule alone would
+have called a frame with no text in it a pass. The differing-fraction rule is what caught it. Both
+halves of the tolerance are load-bearing, and this is the case that shows it.
+
+### The generated header, and a C limit worth recording
+
+`ui_shaders.h` emits each dialect as a brace-initialised `char[]`, not a string literal. C99 only
+guarantees 4,095 characters for a string literal **and applies the limit to the concatenation**, so
+splitting one across adjacent literals — the obvious first fix — does not help. SPIRV-Cross writes a
+whole MSL body on one line, 4,898 characters for the fragment stage, and `-Wpedantic` said so on every
+build. The SPIR-V words beside it were already emitted as a brace list; the strings now match.
+
+### What F133 still owes, after this step
+
+`seam_host_vk.c` and `seam_host_metal.m` — the swapchain being most of `backend_vk.c`'s remaining
+weight — then the three prefixed seam copies and the dispatch table that keeps `--renderer` a runtime
+switch (spec 126 decision 3, which supersedes the per-binary recommendation recorded above: the owner
+confirmed prefixed copies so one desktop build still serves the suite). Only then do `backend_gl.c`,
+`backend_metal.m`, `backend_vk.c`, `backend_sdl.c`, `ui.vert`, `ui.frag` and `ui_spv.h` go, and
+`seam` stops being a `--renderer` value of its own.

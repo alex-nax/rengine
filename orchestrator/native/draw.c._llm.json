@@ -5,8 +5,8 @@
       "id": "generated-theme",
       "kind": "constraint",
       "anchor": {
-        "start": 82,
-        "end": 84,
+        "start": 88,
+        "end": 90,
         "snippet": "void re_draw_bind(ReDraw *d, mu_Context *ui) {",
         "symbol": "re_draw_bind"
       },
@@ -21,8 +21,8 @@
       "id": "deferred-flush",
       "kind": "constraint",
       "anchor": {
-        "start": 100,
-        "end": 104,
+        "start": 106,
+        "end": 110,
         "snippet": "static void flush(ReDraw *d) {",
         "symbol": "flush"
       },
@@ -31,11 +31,27 @@
         "docs/specs/067-draw-list-contract.md",
         "orchestrator/native/render/draw_list.h"
       ]
+    },
+    {
+      "id": "seam-is-a-transitional-renderer-value",
+      "kind": "history",
+      "anchor": {
+        "start": 49,
+        "end": 49,
+        "symbol": "re_draw_select",
+        "snippet": "if (!strcmp(choice, \"seam\")) return \"seam\";"
+      },
+      "note": "`seam` is not a graphics API and is not meant to survive. It exists so the draw list's new path through `packs/gpu` can be selected beside the three hand-written backends and judged against them by `native-render.spec.mjs` \u2014 which it is, to 0 differing pixels on every scene \u2014 **before** any of those backends is deleted.\n\nWhat replaces it (spec 126 decision 3, owner-confirmed): rEngine links three copies of the seam with its public symbols prefixed, and `opengl`, `metal` and `vulkan` dispatch into them. `--renderer` stays a runtime switch, the pack stays compile-time selected so D14b's zero indirection holds for the games it serves, and this branch and `backend_gl.c`, `backend_metal.m`, `backend_vk.c` and `backend_sdl.c` all go at once.",
+      "refs": [
+        "docs/specs/124-seam-three-backends.md",
+        "docs/specs/126-scene-view-and-test-artifacts.md",
+        "orchestrator/native/render/backend_seam.c._llm.json#no-graphics-api-here"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/draw.c",
-    "sha256": "bea243c26aa90a4c93d15fec7598aa336c193dcf9556738f4cca272b3158cfb6",
+    "sha256": "860ec575fef5895d5a72d0214f73e8847d1eb247aeab60e08d8b376ebf4efeb3",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

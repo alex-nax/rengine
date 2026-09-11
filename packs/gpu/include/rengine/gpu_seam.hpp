@@ -82,6 +82,7 @@ enum class Blend : std::uint8_t
     None,
     Alpha,
     Additive,
+    Premultiplied,
 };
 enum class Primitive : std::uint8_t
 {
@@ -148,6 +149,7 @@ static_assert(static_cast<int>(Wrap::Repeat) == RE_SEAM_WRAP_REPEAT);
 static_assert(static_cast<int>(Blend::None) == RE_SEAM_BLEND_NONE);
 static_assert(static_cast<int>(Blend::Alpha) == RE_SEAM_BLEND_ALPHA);
 static_assert(static_cast<int>(Blend::Additive) == RE_SEAM_BLEND_ADDITIVE);
+static_assert(static_cast<int>(Blend::Premultiplied) == RE_SEAM_BLEND_PREMULTIPLIED);
 static_assert(static_cast<int>(Primitive::Triangles) == RE_SEAM_PRIMITIVE_TRIANGLES);
 static_assert(static_cast<int>(Primitive::Lines) == RE_SEAM_PRIMITIVE_LINES);
 static_assert(static_cast<int>(DepthTest::Disabled) == RE_SEAM_DEPTH_TEST_DISABLED);

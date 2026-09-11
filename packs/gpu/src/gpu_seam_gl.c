@@ -499,13 +499,21 @@ void re_seam_frame_end(ReSeam *seam) {
 
 /* ---- state and draw ------------------------------------------------------------------------------ */
 
+static GLenum blend_source(ReSeamBlend blend) {
+  return blend == RE_SEAM_BLEND_NONE || blend == RE_SEAM_BLEND_PREMULTIPLIED ? GL_ONE : GL_SRC_ALPHA;
+}
+static GLenum blend_dest(ReSeamBlend blend) {
+  if (blend == RE_SEAM_BLEND_NONE) return 0;                     /* unused; blending is off */
+  return blend == RE_SEAM_BLEND_ADDITIVE ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA;
+}
+
 void re_seam_blend(ReSeam *seam, ReSeamBlend blend) {
   if (blend == RE_SEAM_BLEND_NONE) {
     seam->glDisable(GL_BLEND);
     return;
   }
   seam->glEnable(GL_BLEND);
-  seam->glBlendFunc(GL_SRC_ALPHA, blend == RE_SEAM_BLEND_ADDITIVE ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA);
+  seam->glBlendFunc(blend_source(blend), blend_dest(blend));
 }
 
 void re_seam_depth(ReSeam *seam, ReSeamDepthTest test, ReSeamDepthWrite write) {
@@ -534,12 +542,6 @@ void re_seam_scissor(ReSeam *seam, int x, int y, int width, int height) {
   }
   seam->glEnable(GL_SCISSOR_TEST);
   seam->glScissor(x, y, (GLsizei)width, (GLsizei)height);
-}
-
-static GLenum blend_source(ReSeamBlend blend) { return blend == RE_SEAM_BLEND_NONE ? GL_ONE : GL_SRC_ALPHA; }
-static GLenum blend_dest(ReSeamBlend blend) {
-  if (blend == RE_SEAM_BLEND_NONE) return 0;                     /* unused; blending is off */
-  return blend == RE_SEAM_BLEND_ADDITIVE ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA;
 }
 
 void re_seam_blend_separate(ReSeam *seam, ReSeamBlend color, ReSeamBlend alpha) {

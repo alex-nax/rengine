@@ -77,12 +77,19 @@ def declarations(text, vulkan):
     return UNIFORM_BLOCK.sub("\n".join(lines) + "\n", text)
 
 
-def c_string(text):
-    out = []
-    for line in text.splitlines(True):
-        body = line.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
-        out.append('  "%s"' % body)
-    return "\n".join(out) if out else '  ""'
+def c_bytes(text):
+    """A shader as a brace-initialised char array, not a string literal.
+
+    C99 only guarantees 4,095 characters for a string literal, and the limit applies to the
+    *concatenation* — so splitting one across adjacent literals does not help. SPIRV-Cross writes a
+    whole MSL body on a single line (4,898 characters for the fragment stage), which made every
+    build print -Woverlength-strings. A brace list has no such limit, and the SPIR-V words below
+    were already emitted this way."""
+    data = text.encode("utf-8") + b"\0"
+    return "\n".join(
+        "  " + " ".join("0x%02x," % b for b in data[i:i + 16])
+        for i in range(0, len(data), 16)
+    )
 
 
 def digest(path):
@@ -153,10 +160,12 @@ def generate():
     ]
     for stage in ("vertex", "fragment"):
         gl, words, metal = stage_sources(stage)
-        parts.append("static const char re_ui_%s_glsl[] =" % stage)
-        parts.append(c_string(gl) + ";")
-        parts.append("static const char re_ui_%s_msl[] =" % stage)
-        parts.append(c_string(metal) + ";")
+        parts.append("static const char re_ui_%s_glsl[] = {" % stage)
+        parts.append(c_bytes(gl))
+        parts.append("};")
+        parts.append("static const char re_ui_%s_msl[] = {" % stage)
+        parts.append(c_bytes(metal))
+        parts.append("};")
         parts.append("static const uint32_t re_ui_%s_spv[] = {" % stage)
         for i in range(0, len(words), 8):
             parts.append("  " + " ".join("0x%08xu," % w for w in words[i:i + 8]))

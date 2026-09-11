@@ -662,6 +662,10 @@ void re_seam_clear(ReSeam *seam, float r, float g, float b, float a, bool depth)
 static MTLBlendFactor destination(uint8_t blend) {
   return blend == RE_SEAM_BLEND_ADDITIVE ? MTLBlendFactorOne : MTLBlendFactorOneMinusSourceAlpha;
 }
+static MTLBlendFactor source_of(uint8_t blend) {
+  return blend == RE_SEAM_BLEND_NONE || blend == RE_SEAM_BLEND_PREMULTIPLIED
+           ? MTLBlendFactorOne : MTLBlendFactorSourceAlpha;
+}
 static MTLCompareFunction compare_of(uint8_t compare) {
   switch (compare) {
     case RE_SEAM_DEPTH_LESS_EQUAL: return MTLCompareFunctionLessEqual;
@@ -727,11 +731,11 @@ static bool pipeline_for(ReSeam *seam, const PipelineKey *key, id<MTLRenderPipel
   descriptor.colorAttachments[0].blendingEnabled = blending;
   if (blending) {
     descriptor.colorAttachments[0].sourceRGBBlendFactor =
-      key->blend_color == RE_SEAM_BLEND_NONE ? MTLBlendFactorOne : MTLBlendFactorSourceAlpha;
+      source_of(key->blend_color);
     descriptor.colorAttachments[0].destinationRGBBlendFactor =
       key->blend_color == RE_SEAM_BLEND_NONE ? MTLBlendFactorZero : destination(key->blend_color);
     descriptor.colorAttachments[0].sourceAlphaBlendFactor =
-      key->blend_alpha == RE_SEAM_BLEND_NONE ? MTLBlendFactorOne : MTLBlendFactorSourceAlpha;
+      source_of(key->blend_alpha);
     descriptor.colorAttachments[0].destinationAlphaBlendFactor =
       key->blend_alpha == RE_SEAM_BLEND_NONE ? MTLBlendFactorZero : destination(key->blend_alpha);
   }

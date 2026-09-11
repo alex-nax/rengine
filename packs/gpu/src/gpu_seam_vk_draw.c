@@ -13,6 +13,10 @@
 static VkBlendFactor destination(uint8_t blend) {
   return blend == RE_SEAM_BLEND_ADDITIVE ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 }
+static VkBlendFactor source(uint8_t blend) {
+  return blend == RE_SEAM_BLEND_NONE || blend == RE_SEAM_BLEND_PREMULTIPLIED
+           ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_SRC_ALPHA;
+}
 
 static VkCompareOp compare_op(uint8_t compare) {
   switch (compare) {
@@ -89,10 +93,10 @@ static VkPipeline build(ReSeam *seam, const PipelineKey *key) {
     .depthCompareOp = compare_op(key->depth_compare), .maxDepthBounds = 1.0f};
   VkPipelineColorBlendAttachmentState attachment = {
     .blendEnable = key->blend_color != RE_SEAM_BLEND_NONE || key->blend_alpha != RE_SEAM_BLEND_NONE,
-    .srcColorBlendFactor = key->blend_color == RE_SEAM_BLEND_NONE ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_SRC_ALPHA,
+    .srcColorBlendFactor = source(key->blend_color),
     .dstColorBlendFactor = key->blend_color == RE_SEAM_BLEND_NONE ? VK_BLEND_FACTOR_ZERO : destination(key->blend_color),
     .colorBlendOp = VK_BLEND_OP_ADD,
-    .srcAlphaBlendFactor = key->blend_alpha == RE_SEAM_BLEND_NONE ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_SRC_ALPHA,
+    .srcAlphaBlendFactor = source(key->blend_alpha),
     .dstAlphaBlendFactor = key->blend_alpha == RE_SEAM_BLEND_NONE ? VK_BLEND_FACTOR_ZERO : destination(key->blend_alpha),
     .alphaBlendOp = VK_BLEND_OP_ADD,
     .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |

@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "proc-address-comes-from-the-host",
+      "kind": "rationale",
+      "anchor": {
+        "start": 19,
+        "end": 19,
+        "symbol": "load_proc",
+        "snippet": "static void *load_proc(void *user, const char *name) { (void)user; return SDL_GL_GetProcAddress(name); }"
+      },
+      "note": "Both of the pack's layers take their entry points from whoever opens them \u2014 `re_gpu_open` takes a `vkGetInstanceProcAddr`, `re_seam_open` takes a `get_proc` \u2014 so the pack links no windowing library and no GL library, and a consumer that loads GL some other way (a headset runtime, a different window toolkit) passes its own loader here and changes nothing else.\n\nThat is the same property spec 122 established for the device layer, and it is why this file is the only one in the seam-backed renderer that mentions SDL.",
+      "refs": [
+        "docs/specs/122-gpu-device-layer.md",
+        "packs/gpu/include/rengine/gpu_seam.h"
+      ]
+    },
+    {
+      "id": "framebuffer-zero-is-adopted",
+      "kind": "rationale",
+      "anchor": {
+        "start": 76,
+        "end": 76,
+        "symbol": "re_seam_host_acquire",
+        "snippet": "return re_seam_target_adopt(host->seam, 0, host->width, host->height);"
+      },
+      "note": "`re_seam_target_adopt` exists because of this call. The seam's frame takes a target rather than assuming the default framebuffer \u2014 a decision the render-to-texture test forced (spec 124's 'the frame takes its target' section) \u2014 and on OpenGL the window's back buffer already IS a target, name 0. Adopting it keeps one code path in `backend_seam.c` for both the window and an offscreen image.\n\n`seam_host_vk.c` and `seam_host_metal.m` will acquire a swapchain image here instead, which is the whole reason acquire is a host call and not something the backend does.",
+      "refs": [
+        "docs/specs/124-seam-three-backends.md"
+      ]
+    },
+    {
+      "id": "readback-flips-here-not-in-the-seam",
+      "kind": "constraint",
+      "anchor": {
+        "start": 94,
+        "end": 95,
+        "symbol": "re_seam_host_snapshot",
+        "snippet": "/* glReadPixels hands back bottom-up and SDL wants top-down, which is the one orientation"
+      },
+      "note": "The seam's own targets agree on orientation across all three APIs \u2014 row 0 means the same thing everywhere, which is what let `backend_seam.c` carry one Y formula and one scissor expression. `glReadPixels` does not: it is specified bottom-up regardless.\n\nSo the flip belongs to the OpenGL host, not to the seam and not to the backend. A Vulkan or Metal host reading back its own image will not need one, and pushing this into shared code would give them a flip they would have to undo. The committed reference frames are the thing that would catch it either way \u2014 a whole-image vertical flip is not subtle \u2014 which is why it can be stated once here rather than defended by its own test.",
+      "refs": [
+        "docs/specs/124-seam-three-backends.md",
+        "orchestrator/tests/references/README.md"
+      ]
+    },
+    {
+      "id": "gl-symbols-by-value-not-by-header",
+      "kind": "constraint",
+      "anchor": {
+        "start": 89,
+        "end": 89,
+        "symbol": "re_seam_host_snapshot",
+        "snippet": "if (pixelStore) pixelStore(0x0D05 /* GL_PACK_ALIGNMENT */, 1);"
+      },
+      "note": "`GL_PACK_ALIGNMENT`, `GL_RGBA` and `GL_UNSIGNED_BYTE` are written as their values because this file includes no GL header \u2014 it reaches GL only through `SDL_GL_GetProcAddress`, the same way the seam does, so there is nothing to include on a platform where the header ships a 1.1 subset.\n\nThe alignment call matters: the default pack alignment is 4, and a snapshot of a window whose width is not a multiple of 4 would be read back with per-row padding and come out sheared. It is guarded rather than required because a driver missing `glPixelStorei` is still worth a snapshot at the default alignment.",
+      "refs": [
+        "tools/design.py"
+      ]
+    }
+  ],
+  "source": {
+    "path": "orchestrator/native/render/seam_host_gl.c",
+    "sha256": "ae5f80832c26ee0802dcb64febcc05fa119938561cf0228039ca28dff98aaf90",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}
