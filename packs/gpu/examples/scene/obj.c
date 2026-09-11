@@ -136,6 +136,7 @@ bool scene_load_obj(SceneGeometry *geometry, const char *path, char *error, size
         for (int k = 0; k < 3; k++) {
           SceneVertex *out = &geometry->vertices[geometry->vertex_count++];
           memset(out, 0, sizeof(*out));
+          out->rgba[0] = out->rgba[1] = out->rgba[2] = out->rgba[3] = 255;
           size_t vi = resolve(triangle[k].v, positions.count / 3);
           if (vi != (size_t)-1 && vi * 3 + 2 < positions.count) {
             out->px = positions.values[vi * 3];

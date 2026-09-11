@@ -60,6 +60,15 @@ static void push_vertex(SceneGeometry *g, Vec3 p, Vec3 n, float u, float v) {
   out->px = p.x; out->py = p.y; out->pz = p.z;
   out->nx = n.x; out->ny = n.y; out->nz = n.z;
   out->u = u; out->v = v;
+  /* A gentle per-vertex wash that varies with the normal, so the packed-byte attribute is visible in
+     the frame rather than merely present in the buffer. A backend that read these bytes as 0..255
+     instead of 0..1 would saturate every surface to white; one that ignored them would flatten the
+     shading. Both are obvious in a comparison. */
+  float shade = 0.75f + 0.25f * (n.y * 0.5f + 0.5f);
+  out->rgba[0] = (unsigned char)(shade * 255.0f);
+  out->rgba[1] = (unsigned char)((0.82f + 0.18f * (n.x * 0.5f + 0.5f)) * 255.0f);
+  out->rgba[2] = (unsigned char)((0.82f + 0.18f * (n.z * 0.5f + 0.5f)) * 255.0f);
+  out->rgba[3] = 255;
 }
 
 /* One face as two triangles, wound counter-clockwise seen from outside so back-face culling has
@@ -284,18 +293,20 @@ bool scene_open(Scene *scene, ReSeam *seam, int width, int height, const char *m
   scene->buffer = re_seam_buffer(seam);
   re_seam_buffer_update(seam, scene->buffer, scene->geometry.vertices,
                         scene->geometry.vertex_count * sizeof(SceneVertex), RE_SEAM_BUFFER_STATIC);
-  const ReSeamVertexAttribute attributes[3] = {
-    {0, 3, offsetof(SceneVertex, px)},
-    {1, 3, offsetof(SceneVertex, nx)},
-    {2, 2, offsetof(SceneVertex, u)},
+  const ReSeamVertexAttribute attributes[4] = {
+    {0, 3, offsetof(SceneVertex, px), RE_SEAM_ATTRIBUTE_FLOAT},
+    {1, 3, offsetof(SceneVertex, nx), RE_SEAM_ATTRIBUTE_FLOAT},
+    {2, 2, offsetof(SceneVertex, u), RE_SEAM_ATTRIBUTE_FLOAT},
+    {3, 4, offsetof(SceneVertex, rgba), RE_SEAM_ATTRIBUTE_UNORM8},
   };
-  const ReSeamVertexLayout layout = {attributes, 3, sizeof(SceneVertex)};
+  const ReSeamVertexLayout layout = {attributes, 4, sizeof(SceneVertex)};
   scene->array = re_seam_vertex_array(seam, scene->buffer, &layout);
 
   /* The overlay and the mirror quad share one buffer of two clip-space triangles. */
   static const SceneVertex quad[6] = {
-    {-1, -1, 0, 0, 0, 1, 0, 0}, {1, -1, 0, 0, 0, 1, 1, 0}, {1, 1, 0, 0, 0, 1, 1, 1},
-    {-1, -1, 0, 0, 0, 1, 0, 0}, {1, 1, 0, 0, 0, 1, 1, 1}, {-1, 1, 0, 0, 0, 1, 0, 1},
+    {-1, -1, 0, 0, 0, 1, 0, 0, {255, 255, 255, 255}}, {1, -1, 0, 0, 0, 1, 1, 0, {255, 255, 255, 255}},
+    {1, 1, 0, 0, 0, 1, 1, 1, {255, 255, 255, 255}},   {-1, -1, 0, 0, 0, 1, 0, 0, {255, 255, 255, 255}},
+    {1, 1, 0, 0, 0, 1, 1, 1, {255, 255, 255, 255}},   {-1, 1, 0, 0, 0, 1, 0, 1, {255, 255, 255, 255}},
   };
   scene->overlay_buffer = re_seam_buffer(seam);
   re_seam_buffer_update(seam, scene->overlay_buffer, quad, sizeof(quad), RE_SEAM_BUFFER_STATIC);

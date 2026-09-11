@@ -23,8 +23,16 @@ static VkCompareOp compare_op(uint8_t compare) {
   }
 }
 
-static VkFormat attribute_format(int components) {
-  switch (components) {
+static VkFormat attribute_format(const ReSeamVertexAttribute *attribute) {
+  if (attribute->type == RE_SEAM_ATTRIBUTE_UNORM8) {
+    switch (attribute->components) {
+      case 1: return VK_FORMAT_R8_UNORM;
+      case 2: return VK_FORMAT_R8G8_UNORM;
+      case 3: return VK_FORMAT_R8G8B8_UNORM;
+      default: return VK_FORMAT_R8G8B8A8_UNORM;
+    }
+  }
+  switch (attribute->components) {
     case 1: return VK_FORMAT_R32_SFLOAT;
     case 2: return VK_FORMAT_R32G32_SFLOAT;
     case 3: return VK_FORMAT_R32G32B32_SFLOAT;
@@ -49,7 +57,7 @@ static VkPipeline build(ReSeam *seam, const PipelineKey *key) {
   for (int i = 0; i < array->count; i++)
     attributes[i] = (VkVertexInputAttributeDescription){
       .location = (uint32_t)array->attributes[i].location, .binding = 0,
-      .format = attribute_format(array->attributes[i].components),
+      .format = attribute_format(&array->attributes[i]),
       .offset = (uint32_t)array->attributes[i].offset};
   VkPipelineVertexInputStateCreateInfo input = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,

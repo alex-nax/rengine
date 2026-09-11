@@ -666,8 +666,16 @@ static MTLCompareFunction compare_of(uint8_t compare) {
     default: return MTLCompareFunctionLess;
   }
 }
-static MTLVertexFormat attribute_format(int components) {
-  switch (components) {
+static MTLVertexFormat attribute_format(const ReSeamVertexAttribute *attribute) {
+  if (attribute->type == RE_SEAM_ATTRIBUTE_UNORM8) {
+    switch (attribute->components) {
+      case 1: return MTLVertexFormatUCharNormalized;
+      case 2: return MTLVertexFormatUChar2Normalized;
+      case 3: return MTLVertexFormatUChar3Normalized;
+      default: return MTLVertexFormatUChar4Normalized;
+    }
+  }
+  switch (attribute->components) {
     case 1: return MTLVertexFormatFloat;
     case 2: return MTLVertexFormatFloat2;
     case 3: return MTLVertexFormatFloat3;
@@ -698,7 +706,7 @@ static bool pipeline_for(ReSeam *seam, const PipelineKey *key, id<MTLRenderPipel
   MTLVertexDescriptor *vertex = [MTLVertexDescriptor vertexDescriptor];
   for (int i = 0; i < array->count; i++) {
     NSUInteger at = (NSUInteger)array->attributes[i].location;
-    vertex.attributes[at].format = attribute_format(array->attributes[i].components);
+    vertex.attributes[at].format = attribute_format(&array->attributes[i]);
     vertex.attributes[at].offset = (NSUInteger)array->attributes[i].offset;
     vertex.attributes[at].bufferIndex = VERTEX_BUFFER_INDEX;
   }

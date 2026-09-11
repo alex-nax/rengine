@@ -10,7 +10,10 @@
 
 /* One vertex of everything in this scene: position, normal, texture coordinate. Interleaved in one
  * buffer with one layout, because the point is to exercise the seam rather than to show off. */
-typedef struct { float px, py, pz, nx, ny, nz, u, v; } SceneVertex;
+/* The colour is four BYTES, not four floats, which is the point of it being here: rEngine's own UI
+ * vertex packs colour the same way, and until this existed the seam's vertex layout could only
+ * describe floats. Twelve bytes saved per vertex, and one API addition justified by two consumers. */
+typedef struct { float px, py, pz, nx, ny, nz, u, v; unsigned char rgba[4]; } SceneVertex;
 
 /* A run of vertices drawn with one transform and one set of state. A scene is a list of these, and
  * the frame walks it — which is what produces the many draws with state changes between them that a

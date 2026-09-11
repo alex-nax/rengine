@@ -50,6 +50,7 @@ typedef ptrdiff_t GLsizeiptr;
 #define GL_BACK 0x0405
 #define GL_TEXTURE_2D 0x0DE1
 #define GL_UNSIGNED_BYTE 0x1401
+#define GL_TRUE_BYTE 1
 #define GL_FLOAT 0x1406
 #define GL_RGBA 0x1908
 #define GL_VERSION 0x1F02
@@ -327,7 +328,11 @@ ReSeamVertexArray re_seam_vertex_array(ReSeam *seam, ReSeamBuffer buffer, const 
   seam->glBindBuffer(GL_ARRAY_BUFFER, buffer.id);
   for (int i = 0; layout != NULL && i < layout->count; i++) {
     const ReSeamVertexAttribute *attr = &layout->attributes[i];
-    seam->glVertexAttribPointer((GLuint)attr->location, attr->components, GL_FLOAT, GL_FALSE,
+    /* GL_TRUE for the normalised flag is what turns a byte into 0..1 in the shader — the same
+       bytes with GL_FALSE arrive as 0..255 and every colour saturates to white. */
+    bool bytes = attr->type == RE_SEAM_ATTRIBUTE_UNORM8;
+    seam->glVertexAttribPointer((GLuint)attr->location, attr->components,
+                                bytes ? GL_UNSIGNED_BYTE : GL_FLOAT, (GLboolean)(bytes ? 1 : 0),
                                 (GLsizei)layout->stride, (const void *)attr->offset);
     seam->glEnableVertexAttribArray((GLuint)attr->location);
   }

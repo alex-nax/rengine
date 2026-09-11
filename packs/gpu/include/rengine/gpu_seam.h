@@ -91,9 +91,23 @@ typedef enum {
   RE_SEAM_TEXTURE_DEPTH = 2     /* rendered into as depth; sampling it is not promised */
 } ReSeamTextureUse;
 
-/* One float vertex attribute. `components` is 1-4; everything on this path is float, and adding a
- * type enum before a second type exists would be speculative (VtMB's note, and still true). */
-typedef struct { int location; int components; size_t offset; } ReSeamVertexAttribute;
+/* How a vertex attribute's bytes are read. VtMB's seam had only floats, with a note saying a type
+ * enum before a second type exists would be speculative — and that was right until a second type
+ * turned up. rEngine's own UI vertex packs its colour as four bytes, which is 12 bytes saved on
+ * every vertex of a 65,536-vertex batch, so a UI renderer cannot adopt the seam without this. */
+typedef enum {
+  RE_SEAM_ATTRIBUTE_FLOAT = 0,  /* `components` floats */
+  RE_SEAM_ATTRIBUTE_UNORM8 = 1  /* `components` bytes, each scaled from 0..255 to 0.0..1.0 */
+} ReSeamAttributeType;
+
+/* One vertex attribute. `components` is 1-4. `type` defaults to float, so a zero-initialised
+ * attribute and every call site written before this existed mean exactly what they meant. */
+typedef struct {
+  int location;
+  int components;
+  size_t offset;
+  ReSeamAttributeType type;
+} ReSeamVertexAttribute;
 typedef struct { const ReSeamVertexAttribute *attributes; int count; size_t stride; } ReSeamVertexLayout;
 
 /* ---- shaders ----------------------------------------------------------------------------------

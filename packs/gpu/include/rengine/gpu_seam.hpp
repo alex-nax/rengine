@@ -117,11 +117,17 @@ enum class TextureUse : std::uint8_t
     Depth,
 };
 
+enum class AttributeType : std::uint8_t
+{
+    Float,
+    Unorm8,
+};
 struct VertexAttribute
 {
     int location = 0;
     int components = 0;
     std::size_t offset = 0;
+    AttributeType type = AttributeType::Float;
 };
 struct VertexLayout
 {
@@ -191,6 +197,9 @@ inline ReSeamVertexLayout raw(const VertexLayout& layout)
     static_assert(offsetof(VertexAttribute, location) == offsetof(ReSeamVertexAttribute, location));
     static_assert(offsetof(VertexAttribute, components) == offsetof(ReSeamVertexAttribute, components));
     static_assert(offsetof(VertexAttribute, offset) == offsetof(ReSeamVertexAttribute, offset));
+    static_assert(offsetof(VertexAttribute, type) == offsetof(ReSeamVertexAttribute, type));
+    static_assert(static_cast<int>(AttributeType::Float) == RE_SEAM_ATTRIBUTE_FLOAT);
+    static_assert(static_cast<int>(AttributeType::Unorm8) == RE_SEAM_ATTRIBUTE_UNORM8);
     ReSeamVertexLayout out{};
     out.attributes = reinterpret_cast<const ReSeamVertexAttribute*>(layout.attributes);
     out.count = layout.count;

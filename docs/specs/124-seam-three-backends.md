@@ -472,6 +472,24 @@ not a guess any more. Nudging one shared colour — `--re-gray-1`, the window cl
 A defect that moves everything at once is invisible to every comparison that shares the code, and
 visible immediately to one that does not. The witness had to become data, and now it is.
 
+### A second API gap, found the same way the first one was
+
+Writing the draw list against the seam surfaced it before a line of the migration was finished:
+**rEngine's UI vertex packs its colour as four bytes, and the seam's vertex layout could only
+describe floats.** VtMB's note said a type enum before a second type exists would be speculative, and
+that was right — until the second type turned up. Twelve bytes per vertex on a 65,536-vertex batch is
+768 KiB a frame, so a UI renderer cannot adopt the seam without it.
+
+`ReSeamVertexAttribute` gained a `type`, defaulting to float so every existing call site means what
+it meant. All three backends implement it — `GL_UNSIGNED_BYTE` normalised, `VK_FORMAT_R8G8B8A8_UNORM`,
+`MTLVertexFormatUChar4Normalized` — and the scene example now carries a packed per-vertex colour, so
+three drivers agree it works rather than three implementations merely existing. Three sabotages, each
+caught: reading the bytes unnormalised on OpenGL saturates every surface to white, and reading them
+as floats on either of the others garbles the vertex stream.
+
+The comparison after it: Vulkan differs from OpenGL in **1** pixel, Metal in **5**, none outside the
+edge band.
+
 ### What F133 still owes
 
 The migration itself: rEngine's draw list rendering through the seam, and SDL_Renderer removed from
