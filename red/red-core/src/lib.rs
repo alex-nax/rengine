@@ -4,10 +4,15 @@
 //! F140 lands the contract itself: the `.proto` the façade and the companion speak, the prost types
 //! generated from it, the strict translation from the session host's JSON, and the one version the
 //! proto package and the libp2p protocol name are both built from.
+//!
+//! F146 adds `theme`: the product name and theme tokens `tools/design.py` generates for Rust, so
+//! no source here hand-writes what charter D41 made a data edit.
 
+pub mod theme;
 pub mod translate;
 pub mod version;
 
+pub use theme::{PRODUCT_FAMILY, PRODUCT_NAME};
 pub use translate::pb;
 pub use version::{negotiate, LIBP2P_PROTOCOL, PROTOCOL_VERSION, PROTO_PACKAGE};
 

@@ -2530,14 +2530,16 @@
         "design.py generate emits the Rust source; design.py check fails on a hand-written product-name occurrence in Rust sources, as for the other targets.",
         "red-core and red-link compile against the generated constants, and a rename rehearsal changes only theme.json."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         139
       ],
       "owner_workspace": "rengine",
       "deliverable": "The Rust generator in design.py, the generated red crate sources, and the extended design.py check.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/rust-design-target-f146-2026-09-12.md"
+      ]
     },
     {
       "id": 147,

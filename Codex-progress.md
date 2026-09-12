@@ -1,5 +1,49 @@
 # Progress Log
 
+## Session 120 (macos) — 2026-09-12 — design.py learns a Rust target (F146, first J0 loop slice)
+
+The owner asked for one JS-retirement iteration run alongside the push, by hand, before the hourly
+loop's first tick. F146 is J0's only non-deleting slice: `tools/design.py` now emits a Rust target
+beside the `.mjs` and `.h` outputs, so no Rust source ever hand-writes the product name or the
+theme tokens — the values D41 made a data edit. Every later J0 row's generated constants stand on
+it.
+
+**The emitter is a new file, not more of design.py.** `tools/design.py` was 980 lines against the
+1,000 ceiling, so the formatter is `tools/design_rust.py` (pure formatting; design.py resolves).
+`theme_sources` returns the Rust text as its third value, `generate` writes
+`red/red-core/src/theme.rs` (387 lines: name/family, typography, every literal and token-resolved
+metric, preset names, and the `[preset][colour]` RGBA tables theme.c carries), `check` compares it
+like the other outputs. design.py ends at 994 lines.
+
+**The name guard covers Rust like the other targets.** `PRODUCT_ROOTS` gained `red`,
+`PRODUCT_SUFFIXES` gained `.rs`, `PRODUCT_SKIP` gained `target` (cargo output is not shipping
+code), `PRODUCT_ALLOWED` gained the generated module, and a `.rs` hit hints
+`red_core::theme::PRODUCT_NAME`. The C scanner path handles `.rs`: `'static` lifetimes read as
+unterminated quotes, but every non-comment byte still lands in a scanned chunk, so a name cannot
+hide behind one. Both crates read the constants: red-core exposes `pub mod theme` and re-exports
+the pair; red-link's version line opens with `red_core::theme::PRODUCT_NAME`, and cli.rs asserts
+`starts_with` it.
+
+**The rehearsal is the criterion's proof.** `product.name` set to `Verde`, `rEdit` retired, one
+hand edit: check green (the guard scanned for all three names), and only `theme.h`,
+`product.mjs` and `theme.rs` regenerated — `theme.c` and every hand-written source untouched —
+with `cargo test --workspace` green on `Verde red-link 0.1.0 …`. Restored by backup + regenerate.
+
+Commands: `python3 tools/design.py check`, `npm test` (278/278), `ctest --test-dir .cache/desktop`
+(15/15), `./init.sh`, `python3 tools/features.py validate` (118 features).
+
+Evidence: `docs/evidence/rust-design-target-f146-2026-09-12.md` — the failing-first run (3 red
+subtests), three sabotages red for their own reason (in-tree decoys caught with exact line and
+Rust hint; stale theme.rs caught; `pub mod theme` removed fails the compile), and the rehearsal
+record. One detour recorded for later slices: restoring a sabotage with `git checkout` on an
+**uncommitted** edit reverts to HEAD, not to the edit — use a file backup.
+
+Also: pushed the parallel session's seven N0/companion commits (`9f10e8d..b83d1f8`) and set the
+hourly J0 loop (cron `01M2AGK5YNB630T8HJ2SQPXR3B`, :23 each hour, this session only).
+
+**Owed.** Next ready J0 rows: F147 (red-store) and F148 (registry-as-data); the loop takes the
+first by id. N0's next is F141 (red-link over libp2p), owned by the parallel session.
+
 ## Session 119 (macos) — 2026-09-12 — documents open in the work pane, views keep their own scroll, a dragged tab is visible (F166)
 
 Three owner-reported things in one paragraph, three different causes.

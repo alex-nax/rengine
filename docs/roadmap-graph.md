@@ -230,7 +230,7 @@ flowchart TD
   F143 --> F144
   F145["F145: blocked"]
   F144 --> F145
-  F146["F146: ready"]
+  F146["F146: passing"]
   F139 --> F146
   F147["F147: ready"]
   F139 --> F147
@@ -277,6 +277,7 @@ flowchart TD
   F163 --> F164
   F165["F165: blocked"]
   F164 --> F165
+  F166["F166: passing"]
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -378,7 +379,7 @@ flowchart TD
 | F143 | N0 | rengine | blocked | Reachability from anywhere: red-link --relay on owner-controlled infrastructure, dcutr direct upgrade, mDNS on LAN, and one real cellular run as evidence — never the public bootstrap network, because an admin channel does not ride untrusted third parties (owner, 2026-09-11; spec 128, decision 4). |
 | F144 | N0 | rengine | blocked | apps/companion exists as an Android skeleton: pinned Gradle wrapper and NDK, externalNativeBuild pointing at this repository's CMake so the app compiles the same C UI modules the desktop compiles, a Kotlin shell, and an ANativeWindow Vulkan surface through the D49 device layer — C drives the frame loop, red-core serves it through the C ABI (owner, 2026-09-11; spec 128, decisions 7 and 8). |
 | F145 | N0 | rengine | blocked | Companion v0.1 — see, chat, approve: from a phone on cellular, the roots/sessions view of the F113 registry, agent conversation read and send input, token contests and permission approvals, and dashboard actions with their confirm prompts. No terminal emulator and no game frames yet; the phone acts with desktop-class power only through the same project-token semantics (owner, 2026-09-11; spec 128, decision 9). |
-| F146 | J0 | rengine | ready | tools/design.py learns a Rust target: the product name and theme tokens are generated into a Rust source beside the .mjs and .h outputs, so no Rust code ever hand-writes what D41 made a data edit. The slice that unblocks every other J0 row's need for generated constants (owner, 2026-09-11; spec 129, D57). |
+| F146 | J0 | rengine | passing | tools/design.py learns a Rust target: the product name and theme tokens are generated into a Rust source beside the .mjs and .h outputs, so no Rust code ever hand-writes what D41 made a data edit. The slice that unblocks every other J0 row's need for generated constants (owner, 2026-09-11; spec 129, D57). |
 | F147 | J0 | rengine | ready | red-store replaces server/store.mjs and server/schema.mjs: project and session persistence in Rust with the on-disk format byte-compatible, deleted in the same commit the replacement passes (owner, 2026-09-11; spec 129, D57). |
 | F148 | J0 | rengine | ready | The F113 agent recipe registry becomes declarative data: one TOML document that the remaining JS and the new Rust side both parse, with spawn-environment composition (the RENGINE_AGENT_* context) ported (owner, 2026-09-11; spec 129, D57). |
 | F149 | J0 | rengine | blocked | red-agents replaces agents/registry.mjs, agents/config.mjs, agents/report-session.mjs and agents/bind.mjs: conversation discovery for all five CLIs, hook overlays, and the codex trust-hash math, with agent.sh keeping its CLI surface while dispatching to the Rust binary (owner, 2026-09-11; spec 129, D57). |
@@ -398,3 +399,4 @@ flowchart TD
 | F163 | J0 | rengine | blocked | Entry points move off Node: orchestrator/build.mjs, launch.mjs and prepare.mjs are replaced by cmake/cargo entry points, the RENGINE_NODE_EXECUTABLE coupling and build.lock dance are gone, package.json shrinks to metadata or disappears, and node_modules leaves the boot path (owner, 2026-09-11; spec 129, D57). |
 | F164 | J0 | rengine | blocked | The JS test suite sunsets: every row of orchestrator/tests/suite-coverage.test.mjs has a named Rust-side or native-side equivalent or a recorded reason, the suite-coverage mechanism itself is ported so no fixture silently leaves the report, and node --test exits every gate (owner, 2026-09-11; spec 129, D57). |
 | F165 | J0 | rengine | blocked | Epic close: one full dogfood day on the Rust-only stack — panes of every CLI, terminals, updates, recordings, dashboard actions, this MCP — with the evidence logged, AGENTS.md's D57 bullet rewritten past tense, and node gone from the runtime (owner, 2026-09-11; spec 129, D57). |
+| F166 | J0 | rengine | passing | Where a document opens and what a dragged tab shows: a file chosen in a browser view opens in the most recently used other pane (the same pane when there is only one), each view keeps its own scroll position within a pane, and a tab being dragged is drawn under the cursor with the pane and index it would land in (owner, 2026-09-12; spec 130). |
