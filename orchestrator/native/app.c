@@ -412,6 +412,28 @@ static int reclaim_view(ReApp *a, char *closing, size_t size) {
   return oldest;
 }
 
+/* The view a pane is currently showing, or 0 for an empty pane. */
+static int current_view(const ReApp *a, int pane) {
+  if (pane < 0 || pane >= RE_PANES) return 0;
+  const RePane *p = &a->layout.panes[pane];
+  return p->used && !p->axis && p->count ? a->tabs[p->tabs[p->selected]].type : 0;
+}
+bool re_app_navigator_view(int type) {
+  return type == RE_TREE || type == RE_SESSIONS || type == RE_DASHBOARD || type == RE_DEVICES || type == RE_TRACKER;
+}
+/* The pane this view belongs in (spec 130). A document chosen from a browser goes to the pane being
+   worked in, because the browser's own pane is the one place it is certainly in the way -- the person
+   is still using it to find the next file. Everything else opens where the person already is. */
+static int open_pane(const ReApp *a, int type) {
+  int active = a->layout.active;
+  if (re_app_navigator_view(type) || !re_app_navigator_view(current_view(a, active))) return active;
+  /* Every pane showing a browser is out, not just the one that issued the open: sending a terminal
+     to the explorer's narrow pane is the same mistake as leaving it on top of the dashboard, and the
+     explorer is usually the most recently used pane after the browser being clicked. */
+  bool avoid[RE_PANES];
+  for (int n = 0; n < RE_PANES; n++) avoid[n] = re_app_navigator_view(current_view(a, n));
+  return re_layout_open_target(&a->layout, a->pane_mru, RE_PANES, active, avoid);
+}
 int re_app_tab(ReApp *a, int type, const char *root, const char *path, const char *session, const char *title) {
   if (strlen(root) >= sizeof(a->tabs[0].root) || strlen(path) >= sizeof(a->tabs[0].path) || strlen(session) >= sizeof(a->tabs[0].session)) {
     re_copy(a->status, sizeof(a->status), "View identity exceeds the supported length."); return -1;
@@ -424,7 +446,7 @@ int re_app_tab(ReApp *a, int type, const char *root, const char *path, const cha
        * expansions are keyed by path and survive it, as spec 080 decision 10 requires. */
       if (type == RE_TREE || (t->image && re_layout_find(&a->layout, i) < 0)) re_app_load(a, i);
       int pane = re_layout_find(&a->layout, i);
-      if (pane < 0) re_layout_add(&a->layout, a->layout.active, i);
+      if (pane < 0) re_layout_add(&a->layout, open_pane(a, type), i);
       else { a->layout.active = pane; for (int k = 0; k < a->layout.panes[pane].count; k++) if (a->layout.panes[pane].tabs[k] == i) a->layout.panes[pane].selected = k; }
       a->focus = i; t->touched = SDL_GetTicks64(); re_app_layout_changed(a); return i;
     }
@@ -448,7 +470,7 @@ int re_app_tab(ReApp *a, int type, const char *root, const char *path, const cha
     re_copy(t->root, sizeof(t->root), root); re_copy(t->path, sizeof(t->path), path);
     re_copy(t->session, sizeof(t->session), session); re_copy(t->title, sizeof(t->title), title);
     t->touched = SDL_GetTicks64();
-    re_layout_add(&a->layout, a->layout.active, i); a->focus = i;
+    re_layout_add(&a->layout, open_pane(a, type), i); a->focus = i;
     open_view(a, t);
     re_app_load(a, i); re_app_layout_changed(a); return i;
   }

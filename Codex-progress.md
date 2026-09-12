@@ -1,5 +1,55 @@
 # Progress Log
 
+## Session 119 (macos) — 2026-09-12 — documents open in the work pane, views keep their own scroll, a dragged tab is visible (F166)
+
+Three owner-reported things in one paragraph, three different causes.
+
+**A file opened wherever the click came from.** `re_app_tab` added every view to `layout.active`, and
+clicking the explorer makes the explorer's pane active — so the file landed on the one pane
+guaranteed to be in the way. A document now opens in the most recently used pane that holds work.
+Owner decision: most-recently-used over largest-by-area (area moves every time a divider does) and
+over the split sibling (fixed, but a sliver under a nested split); and the same rule for Reveal, file
+links and dashboard artifacts, so two ways of opening a file cannot disagree.
+
+**The first version of that rule was wrong, and the suite said so.** Excluding only the originating
+pane sent a dashboard action's script terminal into the *explorer's* pane — 33 columns, output
+wrapped mid-word. Being "not where the click came from" was never the point; being a pane that holds
+work is. Every pane showing a browser is excluded now, falling back to the originating pane when
+nothing else is left.
+
+**The explorer forgot its scroll.** Not a tree bug: the pane built its content window as
+`"Pane content %d"` — keyed by the *pane*. microui keeps `scroll` on the container behind that name,
+so every tab in a pane shared one offset. It is keyed by the view and its generation now; the
+generation matters because view slots are reclaimed (spec 125).
+
+**A dragged tab was invisible.** `drag_tab` was recorded on mouse-down and read on mouse-up with
+nothing between. The tab's own face is drawn under the cursor, the target pane is ringed and an
+insertion caret sits where it would land. The drop target was computed inside the mouse-up handler;
+it is `drop_target()` now, called by both, because a preview allowed to disagree with the drop
+teaches a person to aim where the tab will not go.
+
+Commands: `npm run build`, `npm run test:native` (15/15), `npm run test:desktop` (**75 pass, 0 fail,
+1 skipped**), `python3 tools/design.py check`, `python3 tools/features.py validate` (118 features).
+
+Evidence, every claim observed failing for its own reason: `orchestrator/native/tests/layout_test.c`
+(the not-from clause, a stale MRU entry, an avoided pane) and
+`orchestrator/tests/native-open-target.spec.mjs` — the open target ("With two panes, a file opens in
+the work pane"), the scroll memory ("The explorer comes back to where it was scrolled"), the ghost
+position ("under the cursor, not left behind") and preview/drop agreement (the insertion index).
+The scroll test was **vacuous on first writing** and the sabotage is what exposed it: with the open
+rule fixed the file lands in the other pane and never covers the explorer, so there was no tab switch
+to survive. It merges to a single pane first now.
+
+**Four existing specs asserted the old placement** and were updated with the reason recorded in spec
+130: `native-plugin` (a plugin is a document, so "in the left pane" became "one pane of a split"),
+`native-layout` (ten files to overflow the wide pane, the cross-pane drag reversed, the scroll-away
+direction chosen rather than assumed), `native-format-hardening` (the wheel goes to one of the view's
+own rows rather than a fixed point that used to be inside its pane), plus the two that found the real
+defect. A baseline run with the native change stashed confirmed all five were green before it.
+
+**Owed.** Touch targets on the companion are still the desktop's 26 dp (session 118). F141
+(`red-link` over libp2p) remains the next feature.
+
 ## Session 118 (macos) — 2026-09-12 — the phone's buttons work and wear the IDE's controls (KI-089, KI-090 closed)
 
 Both of the things the owner reported twice are fixed, and neither was where the previous session's

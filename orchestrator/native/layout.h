@@ -19,6 +19,14 @@ bool re_layout_add(ReLayout *layout, int pane, int tab);
 bool re_layout_remove(ReLayout *layout, int tab);
 bool re_layout_move(ReLayout *layout, int tab, int pane, int index);
 int re_layout_find(const ReLayout *layout, int tab);
+/* The pane a document should open into, given a most-recent-first list of pane indices, the pane the
+   open was issued from, and `avoid[RE_PANES]` marking panes that should not receive one — the caller
+   marks the panes currently showing a browser, because dropping a document on one is the thing this
+   rule exists to stop. The answer is the most recently used leaf that is neither `from` nor avoided;
+   the largest such leaf by area when no history names one; and `from` itself when there is no other
+   at all, which is what a single-pane window means (spec 130). Entries in `mru` that are no longer
+   leaves are skipped, so a stale one cannot send a view into a split node. */
+int re_layout_open_target(const ReLayout *layout, const int *mru, int count, int from, const bool *avoid);
 int re_layout_hit(const ReLayout *layout, int x, int y, bool divider);
 cJSON *re_layout_json(const ReLayout *layout);
 bool re_layout_restore(ReLayout *layout, const cJSON *json);

@@ -37,7 +37,14 @@ test('wide trees, malformed declarations and slow producers never take the deskt
           if (settled && settled.rect.join() === control.rect.join()) return control;
           continue;
         }
-        await gui.command({ op: 'motion', x: 150, y: 600 }); await gui.command({ op: 'wheel', x: 0, y: -3 }); await delay(80);
+        /* Over one of this view's own rows rather than a fixed point. The scroll belongs to the
+           pane's container, so the pointer has to be inside that pane, and which pane a document
+           opens in follows the open-target rule now (spec 130). A format view sets no tab rect, so
+           a reported row is the only thing that names where it is. */
+        const here = (await gui.command({ op: 'state' })).controls
+          .find(c => c.tab === tab && c.rect[2] > 0 && c.role.startsWith('preview-'));  /* a row, not the tab header */
+        if (here) await gui.command({ op: 'motion', x: here.rect[0] + here.rect[2] / 2, y: here.rect[1] + here.rect[3] / 2 });
+        await gui.command({ op: 'wheel', x: 0, y: -3 }); await delay(80);
       }
       throw new Error(`${key} never scrolled into view`);
     };

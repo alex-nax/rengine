@@ -56,7 +56,11 @@ test('a plugin loads in the real window: its tab appears, its drawing reaches th
     assert.equal(tab.title, 'Fixture');
     assert.ok(state.layout.panes.some(p => p?.tabs?.[p.selected] === index), 'selected in its pane');
     const [x, y, w, h] = tab.rect;
-    assert.ok(x + w < state.width / 2, `in the left pane, with the right pane beside it: ${tab.rect}`);
+    /* One pane of a split window rather than the whole of it. Which side is the open-target rule's
+       business (spec 130): a plugin view is a document, so it lands in the work pane rather than on
+       top of the explorer that is showing in the other one. */
+    assert.ok(w > 100 && w < state.width - 100 && x + w <= state.width,
+      `one pane of a split window, not the whole width: ${tab.rect} of ${state.width}`);
     assert.ok(h > 80, `tall enough to hold the drawing: ${tab.rect}`);
     await delay(200);
     const file = path.join(dir, 'plugin.bmp');

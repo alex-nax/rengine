@@ -37,6 +37,9 @@ typedef struct ReApp {
   ReNet *net; ReSocket *events; ReLayout layout;
   ReTab tabs[RE_TABS]; RePending pending[128]; ReExpansion expansions[RE_TREE_EXPANSIONS];
   ReTabStrip strips[RE_PANES];
+  /* Pane indices, most recent first: which pane a document opens into (spec 130). Promoted once a
+     frame from layout.active, so no assignment to it has to remember to keep this in step. */
+  int pane_mru[RE_PANES];
   cJSON *state, *previous_layout, *controls, *formats, *dashboards, *dashboards_opened;
   cJSON *conversations;                      /* the Sessions tab's conversation rows as drawn, for automation (spec 103) */
   char root[65], initial_terminal[65], initial_agent[65], initial_game[65];
@@ -78,6 +81,9 @@ void re_app_close(ReApp *app);
 void re_app_tick(ReApp *app);
 void re_app_ui(ReApp *app, mu_Context *ui, int width, int height);
 void re_app_draw(ReApp *app, ReDraw *draw);
+/* Views that browse rather than hold work. They scroll, and a document opened from one of them
+   belongs in the pane being worked in rather than on top of the browser (spec 130). */
+bool re_app_navigator_view(int type);
 void re_app_status(ReApp *app, ReDraw *draw);   /* the segmented status bar, drawn above every pane */
 bool re_app_event(ReApp *app, const SDL_Event *event, ReDraw *draw);
 /* Applies this root's theme file when a person has already activated it for that root (D34). */

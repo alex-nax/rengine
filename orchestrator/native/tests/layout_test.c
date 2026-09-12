@@ -55,5 +55,41 @@ int main(void) {
   assert(re_layout_split(&l, 0, 1) > 0);
   assert(re_layout_collapse(&l, l.active) == 0 && l.panes[0].count == 5);
   puts("Native split/move/root-preserving layout and corrupt-state rejection passed.");
+  /* Where a document opens (spec 130). The rule is the most recently used leaf that is not the pane
+     the open came from, so a file chosen in the explorer lands in the pane being worked in.
+     Splitting pane n turns n into the parent and puts the old contents in child[0]. */
+  {
+    ReLayout t; re_layout_init(&t);
+    int alone[] = {0};
+    assert(re_layout_open_target(&t, alone, 1, 0, NULL) == 0);        /* one pane: a new tab beside it */
+
+    int right = re_layout_split(&t, 0, 1), left = t.panes[0].child[0];
+    int two[] = {right, left};
+    assert(re_layout_open_target(&t, two, 2, left, NULL) == right);   /* two panes: always the other one */
+    assert(re_layout_open_target(&t, two, 2, right, NULL) == left);
+
+    int lower = re_layout_split(&t, right, 2), upper = t.panes[right].child[0];
+    int worked[] = {left, lower, upper};             /* the explorer is current, `lower` was before it */
+    assert(re_layout_open_target(&t, worked, 3, left, NULL) == lower);
+    int stale[] = {left, right, upper};    /* `right` is a split node now: skipped, never opened into */
+    assert(re_layout_open_target(&t, stale, 3, left, NULL) == upper);
+
+    /* A pane the caller marks as a browser is never the answer, even when it is the most recent: a
+       document sent to the explorer's pane is the defect this rule exists to prevent, and the
+       explorer is usually the pane used just before the browser that issued the open. */
+    bool avoid[RE_PANES] = {false};
+    avoid[lower] = true;
+    assert(re_layout_open_target(&t, worked, 3, left, avoid) == upper);
+    avoid[upper] = true;                 /* nowhere left but the pane it came from */
+    assert(re_layout_open_target(&t, worked, 3, left, avoid) == left);
+
+    re_layout_measure(&t, mu_rect(0, 0, 1000, 800));
+    int unknown[] = {left};                /* no history names another leaf: the largest one, by area */
+    int guess = re_layout_open_target(&t, unknown, 1, left, NULL);
+    assert(guess == upper || guess == lower);
+    assert(t.panes[guess].rect.w * t.panes[guess].rect.h >=
+           t.panes[guess == upper ? lower : upper].rect.w * t.panes[guess == upper ? lower : upper].rect.h);
+  }
+
   return 0;
 }

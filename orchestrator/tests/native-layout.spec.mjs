@@ -10,7 +10,11 @@ import { nativeClient } from './native-client.mjs';
 test('native tab overflow, reordering and pane merging preserve files and retained terminals', { timeout: 45000 }, async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-native-layout-'));
   const project = path.join(directory, 'project'); await mkdir(project);
-  for (let i = 0; i < 6; i++) await writeFile(path.join(project, `file-${i}.txt`), `content ${i}\n`);
+  /* Ten, not six: files open in the work pane now rather than beside the explorer (spec 130), and
+     that pane is the wide one, so it takes more of them before the strip overflows — which is the
+     property this test is here for. */
+  const FILES = 10;
+  for (let i = 0; i < FILES; i++) await writeFile(path.join(project, `file-${i}.txt`), `content ${i}\n`);
   let server, gui;
   try {
     server = await startServer({ stateDir: path.join(directory, 'state') });
@@ -18,7 +22,7 @@ test('native tab overflow, reordering and pane merging preserve files and retain
     gui = await nativeClient(server, { root: root.id, terminal: shell.id });
     let state = await gui.until(s => s.tabs.some(t => t?.type === 1 && t.tree) && s.tabs.some(t => t?.session === shell.id && t.text));
     const tree = state.tabs.findIndex(t => t?.type === 1), files = [];
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < FILES; i++) {
       await gui.control('toolbar', 'Tree'); await gui.control('tree-entry', `file-${i}.txt`, tree);
       state = await gui.until(s => s.tabs.some(t => t?.path === `file-${i}.txt` && t.text === `content ${i}\n`));
       const index = state.tabs.findIndex(t => t?.path === `file-${i}.txt`); files.push(index);
@@ -31,14 +35,17 @@ test('native tab overflow, reordering and pane merging preserve files and retain
     assert.ok(last.header[2] > 0 && last.header[0] + last.header[2] <= last.rect[0] + last.rect[2] + 6,
       'The selected tab header must fit its narrow pane after opening several files.');
     const paneFor = (s, tab) => s.layout.panes.findIndex(p => p?.tabs.includes(tab));
-    const left = paneFor(state, files[0]);
-    for (let i = 0; i < 7; i++) {
-      state = await gui.command({ op: 'state' });
-      if (state.controls.some(c => c.role === 'tab' && c.tab === files[0])) break;
-      await gui.control('tab-scroll', 'previous', left);
-    }
-    state = await gui.command({ op: 'state' });
-    assert.equal(state.layout.panes[left].tabs[state.layout.panes[left].selected], files.at(-1), 'Browsing headers keeps the active content.');
+    const work = paneFor(state, files[0]);
+    const reveal = async (tab, direction = 'previous') => {
+      for (let i = 0; i < 9; i++) {
+        const seen = await gui.command({ op: 'state' });
+        if (seen.controls.some(c => c.role === 'tab' && c.tab === tab)) return seen;
+        await gui.control('tab-scroll', direction, paneFor(seen, tab));
+      }
+      return gui.command({ op: 'state' });
+    };
+    state = await reveal(files[0]);
+    assert.equal(state.layout.panes[work].tabs[state.layout.panes[work].selected], files.at(-1), 'Browsing headers keeps the active content.');
     await gui.control('tab', '', files[0]);
     state = await gui.until(s => s.tabs[files[0]].rect[2] > 0);
     assert.equal(state.tabs[files[0]].text, 'retained layout draft\n');
@@ -49,12 +56,18 @@ test('native tab overflow, reordering and pane merging preserve files and retain
       await gui.command({ op: 'motion', x, y }); await delay(50);
       await gui.command({ op: 'button', x, y, down: false }); await delay(50);
     };
-    await drag(state.tabs[files[0]], 700, 450);
-    state = await gui.until(s => s.tabs[files[0]].rect[0] > 280);
-    const right = paneFor(state, files[0]), shellIndex = state.tabs.findIndex(t => t?.session === shell.id);
+    /* The cross-pane drag runs the other way now: the files are in the work pane, so the empty half
+       of the window to aim at is the explorer's. */
+    await drag(state.tabs[files[0]], 150, 450);
+    state = await gui.until(s => s.tabs[files[0]].rect[0] < 280, 'the dragged tab crosses into the other pane');
+    const shellIndex = state.tabs.findIndex(t => t?.session === shell.id);
+    state = await reveal(shellIndex);
     const shellTab = state.tabs[shellIndex];
     await drag(state.tabs[files[0]], shellTab.header[0] + 2, shellTab.header[1] + 12);
-    state = await gui.until(s => s.layout.panes[right].tabs[0] === files[0], 'dirty tab reordered before terminal');
+    state = await gui.until(s => {
+      const pane = s.layout.panes.findIndex(p => p?.tabs.includes(shellIndex));
+      return pane >= 0 && s.layout.panes[pane].tabs[0] === files[0];
+    }, 'dirty tab reordered before terminal');
     assert.equal(state.tabs[files[0]].root, root.id);
     await gui.control('toolbar', 'Split horizontal');
     await gui.until(s => s.layout.panes.filter(p => p?.axis === 0).length === 3);
@@ -62,7 +75,7 @@ test('native tab overflow, reordering and pane merging preserve files and retain
     await gui.until(s => s.layout.panes.filter(p => p?.axis === 0).length === 2);
     await gui.control('tab', '', files[0]);
     await gui.control('toolbar', 'Merge pane');
-    state = await gui.until(s => s.layout.panes[0]?.axis === 0 && s.layout.panes[0].tabs.length === 8, 'merged all views without detaching');
+    state = await gui.until(s => s.layout.panes[0]?.axis === 0 && s.layout.panes[0].tabs.length === FILES + 2, 'merged all views without detaching');
     assert.equal(state.tabs[files[0]].text, 'retained layout draft\n');
     assert.equal(state.layout.panes[0].tabs[state.layout.panes[0].selected], files[0]);
     assert.equal(server.sessions.snapshot(shell.id).pid, shell.pid);
@@ -71,8 +84,14 @@ test('native tab overflow, reordering and pane merging preserve files and retain
     await gui.command({ op: 'resize', width: 1050, height: 600 });
     state = await gui.until(s => s.tabs[files[0]].header[2] > 0 && s.tabs[files[0]].rect[2] < 1050);
     assert.ok(state.tabs[files[0]].header[0] + state.tabs[files[0]].header[2] <= 1050);
-    await gui.control('tab-scroll', 'previous', 0);
-    state = await gui.command({ op: 'state' });
+    /* Scroll away from the selected tab, in whichever direction leaves it off-screen: where it sits
+       in the merged strip follows the merge order, and which pane each view was merged from changed
+       with spec 130. The claim being set up is the one below — a merged selection is revealed. */
+    for (const direction of ['next', 'previous']) {
+      await gui.control('tab-scroll', direction, 0);
+      state = await gui.command({ op: 'state' });
+      if (state.tabs[files[0]].header[2] === 0) break;
+    }
     assert.equal(state.tabs[files[0]].header[2], 0, 'Scroll away from the selected tab before splitting.');
     await gui.control('toolbar', 'Split horizontal'); await gui.control('toolbar', 'Merge pane');
     await gui.until(s => s.tabs[files[0]].header[2] > 0, 'merged selected tab revealed despite reused pane index');

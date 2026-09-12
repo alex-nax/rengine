@@ -619,7 +619,40 @@ static void overlay_open(ReApp *a, mu_Context *ui, int kind) {
 void re_workspace_overlay_close(ReApp *a) { if (a->overlay) { a->overlay = RE_OVERLAY_NONE; a->overlay_restore = true; } }
 
 
+/* Past the same slop the drop uses, so a click on a tab never flashes a ghost (spec 130). */
+#define RE_TAB_DRAG_SLOP 8
+static bool dragging(const ReApp *a) {
+  return a->drag_tab >= 0 && abs(a->mouse_x - a->drag_x) + abs(a->mouse_y - a->drag_y) > RE_TAB_DRAG_SLOP;
+}
+/* Where the dragged tab would land: the pane under the cursor, and the index within its strip. The
+   draw pass and the drop both call this, because a preview allowed to disagree with the drop teaches
+   a person to aim at somewhere the tab will not go. */
+static int drop_target(const ReApp *a, int x, int y, int *index) {
+  int pane = re_layout_hit(&a->layout, x, y, false);
+  if (pane < 0) return -1;
+  const RePane *target = &a->layout.panes[pane];
+  int at = target->count;
+  if (y < target->rect.y + RE_METRIC_PANE_HEADER_HEIGHT) {
+    for (int i = 0; i < target->count; i++) {
+      mu_Rect r = a->tabs[target->tabs[i]].header; if (r.w <= 0) continue;
+      at = i; if (x < r.x + r.w / 2) break; at = i + 1;
+    }
+  }
+  if (re_layout_find(&a->layout, a->drag_tab) == pane)
+    for (int i = 0; i < target->count; i++) if (target->tabs[i] == a->drag_tab) { if (i < at) at--; break; }
+  if (index) *index = at;
+  return pane;
+}
+/* The one place the active pane is recorded (spec 130). Seven statements assign layout.active and an
+   eighth will be written one day; promoting here every frame cannot be the one that forgets. */
+static void promote_pane(ReApp *a) {
+  int n = a->layout.active, at = 0;
+  while (at < RE_PANES - 1 && a->pane_mru[at] != n) at++;
+  memmove(a->pane_mru + 1, a->pane_mru, (size_t)at * sizeof(int));
+  a->pane_mru[0] = n;
+}
 void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
+  promote_pane(a);
   if (a->controls) { cJSON_Delete(a->controls); a->controls = cJSON_CreateArray();
                      cJSON_Delete(a->conversations); a->conversations = cJSON_CreateArray(); }
   int opts = MU_OPT_NOTITLE | MU_OPT_NORESIZE | MU_OPT_NOCLOSE | MU_OPT_NOSCROLL;
@@ -719,7 +752,12 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
       pane_header(a, ui, n);
       mu_end_window(ui);
     }
-    snprintf(title, sizeof(title), "Pane content %d", n);
+    /* Keyed by the view, not the pane. microui keeps the scroll offset on the container behind this
+       name, so a pane-keyed name made every tab in a pane share one offset: scroll an editor, switch
+       to the explorer, and the explorer had jumped to wherever the editor was (spec 130). The
+       generation keeps a reclaimed slot (spec 125) from inheriting the previous view's position. */
+    if (p->count) snprintf(title, sizeof(title), "Pane view %d.%d", p->tabs[p->selected], a->tabs[p->tabs[p->selected]].generation);
+    else snprintf(title, sizeof(title), "Pane content %d", n);
     mu_Rect content = mu_rect(p->rect.x, p->rect.y + RE_METRIC_PANE_CONTENT_TOP, p->rect.w, re_max(0, p->rect.h - RE_METRIC_PANE_CONTENT_TOP)), below = mu_rect(0, 0, 0, 0);
     if (!p->count) { mu_get_container(ui, title)->rect = content; continue; }
     int index = p->tabs[p->selected]; ReTab *t = &a->tabs[index];
@@ -772,6 +810,39 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
   }
   re_ui_end(re_draw_active());   /* the panes and the status bar draw next, and they clip themselves */
 }
+/* What a dragged tab looks like while it is in the air (spec 130): the tab's own face under the
+   cursor, the pane it would land in ringed, and a caret where it would sit in that pane's strip.
+   Drawn in the draw pass, so it is above the replayed microui commands and below the overlay layer —
+   a dropdown must stay on top, and the two cannot be open at once anyway. */
+static void drag_preview(ReApp *a, ReDraw *draw) {
+  if (!dragging(a)) return;
+  const ReTab *t = &a->tabs[a->drag_tab];
+  if (!t->used) return;
+  int index = 0, pane = drop_target(a, a->mouse_x, a->mouse_y, &index);
+  if (pane >= 0) {
+    const RePane *target = &a->layout.panes[pane];
+    re_ui_focus_ring(draw, target->rect, RE_METRIC_DESIGN_RADIUS);
+    /* The caret sits where the tab would go: at the leading edge of the tab it displaces, or after
+       the last one. A pane whose strip is scrolled shows it at the edge it would scroll toward. */
+    int x = target->rect.x + RE_METRIC_TAB_INSET, top = target->rect.y + RE_METRIC_TAB_TOP;
+    int height = RE_METRIC_DESIGN_TABS_HEIGHT - RE_METRIC_TAB_TOP;
+    for (int i = 0; i < target->count; i++) {
+      mu_Rect r = a->tabs[target->tabs[i]].header; if (r.w <= 0) continue;
+      if (i < index) x = r.x + r.w; else { x = r.x; break; }
+    }
+    re_draw_rect(draw, mu_rect(x - RE_METRIC_TAB_GAP, top, RE_METRIC_TAB_GAP, height), RE_COLOR_ACCENT);
+    /* Reported so the drop a person is being shown can be checked against the drop they get: `key`
+       is the pane, `tab` the index within its strip. */
+    char named[16]; snprintf(named, sizeof(named), "%d", pane);
+    inspect_rect(a, "drop-target", named, index, target->rect);
+  }
+  mu_Rect r = t->header;
+  if (r.w <= 0) r = mu_rect(0, 0, RE_METRIC_TAB_WIDTH - RE_METRIC_TAB_GAP, RE_METRIC_DESIGN_TABS_HEIGHT - RE_METRIC_TAB_TOP);
+  mu_Rect ghost = mu_rect(a->mouse_x - r.w / 2, a->mouse_y - r.h / 2, r.w, r.h);
+  re_draw_shadow(draw, ghost, RE_COLOR_CANVAS, RE_METRIC_DESIGN_RADIUS, RE_METRIC_DESIGN_PAD); /* the popover's own lift recipe */
+  re_ui_tab(draw, ghost, t->title, tab_icon(t), true, t->dirty, 0);
+  inspect_rect(a, "drag-ghost", t->title, a->drag_tab, ghost);
+}
 void re_app_draw(ReApp *a, ReDraw *draw) {
   for (int i = 0; i < RE_TABS; i++) {
     ReTab *t = &a->tabs[i];
@@ -789,6 +860,7 @@ void re_app_draw(ReApp *a, ReDraw *draw) {
   }
   for (int n = 0; n < RE_PANES; n++) if (a->layout.panes[n].used && a->layout.panes[n].axis)
     re_draw_rect(draw, a->layout.panes[n].divider, RE_COLOR_DIVIDER);
+  drag_preview(a, draw);
   if (a->scene) re_scene_draw(a->scene, draw);
 }
 bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
@@ -903,20 +975,9 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
     p->ratio = v < 0.1f ? 0.1f : v > 0.9f ? 0.9f : v; re_app_layout_changed(a);
   }
   if (e->type == SDL_MOUSEBUTTONUP && e->button.button == SDL_BUTTON_LEFT) {
-    if (a->drag_tab >= 0 && abs(e->button.x - a->drag_x) + abs(e->button.y - a->drag_y) > 8) {
-      int pane = re_layout_hit(&a->layout, e->button.x, e->button.y, false);
-      if (pane >= 0) {
-        RePane *target = &a->layout.panes[pane]; int index = target->count;
-        if (e->button.y < target->rect.y + RE_METRIC_PANE_HEADER_HEIGHT) {
-          for (int i = 0; i < target->count; i++) {
-            mu_Rect r = a->tabs[target->tabs[i]].header; if (r.w <= 0) continue;
-            index = i; if (e->button.x < r.x + r.w / 2) break; index = i + 1;
-          }
-        }
-        if (re_layout_find(&a->layout, a->drag_tab) == pane)
-          for (int i = 0; i < target->count; i++) if (target->tabs[i] == a->drag_tab) { if (i < index) index--; break; }
-        re_layout_move(&a->layout, a->drag_tab, pane, index); re_app_layout_changed(a);
-      }
+    if (dragging(a)) {
+      int index = 0, pane = drop_target(a, e->button.x, e->button.y, &index);
+      if (pane >= 0) { re_layout_move(&a->layout, a->drag_tab, pane, index); re_app_layout_changed(a); }
     }
     a->drag_tab = a->resize_pane = -1;
   }

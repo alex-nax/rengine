@@ -2923,6 +2923,27 @@
       "deliverable": "The dogfood-day evidence record in Codex-progress.md, the AGENTS.md rewrite, and any known-issues rows the day revealed.",
       "external_references": [],
       "evidence": []
+    },
+    {
+      "id": 166,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "high",
+      "description": "Where a document opens and what a dragged tab shows: a file chosen in a browser view opens in the most recently used other pane (the same pane when there is only one), each view keeps its own scroll position within a pane, and a tab being dragged is drawn under the cursor with the pane and index it would land in (owner, 2026-09-12; spec 130).",
+      "acceptance_criteria": [
+        "Opening a file from the explorer puts it in the pane most recently worked in rather than the explorer's own, with one pane the exception and a third pane following the person; the same rule serves Reveal, file links and dashboard artifacts.",
+        "A view returned to in a pane is scrolled where it was left, not where another view in that pane was left.",
+        "A dragged tab is drawn under the cursor, the pane and insertion index it would land in are shown, and the drop uses the same computation the preview showed."
+      ],
+      "passes": true,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "re_layout_open_target and the pane MRU, the per-view content container, drop_target and the drag preview, with docs/specs/130-open-target-pane-and-tab-drag-preview.md.",
+      "external_references": [],
+      "evidence": [
+        "orchestrator/tests/native-open-target.spec.mjs — three desktop tests, each sabotage-verified: the open target (red on 'With two panes, a file opens in the work pane'), the scroll memory (red on 'The explorer comes back to where it was scrolled'), the ghost position (red on 'the ghost is under the cursor, not left behind') and preview/drop agreement (red on the insertion index).",
+        "orchestrator/native/tests/layout_test.c — re_layout_open_target across one, two and three panes, a stale MRU entry and no history; red on dropping the not-from clause and on trusting a stale entry."
+      ]
     }
   ]
 }

@@ -12,6 +12,19 @@ int re_layout_find(const ReLayout *l, int tab) {
     for (int t = 0; t < l->panes[n].count; t++) if (l->panes[n].tabs[t] == tab) return n;
   return -1;
 }
+int re_layout_open_target(const ReLayout *l, const int *mru, int count, int from, const bool *avoid) {
+  for (int i = 0; i < count; i++)
+    if (mru[i] != from && leaf(l, mru[i]) && !(avoid && avoid[mru[i]])) return mru[i];
+  /* No history names another leaf. The largest by area is the best guess left, and it is the one a
+     person would point at: a fresh split has equal halves, so this only decides odd layouts. */
+  int best = -1; long area = -1;
+  for (int n = 0; n < RE_PANES; n++) {
+    if (n == from || !leaf(l, n) || (avoid && avoid[n])) continue;
+    long size = (long)l->panes[n].rect.w * l->panes[n].rect.h;
+    if (size > area) { area = size; best = n; }
+  }
+  return best >= 0 ? best : from;
+}
 bool re_layout_add(ReLayout *l, int n, int tab) {
   if (!leaf(l, n) || tab < 0 || tab >= RE_TABS || re_layout_find(l, tab) >= 0) return false;
   RePane *p = &l->panes[n];
