@@ -3030,6 +3030,67 @@
       "deliverable": "The stdio red-store service, the thin JS client, the rewired consumers, and the deletion commit.",
       "external_references": [],
       "evidence": []
+    },
+    {
+      "id": 171,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "F149a (the shell half of F149): the red-agents binary carries the registry's shell surface — list/show byte-exact with the registry.mjs CLI, the three conversation flag parsers, and the codex hook key/trust-hash math — and agent.sh dispatches its registry reads to it with its own CLI unchanged (owner, 2026-09-12; spec 129, KI-093).",
+      "acceptance_criteria": [
+        "red-agents list/show/show-field is byte-exact with the registry.mjs CLI on the shipped five and an EXTRA-file recipe, error paths and exit codes included; the conversation parsers answer the same {id, source} as the JS parsers on recorded argv.",
+        "Codex hook key and trust-hash computation matches codexHookKey/codexHookTrustHash byte-exactly on the documented formula's fixture set, with literals pinned from the JS side so drift in either side fails.",
+        "agent.sh's CLI (list/show/check-resume/install/update) is unchanged to its callers while dispatching to red-agents, proven with RENGINE_NODE pointing nowhere."
+      ],
+      "passes": true,
+      "dependencies": [
+        148
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The red-agents CLI with the parsers and hooks modules, the agent.sh dispatch, and the parity tests.",
+      "external_references": [],
+      "evidence": [
+        "docs/evidence/red-agents-cli-f171-2026-09-12.md"
+      ]
+    },
+    {
+      "id": 172,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "F149b (the hook reporter half of F149): red-agents report-session emits byte-identical payloads to the JS version for all five providers on recorded hook fixtures, the launcher composes the Rust binary into hook command lines, and report-session.mjs is deleted (owner, 2026-09-12; spec 129, KI-093).",
+      "acceptance_criteria": [
+        "report-session for all five providers emits byte-identical payloads to the JS version on recorded hook fixtures, including codex SessionStart and claude's hook.",
+        "The launcher composes red-agents into the hook command lines it writes (claude's settings file and codex's -c layer); report-session.mjs is deleted in the same commit the replacement passes, each ported test observed failing for the module's absence."
+      ],
+      "passes": false,
+      "dependencies": [
+        171
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The red-agents report-session subcommand, the launcher wiring, the fixture-parity tests, and the deletion commit.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 173,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "F149c (the consumer half of F149): the server-side recipe/config consumers move off registry.mjs and config.mjs — the tasks menu and model flags, store's conversation-id shaping, sessions' capability reads, agentLaunch's MCP overlays — and registry.mjs, config.mjs and bind.mjs are deleted (owner, 2026-09-12; spec 129, KI-093).",
+      "acceptance_criteria": [
+        "Every consumer of the remaining modules reads its recipes and launch plans from the Rust side through the F170 channel or the decision that supersedes it, with the external API unchanged.",
+        "registry.mjs, config.mjs and bind.mjs are deleted in the same commit the replacement passes, each ported test observed failing for the module's absence."
+      ],
+      "passes": false,
+      "dependencies": [
+        170,
+        172
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The consumer migration, the agentLaunch port, and the deletion commit.",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }

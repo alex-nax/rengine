@@ -1,5 +1,41 @@
 # Progress Log
 
+## Session 125 (macos) — 2026-09-12 — the red-agents binary speaks the registry to its shell callers (F171 / F149a)
+
+The owner said go on, so the loop's fifth run took F149 — sized it first (959 lines, three
+criteria with different homes, and a hidden dependency on the F170 channel) and filed KI-093:
+F171 (shell surface + trust math), F172 (report-session), F173 (the server-side consumers and
+the deletion, waiting on the channel). Under the standing rule F171 landed in the same run.
+
+**The binary.** `red-agents` answers `list [--names]` and `show <agent> [field]` byte-exact with
+the registry.mjs CLI — error paths, exit 2s and the EXTRA file through the same environment
+variable (caught by the end-to-end testcli run when the first version ignored it). It resolves
+the document as `$RENGINE_AGENT_REGISTRY` else the shipped registry.toml relative to the binary.
+
+**The parsers and the trust math.** Three flag spellings ported without a regex dependency —
+uuid/ULID shapes as char classes, the i flag's lowercase-ULID acceptance included — answering
+the same `{id, source}` as the JS parsers on 22 recorded argv cases. `hooks.rs` computes
+codex's key and `sha256:` trust hash over compact canonical JSON (BTreeMap sorts the keys for
+free); the test compares against the live JS on fixed commands and pins two literals computed
+today, so drift in either side fails — the 2026-09-11 evidence's live hash embedded machine
+paths, and the doc now says so.
+
+**The dispatch.** agent.sh reads the registry through the binary (`$RENGINE_RED_AGENTS`, then
+`red/target/{debug,release}/red-agents`, then a named fallback), proven by listing the five
+recipes with `RENGINE_NODE=/nonexistent`. Its own CLI is unchanged; the end-to-end
+install/update runs are green, and the test file builds the binary first for fresh checkouts.
+
+Commands: `node --test` (CLI 4/4), `cargo test -p red-agents` (18/18), `npm test` (290/290),
+`ctest` (16/16), `./init.sh`, `design.py check`, `features.py validate` (125 features).
+
+Evidence: `docs/evidence/red-agents-cli-f171-2026-09-12.md` — failing-first 4/4 red, four
+sabotages, one of which first **proved nothing** (the uuid length check had no 35-char fixture
+on the JS side; added, then red on both suites). F171 `passes: true`; F172 ready, F173 blocked
+on F170.
+
+**Owed.** Next ready J0 rows by id: **F169** (F147a, red-store crate + corpus) and **F172**
+(F149b, report-session). F169 is first by id and needs no channel.
+
 ## Session 124 (macos) — 2026-09-12 — the spawn environment is one pure function in both languages (F168; F148 complete)
 
 Loop tick 4 took F168, the spawn half of F148 — and with it F148 is complete, the first J0 epic

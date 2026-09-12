@@ -20,6 +20,13 @@ const script = path.resolve('scripts/agent.sh');
 const FIVE = ['claude', 'codex', 'gemini', 'opencode', 'kimi'];
 const ROOT_ID = '12345678-1234-1234-1234-123456789abc';
 
+/* F171: agent.sh's registry reads dispatch to the red-agents binary, so this file's end-to-end
+   runs need it built — on a fresh checkout nothing else in the suite has built it yet. */
+test('the red-agents binary agent.sh dispatches to is present', () => {
+  const built = spawnSync('cargo', ['build', '-p', 'red-agents'], { cwd: path.resolve('red'), encoding: 'utf8', timeout: 300000 });
+  assert.equal(built.status, 0, built.stderr);
+});
+
 async function contextDir(t) {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-registry-'));
   t.after(() => rm(directory, { recursive: true, force: true }));

@@ -9,6 +9,7 @@ description = "The agent recipe registry as data: one TOML document the remainin
 # and the cross-language parity proof would have a hole where an author makes a mistake.
 [dependencies]
 serde_json = "1"
+sha2 = "0.10"
 
 # The projection dump: prints what the registry resolves to, so the JS parity test can compare
 # the two sides of the one document. A binary rather than a test, as red-contract is.

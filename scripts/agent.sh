@@ -11,20 +11,32 @@ extra_count=0
 launcher_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 # The one table every agent fact comes from (spec 114, charter D46): packages, update modes,
-# resume spellings. The registry is JavaScript, so reading it needs the node the launcher itself
-# runs on; a shell that cannot offer one is told so rather than shown a stale copy of the table.
-REGISTRY="$launcher_dir/../orchestrator/agents/registry.mjs"
-re_node="${RENGINE_NODE:-$(command -v node || true)}"
-registered_names=""
+# resume spellings. The registry is a TOML document (F167) read through the red-agents binary
+# (F171): RENGINE_RED_AGENTS names the binary where an install puts it somewhere unusual, and a
+# shell that cannot offer one is told so rather than shown a stale copy of the table.
+red_agents=""
 have_names=0
+
+red_agents_bin() {
+  if [ -n "${RENGINE_RED_AGENTS:-}" ]; then
+    [ -x "$RENGINE_RED_AGENTS" ] && { printf '%s\n' "$RENGINE_RED_AGENTS"; return 0; }
+    return 1
+  fi
+  local candidate
+  for candidate in "$launcher_dir/../red/target/debug/red-agents" "$launcher_dir/../red/target/release/red-agents"; do
+    [ -x "$candidate" ] && { printf '%s\n' "$candidate"; return 0; }
+  done
+  return 1
+}
 
 registry_names() {
   if [ "$have_names" = 0 ]; then
     have_names=1
-    if [ -n "$re_node" ]; then
-      registered_names="$("$re_node" "$REGISTRY" list --names)" || registered_names=""
+    red_agents="$(red_agents_bin)" || red_agents=""
+    if [ -n "$red_agents" ]; then
+      registered_names="$("$red_agents" list --names)" || registered_names=""
     else
-      echo "Node.js is required to read the agent registry; listing nothing." >&2
+      echo "The red-agents binary is required to read the agent registry (run: cargo build -p red-agents, or set RENGINE_RED_AGENTS); listing nothing." >&2
       registered_names=""
     fi
   fi
@@ -36,8 +48,9 @@ is_registered() {
 }
 
 registry_field() {
-  [ -n "$re_node" ] || return 127
-  "$re_node" "$REGISTRY" show "$1" "$2" 2>/dev/null
+  [ -n "$red_agents" ] || registry_names >/dev/null
+  [ -n "$red_agents" ] || return 127
+  "$red_agents" show "$1" "$2" 2>/dev/null
 }
 
 usage() {
