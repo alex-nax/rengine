@@ -1,5 +1,31 @@
 # Progress Log
 
+## Session 121 (macos) — 2026-09-12 — J0 loop tick 1: F147 split-proposed, not started (KI-091)
+
+First tick of the hourly J0 loop (cron `01M2AGK5YNB630T8HJ2SQPXR3B`). Tree clean, main in sync,
+first ready spec-129 row F147 (red-store). On sizing, the loop contract's stop branch applied —
+"never land a partial slice" — so the tick filed a split proposal instead of code.
+
+**Why F147 cannot fit one tick.** (1) The row bundles the crate + byte-parity corpus, the live
+swap of ten server consumers, and the deletion. (2) It needs the epic's first JS-host→Rust
+service channel — every deletion row until F152 has the still-JS host consuming Rust, and the
+channel's shape, lifecycle and error-taxonomy hop (`fail`'s statuses must survive byte-exact or
+"external API unchanged" is false) have no spec answer; the LSP/MCP-worker stdio JSON-RPC pattern
+is the house answer and the proposal names it the recommendation. (3) A dependency the graph
+missed: `store.mjs` imports `agents/registry.mjs` for conversation-id shaping, so the Rust store
+needs F148's recipe data — F147 and F148 are graphed independent and are not.
+
+**The proposal (KI-091).** F147a: red-store crate + parity corpus, nothing deleted, schema.mjs's
+validator riding as a second module. F147b: stdio service + thin client, consumers rewired, JS
+deleted, depending on F148 landing first. F147's row stays untouched; the split adds rows only on
+owner approval.
+
+Commands: `git status -sb`, `python3 tools/features.py next`, `show 147`; reads of `store.mjs`,
+`schema.mjs`, spec 128's strangler section and the consumer graph. No gates run — no code changed.
+
+**Owed.** Owner verdict on the KI-091 split. Until then the loop's next tick takes **F148**
+(registry-as-data), which is ready and is the split's recommended predecessor anyway.
+
 ## Session 120 (macos) — 2026-09-12 — design.py learns a Rust target (F146, first J0 loop slice)
 
 The owner asked for one JS-retirement iteration run alongside the push, by hand, before the hourly
