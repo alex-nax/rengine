@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { bashPath } from '../server/sessions.mjs';
 import { readDeclaration } from '../server/formats.mjs';
-import { validateSchema } from '../server/schema.mjs';
+import { validateSchema } from '../server/store-client.mjs';
 import { dashboardRules } from '../server/dashboard-rules.mjs';
 
 const execute = promisify(execFile);
@@ -39,7 +39,7 @@ const missing = async file => { try { await stat(file); return false; } catch { 
  * contract through validateSchema plus the shared cross-rule modules — instead of restating them.
  * `games` (contract 3) is owned by the game lane, so while the committed schema predates it the
  * core is still validated for real and the games tier is reported as uncovered here. */
-function declarationProblems(value, root) {
+async function declarationProblems(value, root) {
   const problems = [], uncovered = [];
   let subject = value;
   if (!CONTRACTS.has(value.contract) || (value.games !== undefined && !knowsGames)) {
@@ -47,7 +47,7 @@ function declarationProblems(value, root) {
     delete subject.games;
     uncovered.push('games');
   }
-  problems.push(...validateSchema(SCHEMA, subject));
+  problems.push(...await validateSchema(SCHEMA, subject));
   problems.push(...dashboardRules(value.dashboard));
   if (gameRules) problems.push(...gameRules(value.games ?? []));
   else uncovered.push('game-rules.mjs');
@@ -68,7 +68,7 @@ test('the wizard scaffolds a contract 3 declaration, launcher and test that sati
   const declaration = await declarationOf(root);
   assert.equal(declaration.contract, 3);
   assert.equal(declaration.project, 'sample-project');
-  const { problems, scripts } = declarationProblems(declaration, root);
+  const { problems, scripts } = await declarationProblems(declaration, root);
   assert.deepEqual(problems, []);
   assert.equal(declaration.game, undefined, 'the singular game key does not exist');
   assert.equal(declaration.games.length, 1, 'the wizard scaffolds one target; further targets are added by hand');
@@ -122,7 +122,7 @@ test('two scaffolded projects do not share one workspace', async () => {
 test('the reference template declaration follows the same contract rules and shows the games array', async () => {
   const templates = path.join(ENGINE, 'orchestrator/templates/project');
   const template = JSON.parse(await readFile(path.join(templates, 'project.json'), 'utf8'));
-  const { problems, scripts } = declarationProblems(template, templates);
+  const { problems, scripts } = await declarationProblems(template, templates);
   assert.deepEqual(problems, []);
   assert.equal(template.contract, 3);
   assert.ok(Array.isArray(template.games) && template.games.length > 1, 'the reference shows several targets on one engine');

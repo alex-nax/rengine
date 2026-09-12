@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { WorkspaceStore } from '../server/store.mjs';
+import { WorkspaceStore } from '../server/store-client.mjs';
 
 // A conversation that lives only in the session host's memory dies with the host, which is the one
 // event a restart into it has to survive. See docs/specs/097-agent-conversation-persistence.md.

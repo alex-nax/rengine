@@ -9,7 +9,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { startServer } from '../server/main.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { readDeclaration, runCommand } from '../server/formats.mjs';
-import { validateSchema } from '../server/schema.mjs';
+import { validateSchema } from '../server/store-client.mjs';
 import { producer, pack, declaration, entries, project } from './format-fixtures.mjs';
 
 test('structurally broken declarations and prototype-named keys are reported, never thrown', async () => {
@@ -29,8 +29,8 @@ test('structurally broken declarations and prototype-named keys are reported, ne
       const result = await readDeclaration(root);
       assert.equal(result.declared, true, label); assert.ok(result.error, label); assert.deepEqual(result.formats, [], label);
     }
-    assert.ok(validateSchema({ type: 'object', properties: { a: {} }, additionalProperties: false }, { toString: 1 }).some(e => /unknown key toString/.test(e)));
-    assert.ok(validateSchema({ type: 'object', required: ['constructor'] }, {}).some(e => /requires constructor/.test(e)));
+    assert.ok((await validateSchema({ type: 'object', properties: { a: {} }, additionalProperties: false }, { toString: 1 })).some(e => /unknown key toString/.test(e)));
+    assert.ok((await validateSchema({ type: 'object', required: ['constructor'] }, {})).some(e => /requires constructor/.test(e)));
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 

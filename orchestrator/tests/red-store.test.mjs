@@ -13,8 +13,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
-import { buildCorpusForImport } from './store-corpus.mjs';
+import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
@@ -24,10 +23,16 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const CHECK = path.join(ROOT, 'red/target/debug/red-store-check');
 const run = promisify(execFile);
 
+/* The corpus is FROZEN: captured from the real JS host on 2026-09-12, before store.mjs was
+   deleted in F175 — "every corpus entry was captured from the real JS host" is a fact about
+   this file, and regenerating it against the client would make the harness grade itself.
+   store-corpus.mjs is the regeneration tool for an intentional refresh only. */
+const FROZEN = path.join(ROOT, 'orchestrator/tests/store-corpus.json');
+
 async function buildCorpus(t) {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-store-corpus-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  const corpus = await buildCorpusForImport(directory);
+  const corpus = JSON.parse(await readFile(FROZEN, 'utf8'));
   const file = path.join(directory, 'corpus.json');
   await writeFile(file, JSON.stringify(corpus));
   return { corpus, file, directory };
@@ -48,7 +53,7 @@ test('the JS host reads what the crate writes (the other direction)', async t =>
      recorded bytes describe. */
   const outDir = path.join(directory, 'rust-replay');
   await run(CHECK, [file, '--emit', outDir], { maxBuffer: 32 * 1024 * 1024 });
-  const { WorkspaceStore } = await import('../server/store.mjs');
+  const { WorkspaceStore } = await import('../server/store-client.mjs');
   const store = await WorkspaceStore.open(path.join(outDir, 'state'));
   const { realpath } = await import('node:fs/promises');
   const expected = JSON.parse(corpus.ops[corpus.ops.length - 1].file.replaceAll('<DIR>', await realpath(outDir)));

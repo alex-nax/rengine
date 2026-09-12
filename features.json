@@ -2561,14 +2561,17 @@
         "The JS files are deleted in the same commit the Rust replacement goes green; the host's external API is unchanged.",
         "Each ported test was observed failing for the absence of the module before the implementation made it pass."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         139
       ],
       "owner_workspace": "rengine",
       "deliverable": "The Rust store crate, the parity corpus, and the ported store tests; store.mjs and schema.mjs removed.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/red-store-corpus-f169-2026-09-12.md",
+        "docs/evidence/store-swap-f175-2026-09-12.md"
+      ]
     },
     {
       "id": 148,
@@ -3032,7 +3035,7 @@
         "The JS host consumes red-store over the stdio service (the LSP/MCP-worker house pattern) through a thin client; the ten server consumers are rewired and store.mjs and schema.mjs are deleted in the same commit the replacement goes green.",
         "The host's external API is byte-identical, error statuses included; each ported test was observed failing for the module's absence before the implementation made it pass."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         168,
         169
@@ -3040,7 +3043,11 @@
       "owner_workspace": "rengine",
       "deliverable": "The stdio red-store service, the thin JS client, the rewired consumers, and the deletion commit.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/red-store-corpus-f169-2026-09-12.md",
+        "docs/evidence/red-store-service-f174-2026-09-12.md",
+        "docs/evidence/store-swap-f175-2026-09-12.md"
+      ]
     },
     {
       "id": 171,
@@ -3134,14 +3141,16 @@
         "Every consumer of store.mjs and schema.mjs reads through store-client.mjs; the host's external API is byte-identical, error statuses included, on the full suite.",
         "store.mjs and schema.mjs are deleted in the same commit the replacement goes green; each ported test was observed failing for the module's absence before the implementation made it pass."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         174
       ],
       "owner_workspace": "rengine",
       "deliverable": "The consumer rewires, the lifecycle wiring in main.mjs, the ported suite, and the deletion commit.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/store-swap-f175-2026-09-12.md"
+      ]
     }
   ]
 }

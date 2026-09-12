@@ -2,8 +2,8 @@ import { spawn, execFile } from 'node:child_process';
 import { readFile, stat, open, access } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import path from 'node:path';
-import { validateSchema } from './schema.mjs';
-import { fail, hash, resolveInRoot, MAX_TEXT_BYTES } from './store.mjs';
+import { validateSchema } from './store-client.mjs';
+import { fail, hash, resolveInRoot, MAX_TEXT_BYTES } from './store-client.mjs';
 import { shellEnvironment } from './sessions.mjs';
 import { dashboardRules, nameOf, rootRelative } from './dashboard-rules.mjs';
 import { gamesRules } from './game-rules.mjs';
@@ -158,7 +158,7 @@ export async function readDeclaration(root) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return problem('declaration must be a JSON object');
   if (!CONTRACTS.includes(value.contract)) return problem(`unknown contract ${JSON.stringify(value.contract)}; this rEngine supports contracts ${CONTRACTS.slice(0, -1).join(', ')} and ${CONTRACTS.at(-1)}`);
   const { dashboard, games, devices, tracker, packs, ...base } = value;
-  const structural = validateSchema(schema, base);
+  const structural = await validateSchema(schema, base);
   if (structural.length) return problem(report(structural));
   /* Identity keys are plain root fields rather than a block, so their contract floor is checked here
      rather than through SECTIONS; without this a project on contract 4 would have them accepted in
@@ -232,12 +232,12 @@ export async function readDeclaration(root) {
      devices settles first so both of the others can resolve a device binding; see sidecar: declaration-reporting */
   /* tests names a file and nothing else, so like packs it references nothing and is referenced by
      nothing; it settles first for the same reason. */
-  const withTests = section(result, 'tests', value.tests, value.contract);
-  const withPacks = section(withTests, 'packs', packs, value.contract); /* references nothing and is referenced by nothing, so it settles first and cannot disturb the order the others depend on */
-  const withServers = section(withPacks, 'languageServers', value.languageServers, value.contract);
-  const withTracker = section(withServers, 'tracker', tracker, value.contract);
-  const withDevices = section(withTracker, 'devices', devices, value.contract);
-  return section(section(withDevices, 'games', games, value.contract), 'dashboard', dashboard, value.contract);
+  const withTests = await section(result, 'tests', value.tests, value.contract);
+  const withPacks = await section(withTests, 'packs', packs, value.contract); /* references nothing and is referenced by nothing, so it settles first and cannot disturb the order the others depend on */
+  const withServers = await section(withPacks, 'languageServers', value.languageServers, value.contract);
+  const withTracker = await section(withServers, 'tracker', tracker, value.contract);
+  const withDevices = await section(withTracker, 'devices', devices, value.contract);
+  return await section(await section(withDevices, 'games', games, value.contract), 'dashboard', dashboard, value.contract);
 }
 /* Contract 10 (spec 117). The declaration only names the file; its contents are the project's
    artifact and are read where the rows are built, not here. The path is confined the way every other
@@ -258,11 +258,11 @@ const SECTIONS = {
   games: { minimum: 3, rules: gamesRules, node: () => schema.properties.games },
   dashboard: { minimum: 2, rules: dashboardRules, node: () => schema.$defs.dashboard },
 };
-function section(result, name, block, contract) {
+async function section(result, name, block, contract) {
   if (block === undefined) return result;
   const { minimum, rules, node } = SECTIONS[name], key = `${name}Error`;
   if (contract < minimum) return { ...result, [key]: `${result.source}: ${name} requires contract ${minimum} (declared contract ${contract})` };
-  const problems = [...validateSchema(node(), block, schema, `$.${name}`), ...rules(block, result)]; /* devices settle before games, and games before dashboard, so each can resolve the references it makes */
+  const problems = [...await validateSchema(node(), block, schema, `$.${name}`), ...rules(block, result)]; /* devices settle before games, and games before dashboard, so each can resolve the references it makes */
   return problems.length ? { ...result, [key]: `${result.source}: ${report(problems)}` } : { ...result, [name]: block };
 }
 export async function listFormats(root) { return { rootId: root.id, ...await readDeclaration(root) }; }

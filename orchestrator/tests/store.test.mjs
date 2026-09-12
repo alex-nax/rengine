@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { WorkspaceStore } from '../server/store.mjs';
+import { WorkspaceStore } from '../server/store-client.mjs';
 
 async function fixture(t) {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-files-'));

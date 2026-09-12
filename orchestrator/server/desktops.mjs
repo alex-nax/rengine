@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { fail } from './store.mjs';
+import { fail } from './store-client.mjs';
 
 export class Desktops {
   constructor(store, sessions, timeout = 4000) { this.store = store; this.sessions = sessions; this.timeout = timeout; this.clients = new Map(); this.pending = new Map(); }

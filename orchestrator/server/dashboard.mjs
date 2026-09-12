@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { readDeclaration, runCommand } from './formats.mjs';
 import { onPath, present, targetAvailability } from './devices.mjs';
-import { fail, hash, resolveInRoot } from './store.mjs';
+import { fail, hash, resolveInRoot } from './store-client.mjs';
 import { bashPath } from './sessions.mjs';
 
 export const CAPTURE_TIMEOUT_MS = 10000;

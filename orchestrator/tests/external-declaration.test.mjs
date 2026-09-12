@@ -7,7 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { startServer } from '../server/main.mjs';
 import { startWorker } from '../runtime/worker.mjs';
 import { request } from '../launcher/sidecar.mjs';
-import { WorkspaceStore } from '../server/store.mjs';
+import { WorkspaceStore } from '../server/store-client.mjs';
 import http from 'node:http';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';

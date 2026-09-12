@@ -14,7 +14,7 @@ import http from 'node:http';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { fail } from './store.mjs';
+import { fail } from './store-client.mjs';
 import { PRODUCT_NAME } from '../runtime/product.mjs';
 
 /* Register these as redirect URIs once, when creating the application. Several so a busy port does

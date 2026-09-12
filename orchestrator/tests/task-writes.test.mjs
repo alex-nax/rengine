@@ -12,7 +12,7 @@ import { startServer } from '../server/main.mjs';
 import { startWorker } from '../runtime/worker.mjs';
 import { agentLaunch } from '../agents/config.mjs';
 import { readDeclaration, CONTRACTS } from '../server/formats.mjs';
-import { validateSchema } from '../server/schema.mjs';
+import { validateSchema } from '../server/store-client.mjs';
 import { agentsMenu, codexModels, modelArgs, promptFor, promptValues, writeDocument } from '../server/tasks.mjs';
 import { declaration } from './format-fixtures.mjs';
 import { api, fakeDesktop, feedSocket, identity, ok, until } from './token-fixtures.mjs';
@@ -56,7 +56,7 @@ test('contract 6 carries tracker.write and the agent menu, and a contract-5 decl
   assert.equal(CONTRACTS.at(-1), 10, 'the ceiling moved with the keys');
 
   const document = taskDeclaration({ agents: [{ cli: 'claude', models: ['claude-opus-5', 'claude-sonnet-5'], default: 'claude-opus-5' }] });
-  assert.deepEqual(validateSchema(schema, document), [], 'a contract-6 document validates structurally');
+  assert.deepEqual(await validateSchema(schema, document), [], 'a contract-6 document validates structurally');
   const six = await declare('six', document);
   assert.equal(six.contract, 6);
   assert.equal(six.error, undefined); assert.equal(six.trackerError, undefined);

@@ -1,6 +1,6 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { fail } from './store.mjs';
+import { fail } from './store-client.mjs';
 
 /* The committed-segment store the desktop's recorder writes (spec 081). Reading is a pure
    filesystem walk over a project root, so the replaceable workspace worker serves it from its own

@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile, realpath, stat, chmod } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validateSchema } from './server/schema.mjs';
+import { validateSchema } from './server/store-client.mjs';
 
 const checkout = fileURLToPath(new URL('../', import.meta.url));
 const quote = text => `'${text.replaceAll("'", "'\\''")}'`;
@@ -45,7 +45,7 @@ export async function installExternalProject(options) {
       preview: { kind: 'text', command: [node, helper, 'json', '${file}'], timeoutMs: 10000, maxBytes: 4194304 } }],
     dashboard: { title, groups } };
   const schema = JSON.parse(await readFile(new URL('../contracts/project-v1.schema.json', import.meta.url), 'utf8'));
-  const errors = validateSchema(schema, declaration);
+  const errors = await validateSchema(schema, declaration);
   if (errors.length) throw new Error(errors.join('; '));
   const script = `#!/bin/bash\nset -euo pipefail\nexport PATH=${quote(process.env.PATH ?? path.dirname(node))}\nagent_flags=(--no-agent)\nfor argument in "$@"; do\n  case "$argument" in\n    --agent|--handoff) agent_flags=() ;;\n    --project|--declaration|--state) echo 'This launcher is bound to its installed project and state.' >&2; exit 2 ;;\n  esac\ndone\nexec ${quote(node)} ${quote(path.join(checkout, 'orchestrator/launch.mjs'))} --project ${quote(project)} --declaration ${quote(declarationFile)} --state ${quote(state)} "\${agent_flags[@]}" "$@"\n`;
   const files = [[helper, await readFile(new URL('./templates/external/commands.mjs', import.meta.url), 'utf8'), 0o644],

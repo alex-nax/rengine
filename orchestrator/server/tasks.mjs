@@ -13,7 +13,7 @@ import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { fail } from './store.mjs';
+import { fail } from './store-client.mjs';
 import { runCommand, DEFAULT_MAX_BYTES } from './formats.mjs';
 import { bashPath, shellEnvironment } from './sessions.mjs';
 import { agentNames, recipe } from '../agents/registry.mjs';

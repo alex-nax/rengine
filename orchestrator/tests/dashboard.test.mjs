@@ -11,8 +11,8 @@ import { startServer } from '../server/main.mjs';
 import { startRuntime } from '../runtime/supervisor.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { readDeclaration, listFormats, CONTRACTS } from '../server/formats.mjs';
-import { validateSchema } from '../server/schema.mjs';
-import { hash } from '../server/store.mjs';
+import { validateSchema } from '../server/store-client.mjs';
+import { hash } from '../server/store-client.mjs';
 import { redImage } from './image-fixtures.mjs';
 import { declaration } from './format-fixtures.mjs';
 import { contract2, dashboard, dashboardProject } from './dashboard-fixtures.mjs';
@@ -27,7 +27,7 @@ test('contract 2 declarations validate, contract 1 stays accepted and dashboard 
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-dashboard-decl-')));
   try {
     const declare = async (name, document) => { const root = path.join(directory, name); await mkdir(path.join(root, '.rengine'), { recursive: true }); await writeFile(path.join(root, '.rengine/project.json'), JSON.stringify(document)); return readDeclaration(root); };
-    assert.deepEqual(validateSchema(schema, nolf), [], 'the nolf-improved merged document validates with zero errors');
+    assert.deepEqual(await validateSchema(schema, nolf), [], 'the nolf-improved merged document validates with zero errors');
     const real = await declare('nolf', nolf);
     assert.equal(real.error, undefined); assert.equal(real.dashboardError, undefined); assert.equal(real.contract, 2); assert.equal(real.formats[0].id, 'lithtech-rez');
     assert.deepEqual(real.dashboard.groups.map(g => g.id), ['quick-start', 'distribution', 'device']);

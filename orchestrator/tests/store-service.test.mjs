@@ -15,7 +15,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { buildCorpusForImport } from './store-corpus.mjs';
+
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SERVE = path.join(ROOT, 'red/target/debug/red-store-serve');
@@ -108,7 +108,7 @@ test('the corpus replays through the client and service, drift-free', async t =>
   const client = await import('../server/store-client.mjs');
   const corpusDir = await mkdtemp(path.join(tmpdir(), 'rengine-service-corpus-'));
   t.after(() => rm(corpusDir, { recursive: true, force: true }));
-  const corpus = await buildCorpusForImport(corpusDir);
+  const corpus = JSON.parse(await readFile(path.join(ROOT, 'orchestrator/tests/store-corpus.json'), 'utf8'));
   const corpusFile = path.join(corpusDir, 'corpus.json');
   await writeFile(corpusFile, JSON.stringify(corpus));
 

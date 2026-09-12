@@ -2,7 +2,7 @@ import { stat, access, constants } from 'node:fs/promises';
 import path from 'node:path';
 import { runCommand } from './formats.mjs';
 import { LOCAL } from './device-rules.mjs';
-import { resolveInRoot } from './store.mjs';
+import { resolveInRoot } from './store-client.mjs';
 import { shellEnvironment } from './sessions.mjs';
 
 export const PROBE_TTL_MS = 15000; /* see sidecar: probe-cache */

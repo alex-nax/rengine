@@ -1,6 +1,6 @@
 import { open, stat } from 'node:fs/promises';
 import { imageDimensionsFromData } from 'image-dimensions';
-import { fail } from './store.mjs';
+import { fail } from './store-client.mjs';
 
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const mimeTypes = { png: 'image/png', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' };

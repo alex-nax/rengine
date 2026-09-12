@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
-import { WorkspaceStore, fail } from './store.mjs';
+import { WorkspaceStore, fail } from './store-client.mjs';
 import { Sessions } from './sessions.mjs';
 import { Games } from './games.mjs';
 import { readImage } from './images.mjs';
@@ -67,19 +67,19 @@ export async function startServer({ stateDir, port = 0 } = {}) {
                 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
               response.end(image.bytes); return;
             }
-            case '/api/formats': value = await listFormats(store.root(query.get('rootId'))); break;
-            case '/api/dashboard': value = await dashboardActions(store.root(query.get('rootId')), preflight); break;
-            case '/api/tracker': { const selected = store.root(query.get('rootId'));
+            case '/api/formats': value = await listFormats(await store.root(query.get('rootId'))); break;
+            case '/api/dashboard': value = await dashboardActions(await store.root(query.get('rootId')), preflight); break;
+            case '/api/tracker': { const selected = await store.root(query.get('rootId'));
               value = await projectTracker(selected, await readDeclaration(selected), { stateDirectory: stateDir, refresh: query.get('refresh') === '1' }); break; }
-            case '/api/devices': { const selected = store.root(query.get('rootId'));
+            case '/api/devices': { const selected = await store.root(query.get('rootId'));
               value = await projectDevices(selected, await readDeclaration(selected),
                 { refresh: query.get('refresh') === '1', preflight, resolve: () => dashboardActions(selected, preflight) }); break; }
-            case '/api/bytes': value = await readBytes(store.root(query.get('rootId')), Object.fromEntries(query)); break;
+            case '/api/bytes': value = await readBytes(await store.root(query.get('rootId')), Object.fromEntries(query)); break;
             case '/api/session': value = sessions.snapshot(query.get('id'), true); break;
             case '/api/desktops': value = { desktops: desktops.list(query.get('rootId')) }; break;
             case '/api/game-config': value = await games.inspect(query.get('rootId'), query.get('gameId') ?? undefined); break;
-            case '/api/recordings': value = await listRecordings(store.root(query.get('rootId')), Object.fromEntries(query)); break;
-            case '/api/recording': value = await readRecording(store.root(query.get('rootId')), query.get('id'), Object.fromEntries(query)); break;
+            case '/api/recordings': value = await listRecordings(await store.root(query.get('rootId')), Object.fromEntries(query)); break;
+            case '/api/recording': value = await readRecording(await store.root(query.get('rootId')), query.get('id'), Object.fromEntries(query)); break;
             default: fail('Unknown workspace endpoint.', 404);
           }
         } else if (request.method === 'POST') {
@@ -90,13 +90,13 @@ export async function startServer({ stateDir, port = 0 } = {}) {
             /* Sign-in returns a URL for the desktop to open; the browser comes back to a loopback
                listener this module owns, so no credential passes through the desktop (spec 083). */
             case '/api/tracker/signin': {
-              const selected = store.root(data.rootId);
+              const selected = await store.root(data.rootId);
               const declaration = await readDeclaration(selected);
               value = await trackerSignIn(stateDir, declaration.project ?? selected.id);
               break;
             }
             case '/api/tracker/signout': {
-              const selected = store.root(data.rootId);
+              const selected = await store.root(data.rootId);
               const declaration = await readDeclaration(selected);
               value = await revokeSignIn(stateDir, declaration.project ?? selected.id);
               break;
@@ -106,13 +106,13 @@ export async function startServer({ stateDir, port = 0 } = {}) {
             case '/api/discard': await store.discardDraft(data.rootId, data.path); value = { ok: true }; break;
             case '/api/layout': await store.saveLayout(data.layout); value = { ok: true }; break;
             case '/api/preferences': value = await store.preferences(data); break;
-            case '/api/format-preview': value = await formatPreview(store.root(data.rootId), data); break;
+            case '/api/format-preview': value = await formatPreview(await store.root(data.rootId), data); break;
             case '/api/dashboard-run': {
-              const root = store.root(data.rootId), action = await dashboardAction(root, data.actionId, preflight);
+              const root = await store.root(data.rootId), action = await dashboardAction(root, data.actionId, preflight);
               if (action.kind === 'game') { value = await games.launch(root.id, action.game, action.args); break; }
               const payload = await dashboardRunPayload(root, action); value = { ...await sessions.terminal(payload), title: payload.title }; break;
             }
-            case '/api/dashboard-capture': value = await dashboardCapture(store.root(data.rootId), data.actionId, preflight); break;
+            case '/api/dashboard-capture': value = await dashboardCapture(await store.root(data.rootId), data.actionId, preflight); break;
             case '/api/terminal':
               if (data.type && !['terminal', 'agent'].includes(data.type)) fail('Use the game adapter to launch a game.');
               value = await sessions.terminal(data); break;
@@ -190,7 +190,7 @@ export async function startServer({ stateDir, port = 0 } = {}) {
     for (const client of gameSockets.clients) client.terminate();
     gameSockets.close();
     await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });
-    await store.persisting;
+    await store.close();
   } };
 }
 

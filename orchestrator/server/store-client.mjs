@@ -34,8 +34,9 @@ function serveBinary() {
 }
 
 /* The service a standalone call (resolveInRoot, validateSchema) is answered by: the most
-   recently opened store's, matching how those functions were always stateless helpers that
-   happened to live in store.mjs. With no store open, the call is refused by name. */
+   recently opened store's, or a lazily spawned scratch store on a temp directory when nothing
+   opened one — those functions were always stateless helpers that happened to live in
+   store.mjs, and their tests never open a store. The scratch process exits with this one. */
 let latest = null;
 
 export class WorkspaceStore {
@@ -44,6 +45,18 @@ export class WorkspaceStore {
     const child = spawn(binary, [directory], { env, stdio: ['pipe', 'pipe', 'inherit'] });
     const store = new WorkspaceStore(directory, child);
     latest = store;
+    await store.started;
+    return store;
+  }
+
+  /* A one-shot store for a stateless call. Deliberately NOT registered as `latest`: concurrent
+     stateless callers (the dashboard's per-action preflights) would otherwise share one store
+     whose owner closes it mid-call, and the pending call would die with the service. */
+  static async scratch() {
+    const directory = await mkdtemp(path.join(tmpdir(), 'rengine-red-store-scratch-'));
+    const binary = serveBinary();
+    const child = spawn(binary, [directory], { stdio: ['pipe', 'pipe', 'inherit'] });
+    const store = new WorkspaceStore(directory, child);
     await store.started;
     return store;
   }
@@ -58,6 +71,11 @@ export class WorkspaceStore {
     this.pending = new Map();
     this.lines = readline.createInterface({ input: child.stdout });
     this.lines.on('line', line => this.answer(line));
+    /* Loop-neutral once started: a client nobody closes must not keep its process alive (the
+       service reaps itself when the pipes close at process death). A call in flight refs the
+       child and its pipes, so an answer is always heard; close() remains the explicit clean
+       shutdown. The started await holds its own refs until the first line lands. */
+    this.idle = [child, child.stdin, child.stdout];
     this.started = new Promise((resolve, reject) => {
       this.onStarted = resolve;
       child.once('error', reject);
@@ -66,7 +84,7 @@ export class WorkspaceStore {
         if (this.onStarted) { this.onStarted = null; reject(error); }
         for (const pending of this.pending.values()) pending.reject(new Error(`red-store-serve exited (${code ?? signal}).`));
       });
-    });
+    }).finally(() => { for (const handle of this.idle) handle.unref(); });
   }
 
   answer(line) {
@@ -96,40 +114,79 @@ export class WorkspaceStore {
   call(method, args = []) {
     const id = ++this.sequence;
     const request = new Promise((resolve, reject) => this.pending.set(id, { resolve, reject }));
+    const flight = this.idle;
+    for (const handle of flight) handle.ref();
     this.child.stdin.write(JSON.stringify({ id, method, args }) + '\n');
-    return request;
+    return request.finally(() => { for (const handle of flight) handle.unref(); });
   }
 
   async close() {
+    if (this.closed) return;
+    this.closed = true;
+    /* Ref during the shutdown the way a call refs its flight: awaiting exit on an unref'd child
+       would otherwise let the loop drain first. */
+    for (const handle of this.idle) handle.ref();
     this.child.stdin.end();
     await new Promise(resolve => this.child.once('exit', resolve));
+    for (const handle of this.idle) handle.unref();
     if (latest === this) latest = null;
   }
 
   addRoot(directory, declarationFile) { return this.call('addRoot', declarationFile === undefined ? [directory] : [directory, declarationFile]); }
-  root(id) { return this.call('root', [id]); }
+  /* The pure state lookups stay SYNCHRONOUS, answered from the snapshot every answer refreshes
+     — exactly the JS store's surface (root/getDraft/listConversations were never IO). */
+  root(id) {
+    const root = this.state?.roots?.find(item => item.id === id);
+    if (!root) fail('Unknown project root.', 404);
+    return root;
+  }
   resolve(rootId, relative = '', allowMissing = false) {
     return this.call('resolve', [rootId, relative, allowMissing]).then(([absolute, relative]) => ({ absolute, relative }));
   }
   list(rootId, relative = '', hidden = false) { return this.call('list', [rootId, relative, hidden]); }
   readText(rootId, relative) { return this.call('readText', [rootId, relative]); }
-  getDraft(rootId, relative) { return this.call('getDraft', [rootId, relative]); }
+  getDraft(rootId, relative) { return this.state?.drafts?.[JSON.stringify([rootId, relative])] ?? null; }
   putDraft(draft) { return this.call('putDraft', [draft]); }
   async discardDraft(rootId, relative) { await this.call('discardDraft', [rootId, relative]); }
   saveText(draft) { return this.call('saveText', [draft]); }
   async saveLayout(layout) { await this.call('saveLayout', [layout]); }
-  listConversations(rootId) { return this.call('listConversations', [rootId]); }
+  listConversations(rootId) {
+    const all = this.state?.conversations;
+    if (!all || typeof all !== 'object' || Array.isArray(all)) return [];
+    return (all[rootId] ?? []).map(entry => ({ ...entry }));
+  }
   recordConversation(rootId, input) { return this.call('recordConversation', [rootId, input]); }
   preferences(values) { return this.call('preferences', [values]); }
 }
 
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+
+let scratch = null;
+async function statelessCall(method, args) {
+  /* The most recently opened store answers when there is one; otherwise one persistent scratch
+     service per process, unref'd so it never holds the event loop open at exit — the pipes
+     close when the process dies and the scratch reaps itself. (The one-shot spawn-per-call it
+     replaced made every declaration's seven-section chain cost seven process starts; the
+     earlier persistent-but-referenced version held processes open at exit. resolveInRoot and
+     validateSchema were always stateless helpers that happened to live in store.mjs.) */
+  if (latest) return latest.call(method, args);
+  if (!scratch) {
+    scratch = await WorkspaceStore.scratch();
+    scratch.child.stdin.unref();
+    scratch.child.stdout.unref();
+    scratch.child.unref();
+  }
+  /* A call in flight refs the child (the loop must live to hear the answer); an idle scratch
+     stays unref'd (it must not keep the process alive). */
+  return scratch.call(method, args);
+}
+
 export async function resolveInRoot(root, relative = '', allowMissing = false) {
-  if (!latest) fail('resolveInRoot needs an open red-store service; open a WorkspaceStore first.', 500);
-  const [absolute, resolved] = await latest.call('resolveInRoot', [root.path, relative, allowMissing]);
+  const [absolute, resolved] = await statelessCall('resolveInRoot', [root.path, relative, allowMissing]);
   return { absolute, relative: resolved };
 }
 
-export function validateSchema(schema, value) {
-  if (!latest) fail('validateSchema needs an open red-store service; open a WorkspaceStore first.', 500);
-  return latest.call('validateSchema', [schema, value]);
+export async function validateSchema(schema, value, root = schema, at = '$') {
+  return statelessCall('validateSchema', [schema, value, root, at]);
 }

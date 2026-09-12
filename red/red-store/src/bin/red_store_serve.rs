@@ -144,7 +144,9 @@ fn dispatch(store: &mut Store, method: &str, args: &Value) -> Result<Value, red_
         }
         "preferences" => store.preferences(&arg(0)),
         "validateSchema" => {
-            let errors = red_store::schema::validate_schema(&arg(0), &arg(1));
+            let root = if arg(2).is_null() { arg(0) } else { arg(2) };
+            let at = arg(3).as_str().unwrap_or("$").to_string();
+            let errors = red_store::schema::validate_schema_at(&arg(0), &arg(1), &root, &at);
             Ok(json!(errors))
         }
         _ => Err(red_store::store::Fail { message: format!("Unknown store method {method}."), status: None }),

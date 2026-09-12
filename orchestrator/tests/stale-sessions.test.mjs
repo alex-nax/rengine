@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { WorkspaceStore, fail } from '../server/store.mjs';
+import { WorkspaceStore, fail } from '../server/store-client.mjs';
 import { Desktops } from '../server/desktops.mjs';
 import { startServer } from '../server/main.mjs';
 import { startWorker, withoutEndedSessions } from '../runtime/worker.mjs';

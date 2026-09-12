@@ -10,9 +10,9 @@
  */
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { fail, resolveInRoot } from './store.mjs';
+import { fail, resolveInRoot } from './store-client.mjs';
 import { parseCredential, expiring, refresh } from './tracker-auth.mjs';
-import { validateSchema } from './schema.mjs';
+import { validateSchema } from './store-client.mjs';
 
 const PROBE_TTL_MS = 30000;          /* one poll every 30 s is about 5% of a Linear key's budget */
 const CACHE_LIMIT = 64;
@@ -253,7 +253,7 @@ async function withTests(root, declared, result) {
     const missing = error.code === 'ENOENT';
     return { ...result, testsError: `${manifest}: ${missing ? 'the declared tests manifest is not in this project.' : error.message}` };
   }
-  const problems = validateSchema(TESTS_SCHEMA, parsed, TESTS_SCHEMA, '$');
+  const problems = await validateSchema(TESTS_SCHEMA, parsed, TESTS_SCHEMA, '$');
   if (problems.length) return { ...result, testsError: `${manifest}: ${problems.slice(0, 3).join('; ')}` };
 
   const byTask = new Map();

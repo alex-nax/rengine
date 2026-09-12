@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, writeFile, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { readDeclaration, CONTRACTS } from '../server/formats.mjs';
-import { validateSchema } from '../server/schema.mjs';
+import { validateSchema } from '../server/store-client.mjs';
 import { declaration } from './format-fixtures.mjs';
 import { dashboard } from './dashboard-fixtures.mjs';
 import { game, second } from './game-fixtures.mjs';
@@ -59,7 +59,7 @@ test('contract 9 carries a pack whose facets are a library and a plugin (spec 10
     library: { path: 'render', target: 'rengine::render' },
     plugin: { module: 'build/plugins/rengine-render.dylib', abi: 're-plugin-1' } };
   const document = packed([renderer]);
-  assert.deepEqual(validateSchema(schema, document), [], 'a contract-9 document validates structurally');
+  assert.deepEqual(await validateSchema(schema, document), [], 'a contract-9 document validates structurally');
 
   const read = await declare(directory, 'both-facets', document);
   assert.equal(read.contract, 9);
@@ -217,7 +217,7 @@ test('a declaration that does not name packs reads exactly as it did (the ten bl
     dashboard: dashboard(),
   };
   const { dashboard: _b, games: _g, devices: _d, tracker: _t, ...rootBlocks } = everything; /* the four blocks readDeclaration validates through SECTIONS instead */
-  assert.deepEqual(validateSchema(schema, rootBlocks), [], 'the ten-block document still validates structurally');
+  assert.deepEqual(await validateSchema(schema, rootBlocks), [], 'the ten-block document still validates structurally');
 
   const root = path.join(directory, 'ten');
   await mkdir(path.join(root, 'brand'), { recursive: true });

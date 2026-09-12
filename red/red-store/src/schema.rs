@@ -39,8 +39,14 @@ fn compact(value: &Value) -> String {
 }
 
 pub fn validate_schema(schema: &Value, value: &Value) -> Vec<String> {
+    validate_schema_at(schema, value, schema, "$")
+}
+
+/// The four-argument form schema.mjs's callers use: an explicit document root for $ref and the
+/// starting path the errors carry.
+pub fn validate_schema_at(schema: &Value, value: &Value, root: &Value, at: &str) -> Vec<String> {
     let mut errors = Vec::new();
-    check(schema, value, schema, "$", &mut errors);
+    check(schema, value, root, at, &mut errors);
     errors
 }
 

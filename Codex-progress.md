@@ -1,5 +1,40 @@
 # Progress Log
 
+## Session 129 (macos) — 2026-09-12 — the swap: store.mjs and schema.mjs are deleted (F175; F147 complete)
+
+Loop tick 8 landed the first deletion of the epic. Every consumer of `store.mjs`/`schema.mjs`
+reads through `store-client.mjs` now; both modules are deleted in the same commit the
+replacement goes green — **295/295 in 16.2 s**, the baseline's own speed, with the external API
+byte-identical, error statuses included. **F147 is the first J0 deletion row completed.**
+
+**What the swap actually took — three fights, each with its red.** (1) A shared one-shot is a
+close-race: concurrent per-action preflights in the worker shared a `latest` store whose owner
+closed it mid-call; one-shots are unregistered now. (2) Loop-retention has three shapes and all
+bite — a persistent scratch held processes open at exit, an unref'd child let the loop drain
+mid-RPC (and on `open()`'s started await, and on `close()`); the final discipline is refs at
+construction until `started`, refs around flights, refs during close, unref'd at idle, with
+`store.close()` idempotent and called by the host's close. (3) The sync surface was the API all
+along: `root()`/`getDraft()`/`listConversations()` are answered synchronously from the
+snapshot every answer refreshes, exactly the JS store's shape.
+
+**The corpus froze in time.** `orchestrator/tests/store-corpus.json` was captured from the real
+JS host before the deletion and stays the witness both harnesses replay; the builder survives
+only as a marked regeneration tool. `store-deleted.test.mjs` guards the absence (no return, no
+smuggled import).
+
+Commands: `npm test` (295/295, 16.2 s), `ctest` (17/17), `./init.sh`, `design.py check`,
+`features.py validate` (127 features). Sabotages red for their own reason: a consumer pointed
+back at the deleted module (44 not-ok lines — the absence proof, on demand), a wrong client
+method name, a smuggled import caught by the guard.
+
+Evidence: `docs/evidence/store-swap-f175-2026-09-12.md`, with the loop-retention discipline and
+the frozen-corpus pattern written down for the F151/F152 services. F175, F170 and F147 all
+`passes: true`; the graph shows **F151 (red-pty) ready**.
+
+**Owed.** Next ready J0 rows by id: **F151** (red-pty — PTY retention on portable-pty; the
+loop-retention discipline is written for it) and **F172** (F149b, report-session,
+channel-free). The owner's `--replace-host` run (KI-094) is still open from the codex probe.
+
 ## Session 128 (macos) — 2026-09-12 — the store is a process now: the stdio red-store service and its thin client (F174 / F170a)
 
 Loop tick 7 took F170 — sized it first and filed KI-095 (the channel half and the swap half

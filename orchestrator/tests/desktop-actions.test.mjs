@@ -4,7 +4,7 @@ import { EventEmitter } from 'node:events';
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { WorkspaceStore } from '../server/store.mjs';
+import { WorkspaceStore } from '../server/store-client.mjs';
 import { Desktops } from '../server/desktops.mjs';
 
 test('desktop actions require an explicit root-bound live target and matching acknowledgement', async t => {

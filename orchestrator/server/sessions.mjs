@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import pty from 'node-pty';
-import { fail } from './store.mjs';
+import { fail } from './store-client.mjs';
 import { readHandoff, checkResume } from '../agents/handoff.mjs';
 import { agentConversation, shortAgentId } from '../agents/config.mjs';
 
@@ -172,7 +172,7 @@ export class Sessions extends EventEmitter {
 
   async spawnTerminal({ rootId, type = 'terminal', agent, conversation, resume = false, action = 'launch', command, args, handoffFile, cols = 100, rows = 30, env = {}, title, surface, game, cwd }) {
     if (title !== undefined && (typeof title !== 'string' || !title.trim() || title.length > 200)) fail('Session title must be a short string.');
-    const root = this.store.root(rootId);
+    const root = await this.store.root(rootId);
     const workingDirectory = cwd === undefined ? root.path : path.resolve(cwd);
     if (workingDirectory !== root.path && !workingDirectory.startsWith(root.path + path.sep)) fail('The working directory must be inside the project root.');
     const id = randomUUID(); let handoff, gate;
@@ -213,7 +213,7 @@ export class Sessions extends EventEmitter {
         workspace: Boolean(this.workspaceContext),
         /* The store read is skipped for a decided pane, exactly as before the extraction; the
            composition applies the same gate internally, which the parity fixtures exercise. */
-        remembered: (conversation !== undefined || Boolean(args?.length)) ? [] : this.store.listConversations(root.id),
+        remembered: (conversation !== undefined || Boolean(args?.length)) ? [] : await this.store.listConversations(root.id),
         paths: { agentScript, rootPath: root.path, workspaceContextFile: path.join(directory, `${root.id}.json`),
           listingFile: path.join(directory, `${id}.conversations.tsv`), node: process.execPath, bash: file } });
       if (plan.refuse) fail(plan.refuse);
@@ -284,14 +284,14 @@ export class Sessions extends EventEmitter {
     if (agent && !item.agent) item.agent = agent;
     if (conversation === null) {
       item.conversation = undefined;
-      if (item.titleAuto) item.title = agentTitle(item.agent, undefined, this.store.root(item.rootId).name);
+      if (item.titleAuto) item.title = agentTitle(item.agent, undefined, (await this.store.root(item.rootId)).name);
       this.changed(item);
       return this.snapshot(id);
     }
     const entry = await this.store.recordConversation(item.rootId, { conversation, agent: agent || item.agent || undefined, task });
     item.conversation = entry.id;
     item.task = entry.task;
-    if (item.titleAuto) item.title = agentTitle(item.agent, entry.id, this.store.root(item.rootId).name);
+    if (item.titleAuto) item.title = agentTitle(item.agent, entry.id, (await this.store.root(item.rootId)).name);
     this.changed(item);
     return this.snapshot(id);
   }

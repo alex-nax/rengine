@@ -1,21 +1,15 @@
-import { mkdtemp, mkdir, writeFile, readFile, symlink, rm } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import path from 'node:path';
-import { tmpdir } from 'node:os';
-import { fileURLToPath } from 'node:url';
-
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-
-/* The red-store parity corpus builder (F169, F147a; shared by the F169 and F174 harnesses —
- * a module, not a test, because importing a .test.mjs file runs its tests in the importer).
- * The corpus is captured by driving the REAL WorkspaceStore and validateSchema through scripted
- * operations; the F169 checker and the F174 client replay must answer identically.
+/* The red-store parity corpus builder (F169, F147a) — the regeneration TOOL for
+ * orchestrator/tests/store-corpus.json, not part of the suite's run path. The frozen fixture
+ * was captured from the real JS host on 2026-09-12, before F175 deleted store.mjs; a
+ * regeneration now drives the client (post-swap answers) and is a deliberate refresh, never a
+ * witness of the old host. Importing this module runs the capture; it is not a test.
  */
+
 const STAMPS = [1_800_000_000_000, 1_800_000_060_000, 1_800_000_120_000, 1_800_000_180_000];
 const UUID_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
 
 async function capture(directory) {
-  const { WorkspaceStore } = await import('../server/store.mjs');
+  const { WorkspaceStore } = await import('../server/store-client.mjs');
   const projectA = path.join(directory, 'project-a');
   const projectB = path.join(directory, 'project-b');
   await mkdir(projectA, { recursive: true });
@@ -154,7 +148,7 @@ async function capture(directory) {
 }
 
 async function schemaCases() {
-  const { validateSchema } = await import('../server/schema.mjs');
+  const { validateSchema } = await import('../server/store-client.mjs');
   const cases = [];
   const add = (name, schema, value) => cases.push({ name, schema, value, errors: validateSchema(schema, value) });
   add('type', { type: 'string' }, 42);

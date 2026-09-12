@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, writeFile, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { readDeclaration, matchFormat } from '../server/formats.mjs';
-import { validateSchema } from '../server/schema.mjs';
+import { validateSchema } from '../server/store-client.mjs';
 import { declaration } from './format-fixtures.mjs';
 import { game, second } from './game-fixtures.mjs';
 import { dashboard } from './dashboard-fixtures.mjs';
@@ -21,7 +21,7 @@ const all = (extra = {}) => ({ ...declaration(), contract: 3, games: [game(), se
 test('contract 3 carries formats, games and dashboard together and reports each block on its own', async () => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-contract3-')));
   try {
-    assert.deepEqual(validateSchema(schema, all()), [], 'a formats + games + dashboard document validates structurally');
+    assert.deepEqual(await validateSchema(schema, all()), [], 'a formats + games + dashboard document validates structurally');
     const every = await declare(directory, 'all', all());
     assert.equal(every.contract, 3); assert.equal(every.error, undefined);
     assert.equal(every.gamesError, undefined); assert.equal(every.dashboardError, undefined);
@@ -56,7 +56,7 @@ test('the real consumer declarations validate through the reconciled contract', 
   try {
     const vtmb = fixture('vtmb-project.json');
     assert.equal(vtmb.contract, 3, 'the vtmb-vr declaration is the contract-3 games array');
-    assert.deepEqual(validateSchema(schema, vtmb), [], 'the vtmb-vr declaration validates with zero errors');
+    assert.deepEqual(await validateSchema(schema, vtmb), [], 'the vtmb-vr declaration validates with zero errors');
     const read = await declare(directory, 'vtmb', vtmb);
     assert.equal(read.contract, 3); assert.equal(read.error, undefined);
     assert.equal(read.gamesError, undefined); assert.equal(read.dashboardError, undefined);
@@ -73,7 +73,7 @@ test('the real consumer declarations validate through the reconciled contract', 
     const quickStart = asGameActions.dashboard.groups.find(group => group.id === 'quick-start');
     quickStart.actions[0] = { id: 'flat', title: 'Flat desktop: main menu', kind: 'game', game: 'vtmb-flat' };
     quickStart.actions[1] = { id: 'flat-newgame', title: 'Flat desktop: new game', kind: 'game', game: 'vtmb-flat', args: ['--newgame'] };
-    assert.deepEqual(validateSchema(schema, asGameActions), [], 'game actions over the declared records validate');
+    assert.deepEqual(await validateSchema(schema, asGameActions), [], 'game actions over the declared records validate');
     const rewritten = await declare(directory, 'vtmb-game-actions', asGameActions);
     assert.equal(rewritten.dashboardError, undefined); assert.equal(rewritten.gamesError, undefined);
     assert.deepEqual(rewritten.dashboard.groups[0].actions.slice(0, 2).map(a => [a.kind, a.game, a.args]),
@@ -84,7 +84,7 @@ test('the real consumer declarations validate through the reconciled contract', 
     asCooperative.games[0] = { id: 'vtmb-flat', title: 'VtMB', executable: ['build/vtmb', 'build/Release/vtmb'],
       args: ['--width', '1280', '--height', '720'], env: { VTMB_HIDDEN_WINDOW: '1' },
       requires: ['gamedata/Vampire/pack000.vpk'], surface: 'cooperative' };
-    assert.deepEqual(validateSchema(schema, asCooperative), [], 'the cooperative shape validates structurally');
+    assert.deepEqual(await validateSchema(schema, asCooperative), [], 'the cooperative shape validates structurally');
     const coop = await declare(directory, 'vtmb-cooperative', asCooperative);
     assert.equal(coop.error, undefined); assert.equal(coop.gamesError, undefined); assert.equal(coop.dashboardError, undefined);
     assert.deepEqual(coop.games.map(x => [x.id, x.surface]), [['vtmb-flat', 'cooperative'], ['vtmb-vr', 'external']]);
@@ -102,8 +102,8 @@ test('the real consumer declarations validate through the reconciled contract', 
     const older = structuredClone(schema);
     older.$defs.game.properties.surface.enum = ['embedded', 'external'];
     const withoutBlocks = structuredClone(asCooperative); delete withoutBlocks.games; delete withoutBlocks.dashboard;
-    assert.deepEqual(validateSchema(older, withoutBlocks), [], 'the predecessor schema differs only in that enum');
-    const refused = validateSchema(older.properties.games, asCooperative.games, older, '$.games');
+    assert.deepEqual(await validateSchema(older, withoutBlocks), [], 'the predecessor schema differs only in that enum');
+    const refused = await validateSchema(older.properties.games, asCooperative.games, older, '$.games');
     assert.deepEqual(refused, ['$.games[0].surface must be one of "embedded", "external"'],
       'an older reader refuses cooperative by value, and never treats it as embedded');
     const strange = await declare(directory, 'vtmb-unknown-surface', { ...asCooperative, games: [{ ...asCooperative.games[0], surface: 'sdl3-interpose' }] });
@@ -118,7 +118,7 @@ test('the real consumer declarations validate through the reconciled contract', 
     assert.equal(unknown.formats[0].id, 'troika-vpk');
 
     const nolf = fixture('nolf-project.json');
-    assert.deepEqual(validateSchema(schema, nolf), [], 'the contract-1 nolf-improved declaration is unchanged and valid');
+    assert.deepEqual(await validateSchema(schema, nolf), [], 'the contract-1 nolf-improved declaration is unchanged and valid');
     const first = await declare(directory, 'nolf', nolf);
     assert.equal(first.contract, 1); assert.equal(first.error, undefined);
     assert.equal(first.games, undefined); assert.equal(first.dashboard, undefined);
@@ -128,7 +128,7 @@ test('the real consumer declarations validate through the reconciled contract', 
     const merged = fixture('nolf-merged-project.json');
     assert.equal(merged.contract, 2, 'the live nolf-improved declaration is contract 2: formats and dashboard, no games');
     assert.equal(merged.games, undefined);
-    assert.deepEqual(validateSchema(schema, merged), [], 'the live nolf-improved contract-2 document still validates unchanged');
+    assert.deepEqual(await validateSchema(schema, merged), [], 'the live nolf-improved contract-2 document still validates unchanged');
     const two = await declare(directory, 'nolf-merged', merged);
     assert.equal(two.contract, 2); assert.equal(two.error, undefined); assert.equal(two.dashboardError, undefined);
     assert.equal(two.dashboard.title, 'reLith'); assert.equal(two.games, undefined); assert.equal(two.gamesError, undefined);

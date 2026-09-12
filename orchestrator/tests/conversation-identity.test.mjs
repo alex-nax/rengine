@@ -6,7 +6,7 @@ import path from 'node:path';
 import { agentLaunch, describeSession } from '../agents/config.mjs';
 import { bind } from '../agents/bind.mjs';
 import { startServer } from '../server/main.mjs';
-import { WorkspaceStore } from '../server/store.mjs';
+import { WorkspaceStore } from '../server/store-client.mjs';
 import { Sessions, agentTitle } from '../server/sessions.mjs';
 import { Ledger, readIdentity } from '../runtime/token.mjs';
 
