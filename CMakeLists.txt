@@ -73,7 +73,7 @@ FetchContent_Declare(corrosion
   GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
   GIT_TAG 1499b14e4906a2890f5cee1547c8848db261753d) # v0.6.1
 FetchContent_MakeAvailable(corrosion)
-corrosion_import_crate(MANIFEST_PATH red/Cargo.toml CRATES red-core red-link red-agents red-store)
+corrosion_import_crate(MANIFEST_PATH red/Cargo.toml CRATES red-core red-link red-agents red-store red-pty)
 if(BUILD_TESTING)
   # Cargo runs from the workspace root so the rustup shim resolves the repo's rust-toolchain.toml;
   # the smoke tests prove the pinned toolchain builds and tests both crates.
@@ -81,6 +81,7 @@ if(BUILD_TESTING)
   add_test(NAME rust_red_link COMMAND cargo test -p red-link WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/red)
   add_test(NAME rust_red_agents COMMAND cargo test -p red-agents WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/red)
   add_test(NAME rust_red_store COMMAND cargo test -p red-store WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/red)
+  add_test(NAME rust_red_pty COMMAND cargo test -p red-pty WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/red)
 endif()
 
 # Subdirectory: packs/gpu

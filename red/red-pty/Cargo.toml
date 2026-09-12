@@ -1,0 +1,16 @@
+[package]
+name = "red-pty"
+version = "0.1.0"
+edition = "2021"
+description = "Retained PTY sessions in Rust on portable-pty, with the JS host's exact scrollback and lifecycle semantics (F176, F151a, spec 129, KI-096)"
+
+[dependencies]
+serde_json = "1"
+portable-pty = "0.8"
+getrandom = "0.3"
+
+# The PTY service: sessions as a process behind the F174 channel shape, exiting when stdin
+# closes. orchestrator/server/pty-client.mjs is its other half.
+[[bin]]
+name = "red-pty-serve"
+path = "src/bin/red_pty_serve.rs"

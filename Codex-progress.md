@@ -1,5 +1,39 @@
 # Progress Log
 
+## Session 130 (macos) — 2026-09-13 — red-pty: the PTY core in Rust, scenario-parity with the JS host (F176 / F151a)
+
+Loop tick 9 (plus two coalesced ones, all this same row) took F151 — split via KI-096 (core,
+retention, swap), then implemented F176 under the standing rule. `red-pty` on portable-pty
+runs retained PTY sessions behind the F174 channel shape; one scripted scenario set drives
+both the real JS `Sessions` class and the service, and they agree everywhere a person can
+look. Nothing deleted; F177 (retention architecture) is ready, F178 (the swap) waits on it.
+
+**The parity is in the units.** The scrollback is kept as UTF-16 code units and truncated at
+1,048,576 the way `.slice(-1048576)` truncates a JS string (spec 060's "JavaScript string
+characters") — and carried as base64 UTF-16LE, decoded to a JS string by the client, because
+plain JSON text cannot hold the lone LOW surrogate the slice boundary leaves. Output decoding
+holds an incomplete tail exactly like node's string_decoder, proven by a forced 3+1-byte emoji
+split across a 0.5 s gap.
+
+**Two sabotages that proved nothing, and what they taught.** (1) A plain `sleep 300` dies of
+SIGHUP when the session leader exits — the tree-kill was invisible to the test until the sleep
+became `nohup sleep 300`. (2) A lossy decoder passed until the scenario forced a read split.
+Both fixtures now pin the behavior the sabotage attacks. Also filed **KI-097**: a single >64
+KB `input()` write can die silently (`EIO` on a full tty) on both hosts — parity holds, but the
+host input path owes chunked, drain-paced writes, and F178 is the natural place.
+
+Commands: `node --test` (harness 7/7), `cargo test -p red-pty` (3/3), `npm test` (296/296),
+`ctest` (18/18, `rust_red_pty` added), `./init.sh`, `design.py check`, `features.py validate`
+(130 features). Four sabotages red for their own reason (decode tail, UTF-16 counting, tree
+signal, resize), all restored from backups.
+
+Evidence: `docs/evidence/red-pty-scenarios-f176-2026-09-13.md`, with the F177/F178 boundaries
+(signal reporting in portable-pty 0.8, event chunk boundaries being implementation-defined by
+nature). F176 `passes: true`.
+
+**Owed.** Next ready J0 rows by id: **F172** (F149b, report-session — channel-free) and
+**F177** (F151b, the retention architecture decision). F172 is first by id.
+
 ## Session 129 (macos) — 2026-09-12 — the swap: store.mjs and schema.mjs are deleted (F175; F147 complete)
 
 Loop tick 8 landed the first deletion of the epic. Every consumer of `store.mjs`/`schema.mjs`

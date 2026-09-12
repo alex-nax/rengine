@@ -3151,6 +3151,66 @@
       "evidence": [
         "docs/evidence/store-swap-f175-2026-09-12.md"
       ]
+    },
+    {
+      "id": 176,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "F151a (the core half of F151): red-pty on portable-pty behind the F174 channel shape, with the JS host's exact semantics — UTF-16-unit scrollback truncation, string_decoder tail-holding, tree kill, resize guard, input cap — proven by one scripted scenario set driving both the real JS Sessions class and the service (owner, 2026-09-13; spec 129, KI-096).",
+      "acceptance_criteria": [
+        "The red-pty service matches the JS session host on the scenario set (echo/exit code, a 300 KB paste arriving whole, resize, tree kill, UTF-16 truncation, the surrogate edge, multibyte decode across a forced split), output byte-exact and state/exit codes identical.",
+        "The scrollback carries as base64 UTF-16LE and decodes to a JS string, so even the lone-surrogate boundary is byte-exact; event chunk boundaries are implementation-defined and deliberately not compared."
+      ],
+      "passes": true,
+      "dependencies": [
+        147
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The red-pty crate and red-pty-serve service, pty-client.mjs, and the seven-scenario parity harness.",
+      "external_references": [],
+      "evidence": [
+        "docs/evidence/red-pty-scenarios-f176-2026-09-13.md"
+      ]
+    },
+    {
+      "id": 177,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "F151b (the retention half of F151): the restart-retention architecture is decided and implemented — whether red-pty stays per-host as today or becomes a long-lived per-state-dir service with a descriptor the next host discovers, with restart evidence matching specs 059/060's promises (owner, 2026-09-13; spec 129, KI-096).",
+      "acceptance_criteria": [
+        "The retention architecture decision is recorded (per-host as today vs long-lived per-state-dir service), matching what specs 059/060 actually promise (GUI-restart reattachment; host replacement ends sessions today).",
+        "A retained session survives the chosen restart path exactly as today's sidecar retention promises, with the spec 059/060 behaviors named in the ported tests."
+      ],
+      "passes": false,
+      "dependencies": [
+        176
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The recorded decision, the implemented retention path, and the restart evidence.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 178,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "F151c (the swap half of F151): the Sessions class becomes the thin client over red-pty, sessions.mjs is deleted in the same commit the replacement passes, and terminal behaviors are byte-identical on the full suite (owner, 2026-09-13; spec 129, KI-096).",
+      "acceptance_criteria": [
+        "Sessions delegates process operations to red-pty while keeping its metadata composition (titles, agent identity, handoff, surfaces), and the host's external API is byte-identical on the full suite.",
+        "sessions.mjs is deleted in the same commit the replacement goes green; each ported test was observed failing for the module's absence before the implementation made it pass."
+      ],
+      "passes": false,
+      "dependencies": [
+        176,
+        177
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The thin Sessions client, the deletion commit, and the suite evidence.",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }
