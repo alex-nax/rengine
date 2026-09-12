@@ -570,6 +570,10 @@ static void state_loaded(ReApp *a, const cJSON *j) {
       a->layout.active = a->layout.panes[0].child[0]; re_app_tab(a, RE_TREE, a->root, "", "", "Project"); a->layout.active = right;
     }
   }
+  if (*a->initial_scene && !a->scene_opened) {
+    a->scene_opened = true;
+    re_app_scene_open(a, a->root, strcmp(a->initial_scene, "1") ? a->initial_scene : "");
+  }
   /* A restored Scene tab comes alive rather than staying the placeholder F108 restores it as: the
      module is rEngine's own and nothing else would ask for it, so a person who opened a scene once
      finds it drawing after a restart instead of a line of text about a plugin (spec 126). */
@@ -733,6 +737,11 @@ ReApp *re_app_open(const char *url, const char *token) {
   re_copy(a->initial_terminal, sizeof(a->initial_terminal), getenv("RENGINE_INITIAL_TERMINAL"));
   re_copy(a->initial_agent, sizeof(a->initial_agent), getenv("RENGINE_INITIAL_AGENT"));
   re_copy(a->initial_game, sizeof(a->initial_game), getenv("RENGINE_INITIAL_GAME"));
+  /* A scene to open on start, the same shape as the initial root, terminal, agent and game: either a
+     path (absolute, or relative to the initial root) or "1" for the built-in one. It is how a window
+     can be launched already showing a level, which is what a person scripting a look at one wants
+     and what "open a tab with the scene" asks for when nobody is at the keyboard (spec 126). */
+  re_copy(a->initial_scene, sizeof(a->initial_scene), getenv("RENGINE_INITIAL_SCENE"));
   re_copy(a->status, sizeof(a->status), a->net ? "Connecting to workspace…" : "No service connection. Launch with the workspace launcher or --connection FILE."); return a;
 }
 /* The focused editor's caret, told to the workspace so an agent in a pane can see what the person is

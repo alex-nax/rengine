@@ -136,9 +136,14 @@ bool re_app_scene_open(ReApp *a, const char *root, const char *path) {
     re_copy(a->status, sizeof(a->status), "Cannot locate the scene plugin: set RENGINE_SCENE_PLUGIN."); return false;
   }
   if (re_app_plugin_load(a, "scene", module, RE_PLUGIN_ABI_STRING) < 0) return false;   /* reason already in the status */
-  /* The absolute path, because a plugin opens the file itself and has no root to resolve against. */
+  /* The absolute path, because a plugin opens the file itself and has no root to resolve against.
+     A path that is already absolute is used as given: that is what an explicit input is for, and a
+     model a person points the view at need not live inside a project (RENGINE_INITIAL_SCENE). */
   char absolute[1024] = {0};
-  if (path && *path) {
+  if (path && *path == '/') {
+    if (strlen(path) >= sizeof(absolute)) { re_copy(a->status, sizeof(a->status), "That path is too long for a scene."); return false; }
+    re_copy(absolute, sizeof(absolute), path);
+  } else if (path && *path) {
     const char *root_path = NULL; const cJSON *entry;
     cJSON_ArrayForEach(entry, cJSON_GetObjectItemCaseSensitive(a->state, "roots"))
       if (!strcmp(re_string(entry, "id"), root)) root_path = re_string(entry, "path");

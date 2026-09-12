@@ -12,6 +12,12 @@
  */
 #include "plugin_render.h"
 #include "scene.h"
+#include "scene_textures.h"
+#include <math.h>
+
+/* The plugin has no logger; the label under the scene is where it says what it loaded. */
+static int loaded_maps, total_materials;
+#define SAY_MAPS(loaded, total) do { loaded_maps = (loaded); total_materials = (total); } while (0)
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,10 +34,13 @@ typedef struct {
   char error[256];
   char model[1024];           /* the .obj this tab shows, or "" for the built-in scene */
   int width, height;          /* what the scene was opened at */
-  /* `scene_draw` derives the camera entirely from these three: the frame number is the orbit
-     angle, `orbit` the distance in radii and `eye_height` the height. So dragging moves them
-     rather than a camera of the plugin's own -- there is no second camera to disagree with. */
   int frame;
+  /* A camera the pointer drives, in the terms a person expects: look around, and move in and out.
+     The first version moved the scene's own frame counter and its eye_height instead, which is
+     scrubbing an animation rather than navigating -- the orbit angle came from a clock, so a drag
+     could only wind that clock and letting go left the view wherever the winding stopped. */
+  float yaw, pitch, distance;
+  bool framed;               /* the camera has been placed for this model */
   bool dragging;
   int last_x, last_y;
 } SceneState;
@@ -51,7 +60,7 @@ static const char *model_path(const RePluginHost *host, RePluginFrame *frame) {
 }
 
 static void release(const RePluginRender *render) {
-  if (state.open) { scene_close(&state.scene, render->seam); state.open = false; }
+  if (state.open) { scene_textures_free(&state.scene, render); scene_close(&state.scene, render->seam); state.open = false; }
   memset(&state.scene, 0, sizeof(state.scene));
 }
 
@@ -82,20 +91,24 @@ static void draw_tab(RePluginFrame *frame, void *user) {
   RePluginPointer pointer = {0};
   host->pointer(frame, &pointer);
   if (pointer.inside && (pointer.buttons & RE_PLUGIN_BUTTON_LEFT)) {
-    if (state.dragging && state.open) {
-      state.frame += pointer.x - state.last_x;                 /* sideways swings the orbit */
-      state.scene.eye_height += (float)(pointer.y - state.last_y) * 0.002f;   /* and up looks down */
-      if (state.scene.eye_height > 2.0f) state.scene.eye_height = 2.0f;
-      if (state.scene.eye_height < -2.0f) state.scene.eye_height = -2.0f;
+    if (state.dragging) {
+      state.yaw -= (float)(pointer.x - state.last_x) * 0.006f;
+      state.pitch -= (float)(pointer.y - state.last_y) * 0.006f;
+      /* Just short of straight up and down: at the pole the up vector and the view direction are
+         parallel and the look-at matrix has no well-defined right, so the image rolls over. */
+      if (state.pitch > 1.5f) state.pitch = 1.5f;
+      if (state.pitch < -1.5f) state.pitch = -1.5f;
     }
     state.dragging = true; state.last_x = pointer.x; state.last_y = pointer.y;
   } else {
     state.dragging = false;
   }
-  if (pointer.inside && pointer.wheel_y != 0 && state.open) {
-    state.scene.orbit -= pointer.wheel_y * 0.05f;
-    if (state.scene.orbit < 0.02f) state.scene.orbit = 0.02f;
-    if (state.scene.orbit > 12.0f) state.scene.orbit = 12.0f;
+  if (pointer.inside && pointer.wheel_y != 0) {
+    /* Multiplicative, so a step feels the same close up and far away -- and it has to reach both,
+       because the same control frames an object and stands inside a building. */
+    state.distance *= powf(0.88f, pointer.wheel_y);
+    if (state.distance < 0.01f) state.distance = 0.01f;
+    if (state.distance > 8.0f) state.distance = 8.0f;
   }
 
   const char *model = model_path(host, frame);
@@ -106,11 +119,18 @@ static void draw_tab(RePluginFrame *frame, void *user) {
     snprintf(state.model, sizeof(state.model), "%s", model ? model : "");
     if (scene_open(&state.scene, render->seam, width, height, model, state.error, sizeof(state.error))) {
       state.open = true; state.width = width; state.height = height;
-      /* A fitted orbit frames an object from outside its bounding sphere, which is wrong for a
-         building you are meant to stand in -- the example documents 0.2 and 0.02 for Sponza and
-         says why (spec 124). The scene's own defaults suit the built-in one, so only a loaded
-         model is re-framed, and only until the pointer says otherwise. */
-      if (state.scene.loaded_model) { state.scene.orbit = 0.2f; state.scene.eye_height = 0.02f; }
+      /* Where the camera starts. A fitted orbit frames an object from outside its bounding sphere,
+         which is wrong for a building you are meant to stand in -- the example documents 0.2 for
+         Sponza and says why (spec 124). */
+      state.distance = state.scene.loaded_model ? 0.25f : 1.15f;
+      state.yaw = 0.6f; state.pitch = 0.15f; state.framed = true;
+      /* The model's own materials, decoded here because the scene will not (see obj.c). */
+      /* A model somebody brought is a preview, not the seam's test card: the mirror inset, the
+         depth-compare decal and the translucent band are what makes this scene a gate and they are
+         noise over a level. The built-in scene keeps them, because there they are the point. */
+      state.scene.furniture = !state.scene.loaded_model;
+      int maps = scene_textures_load(&state.scene, render, SCENE_MATERIALS_MAX);
+      SAY_MAPS(maps, scene_material_count(&state.scene));
     } else {
       state.failed = true;
     }
@@ -122,6 +142,16 @@ static void draw_tab(RePluginFrame *frame, void *user) {
     return;
   }
 
+  {
+    float r = state.scene.radius > 0 ? state.scene.radius : 1.0f;
+    float d = r * state.distance;
+    Vec3 focus = state.scene.centre;
+    state.scene.camera.focus = focus;
+    state.scene.camera.eye = vec3(focus.x + cosf(state.pitch) * sinf(state.yaw) * d,
+                                  focus.y + sinf(state.pitch) * d,
+                                  focus.z + cosf(state.pitch) * cosf(state.yaw) * d);
+    state.scene.camera.set = state.framed;
+  }
   scene_draw(&state.scene, render->seam, target, state.frame);
 
   /* The target's row 0 is NDC -1, which is the seam's promise for a render target; the draw list
@@ -131,8 +161,9 @@ static void draw_tab(RePluginFrame *frame, void *user) {
   char label[256];
   const char *shown = state.model[0] ? state.model : "built-in scene";
   const char *leaf = strrchr(shown, '/');
-  snprintf(label, sizeof(label), "%s · %zu vertices · %zu parts", leaf ? leaf + 1 : shown,
-           state.scene.geometry.vertex_count, state.scene.geometry.part_count);
+  snprintf(label, sizeof(label), "%s · %zu vertices · %zu parts · %d/%d materials",
+           leaf ? leaf + 1 : shown, state.scene.geometry.vertex_count, state.scene.geometry.part_count,
+           loaded_maps, total_materials);
   ReColor muted = re_color(150, 150, 155, 255);
   host->colour(frame, "--ui-fg-muted", &muted);
   host->text(frame, 1, 11, area.x + 8, area.y + area.h - 18, muted, label, -1);

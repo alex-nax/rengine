@@ -185,6 +185,7 @@ static void measure(SceneGeometry *g, Vec3 *centre, float *radius) {
 void scene_geometry_free(SceneGeometry *geometry) {
   free(geometry->vertices);
   free(geometry->parts);
+  free(geometry->materials);
   memset(geometry, 0, sizeof(*geometry));
 }
 
@@ -241,6 +242,7 @@ bool scene_open(Scene *scene, ReSeam *seam, int width, int height, const char *m
   memset(scene, 0, sizeof(*scene));
   scene->width = width;
   scene->height = height;
+  scene->furniture = true;
   scene->orbit = 1.15f;
   scene->eye_height = 0.25f;
 
@@ -314,6 +316,12 @@ bool scene_open(Scene *scene, ReSeam *seam, int width, int height, const char *m
 
   scene->checker = make_checker(seam);
   scene->gradient = make_gradient(seam);
+  /* One white pixel, so a material that is a colour with no map draws that colour rather than the
+     procedural checker the built-in scene uses. */
+  {
+    const unsigned char white[4] = {255, 255, 255, 255};
+    scene->white = re_seam_texture_2d(seam, white, 1, 1, RE_SEAM_FILTER_NEAREST, RE_SEAM_WRAP_CLAMP_TO_EDGE);
+  }
 
   /* The off-screen pass renders the same scene from a second viewpoint into a quarter-size target,
      which a later draw samples. Quarter size on purpose: a backend that used the wrong viewport
@@ -335,6 +343,7 @@ void scene_close(Scene *scene, ReSeam *seam) {
   re_seam_target_destroy(seam, &scene->mirror);
   re_seam_texture_destroy(seam, &scene->mirror_color);
   re_seam_texture_destroy(seam, &scene->mirror_depth);
+  re_seam_texture_destroy(seam, &scene->white);
   re_seam_texture_destroy(seam, &scene->checker);
   re_seam_texture_destroy(seam, &scene->gradient);
   re_seam_vertex_array_destroy(seam, &scene->array);
@@ -378,11 +387,31 @@ static void draw_parts(Scene *scene, ReSeam *seam, Mat4 view_proj, int frame) {
     re_seam_cull(seam, part->cull ? RE_SEAM_CULL_BACK : RE_SEAM_CULL_NONE);
     re_seam_depth(seam, RE_SEAM_DEPTH_TEST_ENABLED,
                   part->depth_write ? RE_SEAM_DEPTH_WRITE_ENABLED : RE_SEAM_DEPTH_WRITE_DISABLED);
-    re_seam_texture_bind(seam, part->texture == 1 ? scene->gradient : scene->checker, 0);
+    /* A loaded model binds its material's map when the consumer decoded one, its own white when the
+       material is a colour alone, and the procedural textures only for the built-in scene. */
+    /* A loaded model never falls back to the procedural textures. A part whose `usemtl` named a
+       material the .mtl does not define -- or faces that appear before any `usemtl` at all -- kept
+       the built-in gradient, and the gradient's dark end reads as unlit stone: Sponza's vaults came
+       out near-black with nothing saying they had no material. White is the honest default. */
+    ReSeamTexture bound = scene->loaded_model ? scene->white
+                        : part->texture == 1 ? scene->gradient : scene->checker;
+    if (part->material >= 0) {
+      ReSeamTexture map = scene->maps[part->material];
+      bound = map.id ? map : scene->white;
+    }
+    re_seam_texture_bind(seam, bound, 0);
     re_seam_uniform_mat4(seam, scene->lit_model, model.m);
     re_seam_uniform_vec4(seam, scene->lit_tint, part->tint[0], part->tint[1], part->tint[2], part->tint[3]);
     re_seam_draw(seam, RE_SEAM_PRIMITIVE_TRIANGLES, part->first, part->count);
   }
+}
+
+int scene_material_count(const Scene *scene) { return (int)scene->geometry.material_count; }
+const char *scene_material_map(const Scene *scene, int material) {
+  return material >= 0 && material < (int)scene->geometry.material_count ? scene->geometry.materials[material].map : "";
+}
+void scene_material_texture(Scene *scene, int material, ReSeamTexture texture) {
+  if (material >= 0 && material < SCENE_MATERIALS_MAX) scene->maps[material] = texture;
 }
 
 void scene_draw(Scene *scene, ReSeam *seam, ReSeamTarget target, int frame) {
@@ -394,12 +423,16 @@ void scene_draw(Scene *scene, ReSeam *seam, ReSeamTarget target, int frame) {
   Vec3 eye = vec3(scene->centre.x + cosf(t * 0.3f) * r * scene->orbit,
                   scene->centre.y + r * scene->eye_height,
                   scene->centre.z + sinf(t * 0.3f) * r * scene->orbit);
+  /* A consumer that has a pointer drives the camera itself; the gates leave this alone and keep the
+     fitted orbit, so their recorded pixels stay comparable. */
+  if (scene->camera.set) { eye = scene->camera.eye; focus = scene->camera.focus; }
   Mat4 view = mat4_look_at(eye, focus, vec3(0.0f, 1.0f, 0.0f));
   Mat4 view_proj = mat4_multiply(projection, view);
 
   re_seam_frame_begin(seam, target);
 
   /* Pass one, off-screen and from above: the render target F129 added, at a quarter size. */
+  if (scene->furniture) {
   re_seam_target_bind(seam, scene->mirror);
   re_seam_viewport(seam, 0, 0, scene->mirror.width, scene->mirror.height);
   re_seam_blend(seam, RE_SEAM_BLEND_NONE);
@@ -413,6 +446,7 @@ void scene_draw(Scene *scene, ReSeam *seam, ReSeamTarget target, int frame) {
   Mat4 above = mat4_look_at(vec3(scene->centre.x, scene->centre.y + r * 1.4f, scene->centre.z + r * 0.001f),
                             scene->centre, vec3(0.0f, 1.0f, 0.0f));
   draw_parts(scene, seam, mat4_multiply(projection, above), frame);
+  }
 
   /* Pass two, the frame's own target. */
   re_seam_target_bind(seam, (ReSeamTarget){0, 0, 0});
@@ -435,6 +469,7 @@ void scene_draw(Scene *scene, ReSeam *seam, ReSeamTarget target, int frame) {
      alone. Identical geometry means identical depth on both backends, so the comparison is decisive
      rather than a coin toss. This is the depth-pre-pass pattern vtmb-vr makes fourteen glDepthFunc
      calls for. */
+  if (scene->furniture) {
   Mat4 decal = mat4_multiply(mat4_translate(scene->centre.x, r * 0.004f, scene->centre.z),
                              mat4_multiply(mat4_rotate_x(-1.5707963268f),
                                            mat4_scale(r * 0.22f, r * 0.22f, 1.0f)));
@@ -477,6 +512,7 @@ void scene_draw(Scene *scene, ReSeam *seam, ReSeamTarget target, int frame) {
   re_seam_blend(seam, RE_SEAM_BLEND_ALPHA);
   re_seam_draw(seam, RE_SEAM_PRIMITIVE_TRIANGLES, 0, 6);
   re_seam_blend(seam, RE_SEAM_BLEND_NONE);
+  }
 
   re_seam_frame_end(seam);
 }

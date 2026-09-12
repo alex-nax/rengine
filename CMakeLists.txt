@@ -857,6 +857,7 @@ if(BUILD_TESTING) # testing
 	add_library(rengine_plugin_scene SHARED
 	  "${PROJECT_SOURCE_DIR}/plugins/scene/scene_plugin.c"
 	  "${PROJECT_SOURCE_DIR}/plugins/scene/seam_forward.c"
+	  "${PROJECT_SOURCE_DIR}/plugins/scene/textures.c"
 	  "${PROJECT_SOURCE_DIR}/packs/gpu/examples/scene/scene.c"
 	  "${PROJECT_SOURCE_DIR}/packs/gpu/examples/scene/obj.c")
 	# The example's directory comes FIRST: the desktop also has a scene.h -- its synthetic 2D test card
@@ -865,6 +866,7 @@ if(BUILD_TESTING) # testing
 	  "${PROJECT_SOURCE_DIR}/packs/gpu/examples/scene"
 	  "${PROJECT_SOURCE_DIR}/packs/gpu/include"
 	  "${PROJECT_SOURCE_DIR}/orchestrator/native")
+	target_include_directories(rengine_plugin_scene SYSTEM PRIVATE "${RENGINE_VENDOR}/stb")
 	target_compile_features(rengine_plugin_scene PRIVATE c_std_11)
 	if(NOT MSVC)
 	  target_compile_options(rengine_plugin_scene PRIVATE -Wall -Wextra)

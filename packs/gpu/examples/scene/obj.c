@@ -51,6 +51,77 @@ static bool ensure_capacity(SceneGeometry *g, size_t extra) {
   return true;
 }
 
+
+/* ---- materials ------------------------------------------------------------------------------
+ * `mtllib` and `usemtl` are read; the images are NOT. The reason is the one at the top of this
+ * file: a decoder here would make a seam consumer into a renderer. So the paths are resolved and
+ * handed on, and whoever owns a decoder supplies the textures (scene_material_texture).
+ */
+static void directory_of(const char *path, char *out, size_t size) {
+  const char *slash = strrchr(path, '/');
+  size_t n = slash ? (size_t)(slash - path) : 0;
+  if (n >= size) n = size - 1;
+  memcpy(out, path, n); out[n] = 0;
+}
+static void resolve_beside(const char *dir, const char *name, char *out, size_t size) {
+  while (*name == ' ' || *name == '\t') name++;
+  if (*name == '/' || !*dir) snprintf(out, size, "%s", name);
+  else snprintf(out, size, "%s/%s", dir, name);
+  /* A .mtl carries whatever separator the machine that exported it used, and Sponza's came out of
+     3ds Max on Windows: `textures\sponza_thorn_diff.png`. Every one of its 24 maps is unopenable
+     here until that is a slash, and the model draws in flat Kd colours with nothing saying why. */
+  for (char *at = out; *at; at++) if (*at == '\\') *at = '/';
+}
+static void trim(char *text) {
+  size_t n = strlen(text);
+  while (n && (text[n - 1] == '\n' || text[n - 1] == '\r' || text[n - 1] == ' ' || text[n - 1] == '\t')) text[--n] = 0;
+}
+static SceneMaterial *begin_material(SceneGeometry *g, const char *name) {
+  if (g->material_count == SCENE_MATERIALS_MAX) return NULL;
+  if (g->material_count == g->material_capacity) {
+    size_t capacity = g->material_capacity ? g->material_capacity * 2 : 32;
+    if (capacity > SCENE_MATERIALS_MAX) capacity = SCENE_MATERIALS_MAX;
+    SceneMaterial *grown = realloc(g->materials, capacity * sizeof(*grown));
+    if (grown == NULL) return NULL;
+    g->materials = grown; g->material_capacity = capacity;
+  }
+  SceneMaterial *material = &g->materials[g->material_count++];
+  memset(material, 0, sizeof(*material));
+  snprintf(material->name, sizeof(material->name), "%s", name);
+  material->kd[0] = material->kd[1] = material->kd[2] = 1.0f;
+  return material;
+}
+static int material_named(const SceneGeometry *g, const char *name) {
+  for (size_t i = 0; i < g->material_count; i++) if (!strcmp(g->materials[i].name, name)) return (int)i;
+  return -1;
+}
+/* A .mtl is read for exactly two things: the diffuse colour and the diffuse map. Everything else an
+   exporter writes -- specular, bump, illumination models -- is skipped rather than half-understood. */
+static void load_mtl(SceneGeometry *geometry, const char *path, const char *dir) {
+  FILE *file = fopen(path, "rb");
+  if (file == NULL) return;               /* a model without its .mtl still draws, in its Kd default */
+  char line[1024];
+  SceneMaterial *material = NULL;
+  while (fgets(line, sizeof(line), file) != NULL) {
+    trim(line);
+    /* Exporters indent everything under `newmtl`, with tabs -- 3ds Max's does, which is what
+       Sponza's own .mtl came out of. Matching the raw line found none of these keys and the model
+       arrived with every part its default tint and no map: a whole material system skipped by one
+       leading tab. */
+    char *key = line;
+    while (*key == ' ' || *key == '\t') key++;
+    if (strncmp(key, "newmtl", 6) == 0) {
+      const char *name = key + 6; while (*name == ' ' || *name == '\t') name++;
+      material = begin_material(geometry, name);
+    } else if (material != NULL && strncmp(key, "map_Kd", 6) == 0) {
+      resolve_beside(dir, key + 6, material->map, sizeof(material->map));
+    } else if (material != NULL && strncmp(key, "Kd", 2) == 0 && (key[2] == ' ' || key[2] == '\t')) {
+      sscanf(key + 3, "%f %f %f", &material->kd[0], &material->kd[1], &material->kd[2]);
+    }
+  }
+  fclose(file);
+}
+
 static ScenePart *begin_part(SceneGeometry *g) {
   if (g->part_count == g->part_capacity) {
     size_t capacity = g->part_capacity ? g->part_capacity * 2 : 64;
@@ -65,7 +136,12 @@ static ScenePart *begin_part(SceneGeometry *g) {
   part->first = (int)g->vertex_count;
   part->tint[0] = 0.82f; part->tint[1] = 0.80f; part->tint[2] = 0.76f; part->tint[3] = 1.0f;
   part->texture = 1;
-  part->cull = true;
+  part->material = -1;
+  /* Two-sided. A file's winding is its exporter's business and this reader cannot know it: Sponza's
+     vault interiors are backfaces from inside the atrium, and culling them left the arches as holes
+     onto the clear colour -- which reads as unlit geometry rather than absent geometry. The
+     built-in scene sets `cull` per part and still exercises the seam's culling either way. */
+  part->cull = false;
   part->depth_write = true;
   return part;
 }
@@ -85,6 +161,8 @@ static Corner parse_corner(const char *text) {
 }
 
 bool scene_load_obj(SceneGeometry *geometry, const char *path, char *error, size_t error_size) {
+  char directory[1024];
+  directory_of(path, directory, sizeof(directory));
   FILE *file = fopen(path, "rb");
   if (file == NULL) {
     snprintf(error, error_size, "cannot open %s", path);
@@ -111,10 +189,28 @@ bool scene_load_obj(SceneGeometry *geometry, const char *path, char *error, size
       float v[2] = {0, 0};
       sscanf(line + 3, "%f %f", &v[0], &v[1]);
       ok = push_floats(&uvs, v);
+    } else if (strncmp(line, "mtllib", 6) == 0) {
+      char named[1024];
+      trim(line);
+      resolve_beside(directory, line + 6, named, sizeof(named));
+      load_mtl(geometry, named, directory);
     } else if (strncmp(line, "usemtl", 6) == 0) {
       if (part != NULL) part->count = (int)geometry->vertex_count - part->first;
       part = begin_part(geometry);
       ok = part != NULL;
+      if (ok) {
+        char name[256];
+        snprintf(name, sizeof(name), "%s", line + 6);
+        trim(name);
+        const char *trimmed = name; while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
+        part->material = material_named(geometry, trimmed);
+        /* The material's own colour, so a part with no map still arrives its own shade rather than
+           the procedural scene's default. */
+        if (part->material >= 0) {
+          const SceneMaterial *m = &geometry->materials[part->material];
+          part->tint[0] = m->kd[0]; part->tint[1] = m->kd[1]; part->tint[2] = m->kd[2];
+        }
+      }
     } else if (line[0] == 'f' && line[1] == ' ') {
       if (part == NULL) { part = begin_part(geometry); if (part == NULL) { ok = false; break; } }
       /* Read the whole face, then fan it into triangles. A quad is two triangles and an n-gon is
