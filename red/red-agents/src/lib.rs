@@ -14,6 +14,8 @@
 
 use serde_json::json;
 
+pub mod spawn;
+
 /// One parsed value. Tables keep document order as a Vec so duplicate keys and duplicate tables
 /// are detectable and the merged list reads the way the document does.
 #[derive(Clone, Debug, PartialEq)]

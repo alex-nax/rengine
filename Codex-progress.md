@@ -1,5 +1,43 @@
 # Progress Log
 
+## Session 124 (macos) — 2026-09-12 — the spawn environment is one pure function in both languages (F168; F148 complete)
+
+Loop tick 4 took F168, the spawn half of F148 — and with it F148 is complete, the first J0 epic
+row finished end to end.
+
+**The extraction.** `spawnTerminal`'s agent block is now a call into `agentPaneComposition`
+— one pure function: everything it needs arrives as input, every side effect (context file,
+listing file, conversation record) leaves as output, the mint and the clock are parameters. The
+full suite (285/285) ran behavior-identical before any Rust existed. `red-agent-env` answers
+fixtures three ways (`shell`, `pane`, `spawn`); `agent-spawn-env.test.mjs` deep-equals 12 pane
+fixtures, 4 shell fixtures and the two-stage final env.
+
+**What the port covers.** Mint-when-start-capable (claude; trailing args change nothing),
+refuse-named-without-start-unless-resume (kimi, byte-exact wording), the bare-pane listing with
+every `describe_age` branch, cleared-in-both-compositions (stale identity keys gone after both
+stages, the launch's own surviving), the shell envelope (inherited scrub, override win,
+undefined-deletes, win32 rules), and the no-capability / unknown-agent / no-workspace edges.
+
+**The sabotage that proved nothing — and now proves something.** Tampering the listing's
+`entry.id !== conversation` filter went red nowhere: no fixture had the current conversation in
+the offered list. The original read `listConversations` *after* `recordConversation` so the
+filter dropped the just-recorded mint; the extracted caller reads before the record, making the
+filter dead in practice. A new fixture (`the offered list never contains the conversation the
+pane just took`) pins it directly on both sides. Three more sabotages red for their reason:
+RESUME dropped in Rust, 'an hour ago' lost in Rust, NO_COLOR always deleted in JS.
+
+Commands: `node --test` (parity 4/4), `cargo test -p red-agents` (12/12), `npm test` (285/285),
+`ctest` (16/16), `./init.sh`, `design.py check`, `features.py validate` (122 features).
+
+Evidence: `docs/evidence/agent-spawn-env-f168-2026-09-12.md`, including the behavior notes the
+epic's criterion 4 asks for (the decided-pane store-read skip, the context file surviving a
+refused spawn, the conversation normalization rule, ORCHESTRATOR_SESSION as both cleared and
+set). F168 and F148 both `passes: true`; the graph shows F149 ready.
+
+**Owed.** Next ready J0 rows by id: **F149** (red-agents II — registry.mjs/config.mjs and the
+hook math retire) and **F169** (F147a, the red-store crate + corpus). F149 is the bigger bite;
+the loop sizes it honestly first, per KI-092's standing rule.
+
 ## Session 123 (macos) — 2026-09-12 — the recipe registry is one TOML document (F167 / F148a)
 
 The owner approved both splits and the standing rule ("approved, do now"), so the loop's third

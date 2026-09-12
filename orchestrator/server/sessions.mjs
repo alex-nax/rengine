@@ -89,6 +89,56 @@ async function signalTree(pid, signal) {
   }
 }
 
+/* The pane-identity composition as one pure function, so the behavior pty.spawn receives is
+   pinned at exactly that boundary (F168, spec 129): everything it needs arrives as input, every
+   side effect (the context file, the listing file, the conversation record) leaves as output for
+   the caller to perform, and the mint and the clock are parameters. The red-agents crate mirrors
+   this function byte-for-byte; agent-spawn-env.test.mjs is the judge. */
+export function agentPaneComposition({ id, agent, conversation, resume = false, action = 'launch', args, workspace, remembered = [], mint = randomUUID, now = Date.now(), paths }) {
+  /* Whether this launch already decided what the pane is — the question the pane's own picker asks.
+     Read before the mint below. See sidecar: only-a-bare-pane-is-offered-the-history. */
+  const chosen = conversation !== undefined || Boolean(args?.length);
+  const argv = [paths.agentScript, '--project', paths.rootPath, '--action', action];
+  if (agent) argv.push('--agent', agent);
+  const sets = {};
+  let record = null, listing = null;
+  if (workspace) {
+    sets.RENGINE_WORKSPACE_CONTEXT = paths.workspaceContextFile;
+    sets.RENGINE_NODE = paths.node;
+    sets.RENGINE_BASH = paths.bash;
+    // Name the conversation now, for a CLI that accepts being told, so this pane can be put back
+    // into the same one later. An agent that names its own is recorded with none — and one like
+    // kimi, which can resume but never be told which conversation to START, is never minted one:
+    // a named conversation without resume is refused rather than silently claimed.
+    const capability = agentConversation(agent);
+    if (capability && conversation === undefined && capability.start) conversation = mint();
+    if (capability && conversation !== undefined && !capability.start && !resume) {
+      return { refuse: `${agent} names its own conversations: rEngine can put this CLI back into a recorded one but cannot tell it which to start. Resume it explicitly, or start without naming one.` };
+    }
+    if (capability && conversation !== undefined) {
+      sets.RENGINE_AGENT_CONVERSATION = conversation;
+      if (resume) sets.RENGINE_AGENT_RESUME = '1';
+      record = { conversation, agent };
+    }
+    // What this project already has, for the pane to offer: only for a bare pane, and only when
+    // there is something to offer. See sidecar: only-a-bare-pane-is-offered-the-history.
+    const offered = chosen ? [] : remembered;
+    if (offered.length) {
+      const rows = offered.filter(entry => entry.id !== conversation)
+        .map(entry => `${entry.id}\t${entry.agent ?? ''}\t${describeAge(entry.lastSeenAt, now)}`);
+      if (rows.length) listing = { file: paths.listingFile, content: `${rows.join('\n')}\n`, rows };
+    }
+    sets.RENGINE_ORCHESTRATOR_SESSION = id;
+  }
+  // The launcher's own trailing arguments, which agent.sh forwards to the CLI after `--` and the
+  // workspace launcher appends after the MCP wiring it composes (spec 103 decision 5).
+  if (args?.length) argv.push('--', ...args);
+  /* What the host's record should say this pane holds. No claim without a launch environment that
+     carries one: the identity is rEngine's own and no record may claim it names the conversation. */
+  if (!sets.RENGINE_AGENT_CONVERSATION) conversation = null;
+  return { refuse: null, conversation, argv, sets, record, listing };
+}
+
 export class Sessions extends EventEmitter {
   constructor(store) { super(); this.store = store; this.items = new Map(); this.handoffFlights = new Map(); }
 
@@ -145,14 +195,9 @@ export class Sessions extends EventEmitter {
     let file = command ?? (process.platform === 'win32' ? 'powershell.exe' : process.env.SHELL ?? '/bin/bash');
     let argv = args ?? (process.platform === 'win32' ? ['-NoLogo'] : ['-l']);
     if (type === 'agent') {
-      /* Whether this launch already decided what the pane is — the question the pane's own picker asks.
-         Read before the mint below. See sidecar: only-a-bare-pane-is-offered-the-history. */
-      const chosen = conversation !== undefined || Boolean(args?.length);
       file = bashPath();
-      argv = [agentScript, '--project', root.path, '--action', action];
-      if (agent) argv.push('--agent', agent);
+      const directory = path.join(this.store.directory, 'integrations');
       if (this.workspaceContext) {
-        const directory = path.join(this.store.directory, 'integrations');
         await mkdir(directory, { recursive: true, mode: 0o700 });
         if (handoff) {
           const snapshot = path.join(directory, `${id}.handoff.json`);
@@ -163,42 +208,22 @@ export class Sessions extends EventEmitter {
         const temporary = `${filename}.${randomUUID()}.tmp`;
         await writeFile(temporary, JSON.stringify({ ...this.workspaceContext, rootId: root.id }), { mode: 0o600 });
         await rename(temporary, filename);
-        env = { ...env, RENGINE_WORKSPACE_CONTEXT: filename, RENGINE_NODE: process.execPath, RENGINE_BASH: file };
-        // Name the conversation now, for a CLI that accepts being told, so this pane can be put
-        // back into the same one later. An agent that names its own is recorded with none — and
-        // one like kimi, which can resume but never be told which conversation to START, is never
-        // minted one: a named conversation without resume is refused rather than silently claimed.
-        const capability = agentConversation(agent);
-        if (capability && conversation === undefined && capability.start) conversation = randomUUID();
-        if (capability && conversation !== undefined && !capability.start && !resume)
-          fail(`${agent} names its own conversations: rEngine can put this CLI back into a recorded one but cannot tell it which to start. Resume it explicitly, or start without naming one.`);
-        if (capability && conversation !== undefined) {
-          env = { ...env, RENGINE_AGENT_CONVERSATION: conversation, ...(resume ? { RENGINE_AGENT_RESUME: '1' } : {}) };
-          await this.store.recordConversation(root.id, { conversation, agent });
-        }
-        // What this project already has, for the pane to offer: only for a bare pane, and only when
-        // there is something to offer. See sidecar: only-a-bare-pane-is-offered-the-history.
-        const remembered = chosen ? [] : this.store.listConversations(root.id);
-        if (remembered.length) {
-          const listing = path.join(directory, `${id}.conversations.tsv`);
-          const rows = remembered.filter(entry => entry.id !== conversation)
-            .map(entry => `${entry.id}\t${entry.agent ?? ''}\t${describeAge(entry.lastSeenAt)}`);
-          if (rows.length) {
-            await writeFile(listing, `${rows.join('\n')}\n`, { mode: 0o600 });
-            env = { ...env, RENGINE_AGENT_CONVERSATIONS: listing };
-          }
-        }
-        env = { ...env, RENGINE_ORCHESTRATOR_SESSION: id };
       }
-      // The launcher's own trailing arguments, which agent.sh forwards to the CLI after `--` and
-      // the workspace launcher appends after the MCP wiring it composes. This is how a pane started
-      // on a task carries the CLI's model flag and the rendered prompt (spec 103 decision 5);
-      // without it those arguments were accepted by this route and silently dropped, so a spawn
-      // looked right and ran a CLI with no prompt. Guarded by the taskConversations capability, so
-      // a caller can tell a host that forwards them from one that does not.
-      if (args?.length) argv.push('--', ...args);
+      const plan = agentPaneComposition({ id, agent, conversation, resume, action, args,
+        workspace: Boolean(this.workspaceContext),
+        /* The store read is skipped for a decided pane, exactly as before the extraction; the
+           composition applies the same gate internally, which the parity fixtures exercise. */
+        remembered: (conversation !== undefined || Boolean(args?.length)) ? [] : this.store.listConversations(root.id),
+        paths: { agentScript, rootPath: root.path, workspaceContextFile: path.join(directory, `${root.id}.json`),
+          listingFile: path.join(directory, `${id}.conversations.tsv`), node: process.execPath, bash: file } });
+      if (plan.refuse) fail(plan.refuse);
+      if (plan.record) await this.store.recordConversation(root.id, plan.record);
+      if (plan.listing) await writeFile(plan.listing.file, plan.listing.content, { mode: 0o600 });
+      argv = plan.argv;
+      conversation = plan.conversation;
+      env = { ...env, ...plan.sets };
     }
-    if (type !== 'agent' || !env.RENGINE_AGENT_CONVERSATION) conversation = undefined;
+    if (type !== 'agent') conversation = undefined;
     if (typeof file !== 'string' || !Array.isArray(argv) || argv.some(arg => typeof arg !== 'string')) fail('Invalid executable or arguments.');
     const child = pty.spawn(file, argv, { name: 'xterm-256color', cols, rows, cwd: workingDirectory,
       // `cleared` first, so this launch's own values win and only what it left out stays deleted.

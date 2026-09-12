@@ -15,3 +15,9 @@ serde_json = "1"
 [[bin]]
 name = "red-agents-dump"
 path = "src/bin/red_agents_dump.rs"
+
+# The spawn-environment answerer: computes the ported pane composition and shell envelope for
+# fixtures the JS suite owns (F168), the same harness shape.
+[[bin]]
+name = "red-agent-env"
+path = "src/bin/red_agent_env.rs"

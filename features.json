@@ -2572,14 +2572,17 @@
         "Composed spawn environments for kimi, claude and codex launches match the current JS output exactly.",
         "RENGINE_AGENT_REGISTRY_EXTRA still adds agents as data with no code edit, now through the TOML path."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         139
       ],
       "owner_workspace": "rengine",
       "deliverable": "The registry TOML, its Rust parser, the JS-side consumption of the same file, and the parity test.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/agent-registry-toml-f167-2026-09-12.md",
+        "docs/evidence/agent-spawn-env-f168-2026-09-12.md"
+      ]
     },
     {
       "id": 149,
@@ -2978,14 +2981,16 @@
         "The RENGINE_AGENT_* composition (sessions.mjs:129-201) is pinned at the pty.spawn boundary by a stub-pty harness and ported to red-agents, consuming the F167 recipe projection rather than re-reading the TOML.",
         "Composed spawn environments for kimi, claude and codex launches match the current JS output exactly, on fixtures covering mint-when-start-capable, refuse-named-without-start-unless-resume, listing only for a bare pane, and cleared-in-both-compositions."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         167
       ],
       "owner_workspace": "rengine",
       "deliverable": "The Rust spawn-env composition in red-agents, the stub-pty harness, and the parity fixtures.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/agent-spawn-env-f168-2026-09-12.md"
+      ]
     },
     {
       "id": 169,
