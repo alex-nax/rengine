@@ -5,13 +5,18 @@
 /* The workspace commands a menu row or a shortcut can run. The hints beside the rows name these
  * exact chords, and re_app_event serves them, so a menu never advertises a key that does nothing. */
 enum { RE_COMMAND_SPLIT_VERTICAL = 0, RE_COMMAND_SPLIT_HORIZONTAL, RE_COMMAND_MERGE,
-       RE_COMMAND_SHELL, RE_COMMAND_AGENT, RE_COMMAND_CLOSE_VIEW };
+       RE_COMMAND_SHELL, RE_COMMAND_AGENT, RE_COMMAND_CLOSE_VIEW,
+       /* The built-in procedural scene, which has no file to open it from (spec 126 decision 7).
+          A command rather than a toolbar cell: the toolbar's pixels are judged against the recorded
+          reference frames, and those came from a renderer that has retired and cannot re-record. */
+       RE_COMMAND_SCENE };
 #if defined(__APPLE__)
 #define RE_PLATFORM_MODIFIER         KMOD_GUI
 #define RE_SHORTCUT_SPLIT_VERTICAL   "Cmd \\"
 #define RE_SHORTCUT_SPLIT_HORIZONTAL "Cmd Shift \\"
 #define RE_SHORTCUT_MERGE            "Cmd Backspace"
 #define RE_SHORTCUT_SHELL            "Cmd T"
+#define RE_SHORTCUT_SCENE            "Cmd E"
 #define RE_SHORTCUT_CLOSE            "Cmd W"
 #define RE_SHORTCUT_RELEASE          "Cmd ."
 #else
@@ -20,6 +25,7 @@ enum { RE_COMMAND_SPLIT_VERTICAL = 0, RE_COMMAND_SPLIT_HORIZONTAL, RE_COMMAND_ME
 #define RE_SHORTCUT_SPLIT_HORIZONTAL "Ctrl Shift \\"
 #define RE_SHORTCUT_MERGE            "Ctrl Backspace"
 #define RE_SHORTCUT_SHELL            "Ctrl T"
+#define RE_SHORTCUT_SCENE            "Ctrl E"
 #define RE_SHORTCUT_CLOSE            "Ctrl W"
 #define RE_SHORTCUT_RELEASE          "Ctrl ."
 #endif

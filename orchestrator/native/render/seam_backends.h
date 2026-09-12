@@ -9,13 +9,20 @@
 #define RENGINE_SEAM_BACKENDS_H
 #include "render/backend.h"
 #include <stdint.h>
+struct RePluginRender; struct ReSeam;   /* the render extension's, declared where it is defined */
 
 ReBackend *re_opengl_backend_seam_open(void *window, ReFontSet *fonts);
+const struct RePluginRender *re_opengl_backend_seam_plugin_table(void);
+struct ReSeam *re_opengl_backend_seam_seam(ReBackend *backend);
 uint32_t re_opengl_backend_seam_window_flags(void);
 ReBackend *re_vulkan_backend_seam_open(void *window, ReFontSet *fonts);
+const struct RePluginRender *re_vulkan_backend_seam_plugin_table(void);
+struct ReSeam *re_vulkan_backend_seam_seam(ReBackend *backend);
 uint32_t re_vulkan_backend_seam_window_flags(void);
 #ifdef __APPLE__
 ReBackend *re_metal_backend_seam_open(void *window, ReFontSet *fonts);
+const struct RePluginRender *re_metal_backend_seam_plugin_table(void);
+struct ReSeam *re_metal_backend_seam_seam(ReBackend *backend);
 uint32_t re_metal_backend_seam_window_flags(void);
 #endif
 

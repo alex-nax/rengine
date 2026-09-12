@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { mkdir, cp } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { existsSync } from 'node:fs';
 
 const project = fileURLToPath(new URL('../../', import.meta.url));
 export const nativeBinary = path.join(project, '.cache/desktop/bin', process.platform === 'win32' ? 'Release/rengine.exe' : 'rengine');
@@ -19,6 +20,12 @@ export async function snapshotBinary(binary, directory) {
   const destination = path.join(directory, 'bin'); await mkdir(destination, { recursive: true, mode: 0o700 });
   if (process.platform === 'win32') await cp(path.dirname(binary), destination, { recursive: true });
   else await cp(binary, path.join(destination, path.basename(binary)));
+  /* The modules the desktop loads itself travel with it (F136): the scene plugin lives beside the
+     binary in plugins/, and a snapshot that took only bin/ left the desktop unable to find it —
+     clicking a model said "refused" in a version directory that had no modules in it. Absent in a
+     build that made none, which is why this is a copy that may find nothing rather than a check. */
+  const modules = path.join(path.dirname(path.dirname(binary)), 'plugins');
+  if (existsSync(modules)) await cp(modules, path.join(directory, 'plugins'), { recursive: true });
   return path.join(destination, path.basename(binary));
 }
 export async function prepareDesktop(directory) {

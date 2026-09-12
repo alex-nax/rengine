@@ -49,6 +49,15 @@ void re_draw_icon(ReDraw *draw, uint8_t icon, mu_Rect rect, mu_Color color);
 /* An icon at an explicit pixel size, for a mark that has to fit a box smaller than the text size. */
 void re_draw_icon_sized(ReDraw *draw, uint8_t icon, int size, mu_Rect rect, mu_Color color);
 ReTexture *re_draw_texture_create(ReDraw *draw, int width, int height);
+/* Wrap a seam texture the caller owns so this frame can sample it (charter D55). Destroying the
+   wrapper leaves the texture alone. The id is passed as an integer so this header stays free of the
+   pack's; the two accessors below are forward-declared for the same reason. */
+ReTexture *re_draw_texture_adopt(ReDraw *draw, uint32_t seam_texture, int width, int height);
+struct RePluginRender; struct ReSeam;
+/* The seam this window renders with, and it as a table of pointers: what a rendering plugin is
+   given for the length of one frame (charter D55, spec 126). NULL before a backend is open. */
+const struct RePluginRender *re_draw_plugin_table(const ReDraw *draw);
+struct ReSeam *re_draw_seam(const ReDraw *draw);
 bool re_draw_texture_update(ReTexture *texture, const void *rgba, int pitch);
 void re_draw_texture_destroy(ReTexture *texture);
 void re_draw_texture(ReDraw *draw, ReTexture *texture, mu_Rect rect, uint8_t flags);

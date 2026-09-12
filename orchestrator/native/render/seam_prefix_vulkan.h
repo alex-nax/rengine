@@ -9,6 +9,8 @@
 #define RENGINE_SEAM_PREFIX_VULKAN_H
 
 #define re_backend_seam_open         re_vulkan_backend_seam_open
+#define re_backend_seam_plugin_table re_vulkan_backend_seam_plugin_table
+#define re_backend_seam_seam         re_vulkan_backend_seam_seam
 #define re_backend_seam_window_flags re_vulkan_backend_seam_window_flags
 #define re_gpu_close                 re_vulkan_gpu_close
 #define re_gpu_device                re_vulkan_gpu_device

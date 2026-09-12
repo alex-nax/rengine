@@ -226,7 +226,11 @@ static void tree_rows(ReApp *a, mu_Context *ui, int index, const cJSON *entries,
         /* The selection is the file being worked on, not whichever folder was last toggled. It is
          * what decides which branch the row cap must not close under (spec 080 decision 8). */
         re_copy(t->selected, sizeof(t->selected), path);
-        re_app_tab(a, RE_EDITOR, t->root, path, "", name);
+        /* A model opens where it can be looked at, as an image opens in the image view (spec 126
+         * decision 7). Everything else is a document for the editor. */
+        const char *dot = strrchr(name, '.');
+        if (dot && !strcmp(dot, ".obj")) re_app_scene_open(a, t->root, path);
+        else re_app_tab(a, RE_EDITOR, t->root, path, "", name);
       }
     }
     if (slot >= 0) {
@@ -606,6 +610,7 @@ void re_workspace_command(ReApp *a, int command) {
     case RE_COMMAND_SHELL: launch_terminal(a, false, false); break;
     case RE_COMMAND_AGENT: launch_terminal(a, true, false); break;
     case RE_COMMAND_CLOSE_VIEW: close_view(a); break;
+    case RE_COMMAND_SCENE: re_app_scene_open(a, a->root, ""); break;   /* no file: the built-in one */
     default: break;
   }
 }
@@ -663,10 +668,11 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
     ReToolbar bar = toolbar_open(ui, width);
     re_ui_panel(bar.draw, mu_rect(0, 0, width, RE_METRIC_DESIGN_TOOLBAR_HEIGHT), RE_COLOR_TOOLBAR_BG);
     toolbar_brand(&bar, a);
-    int views = 6, view_index = 0, group_left = 0;
+    int view_index = 0, group_left = 0;
     struct { const char *label; int icon; } switcher[] = {
       {"Tree", RE_ICON_TREE}, {"Dashboard", RE_ICON_PROJECT}, {"Tasks", RE_ICON_CHECK}, {"Devices", RE_ICON_MENU},
       {"Shell", RE_ICON_SHELL}, {"Agent", RE_ICON_AGENT} };
+    const int views = (int)RE_ARRAY_SIZE(switcher);   /* derived rather than a second number to keep in step */
     for (int i = 0; i < views; i++, view_index++) {
       int opt = RE_UI_GROUP_MIDDLE;
       if (i == 0) opt = RE_UI_GROUP_FIRST;
@@ -865,7 +871,15 @@ void re_app_draw(ReApp *a, ReDraw *draw) {
 }
 bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
   if (e->type == SDL_MOUSEMOTION) { a->mouse_x = e->motion.x; a->mouse_y = e->motion.y; }
-  if (e->type == SDL_MOUSEBUTTONDOWN || e->type == SDL_MOUSEBUTTONUP) { a->mouse_x = e->button.x; a->mouse_y = e->button.y; }
+  if (e->type == SDL_MOUSEBUTTONDOWN || e->type == SDL_MOUSEBUTTONUP) {
+    a->mouse_x = e->button.x; a->mouse_y = e->button.y;
+    /* The tab-scoped pointer a plugin gets (charter D55). Held buttons are window state; which tab
+       is told about them is decided when the frame is built, by where the pointer is. */
+    uint8_t bit = e->button.button == SDL_BUTTON_LEFT ? RE_PLUGIN_BUTTON_LEFT
+                : e->button.button == SDL_BUTTON_RIGHT ? RE_PLUGIN_BUTTON_RIGHT
+                : e->button.button == SDL_BUTTON_MIDDLE ? RE_PLUGIN_BUTTON_MIDDLE : 0;
+    if (e->type == SDL_MOUSEBUTTONDOWN) a->plugin_buttons |= bit; else a->plugin_buttons = (uint8_t)(a->plugin_buttons & ~bit);
+  }
   /* The overlay is the top surface: Escape closes it, and so does a press outside it. A press on the
    * control that opened it falls through, so that control's own toggle closes it instead of reopening
    * it on the next frame (spec 080 decision 5). */
@@ -912,6 +926,7 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
       case SDLK_BACKSLASH: re_workspace_command(a, shift ? RE_COMMAND_SPLIT_HORIZONTAL : RE_COMMAND_SPLIT_VERTICAL); return true;
       case SDLK_BACKSPACE: re_workspace_command(a, RE_COMMAND_MERGE); return true;
       case SDLK_t: re_workspace_command(a, RE_COMMAND_SHELL); return true;
+      case SDLK_e: re_workspace_command(a, RE_COMMAND_SCENE); return true;
       case SDLK_w: re_workspace_command(a, RE_COMMAND_CLOSE_VIEW); return true;
       /* The way out of a game that swallows Escape entirely. Period rather than Escape because every
        * Escape chord is already taken by the platform, and this one is never forwarded. */
@@ -945,6 +960,13 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
     }
   }
   if (e->type == SDL_MOUSEWHEEL && !a->quitting) {
+    for (int i = 0; i < RE_TABS; i++) if (a->tabs[i].used && a->tabs[i].type == RE_PLUGIN &&
+                                          re_inside(a->tabs[i].rect, a->mouse_x, a->mouse_y)) {
+      static float banked_x, banked_y;
+      a->tabs[i].plugin_wheel_x += (float)re_wheel_steps(&banked_x, &e->wheel, true, 1);
+      a->tabs[i].plugin_wheel_y += (float)re_wheel_steps(&banked_y, &e->wheel, false, 1);
+      return true;   /* the plugin's tab owns the wheel over its own rectangle */
+    }
     for (int i = 0; i < RE_TABS; i++) if ((a->tabs[i].terminal || a->tabs[i].editor || a->tabs[i].format || a->tabs[i].image) && re_inside(a->tabs[i].rect, a->mouse_x, a->mouse_y)) {
       ReTab *t = &a->tabs[i];
       if (t->terminal) { if (!re_terminal_mouse(t->terminal, e, a->mouse_x, a->mouse_y)) re_terminal_event(t->terminal, e); }

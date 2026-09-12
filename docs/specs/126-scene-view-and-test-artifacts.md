@@ -151,3 +151,90 @@ the specs that own it.
 **Opening an artifact focuses it**, exactly as clicking a file in the explorer does, so the task list
 is no longer the visible view and the rest of the test could not find its controls. Coming back is
 what a person does; the test now does it too.
+
+## F135 and F136, built — and the one decision the interview did not foresee
+
+Date: 2026-09-12. Asked for as "let's get back to scene, please render 'sponza' into tab".
+
+The chain this spec drew is finished except for what is listed as owed at the end: F133 landed, the
+ABI widened, and Crytek Sponza renders in a tab — 786,801 vertices in 393 parts, through the seam
+the window itself renders with, on Metal.
+
+### How a plugin reaches the GPU, which is not the obvious way
+
+D55 says a plugin gets "a render target requested by size each frame". It does not say how the
+plugin *draws* into one, and the answer is forced by D56: rEngine links **three** copies of the seam
+with their symbols prefixed, so `re_seam_draw` exists in no copy under that name. A plugin module
+cannot call the seam at all, and the ABI promises a module with no undefined references.
+
+So the seam arrives **by pointer**. `plugin_render.h` is a table whose every member has the
+signature of the seam function it stands for, filled from whichever prefixed copy the window linked
+(`plugin_seam.c`, compiled once per API exactly as `backend_seam.c` is). Two consequences worth
+having:
+
+- A rendering plugin defines the pack's own `re_seam_*` names as one-line forwarders — 29 of them in
+  `plugins/scene/seam_forward.c` — and then compiles the pack's sources **unmodified**. F136's third
+  criterion, "the plugin and the pack's standalone example render the same scene from the same
+  sources", is therefore true by construction. There is no second copy to keep in step.
+- The table is chosen per window by backend name, the same way the backend itself is. Handing a
+  plugin the OpenGL table while the window renders on Metal was one of the two sabotages, and it is
+  red: the calls would land on another copy's seam.
+
+The owner chose this over two alternatives on 2026-09-12: a built-in Scene view (no ABI work, but it
+reverses decision 6) and a plugin linking its own seam copy (cheapest, but two code copies operating
+on one object, three plugin builds for `--renderer`, and nothing to catch a layout drift).
+
+### The sequencing that makes an off-screen pass possible at all
+
+A 3D pass has to be inside a seam frame, and `re_app_draw` — where a plugin's tab is drawn — runs
+**before** the desktop's frame opens: the draw list is still being recorded there and is not executed
+until `re_draw_end`. So the plugin opens its own seam frame on its own target, closes it, and the
+composite command recorded immediately afterwards samples a finished texture when the desktop's frame
+executes. No nesting, and the target is finished before anything samples it.
+
+`draw_target` refuses unless *this* frame asked for a target, which is how D55's "good for that
+frame only" is enforced without policing the handle: a target kept from an earlier frame cannot be
+presented. The allocation itself is not per frame — a depth buffer rebuilt sixty times a second
+would cost more than the scene — and a resize or a different `ReDraw` throws the whole thing away,
+which is the renderer change D55 worries about.
+
+### The third thing the ABI needed, which decision 7 implies
+
+Decision 7 opens a Scene tab from an `.obj` in the explorer, and tabs are registered during `start`
+— so the file cannot be part of the tab. F135's description says the ABI widens "by exactly two
+things" and it does: a target and a pointer. The tab's **subject** is F136's, and it is a tab's own
+parameter rather than a reach into anything: `host->subject(frame)` is the path the desktop opened
+this tab for, or "" for the built-in scene. It names no other view and reaches no store.
+
+### Two places a hardcoded count was the bug
+
+Adding one command found the same defect twice: the toolbar's switcher had `int views = 6` beside a
+seven-entry table, and the pane menu's height was `6 * (row + 2)` beside its own. In both cases the
+extra entry existed in the layout and was invisible on the screen — the menu's last command was
+drawn outside its own surface and reported by no control. Both counts are derived now.
+
+### Why the built-in scene is a command and not a button
+
+It was a toolbar cell first, and the reference-image gate refused it: 0.6% of the workspace's pixels
+differed, 12,741 of them outside the edge band. Those frames were captured from SDL_Renderer before
+it retired (F133), so they are an oracle that **cannot be re-recorded** — which makes the chrome's
+appearance something a feature may not change casually. Decision 7 says "a command", and a command
+it is: `Cmd/Ctrl E`, listed in the pane menu, where the card compares colours rather than row count.
+
+### What is owed
+
+Stated rather than absorbed, because F135 and F136 both stay `passes: false` until it is done:
+
+- **F135 c2 and c3 have no test.** The frame-scoped refusal and the tab-scoped pointer are
+  implemented and neither is evidenced; both need a fixture plugin that keeps a target and one that
+  asks about another tab. c6 names exactly these two, so the row cannot pass on the render evidence
+  alone.
+- **F136 c1 is proven for the built-in scene, not for an `.obj`, in the suite.** Sponza was verified
+  by hand from `~/assets/sponza` and the explorer path works; a committed gate cannot depend on a
+  local asset, so what the suite renders is the procedural scene. The `.obj` half needs a small
+  committed model of its own.
+- **F136 c4 is not measured.** "A still scene costs no frames" is designed for — the plugin asks for
+  no frames and only advances the animation while a drag is in progress — but the idle wait and the
+  frame budget with a Scene tab open have not been recorded.
+- **F136 c5 is implemented and untested.** Dragging moves the orbit through the tab-scoped pointer;
+  nothing yet drives a drag over the tab and checks the image changed.

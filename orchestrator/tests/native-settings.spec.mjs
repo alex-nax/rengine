@@ -191,7 +191,10 @@ setInterval(() => {}, 1000);`);
     await gui.command({ op: 'button', button: 3, x: tab.header[0] + tab.header[2] + 20, y: tab.header[1] + 4, down: false });
     state = await gui.until(s => s.controls?.some(c => c.role === 'menu-pane'), 'pane menu');
     const rows = state.controls.filter(c => c.role === 'menu-pane').map(c => c.key);
-    assert.deepEqual(rows, ['Split vertical', 'Split horizontal', 'Merge pane', 'New shell here', 'New agent session', 'Close view']);
+    /* Scene joins the list with F136: it opens a view in this pane, which is what the rest of this
+       group does. The card this test compares against is about the ground and hover colours, not
+       how many rows the menu has. */
+    assert.deepEqual(rows, ['Split vertical', 'Split horizontal', 'Merge pane', 'New shell here', 'New agent session', 'Scene', 'Close view']);
     await gui.control('menu-pane', 'Split vertical', -1);
     await gui.until(s => s.layout.panes.filter(Boolean).length > panes, 'the menu split the pane');
 

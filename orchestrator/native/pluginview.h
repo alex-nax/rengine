@@ -8,4 +8,11 @@
  * it registered. The registry's index, or -1 with the refusal in the status line. */
 int re_app_plugin_load(ReApp *app, const char *name, const char *path, const char *abi);
 void re_plugin_view_draw(ReApp *app, ReTab *tab, ReDraw *draw);
+/* Every render pass a plugin tab was given, given back. Called when the window closes or changes
+   renderer, because the handles belong to the device that is going away (charter D55). */
+void re_app_plugin_passes_release(ReApp *app);
+/* Point the Scene tab at a model and bring it forward, loading rEngine's own scene plugin if this
+   window has not yet (spec 126 decision 7). `path` is relative to `root`; false with the reason in
+   the status line. An empty `path` opens the built-in procedural scene, which has no file. */
+bool re_app_scene_open(ReApp *app, const char *root, const char *path);
 #endif

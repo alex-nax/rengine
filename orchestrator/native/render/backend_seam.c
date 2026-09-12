@@ -39,7 +39,7 @@ typedef struct {
   float w, mode;
 } Vertex;
 typedef struct { uint32_t codepoint; uint8_t face; int16_t size; bool used, present; int ax, ay, w, h, dx, dy; } Glyph;
-typedef struct { ReTexture base; ReSeamTexture texture; } SeamTexture;
+typedef struct { ReTexture base; ReSeamTexture texture; bool adopted; } SeamTexture;
 
 typedef struct {
   ReBackend base;
@@ -257,6 +257,9 @@ static void execute(ReBackend *backend, const ReDrawList *list) {
 }
 
 static void present(ReBackend *backend) { re_seam_host_present(((SeamBackend *)backend)->host); }
+/* For the plugin render extension (charter D55): the seam a plugin's table is called with has to be
+   this backend's, or the calls would land on a seam from another copy. */
+ReSeam *re_backend_seam_seam(ReBackend *backend) { return backend ? ((SeamBackend *)backend)->seam : NULL; }
 static bool snapshot(ReBackend *backend, const char *path) { return re_seam_host_snapshot(((SeamBackend *)backend)->host, path); }
 
 static ReTexture *texture_create(ReBackend *backend, int width, int height) {
@@ -264,6 +267,13 @@ static ReTexture *texture_create(ReBackend *backend, int width, int height) {
   SeamTexture *t = calloc(1, sizeof(*t)); if (!t) return NULL;
   t->texture = re_seam_texture_2d(b->seam, NULL, width, height, RE_SEAM_FILTER_NEAREST, RE_SEAM_WRAP_CLAMP_TO_EDGE);
   if (!t->texture.id) { free(t); return NULL; }
+  t->base.owner = backend; t->base.width = width; t->base.height = height;
+  return &t->base;
+}
+/* A texture the caller owns, wrapped so the draw list can sample it (charter D55). */
+static ReTexture *texture_adopt(ReBackend *backend, uint32_t seam_texture, int width, int height) {
+  SeamTexture *t = calloc(1, sizeof(*t)); if (!t || !seam_texture) { free(t); return NULL; }
+  t->texture = (ReSeamTexture){seam_texture, width, height}; t->adopted = true;
   t->base.owner = backend; t->base.width = width; t->base.height = height;
   return &t->base;
 }
@@ -277,7 +287,7 @@ static bool texture_update(ReTexture *texture, const void *rgba, int pitch) {
 static void texture_destroy(ReTexture *texture) {
   SeamTexture *t = (SeamTexture *)texture; if (!t) return;
   SeamBackend *b = (SeamBackend *)texture->owner;
-  if (b) re_seam_texture_destroy(b->seam, &t->texture);
+  if (b && !t->adopted) re_seam_texture_destroy(b->seam, &t->texture);
   free(t);
 }
 
@@ -301,7 +311,7 @@ static void close_backend(ReBackend *backend) {
    comes from whichever seam_host_*.c this copy was linked against. Every open in a copy writes the
    same value. */
 static ReBackendOps ops = {NULL, density, begin, execute, present, snapshot,
-                                 texture_create, texture_update, texture_destroy, close_backend};
+                                 texture_create, texture_adopt, texture_update, texture_destroy, close_backend};
 
 uint32_t re_backend_seam_window_flags(void) { return re_seam_host_flags(); }
 

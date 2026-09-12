@@ -9,6 +9,8 @@
 #define RENGINE_SEAM_PREFIX_OPENGL_H
 
 #define re_backend_seam_open         re_opengl_backend_seam_open
+#define re_backend_seam_plugin_table re_opengl_backend_seam_plugin_table
+#define re_backend_seam_seam         re_opengl_backend_seam_seam
 #define re_backend_seam_window_flags re_opengl_backend_seam_window_flags
 #define re_gpu_close                 re_opengl_gpu_close
 #define re_gpu_device                re_opengl_gpu_device

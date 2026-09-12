@@ -6,6 +6,12 @@ region, because only the fully covered pixels of a stem carry the colour exactly
 uses this to assert that syntax colours reach the screen.
 
     bmp_find.py FILE --logical-width 1280 --region 10,120,280,200 --colour #c1a9ee
+
+--distinct counts the distinct colours in the region instead, which is the question a RENDERED
+region answers: a scene cannot be asserted colour by colour, but "this is an image and not a flat
+fill" is exactly a count. Used by the scene tab's spec (F136).
+
+    bmp_find.py FILE --logical-width 1280 --region 299,65,981,713 --distinct 1
 """
 import json
 import struct
@@ -37,12 +43,21 @@ def main(argv):
     while index + 1 < len(argv):
         args[argv[index].lstrip("-")] = argv[index + 1]
         index += 2
-    if not path or "region" not in args or "colour" not in args:
-        raise SystemExit("usage: bmp_find.py FILE --logical-width N --region x,y,w,h --colour #rrggbb")
+    if not path or "region" not in args or ("colour" not in args and "distinct" not in args):
+        raise SystemExit("usage: bmp_find.py FILE --logical-width N --region x,y,w,h "
+                         "(--colour #rrggbb | --distinct 1)")
     width, rows_count, rows = load(path)
     logical = int(args.get("logical-width", width))
     density = max(1, round(width / logical)) if logical else 1
     x, y, w, h = (int(value) * density for value in args["region"].split(","))
+    if "distinct" in args:
+        seen = set()
+        for row_index in range(max(0, y), min(rows_count, y + h)):
+            row = rows[row_index]
+            for column in range(max(0, x), min(width, x + w)):
+                seen.add(row[column * 4: column * 4 + 3])
+        print(json.dumps({"distinct": len(seen), "region": [x, y, w, h]}))
+        return 0
     wanted = args["colour"].lstrip("#")
     red, green, blue = (int(wanted[i:i + 2], 16) for i in (0, 2, 4))
     count = 0

@@ -147,6 +147,29 @@ void re_draw_stats_reset(ReDraw *d) { d->stat_count = d->stat_next = 0; }
 void re_draw_end(ReDraw *d) { flush(d); d->backend->ops->present(d->backend); }
 bool re_draw_snapshot(ReDraw *d, const char *path) { flush(d); return d->backend->ops->snapshot(d->backend, path); }
 
+ReTexture *re_draw_texture_adopt(ReDraw *d, uint32_t seam_texture, int width, int height) {
+  return d && d->backend->ops->texture_adopt ? d->backend->ops->texture_adopt(d->backend, seam_texture, width, height) : NULL;
+}
+/* Which of the three prefixed copies this window linked is decided here, the same way the backend
+   itself is: by name (spec 126 decision 3). A plugin never learns which one it got. */
+const struct RePluginRender *re_draw_plugin_table(const ReDraw *d) {
+  if (!d || !d->backend) return NULL;
+  const char *name = d->backend->ops->name;
+#ifdef __APPLE__
+  if (name && !strcmp(name, "metal")) return re_metal_backend_seam_plugin_table();
+#endif
+  if (name && !strcmp(name, "vulkan")) return re_vulkan_backend_seam_plugin_table();
+  return re_opengl_backend_seam_plugin_table();
+}
+struct ReSeam *re_draw_seam(const ReDraw *d) {
+  if (!d || !d->backend) return NULL;
+  const char *name = d->backend->ops->name;
+#ifdef __APPLE__
+  if (name && !strcmp(name, "metal")) return re_metal_backend_seam_seam(d->backend);
+#endif
+  if (name && !strcmp(name, "vulkan")) return re_vulkan_backend_seam_seam(d->backend);
+  return re_opengl_backend_seam_seam(d->backend);
+}
 void re_draw_rect(ReDraw *d, mu_Rect r, mu_Color c) { re_draw_list_rect(&d->list, rect_of(r), color_of(c)); }
 void re_draw_clip(ReDraw *d, const mu_Rect *r) {
   if (!r) { re_draw_list_clip(&d->list, NULL); return; }

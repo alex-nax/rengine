@@ -73,13 +73,14 @@ FetchContent_Declare(corrosion
   GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
   GIT_TAG 1499b14e4906a2890f5cee1547c8848db261753d) # v0.6.1
 FetchContent_MakeAvailable(corrosion)
-corrosion_import_crate(MANIFEST_PATH red/Cargo.toml CRATES red-core red-link red-agents)
+corrosion_import_crate(MANIFEST_PATH red/Cargo.toml CRATES red-core red-link red-agents red-store)
 if(BUILD_TESTING)
   # Cargo runs from the workspace root so the rustup shim resolves the repo's rust-toolchain.toml;
   # the smoke tests prove the pinned toolchain builds and tests both crates.
   add_test(NAME rust_red_core COMMAND cargo test -p red-core WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/red)
   add_test(NAME rust_red_link COMMAND cargo test -p red-link WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/red)
   add_test(NAME rust_red_agents COMMAND cargo test -p red-agents WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/red)
+  add_test(NAME rust_red_store COMMAND cargo test -p red-store WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/red)
 endif()
 
 # Subdirectory: packs/gpu
@@ -180,6 +181,7 @@ target_include_directories(rengine_jpeg SYSTEM PRIVATE "${RENGINE_VENDOR}/stb") 
 set(rengine_seam_opengl_SOURCES
 	cmake.toml
 	"orchestrator/native/render/backend_seam.c"
+	"orchestrator/native/render/plugin_seam.c"
 	"orchestrator/native/render/seam_host_gl.c"
 )
 
@@ -222,6 +224,7 @@ endif()
 set(rengine_seam_vulkan_SOURCES
 	cmake.toml
 	"orchestrator/native/render/backend_seam.c"
+	"orchestrator/native/render/plugin_seam.c"
 	"orchestrator/native/render/seam_host_vk.c"
 )
 
@@ -262,6 +265,7 @@ if(APPLE) # apple
 	set(rengine_seam_metal_SOURCES
 		cmake.toml
 		"orchestrator/native/render/backend_seam.c"
+		"orchestrator/native/render/plugin_seam.c"
 	)
 
 	add_library(rengine_seam_metal STATIC)
@@ -425,6 +429,7 @@ target_compile_features(rengine_desktop_core PUBLIC
 
 target_include_directories(rengine_desktop_core PUBLIC
 	"orchestrator/native"
+	"packs/gpu/include"
 )
 
 target_link_libraries(rengine_desktop_core PUBLIC
@@ -844,7 +849,33 @@ if(BUILD_TESTING) # testing
 	rengine_plugin_variant(rengine_plugin_fixture_list_new "RE_FIXTURE_DRAW_LIST=(RE_DRAW_LIST_VERSION+1)" RE_FIXTURE_NAME="fixture-list-new")
 	rengine_plugin_variant(rengine_plugin_fixture_list_old RE_FIXTURE_DRAW_LIST=1 RE_FIXTURE_NAME="fixture-list-old")
 	rengine_plugin_variant(rengine_plugin_fixture_decline RE_FIXTURE_DECLINE=1 RE_FIXTURE_NAME="fixture-decline")
-	add_library(rengine_plugin_blank SHARED "${PROJECT_SOURCE_DIR}/orchestrator/native/tests/plugins/blank_plugin.c")
+	# --- F136: the scene plugin, the first that renders (charter D55, spec 126 decisions 6 and 7) ---
+	# It links the pack NOT AT ALL. scene.c and obj.c are the pack example's own sources, compiled here
+	# unchanged; their re_seam_* calls resolve to seam_forward.c, which forwards to the table the host
+	# hands over per frame. That is what lets --renderer stay a runtime switch with one seam (D56) while
+	# the tab and the standalone example remain the same source.
+	add_library(rengine_plugin_scene SHARED
+	  "${PROJECT_SOURCE_DIR}/plugins/scene/scene_plugin.c"
+	  "${PROJECT_SOURCE_DIR}/plugins/scene/seam_forward.c"
+	  "${PROJECT_SOURCE_DIR}/packs/gpu/examples/scene/scene.c"
+	  "${PROJECT_SOURCE_DIR}/packs/gpu/examples/scene/obj.c")
+	# The example's directory comes FIRST: the desktop also has a scene.h -- its synthetic 2D test card
+	# -- and it is not this one.
+	target_include_directories(rengine_plugin_scene PRIVATE
+	  "${PROJECT_SOURCE_DIR}/packs/gpu/examples/scene"
+	  "${PROJECT_SOURCE_DIR}/packs/gpu/include"
+	  "${PROJECT_SOURCE_DIR}/orchestrator/native")
+	target_compile_features(rengine_plugin_scene PRIVATE c_std_11)
+	if(NOT MSVC)
+	  target_compile_options(rengine_plugin_scene PRIVATE -Wall -Wextra)
+	  find_library(RENGINE_SCENE_M m)
+	  if(RENGINE_SCENE_M)
+	    target_link_libraries(rengine_plugin_scene PRIVATE ${RENGINE_SCENE_M})
+	  endif()
+	endif()
+	rengine_plugin_output(rengine_plugin_scene)
+	
+add_library(rengine_plugin_blank SHARED "${PROJECT_SOURCE_DIR}/orchestrator/native/tests/plugins/blank_plugin.c")
 	target_include_directories(rengine_plugin_blank PRIVATE "${PROJECT_SOURCE_DIR}/orchestrator/native")
 	rengine_plugin_output(rengine_plugin_blank)
 

@@ -13,6 +13,10 @@ typedef struct {
   void (*present)(ReBackend *backend);
   bool (*snapshot)(ReBackend *backend, const char *path);
   ReTexture *(*texture_create)(ReBackend *backend, int width, int height);
+  /* Wrap a texture the caller already owns so the draw list can sample it -- how a render pass's
+     result reaches a tab (charter D55). The id is the seam's, passed as a plain integer so this
+     header stays free of the pack's. Destroying the wrapper never destroys the texture. */
+  ReTexture *(*texture_adopt)(ReBackend *backend, uint32_t seam_texture, int width, int height);
   bool (*texture_update)(ReTexture *texture, const void *rgba, int pitch);
   void (*texture_destroy)(ReTexture *texture);
   void (*close)(ReBackend *backend);

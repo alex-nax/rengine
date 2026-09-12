@@ -97,6 +97,7 @@ def backends_text(names):
         "#define RENGINE_SEAM_BACKENDS_H",
         '#include "render/backend.h"',
         "#include <stdint.h>",
+        "struct RePluginRender; struct ReSeam;   /* the render extension's, declared where it is defined */",
         "",
     ]
     for api in APIS:
@@ -104,8 +105,15 @@ def backends_text(names):
         if guard:
             lines.append(guard)
         for name in mine:
-            signature = "uint32_t %s(void);" if name.endswith("window_flags") else \
-                        "ReBackend *%s(void *window, ReFontSet *fonts);"
+            # Name-driven, because these are rEngine's own entry points and there are four shapes.
+            # A fifth would need a line here; the alternative -- parsing backend_seam.h's
+            # declarations -- is more machinery than four names are worth.
+            signature = {
+                "window_flags": "uint32_t %s(void);",
+                "plugin_table": "const struct RePluginRender *%s(void);",
+                "seam_seam": "struct ReSeam *%s(ReBackend *backend);",
+            }.get(next((k for k in ("window_flags", "plugin_table", "seam_seam") if name.endswith(k)), ""),
+                  "ReBackend *%s(void *window, ReFontSet *fonts);")
             lines.append(signature % renamed(name, api))
         if guard:
             lines.append("#endif")

@@ -1,4 +1,5 @@
 #include "plugin.h"
+#include "plugin_render.h"   /* the render extension this file hands out per frame */
 #include "theme.h"
 #include <stdarg.h>
 #include <stdio.h>
@@ -18,7 +19,19 @@ struct RePlugin {
   ReTabRecord tabs[RE_PLUGIN_TABS_MAX]; int tab_count;
 };
 struct RePlugins { RePlugin rows[RE_PLUGINS_MAX]; int count; };
-struct RePluginFrame { ReDrawList *list; ReRect area; RePluginMeasure measure; void *context; };
+struct RePluginFrame {
+  ReDrawList *list; ReRect area; RePluginMeasure measure; void *context;
+  const RePluginRenderer *renderer;
+  /* This frame's copy of the table, with the host's four members filled. A plugin receives a
+     pointer to it and it dies with the frame, which is D55's "good for that frame only" made
+     structural rather than policed. */
+  struct RePluginRender render;
+  bool asked;                  /* a target was requested THIS frame; nothing may be presented otherwise */
+  uint32_t color, target_id;   /* what that request produced */
+  int color_w, color_h;
+  RePluginPointer pointer;
+  const char *subject;
+};
 
 /* --- the one platform wrapper (spec 106 decision 14) --- */
 static void *module_open(const char *path, char *reason, size_t size) {
@@ -108,10 +121,33 @@ static bool host_colour(const RePluginFrame *f, const char *token, ReColor *out)
   for (int i = 0; i < RE_THEME_COLOR_COUNT; i++) if (!strcmp(re_theme_field_tokens[i], token)) { *out = re_color(colors[i].r, colors[i].g, colors[i].b, colors[i].a); return true; }
   return false;
 }
+/* charter D55. A target is asked for by size and belongs to the host; `draw_target` refuses unless
+ * this frame asked, so a handle kept from an earlier frame cannot be presented -- it is refused
+ * rather than drawing, which is what F135's second criterion requires. */
+static bool host_target(RePluginFrame *f, int width, int height, ReSeamTarget *out) {
+  if (!f || !out || !f->renderer || !f->renderer->target || width <= 0 || height <= 0) return false;
+  if (!f->renderer->target(f->renderer->context, width, height, &f->color, &f->target_id)) return false;
+  f->asked = true; f->color_w = width; f->color_h = height;
+  *out = (ReSeamTarget){f->target_id, width, height};
+  return true;
+}
+static bool host_draw_target(RePluginFrame *f, ReRect rect, uint8_t flags) {
+  if (!f || !f->asked || !f->renderer || !f->renderer->draw_target) return false;
+  return f->renderer->draw_target(f->renderer->context, f->list, intersect(rect, f->area), flags);
+}
+static const RePluginRender *host_render(RePluginFrame *f) {
+  return f && f->renderer && f->renderer->table ? &f->render : NULL;
+}
+static const char *host_subject(const RePluginFrame *f) { return f && f->subject ? f->subject : ""; }
+static bool host_pointer(const RePluginFrame *f, RePluginPointer *out) {
+  if (!f || !out) return false;
+  *out = f->pointer; out->size = (uint32_t)sizeof(*out);
+  return true;
+}
 static const RePluginHost host = {
   (uint32_t)sizeof(RePluginHost), RE_PLUGIN_ABI_VERSION, RE_DRAW_LIST_VERSION,
   host_register_tab, host_area, host_rect, host_rrect, host_frame, host_shadow, host_ring, host_text, host_icon, host_gradient,
-  host_clip, host_text_width, host_colour,
+  host_clip, host_text_width, host_colour, host_render, host_pointer, host_subject,
 };
 const RePluginHost *re_plugins_host(void) { return &host; }
 
@@ -183,13 +219,23 @@ const char *re_plugins_error(const RePlugins *ps, int i) { const RePlugin *p = r
 int re_plugins_tab_count(const RePlugins *ps, int i) { const RePlugin *p = row(ps, i); return p && p->loaded ? p->tab_count : 0; }
 const char *re_plugins_tab_identity(const RePlugins *ps, int i, int k) { const RePlugin *p = row(ps, i); return p && k >= 0 && k < p->tab_count ? p->tabs[k].identity : ""; }
 const char *re_plugins_tab_title(const RePlugins *ps, int i, int k) { const RePlugin *p = row(ps, i); return p && k >= 0 && k < p->tab_count ? p->tabs[k].title : ""; }
-bool re_plugins_draw(RePlugins *ps, const char *identity, ReDrawList *list, ReRect area, RePluginMeasure measure, void *context) {
-  if (!ps || !identity || !list) return false;
+bool re_plugins_draw(RePlugins *ps, const char *identity, const RePluginFrameSpec *spec) {
+  if (!ps || !identity || !spec || !spec->list) return false;
+  ReDrawList *list = spec->list; ReRect area = spec->area;
   for (int i = 0; i < ps->count; i++) {
     RePlugin *p = &ps->rows[i]; if (!p->loaded) continue;
     for (int k = 0; k < p->tab_count; k++) {
       if (strcmp(p->tabs[k].identity, identity)) continue;
-      RePluginFrame frame = {list, area, measure, context};
+      RePluginFrame frame = {0};
+      frame.list = spec->list; frame.area = area; frame.measure = spec->measure; frame.context = spec->context;
+      frame.renderer = spec->renderer; frame.pointer = spec->pointer; frame.subject = spec->subject;
+      if (spec->renderer && spec->renderer->table) {
+        frame.render = *spec->renderer->table;       /* the seam half, from the linked copy */
+        frame.render.size = (uint32_t)sizeof(frame.render);
+        frame.render.seam = spec->renderer->seam;
+        frame.render.target = host_target;
+        frame.render.draw_target = host_draw_target;
+      }
       re_draw_list_clip(list, &area);
       p->tabs[k].draw(&frame, p->state);
       re_draw_list_clip(list, NULL);   /* whatever the plugin did, the frame after it starts clean */

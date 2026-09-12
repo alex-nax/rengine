@@ -14,11 +14,12 @@ static void rec_execute(ReBackend *b, const ReDrawList *l) {
 static void rec_present(ReBackend *b) { (void)b; }
 static bool rec_snapshot(ReBackend *b, const char *p) { (void)b; (void)p; return true; }
 static ReTexture *rec_texture_create(ReBackend *b, int w, int h) { (void)b; (void)w; (void)h; return NULL; }
+static ReTexture *rec_texture_adopt(ReBackend *b, uint32_t id, int w, int h) { (void)b; (void)id; (void)w; (void)h; return NULL; }
 static bool rec_texture_update(ReTexture *t, const void *rgba, int pitch) { (void)t; (void)rgba; (void)pitch; return false; }
 static void rec_texture_destroy(ReTexture *t) { (void)t; }
 static void rec_close(ReBackend *b) { (void)b; }
 static const ReBackendOps recorder_ops = {"recorder", rec_density, rec_begin, rec_execute, rec_present, rec_snapshot,
-                                          rec_texture_create, rec_texture_update, rec_texture_destroy, rec_close};
+                                          rec_texture_create, rec_texture_adopt, rec_texture_update, rec_texture_destroy, rec_close};
 
 int main(void) {
   ReDrawList list; re_draw_list_init(&list);

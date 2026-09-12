@@ -1,5 +1,55 @@
 # Progress Log
 
+## Session 120 (macos) — 2026-09-12 — Sponza renders in a tab: the plugin ABI learns to render (F135, F136 in part)
+
+The owner asked to render Sponza into a tab. It does: **786,801 vertices in 393 parts**, opened by
+clicking the `.obj` in the explorer, drawn through the seam the window itself renders with, on Metal.
+
+**The design fork, put to the owner because it is lasting.** D55 grants a plugin a render target but
+not a way to draw into one, and D56 forbids the obvious way: rEngine links three copies of the seam
+with their symbols prefixed, so `re_seam_draw` exists in no copy under that name and a plugin module
+cannot call it. The owner chose the seam **by pointer** over a built-in Scene view (no ABI work,
+reverses decision 6) and over a plugin linking its own copy (two code copies, one object). Every
+member of `plugin_render.h` has the signature of the seam function it stands for, which buys the
+thing that matters: `plugins/scene/seam_forward.c` is 29 one-line forwarders, and the pack's own
+`scene.c` and `obj.c` compile **unmodified** into the plugin. F136's "same sources as the example" is
+true by construction rather than by discipline.
+
+**The sequencing.** A 3D pass needs a seam frame, and `re_app_draw` runs before the desktop's frame
+opens — the draw list is still being recorded there. So the plugin opens its own frame on its own
+target, closes it, and the composite command recorded next samples a finished texture. `draw_target`
+refuses unless this frame asked for a target, which enforces D55's frame scope without policing the
+handle.
+
+**Two hardcoded counts, one bug each.** Adding a single command exposed `int views = 6` beside a
+seven-entry switcher table and `6 * (row + 2)` beside the pane menu's own: in both cases the extra
+entry existed in the layout and was invisible on screen — the menu's last command was drawn outside
+its own surface and reported by no control. Both are derived now.
+
+**The reference frames refused a toolbar button.** The built-in scene was a toolbar cell first, and
+the render gate went red — 0.6% of pixels, 12,741 outside the edge band. Those frames came from
+SDL_Renderer before it retired, so they are an oracle that cannot be re-recorded, which makes the
+chrome something a feature may not change casually. Decision 7 says "a command"; it is `Cmd/Ctrl E`.
+
+**The launcher was staging only `bin/`,** so a deployed desktop could not find the module it loads
+itself. A version snapshot now carries `plugins/` too.
+
+Commands: `npm run build`, `npm run test:native` (17/17), `npm run test:desktop` (**76 pass, 1 fail,
+1 skipped**), `python3 tools/design.py check`, `python3 tools/features.py validate` (125 features).
+The one failure is `native-handoff`, which passes alone and on its own re-run — the suite-load
+flakiness family of KI-084 and KI-088, not this change: it is the handoff's pane-presented wait, and
+nothing here touches it.
+
+Sabotage-verified, each for its own reason: the composite removed (red at "1 colours" in the tab) and
+the OpenGL table handed to a Metal window (red). Both are in `native-scene-tab.spec.mjs`.
+
+**Owed, and why both rows stay `passes: false`.** F135 criteria 2 and 3 have no test — the
+frame-scoped refusal and the tab-scoped pointer are in the code and criterion 6 names exactly those
+two sabotages, so a fixture that keeps a target and one that asks about another tab are still needed.
+F136's `.obj` half is verified by hand and not in the suite, because a gate cannot depend on a local
+asset; its idle-cost criterion is unmeasured and its drag is implemented but undriven. Spec 126
+carries all of it.
+
 ## Session 126 (macos) — 2026-09-12 — the codex quota probe: integration proven, and a stale host found swallowing hook reports
 
 The owner's codex quota reset, closing what Session 110 owed: the probe died at the model call

@@ -2259,7 +2259,10 @@
       "owner_workspace": "rengine",
       "external_references": [],
       "evidence": [
-        "docs/specs/126-scene-view-and-test-artifacts.md: why frame-scoped targets remove the hazard spec 106 named rather than policing it"
+        "orchestrator/native/plugin_render.h and render/plugin_seam.c: the seam as a table of pointers, compiled once per graphics API so the copy a plugin calls is the copy the window renders with; docs/specs/126 records why a plugin cannot call the seam directly.",
+        "orchestrator/tests/native-scene-tab.spec.mjs: a plugin renders into a target it asked for by size and the result is read back from a snapshot (267,862 distinct colours in the tab against 1 for a flat fill). Sabotage-verified twice: no composite (red at '1 colours') and the wrong prefixed table on Metal (red).",
+        "orchestrator/tests/native-plugin.spec.mjs: ABI 2 refuses a module built against 3, naming both versions.",
+        "OWED: criteria 2 and 3 have no test — a target kept past its frame is refused in code (plugin.c's per-frame `asked`) and the pointer is tab-scoped in code, and criterion 6 names exactly those two sabotages. Needs a fixture plugin that keeps a target and one that asks about another tab."
       ],
       "passes": false
     },
@@ -2286,7 +2289,9 @@
       "owner_workspace": "rengine",
       "external_references": [],
       "evidence": [
-        "docs/specs/126-scene-view-and-test-artifacts.md: the owner's distinction — render on the tab surface, not capture from a running process"
+        "orchestrator/tests/native-scene-tab.spec.mjs: Cmd/Ctrl E opens the built-in procedural scene in its own tab and it renders, with no session started, no surface reserved and no game view opened; and the plugin compiles the pack example's scene.c and obj.c rather than copies.",
+        "Crytek Sponza verified by hand on 2026-09-12 from ~/assets/sponza/sponza.obj: 786,801 vertices in 393 parts, opened by clicking the .obj in the explorer, rendered on Metal through the desktop's own seam. Snapshot in .cache/evidence.",
+        "OWED: criterion 1's .obj half is not in the suite (a gate cannot depend on a local asset; it needs a small committed model), criterion 4's idle cost is not measured, and criterion 5's drag is implemented but undriven by any test."
       ],
       "passes": false
     },

@@ -68,8 +68,6 @@ void re_overlay_roots(ReApp *a, mu_Context *ui) {
 /* The context menu from the menus card, with the shortcuts the workspace actually serves. */
 void re_overlay_pane(ReApp *a, mu_Context *ui) {
   int row = RE_METRIC_DESIGN_ROW, sep = RE_METRIC_DESIGN_GAP * 2;
-  int height = RE_METRIC_DESIGN_PAD * 2 + 6 * (row + 2) + 2 * sep;
-  if (!overlay_begin(a, ui, RE_METRIC_SETTINGS_WIDTH, height)) return;
   struct { const char *label; int icon; const char *hint; int action; } items[] = {
     {"Split vertical", RE_ICON_SPLIT_VERTICAL, RE_SHORTCUT_SPLIT_VERTICAL, RE_COMMAND_SPLIT_VERTICAL},
     {"Split horizontal", RE_ICON_SPLIT_HORIZONTAL, RE_SHORTCUT_SPLIT_HORIZONTAL, RE_COMMAND_SPLIT_HORIZONTAL},
@@ -77,9 +75,19 @@ void re_overlay_pane(ReApp *a, mu_Context *ui) {
     {"", 0, "", -1},
     {"New shell here", RE_ICON_SHELL, RE_SHORTCUT_SHELL, RE_COMMAND_SHELL},
     {"New agent session", RE_ICON_AGENT, "", RE_COMMAND_AGENT},
+    {"Scene", RE_ICON_RUN, RE_SHORTCUT_SCENE, RE_COMMAND_SCENE},
     {"", 0, "", -1},
     {"Close view", RE_ICON_CLOSE, RE_SHORTCUT_CLOSE, RE_COMMAND_CLOSE_VIEW},
   };
+  /* Derived from the table rather than written down beside it: the count was a literal 6, and
+     adding a seventh command left the last one drawn outside the surface -- present in the layout,
+     invisible on the screen, and reported by no control. */
+  int commands = 0, separators = 0;
+  for (int i = 0; i < (int)RE_ARRAY_SIZE(items); i++) {
+    if (items[i].action < 0) separators++; else commands++;
+  }
+  int height = RE_METRIC_DESIGN_PAD * 2 + commands * (row + 2) + separators * sep;
+  if (!overlay_begin(a, ui, RE_METRIC_SETTINGS_WIDTH, height)) return;
   for (int i = 0; i < (int)(sizeof(items) / sizeof(items[0])); i++) {
     if (items[i].action < 0) { mu_layout_row(ui, 1, (int[]){-1}, sep); re_ui_menu_separator(ui); continue; }
     mu_layout_row(ui, 1, (int[]){-1}, row);

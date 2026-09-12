@@ -17,7 +17,7 @@ import { nativeClient } from './native-client.mjs';
 const run = promisify(execFile);
 const WIN = process.platform === 'win32';
 const PYTHON = WIN ? 'python' : 'python3';
-const ABI = 're-plugin/1';
+const ABI = 're-plugin/2';
 const PLUGIN = 9; // RE_PLUGIN in app.h
 const modulePath = name => path.resolve('.cache/desktop/plugins', `${name}.${WIN ? 'dll' : process.platform === 'darwin' ? 'dylib' : 'so'}`);
 const FIXTURE = modulePath('rengine_plugin_fixture'), NEWER = modulePath('rengine_plugin_fixture_abi_new');
@@ -99,14 +99,15 @@ test('a module that will not load, one built against another ABI, and a declarat
     const first = await gui.command({ op: 'plugin', name: 'missing', path: missing, abi: ABI });
     assert.match(String(first), /plugin missing/); assert.match(String(first), /no-such-module/);
     const second = await gui.command({ op: 'plugin', name: 'fixture-abi-new', path: NEWER, abi: ABI });
-    assert.match(String(second), /was built against plugin ABI 2; this desktop is ABI 1/);
+    /* The numbers move with the ABI; the fixture is built against the desktop's plus one. */
+    assert.match(String(second), /was built against plugin ABI 3; this desktop is ABI 2/);
     const third = await gui.command({ op: 'plugin', name: 'claim', path: FIXTURE, abi: 're-plugin/7' });
     assert.match(String(third), /declares ABI 're-plugin\/7'/); assert.match(String(third), /was not opened/);
     const state = await gui.command({ op: 'state' });
     assert.ok(state.connected, 'still connected');
     assert.deepEqual(state.plugins.map(p => [p.name, p.state]), [['missing', 'refused'], ['fixture-abi-new', 'refused'], ['claim', 'refused']]);
     assert.match(state.plugins[0].error, /no-such-module/);
-    assert.match(state.plugins[1].error, /plugin ABI 2/);
+    assert.match(state.plugins[1].error, /plugin ABI 3/);
     assert.ok(!state.tabs.some(t => t?.type === PLUGIN), 'no tab from a refused plugin');
     assert.equal(await gui.command({ op: 'snapshot', path: path.join(dir, 'alive.bmp') }), true, 'the window still renders a frame');
   } finally {

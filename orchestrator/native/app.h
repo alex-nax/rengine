@@ -12,10 +12,16 @@
 enum { RE_TREE = 1, RE_EDITOR, RE_TERMINAL, RE_SESSIONS, RE_GAME, RE_DASHBOARD, RE_DEVICES, RE_TRACKER, RE_PLUGIN };
 #define RE_DEVICES_TIMEOUT_MS 45000L /* a devices load runs every declared probe; see sidecar: devices-route */
 typedef struct {
+  /* Wheel steps a plugin tab has not been shown yet. Per tab rather than per window because the
+     contract is "since this plugin's previous frame", and an unfocused tab has no frames. */
+  float plugin_wheel_x, plugin_wheel_y;
   bool used, dirty, conflict, discarding; int type, generation, saved, checkpoint, checkpoint_flight;
   bool session_ended;                        /* its session is gone from the workspace state: it ended with a previous host (spec 098) */
   char root[65], session[65], path[2048], title[256], version[65], error[512];
   char selected[1024];                       /* the last row opened here; its branch is never collapsed */
+  /* What a plugin tab was opened FOR, absolute: the .obj a Scene tab shows (spec 126 decision 7).
+     `path` holds a plugin tab's identity, so the file it is pointed at needs its own field. */
+  char subject[1024];
   int link_line, link_column;
   int diagnostic_version;    /* the language servers' publish counter this tab has already drawn */
   cJSON *data; ReTerminal *terminal; ReEditor *editor; ReGame *game; ReFormatView *format; ReImageView *image; ReRecorder *recorder;
@@ -65,6 +71,7 @@ typedef struct ReApp {
   bool file_link_pressed, file_link_inactive;
   SDL_Cursor *file_link_cursor;
   int focus, drag_tab, resize_pane, drag_x, drag_y, mouse_x, mouse_y;
+  uint8_t plugin_buttons;       /* buttons held, for the tab-scoped pointer a plugin gets (D55) */
   Uint64 layout_changed, quit_started;
   /* What the focused editor last told the workspace, so a caret that has not moved is not
    * reported again and a held arrow key does not send a frame's worth of notifications. */

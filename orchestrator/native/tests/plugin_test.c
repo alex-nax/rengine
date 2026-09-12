@@ -84,9 +84,9 @@ int main(int argc, char **argv) {
   ReDrawList list; re_draw_list_init(&list);
   re_draw_list_reset(&list, 800, 600, 1.0f, re_color(0, 0, 0, 255));
   ReRect area = re_rect(100, 50, 300, 200);
-  assert(!re_plugins_draw(plugins, "fixture/nope", &list, area, measure, NULL) && list.count == 0);
-  assert(!re_plugins_draw(plugins, "fixture-decline/hello", &list, area, measure, NULL) && list.count == 0);
-  assert(re_plugins_draw(plugins, "fixture/hello", &list, area, measure, NULL));
+  assert(!re_plugins_draw(plugins, "fixture/nope", &(RePluginFrameSpec){.list = &list, .area = area, .measure = measure}) && list.count == 0);
+  assert(!re_plugins_draw(plugins, "fixture-decline/hello", &(RePluginFrameSpec){.list = &list, .area = area, .measure = measure}) && list.count == 0);
+  assert(re_plugins_draw(plugins, "fixture/hello", &(RePluginFrameSpec){.list = &list, .area = area, .measure = measure}));
   if (list.count != 10) fprintf(stderr, "the frame holds %d commands, not 10\n", (int)list.count);
   assert(list.count == 10);
   const ReCommand *c = list.commands;
@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
   ReColor before = c[5].color;
   int preset = re_theme_select("light"); assert(preset >= 0);
   re_draw_list_reset(&list, 800, 600, 1.0f, re_color(0, 0, 0, 255));
-  assert(re_plugins_draw(plugins, "fixture/hello", &list, area, measure, NULL) && list.count == 10);
+  assert(re_plugins_draw(plugins, "fixture/hello", &(RePluginFrameSpec){.list = &list, .area = area, .measure = measure}) && list.count == 10);
   assert(!same_color(list.commands[5].color, before) && same_color(list.commands[5].color, re_color(RE_COLOR_TEXT.r, RE_COLOR_TEXT.g, RE_COLOR_TEXT.b, RE_COLOR_TEXT.a)));
 
   /* What the window reports. */

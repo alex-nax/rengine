@@ -7,7 +7,7 @@
 #include "plugin_abi.h"
 #include "cJSON.h"
 #define RE_PLUGINS_MAX 16
-#define RE_PLUGIN_ABI_STRING "re-plugin/1"   /* what a declaration's `abi` must say for this desktop */
+#define RE_PLUGIN_ABI_STRING "re-plugin/2"   /* what a declaration's `abi` must say for this desktop */
 #define RE_PLUGIN_IDENTITY_MAX (RE_PLUGIN_NAME_MAX * 2 + 2)
 typedef struct RePlugins RePlugins;
 /* Text measurement the frame lends to a plugin: the desktop passes its font set, a test passes anything. */
@@ -26,9 +26,35 @@ const char *re_plugins_error(const RePlugins *plugins, int plugin);
 int re_plugins_tab_count(const RePlugins *plugins, int plugin);
 const char *re_plugins_tab_identity(const RePlugins *plugins, int plugin, int tab);   /* "<name>/<key>" */
 const char *re_plugins_tab_title(const RePlugins *plugins, int plugin, int tab);
+/* What a frame can render with (charter D55). Supplied by the caller because this file knows no
+ * backend -- that is what lets the CTest run it headlessly -- so the desktop passes its own and a
+ * test passes NULL, in which case the extension is simply absent from the host table. `table` is
+ * the seam by pointer, from whichever prefixed copy the window linked. */
+typedef struct {
+  const struct RePluginRender *table;
+  struct ReSeam *seam;
+  /* An off-screen colour+depth target of this size, and compositing its colour into the tab. The
+   * host owns both, so a renderer change between frames leaves the plugin holding nothing. */
+  bool (*target)(void *context, int width, int height, uint32_t *color, uint32_t *target_id);
+  bool (*draw_target)(void *context, ReDrawList *list, ReRect rect, uint8_t flags);
+  void *context;
+} RePluginRenderer;
+
+/* One frame of one plugin tab. `renderer` NULL means this frame cannot render; `pointer.inside`
+ * false means the pointer is over something else, which is all D55 lets a plugin know about it. */
+typedef struct {
+  ReDrawList *list;
+  ReRect area;
+  RePluginMeasure measure;
+  void *context;
+  const RePluginRenderer *renderer;
+  RePluginPointer pointer;
+  const char *subject;      /* the file this tab was opened for, or NULL */
+} RePluginFrameSpec;
+
 /* One frame of the tab named by `identity`: clips to `area`, runs the plugin's draw, resets the
  * clip. False, appending nothing, when no loaded plugin owns that identity. */
-bool re_plugins_draw(RePlugins *plugins, const char *identity, ReDrawList *list, ReRect area, RePluginMeasure measure, void *context);
+bool re_plugins_draw(RePlugins *plugins, const char *identity, const RePluginFrameSpec *spec);
 cJSON *re_plugins_inspect(const RePlugins *plugins);       /* the `plugins` rows of the inspected state */
 const RePluginHost *re_plugins_host(void);                 /* the table every plugin receives */
 #endif
