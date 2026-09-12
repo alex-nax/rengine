@@ -1,5 +1,33 @@
 # Progress Log
 
+## Session 122 (macos) — 2026-09-12 — J0 loop tick 2: F148 split-proposed, not started (KI-092)
+
+Second tick of the hourly J0 loop. F147 awaits the KI-091 verdict, so the row was F148
+(registry-as-data) — and on sizing, the stop branch applied again: two honest ticks wearing one
+row.
+
+**The seam.** The TOML half is one tick: the five-recipe SHIPPED table becomes one TOML document
+(absent capabilities as omitted tables — TOML has no null; id-shape regexes as literal strings; a
+`recipes.*` shape the EXTRA file shares), a bounded subset parser on each side (JS in registry.mjs,
+Rust in a new red-agents lib crate), cook()/API byte-stable, the EXTRA file moving JSON→TOML (a
+spec 127 contract change, recorded in the KI), and resolved-recipe parity against a Rust JSON dump.
+The spawn-env half is another: the RENGINE_AGENT_* composition (sessions.mjs:129-201) pinned at
+the pty.spawn boundary with a stub, its boundary decided (pane-identity three, or
+ORCHESTRATOR_SESSION/HANDOFF_* too?), ported to red-agents, byte-exact for kimi/claude/codex.
+
+**The standing-rule ask (KI-092).** Two of two ticks have hit the same wall: the J0 rows were
+written coarser than the hourly cadence the owner set. Proposal: the loop may implement a filed
+split's FIRST sub-row on the next tick without waiting, passing the parent row only when every
+criterion has evidence. The split rows' text stays untouched; the owner may revoke by saying so.
+Until at least one split is approved the loop idles — it reports, it does not code.
+
+Commands: `git status -sb`, `features.py next`, `show 148`; reads of `agents/registry.mjs`,
+`agents/config.mjs`, `server/sessions.mjs:110-210`, `agent-registry.test.mjs`, and the
+RENGINE_AGENT_* composition sites. No gates — no code changed.
+
+**Owed.** Owner verdicts on KI-091 (F147 split), KI-092 (F148 split) and the standing rule. With
+them, the next tick implements F148a; without them, it files nothing and says why.
+
 ## Session 121 (macos) — 2026-09-12 — J0 loop tick 1: F147 split-proposed, not started (KI-091)
 
 First tick of the hourly J0 loop (cron `01M2AGK5YNB630T8HJ2SQPXR3B`). Tree clean, main in sync,
