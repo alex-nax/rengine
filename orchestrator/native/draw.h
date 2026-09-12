@@ -30,6 +30,9 @@ void re_draw_stats_reset(ReDraw *draw);
 void re_draw_close(ReDraw *draw);
 void re_draw_bind(ReDraw *draw, mu_Context *ui);
 int re_draw_theme(ReDraw *draw, const char *preset); /* live preset switch; index or -1 */
+/* The window's size in LOGICAL pixels. The backend derives this frame's density by dividing the
+   drawable it owns by `width`, so handing it physical pixels reports a density of 1 and draws the
+   whole interface at 1/density scale — which reads as missing text rather than as a wrong size. */
 void re_draw_begin(ReDraw *draw, int width, int height);
 void re_draw_commands(ReDraw *draw, mu_Context *ui);
 void re_draw_end(ReDraw *draw);

@@ -367,3 +367,70 @@ and only its header's include chain kept it on the desktop:
 
 The desktop is byte-identical on all three renderers across every step of this, and the render spec
 still passes against the recorded frames.
+
+## The phone's two defects, and what each one was really about
+
+The owner ran the companion on an Android phone and reported the same two things twice: the buttons
+could not be tapped, and they were not in the IDE's style. Both are now fixed, and neither was where
+the recorded diagnosis said it was — which is the part worth keeping.
+
+### Touch: a handler nobody registered, and a command that proved nothing
+
+`android_main` set `onAppCmd` and never set `onInputEvent`. The NDK's glue reads the input queue in
+`process_input` and then does `if (app->onInputEvent != NULL) handled = app->onInputEvent(...)`, so a
+null handler is an event nobody wanted rather than an error: the app kept drawing at 60 fps and threw
+every touch away in silence.
+
+KI-090 had recorded the opposite — "assigned in `android_main` and never called, verified by logging
+on entry while tapping with `adb shell input tap`". The handler and its registration had in fact been
+lost in the revert to the direct-backend file, so there was nothing to call. **And the verification
+was empty:** this phone answers `adb shell input` with `SecurityException: INJECT_EVENTS`, and
+SELinux refuses `sendevent` on `/dev/input` to the shell domain even though `shell` is in the `input`
+group. The command that "proved" the handler was never entered had never delivered a tap. A device
+observation is only evidence once the stimulus is confirmed to have happened.
+
+One finger is a mouse, which is all microui knows. A tap whose press and release both land between
+two frames still submits: `mu_input_mouseup` clears `mouse_down`, but `mouse_pressed` survives until
+`mu_end`, and `mu_update_control` sets hover precisely when the pointer is over the control and
+`mouse_down` is clear. The pointer is parked off-screen after a release because a finger has no
+hover and a control should not keep the look a mouse would have earned by staying there.
+
+### Style: a units contract, not a renderer defect
+
+The owned control layer needs `ReDraw` — `re_ui_begin` takes one — and the ReDraw path was blocked by
+KI-089, "rects render, glyphs do not". It rendered glyphs the whole time. `re_draw_begin(draw, w, h)`
+asks the backend for the density by dividing the drawable it owns by the `w` it is handed, so passing
+the phone's physical 1080×2400 reports a density of **1.0** and draws the entire interface at 1/2.75
+scale: 12-pixel text on a 1080-wide panel, which looks exactly like no text at all next to a
+full-screen probe rect.
+
+The bisect had already measured this and it was read as a symptom instead of the cause:
+`text_width("HELLO")=40` is a cell width of 8, which is the mono advance at density 1.0 — at 2.75 it
+is 20 and the string is 100. The number that identified the bug was in the issue for a day.
+
+`re_draw_begin`'s header now says the size is logical pixels and that the backend derives density
+from it, because a function whose density depends on the units of an `int` argument is a contract,
+not a detail.
+
+### What the phone draws now
+
+`re_ui_button_ex`, `re_ui_label_ex`, `re_ui_row_ex` and `re_ui_pill` — the IDE's own controls, not a
+phone stylesheet and not upstream microui's widgets. Two consequences worth naming:
+
+- **The bundled faces ship in the APK.** `re_font_open` found neither Inter nor Phosphor on Android,
+  because their paths were a compile-time `RENGINE_FONT_DIR` concatenation and every face fell back
+  to the system mono. `re_font_bundle_dir` makes that directory a run-time value; Gradle stages the
+  repository's vendored faces into the APK's assets (the repository stays the one origin, F144
+  criterion 1) and the native layer unpacks them where `fopen` can reach them. The desktop keeps the
+  compiled-in default and its reference frames are unchanged.
+- **The panel is fullscreen.** Without `AWINDOW_FLAG_FULLSCREEN` the status bar sits on top of the
+  first row, and the native layer has no way to ask how tall it is.
+
+`companion-build.test.mjs` gates both defects as properties rather than as fixes — the entry must
+register an input handler and feed `mu_input_*`, and the frame must not call `mu_button`, `mu_label`
+or their siblings. Each was observed failing for its own reason: the registration deleted, and one
+`re_ui_button_ex` swapped back to `mu_button`.
+
+Touch targets are the desktop's metrics — a 26 dp row, a 26 dp button — which is below Android's
+48 dp guidance. That is deliberate for now: the owner asked for the desktop's styling, and a phone
+scale factor is a design decision rather than a bug to fix quietly.

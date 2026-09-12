@@ -84,3 +84,32 @@ test('init.sh says what is missing for the companion without gating the desktop 
      fatal check here would gate every contributor's harness on a mobile SDK. */
   assert.match(init, /NOTE: the pinned Android NDK/, 'reported, not fatal');
 });
+
+/* The two defects the owner reported on the phone, as properties rather than as fixes.
+ *
+ * Both were silent: a handler the glue never calls drops every touch without an error, and plain
+ * microui widgets draw a perfectly good interface that simply is not this product's. Neither shows
+ * up in a build, a log or a frame count, which is why they survived a working app for two rounds. */
+test('the native entry hands Android touches to microui', async () => {
+  const entry = await read('apps/companion/app/src/main/cpp/companion.c');
+  const handler = /(\w+)\s*=\s*on_input|onInputEvent\s*=\s*(\w+)/.exec(entry);
+  assert.match(entry, /app->onInputEvent\s*=\s*\w+/,
+    'android_main registers an input handler: the glue asks onInputEvent and a null one is a silently dropped event');
+  const named = /app->onInputEvent\s*=\s*(\w+)\s*;/.exec(entry)[1];
+  assert.ok(new RegExp(`int32_t\\s+${named}\\s*\\(`).test(entry), `${named} is defined in this file`);
+  assert.ok(handler, 'the registered handler is the touch handler');
+  for (const call of ['mu_input_mousedown', 'mu_input_mouseup', 'mu_input_mousemove']) {
+    assert.ok(entry.includes(call), `a touch reaches microui through ${call}`);
+  }
+});
+
+test('the companion draws with the owned control layer, not bare microui widgets', async () => {
+  const entry = await read('apps/companion/app/src/main/cpp/companion.c');
+  /* Charter D33: upstream microui stays pristine and the controls are ours. A phone that calls
+     mu_button renders the upstream look, which is the thing the owner could see at a glance. */
+  for (const bare of ['mu_button(', 'mu_button_ex(', 'mu_label(', 'mu_checkbox(', 'mu_textbox(']) {
+    assert.ok(!entry.includes(bare), `the frame calls ${bare}rather than the owned control`);
+  }
+  assert.match(entry, /re_ui_button_ex\(/, 'buttons are the desktop\'s own control');
+  assert.match(entry, /re_ui_label_ex\(|re_ui_row_ex\(/, 'text rows are the desktop\'s own controls');
+});

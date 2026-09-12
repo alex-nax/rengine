@@ -13,8 +13,15 @@
 typedef struct { unsigned char *bytes; stbtt_fontinfo info; int ascent, descent, gap; } Face;
 struct ReFontSet { Face faces[RE_FACE_COUNT]; bool owned[RE_FACE_COUNT]; };
 static char error_text[160];
+/* Where the bundled UI and icon faces live. The desktop's build compiles in the vendored tree; an
+   app that ships them inside its package (the Android companion unpacks them out of its assets)
+   only learns the directory at run time, and says so before opening the set. */
+static char bundle_dir[512] = RENGINE_FONT_DIR;
 
 const char *re_font_error(void) { return error_text; }
+void re_font_bundle_dir(const char *dir) {
+  if (dir && *dir) snprintf(bundle_dir, sizeof(bundle_dir), "%s", dir);
+}
 
 /* trusted local fonts only — see sidecar: trusted-fonts */
 static bool load(Face *face, const char *path) {
@@ -48,13 +55,15 @@ ReFontSet *re_font_open(const char *mono_path, const char *ui_path) {
   }
   /* Bundled faces (spec 076 decisions 5 and 6); each falls back rather than failing the desktop. */
   static const struct { uint8_t face; const char *file; } bundled[] = {
-    {RE_FACE_UI, RENGINE_FONT_DIR "/inter/Inter-Regular.ttf"},
-    {RE_FACE_UI_MEDIUM, RENGINE_FONT_DIR "/inter/Inter-Medium.ttf"},
-    {RE_FACE_UI_SEMIBOLD, RENGINE_FONT_DIR "/inter/Inter-SemiBold.ttf"},
-    {RE_FACE_ICON, RENGINE_FONT_DIR "/phosphor/Phosphor.ttf"},
+    {RE_FACE_UI, "inter/Inter-Regular.ttf"},
+    {RE_FACE_UI_MEDIUM, "inter/Inter-Medium.ttf"},
+    {RE_FACE_UI_SEMIBOLD, "inter/Inter-SemiBold.ttf"},
+    {RE_FACE_ICON, "phosphor/Phosphor.ttf"},
   };
   for (size_t i = 0; i < sizeof(bundled) / sizeof(bundled[0]); i++) {
-    if (load(&fonts->faces[bundled[i].face], bundled[i].file)) fonts->owned[bundled[i].face] = true;
+    char path[640];
+    snprintf(path, sizeof(path), "%s/%s", bundle_dir, bundled[i].file);
+    if (load(&fonts->faces[bundled[i].face], path)) fonts->owned[bundled[i].face] = true;
   }
   if (load(&fonts->faces[RE_FACE_UI], ui_path)) fonts->owned[RE_FACE_UI] = true; /* RENGINE_UI_FONT wins over the bundle */
   for (int i = RE_FACE_UI; i < RE_FACE_COUNT; i++) {

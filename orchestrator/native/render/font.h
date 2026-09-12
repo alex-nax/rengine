@@ -7,6 +7,9 @@ typedef struct ReFontSet ReFontSet;
 typedef struct { int ascent, line_height, advance; } ReFontMetrics;   /* logical pixels; advance is the width of 'M' */
 typedef struct { int w, h, dx, dy; unsigned char *pixels; } ReGlyphBitmap; /* drawable pixels, 8-bit coverage */
 
+/* The directory holding the bundled UI and icon faces (`inter/`, `phosphor/`). The build compiles
+   in the vendored tree; call this before re_font_open when the app carries them somewhere else. */
+void re_font_bundle_dir(const char *dir);
 ReFontSet *re_font_open(const char *mono_path, const char *ui_path);
 void re_font_close(ReFontSet *fonts);
 const char *re_font_error(void);

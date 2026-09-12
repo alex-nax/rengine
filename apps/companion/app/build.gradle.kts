@@ -1,6 +1,17 @@
+// The desktop's own Inter and Phosphor faces (charter D33/D34, spec 076), packaged rather than
+// copied: the repository's vendored tree stays the one origin and this stages it into the APK at
+// build time, where the native layer unpacks it and points re_font_bundle_dir at the result.
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+}
+
+val stageFonts = tasks.register<Sync>("stageCompanionFonts") {
+    val vendor = rootProject.projectDir.resolve("../../third_party")
+    from(vendor.resolve("inter")) { into("inter") }
+    from(vendor.resolve("phosphor")) { into("phosphor") }
+    include("**/*.ttf")
+    into(layout.buildDirectory.dir("generated/fonts"))
 }
 
 android {
@@ -32,6 +43,8 @@ android {
             version = "3.22.1"
         }
     }
+
+    sourceSets["main"].assets.srcDir(stageFonts)
 
     buildTypes {
         release {

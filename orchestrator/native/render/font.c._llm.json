@@ -5,8 +5,8 @@
       "id": "trusted-fonts",
       "kind": "constraint",
       "anchor": {
-        "start": 20,
-        "end": 20,
+        "start": 27,
+        "end": 27,
         "snippet": "static bool load(Face *face, const char *path) {",
         "symbol": "load"
       },
@@ -20,8 +20,8 @@
       "id": "pen-parity",
       "kind": "constraint",
       "anchor": {
-        "start": 140,
-        "end": 140,
+        "start": 149,
+        "end": 149,
         "snippet": "ReTextPen re_font_pen(ReFontSet *fonts, uint8_t face_id, int size, float density, int x) {",
         "symbol": "re_font_pen"
       },
@@ -35,8 +35,8 @@
       "id": "glyph-fallback",
       "kind": "constraint",
       "anchor": {
-        "start": 89,
-        "end": 89,
+        "start": 98,
+        "end": 98,
         "snippet": "static uint32_t substitute(uint32_t codepoint) {",
         "symbol": "substitute"
       },

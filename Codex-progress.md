@@ -1,5 +1,49 @@
 # Progress Log
 
+## Session 118 (macos) — 2026-09-12 — the phone's buttons work and wear the IDE's controls (KI-089, KI-090 closed)
+
+Both of the things the owner reported twice are fixed, and neither was where the previous session's
+notes said it was.
+
+**Touch — `onInputEvent` was never assigned.** `android_main` set `onAppCmd` and nothing else; the
+handler had been lost in the revert to the direct-backend `companion.c`. The NDK glue calls
+`onInputEvent` only `if (... != NULL)`, so a missing handler is a silently discarded event. KI-090
+recorded "assigned and never called, verified by logging while tapping with `adb shell input tap`" —
+both halves wrong. **This phone cannot be driven by adb at all:** MIUI answers `input` with
+`SecurityException: INJECT_EVENTS`, and SELinux refuses `sendevent` on `/dev/input` to the shell
+domain despite `shell` being in the `input` group. The command that "verified" the old diagnosis had
+never delivered a tap. One finger is mapped to microui's pointer, and a tap whose press and release
+both land between two frames still submits, because `mouse_pressed` survives to `mu_end`.
+
+**Style — a units bug, not a renderer bug.** The owned control layer needs `ReDraw`, and `ReDraw` was
+blocked by KI-089's "rects render, glyphs do not". It rendered glyphs all along:
+`re_draw_begin(draw, w, h)` derives density as `drawable / w`, so passing the phone's physical
+1080×2400 reported density 1.0 and drew the whole interface at 1/2.75 scale. The bisect had already
+measured it — `text_width("HELLO")=40` is a cell width of 8, the mono advance at density 1.0 — and it
+was read as a symptom. `re_draw_begin`'s header now states the units and what the backend does with
+them.
+
+The phone now draws `re_ui_button_ex`, `re_ui_label_ex`, `re_ui_row_ex` and `re_ui_pill`: the IDE's
+own controls with Inter, Phosphor icons, the segmented group and the accent button. Two things that
+took: `re_font_bundle_dir` makes the bundled-face directory a run-time value (it was a compile-time
+`RENGINE_FONT_DIR` concatenation, so every face silently fell back to the system mono on Android) and
+Gradle stages the repository's vendored faces into the APK's assets, the repository staying the one
+origin; and `AWINDOW_FLAG_FULLSCREEN`, without which the status bar sits on the first row.
+
+Commands: `./gradlew assembleDebug`, `adb install`, `npm run build`, `npm run test:native`
+(15/15), `node --test orchestrator/tests/native-render.spec.mjs` (reference frames unchanged),
+`python3 tools/design.py check`, `python3 tools/features.py validate` (117 features).
+
+Two new regressions in `companion-build.test.mjs`, each observed failing for its own reason: the
+entry must register an input handler and feed `mu_input_*` (sabotage: delete the assignment), and the
+frame must not call `mu_button`/`mu_label` and friends (sabotage: one `re_ui_button_ex` swapped back).
+
+**Owed.** The tap path is verified by source and by the desktop's use of the same microui calls, not
+on the device — this phone refuses every injection route, so the final confirmation is the owner
+tapping while `logcat -s rengine.companion` shows `touch down at x,y logical`. Touch targets are the
+desktop's 26 dp, below Android's 48 dp guidance; deliberate, and a design call rather than a quiet
+fix. F141 (`red-link` over libp2p) is still the next feature.
+
 ## Session 117 (macos) — 2026-09-12 — the phone's UI is themed and full-width; input and the control layer are not done
 
 Relaunched on the unlocked phone and worked the three things the owner reported. Two are fixed, one
