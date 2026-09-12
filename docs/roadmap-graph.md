@@ -294,6 +294,10 @@ flowchart TD
   F173["F173: blocked"]
   F170 --> F173
   F172 --> F173
+  F174["F174: passing"]
+  F169 --> F174
+  F175["F175: ready"]
+  F174 --> F175
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -423,3 +427,5 @@ flowchart TD
 | F171 | J0 | rengine | passing | F149a (the shell half of F149): the red-agents binary carries the registry's shell surface — list/show byte-exact with the registry.mjs CLI, the three conversation flag parsers, and the codex hook key/trust-hash math — and agent.sh dispatches its registry reads to it with its own CLI unchanged (owner, 2026-09-12; spec 129, KI-093). |
 | F172 | J0 | rengine | ready | F149b (the hook reporter half of F149): red-agents report-session emits byte-identical payloads to the JS version for all five providers on recorded hook fixtures, the launcher composes the Rust binary into hook command lines, and report-session.mjs is deleted (owner, 2026-09-12; spec 129, KI-093). |
 | F173 | J0 | rengine | blocked | F149c (the consumer half of F149): the server-side recipe/config consumers move off registry.mjs and config.mjs — the tasks menu and model flags, store's conversation-id shaping, sessions' capability reads, agentLaunch's MCP overlays — and registry.mjs, config.mjs and bind.mjs are deleted (owner, 2026-09-12; spec 129, KI-093). |
+| F174 | J0 | rengine | passing | F170a (the channel half of F170): the stdio red-store service (newline-delimited JSON-RPC, the house's LSP/MCP-worker shape) and the thin store-client.mjs presenting the exact WorkspaceStore surface, fail statuses included — the F169 corpus replayed through the client drift-free (owner, 2026-09-12; spec 129, KI-095). |
+| F175 | J0 | rengine | ready | F170b (the swap half of F170): the ten server consumers of store.mjs/schema.mjs rewire to store-client.mjs, main.mjs manages the service lifecycle, and store.mjs and schema.mjs are deleted in the same commit the replacement passes (owner, 2026-09-12; spec 129, KI-095). |

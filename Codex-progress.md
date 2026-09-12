@@ -1,5 +1,36 @@
 # Progress Log
 
+## Session 128 (macos) — 2026-09-12 — the store is a process now: the stdio red-store service and its thin client (F174 / F170a)
+
+Loop tick 7 took F170 — sized it first and filed KI-095 (the channel half and the swap half
+are two ticks), then implemented F174 under the standing rule. The workspace store now runs as
+a process: `red-store-serve <state-dir>`, newline-delimited JSON-RPC — the house's
+LSP/MCP-worker shape, and the first JS-host→Rust channel the epic builds. F151/F152/F158 ride
+the same shape; F175's swap is next and ready.
+
+**The proof is the corpus again.** The F169 recording (now `store-corpus.mjs`, a non-test
+module — importing a `.test.mjs` runs its tests in the importer, which bit mid-run) replays
+through `store-client.mjs` + the service: ops, readback, file ops, schema cases, and the
+workspace.json bytes after each op, drift-free. `fail` statuses survive the hop; the harness
+injects the recorded mints and stamps (`RED_STORE_MINT_SEQUENCE`/`RED_STORE_NOW_SEQUENCE`,
+harness-only), the clock answering by REQUEST index to match the capture's op-count pinning.
+The service exits when stdin closes (no store process left behind by a dead host); `state`
+rides every answer so the client's snapshot reads like the JS store's field; `open` awaits the
+`started` line, so a damaged state fails open() like the JS store's own.
+
+Commands: `node --test` (service+corpus files 4/4), `npm test` (294/294), `ctest` (17/17),
+`./init.sh`, `design.py check`, `features.py validate` (127 features). Four sabotages red for
+their own reason: status dropped over the hop, `state` not ridden, the request clock not
+ticking, a wrong method name — all restored.
+
+Evidence: `docs/evidence/red-store-service-f174-2026-09-12.md`, with the F175 design notes
+(the channel's exact framing, the standalone helpers' most-recent-store rule, the binary
+resolution). F174 `passes: true`; F175 ready; F170 stays open until the swap lands.
+
+**Owed.** Next ready J0 rows by id: **F170's swap half F175** (rewires + deletion; the only
+deletion slice ready) and **F172** (F149b, report-session, channel-free). Also open from the
+owner: the `--replace-host` run (KI-094) and its re-verification.
+
 ## Session 127 (macos) — 2026-09-12 — red-store: the workspace store in Rust, byte-compatible (F169 / F147a)
 
 *(Numbering note: two entries below are also numbered 120/121 — the parallel scene session

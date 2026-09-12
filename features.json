@@ -3102,6 +3102,46 @@
       "deliverable": "The consumer migration, the agentLaunch port, and the deletion commit.",
       "external_references": [],
       "evidence": []
+    },
+    {
+      "id": 174,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "F170a (the channel half of F170): the stdio red-store service (newline-delimited JSON-RPC, the house's LSP/MCP-worker shape) and the thin store-client.mjs presenting the exact WorkspaceStore surface, fail statuses included — the F169 corpus replayed through the client drift-free (owner, 2026-09-12; spec 129, KI-095).",
+      "acceptance_criteria": [
+        "The client is indistinguishable from the JS WorkspaceStore on the F169 corpus through the service: ops, readback, file ops, schema cases, and the workspace.json bytes after each op, with the harness injecting the recorded mints and stamps.",
+        "fail statuses survive the hop (400/403/404/409 and raw errors without status), and the service exits when its stdin closes while a reopened client reads the same state."
+      ],
+      "passes": true,
+      "dependencies": [
+        169
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The red-store-serve binary, store-client.mjs, the corpus-through-client harness, and the lifecycle tests.",
+      "external_references": [],
+      "evidence": [
+        "docs/evidence/red-store-service-f174-2026-09-12.md"
+      ]
+    },
+    {
+      "id": 175,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "F170b (the swap half of F170): the ten server consumers of store.mjs/schema.mjs rewire to store-client.mjs, main.mjs manages the service lifecycle, and store.mjs and schema.mjs are deleted in the same commit the replacement passes (owner, 2026-09-12; spec 129, KI-095).",
+      "acceptance_criteria": [
+        "Every consumer of store.mjs and schema.mjs reads through store-client.mjs; the host's external API is byte-identical, error statuses included, on the full suite.",
+        "store.mjs and schema.mjs are deleted in the same commit the replacement goes green; each ported test was observed failing for the module's absence before the implementation made it pass."
+      ],
+      "passes": false,
+      "dependencies": [
+        174
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The consumer rewires, the lifecycle wiring in main.mjs, the ported suite, and the deletion commit.",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }

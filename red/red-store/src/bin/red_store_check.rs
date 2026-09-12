@@ -252,6 +252,7 @@ fn main() -> ExitCode {
     for project in ["project-a", "project-b"] {
         let _ = std::fs::create_dir_all(dir.join(project));
     }
+    let _ = std::fs::create_dir_all(dir.join("project-a").join("notes"));
     let _ = std::fs::write(dir.join("decl.json"), "{}");
 
     let mut replay = match Replay::new(&dir, mint_queue(&corpus).into()) {

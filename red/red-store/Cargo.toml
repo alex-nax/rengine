@@ -11,9 +11,17 @@ description = "The workspace store in Rust: byte-compatible state, files and the
 serde_json = { version = "1", features = ["preserve_order"] }
 sha2 = "0.10"
 fancy-regex = "0.14"
+getrandom = "0.3"
+red-agents = { path = "../red-agents" }
 
 # The corpus judge: replays what the JS host was recorded doing and reports drift, so the JS
 # harness that owns the capture can run it. A binary rather than a test, as red-contract is.
 [[bin]]
 name = "red-store-check"
 path = "src/bin/red_store_check.rs"
+
+# The stdio service: the store as a process, newline-delimited JSON-RPC, exiting when stdin
+# closes (F174). The thin JS client in orchestrator/server/store-client.mjs is its other half.
+[[bin]]
+name = "red-store-serve"
+path = "src/bin/red_store_serve.rs"
