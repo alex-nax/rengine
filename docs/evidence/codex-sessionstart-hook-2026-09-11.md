@@ -101,3 +101,33 @@ channel — and the stub received
 `POST /api/agent-conversation {"id":"claude-probe-pane","conversation":"63244892-c75b-4574-bf3f-af42a936f8dd","agent":"claude"}`,
 the conversation being exactly the id the launcher minted (`source: "minted"`). No prompt was
 sent, so the check spent no model tokens.
+
+## Addendum, 2026-09-12: exec DOES fire trusted hooks — and the live host was too old to hear one
+
+Two corrections and one found defect, measured with the account's quota restored (`gpt-6-astra`,
+codex 0.153.4, the same build as yesterday):
+
+1. **A trusted SessionStart hook fires in `codex exec`.** Yesterday's "exec itself never runs
+   SessionStart hooks" was confounded with the trust gate: the marker hook was only injected, so
+   it never ran, and the absence was read as exec not firing. Today's probe composed the full
+   launch overlay (`mcp_servers.*`, `features.hooks=true`, the SessionStart table, and the
+   `hooks.state` trust entry for exactly the command composed) and ran `codex exec -s read-only`:
+   the banner shows `hook: SessionStart` / `hook: SessionStart Completed`. Exec fires SessionStart
+   hooks — for trusted definitions, the gate working as designed.
+2. **The same run made the first real model call under the composed overlay and completed the
+   MCP round-trip:** `mcp: rengine_046c207bf579/workspace_info started/completed`, answered
+   `/Users/alex/rengine` by the live workspace through the probe's own bound context. Yesterday's
+   probe died at exactly this call (`usage limit … try again at Sep 15th`); the account's reset
+   closed it. Probe artifacts: `/tmp/codex-probe-Q1PVzSz8/` (context, the six `-c` args as files,
+   out.txt).
+3. **The live workspace cannot hear hook reports: its session host predates the route.** The
+   manual report (`RENGINE_ORCHESTRATOR_SESSION=probe … report-session.mjs --provider codex`)
+   bound and parsed cleanly, then failed: `Unknown workspace endpoint.` The host (PID 33465) has
+   run since 2026-09-06 00:03; `/api/agent-conversation` landed 2026-09-07 (67c33c4, F93) —
+   KI-062's disease again, one route later. The workspace's conversations map is consequently
+   empty for every root: every hook report since 2026-09-07 has 404'd into a pane's stderr, which
+   nobody watches (the hook "completes" either way, and report-session exits 0 by design). Note
+   the reporter posts only when `RENGINE_ORCHESTRATOR_SESSION` is in the environment — a pane
+   launched by the workspace carries it; a hand-started or bind-launched session rewrites its
+   context but does not post, by design. Remedy: `--replace-host` (F94), then re-verify the
+   report POST records a conversation.

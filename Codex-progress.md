@@ -1,5 +1,35 @@
 # Progress Log
 
+## Session 126 (macos) — 2026-09-12 — the codex quota probe: integration proven, and a stale host found swallowing hook reports
+
+The owner's codex quota reset, closing what Session 110 owed: the probe died at the model call
+on 2026-09-11. Rerun with the full launch overlay (`mcp_servers.*` + `features.hooks` + the
+SessionStart table + the trust entry for exactly the command composed), `codex exec -s read-only`
+on 0.153.4 with a bound probe context of its own:
+
+- **The model answered** (gpt-6-astra, 27,864 tokens, exit 0) — quota confirmed back.
+- **The MCP round-trip completed**: `mcp: rengine_046c207bf579/workspace_info started/completed`,
+  the live workspace answering `/Users/alex/rengine` through the probe's own context.
+- **A trusted SessionStart hook fires in exec** — yesterday's "exec never runs SessionStart" was
+  confounded with the trust gate (the marker was untrusted, so it never ran). Evidence doc
+  addendum records the correction; probe artifacts in `/tmp/codex-probe-Q1PVzSz8/`.
+
+**And a live defect the probe surfaced (KI-094).** The manual report leg bound and parsed
+cleanly, then 404'd: `Unknown workspace endpoint.` The live host (PID 33465) has run since
+2026-09-06 00:03; `/api/agent-conversation` landed 2026-09-07 (F93). Every hook report since has
+died silently — report-session exits 0 by design and notes only to a pane's stderr — and the
+workspace's conversations map is empty for every root as a result. KI-062's disease one route
+later; the remedy is `--replace-host`, then re-verify the report POST records a conversation.
+
+Commands: `codex debug models -c …` (the six overlay args each validated; c2/c3 fail ALONE by
+design — an mcp_servers entry is valid only with its command present), `codex exec` (the probe),
+manual `report-session.mjs --provider codex` runs against the live context, `ps`/`git log -S`
+for the host's age and the route's birthday.
+
+**Owed.** The owner's call on `--replace-host` (asked in the report), then the report-POST
+re-verification. The silent-failure half of KI-094 (surface failed reports on the Sessions tab)
+is filed, not fixed in passing. The J0 loop's next tick is F169.
+
 ## Session 125 (macos) — 2026-09-12 — the red-agents binary speaks the registry to its shell callers (F171 / F149a)
 
 The owner said go on, so the loop's fifth run took F149 — sized it first (959 lines, three
