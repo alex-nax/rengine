@@ -1,0 +1,26 @@
+# A model small enough to commit, shaped to exercise what a model path has to survive (F136).
+#
+# Two `usemtl` groups, so it arrives as two PARTS rather than one draw — the property spec 124 cares
+# about and the reason Sponza's 393 parts are the interesting number. Positions, normals and texture
+# coordinates, triangles and one quad, because obj.c reads all of those and a fixture that only used
+# triangles would leave the quad path untested by anything committed.
+#
+# Not a stand-in for Sponza: that is a real model a person points the view at, and a gate may not
+# depend on a local asset. This is the smallest thing that proves the .obj path end to end.
+v -1 0 -1
+v  1 0 -1
+v  1 0  1
+v -1 0  1
+v  0 1.5 0
+vn 0 1 0
+vn 0 0.4472 -0.8944
+vn 0.8944 0.4472 0
+vt 0 0
+vt 1 0
+vt 1 1
+vt 0 1
+usemtl floor
+f 1/1/1 2/2/1 3/3/1 4/4/1
+usemtl sides
+f 1/1/2 2/2/2 5/3/2
+f 2/2/3 3/3/3 5/4/3

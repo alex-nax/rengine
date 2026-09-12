@@ -499,6 +499,9 @@ static cJSON *serialize(ReApp *a) {
     cJSON_AddStringToObject(tab, "path", t->path); cJSON_AddStringToObject(tab, "session", t->session); cJSON_AddStringToObject(tab, "title", t->title);
     if (t->format && re_format_mode(t->format) != RE_MODE_PENDING) cJSON_AddStringToObject(tab, "mode", re_format_mode_name(re_format_mode(t->format)));
     if (t->image) cJSON_AddBoolToObject(tab, "imageActual", re_image_is_actual(t->image));
+    /* What a plugin tab was pointed at. Without it a restored Scene tab came back on the built-in
+       scene, having been opened on a model (spec 126 decision 7). */
+    if (*t->subject) cJSON_AddStringToObject(tab, "subject", t->subject);
   }
   cJSON_AddItemToObject(j, "dashboards", cJSON_Duplicate(a->dashboards_opened, 1));
   return j;
@@ -514,7 +517,8 @@ static bool restore(ReApp *a, const cJSON *j) {
     if (cJSON_IsNull(tab)) { if (re_layout_find(&layout, i) >= 0) return false; continue; }
     int type = re_number(tab, "type");
     if (type < RE_TREE || type > RE_PLUGIN || strlen(re_string(tab, "root")) > 64 ||
-        strlen(re_string(tab, "session")) > 64 || strlen(re_string(tab, "path")) > 2047) return false;
+        strlen(re_string(tab, "session")) > 64 || strlen(re_string(tab, "path")) > 2047 ||
+        strlen(re_string(tab, "subject")) > 1023) return false;
     if (cJSON_HasObjectItem(tab, "mode") && (type != RE_EDITOR || re_format_mode_from(re_string(tab, "mode")) < 0)) return false;
   }
   a->layout = layout;
@@ -523,6 +527,7 @@ static bool restore(ReApp *a, const cJSON *j) {
     ReTab *t = &a->tabs[i]; t->used = true; t->generation++; t->type = re_number(tab, "type");
     re_copy(t->root, sizeof(t->root), re_string(tab, "root")); re_copy(t->path, sizeof(t->path), re_string(tab, "path"));
     re_copy(t->session, sizeof(t->session), re_string(tab, "session")); re_copy(t->title, sizeof(t->title), re_string(tab, "title"));
+    re_copy(t->subject, sizeof(t->subject), re_string(tab, "subject"));
     t->session_ended = *t->session && !session_known(a, t->session);
     if ((t->type == RE_TERMINAL || t->type == RE_GAME) && !t->session_ended && re_layout_find(&a->layout, i) >= 0) open_view(a, t);
     if (cJSON_HasObjectItem(tab, "mode")) t->format = re_format_open(re_format_mode_from(re_string(tab, "mode")), true);
@@ -563,6 +568,20 @@ static void state_loaded(ReApp *a, const cJSON *j) {
     if (*a->root) {
       int right = re_layout_split(&a->layout, 0, 1); a->layout.panes[0].ratio = RE_METRIC_WORKSPACE_TREE_PERCENT / 100.0f;
       a->layout.active = a->layout.panes[0].child[0]; re_app_tab(a, RE_TREE, a->root, "", "", "Project"); a->layout.active = right;
+    }
+  }
+  /* A restored Scene tab comes alive rather than staying the placeholder F108 restores it as: the
+     module is rEngine's own and nothing else would ask for it, so a person who opened a scene once
+     finds it drawing after a restart instead of a line of text about a plugin (spec 126). */
+  for (int i = 0; i < RE_TABS; i++) {
+    if (a->tabs[i].used && a->tabs[i].type == RE_PLUGIN && !strncmp(a->tabs[i].path, "scene/", 6)) {
+      char subject[sizeof(a->tabs[i].subject)];
+      re_copy(subject, sizeof(subject), a->tabs[i].subject);
+      /* The module, for the subject this tab already carries: passing "" would point it at the
+         built-in scene and lose the model the tab was opened on. */
+      re_app_scene_open(a, a->tabs[i].root, "");
+      re_copy(a->tabs[i].subject, sizeof(a->tabs[i].subject), subject);
+      break;
     }
   }
   const cJSON *sessions = cJSON_GetObjectItemCaseSensitive(j, "sessions"), *session;

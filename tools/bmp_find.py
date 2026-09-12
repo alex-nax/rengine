@@ -7,6 +7,9 @@ uses this to assert that syntax colours reach the screen.
 
     bmp_find.py FILE --logical-width 1280 --region 10,120,280,200 --colour #c1a9ee
 
+--differs-from FILE counts the pixels of the region that differ from the same region of another
+snapshot, which is how "the image changed" is asked — of a drag that moved a camera, say.
+
 --distinct counts the distinct colours in the region instead, which is the question a RENDERED
 region answers: a scene cannot be asserted colour by colour, but "this is an image and not a flat
 fill" is exactly a count. Used by the scene tab's spec (F136).
@@ -43,13 +46,26 @@ def main(argv):
     while index + 1 < len(argv):
         args[argv[index].lstrip("-")] = argv[index + 1]
         index += 2
-    if not path or "region" not in args or ("colour" not in args and "distinct" not in args):
+    if not path or "region" not in args or not ({"colour", "distinct", "differs-from"} & set(args)):
         raise SystemExit("usage: bmp_find.py FILE --logical-width N --region x,y,w,h "
-                         "(--colour #rrggbb | --distinct 1)")
+                         "(--colour #rrggbb | --distinct 1 | --differs-from FILE)")
     width, rows_count, rows = load(path)
     logical = int(args.get("logical-width", width))
     density = max(1, round(width / logical)) if logical else 1
     x, y, w, h = (int(value) * density for value in args["region"].split(","))
+    if "differs-from" in args:
+        other_width, other_rows_count, other_rows = load(args["differs-from"])
+        if (other_width, other_rows_count) != (width, rows_count):
+            raise SystemExit("the two snapshots are different sizes")
+        differing = 0
+        for row_index in range(max(0, y), min(rows_count, y + h)):
+            row, other = rows[row_index], other_rows[row_index]
+            for column in range(max(0, x), min(width, x + w)):
+                at = column * 4
+                if row[at:at + 3] != other[at:at + 3]:
+                    differing += 1
+        print(json.dumps({"differing": differing, "region": [x, y, w, h]}))
+        return 0
     if "distinct" in args:
         seen = set()
         for row_index in range(max(0, y), min(rows_count, y + h)):

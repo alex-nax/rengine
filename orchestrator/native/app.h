@@ -91,6 +91,11 @@ void re_app_draw(ReApp *app, ReDraw *draw);
 /* Views that browse rather than hold work. They scroll, and a document opened from one of them
    belongs in the pane being worked in rather than on top of the browser (spec 130). */
 bool re_app_navigator_view(int type);
+/* Point the Scene tab at a model and bring it forward, loading rEngine's own scene plugin if this
+   window has not yet (spec 126 decision 7). `path` is relative to `root`; false with the reason in
+   the status line. An empty `path` opens the built-in procedural scene, which has no file.
+   Implemented in pluginview.c; declared here because app.c revives a restored Scene tab. */
+bool re_app_scene_open(ReApp *app, const char *root, const char *path);
 void re_app_status(ReApp *app, ReDraw *draw);   /* the segmented status bar, drawn above every pane */
 bool re_app_event(ReApp *app, const SDL_Event *event, ReDraw *draw);
 /* Applies this root's theme file when a person has already activated it for that root (D34). */

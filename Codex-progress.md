@@ -1,5 +1,49 @@
 # Progress Log
 
+## Session 121 (macos) — 2026-09-12 — the scene tab's owed criteria close, and two defects they found
+
+Every gap session 120 recorded is closed, and one of the four was the wrong question.
+
+**F135's two untested grants have a fixture.** `tests/plugins/render_plugin.c` registers two tabs and
+reports what it saw the only way a plugin can — as colour. One asks for a target each frame and
+presents it; the other asks once, keeps the handle and presents it on every later frame, which the
+host refuses, so that colour cannot reach the screen. Red with the per-frame guard removed; red with
+every tab told the pointer is inside it. The refusals that must *stay* refused are now counted rather
+than described: `sizeof(RePluginHost)` is its three versions plus exactly sixteen pointers, so a
+member added without a decision fails the native suite — observed failing with a `keyboard` member.
+
+**F136 c4 was vacuous and the sabotage is what showed it.** "A still scene costs no frames" cannot be
+tested as a property of the scene: the ABI gives a plugin no way to ask for a frame, so making the
+scene animate *every* frame does not wake the window — the sabotage passed. What a scene can spend is
+time inside the frames the window already draws, measured against the same window with the tab
+closed: **0.79 ms** to build the pass against 0.02 ms without it, frame median **7.56 ms** against
+7.48 ms. Red at 9.37 ms with the scene rendered twenty times a frame.
+
+**Two defects the closing found, neither on the list.** A restored Scene tab stayed a placeholder
+forever — F108 restores an unloaded plugin tab as prose naming the module, and nothing in the window
+would ever ask for rEngine's own scene plugin. The restore loads it now, and the tab's subject is
+persisted so it returns on the model it was showing. And **counting distinct colours could not tell a
+rendered scene from placeholder text**: the committed cube produces 193 colours and the placeholder's
+antialiased text 119, so "more than a hundred" passed both. The question was coverage — the pane's own
+ground is what a scene covers and a line of text does not — and the sabotage now reads "99.9%
+uncovered".
+
+A committed model arrived with it: `tests/fixtures/models/two-part.obj`, small but two `usemtl` groups
+so it comes in as parts, with a quad and triangles because `obj.c` reads both. Sponza stays what it
+was — a real model a person points the view at, verified by hand.
+
+Commands: `npm run build`, `npm run test:native` (17/17), `npm run test:desktop` (**78 pass, 1 fail,
+1 skipped**), `python3 tools/design.py check`, `python3 tools/features.py validate` (125 features).
+
+**F135 and F136 still say `passes: false`, for one reason that is not about them**: a passing feature
+may not depend on a failing one, and F108 fails on its Windows criterion alone. Every criterion of
+both rows now has evidence and a sabotage on macOS; the validator refusing the flip is the rule
+working, not a gap. Recorded in both rows and in spec 126.
+
+The one suite failure was `native-label-clip`, green alone and on re-run — the **third and fourth**
+observation of suite-load flakiness (session 120 saw `native-handoff` the same way). Four specs in
+four subjects now points at the runner rather than any fixture; KI-088 carries that reading.
+
 ## Session 120 (macos) — 2026-09-12 — Sponza renders in a tab: the plugin ABI learns to render (F135, F136 in part)
 
 The owner asked to render Sponza into a tab. It does: **786,801 vertices in 393 parts**, opened by

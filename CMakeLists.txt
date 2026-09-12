@@ -875,6 +875,14 @@ if(BUILD_TESTING) # testing
 	endif()
 	rengine_plugin_output(rengine_plugin_scene)
 	
+# The render fixture (F135): the only module that exercises D55's two grants, so it needs the pack's
+	# headers for the seam's value types exactly as the desktop's plugin layer does.
+	add_library(rengine_plugin_render SHARED "${PROJECT_SOURCE_DIR}/orchestrator/native/tests/plugins/render_plugin.c")
+	target_include_directories(rengine_plugin_render PRIVATE
+	  "${PROJECT_SOURCE_DIR}/orchestrator/native" "${PROJECT_SOURCE_DIR}/packs/gpu/include")
+	target_compile_features(rengine_plugin_render PRIVATE c_std_11)
+	rengine_plugin_output(rengine_plugin_render)
+	
 add_library(rengine_plugin_blank SHARED "${PROJECT_SOURCE_DIR}/orchestrator/native/tests/plugins/blank_plugin.c")
 	target_include_directories(rengine_plugin_blank PRIVATE "${PROJECT_SOURCE_DIR}/orchestrator/native")
 	rengine_plugin_output(rengine_plugin_blank)

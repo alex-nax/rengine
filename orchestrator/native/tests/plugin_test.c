@@ -3,6 +3,7 @@
  * refusal fixtures are the same source declaring itself differently, and the ones that must be
  * refused abort() in start, so "start is never called" is the process surviving. */
 #include "plugin.h"
+#include <stddef.h>   /* offsetof: the grant is counted, not described */
 #include "theme.h"
 #include <assert.h>
 #include <stdio.h>
@@ -23,6 +24,11 @@ int main(int argc, char **argv) {
   RePlugins *plugins = re_plugins_open(); assert(plugins);
   const RePluginHost *host = re_plugins_host();
   assert(host->size == sizeof(RePluginHost) && host->abi_version == RE_PLUGIN_ABI_VERSION && host->draw_list_version == RE_DRAW_LIST_VERSION);
+  /* What the grant still refuses (charter D38, and D55's "keyboard, shortcuts, controls, unloading
+     and any reach into store, session or host state stay refused"). The table is the whole grant,
+     so counting it is the check: three members arrived with ABI 2 and nothing else did. A member
+     added without a decision behind it fails here rather than shipping. */
+  assert(sizeof(RePluginHost) == offsetof(RePluginHost, register_tab) + 16 * sizeof(void *));
 
   /* A declaration claiming another ABI is refused before the file is touched: the path does not
    * exist, so a loader that opened first would have reported dlopen's message instead. */

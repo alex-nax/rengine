@@ -2259,10 +2259,12 @@
       "owner_workspace": "rengine",
       "external_references": [],
       "evidence": [
-        "orchestrator/native/plugin_render.h and render/plugin_seam.c: the seam as a table of pointers, compiled once per graphics API so the copy a plugin calls is the copy the window renders with; docs/specs/126 records why a plugin cannot call the seam directly.",
-        "orchestrator/tests/native-scene-tab.spec.mjs: a plugin renders into a target it asked for by size and the result is read back from a snapshot (267,862 distinct colours in the tab against 1 for a flat fill). Sabotage-verified twice: no composite (red at '1 colours') and the wrong prefixed table on Metal (red).",
-        "orchestrator/tests/native-plugin.spec.mjs: ABI 2 refuses a module built against 3, naming both versions.",
-        "OWED: criteria 2 and 3 have no test — a target kept past its frame is refused in code (plugin.c's per-frame `asked`) and the pointer is tab-scoped in code, and criterion 6 names exactly those two sabotages. Needs a fixture plugin that keeps a target and one that asks about another tab."
+        "orchestrator/native/plugin_render.h and render/plugin_seam.c: the seam as a table of pointers, compiled once per graphics API so the copy a plugin calls is the copy the window renders with. docs/specs/126 records why a plugin cannot call the seam directly (charter D56) and why that shape lets the pack's sources compile unmodified.",
+        "orchestrator/tests/native-plugin-render.spec.mjs — the render fixture registers two tabs and reports what it saw as colour: c1 a target asked for this frame renders and composites; c2 a target kept past its frame is refused, so its colour never reaches the tab; c3 the tab under the pointer is told so and the other is told the pointer is elsewhere. Sabotage-verified: the per-frame `asked` guard removed (red on c2) and every tab told the pointer is inside it (red on c3).",
+        "orchestrator/tests/native-plugin.spec.mjs: ABI 2 refuses a module built against 3, naming both versions (c4).",
+        "orchestrator/native/tests/plugin_test.c: the grant is counted, not described — sizeof(RePluginHost) is its three versions plus exactly sixteen pointers, so a member added without a decision fails the build's own suite. Observed failing with an unauthorised `keyboard` member added (c5).",
+        "The renderer-change half of c2 is structural: a pass belongs to the ReDraw that made it and is released when a different one asks, and --renderer is a launch flag so one window cannot switch. Recorded rather than claimed as measured.",
+        "BLOCKED, not unevidenced: every criterion above has evidence and a sabotage. The row cannot pass while F108 does not, and F108 fails on one thing only — its Windows criterion, which is NOT MET behind KI-038 and the same platform gap KI-087 records for the seam. Nothing further is owed on macOS."
       ],
       "passes": false
     },
@@ -2289,9 +2291,11 @@
       "owner_workspace": "rengine",
       "external_references": [],
       "evidence": [
-        "orchestrator/tests/native-scene-tab.spec.mjs: Cmd/Ctrl E opens the built-in procedural scene in its own tab and it renders, with no session started, no surface reserved and no game view opened; and the plugin compiles the pack example's scene.c and obj.c rather than copies.",
-        "Crytek Sponza verified by hand on 2026-09-12 from ~/assets/sponza/sponza.obj: 786,801 vertices in 393 parts, opened by clicking the .obj in the explorer, rendered on Metal through the desktop's own seam. Snapshot in .cache/evidence.",
-        "OWED: criterion 1's .obj half is not in the suite (a gate cannot depend on a local asset; it needs a small committed model), criterion 4's idle cost is not measured, and criterion 5's drag is implemented but undriven by any test."
+        "orchestrator/tests/native-scene-tab.spec.mjs — three tests. Cmd/Ctrl E opens the built-in procedural scene in its own tab and it renders, with no session started, no surface reserved and no game view opened (c1's no-second-process half, c2). The plugin compiles the pack example's scene.c and obj.c rather than copies (c3). An .obj in the explorer opens a Scene tab on that model (c1), a drag moves the camera (c5), the scene's pass builds in under 4 ms and the window's frame median is within half again of the same window with no Scene tab (c4), and a restored Scene tab renders instead of naming an unloaded plugin.",
+        "Crytek Sponza verified by hand on 2026-09-12 from ~/assets/sponza/sponza.obj: 786,801 vertices in 393 parts, opened by clicking the .obj in the explorer, rendered on Metal through the desktop's own seam. The committed fixture is orchestrator/tests/fixtures/models/two-part.obj, small but two usemtl groups so it arrives as parts; a gate may not depend on a local asset.",
+        "Sabotage-verified, each for its own reason: the composite removed (the tab drops to one colour), the OpenGL table handed to a Metal window (red), the drag ignoring the pointer (0 pixels differ), the scene rendered twenty times a frame (9.37 ms to build), and a restored tab left as a placeholder (99.9% of it still the pane's ground).",
+        "c4's frame-COUNT half is structural and was found to be untestable as a scene property: the ABI gives a plugin no way to ask for a frame, so making the scene animate every frame does not wake the window. What the scene can spend is time inside the frames the window already draws, and that is what is measured. Recorded in spec 126.",
+        "BLOCKED, not unevidenced: every criterion above has evidence and a sabotage. The row cannot pass while F108 does not, and F108 fails on one thing only — its Windows criterion, which is NOT MET behind KI-038 and the same platform gap KI-087 records for the seam. Nothing further is owed on macOS."
       ],
       "passes": false
     },

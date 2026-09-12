@@ -221,20 +221,46 @@ it retired (F133), so they are an oracle that **cannot be re-recorded** — whic
 appearance something a feature may not change casually. Decision 7 says "a command", and a command
 it is: `Cmd/Ctrl E`, listed in the pane menu, where the card compares colours rather than row count.
 
-### What is owed
+### What was owed, and what closed it
 
-Stated rather than absorbed, because F135 and F136 both stay `passes: false` until it is done:
+Everything the first pass listed is done, and one of the four turned out to be the wrong question.
 
-- **F135 c2 and c3 have no test.** The frame-scoped refusal and the tab-scoped pointer are
-  implemented and neither is evidenced; both need a fixture plugin that keeps a target and one that
-  asks about another tab. c6 names exactly these two, so the row cannot pass on the render evidence
-  alone.
-- **F136 c1 is proven for the built-in scene, not for an `.obj`, in the suite.** Sponza was verified
-  by hand from `~/assets/sponza` and the explorer path works; a committed gate cannot depend on a
-  local asset, so what the suite renders is the procedural scene. The `.obj` half needs a small
-  committed model of its own.
-- **F136 c4 is not measured.** "A still scene costs no frames" is designed for — the plugin asks for
-  no frames and only advances the animation while a drag is in progress — but the idle wait and the
-  frame budget with a Scene tab open have not been recorded.
-- **F136 c5 is implemented and untested.** Dragging moves the orbit through the tab-scoped pointer;
-  nothing yet drives a drag over the tab and checks the image changed.
+- **F135 c2 and c3 now have a fixture.** `tests/plugins/render_plugin.c` registers two tabs and
+  reports what it saw the only way a plugin can — as colour. One asks for a target every frame and
+  presents it; the other asks once, keeps the handle and presents it on every later frame, which the
+  host refuses, so that colour can never reach the screen. Each paints a marker saying what the
+  pointer told it. Red with the per-frame guard removed, and red with every tab told the pointer is
+  inside it.
+- **c5's refusals are counted rather than described.** `sizeof(RePluginHost)` is its three versions
+  plus exactly sixteen pointers, so a member added without a decision behind it fails the native
+  suite. Observed failing with an unauthorised `keyboard` member.
+- **F136's `.obj` half has a committed model.** `tests/fixtures/models/two-part.obj` — small, but two
+  `usemtl` groups so it arrives as parts, with a quad and triangles because `obj.c` reads both.
+  Sponza stays what it was: a real model a person points the view at, verified by hand.
+- **F136 c4 was measured after being re-asked.** "A still scene costs no frames" cannot be tested as
+  a property of the scene: the ABI gives a plugin no way to request a frame, so making the scene
+  animate every single frame does **not** wake the window — the sabotage passed, which is how the
+  vacuity showed up. What a scene *can* spend is time inside the frames the window already draws, so
+  that is what the test measures, against the same window driven the same way with the tab closed:
+  0.79 ms to build the scene's pass against 0.02 ms without it, and a frame median of 7.56 ms against
+  7.48 ms. Red at 9.37 ms with the scene rendered twenty times a frame.
+
+**Two defects the gap-closing found**, neither of them in the list:
+
+- **A restored Scene tab stayed a placeholder forever.** F108 restores an unloaded plugin tab as a
+  line of text naming the module, and nothing in the window would ever ask for rEngine's own scene
+  plugin — so a person who opened a scene found prose after a restart. The restore loads it now, and
+  the tab's **subject** is persisted so it comes back on the model it was showing rather than on the
+  built-in scene.
+- **Counting distinct colours could not tell a rendered scene from placeholder text.** The first
+  version of both assertions asked for "more than a hundred colours"; the committed cube produces
+  193 and the placeholder's antialiased text produces 119. The question was coverage, not variety:
+  the pane's own ground (`--ui-surface`, `#242424`) is what a scene covers and a line of text does
+  not, and the sabotage now reads "99.9% uncovered".
+
+### What is still owed
+
+- **Windows.** F135 and F136 stay `passes: false` for one reason that is not about them: a passing
+  feature may not depend on a failing one, and F108 fails on its Windows criterion alone (NOT MET
+  behind KI-038, the same platform gap KI-087 records for the seam). Every criterion of both rows has
+  evidence and a sabotage on macOS.
