@@ -3011,14 +3011,16 @@
         "Rust reads every store file the JS host wrote in the fixture corpus and vice versa, byte-for-byte, both directions; schema.mjs's validator rides as a second module with identical error strings.",
         "Nothing is deleted and the host's behavior is unchanged; every corpus entry was captured from the real JS host, and each ported test was observed failing for the module's absence."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         139
       ],
       "owner_workspace": "rengine",
       "deliverable": "The red-store crate, the parity corpus, and the ported store tests; store.mjs and schema.mjs untouched.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/red-store-corpus-f169-2026-09-12.md"
+      ]
     },
     {
       "id": 170,

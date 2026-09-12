@@ -282,9 +282,9 @@ flowchart TD
   F139 --> F167
   F168["F168: passing"]
   F167 --> F168
-  F169["F169: ready"]
+  F169["F169: passing"]
   F139 --> F169
-  F170["F170: blocked"]
+  F170["F170: ready"]
   F168 --> F170
   F169 --> F170
   F171["F171: passing"]
@@ -418,8 +418,8 @@ flowchart TD
 | F166 | J0 | rengine | passing | Where a document opens and what a dragged tab shows: a file chosen in a browser view opens in the most recently used other pane (the same pane when there is only one), each view keeps its own scroll position within a pane, and a tab being dragged is drawn under the cursor with the pane and index it would land in (owner, 2026-09-12; spec 130). |
 | F167 | J0 | rengine | passing | F148a (the data half of F148): the agent recipe registry is one TOML document — orchestrator/agents/registry.toml is the only recipe table, parsed by the remaining JS and the red-agents crate through the same bounded subset, with the EXTRA file moving from JSON to TOML (owner, 2026-09-12; spec 129, KI-092). |
 | F168 | J0 | rengine | passing | F148b (the spawn half of F148): the RENGINE_AGENT_* spawn-environment composition is ported to red-agents, pinned at the pty.spawn boundary by a stub-pty harness (owner, 2026-09-12; spec 129, KI-092). |
-| F169 | J0 | rengine | ready | F147a (the crate half of F147): red-store as a Rust crate with byte-parity against the JS on-disk format on a captured fixture corpus, and schema.mjs's bounded validator as a second module with identical error strings; nothing deleted (owner, 2026-09-12; spec 129, KI-091). |
-| F170 | J0 | rengine | blocked | F147b (the swap half of F147): the JS host consumes red-store over the stdio service through a thin client, the ten server consumers rewired, store.mjs and schema.mjs deleted in the same commit the replacement passes (owner, 2026-09-12; spec 129, KI-091). |
+| F169 | J0 | rengine | passing | F147a (the crate half of F147): red-store as a Rust crate with byte-parity against the JS on-disk format on a captured fixture corpus, and schema.mjs's bounded validator as a second module with identical error strings; nothing deleted (owner, 2026-09-12; spec 129, KI-091). |
+| F170 | J0 | rengine | ready | F147b (the swap half of F147): the JS host consumes red-store over the stdio service through a thin client, the ten server consumers rewired, store.mjs and schema.mjs deleted in the same commit the replacement passes (owner, 2026-09-12; spec 129, KI-091). |
 | F171 | J0 | rengine | passing | F149a (the shell half of F149): the red-agents binary carries the registry's shell surface — list/show byte-exact with the registry.mjs CLI, the three conversation flag parsers, and the codex hook key/trust-hash math — and agent.sh dispatches its registry reads to it with its own CLI unchanged (owner, 2026-09-12; spec 129, KI-093). |
 | F172 | J0 | rengine | ready | F149b (the hook reporter half of F149): red-agents report-session emits byte-identical payloads to the JS version for all five providers on recorded hook fixtures, the launcher composes the Rust binary into hook command lines, and report-session.mjs is deleted (owner, 2026-09-12; spec 129, KI-093). |
 | F173 | J0 | rengine | blocked | F149c (the consumer half of F149): the server-side recipe/config consumers move off registry.mjs and config.mjs — the tasks menu and model flags, store's conversation-id shaping, sessions' capability reads, agentLaunch's MCP overlays — and registry.mjs, config.mjs and bind.mjs are deleted (owner, 2026-09-12; spec 129, KI-093). |

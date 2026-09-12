@@ -1,5 +1,46 @@
 # Progress Log
 
+## Session 127 (macos) — 2026-09-12 — red-store: the workspace store in Rust, byte-compatible (F169 / F147a)
+
+*(Numbering note: two entries below are also numbered 120/121 — the parallel scene session
+numbered from a view predating this lane's 120–126. Their entries stay as written; this lane
+continues at 127, the highest number in use plus one.)*
+
+Loop tick 6 (and three coalesced ones, all this same row) took F169: the crate half of F147.
+`red-store` ports WorkspaceStore and the bounded schema validator; `red-store-check` replays a
+corpus captured from the REAL JS host — 89 judgements, no drift, both directions (the JS store
+opens the crate-written state and reads the same model). Nothing deleted; the swap is F170,
+which is now ready.
+
+**Byte parity is key order, TextDecoder, and injectable randomness.** serde_json runs with
+`preserve_order` (JS insertion order is the on-disk key order; `to_string_pretty` matches
+`JSON.stringify(v,null,2)`); hooks.rs now writes its canonical keys in sorted insertion order by
+hand so the unified feature changes nothing it hashes. A leading BOM is consumed by TextDecoder
+and reported as `bom`, never emitted. Mint and the clock are injectable — transient temp names
+on a second injector so the replay's id sequence stays aligned. The schema port keeps error
+strings AND order (required follows the schema, properties follow the item); the contracts'
+negative-lookahead patterns ride fancy-regex, the regex crate refusing them by design.
+
+**The corpus fought back, and the fight is the evidence.** The capture twice fed normalized
+placeholder ids back into REAL store calls and recorded bogus 404s the replay faithfully matched
+— fake parity, the blind-regressions pattern exactly; fixed by driving real calls with real ids
+and normalizing only the recordings. Minted-id alignment is by recorded expectation (deduped
+re-adds mint nothing). macOS paths have two spellings (/var vs /private/var); both sides
+canonicalize. The mid-save 409 race and per-file op queue stay JS-side by design note.
+
+Commands: `node --test` (corpus 2/2), `cargo test -p red-store`, `npm test` (292/292), `ctest`
+(17/17, `rust_red_store` added), `./init.sh`, `design.py check`, `features.py validate` (125
+features). Five sabotages red for their own reason: state key order, an error string, MRU
+order, compact persist, uniqueItems — all restored from backups.
+
+Evidence: `docs/evidence/red-store-corpus-f169-2026-09-12.md`, with the F170 boundaries
+recorded (codepoint-vs-localeCompare sort, whole-valued floats, injected id-shapes, the
+op-queue no-op). F169 `passes: true`.
+
+**Owed.** Next ready J0 rows by id: **F170** (F147b — the store swap + deletion, needs the
+JS-host→Rust channel decision KI-091 names) and **F172** (F149b — report-session, channel-free).
+F172 is the channel-free one; F170 unblocks F173/F151/F152.
+
 ## Session 121 (macos) — 2026-09-12 — the scene tab's owed criteria close, and two defects they found
 
 Every gap session 120 recorded is closed, and one of the four was the wrong question.

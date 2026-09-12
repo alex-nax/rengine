@@ -1,0 +1,19 @@
+[package]
+name = "red-store"
+version = "0.1.0"
+edition = "2021"
+description = "The workspace store in Rust: byte-compatible state, files and the bounded schema validator (F169, F147a, spec 129, KI-091)"
+
+# preserve_order is the byte-parity requirement: JS object insertion order is the on-disk key
+# order, and the corpus compares file bytes. red-agents' canonical JSON writes its keys in
+# sorted order by hand (hooks.rs), so the unified feature changes nothing it hashes.
+[dependencies]
+serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.10"
+fancy-regex = "0.14"
+
+# The corpus judge: replays what the JS host was recorded doing and reports drift, so the JS
+# harness that owns the capture can run it. A binary rather than a test, as red-contract is.
+[[bin]]
+name = "red-store-check"
+path = "src/bin/red_store_check.rs"

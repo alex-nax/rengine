@@ -25,12 +25,14 @@ pub fn hook_key(platform: &str, group: u32, handler: u32) -> String {
 /// `sha256:<hex>` over the compact canonical JSON of the hook's normalized identity. Unset
 /// fields stay omitted, exactly as codex's `version_for_toml` produces them: event_name,
 /// matcher, and the one command hook with codex's own defaults filled (timeout 600, async
-/// false).
+/// false). The keys are WRITTEN in canonical (sorted) order rather than relied upon to sort:
+/// the workspace enables serde_json's preserve_order for red-store's byte-parity work, and the
+/// hashed bytes must not depend on which map the feature flag picks today.
 pub fn hook_trust_hash(command: &str, matcher: &str) -> String {
     let identity = json!({
         "event_name": "session_start",
+        "hooks": [{ "async": false, "command": command, "timeout": 600, "type": "command" }],
         "matcher": matcher,
-        "hooks": [{ "type": "command", "command": command, "timeout": 600, "async": false }],
     });
     let canonical = serde_json::to_string(&identity).expect("the identity serializes");
     let digest = Sha256::digest(canonical.as_bytes());
