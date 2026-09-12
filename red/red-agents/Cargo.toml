@@ -1,0 +1,17 @@
+[package]
+name = "red-agents"
+version = "0.1.0"
+edition = "2021"
+description = "The agent recipe registry as data: one TOML document the remaining JS and this crate both parse (F148a, spec 129, KI-092; charter D46)"
+
+# serde_json only: the subset TOML parser is hand-rolled on purpose, so this crate accepts
+# exactly the grammar the JS parser accepts — a general TOML dependency would parse a superset
+# and the cross-language parity proof would have a hole where an author makes a mistake.
+[dependencies]
+serde_json = "1"
+
+# The projection dump: prints what the registry resolves to, so the JS parity test can compare
+# the two sides of the one document. A binary rather than a test, as red-contract is.
+[[bin]]
+name = "red-agents-dump"
+path = "src/bin/red_agents_dump.rs"

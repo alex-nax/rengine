@@ -2946,6 +2946,85 @@
         "orchestrator/tests/native-open-target.spec.mjs — three desktop tests, each sabotage-verified: the open target (red on 'With two panes, a file opens in the work pane'), the scroll memory (red on 'The explorer comes back to where it was scrolled'), the ghost position (red on 'the ghost is under the cursor, not left behind') and preview/drop agreement (red on the insertion index).",
         "orchestrator/native/tests/layout_test.c — re_layout_open_target across one, two and three panes, a stale MRU entry and no history; red on dropping the not-from clause and on trusting a stale entry."
       ]
+    },
+    {
+      "id": 167,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "F148a (the data half of F148): the agent recipe registry is one TOML document — orchestrator/agents/registry.toml is the only recipe table, parsed by the remaining JS and the red-agents crate through the same bounded subset, with the EXTRA file moving from JSON to TOML (owner, 2026-09-12; spec 129, KI-092).",
+      "acceptance_criteria": [
+        "orchestrator/agents/registry.toml is the only recipe table: registry.mjs parses it through the subset the red-agents crate mirrors, cook() and the exported API are byte-stable, and the EXTRA file is TOML data on both sides with redeclaration refused in the same words.",
+        "JS and Rust resolve identical recipes for every CLI, proven against the red-agents-dump JSON projection; malformed documents are refused with file:line by both parsers."
+      ],
+      "passes": true,
+      "dependencies": [
+        139
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "registry.toml, the subset parser in registry.mjs with resolvedRecipes(), the red-agents crate with red-agents-dump, the parity test, and the migrated EXTRA tests.",
+      "external_references": [],
+      "evidence": [
+        "docs/evidence/agent-registry-toml-f167-2026-09-12.md"
+      ]
+    },
+    {
+      "id": 168,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "F148b (the spawn half of F148): the RENGINE_AGENT_* spawn-environment composition is ported to red-agents, pinned at the pty.spawn boundary by a stub-pty harness (owner, 2026-09-12; spec 129, KI-092).",
+      "acceptance_criteria": [
+        "The RENGINE_AGENT_* composition (sessions.mjs:129-201) is pinned at the pty.spawn boundary by a stub-pty harness and ported to red-agents, consuming the F167 recipe projection rather than re-reading the TOML.",
+        "Composed spawn environments for kimi, claude and codex launches match the current JS output exactly, on fixtures covering mint-when-start-capable, refuse-named-without-start-unless-resume, listing only for a bare pane, and cleared-in-both-compositions."
+      ],
+      "passes": false,
+      "dependencies": [
+        167
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Rust spawn-env composition in red-agents, the stub-pty harness, and the parity fixtures.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 169,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "F147a (the crate half of F147): red-store as a Rust crate with byte-parity against the JS on-disk format on a captured fixture corpus, and schema.mjs's bounded validator as a second module with identical error strings; nothing deleted (owner, 2026-09-12; spec 129, KI-091).",
+      "acceptance_criteria": [
+        "Rust reads every store file the JS host wrote in the fixture corpus and vice versa, byte-for-byte, both directions; schema.mjs's validator rides as a second module with identical error strings.",
+        "Nothing is deleted and the host's behavior is unchanged; every corpus entry was captured from the real JS host, and each ported test was observed failing for the module's absence."
+      ],
+      "passes": false,
+      "dependencies": [
+        139
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The red-store crate, the parity corpus, and the ported store tests; store.mjs and schema.mjs untouched.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 170,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "F147b (the swap half of F147): the JS host consumes red-store over the stdio service through a thin client, the ten server consumers rewired, store.mjs and schema.mjs deleted in the same commit the replacement passes (owner, 2026-09-12; spec 129, KI-091).",
+      "acceptance_criteria": [
+        "The JS host consumes red-store over the stdio service (the LSP/MCP-worker house pattern) through a thin client; the ten server consumers are rewired and store.mjs and schema.mjs are deleted in the same commit the replacement goes green.",
+        "The host's external API is byte-identical, error statuses included; each ported test was observed failing for the module's absence before the implementation made it pass."
+      ],
+      "passes": false,
+      "dependencies": [
+        168,
+        169
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The stdio red-store service, the thin JS client, the rewired consumers, and the deletion commit.",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }

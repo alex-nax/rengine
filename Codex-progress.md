@@ -1,5 +1,44 @@
 # Progress Log
 
+## Session 123 (macos) — 2026-09-12 — the recipe registry is one TOML document (F167 / F148a)
+
+The owner approved both splits and the standing rule ("approved, do now"), so the loop's third
+run implemented F148a immediately rather than waiting a tick. New rows carry the split:
+F167/F168 for F148's halves, F169/F170 for F147's; parents stay open until every criterion has
+evidence.
+
+**The document.** `orchestrator/agents/registry.toml` is the ONE recipe table: the five shipped
+recipes with absent capabilities as omitted tables (TOML has no null), id-shape regexes as
+literal strings, and a `recipes.*` shape the EXTRA file shares — which moved JSON→TOML (the
+contract change KI-092 recorded; its only surface was registry.mjs's header and the tests).
+
+**Two parsers, one grammar.** Both sides hand-roll the same bounded subset (comments, tables,
+basic/literal strings, integers, booleans, one-line arrays) and refuse the rest with `file:line`
+— a general TOML dependency on the Rust side would accept a superset the JS refuses, and the
+parity proof would have a hole exactly where an author makes a mistake. cook() is mirrored in
+Rust in the same words. The JS parser is interim by design and retires with registry.mjs in
+F149.
+
+**The parity proof.** `red-agents-dump` prints the resolved atom projection (the red-contract
+harness shape from F140); `agent-registry-toml.test.mjs` deep-compares it against the module's
+new `resolvedRecipes()` — shipped, shipped+extra, and malformed-with-line-number on both sides.
+`agent-registry.test.mjs`'s killer test runs end-to-end on the TOML extra (selectable,
+launchable, task-spawnable, installable).
+
+Commands: `node --test` (registry files 9/9), `cargo test --workspace` (green, red-agents 5),
+`npm test` (281/281), `ctest --test-dir .cache/desktop` (16/16 — `rust_red_agents` added, cmkr
+regenerated the committed CMakeLists from the edited cmake.toml), `design.py check`, `./init.sh`,
+`features.py validate` (122 features).
+
+Evidence: `docs/evidence/agent-registry-toml-f167-2026-09-12.md` — failing-first (3 red subtests
+for the slice's absence) and four sabotages red for their own reason: a recipe removed (runtime
+tests prove the JS reads the TOML), an unterminated string (registry.toml:17 named at import), a
+Rust projection drift (parity red), a stripPrefix data drift (the behavioral suite pins the exact
+strip — parity green by design, behavior red).
+
+**Owed.** Next ready J0 rows: **F168** (spawn-env port, completes F148) and **F169** (red-store
+crate + corpus). The loop takes F168 next by id order.
+
 ## Session 122 (macos) — 2026-09-12 — J0 loop tick 2: F148 split-proposed, not started (KI-092)
 
 Second tick of the hourly J0 loop. F147 awaits the KI-091 verdict, so the row was F148

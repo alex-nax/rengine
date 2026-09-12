@@ -4,13 +4,16 @@
  * model flag, conversation start/resume spellings with their id shapes, MCP overlay kind, hooks
  * overlay kind and IDE connect. config.mjs, tasks.mjs, ide-connect.mjs and agent.sh read this
  * table rather than carrying their own, so adding an agent is a data edit — and a consumer project
- * can prove exactly that by declaring one in RENGINE_AGENT_REGISTRY_EXTRA (a JSON file of the same
+ * can prove exactly that by declaring one in RENGINE_AGENT_REGISTRY_EXTRA (a TOML file of the same
  * shape) without editing rEngine at all. A recipe that omits a capability is refused by name for
  * that capability alone, by the consumer, and still works for the rest.
  *
- * Recipes are declarative data; cook() builds the functions from the atoms so the extra file can
- * carry the same shape as JSON. Parsers live here too (PARSERS) because each is the read side of a
- * resume spelling the recipe declares. */
+ * Since F148a (spec 129, KI-092) the table itself is DATA: registry.toml beside this module is the
+ * one document this module and the red-agents crate both parse, through the same bounded TOML
+ * subset (below), so the two sides resolve identical recipes for every CLI. The parser is interim
+ * by design — F149 deletes this module with it. cook() builds the functions from the atoms, and
+ * the flag parsers live here too (PARSERS) because each is the read side of a resume spelling the
+ * recipe declares. */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -78,61 +81,127 @@ const PARSERS = { 'claude-flags': claudeFlags, 'kimi-flags': kimiFlags, 'codex-r
 export const MCP_OVERLAYS = ['flag', 'config-args', 'env-defaults', 'env-inline', 'project-file'];
 export const HOOK_OVERLAYS = [null, 'per-launch-settings', 'per-launch-config', 'guided-bootstrap'];
 
-const SHIPPED = {
-  claude: {
-    package: '@anthropic-ai/claude-code',
-    update: { kind: 'self', command: 'update' },
-    model: { flag: '--model' },
-    models: { kind: 'static', list: ['claude-fable-5-1', 'claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5-20251001'], default: 'claude-opus-5' },
-    conversation: { start: { args: ['--session-id'] }, resume: { args: ['--resume'] }, ids: `^${UUID_SOURCE}$`, parser: 'claude-flags',
-      short: { length: 8 }, normalize: 'lowercase', provider: 'claude', resumeLine: 'claude --resume {id}' },
-    mcp: { kind: 'flag' },
-    hooks: { kind: 'per-launch-settings' },
-    ide: { flags: ['--ide'], envVar: 'CLAUDE_CODE_SSE_PORT' },
-  },
-  codex: {
-    package: '@openai/codex',
-    update: { kind: 'self', command: 'update' },
-    model: { flag: '-m' },
-    models: { kind: 'help' },
-    conversation: { start: null, resume: { args: ['resume'] }, ids: `^${UUID_SOURCE}$`, parser: 'codex-resume',
-      short: { length: 8 }, normalize: 'lowercase', provider: 'codex', resumeLine: 'codex resume {id}' },
-    mcp: { kind: 'config-args' },
-    hooks: { kind: 'per-launch-config' },
-    ide: null,
-  },
-  gemini: {
-    package: '@google/gemini-cli',
-    update: { kind: 'reinstall' },
-    model: null,
-    models: { kind: 'none' },
-    conversation: null,
-    mcp: { kind: 'env-defaults' },
-    hooks: null,
-    ide: null,
-  },
-  opencode: {
-    package: 'opencode-ai',
-    update: { kind: 'self', command: 'upgrade' },
-    model: null,
-    models: { kind: 'none' },
-    conversation: null,
-    mcp: { kind: 'env-inline', envVar: 'OPENCODE_CONFIG_CONTENT' },
-    hooks: null,
-    ide: null,
-  },
-  kimi: {
-    package: '@moonshot-ai/kimi-code',
-    update: { kind: 'self', command: 'upgrade' },
-    model: { flag: '-m' },
-    models: { kind: 'none' },
-    conversation: { start: null, resume: { args: ['--session'] }, ids: KIMI_ID, parser: 'kimi-flags',
-      short: { stripPrefix: 'session_', length: 8 }, normalize: 'none', provider: 'kimi', resumeLine: 'kimi --session {id}' },
-    mcp: { kind: 'project-file' },
-    hooks: { kind: 'guided-bootstrap' },
-    ide: null,
-  },
-};
+/* The bounded TOML subset the registry document is written in (F148a): comments, [table] and
+   [table.sub] headers, key = value with basic strings, literal strings (the id shapes carry
+   backslashes), integers, booleans and one-line arrays of those. An absent capability is an
+   omitted table — TOML has no null. The red-agents crate implements exactly this grammar and
+   refuses the rest by name with the same file:line, so "the same document" means the same thing
+   on both sides. */
+function parseToml(text, name) {
+  const root = {};
+  const defined = new Set();
+  let table = root;
+  const failAt = (line, message) => { throw new Error(`${name}:${line}: ${message}`); };
+  const valueAt = (source, line) => {
+    if (source[0] === '"') {
+      let out = '', i = 1;
+      for (;;) {
+        if (i >= source.length) failAt(line, 'unterminated string');
+        const char = source[i];
+        if (char === '"') return [out, i + 1];
+        if (char === '\\') {
+          const esc = source[i + 1];
+          const simple = { b: '\b', t: '\t', n: '\n', f: '\f', r: '\r', '"': '"', '\\': '\\' }[esc];
+          if (simple !== undefined) { out += simple; i += 2; continue; }
+          if (esc === 'u') {
+            const hex = source.slice(i + 2, i + 6);
+            if (!/^[0-9a-fA-F]{4}$/.test(hex)) failAt(line, 'a bad \\u escape');
+            out += String.fromCharCode(parseInt(hex, 16)); i += 6; continue;
+          }
+          failAt(line, `the escape \\${esc ?? ''} is outside the registry TOML subset`);
+        }
+        out += char; i += 1;
+      }
+    }
+    if (source[0] === "'") {
+      const end = source.indexOf("'", 1);
+      if (end < 0) failAt(line, 'unterminated literal string');
+      return [source.slice(1, end), end + 1];
+    }
+    if (source[0] === '[') {
+      const items = [];
+      let i = 1;
+      for (;;) {
+        while (source[i] === ' ' || source[i] === '\t') i++;
+        if (i >= source.length) failAt(line, 'unterminated array');
+        if (source[i] === ']') return [items, i + 1];
+        if (items.length) {
+          if (source[i] !== ',') failAt(line, 'an array separates its values with commas');
+          i++;
+          while (source[i] === ' ' || source[i] === '\t') i++;
+          if (i >= source.length) failAt(line, 'unterminated array');
+          if (source[i] === ']') return [items, i + 1];
+        }
+        const [item, end] = valueAt(source.slice(i), line);
+        items.push(item); i += end;
+      }
+    }
+    const scalar = /^(true|false|[+-]?\d+)/.exec(source);
+    if (scalar) {
+      const end = scalar[1].length;
+      const after = source[end];
+      if (after === undefined || after === ' ' || after === '\t' || after === ',' || after === ']') {
+        return [scalar[1] === 'true' ? true : scalar[1] === 'false' ? false : Number(scalar[1]), end];
+      }
+    }
+    failAt(line, `${JSON.stringify(source.slice(0, 24))} is outside the registry TOML subset`);
+  };
+  const lines = text.split('\n');
+  for (let index = 0; index < lines.length; index++) {
+    const no = index + 1;
+    let quote = null;
+    const source = lines[index];
+    let cut = source.length;
+    for (let i = 0; i < source.length; i++) {
+      const char = source[i];
+      if (quote === '"') { if (char === '\\') i++; else if (char === '"') quote = null; }
+      else if (quote === "'") { if (char === "'") quote = null; }
+      else if (char === '"' || char === "'") quote = char;
+      else if (char === '#') { cut = i; break; }
+    }
+    const rest = source.slice(0, cut).trim();
+    if (!rest) continue;
+    if (rest.startsWith('[')) {
+      if (rest.startsWith('[[') || !rest.endsWith(']')) failAt(no, 'only [table] headers are in the registry TOML subset');
+      const parts = rest.slice(1, -1).trim().split('.').map(part => part.trim());
+      if (!parts.every(part => /^[A-Za-z0-9_-]+$/.test(part))) failAt(no, `a bad table header [${rest.slice(1, -1)}]`);
+      const dotted = parts.join('.');
+      if (defined.has(dotted)) failAt(no, `the table [${dotted}] is defined twice`);
+      defined.add(dotted);
+      table = root;
+      for (const part of parts) {
+        const existing = table[part];
+        if (existing !== undefined && (typeof existing !== 'object' || existing === null || Array.isArray(existing))) {
+          failAt(no, `[${dotted}] meets ${part}, which is already a value`);
+        }
+        table = table[part] ??= {};
+      }
+      continue;
+    }
+    const eq = rest.indexOf('=');
+    if (eq < 0) failAt(no, `expected a [table] header or key = value, got ${JSON.stringify(rest.slice(0, 24))}`);
+    const key = rest.slice(0, eq).trim();
+    if (!/^[A-Za-z0-9_-]+$/.test(key)) failAt(no, `a bad key ${JSON.stringify(key)}`);
+    if (Object.hasOwn(table, key)) failAt(no, `${key} is defined twice`);
+    const after = rest.slice(eq + 1).trim();
+    if (!after) failAt(no, `${key} names no value`);
+    const [parsed, end] = valueAt(after, no);
+    if (after.slice(end).trim()) failAt(no, 'trailing content after a value');
+    table[key] = parsed;
+  }
+  return root;
+}
+
+/* The ONE recipe table. Loaded at import, exactly as the const it replaces was: a malformed
+   document fails the process that reads it, the way a malformed table would not have compiled. */
+export const REGISTRY_DOCUMENT = fileURLToPath(new URL('./registry.toml', import.meta.url));
+const SHIPPED = (() => {
+  const declared = parseToml(readFileSync(REGISTRY_DOCUMENT, 'utf8'), 'orchestrator/agents/registry.toml');
+  if (!declared || typeof declared !== 'object' || typeof declared.recipes !== 'object' || Array.isArray(declared.recipes) || !declared.recipes) {
+    throw new Error('The agent registry must be a TOML document with a recipes table.');
+  }
+  return declared.recipes;
+})();
 
 function cook(cli, raw) {
   if (!/^[a-z][a-z0-9-]{0,31}$/.test(cli)) throw new Error(`Invalid agent name in the registry: ${cli}`);
@@ -169,27 +238,54 @@ function cook(cli, raw) {
 const COOKED = Object.fromEntries(Object.entries(SHIPPED).map(([cli, raw]) => [cli, cook(cli, raw)]));
 
 /* The extra file is read through the environment at call time, so a recipe added as data needs no
-   process restart; the read is cached per path so hot paths stat nothing twice. */
-let cache = { key: null, value: {} };
+   process restart; the read is cached per path so hot paths stat nothing twice. F148a moved the
+   file from JSON to TOML (the contract change KI-092 records): the same document shape as the
+   shipped registry, parsed by the same subset. */
+let cache = { key: null, raw: {}, cooked: {} };
 function extra() {
   const key = process.env.RENGINE_AGENT_REGISTRY_EXTRA ?? '';
-  if (cache.key === key) return cache.value;
-  let value = {};
+  if (cache.key === key) return cache;
+  let raw = {}, cooked = {};
   if (key) {
-    const declared = JSON.parse(readFileSync(key, 'utf8'));
+    const declared = parseToml(readFileSync(key, 'utf8'), key);
     if (!declared || typeof declared !== 'object' || typeof declared.recipes !== 'object' || Array.isArray(declared.recipes) || !declared.recipes)
-      throw new Error('An extra agent registry must be a JSON object with a recipes object.');
-    value = Object.fromEntries(Object.entries(declared.recipes).map(([cli, raw]) => {
+      throw new Error('An extra agent registry must be a TOML document with a recipes table.');
+    raw = declared.recipes;
+    cooked = Object.fromEntries(Object.entries(raw).map(([cli, entry]) => {
       if (COOKED[cli]) throw new Error(`Extra agent registry redeclares ${cli}, which is already in the registry.`);
-      return [cli, cook(cli, raw)];
+      return [cli, cook(cli, entry)];
     }));
   }
-  cache = { key, value };
-  return value;
+  cache = { key, raw, cooked };
+  return cache;
 }
 
-export const agentNames = () => [...Object.keys(COOKED), ...Object.keys(extra())];
-export const recipe = cli => COOKED[cli] ?? extra()[cli];
+export const agentNames = () => [...Object.keys(COOKED), ...Object.keys(extra().cooked)];
+export const recipe = cli => COOKED[cli] ?? extra().cooked[cli];
+
+/* The data half of a recipe, projected the way the red-agents crate projects it: every atom with
+   omitted capabilities as explicit nulls. This is the shape the cross-language parity test
+   compares (agent-registry-toml.test.mjs); the cooked functions above stay the JS runtime's own. */
+export function resolvedRecipes() {
+  const project = raw => ({
+    package: raw.package,
+    update: { kind: raw.update.kind, command: raw.update.command ?? null },
+    model: raw.model?.flag ? { flag: raw.model.flag } : null,
+    models: { kind: raw.models?.kind ?? 'none', list: raw.models?.list ?? null, default: raw.models?.default ?? null },
+    conversation: raw.conversation ? {
+      start: raw.conversation.start ? { args: [...raw.conversation.start.args] } : null,
+      resume: raw.conversation.resume ? { args: [...raw.conversation.resume.args] } : null,
+      ids: raw.conversation.ids, parser: raw.conversation.parser,
+      short: { stripPrefix: raw.conversation.short?.stripPrefix ?? null, length: raw.conversation.short?.length ?? 8 },
+      normalize: raw.conversation.normalize, provider: raw.conversation.provider, resumeLine: raw.conversation.resumeLine,
+    } : null,
+    mcp: { kind: raw.mcp.kind, envVar: raw.mcp.envVar ?? null },
+    hooks: raw.hooks ? { kind: raw.hooks.kind } : null,
+    ide: raw.ide ? { flags: [...raw.ide.flags], envVar: raw.ide.envVar } : null,
+  });
+  const merged = { ...SHIPPED, ...extra().raw };
+  return Object.fromEntries(Object.entries(merged).map(([cli, raw]) => [cli, project(raw)]));
+}
 
 /* The shell surface of the same table, so agent.sh reads what every other consumer reads. */
 export function show(cli) {

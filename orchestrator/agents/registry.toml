@@ -1,0 +1,146 @@
+# The declared agent recipe registry (spec 114, charter D46; the data form is F148a, spec 129).
+#
+# This document is the ONE recipe table: orchestrator/agents/registry.mjs (until F149) and the
+# red-agents crate both parse it, through the same bounded subset, so adding an agent is a data
+# edit. A consumer project proves exactly that by naming its own file in
+# RENGINE_AGENT_REGISTRY_EXTRA — same shape, recipes this document does not already declare.
+#
+# The subset both parsers implement, refusing the rest by name: comments, [table] and
+# [table.sub] headers, key = value with basic strings ("..."), literal strings ('...' — the id
+# shapes, so their backslashes need no escaping), integers, booleans, and one-line arrays of
+# those. An absent capability is an OMITTED table — TOML has no null. A recipe that omits a
+# capability is refused by name for that capability alone, by the consumer, and works for the
+# rest. Parsers named here ('claude-flags', 'kimi-flags', 'codex-resume') stay code on each
+# side: each is the read side of a resume spelling the recipe declares.
+
+[recipes.claude]
+package = "@anthropic-ai/claude-code"
+
+[recipes.claude.update]
+kind = "self"
+command = "update"
+
+[recipes.claude.model]
+flag = "--model"
+
+[recipes.claude.models]
+kind = "static"
+list = ["claude-fable-5-1", "claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5-20251001"]
+default = "claude-opus-5"
+
+[recipes.claude.conversation]
+ids = '^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$'
+parser = "claude-flags"
+normalize = "lowercase"
+provider = "claude"
+resumeLine = "claude --resume {id}"
+
+[recipes.claude.conversation.start]
+args = ["--session-id"]
+
+[recipes.claude.conversation.resume]
+args = ["--resume"]
+
+[recipes.claude.conversation.short]
+length = 8
+
+[recipes.claude.mcp]
+kind = "flag"
+
+[recipes.claude.hooks]
+kind = "per-launch-settings"
+
+[recipes.claude.ide]
+flags = ["--ide"]
+envVar = "CLAUDE_CODE_SSE_PORT"
+
+[recipes.codex]
+package = "@openai/codex"
+
+[recipes.codex.update]
+kind = "self"
+command = "update"
+
+[recipes.codex.model]
+flag = "-m"
+
+[recipes.codex.models]
+kind = "help"
+
+[recipes.codex.conversation]
+ids = '^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$'
+parser = "codex-resume"
+normalize = "lowercase"
+provider = "codex"
+resumeLine = "codex resume {id}"
+
+[recipes.codex.conversation.resume]
+args = ["resume"]
+
+[recipes.codex.conversation.short]
+length = 8
+
+[recipes.codex.mcp]
+kind = "config-args"
+
+[recipes.codex.hooks]
+kind = "per-launch-config"
+
+[recipes.gemini]
+package = "@google/gemini-cli"
+
+[recipes.gemini.update]
+kind = "reinstall"
+
+[recipes.gemini.models]
+kind = "none"
+
+[recipes.gemini.mcp]
+kind = "env-defaults"
+
+[recipes.opencode]
+package = "opencode-ai"
+
+[recipes.opencode.update]
+kind = "self"
+command = "upgrade"
+
+[recipes.opencode.models]
+kind = "none"
+
+[recipes.opencode.mcp]
+kind = "env-inline"
+envVar = "OPENCODE_CONFIG_CONTENT"
+
+[recipes.kimi]
+package = "@moonshot-ai/kimi-code"
+
+[recipes.kimi.update]
+kind = "self"
+command = "upgrade"
+
+[recipes.kimi.model]
+flag = "-m"
+
+[recipes.kimi.models]
+kind = "none"
+
+[recipes.kimi.conversation]
+ids = '^(?:session_)?(?:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-HJKMNP-TV-Z]{26})$'
+parser = "kimi-flags"
+normalize = "none"
+provider = "kimi"
+resumeLine = "kimi --session {id}"
+
+[recipes.kimi.conversation.resume]
+args = ["--session"]
+
+[recipes.kimi.conversation.short]
+stripPrefix = "session_"
+length = 8
+
+[recipes.kimi.mcp]
+kind = "project-file"
+
+[recipes.kimi.hooks]
+kind = "guided-bootstrap"

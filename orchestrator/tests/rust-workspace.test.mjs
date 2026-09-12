@@ -42,7 +42,7 @@ test('every registry dependency is pinned by version and checksum in a committed
   const packages = [...lock.matchAll(/^\[\[package\]\]\nname = "([^"]+)"\nversion = "([^"]+)"\n(source = "([^"]*)"\n)?(checksum = "([0-9a-f]{64})"\n)?/gm)]
     .map(([, name, version, , source, , checksum]) => ({ name, version, source, checksum }));
   assert.ok(packages.length > 2, `Cargo.lock lists the tree: ${packages.length} package(s)`);
-  const local = new Set(['red-core', 'red-link']);
+  const local = new Set(['red-core', 'red-link', 'red-agents']); // F139's skeletons and F148a's registry crate
   const fetched = packages.filter((p) => !local.has(p.name));
   assert.ok(fetched.length > 0, 'there are registry dependencies to check; F140 brought the first');
   for (const { name, version, source, checksum } of fetched) {

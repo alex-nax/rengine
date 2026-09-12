@@ -88,16 +88,28 @@ test('every consumer reads the one table', async t => {
 
 /* The killer test (criterion 2): a recipe added as DATA — an extra registry file, no source file
    edited — makes the agent selectable, installable, launchable with its MCP overlay, and offered
-   for a task spawn. */
+   for a task spawn. F148a moved the extra file from JSON to the same TOML document shape the
+   shipped registry now is (KI-092); the end-to-end proof is unchanged. */
 test('a recipe added as data becomes an agent end to end, with no file edited', async t => {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-registry-extra-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  const extra = path.join(directory, 'extra-recipes.json');
-  await writeFile(extra, JSON.stringify({ recipes: { testcli: {
-    package: '@test/testcli', update: { kind: 'self', command: 'upgrade' },
-    model: { flag: '--model' }, models: { kind: 'none' },
-    mcp: { kind: 'flag' }, hooks: null, ide: null,
-  } } }));
+  const extra = path.join(directory, 'extra-recipes.toml');
+  await writeFile(extra, `[recipes.testcli]
+package = "@test/testcli"
+
+[recipes.testcli.update]
+kind = "self"
+command = "upgrade"
+
+[recipes.testcli.model]
+flag = "--model"
+
+[recipes.testcli.models]
+kind = "none"
+
+[recipes.testcli.mcp]
+kind = "flag"
+`);
   const env = { ...process.env, RENGINE_AGENT_REGISTRY_EXTRA: extra };
   process.env.RENGINE_AGENT_REGISTRY_EXTRA = extra;
   t.after(() => { delete process.env.RENGINE_AGENT_REGISTRY_EXTRA; });
@@ -138,8 +150,19 @@ test('a recipe added as data becomes an agent end to end, with no file edited', 
 test('a recipe that omits a capability is refused by name for that capability alone', async t => {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-registry-minimal-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  const extra = path.join(directory, 'extra-recipes.json');
-  await writeFile(extra, JSON.stringify({ recipes: { barecli: { package: '@test/barecli', update: { kind: 'reinstall' }, model: null, models: { kind: 'none' }, mcp: { kind: 'flag' }, hooks: null, ide: null } } }));
+  const extra = path.join(directory, 'extra-recipes.toml');
+  await writeFile(extra, `[recipes.barecli]
+package = "@test/barecli"
+
+[recipes.barecli.update]
+kind = "reinstall"
+
+[recipes.barecli.models]
+kind = "none"
+
+[recipes.barecli.mcp]
+kind = "flag"
+`);
   process.env.RENGINE_AGENT_REGISTRY_EXTRA = extra;
   t.after(() => { delete process.env.RENGINE_AGENT_REGISTRY_EXTRA; });
 

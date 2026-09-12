@@ -278,6 +278,15 @@ flowchart TD
   F165["F165: blocked"]
   F164 --> F165
   F166["F166: passing"]
+  F167["F167: passing"]
+  F139 --> F167
+  F168["F168: ready"]
+  F167 --> F168
+  F169["F169: ready"]
+  F139 --> F169
+  F170["F170: blocked"]
+  F168 --> F170
+  F169 --> F170
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -400,3 +409,7 @@ flowchart TD
 | F164 | J0 | rengine | blocked | The JS test suite sunsets: every row of orchestrator/tests/suite-coverage.test.mjs has a named Rust-side or native-side equivalent or a recorded reason, the suite-coverage mechanism itself is ported so no fixture silently leaves the report, and node --test exits every gate (owner, 2026-09-11; spec 129, D57). |
 | F165 | J0 | rengine | blocked | Epic close: one full dogfood day on the Rust-only stack — panes of every CLI, terminals, updates, recordings, dashboard actions, this MCP — with the evidence logged, AGENTS.md's D57 bullet rewritten past tense, and node gone from the runtime (owner, 2026-09-11; spec 129, D57). |
 | F166 | J0 | rengine | passing | Where a document opens and what a dragged tab shows: a file chosen in a browser view opens in the most recently used other pane (the same pane when there is only one), each view keeps its own scroll position within a pane, and a tab being dragged is drawn under the cursor with the pane and index it would land in (owner, 2026-09-12; spec 130). |
+| F167 | J0 | rengine | passing | F148a (the data half of F148): the agent recipe registry is one TOML document — orchestrator/agents/registry.toml is the only recipe table, parsed by the remaining JS and the red-agents crate through the same bounded subset, with the EXTRA file moving from JSON to TOML (owner, 2026-09-12; spec 129, KI-092). |
+| F168 | J0 | rengine | ready | F148b (the spawn half of F148): the RENGINE_AGENT_* spawn-environment composition is ported to red-agents, pinned at the pty.spawn boundary by a stub-pty harness (owner, 2026-09-12; spec 129, KI-092). |
+| F169 | J0 | rengine | ready | F147a (the crate half of F147): red-store as a Rust crate with byte-parity against the JS on-disk format on a captured fixture corpus, and schema.mjs's bounded validator as a second module with identical error strings; nothing deleted (owner, 2026-09-12; spec 129, KI-091). |
+| F170 | J0 | rengine | blocked | F147b (the swap half of F147): the JS host consumes red-store over the stdio service through a thin client, the ten server consumers rewired, store.mjs and schema.mjs deleted in the same commit the replacement passes (owner, 2026-09-12; spec 129, KI-091). |
