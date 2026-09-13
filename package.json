@@ -24,7 +24,6 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
-    "image-dimensions": "2.5.1",
     "jsonc-parser": "3.3.1",
     "node-pty": "1.1.0",
     "ws": "8.21.3",

@@ -52,6 +52,23 @@ cutover machinery cost about as much. The JavaScript left on the path is the fif
 — formats, tracker, dashboard, devices, games, images, recordings, tasks — and the runtime layer
 above the host. Those are F153–F156 and F157–F162, and they are where the total moves.
 
+**And then the first module this epic actually deletes.** `images.mjs` was 37 lines behind a single
+GET with no dependency the door lacks: the store resolves the path and owns what "inside this root"
+means, and the rest is reading a file and judging its header. The bytes are handed back verbatim, so
+every judgement is about whether that is safe — inside the root, a regular file, small enough to
+hold, image data **by signature** (a `.png` that is markup is served to a viewer as whatever the
+viewer decides it is), and dimensions a pane will try to draw. The four header readers are the ones
+the npm package read, and that package — `image-dimensions` — left `package.json` with the module.
+
+Its spec is unchanged in what it drives, because it always drove the route over HTTP; what it gained
+is **each refusal's own words**, which is what tells "this is not an image" from "this is an image
+too big to draw". Three sabotages, and three unit tests on the header readers.
+
+JavaScript on the app path: **6,801**, from 6,845. The rest of F156 is `formats.mjs` (386) and
+`recordings.mjs` (115); F153–F155 hold `tracker.mjs` (344), `tracker-auth.mjs` (232), `tasks.mjs`
+(194), `devices.mjs` (166), `games.mjs` (161), `dashboard.mjs` (82) and their rule modules. 1,866
+lines behind fifteen routes, and that is where the total moves.
+
 Commands: `npm test` (**326 of 326**, zero services left), `cargo test`, `./init.sh`,
 `python3 tools/features.py validate`, and four native specs including `native-front-door`.
 

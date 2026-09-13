@@ -10,7 +10,6 @@ import { WebSocketServer } from 'ws';
 import { WorkspaceStore, fail } from './store-client.mjs';
 import { Sessions } from './sessions-client.mjs';
 import { Games } from './games.mjs';
-import { readImage } from './images.mjs';
 import { listFormats, formatPreview, readBytes, readDeclaration } from './formats.mjs';
 import { dashboardAction, dashboardActions, dashboardRunPayload, dashboardCapture } from './dashboard.mjs';
 import { projectDevices } from './devices.mjs';
@@ -69,12 +68,6 @@ export async function startServer({ stateDir, port = 0, retainSessions = false, 
           switch (target.pathname) {
             /* stateDir and pid are said here so a worker above this host can find a credential, and name
                the process a pane descends from, without the process table (specs 101 and 102). */
-            case '/api/image': {
-              const image = await readImage(store, query.get('rootId'), query.get('path'));
-              response.writeHead(200, { 'Content-Type': image.mime, 'Content-Length': image.bytes.length,
-                'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
-              response.end(image.bytes); return;
-            }
             case '/api/formats': value = await listFormats(await store.root(query.get('rootId'))); break;
             case '/api/dashboard': value = await dashboardActions(await store.root(query.get('rootId')), preflight); break;
             case '/api/tracker': { const selected = await store.root(query.get('rootId'));

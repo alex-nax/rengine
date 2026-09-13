@@ -2782,7 +2782,9 @@
       "owner_workspace": "rengine",
       "deliverable": "The Rust formats/images/recordings routes, the pinned replacement for image-dimensions, and the fixture parity; the three JS modules removed.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "F156a, 2026-09-14: docs/evidence/image-route-f156a-2026-09-14.md — /api/image is answered by red-host and orchestrator/server/images.mjs is deleted, with the image-dimensions npm dependency. The first JavaScript module this epic removes. The spec is unchanged in what it drives and gained each refusal's own words; three sabotages verified. formats.mjs and recordings.mjs, the rest of this row, are unchanged."
+      ]
     },
     {
       "id": 157,

@@ -37,6 +37,7 @@ mod desktops;
 mod events;
 mod handoff;
 mod head;
+mod images;
 mod panes;
 mod routes;
 
@@ -336,6 +337,13 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
             let body = head.read_body(&mut client, &mut buffered).await?;
             let answer = panes::record_conversation(&front, &body).await;
             client.write_all(answer.as_bytes()).await?;
+            if !head.keeps_alive() { return Ok(()); }
+            continue;
+        }
+        /* The one route whose answer is bytes rather than JSON. */
+        if head.path() == "/api/image" && head.method == "GET" {
+            let answer = images::image(&front, &head.query("rootId").unwrap_or_default(), &head.query("path").unwrap_or_default()).await;
+            client.write_all(&answer).await?;
             if !head.keeps_alive() { return Ok(()); }
             continue;
         }
