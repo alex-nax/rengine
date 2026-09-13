@@ -204,6 +204,8 @@ struct Front {
     /// hands a client the backend's.
     token: String,
     instance: String,
+    /// The directory this door serves, said out loud in `/api/state` for the layer above (spec 101).
+    state: String,
     url: String,
     backend: String,
     backend_token: String,
@@ -301,8 +303,20 @@ async fn serve(options: Options) -> Result<(), String> {
         Box::new(move |event: &serde_json::Value| {
             match event.get("type").and_then(serde_json::Value::as_str) {
                 /* A pane's bytes, forwarded as they are: the service's output event is already the
-                   shape the JS host emits, down to the sequence a client counts on. */
-                Some("output") => told.broadcast(&event.to_string()),
+                   shape the JS host emits, down to the sequence a client counts on — and that
+                   sequence is also the pane's own, so the record moves with it. A door that only
+                   counted `session` events would answer `/api/state` with a pane frozen at the last
+                   thing that happened TO it rather than the last thing it said. */
+                Some("output") => {
+                    if let Some(id) = event.get("id").and_then(serde_json::Value::as_str) {
+                        if let Some(pane) = recording.lock().expect("panes lock").get_mut(id) {
+                            if let Some(fields) = pane.as_object_mut() {
+                                fields.insert("sequence".to_string(), event.get("sequence").cloned().unwrap_or(serde_json::Value::Null));
+                            }
+                        }
+                    }
+                    told.broadcast(&event.to_string());
+                }
                 Some("session") => {
                     let Some(session) = event.get("session") else { return };
                     let Some(id) = session.get("id").and_then(serde_json::Value::as_str) else { return };
@@ -340,6 +354,7 @@ async fn serve(options: Options) -> Result<(), String> {
         desktops: Desktops::new(),
         token: secret(),
         instance: uuid_v4(),
+        state: options.state.clone(),
         url: format!("http://127.0.0.1:{port}"),
         backend: options.backend.clone(),
         backend_token: options.backend_token.clone(),
@@ -403,6 +418,11 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
         if let Some(method) = session_route(&head.method, &head.path()) {
             let body = if head.method == "POST" { head.read_body(&mut client, &mut buffered).await? } else { String::new() };
             let answer = answer_about_pane(&front, method, &head, &body).await;
+            client.write_all(answer.as_bytes()).await?;
+            continue;
+        }
+        if head.path() == "/api/state" && head.method == "GET" {
+            let answer = answer_state(&front);
             client.write_all(answer.as_bytes()).await?;
             continue;
         }
@@ -508,7 +528,7 @@ mod tests {
         Front {
             store: None, pty: None, panes: Arc::new(Mutex::new(std::collections::HashMap::new())),
             hub: Arc::new(Hub::new()), desktops: Desktops::new(),
-            token: "a".repeat(64), instance: "i".into(), url: "http://127.0.0.1:1".into(),
+            token: "a".repeat(64), instance: "i".into(), state: "/tmp/x".into(), url: "http://127.0.0.1:1".into(),
             backend: "http://127.0.0.1:2".into(), backend_token: "b".repeat(64),
         }
     }
@@ -678,6 +698,58 @@ async fn answer_about_pane(front: &Arc<Front>, method: &str, head: &Head, body: 
         Ok(()) => http_json(200, "OK", &serde_json::json!({ "ok": true })),
         Err(fault) => faulted(&fault),
     }
+}
+
+/// `/api/state` — the route the desktop polls, and the one that names this host. Everything in it
+/// is something this process now has: the store's own state (D61), the panes the service is holding
+/// (D60/D62), and this door's identity.
+///
+/// `stateDir` and `pid` are said out loud for a worker above this host, so it can find a credential
+/// and name the process a pane descends from without the process table (specs 101/102). They are
+/// THIS process's now, which is the honest answer: the door is the host a client is talking to.
+fn answer_state(front: &Arc<Front>) -> String {
+    let store = front.store.as_ref().and_then(|client| client.state()).unwrap_or_else(|| serde_json::json!({}));
+    let field = |name: &str| store.get(name).cloned();
+    /* A draft's TEXT is not in this answer — it never was. The list says which files have one and
+       when, and the text arrives with the file it belongs to. */
+    let drafts: Vec<serde_json::Value> = field("drafts")
+        .and_then(|value| value.as_object().cloned())
+        .map(|held| {
+            held.values()
+                .map(|draft| serde_json::json!({
+                    "rootId": draft.get("rootId").cloned().unwrap_or(serde_json::Value::Null),
+                    "path": draft.get("path").cloned().unwrap_or(serde_json::Value::Null),
+                    "updatedAt": draft.get("updatedAt").cloned().unwrap_or(serde_json::Value::Null),
+                }))
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut held: Vec<serde_json::Value> = front.panes.lock().expect("panes lock").values().cloned().collect();
+    /* Oldest first. The JS host answers in the order it learned about its panes, which for a host
+       that started them is creation order; a door that adopted them from the service has no such
+       history, and the pane's own `createdAt` is the one order both can agree on. */
+    held.sort_by_key(|session| {
+        session.get("meta").and_then(|record| record.get("createdAt")).and_then(serde_json::Value::as_i64).unwrap_or(0)
+    });
+    let sessions: Vec<serde_json::Value> = held.iter().map(pane_snapshot).collect();
+    http_json(200, "OK", &serde_json::json!({
+        "instance": front.instance,
+        "stateDir": front.state,
+        "pid": std::process::id(),
+        /* The same list the JS host publishes, because a client reads it to decide what it may ask
+           for; a door that claimed less would turn features off in a desktop that has them. */
+        "capabilities": {
+            "taskConversations": 1, "handoff": 1, "desktopActions": 1, "formatRegistry": 1,
+            "dashboard": 1, "projectGame": 1, "projectGameLaunch": 1, "recordings": 1,
+            "projectDevices": 1, "externalDeclarations": 1, "agentConversations": 1, "tracker": 1,
+        },
+        "roots": field("roots").unwrap_or_else(|| serde_json::json!([])),
+        "layout": field("layout").unwrap_or(serde_json::Value::Null),
+        "preferences": field("preferences").unwrap_or_else(|| serde_json::json!({})),
+        "conversations": field("conversations").unwrap_or_else(|| serde_json::json!({})),
+        "drafts": drafts,
+        "sessions": sessions,
+    }))
 }
 
 /// `/api/desktop-action`: the only action the JS host takes here is a reload, and an unknown one is

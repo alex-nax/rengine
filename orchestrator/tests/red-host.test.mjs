@@ -99,11 +99,15 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
     const [through, around] = await Promise.all([ask(instance, route), ask(backend, route)]);
     assert.equal(through.status, around.status, `${route} answers the same status`);
     const [a, b] = await Promise.all([through.json(), around.json()]);
-    /* The state carries this host's own identity and pid, which the door has of its own; every
-       other field is the backend's answer, unchanged. */
+    /* `/api/state` is the door's own answer now, from the store it shares with the backend and the
+       panes the service is holding. What it may differ in is exactly this host's identity: its
+       instance, its pid, and the state directory it says it serves. */
     if (route === '/api/state') {
-      assert.deepEqual(a.roots, b.roots, 'the same roots');
-      assert.equal(a.capabilities.tracker, b.capabilities.tracker, 'the same capabilities');
+      assert.deepEqual({ ...a, instance: null, pid: null, sessions: null }, { ...b, instance: null, pid: null, sessions: null },
+        'everything but this host\'s own identity is the same answer');
+      assert.equal(a.instance, door.instance, 'the door says who IT is');
+      assert.notEqual(a.pid, b.pid, 'and names its own process, which is the one a client is talking to');
+      assert.deepEqual(a.sessions, b.sessions, 'with the same panes');
     } else {
       assert.deepEqual(a, b, `${route} answers the same body`);
     }
@@ -128,6 +132,13 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   await ask(instance, '/api/draft', { rootId: root.id, path: 'note.txt', text: 'a draft from the door' });
   const withDraft = await (await ask(backend, `/api/file?rootId=${root.id}&path=note.txt`)).json();
   assert.equal(withDraft.draft?.text, 'a draft from the door', 'the backend reads what the door wrote');
+  /* And the state's draft list says a draft is there without carrying it: the text arrives with the
+     file it belongs to, and a state poll that shipped every draft's contents would grow with them. */
+  const [drafted, draftedBehind] = await Promise.all([ask(instance, '/api/state'), ask(backend, '/api/state')].map(p => p.then(r => r.json())));
+  assert.equal(drafted.drafts.length, 1, 'the door says which file has a draft');
+  assert.deepEqual(drafted.drafts, draftedBehind.drafts, 'in the same words the host uses');
+  assert.equal('text' in drafted.drafts[0], false, 'and not what is in it');
+
   const discarded = await ask(instance, '/api/discard', { rootId: root.id, path: 'note.txt' });
   assert.equal((await (await ask(backend, `/api/file?rootId=${root.id}&path=note.txt`)).json()).draft ?? null, null,
     'and the discard reaches it too');
@@ -196,6 +207,12 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   for (let waited = 0; waited < 15000 && !frames.some(arrived); waited += 50) await delay(50);
   assert.ok(frames.some(arrived),
     `what the pane printed came back on the same socket: ${JSON.stringify(frames.map(frame => frame.type))}`);
+
+  /* And `/api/state` with a pane in it: the list is the panes the service is holding, composed the
+     way the JS host composes them, which is the whole of what a desktop draws its Sessions tab from. */
+  const [doorState, hostState] = await Promise.all([ask(instance, '/api/state'), ask(backend, '/api/state')].map(p => p.then(r => r.json())));
+  assert.equal(doorState.sessions.length, 1, 'the door lists the pane');
+  assert.deepEqual(doorState.sessions, hostState.sessions, 'exactly as the host lists it');
 
   /* A socket with the wrong token is refused at the door, before the backend is dialled. */
   const refused = new WebSocket(`${instance.url.replace('http', 'ws')}/events?token=${'f'.repeat(64)}`);

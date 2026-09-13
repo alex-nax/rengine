@@ -172,6 +172,31 @@ of what those shapes are.
 | the door does not pass a pane's output to its viewers | the native desktop never shows what was typed |
 | the door refuses the desktop's registration | the native desktop is not in `/api/desktops` |
 
+## `/api/state`, and what it turned out the door was not tracking
+
+The route a desktop polls is now the door's own: the store's state (D61) and the panes the service
+holds (D60/D62) are both here, so there is nothing left to forward. `stateDir` and `pid` are said
+out loud for the layer above (specs 101/102) and they are THIS process's — the honest answer, since
+the door is the host a client is talking to. The capability list is published verbatim, because a
+client reads it to decide what it may ask for and a door that claimed less would turn features off
+in a desktop that has them.
+
+The comparison against the JS host's answer immediately found something the door was getting wrong:
+a pane's `sequence` only moved when something happened *to* the pane, not when the pane *said*
+something, because the door's record cache was fed by `session` events and not by output. The JS
+host advances it on every chunk and a reconnecting desktop uses it to know where it is (specs
+059/060). Fixed by advancing the cached pane with its own output, which is what the JS host does.
+
+The pane list is ordered oldest-first by `createdAt`. The JS host answers in the order it learned
+about its panes — creation order, for a host that started them — and a door that adopted them from
+the service has no such history; the pane's own timestamp is the one order both can agree on.
+
+| Sabotage | Observed |
+| --- | --- |
+| the door invents its own capability list | `- projectGame: 1` against the host's |
+| a pane's sequence stops moving with its output | `+ sequence: 0, - sequence: 9` |
+| the state's draft list carries the draft text | `+ text: 'a draft from the door'` |
+
 ## The desktop itself, against the door
 
 `orchestrator/tests/native-front-door.spec.mjs` is the criterion F189 actually asks for. It starts
@@ -185,9 +210,14 @@ claim like that is to run the binary against the new host rather than to compare
 
 ## What this does not claim
 
-- **F189 is not finished.** `/api/terminal`, `/api/agent-restart`, `/api/agent-conversation`,
-  `/api/state` and `/surface` are still forwarded, and nothing is deleted. Spawning a pane is the
-  interesting one left: it composes an agent's launch, which is red-agents' work.
+- **F189 is not finished.** `/api/terminal`, `/api/agent-restart`, `/api/agent-conversation` and
+  `/surface` are still forwarded, and nothing is deleted. The three that are left are one group —
+  the **pane-composition** routes — and they share a prerequisite the moved routes did not have:
+  composing an agent pane needs the checkout (`scripts/agent.sh`, `orchestrator/agents/registry.toml`),
+  which the JS host resolves from its own module path and the door would have to be told. They also
+  cannot make the JS one dead, because `games.launch` and `/api/dashboard-run` spawn panes through it
+  until F155 — so porting them now means two live implementations of the most intricate composition
+  in the workspace, with fixtures as the only thing holding them together.
 - **`surfaces.mjs` cannot move with this row.** F152's description lists it beside desktops, but the
   module belongs to `games.mjs` — it is the game viewer's frame transport, not the workspace socket —
   so it moves with games (F155). Its focus-eviction semantic is preserved here in the only way this

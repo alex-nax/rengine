@@ -85,6 +85,28 @@ Six more sabotages, including two through the native desktop. And a finding that
 **KI-105**, along with the reason nobody noticed: the desktop gate is 43 specs that `npm test` does
 not run, which is the `suite-coverage` lesson one layer up.
 
+**`/api/state` too**, which is the route a desktop polls: the store's state and the panes the
+service holds are both the door's now, so there is nothing left to forward in it. Comparing it field
+for field against the JS host's answer immediately found something the door had wrong — a pane's
+`sequence` moved only when something happened *to* the pane, never when the pane *said* something,
+because the record cache was fed by session events and not by output. A reconnecting desktop reads
+that number (specs 059/060). Three more sabotages, one of which passed until the spec compared the
+draft list, which is the second time today a claim needed its own case rather than a nearby one.
+
+What is left of F189 is one group: the **pane-composition** routes (`/api/terminal`,
+`/api/agent-restart`, `/api/agent-conversation`). They need the checkout — `scripts/agent.sh`, the
+agent registry — which the JS host resolves from its own module path and the door would have to be
+told, and they cannot make the JS implementation dead, because `games.launch` and
+`/api/dashboard-run` spawn panes through it until F155. Porting them now buys two live
+implementations of the most intricate composition in the workspace; that is a decision, not a
+detail, and it is written down rather than taken quietly.
+
+**KI-106**, filed on the way: the JS modules are gated on the SUITE as well as on the routes. 71 spec
+files start the JS host directly, all 43 native specs among them, so even a module the door has fully
+replaced cannot be deleted yet. The line count does not fall during a strangler transition — it
+rises slightly, and every deletion lands at the end. That is the right shape, but it is not what the
+epic's per-row "Retires (JS)" column reads like.
+
 Commands: `npm test` (**322 of 322**, zero services left), `cargo test`, `./init.sh`,
 `python3 tools/features.py validate`, and `native-front-door` + four neighbouring native specs.
 
