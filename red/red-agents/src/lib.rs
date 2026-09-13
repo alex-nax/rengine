@@ -14,6 +14,42 @@
 
 use serde_json::json;
 
+pub mod bind;
+/// The mint and the clock: two binaries need them, and two copies would drift.
+pub mod mint {
+    pub fn uuid_v4() -> String {
+        let mut bytes = [0u8; 16];
+        getrandom::fill(&mut bytes).expect("the operating system answers randomness");
+        bytes[6] = bytes[6] & 0x0f | 0x40;
+        bytes[8] = bytes[8] & 0x3f | 0x80;
+        let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+        format!("{}-{}-{}-{}-{}", &hex[0..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..32])
+    }
+    /* ISO-8601 with milliseconds, the shape `new Date().toISOString()` writes, because the identity's
+       startedAt is read back by JS and by the desktop. */
+    pub fn now_iso() -> String {
+        let millis = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0);
+        let (seconds, sub) = (millis.div_euclid(1000), millis.rem_euclid(1000));
+        let days = seconds.div_euclid(86_400);
+        let time = seconds.rem_euclid(86_400);
+        // Civil-from-days (Howard Hinnant's algorithm), so no date crate is needed for one field.
+        let z = days + 719_468;
+        let era = z.div_euclid(146_097);
+        let doe = z.rem_euclid(146_097);
+        let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+        let y = yoe + era * 400;
+        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+        let mp = (5 * doy + 2) / 153;
+        let d = doy - (153 * mp + 2) / 5 + 1;
+        let m = if mp < 10 { mp + 3 } else { mp - 9 };
+        let y = if m <= 2 { y + 1 } else { y };
+        format!("{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}.{sub:03}Z", time / 3600, (time % 3600) / 60, time % 60)
+    }
+}
+
 pub mod hooks;
 pub mod launch;
 pub mod parsers;

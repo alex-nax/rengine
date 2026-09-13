@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { stateDirectories } from '../agents/bind.mjs';
+import { stateDirectories } from '../agents/agents-client.mjs';
 
 /* Binding a hand-started CLI has to find the instance that already serves the project. Which
    directory the launcher chose for its state is the launcher's business: an owner's own launcher

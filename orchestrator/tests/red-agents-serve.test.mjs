@@ -14,8 +14,19 @@ import { existsSync } from 'node:fs';
 import readline from 'node:readline';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { agentNames, resolvedRecipes } from '../agents/registry.mjs';
-import { codexHookKey, codexHookTrustHash } from '../agents/config.mjs';
+import { readFile } from 'node:fs/promises';
+
+/* Judged against the answers registry.mjs and config.mjs gave, recorded by agents-fixtures.mjs
+   while those modules still existed (F173). A replacement cannot be compared against a module that
+   has been deleted, and regenerating the record would be judging it against itself. */
+const FIXTURES = JSON.parse(await readFile(new URL('./agents-fixtures.json', import.meta.url), 'utf8'));
+const agentNames = () => FIXTURES.agentNames;
+const resolvedRecipes = () => FIXTURES.resolvedRecipes;
+const codexHookKey = (group, handler) => FIXTURES.hookKeys[`${group},${handler}`];
+const codexHookTrustHash = (command, matcher = 'startup|resume') => {
+  if (command !== FIXTURES.trustCommand) throw new Error('the record holds one command');
+  return FIXTURES.trustHashes[matcher];
+};
 
 const run = promisify(execFile);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -66,7 +77,7 @@ test('the service carries the codex hook numbers the launcher composes with', as
   const { call } = await serve(t);
   assert.equal(await call('codexHookKey', [0, 0]), codexHookKey(0, 0));
   assert.equal(await call('codexHookKey', [2, 1]), codexHookKey(2, 1));
-  const command = "'/opt/red-agents' report-session --provider codex --context '/tmp/c.json'";
+  const command = FIXTURES.trustCommand;
   assert.equal(await call('codexHookTrustHash', [command]), codexHookTrustHash(command),
     'the trust hash codex looks this launch’s hook up by');
   assert.equal(await call('codexHookTrustHash', [command, 'startup']), codexHookTrustHash(command, 'startup'));

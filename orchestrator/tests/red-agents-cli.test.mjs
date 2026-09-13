@@ -14,14 +14,17 @@ import assert from 'node:assert/strict';
 import { execFile, spawnSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const BIN = path.join(ROOT, 'red/target/debug/red-agents');
-const REGISTRY_MJS = path.join(ROOT, 'orchestrator/agents/registry.mjs');
+/* registry.mjs was deleted in F173. Its answers were recorded first (agents-fixtures.json), which
+   is what a byte-exactness claim can be judged against once the other side no longer exists —
+   regenerating the record would be judging the replacement against itself. */
+const FIXTURES = JSON.parse(readFileSync(new URL('./agents-fixtures.json', import.meta.url), 'utf8'));
 const run = promisify(execFile);
 const NODE = process.execPath;
 
@@ -31,13 +34,15 @@ async function build() {
 }
 
 const cli = async args => run(BIN, args).catch(error => error);
-const node = async args => run(NODE, [REGISTRY_MJS, ...args]).catch(error => error);
+/* Two recordings, and `list --names` is in both: which one a case is judged against is the whole
+   point of the case, so the table is named rather than searched. */
+const recorded = (args, table = 'cli') => FIXTURES[table][args.join(' ')];
 
 test('list and show are byte-exact with the registry.mjs CLI, errors included', async t => {
   await build();
   for (const args of [['list'], ['list', '--names'], ['show', 'claude'], ['show', 'codex', 'UPDATE_COMMAND'],
                       ['show', 'kimi', 'STRIP_PREFIX'], ['show', 'gemini', 'STRIP_PREFIX']]) {
-    const [rust, js] = await Promise.all([cli(args), node(args)]);
+    const rust = await cli(args), js = recorded(args);
     assert.equal(rust.stdout, js.stdout, `stdout for ${args.join(' ')}`);
     assert.equal(rust.code ?? 0, js.code ?? 0, `exit for ${args.join(' ')}`);
   }
@@ -48,10 +53,7 @@ test('list and show are byte-exact with the registry.mjs CLI, errors included', 
   await writeFile(extra, `[recipes.testcli]\npackage = "@test/testcli"\n\n[recipes.testcli.update]\nkind = "self"\ncommand = "upgrade"\n\n[recipes.testcli.models]\nkind = "none"\n\n[recipes.testcli.mcp]\nkind = "flag"\n`);
   const env = { ...process.env, RENGINE_AGENT_REGISTRY_EXTRA: extra };
   for (const args of [['list', '--names'], ['show', 'testcli'], ['show', 'testcli', 'UPDATE_COMMAND']]) {
-    const [rust, js] = await Promise.all([
-      run(BIN, args, { env }).catch(error => error),
-      run(NODE, [REGISTRY_MJS, ...args], { env }).catch(error => error),
-    ]);
+    const rust = await run(BIN, args, { env }).catch(error => error), js = recorded(args, 'cliWithExtra');
     assert.equal(rust.stdout, js.stdout, `stdout for ${args.join(' ')} with an extra`);
     if (args.length < 3) assert.ok(rust.stdout.includes('testcli'), 'the extra recipe is in the answer');
   }
@@ -60,11 +62,13 @@ test('list and show are byte-exact with the registry.mjs CLI, errors included', 
     [['show', 'claude', 'NOPE'], 'The registry has no NOPE for claude.'],
     [[], 'Usage:'],
   ]) {
-    const [rust, js] = await Promise.all([cli(args), node(args)]);
+    const rust = await cli(args), js = recorded(args);
     assert.ok((rust.code ?? 0) !== 0, `${args.join(' ')} fails`);
-    assert.equal((rust.code ?? 0) === 2, (js.code ?? 0) === 2, `exit code for ${args.join(' ')}`);
-    assert.ok(rust.stderr.includes(message), `rust stderr names it: ${rust.stderr.trim()}`);
-    assert.ok(js.stderr.includes(message), `js stderr names it: ${js.stderr.trim()}`);
+    /* The refusal a person reads, and the exit code a script reads: `js` is the recording where one
+       was made, and a usage refusal (no arguments at all) was not worth recording to compare a 2 to
+       a 2 — the message is the claim. */
+    if (js) assert.equal((rust.code ?? 0) === 2, (js.code ?? 0) === 2, `exit code for ${args.join(' ')}`);
+    assert.ok(rust.stderr.includes(message), `stderr names it: ${rust.stderr.trim()}`);
   }
 });
 
@@ -87,11 +91,14 @@ const PARSE_CASES = [
 
 test('the conversation parsers answer what the JS parsers answer', async t => {
   await build();
-  const registry = await import('../agents/registry.mjs');
-  const PARSERS = { claude: registry.claudeFlags, kimi: registry.kimiFlags, codex: registry.codexResume };
-  for (const [cliName, args] of PARSE_CASES) {
-    const rust = JSON.parse((await cli(['parse', cliName, '--', ...args])).stdout);
-    assert.deepEqual(rust, PARSERS[cliName](args), `${cliName} ${args.join(' ')}`);
+  /* Against the answers the JS parsers gave, recorded before they were deleted. The pinned anchors
+     below are the half that needs no other implementation at all, and they are why this test still
+     says something once there is only one parser left. */
+  for (const [cliName, cases] of Object.entries(FIXTURES.parsers)) {
+    for (const { args, parsed } of cases) {
+      const rust = JSON.parse((await cli(['parse', cliName, '--', ...args])).stdout);
+      assert.deepEqual(rust, parsed, `${cliName} ${args.join(' ')}`);
+    }
   }
   const anchors = [
     [['claude', ['--resume', UUID]], { id: UUID, source: 'flag' }],
@@ -107,8 +114,7 @@ test('the conversation parsers answer what the JS parsers answer', async t => {
 
 test('the codex hook key and trust hash are byte-exact with the JS math', async t => {
   await build();
-  const config = await import('../agents/config.mjs');
-  assert.equal((await cli(['hook-key'])).stdout.trim(), config.codexHookKey());
+  assert.equal((await cli(['hook-key'])).stdout.trim(), FIXTURES.hookKeys['0,0']);
   assert.equal((await cli(['hook-key'])).stdout.trim(), '/<session-flags>/config.toml:session_start:0:0');
   assert.equal((await cli(['hook-key', '--platform', 'win32'])).stdout.trim(),
     'C:\\<session-flags>\\config.toml:session_start:0:0');
@@ -122,7 +128,7 @@ test('the codex hook key and trust hash are byte-exact with the JS math', async 
   for (const command of commands) {
     for (const matcher of [undefined, 'startup']) {
       const args = ['trust-hash', command, ...(matcher ? [matcher] : [])];
-      assert.equal((await cli(args)).stdout.trim(), config.codexHookTrustHash(command, matcher),
+      assert.equal((await cli(args)).stdout.trim(), FIXTURES.trustShapes[JSON.stringify([command, matcher ?? null])],
         `${command} [${matcher ?? 'default'}]`);
     }
   }

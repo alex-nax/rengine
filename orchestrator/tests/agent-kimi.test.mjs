@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { agentLaunch, describeSession } from '../agents/config.mjs';
+import { agentLaunch, describeSession } from '../agents/agents-client.mjs';
 
 /* Kimi Code is a named CLI like the other four (docs/specs/127-kimi-agent-integration.md). Its
    channels are its own: the workspace MCP reaches it through the project-level .kimi-code/mcp.json
@@ -82,7 +82,7 @@ test('kimi’s own flags name the session, and nothing is invented for a launch 
     const opaque = await launch(args);
     assert.equal(opaque.identity.session.known, false, `${args[0]} names a conversation only the CLI knows`);
     assert.equal(opaque.conversation, null, 'so the record is actively cleared rather than left claiming one');
-    assert.match(describeSession(opaque.identity), /unknown/);
+    assert.match(await describeSession(opaque.identity), /unknown/);
   }
   const fresh = await launch([]);
   assert.equal(fresh.identity.session, undefined, 'a bare launch names its own conversation inside the CLI; rEngine invents nothing');

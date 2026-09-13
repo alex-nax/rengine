@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { agentLaunch } from '../agents/config.mjs';
+import { agentLaunch } from '../agents/agents-client.mjs';
 
 test('agent overlays preserve arguments and existing configuration without rewriting user files', async t => {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-agent-config-'));

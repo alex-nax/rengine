@@ -1,0 +1,716 @@
+{
+  "agentNames": [
+    "claude",
+    "codex",
+    "gemini",
+    "opencode",
+    "kimi"
+  ],
+  "resolvedRecipes": {
+    "claude": {
+      "package": "@anthropic-ai/claude-code",
+      "update": {
+        "kind": "self",
+        "command": "update"
+      },
+      "model": {
+        "flag": "--model"
+      },
+      "models": {
+        "kind": "static",
+        "list": [
+          "claude-fable-5-1",
+          "claude-opus-5",
+          "claude-sonnet-5",
+          "claude-haiku-4-5-20251001"
+        ],
+        "default": "claude-opus-5"
+      },
+      "conversation": {
+        "start": {
+          "args": [
+            "--session-id"
+          ]
+        },
+        "resume": {
+          "args": [
+            "--resume"
+          ]
+        },
+        "ids": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+        "parser": "claude-flags",
+        "short": {
+          "stripPrefix": null,
+          "length": 8
+        },
+        "normalize": "lowercase",
+        "provider": "claude",
+        "resumeLine": "claude --resume {id}"
+      },
+      "mcp": {
+        "kind": "flag",
+        "envVar": null
+      },
+      "hooks": {
+        "kind": "per-launch-settings"
+      },
+      "ide": {
+        "flags": [
+          "--ide"
+        ],
+        "envVar": "CLAUDE_CODE_SSE_PORT"
+      }
+    },
+    "codex": {
+      "package": "@openai/codex",
+      "update": {
+        "kind": "self",
+        "command": "update"
+      },
+      "model": {
+        "flag": "-m"
+      },
+      "models": {
+        "kind": "help",
+        "list": null,
+        "default": null
+      },
+      "conversation": {
+        "start": null,
+        "resume": {
+          "args": [
+            "resume"
+          ]
+        },
+        "ids": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+        "parser": "codex-resume",
+        "short": {
+          "stripPrefix": null,
+          "length": 8
+        },
+        "normalize": "lowercase",
+        "provider": "codex",
+        "resumeLine": "codex resume {id}"
+      },
+      "mcp": {
+        "kind": "config-args",
+        "envVar": null
+      },
+      "hooks": {
+        "kind": "per-launch-config"
+      },
+      "ide": null
+    },
+    "gemini": {
+      "package": "@google/gemini-cli",
+      "update": {
+        "kind": "reinstall",
+        "command": null
+      },
+      "model": null,
+      "models": {
+        "kind": "none",
+        "list": null,
+        "default": null
+      },
+      "conversation": null,
+      "mcp": {
+        "kind": "env-defaults",
+        "envVar": null
+      },
+      "hooks": null,
+      "ide": null
+    },
+    "opencode": {
+      "package": "opencode-ai",
+      "update": {
+        "kind": "self",
+        "command": "upgrade"
+      },
+      "model": null,
+      "models": {
+        "kind": "none",
+        "list": null,
+        "default": null
+      },
+      "conversation": null,
+      "mcp": {
+        "kind": "env-inline",
+        "envVar": "OPENCODE_CONFIG_CONTENT"
+      },
+      "hooks": null,
+      "ide": null
+    },
+    "kimi": {
+      "package": "@moonshot-ai/kimi-code",
+      "update": {
+        "kind": "self",
+        "command": "upgrade"
+      },
+      "model": {
+        "flag": "-m"
+      },
+      "models": {
+        "kind": "none",
+        "list": null,
+        "default": null
+      },
+      "conversation": {
+        "start": null,
+        "resume": {
+          "args": [
+            "--session"
+          ]
+        },
+        "ids": "^(?:session_)?(?:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-HJKMNP-TV-Z]{26})$",
+        "parser": "kimi-flags",
+        "short": {
+          "stripPrefix": "session_",
+          "length": 8
+        },
+        "normalize": "none",
+        "provider": "kimi",
+        "resumeLine": "kimi --session {id}"
+      },
+      "mcp": {
+        "kind": "project-file",
+        "envVar": null
+      },
+      "hooks": {
+        "kind": "guided-bootstrap"
+      },
+      "ide": null
+    }
+  },
+  "hookKeys": {
+    "0,0": "/<session-flags>/config.toml:session_start:0:0",
+    "2,1": "/<session-flags>/config.toml:session_start:2:1"
+  },
+  "trustHashes": {
+    "startup|resume": "sha256:74be19bcf7f408610c07822df0918324b9f6c3bb65ca0f207476a17f50a1e46f",
+    "startup": "sha256:45ee09403257bee588a36e0156a09f8d68c57770af6e1ffb0d2875befa574229"
+  },
+  "trustCommand": "'/opt/red-agents' report-session --provider codex --context '/tmp/c.json'",
+  "launches": {
+    "claude": {
+      "args": [
+        "--mcp-config",
+        "<home>/rengine_<root>-<mint>/mcp.json",
+        "--settings",
+        "<home>/rengine_<root>-<mint>/settings.json",
+        "--session-id",
+        "<uuid>"
+      ],
+      "consumes": {
+        "args": [
+          "--mcp-config",
+          "<home>/rengine_<root>-<mint>/mcp.json",
+          "--settings",
+          "<home>/rengine_<root>-<mint>/settings.json",
+          "--session-id",
+          "<uuid>"
+        ],
+        "env": {}
+      },
+      "identity": {
+        "agentId": "<uuid>",
+        "label": "claude <short>",
+        "pid": "<pid>",
+        "startedAt": "<stamp>",
+        "session": {
+          "provider": "claude",
+          "id": "<uuid>",
+          "known": true,
+          "source": "minted",
+          "resume": "claude --resume <uuid>"
+        }
+      },
+      "name": "rengine_123456781234",
+      "conversation": "<uuid>",
+      "custom": false,
+      "files": {
+        "generic": {
+          "body": {
+            "mcpServers": {
+              "rengine_123456781234": {
+                "type": "stdio",
+                "command": "/Users/alex/.n/bin/node",
+                "args": [
+                  "/Users/alex/rengine/orchestrator/agents/mcp.mjs",
+                  "--context",
+                  "<home>/rengine_<root>-<mint>/context.json"
+                ]
+              }
+            }
+          },
+          "mode": 384
+        },
+        "contextFile": {
+          "body": {
+            "url": "http://127.0.0.1:1",
+            "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "instance": "<uuid>",
+            "rootId": "<uuid>",
+            "agent": {
+              "agentId": "<uuid>",
+              "label": "claude <short>",
+              "pid": "<pid>",
+              "startedAt": "<stamp>",
+              "session": {
+                "provider": "claude",
+                "id": "<uuid>",
+                "known": true,
+                "source": "minted",
+                "resume": "claude --resume <uuid>"
+              }
+            }
+          },
+          "mode": 384
+        },
+        "settings": {
+          "body": {
+            "hooks": {
+              "SessionStart": [
+                {
+                  "hooks": [
+                    {
+                      "type": "command",
+                      "command": "/Users/alex/rengine/red/target/debug/red-agents report-session --context <home>/rengine_<root>-<mint>/context.json"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "mode": 384
+        }
+      }
+    },
+    "codex": {
+      "args": [
+        "-c",
+        "mcp_servers.rengine_123456781234.command=\"/Users/alex/.n/bin/node\"",
+        "-c",
+        "mcp_servers.rengine_123456781234.args=[\"/Users/alex/rengine/orchestrator/agents/mcp.mjs\",\"--context\",\"<home>/rengine_<root>-<mint>/context.json\"]",
+        "-c",
+        "mcp_servers.rengine_123456781234.required=true",
+        "-c",
+        "features.hooks=true",
+        "-c",
+        "hooks.SessionStart=[{matcher=\"startup|resume\",hooks=[{type=\"command\",command=\"/Users/alex/rengine/red/target/debug/red-agents report-session --provider codex --context <home>/rengine_<root>-<mint>/context.json\"}]}]",
+        "-c",
+        "hooks.state={\"/<session-flags>/config.toml:session_start:0:0\"={trusted_hash=\"<hash>\"}}"
+      ],
+      "consumes": {
+        "args": [
+          "-c",
+          "mcp_servers.rengine_123456781234.command=\"/Users/alex/.n/bin/node\"",
+          "-c",
+          "mcp_servers.rengine_123456781234.args=[\"/Users/alex/rengine/orchestrator/agents/mcp.mjs\",\"--context\",\"<home>/rengine_<root>-<mint>/context.json\"]",
+          "-c",
+          "mcp_servers.rengine_123456781234.required=true",
+          "-c",
+          "features.hooks=true",
+          "-c",
+          "hooks.SessionStart=[{matcher=\"startup|resume\",hooks=[{type=\"command\",command=\"/Users/alex/rengine/red/target/debug/red-agents report-session --provider codex --context <home>/rengine_<root>-<mint>/context.json\"}]}]",
+          "-c",
+          "hooks.state={\"/<session-flags>/config.toml:session_start:0:0\"={trusted_hash=\"<hash>\"}}"
+        ],
+        "env": {}
+      },
+      "identity": {
+        "agentId": "<uuid>",
+        "label": "codex <short>",
+        "pid": "<pid>",
+        "startedAt": "<stamp>"
+      },
+      "name": "rengine_123456781234",
+      "conversation": null,
+      "custom": false,
+      "files": {
+        "generic": {
+          "body": {
+            "mcpServers": {
+              "rengine_123456781234": {
+                "type": "stdio",
+                "command": "/Users/alex/.n/bin/node",
+                "args": [
+                  "/Users/alex/rengine/orchestrator/agents/mcp.mjs",
+                  "--context",
+                  "<home>/rengine_<root>-<mint>/context.json"
+                ]
+              }
+            }
+          },
+          "mode": 384
+        },
+        "contextFile": {
+          "body": {
+            "url": "http://127.0.0.1:1",
+            "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "instance": "<uuid>",
+            "rootId": "<uuid>",
+            "agent": {
+              "agentId": "<uuid>",
+              "label": "codex <short>",
+              "pid": "<pid>",
+              "startedAt": "<stamp>"
+            }
+          },
+          "mode": 384
+        }
+      }
+    },
+    "kimi": {
+      "args": [],
+      "consumes": {
+        "args": [],
+        "env": {}
+      },
+      "identity": {
+        "agentId": "<uuid>",
+        "label": "kimi <short>",
+        "pid": "<pid>",
+        "startedAt": "<stamp>"
+      },
+      "name": "rengine_123456781234",
+      "conversation": null,
+      "custom": false,
+      "files": {
+        "generic": {
+          "body": {
+            "mcpServers": {
+              "rengine_123456781234": {
+                "type": "stdio",
+                "command": "/Users/alex/.n/bin/node",
+                "args": [
+                  "/Users/alex/rengine/orchestrator/agents/mcp.mjs",
+                  "--context",
+                  "<home>/rengine_<root>-<mint>/context.json"
+                ]
+              }
+            }
+          },
+          "mode": 384
+        },
+        "contextFile": {
+          "body": {
+            "url": "http://127.0.0.1:1",
+            "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "instance": "<uuid>",
+            "rootId": "<uuid>",
+            "agent": {
+              "agentId": "<uuid>",
+              "label": "kimi <short>",
+              "pid": "<pid>",
+              "startedAt": "<stamp>"
+            }
+          },
+          "mode": 384
+        }
+      }
+    },
+    "gemini": {
+      "args": [],
+      "consumes": {
+        "args": [],
+        "env": {
+          "GEMINI_CLI_SYSTEM_DEFAULTS_PATH": "<home>/rengine_<root>-<mint>/gemini-defaults.json"
+        }
+      },
+      "identity": {
+        "agentId": "<uuid>",
+        "label": "gemini <short>",
+        "pid": "<pid>",
+        "startedAt": "<stamp>"
+      },
+      "name": "rengine_123456781234",
+      "conversation": null,
+      "custom": false,
+      "files": {
+        "generic": {
+          "body": {
+            "mcpServers": {
+              "rengine_123456781234": {
+                "type": "stdio",
+                "command": "/Users/alex/.n/bin/node",
+                "args": [
+                  "/Users/alex/rengine/orchestrator/agents/mcp.mjs",
+                  "--context",
+                  "<home>/rengine_<root>-<mint>/context.json"
+                ]
+              }
+            }
+          },
+          "mode": 384
+        },
+        "contextFile": {
+          "body": {
+            "url": "http://127.0.0.1:1",
+            "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "instance": "<uuid>",
+            "rootId": "<uuid>",
+            "agent": {
+              "agentId": "<uuid>",
+              "label": "gemini <short>",
+              "pid": "<pid>",
+              "startedAt": "<stamp>"
+            }
+          },
+          "mode": 384
+        }
+      }
+    },
+    "opencode": {
+      "args": [],
+      "consumes": {
+        "args": [],
+        "env": {
+          "OPENCODE_CONFIG_CONTENT": "{\"mcp\":{\"rengine_123456781234\":{\"type\":\"local\",\"command\":[\"/Users/alex/.n/bin/node\",\"/Users/alex/rengine/orchestrator/agents/mcp.mjs\",\"--context\",\"<home>/rengine_<root>-<mint>/context.json\"],\"enabled\":true}}}"
+        }
+      },
+      "identity": {
+        "agentId": "<uuid>",
+        "label": "opencode <short>",
+        "pid": "<pid>",
+        "startedAt": "<stamp>"
+      },
+      "name": "rengine_123456781234",
+      "conversation": null,
+      "custom": false,
+      "files": {
+        "generic": {
+          "body": {
+            "mcpServers": {
+              "rengine_123456781234": {
+                "type": "stdio",
+                "command": "/Users/alex/.n/bin/node",
+                "args": [
+                  "/Users/alex/rengine/orchestrator/agents/mcp.mjs",
+                  "--context",
+                  "<home>/rengine_<root>-<mint>/context.json"
+                ]
+              }
+            }
+          },
+          "mode": 384
+        },
+        "contextFile": {
+          "body": {
+            "url": "http://127.0.0.1:1",
+            "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "instance": "<uuid>",
+            "rootId": "<uuid>",
+            "agent": {
+              "agentId": "<uuid>",
+              "label": "opencode <short>",
+              "pid": "<pid>",
+              "startedAt": "<stamp>"
+            }
+          },
+          "mode": 384
+        }
+      }
+    }
+  },
+  "cli": {
+    "list": {
+      "stdout": "claude\t@anthropic-ai/claude-code\ncodex\t@openai/codex\ngemini\t@google/gemini-cli\nopencode\topencode-ai\nkimi\t@moonshot-ai/kimi-code\n",
+      "code": 0
+    },
+    "list --names": {
+      "stdout": "claude\ncodex\ngemini\nopencode\nkimi\n",
+      "code": 0
+    },
+    "show claude": {
+      "stdout": "CLI=claude\nPACKAGE=@anthropic-ai/claude-code\nUPDATE_KIND=self\nUPDATE_COMMAND=update\nSTRIP_PREFIX=\n",
+      "code": 0
+    },
+    "show codex UPDATE_COMMAND": {
+      "stdout": "update\n",
+      "code": 0
+    },
+    "show kimi STRIP_PREFIX": {
+      "stdout": "session_\n",
+      "code": 0
+    },
+    "show gemini STRIP_PREFIX": {
+      "stdout": "\n",
+      "code": 0
+    },
+    "show nope": {
+      "stdout": "",
+      "code": 2,
+      "stderr": "No agent named nope is registered.\n"
+    },
+    "show claude NOPE": {
+      "stdout": "",
+      "code": 2,
+      "stderr": "The registry has no NOPE for claude.\n"
+    }
+  },
+  "cliWithExtra": {
+    "list --names": {
+      "stdout": "claude\ncodex\ngemini\nopencode\nkimi\ntestcli\n",
+      "code": 0
+    },
+    "show testcli": {
+      "stdout": "CLI=testcli\nPACKAGE=@test/testcli\nUPDATE_KIND=self\nUPDATE_COMMAND=upgrade\nSTRIP_PREFIX=\n",
+      "code": 0
+    },
+    "show testcli UPDATE_COMMAND": {
+      "stdout": "upgrade\n",
+      "code": 0
+    }
+  },
+  "parsers": {
+    "claude": [
+      {
+        "args": [],
+        "parsed": {
+          "id": null,
+          "source": "minted"
+        }
+      },
+      {
+        "args": [
+          "--resume",
+          "b9e2114c-1111-4111-8111-111111111111"
+        ],
+        "parsed": {
+          "id": "b9e2114c-1111-4111-8111-111111111111",
+          "source": "flag"
+        }
+      },
+      {
+        "args": [
+          "-c"
+        ],
+        "parsed": {
+          "id": null,
+          "source": "unknown"
+        }
+      },
+      {
+        "args": [
+          "--continue"
+        ],
+        "parsed": {
+          "id": null,
+          "source": "unknown"
+        }
+      },
+      {
+        "args": [
+          "--fork-session"
+        ],
+        "parsed": {
+          "id": null,
+          "source": "unknown"
+        }
+      },
+      {
+        "args": [
+          "--session-id",
+          "b9e2114c-1111-4111-8111-111111111111"
+        ],
+        "parsed": {
+          "id": "b9e2114c-1111-4111-8111-111111111111",
+          "source": "flag"
+        }
+      },
+      {
+        "args": [
+          "--resume"
+        ],
+        "parsed": {
+          "id": null,
+          "source": "unknown"
+        }
+      }
+    ],
+    "kimi": [
+      {
+        "args": [],
+        "parsed": {
+          "id": null,
+          "source": "minted"
+        }
+      },
+      {
+        "args": [
+          "--session",
+          "session_b9e2114c-1111-4111-8111-111111111111"
+        ],
+        "parsed": {
+          "id": "session_b9e2114c-1111-4111-8111-111111111111",
+          "source": "flag"
+        }
+      },
+      {
+        "args": [
+          "--continue"
+        ],
+        "parsed": {
+          "id": null,
+          "source": "unknown"
+        }
+      },
+      {
+        "args": [
+          "--resume"
+        ],
+        "parsed": {
+          "id": null,
+          "source": "unknown"
+        }
+      }
+    ],
+    "codex": [
+      {
+        "args": [],
+        "parsed": {
+          "id": null,
+          "source": "minted"
+        }
+      },
+      {
+        "args": [
+          "resume",
+          "b9e2114c-1111-4111-8111-111111111111"
+        ],
+        "parsed": {
+          "id": "b9e2114c-1111-4111-8111-111111111111",
+          "source": "flag"
+        }
+      },
+      {
+        "args": [
+          "resume",
+          "--last"
+        ],
+        "parsed": {
+          "id": null,
+          "source": "unknown"
+        }
+      },
+      {
+        "args": [
+          "resume"
+        ],
+        "parsed": {
+          "id": null,
+          "source": "unknown"
+        }
+      }
+    ]
+  },
+  "trustShapes": {
+    "[\"/usr/local/bin/node /repo/orchestrator/agents/report-session.mjs --provider codex --context /state/context.json\",null]": "sha256:12f31cc1e970b72812fdbf48aad7d942ae48cbdf1293a490f430831b16651e2a",
+    "[\"/usr/local/bin/node /repo/orchestrator/agents/report-session.mjs --provider codex --context /state/context.json\",\"startup\"]": "sha256:8626ba99e1506308944b1ebc1f2dfcbcbb97057a8ff478807fba46080a38ed60",
+    "[\"'/opt/homebrew/bin/node' '/space dir/report-session.mjs' --provider codex --context '/state/my context.json'\",null]": "sha256:8903270b92e9c85cae0c834462b5a072dadca73c1a14e96cd94c58ba9cacd721",
+    "[\"'/opt/homebrew/bin/node' '/space dir/report-session.mjs' --provider codex --context '/state/my context.json'\",\"startup\"]": "sha256:b99c9676bf7191ce2b23758cce8444b12a0691b6397a8e414fe3bae4ee70d6f2",
+    "[\"C:\\\\node\\\\node.exe C:\\\\repo\\\\report-session.mjs --provider codex --context C:\\\\state\\\\context.json\",null]": "sha256:200ef570ac15a085dc0e208777ac3e597a9bc51b0d2811add9a0fc301b3a7395",
+    "[\"C:\\\\node\\\\node.exe C:\\\\repo\\\\report-session.mjs --provider codex --context C:\\\\state\\\\context.json\",\"startup\"]": "sha256:5c5a784d9ca34cba5afc4c2b415951e6327c8c762113d6735913af8f14a79d4d"
+  }
+}

@@ -137,6 +137,36 @@ fn main() -> ExitCode {
             println!("{}", serde_json::json!({ "id": parsed.0, "source": parsed.1 }));
             ExitCode::SUCCESS
         }
+        "bind" => {
+            let recipes = match load() {
+                Ok(recipes) => recipes,
+                Err(error) => return fail(error),
+            };
+            let home = std::env::var("XDG_STATE_HOME").ok().filter(|value| !value.is_empty()).unwrap_or_else(|| {
+                let home = std::env::var("HOME").unwrap_or_default();
+                format!("{home}/.local/state")
+            });
+            /* Nothing is spawned here, so the pid the identity records is the terminal that will run
+               the CLI: the process that is actually alive while this agent works. */
+            let owner = std::os::unix::process::parent_id() as i64;
+            let inputs = serde_json::json!({ "pid": if owner > 1 { owner } else { std::process::id() as i64 },
+                                             "platform": if cfg!(windows) { "win32" } else { "unix" } });
+            let mut mint = || red_agents::mint::uuid_v4();
+            let mut now = || red_agents::mint::now_iso();
+            let wants_json = args.iter().any(|arg| arg == "--json");
+            let argv: Vec<String> = args[1..].iter().filter(|arg| *arg != "--json").cloned().collect();
+            match red_agents::bind::bind(&argv, &recipes, &home, &inputs, &mut mint, &mut now) {
+                Ok(answer) => {
+                    if wants_json {
+                        println!("{answer}");
+                    } else {
+                        println!("{}", answer.get("report").or_else(|| answer.get("usage")).and_then(|v| v.as_str()).unwrap_or(""));
+                    }
+                    ExitCode::SUCCESS
+                }
+                Err(message) => { eprintln!("{message}"); ExitCode::from(2) }
+            }
+        }
         "report-session" => {
             let recipes = match load() {
                 Ok(recipes) => recipes,

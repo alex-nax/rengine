@@ -13,7 +13,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { fileURLToPath } from 'node:url';
 import { startServer } from '../server/main.mjs';
 import { startWorker } from '../runtime/worker.mjs';
-import { agentLaunch } from '../agents/config.mjs';
+import { agentLaunch } from '../agents/agents-client.mjs';
 import { tokenProject, identity, api, ok, until, fakeDesktop, feedSocket } from './token-fixtures.mjs';
 
 const WINDOW = 700;

@@ -10,8 +10,8 @@ import { spawnSync } from 'node:child_process';
    id shapes, MCP overlay kind, hooks overlay kind and IDE connect. config.mjs, tasks.mjs,
    ide-connect.mjs and agent.sh read it rather than carrying their own tables, so adding an agent is
    a data edit — proven here by registering one as data and watching every consumer follow. */
-import { agentNames, recipe, MCP_OVERLAYS, HOOK_OVERLAYS } from '../agents/registry.mjs';
-import { agentLaunch, agentConversation, codexHookTrustHash } from '../agents/config.mjs';
+import { agentNames, recipe, resolvedRecipes, MCP_OVERLAYS, HOOK_OVERLAYS } from '../agents/agents-client.mjs';
+import { agentLaunch, agentConversation, codexHookTrustHash } from '../agents/agents-client.mjs';
 import { knownAgents, modelArgs } from '../server/tasks.mjs';
 import { ideConnectFlag } from '../agents/ide-connect.mjs';
 import { ideDirectory } from '../runtime/ide.mjs';
@@ -49,7 +49,10 @@ test('every shipped recipe is complete, valid, and named once', () => {
     if (!entry.conversation) continue;
     const talk = entry.conversation;
     assert.ok(talk.ids instanceof RegExp, `${cli} names its id shape`);
-    assert.equal(typeof talk.parse, 'function', `${cli} parses its own resume spellings`);
+    /* Parsing a CLI's own resume spellings is a DECISION, and F173 moved the decisions to Rust: the
+       recipe declares which parser answers for this CLI and the service runs it. What the cooked
+       view carries is the declaration, not a function. */
+    assert.equal(typeof resolvedRecipes()[cli].conversation.parser, 'string', `${cli} declares which parser reads its resume spellings`);
     const id = cli === 'kimi' ? 'session_3f85774e-05bb-4791-bb9f-1c90dc37d0e6' : '3f85774e-05bb-4791-bb9f-1c90dc37d0e6';
     assert.ok(talk.ids.test(id), `${cli}'s id shape accepts the id it resumes by`);
     assert.ok(Array.isArray(talk.resume(id)), `${cli} resume args`);
@@ -204,8 +207,8 @@ test('a codex launch carries the SessionStart hook overlay beside its MCP wiring
   const command = /(\/[^ '"]*red-agents)[^"]* report-session --provider codex --context [^"']+/.exec(joined)?.[0];
   assert.ok(command?.includes('/red-agents'), 'the reporter is the red-agents binary');
   assert.ok(command, 'the exact command the hook will run');
-  assert.equal(hash, codexHookTrustHash(command), 'and the trusted hash is for exactly that command, nothing else');
-  assert.notEqual(hash, codexHookTrustHash(`${command} --tampered`), 'a different command hashes differently, so trusting one trusts no other');
+  assert.equal(hash, await codexHookTrustHash(command), 'and the trusted hash is for exactly that command, nothing else');
+  assert.notEqual(hash, await codexHookTrustHash(`${command} --tampered`), 'a different command hashes differently, so trusting one trusts no other');
 });
 
 /* Criterion 5: the IDE lock directory follows CLAUDE_CONFIG_DIR, which Anthropic documents as

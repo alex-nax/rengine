@@ -10,6 +10,10 @@ description = "The agent recipe registry as data: one TOML document the remainin
 [dependencies]
 serde_json = { version = "1", features = ["preserve_order"] }
 getrandom = "0.3"
+# The registry declares each CLI's session-id shape as a pattern, and the JS this replaces matched
+# it with a real regex engine. Interpreting the pattern by sniffing for substrings picked the wrong
+# alternative for kimi, whose ids accept a uuid OR a ULID -- so the pattern is matched, not guessed.
+regex = "1"
 sha2 = "0.10"
 
 # The projection dump: prints what the registry resolves to, so the JS parity test can compare

@@ -16,6 +16,7 @@
 use std::io::{BufRead, Write};
 use std::process::ExitCode;
 
+use red_agents::mint::{now_iso, uuid_v4};
 use red_agents::Value;
 use serde_json::{json, Value as Json};
 
@@ -32,10 +33,22 @@ fn registry_path() -> Result<String, String> {
     Ok(checkout.join("orchestrator/agents/registry.toml").to_string_lossy().into_owned())
 }
 
+thread_local! {
+    /* Which documents THIS request names. A service outlives the environment it was spawned in: the
+       JS module read RENGINE_AGENT_REGISTRY_EXTRA at call time, and a process that read it once
+       went on answering from a file the caller had since replaced or removed. So the client names
+       the documents per request and this is where they land. */
+    static DOCUMENTS: std::cell::RefCell<(Option<String>, Option<String>)> = const { std::cell::RefCell::new((None, None)) };
+}
+
 fn load() -> Result<Vec<(String, Value)>, String> {
-    let path = registry_path()?;
+    let (named_registry, named_extra) = DOCUMENTS.with(|cell| cell.borrow().clone());
+    let path = match named_registry {
+        Some(path) if !path.is_empty() => path,
+        _ => registry_path()?,
+    };
     let text = std::fs::read_to_string(&path).map_err(|error| format!("cannot read {path}: {error}"))?;
-    let extra = match std::env::var("RENGINE_AGENT_REGISTRY_EXTRA") {
+    let extra = match named_extra.ok_or(std::env::VarError::NotPresent).or_else(|_| std::env::var("RENGINE_AGENT_REGISTRY_EXTRA")) {
         Ok(extra_path) if !extra_path.is_empty() => {
             let extra_text = std::fs::read_to_string(&extra_path)
                 .map_err(|error| format!("cannot read {extra_path}: {error}"))?;
@@ -48,38 +61,6 @@ fn load() -> Result<Vec<(String, Value)>, String> {
 
 fn text_arg(args: &Json, index: usize) -> Option<&str> {
     args.get(index).and_then(Json::as_str)
-}
-
-fn uuid_v4() -> String {
-    let mut bytes = [0u8; 16];
-    getrandom::fill(&mut bytes).expect("the operating system answers randomness");
-    bytes[6] = bytes[6] & 0x0f | 0x40;
-    bytes[8] = bytes[8] & 0x3f | 0x80;
-    let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
-    format!("{}-{}-{}-{}-{}", &hex[0..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..32])
-}
-/* ISO-8601 with milliseconds, the shape `new Date().toISOString()` writes, because the identity's
-   startedAt is read back by JS and by the desktop. */
-fn now_iso() -> String {
-    let millis = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as i64)
-        .unwrap_or(0);
-    let (seconds, sub) = (millis.div_euclid(1000), millis.rem_euclid(1000));
-    let days = seconds.div_euclid(86_400);
-    let time = seconds.rem_euclid(86_400);
-    // Civil-from-days (Howard Hinnant's algorithm), so no date crate is needed for one field.
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z.rem_euclid(146_097);
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let y = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 };
-    let y = if m <= 2 { y + 1 } else { y };
-    format!("{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}.{sub:03}Z", time / 3600, (time % 3600) / 60, time % 60)
 }
 
 fn dispatch(method: &str, args: &Json) -> Result<Json, String> {
@@ -153,6 +134,19 @@ fn dispatch(method: &str, args: &Json) -> Result<Json, String> {
             let windows = cfg!(windows);
             Ok(red_agents::launch::claude_settings(text_arg(args, 0).unwrap_or(""), text_arg(args, 1).unwrap_or(""), windows))
         }
+        /* bind's own two: a command a person runs, and the scan it does to find a workspace. Home
+           is passed in rather than read here, because a caller may be probing another one. */
+        "stateDirectories" => Ok(json!(red_agents::bind::state_directories(text_arg(args, 0), text_arg(args, 1).unwrap_or(""))
+            .iter().map(|path| path.to_string_lossy()).collect::<Vec<_>>())),
+        "bind" => {
+            let argv: Vec<String> = args.get(0).and_then(Json::as_array)
+                .map(|values| values.iter().filter_map(Json::as_str).map(str::to_string).collect()).unwrap_or_default();
+            let home = text_arg(args, 1).unwrap_or("");
+            let inputs = args.get(2).cloned().unwrap_or_else(|| json!({}));
+            let mut mint = mint_sequence();
+            let mut now = now_sequence();
+            red_agents::bind::bind(&argv, &load()?, home, &inputs, &mut mint, &mut now)
+        }
         _ => Err(format!("Unknown agents method {method}.")),
     }
 }
@@ -204,6 +198,12 @@ fn main() -> ExitCode {
         let id = request.get("id").cloned().unwrap_or(Json::Null);
         let method = request.get("method").and_then(Json::as_str).unwrap_or("");
         let args = request.get("args").cloned().unwrap_or_else(|| json!([]));
+        DOCUMENTS.with(|cell| {
+            *cell.borrow_mut() = (
+                request.get("registry").and_then(Json::as_str).map(str::to_string),
+                request.get("extra").and_then(Json::as_str).map(str::to_string),
+            );
+        });
         let answer = match dispatch(method, &args) {
             Ok(result) => json!({ "id": id, "result": result }),
             Err(message) => json!({ "id": id, "error": { "message": message } }),

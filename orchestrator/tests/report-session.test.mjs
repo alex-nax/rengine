@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { agentLaunch } from '../agents/config.mjs';
+import { agentLaunch } from '../agents/agents-client.mjs';
 
 /* The launcher decides the conversation at launch and then cannot see a /resume performed inside the
    running CLI: observed live on 2026-09-07, a pane launched as b9e2114c ran 5b8d47c2 while every

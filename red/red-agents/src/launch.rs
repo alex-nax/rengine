@@ -97,14 +97,16 @@ fn normalize(talk: &Json, id: &str) -> String {
         _ => id.to_string(),
     }
 }
+/* The recipe declares the shape as a pattern and the JS matched it with a real engine, so this does
+   too. Reading the pattern by sniffing for substrings is what the first version did, and it picked
+   the wrong alternative for kimi — whose ids accept a uuid OR a ULID, with an optional prefix. */
 fn ids_match(talk: &Json, id: &str) -> bool {
-    /* The recipe names the shape by its parser rather than by a regex engine this crate does not
-       have: the two shapes the document uses are the ones parsers.rs already recognises. */
-    match text(talk, "ids") {
-        Some(pattern) if pattern.contains("{26}") => crate::parsers::ulid_shape(id),
-        Some(_) => crate::parsers::uuid_shape(id) || id.starts_with("session_") && crate::parsers::uuid_shape(&id[8..]),
-        None => false,
-    }
+    let Some(pattern) = text(talk, "ids") else { return false };
+    regex::RegexBuilder::new(pattern)
+        .case_insensitive(true)
+        .build()
+        .map(|expression| expression.is_match(id))
+        .unwrap_or(false)
 }
 
 /// `conversationArgs`: exactly one identifier is ever named, and only when rEngine names it.
@@ -247,6 +249,7 @@ pub fn agent_identity(
 
 /* ---- the launch plan ------------------------------------------------------------------------- */
 
+pub fn write_private(path: &std::path::Path, value: &Json) -> Result<String, String> { private_json(path, value) }
 fn private_json(path: &std::path::Path, value: &Json) -> Result<String, String> {
     let text = serde_json::to_string_pretty(value).map_err(|error| error.to_string())?;
     std::fs::write(path, text).map_err(|error| format!("cannot write {}: {error}", path.display()))?;
@@ -257,6 +260,56 @@ fn private_json(path: &std::path::Path, value: &Json) -> Result<String, String> 
             .map_err(|error| format!("cannot secure {}: {error}", path.display()))?;
     }
     Ok(path.to_string_lossy().into_owned())
+}
+
+/// The JSON a person's own configuration is written in, which is JSONC: the JS this replaces read
+/// these two overlays with a comment-and-trailing-comma-tolerant parser, and a strict one would
+/// refuse a file that has always been accepted — "existing configuration was preserved" is a
+/// refusal to launch, so the tolerance is load-bearing rather than a nicety.
+fn parse_jsonc(text: &str) -> Result<Json, String> {
+    let mut out = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+    let (mut in_string, mut escaped) = (false, false);
+    while let Some(c) = chars.next() {
+        if in_string {
+            out.push(c);
+            if escaped { escaped = false; } else if c == '\\' { escaped = true; } else if c == '"' { in_string = false; }
+            continue;
+        }
+        match c {
+            '"' => { in_string = true; out.push(c); }
+            '/' if chars.peek() == Some(&'/') => { for n in chars.by_ref() { if n == '\n' { out.push('\n'); break; } } }
+            '/' if chars.peek() == Some(&'*') => {
+                chars.next();
+                let mut previous = '\0';
+                for n in chars.by_ref() {
+                    if previous == '*' && n == '/' { break; }
+                    previous = n;
+                }
+                out.push(' ');
+            }
+            _ => out.push(c),
+        }
+    }
+    /* A comma before a closing brace or bracket, outside a string. */
+    let bytes: Vec<char> = out.chars().collect();
+    let mut cleaned = String::with_capacity(out.len());
+    let (mut in_string, mut escaped) = (false, false);
+    for (index, c) in bytes.iter().enumerate() {
+        if in_string {
+            cleaned.push(*c);
+            if escaped { escaped = false; } else if *c == '\\' { escaped = true; } else if *c == '"' { in_string = false; }
+            continue;
+        }
+        if *c == '"' { in_string = true; cleaned.push(*c); continue; }
+        if *c == ',' {
+            if let Some(next) = bytes[index + 1..].iter().find(|n| !n.is_whitespace()) {
+                if *next == '}' || *next == ']' { continue; }
+            }
+        }
+        cleaned.push(*c);
+    }
+    serde_json::from_str(&cleaned).map_err(|error| error.to_string())
 }
 
 /// Refuses rather than replaces: an entry already under this name is somebody else's.
@@ -416,7 +469,7 @@ pub fn launch_plan(
         "env-inline" => {
             let var = declared["mcp"]["envVar"].as_str().unwrap_or("");
             let previous: Json = match env.get(var).and_then(Json::as_str).filter(|text| !text.is_empty()) {
-                Some(text) => serde_json::from_str(text)
+                Some(text) => parse_jsonc(text)
                     .map_err(|_| format!("Invalid {var} runtime configuration; existing configuration was preserved."))?,
                 None => json!({}),
             };
@@ -431,7 +484,7 @@ pub fn launch_plan(
             let declared_path = env.get("GEMINI_CLI_SYSTEM_DEFAULTS_PATH").and_then(Json::as_str).map(str::to_string);
             let defaults = declared_path.unwrap_or_else(|| text(inputs, "geminiDefaults").unwrap_or("").to_string());
             let previous: Json = match std::fs::read_to_string(&defaults) {
-                Ok(text) => serde_json::from_str(&text).map_err(|_| "Invalid Gemini system defaults; existing configuration was preserved.".to_string())?,
+                Ok(text) => parse_jsonc(&text).map_err(|_| "Invalid Gemini system defaults; existing configuration was preserved.".to_string())?,
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => json!({}),
                 Err(error) => return Err(format!("cannot read {defaults}: {error}")),
             };
@@ -444,7 +497,42 @@ pub fn launch_plan(
             consume_env.insert("GEMINI_CLI_SYSTEM_DEFAULTS_PATH".into(), json!(written));
         }
         "project-file" => {
-            plan.insert("kimi".into(), inputs.get("kimiFile").cloned().unwrap_or(Json::Null));
+            /* kimi reads its MCP servers from the project's own .kimi-code/mcp.json, at the repository
+               root rather than wherever the launch happened to run. rEngine owns only its own
+               `rengine_` entries there: everything else in the file is somebody's and is preserved,
+               and a previous launch's entry is replaced rather than accumulated. */
+            let start = text(inputs, "cwd").filter(|value| !value.is_empty()).unwrap_or(".");
+            let mut root = std::path::PathBuf::from(start);
+            let mut walk = root.clone();
+            loop {
+                if walk.join(".git").exists() { root = walk; break; }
+                match walk.parent() {
+                    Some(parent) if parent != walk => walk = parent.to_path_buf(),
+                    _ => { root = std::path::PathBuf::from(start); break; }
+                }
+            }
+            let file = root.join(".kimi-code").join("mcp.json");
+            let previous: Json = match std::fs::read_to_string(&file) {
+                Ok(text) => parse_jsonc(&text).map_err(|_| "Invalid Kimi MCP configuration; existing configuration was preserved.".to_string())?,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => json!({}),
+                Err(error) => return Err(format!("cannot read {}: {error}", file.display())),
+            };
+            let existing = previous.get("mcpServers");
+            if let Some(value) = existing {
+                if !value.is_object() && !value.is_null() {
+                    return Err("Existing Kimi MCP configuration is not an object; it was preserved.".to_string());
+                }
+            }
+            let mut servers = Map::new();
+            for (key, value) in existing.and_then(Json::as_object).cloned().unwrap_or_default() {
+                if !key.starts_with("rengine_") { servers.insert(key, value); }
+            }
+            servers.insert(name.clone(), json!({ "command": node, "args": [mcp_main, "--context", bound_file] }));
+            let mut merged = previous.as_object().cloned().unwrap_or_default();
+            merged.insert("mcpServers".into(), Json::Object(servers));
+            std::fs::create_dir_all(file.parent().expect("the file has a directory"))
+                .map_err(|error| format!("cannot make the .kimi-code directory: {error}"))?;
+            plan.insert("kimi".into(), json!(private_json(&file, &Json::Object(merged))?));
             consume_args = conversation_args(recipes, agent, &identity, resume);
         }
         _ => {

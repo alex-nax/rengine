@@ -8,7 +8,7 @@ import { offeredEditors, autoConnect, ideConnectFlag } from '../agents/ide-conne
 // Taking it from the same export the code compares against is what makes the question survive a
 // rename: a fixture holding the old word would still pass while auto-connect silently stopped.
 import { IDE_NAME } from '../runtime/ide.mjs';
-import { agentLaunch } from '../agents/config.mjs';
+import { agentLaunch } from '../agents/agents-client.mjs';
 
 async function locks(entries) {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-locks-'));

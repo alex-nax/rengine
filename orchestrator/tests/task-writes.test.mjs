@@ -10,7 +10,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { startServer } from '../server/main.mjs';
 import { startWorker } from '../runtime/worker.mjs';
-import { agentLaunch } from '../agents/config.mjs';
+import { agentLaunch } from '../agents/agents-client.mjs';
 import { readDeclaration, CONTRACTS } from '../server/formats.mjs';
 import { validateSchema } from '../server/store-client.mjs';
 import { agentsMenu, codexModels, modelArgs, promptFor, promptValues, writeDocument } from '../server/tasks.mjs';

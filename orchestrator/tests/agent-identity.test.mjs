@@ -10,8 +10,8 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { startServer } from '../server/main.mjs';
 import { startWorker } from '../runtime/worker.mjs';
 import { request } from '../launcher/sidecar.mjs';
-import { agentLaunch, describeSession } from '../agents/config.mjs';
-import { bind } from '../agents/bind.mjs';
+import { agentLaunch, describeSession } from '../agents/agents-client.mjs';
+import { bind } from '../agents/agents-client.mjs';
 
 const workerMain = fileURLToPath(new URL('../agents/mcp-worker.mjs', import.meta.url));
 
@@ -85,7 +85,7 @@ test('a claude launch IS its claude session: minted and named to the CLI, or tak
     'a launch with no session of its own is started as the identity rEngine minted, and told to report what it runs');
   assert.deepEqual(fresh.identity.session, { provider: 'claude', id: fresh.identity.agentId, known: true, source: 'minted',
     resume: `claude --resume ${fresh.identity.agentId}` }, 'and the identity says which session it is and how to resume it');
-  assert.match(describeSession(fresh.identity), new RegExp(`claude --resume ${fresh.identity.agentId}`),
+  assert.match(await describeSession(fresh.identity), new RegExp(`claude --resume ${fresh.identity.agentId}`),
     'which is the line the launcher prints');
 
   for (const flag of ['--session-id', '--resume', '-r']) {
@@ -102,7 +102,7 @@ test('a claude launch IS its claude session: minted and named to the CLI, or tak
   assert.equal(continued.identity.session.known, false, '--continue resumes a conversation whose id rEngine cannot know');
   assert.deepEqual(continued.args, ['--mcp-config', continued.generic, '--settings', continued.settings, '-c'],
     'so no identifier is injected that would claim otherwise');
-  assert.match(describeSession(continued.identity), /unknown/, 'and the launcher says so rather than printing a resume line that would not work');
+  assert.match(await describeSession(continued.identity), /unknown/, 'and the launcher says so rather than printing a resume line that would not work');
 
   const forked = await launch(['--resume', SESSION, '--fork-session']);
   assert.notEqual(forked.identity.agentId, SESSION, 'a fork is a new conversation, so the resumed id is not this identity');

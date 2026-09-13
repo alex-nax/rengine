@@ -3106,7 +3106,7 @@
         "Every consumer of the remaining modules reads its recipes and launch plans from the Rust side through the F170 channel or the decision that supersedes it, with the external API unchanged.",
         "registry.mjs, config.mjs and bind.mjs are deleted in the same commit the replacement passes, each ported test observed failing for the module's absence."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         170,
         172
@@ -3114,7 +3114,14 @@
       "owner_workspace": "rengine",
       "deliverable": "The consumer migration, the agentLaunch port, and the deletion commit.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/agents-swap-f173-2026-09-13.md",
+        "orchestrator/agents/agents-client.mjs with red-agents-serve: ide-connect, worker, tasks, sessions and the agent launcher read recipes and launch plans from the Rust side, with modelArgs and ideConnectFlag still synchronous — F173 c1's 'external API unchanged' (c1).",
+        "orchestrator/tests/red-agents-launch.test.mjs: a full launch plan for each of the five CLIs against the answers config.mjs gave — args, consumed flags, identity, and every per-launch file by content and by mode; orchestrator/tests/red-agents-serve.test.mjs and red-agents-cli.test.mjs for the recipes, the CLI surface, the parsers and the codex hook math (c1).",
+        "registry.mjs, config.mjs and bind.mjs are deleted in the same commit; `bind` is a red-agents subcommand, verified against the live workspace on 2026-09-13 (c2).",
+        "Sabotage-verified, each for its own reason: the settings file not written, the kimi project file accumulating rengine_ entries, the client not naming the documents per request, a dropped --settings flag, and the trust hash computed for the wrong matcher.",
+        "npm test: 303 of 303."
+      ]
     },
     {
       "id": 174,

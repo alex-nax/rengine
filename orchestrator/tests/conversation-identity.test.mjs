@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { agentLaunch, describeSession } from '../agents/config.mjs';
-import { bind } from '../agents/bind.mjs';
+import { agentLaunch, describeSession } from '../agents/agents-client.mjs';
+import { bind } from '../agents/agents-client.mjs';
 import { startServer } from '../server/main.mjs';
 import { WorkspaceStore } from '../server/store-client.mjs';
 import { Sessions, agentTitle } from '../server/sessions.mjs';
@@ -75,7 +75,7 @@ test('a launch that continues or forks reports no conversation rather than claim
     assert.deepEqual(plan.args, ['--mcp-config', plan.generic, '--settings', plan.settings, ...args],
       'and no identifier is injected that would claim otherwise');
     assert.equal(plan.conversation, null, 'null, not undefined: the host is told to claim nothing for this pane');
-    assert.match(describeSession(plan.identity), /unknown/);
+    assert.match(await describeSession(plan.identity), /unknown/);
   }
   const codex = await agentLaunch({ agent: 'codex', executable: '/installed/codex', contextFile, env: {}, conversation: HOST });
   assert.equal(codex.conversation, null, 'codex cannot be told a conversation to start (F113: resume-only), so the record is actively cleared too');
