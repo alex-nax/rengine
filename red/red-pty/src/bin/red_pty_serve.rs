@@ -114,7 +114,10 @@ fn answer(host: &Mutex<Host>, mint: &Mutex<Mint>, request: &Value) -> Value {
                     Some(id) => id.to_string(),
                     None => (mint.lock().expect("mint lock"))(),
                 };
-                host.spawn(id, file, &argv, &env, cwd, cols, rows)
+                /* The caller's own record of the pane, kept as it was sent: this service has no
+                   opinion about what a session means to the host that made it. */
+                let meta = options.get("meta").cloned().unwrap_or(Value::Null);
+                host.spawn(id, file, &argv, &env, cwd, cols, rows, meta)
             }
             "input" => host.input(arg(0).as_str().unwrap_or(""), arg(1).as_str().unwrap_or("")).map(|_| Value::Null),
             "resize" => {

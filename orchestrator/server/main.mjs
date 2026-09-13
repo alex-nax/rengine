@@ -33,11 +33,16 @@ function json(response, status, value) {
 }
 
 // Loopback authentication is required — see sidecar: local-session-capability.
-export async function startServer({ stateDir, port = 0 } = {}) {
+/* `retainSessions` is charter D60 as a switch: a host that OWNS a state directory — the process a
+   person or a launcher starts — attaches to that directory's PTY service, so replacing the host
+   leaves the agent CLIs inside its panes alive and the next host adopts them. A host embedded in a
+   test passes nothing and keeps the old behaviour, because a suite that left a service holding a
+   shell per test would leak processes the tests never asked for. */
+export async function startServer({ stateDir, port = 0, retainSessions = false } = {}) {
   if (!stateDir) fail('The sidecar requires an explicit state directory.');
   stateDir = path.resolve(stateDir);
   const store = await WorkspaceStore.open(stateDir);
-  const sessions = new Sessions(store);
+  const sessions = new Sessions(store, retainSessions ? { stateDir } : {});
   const desktops = new Desktops(store, sessions);
   const games = await Games.open(store, sessions);
   const preflight = (rootId, gameId) => games.inspect(rootId, gameId);
@@ -182,10 +187,13 @@ export async function startServer({ stateDir, port = 0 } = {}) {
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
   url = `http://127.0.0.1:${server.address().port}`;
   sessions.workspaceContext = { url, token, instance };
-  return { url, token, instance, store, sessions, games, async close() {
+  /* What the directory's service is already holding, before anything is served: a pane whose host
+     was replaced is in the list its first caller reads, not one refresh later. */
+  const adopted = await sessions.adopt();
+  return { url, token, instance, store, sessions, games, adopted, async close({ retain = retainSessions } = {}) {
     for (const client of sockets.clients) client.terminate();
     sockets.close();
-    await sessions.shutdown();
+    await sessions.shutdown({ retain });
     await games.close();
     for (const client of gameSockets.clients) client.terminate();
     gameSockets.close();
@@ -197,7 +205,8 @@ export async function startServer({ stateDir, port = 0 } = {}) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const index = process.argv.indexOf('--state');
   const stateDir = path.resolve(index >= 0 ? process.argv[index + 1] : path.join(homedir(), '.local/state/rengine'));
-  const instance = await startServer({ stateDir });
+  /* The host of a state directory, started as its own process: its panes outlive it (D60). */
+  const instance = await startServer({ stateDir, retainSessions: true });
   const descriptor = path.join(stateDir, 'sidecar.json');
   await writeFile(`${descriptor}.${process.pid}.tmp`, JSON.stringify({ url: instance.url, token: instance.token, instance: instance.instance, pid: process.pid }), { mode: 0o600 });
   await rename(`${descriptor}.${process.pid}.tmp`, descriptor);

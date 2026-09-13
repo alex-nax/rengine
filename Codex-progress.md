@@ -1,5 +1,44 @@
 # Progress Log
 
+## Session 142 (macos) — 2026-09-13 — a replaced host keeps its panes; F151 closes (F179)
+
+The owner decided this on 2026-09-13 — *"Per-state-dir service, survives host replacement"* — and
+F177 built it, but F178 deliberately did not use it: a session the next host cannot **name** is an
+orphan, not a retained pane. This row closes that gap.
+
+A pane's own record — root, type, agent, conversation, title — travels with its PTY as a `meta`
+value the service carries and never reads, and a host started as its own process on a state
+directory **adopts** what that directory's service is holding. Handoff gates and recovery drafts
+deliberately do not travel: they belong to the launch that made them, and a new host inheriting a
+half-finished handoff would be inheriting a promise it cannot keep. A session whose record a host
+cannot read is left running and unadopted — tidying a list is not a reason to end an agent's work.
+
+Retention is a switch, and it is one on purpose: a host that OWNS a state directory attaches to its
+service, and a host embedded in a test keeps owning its PTYs unless it asks otherwise, because a
+suite that left a service holding a shell per test would leak processes no test asked for.
+
+**F94's criterion 4 is superseded in one clause**, and the record says so rather than being quietly
+rewritten: *"roots persist and sessions do not"* was true when the PTYs were file descriptors inside
+the host, and D60 replaced it for exactly the reason it was taken. `replace.mjs` prints *"handed N
+running session(s) to the next host"* now, and leaves the PTY service running — it is a child in
+`ps` only because the parent that started it has not exited yet.
+
+**A catch that swallowed a bug.** `servicePid` returned "there is no service" for every error, so a
+`ReferenceError` inside it read as "nothing to retain" and the service was stopped anyway. Only a
+missing or torn descriptor is "no service" now.
+
+The test is a real handover: a host started as its own process, a pane typed into, the host
+**SIGKILLed**, and a second host that lists the pane it did not start — same child PID, same title,
+same project — and types into it with the scrollback from before the handover still there. Three
+sabotages, each red for its own reason.
+
+Commands: `npm test` (**318 of 318**), `cargo test -p red-pty`.
+
+**F151 passes, and KI-096 closes with it.** `F152` — `server/main.mjs`, `desktops.mjs`,
+`surfaces.mjs`, `surface-protocol.mjs` — now waits on **F150 alone**, and F150 waits on **F186**: a
+real pane of kimi, claude and codex each completing a task-scoped action through the Rust MCP. That
+is a dogfood run in the owner's workspace; every other row in the J0 lane is behind it.
+
 ## Session 141 (macos) — 2026-09-13 — mcp-worker.mjs is deleted; the connector is a binary (F185, F187)
 
 The question F187 was filed on **answered itself in the supervisor**. `mcp.mjs` spawns the worker

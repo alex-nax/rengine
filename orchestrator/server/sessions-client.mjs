@@ -69,9 +69,14 @@ export function bashPath() {
 }
 
 export class Sessions extends EventEmitter {
-  constructor(store) {
+  constructor(store, { stateDir = null } = {}) {
     super();
     this.store = store; this.items = new Map(); this.handoffFlights = new Map();
+    /* Where the PTYs live when they are meant to outlive this host (charter D60, F179): a state
+       directory names a service every host of that directory attaches to. Without one this host
+       owns its PTYs the way it always did, which is what a test that starts a host in-process
+       wants — and what it gets, because it passes none. */
+    this.stateDir = stateDir;
     /* Events that arrived before the item they belong to existed. The service starts the output
        pump and the exit watcher the instant it spawns, so for a short-lived child — `sh -c "exit 0"`
        is the case that found this — the exit event can beat the spawn response back here. Dropping
@@ -83,11 +88,33 @@ export class Sessions extends EventEmitter {
      lists is a Sessions that starts no process. Its events arrive by session id and are routed to
      the item that owns them — the two shapes the host's own listeners already expect. */
   async pty() {
-    if (!this.ptyFlight) this.ptyFlight = PtyHost.open().then(host => {
-      host.on('event', event => this.received(event));
-      return host;
-    });
+    if (!this.ptyFlight) {
+      this.ptyFlight = (this.stateDir ? PtyHost.attach(this.stateDir) : PtyHost.open()).then(host => {
+        host.on('event', event => this.received(event));
+        return host;
+      });
+    }
     return this.ptyFlight;
+  }
+
+  /* Adopt what the state directory's service is already holding. A session whose record this host
+     cannot read is left alone rather than guessed at: it belongs to a host that knew more than
+     this one does, and stopping it would end an agent's work to tidy a list (D60, F179). */
+  async adopt() {
+    if (!this.stateDir) return [];
+    const host = await this.pty();
+    const adopted = [];
+    for (const session of host.adopted ?? []) {
+      if (this.items.has(session.id)) continue;
+      const meta = session.meta && typeof session.meta === 'object' ? session.meta : null;
+      if (!meta?.rootId || session.state !== 'running') continue;
+      const item = { ...meta, id: session.id, pid: session.pid, state: session.state,
+        cols: session.cols, rows: session.rows, sequence: session.sequence, output: session.output ?? '',
+        exitCode: session.exitCode ?? undefined, signal: session.signal ?? undefined };
+      this.items.set(item.id, item);
+      adopted.push(this.snapshot(item.id));
+    }
+    return adopted;
   }
 
   received(event) {
@@ -203,7 +230,15 @@ export class Sessions extends EventEmitter {
     }
     if (type !== 'agent') conversation = undefined;
     if (typeof file !== 'string' || !Array.isArray(argv) || argv.some(arg => typeof arg !== 'string')) fail('Invalid executable or arguments.');
-    const started = await (await this.pty()).spawn({ id, command: file, args: argv, cols, rows, cwd: workingDirectory,
+    /* Everything this host knows about the pane that the service does not, so the next host can
+       name what it adopts rather than inheriting a process it cannot describe. Handoff gates and
+       drafts are deliberately absent: they belong to the launch that made them. */
+    const meta = { rootId, type, ...(type === 'agent' ? { agent: agent ?? '', conversation } : {}),
+      ...(type === 'game' ? { surface, game, args: argv } : {}),
+      titleAuto: title === undefined,
+      title: title ?? (type === 'agent' ? agentTitle(agent, conversation, root.name) : `${type === 'game' ? 'Game' : 'Terminal'} · ${root.name}`),
+      createdAt: Date.now(), released: true };
+    const started = await (await this.pty()).spawn({ id, meta, command: file, args: argv, cols, rows, cwd: workingDirectory,
       // `cleared` first, so this launch's own values win and only what it left out stays deleted.
       env: shellEnvironment({ ...cleared, ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents') }) });
     const item = { id, rootId, type, handoff, gate, released: false, ...(type === 'agent' ? { agent: agent ?? '', conversation } : {}), ...(type === 'game' ? { surface, game, args: argv } : {}),
@@ -312,12 +347,13 @@ export class Sessions extends EventEmitter {
     finally { delete item.stopping; }
   }
 
-  async shutdown() {
-    await Promise.allSettled([...this.items.values()].filter(item => item.state !== 'exited').map(item => this.stop(item.id)));
-    /* The service is this host's child (PtyHost.open), so its sessions end with this host, exactly
-       as they did when the PTYs were file descriptors in this process. Letting them outlive it is
-       F179's row: it needs the pane's metadata to survive too, or the next host inherits processes
-       it cannot name. */
+  /* `retain` is what a host being replaced asks for: the sessions belong to the state directory,
+     so they stay and the next host adopts them (D60). Without it — a test, or a workspace being
+     shut down for good — this host ends what it started, exactly as it always did. */
+  async shutdown({ retain = false } = {}) {
+    if (!retain) await Promise.allSettled([...this.items.values()].filter(item => item.state !== 'exited').map(item => this.stop(item.id)));
+    /* Closing the client never ends a session: a stdio service dies with this process anyway, and
+       a state directory's service is not this host's to end. */
     if (this.ptyFlight) { const host = await this.ptyFlight; this.ptyFlight = null; await host.close(); }
   }
 }

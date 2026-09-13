@@ -69,6 +69,11 @@ pub fn decode_chunk(tail: &mut Vec<u8>, bytes: &[u8]) -> String {
 }
 
 pub struct PtySession {
+    /* What the host knows about this pane and the service does not: which project it belongs to,
+       which agent, which conversation, the title a person reads. The service never reads it — it
+       is carried so the NEXT host can name what it adopts, which is the difference between a
+       retained session and an orphaned process (F179, charter D60). */
+    pub meta: Value,
     pub id: String,
     pub pid: u32,
     pub state: &'static str,
@@ -114,6 +119,7 @@ impl PtySession {
             "rows": self.rows,
             "sequence": self.sequence,
             "output": self.output_base64(),
+            "meta": self.meta,
         })
     }
 }
@@ -145,7 +151,7 @@ impl<F: FnMut(Value) + Send + 'static> PtyHost<F> {
         PtyHost { sessions: HashMap::new(), emit: Arc::new(Mutex::new(emit)), pty_system: native_pty_system() }
     }
 
-    pub fn spawn(&mut self, id: String, file: &str, argv: &[String], env: &HashMap<String, String>, cwd: &str, cols: u16, rows: u16) -> Result<Value> {
+    pub fn spawn(&mut self, id: String, file: &str, argv: &[String], env: &HashMap<String, String>, cwd: &str, cols: u16, rows: u16, meta: Value) -> Result<Value> {
         let pair = self
             .pty_system
             .openpty(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
@@ -168,6 +174,7 @@ impl<F: FnMut(Value) + Send + 'static> PtyHost<F> {
         let writer = pair.master.take_writer().map_err(|error| Fail::raw(error.to_string()))?;
         let reader = pair.master.try_clone_reader().map_err(|error| Fail::raw(error.to_string()))?;
         let session = Arc::new(Mutex::new(PtySession {
+            meta,
             id: id.clone(),
             pid,
             state: "running",

@@ -164,8 +164,13 @@ test('replacing a throwaway host: the old one exits, its port closes, a new one 
   assert.equal(report.previous.instance, old.instance);
   assert.equal(alive(old.pid), false, 'the old host exited');
   assert.equal(await portReleased(old.url, { timeoutMs: 1 }), true, 'and its port refuses connections');
+  /* Only the host is signalled: its stdio services (the store) are gone by the time the children
+     are looked at, because their stdin closed with it. */
   assert.deepEqual(report.stopped.map(({ role, outcome }) => ({ role, outcome })), [{ role: 'host', outcome: 'stopped on SIGTERM' }]);
-  assert.deepEqual(report.ended.map(item => [item.id, item.type]), [[session.id, 'terminal']], 'the report names the session that ended');
+  assert.equal(report.retained?.role, 'pty service',
+    'and the one child that is not the host\'s to end: the state directory keeps its panes (D60)');
+  assert.deepEqual(report.ended.map(item => [item.id, item.type]), [[session.id, 'terminal']],
+    'the report names the session that changes hands');
 
   assert.notEqual(report.started.pid, old.pid);
   assert.notEqual(report.started.instance, old.instance, 'a new host, not the old one found again');
@@ -176,11 +181,19 @@ test('replacing a throwaway host: the old one exits, its port closes, a new one 
   const state = await request(written, 'state');
   assert.equal(state.instance, report.started.instance);
   assert.deepEqual(state.roots.map(item => item.id), [root.id], 'the root persisted across the replacement');
-  assert.deepEqual(state.sessions, [], 'sessions did not: they ended with the old host');
+  /* F94 asserted here that sessions did NOT persist, because when it was written the PTYs were
+     file descriptors inside the host. Charter D60 (owner, 2026-09-13) moved them to the state
+     directory precisely so a replacement stops costing the owner their agent panes, so this is the
+     clause of F94's criterion 4 that D60 supersedes — recorded rather than quietly rewritten. The
+     new host adopts what the service still holds, with the pane's own title and root. */
+  const carried = state.sessions.find(item => item.id === session.id);
+  assert.ok(carried, `the new host adopted the pane the old one had: ${JSON.stringify(state.sessions)}`);
+  assert.equal(carried.pid, session.pid, 'the same child process, not a fresh one');
+  assert.equal(carried.state, 'running');
 
   const text = said.join('\n');
   assert.match(text, new RegExp(`stopped host PID ${old.pid} \\(${old.url}, instance ${old.instance}, started \\d{4}-`));
-  assert.match(text, /ended 1 running session\(s\):\n {4}terminal — /);
+  assert.match(text, /handed 1 running session\(s\) to the next host:\n {4}terminal — /);
   assert.match(text, new RegExp(`Started host PID ${report.started.pid} \\(${report.started.url}, instance ${report.started.instance}\\)`));
 });
 

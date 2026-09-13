@@ -85,13 +85,17 @@ rule.
 
 ## What this does not change
 
-`replace.mjs` still stops and replaces the session host, and still reports what it did — and after
-F178 it still ends the sessions, because the host stays on `PtyHost.open()`. The machinery this
-document specifies is built and tested, and nothing in a running workspace depends on it yet.
+**F179 made it real** (2026-09-13). A pane's own record — root, type, agent, conversation, title —
+travels with its PTY as a `meta` value the service carries and never reads, and a host started as
+its own process on a state directory attaches to that directory's service and **adopts** what it
+holds. A host embedded in a test keeps owning its PTYs unless it asks otherwise, because a suite
+that left a service holding a shell per test would leak processes no test asked for.
 
-Making it real is one more row (F179, proposed under KI-096): the pane's metadata — root, agent,
-conversation, handoff gate, title — has to travel with the PTY instead of living in the host's
-memory, or the next host inherits processes it cannot name; `replace.mjs` has to report a handover
-rather than an ending; and F94's tests, which assert today that sessions end with the old host,
-have to be amended citing D60. Until then the standing rule about the owner's session host stays,
-and a decision recorded here is not evidence about a running workspace.
+`replace.mjs` leaves the service running — it is a child in `ps` only because the parent that
+started it has not exited — names it in its report, and says the sessions were *handed to the next
+host* rather than ended. That last clause **supersedes F94's criterion 4** ("roots persist and
+sessions do not"), with charter D60 as the recorded reason; everything else F94 proved is untouched.
+
+What deliberately does not travel: handoff gates and recovery drafts, which belong to the launch
+that made them. A session whose record a host cannot read is left running and unadopted rather than
+stopped — tidying a list is not a reason to end an agent's work.

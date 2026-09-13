@@ -266,7 +266,9 @@ export class PtyHost extends EventEmitter {
   }
 
   spawn(options) {
-    return this.call('spawn', [{ ...(options.id ? { id: options.id } : {}), command: options.command, args: options.args ?? [], env: options.env ?? {}, cwd: options.cwd ?? '/', cols: options.cols ?? 100, rows: options.rows ?? 30 }])
+    return this.call('spawn', [{ ...(options.id ? { id: options.id } : {}), command: options.command, args: options.args ?? [], env: options.env ?? {}, cwd: options.cwd ?? '/', cols: options.cols ?? 100, rows: options.rows ?? 30,
+      /* The host's own record of the pane, carried so the next host can name what it adopts. */
+      ...(options.meta === undefined ? {} : { meta: options.meta }) }])
       .then(snapshot => ({ ...snapshot, output: utf16(snapshot.output) }));
   }
   input(id, data) { return this.call('input', [id, data]); }

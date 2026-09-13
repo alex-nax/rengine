@@ -242,8 +242,9 @@ flowchart TD
   F184 --> F150
   F185 --> F150
   F186 --> F150
-  F151["F151: ready"]
+  F151["F151: passing"]
   F147 --> F151
+  F179 --> F151
   F152["F152: blocked"]
   F150 --> F152
   F151 --> F152
@@ -306,6 +307,9 @@ flowchart TD
   F178["F178: passing"]
   F176 --> F178
   F177 --> F178
+  F179["F179: passing"]
+  F177 --> F179
+  F178 --> F179
   F180["F180: passing"]
   F140 --> F180
   F181["F181: passing"]
@@ -431,7 +435,7 @@ flowchart TD
 | F148 | J0 | rengine | passing | The F113 agent recipe registry becomes declarative data: one TOML document that the remaining JS and the new Rust side both parse, with spawn-environment composition (the RENGINE_AGENT_* context) ported (owner, 2026-09-11; spec 129, D57). |
 | F149 | J0 | rengine | passing | red-agents replaces agents/registry.mjs, agents/config.mjs, agents/report-session.mjs and agents/bind.mjs: conversation discovery for all five CLIs, hook overlays, and the codex trust-hash math, with agent.sh keeping its CLI surface while dispatching to the Rust binary (owner, 2026-09-11; spec 129, D57). |
 | F150 | J0 | rengine | blocked | red-mcp replaces agents/mcp-worker.mjs and the runtime/tools.mjs probe: the root-bound MCP server in Rust over stdio, serving the same tool surface from the façade/host API, with the native desktop taught to exec red-mcp instead of node. This is the connection every agent pane uses, so the consumer-path evidence is live panes, not only fixtures (owner, 2026-09-11; spec 129, D57). |
-| F151 | J0 | rengine | ready | red-pty replaces server/sessions.mjs: retained PTY sessions in Rust on portable-pty, with spawn, attach, scrollback replay, resize and kill identical to the JS session host, and retention across host restart as specs 059/060 promise (owner, 2026-09-11; spec 129, D57). |
+| F151 | J0 | rengine | passing | red-pty replaces server/sessions.mjs: retained PTY sessions in Rust on portable-pty, with spawn, attach, scrollback replay, resize and kill identical to the JS session host, and retention across host restart as specs 059/060 promise (owner, 2026-09-11; spec 129, D57). |
 | F152 | J0 | rengine | blocked | red-host I: the Rust host core replaces server/main.mjs, server/desktops.mjs and server/surfaces.mjs with surface-protocol.mjs — the native desktop connects with zero native changes, and the surfaces focus-eviction semantic (surfaces.mjs:72-76, spec 114 finding 2) is preserved verbatim (owner, 2026-09-11; spec 129, D57). |
 | F153 | J0 | rengine | blocked | red-host II: server/tasks.mjs and the local half of server/tracker.mjs become Rust — the local backend's rows, readiness and criteria rendering, plus token-serialized tracker writes. tracker.mjs re-implements the features.py readiness rule while its schema text wrongly claims a shell-out (spec 114 finding 1): port the real behavior and correct the text (owner, 2026-09-11; spec 129, D57). |
 | F154 | J0 | rengine | blocked | red-host III: the remote tracker providers move to Rust — GitHub and Linear read-only with the 30-second cache, refresh bypass, and the denied/unavailable/invalid taxonomy rendered exactly as today (owner, 2026-09-11; spec 129, D57). |
@@ -459,6 +463,7 @@ flowchart TD
 | F176 | J0 | rengine | passing | F151a (the core half of F151): red-pty on portable-pty behind the F174 channel shape, with the JS host's exact semantics — UTF-16-unit scrollback truncation, string_decoder tail-holding, tree kill, resize guard, input cap — proven by one scripted scenario set driving both the real JS Sessions class and the service (owner, 2026-09-13; spec 129, KI-096). |
 | F177 | J0 | rengine | passing | F151b (the retention half of F151): the restart-retention architecture is decided and implemented — whether red-pty stays per-host as today or becomes a long-lived per-state-dir service with a descriptor the next host discovers, with restart evidence matching specs 059/060's promises (owner, 2026-09-13; spec 129, KI-096). |
 | F178 | J0 | rengine | passing | F151c (the swap half of F151): the Sessions class becomes the thin client over red-pty, sessions.mjs is deleted in the same commit the replacement passes, and terminal behaviors are byte-identical on the full suite (owner, 2026-09-13; spec 129, KI-096). |
+| F179 | J0 | rengine | passing | F151d (the handover half of F151): a pane's own record travels with its PTY and a starting host adopts what the state directory's service holds, so replacing a host stops costing the owner their agent panes — carrying out charter D60, which supersedes one clause of F94's criterion 4 (owner, 2026-09-13; spec 131, KI-096). |
 | F180 | N0 | rengine | passing | F141a (the read half of F141): red-link attaches to a live workspace over the internal HTTP API the worker and the MCP connector already use, and serves the v0.1 read surface as red.v1 over libp2p — through circuit-relay v2 only, because the façade opens no direct listener at all (owner, 2026-09-13; spec 128 decisions 2 and 4, KI-098). |
 | F181 | N0 | rengine | passing | F141b (the feed half of F141): the workspace's event stream arrives on a long-lived libp2p stream in order with monotonic sequence, and a reconnect resumes from a cursor exactly as the host's own clients do (owner, 2026-09-13; spec 128 decision 2, KI-098). |
 | F182 | N0 | rengine | passing | F181a (the contract half of F181): red.v1 carries the workspace lifecycle ring — the worker's feed of token, task, agent, game, capture, device-action and workspace frames — translated strictly, with the live ring judged by the F140 harness (owner, 2026-09-13; spec 128 decision 5, KI-099). |

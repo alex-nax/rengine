@@ -129,6 +129,17 @@ export async function hostAge(stateDir, { checkoutRoot = checkout, areas = CODE_
   return { startedAt: new Date(started), newestAt: new Date(newest.at), newestFile: newest.file, stale: newest.at > started + 1000 };
 }
 
+/* The PTY service of a state directory, as it published itself. A descriptor that names a process
+   that is gone names nothing. */
+async function servicePid(stateDir, isAlive) {
+  let value;
+  /* Only a missing or torn descriptor is "no service": a catch that swallowed everything turned a
+     ReferenceError in this function into "there is none", and the service was stopped anyway. */
+  try { value = JSON.parse(await readFile(path.join(stateDir, 'pty.json'), 'utf8')); }
+  catch (error) { if (error.code === 'ENOENT' || error instanceof SyntaxError) return null; throw error; }
+  return Number.isSafeInteger(value.pid) && isAlive(value.pid) ? value.pid : null;
+}
+
 export function describeReport(report) {
   const { previous, ended, stopped, started } = report;
   const lines = [];
@@ -138,8 +149,13 @@ export function describeReport(report) {
     lines.push(`Replaced the session host of ${report.stateDir}:`);
     lines.push(`  stopped host PID ${previous.pid} (${previous.url}, instance ${previous.instance}${previous.startedAt ? `, started ${previous.startedAt.toISOString()}` : ''})`);
     for (const item of stopped) lines.push(`  ${item.role} PID ${item.pid}: ${item.outcome}`);
-    lines.push(ended.length ? `  ended ${ended.length} running session(s):` : '  no running sessions ended');
+    /* Since charter D60 these sessions are handed over rather than ended: the PTYs belong to the
+       state directory, and the host that starts next adopts them. The list is still printed — a
+       person replacing a host wants to know which agent panes are about to change hands — and the
+       word changed with the behaviour (F179; F94's criterion 4 is superseded in that clause). */
+    lines.push(ended.length ? `  handed ${ended.length} running session(s) to the next host:` : '  no running sessions to hand over');
     for (const session of ended) lines.push(`    ${session.type}${session.agent ? ` (${session.agent})` : ''} — ${session.title ?? session.id}${session.conversation ? `, conversation ${session.conversation}` : ''}`);
+    if (report.retained) lines.push(`  left the ${report.retained.role} running (PID ${report.retained.pid}): it holds the panes above`);
     if (report.note) lines.push(`  note: ${report.note}`);
   }
   lines.push(`Started host PID ${started.pid} (${started.url}, instance ${started.instance}) from ${started.checkout}.`);
@@ -173,7 +189,16 @@ export async function replaceHost(stateDir, options = {}) {
       for (const child of supervisor.children) if (isAlive(child.pid)) report.stopped.push({ role: 'supervisor child', ...await stopProcess(child.pid, stopping) });
     }
     report.stopped.push({ role: 'host', ...await stopProcess(pid, stopping) });
-    for (const child of processes.filter(entry => entry.ppid === pid)) if (isAlive(child.pid)) report.stopped.push({ role: 'host child', ...await stopProcess(child.pid, stopping) });
+    /* The host's children go with it — except the one that is not its to end. The state
+       directory's PTY service is started detached and outlives every host of that directory by
+       design (charter D60): stopping it here would kill the agent panes this replacement exists to
+       preserve, and it is a child in `ps` only because the parent that started it has not exited
+       yet. Named by the descriptor it published, not by its command line. */
+    const ptyService = await servicePid(stateDir, isAlive);
+    for (const child of processes.filter(entry => entry.ppid === pid)) {
+      if (child.pid === ptyService) { report.retained = { role: 'pty service', pid: child.pid }; continue; }
+      if (isAlive(child.pid)) report.stopped.push({ role: 'host child', ...await stopProcess(child.pid, stopping) });
+    }
     if (!await portReleased(url, options)) throw new Error(`${url} still accepts connections after PID ${pid} exited; not starting a second host.`);
     await rm(path.join(stateDir, 'sidecar.json'), { force: true });
   } else if (found.descriptor) {

@@ -2662,16 +2662,23 @@
         "Spawn/attach/scrollback/resize/kill behave identically on the native terminal suite's scenario set, ported to drive the Rust host.",
         "A retained session survives the Rust host's restart exactly as today's sidecar retention promises, with the spec 059/060 behaviors named in the ported tests."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
-        147
+        147,
+        179
       ],
       "owner_workspace": "rengine",
       "deliverable": "The Rust PTY retention layer, the ported terminal-suite scenarios, and the restart-retention evidence; sessions.mjs removed.",
       "external_references": [
         "github.com/wezterm/wezterm portable-pty crate: cross-platform PTY for the Rust host"
       ],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/red-pty-scenarios-f176-2026-09-13.md",
+        "docs/evidence/pty-retention-f177-2026-09-13.md",
+        "docs/evidence/sessions-swap-f178-2026-09-13.md",
+        "docs/evidence/session-handover-f179-2026-09-13.md",
+        "Criterion 1: the scenario set — spawn, attach, scrollback, resize, kill and the OUTPUT_LIMIT truncation counted in UTF-16 units — is pinned against what the JS session host answered before it was deleted (orchestrator/tests/pty-scenario-fixtures.json). Criterion 2: a session survives the host being SIGKILLed and the next host adopts it with the same child process, title, root and scrollback (session-handover.test.mjs), which is charter D60 and supersedes one clause of F94 criterion 4 with the owner's decision as its reason. orchestrator/server/sessions.mjs is deleted."
+      ]
     },
     {
       "id": 152,
@@ -3433,6 +3440,32 @@
         "The decision: the connector layer's contract is unchanged and its payload is an executable — the layer builds (cargo build -p red-mcp), probes by running the binary's own --probe, and adopts by bumping connectorGeneration, which is the desktop layer's order. Spec 065's completion-vs-acceptance, the generation and per-launch spawning are untouched.",
         "orchestrator/agents/mcp-worker.mjs and orchestrator/runtime/tools.mjs are deleted; agents/mcp.mjs spawns its worker as a command; six suites that drove the JS worker directly now drive the binary unchanged.",
         "orchestrator/tests/incomplete-tool-worker.mjs pins the probe's required tools — a candidate that starts and answers but cannot serve the update path is refused naming what it lacks, and the generation does not move. Added because emptying the probe's required list changed no test."
+      ],
+      "external_references": []
+    },
+    {
+      "id": 179,
+      "milestone": "J0",
+      "category": "terminal",
+      "priority": "medium",
+      "description": "F151d (the handover half of F151): a pane's own record travels with its PTY and a starting host adopts what the state directory's service holds, so replacing a host stops costing the owner their agent panes — carrying out charter D60, which supersedes one clause of F94's criterion 4 (owner, 2026-09-13; spec 131, KI-096).",
+      "acceptance_criteria": [
+        "A host started as its own process on a state directory attaches to that directory's PTY service; a host embedded in a test keeps owning its PTYs unless it asks otherwise.",
+        "After the host is killed, a new host on the same state directory lists the pane it did not start with the same child process, its title and its project, and input reaches the same shell with the scrollback intact.",
+        "replace.mjs leaves the PTY service running, names it in its report, and says the sessions were handed over rather than ended; F94's superseded clause is recorded with D60 as its reason."
+      ],
+      "passes": true,
+      "dependencies": [
+        177,
+        178
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The session record carried by red-pty, the adopt path, the retain switch, the replace.mjs report, and the live handover test.",
+      "evidence": [
+        "docs/evidence/session-handover-f179-2026-09-13.md",
+        "orchestrator/tests/session-handover.test.mjs: a host started as its own process, a pane typed into, the host SIGKILLed, and a second host that lists the pane with the same child PID, title and root and types into it with the scrollback intact.",
+        "Three sabotages observed failing for their own reasons: adopting nothing, not retaining, and replace.mjs stopping the PTY service with the host's other children.",
+        "F94 criterion 4's \"sessions do not [persist]\" clause is superseded by charter D60 with the owner's own words as the reason; replace-host.test.mjs asserts the adoption and the new \"handed … to the next host\" wording."
       ],
       "external_references": []
     }
