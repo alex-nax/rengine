@@ -1,5 +1,64 @@
 # Progress Log
 
+## Session 132 (macos) — 2026-09-13 — registry/config/bind deleted; F149 complete (F173 / F149c)
+
+The last of the agent half. `orchestrator/agents/{registry,config,bind}.mjs` — 703 lines — are gone,
+and `agents-client.mjs` stands in their place with no decisions in it: the synchronous recipe
+surface is primed per document from `red-agents dump`, and `agentLaunch`, `agentIdentity`,
+`describeSession`, `bind` and `stateDirectories` are JSON-RPC calls to `red-agents-serve`. Two owner
+decisions shaped it before any of it was built — Rust decides while the caller supplies the
+environment-dependent inputs, and the transport is the stdio service plus thin client that
+`red-store-serve` established in F174, not an exec per read, because `recipe()` sits on request
+paths in `tasks.mjs` and `worker.mjs`.
+
+**Three times the port failed because something had been *found* rather than *passed*.** The extra
+registry document (a client relying on the environment variable silently lost a recipe added as
+data), the root context (a caller that passed only `contextFile` got a null context and a refused
+launch), and the documents themselves — a long-lived service reads the environment it was *spawned*
+with, so one started while a test's extra file existed went on reading that path after the file was
+deleted. Every request names the registry and the extra document it is about now. The pattern is
+worth keeping: a seam that hides an input works until the input changes under it.
+
+**And twice the port was cleverer than the data.** The registry declares each CLI's session-id
+pattern; the first port read it by sniffing for substrings and picked the ULID branch for kimi,
+whose ids accept a uuid *or* a ULID — the JS matched the pattern with a real engine, so the crate
+does too (`regex`, pinned). And the opencode/gemini overlays read a person's own configuration,
+which is written with comments and trailing commas: a strict JSON reader refused a file that had
+always been accepted, and "existing configuration was preserved" is a refusal to launch, not a
+nicety.
+
+**The parity record was frozen before the deletion.** `agents-fixtures.{mjs,json}` holds what
+`registry.mjs` and `config.mjs` answered while they still existed — the projection, the CLI's
+`list`/`show` output including its refusals, the conversation parsers, the codex hook numbers, and a
+full launch plan per CLI with args, consumed flags, identity and every per-launch file by content
+and mode. Regenerating it would be judging the replacement against itself, so it is never
+regenerated. Three comparison tests were re-based on the record rather than deleted.
+
+Sabotage-verified for their own reasons: the launch plan not writing claude's settings file, the
+kimi project file keeping previous `rengine_` entries instead of replacing them, the client no
+longer naming the documents per request, a dropped `--settings`, and the trust hash computed for the
+wrong matcher. Evidence: `docs/evidence/agents-swap-f173-2026-09-13.md`.
+
+**The rationale moved with the code.** Per the sidecar rule for a split, `config.mjs`'s and
+`registry.mjs`'s entries — the configuration overlays, who decides the one uuid, the kimi project
+file, codex hooks trusting themselves — are now `red/red-agents/src/launch.rs._llm.json`, and the
+orphaned sidecars are deleted. `registry.toml`'s header no longer claims two parsers, and
+`npm run bind` runs the Rust binary.
+
+**F149 passes.** All three splits landed (F171 2026-09-12, F172 and F173 today) and the four modules
+its deliverable names are deleted. Its roll-up evidence is
+`docs/evidence/agents-rust-f149-2026-09-13.md`, which ties each criterion to where it was actually
+observed — and says what it does not claim: criterion 3's install/update runs are the pre-existing
+end-to-end ones, unchanged rather than re-proved. KI-093 closes with its sizing kept, because the
+split it proposed was right. `docs/roadmap-graph.md` regenerated.
+
+Commands: `npm test` (**303 of 303**), `python3 tools/features.py validate` (130 features),
+`python3 tools/design.py check`, `cargo build -p red-agents`.
+
+**The goal is not met by this.** `agents-client.mjs`, `mcp.mjs`, `mcp-worker.mjs`, `launch.mjs`,
+`ide-connect.mjs` and `handoff.mjs` are still JavaScript and the server still runs on Node. F149
+retired the four modules its own description names; the rest of the epic is the rest of the epic.
+
 ## Session 131 (macos) — 2026-09-13 — the hook reporter in Rust and report-session.mjs deleted (F172 / F149b)
 
 Taken over from kimi mid-task at the owner's request: their weekly quota ran out with three of five

@@ -236,7 +236,7 @@ flowchart TD
   F139 --> F147
   F148["F148: passing"]
   F139 --> F148
-  F149["F149: ready"]
+  F149["F149: passing"]
   F148 --> F149
   F150["F150: blocked"]
   F141 --> F150
@@ -289,9 +289,9 @@ flowchart TD
   F169 --> F170
   F171["F171: passing"]
   F148 --> F171
-  F172["F172: ready"]
+  F172["F172: passing"]
   F171 --> F172
-  F173["F173: blocked"]
+  F173["F173: passing"]
   F170 --> F173
   F172 --> F173
   F174["F174: passing"]
@@ -409,7 +409,7 @@ flowchart TD
 | F146 | J0 | rengine | passing | tools/design.py learns a Rust target: the product name and theme tokens are generated into a Rust source beside the .mjs and .h outputs, so no Rust code ever hand-writes what D41 made a data edit. The slice that unblocks every other J0 row's need for generated constants (owner, 2026-09-11; spec 129, D57). |
 | F147 | J0 | rengine | passing | red-store replaces server/store.mjs and server/schema.mjs: project and session persistence in Rust with the on-disk format byte-compatible, deleted in the same commit the replacement passes (owner, 2026-09-11; spec 129, D57). |
 | F148 | J0 | rengine | passing | The F113 agent recipe registry becomes declarative data: one TOML document that the remaining JS and the new Rust side both parse, with spawn-environment composition (the RENGINE_AGENT_* context) ported (owner, 2026-09-11; spec 129, D57). |
-| F149 | J0 | rengine | ready | red-agents replaces agents/registry.mjs, agents/config.mjs, agents/report-session.mjs and agents/bind.mjs: conversation discovery for all five CLIs, hook overlays, and the codex trust-hash math, with agent.sh keeping its CLI surface while dispatching to the Rust binary (owner, 2026-09-11; spec 129, D57). |
+| F149 | J0 | rengine | passing | red-agents replaces agents/registry.mjs, agents/config.mjs, agents/report-session.mjs and agents/bind.mjs: conversation discovery for all five CLIs, hook overlays, and the codex trust-hash math, with agent.sh keeping its CLI surface while dispatching to the Rust binary (owner, 2026-09-11; spec 129, D57). |
 | F150 | J0 | rengine | blocked | red-mcp replaces agents/mcp-worker.mjs and the runtime/tools.mjs probe: the root-bound MCP server in Rust over stdio, serving the same tool surface from the façade/host API, with the native desktop taught to exec red-mcp instead of node. This is the connection every agent pane uses, so the consumer-path evidence is live panes, not only fixtures (owner, 2026-09-11; spec 129, D57). |
 | F151 | J0 | rengine | ready | red-pty replaces server/sessions.mjs: retained PTY sessions in Rust on portable-pty, with spawn, attach, scrollback replay, resize and kill identical to the JS session host, and retention across host restart as specs 059/060 promise (owner, 2026-09-11; spec 129, D57). |
 | F152 | J0 | rengine | blocked | red-host I: the Rust host core replaces server/main.mjs, server/desktops.mjs and server/surfaces.mjs with surface-protocol.mjs — the native desktop connects with zero native changes, and the surfaces focus-eviction semantic (surfaces.mjs:72-76, spec 114 finding 2) is preserved verbatim (owner, 2026-09-11; spec 129, D57). |
@@ -432,8 +432,8 @@ flowchart TD
 | F169 | J0 | rengine | passing | F147a (the crate half of F147): red-store as a Rust crate with byte-parity against the JS on-disk format on a captured fixture corpus, and schema.mjs's bounded validator as a second module with identical error strings; nothing deleted (owner, 2026-09-12; spec 129, KI-091). |
 | F170 | J0 | rengine | passing | F147b (the swap half of F147): the JS host consumes red-store over the stdio service through a thin client, the ten server consumers rewired, store.mjs and schema.mjs deleted in the same commit the replacement passes (owner, 2026-09-12; spec 129, KI-091). |
 | F171 | J0 | rengine | passing | F149a (the shell half of F149): the red-agents binary carries the registry's shell surface — list/show byte-exact with the registry.mjs CLI, the three conversation flag parsers, and the codex hook key/trust-hash math — and agent.sh dispatches its registry reads to it with its own CLI unchanged (owner, 2026-09-12; spec 129, KI-093). |
-| F172 | J0 | rengine | ready | F149b (the hook reporter half of F149): red-agents report-session emits byte-identical payloads to the JS version for all five providers on recorded hook fixtures, the launcher composes the Rust binary into hook command lines, and report-session.mjs is deleted (owner, 2026-09-12; spec 129, KI-093). |
-| F173 | J0 | rengine | blocked | F149c (the consumer half of F149): the server-side recipe/config consumers move off registry.mjs and config.mjs — the tasks menu and model flags, store's conversation-id shaping, sessions' capability reads, agentLaunch's MCP overlays — and registry.mjs, config.mjs and bind.mjs are deleted (owner, 2026-09-12; spec 129, KI-093). |
+| F172 | J0 | rengine | passing | F149b (the hook reporter half of F149): red-agents report-session emits byte-identical payloads to the JS version for all five providers on recorded hook fixtures, the launcher composes the Rust binary into hook command lines, and report-session.mjs is deleted (owner, 2026-09-12; spec 129, KI-093). |
+| F173 | J0 | rengine | passing | F149c (the consumer half of F149): the server-side recipe/config consumers move off registry.mjs and config.mjs — the tasks menu and model flags, store's conversation-id shaping, sessions' capability reads, agentLaunch's MCP overlays — and registry.mjs, config.mjs and bind.mjs are deleted (owner, 2026-09-12; spec 129, KI-093). |
 | F174 | J0 | rengine | passing | F170a (the channel half of F170): the stdio red-store service (newline-delimited JSON-RPC, the house's LSP/MCP-worker shape) and the thin store-client.mjs presenting the exact WorkspaceStore surface, fail statuses included — the F169 corpus replayed through the client drift-free (owner, 2026-09-12; spec 129, KI-095). |
 | F175 | J0 | rengine | passing | F170b (the swap half of F170): the ten server consumers of store.mjs/schema.mjs rewire to store-client.mjs, main.mjs manages the service lifecycle, and store.mjs and schema.mjs are deleted in the same commit the replacement passes (owner, 2026-09-12; spec 129, KI-095). |
 | F176 | J0 | rengine | passing | F151a (the core half of F151): red-pty on portable-pty behind the F174 channel shape, with the JS host's exact semantics — UTF-16-unit scrollback truncation, string_decoder tail-holding, tree kill, resize guard, input cap — proven by one scripted scenario set driving both the real JS Sessions class and the service (owner, 2026-09-13; spec 129, KI-096). |

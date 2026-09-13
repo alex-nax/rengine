@@ -2607,14 +2607,20 @@
         "Codex hook key and trust-hash computation matches codexHookKey/codexHookTrustHash byte-exactly on the docs/evidence/codex-sessionstart-hook-2026-09-11.md fixture set.",
         "agent.sh's CLI (list/show/check-resume/install/update) is unchanged to its callers while dispatching to red-agents."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         148
       ],
       "owner_workspace": "rengine",
       "deliverable": "The red-agents binary, the ported hook/conversation logic, the agent.sh dispatch, and the fixture-parity tests; the four JS modules removed.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/agents-rust-f149-2026-09-13.md",
+        "docs/evidence/report-session-f172-2026-09-13.md",
+        "docs/evidence/red-agents-cli-f171-2026-09-12.md",
+        "docs/evidence/agents-swap-f173-2026-09-13.md",
+        "orchestrator/agents/{registry,config,report-session,bind}.mjs are deleted (4209680, 6c4e756); agents-client.mjs is a thin client over red-agents-serve, and orchestrator/tests/red-agents-cli.test.mjs holds the byte-exact CLI, parser and codex trust-hash comparisons against the frozen JS answers."
+      ]
     },
     {
       "id": 150,
