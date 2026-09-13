@@ -91,11 +91,18 @@ pub(crate) async fn record_conversation(front: &Arc<Front>, body: &str) -> Strin
             patch.insert("title".to_string(), json!(agent_title(&agent, None, &root_name)));
         }
     } else {
-        let entry = match ask(front, "recordConversation", json!([root_id, {
-            "conversation": conversation,
-            "agent": if agent.is_empty() { Value::Null } else { json!(agent) },
-            "task": payload.get("task").cloned().unwrap_or(Value::Null),
-        }])).await {
+        /* The task is carried ONLY when the caller sent one. A conversation is reported more than
+           once — the workspace names it when it spawns a pane ON a task, and then the pane itself
+           reports what it actually launched, which knows nothing about tasks — and the store reads
+           an explicit `null` as "forget the task". Sending one for an absent field would wipe the
+           task on every pane's own report, which is how this was found. */
+        let mut asked = serde_json::Map::new();
+        asked.insert("conversation".to_string(), conversation.clone());
+        asked.insert("agent".to_string(), if agent.is_empty() { Value::Null } else { json!(agent) });
+        if let Some(task) = payload.get("task") {
+            asked.insert("task".to_string(), task.clone());
+        }
+        let entry = match ask(front, "recordConversation", json!([root_id, Value::Object(asked)])).await {
             Ok(entry) => entry,
             Err(fault) => return faulted(&fault),
         };
@@ -354,10 +361,25 @@ async fn spawn_pane(front: &Arc<Front>, options: &Value) -> Result<Value, String
     final_overrides.insert("RENGINE_AGENT_HOME".to_string(), json!(agent_home.to_string_lossy()));
     let env = compose_env(&final_overrides);
 
-    ask_pty(front, "spawn", json!([{
+    let started = ask_pty(front, "spawn", json!([{
         "id": id, "meta": Value::Object(record), "command": file, "args": argv,
         "cols": cols, "rows": rows, "cwd": working.to_string_lossy(), "env": env,
-    }])).await
+    }])).await?;
+    /* Known here, now. The service announces every session it holds and that announcement is how
+       this door learns of panes OTHER hosts start — but for a pane this door just started, waiting
+       for the announcement to come back is a race a caller can beat: the worker's next call is
+       `agent-conversation` on the pane it was just handed, and a door that had not caught up would
+       answer `Unknown session.` about a pane it started itself. */
+    if let Some(fields) = started.as_object() {
+        if let Some(known) = fields.get("id").and_then(Value::as_str) {
+            let mut lean = started.clone();
+            if let Some(object) = lean.as_object_mut() {
+                object.remove("output");
+            }
+            front.panes.lock().expect("panes lock").insert(known.to_string(), lean);
+        }
+    }
+    Ok(started)
 }
 
 /// `/api/agent-restart`: the same conversation, a new child, a freshly composed environment. The

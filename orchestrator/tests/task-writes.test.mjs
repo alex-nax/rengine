@@ -30,10 +30,7 @@ async function workspace(t, { document = taskDeclaration(), window = 700 } = {})
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-task-')));
   const project = await taskProject(directory, 'project', document);
   const stateDir = path.join(directory, 'state');
-  /* No front door: this spec watches what the WORKER asks the host to do by wrapping the host's own
-     `sessions.terminal`, and a door in between would answer the worker itself and leave nothing to
-     see. The routes the door owns have their own spec; this one is about the layer above. */
-  const host = await startServer({ stateDir, frontDoor: false });
+  const host = await startServer({ stateDir });
   const root = await host.store.addRoot(project);
   const worker = await startWorker({ url: host.url, token: host.token, instance: host.instance }, { directory: path.join(directory, 'runtime') });
   t.after(async () => { await worker.close(); await host.close(); await rm(directory, { recursive: true, force: true }); });
@@ -218,27 +215,27 @@ test('a spawn names the conversation it mints, and its pane is offered no histor
   const claude = await fakeCli(stateDir, 'claude');
   const earlier = randomUUID();
   await host.store.recordConversation(root.id, { conversation: earlier, agent: 'claude' });
-  /* The host would mint an identical-looking id of its own, so only the call the worker actually made
-     distinguishes "the worker named it" from "the host filled the gap". */
-  const asked = [];
-  const terminal = host.sessions.terminal.bind(host.sessions);
-  host.sessions.terminal = async options => { asked.push(options); return terminal(options); };
+  /* "The worker named it" versus "the workspace filled the gap" used to be watched by wrapping the
+     host's own `sessions.terminal`. The pane is not started in this process any more — red-host
+     answers `/api/terminal` (F189) — so the same question is asked of the workspace: one pane, on
+     the id the worker's answer carries, and a conversation recorded WITH the task, which is
+     something only the caller's spawn knew. */
   const alice = identity('claude');
   await hold(worker, root.id, alice);
   const feed = await feedSocket(worker, (await status(worker, root.id, alice)).feed);
   t.after(() => feed.close());
 
   const spawned = await ok(worker, 'agent-spawn', { rootId: root.id, taskKey: 'F1', agent: 'claude', model: 'claude-opus-5' }, alice);
-  assert.equal(asked.length, 1, 'one pane, one call');
-  assert.match(asked[0].conversation ?? '', UUID, 'the worker names the conversation on the host call');
-  assert.ok(asked[0].args?.length, 'alongside the arguments that make this a spawn rather than a bare pane');
-  assert.equal(spawned.conversation, asked[0].conversation, 'the answer carries the id the worker named');
+  const agents = () => host.sessions.list().filter(pane => pane.rootId === root.id && pane.type === 'agent');
+  await until(() => agents().length === 1, 'one pane, one spawn');
+  assert.match(spawned.conversation ?? '', UUID, 'the worker names the conversation it minted');
+  assert.equal(agents()[0].conversation, spawned.conversation, 'and the pane is running on that id');
   assert.notEqual(spawned.conversation, earlier, 'never one somebody else was already having');
   const state = await ok(worker, 'state');
-  assert.equal(state.conversations[root.id].find(entry => entry.id === asked[0].conversation)?.task, 'F1',
-    'the pane record is that same conversation, wearing its task');
+  assert.equal(state.conversations[root.id].find(entry => entry.id === spawned.conversation)?.task, 'F1',
+    'the pane record is that same conversation, wearing its task — which only the spawn knew');
   const frame = await until(() => feed.frames.find(item => item.type === 'agent.spawned'), 'agent.spawned reaches the feed');
-  assert.equal(frame.conversation, asked[0].conversation, 'and so is the frame');
+  assert.equal(frame.conversation, spawned.conversation, 'and so is the frame');
 
   assert.equal(existsSync(path.join(stateDir, 'integrations', `${spawned.session.id}.conversations.tsv`)), false,
     'the host writes this pane no listing, so there is nothing for a stray keystroke to answer');

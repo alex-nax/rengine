@@ -1,5 +1,60 @@
 # Progress Log
 
+## Session 147 (macos) — 2026-09-14 — the door goes on the path, and the host stops serving what it owns
+
+The previous session moved every route F152 names into red-host and left it started by nothing but
+tests. Three commits closed that gap.
+
+**The cutover.** The process a launcher starts now starts the door in front of itself and publishes
+the door's url and token with its own pid — the pair is the workspace, and that is the process the
+launcher started, `replace.mjs` stops and `discoverSidecar` asks about. The door dies with it: an
+orphan's parent becomes pid 1, and a door left behind would answer `/health` for a backend that is
+gone. **That change had no check, and removing it entirely left 23 tests across four host-starting
+specs green** — the suite starts hosts in process, and nothing in it asked what a WORKSPACE runs.
+
+**The suite followed.** Every in-process host is door-fronted too, which is the step KI-106 named as
+the gate on deleting any JavaScript. Three things moved together: every host uses its directory's
+services (`retainSessions` now decides only what happens at shutdown); **a service stops when its
+state directory does**, which is what makes that safe for a suite that deletes its scratch
+directories — the leak that produced 91 strays once, fixed in the reaper rather than audited for in
+fifty specs; and a host registers panes it did not start, because the service announces every session
+it holds and a host behind the door otherwise answers `Unknown session.` about a pane running in
+front of the person.
+
+Pointing the whole suite at the door found **two defects that were already in production**: the door
+never closed a connection it answered, so every Rust client — red-mcp, red-link — waited out a
+fifteen-second read timeout on every request; and `/api/terminal` accepted `type: "game"`, which the
+JS route refuses before the composition ever sees it.
+
+**Then the deletion.** Eighteen route cases, the `/events` upgrade, the socket server, the
+session-event fan-out and the `Desktops` the host kept for it. `main.mjs` is 239 lines and serves the
+fifteen routes F153–F156 own plus `/surface`. **red-host is required now**: a checkout without it
+says so by name and exits rather than publishing a descriptor for something that answers `/health`
+and little else.
+
+`red-host.test.mjs` compared the door against the JS host over HTTP, which is not available for a
+route the JS host no longer serves. The capture is the implementation rather than a fixture: every
+comparison moved one layer down, to the function the deleted route called — `store.list`,
+`sessions.terminal`, a `composed()` helper carrying `/api/state`'s exact composition through
+`JSON.stringify` because that is what the route did, and `new Desktops(...)` driven with a socket
+that records what it is sent. The comparisons survive the modules' own deletion, because each names
+the function that produced the answer.
+
+**And the bug the migration was really for.** A conversation's task was being **wiped by the pane's
+own report**. A conversation is reported more than once — the workspace names it when it spawns a
+pane on a task, then the pane reports what it actually launched, knowing nothing about tasks — and
+the store reads an explicit `null` task as "forget it". The door sent `null` for an absent field; the
+JS host never did, because `undefined` does not survive `JSON.stringify`. Absence and null are
+different answers, and that was the second time in two days the distinction was the defect.
+
+**What did not happen: the line count did not fall.** 6,805 → 6,845. `main.mjs` lost 56 lines and the
+cutover machinery cost about as much. The JavaScript left on the path is the fifteen routes' modules
+— formats, tracker, dashboard, devices, games, images, recordings, tasks — and the runtime layer
+above the host. Those are F153–F156 and F157–F162, and they are where the total moves.
+
+Commands: `npm test` (**326 of 326**, zero services left), `cargo test`, `./init.sh`,
+`python3 tools/features.py validate`, and four native specs including `native-front-door`.
+
 ## Session 146 (macos) — 2026-09-13 — a pane's record belongs to its service too (D62, F189)
 
 The store routes moved at the door this morning. The session routes hit the same wall one level

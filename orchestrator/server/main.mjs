@@ -6,12 +6,11 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import { WebSocketServer, WebSocket } from 'ws';
+import { WebSocketServer } from 'ws';
 import { WorkspaceStore, fail } from './store-client.mjs';
 import { Sessions } from './sessions-client.mjs';
 import { Games } from './games.mjs';
 import { readImage } from './images.mjs';
-import { Desktops } from './desktops.mjs';
 import { listFormats, formatPreview, readBytes, readDeclaration } from './formats.mjs';
 import { dashboardAction, dashboardActions, dashboardRunPayload, dashboardCapture } from './dashboard.mjs';
 import { projectDevices } from './devices.mjs';
@@ -52,7 +51,6 @@ export async function startServer({ stateDir, port = 0, retainSessions = false, 
      deleted stops on its own, which is what makes this safe for a suite. */
   const store = await WorkspaceStore.attach(stateDir);
   const sessions = new Sessions(store, { stateDir });
-  const desktops = new Desktops(store, sessions);
   const games = await Games.open(store, sessions);
   const preflight = (rootId, gameId) => games.inspect(rootId, gameId);
   const token = randomBytes(32).toString('hex');
@@ -71,10 +69,6 @@ export async function startServer({ stateDir, port = 0, retainSessions = false, 
           switch (target.pathname) {
             /* stateDir and pid are said here so a worker above this host can find a credential, and name
                the process a pane descends from, without the process table (specs 101 and 102). */
-            case '/api/state': value = { instance, stateDir, pid: process.pid, capabilities: { taskConversations: 1, handoff: 1, desktopActions: 1, formatRegistry: 1, dashboard: 1, projectGame: 1, projectGameLaunch: 1, recordings: 1, projectDevices: 1, externalDeclarations: 1, agentConversations: 1, tracker: 1 }, roots: store.state.roots, layout: store.state.layout, preferences: store.state.preferences, conversations: store.state.conversations ?? {},
-              drafts: Object.values(store.state.drafts).map(({ rootId, path, updatedAt }) => ({ rootId, path, updatedAt })), sessions: sessions.list() }; break;
-            case '/api/tree': value = await store.list(query.get('rootId'), query.get('path') ?? '', query.get('hidden') === 'true'); break;
-            case '/api/file': value = await store.readText(query.get('rootId'), query.get('path')); break;
             case '/api/image': {
               const image = await readImage(store, query.get('rootId'), query.get('path'));
               response.writeHead(200, { 'Content-Type': image.mime, 'Content-Length': image.bytes.length,
@@ -89,8 +83,6 @@ export async function startServer({ stateDir, port = 0, retainSessions = false, 
               value = await projectDevices(selected, await readDeclaration(selected),
                 { refresh: query.get('refresh') === '1', preflight, resolve: () => dashboardActions(selected, preflight) }); break; }
             case '/api/bytes': value = await readBytes(await store.root(query.get('rootId')), Object.fromEntries(query)); break;
-            case '/api/session': value = sessions.snapshot(query.get('id'), true); break;
-            case '/api/desktops': value = { desktops: desktops.list(query.get('rootId')) }; break;
             case '/api/game-config': value = await games.inspect(query.get('rootId'), query.get('gameId') ?? undefined); break;
             case '/api/recordings': value = await listRecordings(await store.root(query.get('rootId')), Object.fromEntries(query)); break;
             case '/api/recording': value = await readRecording(await store.root(query.get('rootId')), query.get('id'), Object.fromEntries(query)); break;
@@ -100,7 +92,6 @@ export async function startServer({ stateDir, port = 0, retainSessions = false, 
           const data = await body(request);
           if (!data || typeof data !== 'object' || Array.isArray(data)) fail('Expected an object.');
           switch (target.pathname) {
-            case '/api/roots': value = await store.addRoot(data.path, data.declarationFile); break;
             /* Sign-in returns a URL for the desktop to open; the browser comes back to a loopback
                listener this module owns, so no credential passes through the desktop (spec 083). */
             case '/api/tracker/signin': {
@@ -115,11 +106,6 @@ export async function startServer({ stateDir, port = 0, retainSessions = false, 
               value = await revokeSignIn(stateDir, declaration.project ?? selected.id);
               break;
             }
-            case '/api/save': value = await store.saveText(data); break;
-            case '/api/draft': value = await store.putDraft(data); break;
-            case '/api/discard': await store.discardDraft(data.rootId, data.path); value = { ok: true }; break;
-            case '/api/layout': await store.saveLayout(data.layout); value = { ok: true }; break;
-            case '/api/preferences': value = await store.preferences(data); break;
             case '/api/format-preview': value = await formatPreview(await store.root(data.rootId), data); break;
             case '/api/dashboard-run': {
               const root = await store.root(data.rootId), action = await dashboardAction(root, data.actionId, preflight);
@@ -127,18 +113,7 @@ export async function startServer({ stateDir, port = 0, retainSessions = false, 
               const payload = await dashboardRunPayload(root, action); value = { ...await sessions.terminal(payload), title: payload.title }; break;
             }
             case '/api/dashboard-capture': value = await dashboardCapture(await store.root(data.rootId), data.actionId, preflight); break;
-            case '/api/terminal':
-              if (data.type && !['terminal', 'agent'].includes(data.type)) fail('Use the game adapter to launch a game.');
-              value = await sessions.terminal(data); break;
             case '/api/game': value = await games.launch(data.rootId, data.gameId, data.args); break;
-            case '/api/input': sessions.input(data.id, data.data); value = { ok: true }; break;
-            case '/api/resize': sessions.resize(data.id, data.cols, data.rows); value = { ok: true }; break;
-            case '/api/stop': value = await sessions.stop(data.id); break;
-            case '/api/agent-restart': value = await sessions.restartAgent(data.id); break;
-            case '/api/agent-conversation': value = await sessions.recordConversation(data.id, data.conversation, data.agent, data.task); break;
-            case '/api/desktop-action':
-              if (data.action !== 'reload') fail('Unknown desktop action.');
-              value = await desktops.reload(data.rootId, data.desktopId); break;
             default: fail('Unknown workspace endpoint.', 404);
           }
         } else fail('Method not supported.', 405);
@@ -151,47 +126,18 @@ export async function startServer({ stateDir, port = 0, retainSessions = false, 
       else response.destroy();
     }
   });
-  const sockets = new WebSocketServer({ noServer: true, maxPayload: 2 * 1024 * 1024 });
+  /* `/surface` only. `/events` is red-host's (F189): it carries a pane's bytes and the desktops that
+     register on it, and both belong to whoever answers the session routes. A game's frames do not —
+     they are `games.mjs`'s transport, and they move with games. */
   const gameSockets = new WebSocketServer({ noServer: true, maxPayload: 4096 });
   server.on('upgrade', (request, socket, head) => {
     const target = new URL(request.url, 'http://127.0.0.1');
-    if (!['/events', '/surface'].includes(target.pathname) || !authorized(target.searchParams.get('token'), token) || (request.headers.origin && request.headers.origin !== url)) {
+    if (target.pathname !== '/surface' || !authorized(target.searchParams.get('token'), token) || (request.headers.origin && request.headers.origin !== url)) {
       socket.end('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n'); return;
     }
-    if (target.pathname === '/surface') gameSockets.handleUpgrade(request, socket, head, ws => {
+    gameSockets.handleUpgrade(request, socket, head, ws => {
       ws.on('error', () => {}); games.attach(target.searchParams.get('id'), ws);
     });
-    else sockets.handleUpgrade(request, socket, head, ws => sockets.emit('connection', ws));
-  });
-  sockets.on('connection', ws => {
-    const attached = new Set();
-    ws.on('error', () => {});
-    ws.send(JSON.stringify({ type: 'hello', instance }));
-    ws.on('message', async bytes => {
-      try {
-        const data = JSON.parse(bytes.toString());
-        if (data.type === 'attach') {
-          ws.send(JSON.stringify({ type: 'attached', session: sessions.snapshot(data.id, true) })); attached.add(data.id);
-        }
-        else if (data.type === 'presented') {
-          if (!attached.has(data.id)) fail('Attach the session before presenting it.');
-          await sessions.presented(data.id);
-        }
-        else if (data.type === 'desktop-register') desktops.register(ws, data);
-        else if (data.type === 'desktop-action-result') desktops.acknowledge(ws, data);
-        else if (data.type === 'input') sessions.input(data.id, data.data);
-        else if (data.type === 'resize') sessions.resize(data.id, data.cols, data.rows);
-        else fail('Unknown session message.');
-      } catch (error) { ws.send(JSON.stringify({ type: 'error', error: error.message })); }
-    });
-  });
-  sessions.on('event', event => {
-    const bytes = JSON.stringify(event);
-    for (const client of sockets.clients) {
-      if (client.readyState !== WebSocket.OPEN) continue;
-      if (client.bufferedAmount > 4 * 1024 * 1024) client.close(1013, 'Reconnect to recover retained output');
-      else client.send(bytes);
-    }
   });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
   url = `http://127.0.0.1:${server.address().port}`;
@@ -209,8 +155,6 @@ export async function startServer({ stateDir, port = 0, retainSessions = false, 
     backend, door: door?.child ?? null, store, sessions, games, adopted, async close({ retain = retainSessions } = {}) {
     /* The door first: one that outlived its backend would answer for a workspace that is going. */
     try { door?.child.kill('SIGTERM'); } catch { /* already gone */ }
-    for (const client of sockets.clients) client.terminate();
-    sockets.close();
     await sessions.shutdown({ retain });
     await games.close();
     for (const client of gameSockets.clients) client.terminate();
@@ -274,13 +218,14 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const stateDir = path.resolve(index >= 0 ? process.argv[index + 1] : path.join(homedir(), '.local/state/rengine'));
   /* The host of a state directory, started as its own process: its panes outlive it (D60). */
   const instance = await startServer({ stateDir, retainSessions: true });
-  /* The door publishes the descriptor when there is one; without a red-host binary this host is the
-     workspace and says so itself. */
+  /* red-host is the workspace's host now, not an accelerator in front of one: it answers the store
+     routes, the session routes, `/api/state` and the `/events` socket, and this process serves only
+     what F153–F156 have not moved yet. A checkout without it cannot serve a workspace, and saying so
+     is better than coming up as something that answers `/health` and little else. */
   if (!instance.door) {
-    console.log('rEngine: no red-host binary found (build it with `cargo build -p red-host`); serving this workspace from the JS host.');
-    const descriptor = path.join(stateDir, 'sidecar.json');
-    await writeFile(`${descriptor}.${process.pid}.tmp`, JSON.stringify({ url: instance.url, token: instance.token, instance: instance.instance, pid: process.pid }), { mode: 0o600 });
-    await rename(`${descriptor}.${process.pid}.tmp`, descriptor);
+    console.error('rEngine: red-host is required to serve a workspace and was not found. Build it with `cargo build -p red-host --release`, or set RENGINE_RED_HOST.');
+    await instance.close({ retain: true });
+    process.exit(3);
   }
   console.log(`rEngine sidecar listening at ${instance.url}`);
   let stopping = false;

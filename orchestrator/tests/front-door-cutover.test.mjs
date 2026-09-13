@@ -11,7 +11,8 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
@@ -78,13 +79,26 @@ test('the workspace a launcher starts is answered by red-host, with the JS host 
   assert.deepEqual(await doors(stateDir), [], 'the door stops with the host it fronts');
 });
 
-test('a checkout with no red-host still starts a workspace, and says so', { timeout: 120000 }, async t => {
-  const { directory, stateDir, instance } = await workspace(t, { RENGINE_RED_HOST: path.join(tmpdir(), 'no-such-red-host') });
-  const state = await request(instance, 'state');
-  /* Served by the JS host itself: one process, and it is the one the descriptor names. */
-  assert.equal(state.pid, instance.pid, 'the workspace is the JS host alone');
-  assert.deepEqual(await doors(stateDir), [], 'with no door');
-  assert.ok((await processes(directory)).some(entry => entry.command.includes('server/main.mjs')));
-  const root = await request(instance, 'roots', { path: directory });
-  assert.ok(Array.isArray((await request(instance, `tree?rootId=${root.id}&path=`)).entries), 'and it answers everything itself');
+/* And what happens without it. red-host is the host now — it answers the store routes, the session
+ * routes, `/api/state` and the socket, and `main.mjs` serves only what F153–F156 have not moved. A
+ * checkout that has not built it cannot serve a workspace, and a launcher that came up anyway would
+ * publish a descriptor for something that answers `/health` and little else. */
+test('a checkout with no red-host refuses to serve a workspace, by name', { timeout: 120000 }, async t => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-cutover-none-'));
+  const stateDir = path.join(directory, 'state');
+  t.after(async () => {
+    for (const entry of await processes(directory)) { try { process.kill(entry.pid, 'SIGKILL'); } catch { /* gone */ } }
+    await endStateServices(stateDir);
+    await rm(directory, { recursive: true, force: true });
+  });
+  const before = process.env.RENGINE_RED_HOST;
+  process.env.RENGINE_RED_HOST = path.join(tmpdir(), 'no-such-red-host');
+  try {
+    await assert.rejects(ensureSidecar(stateDir), /Sidecar exited during startup|still starting/,
+      'the launcher does not get a workspace');
+  } finally { if (before === undefined) delete process.env.RENGINE_RED_HOST; else process.env.RENGINE_RED_HOST = before; }
+  const log = await readFile(path.join(stateDir, 'sidecar.log'), 'utf8');
+  assert.match(log, /red-host is required to serve a workspace and was not found/, 'and is told why');
+  assert.deepEqual(await doors(stateDir), []);
+  assert.equal(existsSync(path.join(stateDir, 'sidecar.json')), false, 'with no descriptor left behind');
 });

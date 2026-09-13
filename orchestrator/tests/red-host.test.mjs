@@ -23,6 +23,7 @@ import { startServer } from '../server/main.mjs';
 import { PtyHost } from '../server/pty-client.mjs';
 import { agentTitle } from '../server/sessions-client.mjs';
 import { fakeCli } from './task-fixtures.mjs';
+import { Desktops } from '../server/desktops.mjs';
 import { endStateServices } from './state-services.mjs';
 import { built } from './cargo.mjs';
 
@@ -55,6 +56,24 @@ async function front(t, stateDir, backend, env = {}) {
   });
   return JSON.parse(line);
 }
+
+/* What `main.mjs` composed for `/api/state` before the door took the route: the store's own state,
+   the drafts named without their text, and the panes this host holds. Kept here as the record of
+   what that answer was, which is what the door is measured against now that the route is gone. */
+const composed = host => JSON.parse(JSON.stringify(shaped(host)));
+/* Through `JSON.stringify`, because that is what the route did: a field the host left undefined was
+   a field its answer did not carry, and comparing the object rather than the answer would compare
+   two things that were never on the wire. */
+const shaped = host => ({
+  instance: host.instance, stateDir: host.stateDir, pid: process.pid,
+  capabilities: { taskConversations: 1, handoff: 1, desktopActions: 1, formatRegistry: 1, dashboard: 1,
+    projectGame: 1, projectGameLaunch: 1, recordings: 1, projectDevices: 1, externalDeclarations: 1,
+    agentConversations: 1, tracker: 1 },
+  roots: host.store.state.roots, layout: host.store.state.layout, preferences: host.store.state.preferences,
+  conversations: host.store.state.conversations ?? {},
+  drafts: Object.values(host.store.state.drafts).map(({ rootId, path, updatedAt }) => ({ rootId, path, updatedAt })),
+  sessions: host.sessions.list(),
+});
 
 const ask = (instance, route, body, extra = {}) => fetch(`${instance.url}${route}`, {
   method: body === undefined ? 'GET' : 'POST',
@@ -93,57 +112,57 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   assert.match(descriptor.token, /^[0-9a-f]{64}$/);
   const instance = { url: door.url, token: descriptor.token };
 
-  /* Reads: the same answers, through the door and around it. `tree` and `file` are answered by the
-     door itself now, from the same store the backend is attached to — so this comparison is the
-     port's parity check rather than a proxy's. */
-  for (const route of [`/api/state`, `/api/tree?rootId=${root.id}&path=&hidden=false`,
-    `/api/file?rootId=${root.id}&path=note.txt`, `/api/dashboard?rootId=${root.id}`,
-    `/api/formats?rootId=${root.id}`, `/api/recordings?rootId=${root.id}`]) {
+  /* Routes the door FORWARDS: the same answers, through the door and around it. These are the
+     thirteen F153–F156 still own, so the JS host still serves them and the comparison is a proxy's. */
+  for (const route of [`/api/dashboard?rootId=${root.id}`, `/api/formats?rootId=${root.id}`,
+    `/api/recordings?rootId=${root.id}`]) {
     const [through, around] = await Promise.all([ask(instance, route), ask(backend, route)]);
     assert.equal(through.status, around.status, `${route} answers the same status`);
-    const [a, b] = await Promise.all([through.json(), around.json()]);
-    /* `/api/state` is the door's own answer now, from the store it shares with the backend and the
-       panes the service is holding. What it may differ in is exactly this host's identity: its
-       instance, its pid, and the state directory it says it serves. */
-    if (route === '/api/state') {
-      assert.deepEqual({ ...a, instance: null, pid: null, sessions: null }, { ...b, instance: null, pid: null, sessions: null },
-        'everything but this host\'s own identity is the same answer');
-      assert.equal(a.instance, door.instance, 'the door says who IT is');
-      assert.notEqual(a.pid, b.pid, 'and names its own process, which is the one a client is talking to');
-      assert.deepEqual(a.sessions, b.sessions, 'with the same panes');
-    } else {
-      assert.deepEqual(a, b, `${route} answers the same body`);
-    }
+    assert.deepEqual(await through.json(), await around.json(), `${route} answers the same body`);
   }
+
+  /* Routes the door OWNS. The JS host no longer serves these, so the comparison is against the
+     implementation it served them from — `store.list`, `store.readText`, and `/api/state`'s own
+     composition — which is the same answer one layer down and stays true after the route is gone. */
+  assert.deepEqual(await (await ask(instance, `/api/tree?rootId=${root.id}&path=&hidden=false`)).json(),
+    await backend.store.list(root.id, '', false), 'the door lists a directory as the store lists it');
+  assert.deepEqual(await (await ask(instance, `/api/file?rootId=${root.id}&path=note.txt`)).json(),
+    await backend.store.readText(root.id, 'note.txt'), 'and reads a file as the store reads it');
+  const opening = await (await ask(instance, '/api/state')).json();
+  assert.deepEqual({ ...opening, instance: null, pid: null, stateDir: null },
+    { ...composed(backend), instance: null, pid: null, stateDir: null },
+    'and composes /api/state the way the host composed it');
+  assert.equal(opening.instance, door.instance, 'the door says who IT is');
+  assert.equal(opening.stateDir, stateDir, 'and which directory it serves');
 
   /* A write, with a body: the framing survives. The version is the one the read answered with,
      because a save that did not carry it is refused by the store, not by the door. */
   const before = await (await ask(instance, `/api/file?rootId=${root.id}&path=note.txt`)).json();
   const saved = await ask(instance, '/api/save', { rootId: root.id, path: 'note.txt', text: 'through the door\n', version: before.version });
   assert.equal(saved.status, 200, 'a POST with a body reaches the backend');
-  assert.equal((await (await ask(backend, `/api/file?rootId=${root.id}&path=note.txt`)).json()).text, 'through the door\n');
+  assert.equal((await backend.store.readText(root.id, 'note.txt')).text, 'through the door\n');
 
   /* The store's own refusals, with the status a caller acts on, from the route the door answers. */
   const missing = await ask(instance, `/api/file?rootId=no-such-root&path=note.txt`);
   assert.equal(missing.status, 404, 'a root the store does not have is 404 at the door');
-  assert.equal((await missing.json()).error, (await (await ask(backend, `/api/file?rootId=no-such-root&path=note.txt`)).json()).error,
+  assert.equal((await missing.json()).error, await backend.store.readText('no-such-root', 'note.txt').then(() => null, error => error.message),
     'in the store\'s own words, the same the backend gives');
   const stale = await ask(instance, '/api/save', { rootId: root.id, path: 'note.txt', text: 'x', version: 'not-the-version' });
   assert.equal(stale.status, 409, 'a save against a version that moved is a conflict');
 
   /* A draft written at the door is a draft the backend sees: one store, two readers. */
   await ask(instance, '/api/draft', { rootId: root.id, path: 'note.txt', text: 'a draft from the door' });
-  const withDraft = await (await ask(backend, `/api/file?rootId=${root.id}&path=note.txt`)).json();
+  const withDraft = await backend.store.readText(root.id, 'note.txt');
   assert.equal(withDraft.draft?.text, 'a draft from the door', 'the backend reads what the door wrote');
   /* And the state's draft list says a draft is there without carrying it: the text arrives with the
      file it belongs to, and a state poll that shipped every draft's contents would grow with them. */
-  const [drafted, draftedBehind] = await Promise.all([ask(instance, '/api/state'), ask(backend, '/api/state')].map(p => p.then(r => r.json())));
+  const drafted = await (await ask(instance, '/api/state')).json();
   assert.equal(drafted.drafts.length, 1, 'the door says which file has a draft');
-  assert.deepEqual(drafted.drafts, draftedBehind.drafts, 'in the same words the host uses');
+  assert.deepEqual(drafted.drafts, composed(backend).drafts, 'in the same words the host composed');
   assert.equal('text' in drafted.drafts[0], false, 'and not what is in it');
 
   const discarded = await ask(instance, '/api/discard', { rootId: root.id, path: 'note.txt' });
-  assert.equal((await (await ask(backend, `/api/file?rootId=${root.id}&path=note.txt`)).json()).draft ?? null, null,
+  assert.equal((await backend.store.readText(root.id, 'note.txt')).draft ?? null, null,
     'and the discard reaches it too');
 
   /* The body each route answers with is the JS host's, not the store's: `discardDraft` and
@@ -151,11 +170,11 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
      checks it. A port that passed the store's answer through would break every one of them. */
   assert.deepEqual(await discarded.json(), { ok: true }, '/api/discard answers {ok: true}');
   const layout = { panes: [{ id: 'a', kind: 'editor' }] };
-  const [laid, laidBehind] = await Promise.all([ask(instance, '/api/layout', { layout }), ask(backend, '/api/layout', { layout })]);
-  assert.deepEqual(await laid.json(), await laidBehind.json(), '/api/layout answers what the backend answers');
-  const [preferred, preferredBehind] = await Promise.all([
-    ask(instance, '/api/preferences', { vim: true }), ask(backend, '/api/preferences', { vim: true })]);
-  assert.deepEqual(await preferred.json(), await preferredBehind.json(), 'and so does /api/preferences');
+  const laid = await ask(instance, '/api/layout', { layout });
+  assert.deepEqual(await laid.json(), { ok: true }, '/api/layout answers the same');
+  const preferred = await ask(instance, '/api/preferences', { vim: true });
+  assert.deepEqual(await preferred.json(), await backend.store.preferences({ vim: true }),
+    'and /api/preferences answers what the store answers');
 
   /* A refusal is the door's own, in the JS host's words. */
   const anonymous = await fetch(`${instance.url}/api/state`);
@@ -174,8 +193,8 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   /* Started at the BACKEND on purpose: this test uses the JS host as an independent observer of
      the pane, and a host only holds the panes it started or adopted (D60/F179). The door learns of
      it from the service's announcement, which is the thing being checked. */
-  const session = await (await ask(backend, '/api/terminal', { rootId: root.id, command: '/bin/bash',
-    args: ['--noprofile', '--norc'] })).json();
+  const session = await backend.sessions.terminal({ rootId: root.id, command: '/bin/bash',
+    args: ['--noprofile', '--norc'] });
   const socket = new WebSocket(`${instance.url.replace('http', 'ws')}/events?token=${instance.token}`);
   t.after(() => socket.close());
   const frames = [];
@@ -216,9 +235,9 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
 
   /* And `/api/state` with a pane in it: the list is the panes the service is holding, composed the
      way the JS host composes them, which is the whole of what a desktop draws its Sessions tab from. */
-  const [doorState, hostState] = await Promise.all([ask(instance, '/api/state'), ask(backend, '/api/state')].map(p => p.then(r => r.json())));
+  const doorState = await (await ask(instance, '/api/state')).json();
   assert.equal(doorState.sessions.length, 1, 'the door lists the pane');
-  assert.deepEqual(doorState.sessions, hostState.sessions, 'exactly as the host that started it lists it');
+  assert.deepEqual(doorState.sessions, composed(backend).sessions, 'exactly as the host that started it lists it');
 
   /* `/surface` is still the backend's, and this is what proves the splice is alive now that
      `/events` is not using it: the door performs no handshake of its own for this path, so an
@@ -293,12 +312,12 @@ test('a pane record changed by one host is the record every host answers from', 
 
   /* Started at the backend, because this test asks the JS host what it thinks of the pane — and a
      host holds the panes it started or adopted, not every pane in the directory. */
-  const session = await (await ask(backend, '/api/terminal', { rootId: root.id, command: '/bin/bash',
-    args: ['--noprofile', '--norc'] })).json();
+  const session = await backend.sessions.terminal({ rootId: root.id, command: '/bin/bash',
+    args: ['--noprofile', '--norc'] });
   const typed = text => ask(instance, '/api/input', { id: session.id, data: text });
   const printed = async what => {
     for (let waited = 0; waited < 15000; waited += 50) {
-      if ((await (await ask(backend, `/api/session?id=${session.id}`)).json()).output?.includes(what)) return true;
+      if (backend.sessions.snapshot(session.id, true).output?.includes(what)) return true;
       await delay(50);
     }
     return false;
@@ -314,10 +333,14 @@ test('a pane record changed by one host is the record every host answers from', 
     const answer = await ask(instance, '/api/input', { id: session.id, data: 'ignored' });
     return [answer.status, (await answer.json()).error];
   };
+  /* The JS host is asked through its own Sessions rather than through a route it no longer serves:
+     the same implementation, one layer down, which is the point — this proves the HOST applied a
+     record another process wrote, not that a route forwarded. */
+  const refusedBehind = () => { try { backend.sessions.input(session.id, 'ignored'); return null; } catch (error) { return [error.status, error.message]; } };
   await until(async () => (await waiting(instance))[0] === 409, 'the door sees the gate');
   assert.deepEqual(await waiting(instance), [409, 'Handoff is waiting for its native view.'],
     'the door refuses input for a pane it was never told about directly');
-  assert.deepEqual(await waiting(backend), [409, 'Handoff is waiting for its native view.'],
+  assert.deepEqual(refusedBehind(), [409, 'Handoff is waiting for its native view.'],
     'and so does the host that spawned it, which learned the same way');
 
   /* And released by the HOST, through its own API, the way the native view releases a handoff pane
@@ -344,7 +367,11 @@ test('a pane record changed by one host is the record every host answers from', 
   /* The pane as each of them says it. `/api/session` is the answer a native client reads to draw a
      pane — its title, its dimensions, its scrollback — so the door's version of it and the JS
      host's are compared field by field rather than trusted. */
-  const seen = async instance => (await ask(instance, `/api/session?id=${session.id}`)).json();
+  /* The door over HTTP, the JS host through its own Sessions: the route it served this from is gone,
+     and the implementation behind that route is what the door is measured against. */
+  const seen = async where => where === backend
+    ? JSON.parse(JSON.stringify(backend.sessions.snapshot(session.id, true)))
+    : (await ask(where, `/api/session?id=${session.id}`)).json();
   await until(async () => (await seen(instance)).sequence === (await seen(backend)).sequence, 'both hosts are level');
   const [ours, theirs] = await Promise.all([seen(instance), seen(backend)]);
   assert.deepEqual(ours, theirs, 'the door answers the pane exactly as the host does');
@@ -423,8 +450,8 @@ test('a desktop registers on the door and answers what the workspace asks it', {
 
   /* Started at the backend: both hosts are given the same registration frame below, and the JS
      host can only judge a binding for a pane it holds. */
-  const session = await (await ask(backend, '/api/terminal', { rootId: root.id, command: '/bin/bash',
-    args: ['--noprofile', '--norc'] })).json();
+  const session = await backend.sessions.terminal({ rootId: root.id, command: '/bin/bash',
+    args: ['--noprofile', '--norc'] });
 
   /* One desktop on each host, registered with the same frame. */
   const desktop = where => {
@@ -437,11 +464,18 @@ test('a desktop registers on the door and answers what the workspace asks it', {
   };
   const registration = { type: 'desktop-register', rootIds: [root.id], sessionIds: [session.id, 'a-pane-from-a-previous-host'],
     canReload: true, canAttach: true, owner: 'alex', view: 'workspace' };
-  const ours = desktop(instance), theirs = desktop(backend);
-  await Promise.all([ours.open, theirs.open]);
+  const ours = desktop(instance);
+  await ours.open;
   ours.socket.send(JSON.stringify(registration));
-  theirs.socket.send(JSON.stringify(registration));
-  await until(() => ours.seen('desktop-registered') && theirs.seen('desktop-registered'), 'both hosts registered the desktop');
+  await until(() => ours.seen('desktop-registered'), 'the door registered the desktop');
+  /* The JS host's `Desktops` answers the same frame, driven directly: it no longer serves `/events`,
+     and this is the implementation its socket used to hand the frame to. A socket that records what
+     it is sent is all that class needs. */
+  const sent = [];
+  const fake = { send: line => sent.push(JSON.parse(line)), once: () => {}, on: () => {} };
+  const theirs = { seen: kind => sent.find(frame => frame.type === kind),
+    registry: new Desktops(backend.store, backend.sessions) };
+  await theirs.registry.register(fake, registration);
 
   /* A pane this host never had is NOT an invalid binding: it ended with the host that owned it and
      the desktop's saved layout outlived that process. Refusing the frame would leave the desktop
@@ -452,9 +486,9 @@ test('a desktop registers on the door and answers what the workspace asks it', {
 
   const listed = where => ask(where, `/api/desktops?rootId=${root.id}`).then(answer => answer.json());
   const named = ({ id, ...rest }) => rest;
-  const [mine, theirsListed] = await Promise.all([listed(instance), listed(backend)]);
+  const mine = await listed(instance);
   assert.equal(mine.desktops.length, 1, 'the door lists the desktop attached to it');
-  assert.deepEqual(named(mine.desktops[0]), named(theirsListed.desktops[0]),
+  assert.deepEqual(named(mine.desktops[0]), named(JSON.parse(JSON.stringify(theirs.registry.list(root.id)))[0]),
     'and describes it exactly as the JS host describes its own');
   assert.deepEqual(mine.desktops[0].sessionIds, [session.id], 'with the pane that is actually here');
   assert.equal(mine.desktops[0].owner, 'alex');
@@ -533,8 +567,8 @@ test('a pane reports its conversation to the door, and the workspace and the pan
      offered a choice leaves behind. Written as a RECORD rather than by launching a real CLI: the
      record is what every host answers from, and this route only ever reads and writes that. */
   /* Started at the backend, because the report is read back through it below. */
-  const session = await (await ask(backend, '/api/terminal', { rootId: root.id, command: '/bin/bash',
-    args: ['--noprofile', '--norc'] })).json();
+  const session = await backend.sessions.terminal({ rootId: root.id, command: '/bin/bash',
+    args: ['--noprofile', '--norc'] });
   client = await PtyHost.attach(stateDir);
   await client.describe(session.id, { type: 'agent', agent: '', titleAuto: true, title: agentTitle('', undefined, root.name) });
   const reported = conversation => ask(instance, '/api/agent-conversation', { id: session.id, agent: 'claude', conversation });
@@ -549,10 +583,23 @@ test('a pane reports its conversation to the door, and the workspace and the pan
   assert.equal('output' in named, false, 'answered as a plain snapshot');
 
   /* The workspace remembers it too: one report, two records, and the other host reads both. */
-  const remembered = (await (await ask(backend, '/api/state')).json()).conversations[root.id] ?? [];
+  const remembered = await backend.store.listConversations(root.id);
   assert.ok(remembered.some(entry => entry.id === CONVERSATION), `the store remembers it: ${JSON.stringify(remembered)}`);
-  await until(async () => (await (await ask(backend, `/api/session?id=${session.id}`)).json()).conversation === CONVERSATION,
+  await until(async () => backend.sessions.snapshot(session.id).conversation === CONVERSATION,
     'and the JS host reads the same pane');
+
+  /* A conversation is reported MORE THAN ONCE — the workspace names it when it spawns a pane on a
+     task, and then the pane itself reports what it actually launched, knowing nothing about tasks.
+     An absent task must leave the recorded one alone; only the caller that sends `null` forgets it.
+     Sending one for an absent field wiped the task on every pane's own report, which is how this
+     was found. */
+  await ask(instance, '/api/agent-conversation', { id: session.id, conversation: CONVERSATION, agent: 'claude', task: 'F1' });
+  await ask(instance, '/api/agent-conversation', { id: session.id, conversation: CONVERSATION, agent: 'claude' });
+  assert.equal((await backend.store.listConversations(root.id)).find(entry => entry.id === CONVERSATION)?.task, 'F1',
+    'a second report with no task keeps the task the first one recorded');
+  await ask(instance, '/api/agent-conversation', { id: session.id, conversation: CONVERSATION, agent: 'claude', task: null });
+  assert.equal((await backend.store.listConversations(root.id)).find(entry => entry.id === CONVERSATION)?.task, undefined,
+    'and a report that says null forgets it');
 
   /* `null` is not "no change": it says this launch continues or forks a conversation the CLI names
      itself, so the record must claim nothing rather than keep an id that would resume the wrong one. */
@@ -564,7 +611,7 @@ test('a pane reports its conversation to the door, and the workspace and the pan
   const unknown = await ask(instance, '/api/agent-conversation', { id: 'no-such-pane', conversation: CONVERSATION });
   assert.equal(unknown.status, 404);
   assert.equal((await unknown.json()).error, 'Unknown session.');
-  const shell = await (await ask(backend, '/api/terminal', { rootId: root.id, command: '/bin/bash', args: ['--noprofile', '--norc'] })).json();
+  const shell = await backend.sessions.terminal({ rootId: root.id, command: '/bin/bash', args: ['--noprofile', '--norc'] });
   await until(async () => (await ask(instance, '/api/agent-conversation', { id: shell.id, conversation: CONVERSATION })).status === 400,
     'the door sees the shell');
   const notAgent = await ask(instance, '/api/agent-conversation', { id: shell.id, conversation: CONVERSATION });
@@ -604,7 +651,11 @@ test('a pane started at the door is the pane the JS host would have started', { 
      so an agent pane is a real launch and not a download. */
   await fakeCli(stateDir, 'claude');
 
-  const started = (where, options) => ask(where, '/api/terminal', options).then(answer => answer.json());
+  /* Started through each host's own front: the door over HTTP, the JS host through the Sessions the
+     route used to call. Two panes, composed by the same code, compared. */
+  const started = (where, options) => where === backend
+    ? backend.sessions.terminal(options).then(pane => JSON.parse(JSON.stringify(pane)))
+    : ask(where, '/api/terminal', options).then(answer => answer.json());
   const comparable = ({ id, pid, createdAt, title, conversation, ...rest }) => rest;
 
   /* A shell, which is what the desktop's Shell button asks for. */
@@ -628,7 +679,7 @@ test('a pane started at the door is the pane the JS host would have started', { 
   assert.equal(mine.title, agentTitle('claude', mine.conversation, root.name), 'exactly as the JS host titles it');
   assert.notEqual(mine.conversation, theirsAgent.conversation, 'each pane mints its own');
   /* The conversation the composition minted is the workspace's now, not just the pane's. */
-  const remembered = (await (await ask(backend, '/api/state')).json()).conversations[root.id].map(entry => entry.id);
+  const remembered = (await backend.store.listConversations(root.id)).map(entry => entry.id);
   assert.ok(remembered.includes(mine.conversation), `the store remembers the door's pane too: ${JSON.stringify(remembered)}`);
   /* And the pane's own environment is composed, not inherited: the CLI records what it was given. */
   await until(async () => existsSync(path.join(stateDir, 'claude.argv')), 'the agent CLI was actually launched');
@@ -692,7 +743,7 @@ test('a pane started at the door is the pane the JS host would have started', { 
   assert.deepEqual(all.map(session => session.createdAt), [...all.map(session => session.createdAt)].sort((a, b) => a - b),
     'oldest first');
   await until(async () => {
-    const behind = (await (await ask(backend, '/api/state')).json()).sessions.map(session => session.id);
+    const behind = backend.sessions.list().map(session => session.id);
     return [...behind].sort().join() === [...listed].sort().join();
   }, 'and the JS host behind it came to the same list');
 });
