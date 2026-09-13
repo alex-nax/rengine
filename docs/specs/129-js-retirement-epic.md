@@ -120,6 +120,31 @@ executable for the same reason.
 list changed no test, because nothing fed the supervisor a candidate that starts and answers but
 cannot serve the update path. `tests/incomplete-tool-worker.mjs` is that candidate now.
 
+## F189 (F152b), first half: why parity cannot show that a route moved
+
+Date: 2026-09-13. Evidence: `docs/evidence/red-host-store-routes-f189-2026-09-13.md`. KI-101/103.
+
+The eight store routes — `tree`, `file`, `roots`, `save`, `draft`, `discard`, `layout`,
+`preferences` — are answered by red-host itself now, from the state directory's own store service
+(charter D61). The remaining twenty-five routes and both sockets are still forwarded to `main.mjs`.
+
+The row's method note is the part worth keeping. F188's test drives the same live host **directly
+and through the door** and compares, which is the right check for a forwarder. It is the wrong check
+for a port: after D61 the door and the backend read one store, so every comparison passes whether
+the route is answered at the door or forwarded to the backend. Running a green parity suite after
+moving a route proves nothing about where the route is now answered — and a sabotage that forwards
+the route again passes it too.
+
+What distinguishes them is stopping the backend. The store outlives the host attached to it, so a
+route the door **owns** still answers and a route it **forwards** has nowhere to go. Every later
+slice in this epic moves routes behind the same door, and each one needs that shape rather than one
+more parity assertion.
+
+Two things the door carries that belong to the JS host rather than the store: the `{ok: true}` that
+`discard` and `layout` answer with (the store returns nothing), and the status on a refusal (404 for
+an unknown root, 409 for a stale save). The door attaches to the store service and never starts one:
+a door racing the host to start one would be the second owner D61 exists to prevent.
+
 ## Bookkeeping
 
 - Rows F139–F165 filed in `features.json` on 2026-09-11 with this spec and spec 128 as their

@@ -3512,7 +3512,11 @@
       ],
       "owner_workspace": "rengine",
       "deliverable": "The ported routes and sockets, the desktop evidence, and the deletion commit.",
-      "evidence": [],
+      "evidence": [
+        "FIRST HALF, 2026-09-13 (row stays open): docs/evidence/red-host-store-routes-f189-2026-09-13.md — the eight store routes (tree, file, roots, save, draft, discard, layout, preferences) are answered by red-host itself from the state directory's own store service (D61); the session routes, desktops and surfaces have not moved and main.mjs is still the backend of the other twenty-five routes and both sockets.",
+        "orchestrator/tests/red-host.test.mjs: the route the door owns still answers 200 with the backend stopped, while a route it forwards fails at the socket — the check that distinguishes a moved route from a forwarded one, since after D61 both readers give the same answer to a parity comparison.",
+        "Four sabotages observed failing for their own reasons: the route forwarded after all, the {ok: true} shape dropped, the store's status ignored, and a POST body left unread."
+      ],
       "external_references": []
     }
   ]

@@ -20,6 +20,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { WebSocket } from 'ws';
 import { startServer } from '../server/main.mjs';
+import { endStateServices } from './state-services.mjs';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
@@ -50,11 +51,23 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   await run('cargo', ['build', '-p', 'red-host', '--bin', 'red-host'], { cwd: path.join(ROOT, 'red'), maxBuffer: 1 << 24 });
   assert.ok(existsSync(BINARY), `red-host was built at ${BINARY}`);
   const directory = await mkdtemp(path.join(tmpdir(), 'red-host-'));
-  t.after(() => rm(directory, { recursive: true, force: true }));
   await writeFile(path.join(directory, 'note.txt'), 'first line\nsecond line\n');
   const stateDir = path.join(directory, 'state');
-  const backend = await startServer({ stateDir });
-  t.after(() => backend.close());
+  /* The backend owns the state directory, which since D61 means it ATTACHES to that directory's
+     store service rather than starting one of its own — and so does the door. One owner, two
+     readers: that is what makes a route safe to move. */
+  const backend = await startServer({ stateDir, retainSessions: true });
+  let stopped = false;
+  /* Ending the services and removing the directory is ONE hook, in that order, for the reason
+     headless.test.mjs records: after-hooks run in registration order, and a descriptor that has
+     already been deleted names nothing to end. This test retains its sessions at the end — a
+     retained PTY service never reaps while it holds one, by design (D60) — so a cleanup that read
+     a deleted descriptor would leave a shell running for a directory that is gone. */
+  t.after(async () => {
+    if (!stopped) await backend.close({ retain: false });
+    await endStateServices(stateDir);
+    await rm(directory, { recursive: true, force: true });
+  });
   const root = await backend.store.addRoot(directory);
   const door = await front(t, stateDir, backend);
 
@@ -65,7 +78,9 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   assert.match(descriptor.token, /^[0-9a-f]{64}$/);
   const instance = { url: door.url, token: descriptor.token };
 
-  /* Reads: the same answers, through the door and around it. */
+  /* Reads: the same answers, through the door and around it. `tree` and `file` are answered by the
+     door itself now, from the same store the backend is attached to — so this comparison is the
+     port's parity check rather than a proxy's. */
   for (const route of [`/api/state`, `/api/tree?rootId=${root.id}&path=&hidden=false`,
     `/api/file?rootId=${root.id}&path=note.txt`, `/api/dashboard?rootId=${root.id}`,
     `/api/formats?rootId=${root.id}`, `/api/recordings?rootId=${root.id}`]) {
@@ -88,6 +103,33 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   const saved = await ask(instance, '/api/save', { rootId: root.id, path: 'note.txt', text: 'through the door\n', version: before.version });
   assert.equal(saved.status, 200, 'a POST with a body reaches the backend');
   assert.equal((await (await ask(backend, `/api/file?rootId=${root.id}&path=note.txt`)).json()).text, 'through the door\n');
+
+  /* The store's own refusals, with the status a caller acts on, from the route the door answers. */
+  const missing = await ask(instance, `/api/file?rootId=no-such-root&path=note.txt`);
+  assert.equal(missing.status, 404, 'a root the store does not have is 404 at the door');
+  assert.equal((await missing.json()).error, (await (await ask(backend, `/api/file?rootId=no-such-root&path=note.txt`)).json()).error,
+    'in the store\'s own words, the same the backend gives');
+  const stale = await ask(instance, '/api/save', { rootId: root.id, path: 'note.txt', text: 'x', version: 'not-the-version' });
+  assert.equal(stale.status, 409, 'a save against a version that moved is a conflict');
+
+  /* A draft written at the door is a draft the backend sees: one store, two readers. */
+  await ask(instance, '/api/draft', { rootId: root.id, path: 'note.txt', text: 'a draft from the door' });
+  const withDraft = await (await ask(backend, `/api/file?rootId=${root.id}&path=note.txt`)).json();
+  assert.equal(withDraft.draft?.text, 'a draft from the door', 'the backend reads what the door wrote');
+  const discarded = await ask(instance, '/api/discard', { rootId: root.id, path: 'note.txt' });
+  assert.equal((await (await ask(backend, `/api/file?rootId=${root.id}&path=note.txt`)).json()).draft ?? null, null,
+    'and the discard reaches it too');
+
+  /* The body each route answers with is the JS host's, not the store's: `discardDraft` and
+     `saveLayout` return nothing at all, and the host turns that into `{ok: true}` because a caller
+     checks it. A port that passed the store's answer through would break every one of them. */
+  assert.deepEqual(await discarded.json(), { ok: true }, '/api/discard answers {ok: true}');
+  const layout = { panes: [{ id: 'a', kind: 'editor' }] };
+  const [laid, laidBehind] = await Promise.all([ask(instance, '/api/layout', { layout }), ask(backend, '/api/layout', { layout })]);
+  assert.deepEqual(await laid.json(), await laidBehind.json(), '/api/layout answers what the backend answers');
+  const [preferred, preferredBehind] = await Promise.all([
+    ask(instance, '/api/preferences', { vim: true }), ask(backend, '/api/preferences', { vim: true })]);
+  assert.deepEqual(await preferred.json(), await preferredBehind.json(), 'and so does /api/preferences');
 
   /* A refusal is the door's own, in the JS host's words. */
   const anonymous = await fetch(`${instance.url}/api/state`);
@@ -127,4 +169,20 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   const refused = new WebSocket(`${instance.url.replace('http', 'ws')}/events?token=${'f'.repeat(64)}`);
   const outcome = await new Promise(resolve => { refused.once('open', () => resolve('opened')); refused.once('error', () => resolve('refused')); });
   assert.equal(outcome, 'refused', 'a socket without this workspace\'s token never reaches the backend');
+
+  /* Every check above would also pass if the door forwarded the store routes, because the backend
+     reads the same store and gives the same answers — which is the point of D61 and also the reason
+     a parity test alone cannot show where a route is answered. Taking the backend away shows it: the
+     store is the state directory's own service and outlives the host attached to it, so what the
+     door OWNS keeps answering and what it FORWARDS has nowhere to go. */
+  socket.close();
+  await backend.close({ retain: true });
+  stopped = true;
+  const alone = await ask(instance, `/api/file?rootId=${root.id}&path=note.txt`);
+  assert.equal(alone.status, 200, 'a route the door owns is answered with no backend behind it');
+  assert.equal((await alone.json()).text, 'through the door\n', 'from the state directory\'s own store');
+  await assert.rejects(async () => {
+    const forwarded = await ask(instance, `/api/dashboard?rootId=${root.id}`);
+    await forwarded.text();
+  }, 'while a route it only forwards has nowhere left to go');
 });

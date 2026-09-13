@@ -15,6 +15,7 @@ import { forward, json, tunnel } from '../runtime/protocol.mjs';
 import { alive, ensureSidecar, request } from '../launcher/sidecar.mjs';
 import { parseProcessTable } from '../launcher/replace.mjs';
 import { hostStateDirectory } from '../runtime/tracker.mjs';
+import { endStateServices } from './state-services.mjs';
 
 /* A native spec starts a real workspace, and a real workspace publishes an IDE lock for Claude Code
    to find (spec 102). Without this, running a spec directly rather than through its npm script puts
@@ -129,6 +130,8 @@ test('the tracker routes are served by the worker above a retained host that nev
     assert.equal(listed.provider, 'local'); assert.equal(byKey(listed.rows).F3.state.category, 'blocked');
   } finally {
     await mcp?.client.close(); await runtime?.close(); await retained?.close(); await stopHost(child);
+    /* And the services that state directory keeps after its host (D60/D61), before it is removed. */
+    await endStateServices(path.join(directory, 'host-state'));
     await rm(directory, { recursive: true, force: true });
   }
 });

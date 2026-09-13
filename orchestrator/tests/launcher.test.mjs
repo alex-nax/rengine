@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { ensureSidecar, request } from '../launcher/sidecar.mjs';
+import { endStateServices } from './state-services.mjs';
 
 test('game launch prerequisites fail before creating shell or agent sessions', { timeout: 15000 }, async t => {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-preflight-'));
@@ -18,6 +19,9 @@ test('game launch prerequisites fail before creating shell or agent sessions', {
         await new Promise(resolve => setTimeout(resolve, 20));
       }
     }
+    /* The host is gone; the directory's own services are not, by design (D60/D61). End them
+       before the directory is removed, or they hold a deleted directory for their whole idle. */
+    await endStateServices(directory);
     await rm(directory, { recursive: true, force: true });
   });
   const run = promisify(execFile);
@@ -39,6 +43,9 @@ test('simultaneous launchers share one live sidecar and reattach after launcher 
         await new Promise(resolve => setTimeout(resolve, 20));
       }
     }
+    /* The host is gone; the directory's own services are not, by design (D60/D61). End them
+       before the directory is removed, or they hold a deleted directory for their whole idle. */
+    await endStateServices(directory);
     await rm(directory, { recursive: true, force: true });
   });
   const pair = await Promise.all([ensureSidecar(directory), ensureSidecar(directory)]);

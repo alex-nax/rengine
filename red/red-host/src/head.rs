@@ -121,6 +121,24 @@ impl Head {
         self.header("connection").is_some_and(|value| value.eq_ignore_ascii_case("close"))
     }
 
+    /// The body as a string, for a route this door answers itself rather than forwards.
+    pub async fn read_body(&self, from: &mut TcpStream, buffered: &mut Vec<u8>) -> io::Result<String> {
+        let length: usize = self.header("content-length").and_then(|value| value.trim().parse().ok()).unwrap_or(0);
+        let mut body = Vec::with_capacity(length);
+        let take = buffered.len().min(length);
+        body.extend_from_slice(&buffered[..take]);
+        buffered.drain(..take);
+        let mut chunk = [0u8; 8192];
+        while body.len() < length {
+            let read = from.read(&mut chunk[..(length - body.len()).min(8192)]).await?;
+            if read == 0 {
+                return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "the body ended early"));
+            }
+            body.extend_from_slice(&chunk[..read]);
+        }
+        Ok(String::from_utf8_lossy(&body).to_string())
+    }
+
     /// Copy the body the way its own head framed it, and nothing more: a byte past the body belongs
     /// to the next request on this connection.
     pub async fn forward_body(&self, from: &mut TcpStream, buffered: &mut Vec<u8>, to: &mut TcpStream) -> io::Result<()> {

@@ -1,5 +1,48 @@
 # Progress Log
 
+## Session 145 (macos) — 2026-09-13 — the first routes stop being forwarded (F189, first half)
+
+D61 made the store a service of the state directory, which is what let a route move at all: the
+front door and the JS backend are two readers of one owner rather than two copies of the state. The
+eight store routes — `tree`, `file`, `roots`, `save`, `draft`, `discard`, `layout`, `preferences` —
+are answered by red-host itself now. The other twenty-five and both sockets are still forwarded.
+
+**The method note is the part worth keeping.** F188's test drives the same live host directly and
+through the door and compares. That is the right check for a forwarder and the **wrong** one for a
+port: after D61 both sides read one store, so every comparison passes whether the route is answered
+at the door or forwarded to the backend. A sabotage that forwards the route again passed the whole
+suite. Running a green parity suite after moving a route is not evidence that the route moved.
+
+What distinguishes them is **stopping the backend**. The store outlives the host attached to it, so
+a route the door owns still answers 200 and a route it only forwards fails at the socket. That pair
+is the acceptance check, and every later slice behind this door needs the same shape rather than one
+more parity assertion.
+
+Two things the door carries belong to the JS host rather than the store: the `{ok: true}` that
+`discard` and `layout` answer with (the store returns nothing at all), and the status on a refusal —
+404 for a root that is not there, 409 for a save against a version that moved, which a client acts
+on. The door **attaches** to the store service and never starts one; a door racing the host to start
+one would be the second owner D61 exists to prevent, and with no service it forwards and says so.
+
+Sabotages, each red for its own reason: the route forwarded after all (`fetch failed` once the
+backend stopped, with every earlier assertion still green), the `{ok: true}` shape dropped (`null`
+reaching a caller that checks the field), the store's status ignored (500 where a client needs 404),
+and a POST body left unread (the draft never arrives).
+
+**And a leak, in the suite rather than the product.** `headless.test.mjs` records the trap in a
+comment — after-hooks run in registration order, so a service cleanup registered after the directory
+removal reads a descriptor that is already gone. This test had them in that order, and
+`launcher.test.mjs` and `hot-update.test.mjs`, which also start real sidecars, never ended their
+services at all; fifteen manual runs left fifteen PTY services holding shells for deleted
+directories. All three are one ordered hook now, and a run leaves nothing behind.
+
+Not claimed: F189 stays open — the session routes, desktops and surfaces have not moved and nothing
+is deleted — and, as with F188, this is ahead of F152's dependency on F150 (F186, a live-pane run)
+and is revertible on its own.
+
+Commands: `npm test` (**320 of 320**, twice, zero services left), `cargo test` across the workspace,
+`python3 tools/features.py validate`.
+
 ## Session 144 (macos) — 2026-09-13 — the store belongs to the directory too (D61), and one service for both
 
 Two decisions came back from the owner and both are carried out here.

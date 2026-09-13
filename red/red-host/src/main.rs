@@ -11,8 +11,11 @@
 //! and forwards the rest to a JS backend beside it.** Each later row moves routes from the backend
 //! into this process until the forwarder has nothing left to forward and the JS host is deleted.
 //!
-//! What it owns today is the door itself: the loopback bind, the origin rule, the bearer check and
-//! `/health`. Everything else is forwarded **verbatim** — including the `/events` and `/surface`
+//! What it owns today is the door and the **store routes** — `tree`, `file`, `save`, `draft`,
+//! `discard`, `layout`, `preferences` and `roots` — answered from the state directory's own store
+//! service (charter D61), which is the same store the JS backend is attached to. One owner; this
+//! process and that one are two readers of it, not two copies of it. Everything else is forwarded
+//! **verbatim** — including the `/events` and `/surface`
 //! upgrades, which are spliced byte for byte after their handshake rather than re-framed, because a
 //! proxy that re-frames a protocol is a proxy that can corrupt it.
 //!
@@ -20,7 +23,7 @@
 //! front door that checked only the first would be a door that stopped checking.
 
 use std::io;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
@@ -29,9 +32,31 @@ mod head;
 
 use head::Head;
 
+/// The store routes this door answers itself, and the method each one is on the store service.
+/// Everything about the answer is the store's: the shapes are the ones `store.mjs` wrote and
+/// red-store replays byte for byte (F169), so a client cannot tell which host asked.
+fn store_route(method: &str, path: &str) -> Option<&'static str> {
+    Some(match (method, path) {
+        ("GET", "/api/tree") => "list",
+        ("GET", "/api/file") => "readText",
+        ("POST", "/api/roots") => "addRoot",
+        ("POST", "/api/save") => "saveText",
+        ("POST", "/api/draft") => "putDraft",
+        ("POST", "/api/discard") => "discardDraft",
+        ("POST", "/api/layout") => "saveLayout",
+        ("POST", "/api/preferences") => "preferences",
+        _ => return None,
+    })
+}
+
 const USAGE: &str = "usage: red-host --state <dir> --backend <url> --backend-token <token> [--port N]";
 
 struct Front {
+    /// The state directory's store, attached rather than opened: the JS backend is attached to the
+    /// same one, and two in-memory owners of one set of files is stale reads and lost writes
+    /// (KI-103). `None` when no service is running, and then every store route is forwarded — a
+    /// door that raced the host to start one would be the second owner this prevents.
+    store: Mutex<Option<red_core::service::Client>>,
     /// The token this workspace's clients present. The backend has its own, and this process never
     /// hands a client the backend's.
     token: String,
@@ -111,7 +136,16 @@ async fn serve(options: Options) -> Result<(), String> {
         .await
         .map_err(|error| format!("loopback is unavailable: {error}"))?;
     let port = listener.local_addr().map_err(|error| error.to_string())?.port();
+    let store = match red_core::service::Client::attach(std::path::Path::new(&options.state), "store", 1) {
+        Ok(client) => client,
+        Err(message) => {
+            /* A store this door cannot read is not a store it may guess at: say so and forward. */
+            eprintln!("red-host: {message} Store routes will be forwarded.");
+            None
+        }
+    };
     let front = Arc::new(Front {
+        store: Mutex::new(store),
         token: secret(),
         instance: uuid_v4(),
         url: format!("http://127.0.0.1:{port}"),
@@ -161,6 +195,15 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
                 "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nContent-Length: {}\r\n\r\n{body}",
                 body.len()
             );
+            client.write_all(answer.as_bytes()).await?;
+            continue;
+        }
+        /* The store routes, answered here from the directory's own store (D61). A route this door
+           owns is never forwarded, so the backend's copy of the state is not consulted and cannot
+           disagree. */
+        if let Some(method) = store_route(&head.method, &head.path()) {
+            let body = if head.method == "POST" { head.read_body(&mut client, &mut buffered).await? } else { String::new() };
+            let answer = answer_from_store(&front, method, &head, &body);
             client.write_all(answer.as_bytes()).await?;
             continue;
         }
@@ -237,6 +280,7 @@ mod tests {
 
     fn front() -> Front {
         Front {
+            store: Mutex::new(None),
             token: "a".repeat(64), instance: "i".into(), url: "http://127.0.0.1:1".into(),
             backend: "http://127.0.0.1:2".into(), backend_token: "b".repeat(64),
         }
@@ -244,6 +288,19 @@ mod tests {
 
     fn head(raw: &str) -> Head {
         Head::parse(raw).expect("a request")
+    }
+
+    #[test]
+    fn a_route_this_door_does_not_own_is_forwarded() {
+        assert_eq!(store_route("GET", "/api/tree"), Some("list"));
+        assert_eq!(store_route("POST", "/api/save"), Some("saveText"));
+        /* The method is half the route: the store has no `list` to run for a POST, and a door that
+           matched on the path alone would send one there. */
+        assert_eq!(store_route("POST", "/api/tree"), None);
+        assert_eq!(store_route("GET", "/api/save"), None);
+        /* Everything F153–F156 has not moved still belongs to the backend. */
+        assert_eq!(store_route("GET", "/api/dashboard"), None);
+        assert_eq!(store_route("POST", "/api/terminal"), None);
     }
 
     #[test]
@@ -292,4 +349,81 @@ mod tests {
         assert!(replayed.contains(&format!("Authorization: Bearer {}", "b".repeat(64))), "{replayed}");
         assert!(!replayed.contains(&"a".repeat(64)), "the client's token is not passed upstream: {replayed}");
     }
+}
+
+/// One store route, answered from the state directory's own store.
+///
+/// The arguments are the JS host's: `/api/tree` takes its root, path and hidden flag from the query
+/// string, and every POST hands the store the body it was given. Nothing is reshaped on the way in
+/// or out — the store's answers are the ones `store.mjs` wrote, so a client cannot tell which host
+/// asked.
+fn answer_from_store(front: &Front, method: &str, head: &Head, body: &str) -> String {
+    let mut guard = front.store.lock().expect("store lock");
+    let Some(client) = guard.as_mut() else {
+        return http_json(503, "Service Unavailable", &serde_json::json!({ "error": "This workspace's store is not attached." }));
+    };
+    let payload: serde_json::Value = if body.is_empty() {
+        serde_json::Value::Null
+    } else {
+        match serde_json::from_str(body) {
+            Ok(value) => value,
+            Err(error) => return http_json(400, "Bad Request", &serde_json::json!({ "error": format!("Invalid JSON body: {error}") })),
+        }
+    };
+    let args = match method {
+        "list" => serde_json::json!([
+            head.query("rootId").unwrap_or_default(),
+            head.query("path").unwrap_or_default(),
+            head.query("hidden").as_deref() == Some("true"),
+        ]),
+        "readText" => serde_json::json!([head.query("rootId").unwrap_or_default(), head.query("path").unwrap_or_default()]),
+        "addRoot" => serde_json::json!([
+            payload.get("path").cloned().unwrap_or(serde_json::Value::Null),
+            payload.get("declarationFile").cloned().unwrap_or(serde_json::Value::Null),
+        ]),
+        "discardDraft" => serde_json::json!([
+            payload.get("rootId").cloned().unwrap_or(serde_json::Value::Null),
+            payload.get("path").cloned().unwrap_or(serde_json::Value::Null),
+        ]),
+        "saveLayout" => serde_json::json!([payload.get("layout").cloned().unwrap_or(serde_json::Value::Null)]),
+        _ => serde_json::json!([payload]),
+    };
+    match client.call(method, args) {
+        Ok(result) => {
+            /* Two routes answer `{ok: true}` rather than what the store returned, because that is
+               what the JS host answers and a caller checks. */
+            let value = match method {
+                "discardDraft" | "saveLayout" => serde_json::json!({ "ok": true }),
+                _ => result,
+            };
+            http_json(200, "OK", &value)
+        }
+        Err(fault) => {
+            /* The store's refusals carry their own status, and a client acts on it: 404 for a root
+               that is not there, 409 for a save against a version that moved. */
+            let (status, message) = fault.split_once('|').unwrap_or(("500", fault.as_str()));
+            let code: u16 = status.parse().unwrap_or(500);
+            http_json(code, reason(code), &serde_json::json!({ "error": message }))
+        }
+    }
+}
+
+fn reason(status: u16) -> &'static str {
+    match status {
+        400 => "Bad Request",
+        401 => "Unauthorized",
+        403 => "Forbidden",
+        404 => "Not Found",
+        409 => "Conflict",
+        503 => "Service Unavailable",
+        _ => "Internal Server Error",
+    }
+}
+
+fn http_json(status: u16, reason: &str, value: &serde_json::Value) -> String {
+    let body = value.to_string();
+    format!(
+        "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nContent-Length: {}\r\n\r\n{body}",
+        body.len()
+    )
 }

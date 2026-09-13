@@ -39,13 +39,14 @@ pub trait Served: Send + Sync + 'static {
     }
 }
 
-struct Client {
+/// One attached client, from the server's side: the socket its answers and events go out on.
+struct Attached {
     out: Arc<Mutex<TcpStream>>,
 }
 
 pub struct Service<S: Served> {
     inner: Arc<S>,
-    clients: Arc<Mutex<Vec<Client>>>,
+    clients: Arc<Mutex<Vec<Attached>>>,
     idle_since: Mutex<Instant>,
     token: String,
     instance: String,
@@ -135,7 +136,7 @@ pub fn serve<S: Served>(
     }
     let listener = TcpListener::bind(("127.0.0.1", 0)).map_err(|error| format!("loopback is unavailable: {error}"))?;
     let port = listener.local_addr().expect("the bound address").port();
-    let clients: Arc<Mutex<Vec<Client>>> = Arc::new(Mutex::new(Vec::new()));
+    let clients: Arc<Mutex<Vec<Attached>>> = Arc::new(Mutex::new(Vec::new()));
     let service = Arc::new(Service {
         inner: Arc::new(inner),
         clients: clients.clone(),
@@ -170,7 +171,7 @@ pub fn serve<S: Served>(
 /// The handle a service uses to push unsolicited lines at whoever is attached. A service that
 /// never pushes takes one and drops it.
 pub struct Emitter {
-    clients: Arc<Mutex<Vec<Client>>>,
+    clients: Arc<Mutex<Vec<Attached>>>,
 }
 
 impl Emitter {
@@ -239,7 +240,7 @@ fn connection<S: Served>(service: Arc<Service<S>>, stream: TcpStream) {
                 Ok(result) => {
                     if !attached {
                         attached = true;
-                        service.clients.lock().expect("clients lock").push(Client { out: out.clone() });
+                        service.clients.lock().expect("clients lock").push(Attached { out: out.clone() });
                     }
                     send(&out, &format!("{}\n", json!({ "id": id, "result": result })));
                 }
@@ -316,5 +317,92 @@ mod tests {
         let secret = super::secret();
         assert!(super::same_secret(&secret, &secret.clone()));
         assert!(!super::same_secret(&secret, &secret[..63].to_string()), "a prefix is not a match");
+    }
+}
+
+/* ---- the other side of the same door ---------------------------------------------------------- */
+
+/// A client of a per-state-directory service: find it by its descriptor, attach with its token,
+/// then speak the same newline-delimited JSON-RPC the JS clients speak.
+///
+/// The JS side of this (`pty-client.mjs`, `store-client.mjs`) also starts a service when there is
+/// none. This one deliberately does not: the processes that run these services are started by the
+/// host that owns the directory, and a front door that raced to start one would be the second
+/// owner the whole arrangement exists to prevent. A caller that finds nothing is told so and can
+/// decide — forwarding, in red-host's case.
+pub struct Client {
+    stream: TcpStream,
+    reader: BufReader<TcpStream>,
+    sequence: u64,
+    /// The last unsolicited `state` this service pushed, if it pushes one.
+    pub state: Option<Value>,
+    pub instance: String,
+}
+
+impl Client {
+    /// Attach to the service `name` serves in `directory`, or `Ok(None)` when there is none.
+    pub fn attach(directory: &Path, name: &str, protocol: u64) -> Result<Option<Client>, String> {
+        let descriptor = directory.join(format!("{name}.json"));
+        let Some(document) = already_serving(&descriptor) else { return Ok(None) };
+        let token = document.get("token").and_then(Value::as_str).unwrap_or_default().to_string();
+        let named = document.get("protocol").and_then(Value::as_u64).unwrap_or(protocol);
+        if named != protocol {
+            return Err(format!(
+                "{} speaks protocol {named}; this build speaks {protocol}.",
+                descriptor.display()
+            ));
+        }
+        let url = document.get("url").and_then(Value::as_str).unwrap_or_default();
+        let address: std::net::SocketAddr = url
+            .strip_prefix("tcp://")
+            .and_then(|rest| rest.parse().ok())
+            .ok_or_else(|| format!("{} does not name a loopback address", descriptor.display()))?;
+        let stream = TcpStream::connect_timeout(&address, Duration::from_secs(5))
+            .map_err(|error| format!("cannot reach {url}: {error}"))?;
+        let reader = BufReader::new(stream.try_clone().map_err(|error| error.to_string())?);
+        let mut client = Client { stream, reader, sequence: 0, state: None, instance: String::new() };
+        let hello = client.call("attach", json!([{ "token": token, "protocol": protocol }]))?;
+        client.instance = hello.get("instance").and_then(Value::as_str).unwrap_or_default().to_string();
+        if let Some(state) = hello.get("state") {
+            client.state = Some(state.clone());
+        }
+        Ok(Some(client))
+    }
+
+    /// One request, one answer — and every unsolicited line before it is taken as the service's
+    /// current state, which is how an attached client stays in step with the other hosts.
+    pub fn call(&mut self, method: &str, args: Value) -> Result<Value, String> {
+        self.sequence += 1;
+        let id = self.sequence;
+        let line = format!("{}\n", json!({ "id": id, "method": method, "args": args }));
+        self.stream.write_all(line.as_bytes()).map_err(|error| format!("cannot ask {method}: {error}"))?;
+        self.stream.flush().ok();
+        loop {
+            let mut answer = String::new();
+            let read = self.reader.read_line(&mut answer).map_err(|error| format!("no answer to {method}: {error}"))?;
+            if read == 0 {
+                return Err(format!("the service closed while answering {method}"));
+            }
+            let value: Value = match serde_json::from_str(&answer) {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
+            if let Some(state) = value.get("state") {
+                self.state = Some(state.clone());
+            }
+            match value.get("id").and_then(Value::as_u64) {
+                Some(answered) if answered == id => {
+                    if let Some(error) = value.get("error") {
+                        let message = error.get("message").and_then(Value::as_str).unwrap_or("the service refused").to_string();
+                        let status = error.get("status").and_then(Value::as_u64).unwrap_or(500) as u16;
+                        return Err(format!("{status}|{message}"));
+                    }
+                    return Ok(value.get("result").cloned().unwrap_or(Value::Null));
+                }
+                /* An unsolicited line — a state push, or an event a PTY service emits — is not an
+                   answer to this request, and waiting for the right id is what keeps them apart. */
+                _ => continue,
+            }
+        }
     }
 }
