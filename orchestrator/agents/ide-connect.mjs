@@ -12,7 +12,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { ideDirectory, IDE_NAME } from '../runtime/ide.mjs';
-import { recipe } from './registry.mjs';
+import { recipe } from './agents-client.mjs';
 
 const living = pid => { try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; } };
 

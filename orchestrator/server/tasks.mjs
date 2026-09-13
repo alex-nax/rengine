@@ -16,7 +16,7 @@ import path from 'node:path';
 import { fail } from './store-client.mjs';
 import { runCommand, DEFAULT_MAX_BYTES } from './formats.mjs';
 import { bashPath, shellEnvironment } from './sessions.mjs';
-import { agentNames, recipe } from '../agents/registry.mjs';
+import { agentNames, recipe } from '../agents/agents-client.mjs';
 
 const agentScript = fileURLToPath(new URL('../../scripts/agent.sh', import.meta.url));
 const shippedPrompts = fileURLToPath(new URL('../templates/prompts/', import.meta.url));

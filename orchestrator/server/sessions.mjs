@@ -10,7 +10,7 @@ import path from 'node:path';
 import pty from 'node-pty';
 import { fail } from './store-client.mjs';
 import { readHandoff, checkResume } from '../agents/handoff.mjs';
-import { agentConversation, shortAgentId } from '../agents/config.mjs';
+import { agentConversation, shortAgentId } from '../agents/agents-client.mjs';
 
 const execute = promisify(execFile);
 const agentScript = fileURLToPath(new URL('../../scripts/agent.sh', import.meta.url));

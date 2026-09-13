@@ -14,7 +14,7 @@ import { request as call } from '../launcher/sidecar.mjs';
 import { authenticated, body, checkConnection, fail, forward, json } from './protocol.mjs';
 import { hostStateDirectory, readTasks, trackerSignIn, trackerSignOut } from './tracker.mjs';
 import { agentsMenu, modelArgs, promptFor, promptValues, taskWrite } from '../server/tasks.mjs';
-import { recipe } from '../agents/registry.mjs';
+import { recipe } from '../agents/agents-client.mjs';
 import { startIdeBridge } from './ide.mjs';
 import { LanguageServers, uriFor } from './lsp.mjs';
 import { runtimeDirectory, alive, discoverRuntime } from './discovery.mjs';

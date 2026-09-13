@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
-import { agentLaunch, describeSession } from './config.mjs';
+import { agentLaunch, describeSession } from './agents-client.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { checkConnection } from '../runtime/protocol.mjs';
 import { readHandoff, waitForPresentation, resumeArgs, checkResume } from './handoff.mjs';
@@ -38,7 +38,7 @@ if (plan.conversation !== undefined && process.env.RENGINE_ORCHESTRATOR_SESSION)
 }
 if (plan.custom) console.log(`Custom agent MCP configuration: ${plan.generic} (also RENGINE_MCP_CONFIG). Configure this CLI to consume it.`);
 else console.log(`Workspace MCP: ${plan.name}`);
-const session = describeSession(plan.identity);
+const session = await describeSession(plan.identity);   /* the message the service composes */
 console.log(`Workspace identity: ${plan.identity.label}${session ? ` — ${session}` : ''}`);
 if (process.platform === 'win32' && !process.env.RENGINE_BASH) throw new Error('Windows workspace bootstrap requires RENGINE_BASH.');
 const command = process.platform === 'win32' ? process.env.RENGINE_BASH : plan.executable;
