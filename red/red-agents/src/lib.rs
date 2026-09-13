@@ -16,6 +16,7 @@ use serde_json::json;
 
 pub mod hooks;
 pub mod parsers;
+pub mod report;
 pub mod spawn;
 
 /// One parsed value. Tables keep document order as a Vec so duplicate keys and duplicate tables

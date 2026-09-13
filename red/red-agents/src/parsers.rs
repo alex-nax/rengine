@@ -8,7 +8,7 @@
 //! resume/continue), or minted (nothing named, the CLI will name its own).
 
 /// `[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}`, case-insensitive.
-fn uuid_shape(value: &str) -> bool {
+pub fn uuid_shape(value: &str) -> bool {
     let bytes = value.as_bytes();
     if bytes.len() != 36 {
         return false;
@@ -20,7 +20,7 @@ fn uuid_shape(value: &str) -> bool {
 }
 
 /// `[0-9A-HJKMNP-TV-Z]{26}`, case-insensitive (the JS side tests with the i flag).
-fn ulid_shape(value: &str) -> bool {
+pub fn ulid_shape(value: &str) -> bool {
     let bytes = value.as_bytes();
     bytes.len() == 26
         && bytes.iter().all(|byte| {

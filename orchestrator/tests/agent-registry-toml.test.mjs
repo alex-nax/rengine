@@ -49,7 +49,11 @@ test('JS and Rust resolve identical recipes for every CLI', async t => {
   const dumped = JSON.parse((await run(DUMP, [REGISTRY])).stdout);
   assert.deepEqual(resolvedRecipes(), dumped,
     'the two sides parse the one document through the same subset and resolve the same atoms');
-  assert.deepEqual(Object.keys(dumped), ['claude', 'codex', 'gemini', 'kimi', 'opencode'].sort(),
+  /* The SET of CLIs is the claim; the dump's key order is not. It used to come out sorted only
+     because serde_json's default map is a BTreeMap, and F172 turned on `preserve_order` so the hook
+     payloads stay byte-identical with the JS reporter's field order — which makes every object in
+     the crate, this projection included, keep document order instead. */
+  assert.deepEqual(Object.keys(dumped).sort(), ['claude', 'codex', 'gemini', 'kimi', 'opencode'].sort(),
     'every shipped CLI is in the document');
 });
 

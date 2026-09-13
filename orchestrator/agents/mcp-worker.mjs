@@ -25,7 +25,7 @@ const identityOf = value => value && typeof value === 'object' && /^[0-9a-f-]{36
 let agent = identityOf(context.agent);
 /* The binding stays the snapshot's, so nothing the file says can retarget this CLI's instance or
    root; only the identity is re-read, once per tool call, because the CLI reports the conversation
-   it is actually running and report-session.mjs rewrites this file with it (spec 095, "the CLI
+   it is actually running and `red-agents report-session` rewrites this file with it (spec 095, "the CLI
    reports what it runs"). A file that is missing, torn or anonymous leaves the identity as it was. */
 const refreshIdentity = async () => {
   try { agent = identityOf(JSON.parse(await readFile(contextFile, 'utf8')).agent) ?? agent; }

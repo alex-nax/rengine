@@ -10,7 +10,18 @@ import { checkConnection } from '../runtime/protocol.mjs';
 import { recipe } from './registry.mjs';
 
 const mcpMain = fileURLToPath(new URL('./mcp.mjs', import.meta.url));
-const reportMain = fileURLToPath(new URL('./report-session.mjs', import.meta.url));
+/* The reporter is the red-agents binary (F172): report-session as a subcommand, composed into
+   hook command lines exactly where report-session.mjs used to be spelled out. Resolution mirrors
+   agent.sh's: RENGINE_RED_AGENTS where an install puts it elsewhere, else the repo build. */
+const redAgents = () => {
+  if (process.env.RENGINE_RED_AGENTS) return process.env.RENGINE_RED_AGENTS;
+  const checkout = fileURLToPath(new URL('../../', import.meta.url));
+  for (const profile of ['debug', 'release']) {
+    const candidate = `${checkout}red/target/${profile}/red-agents`;
+    if (existsSync(candidate)) return candidate;
+  }
+  throw new Error('The red-agents binary is required (run: cargo build -p red-agents, or set RENGINE_RED_AGENTS).');
+};
 
 // Which CLIs accept being told the conversation they are starting, and how to resume that one.
 // The two are separate capabilities the recipe declares: kimi can be put back into a conversation
@@ -108,7 +119,7 @@ export const shellQuote = value => /^[A-Za-z0-9_@%+=:,./-]+$/.test(value) ? valu
    the running CLI changes which conversation the process is in, and no flag, transcript or process
    tree says so afterwards. So the CLI is asked to say it. Claude Code's SessionStart hook fires on
    startup, --resume, an in-CLI /resume, /clear and after compaction, carrying the session_id it is
-   actually running, and report-session.mjs reports that back. The settings live beside this launch's
+   actually running, and `red-agents report-session` reports that back. The settings live beside this launch's
    MCP configuration; the person's own and the project's settings files are never touched.
    The hook is given this launch's context file on its own command line, so a session started by hand
    from the line bind.mjs prints -- which inherits none of the launcher's environment -- reports
@@ -117,7 +128,7 @@ export const shellQuote = value => /^[A-Za-z0-9_@%+=:,./-]+$/.test(value) ? valu
 const hookQuote = value => process.platform === 'win32'
   ? (/^[A-Za-z0-9_@%+=:,.\\/-]+$/.test(value) ? value : `"${value.replaceAll('"', '""')}"`) : shellQuote(value);
 export const claudeSettings = contextFile => ({ hooks: { SessionStart: [{ hooks: [{ type: 'command',
-  command: [process.execPath, reportMain, '--context', contextFile].map(hookQuote).join(' ') }] }] } });
+  command: [redAgents(), 'report-session', '--context', contextFile].map(hookQuote).join(' ') }] }] } });
 export const claudeSettingsFile = (directory, contextFile) => privateJson(path.join(directory, 'settings.json'), claudeSettings(contextFile));
 
 /* Codex runs only hooks it trusts: a non-managed hook needs a hooks.state."<key>".trusted_hash
@@ -192,7 +203,7 @@ export async function agentLaunch({ agent, executable, args = [], contextFile, c
        carries this launch's trusted_hash — the launcher trusts what it composed, nothing else, and
        nothing is written to ~/.codex. */
     if (declared.hooks?.kind === 'per-launch-config') {
-      const command = [process.execPath, reportMain, '--provider', agent, '--context', boundFile].map(hookQuote).join(' ');
+      const command = [redAgents(), 'report-session', '--provider', agent, '--context', boundFile].map(hookQuote).join(' ');
       consumes.args.push('-c', 'features.hooks=true',
         '-c', `hooks.SessionStart=[{matcher="startup|resume",hooks=[{type="command",command=${JSON.stringify(command)}}]}]`,
         '-c', `hooks.state={${JSON.stringify(codexHookKey())}={trusted_hash=${JSON.stringify(codexHookTrustHash(command))}}}`);

@@ -1,0 +1,297 @@
+{
+  "claude-startup-rewrites-and-posts": {
+    "name": "claude-startup-rewrites-and-posts",
+    "exitCode": 0,
+    "stderr": "rEngine: this pane is conversation aaaaaaaa (was 3f85774e).\n",
+    "stdout": "",
+    "contextAfter": {
+      "url": "http://127.0.0.1:56532",
+      "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "instance": "87654321-4321-4321-4321-cba987654321",
+      "rootId": "12345678-1234-1234-1234-123456789abc",
+      "agent": {
+        "agentId": "aaaaaaaa-1111-4222-8333-444444444444",
+        "label": "claude aaaaaaaa",
+        "pid": 4242,
+        "startedAt": "2026-09-12T10:00:00.000Z",
+        "session": {
+          "provider": "claude",
+          "id": "aaaaaaaa-1111-4222-8333-444444444444",
+          "known": true,
+          "source": "reported",
+          "resume": "claude --resume aaaaaaaa-1111-4222-8333-444444444444"
+        }
+      }
+    },
+    "posts": [
+      {
+        "path": "/api/agent-conversation",
+        "authorization": "Bearer ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "body": "{\"id\":\"pane-claude-1\",\"conversation\":\"aaaaaaaa-1111-4222-8333-444444444444\",\"agent\":\"claude\"}"
+      }
+    ]
+  },
+  "claude-same-id-posts-without-rewrite": {
+    "name": "claude-same-id-posts-without-rewrite",
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": "",
+    "contextAfter": {
+      "url": "http://127.0.0.1:56532",
+      "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "instance": "87654321-4321-4321-4321-cba987654321",
+      "rootId": "12345678-1234-1234-1234-123456789abc",
+      "agent": {
+        "agentId": "3f85774e-05bb-4791-bb9f-1c90dc37d0e6",
+        "label": "claude 3f85774e",
+        "pid": 4242,
+        "startedAt": "2026-09-12T10:00:00.000Z"
+      }
+    },
+    "posts": [
+      {
+        "path": "/api/agent-conversation",
+        "authorization": "Bearer ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "body": "{\"id\":\"pane-claude-2\",\"conversation\":\"3f85774e-05bb-4791-bb9f-1c90dc37d0e6\",\"agent\":\"claude\"}"
+      }
+    ]
+  },
+  "codex-reports-with-its-provider": {
+    "name": "codex-reports-with-its-provider",
+    "exitCode": 0,
+    "stderr": "rEngine: this pane is conversation aaaaaaaa (was 3f85774e).\n",
+    "stdout": "",
+    "contextAfter": {
+      "url": "http://127.0.0.1:56532",
+      "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "instance": "87654321-4321-4321-4321-cba987654321",
+      "rootId": "12345678-1234-1234-1234-123456789abc",
+      "agent": {
+        "agentId": "aaaaaaaa-1111-4222-8333-444444444444",
+        "label": "codex aaaaaaaa",
+        "pid": 4242,
+        "startedAt": "2026-09-12T10:00:00.000Z",
+        "session": {
+          "provider": "codex",
+          "id": "aaaaaaaa-1111-4222-8333-444444444444",
+          "known": true,
+          "source": "reported",
+          "resume": "codex resume aaaaaaaa-1111-4222-8333-444444444444"
+        }
+      }
+    },
+    "posts": [
+      {
+        "path": "/api/agent-conversation",
+        "authorization": "Bearer ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "body": "{\"id\":\"pane-codex-1\",\"conversation\":\"aaaaaaaa-1111-4222-8333-444444444444\",\"agent\":\"codex\"}"
+      }
+    ]
+  },
+  "kimi-keeps-the-session-prefix": {
+    "name": "kimi-keeps-the-session-prefix",
+    "exitCode": 0,
+    "stderr": "rEngine: this pane is conversation session_ (was session_).\n",
+    "stdout": "",
+    "contextAfter": {
+      "url": "http://127.0.0.1:56532",
+      "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "instance": "87654321-4321-4321-4321-cba987654321",
+      "rootId": "12345678-1234-1234-1234-123456789abc",
+      "agent": {
+        "agentId": "session_aaaaaaaa-1111-4222-8333-444444444444",
+        "label": "kimi aaaaaaaa",
+        "pid": 99,
+        "startedAt": "2026-09-12T10:00:00.000Z",
+        "session": {
+          "provider": "kimi",
+          "id": "session_aaaaaaaa-1111-4222-8333-444444444444",
+          "known": true,
+          "source": "reported",
+          "resume": "kimi --session session_aaaaaaaa-1111-4222-8333-444444444444"
+        }
+      }
+    },
+    "posts": [
+      {
+        "path": "/api/agent-conversation",
+        "authorization": "Bearer ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "body": "{\"id\":\"pane-kimi-1\",\"conversation\":\"session_aaaaaaaa-1111-4222-8333-444444444444\",\"agent\":\"kimi\"}"
+      }
+    ]
+  },
+  "gemini-is-refused-by-name": {
+    "name": "gemini-is-refused-by-name",
+    "exitCode": 0,
+    "stderr": "rEngine could not report this conversation: Unknown agent provider: gemini\n",
+    "stdout": "",
+    "contextAfter": {
+      "url": "http://127.0.0.1:56532",
+      "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "instance": "87654321-4321-4321-4321-cba987654321",
+      "rootId": "12345678-1234-1234-1234-123456789abc"
+    },
+    "posts": []
+  },
+  "opencode-is-refused-by-name": {
+    "name": "opencode-is-refused-by-name",
+    "exitCode": 0,
+    "stderr": "rEngine could not report this conversation: Unknown agent provider: opencode\n",
+    "stdout": "",
+    "contextAfter": {
+      "url": "http://127.0.0.1:56532",
+      "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "instance": "87654321-4321-4321-4321-cba987654321",
+      "rootId": "12345678-1234-1234-1234-123456789abc"
+    },
+    "posts": []
+  },
+  "no-orchestrator-session-rewrites-without-post": {
+    "name": "no-orchestrator-session-rewrites-without-post",
+    "exitCode": 0,
+    "stderr": "rEngine: this pane is conversation aaaaaaaa (was 3f85774e).\n",
+    "stdout": "",
+    "contextAfter": {
+      "url": "http://127.0.0.1:56532",
+      "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "instance": "87654321-4321-4321-4321-cba987654321",
+      "rootId": "12345678-1234-1234-1234-123456789abc",
+      "agent": {
+        "agentId": "aaaaaaaa-1111-4222-8333-444444444444",
+        "label": "claude aaaaaaaa",
+        "pid": 4242,
+        "startedAt": "2026-09-12T10:00:00.000Z",
+        "session": {
+          "provider": "claude",
+          "id": "aaaaaaaa-1111-4222-8333-444444444444",
+          "known": true,
+          "source": "reported",
+          "resume": "claude --resume aaaaaaaa-1111-4222-8333-444444444444"
+        }
+      }
+    },
+    "posts": []
+  },
+  "a-malformed-id-is-noted-never-failed": {
+    "name": "a-malformed-id-is-noted-never-failed",
+    "exitCode": 0,
+    "stderr": "rEngine could not report this conversation: SessionStart carried no session id.\n",
+    "stdout": "",
+    "contextAfter": {
+      "url": "http://127.0.0.1:56532",
+      "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "instance": "87654321-4321-4321-4321-cba987654321",
+      "rootId": "12345678-1234-1234-1234-123456789abc"
+    },
+    "posts": []
+  },
+  "no-id-in-the-payload-is-noted": {
+    "name": "no-id-in-the-payload-is-noted",
+    "exitCode": 0,
+    "stderr": "rEngine could not report this conversation: SessionStart carried no session id.\n",
+    "stdout": "",
+    "contextAfter": {
+      "url": "http://127.0.0.1:56532",
+      "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "instance": "87654321-4321-4321-4321-cba987654321",
+      "rootId": "12345678-1234-1234-1234-123456789abc"
+    },
+    "posts": []
+  },
+  "binding-through-mcp-config": {
+    "name": "binding-through-mcp-config",
+    "exitCode": 0,
+    "stderr": "rEngine: this pane is conversation aaaaaaaa (was 3f85774e).\n",
+    "stdout": "",
+    "contextAfter": {
+      "url": "http://127.0.0.1:56532",
+      "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "instance": "87654321-4321-4321-4321-cba987654321",
+      "rootId": "12345678-1234-1234-1234-123456789abc",
+      "agent": {
+        "agentId": "aaaaaaaa-1111-4222-8333-444444444444",
+        "label": "claude aaaaaaaa",
+        "pid": 4242,
+        "startedAt": "2026-09-12T10:00:00.000Z",
+        "session": {
+          "provider": "claude",
+          "id": "aaaaaaaa-1111-4222-8333-444444444444",
+          "known": true,
+          "source": "reported",
+          "resume": "claude --resume aaaaaaaa-1111-4222-8333-444444444444"
+        }
+      }
+    },
+    "posts": [
+      {
+        "path": "/api/agent-conversation",
+        "authorization": "Bearer ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "body": "{\"id\":\"pane-env-1\",\"conversation\":\"aaaaaaaa-1111-4222-8333-444444444444\",\"agent\":\"claude\"}"
+      }
+    ]
+  },
+  "binding-through-workspace-context": {
+    "name": "binding-through-workspace-context",
+    "exitCode": 0,
+    "stderr": "rEngine: this pane is conversation aaaaaaaa (was 3f85774e).\n",
+    "stdout": "",
+    "contextAfter": {
+      "url": "http://127.0.0.1:56532",
+      "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "instance": "87654321-4321-4321-4321-cba987654321",
+      "rootId": "12345678-1234-1234-1234-123456789abc",
+      "agent": {
+        "agentId": "aaaaaaaa-1111-4222-8333-444444444444",
+        "label": "claude aaaaaaaa",
+        "pid": 4242,
+        "startedAt": "2026-09-12T10:00:00.000Z",
+        "session": {
+          "provider": "claude",
+          "id": "aaaaaaaa-1111-4222-8333-444444444444",
+          "known": true,
+          "source": "reported",
+          "resume": "claude --resume aaaaaaaa-1111-4222-8333-444444444444"
+        }
+      }
+    },
+    "posts": [
+      {
+        "path": "/api/agent-conversation",
+        "authorization": "Bearer ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "body": "{\"id\":\"pane-env-2\",\"conversation\":\"aaaaaaaa-1111-4222-8333-444444444444\",\"agent\":\"claude\"}"
+      }
+    ]
+  },
+  "nothing-to-report-to": {
+    "name": "nothing-to-report-to",
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": "",
+    "contextAfter": null,
+    "posts": []
+  },
+  "an-invalid-connection-is-noted": {
+    "name": "an-invalid-connection-is-noted",
+    "exitCode": 0,
+    "stderr": "rEngine could not report this conversation: Invalid local workspace connection.\n",
+    "stdout": "",
+    "contextAfter": {
+      "url": "http://example.com/",
+      "token": "not-hex"
+    },
+    "posts": []
+  },
+  "an-unknown-provider-is-noted": {
+    "name": "an-unknown-provider-is-noted",
+    "exitCode": 0,
+    "stderr": "rEngine could not report this conversation: Unknown agent provider: whatever\n",
+    "stdout": "",
+    "contextAfter": {
+      "url": "http://127.0.0.1:56532",
+      "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "instance": "87654321-4321-4321-4321-cba987654321",
+      "rootId": "12345678-1234-1234-1234-123456789abc"
+    },
+    "posts": []
+  }
+}

@@ -48,11 +48,18 @@ case "$RE_AGENT" in
   claude) printf 'claude needs no bootstrap: the launcher hands it per-launch settings carrying the same hook.\n' >&2; exit 2;;
   *) printf '%s has no hook channel rEngine can use; only kimi is bootstrapped this way.\n' "$RE_AGENT" >&2; exit 2;;
 esac
-RE_NODE=${RENGINE_NODE:-$(command -v node || true)}
-[[ -n "$RE_NODE" && -x "$RE_NODE" ]] || { printf 'Node is required\n' >&2; exit 2; }
-RE_REPORTER="$RE_ENGINE_ROOT/orchestrator/agents/report-session.mjs"
-[[ -f "$RE_REPORTER" ]] || { printf 'The reporter is missing: %s\n' "$RE_REPORTER" >&2; exit 2; }
-case "$RE_NODE$RE_REPORTER" in *"'"*) printf 'Paths containing a single quote cannot be written into a TOML literal string.\n' >&2; exit 2;; esac
+# The reporter is the red-agents binary (F172): RENGINE_RED_AGENTS names it where an install
+# puts it elsewhere, else the repo's debug or release build.
+RE_REPORTER=""
+if [ -n "${RENGINE_RED_AGENTS:-}" ]; then
+  [ -x "$RENGINE_RED_AGENTS" ] && RE_REPORTER="$RENGINE_RED_AGENTS"
+else
+  for candidate in "$RE_ENGINE_ROOT/red/target/debug/red-agents" "$RE_ENGINE_ROOT/red/target/release/red-agents"; do
+    [ -x "$candidate" ] && { RE_REPORTER="$candidate"; break; }
+  done
+fi
+[ -n "$RE_REPORTER" ] || { printf 'The red-agents binary is required (run: cargo build -p red-agents, or set RENGINE_RED_AGENTS).\n' >&2; exit 2; }
+case "$RE_REPORTER" in *"'"*) printf 'Paths containing a single quote cannot be written into a TOML literal string.\n' >&2; exit 2;; esac
 RE_HOME=${KIMI_CODE_HOME:-"$HOME/.kimi-code"}
 RE_CONFIG="$RE_HOME/config.toml"
 RE_MARKER='# rEngine session reporting (spec 127)'
@@ -61,7 +68,7 @@ RE_MARKER='# rEngine session reporting (spec 127)'
 RE_HOOK="$RE_MARKER
 [[hooks]]
 event = \"SessionStart\"
-command = '\"$RE_NODE\" \"$RE_REPORTER\" --provider kimi'"
+command = '\"$RE_REPORTER\" report-session --provider kimi'"
 
 trap 'printf "Bootstrap canceled. Nothing was written.\n" >&2; exit 130' INT
 re_wizard 'rEngine agent hook bootstrap (kimi)' 4

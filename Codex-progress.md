@@ -1,5 +1,44 @@
 # Progress Log
 
+## Session 131 (macos) — 2026-09-13 — the hook reporter in Rust and report-session.mjs deleted (F172 / F149b)
+
+Taken over from kimi mid-task at the owner's request: their weekly quota ran out with three of five
+items left. What they had landed — the `red-agents report-session` subcommand, the launcher wiring,
+`mcp.mjs`'s bindingContext, the bootstrap script, the fourteen-case fixture parity and the `git rm`
+— all stood. This session finished the rest.
+
+**The ported test changed shape, and that is the interesting part.** `report-session.test.mjs` had
+been reaching through the module's return value: `report()` handed back `{ bound, rewrote, posted,
+was }`. A subprocess cannot, and that summary was never the hook's contract — it is an
+implementation detail the test had been reading. Every claim it makes is now made against what the
+hook LEAVES BEHIND: the POSTs the host recorded, the context file afterwards, the exit code and
+stderr. The eight tests are otherwise the ones that were there.
+
+**Porting found a real parity gap.** The JS reporter parsed stdin *outside* its binding check, so a
+hook handed garbage said so on stderr even with nothing to report to. The Rust port had the parse
+after the check and swallowed unparseable stdin into an empty object, which made that case silent —
+and a hook that cannot say it was handed garbage stays wired up wrong. The read and the parse moved
+ahead of the binding check. The fixtures did not cover it; the ported test did.
+
+**And the deletion exposed one elsewhere.** `preserve_order` is on `serde_json` so the POST bodies
+keep the JS field order byte for byte; that makes every JSON object in the crate keep insertion
+order, including the recipe projection `agent-registry-toml.test.mjs` dumps — whose keys had been
+sorted only because serde_json's default map is a BTreeMap. The test was asserting an incidental
+order rather than its own claim, so it compares the SET of CLIs now. Two stale comments that still
+said `report-session.mjs` does the reporting were corrected to name the binary.
+
+Commands: `cargo build -p red-agents`, `npm test` (**297 of 297**), `python3 tools/features.py
+validate` (130 features).
+
+Sabotage-verified, each for its own reason: the POST body's fields reordered (red on "the POST the
+host recorded"), the launcher writing `node report-session.mjs` into the hook line again (red on
+"the hook runs the red-agents binary by absolute path"), and unparseable stdin swallowed into `{}`
+again (red on "trouble goes to stderr and nowhere else"). Evidence in
+`docs/evidence/report-session-f172-2026-09-13.md`.
+
+**F172 passes.** `orchestrator/agents/report-session.mjs` is deleted in this commit, which is what
+its second criterion asks for.
+
 ## Session 130 (macos) — 2026-09-13 — red-pty: the PTY core in Rust, scenario-parity with the JS host (F176 / F151a)
 
 Loop tick 9 (plus two coalesced ones, all this same row) took F151 — split via KI-096 (core,

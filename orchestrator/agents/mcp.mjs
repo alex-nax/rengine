@@ -7,7 +7,33 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { resolveRuntime, runtimeDirectory } from '../runtime/discovery.mjs';
-import { bindingContext } from './report-session.mjs';
+/* Where this launch's context is, in the order that finds it: RENGINE_MCP_CONFIG names the
+   per-launch mcp.json whose server is started on that same file; RENGINE_WORKSPACE_CONTEXT is the
+   root file a pane inherits, which carries the host connection but no identity; and --context on
+   the command line. envFirst reverses the order for the MCP facade (the pane's own environment
+   names this launch before the argv does — kimi's mcp.json is shared per project and
+   last-writer-wins, so the argv it passes can name another pane's launch; spec 127 decision 5).
+   None of the three means this process is not running under rEngine at all.
+   (Moved verbatim from report-session.mjs when the reporter became the red-agents binary, F172.) */
+async function bindingContext(env = process.env, argv = process.argv.slice(2), { envFirst = false } = {}) {
+  const fromArgv = () => {
+    const named = argv.indexOf('--context');
+    return named >= 0 && argv[named + 1] ? argv[named + 1] : null;
+  };
+  const fromEnv = async () => {
+    if (env.RENGINE_MCP_CONFIG) {
+      const servers = JSON.parse(await readFile(env.RENGINE_MCP_CONFIG, 'utf8')).mcpServers;
+      for (const server of Object.values(servers ?? {})) {
+        const args = Array.isArray(server?.args) ? server.args : [];
+        const at = args.indexOf('--context');
+        if (at >= 0 && typeof args[at + 1] === 'string') return args[at + 1];
+      }
+    }
+    return env.RENGINE_WORKSPACE_CONTEXT || null;
+  };
+  const [first, second] = envFirst ? [fromEnv, fromArgv] : [fromArgv, fromEnv];
+  return await first() ?? await second();
+}
 
 /* The pane's own environment names this launch's context before the argv does: kimi reads its MCP
    servers from the project-level .kimi-code/mcp.json, which is shared and last-writer-wins across

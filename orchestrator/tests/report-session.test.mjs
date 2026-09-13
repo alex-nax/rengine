@@ -9,13 +9,30 @@ import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { agentLaunch } from '../agents/config.mjs';
-import { report } from '../agents/report-session.mjs';
 
 /* The launcher decides the conversation at launch and then cannot see a /resume performed inside the
    running CLI: observed live on 2026-09-07, a pane launched as b9e2114c ran 5b8d47c2 while every
    record still said b9e2114c. The CLI is the only thing that knows, so it is asked to say so.
    See docs/specs/095-project-token.md (Identity) and docs/evidence/report-session-hook-2026-09-07.md. */
-const reporter = fileURLToPath(new URL('../agents/report-session.mjs', import.meta.url));
+/* F172: the reporter is the red-agents binary, not a JS module. What this file asserts had to
+   change shape with it — `report()` returned a summary object and a subprocess cannot, so every
+   claim is now made against what the hook actually LEAVES BEHIND: the POSTs the host recorded, the
+   context file afterwards, the exit code and stderr. That is the contract a hook has anyway; the
+   return value was an implementation detail this test had been reaching through. */
+const reporter = process.env.RENGINE_RED_AGENTS
+  ?? fileURLToPath(new URL('../../red/target/debug/red-agents', import.meta.url));
+
+/* One hook run. `argv` is what follows the subcommand, exactly as a hook command line carries it. */
+async function report({ env = {}, argv = [], input, contextFile = null }) {
+  const child = spawn(reporter, ['report-session', ...argv, ...(contextFile ? ['--context', contextFile] : [])],
+    { env: { PATH: process.env.PATH, HOME: tmpdir(), ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
+  let stdout = '', stderr = '';
+  child.stdout.on('data', chunk => { stdout += chunk; });
+  child.stderr.on('data', chunk => { stderr += chunk; });
+  child.stdin.end(typeof input === 'string' ? input : JSON.stringify(input));
+  const exitCode = await new Promise(resolve => child.once('exit', resolve));
+  return { exitCode, stdout, stderr };
+}
 const workerMain = fileURLToPath(new URL('../agents/mcp-worker.mjs', import.meta.url));
 const LAUNCHED = 'b9e2114c-1111-4111-8111-111111111111';   // what the pane was started with
 const RESUMED = '5b8d47c2-2222-4222-8222-222222222222';    // what the person resumed into, in the CLI
@@ -74,11 +91,12 @@ test('a claude launch carries a settings file whose SessionStart hook runs the r
   assert.deepEqual(Object.keys(settings.hooks), ['SessionStart'], 'and it adds one hook: the one that says what this CLI is running');
   const command = settings.hooks.SessionStart[0].hooks[0].command;
   assert.equal(settings.hooks.SessionStart[0].hooks[0].type, 'command');
-  assert.ok(command.includes(reporter), `the hook runs report-session.mjs by absolute path (${command})`);
-  assert.ok(command.startsWith(process.execPath) || command.includes(`'${process.execPath}'`), 'under the node the launcher itself is running');
+  assert.ok(command.includes('red-agents'), `the hook runs the red-agents binary by absolute path (${command})`);
+  assert.ok(command.includes('report-session'), 'as its report-session subcommand');
+  assert.ok(!command.includes(process.execPath), 'and needs no node in front of it, which is most of the point of the port');
   assert.ok(command.includes(`--context ${plan.contextFile}`) || command.includes(`--context '${plan.contextFile}'`),
     'and is told this launch’s context on its own command line, so a session started by hand is bound too');
-  await stat(reporter);
+  await stat(reporter);   /* the binary the hook line names is really there */
 });
 
 /* `bind.mjs` prints a line a person runs in their own shell, which inherits none of the launcher's
@@ -87,14 +105,14 @@ test('a session started from the line bind prints reports itself with no environ
   const workspace = await host(t);
   const { plan, identity } = await pane(t, workspace, { conversation: LAUNCHED });
   const settings = JSON.parse(await readFile(plan.settings, 'utf8'));
+  /* Everything after the binary itself: the subcommand and its arguments, as the line carries them. */
   const argv = settings.hooks.SessionStart[0].hooks[0].command.split(' ').slice(2).map(value => value.replace(/^'|'$/g, ''));
 
   const result = await report({ env: {}, argv, input: RECORDED });
-  assert.equal(result.bound, true, 'the hook finds the launch it was written for without RENGINE_MCP_CONFIG');
-  assert.equal(result.rewrote, true);
-  assert.equal(result.posted, false, 'and reports to no pane, because a bound session is not one');
-  assert.deepEqual(workspace.posted, []);
-  assert.equal((await identity()).agentId, RESUMED, 'the identity the tool worker reads still follows the CLI');
+  assert.equal(result.exitCode, 0);
+  assert.equal((await identity()).agentId, RESUMED,
+    'the hook finds the launch it was written for without RENGINE_MCP_CONFIG, and the identity follows the CLI');
+  assert.deepEqual(workspace.posted, [], 'and reports to no pane, because a bound session is not one');
 });
 
 test('the CLI’s own report replaces the conversation: the host is told and the context follows', async t => {
@@ -104,8 +122,9 @@ test('the CLI’s own report replaces the conversation: the host is told and the
   assert.equal(before.agentId, LAUNCHED, 'the launch recorded the conversation the workspace minted');
 
   const result = await report({ env, input: RECORDED });
-  assert.deepEqual(result, { bound: true, contextFile: plan.contextFile, conversation: RESUMED, source: 'resume',
-    rewrote: true, posted: true, was: LAUNCHED });
+  assert.equal(result.exitCode, 0);
+  assert.match(result.stderr, new RegExp(`conversation ${RESUMED.slice(0, 8)} \\(was ${LAUNCHED.slice(0, 8)}\\)`),
+    'the hook says on stderr which conversation this pane became, and which it was');
   assert.deepEqual(workspace.posted, [{ id: 'pane-1', conversation: RESUMED, agent: 'claude' }],
     'the host is told over the same route the launcher reports on, so the pane record follows the CLI');
 
@@ -119,20 +138,24 @@ test('the CLI’s own report replaces the conversation: the host is told and the
   assert.equal(JSON.parse(await readFile(plan.contextFile, 'utf8')).rootId, ROOT_ID, 'and the binding the file carries is untouched');
 
   workspace.posted.length = 0;
+  const unchanged = await readFile(plan.contextFile, 'utf8');
   const again = await report({ env, input: { ...RECORDED, source: 'compact' } });
-  assert.equal(again.rewrote, false, 'a report that changes nothing rewrites nothing');
-  assert.equal(again.posted, true, 'but still reports, so a record the launcher could not write heals on the next session start');
+  assert.equal(again.exitCode, 0);
+  assert.equal(await readFile(plan.contextFile, 'utf8'), unchanged, 'a report that changes nothing rewrites nothing');
+  assert.deepEqual(workspace.posted, [{ id: 'pane-1', conversation: RESUMED, agent: 'claude' }],
+    'but still reports, so a record the launcher could not write heals on the next session start');
 });
 
 test('outside a workspace pane the hook reports nothing and never fails the CLI', async t => {
   const workspace = await host(t);
   await pane(t, workspace, { conversation: LAUNCHED });
-  assert.deepEqual(await report({ env: {}, input: RECORDED }), { bound: false, rewrote: false, posted: false });
+  const loose = await report({ env: {}, input: RECORDED });
+  assert.equal(loose.exitCode, 0);
   assert.deepEqual(workspace.posted, [], 'a CLI that is not in a workspace pane has nothing to report to');
 
   const environment = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('RENGINE_')));
   for (const [payload, complains] of [[JSON.stringify(RECORDED), false], ['{}', false], ['not json at all', true]]) {
-    const child = spawn(process.execPath, [reporter], { env: environment, stdio: ['pipe', 'pipe', 'pipe'] });
+    const child = spawn(reporter, ['report-session'], { env: environment, stdio: ['pipe', 'pipe', 'pipe'] });
     let out = '', errors = '';
     child.stdout.on('data', data => { out += data; });
     child.stderr.on('data', data => { errors += data; });
@@ -152,7 +175,7 @@ test('a launch that continued or forked becomes known once the CLI reports', asy
   assert.equal(before.session.known, false, 'so the identity is rEngine’s own and says it does not know the conversation');
   assert.notEqual(before.agentId, RESUMED);
 
-  await report({ env, input: { ...RECORDED, source: 'startup' } });
+  assert.equal((await report({ env, input: { ...RECORDED, source: 'startup' } })).exitCode, 0);
   const after = await identity();
   assert.equal(after.agentId, RESUMED, 'and the id the CLI minted for itself becomes the identity as soon as it reports it');
   assert.equal(after.session.known, true, 'known, because the CLI said so rather than rEngine guessing');
@@ -176,9 +199,7 @@ test('a kimi SessionStart hook reports the session the CLI is running, with its 
     hook_event_name: 'SessionStart', source: 'startup', model: 'kimi-for-coding', profile: 'default' };
 
   const result = await report({ env, argv: ['--provider', 'kimi'], input: payload });
-  assert.equal(result.bound, true);
-  assert.equal(result.rewrote, true);
-  assert.equal(result.posted, true);
+  assert.equal(result.exitCode, 0);
   assert.deepEqual(workspace.posted, [{ id: 'pane-kimi-1', conversation: KIMI_SESSION, agent: 'kimi' }],
     'the host is told over the same route claude’s hook uses, under kimi’s own name');
 
@@ -188,8 +209,11 @@ test('a kimi SessionStart hook reports the session the CLI is running, with its 
   assert.deepEqual(identity.session, { provider: 'kimi', id: KIMI_SESSION, known: true, source: 'reported',
     resume: `kimi --session ${KIMI_SESSION}` }, 'and the line that resumes it is kimi’s own spelling');
 
-  await assert.rejects(report({ env, argv: ['--provider', 'kimi'], input: { ...payload, session_id: 'not a session' } }), /session id/i,
-    'a payload in no shape kimi resumes by is refused (and the wrapper still exits 0, so the CLI is never failed)');
+  /* A refusal is a note on stderr and exit 0, never a failure: the hook runs inside the CLI, and a
+     non-zero exit there is the CLI's problem rather than rEngine's to cause. */
+  const refused = await report({ env, argv: ['--provider', 'kimi'], input: { ...payload, session_id: 'not a session' } });
+  assert.equal(refused.exitCode, 0, 'the hook still exits 0, so the CLI is never failed');
+  assert.match(refused.stderr, /session id/i, 'a payload in no shape kimi resumes by is refused by name');
   assert.equal(workspace.posted.length, 1, 'and nothing more was reported');
 });
 
@@ -208,9 +232,7 @@ test('a codex SessionStart hook reports the session the CLI is running, with its
     cwd: '/tmp/project', hook_event_name: 'SessionStart', source: 'resume' };
 
   const result = await report({ env, argv: ['--provider', 'codex'], input: payload });
-  assert.equal(result.bound, true);
-  assert.equal(result.rewrote, true);
-  assert.equal(result.posted, true);
+  assert.equal(result.exitCode, 0);
   assert.deepEqual(workspace.posted, [{ id: 'pane-codex-1', conversation: RESUMED, agent: 'codex' }],
     'the host is told over the same route, under codex’s own name');
 
@@ -237,7 +259,7 @@ test('the tool worker’s next call carries the conversation the CLI reported', 
   };
 
   assert.equal((await info()).agent.agentId, LAUNCHED, 'before the report, the worker is the conversation the launch named');
-  await report({ env, input: RECORDED });
+  assert.equal((await report({ env, input: RECORDED })).exitCode, 0);
 
   const after = await info();
   assert.equal(after.agent.agentId, RESUMED, 'the identity is re-read per call, so workspace_info follows the CLI without a restart');

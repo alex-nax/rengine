@@ -137,6 +137,13 @@ fn main() -> ExitCode {
             println!("{}", serde_json::json!({ "id": parsed.0, "source": parsed.1 }));
             ExitCode::SUCCESS
         }
+        "report-session" => {
+            let recipes = match load() {
+                Ok(recipes) => recipes,
+                Err(error) => return fail(error),
+            };
+            ExitCode::from(red_agents::report::report_session(&args[1..], &recipes) as u8)
+        }
         "hook-key" => {
             let mut platform = if cfg!(windows) { "win32" } else { "unix" };
             let mut numbers = vec![];

@@ -192,7 +192,7 @@ test('a codex launch carries the SessionStart hook overlay beside its MCP wiring
   const joined = plan.args.join(' ');
   assert.ok(plan.args.some(value => value.startsWith('hooks.SessionStart=')), 'the hook table is injected as a -c override');
   assert.ok(plan.args.some(value => value === 'features.hooks=true' || value.startsWith('features.hooks=')), 'and the feature is enabled for this launch');
-  assert.match(joined, /report-session\.mjs/, 'the hook runs the session reporter');
+  assert.match(joined, /red-agents.*report-session/, 'the hook runs the session reporter');
   assert.match(joined, /--provider codex/, 'with codex’s own provider');
   assert.ok(joined.includes(plan.contextFile), 'and the launch’s own context on the command line');
 
@@ -201,7 +201,8 @@ test('a codex launch carries the SessionStart hook overlay beside its MCP wiring
   assert.ok(state.includes('/<session-flags>/config.toml:session_start:0:0'), 'keyed to codex’s synthetic session-flags layer');
   const hash = /trusted_hash=\\?"(sha256:[0-9a-f]{64})/.exec(state)?.[1];
   assert.ok(hash, 'with a sha256 of the hook definition codex hashes');
-  const command = new RegExp(`(${process.execPath.replaceAll('/', '\\/')}|'${process.execPath.replaceAll('/', '\\/')}')[^"]*report-session\\.mjs --provider codex --context [^"']+`).exec(joined)?.[0].replace(/^'|'$/g, '');
+  const command = /(\/[^ '"]*red-agents)[^"]* report-session --provider codex --context [^"']+/.exec(joined)?.[0];
+  assert.ok(command?.includes('/red-agents'), 'the reporter is the red-agents binary');
   assert.ok(command, 'the exact command the hook will run');
   assert.equal(hash, codexHookTrustHash(command), 'and the trusted hash is for exactly that command, nothing else');
   assert.notEqual(hash, codexHookTrustHash(`${command} --tampered`), 'a different command hashes differently, so trusting one trusts no other');

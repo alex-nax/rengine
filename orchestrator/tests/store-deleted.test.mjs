@@ -1,8 +1,9 @@
-/* F175 (F170b, spec 129): store.mjs and schema.mjs are gone, and nothing in the shipping tree
- * imports them. The swap's criterion 3 — "each ported test was observed failing for the module's
- * absence" — is the full suite running green with these two files deleted; this guard is what
- * keeps the absence from quietly reverting, because a new import of a deleted module fails here
- * rather than at the next consumer's runtime.
+/* F175/F172 (spec 129): the retired JS modules are gone — store.mjs and schema.mjs (F175),
+ * report-session.mjs (F172) — and nothing in the shipping tree imports them. The swaps'
+ * criterion — "each ported test was observed failing for the module's absence" — is the full
+ * suite running green with these files deleted; this guard is what keeps the absence from
+ * quietly reverting, because a new import of a deleted module fails here rather than at the
+ * next consumer's runtime.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,8 +13,8 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
-test('store.mjs and schema.mjs are deleted, and nothing shipping imports them', async () => {
-  for (const gone of ['orchestrator/server/store.mjs', 'orchestrator/server/schema.mjs']) {
+test('the retired modules are deleted, and nothing shipping imports them', async () => {
+  for (const gone of ['orchestrator/server/store.mjs', 'orchestrator/server/schema.mjs', 'orchestrator/agents/report-session.mjs']) {
     await assert.rejects(() => access(path.join(ROOT, gone)), `${gone} is present again`);
   }
   /* An import reference, not a prose one: comments are allowed to say what the files were. */

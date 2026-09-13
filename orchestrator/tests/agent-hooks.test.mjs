@@ -32,7 +32,7 @@ esac
   return { dir, home, env, run: args => spawnSync('bash', [script, ...args], { env, encoding: 'utf8', timeout: 10000, input: '' }) };
 }
 
-const HOOK = /# rEngine session reporting.*\[\[hooks\]\]\nevent = "SessionStart"\ncommand = '.*report-session\.mjs.*--provider kimi'/s;
+const HOOK = /# rEngine session reporting.*\[\[hooks\]\]\nevent = "SessionStart"\ncommand = '.*red-agents.*report-session --provider kimi'/s;
 
 test('the bootstrap appends one marked hook block, preserving what was there, and is idempotent', async t => {
   const original = 'default_model = "kimi-code/kimi-for-coding"\n';

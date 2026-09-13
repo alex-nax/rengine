@@ -3081,14 +3081,20 @@
         "report-session for all five providers emits byte-identical payloads to the JS version on recorded hook fixtures, including codex SessionStart and claude's hook.",
         "The launcher composes red-agents into the hook command lines it writes (claude's settings file and codex's -c layer); report-session.mjs is deleted in the same commit the replacement passes, each ported test observed failing for the module's absence."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         171
       ],
       "owner_workspace": "rengine",
       "deliverable": "The red-agents report-session subcommand, the launcher wiring, the fixture-parity tests, and the deletion commit.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/report-session-f172-2026-09-13.md",
+        "orchestrator/tests/red-report-session.test.mjs: fourteen cases against answers the JS CLI recorded before deletion (report-session-fixtures.json) — exit code, stderr, stdout, the POST body and the context file afterwards, for the three reporting providers, the two refusals, both binding orders, the gating and the malformed edges (c1).",
+        "orchestrator/tests/report-session.test.mjs: the pre-existing eight tests ported to the binary — the launcher's settings file and hook line, the line `bind` prints running with no environment, the conversation replacing the identity, the kimi and codex hooks with their own resume spellings, and the tool worker's next call following the CLI (c2).",
+        "Sabotage-verified, each for its own reason: the POST body's fields reordered (red on 'the POST the host recorded'), the launcher writing `node report-session.mjs` again (red on 'the hook runs the red-agents binary by absolute path'), and unparseable stdin swallowed into {} again (red on 'trouble goes to stderr and nowhere else').",
+        "npm test: 297 of 297 with orchestrator/agents/report-session.mjs deleted in the same commit."
+      ]
     },
     {
       "id": 173,
