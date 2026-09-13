@@ -42,12 +42,6 @@ before and after. `tests/cargo.mjs` skips the in-spec build when `pretest` has a
 a spec run alone still builds what it needs. The two `launcher.test.mjs` budgets went 15s → 60s:
 each starts a real sidecar, which since D60/D61 starts two services with it.
 
-Still forwarded and not claimed: `/api/session`, `/api/terminal`, `/api/stop`, `/api/agent-restart`,
-`/api/agent-conversation`, `/api/state`, desktops, surfaces and both sockets. `/api/session` waits
-for the socket on purpose — its answer carries the scrollback, and a lone surrogate at the slice
-boundary is a thing a JS string holds and a Rust `String` cannot, so the door will write that
-field's escapes itself when it takes `/events`.
-
 With the record shared, the pane's snapshot can be assembled anywhere, so `/api/session` and
 `/api/stop` moved too. Three things had to be right: **absence is meaningful** (a running pane has
 no `exitCode`, not a null one); **the scrollback cannot travel through a Rust `String`**, because
@@ -121,8 +115,20 @@ replaced cannot be deleted yet. The line count does not fall during a strangler 
 rises slightly, and every deletion lands at the end. That is the right shape, but it is not what the
 epic's per-row "Retires (JS)" column reads like.
 
+**Where F189 stands.** Every route F152 names is answered by red-host now — the nine store routes,
+the seven session routes, `/api/state`, the desktops — and so is the `/events` socket. `/surface` is
+still spliced byte for byte, which is how criterion 2 is kept (`surfaces.mjs` untouched) and which
+gained a check of its own once `/events` stopped using that path. Thirteen routes are still
+forwarded to `main.mjs`, **nothing is deleted**, and the row stays open: F152 depends on F150, whose
+last criterion is the owner's live-pane run (F186).
+
+`main.rs` had grown to 947 lines on the way, so the door is three files now: `routes.rs` (which route
+this door answers and how), `panes.rs` (what a pane is — its snapshot, its scrollback encoding, and
+the operations that make or change one), and `main.rs` (the door itself).
+
 Commands: `npm test` (**324 of 324**, zero services left), `cargo test`, `./init.sh`,
-`python3 tools/features.py validate`, and `native-front-door` + four neighbouring native specs.
+`python3 tools/design.py check`, `python3 tools/features.py validate`, and the native
+`native-front-door` spec plus four of its neighbours.
 
 ## Session 145 (macos) — 2026-09-13 — the first routes stop being forwarded (F189, first half)
 
