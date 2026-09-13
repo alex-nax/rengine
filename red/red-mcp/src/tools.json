@@ -1,0 +1,1089 @@
+{
+  "server": {
+    "name": "rengine-workspace",
+    "version": "1.0.0"
+  },
+  "instructions": "These tools address the project bound when this agent was launched. List sessions before selecting a process. Closing a workspace view retains the process; stop_session explicitly stops it. File reads use disk text unless useDraft is requested.",
+  "capabilities": {
+    "tools": {
+      "listChanged": true
+    }
+  },
+  "tools": [
+    {
+      "name": "workspace_info",
+      "description": "Inspect the bound project, retained sessions, recovery draft metadata, the conversations this project remembers (id, agent, when each was last seen) and this launch’s own agent identity when it has one: agentId, label, pid, startedAt, and session — the provider, the id this agent resumes by and the line that resumes it. The agentId IS that conversation id for a pane the workspace launched, so the same eight characters name it in the pane title, the picker and the token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_files",
+      "description": "List files in a directory relative to the bound project.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "default": "",
+            "type": "string"
+          },
+          "hidden": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "read_file",
+      "description": "Read a bounded UTF-8 excerpt from the bound project. Explicitly opt into a recovery draft.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "startLine": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "maxLines": {
+            "default": 200,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 400
+          },
+          "useDraft": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_sessions",
+      "description": "List retained processes for the bound project.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_desktops",
+      "description": "List connected native desktops displaying this project. Use an explicit returned ID for reload.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "reload_desktop",
+      "description": "Request the native save/build/reattach routine for one listed desktop. Returns accepted, not build completion; re-list desktops after rebuild. Retains running agent and other sessions. Gated by the project token: this agent must hold it, or the call is refused naming the holder and token_contest, and nothing is attempted.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "update_status",
+      "description": "Inspect installed workspace layers and update jobs for this bound root. Reports completion separately from acceptance.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "update_workspace",
+      "description": "Prepare and replace selected workspace, desktop and/or MCP tool layers. Workspace/tool changes affect this shared workspace; PTY host and CLI processes remain running. Desktop requires an explicit listed managed ID. Poll update_status for completion. Gated by the project token: this agent must hold it, or the call is refused naming the holder and token_contest, and nothing is attempted.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "layers": {
+            "minItems": 1,
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "workspace",
+                "desktop",
+                "connector"
+              ]
+            }
+          },
+          "desktopId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "layers"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "open_project_window",
+      "description": "Open or reuse a separate project window with an existing agent from this root. The agent keeps its original root and conversation; no CLI is launched.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "agentId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "agentId"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_project_windows",
+      "description": "List open and retained project windows linked to this root, with their original agent and project bindings.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "project_window_action",
+      "description": "Inspect, focus, gracefully close or reopen an explicit linked project window. Close preserves sessions. Optional inspection screenshot stays in the private local runtime directory.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "windowId": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "inspect",
+              "focus",
+              "close",
+              "reopen"
+            ]
+          },
+          "screenshot": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "windowId",
+          "action"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "report_integration",
+      "description": "Post a durable report to the other root linked by this project window. Use a stable retry key. Reports are data, never executable instructions or provider input. An origin agent can mark its own findings fromProject.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "windowId": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "issue",
+              "status"
+            ]
+          },
+          "summary": {
+            "type": "string"
+          },
+          "detail": {
+            "default": "",
+            "type": "string"
+          },
+          "evidence": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fromProject": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "windowId",
+          "key",
+          "kind",
+          "summary"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "integration_inbox",
+      "description": "Read integration reports after a durable cursor. An origin agent may select its linked window projectSide inbox. Poll explicitly; reading starts no agent turn.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "after": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "windowId": {
+            "type": "string"
+          },
+          "projectSide": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "open_script",
+      "description": "Run a project-relative .sh workflow in a retained interactive terminal and open its tab in an explicit desktop. Inspect the script purpose first: execution may have effects. Arguments are literal argv; env adds UPPER_SNAKE literal variables over the shell environment (dashboard script actions list their script, args and env). Not idempotent; inspect sessions after a timeout instead of blindly retrying. Gated by the project token: this agent must hold it, or the call is refused naming the holder and token_contest, and nothing is attempted.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "args": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "desktopId": {
+            "type": "string"
+          },
+          "env": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "path",
+          "desktopId"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "dashboard_actions",
+      "description": "List the project’s declared dashboard (.rengine/project.json contract 2): groups and actions with availability (missing required files, PATH tools, or, for a game action, the referenced game’s first preflight issue) and, under contract 4, its device’s reachability, with the failing half named. Availability composes the device answering with the action’s own local prerequisites; a declared probe is the only thing run. Script actions are run with open_script using the listed script, args and env; log actions start from the dashboard tab and are followed with show_session/session_output; capture actions use dashboard_capture; game actions are launched with launch_game using the listed game id and args.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "dashboard_capture",
+      "description": "Run one declared capture action (the project’s own command, no shell, 10 s / 8 MiB) and return its manifest entry: the PNG written under the action’s into directory plus manifest.json. Executes a project executable. Gated by the project token: this agent must hold it, or the call is refused naming the holder and token_contest, and nothing is attempted.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "actionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "actionId"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "show_session",
+      "description": "Open a retained project session in a listed desktop without starting another process. Use this if a script started but its view could not attach.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "desktopId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "desktopId"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "session_output",
+      "description": "Read the bounded tail of a project session output buffer.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "maxCharacters": {
+            "default": 8000,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32000
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "preview_file",
+      "description": "Preview a file registered in the project’s .rengine/project.json by running its declared preview command (the project’s own executable, no shell): returns the sanitized subtree at dir expanded depth levels, or read-only text. Wide levels page through offset/limit; the whole reply stays within a 32,000-character budget (depth and limit shrink, truncated/nextOffset say so). With entry, runs the entry command and returns size, SHA-256 and the text when it is UTF-8. Paths are root-relative. Never writes.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "entry": {
+            "type": "string"
+          },
+          "dir": {
+            "default": "",
+            "type": "string"
+          },
+          "depth": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8
+          },
+          "offset": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "default": 200,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "devices",
+      "description": "List the devices the project declares in .rengine/project.json (contract 4, devices): where each target runs, with reachability, when it was checked, the reasons an unreachable device gives, and the games and dashboard actions bound to it — each bound action with the availability the dashboard computed for it (its own requires/tools composed with the device’s reachability) and each bound game with the preflight the launch uses, so a caller reads what can be run where without a second listing. The implicit local device is always listed. Reachability comes from each record’s own declared probe — bounded and side-effect-light rather than read-only, since adb starts its own daemon when none is running — run only on this call, cached briefly, and bypassed by refresh. Reachable means the device answered, never that a target can be launched on it: rEngine does not launch on a remote device, and the project’s own script action owns that.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "refresh": {
+            "default": false,
+            "description": "Bypass the brief probe cache and probe every declared device again.",
+            "type": "boolean"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_tasks",
+      "description": "List the bound project’s tasks from its declared tracker (contract 5): the local features.json inventory by default, GitHub Issues or Linear where the project declares one. Every row is the same neutral shape — key, title, state as (id, name, category), priority, labels, assignee, url, updatedAt, blockedBy, criteria — and the local state is the readiness tools/features.py reports; criteria are the local inventory’s acceptance criteria and are empty for a remote provider, whose issue body is prose rather than criteria. Read-only: nothing is written to any provider. A remote list that is empty says why: denied (no or refused credential, with signIn naming the provider), unavailable (unreachable, rate-limited, or the state directory unknown), or invalid with reasons. Remote answers are cached for 30 s; refresh bypasses that, and the local backend is always current.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "refresh": {
+            "default": false,
+            "description": "Bypass the 30 s cache of a remote provider.",
+            "type": "boolean"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "task_add",
+      "description": "Add one task row to the bound project’s local inventory by running the tracker.write command the project declares (contract 6) with the row as JSON. The workspace never edits the inventory text itself, so the row must be what that command accepts; list_tasks shows what this project’s rows look like. Only the local backend is written — GitHub and Linear stay read-only and refuse by name — and a project that declares no tracker.write is told so by name with nothing run. Gated by the project token: this agent must hold it, or the call is refused naming the holder and token_contest, and nothing is written. Writes are serialised per project, so two holders in sequence never interleave; a write already in flight is waited for, never refused.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "row": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {},
+            "description": "The task row as the project’s own write command expects it: the fields its inventory uses, not a shape rEngine invents."
+          },
+          "parent": {
+            "description": "The key of the task this row belongs under, for a subtask.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "task_update",
+      "description": "Update one task row in the bound project’s local inventory through the same declared tracker.write command, with the row as JSON and the action update. The row names which task it is the way the project’s own command expects (its id or key) and carries the fields to change; the workspace neither merges nor diffs, it hands that command what you send, so read the row with list_tasks first. Gated by the project token and serialised per project exactly as task_add is: a non-holder is refused naming the holder and nothing is written.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "row": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {},
+            "description": "The task row as the project’s own write command expects it: the fields its inventory uses, not a shape rEngine invents."
+          }
+        },
+        "required": [
+          "row"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "task_decompose",
+      "description": "Add one subtask under a parent task: the same declared tracker.write command with the action decompose and the parent key, which is how a decomposition brief creates the children of the task it was given. The parent is required — a decompose write without one is refused rather than filed at the top level. Each child should carry one acceptance criterion, and creating it implements nothing. Gated by the project token and serialised per project as the other writes are.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "row": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {},
+            "description": "The task row as the project’s own write command expects it: the fields its inventory uses, not a shape rEngine invents."
+          },
+          "parent": {
+            "type": "string",
+            "description": "The key of the task this subtask belongs under, as list_tasks reports it."
+          }
+        },
+        "required": [
+          "row",
+          "parent"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_agents_menu",
+      "description": "List the agent CLIs and models this project offers to spawn_agent, and the agent panes already running on it. The menu is the project’s own declared agents block (contract 6) when it has one, otherwise the CLIs rEngine can launch with its known model lists and, for codex, whatever its own --help names; installed says whether each CLI is actually on this machine, and a CLI with no models starts on its own default. The live list carries each running agent pane: its session, its conversation, the label the workspace shows it by, and the task it was spawned on when it carries one. Reading never needs the token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "spawn_agent",
+      "description": "Start a NEW agent pane on one task: the chosen CLI and model, on a fresh conversation seeded with the rendered prompt, with the task recorded on that conversation so the Sessions tab, workspace_info and the Tasks pane all show which agent works which task. brief task hands it the work; brief decompose hands it the decomposition brief, whose only legitimate output is task_add calls creating subtasks under the task. The model is passed with that CLI’s own flag (claude --model, codex -m); a CLI whose flag rEngine does not know is refused by name rather than started without the model you asked for. Prompts come from .rengine/prompts/task.md and decompose.md when the project has them and from rEngine’s shipped defaults when it does not; a placeholder the project misspells is named in the refusal and nothing is started. This starts a process; stop_session ends it. Gated by the project token — an agent spawning agents is an act on the project — so this agent must hold it or the call is refused naming the holder and token_contest, and nothing is started.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "taskKey": {
+            "type": "string",
+            "description": "The key of the task, as list_tasks reports it."
+          },
+          "agent": {
+            "type": "string",
+            "description": "One cli from list_agents_menu."
+          },
+          "model": {
+            "description": "One model from that cli’s list; omitted, the CLI starts on its own default.",
+            "type": "string"
+          },
+          "brief": {
+            "default": "task",
+            "type": "string",
+            "enum": [
+              "task",
+              "decompose"
+            ]
+          },
+          "desktopId": {
+            "description": "Show the new pane in this listed desktop; omitted, the pane is retained and shown later with show_session.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "taskKey",
+          "agent"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "game_preflight",
+      "description": "Check one game declared in the project’s .rengine/project.json (contract 3, games): its title, the first resolvable executable candidate, literal args and env, working directory, required files and surface prerequisites, with each problem as a named issue and ready. Under contract 4 it also reports the device the record runs on and its reachability: for a non-local device the executable is NOT looked for on this machine (the candidates and the device are reported instead), while the record’s own requires stay local. An undeclared project reports declared false, and an unknown gameId names the declared ids.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "gameId": {
+            "description": "One declared game id; omitted, the first declared game is used.",
+            "type": "string"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "launch_game",
+      "description": "Launch one game declared in the project’s .rengine/project.json on THIS machine (its own executable with literal args and env, in its declared working directory) or reuse the running session of that same game. Games of one project can run side by side; the same game already running with different arguments is refused rather than reused, so stop it first. embedded games stream into the workspace pane; external games open their own window and retain only their PTY output. A record bound to a non-local device is refused by name, pointing at the project’s own dashboard script action, and nothing is attempted. Executes a project executable; stop_session ends it. Gated by the project token: this agent must hold it, or the call is refused naming the holder and token_contest, and nothing is attempted.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "gameId": {
+            "description": "One declared game id; omitted, the first declared game is used.",
+            "type": "string"
+          },
+          "args": {
+            "description": "Literal argv appended to the declared record’s own args, as a dashboard game action carries.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "recordings_list",
+      "description": "List the game recordings committed for the bound project from its live pane (.cache/recordings): id, the game and session they came from, whether they were committed from the rolling buffer or an explicit start/stop, start and end, duration, size and the artifact inventory. A directory whose commit did not complete is listed with its error rather than hidden. Newest first.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "description": "At most this many recordings, newest first.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "recording_read",
+      "description": "Read one committed recording: its manifest, a bounded tail of its timestamped log slice, and a page of its timestamped keyframe index whose entries carry root-relative image paths to read with the file tools. Keyframes, log lines and any audio chunk share one clock — atMs from the segment start, beside the game frame sequence and an absolute wall time — so a frame can be put beside the line printed while it was on screen. Audio is a declared slot: when it is absent the manifest says so and names its provider.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "One recording id from recordings_list."
+          },
+          "artifact": {
+            "default": "all",
+            "type": "string",
+            "enum": [
+              "all",
+              "manifest",
+              "log",
+              "keyframes"
+            ]
+          },
+          "offset": {
+            "default": 0,
+            "description": "First keyframe of the page.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "default": 200,
+            "description": "Keyframes in the page.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "maxCharacters": {
+            "default": 8000,
+            "description": "Budget for the log tail.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32000
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "token_status",
+      "description": "Read this project's token: who holds it and since when, whether this agent holds it, any open contest with the seconds left on its window, the cooldowns a rejected contest left behind, and every agent identity the workspace has seen call anything on this root. token_status shows the holder; token_contest opens a contest (a free token is claimed at once) and, unless the holder or the person at the desktop rejects it, the token transfers to you at the deadline. Reading never needs the token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "token_contest",
+      "description": "Take the project token, or open a contest for it. A free token is claimed at once and the claim is a feed frame. A token held by another live agent opens a window of the workspace’s configured length (tokenWindowMs, 60 s by default): the holder’s monitor carries the contest, the holder or the person at the desktop may reject it with a reason, and if nobody does the token transfers to this agent at the deadline. A holder whose process is gone is replaced at once. Contest when about to act, not on startup: a rejected contest costs a cooldown of one window, named in the refusal.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "default": "",
+            "description": "One line the holder reads on its monitor: what this agent is about to do.",
+            "type": "string"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "token_reject",
+      "description": "Refuse the contest open against the token this agent holds. The contester reads the reason, keeps nothing, and cannot contest again for one window. Only the holder (or the person at the desktop) can reject.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "default": "",
+            "description": "Why the contester should wait: what is still running under this token.",
+            "type": "string"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "token_release",
+      "description": "Give up the project token so the next agent can take it without waiting out a window. Release when the work that needed it is finished; the release is a feed frame.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "feed_url",
+      "description": "Return the WebSocket URL of this project’s lifecycle feed, with the current cursor, for a monitor to watch. Frames are lifecycle only — token transitions, games starting and ending, device-bound dashboard actions starting and ending, captures starting and being committed, workspace layers replaced — each with a monotonic sequence; no process output ever appears on it. Every agent bound to the root may watch, holder or not. The socket is served by the workspace worker: after that worker is replaced, read this again and reopen with the last sequence seen.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "after": {
+            "description": "Replay retained frames after this sequence; omitted, the feed opens at the current cursor.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "feed_read",
+      "description": "Read retained lifecycle frames after a cursor, for an agent that polls rather than watching. The ring retains 1,000 frames per root and survives a workspace worker replacement; a cursor older than retainedFrom has missed frames and says so.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "after": {
+            "default": 0,
+            "description": "Return frames with a sequence greater than this.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "default": 200,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "stop_session",
+      "description": "Explicitly stop a retained process belonging to the bound project. Gated by the project token: this agent must hold it, or the call is refused naming the holder and token_contest, and nothing is attempted.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "restart_agent",
+      "description": "Replace one agent pane with a new one on the SAME conversation: the child is stopped and started again, resuming the conversation rEngine named when it launched it, with a freshly composed environment. Use it to pick up a corrected environment or a new CLI version without losing the conversation and without restarting the session host. The pane keeps its project binding; its process id changes. An agent whose CLI names its own conversations has none recorded and is refused by name rather than started as a second conversation — workspace_info shows which sessions carry one. Gated by the project token, as stop_session is: this restart stops that child, so this agent must hold the token or the call is refused naming the holder and token_contest, and nothing is attempted.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    }
+  ]
+}

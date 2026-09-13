@@ -238,9 +238,10 @@ flowchart TD
   F139 --> F148
   F149["F149: passing"]
   F148 --> F149
-  F150["F150: ready"]
-  F141 --> F150
-  F149 --> F150
+  F150["F150: blocked"]
+  F184 --> F150
+  F185 --> F150
+  F186 --> F150
   F151["F151: ready"]
   F147 --> F151
   F152["F152: blocked"]
@@ -315,6 +316,13 @@ flowchart TD
   F183["F183: passing"]
   F180 --> F183
   F182 --> F183
+  F184["F184: passing"]
+  F141 --> F184
+  F149 --> F184
+  F185["F185: ready"]
+  F184 --> F185
+  F186["F186: blocked"]
+  F185 --> F186
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -420,7 +428,7 @@ flowchart TD
 | F147 | J0 | rengine | passing | red-store replaces server/store.mjs and server/schema.mjs: project and session persistence in Rust with the on-disk format byte-compatible, deleted in the same commit the replacement passes (owner, 2026-09-11; spec 129, D57). |
 | F148 | J0 | rengine | passing | The F113 agent recipe registry becomes declarative data: one TOML document that the remaining JS and the new Rust side both parse, with spawn-environment composition (the RENGINE_AGENT_* context) ported (owner, 2026-09-11; spec 129, D57). |
 | F149 | J0 | rengine | passing | red-agents replaces agents/registry.mjs, agents/config.mjs, agents/report-session.mjs and agents/bind.mjs: conversation discovery for all five CLIs, hook overlays, and the codex trust-hash math, with agent.sh keeping its CLI surface while dispatching to the Rust binary (owner, 2026-09-11; spec 129, D57). |
-| F150 | J0 | rengine | ready | red-mcp replaces agents/mcp-worker.mjs and the runtime/tools.mjs probe: the root-bound MCP server in Rust over stdio, serving the same tool surface from the façade/host API, with the native desktop taught to exec red-mcp instead of node. This is the connection every agent pane uses, so the consumer-path evidence is live panes, not only fixtures (owner, 2026-09-11; spec 129, D57). |
+| F150 | J0 | rengine | blocked | red-mcp replaces agents/mcp-worker.mjs and the runtime/tools.mjs probe: the root-bound MCP server in Rust over stdio, serving the same tool surface from the façade/host API, with the native desktop taught to exec red-mcp instead of node. This is the connection every agent pane uses, so the consumer-path evidence is live panes, not only fixtures (owner, 2026-09-11; spec 129, D57). |
 | F151 | J0 | rengine | ready | red-pty replaces server/sessions.mjs: retained PTY sessions in Rust on portable-pty, with spawn, attach, scrollback replay, resize and kill identical to the JS session host, and retention across host restart as specs 059/060 promise (owner, 2026-09-11; spec 129, D57). |
 | F152 | J0 | rengine | blocked | red-host I: the Rust host core replaces server/main.mjs, server/desktops.mjs and server/surfaces.mjs with surface-protocol.mjs — the native desktop connects with zero native changes, and the surfaces focus-eviction semantic (surfaces.mjs:72-76, spec 114 finding 2) is preserved verbatim (owner, 2026-09-11; spec 129, D57). |
 | F153 | J0 | rengine | blocked | red-host II: server/tasks.mjs and the local half of server/tracker.mjs become Rust — the local backend's rows, readiness and criteria rendering, plus token-serialized tracker writes. tracker.mjs re-implements the features.py readiness rule while its schema text wrongly claims a shell-out (spec 114 finding 1): port the real behavior and correct the text (owner, 2026-09-11; spec 129, D57). |
@@ -453,3 +461,6 @@ flowchart TD
 | F181 | N0 | rengine | passing | F141b (the feed half of F141): the workspace's event stream arrives on a long-lived libp2p stream in order with monotonic sequence, and a reconnect resumes from a cursor exactly as the host's own clients do (owner, 2026-09-13; spec 128 decision 2, KI-098). |
 | F182 | N0 | rengine | passing | F181a (the contract half of F181): red.v1 carries the workspace lifecycle ring — the worker's feed of token, task, agent, game, capture, device-action and workspace frames — translated strictly, with the live ring judged by the F140 harness (owner, 2026-09-13; spec 128 decision 5, KI-099). |
 | F183 | N0 | rengine | passing | F181b (the transport half of F181): the lifecycle ring arrives on a long-lived libp2p stream in order with monotonic sequence, and a reconnect resumes from a cursor exactly as the worker's /feed clients do (owner, 2026-09-13; spec 128 decision 2, KI-099). |
+| F184 | J0 | rengine | passing | F150a (the surface half of F150): the MCP tool surface becomes data — captured from the live JS worker into a declaration red-mcp serves — so the port cannot drift on fifteen kilobytes of hand-transcribed description, with both servers driven by one MCP client and compared (owner, 2026-09-13; spec 129, KI-100). |
+| F185 | J0 | rengine | ready | F150b (the calls half of F150): tools/call for the full root-bound surface in Rust over the façade/host API, the native desktop taught to exec red-mcp, and agents/mcp-worker.mjs and runtime/tools.mjs deleted (owner, 2026-09-13; spec 129, KI-100). |
+| F186 | J0 | rengine | blocked | F150c (the live-pane half of F150): a real pane of each CLI completes a task-scoped action through the Rust MCP — the consumer-path evidence this row exists for, which is a dogfooding run in the owner's workspace rather than a fixture (owner, 2026-09-13; spec 129, KI-100). |

@@ -11,10 +11,7 @@
 //! tree. It asks in **HTTP/1.0**, which is what makes the answer a whole body and not a chunked
 //! stream this code would have to reassemble.
 
-use std::io::{Read, Write};
-use std::net::TcpStream;
-use std::time::Duration;
-
+use red_core::http::encode;
 use red_core::pb;
 use red_core::translate::{self, Drift};
 
@@ -30,48 +27,9 @@ impl Endpoint {
         Endpoint { url: url.into(), token: token.into() }
     }
 
-    /// `http://127.0.0.1:PORT` split into the address a socket wants and the host header it needs.
-    fn address(&self) -> Result<(String, String), String> {
-        let rest = self
-            .url
-            .strip_prefix("http://")
-            .ok_or_else(|| format!("{} is not an http:// workspace URL", self.url))?;
-        let authority = rest.split('/').next().unwrap_or_default().to_string();
-        if authority.is_empty() {
-            return Err(format!("{} names no host", self.url));
-        }
-        let socket = if authority.contains(':') { authority.clone() } else { format!("{authority}:80") };
-        Ok((socket, authority))
-    }
-
     /// One GET, one JSON body. `path` is workspace-relative and already query-encoded.
     pub fn get(&self, path: &str) -> Result<serde_json::Value, String> {
-        let (socket, authority) = self.address()?;
-        let mut stream = TcpStream::connect(&socket).map_err(|error| format!("cannot reach {socket}: {error}"))?;
-        stream.set_read_timeout(Some(Duration::from_secs(15))).ok();
-        stream.set_write_timeout(Some(Duration::from_secs(15))).ok();
-        let request = format!(
-            "GET {path} HTTP/1.0\r\nHost: {authority}\r\nAuthorization: Bearer {}\r\nAccept: application/json\r\nConnection: close\r\n\r\n",
-            self.token
-        );
-        stream.write_all(request.as_bytes()).map_err(|error| format!("cannot ask {socket} for {path}: {error}"))?;
-        let mut raw = Vec::new();
-        stream.read_to_end(&mut raw).map_err(|error| format!("no answer from {socket} for {path}: {error}"))?;
-        let text = String::from_utf8_lossy(&raw);
-        let (head, body) = text
-            .split_once("\r\n\r\n")
-            .ok_or_else(|| format!("{socket} answered {path} with no headers"))?;
-        let status = head
-            .lines()
-            .next()
-            .and_then(|line| line.split_whitespace().nth(1))
-            .unwrap_or("000");
-        if status != "200" {
-            /* The host's own words, not a generic failure: a phone shows this to a person. */
-            let said = body.trim();
-            return Err(format!("the workspace answered {status} for {path}{}", if said.is_empty() { String::new() } else { format!(": {said}") }));
-        }
-        serde_json::from_str(body).map_err(|error| format!("{path} did not answer JSON: {error}"))
+        red_core::http::get(&self.url, &self.token, path)
     }
 }
 
@@ -162,26 +120,9 @@ impl Workspace {
     }
 }
 
-/// Percent-encoding for the one thing that ever reaches a query string here: a root id.
-fn encode(value: &str) -> String {
-    value
-        .bytes()
-        .map(|byte| match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => (byte as char).to_string(),
-            other => format!("%{other:02X}"),
-        })
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn a_url_becomes_a_socket_address_and_a_host_header() {
-        let endpoint = Endpoint::new("http://127.0.0.1:8931", "t");
-        assert_eq!(endpoint.address().unwrap(), ("127.0.0.1:8931".into(), "127.0.0.1:8931".into()));
-    }
 
     #[test]
     fn a_request_that_names_nothing_is_refused_rather_than_answered() {
@@ -210,10 +151,6 @@ mod tests {
         assert!(error.message.contains("named none"), "{}", error.message);
     }
 
-    #[test]
-    fn a_root_id_reaches_the_query_string_encoded() {
-        assert_eq!(encode("a b/c"), "a%20b%2Fc");
-    }
 }
 
 /* ---- the lifecycle ring (F183/F181b) ---------------------------------------------------------- */

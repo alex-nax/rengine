@@ -2641,8 +2641,9 @@
       ],
       "passes": false,
       "dependencies": [
-        141,
-        149
+        184,
+        185,
+        186
       ],
       "owner_workspace": "rengine",
       "deliverable": "The Rust MCP server, the native exec change, the fixture-identical tool surface, and the live-pane evidence; mcp-worker.mjs and tools.mjs removed.",
@@ -3340,6 +3341,69 @@
         "orchestrator/tests/red-link.test.mjs: a subscriber on /red/1/feed is given the ring from its cursor in the workspace's own order, then a frame written after it subscribed arrives on the same stream; sequences increase and never repeat, and a second subscriber resuming at a cursor is given the frame after it rather than the one it had.",
         "Two sabotages observed failing for their own reasons: the cursor ignored (resume gives the frame already seen), and the stream closed after each frame (the subscriber sees an unexpected end of file where a stream should be)."
       ],
+      "external_references": []
+    },
+    {
+      "id": 184,
+      "milestone": "J0",
+      "category": "agents",
+      "priority": "high",
+      "description": "F150a (the surface half of F150): the MCP tool surface becomes data — captured from the live JS worker into a declaration red-mcp serves — so the port cannot drift on fifteen kilobytes of hand-transcribed description, with both servers driven by one MCP client and compared (owner, 2026-09-13; spec 129, KI-100).",
+      "acceptance_criteria": [
+        "red-mcp answers initialize and tools/list identically to agents/mcp-worker.mjs — names, descriptions, JSON Schemas, annotations, server identity, instructions and capabilities — compared by driving both servers with the same MCP client.",
+        "A tool added, renamed or reworded on the JS side without recapturing the declaration fails that comparison, and red-mcp refuses a binding it cannot serve in the words the worker uses."
+      ],
+      "passes": true,
+      "dependencies": [
+        141,
+        149
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The red-mcp crate, the captured tool declaration, and the two-server parity spec.",
+      "evidence": [
+        "docs/evidence/mcp-surface-f184-2026-09-13.md",
+        "red/red-mcp: the crate, serving initialize/tools/list/ping from red/red-mcp/src/tools.json — the surface captured from the live JS worker rather than retyped, because the 38 descriptions ARE the surface an agent reads.",
+        "orchestrator/tests/red-mcp.test.mjs: both servers started against one live workspace and driven by the same MCP client, compared deeply (order, descriptions, schemas, annotations, server identity, instructions, capabilities); plus the three binding refusals in the worker's own words.",
+        "Sabotages observed failing for their own reasons: a description drifting by three words, and the JS worker growing a tool without a recapture."
+      ],
+      "external_references": []
+    },
+    {
+      "id": 185,
+      "milestone": "J0",
+      "category": "agents",
+      "priority": "high",
+      "description": "F150b (the calls half of F150): tools/call for the full root-bound surface in Rust over the façade/host API, the native desktop taught to exec red-mcp, and agents/mcp-worker.mjs and runtime/tools.mjs deleted (owner, 2026-09-13; spec 129, KI-100).",
+      "acceptance_criteria": [
+        "tools/list and tools/call for the full root-bound surface return responses identical to the JS worker's on a recorded fixture conversation.",
+        "Running panes survive the cutover (their MCP is spawned per launch); only new launches pick up red-mcp.",
+        "agents/mcp-worker.mjs and runtime/tools.mjs are deleted in the same commit the replacement goes green."
+      ],
+      "passes": false,
+      "dependencies": [
+        184
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Rust tool calls, the native exec change, the fixture-identical conversation, and the deletion commit.",
+      "evidence": [],
+      "external_references": []
+    },
+    {
+      "id": 186,
+      "milestone": "J0",
+      "category": "agents",
+      "priority": "high",
+      "description": "F150c (the live-pane half of F150): a real pane of each CLI completes a task-scoped action through the Rust MCP — the consumer-path evidence this row exists for, which is a dogfooding run in the owner's workspace rather than a fixture (owner, 2026-09-13; spec 129, KI-100).",
+      "acceptance_criteria": [
+        "A real pane of each CLI — kimi, claude, codex — connects to the Rust MCP and completes one task-scoped action."
+      ],
+      "passes": false,
+      "dependencies": [
+        185
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The dogfood run and its recorded evidence.",
+      "evidence": [],
       "external_references": []
     }
   ]

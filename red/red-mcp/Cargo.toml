@@ -1,0 +1,9 @@
+[package]
+name = "red-mcp"
+version = "0.1.0"
+edition = "2021"
+description = "The root-bound MCP server of the Rust orchestrator (F150, spec 129, D57)"
+
+[dependencies]
+red-core = { path = "../red-core" }
+serde_json = "1"
