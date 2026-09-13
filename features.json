@@ -3202,14 +3202,19 @@
         "The retention architecture decision is recorded (per-host as today vs long-lived per-state-dir service), matching what specs 059/060 actually promise (GUI-restart reattachment; host replacement ends sessions today).",
         "A retained session survives the chosen restart path exactly as today's sidecar retention promises, with the spec 059/060 behaviors named in the ported tests."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         176
       ],
       "owner_workspace": "rengine",
       "deliverable": "The recorded decision, the implemented retention path, and the restart evidence.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/specs/131-pty-retention.md",
+        "docs/evidence/pty-retention-f177-2026-09-13.md",
+        "The decision is charter D60, owner 2026-09-13: red-pty-serve is long-lived per state directory, found through a pty.json descriptor with sidecar.json's loopback-plus-token discipline, and a starting host adopts the live sessions by attaching rather than by handover.",
+        "orchestrator/tests/pty-retention.test.mjs: five tests, six sabotages — a SIGKILLed host leaves its service and its shell running and the next host adopts the same session id, PID and scrollback and types into it; the token and the attach handshake gate everything; two racing hosts leave one red-pty-serve in the process table; a protocol mismatch is named and ended rather than adopted; an idle service reaps itself and one holding a session does not."
+      ]
     },
     {
       "id": 178,

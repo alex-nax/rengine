@@ -44,7 +44,7 @@ async function jsDriver(t, directory) {
 
 async function rustDriver(t, directory) {
   const client = await import('../server/pty-client.mjs');
-  const pty = await client.PtyHost.open(path.join(directory, 'pty-state'));
+  const pty = await client.PtyHost.open();
   const events = [];
   pty.on('event', event => events.push(event));
   return {

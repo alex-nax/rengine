@@ -1,5 +1,58 @@
 # Progress Log
 
+## Session 133 (macos) — 2026-09-13 — the PTYs stop belonging to the host (F177 / F151b, D60)
+
+The owner's decision, taken before anything was built: *"Per-state-dir service, survives host
+replacement."* The alternative — keep `red-pty-serve` a per-host child, preserving today's
+semantics exactly and reaching a node-free stack one tick sooner — lost to a fact about the rest of
+this epic: **F152–F163 each replace the host to prove themselves**, and `replace.mjs` prints the
+running sessions it ends, by name, every time. That is why the standing rule about never restarting
+the owner's session host exists. This row is the difference between a dogfood loop that costs the
+owner their agent panes each iteration and one that does not. Charter **D60**, spec **131**.
+
+`red-pty-serve --state DIR` is the new mode; the stdio one is unchanged and still right for a
+caller that wants one PTY and no state directory, which is what the F176 scenario harness is. The
+service binds loopback, writes `pty.json` (0600, tmp+rename) and takes one `attach` handshake
+carrying the token and the protocol before anything else. `pty-client.mjs` gains
+`PtyHost.attach(stateDir)`: the descriptor read and refused the way `discoverSidecar` refuses a
+sidecar's, a `pty-startup.lock` whose stale owner is reaped by PID, and a detached spawn whose
+stderr lands in `pty-serve.log`.
+
+**Adoption is discovery, not handover.** `attach` answers with the live session list and the host
+rebuilds from snapshots — the path spec 059 already takes after transport loss. There is no state
+to transfer, so there is no transfer to get wrong.
+
+**A sabotage that failed for the wrong reason, caught.** Test 1 read `pty.json` to learn the
+service's PID; with the per-host shape restored there is no descriptor at all, so it died on
+`ENOENT` before reaching its own claim. It now learns the service PID from the client under test —
+the host process it kills reports `pty.service.pid` — and the sabotage fails on the sentence it is
+there to defend: *"the host's PTYs live in a service of their own (null), and it outlives the
+host."*
+
+**And a control that masked the thing under test — the sixth case.** "Two racing hosts get one
+service" is defended twice, by the client's lock and by the service's own `already_serving`
+refusal, and sabotaging **either alone left the test green**. Chasing that found the assertion was
+comparing what the two clients *found* — the same service even when two are running, because the
+loser of the descriptor write is invisible to every reader of the file while still holding a port
+and a PTY. It counts `red-pty-serve --state <dir>` processes now, and goes red when both guards are
+removed. Recorded as what it is rather than dressed up as a single-sabotage proof.
+
+**A hang the tests found in the client.** `close()` awaited `socket.once('close')` unconditionally,
+so a host whose service had died waited for an event that had already fired, with nothing ref'd
+left to wake it. Node's runner calls that *"Promise resolution is still pending but the event loop
+has already resolved"*, which names the symptom; the cause was one missing `destroyed` check.
+
+Six sabotages, each observed failing for its own reason; the table is in
+`docs/evidence/pty-retention-f177-2026-09-13.md`. Commands: `npm test` (**308 of 308**, five
+added), `cargo build -p red-pty`, `python3 tools/features.py validate` (130 features),
+`python3 tools/design.py check`.
+
+**F177 passes.** Nothing in a running workspace changed today: `server/sessions.mjs` still owns the
+PTYs the desktop uses, and the standing rule about the owner's session host stays until **F178**
+puts this in front of real panes and deletes that module. F178 also inherits a question this row
+opened and did not answer — the service keeps exited sessions' scrollback as long as it lives, and
+its "as long as it lives" is now much longer than a host's.
+
 ## Session 132 (macos) — 2026-09-13 — registry/config/bind deleted; F149 complete (F173 / F149c)
 
 The last of the agent half. `orchestrator/agents/{registry,config,bind}.mjs` — 703 lines — are gone,

@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "lock-order-emit-never-takes-the-host",
+      "kind": "constraint",
+      "anchor": {
+        "start": 85,
+        "end": 138,
+        "symbol": "answer",
+        "snippet": "fn answer(host: &Mutex<Host>, mint: &Mutex<Mint>, request: &Value) -> Value {"
+      },
+      "note": "Three locks, and the order they may be taken in is the only thing keeping this deadlock-free.\n\nA command thread takes **host**, and (for `spawn`) **mint** inside it. A pump or exit-watcher thread inside `PtyHost` takes **emit** and then the **session** lock while building its event. The broadcast closure installed here takes **clients** and nothing else.\n\nThe rule that makes those safe together: *the emit closure must never take the host lock.* If it did \u2014 to look a session up, to count what is live, to decide whether to reap \u2014 a command holding `host` and waiting on a session would deadlock against a pump holding that session and waiting on `host`. The reaper is the place this is easiest to get wrong, which is why it reads `clients` and `host` as two separate short acquisitions and holds neither while it decides.\n\nSecond ordering note: `stop` holds the host lock for up to its 2 s SIGTERM grace, so every other command on every connection waits behind it. That matches the single-threaded stdio loop F176's scenarios pinned, and changing it would change observable interleaving, not just performance."
+    },
+    {
+      "id": "one-answer-function-two-transports",
+      "kind": "rationale",
+      "anchor": {
+        "start": 83,
+        "end": 84,
+        "symbol": "answer",
+        "snippet": "/// One request, one answer. Both transports run every method through this, so the socket cannot"
+      },
+      "note": "The stdio mode is not legacy and is not a test fixture: it is the right shape for a caller that wants one PTY and no state directory (the F176 scenario harness is exactly that), and it is what `PtyHost.open()` still uses. Keeping both transports on one `answer` is what stops the socket path from quietly drifting away from the behaviors the scenario set pinned against the real JS session host \u2014 a drift no test of the socket alone could see, because the scenario set only drives the stdio one.\n\nThe `attach` handshake deliberately does NOT go through `answer`: it is per-connection state, not host state, and letting it reach the host's method table would mean every future method had to remember whether it was allowed before authentication."
+    },
+    {
+      "id": "why-the-port-and-not-the-pid",
+      "kind": "rationale",
+      "anchor": {
+        "start": 225,
+        "end": 234,
+        "symbol": "already_serving",
+        "snippet": "fn already_serving(path: &Path) -> Option<Value> {"
+      },
+      "note": "`discoverSidecar` asks whether the PID in the descriptor is alive, and then asks the service to identify itself. This guard asks only the second question, because it is the one that matters and the first is not portable: `kill(pid, 0)` has no standard-library form here, and the crate shells out to `ps` for its process tree rather than taking a libc dependency.\n\nA PID can also lie in a way a port cannot: after a reboot or a PID wrap, the number in a stale descriptor may name something entirely unrelated, and a service that refuses to start because an unrelated process holds that number is a workspace that cannot open a terminal. A successful connect to the address the descriptor names is positive evidence that a red-pty service is there; anything else \u2014 refused, timed out, unparseable \u2014 means start one.\n\nThis is defense in depth, not the primary guard: the client's `pty-startup.lock` already serializes starts. Sabotaging either one alone leaves the other holding the line, which is recorded in docs/evidence/pty-retention-f177-2026-09-13.md rather than hidden."
+    }
+  ]
+}
