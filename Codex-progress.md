@@ -115,6 +115,23 @@ replaced cannot be deleted yet. The line count does not fall during a strangler 
 rises slightly, and every deletion lands at the end. That is the right shape, but it is not what the
 epic's per-row "Retires (JS)" column reads like.
 
+**And the part that was missing from all of it: nothing ran any of this.** red-host was complete for
+F152's scope and started by nothing except tests — `ensureSidecar` spawned the JS host, that process
+wrote `sidecar.json`, and every client talked to it exactly as before. A row can move nine routes, a
+socket and a registry into Rust and change nothing about what a person is running. So the process a
+launcher starts now starts the door in front of itself, publishes the door's url and token with its
+own pid (the pair is the workspace; that is the process the launcher started and `replace.mjs`
+stops), and the door dies with it — an orphan's parent becomes pid 1, and a door left behind would
+answer `/health` for a backend that is gone. A checkout with no red-host built still starts, from
+the JS host alone, and says so.
+
+**That change had no check, and removing it entirely left 23 tests across four host-starting specs
+green** — the same shape as the two defects `blind-regressions-2026-09-06.md` records. The suite
+starts hosts in process and drives them directly; nothing in it asked what a WORKSPACE runs.
+`front-door-cutover.test.mjs` asks: the descriptor names a live process, the process answering is a
+different one, that one is the single `red-host --state <dir>` in the table, the JS host is still
+behind it, and killing the host takes the door with it.
+
 **Where F189 stands.** Every route F152 names is answered by red-host now — the nine store routes,
 the seven session routes, `/api/state`, the desktops — and so is the `/events` socket. `/surface` is
 still spliced byte for byte, which is how criterion 2 is kept (`surfaces.mjs` untouched) and which
@@ -126,7 +143,7 @@ last criterion is the owner's live-pane run (F186).
 this door answers and how), `panes.rs` (what a pane is — its snapshot, its scrollback encoding, and
 the operations that make or change one), and `main.rs` (the door itself).
 
-Commands: `npm test` (**324 of 324**, zero services left), `cargo test`, `./init.sh`,
+Commands: `npm test` (**326 of 326**, zero services left), `cargo test`, `./init.sh`,
 `python3 tools/design.py check`, `python3 tools/features.py validate`, and the native
 `native-front-door` spec plus four of its neighbours.
 

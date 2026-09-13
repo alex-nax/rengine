@@ -1,6 +1,8 @@
 import http from 'node:http';
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { writeFile, rename } from 'node:fs/promises';
+import { open, readFile, writeFile, rename } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import path from 'node:path';
@@ -207,16 +209,81 @@ export async function startServer({ stateDir, port = 0, retainSessions = false }
   } };
 }
 
+/* The Rust front door (F188/F189, spec 129), which is what a workspace's clients actually talk to:
+   red-host owns the port and answers every route F152 names from the state directory's own store
+   and PTY services, forwarding what F153–F156 have not moved yet to this process. Its descriptor
+   announces THIS pid, because the pair is the workspace and this is the process a launcher started,
+   `replace.mjs` stops and `discoverSidecar` asks about.
+
+   A checkout with no red-host built still starts: the door is the front of this host, not a
+   requirement of it, and a workspace that refused to come up because a binary was missing would be
+   a worse answer than one that says so in its log. */
+function redHostBinary(env = process.env) {
+  const declared = env.RENGINE_RED_HOST;
+  if (declared) return existsSync(declared) ? declared : null;
+  const project = fileURLToPath(new URL('../..', import.meta.url));
+  for (const profile of ['release', 'debug']) {
+    const candidate = path.join(project, 'red/target', profile, 'red-host');
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+async function openFrontDoor(stateDir, instance, log) {
+  const binary = redHostBinary();
+  if (!binary) {
+    console.log('rEngine: no red-host binary found (build it with `cargo build -p red-host`); serving this workspace from the JS host.');
+    return null;
+  }
+  const child = spawn(binary, ['--state', stateDir, '--backend', instance.url, '--backend-token', instance.token,
+    '--pid', String(process.pid)], { stdio: ['ignore', log, log], windowsHide: true });
+  /* The door publishes the descriptor itself, so the workspace is discoverable exactly when the
+     door is ready to answer for it. What this waits for is the door's own announcement. */
+  const announced = await new Promise(resolve => {
+    const timer = setTimeout(() => resolve(null), 10000);
+    child.once('exit', code => { clearTimeout(timer); resolve({ exited: code }); });
+    const settle = async () => {
+      for (let waited = 0; waited < 10000; waited += 50) {
+        try {
+          const written = JSON.parse(await readFile(path.join(stateDir, 'sidecar.json'), 'utf8'));
+          if (written.pid === process.pid && written.url !== instance.url) { clearTimeout(timer); resolve(written); return; }
+        } catch { /* not yet */ }
+        await new Promise(tick => setTimeout(tick, 50));
+      }
+    };
+    settle();
+  });
+  if (!announced || announced.exited !== undefined) {
+    console.log(`rEngine: red-host did not come up (${JSON.stringify(announced)}); serving this workspace from the JS host.`);
+    try { child.kill('SIGKILL'); } catch { /* already gone */ }
+    return null;
+  }
+  return { child, descriptor: announced };
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const index = process.argv.indexOf('--state');
   const stateDir = path.resolve(index >= 0 ? process.argv[index + 1] : path.join(homedir(), '.local/state/rengine'));
   /* The host of a state directory, started as its own process: its panes outlive it (D60). */
   const instance = await startServer({ stateDir, retainSessions: true });
-  const descriptor = path.join(stateDir, 'sidecar.json');
-  await writeFile(`${descriptor}.${process.pid}.tmp`, JSON.stringify({ url: instance.url, token: instance.token, instance: instance.instance, pid: process.pid }), { mode: 0o600 });
-  await rename(`${descriptor}.${process.pid}.tmp`, descriptor);
-  console.log(`rEngine sidecar listening at ${instance.url}`);
+  const log = await open(path.join(stateDir, 'red-host.log'), 'a', 0o600);
+  const door = await openFrontDoor(stateDir, instance, log.fd);
+  await log.close();
+  if (!door) {
+    const descriptor = path.join(stateDir, 'sidecar.json');
+    await writeFile(`${descriptor}.${process.pid}.tmp`, JSON.stringify({ url: instance.url, token: instance.token, instance: instance.instance, pid: process.pid }), { mode: 0o600 });
+    await rename(`${descriptor}.${process.pid}.tmp`, descriptor);
+  }
+  console.log(`rEngine sidecar listening at ${door ? door.descriptor.url : instance.url}`);
   let stopping = false;
-  const stop = async () => { if (stopping) return; stopping = true; await instance.close(); process.exit(0); };
+  const stop = async () => {
+    if (stopping) return;
+    stopping = true;
+    /* The door first: a door still answering for a host that is shutting down would tell a caller
+       the workspace is there while its backend is going away underneath. */
+    try { door?.child.kill('SIGTERM'); } catch { /* already gone */ }
+    await instance.close();
+    process.exit(0);
+  };
   process.on('SIGTERM', stop); process.on('SIGINT', stop);
 }

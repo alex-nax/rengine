@@ -50,7 +50,7 @@ use routes::{answer_about_pane, answer_desktop_action, answer_from_store, answer
 const PTY_PROTOCOL: u64 = 2;
 const STORE_PROTOCOL: u64 = 1;
 
-const USAGE: &str = "usage: red-host --state <dir> --backend <url> --backend-token <token> [--port N]";
+const USAGE: &str = "usage: red-host --state <dir> --backend <url> --backend-token <token> [--port N] [--pid N]";
 
 struct Front {
     /// The state directory's store, attached rather than opened: the JS backend is attached to the
@@ -100,6 +100,11 @@ struct Options {
     backend: String,
     backend_token: String,
     port: u16,
+    /// What the descriptor says is running this workspace. A door started BY the host it fronts
+    /// publishes that host's pid, because that is the process the launcher started, the one
+    /// `replace.mjs` stops and the one `discoverSidecar` asks whether the workspace is alive. The
+    /// pair is the workspace; the process the launcher can name is the pair's handle.
+    announced_pid: u32,
 }
 
 fn parse(argv: Vec<String>) -> Result<Options, String> {
@@ -118,6 +123,10 @@ fn parse(argv: Vec<String>) -> Result<Options, String> {
         port: match map.get("port") {
             Some(value) => value.parse().map_err(|_| "--port is not a number".to_string())?,
             None => 0,
+        },
+        announced_pid: match map.get("pid") {
+            Some(value) => value.parse().map_err(|_| "--pid is not a number".to_string())?,
+            None => std::process::id(),
         },
     })
 }
@@ -229,7 +238,7 @@ async fn serve(options: Options) -> Result<(), String> {
        0600, and the token this door checks rather than the backend's. */
     let descriptor = std::path::Path::new(&options.state).join("sidecar.json");
     let document = serde_json::json!({
-        "url": front.url, "token": front.token, "instance": front.instance, "pid": std::process::id(),
+        "url": front.url, "token": front.token, "instance": front.instance, "pid": options.announced_pid,
     });
     let temporary = descriptor.with_extension(format!("json.{}.tmp", std::process::id()));
     std::fs::write(&temporary, document.to_string()).map_err(|error| format!("cannot write {}: {error}", temporary.display()))?;
@@ -242,6 +251,25 @@ async fn serve(options: Options) -> Result<(), String> {
     println!("{}", serde_json::json!({ "role": "host", "url": front.url, "instance": front.instance, "pid": std::process::id() }));
     use std::io::Write;
     let _ = std::io::stdout().flush();
+
+    /* A door started by the host it fronts dies with it. The pair is the workspace: a door left
+       behind would answer `/health` and every route it owns for a backend that is gone, which reads
+       as a healthy workspace to everything that asks. On unix an orphan's parent becomes pid 1, and
+       that is the signal. A door started on its own — by a test, or by hand — has a parent that
+       outlives it and this never fires. */
+    #[cfg(unix)]
+    if options.announced_pid != std::process::id() {
+        let parent = std::os::unix::process::parent_id();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                if std::os::unix::process::parent_id() != parent {
+                    eprintln!("red-host: the host this door fronts is gone; stopping with it.");
+                    std::process::exit(0);
+                }
+            }
+        });
+    }
 
     loop {
         let Ok((stream, _)) = listener.accept().await else { continue };
