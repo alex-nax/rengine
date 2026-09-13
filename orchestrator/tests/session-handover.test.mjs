@@ -55,10 +55,13 @@ test('a replaced host adopts the panes the state directory still holds', { timeo
   const stateDir = path.join(directory, 'state');
   t.after(async () => {
     /* Whatever is still holding PTYs when this test ends is this test's to clean up. */
-    try {
-      const pty = JSON.parse(await readFile(path.join(stateDir, 'pty.json'), 'utf8'));
-      if (Number.isSafeInteger(pty.pid)) { try { process.kill(pty.pid, 'SIGKILL'); } catch { /* gone */ } }
-    } catch { /* no service */ }
+    /* Both of the directory's services: the PTYs it holds and, since D61, its store. */
+    for (const name of ['pty.json', 'store.json']) {
+      try {
+        const descriptor = JSON.parse(await readFile(path.join(stateDir, name), 'utf8'));
+        if (Number.isSafeInteger(descriptor.pid)) { try { process.kill(descriptor.pid, 'SIGKILL'); } catch { /* gone */ } }
+      } catch { /* none left */ }
+    }
     await rm(directory, { recursive: true, force: true });
   });
   await writeFile(path.join(directory, 'note.txt'), 'a project\n');

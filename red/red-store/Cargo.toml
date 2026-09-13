@@ -8,6 +8,7 @@ description = "The workspace store in Rust: byte-compatible state, files and the
 # order, and the corpus compares file bytes. red-agents' canonical JSON writes its keys in
 # sorted order by hand (hooks.rs), so the unified feature changes nothing it hashes.
 [dependencies]
+red-core = { path = "../red-core" }
 serde_json = { version = "1", features = ["preserve_order"] }
 sha2 = "0.10"
 fancy-regex = "0.14"

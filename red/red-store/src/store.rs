@@ -171,12 +171,14 @@ pub struct Store {
     pub directory: PathBuf,
     pub filename: PathBuf,
     pub state: Value,
-    pub now: Box<dyn Fn() -> i64>,
+    /* `Send`, because the store is shared across the connection threads of a per-state-directory
+       service (charter D61) as well as being driven from one stdin. */
+    pub now: Box<dyn Fn() -> i64 + Send>,
     /// The id minter (randomUUID in JS).
-    pub mint: Box<dyn Fn() -> String>,
+    pub mint: Box<dyn Fn() -> String + Send>,
     /// The transient temp-name source — the same randomUUID in JS, separate here so a replay
     /// can keep its id sequence aligned while temp names stay unique and unobserved.
-    pub temp: Box<dyn Fn() -> String>,
+    pub temp: Box<dyn Fn() -> String + Send>,
 }
 
 fn default_state() -> Value {

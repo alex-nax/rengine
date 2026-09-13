@@ -18,7 +18,7 @@ use serde_json::{json, Value};
 struct Replay {
     store: Store,
     dir: String,
-    ops_counter: std::rc::Rc<std::cell::Cell<usize>>,
+    ops_counter: std::sync::Arc<std::sync::atomic::AtomicUsize>,
     drift: Vec<String>,
 }
 
@@ -52,17 +52,17 @@ impl Replay {
         let dir = std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
         let state_dir = dir.join("state");
         let mut store = Store::open(&state_dir).map_err(|fail| fail.message)?;
-        let ops_counter = std::rc::Rc::new(std::cell::Cell::new(0usize));
-        let minted = std::rc::Rc::new(std::cell::RefCell::new(minted));
+        let ops_counter = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let minted = std::sync::Arc::new(std::sync::Mutex::new(minted));
         let now = {
             let ops_counter = ops_counter.clone();
-            move || STAMPS[ops_counter.get().min(STAMPS.len() - 1)]
+            move || STAMPS[ops_counter.load(std::sync::atomic::Ordering::Relaxed).min(STAMPS.len() - 1)]
         };
-        let mint = move || minted.borrow_mut().pop_front().unwrap_or_else(|| placeholder(999));
-        let temp_counter = std::rc::Rc::new(std::cell::Cell::new(0usize));
+        let mint = move || minted.lock().expect("mint lock").pop_front().unwrap_or_else(|| placeholder(999));
+        let temp_counter = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let temp = move || {
-            temp_counter.set(temp_counter.get() + 1);
-            format!("replay-temp-{}", temp_counter.get())
+            temp_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            format!("replay-temp-{}", temp_counter.load(std::sync::atomic::Ordering::Relaxed))
         };
         store.now = Box::new(now);
         store.mint = Box::new(mint);
@@ -89,7 +89,7 @@ impl Replay {
         let name = op.get("op").and_then(Value::as_str).unwrap_or("");
         let args = self.map_paths(op.get("args").unwrap_or(&Value::Null));
         let outcome = self.dispatch(name, &args);
-        self.ops_counter.set(self.ops_counter.get() + 1);
+        self.ops_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let (result, error) = match outcome {
             Ok(value) => (value, Value::Null),
             Err(fail) => {

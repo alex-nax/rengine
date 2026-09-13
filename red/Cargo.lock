@@ -2696,6 +2696,7 @@ dependencies = [
 name = "red-core"
 version = "0.1.0"
 dependencies = [
+ "getrandom 0.3.4",
  "prost 0.13.5",
  "prost-build",
  "serde",
@@ -2740,6 +2741,7 @@ version = "0.1.0"
 dependencies = [
  "getrandom 0.3.4",
  "portable-pty",
+ "red-core",
  "serde_json",
 ]
 
@@ -2750,6 +2752,7 @@ dependencies = [
  "fancy-regex",
  "getrandom 0.3.4",
  "red-agents",
+ "red-core",
  "serde_json",
  "sha2 0.10.9",
 ]

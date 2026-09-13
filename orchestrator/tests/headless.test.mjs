@@ -9,6 +9,7 @@ import { networkInterfaces, tmpdir } from 'node:os';
 import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { alive, ensureSidecar } from '../launcher/sidecar.mjs';
 import { startServer } from '../server/main.mjs';
+import { endStateServices } from './state-services.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const LAUNCH = path.join(ROOT, 'orchestrator/launch.mjs');
@@ -21,7 +22,11 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 // and leave the sidecar running for the rest of the machine's uptime.
 async function scratch(t) {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-headless-'));
-  t.after(async () => { await stopSidecar(directory); await rm(directory, { recursive: true, force: true }); });
+  t.after(async () => {
+    await stopSidecar(directory);
+    await endStateServices(directory); /* the directory's own services outlive its host by design */
+    await rm(directory, { recursive: true, force: true });
+  });
   return directory;
 }
 

@@ -9,6 +9,7 @@
 //! no source here hand-writes what charter D41 made a data edit.
 
 pub mod http;
+pub mod service;
 pub mod theme;
 pub mod translate;
 pub mod version;

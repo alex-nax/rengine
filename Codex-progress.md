@@ -1,5 +1,46 @@
 # Progress Log
 
+## Session 144 (macos) — 2026-09-13 — the store belongs to the directory too (D61), and one service for both
+
+Two decisions came back from the owner and both are carried out here.
+
+**The sequencing (KI-102).** F152's third criterion — "the four JS modules removed" — cannot be met
+at F152's place in the sequence: thirteen of `main.mjs`'s 33 routes belong to F153–F156, and a front
+door has to forward what it does not own, so that row cannot both forward to the JS host and delete
+it. The deletion moves to the end of the host arc; F152's row carries the amendment and F189's
+criteria say what it does instead. Nothing else about F152 changes.
+
+**The store (KI-103 → charter D61).** Moving a route into red-host moves the state it owns, and
+`store-client.mjs` spawns its own service per host process — two in-memory owners of one set of
+files. red-store now takes the shape red-pty has under D60: a `store.json` descriptor, one
+long-lived service, every host attaching.
+
+**One implementation of that shape, not two.** The descriptor, the attach handshake, the client list
+and the idle reaper are `red_core::service` now, and red-pty was moved onto it — its five retention
+tests are what proved the extraction did not change it. What each service keeps is what is actually
+its own: **a PTY service holds a shell and never reaps while it does; a store holds nothing,
+because its state is on disk**, so an idle store goes away and the next attach reads the same state
+back. One method on the shared trait is the whole difference.
+
+**One owner was only half the answer.** A client keeps a snapshot — `root()` is a lookup in it, not
+a call — so the service pushes its new state to every attached host after a change. A host sees its
+own writes at once and another host's within a round trip, which is the honest shape of two
+processes sharing one store and is asserted rather than assumed.
+
+**And the suite found the leak immediately: 91 stray services after one run.** A test that starts a
+real host, kills it and deletes its directory leaves the directory's services behind — and a PTY
+service holding a shell never reaps, which is exactly D60's promise. `npm test` now runs with a
+five-second idle, and a test that owns a state directory ends its services
+(`tests/state-services.mjs`). After: zero.
+
+Sabotages: the broadcast removed (`Unknown project root.` — a host refusing a root that exists), and
+the client always starting a service instead of reusing one, which **passed** because the startup
+lock's double-check catches it — so the assertion counts processes rather than comparing what two
+clients found, the same correction the pty race test needed.
+
+Commands: `npm test` (**320 of 320**, nothing left running), `cargo test` across the workspace (22
+suites), `python3 tools/design.py check`.
+
 ## Session 143 (macos) — 2026-09-13 — the front door, and the half-ported host problem (F188 / F152a)
 
 F152's real difficulty is not its size. `server/main.mjs` is 217 lines and a **dispatcher**: 33

@@ -41,7 +41,12 @@ function json(response, status, value) {
 export async function startServer({ stateDir, port = 0, retainSessions = false } = {}) {
   if (!stateDir) fail('The sidecar requires an explicit state directory.');
   stateDir = path.resolve(stateDir);
-  const store = await WorkspaceStore.open(stateDir);
+  /* A host that owns a state directory attaches to that directory's store (charter D61) rather
+     than starting one of its own: while the host is being ported a route at a time, red-host and
+     this process both serve the same workspace, and two in-memory owners of one file is stale
+     reads on one side and lost writes on the other. A host embedded in a test starts its own, for
+     the reason it keeps its own PTYs. */
+  const store = retainSessions ? await WorkspaceStore.attach(stateDir) : await WorkspaceStore.open(stateDir);
   const sessions = new Sessions(store, retainSessions ? { stateDir } : {});
   const desktops = new Desktops(store, sessions);
   const games = await Games.open(store, sessions);

@@ -24,12 +24,11 @@
 //! long nobody is listening, which is the whole point of it. Harness mint injection follows
 //! RED_STORE_MINT_SEQUENCE's precedent (RED_PTY_MINT_SEQUENCE).
 
-use std::io::{BufRead, BufReader, Write};
-use std::net::{TcpListener, TcpStream};
-use std::path::{Path, PathBuf};
+use std::io::{BufRead, Write};
+use std::path::Path;
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use red_pty::{Fail, PtyHost};
 use serde_json::{json, Value};
@@ -37,7 +36,6 @@ use serde_json::{json, Value};
 /// The wire this service speaks. A host that needs another number is told both, and the client
 /// ends this service rather than adopting it — spec 131.
 const PROTOCOL: u64 = 1;
-const DESCRIPTOR: &str = "pty.json";
 
 type Host = PtyHost<Box<dyn FnMut(Value) + Send>>;
 type Mint = Box<dyn FnMut() -> String + Send>;
@@ -49,21 +47,6 @@ fn uuid_v4() -> String {
     bytes[8] = bytes[8] & 0x3f | 0x80;
     let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
     format!("{}-{}-{}-{}-{}", &hex[0..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..32])
-}
-
-/// 64 hex characters, the shape `discoverSidecar` already validates for the session host.
-fn secret() -> String {
-    let mut bytes = [0u8; 32];
-    getrandom::fill(&mut bytes).expect("the operating system answers randomness");
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
-/// No early exit on the first differing byte: the comparison takes the same time either way.
-fn same_secret(left: &str, right: &str) -> bool {
-    if left.len() != right.len() {
-        return false;
-    }
-    left.bytes().zip(right.bytes()).fold(0u8, |differences, (a, b)| differences | (a ^ b)) == 0
 }
 
 fn mint_sequence() -> Mint {
@@ -190,225 +173,57 @@ fn serve_stdio() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-/* The per-state-directory service. */
+/* ---- the per-state-directory service (D60) --------------------------------------------------- */
 
-struct Client {
-    out: Arc<Mutex<TcpStream>>,
-}
+/* The descriptor, the attach handshake, the client list and the idle reaper are
+   `red_core::service` — the store needs the same machinery under D61, and two copies of it would
+   be two chances to drift. What stays here is what is actually about PTYs: the dispatch, and
+   "holding" meaning a session exists. */
 
-/// Everything the reaper and the connections share. `idle_since` is the moment the last client
-/// left (or the moment the service started, so a service nobody ever attaches to still reaps).
-struct Service {
+struct Sessions {
     host: Arc<Mutex<Host>>,
     mint: Mutex<Mint>,
-    clients: Arc<Mutex<Vec<Client>>>,
-    idle_since: Mutex<Instant>,
-    token: String,
-    instance: String,
-    descriptor: PathBuf,
 }
 
-fn send(out: &Arc<Mutex<TcpStream>>, line: &str) -> bool {
-    let mut stream = out.lock().expect("client lock");
-    stream.write_all(line.as_bytes()).and_then(|_| stream.flush()).is_ok()
-}
-
-fn descriptor_of(directory: &Path) -> PathBuf {
-    directory.join(DESCRIPTOR)
-}
-
-/// tmp + rename, 0600 — a reader never sees half a descriptor, and nobody else can read the
-/// token out of it.
-fn write_descriptor(path: &Path, document: &Value) -> std::io::Result<()> {
-    let temporary = path.with_extension(format!("json.{}.tmp", std::process::id()));
-    std::fs::write(&temporary, format!("{document}"))?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&temporary, std::fs::Permissions::from_mode(0o600))?;
+impl red_core::service::Served for Sessions {
+    fn answer(&self, request: &Value) -> Value {
+        answer(&self.host, &self.mint, request)
     }
-    std::fs::rename(&temporary, path)
-}
 
-/// A service already serving this directory answers its own port. Asking the port rather than
-/// the PID is the portable question and the more honest one: it tests the service, not a number.
-fn already_serving(path: &Path) -> Option<Value> {
-    let text = std::fs::read_to_string(path).ok()?;
-    let document: Value = serde_json::from_str(&text).ok()?;
-    let url = document.get("url").and_then(Value::as_str)?;
-    let address = url.strip_prefix("tcp://")?;
-    let target: std::net::SocketAddr = address.parse().ok()?;
-    TcpStream::connect_timeout(&target, Duration::from_millis(500)).ok()?;
-    Some(document)
+    /// A service holding a session never reaps itself, however long nobody is listening: that is
+    /// the whole point of it.
+    fn holding(&self) -> bool {
+        !self.host.lock().expect("host lock").list().is_empty()
+    }
+
+    /// What a host is given the moment it attaches: everything this service is already holding,
+    /// which is how a replaced host learns what it inherited.
+    fn greeting(&self) -> Value {
+        json!({ "sessions": self.host.lock().expect("host lock").list() })
+    }
 }
 
 fn serve_state(directory: &Path) -> ExitCode {
-    if let Err(error) = std::fs::create_dir_all(directory) {
-        eprintln!("red-pty-serve: {} cannot be created: {error}", directory.display());
-        return ExitCode::from(1);
-    }
-    let descriptor = descriptor_of(directory);
-    if let Some(existing) = already_serving(&descriptor) {
-        eprintln!(
-            "red-pty-serve: {} is already served by PID {} at {}. Nothing was started.",
-            directory.display(),
-            existing.get("pid").and_then(Value::as_u64).unwrap_or(0),
-            existing.get("url").and_then(Value::as_str).unwrap_or("?")
-        );
-        return ExitCode::from(3);
-    }
-    let listener = match TcpListener::bind(("127.0.0.1", 0)) {
-        Ok(listener) => listener,
-        Err(error) => {
-            eprintln!("red-pty-serve: loopback is unavailable: {error}");
-            return ExitCode::from(1);
-        }
-    };
-    let port = listener.local_addr().expect("the bound address").port();
-    let clients: Arc<Mutex<Vec<Client>>> = Arc::new(Mutex::new(Vec::new()));
-    let broadcast = clients.clone();
-    let host: Arc<Mutex<Host>> = Arc::new(Mutex::new(PtyHost::new(Box::new(move |event: Value| {
-        let line = format!("{event}\n");
-        broadcast.lock().expect("clients lock").retain(|client| send(&client.out, &line));
-    }))));
-    let service = Arc::new(Service {
-        host,
-        mint: Mutex::new(mint_sequence()),
-        clients,
-        idle_since: Mutex::new(Instant::now()),
-        token: secret(),
-        instance: uuid_v4(),
-        descriptor: descriptor.clone(),
-    });
-    let document = json!({
-        "url": format!("tcp://127.0.0.1:{port}"),
-        "token": service.token,
-        "instance": service.instance,
-        "pid": std::process::id(),
-        "protocol": PROTOCOL,
-    });
-    if let Err(error) = write_descriptor(&descriptor, &document) {
-        eprintln!("red-pty-serve: {} cannot be written: {error}", descriptor.display());
-        return ExitCode::from(1);
-    }
-    println!("red-pty serving {} at tcp://127.0.0.1:{port}", directory.display());
-    let _ = std::io::stdout().flush();
-    reap_when_idle(service.clone());
-    for stream in listener.incoming() {
-        let Ok(stream) = stream else { continue };
-        let service = service.clone();
-        std::thread::spawn(move || connection(service, stream));
-    }
-    ExitCode::SUCCESS
-}
-
-/// A service that holds nothing and that nobody is attached to removes its own descriptor and
-/// goes away. A service holding sessions never does, however long it waits — that is what
-/// "the sessions belong to the state directory" means.
-fn reap_when_idle(service: Arc<Service>) {
-    let limit = Duration::from_secs(
+    let idle = Duration::from_secs(
         std::env::var("RED_PTY_IDLE_SECONDS").ok().and_then(|value| value.parse().ok()).unwrap_or(600),
     );
-    std::thread::spawn(move || loop {
-        std::thread::sleep(Duration::from_millis(250));
-        let attached = !service.clients.lock().expect("clients lock").is_empty();
-        let holding = !service.host.lock().expect("host lock").list().is_empty();
-        if attached || holding {
-            continue;
+    /* The emit closure needs the client list, and the host needs the emit closure, so the service
+       hands the emitter back once it exists and the host is built around it. */
+    let shared: Arc<Mutex<Option<red_core::service::Emitter>>> = Arc::new(Mutex::new(None));
+    let for_host = shared.clone();
+    let host: Arc<Mutex<Host>> = Arc::new(Mutex::new(PtyHost::new(Box::new(move |event: Value| {
+        if let Some(emitter) = for_host.lock().expect("emitter lock").as_ref() {
+            emitter.say(&event);
         }
-        if service.idle_since.lock().expect("idle lock").elapsed() < limit {
-            continue;
-        }
-        forget_descriptor(&service);
-        std::process::exit(0);
-    });
-}
-
-/// Only ours. A successor's descriptor is not this process's to delete.
-fn forget_descriptor(service: &Service) {
-    let ours = std::fs::read_to_string(&service.descriptor)
-        .ok()
-        .and_then(|text| serde_json::from_str::<Value>(&text).ok())
-        .and_then(|document| document.get("instance").and_then(Value::as_str).map(str::to_string))
-        .is_some_and(|instance| instance == service.instance);
-    if ours {
-        let _ = std::fs::remove_file(&service.descriptor);
-    }
-}
-
-fn connection(service: Arc<Service>, stream: TcpStream) {
-    let Ok(reading) = stream.try_clone() else { return };
-    let out = Arc::new(Mutex::new(stream));
-    let mut attached = false;
-    for line in BufReader::new(reading).lines() {
-        let Ok(line) = line else { break };
-        if line.trim().is_empty() {
-            continue;
-        }
-        let request: Value = match serde_json::from_str(&line) {
-            Ok(value) => value,
-            Err(error) => {
-                send(&out, &format!("{}\n", fail_out(&Value::Null, format!("not JSON: {error}"))));
-                continue;
-            }
-        };
-        let id = request.get("id").cloned().unwrap_or(Value::Null);
-        let method = request.get("method").and_then(Value::as_str).unwrap_or("");
-        if method == "attach" {
-            match attach(&service, &request) {
-                Ok(result) => {
-                    if !attached {
-                        attached = true;
-                        service.clients.lock().expect("clients lock").push(Client { out: out.clone() });
-                    }
-                    send(&out, &format!("{}\n", json!({ "id": id, "result": result })));
-                }
-                Err(fail) => {
-                    send(&out, &format!("{}\n", json!({ "id": id, "error": { "message": fail.message, "status": fail.status } })));
-                    break;
-                }
-            }
-            continue;
-        }
-        if !attached {
-            let fail = Fail::new("red-pty: attach with this service's token before anything else.", 401);
-            send(&out, &format!("{}\n", json!({ "id": id, "error": { "message": fail.message, "status": fail.status } })));
-            continue;
-        }
-        let answer = answer(&service.host, &service.mint, &request);
-        if !send(&out, &format!("{answer}\n")) {
-            break;
+    }))));
+    let sessions = Sessions { host, mint: Mutex::new(mint_sequence()) };
+    match red_core::service::serve(directory, "pty", PROTOCOL, idle, sessions, |emitter| {
+        *shared.lock().expect("emitter lock") = Some(emitter);
+    }) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(message) => {
+            eprintln!("red-pty-serve: {message}");
+            ExitCode::from(3)
         }
     }
-    if attached {
-        let mut clients = service.clients.lock().expect("clients lock");
-        clients.retain(|client| !Arc::ptr_eq(&client.out, &out));
-        if clients.is_empty() {
-            *service.idle_since.lock().expect("idle lock") = Instant::now();
-        }
-    }
-}
-
-/// The token gates everything; the protocol number is checked too, so a host that would
-/// misread this service is told rather than served.
-fn attach(service: &Service, request: &Value) -> std::result::Result<Value, Fail> {
-    let options = request.get("args").and_then(Value::as_array).and_then(|args| args.first()).cloned().unwrap_or(Value::Null);
-    let token = options.get("token").and_then(Value::as_str).unwrap_or("");
-    if !same_secret(token, &service.token) {
-        return Err(Fail::new("red-pty: the attach token does not match this service.", 401));
-    }
-    let protocol = options.get("protocol").and_then(Value::as_u64).unwrap_or(PROTOCOL);
-    if protocol != PROTOCOL {
-        return Err(Fail::new(
-            format!("red-pty: this service speaks protocol {PROTOCOL}; the client asked for {protocol}."),
-            409,
-        ));
-    }
-    Ok(json!({
-        "started": true,
-        "instance": service.instance,
-        "protocol": PROTOCOL,
-        "pid": std::process::id(),
-        "sessions": service.host.lock().expect("host lock").list(),
-    }))
 }

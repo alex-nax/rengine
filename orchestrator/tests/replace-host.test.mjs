@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { endStateServices } from './state-services.mjs';
 import { tmpdir } from 'node:os';
 import { mkdir, mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import { alive, ensureSidecar, request } from '../launcher/sidecar.mjs';
@@ -138,7 +139,13 @@ test('a host whose descriptor is older than the code is stale, one that is newer
 // removing its directory is one hook, for the reason headless.test.mjs records.
 async function scratch(t) {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-replace-'));
-  t.after(async () => { await stopSidecar(directory); await rm(directory, { recursive: true, force: true }); });
+  t.after(async () => {
+    await stopSidecar(directory);
+    /* And the services the directory keeps after its host — the whole point of D60/D61, and a
+       leak in a suite that deletes the directory underneath them. */
+    await endStateServices(directory);
+    await rm(directory, { recursive: true, force: true });
+  });
   return directory;
 }
 async function stopSidecar(directory) {
@@ -167,8 +174,8 @@ test('replacing a throwaway host: the old one exits, its port closes, a new one 
   /* Only the host is signalled: its stdio services (the store) are gone by the time the children
      are looked at, because their stdin closed with it. */
   assert.deepEqual(report.stopped.map(({ role, outcome }) => ({ role, outcome })), [{ role: 'host', outcome: 'stopped on SIGTERM' }]);
-  assert.equal(report.retained?.role, 'pty service',
-    'and the one child that is not the host\'s to end: the state directory keeps its panes (D60)');
+  assert.deepEqual((report.retained ?? []).map(item => item.role).sort(), ['pty service', 'store service'],
+    'and the children that are not the host\'s to end: the state directory keeps its panes (D60) and its store (D61)');
   assert.deepEqual(report.ended.map(item => [item.id, item.type]), [[session.id, 'terminal']],
     'the report names the session that changes hands');
 

@@ -1,148 +1,123 @@
-/* F174 (F170a, spec 129, KI-095): the stdio red-store service and its thin client. The client
- * presents the exact WorkspaceStore surface — results, and `fail` statuses over the hop — while
- * the store itself runs in a Rust process speaking newline-delimited JSON-RPC, the house's
- * LSP/MCP-worker shape. Proof is the F169 corpus replayed through the client: the harness
- * injects the recorded mints and stamps (RED_STORE_MINT_SEQUENCE/RED_STORE_NOW_SEQUENCE,
- * harness-only) because byte parity includes what the service mints. Lifecycle: the service
- * exits when its stdin closes, so a dead host leaves no store process behind.
+/* D61 (KI-103): the store belongs to the state directory, not to whichever host is running.
+ *
+ * Moving a route into red-host moves the state it owns, and `store-client.mjs` spawns its own
+ * service per host process — so a front door serving `/api/tree` while a JS backend still held the
+ * same directory would be two in-memory owners of one set of files. This is the shape red-pty
+ * already runs under D60, applied to the store: one service, every host attaching.
+ *
+ * What has to be true, and is asserted here: two clients on one directory see ONE service and each
+ * other's writes, the token gates it, a protocol mismatch is refused, and closing a client leaves
+ * the store running because it is the directory's rather than that client's.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtemp, mkdir, writeFile, readFile, symlink, rm, realpath } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import path from 'node:path';
+import net from 'node:net';
 import { tmpdir } from 'node:os';
-import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import { WorkspaceStore } from '../server/store-client.mjs';
 
-
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const SERVE = path.join(ROOT, 'red/target/debug/red-store-serve');
 const run = promisify(execFile);
+const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
+const alive = pid => { try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; } };
+const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 
-const STAMPS = [1_800_000_000_000, 1_800_000_060_000, 1_800_000_120_000, 1_800_000_180_000];
-
-/* The same corpus the F169 harness builds, replayed through the client. Every op's result,
-   error(+status) and the workspace.json bytes after it are compared against the recording. */
-async function replay(corpus, directory, client) {
-  const mints = [];
-  for (const op of corpus.ops) {
-    if (op.op === 'addRoot' && op.result?.id && !mints.includes(op.result.id)) mints.push(op.result.id);
-  }
-  const env = { ...process.env, RED_STORE_MINT_SEQUENCE: mints.join(','), RED_STORE_NOW_SEQUENCE: STAMPS.join(',') };
-  const store = await client.WorkspaceStore.open(path.join(directory, 'state'), { env });
-  const drift = [];
-  const judge = (label, expected, actual) => {
-    if (JSON.stringify(expected) !== JSON.stringify(actual)) drift.push(`${label}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
-  };
-  const mapPaths = value => JSON.parse(JSON.stringify(value).replaceAll('<DIR>', directory));
-  const unmapPaths = value => JSON.parse(JSON.stringify(value).replaceAll(directory, '<DIR>'));
-  let opIndex = 0;
-  const dispatch = async (op, args) => {
-    switch (op) {
-      case 'addRoot': return store.addRoot(...args);
-      case 'preferences': return store.preferences(...args);
-      case 'putDraft': return store.putDraft(...args);
-      case 'discardDraft': { await store.discardDraft(...args); return null; }
-      case 'recordConversation': return store.recordConversation(...args);
-      case 'saveLayout': { await store.saveLayout(...args); return null; }
-      case 'list': case 'list-hidden': return store.list(...args);
-      case 'readText': return store.readText(...args);
-      case 'resolve': { const [absolute, relative] = await store.resolve(...args); return { absolute, relative }; }
-      case 'saveText': return store.saveText(...args);
-      default: throw new Error(`unknown op ${op}`);
-    }
-  };
-  const runOp = async (op, fileState) => {
-    let result = null, error = null;
-    try { result = await dispatch(op.op, mapPaths(op.args)); }
-    catch (caught) { error = { message: caught.message, status: caught.status ?? null }; }
-    judge(`op ${op.op} result`, op.result, unmapPaths(result));
-    judge(`op ${op.op} error`, op.error, unmapPaths(error));
-    opIndex += 1;
-    if (fileState) {
-      const file = existsSync(store.filename) ? unmapPaths(await readFile(store.filename, 'utf8')) : null;
-      judge(`op ${op.op} file`, op.file, file);
-    }
-  };
-  for (const op of corpus.ops) await runOp(op, true);
-  const rootA = corpus.ops[0].result.id;
-  const rootB = corpus.ops[2].result.id;
-  judge('readback', corpus.readback, unmapPaths({
-    draft: await store.getDraft(rootA, 'notes/todo.md'),
-    conversationsA: await store.listConversations(rootA),
-    conversationsB: await store.listConversations(rootB),
-    preferences: store.state.preferences,
-  }));
-  for (const op of corpus.fileOps) {
-    if (op.op === 'fileBytes') {
-      const bytes = await readFile(path.join(directory, 'tree', op.args[0]), 'utf8');
-      judge(`fileOp fileBytes ${op.args[0]}`, op.result, bytes);
-    } else {
-      await runOp(op, false);
-    }
-  }
-  for (const kase of corpus.schema) {
-    const errors = await client.validateSchema(kase.schema, kase.value);
-    judge(`schema ${kase.name}`, kase.errors, errors);
-  }
-  await store.close();
-  return drift;
+async function directory(t, { idleSeconds = 600 } = {}) {
+  const where = await mkdtemp(path.join(tmpdir(), 'rengine-store-service-'));
+  process.env.RED_STORE_IDLE_SECONDS = String(idleSeconds);
+  t.after(async () => {
+    try {
+      const descriptor = JSON.parse(await readFile(path.join(where, 'store.json'), 'utf8'));
+      if (Number.isSafeInteger(descriptor.pid)) { try { process.kill(descriptor.pid, 'SIGKILL'); } catch { /* gone */ } }
+    } catch { /* none left */ }
+    delete process.env.RED_STORE_IDLE_SECONDS;
+    await rm(where, { recursive: true, force: true });
+  });
+  return where;
 }
 
-async function buildTree(directory, spec) {
-  for (const entry of spec) {
-    const target = entry.path.startsWith('<DIR>') ? entry.path.replace('<DIR>', directory) : path.join(directory, 'tree', entry.path);
-    if (entry.dir) await mkdir(target, { recursive: true });
-    else if (entry.symlink) await symlink(entry.symlink.replace('<DIR>', directory), target, 'dir').catch(() => {});
-    else if (entry.base64) await writeFile(target, Buffer.from(entry.base64, 'base64'));
-    else if (entry.repeat) await writeFile(target, entry.repeat[0].repeat(entry.repeat[1]));
-    else await writeFile(target, entry.text);
-  }
-}
+test('two hosts on one state directory share one store', { timeout: 120000 }, async t => {
+  await run('cargo', ['build', '-p', 'red-store', '--bin', 'red-store-serve'], { cwd: path.join(ROOT, 'red'), maxBuffer: 1 << 24 });
+  const where = await directory(t);
 
-test('the corpus replays through the client and service, drift-free', async t => {
-  await run('cargo', ['build', '-p', 'red-store', '--bin', 'red-store-serve'], { cwd: path.join(ROOT, 'red') });
-  assert.ok(existsSync(SERVE), `red-store-serve was built at ${SERVE}`);
-  const client = await import('../server/store-client.mjs');
-  const corpusDir = await mkdtemp(path.join(tmpdir(), 'rengine-service-corpus-'));
-  t.after(() => rm(corpusDir, { recursive: true, force: true }));
-  const corpus = JSON.parse(await readFile(path.join(ROOT, 'orchestrator/tests/store-corpus.json'), 'utf8'));
-  const corpusFile = path.join(corpusDir, 'corpus.json');
-  await writeFile(corpusFile, JSON.stringify(corpus));
+  const first = await WorkspaceStore.attach(where);
+  t.after(() => first.close());
+  const second = await WorkspaceStore.attach(where);
+  t.after(() => second.close());
+  assert.equal(second.service.pid, first.service.pid, 'both attached to one service, not one each');
+  assert.equal(second.service.instance, first.service.instance);
+  /* The process table, not the descriptor: a second service that lost the race to write store.json
+     is invisible to every reader of the file and still holds the same state in its own memory. */
+  const { stdout } = await run('ps', ['-axo', 'pid=,args=']);
+  const services = stdout.split('\n').filter(line => line.includes('red-store-serve') && line.includes(`--state ${where}`));
+  assert.equal(services.length, 1, `exactly one red-store-serve serves the directory: ${services.join(' | ')}`);
+  assert.ok(!existsSync(path.join(where, 'store-startup.lock')), 'the startup lock is released');
 
-  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-service-replay-'));
-  t.after(() => rm(directory, { recursive: true, force: true }));
-  await mkdir(path.join(directory, 'project-a', 'notes'), { recursive: true });
-  await mkdir(path.join(directory, 'project-b'));
-  await writeFile(path.join(directory, 'decl.json'), '{}');
-  await buildTree(directory, corpus.tree);
-  const drift = await replay(corpus, await realpath(directory), client);
-  assert.deepEqual(drift, [], `${drift.length} disagreement(s):\n${drift.slice(0, 5).join('\n')}`);
+  /* The point of one owner: a root added through one client reaches the other. The service pushes
+     the new state to every attached host, so the snapshot each one answers `root()` from converges
+     — within a round trip, not instantly, which is the honest shape of two processes sharing one
+     store and is why a host serves its own writes immediately and another host's a beat later. */
+  const root = await first.addRoot(where);
+  for (let waited = 0; waited < 5000 && !second.state.roots.some(item => item.id === root.id); waited += 25) await pause(25);
+  const seen = await second.root(root.id);
+  assert.equal(seen.path, root.path, 'the second host sees what the first wrote');
+
+  /* Closing one client leaves the store running: it is the directory's. */
+  const service = first.service.pid;
+  await first.close();
+  await pause(100);
+  assert.ok(alive(service), 'the service outlives the client that started it');
+  assert.equal((await second.root(root.id)).path, root.path, 'and the other host keeps working');
 });
 
-test('the service exits when its stdin closes; a reopened client answers', async t => {
-  const client = await import('../server/store-client.mjs');
-  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-service-life-'));
-  t.after(() => rm(directory, { recursive: true, force: true }));
-  const store = await client.WorkspaceStore.open(directory);
-  const pid = store.pid;
-  assert.ok(pid > 0, 'the client names the service process');
-  const root = await store.addRoot(directory);
-  assert.equal(root.name, path.basename(directory), 'answers before close');
-  await store.close();
-  const gone = await new Promise(resolve => {
-    const deadline = Date.now() + 5000;
-    const poll = () => {
-      try { process.kill(pid, 0); if (Date.now() < deadline) return setTimeout(poll, 50); resolve(false); }
-      catch { resolve(true); }
-    };
-    poll();
+test('nothing reaches the store without the descriptor token', { timeout: 120000 }, async t => {
+  await run('cargo', ['build', '-p', 'red-store', '--bin', 'red-store-serve'], { cwd: path.join(ROOT, 'red'), maxBuffer: 1 << 24 });
+  const where = await directory(t);
+  const store = await WorkspaceStore.attach(where);
+  t.after(() => store.close());
+  const descriptor = JSON.parse(await readFile(path.join(where, 'store.json'), 'utf8'));
+  const port = Number(/:(\d+)$/.exec(descriptor.url)[1]);
+
+  const ask = request => new Promise((resolve, reject) => {
+    const socket = net.connect({ host: '127.0.0.1', port });
+    let text = '';
+    const timer = setTimeout(() => { socket.destroy(); reject(new Error('no answer')); }, 2000);
+    socket.on('connect', () => socket.write(JSON.stringify(request) + '\n'));
+    socket.on('data', chunk => {
+      text += chunk;
+      if (!text.includes('\n')) return;
+      clearTimeout(timer); socket.destroy(); resolve(JSON.parse(text.split('\n')[0]));
+    });
+    socket.on('error', error => { clearTimeout(timer); reject(error); });
   });
-  assert.ok(gone, `service PID ${pid} exited after close()`);
-  const reopened = await client.WorkspaceStore.open(directory);
-  assert.deepEqual((await reopened.listConversations(root.id)), [], 'a reopened client reads the same state');
-  assert.equal((await reopened.root(root.id)).id, root.id, 'and the root survived on disk');
-  await reopened.close();
+
+  const wrong = await ask({ id: 1, method: 'attach', args: [{ token: 'f'.repeat(64), protocol: 1 }] });
+  assert.ok(wrong.error, `a wrong token is refused, never served: ${JSON.stringify(wrong.result ?? wrong)}`);
+  assert.equal(wrong.error.status, 401);
+  const unattached = await ask({ id: 1, method: 'state' });
+  assert.ok(unattached.error, 'and a call before any attach is refused');
+  assert.equal(unattached.error.status, 401);
+  const mismatch = await ask({ id: 1, method: 'attach', args: [{ token: descriptor.token, protocol: 99 }] });
+  assert.equal(mismatch.error.status, 409, 'the right token with the wrong protocol is a conflict, not a refusal to know you');
+  assert.match(mismatch.error.message, /speaks protocol 1; the client asked for 99/);
+});
+
+test('an idle store reaps itself, because its state is on disk', { timeout: 120000 }, async t => {
+  await run('cargo', ['build', '-p', 'red-store', '--bin', 'red-store-serve'], { cwd: path.join(ROOT, 'red'), maxBuffer: 1 << 24 });
+  const where = await directory(t, { idleSeconds: 1 });
+  const store = await WorkspaceStore.attach(where);
+  const root = await store.addRoot(where);
+  const service = store.service.pid;
+  await store.close();
+  for (let waited = 0; waited < 8000 && alive(service); waited += 100) await pause(100);
+  assert.ok(!alive(service), 'a store nobody is attached to goes away — unlike a PTY service holding a shell');
+  assert.ok(!existsSync(path.join(where, 'store.json')), 'and it removed its own descriptor');
+
+  /* And what it was holding was never the point: the next attach reads the same state off disk. */
+  const again = await WorkspaceStore.attach(where);
+  t.after(() => again.close());
+  assert.ok(again.state.roots.some(item => item.id === root.id), 'the root survived the service that wrote it');
 });

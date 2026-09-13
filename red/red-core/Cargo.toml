@@ -13,6 +13,7 @@ crate-type = ["rlib"]
 # SHA-256 for every crate, which is the same guarantee third_party/sources.json gives the vendored
 # C sources. protoc is a build prerequisite like SDL2 — init.sh checks for it and instructs.
 [dependencies]
+getrandom = "0.3"
 prost = "0.13"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1"

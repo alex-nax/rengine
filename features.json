@@ -2701,7 +2701,9 @@
       "owner_workspace": "rengine",
       "deliverable": "The Rust host core with desktop and surface routes, the ported surface/desktops suites, and the zero-native-change evidence; the four JS modules removed.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "AMENDED 2026-09-13 by owner decision (KI-102): criterion 3 — \"the four JS modules removed\" — cannot be met at this row's place in the sequence. Thirteen of main.mjs's 33 routes belong to F153–F156, and a front door has to forward what it does not own yet, so this row cannot both forward to the JS host and delete it. The deletion moves to the end of the host arc: F189 ports what this row owns and leaves main.mjs serving only the routes it does not, F153–F156 each move their routes out of that backend, and the four modules are deleted by the row that moves the last one. The other two criteria are unchanged and no row loses work."
+      ]
     },
     {
       "id": 153,
@@ -3501,7 +3503,7 @@
       "acceptance_criteria": [
         "The native desktop connects to red-host unchanged: same routes, same frames, same surface protocol; the cooperative surface suite passes.",
         "The surfaces focus-eviction semantic is preserved verbatim (surfaces.mjs:72-76, spec 114 finding 2).",
-        "server/main.mjs, server/desktops.mjs, server/surfaces.mjs and server/surface-protocol.mjs are deleted in the same commit the replacement goes green."
+        "The routes F152 owns — the store routes, the session routes, desktops and surfaces — are answered by red-host itself, and server/main.mjs is reduced to the backend of the routes F153–F156 have not moved yet; the four modules are deleted by the row that moves the last of those (KI-102, owner 2026-09-13)."
       ],
       "passes": false,
       "dependencies": [
