@@ -345,6 +345,10 @@ fn signal_tree(pid: u32, signal: &str) -> Result<()> {
     for target in descendants.iter().chain(std::iter::once(&pid)) {
         let status = std::process::Command::new("kill")
             .args(["-s", signal, &target.to_string()])
+            /* Its complaint is read below when it fails; letting it also reach this process's own
+               stderr puts "No such process" in the middle of a test report for a child that was
+               already gone, which is exactly the case this code then decides to ignore. */
+            .stderr(std::process::Stdio::null())
             .status()
             .map_err(|error| Fail::raw(error.to_string()))?;
         if !status.success() {

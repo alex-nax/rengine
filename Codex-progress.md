@@ -1,5 +1,49 @@
 # Progress Log
 
+## Session 140 (macos) — 2026-09-13 — red-mcp answers the calls, judged against the worker (F185 criterion 1)
+
+All 38 tools in Rust. Nearly every one is the same three steps — the capability this workspace
+declares, the token where the tool is gated, the workspace's own route — so they are a table; the
+six that carry real logic (the file excerpt, the output tail, the preview budget, the two feed
+shapes and the scoped state) are written out.
+
+**How it is judged.** One conversation of 50 calls runs against BOTH servers, each in its own
+workspace, and every answer is compared — including `content[0].text`, which is the answer
+stringified, so key order is part of the comparison. Two workspaces mean two sets of minted values,
+so exactly those are normalised (uuids, hashes, timestamps, ports, epoch milliseconds, pids,
+measured durations, contest seconds, the workspace directory, and the eight characters of a
+conversation id in a pane title). Most of the conversation is refusals, deliberately: an agent meets
+*"this workspace predates …"* far more often than a happy path.
+
+**The sabotage that was wrong first.** Dropping the identity headers entirely **passed** — because
+with the pane holding the token itself, an anonymous caller is not gated and gets the same answers.
+It only fails once *another agent holds the token*, which is now part of the conversation. The
+fixture was wrong, not the code right; three more sabotages (host instead of worker, an excerpt one
+line late, an unknown tool answered as an error rather than a result) each failed for their own
+reason.
+
+**Three things the port had to learn from the running workspace.** Tool calls resolve the
+**root-bound worker**, not the host — getting that wrong does not fail, it answers plausibly from a
+workspace with fewer capabilities. The worker **proxies** the host and copies its
+`Transfer-Encoding: chunked` header, so a hand-rolled HTTP/1.0 client that had only ever spoken to
+the host worked perfectly until it was pointed at the worker. And `request()` throws the route's own
+`{error}`: the shared client now surfaces *"Unknown project root."* instead of *"the workspace
+answered 404 for …"*, which is what a person can act on — red-link's refusal spec was updated to the
+better sentence with the reason recorded in it.
+
+Key order is behaviour, so red-mcp uses serde_json's `preserve_order` for the same reason
+red-agents does (F172): the same data reached an agent as a different string otherwise.
+
+Commands: `npm test` (**317 of 317**), `cargo test -p red-mcp` (10 tests), `python3
+tools/design.py check`.
+
+**F185 stays open, and honestly.** Its criterion 1 is met and recorded; the cutover and the deletion
+are split out as **F187**, because they are not a line of code: `mcp.mjs` spawns the worker named by
+`runtime.toolWorker`, and the supervisor **probes a candidate worker** before adopting it — both
+assume the tool layer is a JS file swappable at runtime. What "update the connector layer" means
+once that layer is a compiled binary is a decision about spec 065's update contract, and it is filed
+as F187's first criterion rather than decided quietly in a port.
+
 ## Session 139 (macos) — 2026-09-13 — the MCP tool surface is data now (F184 / F150a)
 
 F150 was three ticks in one row (**KI-100**), and this is the first: the part that makes the rest

@@ -9,8 +9,10 @@
 //! retyped into Rust. Fifteen kilobytes of hand-transcribed description is a transcription error
 //! waiting to happen; a captured declaration is a diff.
 //!
-//! F184 serves `initialize`, `tools/list` and `ping`. `tools/call` is F185, and until it lands a
-//! call is refused by name rather than answered wrongly.
+//! F184 brought the surface; F185 brings the calls: `tools/call` runs the same three steps the JS
+//! worker ran — the capability this workspace declares, the token where the tool is gated, and the
+//! workspace's own route — and answers in the same envelope, with the project's absolute path
+//! redacted out of any refusal.
 //!
 //! The binding is checked at startup exactly as the JS worker checks it — the context must name a
 //! loopback host with a 64-hex token, the host must still be the instance the context names, and
@@ -22,23 +24,21 @@ use std::process::ExitCode;
 
 use serde_json::{json, Value};
 
+mod tools;
+mod workspace;
+
+use workspace::{Binding, Workspace};
+
 /// The surface, as the JS worker answered it. Captured once; regenerating it from this binary
 /// would be judging the port against itself.
-const DECLARATION: &str = include_str!("tools.json");
+pub const DECLARATION: &str = include_str!("tools.json");
 
 /// What the SDK on the other end knows how to speak. A client asking for one of these is answered
 /// in its own version; anything else is answered in ours, which is what the JS SDK does.
 const SUPPORTED: [&str; 5] = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05", "2024-10-07"];
 const LATEST: &str = "2025-11-25";
 
-struct Context {
-    url: String,
-    token: String,
-    instance: String,
-    root_id: String,
-}
-
-fn context_from(argv: &[String]) -> Result<Context, String> {
+fn context_from(argv: &[String]) -> Result<(Binding, Option<workspace::Identity>), String> {
     let named = argv
         .iter()
         .position(|argument| argument == "--context")
@@ -58,26 +58,11 @@ fn context_from(argv: &[String]) -> Result<Context, String> {
     if !url.starts_with("http://127.0.0.1:") || token.len() != 64 || !token.bytes().all(|b| b.is_ascii_hexdigit()) || root_id.is_empty() {
         return Err("Invalid local workspace context.".into());
     }
-    Ok(Context { url, token, instance, root_id })
-}
-
-/// The same two questions the JS worker asks before it serves anything: is this still the host the
-/// context was written for, and is the bound project still there.
-fn check(context: &Context) -> Result<(), String> {
-    let state = red_core::http::get(&context.url, &context.token, "/api/state")?;
-    let instance = state.get("instance").and_then(Value::as_str).unwrap_or_default();
-    if instance != context.instance {
-        return Err("The original sidecar instance is no longer available. Reopen this agent from the workspace.".into());
-    }
-    let known = state
-        .get("roots")
-        .and_then(Value::as_array)
-        .map(|roots| roots.iter().any(|root| root.get("id").and_then(Value::as_str) == Some(context.root_id.as_str())))
-        .unwrap_or(false);
-    if !known {
-        return Err("The bound project is no longer available.".into());
-    }
-    Ok(())
+    let runtime_directory = value.get("runtimeDirectory").and_then(Value::as_str).map(str::to_string);
+    Ok((
+        Binding { url, token, instance, root_id, runtime_directory, context_file: named },
+        workspace::identity_of(&value),
+    ))
 }
 
 fn declaration() -> Value {
@@ -91,7 +76,23 @@ fn negotiated(asked: Option<&str>) -> String {
     }
 }
 
-fn answer(method: &str, params: &Value, surface: &Value) -> Result<Value, (i64, String)> {
+/// A tool's answer, in the envelope the SDK's client unwraps: the JSON as text for a reader, the
+/// same JSON as `structuredContent` for a program.
+fn answered(output: Value) -> Value {
+    json!({
+        "content": [{ "type": "text", "text": output.to_string() }],
+        "structuredContent": output,
+    })
+}
+
+/// A refusal, with the project's absolute path out of it — a pane's own root is not news to the
+/// pane, and a path in an error is a path in a transcript.
+fn refused(message: &str, root_path: &str) -> Value {
+    let text = if root_path.is_empty() { message.to_string() } else { message.replace(root_path, "<root>") };
+    json!({ "isError": true, "content": [{ "type": "text", "text": text }] })
+}
+
+fn answer(method: &str, params: &Value, surface: &Value, workspace: &mut Workspace) -> Result<Value, (i64, String)> {
     match method {
         "initialize" => Ok(json!({
             "protocolVersion": negotiated(params.get("protocolVersion").and_then(Value::as_str)),
@@ -101,9 +102,31 @@ fn answer(method: &str, params: &Value, surface: &Value) -> Result<Value, (i64, 
         })),
         "tools/list" => Ok(json!({ "tools": surface.get("tools").cloned().unwrap_or_else(|| json!([])) })),
         "ping" => Ok(json!({})),
-        /* Named rather than answered: a tool call that returned something plausible from a server
-           that cannot yet make it happen is worse than a refusal (F185 carries the calls). */
-        "tools/call" => Err((-32601, "red-mcp serves the tool surface; tool calls are not implemented in this build.".into())),
+        "tools/call" => {
+            let name = params.get("name").and_then(Value::as_str).unwrap_or_default().to_string();
+            if !tools::names().contains(&name.as_str()) {
+                /* A RESULT, not a JSON-RPC error, and in the SDK's own words: that is what the JS
+                   server answers, and `mcp.mjs` recognises exactly this text to tell a pane its
+                   tool list moved under it. A thrown error instead would reach the pane as a
+                   transport failure rather than an answer it can read. */
+                return Ok(json!({
+                    "isError": true,
+                    "content": [{ "type": "text", "text": format!("MCP error -32602: Tool {name} not found") }],
+                }));
+            }
+            let arguments = params.get("arguments").cloned().unwrap_or_else(|| json!({}));
+            /* The root path for the redaction is read before the call, because a call that fails
+               has no state to read it from afterwards. */
+            let root_path = workspace
+                .scoped_state()
+                .ok()
+                .and_then(|state| state.get("root").and_then(|root| root.get("path")).and_then(Value::as_str).map(str::to_string))
+                .unwrap_or_default();
+            Ok(match tools::call(workspace, &name, &arguments) {
+                Ok(output) => answered(output),
+                Err(message) => refused(&message, &root_path),
+            })
+        }
         other => Err((-32601, format!("Method not found: {other}"))),
     }
 }
@@ -115,14 +138,18 @@ fn main() -> ExitCode {
                  declaration().get("tools").and_then(Value::as_array).map(Vec::len).unwrap_or(0));
         return ExitCode::SUCCESS;
     }
-    let context = match context_from(&argv).and_then(|context| check(&context).map(|_| context)) {
-        Ok(context) => context,
+    let mut workspace = match context_from(&argv).and_then(|(binding, identity)| {
+        let mut workspace = Workspace::open(binding, identity);
+        /* The same check the JS worker makes before serving anything, and for the same reason: a
+           pane whose workspace moved is told at once rather than on its first tool call. */
+        workspace.scoped_state().map(|_| workspace)
+    }) {
+        Ok(workspace) => workspace,
         Err(message) => {
             eprintln!("red-mcp: {message}");
             return ExitCode::FAILURE;
         }
     };
-    let _ = &context;
     let surface = declaration();
     let stdin = std::io::stdin();
     let mut out = std::io::stdout();
@@ -141,7 +168,7 @@ fn main() -> ExitCode {
         let Some(id) = message.get("id").cloned() else { continue };
         let method = message.get("method").and_then(Value::as_str).unwrap_or_default();
         let params = message.get("params").cloned().unwrap_or(Value::Null);
-        let reply = match answer(method, &params, &surface) {
+        let reply = match answer(method, &params, &surface, &mut workspace) {
             Ok(result) => json!({ "jsonrpc": "2.0", "id": id, "result": result }),
             Err((code, message)) => json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message } }),
         };
@@ -177,9 +204,16 @@ mod tests {
     }
 
     #[test]
-    fn a_tool_call_is_refused_by_name_rather_than_answered() {
-        let (code, message) = answer("tools/call", &json!({}), &declaration()).expect_err("not implemented yet");
-        assert_eq!(code, -32601);
-        assert!(message.contains("not implemented"), "{message}");
+    fn a_refusal_carries_the_message_without_the_project_path() {
+        let out = refused("File /work/project/secret.txt is outside the selected project root.", "/work/project");
+        assert_eq!(out["isError"], json!(true));
+        assert_eq!(out["content"][0]["text"], json!("File <root>/secret.txt is outside the selected project root."));
+    }
+
+    #[test]
+    fn an_answer_carries_the_same_json_twice_the_way_a_client_unwraps_it() {
+        let out = answered(json!({ "sessions": [] }));
+        assert_eq!(out["structuredContent"], json!({ "sessions": [] }));
+        assert_eq!(out["content"][0]["text"], json!("{\"sessions\":[]}"));
     }
 }

@@ -180,11 +180,14 @@ test('the façade refuses what it cannot answer, in the workspace\'s own words',
       return true;
     });
 
-  /* A root the workspace does not have: refused in the host's own words, not a default answer. */
+  /* A root the workspace does not have: refused in the host's OWN words. F185 taught the shared
+     HTTP client to surface the `{error}` a workspace route answers with instead of the status it
+     came under, because "Unknown project root." is what a person can act on and "the workspace
+     answered 404" is not. The status line is still what a route that answers no JSON gets. */
   await assert.rejects(
     () => probe(['probe', '--relay', relayAddress, '--peer', identity.peer, '--get', 'dashboard', '--root', 'no-such-root'], 'dashboard'),
     error => {
-      assert.match(String(error.stderr ?? error.message), /the workspace answered 4\d\d/, 'the status the host gave');
+      assert.match(String(error.stderr ?? error.message), /Unknown project root\./, "the workspace's own sentence");
       return true;
     });
   assert.ok(facade.lines.some(line => line.event === 'answered' && line.refused === true),

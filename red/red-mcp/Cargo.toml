@@ -6,4 +6,6 @@ description = "The root-bound MCP server of the Rust orchestrator (F150, spec 12
 
 [dependencies]
 red-core = { path = "../red-core" }
-serde_json = "1"
+# preserve_order, because `content[0].text` is JSON.stringify of the answer: a map that sorted its
+# keys would answer the same data in a different string, and the string is what an agent reads.
+serde_json = { version = "1", features = ["preserve_order"] }

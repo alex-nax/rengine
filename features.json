@@ -3385,7 +3385,10 @@
       ],
       "owner_workspace": "rengine",
       "deliverable": "The Rust tool calls, the native exec change, the fixture-identical conversation, and the deletion commit.",
-      "evidence": [],
+      "evidence": [
+        "docs/evidence/mcp-calls-f185-2026-09-13.md",
+        "Criterion 1 is met: orchestrator/tests/red-mcp-calls.test.mjs runs a 50-call conversation covering all 38 tools against both servers and compares every answer, normalising only per-workspace values (uuids, hashes, timestamps, ports, pids, durations, the workspace directory and a conversation's eight-character prefix). Four sabotages observed failing for their own reasons. Criteria 2 and 3 are F187's: the cutover turns on what updating a connector layer means once that layer is a compiled binary."
+      ],
       "external_references": []
     },
     {
@@ -3403,6 +3406,26 @@
       ],
       "owner_workspace": "rengine",
       "deliverable": "The dogfood run and its recorded evidence.",
+      "evidence": [],
+      "external_references": []
+    },
+    {
+      "id": 187,
+      "milestone": "J0",
+      "category": "agents",
+      "priority": "high",
+      "description": "F150b2 (the cutover half of F185): the workspace launches red-mcp instead of the node tool worker, agents/mcp-worker.mjs and runtime/tools.mjs are deleted, and the layered-update contract answers what updating a connector layer means once that layer is a compiled binary (owner, 2026-09-13; spec 129/065, KI-100).",
+      "acceptance_criteria": [
+        "What 'update the connector layer' means for a compiled tool server is decided and recorded — rebuild, ship a binary, or retire the layer — and the supervisor's candidate probe follows that decision instead of starting a JS file.",
+        "Running panes survive the cutover (their MCP is spawned per launch); only new launches pick up red-mcp.",
+        "agents/mcp-worker.mjs and runtime/tools.mjs are deleted in the same commit the replacement goes green."
+      ],
+      "passes": false,
+      "dependencies": [
+        185
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The recorded update-contract decision, the launch and probe changes, and the deletion commit.",
       "evidence": [],
       "external_references": []
     }
