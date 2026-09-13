@@ -20,7 +20,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { startServer } from '../server/main.mjs';
 import { startWorker } from '../runtime/worker.mjs';
-import { ok } from './token-fixtures.mjs';
+import { identity, ok } from './token-fixtures.mjs';
 import { taskDeclaration, taskProject } from './task-fixtures.mjs';
 
 const run = promisify(execFile);
@@ -189,4 +189,66 @@ test('the façade refuses what it cannot answer, in the workspace\'s own words',
     });
   assert.ok(facade.lines.some(line => line.event === 'answered' && line.refused === true),
     'the façade recorded that it refused rather than reporting an answer');
+});
+
+/* F183 (F181b, KI-099): the lifecycle ring on a long-lived stream. Two claims in one run, because
+ * they are one behaviour: the workspace replays the ring from the cursor the subscriber names, and
+ * then keeps the SAME stream open for what happens next. A test that only replayed would pass over
+ * a request-and-answer that closed; a test that only watched live frames would prove nothing about
+ * the cursor. */
+test('the lifecycle ring replays from a cursor and stays live on the same stream', { timeout: 600000 }, async t => {
+  await run('cargo', ['build', '-p', 'red-link', '--bin', 'red-link'], { cwd: path.join(ROOT, 'red'), maxBuffer: 1 << 24 });
+  const dir = await mkdtemp(path.join(tmpdir(), 'red-link-feed-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const project = await taskProject(dir, 'project', taskDeclaration({}));
+  const stateDir = path.join(dir, 'state');
+  const server = await startServer({ stateDir });
+  const worker = await startWorker({ url: server.url, token: server.token, instance: server.instance },
+                                   { directory: path.join(dir, 'runtime') });
+  t.after(async () => { await worker.close?.(); await server.close(); });
+  await sidecar(stateDir, server);
+  const root = await server.store.addRoot(project);
+
+  const relay = launch(t, ['relay', '--listen', '/ip4/127.0.0.1/tcp/0']);
+  const listening = await relay.waitFor(line => line.role === 'relay' && line.listen, 'where it listens');
+  const relayAddress = `${listening.listen}/p2p/${listening.peer}`;
+  const facade = launch(t, ['attach', '--state', stateDir, '--worker', worker.url, '--worker-token', worker.token,
+    '--relay', relayAddress]);
+  const facadePeer = await facade.waitFor(line => line.role === 'facade', 'which peer it is');
+  await facade.waitFor(line => line.event === 'listening' && line.address.includes('p2p-circuit'), 'that it is listening');
+
+  /* Three frames before anyone subscribes: the ring a late subscriber has to be given. */
+  const alice = identity('feed-alice');
+  await ok(worker, 'token-action', { rootId: root.id, action: 'contest', reason: 'the feed fixture claims it' }, alice);
+  await ok(worker, 'task', { rootId: root.id, action: 'add', row: { id: 801, key: 'F801', description: 'before the subscription' } }, alice);
+  await ok(worker, 'token-action', { rootId: root.id, action: 'release' }, alice);
+  const before = await ok(worker, `feed?rootId=${root.id}`);
+  assert.ok(before.frames.length >= 3, `the ring holds the frames the fixture made: ${before.frames.length}`);
+
+  /* Subscribe from the very beginning, ask for one more than the ring holds, and then make one. */
+  const wanted = before.frames.length + 1;
+  const feed = launch(t, ['feed', '--relay', relayAddress, '--peer', facadePeer.peer, '--root', root.id,
+    '--after', '0', '--count', String(wanted)]);
+  await facade.waitFor(line => line.event === 'feed-open', 'that it opened the workspace feed');
+  await feed.waitFor(line => line.sequence === before.frames[before.frames.length - 1].sequence,
+    'that it replayed the ring up to the cursor');
+  const live = await ok(worker, 'task', { rootId: root.id, action: 'add', row: { id: 802, key: 'F802', description: 'after the subscription' } });
+  await feed.waitFor(line => line.sequence === live.sequence, 'that the frame made after the subscription arrived on the same stream');
+
+  const seen = feed.lines.filter(line => Number.isSafeInteger(line.sequence));
+  assert.ok(seen.length >= wanted, `every frame asked for arrived: ${seen.length} of ${wanted}`);
+  const sequences = seen.map(line => line.sequence);
+  assert.deepEqual(sequences, [...sequences].sort((a, b) => a - b), `frames arrive in order: ${sequences}`);
+  assert.equal(new Set(sequences).size, sequences.length, `no frame arrives twice: ${sequences}`);
+  assert.deepEqual(sequences.slice(0, before.frames.length), before.frames.map(frame => frame.sequence),
+    'the replay is the ring the workspace holds, in its own order');
+
+  /* And the cursor is a cursor: a second subscriber that names one gets what comes after it, and
+     nothing it has already seen. */
+  const cursor = before.frames[0].sequence;
+  const resumed = launch(t, ['feed', '--relay', relayAddress, '--peer', facadePeer.peer, '--root', root.id,
+    '--after', String(cursor), '--count', '1']);
+  const first = await resumed.waitFor(line => Number.isSafeInteger(line.sequence), 'its first frame');
+  assert.equal(first.sequence, before.frames[1].sequence,
+    `a subscriber resuming at ${cursor} is given the frame after it, not the one it already had`);
 });

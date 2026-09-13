@@ -2423,14 +2423,20 @@
         "Feed events arrive on the long-lived stream in order with monotonic sequence; a reconnect resumes from a cursor exactly as /feed clients do today.",
         "The session host and every existing consumer are untouched: npm test stays green with red-link running."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         140
       ],
       "owner_workspace": "rengine",
       "deliverable": "The red-link binary in façade mode, the stream protocol, the /feed mapping onto a long-lived stream, and the forced-relay loopback test.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/red-link-facade-f180-2026-09-13.md",
+        "docs/evidence/lifecycle-contract-f182-2026-09-13.md",
+        "docs/evidence/lifecycle-stream-f183-2026-09-13.md",
+        "Criterion 1: F180 — the façade opens no direct listener at all, so its only address is a circuit; the relay's own reservation and one accepted circuit per request are the proof of path. Criterion 2: F183 — the ring replays from the subscriber's cursor and stays live on the same stream, sequences increasing and never repeated. Criterion 3: F180 — npm test 311/311 on three consecutive runs with a relay and a façade process up throughout.",
+        "KI-099 is part of this row's record: \"the feed\" named two different streams, and the owner chose the worker's lifecycle ring, which is the one with a cursor and the one the companion v0.1 needs."
+      ]
     },
     {
       "id": 142,
@@ -3274,14 +3280,18 @@
       "acceptance_criteria": [
         "Feed events arrive on the long-lived stream in order with monotonic sequence; a reconnect resumes from a cursor exactly as /feed clients do today."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         182,
         183
       ],
       "owner_workspace": "rengine",
       "deliverable": "The WebSocket client against the host's event stream, the long-lived libp2p stream that carries it, and the ordering and cursor-resume evidence.",
-      "evidence": [],
+      "evidence": [
+        "docs/evidence/lifecycle-contract-f182-2026-09-13.md",
+        "docs/evidence/lifecycle-stream-f183-2026-09-13.md",
+        "F182 modeled the workspace lifecycle ring in red.v1 and judged the live ring through the F140 harness; F183 carries it on a long-lived libp2p stream with replay-from-cursor and live continuation proven on one stream."
+      ],
       "external_references": []
     },
     {
@@ -3318,14 +3328,18 @@
       "acceptance_criteria": [
         "Feed events arrive on the long-lived stream in order with monotonic sequence; a reconnect resumes from a cursor exactly as /feed clients do today."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         180,
         182
       ],
       "owner_workspace": "rengine",
       "deliverable": "The WebSocket client against the worker's feed, the long-lived libp2p stream that carries it, and the ordering and cursor-resume evidence.",
-      "evidence": [],
+      "evidence": [
+        "docs/evidence/lifecycle-stream-f183-2026-09-13.md",
+        "orchestrator/tests/red-link.test.mjs: a subscriber on /red/1/feed is given the ring from its cursor in the workspace's own order, then a frame written after it subscribed arrives on the same stream; sequences increase and never repeat, and a second subscriber resuming at a cursor is given the frame after it rather than the one it had.",
+        "Two sabotages observed failing for their own reasons: the cursor ignored (resume gives the frame already seen), and the stream closed after each frame (the subscriber sees an unexpected end of file where a stream should be)."
+      ],
       "external_references": []
     }
   ]

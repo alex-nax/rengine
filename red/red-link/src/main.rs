@@ -4,6 +4,7 @@
 //!   red-link relay  [--listen <multiaddr>]
 //!   red-link attach --state <dir> --worker <url> --worker-token <token> --relay <multiaddr>
 //!   red-link probe  --relay <multiaddr> --peer <peer-id> --get <section> [--root <id>]
+//!   red-link feed   --relay <multiaddr> --peer <peer-id> --root <id> [--after <n>] [--count <n>]
 //!
 //! F140 gave it the contract; F180 (F141a) gives it the wire and the workspace behind it. The
 //! façade reaches the workspace over the internal HTTP API the worker and the MCP connector
@@ -35,7 +36,8 @@ fn version_line() -> String {
 const USAGE: &str = "usage: red-link --version
        red-link relay [--listen <multiaddr>]
        red-link attach --state <dir> --worker <url> --worker-token <token> --relay <multiaddr>
-       red-link probe --relay <multiaddr> --peer <peer-id> --get workspace|dashboard|tasks|token|agents [--root <id>]";
+       red-link probe --relay <multiaddr> --peer <peer-id> --get workspace|dashboard|tasks|token|agents [--root <id>]
+       red-link feed --relay <multiaddr> --peer <peer-id> --root <id> [--after <n>] [--count <n>]";
 
 /// `--name value` pairs, refused by name rather than ignored: a flag nobody read is a launch that
 /// silently did something else.
@@ -95,6 +97,7 @@ fn main() -> ExitCode {
         Some("relay") => report(relay(&args[1..])),
         Some("attach") => report(attach(&args[1..])),
         Some("probe") => report(probe(&args[1..])),
+        Some("feed") => report(feed(&args[1..])),
         Some(other) => {
             eprintln!("red-link: unknown argument {other}\n{USAGE}");
             ExitCode::from(2)
@@ -159,4 +162,24 @@ fn probe(args: &[String]) -> Result<(), String> {
         Some(pb::response::Response::Error(error)) => Err(format!("red-link: the façade refused: {}", error.message)),
         _ => Ok(()),
     }
+}
+
+fn feed(args: &[String]) -> Result<(), String> {
+    let options = options(args)?;
+    let relay_address: Multiaddr = want(&options, "relay")?
+        .parse()
+        .map_err(|error| format!("red-link: --relay is not a multiaddr: {error}"))?;
+    let facade: PeerId = want(&options, "peer")?
+        .parse()
+        .map_err(|error| format!("red-link: --peer is not a peer id: {error}"))?;
+    let root_id = want(&options, "root")?.clone();
+    let number = |name: &str, fallback: u64| -> Result<u64, String> {
+        match options.get(name) {
+            Some(value) => value.parse().map_err(|_| format!("red-link: --{name} is not a number")),
+            None => Ok(fallback),
+        }
+    };
+    let after = number("after", 0)?;
+    let count = number("count", 1)? as usize;
+    runtime()?.block_on(net::run_feed(relay_address, facade, root_id, after, count))
 }

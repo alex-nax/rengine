@@ -24,11 +24,11 @@ use libp2p::core::transport::ListenerId;
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{self, ProtocolSupport};
 use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
-use libp2p::{identify, noise, relay, tcp, yamux, Multiaddr, PeerId, StreamProtocol};
+use libp2p::{identify, noise, relay, tcp, yamux, Multiaddr, PeerId, Stream, StreamProtocol};
 use prost::Message as _;
 use red_core::pb;
 
-use crate::host::Workspace;
+use crate::host::{feed_url, Workspace};
 
 /// A contract message is length-delimited: four bytes of big-endian length, then the bytes. The
 /// cap is generous for a read surface and small enough that a wrong length is refused rather than
@@ -37,6 +37,13 @@ const MAX_MESSAGE: u32 = 8 * 1024 * 1024;
 
 fn protocol() -> StreamProtocol {
     StreamProtocol::try_from_owned(red_core::LIBP2P_PROTOCOL.to_string())
+        .expect("the contract's protocol name starts with a slash")
+}
+
+/// The lifecycle ring's own protocol, versioned by the same string the rest of the contract is:
+/// `/red/1/feed`. A peer speaking another version fails negotiation rather than misreading frames.
+fn feed_protocol() -> StreamProtocol {
+    StreamProtocol::try_from_owned(format!("{}/feed", red_core::LIBP2P_PROTOCOL))
         .expect("the contract's protocol name starts with a slash")
 }
 
@@ -81,9 +88,18 @@ async fn write_frame<T>(io: &mut T, bytes: &[u8]) -> io::Result<()>
 where
     T: futures::AsyncWrite + Unpin + Send,
 {
+    write_frame_open(io, bytes).await?;
+    io.close().await
+}
+
+/// The same frame, without closing: request/response ends a stream, the lifecycle ring does not.
+async fn write_frame_open<T>(io: &mut T, bytes: &[u8]) -> io::Result<()>
+where
+    T: futures::AsyncWrite + Unpin + Send,
+{
     io.write_all(&(bytes.len() as u32).to_be_bytes()).await?;
     io.write_all(bytes).await?;
-    io.close().await
+    io.flush().await
 }
 
 impl request_response::Codec for ContractCodec {
@@ -192,6 +208,9 @@ pub async fn run_relay(listen: Multiaddr) -> Result<(), String> {
 pub struct FacadeBehaviour {
     relay_client: relay::client::Behaviour,
     contract: request_response::Behaviour<ContractCodec>,
+    /* The ring is a long-lived stream rather than a request and an answer: a subscriber resumes
+       from its cursor and stays on the same stream for what happens next (F183). */
+    streams: libp2p_stream::Behaviour,
     identify: identify::Behaviour,
 }
 
@@ -218,6 +237,7 @@ pub async fn run_facade(workspace: Workspace, relay_address: Multiaddr) -> Resul
         .with_behaviour(|keypair, relay_client| FacadeBehaviour {
             relay_client,
             contract: contract_behaviour(ProtocolSupport::Inbound),
+            streams: libp2p_stream::Behaviour::new(),
             identify: identity(keypair),
         })
         .map_err(|error| format!("the façade cannot build its behaviour: {error}"))?
@@ -227,6 +247,26 @@ pub async fn run_facade(workspace: Workspace, relay_address: Multiaddr) -> Resul
     /* The whole point: the only address this process ever listens on is a circuit through the
        relay. No TCP listener is opened, so "forbidden any direct connection" is a property of the
        façade rather than a rule the client is trusted to follow. */
+    let mut incoming = swarm
+        .behaviour()
+        .streams
+        .new_control()
+        .accept(feed_protocol())
+        .map_err(|error| format!("the façade cannot serve {}: {error}", feed_protocol()))?;
+    {
+        let workspace = workspace.clone();
+        tokio::spawn(async move {
+            while let Some((peer, stream)) = incoming.next().await {
+                let workspace = workspace.clone();
+                tokio::spawn(async move {
+                    let outcome = serve_feed(&workspace, stream).await;
+                    say(serde_json::json!({ "event": "feed-closed", "peer": peer.to_string(),
+                        "error": outcome.err().unwrap_or_default() }));
+                });
+            }
+        });
+    }
+
     let circuit = relay_address.clone().with(Protocol::P2pCircuit);
     let listener: ListenerId = swarm
         .listen_on(circuit.clone())
@@ -260,12 +300,54 @@ pub async fn run_facade(workspace: Workspace, relay_address: Multiaddr) -> Resul
     }
 }
 
+/// One subscriber: read what it asks for, then pump the worker's ring at it until one of them
+/// goes away. The frames are translated on the way through, so a workspace that grew a field it
+/// has not told the contract about is reported here rather than delivered half-read.
+async fn serve_feed(workspace: &Workspace, mut stream: Stream) -> Result<(), String> {
+    let asked = read_frame(&mut stream).await.map_err(|error| format!("no subscription: {error}"))?;
+    let subscribe = pb::FeedSubscribe::decode(asked.as_slice()).map_err(|error| format!("unreadable subscription: {error}"))?;
+    if subscribe.root_id.is_empty() {
+        return Err("the lifecycle ring is asked per project root, and this subscription named none".into());
+    }
+    let url = feed_url(&workspace.worker, &subscribe.root_id, subscribe.after)?;
+    let (socket, _) = tokio_tungstenite::connect_async(&url)
+        .await
+        .map_err(|error| format!("cannot open the workspace feed: {error}"))?;
+    say(serde_json::json!({ "event": "feed-open", "root": subscribe.root_id, "after": subscribe.after }));
+    let (_, mut reading) = socket.split();
+    while let Some(message) = reading.next().await {
+        let message = message.map_err(|error| format!("the workspace feed failed: {error}"))?;
+        let text = match message {
+            tokio_tungstenite::tungstenite::Message::Text(text) => text.to_string(),
+            tokio_tungstenite::tungstenite::Message::Close(frame) => {
+                /* A retired worker closes with the reason that tells a client to re-read feed_url
+                   and resume from its cursor; it is carried rather than turned into silence. */
+                return Err(frame.map(|f| f.reason.to_string()).unwrap_or_else(|| "the workspace feed closed".into()));
+            }
+            _ => continue,
+        };
+        let value: serde_json::Value = serde_json::from_str(&text).map_err(|error| format!("the workspace feed sent {error}"))?;
+        let (event, drift) = red_core::translate::lifecycle_event("feed", &value);
+        if !drift.is_empty() {
+            return Err(format!(
+                "the workspace and the red.v1 contract disagree about a lifecycle frame: {}",
+                drift.iter().map(|item| item.to_string()).collect::<Vec<_>>().join("; ")
+            ));
+        }
+        write_frame_open(&mut stream, &event.encode_to_vec())
+            .await
+            .map_err(|error| format!("the subscriber went away: {error}"))?;
+    }
+    Ok(())
+}
+
 /* ---- the client ----------------------------------------------------------------------------- */
 
 #[derive(NetworkBehaviour)]
 pub struct ProbeBehaviour {
     relay_client: relay::client::Behaviour,
     contract: request_response::Behaviour<ContractCodec>,
+    streams: libp2p_stream::Behaviour,
 }
 
 /// Ask the façade one question through the relay, and answer with what came back.
@@ -280,7 +362,11 @@ pub async fn run_probe(relay_address: Multiaddr, facade: PeerId, request: pb::Re
         .map_err(|error| format!("the client cannot build a TCP transport: {error}"))?
         .with_relay_client(noise::Config::new, yamux::Config::default)
         .map_err(|error| format!("the client cannot build a relay transport: {error}"))?
-        .with_behaviour(|_, relay_client| ProbeBehaviour { relay_client, contract: contract_behaviour(ProtocolSupport::Outbound) })
+        .with_behaviour(|_, relay_client| ProbeBehaviour {
+            relay_client,
+            contract: contract_behaviour(ProtocolSupport::Outbound),
+            streams: libp2p_stream::Behaviour::new(),
+        })
         .map_err(|error| format!("the client cannot build its behaviour: {error}"))?
         .build();
 
@@ -345,4 +431,59 @@ mod tests {
         let read = read_frame(&mut futures::io::Cursor::new(bytes)).await.unwrap();
         assert_eq!(pb::Request::decode(read.as_slice()).unwrap(), request);
     }
+}
+
+/// Subscribe to the lifecycle ring through the relay and print `count` frames as they arrive.
+///
+/// The subscription is one stream: the workspace replays the ring from `after` and then keeps the
+/// same stream open for what happens next, which is what makes "resumes from a cursor" and "stays
+/// live" one behaviour rather than two.
+pub async fn run_feed(
+    relay_address: Multiaddr,
+    facade: PeerId,
+    root_id: String,
+    after: u64,
+    count: usize,
+) -> Result<(), String> {
+    let mut swarm = libp2p::SwarmBuilder::with_new_identity()
+        .with_tokio()
+        .with_tcp(tcp::Config::default(), noise::Config::new, yamux::Config::default)
+        .map_err(|error| format!("the client cannot build a TCP transport: {error}"))?
+        .with_relay_client(noise::Config::new, yamux::Config::default)
+        .map_err(|error| format!("the client cannot build a relay transport: {error}"))?
+        .with_behaviour(|_, relay_client| ProbeBehaviour {
+            relay_client,
+            contract: contract_behaviour(ProtocolSupport::Outbound),
+            streams: libp2p_stream::Behaviour::new(),
+        })
+        .map_err(|error| format!("the client cannot build its behaviour: {error}"))?
+        .build();
+
+    let circuit = relay_address.clone().with(Protocol::P2pCircuit).with(Protocol::P2p(facade));
+    swarm.add_peer_address(facade, circuit.clone());
+    let mut control = swarm.behaviour().streams.new_control();
+    /* The swarm has to keep running while the stream is open, so it is driven on its own task and
+       this one owns the conversation. */
+    tokio::spawn(async move {
+        loop {
+            let event = swarm.select_next_some().await;
+            trace(&event);
+        }
+    });
+
+    let mut stream = control
+        .open_stream(facade, feed_protocol())
+        .await
+        .map_err(|error| format!("the client cannot open the lifecycle stream: {error}"))?;
+    let subscribe = pb::FeedSubscribe { root_id, after };
+    write_frame_open(&mut stream, &subscribe.encode_to_vec())
+        .await
+        .map_err(|error| format!("the subscription did not reach the façade: {error}"))?;
+
+    for _ in 0..count {
+        let bytes = read_frame(&mut stream).await.map_err(|error| format!("the lifecycle stream ended: {error}"))?;
+        let event = pb::LifecycleEvent::decode(bytes.as_slice()).map_err(|error| format!("unreadable frame: {error}"))?;
+        say(serde_json::to_value(&event).map_err(|error| format!("cannot render the frame: {error}"))?);
+    }
+    Ok(())
 }

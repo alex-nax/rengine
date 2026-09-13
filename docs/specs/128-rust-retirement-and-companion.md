@@ -277,6 +277,24 @@ fixture had produced — and the harness reported six disagreements immediately.
 carries `agentId`, `since`, `firstSeenAt` and `lastSeenAt`. F140's criteria were met; its fixture
 was thin, and decision 5's control is what caught it rather than a phone.
 
+## F183 (F181b): the ring on a stream, and F141 closes
+
+Date: 2026-09-13. Evidence: `docs/evidence/lifecycle-stream-f183-2026-09-13.md`.
+
+`/red/1/feed` carries one `FeedSubscribe` in and `LifecycleEvent`s out, for as long as both sides
+stay. Behind it the façade opens the workspace's own `/feed?rootId&after=N`, which replays the ring
+from that cursor and then stays open with live frames on the same socket — so replay-from-cursor
+and stay-live are one behaviour here because they are one behaviour there. A façade that split them
+would be inventing semantics the thing behind it does not have.
+
+The sabotage worth keeping: framing each frame as a request/response write (closing the stream after
+it) leaves every assertion about *content* passing, and fails only the claim that there is a stream
+at all — `unexpected end of file` where the second frame should be.
+
+**F141 is complete**: criterion 1 and 3 from F180, criterion 2 from here. What it does not give
+anyone is trust — pairing, identity and revocation are F142, and until then anyone who can reach the
+relay and name the façade's peer id can ask it these questions.
+
 ## F144, first slice: the companion exists and is the same code
 
 `apps/companion` is an Android app that **builds and runs on a real device**, and the point of it is

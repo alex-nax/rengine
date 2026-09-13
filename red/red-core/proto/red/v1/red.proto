@@ -441,3 +441,11 @@ message Lifecycle {
   uint64 retained_from = 3;
   repeated LifecycleEvent events = 4;
 }
+
+// What a client asks for when it opens the lifecycle stream (F183/F181b). `after` is the cursor it
+// last saw: the workspace replays the ring from there and then goes live on the same stream, which
+// is exactly what `/feed?after=` does for the clients it already has.
+message FeedSubscribe {
+  string root_id = 1;
+  uint64 after = 2;
+}

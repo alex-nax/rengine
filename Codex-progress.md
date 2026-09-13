@@ -1,5 +1,40 @@
 # Progress Log
 
+## Session 137 (macos) — 2026-09-13 — the ring on a long-lived stream; F141 closes (F183 / F181b)
+
+`/red/1/feed` takes one `FeedSubscribe` in and writes `LifecycleEvent`s out for as long as both
+sides stay. Behind it the façade opens the workspace's own `/feed?rootId&after=N`, which replays the
+ring from that cursor and then stays open with live frames on the same socket — so
+**replay-from-cursor and stay-live are one claim here because they are one behaviour there**. A
+façade that split them into a fetch and a subscription would be inventing semantics the thing behind
+it does not have.
+
+The test is one run with both halves in it: three frames made before anyone subscribes, a subscriber
+that asks from zero and gets the ring in the workspace's own order, a task written *after* it
+subscribed arriving on the same stream, sequences increasing and never repeating, and a second
+subscriber resuming at a cursor being given the frame after it rather than the one it already had.
+
+Two sabotages, each for its own reason. The second is the one worth keeping: framing each frame as a
+request/response write — closing the stream after it — leaves every assertion about *content*
+passing and fails only the claim that there is a stream at all (*"the lifecycle stream ended:
+unexpected end of file"*).
+
+Two things the façade refuses: translating loosely (a frame the contract cannot carry whole ends the
+subscription with the disagreement named, rather than delivering a half-read frame), and forwarding
+the workspace's token (the worker authenticates its feed socket from the query string, so the URL
+the façade builds carries the token and never leaves the process — which is also why F182 does not
+carry the `socket` field).
+
+Commands: `npm test` (**312 of 312**), `cargo test -p red-link -p red-core` (12 tests),
+`python3 tools/features.py validate` (134 features).
+
+**F141 passes**: criteria 1 and 3 from F180, criterion 2 from here. KI-098 and KI-099 close with it.
+What none of it gives anyone is **trust** — pairing, identity and revocation are F142, and until
+that lands anyone who can reach the relay and name the façade's peer id can ask it these questions.
+`red-link` is a development tool today, not something to point at the internet. F141 closing
+unblocks **F150** (red-mcp), and F150 with F151 unblocks **F152**, which is where `server/main.mjs`
+goes.
+
 ## Session 136 (macos) — 2026-09-13 — "the feed" was two streams, and the contract now carries the right one (F182 / F181a)
 
 Sizing F181 turned up an inconsistency in the record rather than a missing implementation, so it was

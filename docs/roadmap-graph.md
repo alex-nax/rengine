@@ -220,9 +220,9 @@ flowchart TD
   F139["F139: passing"]
   F140["F140: passing"]
   F139 --> F140
-  F141["F141: ready"]
+  F141["F141: passing"]
   F140 --> F141
-  F142["F142: blocked"]
+  F142["F142: ready"]
   F141 --> F142
   F143["F143: blocked"]
   F142 --> F143
@@ -238,7 +238,7 @@ flowchart TD
   F139 --> F148
   F149["F149: passing"]
   F148 --> F149
-  F150["F150: blocked"]
+  F150["F150: ready"]
   F141 --> F150
   F149 --> F150
   F151["F151: ready"]
@@ -307,12 +307,12 @@ flowchart TD
   F177 --> F178
   F180["F180: passing"]
   F140 --> F180
-  F181["F181: blocked"]
+  F181["F181: passing"]
   F182 --> F181
   F183 --> F181
   F182["F182: passing"]
   F140 --> F182
-  F183["F183: ready"]
+  F183["F183: passing"]
   F180 --> F183
   F182 --> F183
 ```
@@ -411,8 +411,8 @@ flowchart TD
 | F138 | O2 | rengine | passing | Kimi Code is a named agent with the same pane functionality as the other four CLIs, because the owner directed unified integration — the same for everyone, including session listing+discovery. A kimi pane is detected, installed and updated through agent.sh; its launch wires the workspace MCP through the project-level .kimi-code/mcp.json (the only per-project channel kimi publishes), owning exactly one namespaced key and preserving every foreign entry; its session identity comes from its own --session flags with kimi --session <id> as the resume line and an honest unknown for -c or the selector; and live session reporting arrives through a SessionStart hook installed only by an explicit, reversible guided dashboard action, never by a silent write to the person's global config (owner, 2026-09-11; spec 127). F113 stays the follow-up that collapses the per-consumer tables into one registry. |
 | F139 | N0 | rengine | passing | The Rust toolchain and the red/ cargo workspace become first-class citizens of the build: rust-toolchain.toml pins the toolchain, a pinned Corrosion inside cmkr drives cargo from the same CMake entry point that builds the desktop, and init.sh checks the toolchain and instructs rather than downloading anything. This reverses spec 114's recorded 'a Rust toolchain we do not have' (owner, 2026-09-11; spec 128, D57). |
 | F140 | N0 | rengine | passing | red-core holds the protobuf contract v1 for everything the façade and companion need first — sessions, tasks, the F113 agent registry and conversations, token contests, dashboard actions, feed events — and a contract-test harness validates every translated shape against the live session host, so JSON-to-proto drift fails a test instead of a phone. The owner chose schema-first over the JSON-mirror recommendation; this harness is the control that makes the second contract safe (owner, 2026-09-11; spec 128, decision 5). |
-| F141 | N0 | rengine | ready | red-link attaches to a live session host over the same internal HTTP/WS surface the worker and MCP connector use, and serves the F140 contract over libp2p streams — with loopback evidence that forces the relay path, so the NAT code runs before any phone exists (owner, 2026-09-11; spec 128, decisions 2 and 4). |
-| F142 | N0 | rengine | blocked | Remote trust lands: static Ed25519 peer identities, a dashboard action whose QR carries the desktop peer ID, relay multiaddr and a one-time PIN, the PIN proven over Noise, allowed-phone rows persisted in the workspace state directory, and revocation by deleting a row — the Syncthing model, satisfying the pairing/revocation/root-scoping criteria F50 already records (owner, 2026-09-11; spec 128, decision 6). |
+| F141 | N0 | rengine | passing | red-link attaches to a live session host over the same internal HTTP/WS surface the worker and MCP connector use, and serves the F140 contract over libp2p streams — with loopback evidence that forces the relay path, so the NAT code runs before any phone exists (owner, 2026-09-11; spec 128, decisions 2 and 4). |
+| F142 | N0 | rengine | ready | Remote trust lands: static Ed25519 peer identities, a dashboard action whose QR carries the desktop peer ID, relay multiaddr and a one-time PIN, the PIN proven over Noise, allowed-phone rows persisted in the workspace state directory, and revocation by deleting a row — the Syncthing model, satisfying the pairing/revocation/root-scoping criteria F50 already records (owner, 2026-09-11; spec 128, decision 6). |
 | F143 | N0 | rengine | blocked | Reachability from anywhere: red-link --relay on owner-controlled infrastructure, dcutr direct upgrade, mDNS on LAN, and one real cellular run as evidence — never the public bootstrap network, because an admin channel does not ride untrusted third parties (owner, 2026-09-11; spec 128, decision 4). |
 | F144 | N0 | rengine | blocked | apps/companion exists as an Android skeleton: pinned Gradle wrapper and NDK, externalNativeBuild pointing at this repository's CMake so the app compiles the same C UI modules the desktop compiles, a Kotlin shell, and an ANativeWindow Vulkan surface through the D49 device layer — C drives the frame loop, red-core serves it through the C ABI (owner, 2026-09-11; spec 128, decisions 7 and 8). |
 | F145 | N0 | rengine | blocked | Companion v0.1 — see, chat, approve: from a phone on cellular, the roots/sessions view of the F113 registry, agent conversation read and send input, token contests and permission approvals, and dashboard actions with their confirm prompts. No terminal emulator and no game frames yet; the phone acts with desktop-class power only through the same project-token semantics (owner, 2026-09-11; spec 128, decision 9). |
@@ -420,7 +420,7 @@ flowchart TD
 | F147 | J0 | rengine | passing | red-store replaces server/store.mjs and server/schema.mjs: project and session persistence in Rust with the on-disk format byte-compatible, deleted in the same commit the replacement passes (owner, 2026-09-11; spec 129, D57). |
 | F148 | J0 | rengine | passing | The F113 agent recipe registry becomes declarative data: one TOML document that the remaining JS and the new Rust side both parse, with spawn-environment composition (the RENGINE_AGENT_* context) ported (owner, 2026-09-11; spec 129, D57). |
 | F149 | J0 | rengine | passing | red-agents replaces agents/registry.mjs, agents/config.mjs, agents/report-session.mjs and agents/bind.mjs: conversation discovery for all five CLIs, hook overlays, and the codex trust-hash math, with agent.sh keeping its CLI surface while dispatching to the Rust binary (owner, 2026-09-11; spec 129, D57). |
-| F150 | J0 | rengine | blocked | red-mcp replaces agents/mcp-worker.mjs and the runtime/tools.mjs probe: the root-bound MCP server in Rust over stdio, serving the same tool surface from the façade/host API, with the native desktop taught to exec red-mcp instead of node. This is the connection every agent pane uses, so the consumer-path evidence is live panes, not only fixtures (owner, 2026-09-11; spec 129, D57). |
+| F150 | J0 | rengine | ready | red-mcp replaces agents/mcp-worker.mjs and the runtime/tools.mjs probe: the root-bound MCP server in Rust over stdio, serving the same tool surface from the façade/host API, with the native desktop taught to exec red-mcp instead of node. This is the connection every agent pane uses, so the consumer-path evidence is live panes, not only fixtures (owner, 2026-09-11; spec 129, D57). |
 | F151 | J0 | rengine | ready | red-pty replaces server/sessions.mjs: retained PTY sessions in Rust on portable-pty, with spawn, attach, scrollback replay, resize and kill identical to the JS session host, and retention across host restart as specs 059/060 promise (owner, 2026-09-11; spec 129, D57). |
 | F152 | J0 | rengine | blocked | red-host I: the Rust host core replaces server/main.mjs, server/desktops.mjs and server/surfaces.mjs with surface-protocol.mjs — the native desktop connects with zero native changes, and the surfaces focus-eviction semantic (surfaces.mjs:72-76, spec 114 finding 2) is preserved verbatim (owner, 2026-09-11; spec 129, D57). |
 | F153 | J0 | rengine | blocked | red-host II: server/tasks.mjs and the local half of server/tracker.mjs become Rust — the local backend's rows, readiness and criteria rendering, plus token-serialized tracker writes. tracker.mjs re-implements the features.py readiness rule while its schema text wrongly claims a shell-out (spec 114 finding 1): port the real behavior and correct the text (owner, 2026-09-11; spec 129, D57). |
@@ -450,6 +450,6 @@ flowchart TD
 | F177 | J0 | rengine | passing | F151b (the retention half of F151): the restart-retention architecture is decided and implemented — whether red-pty stays per-host as today or becomes a long-lived per-state-dir service with a descriptor the next host discovers, with restart evidence matching specs 059/060's promises (owner, 2026-09-13; spec 129, KI-096). |
 | F178 | J0 | rengine | passing | F151c (the swap half of F151): the Sessions class becomes the thin client over red-pty, sessions.mjs is deleted in the same commit the replacement passes, and terminal behaviors are byte-identical on the full suite (owner, 2026-09-13; spec 129, KI-096). |
 | F180 | N0 | rengine | passing | F141a (the read half of F141): red-link attaches to a live workspace over the internal HTTP API the worker and the MCP connector already use, and serves the v0.1 read surface as red.v1 over libp2p — through circuit-relay v2 only, because the façade opens no direct listener at all (owner, 2026-09-13; spec 128 decisions 2 and 4, KI-098). |
-| F181 | N0 | rengine | blocked | F141b (the feed half of F141): the workspace's event stream arrives on a long-lived libp2p stream in order with monotonic sequence, and a reconnect resumes from a cursor exactly as the host's own clients do (owner, 2026-09-13; spec 128 decision 2, KI-098). |
+| F181 | N0 | rengine | passing | F141b (the feed half of F141): the workspace's event stream arrives on a long-lived libp2p stream in order with monotonic sequence, and a reconnect resumes from a cursor exactly as the host's own clients do (owner, 2026-09-13; spec 128 decision 2, KI-098). |
 | F182 | N0 | rengine | passing | F181a (the contract half of F181): red.v1 carries the workspace lifecycle ring — the worker's feed of token, task, agent, game, capture, device-action and workspace frames — translated strictly, with the live ring judged by the F140 harness (owner, 2026-09-13; spec 128 decision 5, KI-099). |
-| F183 | N0 | rengine | ready | F181b (the transport half of F181): the lifecycle ring arrives on a long-lived libp2p stream in order with monotonic sequence, and a reconnect resumes from a cursor exactly as the worker's /feed clients do (owner, 2026-09-13; spec 128 decision 2, KI-099). |
+| F183 | N0 | rengine | passing | F181b (the transport half of F181): the lifecycle ring arrives on a long-lived libp2p stream in order with monotonic sequence, and a reconnect resumes from a cursor exactly as the worker's /feed clients do (owner, 2026-09-13; spec 128 decision 2, KI-099). |

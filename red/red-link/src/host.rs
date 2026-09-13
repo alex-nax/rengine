@@ -215,3 +215,25 @@ mod tests {
         assert_eq!(encode("a b/c"), "a%20b%2Fc");
     }
 }
+
+/* ---- the lifecycle ring (F183/F181b) ---------------------------------------------------------- */
+
+/// The worker's feed as a stream of translated frames.
+///
+/// `/feed?rootId&after=N` replays the ring from the cursor and then stays open with live frames on
+/// the same socket — so a subscriber's resume and its live subscription are one connection, which
+/// is what makes the cursor mean what it means. The token rides in the query string because that is
+/// how the worker authenticates this socket (`worker.mjs`'s upgrade handler reads it from there and
+/// puts it back in an Authorization header); it never leaves this process in any other direction.
+pub fn feed_url(worker: &Endpoint, root_id: &str, after: u64) -> Result<String, String> {
+    let rest = worker
+        .url
+        .strip_prefix("http://")
+        .ok_or_else(|| format!("{} is not an http:// workspace URL", worker.url))?;
+    let authority = rest.split('/').next().unwrap_or_default();
+    Ok(format!(
+        "ws://{authority}/feed?rootId={}&token={}&after={after}",
+        encode(root_id),
+        encode(&worker.token)
+    ))
+}
