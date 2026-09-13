@@ -31,6 +31,7 @@ use tokio::net::{TcpListener, TcpStream};
 mod desktops;
 mod events;
 mod head;
+mod panes;
 
 use desktops::Desktops;
 use events::Hub;
@@ -421,6 +422,12 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
             client.write_all(answer.as_bytes()).await?;
             continue;
         }
+        if head.path() == "/api/agent-conversation" && head.method == "POST" {
+            let body = head.read_body(&mut client, &mut buffered).await?;
+            let answer = panes::record_conversation(&front, &body).await;
+            client.write_all(answer.as_bytes()).await?;
+            continue;
+        }
         if head.path() == "/api/state" && head.method == "GET" {
             let answer = answer_state(&front);
             client.write_all(answer.as_bytes()).await?;
@@ -774,7 +781,7 @@ async fn answer_desktop_action(front: &Arc<Front>, body: &str) -> String {
 }
 
 /// A service's refusal, or one of this door's own, as the HTTP answer a client acts on.
-fn faulted(fault: &str) -> String {
+pub(crate) fn faulted(fault: &str) -> String {
     let (status, message) = fault.split_once('|').unwrap_or(("500", fault));
     let code: u16 = status.parse().unwrap_or(500);
     http_json(code, reason(code), &serde_json::json!({ "error": message }))
@@ -919,7 +926,7 @@ fn http_json(status: u16, reason: &str, value: &serde_json::Value) -> String {
     http_text(status, reason, &value.to_string())
 }
 
-fn http_text(status: u16, reason: &str, body: &str) -> String {
+pub(crate) fn http_text(status: u16, reason: &str, body: &str) -> String {
     format!(
         "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nContent-Length: {}\r\n\r\n{body}",
         body.len()

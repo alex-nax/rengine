@@ -90,7 +90,7 @@ the announcement is the thing under test.
 
 ## Gates
 
-`npm test` — **322 of 322**, zero services left behind. `cargo test` — all crates.
+`npm test` — **323 of 323**, zero services left behind. `cargo test` — all crates.
 `./init.sh`. `python3 tools/features.py validate`.
 
 ## The pane as an answer: `/api/session` and `/api/stop`
@@ -197,6 +197,30 @@ the service has no such history; the pane's own timestamp is the one order both 
 | a pane's sequence stops moving with its output | `+ sequence: 0, - sequence: 9` |
 | the state's draft list carries the draft text | `+ text: 'a draft from the door'` |
 
+## What a pane is called: `/api/agent-conversation`
+
+The pane corrects the workspace. rEngine may have minted a conversation, the person at the pane may
+have picked a different one from the offered list, and their own `--resume` beats both — so the
+pane reports what it actually launched, and `null` means *this launch continues or forks a
+conversation the CLI names itself*, which the record must claim nothing about rather than keep an id
+that would resume the wrong one.
+
+It is **two writes that must not come apart**: the workspace's record of the conversation (the
+store's, shared since D61) and the pane's record of which one it is running (the service's, shared
+since D62). The spec checks both, and reads the second one back through the JS host.
+
+The title is the third thing, and it is not this crate's to invent: the short form is the CLI's own
+recipe — a prefix to strip, a length — which is why every kimi id would otherwise read `session_`.
+red-host links red-agents for it and resolves the registry the way `red-agents-serve` does. The spec
+compares the door's title against `agentTitle` **imported from the JS host**, so the two
+implementations are checked against each other rather than against a string typed twice.
+
+| Sabotage | Observed |
+| --- | --- |
+| the short form is eight characters, not the CLI's rule | `claude aaaaaa` where the JS function says `claude aaaaaaaa` |
+| a null report is taken as no change | the pane keeps a conversation the CLI is not running |
+| the pane is told and the workspace is not | `the store remembers it: []` |
+
 ## The desktop itself, against the door
 
 `orchestrator/tests/native-front-door.spec.mjs` is the criterion F189 actually asks for. It starts
@@ -210,14 +234,11 @@ claim like that is to run the binary against the new host rather than to compare
 
 ## What this does not claim
 
-- **F189 is not finished.** `/api/terminal`, `/api/agent-restart`, `/api/agent-conversation` and
-  `/surface` are still forwarded, and nothing is deleted. The three that are left are one group —
-  the **pane-composition** routes — and they share a prerequisite the moved routes did not have:
-  composing an agent pane needs the checkout (`scripts/agent.sh`, `orchestrator/agents/registry.toml`),
-  which the JS host resolves from its own module path and the door would have to be told. They also
-  cannot make the JS one dead, because `games.launch` and `/api/dashboard-run` spawn panes through it
-  until F155 — so porting them now means two live implementations of the most intricate composition
-  in the workspace, with fixtures as the only thing holding them together.
+- **F189 is not finished.** `/api/terminal`, `/api/agent-restart` and `/surface` are still
+  forwarded, and nothing is deleted. The two that are left SPAWN, which is the part that composes an
+  agent's launch; the composition itself is already one Rust implementation (red-agents, F168), so
+  what a port duplicates is the plumbing around it — the handoff read, the context files, the record
+  — while `games.launch` and `/api/dashboard-run` keep spawning through the JS one until F155.
 - **`surfaces.mjs` cannot move with this row.** F152's description lists it beside desktops, but the
   module belongs to `games.mjs` — it is the game viewer's frame transport, not the workspace socket —
   so it moves with games (F155). Its focus-eviction semantic is preserved here in the only way this

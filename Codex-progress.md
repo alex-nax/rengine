@@ -93,13 +93,16 @@ because the record cache was fed by session events and not by output. A reconnec
 that number (specs 059/060). Three more sabotages, one of which passed until the spec compared the
 draft list, which is the second time today a claim needed its own case rather than a nearby one.
 
-What is left of F189 is one group: the **pane-composition** routes (`/api/terminal`,
-`/api/agent-restart`, `/api/agent-conversation`). They need the checkout — `scripts/agent.sh`, the
-agent registry — which the JS host resolves from its own module path and the door would have to be
-told, and they cannot make the JS implementation dead, because `games.launch` and
-`/api/dashboard-run` spawn panes through it until F155. Porting them now buys two live
-implementations of the most intricate composition in the workspace; that is a decision, not a
-detail, and it is written down rather than taken quietly.
+**`/api/agent-conversation`** followed, because it is a pane correcting the workspace rather than a
+pane being made: two writes that must not come apart — the store's record of the conversation and
+the service's record of which one the pane is running — and a title whose short form is the CLI's own
+recipe, not eight characters. red-host links red-agents for that, and the spec compares the door's
+title against `agentTitle` imported from the JS host, so the two implementations check each other.
+
+What is left of F189 is the two routes that SPAWN (`/api/terminal`, `/api/agent-restart`). The composition they use is already one Rust
+implementation (red-agents, F168), so a port duplicates the plumbing around it — the handoff read,
+the context files, the record — while `games.launch` and `/api/dashboard-run` keep spawning through
+the JS one until F155.
 
 **KI-106**, filed on the way: the JS modules are gated on the SUITE as well as on the routes. 71 spec
 files start the JS host directly, all 43 native specs among them, so even a module the door has fully
@@ -107,7 +110,7 @@ replaced cannot be deleted yet. The line count does not fall during a strangler 
 rises slightly, and every deletion lands at the end. That is the right shape, but it is not what the
 epic's per-row "Retires (JS)" column reads like.
 
-Commands: `npm test` (**322 of 322**, zero services left), `cargo test`, `./init.sh`,
+Commands: `npm test` (**323 of 323**, zero services left), `cargo test`, `./init.sh`,
 `python3 tools/features.py validate`, and `native-front-door` + four neighbouring native specs.
 
 ## Session 145 (macos) — 2026-09-13 — the first routes stop being forwarded (F189, first half)

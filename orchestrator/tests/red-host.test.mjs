@@ -21,6 +21,7 @@ import path from 'node:path';
 import { WebSocket } from 'ws';
 import { startServer } from '../server/main.mjs';
 import { PtyHost } from '../server/pty-client.mjs';
+import { agentTitle } from '../server/sessions-client.mjs';
 import { endStateServices } from './state-services.mjs';
 import { built } from './cargo.mjs';
 
@@ -469,4 +470,70 @@ test('a desktop registers on the door and answers what the workspace asks it', {
      outlive it. */
   ours.socket.close();
   await until(async () => (await listed(instance)).desktops.length === 0, 'the closed desktop left the list');
+});
+
+/* F189: what a pane is CALLED, and which conversation it is holding.
+ *
+ * `/api/agent-conversation` is the pane correcting the workspace: rEngine may have minted a
+ * conversation, the person may have picked another from the offered list, and their own `--resume`
+ * beats both. It is two writes that must not come apart — the workspace's record of the
+ * conversation (the store's, shared since D61) and the pane's record of which one it is running
+ * (the service's, shared since D62) — so this checks both, and checks the title against the JS
+ * function that composes it rather than against a string typed twice.
+ */
+test('a pane reports its conversation to the door, and the workspace and the pane agree', { timeout: 300000 }, async t => {
+  await built('-p', 'red-host', '--bin', 'red-host');
+  const directory = await mkdtemp(path.join(tmpdir(), 'red-host-conversation-'));
+  const stateDir = path.join(directory, 'state');
+  const backend = await startServer({ stateDir, retainSessions: true });
+  let client;
+  t.after(async () => {
+    await client?.close();
+    await backend.close({ retain: false });
+    await endStateServices(stateDir);
+    await rm(directory, { recursive: true, force: true });
+  });
+  const root = await backend.store.addRoot(directory);
+  const door = await front(t, stateDir, backend);
+  const instance = { url: door.url, token: JSON.parse(await readFile(path.join(stateDir, 'sidecar.json'), 'utf8')).token };
+
+  /* A pane that says it is a claude agent with no conversation yet — which is what a launch that
+     offered a choice leaves behind. Written as a RECORD rather than by launching a real CLI: the
+     record is what every host answers from, and this route only ever reads and writes that. */
+  const session = await (await ask(instance, '/api/terminal', { rootId: root.id, command: '/bin/bash',
+    args: ['--noprofile', '--norc'] })).json();
+  client = await PtyHost.attach(stateDir);
+  await client.describe(session.id, { type: 'agent', agent: '', titleAuto: true, title: agentTitle('', undefined, root.name) });
+  const reported = conversation => ask(instance, '/api/agent-conversation', { id: session.id, agent: 'claude', conversation });
+
+  const CONVERSATION = 'aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb';
+  await until(async () => (await reported(CONVERSATION)).status === 200, 'the door sees the pane as an agent');
+  const named = await (await reported(CONVERSATION)).json();
+  assert.equal(named.conversation, CONVERSATION, 'the pane holds the conversation it reported');
+  assert.equal(named.agent, 'claude', 'and the agent it reported, which it did not have before');
+  assert.equal(named.title, agentTitle('claude', CONVERSATION, root.name),
+    'with the title the JS host composes for it — the CLI\'s own short form, not eight characters');
+  assert.equal('output' in named, false, 'answered as a plain snapshot');
+
+  /* The workspace remembers it too: one report, two records, and the other host reads both. */
+  const remembered = (await (await ask(backend, '/api/state')).json()).conversations[root.id] ?? [];
+  assert.ok(remembered.some(entry => entry.id === CONVERSATION), `the store remembers it: ${JSON.stringify(remembered)}`);
+  await until(async () => (await (await ask(backend, `/api/session?id=${session.id}`)).json()).conversation === CONVERSATION,
+    'and the JS host reads the same pane');
+
+  /* `null` is not "no change": it says this launch continues or forks a conversation the CLI names
+     itself, so the record must claim nothing rather than keep an id that would resume the wrong one. */
+  const cleared = await (await reported(null)).json();
+  assert.equal(cleared.conversation, undefined, 'a null report clears the pane\'s conversation');
+  assert.equal(cleared.title, agentTitle('claude', undefined, root.name), 'and the title stops naming one');
+
+  /* The refusals, in the JS host's words. */
+  const unknown = await ask(instance, '/api/agent-conversation', { id: 'no-such-pane', conversation: CONVERSATION });
+  assert.equal(unknown.status, 404);
+  assert.equal((await unknown.json()).error, 'Unknown session.');
+  const shell = await (await ask(instance, '/api/terminal', { rootId: root.id, command: '/bin/bash', args: ['--noprofile', '--norc'] })).json();
+  await until(async () => (await ask(instance, '/api/agent-conversation', { id: shell.id, conversation: CONVERSATION })).status === 400,
+    'the door sees the shell');
+  const notAgent = await ask(instance, '/api/agent-conversation', { id: shell.id, conversation: CONVERSATION });
+  assert.equal((await notAgent.json()).error, 'Only an agent session holds a conversation.');
 });
