@@ -220,6 +220,29 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   assert.equal(doorState.sessions.length, 1, 'the door lists the pane');
   assert.deepEqual(doorState.sessions, hostState.sessions, 'exactly as the host that started it lists it');
 
+  /* `/surface` is still the backend's, and this is what proves the splice is alive now that
+     `/events` is not using it: the door performs no handshake of its own for this path, so an
+     upgrade that completes was completed by the host behind it — and the backend's own words for a
+     game that is not there come back on it. A door that served this path itself would greet the
+     socket with `hello` instead. */
+  const surface = new WebSocket(`${instance.url.replace('http', 'ws')}/surface?id=no-such-game&token=${instance.token}`);
+  const said = await Promise.race([
+    new Promise(resolve => {
+      const frames = [];
+      surface.on('message', bytes => frames.push(bytes.toString()));
+      surface.once('close', (code, reason) => resolve({ code, reason: reason.toString(), frames }));
+      surface.once('error', error => resolve({ error: error.message }));
+    }),
+    /* Bounded, because the failure this is written against is a door that ANSWERS this path and
+       holds the socket open: without a bound that failure is a test that hangs rather than one
+       that says what went wrong. */
+    delay(10000).then(() => ({ held: 'the socket was still open after 10s' })),
+  ]);
+  t.after(() => surface.close());
+  assert.equal(said.code, 1008, `the backend closed it in its own words: ${JSON.stringify(said)}`);
+  assert.equal(said.reason, 'Game session is unavailable');
+  assert.deepEqual(said.frames, [], 'and nothing greeted it on the way, because this door does not serve that path');
+
   /* A socket with the wrong token is refused at the door, before the backend is dialled. */
   const refused = new WebSocket(`${instance.url.replace('http', 'ws')}/events?token=${'f'.repeat(64)}`);
   const outcome = await new Promise(resolve => { refused.once('open', () => resolve('opened')); refused.once('error', () => resolve('refused')); });
