@@ -3240,6 +3240,48 @@
         "orchestrator/tests/{pane-composition,pty-scenario}-fixtures.json: what the deleted module answered, captured before deletion and never regenerated — agent-spawn-env.test.mjs and pty-service.test.mjs compare the Rust against the record instead of against a second implementation that no longer exists.",
         "npm test 309/309 with the module deleted; four sabotages observed failing for their own reasons (the id ignored, the environment inherited, stop delegating nothing, the UTF-16 truncation drifting by one unit), plus the deletion itself observed as ERR_MODULE_NOT_FOUND across 20 suites before the importers moved."
       ]
+    },
+    {
+      "id": 180,
+      "milestone": "N0",
+      "category": "workspace",
+      "priority": "high",
+      "description": "F141a (the read half of F141): red-link attaches to a live workspace over the internal HTTP API the worker and the MCP connector already use, and serves the v0.1 read surface as red.v1 over libp2p — through circuit-relay v2 only, because the façade opens no direct listener at all (owner, 2026-09-13; spec 128 decisions 2 and 4, KI-098).",
+      "acceptance_criteria": [
+        "A client on the same machine, forbidden any direct connection, completes the full v0.1 read surface through circuit-relay v2, with the relay's own reservation and circuit events as the proof the bytes took that path.",
+        "The session host and every existing consumer are untouched: npm test stays green with red-link running."
+      ],
+      "passes": true,
+      "dependencies": [
+        140
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The red-link binary in façade, relay and probe modes; the request/response envelope in the red.v1 contract; the forced-relay loopback test.",
+      "evidence": [
+        "docs/evidence/red-link-facade-f180-2026-09-13.md",
+        "orchestrator/tests/red-link.test.mjs: a live session host and worker behind red-link attach, which opens no TCP listener at all — every listen address it reports is a p2p-circuit — and a probe that completes workspace, dashboard, tasks, token and agents through the relay, compared field by field with what the host and worker answer directly; the relay's own reservation and one accepted circuit per request are asserted as the proof of path.",
+        "Four sabotages observed failing for their own reasons: a direct listener on the façade, a section answered without asking the workspace, a root-scoped request allowed through with no root, and the relay no longer reporting circuits (which proves the circuit count is load-bearing rather than decorative).",
+        "npm test 311/311 on three consecutive runs with red-link relay and red-link attach processes running throughout; cargo test -p red-link -p red-core 12 tests."
+      ],
+      "external_references": []
+    },
+    {
+      "id": 181,
+      "milestone": "N0",
+      "category": "workspace",
+      "priority": "high",
+      "description": "F141b (the feed half of F141): the workspace's event stream arrives on a long-lived libp2p stream in order with monotonic sequence, and a reconnect resumes from a cursor exactly as the host's own clients do (owner, 2026-09-13; spec 128 decision 2, KI-098).",
+      "acceptance_criteria": [
+        "Feed events arrive on the long-lived stream in order with monotonic sequence; a reconnect resumes from a cursor exactly as /feed clients do today."
+      ],
+      "passes": false,
+      "dependencies": [
+        180
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The WebSocket client against the host's event stream, the long-lived libp2p stream that carries it, and the ordering and cursor-resume evidence.",
+      "evidence": [],
+      "external_references": []
     }
   ]
 }

@@ -266,3 +266,41 @@ message FeedEvent {
     FeedError error = 5;
   }
 }
+
+// ---- the façade's request envelope (F180/F141a) ---------------------------------------------------
+// One message in, one message out, per libp2p request-response stream. The oneof is deliberate for
+// the same reason the feed's is: a request this build does not know must be a decode error the
+// façade can name, never a default-constructed request it answers anyway.
+
+message WorkspaceRequest {}
+message DashboardRequest { string root_id = 1; }
+message TasksRequest { string root_id = 1; }
+message TokenRequest { string root_id = 1; }
+message AgentsRequest { string root_id = 1; }
+
+message Request {
+  oneof request {
+    WorkspaceRequest workspace = 1;
+    DashboardRequest dashboard = 2;
+    TasksRequest tasks = 3;
+    TokenRequest token = 4;
+    AgentsRequest agents = 5;
+  }
+}
+
+// What the façade could not answer, in the words the host used where there are any: a phone shows
+// this to a person, so "the host answered 404 for /api/dashboard?rootId=…" beats "request failed".
+message RequestError {
+  string message = 1;
+}
+
+message Response {
+  oneof response {
+    Workspace workspace = 1;
+    Dashboard dashboard = 2;
+    TaskList tasks = 3;
+    Token token = 4;
+    AgentMenu agents = 5;
+    RequestError error = 6;
+  }
+}

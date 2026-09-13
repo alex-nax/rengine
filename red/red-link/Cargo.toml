@@ -5,7 +5,12 @@ edition = "2021"
 description = "The libp2p façade and relay of the Rust orchestrator (spec 128, D57)"
 
 [dependencies]
+futures = "0.3.34"
+libp2p = { version = "0.57.0", features = ["tokio", "tcp", "noise", "yamux", "relay", "dcutr", "identify", "ping", "macros", "request-response"] }
+prost = "0.13"
 red-core = { path = "../red-core" }
+serde_json = "1.0.151"
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "sync"] }
 
 [dev-dependencies]
 red-core = { path = "../red-core" }

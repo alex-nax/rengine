@@ -216,6 +216,43 @@ nothing enters the tree without a pin a reader can check — and both halves wer
 would be a compiled third-party artifact with none of the provenance the rest of `third_party`
 records. `init.sh` refuses without it and says how to install it.
 
+## F180 (F141a): the façade, and a relay path nothing can go around
+
+Date: 2026-09-13. Evidence: `docs/evidence/red-link-facade-f180-2026-09-13.md`. F141 was sized as
+two ticks (KI-098): this is the read surface; F181 is the feed.
+
+**The façade spans two processes, because the read surface does.** `/api/state` and
+`/api/dashboard` are the session host's; `tracker`, `token` and `agents-menu` are the root-bound
+worker's. F140's contract bundle already recorded that split — this is the first component to
+depend on it, and it is why `red-link attach` takes both a state directory (for the host's
+`sidecar.json`) and the worker's URL and token. Both are **inputs**: nothing scans for a workspace,
+because a component that goes looking can attach to the wrong one (F173 learned this three times).
+
+**Decision 4's "forced relay" is a property of the façade, not a rule the client follows.** The
+façade opens no TCP listener at all; its only listen address is `<relay>/p2p-circuit`. There is no
+direct address to forbid, so the loopback run exercises the NAT path rather than avoiding it. The
+proof recorded is the relay's own reservation and one accepted circuit per request — a test that
+compared only the answers would pass identically over a direct connection.
+
+**The first run found a real defect in the relay.** `relay::Behaviour` advertises the hop protocol
+only once it believes it is reachable, and it decides that from having learned an external address
+— which a loopback relay never does, and a relay behind the owner's NAT does not do until something
+tells it. The result is a relay that is running and correctly configured and silently is not one
+(`Reservation(Unsupported)`, with identify listing no hop protocol). `red-link relay` states its
+status rather than inferring it, which is also what decision 4 means by pinning relays the owner
+controls.
+
+**The contract gained an envelope**: `Request`/`Response`/`RequestError`, each a oneof for the
+reason the feed's is one — an unknown variant must be a decode error the façade can name rather
+than a default-constructed message it answers anyway. Translation drift is returned as
+`RequestError` naming every disagreement, so F140's control is not quietly undone by a façade that
+answers half a message. Generated types derive `serde::Serialize` and deliberately not
+`Deserialize`: JSON is never an input to this contract.
+
+**What it costs.** `cmake.toml` imports `red-link` through Corrosion, so the desktop build now
+compiles libp2p and its tree. `Cargo.lock` is the pin and it is committed; the build time is the
+price of decision 3's single entry point, and it is named here rather than discovered later.
+
 ## F144, first slice: the companion exists and is the same code
 
 `apps/companion` is an Android app that **builds and runs on a real device**, and the point of it is

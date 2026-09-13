@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "a-relay-that-was-never-told-it-is-one",
+      "kind": "constraint",
+      "anchor": {
+        "start": 148,
+        "end": 148,
+        "symbol": "run_relay",
+        "snippet": "pub async fn run_relay(listen: Multiaddr) -> Result<(), String> {"
+      },
+      "note": "`relay::Behaviour` advertises the hop protocol only while its status is `Enable`, and by default it decides that for itself from whether it has learned an **external address**. A relay on loopback never learns one, and a relay behind the owner's own NAT does not learn one until something tells it \u2014 so the default is a relay that is running, configured and reachable, and silently is not a relay.\n\nThe failure it produces says nothing about the cause: the fa\u00e7ade's listener closes with `Reservation(Unsupported)`, and identify shows the relay advertising `/ipfs/id/1.0.0` and nothing else. It cost a debugging session the first time.\n\nSo the status is **stated**, not inferred: decision 4 puts relays on machines the owner controls and pins them, and a process that has been told it is a relay by being run as one should not be guessing. If this line is ever removed, the loopback test in `orchestrator/tests/red-link.test.mjs` goes red on the reservation, which is the right place for it to be caught.",
+      "refs": [
+        "docs/evidence/red-link-facade-f180-2026-09-13.md",
+        "docs/specs/128-rust-retirement-and-companion.md"
+      ]
+    },
+    {
+      "id": "no-direct-listener-is-the-whole-proof",
+      "kind": "rationale",
+      "anchor": {
+        "start": 211,
+        "end": 211,
+        "symbol": "run_facade",
+        "snippet": "pub async fn run_facade(workspace: Workspace, relay_address: Multiaddr) -> Result<(), String> {"
+      },
+      "note": "F141's criterion asks for a client \"forbidden any direct connection\". Forbidding is a rule, and a rule a test is trusted to follow proves nothing about the code \u2014 so the fa\u00e7ade is built to have nothing to forbid: `listen_on` is called exactly once, on a circuit address, and no TCP listener is ever opened.\n\nThat is what makes the loopback run evidence about the NAT path rather than about a shortcut nobody happened to take. It is also why the test asserts the *listen addresses* and the relay's *circuit events* rather than only the answers: over a direct connection the answers would be identical.\n\nIf a direct listener is ever wanted here \u2014 for a LAN fast path, say \u2014 it belongs behind an explicit flag, and the test that asserts `every address contains p2p-circuit` has to be told about it rather than quietly relaxed.",
+      "refs": [
+        "orchestrator/tests/red-link.test.mjs"
+      ]
+    }
+  ]
+}

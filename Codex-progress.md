@@ -1,5 +1,59 @@
 # Progress Log
 
+## Session 135 (macos) — 2026-09-13 — the façade speaks, and the relay path is the only path (F180 / F141a)
+
+F141 was written coarser than a tick, so it was split under the KI-092 standing rule (**KI-098**):
+**F180**, the read surface through circuit-relay v2, and **F181**, the feed on a long-lived stream.
+The rule was granted for the J0 lane and this is N0 — same failure mode, so it is applied here and
+said out loud rather than assumed.
+
+`red-link` has three modes now and they are one wire: `relay` (rendezvous, terminates nothing),
+`attach` (the façade) and `probe` (a client, so the path has something to prove itself against
+before a phone exists). The workspace is reached exactly as decision 2 says — the internal HTTP API
+the worker and the MCP connector already use — and it **spans two processes**, because the read
+surface does: `/api/state` and `/api/dashboard` are the session host's, `tracker`, `token` and
+`agents-menu` the worker's. Both are inputs, not discoveries; F173 learned three times what
+happens when a component goes looking.
+
+**"Forbidden any direct connection" is a property here, not a rule.** The façade opens no TCP
+listener at all; its only address is `<relay>/p2p-circuit`. There is nothing to forbid, so the
+loopback run exercises the NAT path rather than avoiding it — and the proof recorded is the relay's
+own reservation and one accepted circuit per request, because a test comparing only the answers
+would pass identically over a direct connection.
+
+**The forced path found a real defect on its first run.** `Reservation(Unsupported)`, and identify
+said why: the relay advertised `/ipfs/id/1.0.0` and nothing else. `relay::Behaviour` advertises the
+hop protocol only once it believes it is reachable, and it decides that from having learned an
+**external address** — which a loopback relay never does, and a relay behind the owner's own NAT
+does not until something tells it. A relay that is running, configured and reachable silently is
+not one. It states its status now, which is also what decision 4 means by pinning relays the owner
+controls.
+
+The contract gained a `Request`/`Response`/`RequestError` envelope — oneofs, so an unknown variant
+is a decode error the façade can name rather than a default-constructed message it answers anyway —
+and translation drift comes back as `RequestError` naming every disagreement, so F140's control is
+not undone by a façade that answers half a message quietly. Generated types derive
+`serde::Serialize` and deliberately not `Deserialize`: JSON is never an input to this contract.
+
+Four sabotages, each observed failing for its own reason; the fourth is the interesting one — with
+the relay no longer reporting accepted circuits the test goes red on *"0 circuit(s) for 5
+requests"*, which is how I know the circuit count is load-bearing rather than decorative.
+
+Commands: `npm test` (**311 of 311**, three consecutive runs, with `red-link relay` and `red-link
+attach` up throughout — criterion 2 is that run, not a claim), `cargo test -p red-link -p red-core`
+(12 tests), `python3 tools/features.py validate` (132 features), `python3 tools/design.py check`.
+
+Two things recorded rather than smoothed over. One earlier suite run reported failures in two files
+that pass alone and passed in all three later runs; the plausible cause is contention between the
+several test files that now build cargo targets and start hosts at once, and it is worth watching.
+And `cmake.toml` imports `red-link` through Corrosion, so the **desktop build now compiles libp2p
+and its tree** — `Cargo.lock` is the pin and it is committed, but the C desktop pays build time for
+a dependency it does not use yet. That is decision 3's single entry point, priced.
+
+**F180 passes. F141 stays open** until F181's feed evidence lands, and `red-link` is a development
+tool rather than something to point at the internet until F142 brings pairing: anyone who can reach
+the relay and name the façade's peer id can ask it these questions today.
+
 ## Session 134 (macos) — 2026-09-13 — sessions.mjs is deleted; the host's PTYs are Rust's (F178 / F151c)
 
 The last third of F151. `orchestrator/server/sessions.mjs` is gone and `sessions-client.mjs` stands
