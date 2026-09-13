@@ -13,6 +13,12 @@ sha2 = "0.10"
 
 # The projection dump: prints what the registry resolves to, so the JS parity test can compare
 # the two sides of the one document. A binary rather than a test, as red-contract is.
+# The stdio service the JS consumers read recipes through (F173): one process, one channel, the
+# same shape red-store-serve established.
+[[bin]]
+name = "red-agents-serve"
+path = "src/bin/red_agents_serve.rs"
+
 [[bin]]
 name = "red-agents-dump"
 path = "src/bin/red_agents_dump.rs"
