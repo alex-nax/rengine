@@ -1,5 +1,44 @@
 # Progress Log
 
+## Session 143 (macos) — 2026-09-13 — the front door, and the half-ported host problem (F188 / F152a)
+
+F152's real difficulty is not its size. `server/main.mjs` is 217 lines and a **dispatcher**: 33
+`/api/*` routes and two sockets, most of them delegating to modules F153–F156 have not moved. One
+host process, one port — so a Rust host that owned the port and answered only what it had ported
+would have to reach back into JavaScript for most of a workspace, and the epic never said how a
+half-ported host serves the half it has not ported.
+
+**The answer was already running one layer up.** The root-bound worker fronts the session host and
+forwards `/api/*` to it. red-host does the same one layer down: it owns the port and the door,
+answers what it owns, and forwards the rest to a JS backend beside it. Each later row moves routes
+across until the forwarder has nothing left to forward.
+
+Two decisions inside the door are load-bearing. **Authentication is per request, not per
+connection** — a keep-alive connection carries many, and a door that checked only the first would be
+a door that stopped checking. And **an upgrade is spliced, not re-framed**: after the handshake the
+sockets are copied byte for byte both ways, because a proxy that parsed WebSocket frames could
+corrupt a protocol it does not own (`/events` carries JSON, `/surface` carries binary game frames).
+Bodies are forwarded the way their own head framed them, for the same reason.
+
+Judged by driving the same live host directly and through the door: six read routes, a POST whose
+body reaches the backend, the two refusals in the JS host's own words and statuses, `/health`
+answered by the door with its own instance, and a session attached over `/events` whose input
+reaches the pane and whose output comes back.
+
+Three sabotages, each red for its own reason. The one worth keeping: copying the upgrade **one way
+only** leaves `hello` and the pane's startup output arriving, so every assertion about *receiving*
+passes — what fails is that nothing the client sends reaches the workspace.
+
+Commands: `npm test` (**319 of 319**), `cargo test -p red-host` (10 tests), cmkr regenerated
+`CMakeLists.txt` for the new crate and its CTest target.
+
+**Said plainly: F188 was implemented ahead of F152's dependency.** F152 depends on F150, and F150's
+last criterion is F186 — a live-pane run in the owner's workspace. That criterion verifies a
+capability that is already in the boot path rather than a foundation this row needs, so the work was
+done instead of the lane idling; **F152 and F189 stay open**, nothing is deleted, and nothing in a
+running workspace uses the door yet. If the owner would rather this lane waited for F186, the commit
+to revert is this one.
+
 ## Session 142 (macos) — 2026-09-13 — a replaced host keeps its panes; F151 closes (F179)
 
 The owner decided this on 2026-09-13 — *"Per-state-dir service, survives host replacement"* — and

@@ -248,6 +248,8 @@ flowchart TD
   F152["F152: blocked"]
   F150 --> F152
   F151 --> F152
+  F188 --> F152
+  F189 --> F152
   F153["F153: blocked"]
   F152 --> F153
   F154["F154: blocked"]
@@ -329,6 +331,10 @@ flowchart TD
   F185 --> F186
   F187["F187: passing"]
   F185 --> F187
+  F188["F188: passing"]
+  F189["F189: blocked"]
+  F188 --> F189
+  F150 --> F189
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -472,3 +478,5 @@ flowchart TD
 | F185 | J0 | rengine | passing | F150b (the calls half of F150): tools/call for the full root-bound surface in Rust over the façade/host API, the native desktop taught to exec red-mcp, and agents/mcp-worker.mjs and runtime/tools.mjs deleted (owner, 2026-09-13; spec 129, KI-100). |
 | F186 | J0 | rengine | ready | F150c (the live-pane half of F150): a real pane of each CLI completes a task-scoped action through the Rust MCP — the consumer-path evidence this row exists for, which is a dogfooding run in the owner's workspace rather than a fixture (owner, 2026-09-13; spec 129, KI-100). |
 | F187 | J0 | rengine | passing | F150b2 (the cutover half of F185): the workspace launches red-mcp instead of the node tool worker, agents/mcp-worker.mjs and runtime/tools.mjs are deleted, and the layered-update contract answers what updating a connector layer means once that layer is a compiled binary (owner, 2026-09-13; spec 129/065, KI-100). |
+| F188 | J0 | rengine | passing | F152a (the door half of F152): red-host owns the port and forwards what it does not own yet to a JS backend beside it — the shape the root-bound worker already runs one layer up — so the host can be ported a route at a time rather than all at once (owner, 2026-09-13; spec 129, KI-101). |
+| F189 | J0 | rengine | blocked | F152b (the cutover half of F152): the routes red-host owns move into it, the native desktop connects unchanged, the focus-eviction semantic is preserved verbatim, and server/main.mjs, desktops.mjs, surfaces.mjs and surface-protocol.mjs are deleted (owner, 2026-09-13; spec 129, KI-101). |

@@ -2694,7 +2694,9 @@
       "passes": false,
       "dependencies": [
         150,
-        151
+        151,
+        188,
+        189
       ],
       "owner_workspace": "rengine",
       "deliverable": "The Rust host core with desktop and surface routes, the ported surface/desktops suites, and the zero-native-change evidence; the four JS modules removed.",
@@ -3467,6 +3469,48 @@
         "Three sabotages observed failing for their own reasons: adopting nothing, not retaining, and replace.mjs stopping the PTY service with the host's other children.",
         "F94 criterion 4's \"sessions do not [persist]\" clause is superseded by charter D60 with the owner's own words as the reason; replace-host.test.mjs asserts the adoption and the new \"handed … to the next host\" wording."
       ],
+      "external_references": []
+    },
+    {
+      "id": 188,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "F152a (the door half of F152): red-host owns the port and forwards what it does not own yet to a JS backend beside it — the shape the root-bound worker already runs one layer up — so the host can be ported a route at a time rather than all at once (owner, 2026-09-13; spec 129, KI-101).",
+      "acceptance_criteria": [
+        "Every route and both sockets answer through red-host exactly as they answer directly: same statuses, same bodies, same refusals, and a socket that carries what the client sends as well as what the workspace sends back.",
+        "The door authenticates every request rather than every connection, publishes its own token in the descriptor, and never hands a client the backend's credential."
+      ],
+      "passes": true,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "The red-host crate in front-door mode, its head parser and forwarder, and the through-the-door parity spec.",
+      "evidence": [
+        "docs/evidence/red-host-door-f188-2026-09-13.md",
+        "orchestrator/tests/red-host.test.mjs: the same live host driven directly and through the door — six read routes, a POST with a body, the two refusals in the JS host's own words, /health answered by the door, and a session attached over /events whose input reaches the pane and whose output comes back.",
+        "Three sabotages observed failing for their own reasons: the token check removed, the socket token passed upstream unchanged, and the upgrade copied one way only — the last of which leaves every receiving assertion passing."
+      ],
+      "external_references": []
+    },
+    {
+      "id": 189,
+      "milestone": "J0",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "F152b (the cutover half of F152): the routes red-host owns move into it, the native desktop connects unchanged, the focus-eviction semantic is preserved verbatim, and server/main.mjs, desktops.mjs, surfaces.mjs and surface-protocol.mjs are deleted (owner, 2026-09-13; spec 129, KI-101).",
+      "acceptance_criteria": [
+        "The native desktop connects to red-host unchanged: same routes, same frames, same surface protocol; the cooperative surface suite passes.",
+        "The surfaces focus-eviction semantic is preserved verbatim (surfaces.mjs:72-76, spec 114 finding 2).",
+        "server/main.mjs, server/desktops.mjs, server/surfaces.mjs and server/surface-protocol.mjs are deleted in the same commit the replacement goes green."
+      ],
+      "passes": false,
+      "dependencies": [
+        188,
+        150
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The ported routes and sockets, the desktop evidence, and the deletion commit.",
+      "evidence": [],
       "external_references": []
     }
   ]
