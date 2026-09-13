@@ -15,6 +15,7 @@
 use serde_json::json;
 
 pub mod hooks;
+pub mod launch;
 pub mod parsers;
 pub mod report;
 pub mod spawn;

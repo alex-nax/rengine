@@ -50,6 +50,38 @@ fn text_arg(args: &Json, index: usize) -> Option<&str> {
     args.get(index).and_then(Json::as_str)
 }
 
+fn uuid_v4() -> String {
+    let mut bytes = [0u8; 16];
+    getrandom::fill(&mut bytes).expect("the operating system answers randomness");
+    bytes[6] = bytes[6] & 0x0f | 0x40;
+    bytes[8] = bytes[8] & 0x3f | 0x80;
+    let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+    format!("{}-{}-{}-{}-{}", &hex[0..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..32])
+}
+/* ISO-8601 with milliseconds, the shape `new Date().toISOString()` writes, because the identity's
+   startedAt is read back by JS and by the desktop. */
+fn now_iso() -> String {
+    let millis = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0);
+    let (seconds, sub) = (millis.div_euclid(1000), millis.rem_euclid(1000));
+    let days = seconds.div_euclid(86_400);
+    let time = seconds.rem_euclid(86_400);
+    // Civil-from-days (Howard Hinnant's algorithm), so no date crate is needed for one field.
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    format!("{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}.{sub:03}Z", time / 3600, (time % 3600) / 60, time % 60)
+}
+
 fn dispatch(method: &str, args: &Json) -> Result<Json, String> {
     match method {
         /* The registry, projected exactly as `red-agents-dump` projects it for the parity test:
@@ -91,8 +123,55 @@ fn dispatch(method: &str, args: &Json) -> Result<Json, String> {
             };
             Ok(json!({ "id": parsed.0, "source": parsed.1 }))
         }
+        /* The launch half (F173). Everything environment-dependent is in `args[0]`; every decision
+           is the crate's. The harness freezes the mint and the clock the way red-store-serve does. */
+        "agentLaunch" | "agentIdentity" => {
+            let inputs = args.get(0).cloned().unwrap_or_else(|| json!({}));
+            let mut mint = mint_sequence();
+            let mut now = now_sequence();
+            let recipes = load()?;
+            if method == "agentIdentity" {
+                red_agents::launch::agent_identity(&recipes, &inputs, &mut mint, &mut now)
+            } else {
+                red_agents::launch::launch_plan(&recipes, &inputs, &mut mint, &mut now)
+            }
+        }
+        "describeSession" => Ok(red_agents::launch::describe_session(&args.get(0).cloned().unwrap_or(Json::Null))),
+        "conversationArgs" => {
+            let Some(agent) = text_arg(args, 0) else { return Err("conversationArgs takes a CLI name.".into()) };
+            let identity = args.get(1).cloned().unwrap_or(Json::Null);
+            let resume = args.get(2).and_then(Json::as_bool).unwrap_or(false);
+            Ok(json!(red_agents::launch::conversation_args(&load()?, agent, &identity, resume)))
+        }
+        "agentCli" => Ok(json!(red_agents::launch::agent_cli(&load()?, text_arg(args, 0).unwrap_or(""), text_arg(args, 1)))),
+        "shortAgentId" => Ok(json!(red_agents::launch::short_agent_id(&load()?, text_arg(args, 0).unwrap_or(""), text_arg(args, 1).unwrap_or("")))),
+        "agentLabel" => Ok(json!(red_agents::launch::agent_label(
+            &load()?, text_arg(args, 0).unwrap_or(""), text_arg(args, 1), text_arg(args, 2)
+        ))),
+        "shellQuote" => Ok(json!(red_agents::launch::shell_quote(text_arg(args, 0).unwrap_or("")))),
+        "claudeSettings" => {
+            let windows = cfg!(windows);
+            Ok(red_agents::launch::claude_settings(text_arg(args, 0).unwrap_or(""), text_arg(args, 1).unwrap_or(""), windows))
+        }
         _ => Err(format!("Unknown agents method {method}.")),
     }
+}
+
+/* Harness-only, exactly as red-store-serve takes them: a frozen sequence makes a launch plan
+   byte-comparable against the JS module's, which is what the parity test needs. */
+fn mint_sequence() -> impl FnMut() -> String {
+    let mut queued: Vec<String> = std::env::var("RED_AGENTS_MINT_SEQUENCE")
+        .map(|text| text.split(',').filter(|v| !v.is_empty()).map(str::to_string).collect())
+        .unwrap_or_default();
+    queued.reverse();
+    move || queued.pop().unwrap_or_else(uuid_v4)
+}
+fn now_sequence() -> impl FnMut() -> String {
+    let mut queued: Vec<String> = std::env::var("RED_AGENTS_NOW_SEQUENCE")
+        .map(|text| text.split(',').filter(|v| !v.is_empty()).map(str::to_string).collect())
+        .unwrap_or_default();
+    queued.reverse();
+    move || queued.pop().unwrap_or_else(now_iso)
 }
 
 fn main() -> ExitCode {
