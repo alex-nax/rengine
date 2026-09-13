@@ -12,6 +12,7 @@ use std::sync::Arc;
 use serde_json::{json, Value};
 
 use crate::handoff::{check_resume, read_handoff};
+use crate::routes::{faulted, http_text};
 use crate::{ask, ask_pty, Front};
 
 /// `shortAgentId`, which is the CLI's own rule: a prefix to strip and a length, declared in the
@@ -56,15 +57,15 @@ pub(crate) fn agent_title(agent: &str, conversation: Option<&str>, root_name: &s
 pub(crate) async fn record_conversation(front: &Arc<Front>, body: &str) -> String {
     let payload: Value = match serde_json::from_str(body) {
         Ok(value) => value,
-        Err(error) => return crate::faulted(&format!("400|Invalid JSON body: {error}")),
+        Err(error) => return faulted(&format!("400|Invalid JSON body: {error}")),
     };
     let id = payload.get("id").and_then(Value::as_str).unwrap_or_default().to_string();
     let Some(pane) = front.panes.lock().expect("panes lock").get(&id).cloned() else {
-        return crate::faulted("404|Unknown session.");
+        return faulted("404|Unknown session.");
     };
     let held = |name: &str| pane.get("meta").and_then(|record| record.get(name)).filter(|value| !value.is_null()).cloned();
     if held("type").and_then(|value| value.as_str().map(str::to_string)).as_deref() != Some("agent") {
-        return crate::faulted("400|Only an agent session holds a conversation.");
+        return faulted("400|Only an agent session holds a conversation.");
     }
     let root_id = held("rootId").and_then(|value| value.as_str().map(str::to_string)).unwrap_or_default();
     let named = payload.get("agent").and_then(Value::as_str).unwrap_or_default().to_string();
@@ -74,7 +75,7 @@ pub(crate) async fn record_conversation(front: &Arc<Front>, body: &str) -> Strin
     let agent = if !named.is_empty() && known.is_empty() { named.clone() } else { known.clone() };
     let root = match ask(front, "root", json!([root_id])).await {
         Ok(root) => root,
-        Err(fault) => return crate::faulted(&fault),
+        Err(fault) => return faulted(&fault),
     };
     let root_name = root.get("name").and_then(Value::as_str).unwrap_or_default().to_string();
     let automatic = held("titleAuto").and_then(|value| value.as_bool()).unwrap_or(false);
@@ -96,7 +97,7 @@ pub(crate) async fn record_conversation(front: &Arc<Front>, body: &str) -> Strin
             "task": payload.get("task").cloned().unwrap_or(Value::Null),
         }])).await {
             Ok(entry) => entry,
-            Err(fault) => return crate::faulted(&fault),
+            Err(fault) => return faulted(&fault),
         };
         let recorded = entry.get("id").and_then(Value::as_str).unwrap_or_default().to_string();
         patch.insert("conversation".to_string(), json!(recorded));
@@ -108,8 +109,8 @@ pub(crate) async fn record_conversation(front: &Arc<Front>, body: &str) -> Strin
     match ask_pty(front, "describe", json!([id, Value::Object(patch)])).await {
         /* `describe` answers with the pane it just changed, which is the snapshot this route
            returns — so the caller reads the record it wrote rather than one read back after it. */
-        Ok(session) => crate::http_text(200, "OK", &crate::pane_answer(&session, false)),
-        Err(fault) => crate::faulted(&fault),
+        Ok(session) => http_text(200, "OK", &pane_answer(&session, false)),
+        Err(fault) => faulted(&fault),
     }
 }
 
@@ -127,14 +128,14 @@ pub(crate) async fn record_conversation(front: &Arc<Front>, body: &str) -> Strin
 pub(crate) async fn terminal(front: &Arc<Front>, body: &str) -> String {
     let options: Value = match serde_json::from_str(body) {
         Ok(value) => value,
-        Err(error) => return crate::faulted(&format!("400|Invalid JSON body: {error}")),
+        Err(error) => return faulted(&format!("400|Invalid JSON body: {error}")),
     };
     if !options.is_object() {
-        return crate::faulted("400|Expected an object.");
+        return faulted("400|Expected an object.");
     }
     match spawn_pane(front, &options).await {
-        Ok(session) => crate::http_text(200, "OK", &crate::pane_answer(&session, false)),
-        Err(fault) => crate::faulted(&fault),
+        Ok(session) => http_text(200, "OK", &pane_answer(&session, false)),
+        Err(fault) => faulted(&fault),
     }
 }
 
@@ -360,28 +361,28 @@ async fn spawn_pane(front: &Arc<Front>, options: &Value) -> Result<Value, String
 pub(crate) async fn restart(front: &Arc<Front>, body: &str) -> String {
     let payload: Value = match serde_json::from_str(body) {
         Ok(value) => value,
-        Err(error) => return crate::faulted(&format!("400|Invalid JSON body: {error}")),
+        Err(error) => return faulted(&format!("400|Invalid JSON body: {error}")),
     };
     let id = payload.get("id").and_then(Value::as_str).unwrap_or_default().to_string();
     let Some(pane) = front.panes.lock().expect("panes lock").get(&id).cloned() else {
-        return crate::faulted("404|Unknown session.");
+        return faulted("404|Unknown session.");
     };
     let held = |name: &str| pane.get("meta").and_then(|record| record.get(name)).filter(|value| !value.is_null()).cloned();
     let string = |name: &str| held(name).and_then(|value| value.as_str().map(str::to_string));
     if string("type").as_deref() != Some("agent") {
-        return crate::faulted("400|Only an agent session can be restarted into its conversation.");
+        return faulted("400|Only an agent session can be restarted into its conversation.");
     }
     let agent = string("agent").unwrap_or_default();
     let Some(conversation) = string("conversation") else {
         /* Named in the person's own terms: a pane with no conversation to resume is not a pane this
            can restart, and the answer says what to do instead. */
-        return crate::faulted(&format!(
+        return faulted(&format!(
             "400|This {} pane has no conversation rEngine can resume; stop it and start a new one.",
             if agent.is_empty() { "agent" } else { &agent }
         ));
     };
     if let Err(fault) = ask_pty(front, "stop", json!([id])).await {
-        return crate::faulted(&fault);
+        return faulted(&fault);
     }
     let options = json!({
         "rootId": string("rootId").unwrap_or_default(),
@@ -393,8 +394,8 @@ pub(crate) async fn restart(front: &Arc<Front>, body: &str) -> String {
         "rows": pane.get("rows").cloned().unwrap_or(Value::Null),
     });
     match spawn_pane(front, &options).await {
-        Ok(session) => crate::http_text(200, "OK", &crate::pane_answer(&session, false)),
-        Err(fault) => crate::faulted(&fault),
+        Ok(session) => http_text(200, "OK", &pane_answer(&session, false)),
+        Err(fault) => faulted(&fault),
     }
 }
 
@@ -456,4 +457,201 @@ fn write_private(path: &std::path::Path, bytes: &[u8]) -> Result<(), String> {
         let _ = std::fs::set_permissions(&temporary, std::fs::Permissions::from_mode(0o600));
     }
     std::fs::rename(&temporary, path).map_err(|error| format!("500|cannot publish {}: {error}", path.display()))
+}
+/// The pane as the JS host says it: the service's own fields, the host's record, and the two
+/// shapes a caller reads — `waitingForView` for a handoff pane, and the scrollback on request.
+///
+/// Absence is meaningful here. `exitCode`, `signal` and `endedAt` are *missing* while a pane runs
+/// rather than null, because the JS host leaves them undefined until it has an ending to report,
+/// and a native client that asked `has exitCode` would read a null as an answer.
+pub(crate) fn pane_snapshot(session: &serde_json::Value) -> serde_json::Value {
+    let empty = serde_json::Map::new();
+    let record = session.get("meta").and_then(|value| value.as_object()).unwrap_or(&empty);
+    let held = |name: &str| record.get(name).filter(|value| !value.is_null()).cloned();
+    let own = |name: &str| session.get(name).filter(|value| !value.is_null()).cloned();
+    let kind = held("type").and_then(|value| value.as_str().map(str::to_string)).unwrap_or_default();
+    let ended = session.get("state").and_then(serde_json::Value::as_str) == Some("exited");
+    let mut out = serde_json::Map::new();
+    /* A field the JS host leaves undefined is a field its answer does not carry, so `None` here
+       means "say nothing" rather than "say null". */
+    fn put(out: &mut serde_json::Map<String, serde_json::Value>, name: &str, value: Option<serde_json::Value>) {
+        if let Some(value) = value {
+            out.insert(name.to_string(), value);
+        }
+    }
+    put(&mut out, "id", own("id"));
+    put(&mut out, "rootId", held("rootId"));
+    put(&mut out, "type", held("type"));
+    put(&mut out, "agent", held("agent"));
+    put(&mut out, "title", held("title"));
+    put(&mut out, "pid", own("pid"));
+    put(&mut out, "state", own("state"));
+    /* An ending the JS host has not seen is an ending it does not mention; one it has seen it
+       mentions even when the service could not say how (`exitCode: null`). */
+    if ended {
+        out.insert("exitCode".to_string(), session.get("exitCode").cloned().unwrap_or(serde_json::Value::Null));
+        out.insert("signal".to_string(), session.get("signal").cloned().unwrap_or(serde_json::Value::Null));
+    }
+    put(&mut out, "createdAt", held("createdAt"));
+    if ended {
+        put(&mut out, "endedAt", own("endedAt"));
+    }
+    put(&mut out, "cols", own("cols"));
+    put(&mut out, "rows", own("rows"));
+    put(&mut out, "sequence", own("sequence"));
+    put(&mut out, "conversation", held("conversation"));
+    put(&mut out, "task", held("task"));
+    if kind == "game" {
+        put(&mut out, "surface", held("surface"));
+        put(&mut out, "game", held("game"));
+        out.insert("args".to_string(), held("args").unwrap_or_else(|| serde_json::json!([])));
+    }
+    if let Some(handoff) = held("handoff") {
+        out.insert("handoff".to_string(), serde_json::json!({
+            "sessionId": handoff.get("sessionId").cloned().unwrap_or(serde_json::Value::Null),
+            "checkpoint": handoff.get("checkpoint").cloned().unwrap_or(serde_json::Value::Null),
+        }));
+        out.insert("waitingForView".to_string(), serde_json::json!(!held("released").and_then(|value| value.as_bool()).unwrap_or(false)));
+    }
+    serde_json::Value::Object(out)
+}
+
+/// The snapshot as JSON TEXT, because its scrollback cannot travel through a Rust `String` — and
+/// that is not a detail to route around. Spec 060 counts the history in JS string characters and
+/// the service ships UTF-16 for exactly that reason: a chunk boundary can leave a LONE SURROGATE in
+/// it, which is a legal JS string and not a legal Rust one. So `output` is written straight into the
+/// answer from the UTF-16 units, every non-ASCII unit as its own `\uXXXX` escape, which `JSON.parse`
+/// turns back into the same JS string with its unpaired halves intact. It goes last, where the JS
+/// host puts it.
+pub(crate) fn pane_answer(session: &serde_json::Value, with_output: bool) -> String {
+    let text = pane_snapshot(session).to_string();
+    if !with_output {
+        return text;
+    }
+    let units = utf16_from_base64(session.get("output").and_then(serde_json::Value::as_str).unwrap_or_default());
+    format!("{},\"output\":{}}}", &text[..text.len() - 1], json_from_utf16(&units))
+}
+
+pub(crate) fn json_from_utf16(units: &[u16]) -> String {
+    let mut out = String::with_capacity(units.len() + 2);
+    out.push('"');
+    for unit in units {
+        match *unit {
+            0x22 => out.push_str("\\\""),
+            0x5c => out.push_str("\\\\"),
+            0x08 => out.push_str("\\b"),
+            0x0c => out.push_str("\\f"),
+            0x0a => out.push_str("\\n"),
+            0x0d => out.push_str("\\r"),
+            0x09 => out.push_str("\\t"),
+            unit if (0x20..0x7f).contains(&unit) => out.push(unit as u8 as char),
+            unit => out.push_str(&format!("\\u{unit:04x}")),
+        }
+    }
+    out.push('"');
+    out
+}
+
+/// Base64 (the wire form the service sends) back to the UTF-16 units it encodes.
+pub(crate) fn utf16_from_base64(text: &str) -> Vec<u16> {
+    const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut bytes: Vec<u8> = Vec::with_capacity(text.len() / 4 * 3);
+    let mut buffer: u32 = 0;
+    let mut bits = 0;
+    for byte in text.bytes() {
+        let Some(value) = ALPHABET.iter().position(|entry| *entry == byte) else { continue };
+        buffer = (buffer << 6) | value as u32;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            bytes.push((buffer >> bits) as u8);
+        }
+    }
+    bytes.chunks_exact(2).map(|pair| u16::from_le_bytes([pair[0], pair[1]])).collect()
+}
+
+/// Typing into a pane, from the route or from the socket — one set of rules, in the JS host's own
+/// order: an unknown session is named before the data is judged, and a pane that is not accepting
+/// input is named before either.
+pub(crate) async fn deliver_input(front: &Arc<Front>, message: &serde_json::Value) -> Result<(), String> {
+    let id = message.get("id").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    let Some(pane) = front.panes.lock().expect("panes lock").get(&id).cloned() else {
+        return Err("404|Unknown session.".to_string());
+    };
+    if pane.get("state").and_then(serde_json::Value::as_str) != Some("running") {
+        return Err("409|Session is not running.".to_string());
+    }
+    /* The handoff gate, which is the whole reason this record had to become the service's: a pane
+       waiting for its native view refuses input, and until D62 only the host that launched it could
+       know that. */
+    let record = |name: &str| pane.get("meta").and_then(|record| record.get(name)).filter(|value| !value.is_null()).cloned();
+    let gated = record("gate").is_some();
+    let released = record("released").and_then(|value| value.as_bool()).unwrap_or(false);
+    if gated && !released {
+        return Err("409|Handoff is waiting for its native view.".to_string());
+    }
+    let data = message.get("data").and_then(serde_json::Value::as_str);
+    if !data.is_some_and(|text| text.encode_utf16().count() <= 1024 * 1024) {
+        return Err("400|Invalid terminal input.".to_string());
+    }
+    /* The delivery is not awaited, because the JS host does not await it either: its route answers
+       `{ok: true}` the moment the refusals pass, and a failure after that reaches the pane's own
+       event stream rather than this caller. */
+    let _ = ask_pty(front, "input", serde_json::json!([id, data.unwrap_or_default()])).await;
+    Ok(())
+}
+
+/// And resizing one. The dimensions are judged BEFORE the session is looked up, because that is the
+/// order the JS host judges them in and a caller sees a different status if they swap.
+pub(crate) async fn deliver_resize(front: &Arc<Front>, message: &serde_json::Value) -> Result<(), String> {
+    let cols = message.get("cols").and_then(serde_json::Value::as_i64).unwrap_or(-1);
+    let rows = message.get("rows").and_then(serde_json::Value::as_i64).unwrap_or(-1);
+    if !(2..=500).contains(&cols) || !(1..=300).contains(&rows) {
+        return Err("400|Invalid terminal dimensions.".to_string());
+    }
+    let id = message.get("id").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    let Some(pane) = front.panes.lock().expect("panes lock").get(&id).cloned() else {
+        return Err("404|Unknown session.".to_string());
+    };
+    /* A pane that is not running is not resized, and not refused either: the JS host returns from
+       `resize` without a word, and the route still answers `{ok: true}`. */
+    if pane.get("state").and_then(serde_json::Value::as_str) == Some("running") {
+        let _ = ask_pty(front, "resize", serde_json::json!([id, cols, rows])).await;
+    }
+    Ok(())
+}
+
+/// A pane is on a person's screen: the gate it was waiting on is opened, and the record says so for
+/// every host (D62). Doing nothing is the answer for a pane that has no gate, was already released,
+/// or is no longer running — exactly as the JS host's `presented` does nothing in those cases.
+pub(crate) async fn present(front: &Arc<Front>, id: &str) -> Result<(), String> {
+    let Some(pane) = front.panes.lock().expect("panes lock").get(id).cloned() else {
+        return Err("Unknown session.".to_string());
+    };
+    let record = |name: &str| pane.get("meta").and_then(|record| record.get(name)).filter(|value| !value.is_null()).cloned();
+    let Some(gate) = record("gate").and_then(|value| value.as_str().map(str::to_string)) else { return Ok(()) };
+    if record("released").and_then(|value| value.as_bool()).unwrap_or(false)
+        || pane.get("state").and_then(serde_json::Value::as_str) != Some("running")
+    {
+        return Ok(());
+    }
+    /* The file first, then the record: the pane is watching for the file, and a record that said
+       "released" before the gate existed would be a promise this host had not kept yet. */
+    let path = std::path::PathBuf::from(&gate);
+    let written = tokio::task::spawn_blocking(move || {
+        std::fs::write(&path, b"")?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
+        }
+        Ok::<(), std::io::Error>(())
+    })
+    .await;
+    match written {
+        Ok(Ok(())) => {}
+        Ok(Err(error)) => return Err(error.to_string()),
+        Err(error) => return Err(error.to_string()),
+    }
+    ask_pty(front, "describe", serde_json::json!([id, { "released": true }])).await.map(|_| ()).map_err(crate::plain)
 }

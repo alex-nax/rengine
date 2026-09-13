@@ -22,7 +22,8 @@ use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use tokio_tungstenite::tungstenite::protocol::{CloseFrame, Message, Role};
 use tokio_tungstenite::WebSocketStream;
 
-use crate::{pane_answer, pane_snapshot, Front};
+use crate::panes::{pane_answer, pane_snapshot};
+use crate::Front;
 
 /// One viewer's end of the socket, from the outside: what it is attached to, and a queue that is
 /// allowed to fall behind only so far.
@@ -172,12 +173,12 @@ async fn handle(front: &Arc<Front>, viewer: &Arc<Viewer>, text: &str) -> Result<
             if !viewer.attached.lock().expect("attached lock").contains(&id) {
                 return Err("Attach the session before presenting it.".to_string());
             }
-            crate::present(front, &id).await
+            crate::panes::present(front, &id).await
         }
         "desktop-register" => front.desktops.register(front, viewer.clone(), &message).await,
         "desktop-action-result" => front.desktops.acknowledge(viewer, &message),
-        "input" => crate::deliver_input(front, &message).await.map_err(crate::plain),
-        "resize" => crate::deliver_resize(front, &message).await.map_err(crate::plain),
+        "input" => crate::panes::deliver_input(front, &message).await.map_err(crate::plain),
+        "resize" => crate::panes::deliver_resize(front, &message).await.map_err(crate::plain),
         _ => Err("Unknown session message.".to_string()),
     }
 }
