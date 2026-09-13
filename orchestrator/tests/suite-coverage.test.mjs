@@ -62,3 +62,19 @@ test('unit tests are matched by the pattern that runs them', async () => {
   const present = (await readdir(TESTS)).filter(name => name.endsWith('.test.mjs'));
   assert.ok(present.length > 10, `the glob has files to match: ${present.length}`);
 });
+
+/* Several specs build a Rust binary before they use it, and cargo replaces a binary in place when
+   it relinks one — so with the suite's files running concurrently, a spec that had already built
+   could see `existsSync` be false for the instant another spec's build was swapping the same file.
+   It showed up as an intermittently red suite, never the same spec twice, until one run was caught
+   with the message: "red-agents was built at …/red/target/debug/red-agents", expected true.
+   Building every binary once before `node --test` starts makes those in-test builds no-ops, which
+   is the whole fix — and a `test` script that lost its `pretest` would bring the flake back with
+   no other symptom, so it is asserted here rather than trusted. */
+test('the suite builds the Rust binaries once, before any spec races another spec for them', async () => {
+  const manifest = JSON.parse(await readFile(path.join(ROOT, 'package.json'), 'utf8'));
+  const pretest = manifest.scripts.pretest ?? '';
+  assert.match(pretest, /cargo build/, 'npm test builds the cargo binaries before the specs run');
+  assert.match(pretest, /--bins/, 'every binary, not only the default one a crate builds');
+  assert.match(pretest, /red\/Cargo\.toml/, "the workspace's own manifest");
+});

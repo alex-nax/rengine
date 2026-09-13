@@ -9,6 +9,7 @@
   },
   "scripts": {
     "postinstall": "node orchestrator/prepare.mjs",
+    "pretest": "cargo build --quiet --manifest-path red/Cargo.toml --bins",
     "test": "RENGINE_IDE_DIRECTORY=.cache/ide-locks node --test orchestrator/tests/*.test.mjs",
     "build": "node orchestrator/build.mjs",
     "build:surface": "cmake -S adapters/sdl2 -B .cache/native -DCMAKE_BUILD_TYPE=Release && cmake --build .cache/native --config Release",

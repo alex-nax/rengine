@@ -135,3 +135,23 @@ test('a listing inherited from the host’s own environment never reaches a pane
   await until(() => sessions.get(pane.id).output.includes('listing='));
   assert.match(sessions.get(pane.id).output, /listing=none/, 'the inherited listing is cleared with the rest of its family');
 });
+
+/* A child can exit before the spawn round trip returns, so the service's exit event can arrive
+   before this host has an item to put it on. Dropping it leaves a session that ran, ended, and
+   reads as "running" for as long as the host lives — which is how it showed up: an intermittently
+   red suite, never the same test twice (F178's swap; see the queue in sessions-client.mjs). Twelve
+   instant exits at once is the shape that makes the race likely rather than rare. */
+test('a child that exits during the spawn round trip is still seen exiting', { timeout: 30000 }, async t => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'rengine-instant-exit-'));
+  const store = await WorkspaceStore.open(path.join(dir, 'state'));
+  const root = await store.addRoot(dir);
+  const sessions = new Sessions(store);
+  t.after(async () => { await sessions.shutdown(); await rm(dir, { recursive: true, force: true }); });
+  const spawned = await Promise.all(Array.from({ length: 12 }, (_, index) =>
+    sessions.terminal({ rootId: root.id, command: '/bin/sh', args: ['-c', `exit ${index % 5}`] })));
+  for (const session of spawned) {
+    await until(() => sessions.get(session.id).state === 'exited');
+    assert.equal(sessions.get(session.id).exitCode, spawned.indexOf(session) % 5,
+      `session ${session.id} reported the code its child exited with`);
+  }
+});

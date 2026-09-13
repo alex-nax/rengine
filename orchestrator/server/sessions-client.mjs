@@ -69,7 +69,15 @@ export function bashPath() {
 }
 
 export class Sessions extends EventEmitter {
-  constructor(store) { super(); this.store = store; this.items = new Map(); this.handoffFlights = new Map(); }
+  constructor(store) {
+    super();
+    this.store = store; this.items = new Map(); this.handoffFlights = new Map();
+    /* Events that arrived before the item they belong to existed. The service starts the output
+       pump and the exit watcher the instant it spawns, so for a short-lived child — `sh -c "exit 0"`
+       is the case that found this — the exit event can beat the spawn response back here. Dropping
+       it leaves a session that ran, ended, and stays "running" in the host's view forever. */
+    this.early = new Map();
+  }
 
   /* One service per host, opened on the first spawn and never before: a Sessions that only ever
      lists is a Sessions that starts no process. Its events arrive by session id and are routed to
@@ -83,6 +91,15 @@ export class Sessions extends EventEmitter {
   }
 
   received(event) {
+    const owner = event.type === 'output' ? event.id : event.session?.id;
+    if (owner && !this.items.has(owner)) {
+      const waiting = this.early.get(owner) ?? [];
+      /* A cap, because an id this host will never register is a leak otherwise. A pane's opening
+         output is what matters here, and it is far below this. */
+      if (waiting.length < 256) waiting.push(event);
+      this.early.set(owner, waiting);
+      return;
+    }
     if (event.type === 'output') {
       const item = this.items.get(event.id);
       if (!item) return;
@@ -194,6 +211,10 @@ export class Sessions extends EventEmitter {
       title: title ?? (type === 'agent' ? agentTitle(agent, conversation, root.name) : `${type === 'game' ? 'Game' : 'Terminal'} · ${root.name}`),
       pid: started.pid, state: 'running', createdAt: Date.now(), cols, rows, output: '', sequence: 0 };
     this.items.set(item.id, item);
+    /* In arrival order, before anything else touches this session: the queue is drained here so a
+       child that exited during the spawn round trip is seen exiting rather than never. */
+    for (const waiting of this.early.get(item.id) ?? []) this.received(waiting);
+    this.early.delete(item.id);
     this.changed(item);
     return this.snapshot(item.id);
   }

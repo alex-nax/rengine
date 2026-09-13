@@ -1,5 +1,42 @@
 # Progress Log
 
+## Session 138 (macos) — 2026-09-13 — the suite was flaky, and it was not the tests' fault
+
+F180's evidence recorded an odd suite failure as *"worth watching rather than declaring solved"*.
+Watching it was right: after F180 and F183 the suite failed about **one run in three**, never the
+same spec twice — a conversation-identity test, the red-agents CLI parity, a restart test, the game
+prerequisites, the contract test. Every one of them passed alone.
+
+**The first diagnosis was wrong, and the sabotage is what said so.** The suspicion was F178's new
+`Sessions` client: the service starts a session's pump and exit watcher the instant it spawns, so a
+child that exits immediately can have its exit event arrive before the spawn response registers the
+item — and an event for an unknown id was dropped. Twelve concurrent instant exits were written to
+pin it, and removing the guard **did not** turn it red, three times running. So that was not what
+the suite was complaining about. The guard stays, because dropping a child's exit leaves a session
+that reads as running forever and the ordering hazard is real, and the spec stays as coverage — but
+neither is written up as a sabotage-verified regression, because it is not one.
+
+**The real cause took one captured run.** Looping the suite with the output kept:
+
+```
+not ok 212 - red-agents report-session matches the frozen JS answers on all fourteen cases
+  error: 'red-agents was built at /Users/alex/rengine/red/target/debug/red-agents'  expected true
+```
+
+`existsSync` false on a binary built minutes earlier. Several specs run `cargo build` before using a
+binary; cargo **replaces** a binary in place when it relinks; the suite runs its files concurrently.
+A spec that had already built could look at that path in the instant another spec's build was
+swapping it. Nothing to do with any test's own subject — which is exactly why it looked random.
+
+`npm test` gains a `pretest` that builds every binary in the workspace once, so the in-spec builds
+relink nothing and a spec run alone still builds what it needs. Before: one in three. After: **six
+consecutive clean runs, 314 of 314**. `suite-coverage.test.mjs` asserts the pretest exists and
+builds `--bins` from the workspace manifest, because a `test` script that quietly lost it would
+bring the flake back with no other symptom.
+
+Evidence: `docs/evidence/suite-prebuild-2026-09-13.md`. F180's evidence is corrected in place rather
+than left saying it is still open.
+
 ## Session 137 (macos) — 2026-09-13 — the ring on a long-lived stream; F141 closes (F183 / F181b)
 
 `/red/1/feed` takes one `FeedSubscribe` in and writes `LifecycleEvent`s out for as long as both

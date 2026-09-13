@@ -81,10 +81,12 @@ process up the whole time. The suite starts and stops its own hosts; the façade
 workspace over HTTP and changes nothing about it, which is what decision 2 promised and is now a
 run rather than a claim. `cargo test -p red-link -p red-core` — 12 tests.
 
-One earlier run of the suite reported a failure in two files (the contract test and a game
-prerequisite test) that pass alone and passed in all three later runs; it is recorded here rather
-than smoothed over. The plausible cause is contention between the several test files that now build
-cargo targets and start hosts at once, and it is worth watching rather than declaring solved.
+One earlier run of the suite reported a failure in two files that pass alone; it was recorded here
+as worth watching rather than declared solved. **It was watched, and it was real** — see
+`docs/evidence/suite-prebuild-2026-09-13.md`: several specs build a Rust binary before using it,
+cargo replaces a binary in place when it relinks, and with the suite's files running concurrently a
+spec that had already built could see `existsSync` be false for the instant another spec's build
+was swapping the same file. `npm test` now builds every binary once before the specs start.
 
 ## What this costs, said out loud
 
