@@ -25,11 +25,12 @@ import { promisify } from 'node:util';
 import path from 'node:path';
 import { identity, ok } from './token-fixtures.mjs';
 import { BINARY, CALLS, REPO, converse, normalise, workspace } from './mcp-conversation.mjs';
+import { built } from './cargo.mjs';
 
 const run = promisify(execFile);
 
 test('red-mcp answers every tool call the way the JS worker answered it', { timeout: 600000 }, async t => {
-  await run('cargo', ['build', '-p', 'red-mcp', '--bin', 'red-mcp'], { cwd: path.join(REPO, 'red'), maxBuffer: 1 << 24 });
+  await built('-p', 'red-mcp', '--bin', 'red-mcp');
   assert.ok(existsSync(BINARY), `red-mcp was built at ${BINARY}`);
   const recorded = JSON.parse(await readFile(path.join(REPO, 'orchestrator/tests/mcp-conversation.json'), 'utf8')).calls;
   assert.deepEqual(recorded.map(entry => entry.name), CALLS.map(([name]) => name),

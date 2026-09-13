@@ -15,6 +15,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { CASES, stubHost } from './report-session-fixtures.mjs';
+import { built } from './cargo.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const BIN = path.join(ROOT, 'red/target/debug/red-agents');
@@ -58,7 +59,7 @@ async function runRust(kase, stub) {
 }
 
 test('red-agents report-session matches the frozen JS answers on all fourteen cases', async t => {
-  await run('cargo', ['build', '-p', 'red-agents'], { cwd: path.join(ROOT, 'red') });
+  await built('-p', 'red-agents');
   assert.ok(existsSync(BIN), `red-agents was built at ${BIN}`);
   const fixtures = JSON.parse(await readFile(FIXTURES, 'utf8'));
   const stub = await stubHost();

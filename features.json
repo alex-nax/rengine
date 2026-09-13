@@ -3515,7 +3515,8 @@
       "evidence": [
         "FIRST HALF, 2026-09-13 (row stays open): docs/evidence/red-host-store-routes-f189-2026-09-13.md — the eight store routes (tree, file, roots, save, draft, discard, layout, preferences) are answered by red-host itself from the state directory's own store service (D61); the session routes, desktops and surfaces have not moved and main.mjs is still the backend of the other twenty-five routes and both sockets.",
         "orchestrator/tests/red-host.test.mjs: the route the door owns still answers 200 with the backend stopped, while a route it forwards fails at the socket — the check that distinguishes a moved route from a forwarded one, since after D61 both readers give the same answer to a parity comparison.",
-        "Four sabotages observed failing for their own reasons: the route forwarded after all, the {ok: true} shape dropped, the store's status ignored, and a POST body left unread."
+        "Four sabotages observed failing for their own reasons: the route forwarded after all, the {ok: true} shape dropped, the store's status ignored, and a POST body left unread.",
+        "SECOND SLICE, 2026-09-13 (row stays open): docs/evidence/pane-record-d62-2026-09-13.md — charter D62, the pane record becomes the service's (red-pty `describe`, protocol 2, a spawn announced like an exit), and red-host answers /api/input and /api/resize from the same record the JS host answers from. Five sabotages, one of which passed at first because the host's write-through announced the pane as a side effect."
       ],
       "external_references": []
     }

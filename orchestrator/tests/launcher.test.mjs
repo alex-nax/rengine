@@ -8,7 +8,11 @@ import { promisify } from 'node:util';
 import { ensureSidecar, request } from '../launcher/sidecar.mjs';
 import { endStateServices } from './state-services.mjs';
 
-test('game launch prerequisites fail before creating shell or agent sessions', { timeout: 15000 }, async t => {
+/* 60s, not the 15s these two were written with: each starts a REAL sidecar, which since D60/D61
+   also starts the state directory's PTY and store services, and the suite runs its files
+   concurrently. The budget was tight enough to time out under that load about once in three full
+   runs — a flake in the report rather than in the product. */
+test('game launch prerequisites fail before creating shell or agent sessions', { timeout: 60000 }, async t => {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-preflight-'));
   let instance;
   t.after(async () => {
@@ -32,7 +36,7 @@ test('game launch prerequisites fail before creating shell or agent sessions', {
   assert.deepEqual((await request(instance, 'state')).sessions, []);
 });
 
-test('simultaneous launchers share one live sidecar and reattach after launcher exit', { timeout: 15000 }, async t => {
+test('simultaneous launchers share one live sidecar and reattach after launcher exit', { timeout: 60000 }, async t => {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-launch-'));
   let instance;
   t.after(async () => {

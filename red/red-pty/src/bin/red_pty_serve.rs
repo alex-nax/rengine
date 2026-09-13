@@ -35,7 +35,10 @@ use serde_json::{json, Value};
 
 /// The wire this service speaks. A host that needs another number is told both, and the client
 /// ends this service rather than adopting it — spec 131.
-const PROTOCOL: u64 = 1;
+/* 2 since charter D62: a host speaking this number expects `describe`, and an older service would
+   answer "Unknown pty method describe." to the first pane record a host changed. A service on the
+   other number is ended by name and a new one starts, which is what the number is for. */
+const PROTOCOL: u64 = 2;
 
 type Host = PtyHost<Box<dyn FnMut(Value) + Send>>;
 type Mint = Box<dyn FnMut() -> String + Send>;
@@ -111,6 +114,7 @@ fn answer(host: &Mutex<Host>, mint: &Mutex<Mint>, request: &Value) -> Value {
                 )
                 .map(|_| Value::Null)
             }
+            "describe" => host.describe(arg(0).as_str().unwrap_or(""), &arg(1)),
             "stop" => host.stop(arg(0).as_str().unwrap_or("")),
             "snapshot" => host.snapshot(arg(0).as_str().unwrap_or("")),
             "list" => Ok(json!(host.list())),

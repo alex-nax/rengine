@@ -1,5 +1,56 @@
 # Progress Log
 
+## Session 146 (macos) — 2026-09-13 — a pane's record belongs to its service too (D62, F189)
+
+The store routes moved at the door this morning. The session routes hit the same wall one level
+down: D60 gave the PTY **process** one owner, but the pane's **record** — state, title,
+conversation, the handoff gate, whether it has been released — lived in whichever host spawned it,
+and the service's `meta` was written once at spawn and never again. A door answering `/api/input`
+from a spawn-time photo refuses a pane the person is already typing into. Filed as KI-104; the owner
+chose the answer that matches D61 — **charter D62, the record becomes the service's, live**.
+
+red-pty gained the update side it lacked: `describe(id, patch)`, merged and broadcast, `null`
+removing a key because a pane that cannot forget a conversation would offer to resume the wrong one.
+The protocol number goes to 2, since a protocol-1 service would answer `Unknown pty method
+describe.` to the first record a host changed. `sessions-client.mjs` writes through on every change
+and applies other hosts' changes without ever answering a broadcast with a write. The gate travels
+now, so adoption keeps its old behavior **explicitly**: the host that adopts a gated pane releases
+it and says so, because the native view it was waiting for went with the host that died.
+
+red-host answers `/api/input` and `/api/resize` from that record, in the JS host's own order of
+refusals — `input` names an unknown session before it judges the data, `resize` judges the
+dimensions before it looks the session up — and `red_core::service::Client` grew a reader thread,
+because a client that only reads while waiting for an answer learns what it holds one request too
+late.
+
+**A sabotage went red one assertion too early, and that was the finding.** Removing the host's
+write-through made the door answer `Unknown session.` — which meant the door only ever learned a
+pane existed because a host happened to describe it afterwards. A spawn is announced like an exit
+now. Its own sabotage passed at first for the same reason, so the spec spawns a pane through a
+client that describes nothing at all.
+
+Three processes at one directory prove it: a plain client gates the pane, both the door and the
+host that spawned it refuse in the same words, the host releases through its own `presented()`, both
+accept, and the keystrokes arrive. Then the backend is stopped and input still answers.
+
+Two suite defects fixed on the way. **Cleanup ran after the directory was deleted** — after-hooks
+run in registration order, which `headless.test.mjs` records in a comment — so `endStateServices`
+reads the process table as well as the descriptor. And **the specs built over each other**: cargo
+uplifts a binary by removing the destination and hardlinking the new one, so two builds of one
+package with different `--bin` selections gave `spawn red-agent-env ENOENT` for a file that exists
+before and after. `tests/cargo.mjs` skips the in-spec build when `pretest` has already done it, and
+a spec run alone still builds what it needs. The two `launcher.test.mjs` budgets went 15s → 60s:
+each starts a real sidecar, which since D60/D61 starts two services with it.
+
+Still forwarded and not claimed: `/api/session`, `/api/terminal`, `/api/stop`, `/api/agent-restart`,
+`/api/agent-conversation`, `/api/state`, desktops, surfaces and both sockets. `/api/session` waits
+for the socket on purpose — its answer carries the scrollback, and a lone surrogate at the slice
+boundary is a thing a JS string holds and a Rust `String` cannot, so the door will write that
+field's escapes itself when it takes `/events`.
+
+Commands: `npm test` (**321 of 321**, twice, zero services left), `cargo test`, `./init.sh`,
+`python3 tools/features.py validate`.
+
 ## Session 145 (macos) — 2026-09-13 — the first routes stop being forwarded (F189, first half)
 
 D61 made the store a service of the state directory, which is what let a route move at all: the

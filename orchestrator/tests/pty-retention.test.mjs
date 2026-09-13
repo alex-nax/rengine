@@ -17,6 +17,10 @@ import net from 'node:net';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+/* The number the host speaks, read rather than typed: a protocol bump is a one-line change in the
+   client and this spec should follow it rather than pin a stale number. */
+import { PTY_PROTOCOL } from '../server/pty-client.mjs';
+import { built } from './cargo.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SERVE = path.join(ROOT, 'red/target/debug/red-pty-serve');
@@ -52,7 +56,7 @@ const until = async (check, timeout = 15000) => {
 };
 
 async function build() {
-  await run('cargo', ['build', '-p', 'red-pty', '--bin', 'red-pty-serve'], { cwd: path.join(ROOT, 'red') });
+  await built('-p', 'red-pty', '--bin', 'red-pty-serve');
   assert.ok(existsSync(SERVE), `red-pty-serve was built at ${SERVE}`);
 }
 
@@ -147,7 +151,7 @@ test('nothing reaches the sessions without the descriptor token', async t => {
     socket.on('error', error => { clearTimeout(timer); reject(error); });
   });
 
-  const wrong = await ask({ id: 1, method: 'attach', args: [{ token: 'f'.repeat(64), protocol: 1 }] });
+  const wrong = await ask({ id: 1, method: 'attach', args: [{ token: 'f'.repeat(64), protocol: PTY_PROTOCOL }] });
   assert.ok(wrong.error, `a wrong token is refused, never served: ${JSON.stringify(wrong.result ?? wrong)}`);
   assert.equal(wrong.error.status, 401, 'a wrong token is refused');
   assert.match(wrong.error.message, /token does not match/);
@@ -161,7 +165,7 @@ test('nothing reaches the sessions without the descriptor token', async t => {
   const mismatch = await ask({ id: 1, method: 'attach', args: [{ token: descriptor.token, protocol: 99 }] });
   assert.ok(mismatch.error, `the right token with the wrong protocol is refused too: ${JSON.stringify(mismatch.result ?? mismatch)}`);
   assert.equal(mismatch.error.status, 409, 'the right token with the wrong protocol is refused too');
-  assert.match(mismatch.error.message, /speaks protocol 1; the client asked for 99/);
+  assert.match(mismatch.error.message, new RegExp(`speaks protocol ${PTY_PROTOCOL}; the client asked for 99`));
 });
 
 test('two hosts racing for one state directory get one service', async t => {
@@ -200,7 +204,7 @@ test('a service that speaks another protocol is ended by name, never adopted', a
   t.after(() => next.close());
   assert.notEqual(next.service.pid, descriptor.pid, 'a service this host cannot read is not adopted');
   await gone(descriptor.pid, 'a service this host cannot read is ended rather than left holding PTYs');
-  assert.ok(warnings.some(message => /names protocol 99; this host speaks 1/.test(message)),
+  assert.ok(warnings.some(message => new RegExp(`names protocol 99; this host speaks ${PTY_PROTOCOL}`).test(message)),
     `the mismatch is named: ${warnings.join(' | ')}`);
   assert.ok(warnings.some(message => new RegExp(`Ending PID ${descriptor.pid}`).test(message)),
     'and so is the process it ended');

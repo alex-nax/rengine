@@ -99,3 +99,31 @@ sessions do not"), with charter D60 as the recorded reason; everything else F94 
 What deliberately does not travel: handoff gates and recovery drafts, which belong to the launch
 that made them. A session whose record a host cannot read is left running and unadopted rather than
 stopped — tidying a list is not a reason to end an agent's work.
+
+## The record becomes live (charter D62, 2026-09-13)
+
+The clause above — "handoff gates do not travel" — was a consequence of the record being a *photo*
+rather than a *record*: `meta` was written once at spawn and never updated, so a gate carried in it
+could never be released and the pane would refuse input forever. That was the right call while one
+host at a time read a directory.
+
+F189 made two hosts read one directory, and then it was wrong. A front door answering `/api/input`
+from a spawn-time photo refuses a pane whose gate the host serving the socket has already released,
+and lets input into one that is still waiting for its native view (KI-104). So:
+
+- red-pty gains **`describe(id, patch)`** — merge into the record, broadcast the pane, `null`
+  removes a key because a pane that cannot forget a conversation would offer to resume the wrong
+  one. The wire protocol number goes to **2**; a service on the other number is ended by name and a
+  new one starts, which is what the number has always been for.
+- A **spawn is announced** like an exit. A pane the service is holding that no host has described
+  is still a pane every attached host must know about; before this, a second host answered
+  `Unknown session.` about a session running in front of the person.
+- The gate travels now, and adoption keeps its old behavior **explicitly**: the host that adopts a
+  gated pane releases it and writes that down, because the native view it was waiting for went with
+  the host that died. What used to happen implicitly, by the photo always saying `released: true`,
+  is now a decision with a name.
+- `sessions-client.mjs` writes the record through on every change and applies the changes other
+  hosts make; it never answers a broadcast with a write.
+
+The record is still the *host's* knowledge, not the service's opinion: red-pty stores and forwards
+it and reads nothing in it, exactly as before. What changed is who may write, and when.

@@ -20,13 +20,14 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { agentLaunch, codexHookTrustHash, closeAgents } from '../agents/agents-client.mjs';
 import { LAUNCHES, recordLaunch, scrub } from './agents-fixtures.mjs';
+import { built } from './cargo.mjs';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const FIXTURES = JSON.parse(await readFile(new URL('./agents-fixtures.json', import.meta.url), 'utf8'));
 
 test('the Rust launch plan is the plan config.mjs composed, for every CLI', { timeout: 120000 }, async t => {
-  await run('cargo', ['build', '-p', 'red-agents'], { cwd: path.join(ROOT, 'red') });
+  await built('-p', 'red-agents');
   t.after(() => closeAgents());
   for (const kase of LAUNCHES) {
     const directory = await mkdtemp(path.join(tmpdir(), 'rengine-launch-parity-'));

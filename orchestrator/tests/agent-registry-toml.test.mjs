@@ -15,6 +15,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { built } from './cargo.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const REGISTRY = path.join(ROOT, 'orchestrator/agents/registry.toml');
@@ -28,7 +29,7 @@ const run = promisify(execFile);
    itself. */
 const RECORDED = JSON.parse(readFileSync(new URL('./agents-fixtures.json', import.meta.url), 'utf8')).resolvedRecipes;
 async function build(t) {
-  await run('cargo', ['build', '-p', 'red-agents', '--bin', 'red-agents-dump'], { cwd: path.join(ROOT, 'red') });
+  await built('-p', 'red-agents', '--bin', 'red-agents-dump');
   assert.ok(existsSync(DUMP), `red-agents-dump was built at ${DUMP}`);
   return () => RECORDED;
 }

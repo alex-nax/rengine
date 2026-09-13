@@ -330,18 +330,36 @@ mod tests {
 /// host that owns the directory, and a front door that raced to start one would be the second
 /// owner the whole arrangement exists to prevent. A caller that finds nothing is told so and can
 /// decide — forwarding, in red-host's case.
+///
+/// One thread owns the reading, because the other lines on this socket are not answers: a store
+/// pushes its new state after every change and a PTY service pushes output and pane records as they
+/// happen (charter D62). A client that only read while waiting for an answer would learn what it
+/// holds when it next asked something — which, for a door deciding whether a pane accepts input, is
+/// exactly one request too late.
 pub struct Client {
-    stream: TcpStream,
-    reader: BufReader<TcpStream>,
-    sequence: u64,
+    writing: Mutex<TcpStream>,
+    pending: Arc<Mutex<std::collections::HashMap<u64, std::sync::mpsc::Sender<Value>>>>,
+    sequence: std::sync::atomic::AtomicU64,
     /// The last unsolicited `state` this service pushed, if it pushes one.
-    pub state: Option<Value>,
+    state: Arc<Mutex<Option<Value>>>,
+    /// What the `attach` answer carried: a PTY service's sessions, a store's opening state.
+    pub greeting: Value,
     pub instance: String,
 }
 
 impl Client {
     /// Attach to the service `name` serves in `directory`, or `Ok(None)` when there is none.
     pub fn attach(directory: &Path, name: &str, protocol: u64) -> Result<Option<Client>, String> {
+        Client::attaching(directory, name, protocol, Box::new(|_| {}))
+    }
+
+    /// The same, with a handler for every line that is not an answer to a request.
+    pub fn attaching(
+        directory: &Path,
+        name: &str,
+        protocol: u64,
+        on_event: Box<dyn Fn(&Value) + Send + 'static>,
+    ) -> Result<Option<Client>, String> {
         let descriptor = directory.join(format!("{name}.json"));
         let Some(document) = already_serving(&descriptor) else { return Ok(None) };
         let token = document.get("token").and_then(Value::as_str).unwrap_or_default().to_string();
@@ -359,50 +377,95 @@ impl Client {
             .ok_or_else(|| format!("{} does not name a loopback address", descriptor.display()))?;
         let stream = TcpStream::connect_timeout(&address, Duration::from_secs(5))
             .map_err(|error| format!("cannot reach {url}: {error}"))?;
-        let reader = BufReader::new(stream.try_clone().map_err(|error| error.to_string())?);
-        let mut client = Client { stream, reader, sequence: 0, state: None, instance: String::new() };
+        let reading = stream.try_clone().map_err(|error| error.to_string())?;
+        let pending: Arc<Mutex<std::collections::HashMap<u64, std::sync::mpsc::Sender<Value>>>> =
+            Arc::new(Mutex::new(std::collections::HashMap::new()));
+        let state: Arc<Mutex<Option<Value>>> = Arc::new(Mutex::new(None));
+        read_answers(reading, pending.clone(), state.clone(), on_event);
+        let client = Client {
+            writing: Mutex::new(stream),
+            pending,
+            sequence: std::sync::atomic::AtomicU64::new(0),
+            state,
+            greeting: Value::Null,
+            instance: String::new(),
+        };
         let hello = client.call("attach", json!([{ "token": token, "protocol": protocol }]))?;
-        client.instance = hello.get("instance").and_then(Value::as_str).unwrap_or_default().to_string();
-        if let Some(state) = hello.get("state") {
-            client.state = Some(state.clone());
+        let instance = hello.get("instance").and_then(Value::as_str).unwrap_or_default().to_string();
+        if let Some(opening) = hello.get("state") {
+            *client.state.lock().expect("state lock") = Some(opening.clone());
         }
-        Ok(Some(client))
+        Ok(Some(Client { greeting: hello, instance, ..client }))
     }
 
-    /// One request, one answer — and every unsolicited line before it is taken as the service's
-    /// current state, which is how an attached client stays in step with the other hosts.
-    pub fn call(&mut self, method: &str, args: Value) -> Result<Value, String> {
-        self.sequence += 1;
-        let id = self.sequence;
+    /// The service's current state, as of the last line it pushed.
+    pub fn state(&self) -> Option<Value> {
+        self.state.lock().expect("state lock").clone()
+    }
+
+    /// One request, one answer. Errors carry the service's own status as `"<status>|<message>"`,
+    /// because a refusal a client acts on — 404 for an unknown root, 409 for a stale save — is not
+    /// the same thing as a service that broke.
+    pub fn call(&self, method: &str, args: Value) -> Result<Value, String> {
+        let id = self.sequence.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+        let (sender, receiver) = std::sync::mpsc::channel();
+        self.pending.lock().expect("pending lock").insert(id, sender);
         let line = format!("{}\n", json!({ "id": id, "method": method, "args": args }));
-        self.stream.write_all(line.as_bytes()).map_err(|error| format!("cannot ask {method}: {error}"))?;
-        self.stream.flush().ok();
-        loop {
-            let mut answer = String::new();
-            let read = self.reader.read_line(&mut answer).map_err(|error| format!("no answer to {method}: {error}"))?;
-            if read == 0 {
-                return Err(format!("the service closed while answering {method}"));
+        let written = {
+            let mut writing = self.writing.lock().expect("writing lock");
+            writing.write_all(line.as_bytes()).and_then(|()| writing.flush())
+        };
+        if let Err(error) = written {
+            self.pending.lock().expect("pending lock").remove(&id);
+            return Err(format!("cannot ask {method}: {error}"));
+        }
+        /* A bound rather than forever: a service that has stopped answering must not take the door
+           down with it. The reader drops every pending sender when the socket ends, so the ordinary
+           failure arrives at once and this timeout is for the extraordinary one. */
+        let answer = match receiver.recv_timeout(Duration::from_secs(30)) {
+            Ok(answer) => answer,
+            Err(_) => {
+                self.pending.lock().expect("pending lock").remove(&id);
+                return Err(format!("no answer to {method}"));
             }
-            let value: Value = match serde_json::from_str(&answer) {
-                Ok(value) => value,
-                Err(_) => continue,
-            };
-            if let Some(state) = value.get("state") {
-                self.state = Some(state.clone());
+        };
+        if let Some(error) = answer.get("error") {
+            let message = error.get("message").and_then(Value::as_str).unwrap_or("the service refused").to_string();
+            let status = error.get("status").and_then(Value::as_u64).unwrap_or(500) as u16;
+            return Err(format!("{status}|{message}"));
+        }
+        Ok(answer.get("result").cloned().unwrap_or(Value::Null))
+    }
+}
+
+/// The reading thread: an answer goes to whoever is waiting for its id, and everything else is an
+/// event. A line carrying `state` updates what this client knows either way, because the store
+/// pushes its state both in an answer's wake and on its own.
+fn read_answers(
+    stream: TcpStream,
+    pending: Arc<Mutex<std::collections::HashMap<u64, std::sync::mpsc::Sender<Value>>>>,
+    state: Arc<Mutex<Option<Value>>>,
+    on_event: Box<dyn Fn(&Value) + Send + 'static>,
+) {
+    std::thread::spawn(move || {
+        let reader = BufReader::new(stream);
+        for line in reader.lines() {
+            let Ok(line) = line else { break };
+            let Ok(value) = serde_json::from_str::<Value>(&line) else { continue };
+            if let Some(pushed) = value.get("state") {
+                *state.lock().expect("state lock") = Some(pushed.clone());
             }
             match value.get("id").and_then(Value::as_u64) {
-                Some(answered) if answered == id => {
-                    if let Some(error) = value.get("error") {
-                        let message = error.get("message").and_then(Value::as_str).unwrap_or("the service refused").to_string();
-                        let status = error.get("status").and_then(Value::as_u64).unwrap_or(500) as u16;
-                        return Err(format!("{status}|{message}"));
+                Some(id) => {
+                    let waiting = pending.lock().expect("pending lock").remove(&id);
+                    if let Some(sender) = waiting {
+                        let _ = sender.send(value);
                     }
-                    return Ok(value.get("result").cloned().unwrap_or(Value::Null));
                 }
-                /* An unsolicited line — a state push, or an event a PTY service emits — is not an
-                   answer to this request, and waiting for the right id is what keeps them apart. */
-                _ => continue,
+                None => on_event(&value),
             }
         }
-    }
+        /* The socket ended: every caller still waiting is told now rather than at its timeout. */
+        pending.lock().expect("pending lock").clear();
+    });
 }

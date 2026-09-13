@@ -21,6 +21,7 @@ import path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { startServer } from '../server/main.mjs';
+import { built } from './cargo.mjs';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
@@ -38,7 +39,7 @@ async function connect(t, command, args, env) {
 }
 
 test('red-mcp answers tools/list exactly as the JS worker did', { timeout: 120000 }, async t => {
-  await run('cargo', ['build', '-p', 'red-mcp', '--bin', 'red-mcp'], { cwd: path.join(ROOT, 'red'), maxBuffer: 1 << 24 });
+  await built('-p', 'red-mcp', '--bin', 'red-mcp');
   assert.ok(existsSync(BINARY), `red-mcp was built at ${BINARY}`);
   const directory = await mkdtemp(path.join(tmpdir(), 'red-mcp-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
@@ -62,7 +63,7 @@ test('red-mcp answers tools/list exactly as the JS worker did', { timeout: 12000
 });
 
 test('red-mcp refuses a binding it cannot serve, in the words the worker uses', { timeout: 120000 }, async t => {
-  await run('cargo', ['build', '-p', 'red-mcp', '--bin', 'red-mcp'], { cwd: path.join(ROOT, 'red'), maxBuffer: 1 << 24 });
+  await built('-p', 'red-mcp', '--bin', 'red-mcp');
   const directory = await mkdtemp(path.join(tmpdir(), 'red-mcp-refuse-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const server = await startServer({ stateDir: path.join(directory, 'state') });

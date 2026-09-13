@@ -15,6 +15,7 @@ import readline from 'node:readline';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
+import { built } from './cargo.mjs';
 
 /* Judged against the answers registry.mjs and config.mjs gave, recorded by agents-fixtures.mjs
    while those modules still existed (F173). A replacement cannot be compared against a module that
@@ -34,7 +35,7 @@ const BIN = path.join(ROOT, 'red/target/debug/red-agents-serve');
 
 /* One service, spoken to the way the client will speak to it. */
 async function serve(t) {
-  await run('cargo', ['build', '-p', 'red-agents'], { cwd: path.join(ROOT, 'red') });
+  await built('-p', 'red-agents');
   assert.ok(existsSync(BIN), `red-agents-serve was built at ${BIN}`);
   const child = spawn(BIN, [], { stdio: ['pipe', 'pipe', 'inherit'] });
   t.after(() => child.kill());

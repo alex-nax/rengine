@@ -1,4 +1,6 @@
 .DS_Store
+# Ephemeral worktrees the agent harness creates; each is its own git repository.
+.claude/worktrees/
 .cache/
 # The launcher-written .kimi-code/mcp.json carries per-launch absolute paths: machine-local (spec 127).
 .kimi-code/

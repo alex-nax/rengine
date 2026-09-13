@@ -23,6 +23,13 @@ import { paneComposition, shortAgentId } from '../agents/agents-client.mjs';
 
 const agentScript = fileURLToPath(new URL('../../scripts/agent.sh', import.meta.url));
 const OUTPUT_LIMIT = 1024 * 1024;
+/* What belongs to the pane's RECORD rather than to its process (charter D62). The service already
+   owned the process's own state — running, pid, cols, the scrollback — and since D62 it owns these
+   too, so a second host attached to the same directory reads the same pane rather than its own idea
+   of it. `gate` and `released` are here because they decide whether a pane accepts input, which is
+   the first thing another host has to get right. */
+const RECORD = ['rootId', 'type', 'agent', 'conversation', 'task', 'title', 'titleAuto', 'released',
+  'gate', 'handoff', 'surface', 'game', 'args', 'createdAt'];
 /* One conversation, one set of eight characters: the pane title, the picker row, the identity label
    and the token segment all show the same prefix, so a person recognises the same thing in each. */
 export const agentTitle = (agent, conversation, rootName) =>
@@ -112,6 +119,11 @@ export class Sessions extends EventEmitter {
         cols: session.cols, rows: session.rows, sequence: session.sequence, output: session.output ?? '',
         exitCode: session.exitCode ?? undefined, signal: session.signal ?? undefined };
       this.items.set(item.id, item);
+      /* A pane whose host was replaced is released by the host that adopts it: the gate file
+         belonged to that launch and the native view it was waiting for went with the host. The
+         record used to produce this implicitly by always saying `released: true` at spawn; with a
+         live record (D62) it is a decision this host makes, and writes down. */
+      if (item.gate && !item.released) { item.released = true; this.record(item); }
       adopted.push(this.snapshot(item.id));
     }
     return adopted;
@@ -135,7 +147,7 @@ export class Sessions extends EventEmitter {
       this.emit('event', { type: 'output', id: item.id, sequence: item.sequence, data: event.data });
       return;
     }
-    if (event.type === 'session') this.exited(event.session);
+    if (event.type === 'session') { this.described(event.session); this.exited(event.session); }
   }
 
   /* The service's own snapshot says how a child ended; the pane's record says everything else. */
@@ -164,7 +176,35 @@ export class Sessions extends EventEmitter {
   }
 
   list() { return [...this.items.keys()].map(id => this.snapshot(id)); }
-  changed(item) { this.emit('event', { type: 'session', session: this.snapshot(item.id) }); }
+
+  /* Two halves of what used to be one line. `changed` is this host learning something new about a
+     pane, so the record goes to the service that owns it; `announce` is telling this host's own
+     clients, which is also all a host does when it is applying somebody else's change. */
+  changed(item) { this.record(item); this.announce(item); }
+  announce(item) { this.emit('event', { type: 'session', session: this.snapshot(item.id) }); }
+
+  record(item) {
+    if (!this.stateDir || this.closed) return;
+    const patch = {};
+    for (const name of RECORD) patch[name] = item[name] === undefined ? null : item[name];
+    return this.deliver(host => host.describe(item.id, patch));
+  }
+
+  /* Somebody else's change to a pane this host also holds. Applied, never written back — the
+     service broadcasts to every attached host including the one that asked, and a host that
+     answered a broadcast with a write would be two hosts talking past each other forever. */
+  described(snapshot) {
+    const item = this.items.get(snapshot?.id);
+    const record = snapshot?.meta;
+    if (!item || !record || typeof record !== 'object') return;
+    let differs = false;
+    for (const name of RECORD) {
+      const value = record[name] === null || record[name] === undefined ? undefined : record[name];
+      if (JSON.stringify(item[name] ?? null) === JSON.stringify(value ?? null)) continue;
+      item[name] = value; differs = true;
+    }
+    if (differs) this.announce(item);
+  }
 
   async terminal(options) {
     if (!options.handoffFile) return this.spawnTerminal(options);
@@ -230,21 +270,21 @@ export class Sessions extends EventEmitter {
     }
     if (type !== 'agent') conversation = undefined;
     if (typeof file !== 'string' || !Array.isArray(argv) || argv.some(arg => typeof arg !== 'string')) fail('Invalid executable or arguments.');
-    /* Everything this host knows about the pane that the service does not, so the next host can
-       name what it adopts rather than inheriting a process it cannot describe. Handoff gates and
-       drafts are deliberately absent: they belong to the launch that made them. */
-    const meta = { rootId, type, ...(type === 'agent' ? { agent: agent ?? '', conversation } : {}),
+    /* Everything this host knows about the pane that its process does not say — and since charter
+       D62 the service holds it, so another host attached to this directory reads the same pane
+       rather than its own idea of it. The gate is part of it now: a pane waiting for its native
+       view refuses input, and a host that could not see the gate would let it through. */
+    const record = { rootId, type, ...(type === 'agent' ? { agent: agent ?? '', conversation } : {}),
       ...(type === 'game' ? { surface, game, args: argv } : {}),
+      ...(handoff ? { handoff } : {}), ...(gate ? { gate } : {}), released: !gate,
       titleAuto: title === undefined,
       title: title ?? (type === 'agent' ? agentTitle(agent, conversation, root.name) : `${type === 'game' ? 'Game' : 'Terminal'} · ${root.name}`),
-      createdAt: Date.now(), released: true };
-    const started = await (await this.pty()).spawn({ id, meta, command: file, args: argv, cols, rows, cwd: workingDirectory,
+      createdAt: Date.now() };
+    const started = await (await this.pty()).spawn({ id, meta: record, command: file, args: argv, cols, rows, cwd: workingDirectory,
       // `cleared` first, so this launch's own values win and only what it left out stays deleted.
       env: shellEnvironment({ ...cleared, ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents') }) });
-    const item = { id, rootId, type, handoff, gate, released: false, ...(type === 'agent' ? { agent: agent ?? '', conversation } : {}), ...(type === 'game' ? { surface, game, args: argv } : {}),
-      titleAuto: title === undefined,
-      title: title ?? (type === 'agent' ? agentTitle(agent, conversation, root.name) : `${type === 'game' ? 'Game' : 'Terminal'} · ${root.name}`),
-      pid: started.pid, state: 'running', createdAt: Date.now(), cols, rows, output: '', sequence: 0 };
+    const item = { ...record, id, gate, released: !gate,
+      pid: started.pid, state: 'running', cols, rows, output: '', sequence: 0 };
     this.items.set(item.id, item);
     /* In arrival order, before anything else touches this session: the queue is drained here so a
        child that exited during the spawn round trip is seen exiting rather than never. */
@@ -351,6 +391,7 @@ export class Sessions extends EventEmitter {
      so they stay and the next host adopts them (D60). Without it — a test, or a workspace being
      shut down for good — this host ends what it started, exactly as it always did. */
   async shutdown({ retain = false } = {}) {
+    this.closed = true;
     if (!retain) await Promise.allSettled([...this.items.values()].filter(item => item.state !== 'exited').map(item => this.stop(item.id)));
     /* Closing the client never ends a session: a stdio service dies with this process anyway, and
        a state directory's service is not this host's to end. */

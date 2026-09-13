@@ -20,12 +20,24 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { WebSocket } from 'ws';
 import { startServer } from '../server/main.mjs';
+import { PtyHost } from '../server/pty-client.mjs';
 import { endStateServices } from './state-services.mjs';
+import { built } from './cargo.mjs';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 const BINARY = path.join(ROOT, 'red/target/debug/red-host');
 const delay = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+/* A record reaches another process on its own schedule: one host writes, the service broadcasts,
+   the next host applies. Waiting for that is the honest shape; asserting immediately after a write
+   would be asserting that two processes share memory. */
+async function until(check, what, timeout = 15000) {
+  for (let waited = 0; waited < timeout; waited += 50) {
+    if (await check()) return;
+    await delay(50);
+  }
+  assert.fail(`${what} (not within ${timeout / 1000}s)`);
+}
 
 async function front(t, stateDir, backend) {
   const child = spawn(BINARY, ['--state', stateDir, '--backend', backend.url, '--backend-token', backend.token],
@@ -48,7 +60,7 @@ const ask = (instance, route, body, extra = {}) => fetch(`${instance.url}${route
 });
 
 test('nothing behind the front door can tell it is there', { timeout: 300000 }, async t => {
-  await run('cargo', ['build', '-p', 'red-host', '--bin', 'red-host'], { cwd: path.join(ROOT, 'red'), maxBuffer: 1 << 24 });
+  await built('-p', 'red-host', '--bin', 'red-host');
   assert.ok(existsSync(BINARY), `red-host was built at ${BINARY}`);
   const directory = await mkdtemp(path.join(tmpdir(), 'red-host-'));
   await writeFile(path.join(directory, 'note.txt'), 'first line\nsecond line\n');
@@ -185,4 +197,105 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
     const forwarded = await ask(instance, `/api/dashboard?rootId=${root.id}`);
     await forwarded.text();
   }, 'while a route it only forwards has nowhere left to go');
+});
+
+/* Charter D62. The pane's PROCESS has had one owner since D60; its RECORD — the title, the
+ * conversation, the handoff gate and whether it has been released — lived in whichever host
+ * spawned it, and the service's `meta` was written once at spawn and never again. Two hosts read
+ * one directory now, so a record only one of them can change is a record the other answers from
+ * wrongly: a door letting input into a pane that is still waiting for its native view, or refusing
+ * one the person is already typing into.
+ *
+ * So this drives THREE processes at one directory — the JS host, the door, and a plain client
+ * standing in for whatever host learns something next — and asks each of them what the pane is.
+ */
+test('a pane record changed by one host is the record every host answers from', { timeout: 300000 }, async t => {
+  await built('-p', 'red-host', '--bin', 'red-host');
+  const directory = await mkdtemp(path.join(tmpdir(), 'red-host-record-'));
+  const stateDir = path.join(directory, 'state');
+  const backend = await startServer({ stateDir, retainSessions: true });
+  let stopped = false, client;
+  t.after(async () => {
+    await client?.close();
+    if (!stopped) await backend.close({ retain: false });
+    await endStateServices(stateDir);
+    await rm(directory, { recursive: true, force: true });
+  });
+  const root = await backend.store.addRoot(directory);
+  const door = await front(t, stateDir, backend);
+  const instance = { url: door.url, token: JSON.parse(await readFile(path.join(stateDir, 'sidecar.json'), 'utf8')).token };
+
+  const session = await (await ask(instance, '/api/terminal', { rootId: root.id, command: '/bin/bash',
+    args: ['--noprofile', '--norc'] })).json();
+  const typed = text => ask(instance, '/api/input', { id: session.id, data: text });
+  const printed = async what => {
+    for (let waited = 0; waited < 15000; waited += 50) {
+      if ((await (await ask(backend, `/api/session?id=${session.id}`)).json()).output?.includes(what)) return true;
+      await delay(50);
+    }
+    return false;
+  };
+  assert.equal((await typed('printf "door input\\n"\n')).status, 200, 'the door answers input for a pane it did not spawn');
+  assert.ok(await printed('door input'), 'and the keystrokes reached the shell the backend is watching');
+
+  /* A third attached client — the next host, in miniature — puts this pane behind a handoff gate,
+     which is a thing only the launching host could know before D62. */
+  client = await PtyHost.attach(stateDir);
+  await client.describe(session.id, { gate: path.join(directory, 'ready'), released: false });
+  const waiting = async instance => {
+    const answer = await ask(instance, '/api/input', { id: session.id, data: 'ignored' });
+    return [answer.status, (await answer.json()).error];
+  };
+  await until(async () => (await waiting(instance))[0] === 409, 'the door sees the gate');
+  assert.deepEqual(await waiting(instance), [409, 'Handoff is waiting for its native view.'],
+    'the door refuses input for a pane it was never told about directly');
+  assert.deepEqual(await waiting(backend), [409, 'Handoff is waiting for its native view.'],
+    'and so does the host that spawned it, which learned the same way');
+
+  /* And released by the HOST, through its own API, the way the native view releases a handoff pane
+     it has presented: `presented` writes the gate file and says so in the record. Both directions
+     are load-bearing — this host learned the gate from another process and is now telling every
+     process about the release. */
+  await backend.sessions.presented(session.id);
+  assert.ok(existsSync(path.join(directory, 'ready')), 'the gate file the pane is waiting on was written');
+  await until(async () => (await waiting(instance))[0] === 200, 'the door sees the release');
+  assert.equal((await typed('printf "after the gate\\n"\n')).status, 200);
+  assert.ok(await printed('after the gate'), 'the pane received what was typed after it was released');
+
+  /* The refusals this door owns, in the JS host's own order: `resize` judges the dimensions before
+     it looks the session up, `input` names an unknown session first. Swap them and a caller sees a
+     different status for the same mistake. */
+  const resize = (body) => ask(instance, '/api/resize', body);
+  assert.equal((await resize({ id: 'no-such-pane', cols: 1, rows: 1 })).status, 400, 'bad dimensions are refused before the id is looked up');
+  assert.equal((await resize({ id: 'no-such-pane', cols: 80, rows: 24 })).status, 404, 'and a good resize for a pane that is not there is 404');
+  assert.equal((await resize({ id: session.id, cols: 90, rows: 25 })).status, 200);
+  const unknown = await ask(instance, '/api/input', { id: 'no-such-pane', data: 'x' });
+  assert.equal(unknown.status, 404, 'input for a pane that is not there names it, rather than judging the data first');
+  assert.equal((await unknown.json()).error, 'Unknown session.');
+
+  /* A pane this door heard about from nobody. The client spawns it and says nothing else about it:
+     no host writes a record, no exit arrives, and the door still has to know it exists — which is
+     the service's job, announcing a session the moment there is one. Without that, a second host
+     answers `Unknown session.` about a pane that is running in front of the person. */
+  const unannounced = await client.spawn({ command: '/bin/bash', args: ['--noprofile', '--norc'], cols: 80, rows: 24 });
+  await until(async () => (await ask(instance, '/api/input', { id: unannounced.id, data: '' })).status === 200,
+    'the door learned of a pane nothing described to it');
+  await ask(instance, '/api/input', { id: unannounced.id, data: 'printf "announced\\n"\n' });
+  await until(async () => (await client.snapshot(unannounced.id)).output.includes('announced'),
+    'and the door\'s input reached it');
+  await client.stop(unannounced.id);
+
+  /* The whole point of answering these at the door: with the backend gone, the pane is still there
+     and still typeable, because the session and its record both belong to the directory. */
+  await backend.close({ retain: true });
+  stopped = true;
+  assert.equal((await typed('printf "no backend\\n"\n')).status, 200, 'the door answers input with no host behind it');
+  const held = await client.snapshot(session.id);
+  assert.match(held.output, /no backend/, 'and the shell received it');
+  assert.equal(held.meta.released, true, 'the record is still the one the last host wrote');
+
+  /* A pane that has ended refuses input in the JS host's words, from the state the service keeps. */
+  await client.stop(session.id);
+  await until(async () => (await waiting(instance))[0] === 409, 'the door sees the exit');
+  assert.deepEqual(await waiting(instance), [409, 'Session is not running.']);
 });

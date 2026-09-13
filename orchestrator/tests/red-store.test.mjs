@@ -18,6 +18,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { built } from './cargo.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const CHECK = path.join(ROOT, 'red/target/debug/red-store-check');
@@ -39,7 +40,7 @@ async function buildCorpus(t) {
 }
 
 test('the crate replays the captured corpus byte-for-byte', async t => {
-  await run('cargo', ['build', '-p', 'red-store', '--bin', 'red-store-check'], { cwd: path.join(ROOT, 'red') });
+  await built('-p', 'red-store', '--bin', 'red-store-check');
   assert.ok(existsSync(CHECK), `red-store-check was built at ${CHECK}`);
   const { file } = await buildCorpus(t);
   const judged = await run(CHECK, [file], { maxBuffer: 32 * 1024 * 1024 }).catch(error => error);

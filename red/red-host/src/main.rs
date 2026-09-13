@@ -49,6 +49,23 @@ fn store_route(method: &str, path: &str) -> Option<&'static str> {
     })
 }
 
+/// The session routes this door answers itself. They are here rather than forwarded because the
+/// pane's record is the service's now (charter D62): the refusals below are the JS host's, applied
+/// to the same record the JS host applies them to, so the two cannot disagree about whether a pane
+/// accepts input.
+fn session_route(method: &str, path: &str) -> Option<&'static str> {
+    Some(match (method, path) {
+        ("POST", "/api/input") => "input",
+        ("POST", "/api/resize") => "resize",
+        _ => return None,
+    })
+}
+
+/// The number `pty-client.mjs` speaks: a service on another number belongs to another build, and
+/// this door refuses it the way a host does rather than guessing at its answers.
+const PTY_PROTOCOL: u64 = 2;
+const STORE_PROTOCOL: u64 = 1;
+
 const USAGE: &str = "usage: red-host --state <dir> --backend <url> --backend-token <token> [--port N]";
 
 struct Front {
@@ -56,7 +73,12 @@ struct Front {
     /// same one, and two in-memory owners of one set of files is stale reads and lost writes
     /// (KI-103). `None` when no service is running, and then every store route is forwarded — a
     /// door that raced the host to start one would be the second owner this prevents.
-    store: Mutex<Option<red_core::service::Client>>,
+    store: Option<red_core::service::Client>,
+    /// The directory's PTY service, attached for the same reason as the store (D60), and the pane
+    /// RECORDS it broadcasts (D62). A door that kept its own idea of a pane would refuse input for
+    /// one whose handoff gate the host serving the socket has already released.
+    pty: Option<red_core::service::Client>,
+    panes: Arc<Mutex<std::collections::HashMap<String, serde_json::Value>>>,
     /// The token this workspace's clients present. The backend has its own, and this process never
     /// hands a client the backend's.
     token: String,
@@ -136,7 +158,7 @@ async fn serve(options: Options) -> Result<(), String> {
         .await
         .map_err(|error| format!("loopback is unavailable: {error}"))?;
     let port = listener.local_addr().map_err(|error| error.to_string())?.port();
-    let store = match red_core::service::Client::attach(std::path::Path::new(&options.state), "store", 1) {
+    let store = match red_core::service::Client::attach(std::path::Path::new(&options.state), "store", STORE_PROTOCOL) {
         Ok(client) => client,
         Err(message) => {
             /* A store this door cannot read is not a store it may guess at: say so and forward. */
@@ -144,8 +166,46 @@ async fn serve(options: Options) -> Result<(), String> {
             None
         }
     };
+    /* The pane records, kept current by the service rather than asked for: every line the service
+       pushes about a session lands here, so the rule this door applies to the next request is the
+       one the workspace is living under now. */
+    let panes: Arc<Mutex<std::collections::HashMap<String, serde_json::Value>>> = Arc::new(Mutex::new(std::collections::HashMap::new()));
+    let recording = panes.clone();
+    let pty = match red_core::service::Client::attaching(
+        std::path::Path::new(&options.state),
+        "pty",
+        PTY_PROTOCOL,
+        Box::new(move |event: &serde_json::Value| {
+            if event.get("type").and_then(serde_json::Value::as_str) != Some("session") {
+                return;
+            }
+            let Some(session) = event.get("session") else { return };
+            let Some(id) = session.get("id").and_then(serde_json::Value::as_str) else { return };
+            recording.lock().expect("panes lock").insert(id.to_string(), session.clone());
+        }),
+    ) {
+        Ok(client) => client,
+        Err(message) => {
+            eprintln!("red-host: {message} Session routes will be forwarded.");
+            None
+        }
+    };
+    if let Some(client) = pty.as_ref() {
+        /* What the service is already holding, before the first request: a pane whose host was
+           replaced is one this door can answer for immediately, not one refresh later. */
+        if let Some(sessions) = client.greeting.get("sessions").and_then(serde_json::Value::as_array) {
+            let mut held = panes.lock().expect("panes lock");
+            for session in sessions {
+                if let Some(id) = session.get("id").and_then(serde_json::Value::as_str) {
+                    held.insert(id.to_string(), session.clone());
+                }
+            }
+        }
+    }
     let front = Arc::new(Front {
-        store: Mutex::new(store),
+        store,
+        pty,
+        panes,
         token: secret(),
         instance: uuid_v4(),
         url: format!("http://127.0.0.1:{port}"),
@@ -204,6 +264,13 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
         if let Some(method) = store_route(&head.method, &head.path()) {
             let body = if head.method == "POST" { head.read_body(&mut client, &mut buffered).await? } else { String::new() };
             let answer = answer_from_store(&front, method, &head, &body);
+            client.write_all(answer.as_bytes()).await?;
+            continue;
+        }
+        /* The session routes, answered from the same pane records the JS host reads (D62). */
+        if let Some(method) = session_route(&head.method, &head.path()) {
+            let body = head.read_body(&mut client, &mut buffered).await?;
+            let answer = answer_about_pane(&front, method, &body);
             client.write_all(answer.as_bytes()).await?;
             continue;
         }
@@ -280,7 +347,7 @@ mod tests {
 
     fn front() -> Front {
         Front {
-            store: Mutex::new(None),
+            store: None, pty: None, panes: Arc::new(Mutex::new(std::collections::HashMap::new())),
             token: "a".repeat(64), instance: "i".into(), url: "http://127.0.0.1:1".into(),
             backend: "http://127.0.0.1:2".into(), backend_token: "b".repeat(64),
         }
@@ -358,8 +425,7 @@ mod tests {
 /// or out — the store's answers are the ones `store.mjs` wrote, so a client cannot tell which host
 /// asked.
 fn answer_from_store(front: &Front, method: &str, head: &Head, body: &str) -> String {
-    let mut guard = front.store.lock().expect("store lock");
-    let Some(client) = guard.as_mut() else {
+    let Some(client) = front.store.as_ref() else {
         return http_json(503, "Service Unavailable", &serde_json::json!({ "error": "This workspace's store is not attached." }));
     };
     let payload: serde_json::Value = if body.is_empty() {
@@ -406,6 +472,68 @@ fn answer_from_store(front: &Front, method: &str, head: &Head, body: &str) -> St
             http_json(code, reason(code), &serde_json::json!({ "error": message }))
         }
     }
+}
+
+/// `/api/input` and `/api/resize`, in the JS host's own order of refusals — the order matters,
+/// because `input` names an unknown session before it judges the data and `resize` judges the
+/// dimensions before it looks the session up, and a caller sees a different status if they swap.
+fn answer_about_pane(front: &Front, method: &str, body: &str) -> String {
+    let refusal = |status: u16, message: &str| http_json(status, reason(status), &serde_json::json!({ "error": message }));
+    let Some(client) = front.pty.as_ref() else {
+        return refusal(503, "This workspace's sessions are not attached.");
+    };
+    let payload: serde_json::Value = match serde_json::from_str(body) {
+        Ok(value) => value,
+        Err(error) => return refusal(400, &format!("Invalid JSON body: {error}")),
+    };
+    if !payload.is_object() {
+        return refusal(400, "Expected an object.");
+    }
+    let id = payload.get("id").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    let pane = front.panes.lock().expect("panes lock").get(&id).cloned();
+    let field = |name: &str| pane.as_ref().and_then(|session| session.get("meta")).and_then(|record| record.get(name)).cloned();
+    let state = pane.as_ref().and_then(|session| session.get("state")).and_then(serde_json::Value::as_str).unwrap_or("").to_string();
+    if method == "resize" {
+        let cols = payload.get("cols").and_then(serde_json::Value::as_i64).unwrap_or(-1);
+        let rows = payload.get("rows").and_then(serde_json::Value::as_i64).unwrap_or(-1);
+        /* The dimensions first, before the session is looked up: `resize` validates them for a
+           session it has not found yet, and a caller that sent both wrong sees 400, not 404. */
+        if !(2..=500).contains(&cols) || !(1..=300).contains(&rows) {
+            return refusal(400, "Invalid terminal dimensions.");
+        }
+        if pane.is_none() {
+            return refusal(404, "Unknown session.");
+        }
+        /* A pane that is not running is not resized, and not refused either: the JS host returns
+           from `resize` without a word, and the route still answers `{ok: true}`. */
+        if state == "running" {
+            let _ = client.call("resize", serde_json::json!([id, cols, rows]));
+        }
+        return http_json(200, "OK", &serde_json::json!({ "ok": true }));
+    }
+    if pane.is_none() {
+        return refusal(404, "Unknown session.");
+    }
+    if state != "running" {
+        return refusal(409, "Session is not running.");
+    }
+    /* The handoff gate, which is the whole reason this record had to become the service's: a pane
+       waiting for its native view refuses input, and until D62 only the host that launched it could
+       know that. */
+    let gated = field("gate").is_some_and(|value| !value.is_null());
+    let released = field("released").and_then(|value| value.as_bool()).unwrap_or(false);
+    if gated && !released {
+        return refusal(409, "Handoff is waiting for its native view.");
+    }
+    let data = payload.get("data").and_then(serde_json::Value::as_str);
+    if !data.is_some_and(|text| text.encode_utf16().count() <= 1024 * 1024) {
+        return refusal(400, "Invalid terminal input.");
+    }
+    /* The delivery is not awaited for the answer, because the JS host does not await it either: its
+       route answers `{ok: true}` the moment the refusals pass, and a failure after that reaches the
+       pane's own event stream rather than this caller. */
+    let _ = client.call("input", serde_json::json!([id, data.unwrap_or_default()]));
+    http_json(200, "OK", &serde_json::json!({ "ok": true }))
 }
 
 fn reason(status: u16) -> &'static str {

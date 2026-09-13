@@ -21,6 +21,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { CASES, KIMI_ID, RECORDED, SID } from './pane-composition-fixtures.mjs';
+import { built } from './cargo.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const REGISTRY = path.join(ROOT, 'orchestrator/agents/registry.toml');
@@ -34,7 +35,7 @@ async function rustPanePlan(directory, input) {
 }
 
 test('the pane composition matches the record the JS side left behind', async t => {
-  await run('cargo', ['build', '-p', 'red-agents', '--bin', 'red-agent-env'], { cwd: path.join(ROOT, 'red') });
+  await built('-p', 'red-agents', '--bin', 'red-agent-env');
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-spawn-env-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   assert.equal(Object.keys(RECORDED).length, CASES.length, 'every case has a recorded answer');

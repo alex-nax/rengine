@@ -19,6 +19,7 @@ import net from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { WorkspaceStore } from '../server/store-client.mjs';
+import { built } from './cargo.mjs';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
@@ -40,7 +41,7 @@ async function directory(t, { idleSeconds = 600 } = {}) {
 }
 
 test('two hosts on one state directory share one store', { timeout: 120000 }, async t => {
-  await run('cargo', ['build', '-p', 'red-store', '--bin', 'red-store-serve'], { cwd: path.join(ROOT, 'red'), maxBuffer: 1 << 24 });
+  await built('-p', 'red-store', '--bin', 'red-store-serve');
   const where = await directory(t);
 
   const first = await WorkspaceStore.attach(where);
@@ -74,7 +75,7 @@ test('two hosts on one state directory share one store', { timeout: 120000 }, as
 });
 
 test('nothing reaches the store without the descriptor token', { timeout: 120000 }, async t => {
-  await run('cargo', ['build', '-p', 'red-store', '--bin', 'red-store-serve'], { cwd: path.join(ROOT, 'red'), maxBuffer: 1 << 24 });
+  await built('-p', 'red-store', '--bin', 'red-store-serve');
   const where = await directory(t);
   const store = await WorkspaceStore.attach(where);
   t.after(() => store.close());
@@ -106,7 +107,7 @@ test('nothing reaches the store without the descriptor token', { timeout: 120000
 });
 
 test('an idle store reaps itself, because its state is on disk', { timeout: 120000 }, async t => {
-  await run('cargo', ['build', '-p', 'red-store', '--bin', 'red-store-serve'], { cwd: path.join(ROOT, 'red'), maxBuffer: 1 << 24 });
+  await built('-p', 'red-store', '--bin', 'red-store-serve');
   const where = await directory(t, { idleSeconds: 1 });
   const store = await WorkspaceStore.attach(where);
   const root = await store.addRoot(where);

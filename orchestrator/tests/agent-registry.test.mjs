@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
+import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
 /* F113 (docs/specs/114-dev-suite-roadmap.md, charter D46): one declared agent recipe registry is
@@ -15,6 +16,7 @@ import { agentLaunch, agentConversation, codexHookTrustHash } from '../agents/ag
 import { knownAgents, modelArgs } from '../server/tasks.mjs';
 import { ideConnectFlag } from '../agents/ide-connect.mjs';
 import { ideDirectory } from '../runtime/ide.mjs';
+import { built } from './cargo.mjs';
 
 const script = path.resolve('scripts/agent.sh');
 const FIVE = ['claude', 'codex', 'gemini', 'opencode', 'kimi'];
@@ -22,9 +24,9 @@ const ROOT_ID = '12345678-1234-1234-1234-123456789abc';
 
 /* F171: agent.sh's registry reads dispatch to the red-agents binary, so this file's end-to-end
    runs need it built — on a fresh checkout nothing else in the suite has built it yet. */
-test('the red-agents binary agent.sh dispatches to is present', () => {
-  const built = spawnSync('cargo', ['build', '-p', 'red-agents'], { cwd: path.resolve('red'), encoding: 'utf8', timeout: 300000 });
-  assert.equal(built.status, 0, built.stderr);
+test('the red-agents binary agent.sh dispatches to is present', async () => {
+  await built('-p', 'red-agents');
+  assert.ok(existsSync(path.resolve('red/target/debug/red-agents')), 'red-agents is built');
 });
 
 async function contextDir(t) {

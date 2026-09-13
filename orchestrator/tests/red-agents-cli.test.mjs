@@ -18,6 +18,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { built } from './cargo.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const BIN = path.join(ROOT, 'red/target/debug/red-agents');
@@ -29,7 +30,7 @@ const run = promisify(execFile);
 const NODE = process.execPath;
 
 async function build() {
-  await run('cargo', ['build', '-p', 'red-agents'], { cwd: path.join(ROOT, 'red') });
+  await built('-p', 'red-agents');
   assert.ok(existsSync(BIN), `red-agents was built at ${BIN}`);
 }
 

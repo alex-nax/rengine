@@ -18,6 +18,8 @@ use std::sync::{Arc, Mutex};
 
 pub const OUTPUT_LIMIT: usize = 1024 * 1024;
 pub const INPUT_LIMIT: usize = 1024 * 1024;
+/// What one pane's record may weigh (charter D62): titles, a conversation id, a handoff gate.
+pub const RECORD_LIMIT: usize = 64 * 1024;
 
 #[derive(Debug)]
 pub struct Fail {
@@ -235,6 +237,11 @@ impl<F: FnMut(Value) + Send + 'static> PtyHost<F> {
             (watch_emit.lock().expect("emit lock"))(json!({ "type": "session", "session": snapshot }));
         });
         let snapshot = session.lock().expect("session lock").core_snapshot();
+        /* Announced, not just answered. The caller gets this snapshot as its result, but every
+           OTHER host attached to this directory has to learn the pane exists somehow, and waiting
+           for its first record change or its exit would leave a live pane that a second host
+           answers `Unknown session.` about (charter D62). */
+        (self.emit.lock().expect("emit lock"))(json!({ "type": "session", "session": snapshot }));
         Ok(snapshot)
     }
 
@@ -270,6 +277,45 @@ impl<F: FnMut(Value) + Send + 'static> PtyHost<F> {
         session.cols = cols;
         session.rows = rows;
         Ok(())
+    }
+
+    /// The pane's record, changed by whichever host knows something new about it (charter D62).
+    ///
+    /// `meta` was written once at spawn, so the NEXT host could name what it adopts. That is no
+    /// longer enough: two hosts read one directory now, and a record only one of them can change is
+    /// a record the other answers from wrongly — a door refusing input for a pane whose gate the
+    /// host serving the socket has already released. So the record lives here, one owner, and a
+    /// change is broadcast the way an exit is.
+    ///
+    /// A `null` removes its key rather than storing a null, because a pane that cannot forget a
+    /// conversation would offer to resume the wrong one.
+    pub fn describe(&mut self, id: &str, patch: &Value) -> Result<Value> {
+        let Some(fields) = patch.as_object() else {
+            return Err(Fail::new("Invalid pane record.", 400));
+        };
+        let session = self.get(id)?;
+        let snapshot = {
+            let mut session = session.lock().expect("session lock");
+            if !session.meta.is_object() {
+                session.meta = json!({});
+            }
+            let record = session.meta.as_object_mut().expect("a record");
+            for (name, value) in fields {
+                if value.is_null() {
+                    record.remove(name);
+                } else {
+                    record.insert(name.clone(), value.clone());
+                }
+            }
+            /* A bound on what a host may store about a pane: this service holds records for panes
+               that outlive their hosts, and an unbounded one is a leak with a long life. */
+            if serde_json::to_string(&session.meta).map(|text| text.len()).unwrap_or(usize::MAX) > RECORD_LIMIT {
+                return Err(Fail::new("Pane record exceeds the 64 KiB limit.", 400));
+            }
+            session.core_snapshot()
+        };
+        (self.emit.lock().expect("emit lock"))(json!({ "type": "session", "session": snapshot }));
+        self.snapshot(id)
     }
 
     pub fn snapshot(&self, id: &str) -> Result<Value> {
@@ -337,7 +383,7 @@ fn signal_tree(pid: u32, signal: &str) -> Result<()> {
         }
     }
     let mut descendants = Vec::new();
-    let mut visit = |parent: u32, descendants: &mut Vec<u32>| {
+    let visit = |parent: u32, descendants: &mut Vec<u32>| {
         let mut stack = vec![parent];
         while let Some(next) = stack.pop() {
             for child in children_of.get(&next).cloned().unwrap_or_default() {

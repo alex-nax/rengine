@@ -7,7 +7,11 @@
  * So a test that owns a state directory ends its services when it is done with them.
  */
 import { readFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import path from 'node:path';
+
+const run = promisify(execFile);
 
 export async function endStateServices(stateDir) {
   for (const name of ['pty.json', 'store.json']) {
@@ -16,4 +20,16 @@ export async function endStateServices(stateDir) {
       if (Number.isSafeInteger(descriptor.pid)) { try { process.kill(descriptor.pid, 'SIGKILL'); } catch { /* already gone */ } }
     } catch { /* this directory never had one */ }
   }
+  /* And the process table, because the descriptor is not the only way a service exists: one that
+     lost the startup race, or whose descriptor was written after this ran, is invisible in the
+     directory and still holds a port and a PTY. `pty-retention.test.mjs` counts services this way
+     for the same reason. */
+  try {
+    const { stdout } = await run('ps', ['-axo', 'pid=,args=']);
+    for (const line of stdout.split('\n')) {
+      if (!/red-(pty|store)-serve/.test(line) || !line.includes(`--state ${stateDir}`)) continue;
+      const pid = Number(line.trim().split(/\s+/)[0]);
+      if (Number.isSafeInteger(pid)) { try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ } }
+    }
+  } catch { /* no ps on this platform; the descriptors were the main path anyway */ }
 }

@@ -22,6 +22,7 @@ import { startServer } from '../server/main.mjs';
 import { startWorker } from '../runtime/worker.mjs';
 import { identity, ok } from './token-fixtures.mjs';
 import { taskDeclaration, taskProject } from './task-fixtures.mjs';
+import { built } from './cargo.mjs';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
@@ -29,8 +30,7 @@ const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../.
 /* Built by the same cargo workspace the desktop build drives; `cargo build` rather than a path into
    .cache/desktop so this spec stands on its own when someone runs it alone. */
 async function checker() {
-  await run('cargo', ['build', '-p', 'red-core', '--bin', 'red-contract'],
-            { cwd: path.join(ROOT, 'red'), maxBuffer: 1 << 24 });
+  await built('-p', 'red-core', '--bin', 'red-contract');
   const binary = path.join(ROOT, 'red/target/debug/red-contract');
   assert.ok(existsSync(binary), `red-contract was built at ${binary}`);
   return binary;

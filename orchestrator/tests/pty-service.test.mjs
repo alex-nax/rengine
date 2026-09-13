@@ -20,6 +20,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { built } from './cargo.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SERVE = path.join(ROOT, 'red/target/debug/red-pty-serve');
@@ -138,7 +139,7 @@ const SCENARIOS = {
 };
 
 test('the red-pty service matches what the JS session host answered on the scenario set', async t => {
-  await run('cargo', ['build', '-p', 'red-pty', '--bin', 'red-pty-serve'], { cwd: path.join(ROOT, 'red') });
+  await built('-p', 'red-pty', '--bin', 'red-pty-serve');
   assert.ok(existsSync(SERVE), `red-pty-serve was built at ${SERVE}`);
   const recorded = JSON.parse(await readFile(path.join(ROOT, 'orchestrator/tests/pty-scenario-fixtures.json'), 'utf8'));
   assert.deepEqual(Object.keys(recorded).sort(), Object.keys(SCENARIOS).sort(),

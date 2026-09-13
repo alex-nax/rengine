@@ -36,7 +36,9 @@ import { alive } from '../launcher/sidecar.mjs';
 
 const CHECKOUT = fileURLToPath(new URL('../../', import.meta.url));
 /* The wire red-pty-serve speaks. A service answering another number is ended, never adopted. */
-export const PTY_PROTOCOL = 1;
+/* 2 since charter D62: the pane record is the service's and is changed through `describe`, which a
+   protocol-1 service does not have. */
+export const PTY_PROTOCOL = 2;
 
 function serveBinary() {
   const declared = process.env.RENGINE_RED_PTY_SERVE;
@@ -271,6 +273,9 @@ export class PtyHost extends EventEmitter {
       ...(options.meta === undefined ? {} : { meta: options.meta }) }])
       .then(snapshot => ({ ...snapshot, output: utf16(snapshot.output) }));
   }
+  /* The pane's record, changed where it lives (charter D62). A `null` field removes it: a pane that
+     cannot forget a conversation would offer to resume the wrong one. */
+  describe(id, patch) { return this.call('describe', [id, patch]); }
   input(id, data) { return this.call('input', [id, data]); }
   resize(id, cols, rows) { return this.call('resize', [id, cols, rows]); }
   stop(id) {

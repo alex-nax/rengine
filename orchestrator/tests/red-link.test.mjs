@@ -22,6 +22,7 @@ import { startServer } from '../server/main.mjs';
 import { startWorker } from '../runtime/worker.mjs';
 import { identity, ok } from './token-fixtures.mjs';
 import { taskDeclaration, taskProject } from './task-fixtures.mjs';
+import { built } from './cargo.mjs';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
@@ -69,7 +70,7 @@ async function probe(args, section) {
 }
 
 test('a client with no direct path completes the v0.1 read surface through circuit-relay v2', { timeout: 600000 }, async t => {
-  await run('cargo', ['build', '-p', 'red-link', '--bin', 'red-link'], { cwd: path.join(ROOT, 'red'), maxBuffer: 1 << 24 });
+  await built('-p', 'red-link', '--bin', 'red-link');
   assert.ok(existsSync(BINARY), `red-link was built at ${BINARY}`);
 
   const dir = await mkdtemp(path.join(tmpdir(), 'red-link-'));
@@ -154,7 +155,7 @@ test('a client with no direct path completes the v0.1 read surface through circu
 });
 
 test('the façade refuses what it cannot answer, in the workspace\'s own words', { timeout: 600000 }, async t => {
-  await run('cargo', ['build', '-p', 'red-link', '--bin', 'red-link'], { cwd: path.join(ROOT, 'red'), maxBuffer: 1 << 24 });
+  await built('-p', 'red-link', '--bin', 'red-link');
   const dir = await mkdtemp(path.join(tmpdir(), 'red-link-refuse-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   const stateDir = path.join(dir, 'state');
@@ -200,7 +201,7 @@ test('the façade refuses what it cannot answer, in the workspace\'s own words',
  * a request-and-answer that closed; a test that only watched live frames would prove nothing about
  * the cursor. */
 test('the lifecycle ring replays from a cursor and stays live on the same stream', { timeout: 600000 }, async t => {
-  await run('cargo', ['build', '-p', 'red-link', '--bin', 'red-link'], { cwd: path.join(ROOT, 'red'), maxBuffer: 1 << 24 });
+  await built('-p', 'red-link', '--bin', 'red-link');
   const dir = await mkdtemp(path.join(tmpdir(), 'red-link-feed-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   const project = await taskProject(dir, 'project', taskDeclaration({}));
