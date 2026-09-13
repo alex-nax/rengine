@@ -1,5 +1,50 @@
 # Progress Log
 
+## Session 136 (macos) — 2026-09-13 — "the feed" was two streams, and the contract now carries the right one (F182 / F181a)
+
+Sizing F181 turned up an inconsistency in the record rather than a missing implementation, so it was
+filed (**KI-099**) and put to the owner instead of guessed at. Two streams are both called "the
+feed": the **host's** `/events` — per-session bytes, monotonic sequence, a reconnect that *rebuilds*
+from the attach snapshot (specs 059/060) — and the **worker's** `/feed?rootId&after=N`, the
+lifecycle ring that replays after a cursor and then goes live. F140's contract models the first.
+F141's criterion 2 says *"a reconnect resumes from a cursor exactly as /feed clients do today"*, and
+only the second has a cursor. Implementing the host's stream and claiming that criterion would have
+been rewriting a requirement to pass.
+
+**The owner chose the ring**, which is also what the companion v0.1 needs — decision 9 lists token
+contests and approvals and defers the terminal to v0.2, so per-session output is not v0.1's feed.
+F181 splits into **F182** (this: the contract) and **F183** (the transport).
+
+`red.v1` gained `LifecycleEvent`: sequence, at, rootId, `by`, and a fifteen-arm oneof, because a
+frame type this build does not know must be a decode error rather than a frame with an unread
+`type` string nobody notices. `Lifecycle` carries the page `/api/feed` answers — `cursor` and
+`retained_from`, so a reader whose cursor fell off the ring learns that instead of missing frames
+quietly. Two party shapes, because the workspace sends two; collapsing them would be the contract
+inventing a shape nobody sends. The feed response's socket URL is deliberately **not** carried: it
+embeds this workspace's token, and a contract that copied it would put a credential on the wire for
+every client.
+
+**And the first run found a gap in F140's own contract.** A fixture that contests, claims and
+releases the token makes the status carry a holder, a contester and remembered identities — which no
+earlier fixture had ever produced — and the harness reported six disagreements on the spot:
+`token.identities[0].agentId`, `firstSeenAt`, `lastSeenAt`, `token.history[…].by.agentId`.
+`TokenParty` had `kind`, `pid`, `id`, `label`: a guess that held only while nothing exercised it. It
+carries `agentId`, `since`, `firstSeenAt` and `lastSeenAt` now. F140's criteria were met and its
+fixture was thin — which is the same lesson its own session-state fixture taught, and exactly what
+decision 5 built this harness to catch.
+
+Two sabotages, each observed failing for its own reason: a frame that grows a field, and a renamed
+frame type. The second failed for the **wrong** reason first — a fixture assertion naming the
+expected types tripped before the checker ran — so that assertion moved below the checker, and the
+rename is now reported by the contract rather than by a precondition.
+
+Commands: `npm test` (**311 of 311**), `cargo build -p red-core`, `python3 tools/features.py
+validate` (134 features).
+
+**F182 passes.** F183 carries the ring over the wire — a WebSocket client against the worker's feed,
+a long-lived libp2p stream, and the ordering and cursor-resume evidence — and F141 stays open until
+it lands. Nothing in a running workspace changed today.
+
 ## Session 135 (macos) — 2026-09-13 — the façade speaks, and the relay path is the only path (F180 / F141a)
 
 F141 was written coarser than a tick, so it was split under the KI-092 standing rule (**KI-098**):

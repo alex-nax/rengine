@@ -1822,6 +1822,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "libp2p-stream"
+version = "0.5.0-alpha"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f601608210b097bfd4433de5fd262fdfddc89b70ebdb00fb7f2f10c2f5ffb677"
+dependencies = [
+ "futures",
+ "libp2p-core",
+ "libp2p-identity",
+ "libp2p-swarm",
+ "rand",
+ "tracing",
+]
+
+[[package]]
 name = "libp2p-swarm"
 version = "0.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2694,6 +2708,7 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "libp2p",
+ "libp2p-stream",
  "prost 0.13.5",
  "red-core",
  "serde_json",

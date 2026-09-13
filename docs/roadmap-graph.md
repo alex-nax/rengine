@@ -307,8 +307,14 @@ flowchart TD
   F177 --> F178
   F180["F180: passing"]
   F140 --> F180
-  F181["F181: ready"]
-  F180 --> F181
+  F181["F181: blocked"]
+  F182 --> F181
+  F183 --> F181
+  F182["F182: passing"]
+  F140 --> F182
+  F183["F183: ready"]
+  F180 --> F183
+  F182 --> F183
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -444,4 +450,6 @@ flowchart TD
 | F177 | J0 | rengine | passing | F151b (the retention half of F151): the restart-retention architecture is decided and implemented — whether red-pty stays per-host as today or becomes a long-lived per-state-dir service with a descriptor the next host discovers, with restart evidence matching specs 059/060's promises (owner, 2026-09-13; spec 129, KI-096). |
 | F178 | J0 | rengine | passing | F151c (the swap half of F151): the Sessions class becomes the thin client over red-pty, sessions.mjs is deleted in the same commit the replacement passes, and terminal behaviors are byte-identical on the full suite (owner, 2026-09-13; spec 129, KI-096). |
 | F180 | N0 | rengine | passing | F141a (the read half of F141): red-link attaches to a live workspace over the internal HTTP API the worker and the MCP connector already use, and serves the v0.1 read surface as red.v1 over libp2p — through circuit-relay v2 only, because the façade opens no direct listener at all (owner, 2026-09-13; spec 128 decisions 2 and 4, KI-098). |
-| F181 | N0 | rengine | ready | F141b (the feed half of F141): the workspace's event stream arrives on a long-lived libp2p stream in order with monotonic sequence, and a reconnect resumes from a cursor exactly as the host's own clients do (owner, 2026-09-13; spec 128 decision 2, KI-098). |
+| F181 | N0 | rengine | blocked | F141b (the feed half of F141): the workspace's event stream arrives on a long-lived libp2p stream in order with monotonic sequence, and a reconnect resumes from a cursor exactly as the host's own clients do (owner, 2026-09-13; spec 128 decision 2, KI-098). |
+| F182 | N0 | rengine | passing | F181a (the contract half of F181): red.v1 carries the workspace lifecycle ring — the worker's feed of token, task, agent, game, capture, device-action and workspace frames — translated strictly, with the live ring judged by the F140 harness (owner, 2026-09-13; spec 128 decision 5, KI-099). |
+| F183 | N0 | rengine | ready | F181b (the transport half of F181): the lifecycle ring arrives on a long-lived libp2p stream in order with monotonic sequence, and a reconnect resumes from a cursor exactly as the worker's /feed clients do (owner, 2026-09-13; spec 128 decision 2, KI-099). |

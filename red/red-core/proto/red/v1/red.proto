@@ -196,11 +196,19 @@ message AgentMenu {
 
 // ---- the project token (charter D45) -------------------------------------------------------------
 
+// The union of every party shape the token ledger sends: the holder and a contester carry
+// `agentId` and `since`, a history `by` carries `kind`, and a remembered identity carries the two
+// seen-at stamps. F140 modeled only what its fixture produced — a fixture with no token activity
+// never showed the rest, which is what F182's richer one found (KI-099's run).
 message TokenParty {
   string kind = 1;
   uint32 pid = 2;
   string id = 3;
   string label = 4;
+  string agent_id = 5;
+  string since = 6;
+  string first_seen_at = 7;
+  string last_seen_at = 8;
 }
 
 message TokenEvent {
@@ -303,4 +311,133 @@ message Response {
     AgentMenu agents = 5;
     RequestError error = 6;
   }
+}
+
+// ---- the workspace lifecycle ring (F182/F141b) ----------------------------------------------------
+// The OTHER feed. The host's `/events` above carries per-session bytes; this is the worker's
+// `/feed?rootId&after=N` — the ring a monitor resumes from a cursor, and the one the companion's
+// token contests, approvals and task activity ride on (spec 128 decision 9, KI-099).
+//
+// Two party shapes, because the host has two: `Actor` is who did it (`by`), `Party` is who holds
+// or contests the token. Collapsing them would be this contract inventing a shape the host does
+// not send, which is exactly what the strict translator exists to prevent.
+
+message Actor {
+  string kind = 1;             // agent | desktop | workspace | deadline | holder-gone | release
+  string agent_id = 2;
+  string label = 3;
+  string desktop_id = 4;
+  uint32 pid = 5;
+}
+
+message Party {
+  string agent_id = 1;
+  string label = 2;
+  uint32 pid = 3;
+  string since = 4;
+}
+
+message TokenClaimed {
+  Party holder = 1;
+  optional Party previous_holder = 2;
+  string contest_id = 3;       // set when a deadline resolved a contest into a claim
+}
+
+message TokenContested {
+  string contest_id = 1;
+  Party contester = 2;
+  optional Party holder = 3;
+  string deadline = 4;
+  string reason = 5;
+}
+
+message TokenRejected {
+  string contest_id = 1;
+  Party contester = 2;
+  optional Party holder = 3;
+  string reason = 4;
+  string cooldown_until = 5;   // empty when the rejection cost no cooldown
+}
+
+message TokenHolderChange {
+  optional Party holder = 1;
+}
+
+message GameLifecycle {
+  string session_id = 1;
+  string game_id = 2;
+  string surface = 3;
+  repeated string args = 4;
+  optional int64 exit_code = 5;
+}
+
+message DeviceActionLifecycle {
+  string session_id = 1;
+  string action_id = 2;
+  string device_id = 3;
+  string kind = 4;
+  optional int64 exit_code = 5;
+}
+
+message CaptureLifecycle {
+  string session_id = 1;
+  string game_id = 2;
+  string recording_id = 3;
+  string kind = 4;             // explicit | ring
+  string started_at = 5;
+  string error = 6;
+}
+
+message WorkspaceUpdated {
+  repeated string layers = 1;
+  uint64 generation = 2;
+}
+
+message TaskWritten {
+  string key = 1;
+  string action = 2;
+}
+
+message AgentSpawned {
+  string task_key = 1;
+  string agent = 2;
+  string model = 3;
+  string conversation = 4;
+  string session_id = 5;
+}
+
+// One frame of the ring. The oneof is the type: a frame type this build does not know is a decode
+// error rather than a frame with an unread `type` string nobody notices.
+message LifecycleEvent {
+  uint64 sequence = 1;
+  string at = 2;
+  string root_id = 3;
+  Actor by = 4;
+  oneof event {
+    TokenClaimed token_claimed = 5;
+    TokenContested token_contested = 6;
+    TokenRejected token_rejected = 7;
+    TokenHolderChange token_released = 8;
+    TokenHolderChange token_revoked = 9;
+    GameLifecycle game_started = 10;
+    GameLifecycle game_ended = 11;
+    DeviceActionLifecycle device_action_started = 12;
+    DeviceActionLifecycle device_action_ended = 13;
+    CaptureLifecycle capture_started = 14;
+    CaptureLifecycle capture_committed = 15;
+    WorkspaceUpdated workspace_updated = 16;
+    TaskWritten task_added = 17;
+    TaskWritten task_updated = 18;
+    AgentSpawned agent_spawned = 19;
+  }
+}
+
+// A page of the ring as `/api/feed` answers it: what the reader should ask for next (`cursor`),
+// how far back the ring still goes (`retained_from`, so a reader whose cursor fell off the end
+// learns that rather than silently missing frames), and the frames themselves.
+message Lifecycle {
+  string root_id = 1;
+  uint64 cursor = 2;
+  uint64 retained_from = 3;
+  repeated LifecycleEvent events = 4;
 }

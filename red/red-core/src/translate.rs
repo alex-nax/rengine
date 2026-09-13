@@ -504,6 +504,8 @@ fn token_party(path: &str, value: &Value, drift: &mut Vec<Drift>) -> Option<pb::
     let out = pb::TokenParty {
         kind: f.optional_string("kind"), pid: f.optional_integer("pid").unwrap_or_default().max(0) as u32,
         id: f.optional_string("id"), label: f.optional_string("label"),
+        agent_id: f.optional_string("agentId"), since: f.optional_string("since"),
+        first_seen_at: f.optional_string("firstSeenAt"), last_seen_at: f.optional_string("lastSeenAt"),
     };
     f.finish();
     Some(out)
@@ -636,4 +638,213 @@ pub fn feed_event(path: &str, value: &Value) -> (pb::FeedEvent, Vec<Drift>) {
         }
     };
     (pb::FeedEvent { event }, drift)
+}
+
+/* ---- the workspace lifecycle ring (F182; KI-099) --------------------------------------------- */
+
+/// Who did it. Every kind the host emits is listed, because an unknown one is drift: `kind` is the
+/// only field that says what the rest of the object means.
+fn actor(path: &str, value: Option<&Value>, drift: &mut Vec<Drift>) -> Option<pb::Actor> {
+    let value = value?;
+    let Value::Object(map) = value else {
+        if !value.is_null() {
+            drift.push(Drift { path: path.to_string(), reason: format!("expected an object or null, the host sent {}", kind_of(value)) });
+        }
+        return None;
+    };
+    let mut f = Fields::new(path, map, drift);
+    let kind = f.string("kind");
+    if !["agent", "desktop", "workspace", "deadline", "holder-gone", "release"].contains(&kind.as_str()) {
+        f.note("kind", format!("the host attributes a frame to {kind:?}, which the contract does not know"));
+    }
+    let out = pb::Actor {
+        kind,
+        agent_id: f.optional_string("agentId"),
+        label: f.optional_string("label"),
+        desktop_id: f.optional_string("desktopId"),
+        pid: f.optional_integer("pid").unwrap_or_default().max(0) as u32,
+    };
+    f.finish();
+    Some(out)
+}
+
+/// Who holds or contests the token. A different shape from [`pb::Actor`] because the host sends a
+/// different shape; the contract does not invent a common one.
+fn party(path: &str, value: Option<&Value>, drift: &mut Vec<Drift>) -> Option<pb::Party> {
+    let value = value?;
+    let Value::Object(map) = value else {
+        if !value.is_null() {
+            drift.push(Drift { path: path.to_string(), reason: format!("expected an object or null, the host sent {}", kind_of(value)) });
+        }
+        return None;
+    };
+    let mut f = Fields::new(path, map, drift);
+    let out = pb::Party {
+        agent_id: f.string("agentId"),
+        label: f.optional_string("label"),
+        pid: f.optional_integer("pid").unwrap_or_default().max(0) as u32,
+        since: f.optional_string("since"),
+    };
+    f.finish();
+    Some(out)
+}
+
+fn required_party(path: &str, f: &mut Fields<'_>, key: &str) -> pb::Party {
+    let value = f.take(key).cloned();
+    let mut drift = Vec::new();
+    let out = party(&format!("{path}.{key}"), value.as_ref(), &mut drift);
+    f.drift.extend(drift);
+    out.unwrap_or_else(|| {
+        f.note(key, "expected the party this frame is about, the host sent nothing");
+        pb::Party::default()
+    })
+}
+
+fn optional_party(path: &str, f: &mut Fields<'_>, key: &str) -> Option<pb::Party> {
+    let value = f.take(key).cloned();
+    let mut drift = Vec::new();
+    let out = party(&format!("{path}.{key}"), value.as_ref(), &mut drift);
+    f.drift.extend(drift);
+    out
+}
+
+/// One frame of the ring. `type` chooses the arm; every other field is consumed by that arm or is
+/// drift, so a frame that grew a field fails here instead of reaching a phone as a missing feature.
+pub fn lifecycle_event(path: &str, value: &Value) -> (pb::LifecycleEvent, Vec<Drift>) {
+    let mut drift = Vec::new();
+    let Some(map) = as_object(path, value, &mut drift) else { return (pb::LifecycleEvent::default(), drift) };
+    let mut f = Fields::new(path, map, &mut drift);
+    let sequence = f.integer("sequence").max(0) as u64;
+    let at = f.string("at");
+    let root_id = f.string("rootId");
+    let kind = f.string("type");
+    let by_value = f.take("by").cloned();
+    let event = match kind.as_str() {
+        "token.claimed" => Some(pb::lifecycle_event::Event::TokenClaimed(pb::TokenClaimed {
+            holder: Some(required_party(path, &mut f, "holder")),
+            previous_holder: optional_party(path, &mut f, "previousHolder"),
+            contest_id: f.optional_string("contestId"),
+        })),
+        "token.contested" => Some(pb::lifecycle_event::Event::TokenContested(pb::TokenContested {
+            contest_id: f.string("contestId"),
+            contester: Some(required_party(path, &mut f, "contester")),
+            holder: optional_party(path, &mut f, "holder"),
+            deadline: f.string("deadline"),
+            reason: f.optional_string("reason"),
+        })),
+        "token.rejected" => Some(pb::lifecycle_event::Event::TokenRejected(pb::TokenRejected {
+            contest_id: f.string("contestId"),
+            contester: Some(required_party(path, &mut f, "contester")),
+            holder: optional_party(path, &mut f, "holder"),
+            reason: f.optional_string("reason"),
+            cooldown_until: f.optional_string("cooldownUntil"),
+        })),
+        "token.released" | "token.revoked" => {
+            let change = pb::TokenHolderChange { holder: optional_party(path, &mut f, "holder") };
+            Some(if kind == "token.released" {
+                pb::lifecycle_event::Event::TokenReleased(change)
+            } else {
+                pb::lifecycle_event::Event::TokenRevoked(change)
+            })
+        }
+        "game.started" | "game.ended" => {
+            let game = pb::GameLifecycle {
+                session_id: f.optional_string("sessionId"),
+                game_id: f.optional_string("gameId"),
+                surface: f.optional_string("surface"),
+                args: f.strings("args"),
+                exit_code: f.optional_integer("exitCode"),
+            };
+            Some(if kind == "game.started" {
+                pb::lifecycle_event::Event::GameStarted(game)
+            } else {
+                pb::lifecycle_event::Event::GameEnded(game)
+            })
+        }
+        "device-action.started" | "device-action.ended" => {
+            let action = pb::DeviceActionLifecycle {
+                session_id: f.optional_string("sessionId"),
+                action_id: f.optional_string("actionId"),
+                device_id: f.optional_string("deviceId"),
+                kind: f.optional_string("kind"),
+                exit_code: f.optional_integer("exitCode"),
+            };
+            Some(if kind == "device-action.started" {
+                pb::lifecycle_event::Event::DeviceActionStarted(action)
+            } else {
+                pb::lifecycle_event::Event::DeviceActionEnded(action)
+            })
+        }
+        "capture.started" | "capture.committed" => {
+            let capture = pb::CaptureLifecycle {
+                session_id: f.optional_string("sessionId"),
+                game_id: f.optional_string("gameId"),
+                recording_id: f.optional_string("recordingId"),
+                kind: f.optional_string("kind"),
+                started_at: f.optional_string("startedAt"),
+                error: f.optional_string("error"),
+            };
+            Some(if kind == "capture.started" {
+                pb::lifecycle_event::Event::CaptureStarted(capture)
+            } else {
+                pb::lifecycle_event::Event::CaptureCommitted(capture)
+            })
+        }
+        "workspace.updated" => Some(pb::lifecycle_event::Event::WorkspaceUpdated(pb::WorkspaceUpdated {
+            layers: f.strings("layers"),
+            generation: f.integer("generation").max(0) as u64,
+        })),
+        "task.added" | "task.updated" => {
+            let task = pb::TaskWritten { key: f.string("key"), action: f.optional_string("action") };
+            Some(if kind == "task.added" {
+                pb::lifecycle_event::Event::TaskAdded(task)
+            } else {
+                pb::lifecycle_event::Event::TaskUpdated(task)
+            })
+        }
+        "agent.spawned" => Some(pb::lifecycle_event::Event::AgentSpawned(pb::AgentSpawned {
+            task_key: f.optional_string("taskKey"),
+            agent: f.optional_string("agent"),
+            model: f.optional_string("model"),
+            conversation: f.optional_string("conversation"),
+            session_id: f.optional_string("sessionId"),
+        })),
+        other => {
+            f.note("type", format!("the workspace emitted the lifecycle frame {other:?}, which the contract does not carry"));
+            None
+        }
+    };
+    f.finish();
+    let by = actor(&format!("{path}.by"), by_value.as_ref(), &mut drift);
+    (pb::LifecycleEvent { sequence, at, root_id, by, event }, drift)
+}
+
+/// A page of the ring, as `/api/feed` answers it.
+pub fn lifecycle(value: &Value) -> (pb::Lifecycle, Vec<Drift>) {
+    let mut drift = Vec::new();
+    let path = "lifecycle";
+    let Some(map) = as_object(path, value, &mut drift) else { return (pb::Lifecycle::default(), drift) };
+    let mut out = pb::Lifecycle::default();
+    let mut frames: Vec<Value> = Vec::new();
+    {
+        let mut f = Fields::new(path, map, &mut drift);
+        out.root_id = f.string("rootId");
+        out.cursor = f.integer("cursor").max(0) as u64;
+        out.retained_from = f.integer("retainedFrom").max(0) as u64;
+        match f.take("frames") {
+            Some(Value::Array(items)) => frames = items.clone(),
+            Some(other) => f.note("frames", format!("expected an array of frames, the host sent {}", kind_of(other))),
+            None => f.note("frames", "expected an array of frames, the host sent nothing"),
+        }
+        /* The socket URL carries this workspace's token; a contract that copied it would put a
+           credential on the wire for every client. The façade holds it and never forwards it. */
+        f.ignore("socket");
+        f.finish();
+    }
+    for (index, frame) in frames.iter().enumerate() {
+        let (event, more) = lifecycle_event(&format!("{path}.frames[{index}]"), frame);
+        drift.extend(more);
+        out.events.push(event);
+    }
+    (out, drift)
 }

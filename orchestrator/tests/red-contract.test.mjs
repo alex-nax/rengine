@@ -20,7 +20,7 @@ import path from 'node:path';
 import { WebSocket } from 'ws';
 import { startServer } from '../server/main.mjs';
 import { startWorker } from '../runtime/worker.mjs';
-import { ok } from './token-fixtures.mjs';
+import { identity, ok } from './token-fixtures.mjs';
 import { taskDeclaration, taskProject } from './task-fixtures.mjs';
 
 const run = promisify(execFile);
@@ -53,9 +53,20 @@ async function bundleFrom(server, worker, root, shell) {
   for (let i = 0; i < 80 && feed.length < 3; i++) await new Promise(r => setTimeout(r, 50));
   socket.close();
 
+  /* The OTHER feed (KI-099): the worker's lifecycle ring, which is the one with a cursor. Real
+     frames, made by claiming the token and writing a task rather than synthesised — a ring judged
+     empty would have judged nothing. Every frame type the contract models is listed in
+     docs/evidence/lifecycle-contract-f182-2026-09-13.md with whether a fixture can produce it. */
+  const alice = identity('contract-alice');
+  await ok(worker, 'token-action', { rootId: root.id, action: 'contest', reason: 'the contract fixture claims it' }, alice);
+  await ok(worker, 'task', { rootId: root.id, action: 'add', row: { id: 901, key: 'F901', description: 'A contract fixture task' } }, alice);
+  await ok(worker, 'token-action', { rootId: root.id, action: 'release' }, alice);
+  const lifecycle = await ok(worker, `feed?rootId=${root.id}`);
+
   /* Tasks, the token and the agent registry are served by the runtime worker rather than the
      session host — the façade spans both, so the contract has to be judged against both. */
   return {
+    lifecycle,
     workspace: await get('/api/state'),
     dashboard: await get(`/api/dashboard?rootId=${root.id}`),
     tasks: await ok(worker, `tracker?rootId=${root.id}`),
@@ -100,10 +111,13 @@ test('every red.v1 shape the façade emits still matches the live session host',
 
     /* A section the harness forgot to capture is a section the checker silently never judges, so
        the sections are named here rather than inferred from whatever the bundle happens to hold. */
-    for (const section of ['workspace', 'dashboard', 'tasks', 'token', 'agents', 'feed']) {
+    for (const section of ['workspace', 'dashboard', 'tasks', 'token', 'agents', 'feed', 'lifecycle']) {
       assert.ok(bundle[section], `the bundle carries the live ${section} the contract models`);
     }
     assert.ok(bundle.feed.length > 0, 'the live feed produced events to judge');
+    assert.ok(bundle.lifecycle.frames.length > 0, 'the live ring produced frames to judge');
+    assert.ok(bundle.lifecycle.cursor >= bundle.lifecycle.frames.length,
+      'the ring answered with the cursor a reader resumes from');
     assert.ok(bundle.workspace.sessions.length > 0, 'the live host reported the session it spawned');
     const states = new Set(bundle.workspace.sessions.map(session => session.state));
     assert.equal(states.size, 2,
@@ -119,6 +133,13 @@ test('every red.v1 shape the façade emits still matches the live session host',
     await writeFile(file, JSON.stringify(bundle, null, 1));
     const { stdout } = await run(binary, [file], { maxBuffer: 1 << 24 });
     console.log(`red-contract: ${stdout.trim()}`);
+
+    /* AFTER the checker, deliberately: a workspace that renames a frame type should be reported by
+       the contract as a type it does not carry — the reason this test exists — rather than tripping
+       a fixture precondition first. The same lesson the session-state fixture learned above. */
+    const types = new Set(bundle.lifecycle.frames.map(frame => frame.type));
+    for (const type of ['token.claimed', 'token.released', 'task.added'])
+      assert.ok(types.has(type), `the fixture's own ring carried ${type}: ${[...types]}`);
 
     await server.sessions.stop(shell.id).catch(() => {});
   } finally {

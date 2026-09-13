@@ -3276,10 +3276,55 @@
       ],
       "passes": false,
       "dependencies": [
-        180
+        182,
+        183
       ],
       "owner_workspace": "rengine",
       "deliverable": "The WebSocket client against the host's event stream, the long-lived libp2p stream that carries it, and the ordering and cursor-resume evidence.",
+      "evidence": [],
+      "external_references": []
+    },
+    {
+      "id": 182,
+      "milestone": "N0",
+      "category": "workspace",
+      "priority": "high",
+      "description": "F181a (the contract half of F181): red.v1 carries the workspace lifecycle ring — the worker's feed of token, task, agent, game, capture, device-action and workspace frames — translated strictly, with the live ring judged by the F140 harness (owner, 2026-09-13; spec 128 decision 5, KI-099).",
+      "acceptance_criteria": [
+        "Every lifecycle frame type the worker can emit is modeled, and a frame type or field the contract does not carry is reported as drift rather than silently dropped.",
+        "The live ring is judged by the contract harness against a workspace that actually produced frames, and a deliberate host-side change to a frame turns it red for that reason — observed before the harness is trusted."
+      ],
+      "passes": true,
+      "dependencies": [
+        140
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The lifecycle messages in red.v1, their strict translation, and the harness section that judges the live ring.",
+      "evidence": [
+        "docs/evidence/lifecycle-contract-f182-2026-09-13.md",
+        "red/red-core/proto/red/v1/red.proto: LifecycleEvent with a fifteen-arm oneof, Lifecycle carrying cursor and retainedFrom, and Actor/Party as the two shapes the workspace actually sends; the feed response's socket URL is declared ignored because it embeds the workspace token.",
+        "red/red-core/src/translate.rs: strict translation — an unmodeled frame type and an unconsumed field are both drift; orchestrator/tests/red-contract.test.mjs judges the live ring after contesting, claiming and releasing the token and writing a task (4 frames of the 15 types, the rest recorded as modeled-but-not-exercised).",
+        "Two sabotages observed failing for their own reasons (a frame grows a field; the workspace renames a frame type), the second after moving the fixture's type assertion below the checker so it fails for the contract's reason rather than a precondition.",
+        "The richer fixture also exposed a gap F140's own fixture could not see: TokenParty did not carry agentId, since, firstSeenAt or lastSeenAt, because no fixture had ever produced a holder, a contester or a remembered identity."
+      ],
+      "external_references": []
+    },
+    {
+      "id": 183,
+      "milestone": "N0",
+      "category": "workspace",
+      "priority": "high",
+      "description": "F181b (the transport half of F181): the lifecycle ring arrives on a long-lived libp2p stream in order with monotonic sequence, and a reconnect resumes from a cursor exactly as the worker's /feed clients do (owner, 2026-09-13; spec 128 decision 2, KI-099).",
+      "acceptance_criteria": [
+        "Feed events arrive on the long-lived stream in order with monotonic sequence; a reconnect resumes from a cursor exactly as /feed clients do today."
+      ],
+      "passes": false,
+      "dependencies": [
+        180,
+        182
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The WebSocket client against the worker's feed, the long-lived libp2p stream that carries it, and the ordering and cursor-resume evidence.",
       "evidence": [],
       "external_references": []
     }

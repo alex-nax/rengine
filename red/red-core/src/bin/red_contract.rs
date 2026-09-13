@@ -39,6 +39,16 @@ fn main() -> ExitCode {
     if let Some(value) = bundle.get("tasks") { let (_, d) = translate::task_list(value); drift.extend(d); checked += 1; }
     if let Some(value) = bundle.get("agents") { let (_, d) = translate::agent_menu(value); drift.extend(d); checked += 1; }
     if let Some(value) = bundle.get("token") { let (_, d) = translate::token(value); drift.extend(d); checked += 1; }
+    /* The other feed (KI-099): the worker's ring, which is the one with a cursor and the one the
+       companion's token contests and approvals ride on. Judged as the page `/api/feed` answers,
+       so `cursor` and `retainedFrom` are judged too rather than only the frames. */
+    let mut lifecycle_frames = 0usize;
+    if let Some(value) = bundle.get("lifecycle") {
+        let (page, d) = translate::lifecycle(value);
+        lifecycle_frames = page.events.len();
+        drift.extend(d);
+        checked += 1;
+    }
     if let Some(serde_json::Value::Array(events)) = bundle.get("feed") {
         for (index, event) in events.iter().enumerate() {
             let (_, d) = translate::feed_event(&format!("feed[{index}]"), event);
@@ -52,7 +62,10 @@ fn main() -> ExitCode {
         return ExitCode::from(2);
     }
     if drift.is_empty() {
-        println!("red-contract: {checked} shape(s) from the live host translate into red.v1 with nothing left over");
+        println!(
+            "red-contract: {checked} shape(s) from the live host translate into red.v1 with nothing left over, \
+             including {lifecycle_frames} lifecycle frame(s)"
+        );
         return ExitCode::SUCCESS;
     }
     eprintln!("red-contract: the live host and the red.v1 contract disagree in {} place(s):", drift.len());

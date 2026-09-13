@@ -253,6 +253,30 @@ answers half a message. Generated types derive `serde::Serialize` and deliberate
 compiles libp2p and its tree. `Cargo.lock` is the pin and it is committed; the build time is the
 price of decision 3's single entry point, and it is named here rather than discovered later.
 
+## F182 (F181a): "the feed" was two streams, and the contract now carries the right one
+
+Date: 2026-09-13. Evidence: `docs/evidence/lifecycle-contract-f182-2026-09-13.md`. KI-099.
+
+The architecture section above says the façade speaks `/api/*` and `/feed` to the host. That is two
+different streams in one phrase, and F181 walked into it: the **host** serves `/events` (per-session
+bytes, monotonic sequence, a reconnect that rebuilds from the attach snapshot), and the **worker**
+serves `/feed?rootId&after=N` (the lifecycle ring, replayed after a cursor, then live). F140's
+`FeedEvent` models the first. F141's criterion 2 — *"a reconnect resumes from a cursor exactly as
+/feed clients do today"* — describes the second, and only the second has a cursor.
+
+**The owner chose the ring** (2026-09-13), which is also what the companion v0.1 needs: decision 9
+lists token contests and approvals and defers the terminal to v0.2, so per-session output is not
+v0.1's feed. `red.v1` gained `LifecycleEvent` (fifteen frame types in one oneof, so an unknown type
+is a decode error rather than an unread `type` string), `Lifecycle` (the page, with `cursor` and
+`retained_from`), and the two party shapes the workspace actually sends. The feed response's socket
+URL is deliberately not carried: it embeds the workspace token.
+
+**The first run found a gap in F140's own contract.** A fixture that contests, claims and releases
+the token makes the status carry a holder, a contester and remembered identities — which no earlier
+fixture had produced — and the harness reported six disagreements immediately. `TokenParty` now
+carries `agentId`, `since`, `firstSeenAt` and `lastSeenAt`. F140's criteria were met; its fixture
+was thin, and decision 5's control is what caught it rather than a phone.
+
 ## F144, first slice: the companion exists and is the same code
 
 `apps/companion` is an Android app that **builds and runs on a real device**, and the point of it is
