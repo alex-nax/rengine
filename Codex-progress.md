@@ -62,8 +62,31 @@ reads the scrollback. And `stop` answers the ending it caused rather than `stopp
 Four more sabotages: the scrollback as a Rust string (`?? fire` for `🔥 fire`), a running pane
 reporting an ending, a resize not announced, and `stop` answering early.
 
-Commands: `npm test` (**321 of 321**, three runs, zero services left), `cargo test`, `./init.sh`,
-`python3 tools/features.py validate`.
+**And then the socket.** The door serves `/events` itself now — `hello`, `attached` with the
+scrollback, `session` and `output` to every viewer, a refusal as a message rather than a closed
+connection, and 1013 for a viewer four megabytes behind. `/surface` is still spliced, because it
+carries a game's frames and games have not moved, so the door's own WebSocket and the splice sit on
+one port and each proves the other still works. The **desktop registry moved with it**, because a
+desktop says it exists by sending a frame on that socket and nobody else can know: `/api/desktops`
+and `/api/desktop-action` are the door's, with the JS host's own refusals, and the spec drives both
+hosts with the same registration frame and compares what they answer.
+
+`surfaces.mjs` turns out not to be this row's at all: F152 lists it beside desktops, but the module
+is `games.mjs`'s frame transport, so it moves with games (F155). Preserved here the only way this row
+can preserve it — spliced byte for byte, untouched.
+
+**The criterion, actually met**: `native-front-door.spec.mjs` starts the real native binary, points
+it at red-host, and drives what a person drives — the tree, a file, an edit, a Save that lands on
+disk, and a pane that echoes what was typed — then checks the desktop registered itself. Nothing in
+`orchestrator/native/` changed for it.
+
+Six more sabotages, including two through the native desktop. And a finding that is not ours:
+`native-handoff.spec.mjs` fails, at HEAD and at every commit checked back to before D60 — filed as
+**KI-105**, along with the reason nobody noticed: the desktop gate is 43 specs that `npm test` does
+not run, which is the `suite-coverage` lesson one layer up.
+
+Commands: `npm test` (**322 of 322**, zero services left), `cargo test`, `./init.sh`,
+`python3 tools/features.py validate`, and `native-front-door` + four neighbouring native specs.
 
 ## Session 145 (macos) — 2026-09-13 — the first routes stop being forwarded (F189, first half)
 

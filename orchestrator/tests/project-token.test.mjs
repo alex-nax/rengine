@@ -366,8 +366,14 @@ test('replacing the workspace worker keeps the holder, the deadline and the curs
   assert.equal(claim.by.kind, 'deadline');
   assert.ok(claim.sequence > before.feedCursor, 'the frame the replacement wrote continues the same sequence');
   assert.equal(transferred.contest, null);
-  const persisted = JSON.parse(await readFile(path.join(runtime, 'tokens', root.id, 'token.json'), 'utf8'));
-  assert.equal(persisted.holder.agentId, bob.agentId, 'and the ledger on disk is the one a third worker would read');
+  /* The ledger is written after the holder changes, not with it: the deadline claim updates state,
+     then awaits its own atomic write. A reader polling the worker's answer can beat that write, so
+     this waits for the file rather than assuming one tick is enough. */
+  const persisted = await until(async () => {
+    const value = JSON.parse(await readFile(path.join(runtime, 'tokens', root.id, 'token.json'), 'utf8'));
+    return value.holder?.agentId === bob.agentId && value;
+  }, 'the ledger on disk is the one a third worker would read', 600);
+  assert.equal(persisted.holder.agentId, bob.agentId);
 });
 
 test('the tools carry the token, and against a worker without the ledger they refuse naming the layer', { timeout: 40000 }, async t => {

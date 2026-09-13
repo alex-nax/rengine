@@ -2707,10 +2707,12 @@ dependencies = [
 name = "red-host"
 version = "0.1.0"
 dependencies = [
+ "futures-util",
  "getrandom 0.3.4",
  "red-core",
  "serde_json",
  "tokio",
+ "tokio-tungstenite",
 ]
 
 [[package]]

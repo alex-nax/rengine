@@ -39,9 +39,9 @@ async function until(check, what, timeout = 15000) {
   assert.fail(`${what} (not within ${timeout / 1000}s)`);
 }
 
-async function front(t, stateDir, backend) {
+async function front(t, stateDir, backend, env = {}) {
   const child = spawn(BINARY, ['--state', stateDir, '--backend', backend.url, '--backend-token', backend.token],
-    { stdio: ['ignore', 'pipe', 'pipe'] });
+    { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, ...env } });
   let noise = '';
   child.stderr.on('data', data => { noise = (noise + data).slice(-2000); });
   t.after(() => { try { child.kill('SIGKILL'); } catch { /* gone */ } });
@@ -154,7 +154,9 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   assert.equal(health.protocol, 1, 'the door answers /health itself');
   assert.equal(health.instance, door.instance, 'with its own instance');
 
-  /* And the socket: a session, attached through the door, with its output arriving. */
+  /* And the socket, which the door serves itself: a session attached through it, with its output
+     arriving. `/surface` is still forwarded — it carries a game's frames, and games have not
+     moved — so this connection proves the door's own WebSocket, not a splice. */
   const session = await (await ask(instance, '/api/terminal', { rootId: root.id, command: '/bin/bash',
     args: ['--noprofile', '--norc'] })).json();
   const socket = new WebSocket(`${instance.url.replace('http', 'ws')}/events?token=${instance.token}`);
@@ -165,9 +167,27 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   socket.send(JSON.stringify({ type: 'attach', id: session.id }));
   for (let waited = 0; waited < 15000 && !frames.some(frame => frame.type === 'attached'); waited += 50) await delay(50);
   const attached = frames.find(frame => frame.type === 'attached');
-  assert.ok(attached, `the attach reached the backend through the door: ${JSON.stringify(frames)}`);
+  assert.ok(attached, `the attach was answered on the door's own socket: ${JSON.stringify(frames)}`);
+  /* The same pane the route answers, composed once and reached two ways. The scrollback and its
+     sequence are deliberately left out of the comparison: the attach frame is a photograph taken
+     when the socket asked, and a shell that printed a prompt in between has moved on. */
+  const route = await (await ask(instance, `/api/session?id=${session.id}`)).json();
+  const stable = ({ output, sequence, ...rest }) => rest;
+  assert.deepEqual(stable(attached.session), stable(route),
+    'and the attached snapshot is the pane the route answers with');
+  assert.ok(route.output.startsWith(attached.session.output),
+    'with a scrollback the route can only have added to');
   assert.equal(attached.session.id, session.id);
   assert.ok(frames.some(frame => frame.type === 'hello'), 'and the hello the host sends on connect came back');
+
+  /* The refusals on this socket are the JS host's, and they arrive as messages rather than as
+     closed connections: a desktop that sent one bad frame keeps its pane. */
+  socket.send(JSON.stringify({ type: 'nonsense' }));
+  await until(() => frames.some(frame => frame.type === 'error' && frame.error === 'Unknown session message.'),
+    'an unknown message is refused by name');
+  socket.send(JSON.stringify({ type: 'presented', id: 'never-attached' }));
+  await until(() => frames.some(frame => frame.error === 'Attach the session before presenting it.'),
+    'and presenting a pane this socket never attached is refused');
 
   /* Both directions on one socket: what this client sends reaches the pane, and what the pane
      prints comes back — a proxy that only carried one way would pass every check above. */
@@ -328,4 +348,108 @@ test('a pane record changed by one host is the record every host answers from', 
   /* A pane that has ended refuses input in the JS host's words, from the state the service keeps. */
   await until(async () => (await waiting(instance))[0] === 409, 'the door sees the exit');
   assert.deepEqual(await waiting(instance), [409, 'Session is not running.']);
+});
+
+/* F189: the desktop registry moved with the socket it lives on. A desktop says it exists by sending
+ * a frame on `/events`, so whoever serves that socket is the only process that can know about it —
+ * and spec 098's reload is the workspace asking a named desktop to rebuild and answer.
+ *
+ * Both hosts are driven with the same frames here, because "the native desktop connects unchanged"
+ * is a claim about shapes, and the JS host is the record of what those shapes are.
+ */
+test('a desktop registers on the door and answers what the workspace asks it', { timeout: 300000 }, async t => {
+  await built('-p', 'red-host', '--bin', 'red-host');
+  const directory = await mkdtemp(path.join(tmpdir(), 'red-host-desktop-'));
+  const stateDir = path.join(directory, 'state');
+  const backend = await startServer({ stateDir, retainSessions: true });
+  t.after(async () => {
+    await backend.close({ retain: false });
+    await endStateServices(stateDir);
+    await rm(directory, { recursive: true, force: true });
+  });
+  const root = await backend.store.addRoot(directory);
+  /* A short acknowledgement budget, so the spec can watch a desktop fail to answer without
+     spending the production four seconds on it. */
+  const door = await front(t, stateDir, backend, { RENGINE_DESKTOP_ACTION_MS: '700' });
+  const instance = { url: door.url, token: JSON.parse(await readFile(path.join(stateDir, 'sidecar.json'), 'utf8')).token };
+
+  const session = await (await ask(instance, '/api/terminal', { rootId: root.id, command: '/bin/bash',
+    args: ['--noprofile', '--norc'] })).json();
+
+  /* One desktop on each host, registered with the same frame. */
+  const desktop = where => {
+    const socket = new WebSocket(`${where.url.replace('http', 'ws')}/events?token=${where.token}`);
+    const frames = [];
+    socket.on('message', bytes => { try { frames.push(JSON.parse(bytes.toString())); } catch { /* not ours */ } });
+    t.after(() => socket.close());
+    const seen = kind => frames.find(frame => frame.type === kind);
+    return { socket, frames, seen, open: new Promise((resolve, reject) => { socket.once('open', resolve); socket.once('error', reject); }) };
+  };
+  const registration = { type: 'desktop-register', rootIds: [root.id], sessionIds: [session.id, 'a-pane-from-a-previous-host'],
+    canReload: true, canAttach: true, owner: 'alex', view: 'workspace' };
+  const ours = desktop(instance), theirs = desktop(backend);
+  await Promise.all([ours.open, theirs.open]);
+  ours.socket.send(JSON.stringify(registration));
+  theirs.socket.send(JSON.stringify(registration));
+  await until(() => ours.seen('desktop-registered') && theirs.seen('desktop-registered'), 'both hosts registered the desktop');
+
+  /* A pane this host never had is NOT an invalid binding: it ended with the host that owned it and
+     the desktop's saved layout outlived that process. Refusing the frame would leave the desktop
+     unregistered and every desktop action invisible (spec 098). */
+  assert.deepEqual(ours.seen('desktop-registered').unknownSessions, ['a-pane-from-a-previous-host']);
+  assert.deepEqual(ours.seen('desktop-registered').unknownSessions, theirs.seen('desktop-registered').unknownSessions);
+  assert.match(ours.seen('desktop-registered').id, /^[0-9a-f-]{36}$/);
+
+  const listed = where => ask(where, `/api/desktops?rootId=${root.id}`).then(answer => answer.json());
+  const named = ({ id, ...rest }) => rest;
+  const [mine, theirsListed] = await Promise.all([listed(instance), listed(backend)]);
+  assert.equal(mine.desktops.length, 1, 'the door lists the desktop attached to it');
+  assert.deepEqual(named(mine.desktops[0]), named(theirsListed.desktops[0]),
+    'and describes it exactly as the JS host describes its own');
+  assert.deepEqual(mine.desktops[0].sessionIds, [session.id], 'with the pane that is actually here');
+  assert.equal(mine.desktops[0].owner, 'alex');
+  const unknownRoot = await ask(instance, '/api/desktops?rootId=no-such-root');
+  assert.equal(unknownRoot.status, 404, 'a root the store does not have is 404 here too');
+
+  /* The reload: the workspace asks, the desktop answers, and the caller is told that accepted is
+     not the same as done. */
+  const desktopId = mine.desktops[0].id;
+  const asked = ask(instance, '/api/desktop-action', { rootId: root.id, desktopId, action: 'reload' });
+  await until(() => ours.seen('desktop-action'), 'the desktop was asked to reload');
+  const request = ours.seen('desktop-action');
+  assert.equal(request.action, 'reload');
+  assert.equal(request.desktopId, desktopId);
+
+  /* While that one is outstanding, a second is refused rather than queued. */
+  const second = await ask(instance, '/api/desktop-action', { rootId: root.id, desktopId, action: 'reload' });
+  assert.equal(second.status, 409);
+  assert.equal((await second.json()).error, 'A desktop action is already pending.');
+
+  /* And nobody else may answer for it. A second socket on this door knows the request id — it was
+     never a secret — and is still not the desktop that was asked. */
+  const bystander = desktop(instance);
+  await bystander.open;
+  bystander.socket.send(JSON.stringify({ type: 'desktop-action-result', requestId: request.requestId, accepted: true }));
+  await until(() => bystander.seen('error'), 'a socket that was not asked cannot answer');
+  assert.equal(bystander.seen('error').error, 'Unknown desktop action acknowledgement.');
+
+  ours.socket.send(JSON.stringify({ type: 'desktop-action-result', requestId: request.requestId, accepted: true }));
+  const accepted = await asked;
+  assert.equal(accepted.status, 200);
+  const answer = await accepted.json();
+  assert.equal(answer.status, 'accepted');
+  assert.equal(answer.desktopId, desktopId);
+  assert.match(answer.detail, /accepted does not mean the build succeeded/);
+
+  /* A desktop that says nothing is not a desktop that agreed. */
+  const ignored = await ask(instance, '/api/desktop-action', { rootId: root.id, desktopId, action: 'reload' });
+  assert.equal((await ignored.json()).error, 'Desktop did not acknowledge the action.');
+  const unknownAction = await ask(instance, '/api/desktop-action', { rootId: root.id, desktopId, action: 'explode' });
+  assert.equal(unknownAction.status, 400);
+  assert.equal((await unknownAction.json()).error, 'Unknown desktop action.');
+
+  /* And a desktop that goes away is gone from the list: the registry is the socket's, so it cannot
+     outlive it. */
+  ours.socket.close();
+  await until(async () => (await listed(instance)).desktops.length === 0, 'the closed desktop left the list');
 });

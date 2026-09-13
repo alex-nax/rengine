@@ -90,7 +90,7 @@ the announcement is the thing under test.
 
 ## Gates
 
-`npm test` — **321 of 321**, three runs, zero services left behind. `cargo test` — all crates.
+`npm test` — **322 of 322**, zero services left behind. `cargo test` — all crates.
 `./init.sh`. `python3 tools/features.py validate`.
 
 ## The pane as an answer: `/api/session` and `/api/stop`
@@ -135,12 +135,65 @@ it to poll for the news. The door's `/api/stop` answers `state: 'exited'` with t
 | a resize is not announced | `+ cols: 90, - cols: 100` — the door resized it, the host never heard |
 | `stop` answers before the ending it caused | `+ 'stopping', - 'exited'` |
 
+## `/events`, and the desktops that live on it
+
+The door serves the socket itself now. `/surface` is still forwarded — it carries a game's frames
+and games have not moved — so the door's own WebSocket and the splice sit side by side on one port,
+which is also the proof that the splice still works.
+
+The shapes are the JS host's: `hello` on connect, `attached` with the scrollback, `session` and
+`output` fanned out to every viewer, `error` for a refusal — as a message, not a closed connection,
+because a desktop that sent one bad frame should keep its panes. A viewer more than four megabytes
+behind is closed with 1013 and told to reconnect, which is what the JS host does and is safe because
+the scrollback it lost is in the next attach.
+
+Two rules the socket enforces that the routes do not: `presented` is refused unless this socket
+attached the pane first, and the pane record it releases is the service's (D62), so the gate a
+person's view opens is a gate every host sees open.
+
+**The desktop registry moved with it**, because a desktop says it exists by sending a frame on this
+socket — nobody else can know. `/api/desktops` and `/api/desktop-action` are the door's now, with the
+JS host's own refusals: a pane the host never had is *reported back* rather than refused (it ended
+with the host that owned it, and the desktop's saved layout outlived that process), a second action
+while one is pending is 409, a desktop that says nothing is "did not acknowledge", and an
+acknowledgement from a socket that was not asked is not an acknowledgement. A closed socket takes its
+desktop with it.
+
+The spec drives **both** hosts with the same registration frame and compares what they answer,
+because "the native desktop connects unchanged" is a claim about shapes and the JS host is the record
+of what those shapes are.
+
+| Sabotage | Observed |
+| --- | --- |
+| a pane from a previous host makes the registration fail | `both hosts registered the desktop (not within 15s)` |
+| two actions to one desktop at once | `500 !== 409` |
+| a closed socket leaves its desktop behind | `the closed desktop left the list (not within 15s)` |
+| anyone may acknowledge another desktop's action | `a socket that was not asked cannot answer (not within 15s)` |
+| the door does not pass a pane's output to its viewers | the native desktop never shows what was typed |
+| the door refuses the desktop's registration | the native desktop is not in `/api/desktops` |
+
+## The desktop itself, against the door
+
+`orchestrator/tests/native-front-door.spec.mjs` is the criterion F189 actually asks for. It starts
+the real native binary, points it at red-host with the JS host behind as the backend, and drives what
+a person drives: the tree lists, a file opens, an edit becomes a draft, Save writes the working file
+on disk, and what is typed into a pane comes back out of it. Then it checks the desktop registered
+itself with the door.
+
+**Nothing in `orchestrator/native/` changed for this.** That is the claim, and the way to check a
+claim like that is to run the binary against the new host rather than to compare route handlers.
+
 ## What this does not claim
 
 - **F189 is not finished.** `/api/terminal`, `/api/agent-restart`, `/api/agent-conversation`,
-  `/api/state`, desktops, surfaces and both sockets are still forwarded, and nothing is deleted.
-  Spawning a pane is the interesting one left: it composes an agent's launch, which is red-agents'
-  work, and it is where `/events` will have to follow.
-- **The door's record cache never forgets an exited pane**, which matches the JS host's `items` map
-  — but the JS host is restarted often and a door is not. If a door ever runs for weeks, that is
-  the first place to look.
+  `/api/state` and `/surface` are still forwarded, and nothing is deleted. Spawning a pane is the
+  interesting one left: it composes an agent's launch, which is red-agents' work.
+- **`surfaces.mjs` cannot move with this row.** F152's description lists it beside desktops, but the
+  module belongs to `games.mjs` — it is the game viewer's frame transport, not the workspace socket —
+  so it moves with games (F155). Its focus-eviction semantic is preserved here in the only way this
+  row can preserve it: `/surface` is spliced byte for byte and the module is untouched.
+- **The door's pane cache never forgets an exited pane**, matching the JS host's `items` map. The JS
+  host is restarted often and a door is not; if one ever runs for weeks, that is the first place to
+  look.
+- **`native-handoff.spec.mjs` fails, and did before any of this** (KI-105). It is in the desktop gate,
+  which `npm test` does not run.
