@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use serde_json::{json, Value};
 
+use crate::handoff::{check_resume, read_handoff};
 use crate::{ask, ask_pty, Front};
 
 /// `shortAgentId`, which is the CLI's own rule: a prefix to strip and a length, declared in the
@@ -110,4 +111,349 @@ pub(crate) async fn record_conversation(front: &Arc<Front>, body: &str) -> Strin
         Ok(session) => crate::http_text(200, "OK", &crate::pane_answer(&session, false)),
         Err(fault) => crate::faulted(&fault),
     }
+}
+
+/* ---- making a pane ---------------------------------------------------------------------------- */
+
+/// `/api/terminal`: the route that starts a pane. Everything here is `spawnTerminal`'s order, and
+/// the order is the behaviour — the title is judged before the root is looked up, the working
+/// directory before the type, and the handoff before anything is written down — because a caller
+/// that sent two wrong things sees the JS host's answer for the first of them.
+///
+/// What this does NOT re-implement is the composition itself: which conversation a pane claims,
+/// what it is offered, and what it launches are `red_agents`' (F168), one implementation that both
+/// hosts call. What is here is the plumbing around it: the paths, the environment, the handoff read,
+/// and the record the pane is known by.
+pub(crate) async fn terminal(front: &Arc<Front>, body: &str) -> String {
+    let options: Value = match serde_json::from_str(body) {
+        Ok(value) => value,
+        Err(error) => return crate::faulted(&format!("400|Invalid JSON body: {error}")),
+    };
+    if !options.is_object() {
+        return crate::faulted("400|Expected an object.");
+    }
+    match spawn_pane(front, &options).await {
+        Ok(session) => crate::http_text(200, "OK", &crate::pane_answer(&session, false)),
+        Err(fault) => crate::faulted(&fault),
+    }
+}
+
+async fn spawn_pane(front: &Arc<Front>, options: &Value) -> Result<Value, String> {
+    let text = |name: &str| options.get(name).and_then(Value::as_str).map(str::to_string);
+    let title = options.get("title").filter(|value| !value.is_null());
+    if let Some(title) = title {
+        let sane = title.as_str().is_some_and(|value| !value.trim().is_empty() && value.encode_utf16().count() <= 200);
+        if !sane {
+            return Err("400|Session title must be a short string.".to_string());
+        }
+    }
+    let kind = text("type").unwrap_or_else(|| "terminal".to_string());
+    let root = ask(front, "root", json!([text("rootId").unwrap_or_default()])).await?;
+    let root_id = root.get("id").and_then(Value::as_str).unwrap_or_default().to_string();
+    let root_path = std::path::PathBuf::from(root.get("path").and_then(Value::as_str).unwrap_or_default());
+    let root_name = root.get("name").and_then(Value::as_str).unwrap_or_default().to_string();
+    let working = match text("cwd") {
+        Some(cwd) => {
+            let named = std::path::PathBuf::from(&cwd);
+            if named.is_absolute() { named } else { std::env::current_dir().unwrap_or_default().join(named) }
+        }
+        None => root_path.clone(),
+    };
+    /* By path components, not by prefix: `/a/bcd` is not inside `/a/bc`, and a string comparison
+       says it is. */
+    if working != root_path && !working.starts_with(&root_path) {
+        return Err("400|The working directory must be inside the project root.".to_string());
+    }
+    let id = crate::uuid_v4();
+    let state = std::path::PathBuf::from(&front.state);
+    let agent_home = state.join("agents");
+
+    /* What this launch composes for itself and must never inherit — cleared in BOTH compositions
+       below, because a pane that inherited another pane's identity would report as it (KI-068). */
+    let cleared = ["RENGINE_HANDOFF_GATE", "RENGINE_HANDOFF_FILE", "RENGINE_ORCHESTRATOR_SESSION",
+        "RENGINE_AGENT_CONVERSATION", "RENGINE_AGENT_RESUME", "RENGINE_AGENT_CONVERSATIONS"];
+    let mut overrides = serde_json::Map::new();
+    if let Some(given) = options.get("env").and_then(Value::as_object) {
+        for (name, value) in given {
+            overrides.insert(name.clone(), value.clone());
+        }
+    }
+    overrides.insert("RENGINE_AGENT_HOME".to_string(), json!(agent_home.to_string_lossy()));
+    for name in cleared {
+        overrides.insert(name.to_string(), Value::Null);
+    }
+    /* The environment as it stands BEFORE this launch adds its own: what the handoff read and the
+       resume check see, which is the env the JS host passes them at exactly this point. */
+    let env = compose_env(&overrides);
+
+    let mut handoff: Option<Value> = None;
+    let mut gate: Option<String> = None;
+    if let Some(manifest) = text("handoffFile") {
+        if kind != "agent" || text("agent").as_deref() != Some("codex") || text("action").unwrap_or_else(|| "launch".into()) != "launch"
+            || options.get("args").and_then(Value::as_array).is_some_and(|args| !args.is_empty())
+        {
+            return Err("400|Handoff requires the Codex workspace launcher.".to_string());
+        }
+        let read = read_handoff(&manifest, &root_path, &env)?;
+        /* A pane already running this conversation is the answer, not a second one: the launcher is
+           allowed to ask twice and a person must not end up with two CLIs on one session. */
+        let running = front.panes.lock().expect("panes lock").values().find(|session| {
+            let record = |name: &str| session.get("meta").and_then(|meta| meta.get(name)).cloned();
+            session.get("state").and_then(Value::as_str) == Some("running")
+                && record("rootId").and_then(|value| value.as_str().map(str::to_string)) == Some(root_id.clone())
+                && record("handoff").and_then(|value| value.get("sessionId").cloned())
+                    == read.get("sessionId").cloned()
+        }).cloned();
+        if let Some(session) = running {
+            return Ok(session);
+        }
+        check_resume(&bash_path(), &root_path, &env)?;
+        let path = state.join("integrations").join(format!("{id}.ready"));
+        gate = Some(path.to_string_lossy().into_owned());
+        overrides.insert("RENGINE_HANDOFF_GATE".to_string(), json!(gate));
+        overrides.insert("RENGINE_HANDOFF_FILE".to_string(), read.get("filename").cloned().unwrap_or(Value::Null));
+        overrides.insert("RENGINE_ORCHESTRATOR_SESSION".to_string(), json!(id));
+        handoff = Some(read);
+    }
+    if !["terminal", "agent", "game"].contains(&kind.as_str()) {
+        return Err("400|Unsupported terminal type.".to_string());
+    }
+    let cols = options.get("cols").and_then(Value::as_i64).unwrap_or(100);
+    let rows = options.get("rows").and_then(Value::as_i64).unwrap_or(30);
+    if !(2..=500).contains(&cols) || !(1..=300).contains(&rows) {
+        return Err("400|Invalid terminal dimensions.".to_string());
+    }
+    let mut file = text("command").unwrap_or_else(|| std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string()));
+    let mut argv: Vec<String> = match options.get("args").and_then(Value::as_array) {
+        Some(items) => items.iter().filter_map(|item| item.as_str().map(str::to_string)).collect(),
+        None => vec!["-l".to_string()],
+    };
+    let mut conversation = text("conversation");
+    if kind == "agent" {
+        file = bash_path();
+        let integrations = state.join("integrations");
+        std::fs::create_dir_all(&integrations).map_err(|error| format!("500|cannot prepare {}: {error}", integrations.display()))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&integrations, std::fs::Permissions::from_mode(0o700));
+        }
+        if let Some(read) = handoff.as_ref() {
+            /* The manifest this launch will read is a SNAPSHOT of the one it was given: the file on
+               disk may be edited afterwards, and a pane must not be retargeted underneath it. */
+            let snapshot = integrations.join(format!("{id}.handoff.json"));
+            let document = json!({
+                "version": 1, "project": root_path.to_string_lossy(),
+                "sessionId": read.get("sessionId").cloned().unwrap_or(Value::Null),
+                "checkpoint": read.get("checkpoint").cloned().unwrap_or(Value::Null),
+            });
+            write_private(&snapshot, document.to_string().as_bytes())?;
+            overrides.insert("RENGINE_HANDOFF_FILE".to_string(), json!(snapshot.to_string_lossy()));
+        }
+        let context = integrations.join(format!("{root_id}.json"));
+        write_private(&context, json!({
+            "url": front.url, "token": front.token, "instance": front.instance, "rootId": root_id,
+        }).to_string().as_bytes())?;
+
+        let decided = conversation.is_some() || options.get("args").and_then(Value::as_array).is_some_and(|args| !args.is_empty());
+        let remembered = if decided {
+            json!([])
+        } else {
+            ask(front, "listConversations", json!([root_id])).await?
+        };
+        let agent = text("agent").unwrap_or_default();
+        let known = recipes();
+        let plan = red_agents::spawn::agent_pane_composition(
+            &json!({
+                "id": id,
+                "agent": if agent.is_empty() { Value::Null } else { json!(agent) },
+                "conversation": conversation.clone().map(Value::from).unwrap_or(Value::Null),
+                "resume": options.get("resume").and_then(Value::as_bool).unwrap_or(false),
+                "action": text("action").unwrap_or_else(|| "launch".to_string()),
+                "args": options.get("args").cloned().unwrap_or(Value::Null),
+                "workspace": true,
+                "remembered": remembered,
+                "paths": {
+                    "agentScript": checkout().join("scripts/agent.sh").to_string_lossy(),
+                    "rootPath": root_path.to_string_lossy(),
+                    "workspaceContextFile": context.to_string_lossy(),
+                    "listingFile": integrations.join(format!("{id}.conversations.tsv")).to_string_lossy(),
+                    "node": node_path(),
+                    "bash": file,
+                },
+                "mint": crate::uuid_v4(),
+                "now": now_ms(),
+            }),
+            red_agents::spawn::conversation_start_capability(&known[..], &agent),
+        );
+        if let Some(refusal) = plan.get("refuse").and_then(Value::as_str) {
+            return Err(format!("400|{refusal}"));
+        }
+        if let Some(record) = plan.get("record").filter(|value| !value.is_null()) {
+            ask(front, "recordConversation", json!([root_id, record])).await?;
+        }
+        if let Some(listing) = plan.get("listing").filter(|value| !value.is_null()) {
+            let file = listing.get("file").and_then(Value::as_str).unwrap_or_default();
+            let content = listing.get("content").and_then(Value::as_str).unwrap_or_default();
+            write_private(std::path::Path::new(file), content.as_bytes())?;
+        }
+        argv = plan.get("argv").and_then(Value::as_array)
+            .map(|items| items.iter().filter_map(|item| item.as_str().map(str::to_string)).collect())
+            .unwrap_or_default();
+        conversation = plan.get("conversation").and_then(Value::as_str).map(str::to_string);
+        if let Some(sets) = plan.get("sets").and_then(Value::as_object) {
+            for (name, value) in sets {
+                overrides.insert(name.clone(), value.clone());
+            }
+        }
+    } else {
+        conversation = None;
+    }
+
+    let mut record = serde_json::Map::new();
+    record.insert("rootId".to_string(), json!(root_id));
+    record.insert("type".to_string(), json!(kind));
+    if kind == "agent" {
+        record.insert("agent".to_string(), json!(text("agent").unwrap_or_default()));
+        record.insert("conversation".to_string(), conversation.clone().map(Value::from).unwrap_or(Value::Null));
+    }
+    if kind == "game" {
+        record.insert("surface".to_string(), options.get("surface").cloned().unwrap_or(Value::Null));
+        record.insert("game".to_string(), options.get("game").cloned().unwrap_or(Value::Null));
+        record.insert("args".to_string(), json!(argv));
+    }
+    if let Some(read) = handoff.as_ref() {
+        record.insert("handoff".to_string(), read.clone());
+    }
+    if let Some(path) = gate.as_ref() {
+        record.insert("gate".to_string(), json!(path));
+    }
+    record.insert("released".to_string(), json!(gate.is_none()));
+    record.insert("titleAuto".to_string(), json!(title.is_none()));
+    record.insert("title".to_string(), json!(match title.and_then(Value::as_str) {
+        Some(given) => given.to_string(),
+        None if kind == "agent" => agent_title(&text("agent").unwrap_or_default(), conversation.as_deref(), &root_name),
+        None => format!("{} · {root_name}", if kind == "game" { "Game" } else { "Terminal" }),
+    }));
+    record.insert("createdAt".to_string(), json!(now_ms()));
+    /* `cleared` first, so this launch's own values win and only what it left out stays deleted. */
+    let mut final_overrides = serde_json::Map::new();
+    for name in cleared {
+        final_overrides.insert(name.to_string(), Value::Null);
+    }
+    for (name, value) in &overrides {
+        final_overrides.insert(name.clone(), value.clone());
+    }
+    final_overrides.insert("RENGINE_AGENT_HOME".to_string(), json!(agent_home.to_string_lossy()));
+    let env = compose_env(&final_overrides);
+
+    ask_pty(front, "spawn", json!([{
+        "id": id, "meta": Value::Object(record), "command": file, "args": argv,
+        "cols": cols, "rows": rows, "cwd": working.to_string_lossy(), "env": env,
+    }])).await
+}
+
+/// `/api/agent-restart`: the same conversation, a new child, a freshly composed environment. The
+/// pane's id changes — it is a different process — and everything that made it what it is comes
+/// from the record the old pane left behind, which is why this can be answered by a host that did
+/// not start it (D62).
+pub(crate) async fn restart(front: &Arc<Front>, body: &str) -> String {
+    let payload: Value = match serde_json::from_str(body) {
+        Ok(value) => value,
+        Err(error) => return crate::faulted(&format!("400|Invalid JSON body: {error}")),
+    };
+    let id = payload.get("id").and_then(Value::as_str).unwrap_or_default().to_string();
+    let Some(pane) = front.panes.lock().expect("panes lock").get(&id).cloned() else {
+        return crate::faulted("404|Unknown session.");
+    };
+    let held = |name: &str| pane.get("meta").and_then(|record| record.get(name)).filter(|value| !value.is_null()).cloned();
+    let string = |name: &str| held(name).and_then(|value| value.as_str().map(str::to_string));
+    if string("type").as_deref() != Some("agent") {
+        return crate::faulted("400|Only an agent session can be restarted into its conversation.");
+    }
+    let agent = string("agent").unwrap_or_default();
+    let Some(conversation) = string("conversation") else {
+        /* Named in the person's own terms: a pane with no conversation to resume is not a pane this
+           can restart, and the answer says what to do instead. */
+        return crate::faulted(&format!(
+            "400|This {} pane has no conversation rEngine can resume; stop it and start a new one.",
+            if agent.is_empty() { "agent" } else { &agent }
+        ));
+    };
+    if let Err(fault) = ask_pty(front, "stop", json!([id])).await {
+        return crate::faulted(&fault);
+    }
+    let options = json!({
+        "rootId": string("rootId").unwrap_or_default(),
+        "type": "agent",
+        "agent": agent,
+        "conversation": conversation,
+        "resume": true,
+        "cols": pane.get("cols").cloned().unwrap_or(Value::Null),
+        "rows": pane.get("rows").cloned().unwrap_or(Value::Null),
+    });
+    match spawn_pane(front, &options).await {
+        Ok(session) => crate::http_text(200, "OK", &crate::pane_answer(&session, false)),
+        Err(fault) => crate::faulted(&fault),
+    }
+}
+
+/// `shellEnvironment`, from red-agents, over this process's own environment — the same function the
+/// JS host calls, so a pane's environment is composed once in the workspace rather than twice.
+fn compose_env(overrides: &serde_json::Map<String, Value>) -> Value {
+    let inherited: serde_json::Map<String, Value> =
+        std::env::vars().map(|(name, value)| (name, json!(value))).collect();
+    let composed = red_agents::spawn::shell_environment(
+        overrides,
+        &inherited,
+        std::env::consts::OS,
+        &std::env::var("HOME").unwrap_or_default(),
+    );
+    json!(composed)
+}
+
+fn bash_path() -> String {
+    std::env::var("RENGINE_BASH").ok().filter(|value| !value.is_empty()).unwrap_or_else(|| "/bin/bash".to_string())
+}
+
+/// The node a pane's launcher runs. The JS host passes the exact interpreter running it; this door
+/// has none of its own, so it passes what the workspace declared and lets `agent.sh` fall back to
+/// whatever is on PATH — which is what that script has always done.
+fn node_path() -> String {
+    for name in ["RENGINE_NODE", "RENGINE_NODE_EXECUTABLE"] {
+        if let Ok(declared) = std::env::var(name) {
+            if !declared.is_empty() {
+                return declared;
+            }
+        }
+    }
+    "node".to_string()
+}
+
+fn checkout() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(std::path::Path::parent)
+        .map(std::path::Path::to_path_buf)
+        .unwrap_or_default()
+}
+
+fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|since| since.as_millis() as i64)
+        .unwrap_or(0)
+}
+
+/// 0600, and through a temporary name where the reader might already be looking: a pane's context
+/// file is read by the CLI this launch is about to start.
+fn write_private(path: &std::path::Path, bytes: &[u8]) -> Result<(), String> {
+    let temporary = path.with_extension(format!("tmp.{}", crate::uuid_v4()));
+    std::fs::write(&temporary, bytes).map_err(|error| format!("500|cannot write {}: {error}", temporary.display()))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&temporary, std::fs::Permissions::from_mode(0o600));
+    }
+    std::fs::rename(&temporary, path).map_err(|error| format!("500|cannot publish {}: {error}", path.display()))
 }

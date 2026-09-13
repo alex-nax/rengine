@@ -82,13 +82,28 @@ test('the native desktop connects to red-host unchanged', { timeout: 120000 }, a
     assert.equal(await readFile(path.join(project, 'example.txt'), 'utf8'), 'edited through the door 世界\n',
       'and the working file on disk is what the person typed');
 
+    /* The Shell button, which is a pane STARTED by the door: the desktop asks, red-host composes the
+       launch and the service holds the child, and the new tab prints a prompt. */
+    await gui.control('toolbar', 'Shell', -1);
+    state = await gui.until(s => s.tabs.some(x => x?.type === 3 && x.session && x.session !== shell.id && x.text?.trim()),
+      'a second pane, started through the door');
+    const opened = state.tabs.find(x => x?.type === 3 && x.session && x.session !== shell.id);
+    await gui.command({ op: 'motion', x: opened.rect[0] + 30, y: opened.rect[1] + 30 });
+    await gui.command({ op: 'button', x: opened.rect[0] + 30, y: opened.rect[1] + 30 });
+    await gui.command({ op: 'button', x: opened.rect[0] + 30, y: opened.rect[1] + 30, down: false });
+    await gui.command({ op: 'text', text: "printf 'OPENED_BY_THE_DOOR\\n'" });
+    await gui.key('Return');
+    await gui.until(s => s.tabs.some(x => x?.session === opened.session && x.text?.includes('OPENED_BY_THE_DOOR')),
+      'and it is a live terminal');
+
     /* And the desktop registered itself on the door's socket, which is what makes every desktop
        action and the whole runtime layer visible to the workspace (spec 098). */
     const listed = await (await fetch(`${workspace.url}/api/desktops?rootId=${root.id}`,
       { headers: { authorization: `Bearer ${workspace.token}` } })).json();
     assert.equal(listed.desktops.length, 1, `the desktop is registered with the door: ${JSON.stringify(listed)}`);
     assert.deepEqual(listed.desktops[0].rootIds, [root.id]);
-    assert.ok(listed.desktops[0].sessionIds.includes(shell.id), 'with the pane it is showing');
+    assert.ok(listed.desktops[0].sessionIds.includes(shell.id), 'with the panes it is showing');
+    assert.ok(listed.desktops[0].sessionIds.includes(opened.session), 'including the one it opened itself');
   } finally {
     await gui?.close();
     try { door?.kill('SIGKILL'); } catch { /* already gone */ }

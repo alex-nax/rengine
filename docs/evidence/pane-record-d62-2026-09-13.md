@@ -90,7 +90,7 @@ the announcement is the thing under test.
 
 ## Gates
 
-`npm test` — **323 of 323**, zero services left behind. `cargo test` — all crates.
+`npm test` — **324 of 324**, zero services left behind. `cargo test` — all crates.
 `./init.sh`. `python3 tools/features.py validate`.
 
 ## The pane as an answer: `/api/session` and `/api/stop`
@@ -221,6 +221,40 @@ implementations are checked against each other rather than against a string type
 | a null report is taken as no change | the pane keeps a conversation the CLI is not running |
 | the pane is told and the workspace is not | `the store remembers it: []` |
 
+## Making a pane: `/api/terminal` and `/api/agent-restart`
+
+The last routes F152 names. What a pane launches, which conversation it claims and what it is
+offered are **not** re-implemented: that composition is red-agents' (F168), one implementation both
+hosts call. What the door had to grow is the plumbing around it — the paths, the environment, the
+handoff read, the record — and the spec checks it by sending the same request to both hosts and
+comparing the two panes.
+
+`readHandoff` came across with it, and every check in it is there because the alternative is worse
+than refusing: a manifest naming another project would move a person's session sideways, a
+checkpoint outside the project would read a file the pane has no business reading, and a session id
+with no local rollout would quietly start a NEW conversation wearing the old one's name — which the
+JS says out loud, *"No substitute session was launched"*, and which is the promise being kept.
+`waitForPresentation` and `resumeArgs` stayed behind on purpose: they run inside the pane, in its
+own launcher.
+
+| Sabotage | Observed |
+| --- | --- |
+| the pane's environment is inherited rather than composed | the pane reports the session identity of the host that started it |
+| the working directory is not checked against the root | a pane opens outside the project, where `400` was expected |
+| the composition's minted conversation is not recorded in the workspace | `the store remembers the door's pane too: [...]` with only the other host's |
+
+The environment one **passed at first**, which is the third time today. Nothing was checking that a
+pane's environment is composed rather than inherited — KI-068's whole lesson — so the door is now
+started carrying another pane's identity and a `NO_COLOR`, and the pane is asked what it was given:
+the identity cleared, `NO_COLOR` dropped because `TERM` here declares colour, and the agent home
+this workspace's.
+
+**Two hosts, two pane lists, and that is correct.** The door lists every pane the service holds,
+whichever host started it — it is the list a desktop reads. The JS host lists what it started and
+what it adopted when it came up, which is all D60/F179 ever gave it. The asymmetry is in the
+harmless direction, and it is asserted rather than assumed, because the day it matters is the day
+something starts reading the backend's list again.
+
 ## The desktop itself, against the door
 
 `orchestrator/tests/native-front-door.spec.mjs` is the criterion F189 actually asks for. It starts
@@ -234,11 +268,13 @@ claim like that is to run the binary against the new host rather than to compare
 
 ## What this does not claim
 
-- **F189 is not finished.** `/api/terminal`, `/api/agent-restart` and `/surface` are still
-  forwarded, and nothing is deleted. The two that are left SPAWN, which is the part that composes an
-  agent's launch; the composition itself is already one Rust implementation (red-agents, F168), so
-  what a port duplicates is the plumbing around it — the handoff read, the context files, the record
-  — while `games.launch` and `/api/dashboard-run` keep spawning through the JS one until F155.
+- **F189's routes are all moved, and the row is still open.** `/surface` is still spliced (games,
+  F155), the thirteen routes F153–F156 own are still forwarded, and **nothing is deleted** — see
+  KI-102 for why the deletion is at the end of the arc, and KI-106 for the other half of that gate.
+  Criterion 2, the focus-eviction semantic, is preserved the only way this row can preserve it:
+  `surfaces.mjs` is untouched behind a byte-for-byte splice.
+- **The JS host still spawns panes**, for `games.launch` and `/api/dashboard-run`, until F155 moves
+  them. Both hosts call the same red-agents composition, so what exists twice is the plumbing.
 - **`surfaces.mjs` cannot move with this row.** F152's description lists it beside desktops, but the
   module belongs to `games.mjs` — it is the game viewer's frame transport, not the workspace socket —
   so it moves with games (F155). Its focus-eviction semantic is preserved here in the only way this

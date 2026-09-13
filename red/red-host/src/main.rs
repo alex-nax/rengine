@@ -30,6 +30,7 @@ use tokio::net::{TcpListener, TcpStream};
 
 mod desktops;
 mod events;
+mod handoff;
 mod head;
 mod panes;
 
@@ -422,6 +423,18 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
             client.write_all(answer.as_bytes()).await?;
             continue;
         }
+        if head.path() == "/api/terminal" && head.method == "POST" {
+            let body = head.read_body(&mut client, &mut buffered).await?;
+            let answer = panes::terminal(&front, &body).await;
+            client.write_all(answer.as_bytes()).await?;
+            continue;
+        }
+        if head.path() == "/api/agent-restart" && head.method == "POST" {
+            let body = head.read_body(&mut client, &mut buffered).await?;
+            let answer = panes::restart(&front, &body).await;
+            client.write_all(answer.as_bytes()).await?;
+            continue;
+        }
         if head.path() == "/api/agent-conversation" && head.method == "POST" {
             let body = head.read_body(&mut client, &mut buffered).await?;
             let answer = panes::record_conversation(&front, &body).await;
@@ -736,7 +749,12 @@ fn answer_state(front: &Arc<Front>) -> String {
        that started them is creation order; a door that adopted them from the service has no such
        history, and the pane's own `createdAt` is the one order both can agree on. */
     held.sort_by_key(|session| {
-        session.get("meta").and_then(|record| record.get("createdAt")).and_then(serde_json::Value::as_i64).unwrap_or(0)
+        (
+            session.get("meta").and_then(|record| record.get("createdAt")).and_then(serde_json::Value::as_i64).unwrap_or(0),
+            /* Two panes started in the same millisecond need SOME order, and it has to be the same
+               order every time this is asked: the id is the only thing left that is theirs. */
+            session.get("id").and_then(serde_json::Value::as_str).unwrap_or_default().to_string(),
+        )
     });
     let sessions: Vec<serde_json::Value> = held.iter().map(pane_snapshot).collect();
     http_json(200, "OK", &serde_json::json!({

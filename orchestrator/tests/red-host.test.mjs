@@ -12,7 +12,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -22,6 +22,7 @@ import { WebSocket } from 'ws';
 import { startServer } from '../server/main.mjs';
 import { PtyHost } from '../server/pty-client.mjs';
 import { agentTitle } from '../server/sessions-client.mjs';
+import { fakeCli } from './task-fixtures.mjs';
 import { endStateServices } from './state-services.mjs';
 import { built } from './cargo.mjs';
 
@@ -34,7 +35,8 @@ const delay = milliseconds => new Promise(resolve => setTimeout(resolve, millise
    would be asserting that two processes share memory. */
 async function until(check, what, timeout = 15000) {
   for (let waited = 0; waited < timeout; waited += 50) {
-    if (await check()) return;
+    const value = await check();
+    if (value) return value;
     await delay(50);
   }
   assert.fail(`${what} (not within ${timeout / 1000}s)`);
@@ -169,7 +171,10 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   /* And the socket, which the door serves itself: a session attached through it, with its output
      arriving. `/surface` is still forwarded — it carries a game's frames, and games have not
      moved — so this connection proves the door's own WebSocket, not a splice. */
-  const session = await (await ask(instance, '/api/terminal', { rootId: root.id, command: '/bin/bash',
+  /* Started at the BACKEND on purpose: this test uses the JS host as an independent observer of
+     the pane, and a host only holds the panes it started or adopted (D60/F179). The door learns of
+     it from the service's announcement, which is the thing being checked. */
+  const session = await (await ask(backend, '/api/terminal', { rootId: root.id, command: '/bin/bash',
     args: ['--noprofile', '--norc'] })).json();
   const socket = new WebSocket(`${instance.url.replace('http', 'ws')}/events?token=${instance.token}`);
   t.after(() => socket.close());
@@ -213,7 +218,7 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
      way the JS host composes them, which is the whole of what a desktop draws its Sessions tab from. */
   const [doorState, hostState] = await Promise.all([ask(instance, '/api/state'), ask(backend, '/api/state')].map(p => p.then(r => r.json())));
   assert.equal(doorState.sessions.length, 1, 'the door lists the pane');
-  assert.deepEqual(doorState.sessions, hostState.sessions, 'exactly as the host lists it');
+  assert.deepEqual(doorState.sessions, hostState.sessions, 'exactly as the host that started it lists it');
 
   /* A socket with the wrong token is refused at the door, before the backend is dialled. */
   const refused = new WebSocket(`${instance.url.replace('http', 'ws')}/events?token=${'f'.repeat(64)}`);
@@ -263,7 +268,9 @@ test('a pane record changed by one host is the record every host answers from', 
   const door = await front(t, stateDir, backend);
   const instance = { url: door.url, token: JSON.parse(await readFile(path.join(stateDir, 'sidecar.json'), 'utf8')).token };
 
-  const session = await (await ask(instance, '/api/terminal', { rootId: root.id, command: '/bin/bash',
+  /* Started at the backend, because this test asks the JS host what it thinks of the pane — and a
+     host holds the panes it started or adopted, not every pane in the directory. */
+  const session = await (await ask(backend, '/api/terminal', { rootId: root.id, command: '/bin/bash',
     args: ['--noprofile', '--norc'] })).json();
   const typed = text => ask(instance, '/api/input', { id: session.id, data: text });
   const printed = async what => {
@@ -391,7 +398,9 @@ test('a desktop registers on the door and answers what the workspace asks it', {
   const door = await front(t, stateDir, backend, { RENGINE_DESKTOP_ACTION_MS: '700' });
   const instance = { url: door.url, token: JSON.parse(await readFile(path.join(stateDir, 'sidecar.json'), 'utf8')).token };
 
-  const session = await (await ask(instance, '/api/terminal', { rootId: root.id, command: '/bin/bash',
+  /* Started at the backend: both hosts are given the same registration frame below, and the JS
+     host can only judge a binding for a pane it holds. */
+  const session = await (await ask(backend, '/api/terminal', { rootId: root.id, command: '/bin/bash',
     args: ['--noprofile', '--norc'] })).json();
 
   /* One desktop on each host, registered with the same frame. */
@@ -500,7 +509,8 @@ test('a pane reports its conversation to the door, and the workspace and the pan
   /* A pane that says it is a claude agent with no conversation yet — which is what a launch that
      offered a choice leaves behind. Written as a RECORD rather than by launching a real CLI: the
      record is what every host answers from, and this route only ever reads and writes that. */
-  const session = await (await ask(instance, '/api/terminal', { rootId: root.id, command: '/bin/bash',
+  /* Started at the backend, because the report is read back through it below. */
+  const session = await (await ask(backend, '/api/terminal', { rootId: root.id, command: '/bin/bash',
     args: ['--noprofile', '--norc'] })).json();
   client = await PtyHost.attach(stateDir);
   await client.describe(session.id, { type: 'agent', agent: '', titleAuto: true, title: agentTitle('', undefined, root.name) });
@@ -531,9 +541,131 @@ test('a pane reports its conversation to the door, and the workspace and the pan
   const unknown = await ask(instance, '/api/agent-conversation', { id: 'no-such-pane', conversation: CONVERSATION });
   assert.equal(unknown.status, 404);
   assert.equal((await unknown.json()).error, 'Unknown session.');
-  const shell = await (await ask(instance, '/api/terminal', { rootId: root.id, command: '/bin/bash', args: ['--noprofile', '--norc'] })).json();
+  const shell = await (await ask(backend, '/api/terminal', { rootId: root.id, command: '/bin/bash', args: ['--noprofile', '--norc'] })).json();
   await until(async () => (await ask(instance, '/api/agent-conversation', { id: shell.id, conversation: CONVERSATION })).status === 400,
     'the door sees the shell');
   const notAgent = await ask(instance, '/api/agent-conversation', { id: shell.id, conversation: CONVERSATION });
   assert.equal((await notAgent.json()).error, 'Only an agent session holds a conversation.');
+});
+
+/* F189: the route that STARTS a pane.
+ *
+ * What a pane launches, which conversation it claims and what it is offered are red-agents' (F168),
+ * one implementation both hosts call. What this checks is the plumbing the door had to grow around
+ * it — the paths, the environment, the record — and it checks it the only way worth checking:
+ * the same request to both hosts, and the two panes compared.
+ */
+test('a pane started at the door is the pane the JS host would have started', { timeout: 300000 }, async t => {
+  await built('-p', 'red-host', '--bin', 'red-host');
+  const directory = await mkdtemp(path.join(tmpdir(), 'red-host-spawn-'));
+  const project = path.join(directory, 'project');
+  await mkdir(project, { recursive: true });
+  const stateDir = path.join(directory, 'state');
+  const backend = await startServer({ stateDir, retainSessions: true });
+  t.after(async () => {
+    await backend.close({ retain: false });
+    await endStateServices(stateDir);
+    await rm(directory, { recursive: true, force: true });
+  });
+  const root = await backend.store.addRoot(project);
+  /* The door is started carrying another pane's identity and a NO_COLOR its panes must not keep:
+     a workspace host is itself often launched from a pane, and KI-068 is the case where a pane
+     inherited one and reported as it. */
+  const door = await front(t, stateDir, backend, {
+    RENGINE_ORCHESTRATOR_SESSION: 'a-pane-that-is-not-this-one',
+    RENGINE_AGENT_CONVERSATION: 'somebody-elses-conversation',
+    NO_COLOR: '1',
+  });
+  const instance = { url: door.url, token: JSON.parse(await readFile(path.join(stateDir, 'sidecar.json'), 'utf8')).token };
+  /* A CLI that records its arguments and stays running, installed where the workspace looks for it,
+     so an agent pane is a real launch and not a download. */
+  await fakeCli(stateDir, 'claude');
+
+  const started = (where, options) => ask(where, '/api/terminal', options).then(answer => answer.json());
+  const comparable = ({ id, pid, createdAt, title, conversation, ...rest }) => rest;
+
+  /* A shell, which is what the desktop's Shell button asks for. */
+  const [ours, theirs] = [await started(instance, { rootId: root.id }), await started(backend, { rootId: root.id })];
+  assert.deepEqual(comparable(ours), comparable(theirs), 'the same pane, described the same way');
+  assert.equal(ours.title, `Terminal · ${root.name}`, 'named for its project');
+  assert.equal(ours.state, 'running');
+  assert.ok(Number.isInteger(ours.pid) && ours.pid !== theirs.pid, 'two panes, two processes');
+
+  /* And the pane is real: it echoes what is typed into it, through the door that started it. */
+  await ask(instance, '/api/input', { id: ours.id, data: 'printf "started here\\n"\n' });
+  await until(async () => (await (await ask(instance, `/api/session?id=${ours.id}`)).json()).output.includes('started here'),
+    'the pane the door started is a live terminal');
+
+  /* An agent pane, where the composition decides what is launched. Both hosts run the same
+     red-agents composition, so the argv, the conversation and the title must agree. */
+  const [mine, theirsAgent] = [await started(instance, { rootId: root.id, type: 'agent', agent: 'claude' }),
+    await started(backend, { rootId: root.id, type: 'agent', agent: 'claude' })];
+  assert.deepEqual(comparable(mine), comparable(theirsAgent), 'the same agent pane');
+  assert.match(mine.title, /^claude [0-9a-f]{8} · /, 'titled with the conversation the composition minted');
+  assert.equal(mine.title, agentTitle('claude', mine.conversation, root.name), 'exactly as the JS host titles it');
+  assert.notEqual(mine.conversation, theirsAgent.conversation, 'each pane mints its own');
+  /* The conversation the composition minted is the workspace's now, not just the pane's. */
+  const remembered = (await (await ask(backend, '/api/state')).json()).conversations[root.id].map(entry => entry.id);
+  assert.ok(remembered.includes(mine.conversation), `the store remembers the door's pane too: ${JSON.stringify(remembered)}`);
+  /* And the pane's own environment is composed, not inherited: the CLI records what it was given. */
+  await until(async () => existsSync(path.join(stateDir, 'claude.argv')), 'the agent CLI was actually launched');
+
+  /* The pane's environment is COMPOSED, not inherited. What this launch owns is cleared whatever
+     the host was carrying, the colour defaults are declared, and a NO_COLOR that would contradict
+     them is dropped — every one of those is a rule in `shellEnvironment`, and the pane is asked
+     rather than the code read. */
+  const reported = await started(instance, { rootId: root.id, command: '/bin/bash',
+    args: ['--noprofile', '--norc', '-c', 'echo "S=[${RENGINE_ORCHESTRATOR_SESSION-}] C=[${RENGINE_AGENT_CONVERSATION-}] N=[${NO_COLOR-}] T=[${TERM-}] H=[${RENGINE_AGENT_HOME-}]"'] });
+  const said = await until(async () => {
+    const text = (await (await ask(instance, `/api/session?id=${reported.id}`)).json()).output ?? '';
+    return text.includes('S=[') ? text : null;
+  }, 'the pane said what it was given');
+  assert.match(said, /S=\[\]/, 'the session identity this launch owns is cleared, not inherited');
+  assert.match(said, /C=\[\]/, 'and so is the conversation');
+  assert.match(said, /N=\[\]/, 'an inherited NO_COLOR is dropped, because TERM here declares colour');
+  assert.match(said, /T=\[xterm-256color\]/, 'which it does');
+  assert.ok(said.includes(`H=[${path.join(stateDir, 'agents')}]`), `the agent home is this workspace's: ${said}`);
+
+  /* A restart is the same conversation in a new child: the old pane ends, the new one resumes what
+     it was holding. The pane's id changes because the process does. */
+  const restarted = await (await ask(instance, '/api/agent-restart', { id: mine.id })).json();
+  assert.notEqual(restarted.id, mine.id, 'a new pane');
+  assert.equal(restarted.conversation, mine.conversation, 'on the conversation the old one held');
+  assert.equal(restarted.agent, 'claude');
+  await until(async () => (await (await ask(instance, `/api/session?id=${mine.id}`)).json()).state === 'exited',
+    'and the pane it replaced is gone');
+  const noConversation = await ask(instance, '/api/agent-restart', { id: ours.id });
+  assert.equal(noConversation.status, 400);
+  assert.equal((await noConversation.json()).error, 'Only an agent session can be restarted into its conversation.',
+    'a shell has no conversation to be restarted into');
+
+  /* The refusals, in the JS host's words and its order: the title is judged before the root is
+     looked up, and the working directory before the type. */
+  const refused = (options) => ask(instance, '/api/terminal', options).then(async answer => [answer.status, (await answer.json()).error]);
+  assert.deepEqual(await refused({ rootId: 'no-such-root' }), [404, 'Unknown project root.']);
+  assert.deepEqual(await refused({ rootId: 'no-such-root', title: '   ' }), [400, 'Session title must be a short string.'],
+    'the title is judged first, for a root that does not exist either');
+  assert.deepEqual(await refused({ rootId: root.id, cwd: directory }), [400, 'The working directory must be inside the project root.']);
+  assert.deepEqual(await refused({ rootId: root.id, type: 'game-adapter' }), [400, 'Unsupported terminal type.']);
+  assert.deepEqual(await refused({ rootId: root.id, cols: 1, rows: 1 }), [400, 'Invalid terminal dimensions.']);
+  assert.deepEqual(await refused({ rootId: root.id, handoffFile: '/nowhere.json' }), [400, 'Handoff requires the Codex workspace launcher.'],
+    'a handoff that is not the Codex launcher is refused before the file is touched');
+
+  /* The door lists every pane the service is holding, whichever host started it — that is what it
+     is for, and it is the list a desktop reads. The JS host lists what it started and what it
+     adopted when it came up, which is what D60/F179 gave it and all it ever promised; a pane
+     started at the door after that is not in its answer. The asymmetry is in the harmless
+     direction — the door is the host clients talk to — and it is asserted rather than assumed,
+     because the day it matters is the day something starts reading the backend's list again. */
+  const all = (await (await ask(instance, '/api/state')).json()).sessions;
+  const listed = all.map(session => session.id);
+  assert.deepEqual([...listed].sort(), [ours, theirs, mine, theirsAgent, restarted, reported].map(pane => pane.id).sort(),
+    'the door lists every pane in the directory, whichever host started it');
+  /* Oldest first — asserted as the property rather than as a fixed sequence, because two panes
+     started in the same millisecond are ordered by their ids and a spec that pinned the sequence
+     would be pinning which uuid sorted first. */
+  assert.deepEqual(all.map(session => session.createdAt), [...all.map(session => session.createdAt)].sort((a, b) => a - b),
+    'oldest first');
+  const behind = (await (await ask(backend, '/api/state')).json()).sessions.map(session => session.id);
+  assert.deepEqual(behind, [theirs.id, theirsAgent.id], 'the JS host lists the ones it started itself');
 });

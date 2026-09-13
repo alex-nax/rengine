@@ -99,10 +99,21 @@ the service's record of which one the pane is running — and a title whose shor
 recipe, not eight characters. red-host links red-agents for that, and the spec compares the door's
 title against `agentTitle` imported from the JS host, so the two implementations check each other.
 
-What is left of F189 is the two routes that SPAWN (`/api/terminal`, `/api/agent-restart`). The composition they use is already one Rust
-implementation (red-agents, F168), so a port duplicates the plumbing around it — the handoff read,
-the context files, the record — while `games.launch` and `/api/dashboard-run` keep spawning through
-the JS one until F155.
+**And then the two that SPAWN**, which finishes F189's routes. What a pane launches, which
+conversation it claims and what it is offered are not re-implemented — that composition is
+red-agents' (F168), one implementation both hosts call — so what the door grew is the plumbing: the
+paths, the environment, the handoff read, the record. `readHandoff` came across with it; its checks
+exist because the alternative to refusing is a session moved sideways, a checkpoint read from
+outside the project, or a NEW conversation wearing a paused one's name.
+
+Three sabotages, and **the environment one passed at first** — the third time today a claim needed
+its own case. Nothing was checking that a pane's environment is composed rather than inherited,
+which is KI-068's whole lesson, so the door is now started carrying another pane's identity and the
+pane is asked what it was given.
+
+One asymmetry, asserted rather than assumed: the door lists every pane in the directory and the JS
+host lists the ones it started or adopted, which is all D60/F179 ever gave it. Harmless while the
+door is the host clients talk to, and written down for the day something reads the other list.
 
 **KI-106**, filed on the way: the JS modules are gated on the SUITE as well as on the routes. 71 spec
 files start the JS host directly, all 43 native specs among them, so even a module the door has fully
@@ -110,7 +121,7 @@ replaced cannot be deleted yet. The line count does not fall during a strangler 
 rises slightly, and every deletion lands at the end. That is the right shape, but it is not what the
 epic's per-row "Retires (JS)" column reads like.
 
-Commands: `npm test` (**323 of 323**, zero services left), `cargo test`, `./init.sh`,
+Commands: `npm test` (**324 of 324**, zero services left), `cargo test`, `./init.sh`,
 `python3 tools/features.py validate`, and `native-front-door` + four neighbouring native specs.
 
 ## Session 145 (macos) — 2026-09-13 — the first routes stop being forwarded (F189, first half)
