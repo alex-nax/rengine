@@ -85,7 +85,13 @@ rule.
 
 ## What this does not change
 
-`replace.mjs` still stops and replaces the session host, and still reports what it did. What
-changes is that the sessions it used to list as ended are no longer its to end. The standing rule
-about the owner's session host stays until F178 puts the swap in front of real panes — a decision
-recorded here is not evidence about a running workspace.
+`replace.mjs` still stops and replaces the session host, and still reports what it did — and after
+F178 it still ends the sessions, because the host stays on `PtyHost.open()`. The machinery this
+document specifies is built and tested, and nothing in a running workspace depends on it yet.
+
+Making it real is one more row (F179, proposed under KI-096): the pane's metadata — root, agent,
+conversation, handoff gate, title — has to travel with the PTY instead of living in the host's
+memory, or the next host inherits processes it cannot name; `replace.mjs` has to report a handover
+rather than an ending; and F94's tests, which assert today that sessions end with the old host,
+have to be amended citing D60. Until then the standing rule about the owner's session host stays,
+and a decision recorded here is not evidence about a running workspace.

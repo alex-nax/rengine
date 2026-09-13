@@ -153,6 +153,12 @@ impl<F: FnMut(Value) + Send + 'static> PtyHost<F> {
         let mut command = CommandBuilder::new(file);
         command.args(argv);
         command.cwd(cwd);
+        /* The caller's environment is the WHOLE environment, which is what node-pty's `env` option
+           means and therefore what every pane this replaces was launched with. portable-pty's
+           builder starts from this process's own environment instead, so a service that inherited
+           a stale RENGINE_AGENT_CONVERSATIONS from the host would hand it to every pane — the
+           exact leak the host's cleared-set discipline exists to prevent (KI-068). */
+        command.env_clear();
         command.env("TERM", "xterm-256color");
         for (key, value) in env {
             command.env(key, value);

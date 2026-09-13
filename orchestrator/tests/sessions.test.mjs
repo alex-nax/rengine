@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { WorkspaceStore } from '../server/store-client.mjs';
-import { Sessions } from '../server/sessions.mjs';
+import { Sessions } from '../server/sessions-client.mjs';
 import { fakeCli } from './task-fixtures.mjs';
 
 const until = async predicate => {

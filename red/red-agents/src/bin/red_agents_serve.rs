@@ -117,6 +117,16 @@ fn dispatch(method: &str, args: &Json) -> Result<Json, String> {
                 red_agents::launch::launch_plan(&recipes, &inputs, &mut mint, &mut now)
             }
         }
+        /* The pane-identity composition the JS host used to keep beside pty.spawn (F178): the
+           decision moves here, the mint and the clock arrive as data so nothing depends on a draw. */
+        "paneComposition" => {
+            let input = args.get(0).cloned().unwrap_or(Json::Null);
+            let capability = match input.get("agent").and_then(Json::as_str) {
+                Some(agent) => red_agents::spawn::conversation_start_capability(&load()?, agent),
+                None => None,
+            };
+            Ok(red_agents::spawn::agent_pane_composition(&input, capability))
+        }
         "describeSession" => Ok(red_agents::launch::describe_session(&args.get(0).cloned().unwrap_or(Json::Null))),
         "conversationArgs" => {
             let Some(agent) = text_arg(args, 0) else { return Err("conversationArgs takes a CLI name.".into()) };

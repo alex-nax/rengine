@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, stat, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { bashPath } from '../server/sessions.mjs';
+import { bashPath } from '../server/sessions-client.mjs';
 import { readDeclaration } from '../server/formats.mjs';
 import { validateSchema } from '../server/store-client.mjs';
 import { dashboardRules } from '../server/dashboard-rules.mjs';

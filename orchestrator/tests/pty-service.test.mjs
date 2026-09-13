@@ -1,16 +1,21 @@
-/* F176 (F151a, spec 129, KI-096): the red-pty service core proves terminal behavior parity with
- * the real JS session host. One scripted scenario set drives BOTH the real Sessions class
- * (spawnTerminal and friends) and the red-pty stdio service through the same steps, and the two
- * must agree on everything a person can see: final output byte-for-byte (the OUTPUT_LIMIT
- * truncation counted in UTF-16 units, lone-surrogate edge included), state and exit codes,
- * resize effects, tree kill, the whole-paste case (F112), and the output events' concatenated
- * data — chunk boundaries are implementation-defined and deliberately not compared.
+/* F176 (F151a, spec 129, KI-096), amended by F178: this scenario set proved terminal behavior
+ * parity by driving BOTH the real JS session host (node-pty inside sessions.mjs) and the red-pty
+ * service through the same steps. F178 deleted that module, so the JS half of the comparison is
+ * now the record it left behind — pty-scenario-fixtures.json, captured from sessions.mjs at the
+ * commit before its deletion and never regenerated. Running the scenarios against the service and
+ * calling that parity would be the service agreeing with itself, which is the difference between
+ * evidence and a green tick.
+ *
+ * What must still agree, byte for byte: final output (the OUTPUT_LIMIT truncation counted in
+ * UTF-16 units, lone-surrogate edge included), state and exit codes, resize effects, tree kill,
+ * the whole-paste case (F112), and the output events' concatenated data — chunk boundaries are
+ * implementation-defined and deliberately not compared.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
@@ -23,25 +28,6 @@ const OUTPUT_LIMIT = 1024 * 1024;
 
 /* The two drivers. `js` is the real Sessions class on a real store; `rust` is the pty client on
    the service. Both expose the same harness surface. */
-async function jsDriver(t, directory) {
-  const { WorkspaceStore } = await import('../server/store-client.mjs');
-  const { Sessions } = await import('../server/sessions.mjs');
-  const store = await WorkspaceStore.open(path.join(directory, 'state'));
-  const root = await store.addRoot(directory);
-  const sessions = new Sessions(store);
-  const events = [];
-  sessions.on('event', event => events.push(event));
-  return {
-    events,
-    spawn: options => sessions.spawnTerminal({ rootId: root.id, type: 'terminal', ...options }).then(snapshot => snapshot.id),
-    input: (id, data) => sessions.input(id, data),
-    resize: (id, cols, rows) => sessions.resize(id, cols, rows),
-    stop: id => sessions.stop(id),
-    snapshot: async id => sessions.snapshot(id, true),
-    close: async () => { await sessions.shutdown(); await store.close(); },
-  };
-}
-
 async function rustDriver(t, directory) {
   const client = await import('../server/pty-client.mjs');
   const pty = await client.PtyHost.open();
@@ -151,18 +137,18 @@ const SCENARIOS = {
   },
 };
 
-test('the red-pty service matches the JS session host on the scenario set', async t => {
+test('the red-pty service matches what the JS session host answered on the scenario set', async t => {
   await run('cargo', ['build', '-p', 'red-pty', '--bin', 'red-pty-serve'], { cwd: path.join(ROOT, 'red') });
   assert.ok(existsSync(SERVE), `red-pty-serve was built at ${SERVE}`);
+  const recorded = JSON.parse(await readFile(path.join(ROOT, 'orchestrator/tests/pty-scenario-fixtures.json'), 'utf8'));
+  assert.deepEqual(Object.keys(recorded).sort(), Object.keys(SCENARIOS).sort(),
+    'every scenario has an answer from the module that is gone, and no scenario was added without one');
   for (const [name, scenario] of Object.entries(SCENARIOS)) {
-    const dirJs = await mkdtemp(path.join(tmpdir(), 'rengine-pty-js-'));
     const dirRust = await mkdtemp(path.join(tmpdir(), 'rengine-pty-rust-'));
-    t.after(() => { rm(dirJs, { recursive: true, force: true }); rm(dirRust, { recursive: true, force: true }); });
-    const js = await jsDriver(t, dirJs);
+    t.after(() => rm(dirRust, { recursive: true, force: true }));
     const rust = await rustDriver(t, dirRust);
-    const [fromJs, fromRust] = await Promise.all([scenario(js), scenario(rust)]);
-    await js.close();
+    const fromRust = await scenario(rust);
     await rust.close();
-    assert.deepEqual(fromRust, fromJs, `scenario: ${name}`);
+    assert.deepEqual(fromRust, recorded[name], `scenario: ${name}`);
   }
 });

@@ -302,7 +302,7 @@ flowchart TD
   F147 --> F176
   F177["F177: passing"]
   F176 --> F177
-  F178["F178: ready"]
+  F178["F178: passing"]
   F176 --> F178
   F177 --> F178
 ```
@@ -438,4 +438,4 @@ flowchart TD
 | F175 | J0 | rengine | passing | F170b (the swap half of F170): the ten server consumers of store.mjs/schema.mjs rewire to store-client.mjs, main.mjs manages the service lifecycle, and store.mjs and schema.mjs are deleted in the same commit the replacement passes (owner, 2026-09-12; spec 129, KI-095). |
 | F176 | J0 | rengine | passing | F151a (the core half of F151): red-pty on portable-pty behind the F174 channel shape, with the JS host's exact semantics — UTF-16-unit scrollback truncation, string_decoder tail-holding, tree kill, resize guard, input cap — proven by one scripted scenario set driving both the real JS Sessions class and the service (owner, 2026-09-13; spec 129, KI-096). |
 | F177 | J0 | rengine | passing | F151b (the retention half of F151): the restart-retention architecture is decided and implemented — whether red-pty stays per-host as today or becomes a long-lived per-state-dir service with a descriptor the next host discovers, with restart evidence matching specs 059/060's promises (owner, 2026-09-13; spec 129, KI-096). |
-| F178 | J0 | rengine | ready | F151c (the swap half of F151): the Sessions class becomes the thin client over red-pty, sessions.mjs is deleted in the same commit the replacement passes, and terminal behaviors are byte-identical on the full suite (owner, 2026-09-13; spec 129, KI-096). |
+| F178 | J0 | rengine | passing | F151c (the swap half of F151): the Sessions class becomes the thin client over red-pty, sessions.mjs is deleted in the same commit the replacement passes, and terminal behaviors are byte-identical on the full suite (owner, 2026-09-13; spec 129, KI-096). |

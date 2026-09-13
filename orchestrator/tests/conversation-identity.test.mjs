@@ -7,7 +7,7 @@ import { agentLaunch, describeSession } from '../agents/agents-client.mjs';
 import { bind } from '../agents/agents-client.mjs';
 import { startServer } from '../server/main.mjs';
 import { WorkspaceStore } from '../server/store-client.mjs';
-import { Sessions, agentTitle } from '../server/sessions.mjs';
+import { Sessions, agentTitle } from '../server/sessions-client.mjs';
 import { Ledger, readIdentity } from '../runtime/token.mjs';
 
 /* Two lanes taught the launcher to pass --session-id: the per-launch identity (spec 095) and the

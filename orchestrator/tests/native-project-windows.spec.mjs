@@ -1,4 +1,4 @@
-import { bashPath } from '../server/sessions.mjs';
+import { bashPath } from '../server/sessions-client.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, realpath, stat, symlink } from 'node:fs/promises';

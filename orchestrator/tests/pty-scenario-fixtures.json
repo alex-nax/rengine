@@ -1,0 +1,35 @@
+{
+  "echo and exit code": {
+    "output": "hello\r\n",
+    "state": "exited",
+    "exitCode": 7
+  },
+  "a 300 KB paste arrives whole and is counted": {
+    "counted": true,
+    "state": "exited"
+  },
+  "resize changes what stty reports": {
+    "before": [
+      24,
+      80
+    ],
+    "afterIncluded": true
+  },
+  "stop kills the whole tree": {
+    "state": "exited",
+    "sleepAlive": false
+  },
+  "output truncates at the UTF-16 limit, tail intact": {
+    "units": 1048576,
+    "length": 1048576,
+    "tail": false,
+    "head": "aaaaaaaaaaaa"
+  },
+  "the surrogate edge at the slice boundary": {
+    "first": 56832,
+    "length": 1048576
+  },
+  "multibyte output decodes whole, no stray replacement chars": {
+    "output": "é€😀😀\r\n"
+  }
+}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { shellEnvironment } from '../server/sessions.mjs';
+import { shellEnvironment } from '../server/sessions-client.mjs';
 
 test('Windows sessions preserve one PATH and apply overrides case-insensitively', () => {
   const base = { Path: 'C:\\Windows\\System32;C:\\Program Files\\nodejs', SystemRoot: 'C:\\Windows',

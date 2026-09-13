@@ -17,6 +17,7 @@
  * the rest of them.
  */
 import { spawn, execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import readline from 'node:readline';
@@ -156,6 +157,11 @@ const MCP_MAIN = fileURLToPath(new URL('./mcp.mjs', import.meta.url));
 const redAgentsBinary = () => binary('RENGINE_RED_AGENTS', 'red-agents', 'red-agents');
 
 export const describeSession = identity => open().call('describeSession', [identity ?? null]);
+/* The pane-identity composition (F178): what the pane launches, what it claims to be, and what it
+   is offered. The mint and the clock travel as data, so a pane's plan is a function of its inputs
+   and a test never depends on a draw. */
+export const paneComposition = ({ mint = randomUUID(), now = Date.now(), ...input }) =>
+  open().call('paneComposition', [{ ...input, mint, now }]);
 /* Which retained PTY this launch is running inside, when the workspace listed one: an input,
    because it is a fact about this process tree rather than a decision. The JS looked at its own pid
    and its parent's; on Windows it never looked at all. */

@@ -171,6 +171,7 @@ export class PtyHost extends EventEmitter {
     this.socket = socket;
     this.pid = child?.pid ?? null;
     this.sequence = 0;
+    this.flights = 0;
     this.pending = new Map();
     this.closed = false;
     const stream = child ? child.stdout : socket;
@@ -225,22 +226,36 @@ export class PtyHost extends EventEmitter {
     }
   }
 
+  /* Refs are COUNTED, because ref/unref are not. Two calls in flight and the first one's answer
+     would otherwise unref the handles the second is waiting on — and a client whose handles are
+     unref'd while it waits is a process that exits mid-request. Node's test runner reports that as
+     "Promise resolution is still pending but the event loop has already resolved", which names the
+     symptom and not the cause. */
+  hold() { if (this.flights++ === 0) for (const handle of this.idle) handle.ref(); }
+  release() { if (--this.flights === 0) for (const handle of this.idle) handle.unref(); }
+
   call(method, args = []) {
     const id = ++this.sequence;
     const request = new Promise((resolve, reject) => this.pending.set(id, { resolve, reject }));
-    const flight = this.idle;
-    for (const handle of flight) handle.ref();
+    this.hold();
     const line = JSON.stringify({ id, method, args }) + '\n';
     if (this.child) this.child.stdin.write(line); else this.socket.write(line);
-    return request.finally(() => { for (const handle of flight) handle.unref(); });
+    return request.finally(() => this.release());
   }
 
   /** Closing a stdio host ends its sessions; closing an attached one leaves them running. */
   async close() {
     if (this.closed) return;
     this.closed = true;
-    for (const handle of this.idle) handle.ref();
+    this.hold();
+    try { await this.closing(); } finally { this.release(); }
+  }
+
+  async closing() {
     if (this.child) {
+      /* A child that has already exited fires no second 'exit', and waiting for one is a hang with
+         nothing left to wake it — the same shape as the socket case below. */
+      if (this.child.exitCode !== null || this.child.signalCode !== null) return;
       this.child.stdin.end();
       await new Promise(resolve => this.child.once('exit', resolve));
     } else if (!this.socket.destroyed) {
@@ -248,11 +263,10 @@ export class PtyHost extends EventEmitter {
          a 'close' that has already fired is a hang with nothing left to wake it. */
       await new Promise(resolve => { this.socket.once('close', resolve); this.socket.end(); });
     }
-    for (const handle of this.idle) handle.unref();
   }
 
   spawn(options) {
-    return this.call('spawn', [{ command: options.command, args: options.args ?? [], env: options.env ?? {}, cwd: options.cwd ?? '/', cols: options.cols ?? 100, rows: options.rows ?? 30 }])
+    return this.call('spawn', [{ ...(options.id ? { id: options.id } : {}), command: options.command, args: options.args ?? [], env: options.env ?? {}, cwd: options.cwd ?? '/', cols: options.cols ?? 100, rows: options.rows ?? 30 }])
       .then(snapshot => ({ ...snapshot, output: utf16(snapshot.output) }));
   }
   input(id, data) { return this.call('input', [id, data]); }

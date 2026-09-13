@@ -4,7 +4,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import path from 'node:path';
 import { validateSchema } from './store-client.mjs';
 import { fail, hash, resolveInRoot, MAX_TEXT_BYTES } from './store-client.mjs';
-import { shellEnvironment } from './sessions.mjs';
+import { shellEnvironment } from './sessions-client.mjs';
 import { dashboardRules, nameOf, rootRelative } from './dashboard-rules.mjs';
 import { gamesRules } from './game-rules.mjs';
 import { devicesRules } from './device-rules.mjs';

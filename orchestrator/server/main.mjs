@@ -6,7 +6,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { WorkspaceStore, fail } from './store-client.mjs';
-import { Sessions } from './sessions.mjs';
+import { Sessions } from './sessions-client.mjs';
 import { Games } from './games.mjs';
 import { readImage } from './images.mjs';
 import { Desktops } from './desktops.mjs';

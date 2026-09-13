@@ -1,0 +1,305 @@
+{
+  "claude mints for a bare workspace pane and offers the project history": {
+    "refuse": null,
+    "conversation": "11111111-2222-3333-4444-555555555555",
+    "argv": [
+      "/repo/scripts/agent.sh",
+      "--project",
+      "/work/project",
+      "--action",
+      "launch",
+      "--agent",
+      "claude"
+    ],
+    "sets": {
+      "RENGINE_WORKSPACE_CONTEXT": "/state/integrations/12345678-1234-1234-1234-123456789abc.json",
+      "RENGINE_NODE": "/usr/local/bin/node",
+      "RENGINE_BASH": "/bin/bash",
+      "RENGINE_AGENT_CONVERSATION": "11111111-2222-3333-4444-555555555555",
+      "RENGINE_ORCHESTRATOR_SESSION": "00000000-0000-0000-0000-0000000000aa"
+    },
+    "record": {
+      "conversation": "11111111-2222-3333-4444-555555555555",
+      "agent": "claude"
+    },
+    "listing": {
+      "file": "/state/integrations/00000000-0000-0000-0000-0000000000aa.conversations.tsv",
+      "content": "3f85774e-05bb-4791-bb9f-1c90dc37d0e6\tcodex\tjust now\naaaaaaaa-0000-0000-0000-000000000001\tclaude\t45 minutes ago\naaaaaaaa-0000-0000-0000-000000000002\tkimi\tan hour ago\naaaaaaaa-0000-0000-0000-000000000003\t\t5 hours ago\naaaaaaaa-0000-0000-0000-000000000004\tclaude\tyesterday\naaaaaaaa-0000-0000-0000-000000000005\tcodex\t5 days ago\n",
+      "rows": [
+        "3f85774e-05bb-4791-bb9f-1c90dc37d0e6\tcodex\tjust now",
+        "aaaaaaaa-0000-0000-0000-000000000001\tclaude\t45 minutes ago",
+        "aaaaaaaa-0000-0000-0000-000000000002\tkimi\tan hour ago",
+        "aaaaaaaa-0000-0000-0000-000000000003\t\t5 hours ago",
+        "aaaaaaaa-0000-0000-0000-000000000004\tclaude\tyesterday",
+        "aaaaaaaa-0000-0000-0000-000000000005\tcodex\t5 days ago"
+      ]
+    }
+  },
+  "claude with trailing args still mints, and is offered nothing": {
+    "refuse": null,
+    "conversation": "11111111-2222-3333-4444-555555555555",
+    "argv": [
+      "/repo/scripts/agent.sh",
+      "--project",
+      "/work/project",
+      "--action",
+      "launch",
+      "--agent",
+      "claude",
+      "--",
+      "--model",
+      "claude-opus-5"
+    ],
+    "sets": {
+      "RENGINE_WORKSPACE_CONTEXT": "/state/integrations/12345678-1234-1234-1234-123456789abc.json",
+      "RENGINE_NODE": "/usr/local/bin/node",
+      "RENGINE_BASH": "/bin/bash",
+      "RENGINE_AGENT_CONVERSATION": "11111111-2222-3333-4444-555555555555",
+      "RENGINE_ORCHESTRATOR_SESSION": "00000000-0000-0000-0000-0000000000aa"
+    },
+    "record": {
+      "conversation": "11111111-2222-3333-4444-555555555555",
+      "agent": "claude"
+    },
+    "listing": null
+  },
+  "kimi names its own on a bare pane: nothing minted, the history still offered": {
+    "refuse": null,
+    "conversation": null,
+    "argv": [
+      "/repo/scripts/agent.sh",
+      "--project",
+      "/work/project",
+      "--action",
+      "launch",
+      "--agent",
+      "kimi"
+    ],
+    "sets": {
+      "RENGINE_WORKSPACE_CONTEXT": "/state/integrations/12345678-1234-1234-1234-123456789abc.json",
+      "RENGINE_NODE": "/usr/local/bin/node",
+      "RENGINE_BASH": "/bin/bash",
+      "RENGINE_ORCHESTRATOR_SESSION": "00000000-0000-0000-0000-0000000000aa"
+    },
+    "record": null,
+    "listing": {
+      "file": "/state/integrations/00000000-0000-0000-0000-0000000000aa.conversations.tsv",
+      "content": "3f85774e-05bb-4791-bb9f-1c90dc37d0e6\tcodex\tjust now\naaaaaaaa-0000-0000-0000-000000000001\tclaude\t45 minutes ago\naaaaaaaa-0000-0000-0000-000000000002\tkimi\tan hour ago\naaaaaaaa-0000-0000-0000-000000000003\t\t5 hours ago\naaaaaaaa-0000-0000-0000-000000000004\tclaude\tyesterday\naaaaaaaa-0000-0000-0000-000000000005\tcodex\t5 days ago\n",
+      "rows": [
+        "3f85774e-05bb-4791-bb9f-1c90dc37d0e6\tcodex\tjust now",
+        "aaaaaaaa-0000-0000-0000-000000000001\tclaude\t45 minutes ago",
+        "aaaaaaaa-0000-0000-0000-000000000002\tkimi\tan hour ago",
+        "aaaaaaaa-0000-0000-0000-000000000003\t\t5 hours ago",
+        "aaaaaaaa-0000-0000-0000-000000000004\tclaude\tyesterday",
+        "aaaaaaaa-0000-0000-0000-000000000005\tcodex\t5 days ago"
+      ]
+    }
+  },
+  "kimi refuses a named conversation without resume, in its own words": {
+    "refuse": "kimi names its own conversations: rEngine can put this CLI back into a recorded one but cannot tell it which to start. Resume it explicitly, or start without naming one."
+  },
+  "kimi resumes a recorded conversation, which leaves the offered list": {
+    "refuse": null,
+    "conversation": "session_3f85774e-05bb-4791-bb9f-1c90dc37d0e6",
+    "argv": [
+      "/repo/scripts/agent.sh",
+      "--project",
+      "/work/project",
+      "--action",
+      "launch",
+      "--agent",
+      "kimi"
+    ],
+    "sets": {
+      "RENGINE_WORKSPACE_CONTEXT": "/state/integrations/12345678-1234-1234-1234-123456789abc.json",
+      "RENGINE_NODE": "/usr/local/bin/node",
+      "RENGINE_BASH": "/bin/bash",
+      "RENGINE_AGENT_CONVERSATION": "session_3f85774e-05bb-4791-bb9f-1c90dc37d0e6",
+      "RENGINE_AGENT_RESUME": "1",
+      "RENGINE_ORCHESTRATOR_SESSION": "00000000-0000-0000-0000-0000000000aa"
+    },
+    "record": {
+      "conversation": "session_3f85774e-05bb-4791-bb9f-1c90dc37d0e6",
+      "agent": "kimi"
+    },
+    "listing": null
+  },
+  "codex resumes a recorded conversation": {
+    "refuse": null,
+    "conversation": "3f85774e-05bb-4791-bb9f-1c90dc37d0e6",
+    "argv": [
+      "/repo/scripts/agent.sh",
+      "--project",
+      "/work/project",
+      "--action",
+      "launch",
+      "--agent",
+      "codex"
+    ],
+    "sets": {
+      "RENGINE_WORKSPACE_CONTEXT": "/state/integrations/12345678-1234-1234-1234-123456789abc.json",
+      "RENGINE_NODE": "/usr/local/bin/node",
+      "RENGINE_BASH": "/bin/bash",
+      "RENGINE_AGENT_CONVERSATION": "3f85774e-05bb-4791-bb9f-1c90dc37d0e6",
+      "RENGINE_AGENT_RESUME": "1",
+      "RENGINE_ORCHESTRATOR_SESSION": "00000000-0000-0000-0000-0000000000aa"
+    },
+    "record": {
+      "conversation": "3f85774e-05bb-4791-bb9f-1c90dc37d0e6",
+      "agent": "codex"
+    },
+    "listing": null
+  },
+  "codex on a bare pane mints nothing": {
+    "refuse": null,
+    "conversation": null,
+    "argv": [
+      "/repo/scripts/agent.sh",
+      "--project",
+      "/work/project",
+      "--action",
+      "launch",
+      "--agent",
+      "codex"
+    ],
+    "sets": {
+      "RENGINE_WORKSPACE_CONTEXT": "/state/integrations/12345678-1234-1234-1234-123456789abc.json",
+      "RENGINE_NODE": "/usr/local/bin/node",
+      "RENGINE_BASH": "/bin/bash",
+      "RENGINE_ORCHESTRATOR_SESSION": "00000000-0000-0000-0000-0000000000aa"
+    },
+    "record": null,
+    "listing": {
+      "file": "/state/integrations/00000000-0000-0000-0000-0000000000aa.conversations.tsv",
+      "content": "3f85774e-05bb-4791-bb9f-1c90dc37d0e6\tcodex\tjust now\naaaaaaaa-0000-0000-0000-000000000001\tclaude\t45 minutes ago\naaaaaaaa-0000-0000-0000-000000000002\tkimi\tan hour ago\naaaaaaaa-0000-0000-0000-000000000003\t\t5 hours ago\naaaaaaaa-0000-0000-0000-000000000004\tclaude\tyesterday\naaaaaaaa-0000-0000-0000-000000000005\tcodex\t5 days ago\n",
+      "rows": [
+        "3f85774e-05bb-4791-bb9f-1c90dc37d0e6\tcodex\tjust now",
+        "aaaaaaaa-0000-0000-0000-000000000001\tclaude\t45 minutes ago",
+        "aaaaaaaa-0000-0000-0000-000000000002\tkimi\tan hour ago",
+        "aaaaaaaa-0000-0000-0000-000000000003\t\t5 hours ago",
+        "aaaaaaaa-0000-0000-0000-000000000004\tclaude\tyesterday",
+        "aaaaaaaa-0000-0000-0000-000000000005\tcodex\t5 days ago"
+      ]
+    }
+  },
+  "gemini has no conversation capability and is not refused for one named": {
+    "refuse": null,
+    "conversation": null,
+    "argv": [
+      "/repo/scripts/agent.sh",
+      "--project",
+      "/work/project",
+      "--action",
+      "launch",
+      "--agent",
+      "gemini"
+    ],
+    "sets": {
+      "RENGINE_WORKSPACE_CONTEXT": "/state/integrations/12345678-1234-1234-1234-123456789abc.json",
+      "RENGINE_NODE": "/usr/local/bin/node",
+      "RENGINE_BASH": "/bin/bash",
+      "RENGINE_ORCHESTRATOR_SESSION": "00000000-0000-0000-0000-0000000000aa"
+    },
+    "record": null,
+    "listing": null
+  },
+  "an unknown agent is not refused either": {
+    "refuse": null,
+    "conversation": null,
+    "argv": [
+      "/repo/scripts/agent.sh",
+      "--project",
+      "/work/project",
+      "--action",
+      "launch",
+      "--agent",
+      "testcli"
+    ],
+    "sets": {
+      "RENGINE_WORKSPACE_CONTEXT": "/state/integrations/12345678-1234-1234-1234-123456789abc.json",
+      "RENGINE_NODE": "/usr/local/bin/node",
+      "RENGINE_BASH": "/bin/bash",
+      "RENGINE_ORCHESTRATOR_SESSION": "00000000-0000-0000-0000-0000000000aa"
+    },
+    "record": null,
+    "listing": null
+  },
+  "without a workspace only argv is composed, and no conversation is claimed": {
+    "refuse": null,
+    "conversation": null,
+    "argv": [
+      "/repo/scripts/agent.sh",
+      "--project",
+      "/work/project",
+      "--action",
+      "launch",
+      "--agent",
+      "claude"
+    ],
+    "sets": {},
+    "record": null,
+    "listing": null
+  },
+  "claude resumes when asked": {
+    "refuse": null,
+    "conversation": "3f85774e-05bb-4791-bb9f-1c90dc37d0e6",
+    "argv": [
+      "/repo/scripts/agent.sh",
+      "--project",
+      "/work/project",
+      "--action",
+      "launch",
+      "--agent",
+      "claude"
+    ],
+    "sets": {
+      "RENGINE_WORKSPACE_CONTEXT": "/state/integrations/12345678-1234-1234-1234-123456789abc.json",
+      "RENGINE_NODE": "/usr/local/bin/node",
+      "RENGINE_BASH": "/bin/bash",
+      "RENGINE_AGENT_CONVERSATION": "3f85774e-05bb-4791-bb9f-1c90dc37d0e6",
+      "RENGINE_AGENT_RESUME": "1",
+      "RENGINE_ORCHESTRATOR_SESSION": "00000000-0000-0000-0000-0000000000aa"
+    },
+    "record": {
+      "conversation": "3f85774e-05bb-4791-bb9f-1c90dc37d0e6",
+      "agent": "claude"
+    },
+    "listing": null
+  },
+  "the offered list never contains the conversation the pane just took": {
+    "refuse": null,
+    "conversation": "11111111-2222-3333-4444-555555555555",
+    "argv": [
+      "/repo/scripts/agent.sh",
+      "--project",
+      "/work/project",
+      "--action",
+      "launch",
+      "--agent",
+      "claude"
+    ],
+    "sets": {
+      "RENGINE_WORKSPACE_CONTEXT": "/state/integrations/12345678-1234-1234-1234-123456789abc.json",
+      "RENGINE_NODE": "/usr/local/bin/node",
+      "RENGINE_BASH": "/bin/bash",
+      "RENGINE_AGENT_CONVERSATION": "11111111-2222-3333-4444-555555555555",
+      "RENGINE_ORCHESTRATOR_SESSION": "00000000-0000-0000-0000-0000000000aa"
+    },
+    "record": {
+      "conversation": "11111111-2222-3333-4444-555555555555",
+      "agent": "claude"
+    },
+    "listing": {
+      "file": "/state/integrations/00000000-0000-0000-0000-0000000000aa.conversations.tsv",
+      "content": "3f85774e-05bb-4791-bb9f-1c90dc37d0e6\tcodex\tjust now\naaaaaaaa-0000-0000-0000-000000000001\tclaude\t45 minutes ago\naaaaaaaa-0000-0000-0000-000000000002\tkimi\tan hour ago\naaaaaaaa-0000-0000-0000-000000000003\t\t5 hours ago\naaaaaaaa-0000-0000-0000-000000000004\tclaude\tyesterday\naaaaaaaa-0000-0000-0000-000000000005\tcodex\t5 days ago\n",
+      "rows": [
+        "3f85774e-05bb-4791-bb9f-1c90dc37d0e6\tcodex\tjust now",
+        "aaaaaaaa-0000-0000-0000-000000000001\tclaude\t45 minutes ago",
+        "aaaaaaaa-0000-0000-0000-000000000002\tkimi\tan hour ago",
+        "aaaaaaaa-0000-0000-0000-000000000003\t\t5 hours ago",
+        "aaaaaaaa-0000-0000-0000-000000000004\tclaude\tyesterday",
+        "aaaaaaaa-0000-0000-0000-000000000005\tcodex\t5 days ago"
+      ]
+    }
+  }
+}

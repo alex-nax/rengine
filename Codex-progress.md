@@ -1,5 +1,69 @@
 # Progress Log
 
+## Session 134 (macos) — 2026-09-13 — sessions.mjs is deleted; the host's PTYs are Rust's (F178 / F151c)
+
+The last third of F151. `orchestrator/server/sessions.mjs` is gone and `sessions-client.mjs` stands
+in its place — not a rename, because what left is everything that owned a process: `pty.spawn`,
+`onData`/`onExit`, `child.write`, `child.resize`, and the `ps`-walking tree kill with its
+TERM/2 s/KILL escalation. **No production JS module imports `node-pty` any more**; the dependency
+stays only for two tests, one of which tests the dependency itself.
+
+The pane-identity composition went too. `agentPaneComposition` — 45 lines deciding what a pane
+launches, what it claims, and what history it is offered — was already mirrored byte-for-byte in
+red-agents (F168), so the JS copy is deleted and the host asks the service for the plan through a
+new `paneComposition` method. What stayed is what the class is actually for: titles, conversation
+records, handoff gates and their one-flight-per-project serialization, surfaces, store writes, and
+the refusals.
+
+**Two decisions inside the swap.** Refusals stay **synchronous** — `main.mjs` answers `/api/input`
+from a synchronous throw and `assert.throws` is the whole of what "invalid input" means to a
+caller, so validation throws before anything is sent and only the delivery is a promise. And the
+scrollback is still accumulated **in the host**, because spec 060 counts `OUTPUT_LIMIT` in
+JavaScript string characters and a JS string is what does that exactly.
+
+**A real parity gap the swap exposed.** node-pty's `env` option IS the child's whole environment;
+portable-pty's `CommandBuilder` starts from *this process's* environment and layers the caller's on
+top. So the first green run had `RENGINE_AGENT_CONVERSATIONS` — inherited by the service from the
+host — reaching a pane whose launch had explicitly cleared it: KI-068's leak arriving through a new
+door. `env_clear()` first, now. F176's scenario set could not have seen it (both drivers ran in one
+process, inheriting the same environment); the test that caught it was already there and only had
+to be run against the new path.
+
+**Parity when one side no longer exists.** Two tests had the deleted module as half of their
+comparison. `pane-composition-fixtures.json` (12 cases) and `pty-scenario-fixtures.json` (7
+scenarios) hold what it answered, captured from the module at the commit before its deletion and
+never regenerated — running the scenarios against the service and calling that parity would be the
+service agreeing with itself. `agent-spawn-env` also gained a case that goes through the *service*
+rather than the fixture binary: a client that quietly stopped passing the mint or the clock would
+pass all twelve fixtures and still be wrong.
+
+**A search that lied.** With the module deleted and the importers repointed, twenty suites still
+failed on `ERR_MODULE_NOT_FOUND … imported from orchestrator/server/games.mjs` — an importer the
+repo-wide `rg` had never listed, because `games.mjs` contains a literal NUL byte (a `\0` key
+separator) and `rg` classifies the file as binary and skips it. A repo-wide `rg` for an import is
+not a complete answer.
+
+**And a defect in the client's own ref discipline.** Node's `ref`/`unref` are not counted, so with
+two calls in flight the first answer unref'd the handles the second was waiting on, and the process
+drained mid-request. The runner reports that as *"Promise resolution is still pending but the event
+loop has already resolved"*, which names the symptom; the fix is a flight count.
+
+Four sabotages, each observed failing for its own reason (the service minting its own id, the
+environment inherited, `stop` delegating nothing, the truncation drifting by one UTF-16 unit). The
+table and the rest are in `docs/evidence/sessions-swap-f178-2026-09-13.md`.
+
+Commands: `npm test` (**309 of 309**, with the module deleted), `cargo build -p red-pty -p
+red-agents`, `python3 tools/features.py validate` (130 features), `python3 tools/design.py check`.
+
+**F178 passes; F151 does not.** Its second criterion — a retained session surviving the host's
+restart — is built (F177) and not used: this row keeps the host on `PtyHost.open()`, so sessions
+still end with their host exactly as they did, and `replace-host.test.mjs` still passes unchanged.
+**F179 is proposed under KI-096** for the owner: the host attaches to the per-state-directory
+service and adopts what it holds, which needs the pane's metadata to travel with its PTY,
+`replace.mjs` to report a handover rather than an ending, and F94's test — which asserts today that
+sessions end with the old host — amended citing D60. Landing that with the swap would have changed
+two features' observable behavior in one commit.
+
 ## Session 133 (macos) — 2026-09-13 — the PTYs stop belonging to the host (F177 / F151b, D60)
 
 The owner's decision, taken before anything was built: *"Per-state-dir service, survives host

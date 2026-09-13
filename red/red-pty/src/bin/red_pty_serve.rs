@@ -106,7 +106,14 @@ fn answer(host: &Mutex<Host>, mint: &Mutex<Mint>, request: &Value) -> Value {
                 let cwd = options.get("cwd").and_then(Value::as_str).unwrap_or("/");
                 let cols = options.get("cols").and_then(Value::as_u64).unwrap_or(100) as u16;
                 let rows = options.get("rows").and_then(Value::as_u64).unwrap_or(30) as u16;
-                let id = (mint.lock().expect("mint lock"))();
+                /* The caller may name the session: the JS host mints the pane's id before it
+                   composes the launch (the id is in the pane's own environment), and a session
+                   known by two different ids cannot be adopted by its id. */
+                let named = options.get("id").and_then(Value::as_str).filter(|id| !id.is_empty());
+                let id = match named {
+                    Some(id) => id.to_string(),
+                    None => (mint.lock().expect("mint lock"))(),
+                };
                 host.spawn(id, file, &argv, &env, cwd, cols, rows)
             }
             "input" => host.input(arg(0).as_str().unwrap_or(""), arg(1).as_str().unwrap_or("")).map(|_| Value::Null),

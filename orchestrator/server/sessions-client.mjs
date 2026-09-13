@@ -1,36 +1,32 @@
+/* The Sessions class as a thin client over red-pty (F178, F151c; spec 129/131, KI-096). What left
+ * this file is every line that owned a process: node-pty, the ps-walking tree kill, the exit
+ * watcher, and the pane composition — which was already mirrored byte-for-byte in the red-agents
+ * crate (F168) and is now only there. What stayed is what this class is actually for: the pane's
+ * identity and metadata — titles, conversations, handoff gates, surfaces, the store records — and
+ * the host's external API, which does not change by one field.
+ *
+ * The scrollback is still accumulated here rather than read back from the service: spec 060's
+ * OUTPUT_LIMIT is counted in JavaScript string characters, and a JS string is what does that
+ * exactly, lone surrogate at the slice boundary included.
+ */
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile, rename } from 'node:fs/promises';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import pty from 'node-pty';
+import { fileURLToPath } from 'node:url';
 import { fail } from './store-client.mjs';
+import { PtyHost } from './pty-client.mjs';
 import { readHandoff, checkResume } from '../agents/handoff.mjs';
-import { agentConversation, shortAgentId } from '../agents/agents-client.mjs';
+import { paneComposition, shortAgentId } from '../agents/agents-client.mjs';
 
-const execute = promisify(execFile);
 const agentScript = fileURLToPath(new URL('../../scripts/agent.sh', import.meta.url));
 const OUTPUT_LIMIT = 1024 * 1024;
-/* Plain words beat a timestamp in a pane: the person is choosing between "2 hours ago" and
-   "yesterday", not reading a clock. */
-const MINUTE = 60000, HOUR = 60 * MINUTE, DAY = 24 * HOUR;
 /* One conversation, one set of eight characters: the pane title, the picker row, the identity label
    and the token segment all show the same prefix, so a person recognises the same thing in each. */
 export const agentTitle = (agent, conversation, rootName) =>
   `${agent || 'Choose agent'}${conversation ? ` ${shortAgentId(agent, conversation)}` : ''} · ${rootName}`;
-export function describeAge(when, now = Date.now()) {
-  const gap = Math.max(0, now - when);
-  if (gap < 2 * MINUTE) return 'just now';
-  if (gap < HOUR) return `${Math.round(gap / MINUTE)} minutes ago`;
-  if (gap < 2 * HOUR) return 'an hour ago';
-  if (gap < DAY) return `${Math.round(gap / HOUR)} hours ago`;
-  if (gap < 2 * DAY) return 'yesterday';
-  return `${Math.round(gap / DAY)} days ago`;
-}
 
 export function shellEnvironment(overrides = {}, { inherited = process.env, platform = process.platform, userDirectory = homedir() } = {}) {
   const win = platform === 'win32';
@@ -72,75 +68,40 @@ export function bashPath() {
   return bash;
 }
 
-async function signalTree(pid, signal) {
-  if (process.platform === 'win32') {
-    await execute('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true });
-    return;
-  }
-  const { stdout } = await execute('ps', ['-axo', 'pid=,ppid='], { maxBuffer: 4 * 1024 * 1024 });
-  const pairs = stdout.trim().split('\n').map(line => line.trim().split(/\s+/).map(Number));
-  const descendants = [];
-  const visit = parent => {
-    for (const [child, ppid] of pairs) if (ppid === parent && child !== parent) { visit(child); descendants.push(child); }
-  };
-  visit(pid);
-  for (const target of [...descendants, pid]) {
-    try { process.kill(target, signal); } catch (error) { if (error.code !== 'ESRCH') throw error; }
-  }
-}
-
-/* The pane-identity composition as one pure function, so the behavior pty.spawn receives is
-   pinned at exactly that boundary (F168, spec 129): everything it needs arrives as input, every
-   side effect (the context file, the listing file, the conversation record) leaves as output for
-   the caller to perform, and the mint and the clock are parameters. The red-agents crate mirrors
-   this function byte-for-byte; agent-spawn-env.test.mjs is the judge. */
-export function agentPaneComposition({ id, agent, conversation, resume = false, action = 'launch', args, workspace, remembered = [], mint = randomUUID, now = Date.now(), paths }) {
-  /* Whether this launch already decided what the pane is — the question the pane's own picker asks.
-     Read before the mint below. See sidecar: only-a-bare-pane-is-offered-the-history. */
-  const chosen = conversation !== undefined || Boolean(args?.length);
-  const argv = [paths.agentScript, '--project', paths.rootPath, '--action', action];
-  if (agent) argv.push('--agent', agent);
-  const sets = {};
-  let record = null, listing = null;
-  if (workspace) {
-    sets.RENGINE_WORKSPACE_CONTEXT = paths.workspaceContextFile;
-    sets.RENGINE_NODE = paths.node;
-    sets.RENGINE_BASH = paths.bash;
-    // Name the conversation now, for a CLI that accepts being told, so this pane can be put back
-    // into the same one later. An agent that names its own is recorded with none — and one like
-    // kimi, which can resume but never be told which conversation to START, is never minted one:
-    // a named conversation without resume is refused rather than silently claimed.
-    const capability = agentConversation(agent);
-    if (capability && conversation === undefined && capability.start) conversation = mint();
-    if (capability && conversation !== undefined && !capability.start && !resume) {
-      return { refuse: `${agent} names its own conversations: rEngine can put this CLI back into a recorded one but cannot tell it which to start. Resume it explicitly, or start without naming one.` };
-    }
-    if (capability && conversation !== undefined) {
-      sets.RENGINE_AGENT_CONVERSATION = conversation;
-      if (resume) sets.RENGINE_AGENT_RESUME = '1';
-      record = { conversation, agent };
-    }
-    // What this project already has, for the pane to offer: only for a bare pane, and only when
-    // there is something to offer. See sidecar: only-a-bare-pane-is-offered-the-history.
-    const offered = chosen ? [] : remembered;
-    if (offered.length) {
-      const rows = offered.filter(entry => entry.id !== conversation)
-        .map(entry => `${entry.id}\t${entry.agent ?? ''}\t${describeAge(entry.lastSeenAt, now)}`);
-      if (rows.length) listing = { file: paths.listingFile, content: `${rows.join('\n')}\n`, rows };
-    }
-    sets.RENGINE_ORCHESTRATOR_SESSION = id;
-  }
-  // The launcher's own trailing arguments, which agent.sh forwards to the CLI after `--` and the
-  // workspace launcher appends after the MCP wiring it composes (spec 103 decision 5).
-  if (args?.length) argv.push('--', ...args);
-  /* What the host's record should say this pane holds. No claim without a launch environment that
-     carries one: the identity is rEngine's own and no record may claim it names the conversation. */
-  if (!sets.RENGINE_AGENT_CONVERSATION) conversation = null;
-  return { refuse: null, conversation, argv, sets, record, listing };
-}
-
 export class Sessions extends EventEmitter {
   constructor(store) { super(); this.store = store; this.items = new Map(); this.handoffFlights = new Map(); }
+
+  /* One service per host, opened on the first spawn and never before: a Sessions that only ever
+     lists is a Sessions that starts no process. Its events arrive by session id and are routed to
+     the item that owns them — the two shapes the host's own listeners already expect. */
+  async pty() {
+    if (!this.ptyFlight) this.ptyFlight = PtyHost.open().then(host => {
+      host.on('event', event => this.received(event));
+      return host;
+    });
+    return this.ptyFlight;
+  }
+
+  received(event) {
+    if (event.type === 'output') {
+      const item = this.items.get(event.id);
+      if (!item) return;
+      item.output = (item.output + event.data).slice(-OUTPUT_LIMIT);
+      item.sequence = event.sequence;
+      this.emit('event', { type: 'output', id: item.id, sequence: item.sequence, data: event.data });
+      return;
+    }
+    if (event.type === 'session') this.exited(event.session);
+  }
+
+  /* The service's own snapshot says how a child ended; the pane's record says everything else. */
+  exited(snapshot) {
+    const item = this.items.get(snapshot?.id);
+    if (!item || snapshot.state !== 'exited' || item.state === 'exited') return;
+    item.state = 'exited'; item.exitCode = snapshot.exitCode ?? null; item.signal = snapshot.signal ?? null;
+    item.endedAt = Date.now();
+    this.changed(item);
+  }
 
   get(id) {
     const item = this.items.get(id);
@@ -209,7 +170,7 @@ export class Sessions extends EventEmitter {
         await writeFile(temporary, JSON.stringify({ ...this.workspaceContext, rootId: root.id }), { mode: 0o600 });
         await rename(temporary, filename);
       }
-      const plan = agentPaneComposition({ id, agent, conversation, resume, action, args,
+      const plan = await paneComposition({ id, agent, conversation, resume, action, args,
         workspace: Boolean(this.workspaceContext),
         /* The store read is skipped for a decided pane, exactly as before the extraction; the
            composition applies the same gate internally, which the parity fixtures exercise. */
@@ -225,23 +186,14 @@ export class Sessions extends EventEmitter {
     }
     if (type !== 'agent') conversation = undefined;
     if (typeof file !== 'string' || !Array.isArray(argv) || argv.some(arg => typeof arg !== 'string')) fail('Invalid executable or arguments.');
-    const child = pty.spawn(file, argv, { name: 'xterm-256color', cols, rows, cwd: workingDirectory,
+    const started = await (await this.pty()).spawn({ id, command: file, args: argv, cols, rows, cwd: workingDirectory,
       // `cleared` first, so this launch's own values win and only what it left out stays deleted.
       env: shellEnvironment({ ...cleared, ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents') }) });
     const item = { id, rootId, type, handoff, gate, released: false, ...(type === 'agent' ? { agent: agent ?? '', conversation } : {}), ...(type === 'game' ? { surface, game, args: argv } : {}),
       titleAuto: title === undefined,
       title: title ?? (type === 'agent' ? agentTitle(agent, conversation, root.name) : `${type === 'game' ? 'Game' : 'Terminal'} · ${root.name}`),
-      pid: child.pid, child, state: 'running', createdAt: Date.now(), cols, rows, output: '', sequence: 0 };
+      pid: started.pid, state: 'running', createdAt: Date.now(), cols, rows, output: '', sequence: 0 };
     this.items.set(item.id, item);
-    child.onData(data => {
-      item.output = (item.output + data).slice(-OUTPUT_LIMIT);
-      item.sequence++;
-      this.emit('event', { type: 'output', id: item.id, sequence: item.sequence, data });
-    });
-    child.onExit(({ exitCode, signal }) => {
-      item.state = 'exited'; item.exitCode = exitCode; item.signal = signal; item.endedAt = Date.now();
-      this.changed(item);
-    });
     this.changed(item);
     return this.snapshot(item.id);
   }
@@ -257,19 +209,31 @@ export class Sessions extends EventEmitter {
     item.released = true; this.changed(item);
   }
 
+  /* Refusals stay synchronous, because the host answers /api/input from a synchronous throw and
+     `assert.throws` is the whole of what "invalid input" means to a caller. Only the delivery is a
+     promise, and deliveries queue in call order behind the one host promise. */
   input(id, data) {
     const item = this.get(id);
     if (item.state !== 'running') fail('Session is not running.', 409);
     if (item.gate && !item.released) fail('Handoff is waiting for its native view.', 409);
     if (typeof data !== 'string' || data.length > 1024 * 1024) fail('Invalid terminal input.');
-    item.child.write(data);
+    return this.deliver(host => host.input(item.id, data));
+  }
+
+  /* A caller that awaits sees the failure; one that does not (the host's own routes, which have
+     already answered) does not take the process down with an unhandled rejection. */
+  deliver(work) {
+    const flight = this.pty().then(work);
+    flight.catch(() => {});
+    return flight;
   }
 
   resize(id, cols, rows) {
     this.dimensions(cols, rows);
     const item = this.get(id);
     if (item.state !== 'running') return;
-    item.child.resize(cols, rows); item.cols = cols; item.rows = rows;
+    item.cols = cols; item.rows = rows;
+    return this.deliver(host => host.resize(item.id, cols, rows));
   }
 
   // The pane reports what it actually launched: the workspace may have minted a conversation, the
@@ -313,18 +277,26 @@ export class Sessions extends EventEmitter {
     if (item.stopping) return item.stopping;
     item.state = 'stopping'; this.changed(item);
     item.stopping = (async () => {
-      try { await signalTree(item.pid, 'SIGTERM'); }
+      let ended;
+      try { ended = await (await this.pty()).stop(item.id); }
       catch (error) {
         if (item.state !== 'exited') { item.state = 'running'; this.changed(item); throw error; }
       }
-      const deadline = Date.now() + 2000;
-      while (item.state !== 'exited' && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 20));
-      if (item.state !== 'exited') await signalTree(item.pid, 'SIGKILL');
+      /* The service answers once the child is gone, and its answer may beat its own exit event
+         here; applying it makes the two orders indistinguishable to a caller. */
+      if (ended) this.exited(ended);
       return this.snapshot(id);
     })();
     try { return await item.stopping; }
     finally { delete item.stopping; }
   }
 
-  async shutdown() { await Promise.allSettled([...this.items.values()].filter(item => item.state !== 'exited').map(item => this.stop(item.id))); }
+  async shutdown() {
+    await Promise.allSettled([...this.items.values()].filter(item => item.state !== 'exited').map(item => this.stop(item.id)));
+    /* The service is this host's child (PtyHost.open), so its sessions end with this host, exactly
+       as they did when the PTYs were file descriptors in this process. Letting them outlive it is
+       F179's row: it needs the pane's metadata to survive too, or the next host inherits processes
+       it cannot name. */
+    if (this.ptyFlight) { const host = await this.ptyFlight; this.ptyFlight = null; await host.close(); }
+  }
 }

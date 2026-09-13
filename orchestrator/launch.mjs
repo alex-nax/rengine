@@ -6,7 +6,7 @@ import { ensureSidecar, request } from './launcher/sidecar.mjs';
 import { runHeadless } from './launcher/headless.mjs';
 import { hostAge, replaceHost } from './launcher/replace.mjs';
 import { readHandoff, checkResume } from './agents/handoff.mjs';
-import { bashPath, shellEnvironment } from './server/sessions.mjs';
+import { bashPath, shellEnvironment } from './server/sessions-client.mjs';
 
 const options = { state: path.join(homedir(), '.local/state/rengine'), agent: undefined };
 for (let index = 2; index < process.argv.length; index++) {

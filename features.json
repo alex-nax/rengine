@@ -3226,7 +3226,7 @@
         "Sessions delegates process operations to red-pty while keeping its metadata composition (titles, agent identity, handoff, surfaces), and the host's external API is byte-identical on the full suite.",
         "sessions.mjs is deleted in the same commit the replacement goes green; each ported test was observed failing for the module's absence before the implementation made it pass."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         176,
         177
@@ -3234,7 +3234,12 @@
       "owner_workspace": "rengine",
       "deliverable": "The thin Sessions client, the deletion commit, and the suite evidence.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/evidence/sessions-swap-f178-2026-09-13.md",
+        "orchestrator/server/sessions.mjs is deleted; orchestrator/server/sessions-client.mjs delegates spawn, input, resize and stop to red-pty and keeps the metadata composition. No production JS module imports node-pty any more; the pane-identity composition is red-agents' agent_pane_composition, reached through the service's paneComposition method.",
+        "orchestrator/tests/{pane-composition,pty-scenario}-fixtures.json: what the deleted module answered, captured before deletion and never regenerated — agent-spawn-env.test.mjs and pty-service.test.mjs compare the Rust against the record instead of against a second implementation that no longer exists.",
+        "npm test 309/309 with the module deleted; four sabotages observed failing for their own reasons (the id ignored, the environment inherited, stop delegating nothing, the UTF-16 truncation drifting by one unit), plus the deletion itself observed as ERR_MODULE_NOT_FOUND across 20 suites before the importers moved."
+      ]
     }
   ]
 }

@@ -295,8 +295,9 @@ static void sessions_columns(mu_Context *ui, const char *first, const char *seco
   re_ui_label_ex(ui, "", RE_UI_MUTED | RE_UI_SMALL);
 }
 static const char *agent_name(const char *agent) { return agent && *agent ? agent : "agent"; }
-/* The last-seen wording mirrors describeAge in orchestrator/server/sessions.mjs (spec 097); the
-   desktop formats the persisted lastSeenAt rather than asking the service for a string. */
+/* The last-seen wording mirrors describe_age in red/red-agents/src/spawn.rs (spec 097), which is
+   where it went when F178 deleted its JS twin; the desktop formats the persisted lastSeenAt rather
+   than asking the service for a string. */
 static const char *describe_age(const cJSON *entry, char *buf, size_t size) {
   const cJSON *seen = cJSON_GetObjectItemCaseSensitive(entry, "lastSeenAt");
   double when = cJSON_IsNumber(seen) ? seen->valuedouble : 0.0;

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { readDeclaration, runCommand } from './formats.mjs';
 import { onPath, present, targetAvailability } from './devices.mjs';
 import { fail, hash, resolveInRoot } from './store-client.mjs';
-import { bashPath } from './sessions.mjs';
+import { bashPath } from './sessions-client.mjs';
 
 export const CAPTURE_TIMEOUT_MS = 10000;
 export const CAPTURE_MAX_BYTES = 8 * 1024 * 1024;

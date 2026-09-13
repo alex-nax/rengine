@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { realpath, stat } from 'node:fs/promises';
-import { bashPath } from '../server/sessions.mjs';
+import { bashPath } from '../server/sessions-client.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { fail } from './protocol.mjs';
 import { envRules } from '../server/dashboard-rules.mjs';
