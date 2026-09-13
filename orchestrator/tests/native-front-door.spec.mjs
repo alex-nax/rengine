@@ -35,7 +35,7 @@ test('the native desktop connects to red-host unchanged', { timeout: 120000 }, a
   const stateDir = path.join(dir, 'state');
   /* The backend retains its sessions, which since D61 also means both it and the door attach to
      this directory's one store and one PTY service rather than opening their own. */
-  const backend = await startServer({ stateDir, retainSessions: true });
+  const backend = await startServer({ stateDir, retainSessions: true, frontDoor: false });
   let gui, door;
   try {
     const root = await backend.store.addRoot(project);

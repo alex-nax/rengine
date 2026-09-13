@@ -40,16 +40,18 @@ function json(response, status, value) {
    leaves the agent CLIs inside its panes alive and the next host adopts them. A host embedded in a
    test passes nothing and keeps the old behaviour, because a suite that left a service holding a
    shell per test would leak processes the tests never asked for. */
-export async function startServer({ stateDir, port = 0, retainSessions = false } = {}) {
+export async function startServer({ stateDir, port = 0, retainSessions = false, frontDoor = true } = {}) {
   if (!stateDir) fail('The sidecar requires an explicit state directory.');
   stateDir = path.resolve(stateDir);
-  /* A host that owns a state directory attaches to that directory's store (charter D61) rather
-     than starting one of its own: while the host is being ported a route at a time, red-host and
-     this process both serve the same workspace, and two in-memory owners of one file is stale
-     reads on one side and lost writes on the other. A host embedded in a test starts its own, for
-     the reason it keeps its own PTYs. */
-  const store = retainSessions ? await WorkspaceStore.attach(stateDir) : await WorkspaceStore.open(stateDir);
-  const sessions = new Sessions(store, retainSessions ? { stateDir } : {});
+  /* Every host of a state directory uses THAT DIRECTORY'S services — its store (charter D61) and
+     its PTYs (D60) — because while the host is being ported a route at a time, red-host and this
+     process serve one workspace together, and two in-memory owners of one set of files is stale
+     reads on one side and lost writes on the other.
+     `retainSessions` is now only about SHUTDOWN: a host being replaced leaves its panes for the
+     next one, and a host closing for good ends what it started. A service whose state directory is
+     deleted stops on its own, which is what makes this safe for a suite. */
+  const store = await WorkspaceStore.attach(stateDir);
+  const sessions = new Sessions(store, { stateDir });
   const desktops = new Desktops(store, sessions);
   const games = await Games.open(store, sessions);
   const preflight = (rootId, gameId) => games.inspect(rootId, gameId);
@@ -197,7 +199,16 @@ export async function startServer({ stateDir, port = 0, retainSessions = false }
   /* What the directory's service is already holding, before anything is served: a pane whose host
      was replaced is in the list its first caller reads, not one refresh later. */
   const adopted = await sessions.adopt();
-  return { url, token, instance, store, sessions, games, adopted, async close({ retain = retainSessions } = {}) {
+  /* The front door (F188/F189): red-host owns the port a client talks to and answers every route
+     F152 names from this directory's own services, forwarding the rest here. Every host gets one,
+     so what a spec drives is what a person runs — the exceptions are the specs that start a door
+     themselves, which say `frontDoor: false` rather than ending up with two. */
+  const door = frontDoor ? await openFrontDoor(stateDir, { url, token }) : null;
+  const backend = { url, token, instance };
+  return { url: door?.url ?? url, token: door?.token ?? token, instance: door?.instance ?? instance,
+    backend, door: door?.child ?? null, store, sessions, games, adopted, async close({ retain = retainSessions } = {}) {
+    /* The door first: one that outlived its backend would answer for a workspace that is going. */
+    try { door?.child.kill('SIGTERM'); } catch { /* already gone */ }
     for (const client of sockets.clients) client.terminate();
     sockets.close();
     await sessions.shutdown({ retain });
@@ -229,12 +240,9 @@ function redHostBinary(env = process.env) {
   return null;
 }
 
-async function openFrontDoor(stateDir, instance, log) {
+async function openFrontDoor(stateDir, instance, log = 'ignore') {
   const binary = redHostBinary();
-  if (!binary) {
-    console.log('rEngine: no red-host binary found (build it with `cargo build -p red-host`); serving this workspace from the JS host.');
-    return null;
-  }
+  if (!binary) return null;
   const child = spawn(binary, ['--state', stateDir, '--backend', instance.url, '--backend-token', instance.token,
     '--pid', String(process.pid)], { stdio: ['ignore', log, log], windowsHide: true });
   /* The door publishes the descriptor itself, so the workspace is discoverable exactly when the
@@ -258,7 +266,7 @@ async function openFrontDoor(stateDir, instance, log) {
     try { child.kill('SIGKILL'); } catch { /* already gone */ }
     return null;
   }
-  return { child, descriptor: announced };
+  return { child, url: announced.url, token: announced.token, instance: announced.instance };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -266,22 +274,19 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const stateDir = path.resolve(index >= 0 ? process.argv[index + 1] : path.join(homedir(), '.local/state/rengine'));
   /* The host of a state directory, started as its own process: its panes outlive it (D60). */
   const instance = await startServer({ stateDir, retainSessions: true });
-  const log = await open(path.join(stateDir, 'red-host.log'), 'a', 0o600);
-  const door = await openFrontDoor(stateDir, instance, log.fd);
-  await log.close();
-  if (!door) {
+  /* The door publishes the descriptor when there is one; without a red-host binary this host is the
+     workspace and says so itself. */
+  if (!instance.door) {
+    console.log('rEngine: no red-host binary found (build it with `cargo build -p red-host`); serving this workspace from the JS host.');
     const descriptor = path.join(stateDir, 'sidecar.json');
     await writeFile(`${descriptor}.${process.pid}.tmp`, JSON.stringify({ url: instance.url, token: instance.token, instance: instance.instance, pid: process.pid }), { mode: 0o600 });
     await rename(`${descriptor}.${process.pid}.tmp`, descriptor);
   }
-  console.log(`rEngine sidecar listening at ${door ? door.descriptor.url : instance.url}`);
+  console.log(`rEngine sidecar listening at ${instance.url}`);
   let stopping = false;
   const stop = async () => {
     if (stopping) return;
     stopping = true;
-    /* The door first: a door still answering for a host that is shutting down would tell a caller
-       the workspace is there while its backend is going away underneath. */
-    try { door?.child.kill('SIGTERM'); } catch { /* already gone */ }
     await instance.close();
     process.exit(0);
   };

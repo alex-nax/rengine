@@ -71,7 +71,7 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   /* The backend owns the state directory, which since D61 means it ATTACHES to that directory's
      store service rather than starting one of its own — and so does the door. One owner, two
      readers: that is what makes a route safe to move. */
-  const backend = await startServer({ stateDir, retainSessions: true });
+  const backend = await startServer({ stateDir, retainSessions: true, frontDoor: false });
   let stopped = false;
   /* Ending the services and removing the directory is ONE hook, in that order, for the reason
      headless.test.mjs records: after-hooks run in registration order, and a descriptor that has
@@ -279,7 +279,7 @@ test('a pane record changed by one host is the record every host answers from', 
   await built('-p', 'red-host', '--bin', 'red-host');
   const directory = await mkdtemp(path.join(tmpdir(), 'red-host-record-'));
   const stateDir = path.join(directory, 'state');
-  const backend = await startServer({ stateDir, retainSessions: true });
+  const backend = await startServer({ stateDir, retainSessions: true, frontDoor: false });
   let stopped = false, client;
   t.after(async () => {
     await client?.close();
@@ -409,7 +409,7 @@ test('a desktop registers on the door and answers what the workspace asks it', {
   await built('-p', 'red-host', '--bin', 'red-host');
   const directory = await mkdtemp(path.join(tmpdir(), 'red-host-desktop-'));
   const stateDir = path.join(directory, 'state');
-  const backend = await startServer({ stateDir, retainSessions: true });
+  const backend = await startServer({ stateDir, retainSessions: true, frontDoor: false });
   t.after(async () => {
     await backend.close({ retain: false });
     await endStateServices(stateDir);
@@ -517,7 +517,7 @@ test('a pane reports its conversation to the door, and the workspace and the pan
   await built('-p', 'red-host', '--bin', 'red-host');
   const directory = await mkdtemp(path.join(tmpdir(), 'red-host-conversation-'));
   const stateDir = path.join(directory, 'state');
-  const backend = await startServer({ stateDir, retainSessions: true });
+  const backend = await startServer({ stateDir, retainSessions: true, frontDoor: false });
   let client;
   t.after(async () => {
     await client?.close();
@@ -584,7 +584,7 @@ test('a pane started at the door is the pane the JS host would have started', { 
   const project = path.join(directory, 'project');
   await mkdir(project, { recursive: true });
   const stateDir = path.join(directory, 'state');
-  const backend = await startServer({ stateDir, retainSessions: true });
+  const backend = await startServer({ stateDir, retainSessions: true, frontDoor: false });
   t.after(async () => {
     await backend.close({ retain: false });
     await endStateServices(stateDir);
@@ -669,17 +669,19 @@ test('a pane started at the door is the pane the JS host would have started', { 
   assert.deepEqual(await refused({ rootId: 'no-such-root', title: '   ' }), [400, 'Session title must be a short string.'],
     'the title is judged first, for a root that does not exist either');
   assert.deepEqual(await refused({ rootId: root.id, cwd: directory }), [400, 'The working directory must be inside the project root.']);
-  assert.deepEqual(await refused({ rootId: root.id, type: 'game-adapter' }), [400, 'Unsupported terminal type.']);
+  /* Any type this route does not serve is the game adapter's answer, not the composition's: the JS
+     route refuses the word before `spawnTerminal` ever sees it, and a game session with no game
+     behind it is what that prevents. */
+  assert.deepEqual(await refused({ rootId: root.id, type: 'game' }), [400, 'Use the game adapter to launch a game.']);
+  assert.deepEqual(await refused({ rootId: root.id, type: 'game-adapter' }), [400, 'Use the game adapter to launch a game.']);
   assert.deepEqual(await refused({ rootId: root.id, cols: 1, rows: 1 }), [400, 'Invalid terminal dimensions.']);
   assert.deepEqual(await refused({ rootId: root.id, handoffFile: '/nowhere.json' }), [400, 'Handoff requires the Codex workspace launcher.'],
     'a handoff that is not the Codex launcher is refused before the file is touched');
 
-  /* The door lists every pane the service is holding, whichever host started it — that is what it
-     is for, and it is the list a desktop reads. The JS host lists what it started and what it
-     adopted when it came up, which is what D60/F179 gave it and all it ever promised; a pane
-     started at the door after that is not in its answer. The asymmetry is in the harmless
-     direction — the door is the host clients talk to — and it is asserted rather than assumed,
-     because the day it matters is the day something starts reading the backend's list again. */
+  /* One directory, one set of panes, whichever host started them. The door lists what the service
+     holds; the JS host lists the same, because it registers a pane the moment the service announces
+     one — which is `adopt()` continued past startup and is what stops a host answering
+     `Unknown session.` about a pane running in front of the person. */
   const all = (await (await ask(instance, '/api/state')).json()).sessions;
   const listed = all.map(session => session.id);
   assert.deepEqual([...listed].sort(), [ours, theirs, mine, theirsAgent, restarted, reported].map(pane => pane.id).sort(),
@@ -689,6 +691,8 @@ test('a pane started at the door is the pane the JS host would have started', { 
      would be pinning which uuid sorted first. */
   assert.deepEqual(all.map(session => session.createdAt), [...all.map(session => session.createdAt)].sort((a, b) => a - b),
     'oldest first');
-  const behind = (await (await ask(backend, '/api/state')).json()).sessions.map(session => session.id);
-  assert.deepEqual(behind, [theirs.id, theirsAgent.id], 'the JS host lists the ones it started itself');
+  await until(async () => {
+    const behind = (await (await ask(backend, '/api/state')).json()).sessions.map(session => session.id);
+    return [...behind].sort().join() === [...listed].sort().join();
+  }, 'and the JS host behind it came to the same list');
 });

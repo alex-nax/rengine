@@ -297,6 +297,7 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
                 body.len()
             );
             client.write_all(answer.as_bytes()).await?;
+            if !head.keeps_alive() { return Ok(()); }
             continue;
         }
         /* The store routes, answered here from the directory's own store (D61). A route this door
@@ -306,6 +307,7 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
             let body = if head.method == "POST" { head.read_body(&mut client, &mut buffered).await? } else { String::new() };
             let answer = answer_from_store(&front, method, &head, &body);
             client.write_all(answer.as_bytes()).await?;
+            if !head.keeps_alive() { return Ok(()); }
             continue;
         }
         /* The session routes, answered from the same pane records the JS host reads (D62). */
@@ -313,29 +315,34 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
             let body = if head.method == "POST" { head.read_body(&mut client, &mut buffered).await? } else { String::new() };
             let answer = answer_about_pane(&front, method, &head, &body).await;
             client.write_all(answer.as_bytes()).await?;
+            if !head.keeps_alive() { return Ok(()); }
             continue;
         }
         if head.path() == "/api/terminal" && head.method == "POST" {
             let body = head.read_body(&mut client, &mut buffered).await?;
             let answer = panes::terminal(&front, &body).await;
             client.write_all(answer.as_bytes()).await?;
+            if !head.keeps_alive() { return Ok(()); }
             continue;
         }
         if head.path() == "/api/agent-restart" && head.method == "POST" {
             let body = head.read_body(&mut client, &mut buffered).await?;
             let answer = panes::restart(&front, &body).await;
             client.write_all(answer.as_bytes()).await?;
+            if !head.keeps_alive() { return Ok(()); }
             continue;
         }
         if head.path() == "/api/agent-conversation" && head.method == "POST" {
             let body = head.read_body(&mut client, &mut buffered).await?;
             let answer = panes::record_conversation(&front, &body).await;
             client.write_all(answer.as_bytes()).await?;
+            if !head.keeps_alive() { return Ok(()); }
             continue;
         }
         if head.path() == "/api/state" && head.method == "GET" {
             let answer = answer_state(&front);
             client.write_all(answer.as_bytes()).await?;
+            if !head.keeps_alive() { return Ok(()); }
             continue;
         }
         /* The desktops attached to this workspace, which are the clients of the socket below: the
@@ -348,12 +355,14 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
                 Err(fault) => faulted(&fault),
             };
             client.write_all(answer.as_bytes()).await?;
+            if !head.keeps_alive() { return Ok(()); }
             continue;
         }
         if head.path() == "/api/desktop-action" && head.method == "POST" {
             let body = head.read_body(&mut client, &mut buffered).await?;
             let answer = answer_desktop_action(&front, &body).await;
             client.write_all(answer.as_bytes()).await?;
+            if !head.keeps_alive() { return Ok(()); }
             continue;
         }
         /* The socket this door serves itself. `/surface` is still the backend's — it carries a

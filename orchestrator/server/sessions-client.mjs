@@ -89,6 +89,9 @@ export class Sessions extends EventEmitter {
        is the case that found this — the exit event can beat the spawn response back here. Dropping
        it leaves a session that ran, ended, and stays "running" in the host's view forever. */
     this.early = new Map();
+    /* Ids this host has minted and not yet registered: the service announces a spawn the moment it
+       happens, which for our own panes is while `spawnTerminal` is still composing the record. */
+    this.spawning = new Set();
   }
 
   /* One service per host, opened on the first spawn and never before: a Sessions that only ever
@@ -113,12 +116,8 @@ export class Sessions extends EventEmitter {
     const adopted = [];
     for (const session of host.adopted ?? []) {
       if (this.items.has(session.id)) continue;
-      const meta = session.meta && typeof session.meta === 'object' ? session.meta : null;
-      if (!meta?.rootId || session.state !== 'running') continue;
-      const item = { ...meta, id: session.id, pid: session.pid, state: session.state,
-        cols: session.cols, rows: session.rows, sequence: session.sequence, output: session.output ?? '',
-        exitCode: session.exitCode ?? undefined, signal: session.signal ?? undefined };
-      this.items.set(item.id, item);
+      const item = this.register(session);
+      if (!item) continue;
       /* A pane whose host was replaced is released by the host that adopts it: the gate file
          belonged to that launch and the native view it was waiting for went with the host. The
          record used to produce this implicitly by always saying `released: true` at spawn; with a
@@ -129,8 +128,30 @@ export class Sessions extends EventEmitter {
     return adopted;
   }
 
+  /* One pane of the service's, as this host's own record of it. `adopt()` and the announcement
+     handler are the two callers: what they have in common is that this host is learning about a
+     pane rather than making one. */
+  register(session) {
+    const meta = session?.meta && typeof session.meta === 'object' ? session.meta : null;
+    if (!meta?.rootId || session.state !== 'running' || this.items.has(session.id)) return null;
+    const item = { ...meta, id: session.id, pid: session.pid, state: session.state,
+      cols: session.cols, rows: session.rows, sequence: session.sequence ?? 0, output: session.output ?? '',
+      exitCode: session.exitCode ?? undefined, signal: session.signal ?? undefined };
+    this.items.set(item.id, item);
+    return item;
+  }
+
   received(event) {
     const owner = event.type === 'output' ? event.id : event.session?.id;
+    /* A pane this host did not start. The service announces every session it holds (D62), and since
+       the front door starts panes too, a host that only knew its own would answer `Unknown session.`
+       about a pane running in front of the person. This is `adopt()` continued: the same record,
+       read the same way, for a pane that appeared after this host came up rather than before it.
+       Its own spawns are skipped — they arrive through `spawnTerminal`, which knows more (the gate
+       it just made) than the announcement carries. */
+    if (event.type === 'session' && owner && !this.items.has(owner) && !this.spawning.has(owner)) {
+      this.register(event.session);
+    }
     if (owner && !this.items.has(owner)) {
       const waiting = this.early.get(owner) ?? [];
       /* A cap, because an id this host will never register is a leak otherwise. A pane's opening
@@ -291,12 +312,14 @@ export class Sessions extends EventEmitter {
       titleAuto: title === undefined,
       title: title ?? (type === 'agent' ? agentTitle(agent, conversation, root.name) : `${type === 'game' ? 'Game' : 'Terminal'} · ${root.name}`),
       createdAt: Date.now() };
+    this.spawning.add(id);
     const started = await (await this.pty()).spawn({ id, meta: record, command: file, args: argv, cols, rows, cwd: workingDirectory,
       // `cleared` first, so this launch's own values win and only what it left out stays deleted.
       env: shellEnvironment({ ...cleared, ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents') }) });
     const item = { ...record, id, gate, released: !gate,
       pid: started.pid, state: 'running', cols, rows, output: '', sequence: 0 };
     this.items.set(item.id, item);
+    this.spawning.delete(id);
     /* In arrival order, before anything else touches this session: the queue is drained here so a
        child that exited during the spawn round trip is seen exiting rather than never. */
     for (const waiting of this.early.get(item.id) ?? []) this.received(waiting);

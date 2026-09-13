@@ -133,6 +133,12 @@ pub(crate) async fn terminal(front: &Arc<Front>, body: &str) -> String {
     if !options.is_object() {
         return faulted("400|Expected an object.");
     }
+    /* A game is not launched here. `/api/game` composes one from the project's declaration and the
+       surface it reserves; this route refuses the word before anything is composed, because a pane
+       that called itself a game would be a game session with no game behind it. */
+    if options.get("type").and_then(Value::as_str).is_some_and(|kind| !["terminal", "agent"].contains(&kind)) {
+        return faulted("400|Use the game adapter to launch a game.");
+    }
     match spawn_pane(front, &options).await {
         Ok(session) => http_text(200, "OK", &pane_answer(&session, false)),
         Err(fault) => faulted(&fault),

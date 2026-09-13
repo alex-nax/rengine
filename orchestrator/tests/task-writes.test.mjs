@@ -30,7 +30,10 @@ async function workspace(t, { document = taskDeclaration(), window = 700 } = {})
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-task-')));
   const project = await taskProject(directory, 'project', document);
   const stateDir = path.join(directory, 'state');
-  const host = await startServer({ stateDir });
+  /* No front door: this spec watches what the WORKER asks the host to do by wrapping the host's own
+     `sessions.terminal`, and a door in between would answer the worker itself and leave nothing to
+     see. The routes the door owns have their own spec; this one is about the layer above. */
+  const host = await startServer({ stateDir, frontDoor: false });
   const root = await host.store.addRoot(project);
   const worker = await startWorker({ url: host.url, token: host.token, instance: host.instance }, { directory: path.join(directory, 'runtime') });
   t.after(async () => { await worker.close(); await host.close(); await rm(directory, { recursive: true, force: true }); });

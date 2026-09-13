@@ -53,6 +53,8 @@ pub struct Service<S: Served> {
     protocol: u64,
     name: &'static str,
     descriptor: PathBuf,
+    /// The directory this service belongs to. When it goes, so does the service.
+    directory: PathBuf,
 }
 
 /// Everything a caller needs to talk about the service it just started.
@@ -146,6 +148,7 @@ pub fn serve<S: Served>(
         protocol,
         name,
         descriptor: descriptor.clone(),
+        directory: directory.to_path_buf(),
     });
     emitter(Emitter { clients });
     let document = json!({
@@ -193,6 +196,15 @@ impl Clone for Emitter {
 fn reap_when_idle<S: Served>(service: Arc<Service<S>>, idle: Duration) {
     std::thread::spawn(move || loop {
         std::thread::sleep(Duration::from_millis(250));
+        /* A service serves a DIRECTORY. When the directory is gone there is nothing left to serve,
+           and holding a shell for it is holding a shell for nobody — which is exactly what a suite
+           that deletes its scratch directories leaves behind, one process at a time. This is the
+           only reason a service stops while it is still holding something: the thing it was holding
+           belongs to a workspace that no longer exists. `ENOENT` specifically, because a directory
+           that cannot be READ is not a directory that is gone. */
+        if matches!(std::fs::metadata(&service.directory), Err(error) if error.kind() == std::io::ErrorKind::NotFound) {
+            std::process::exit(0);
+        }
         let attached = !service.clients.lock().expect("clients lock").is_empty();
         if attached || service.inner.holding() {
             continue;

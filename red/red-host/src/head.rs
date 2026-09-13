@@ -121,6 +121,19 @@ impl Head {
         self.header("connection").is_some_and(|value| value.eq_ignore_ascii_case("close"))
     }
 
+    /// Whether this connection survives the answer. HTTP/1.1 keeps it unless the request says
+    /// `close`; **HTTP/1.0 ends it unless the request says `keep-alive`**, and that is not a
+    /// detail: `red_core::http` asks in HTTP/1.0 with `Connection: close` and reads to end of
+    /// stream, so a door that held the socket open would answer every Rust client in the workspace
+    /// correctly and then hang until its read timeout.
+    pub fn keeps_alive(&self) -> bool {
+        let connection = self.header("connection").unwrap_or_default().to_ascii_lowercase();
+        if self.raw.lines().next().is_some_and(|line| line.contains("HTTP/1.0")) {
+            return connection.contains("keep-alive");
+        }
+        !connection.contains("close")
+    }
+
     /// The body as a string, for a route this door answers itself rather than forwards.
     pub async fn read_body(&self, from: &mut TcpStream, buffered: &mut Vec<u8>) -> io::Result<String> {
         let length: usize = self.header("content-length").and_then(|value| value.trim().parse().ok()).unwrap_or(0);
@@ -262,6 +275,16 @@ fn canonical(name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_http_1_0_request_ends_its_connection_and_an_http_1_1_request_does_not() {
+        assert!(!Head::parse("GET /api/state HTTP/1.0\r\nConnection: close\r\n\r\n").expect("parsed").keeps_alive());
+        assert!(!Head::parse("GET /api/state HTTP/1.0\r\nHost: x\r\n\r\n").expect("parsed").keeps_alive(),
+                "1.0 without keep-alive ends, which is what read-to-end clients rely on");
+        assert!(Head::parse("GET /api/state HTTP/1.0\r\nConnection: keep-alive\r\n\r\n").expect("parsed").keeps_alive());
+        assert!(Head::parse("GET /api/state HTTP/1.1\r\nHost: x\r\n\r\n").expect("parsed").keeps_alive());
+        assert!(!Head::parse("GET /api/state HTTP/1.1\r\nConnection: close\r\n\r\n").expect("parsed").keeps_alive());
+    }
 
     #[test]
     fn a_head_is_its_line_its_headers_and_nothing_after_the_blank_line() {
