@@ -1,5 +1,48 @@
 # Progress Log
 
+## Session 141 (macos) — 2026-09-13 — mcp-worker.mjs is deleted; the connector is a binary (F185, F187)
+
+The question F187 was filed on **answered itself in the supervisor**. `mcp.mjs` spawns the worker
+named by `runtime.toolWorker` and the supervisor probes a candidate before adopting it, both written
+when the tool layer was a JS file — but a connector update **never staged an artifact**. It
+re-probed the worker at its published path and, if the probe passed, bumped `connectorGeneration` so
+every facade replaced its child on the next request; the new code came from the checkout. So spec
+065's contract is unchanged and only the payload is an executable, with one step the **desktop layer
+already takes**: build, then probe, then adopt.
+
+`red-mcp` is the connector now, resolved as `$RENGINE_RED_MCP` → release → debug and published in
+the descriptor so a facade runs the binary the supervisor probed. The probe is the binary's own
+`--probe`: the three questions `runtime/tools.mjs` asked over MCP, answered by exiting 0.
+**`agents/mcp-worker.mjs` (304 lines) and `runtime/tools.mjs` (25) are deleted.** `mcp.mjs` stays —
+it is what keeps a pane's connection alive across a replacement — and spawns its worker as a command
+now; the JS fixture that stands in for an older worker is executable for the same reason.
+
+**The strongest evidence is the six suites nobody wrote for this.** `project-token`, `task-writes`,
+`agent-identity`, `recordings`, `report-session` and `conversation-identity` drove the JS worker
+directly, with no thought for a port, and they drive the binary unchanged. Both comparisons became
+frozen records at this commit: `tools.json` (the surface) and `mcp-conversation.json` (56 answers,
+captured immediately before deletion).
+
+**A check nobody could break was a check nobody was making.** Emptying the probe's required-tools
+list changed no test — nothing fed the supervisor a candidate that *starts and answers* but cannot
+serve the update path. `tests/incomplete-tool-worker.mjs` is that candidate now: it serves
+`workspace_info` and `update_status` and no `update_workspace`, the update is refused with
+*"update_workspace is missing"*, and the generation stays where it was. With the probe ignored, that
+case goes red.
+
+**Two parity defects the cutover found.** `update-workspace` answers **202 Accepted** with the job it
+queued, and the shared HTTP client accepted only 200 — a queued update came back as a failure;
+`fetch`'s `response.ok` is the whole 2xx range and so is this now. And `runtime.test.mjs` proves a
+broken candidate is refused by writing garbage over the connector path — which, once that path was
+the binary, corrupted it. The test owns a shim now and never the artifact.
+
+Commands: `npm test` (**317 of 317**), `cargo test -p red-mcp`, `python3 tools/design.py check`.
+
+**F185 and F187 pass. F150 stays open on F186 alone** — a real pane of kimi, claude and codex each
+completing a task-scoped action through the Rust MCP, which is a dogfood run in the owner's
+workspace with real quota, not something a fixture stands in for. JS on the app path is **agents 852
+→ 562**; the MCP SDK is imported by the facade alone.
+
 ## Session 140 (macos) — 2026-09-13 — red-mcp answers the calls, judged against the worker (F185 criterion 1)
 
 All 38 tools in Rust. Nearly every one is the same three steps — the capability this workspace

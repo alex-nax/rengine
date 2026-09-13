@@ -33,7 +33,10 @@ async function report({ env = {}, argv = [], input, contextFile = null }) {
   const exitCode = await new Promise(resolve => child.once('exit', resolve));
   return { exitCode, stdout, stderr };
 }
-const workerMain = fileURLToPath(new URL('../agents/mcp-worker.mjs', import.meta.url));
+/* The tool server is the red-mcp binary now (F187): these tests drive the same connection an agent
+   pane gets, so they start the same executable a pane starts. */
+const toolServer = process.env.RENGINE_RED_MCP
+  || fileURLToPath(new URL('../../red/target/debug/red-mcp', import.meta.url));
 const LAUNCHED = 'b9e2114c-1111-4111-8111-111111111111';   // what the pane was started with
 const RESUMED = '5b8d47c2-2222-4222-8222-222222222222';    // what the person resumed into, in the CLI
 const ROOT_ID = '12345678-1234-1234-1234-123456789abc';
@@ -249,7 +252,7 @@ test('the tool worker’s next call carries the conversation the CLI reported', 
   const snapshot = JSON.parse(await readFile(plan.contextFile, 'utf8'));
 
   const client = new Client({ name: 'rengine-report-test', version: '1.0.0' });
-  await client.connect(new StdioClientTransport({ command: process.execPath, args: [workerMain, '--context', plan.contextFile], stderr: 'pipe',
+  await client.connect(new StdioClientTransport({ command: toolServer, args: ['--context', plan.contextFile], stderr: 'pipe',
     env: { ...process.env, RENGINE_MCP_CONTEXT_SNAPSHOT: JSON.stringify(snapshot) } }));
   t.after(() => client.close());
   const info = async () => {

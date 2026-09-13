@@ -179,9 +179,13 @@ test('an idle facade learns of a connector update without a request, and a stale
   try {
     host = await startServer({ stateDir: path.join(directory, 'state') });
     const root = await host.store.addRoot(await project(directory, 'local', null));
-    const toolWorkerFile = path.join(directory, 'tool-worker.mjs');
-    const worker = name => `import ${JSON.stringify(pathToFileURL(path.resolve('orchestrator', name)).href)};`;
-    await writeFile(toolWorkerFile, worker('tests/stale-tool-worker.mjs'));
+    /* The connector layer is an executable now (F187), so the stand-in is a script that execs the
+       one this generation should run — the supervisor and the facade both start it as a command. */
+    const toolWorkerFile = path.join(directory, 'tool-worker');
+    const worker = async target => {
+      await writeFile(toolWorkerFile, `#!/bin/sh\nexec ${JSON.stringify(target)} "$@"\n`, { mode: 0o755 });
+    };
+    await worker(path.resolve('orchestrator/tests/stale-tool-worker.mjs'));
     const runtimeDir = path.join(directory, 'runtime');
     runtime = await startRuntime({ host: { url: host.url, token: host.token, instance: host.instance, pid: process.pid }, directory: runtimeDir, toolWorkerFile });
     const contextFile = path.join(directory, 'context.json');
@@ -201,10 +205,25 @@ test('an idle facade learns of a connector update without a request, and a stale
     const stalePid = first.structuredContent.toolWorkerPid;
 
     // New tool code lands; the update is asked of the supervisor directly. Nothing goes through the facade.
-    await writeFile(toolWorkerFile, worker('agents/mcp-worker.mjs'));
+    await worker(process.env.RENGINE_RED_MCP || path.resolve('red/target/debug/red-mcp'));
     const queued = await request(runtime, 'update-workspace', { rootId: root.id, layers: ['connector'] });
     await until(async () => (await request(runtime, `update-status?${new URLSearchParams({ rootId: root.id })}`)).jobs.find(job => job.id === queued.jobId)?.status === 'succeeded', 'connector update');
     await until(() => notifications > 0, 'tools/list_changed reaching an idle facade', 100);
+
+    /* A candidate that starts and answers but cannot serve the update path is refused, and the
+       generation does not move: adopting it would leave a pane able to read the workspace and
+       unable to update it again. The probe's required list is what refuses it. */
+    const incomplete = await request(runtime, `update-status?${new URLSearchParams({ rootId: root.id })}`);
+    await worker(path.resolve('orchestrator/tests/incomplete-tool-worker.mjs'));
+    const refusedJob = await request(runtime, 'update-workspace', { rootId: root.id, layers: ['connector'] });
+    const refused = await until(async () => {
+      const value = await request(runtime, `update-status?${new URLSearchParams({ rootId: root.id })}`);
+      const job = value.jobs.find(entry => entry.id === refusedJob.jobId);
+      return job?.status === 'failed' && { value, job };
+    }, 'the incomplete candidate is refused');
+    assert.match(refused.job.error, /update_workspace is missing/, 'the refusal names what the candidate lacks');
+    assert.equal(refused.value.connectorGeneration, incomplete.connectorGeneration,
+      'and nothing was adopted: the generation did not move');
 
     const after = await names();
     assert.ok(after.includes('list_tasks') && !after.includes('old_tool'), `second generation: ${after}`);

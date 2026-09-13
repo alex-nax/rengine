@@ -56,8 +56,12 @@ process.stdin.setRawMode(true); console.log('CLI_READY'); process.stdin.on('data
     const workerFile = path.join(directory, 'workspace-worker.mjs');
     const workerSource = `import ${JSON.stringify(pathToFileURL(path.resolve('orchestrator/runtime/worker.mjs')).href)};`;
     await writeFile(workerFile, workerSource);
-    const toolWorkerFile = path.join(directory, 'tool-worker.mjs');
-    await writeFile(toolWorkerFile, `import ${JSON.stringify(pathToFileURL(path.resolve('orchestrator/agents/mcp-worker.mjs')).href)};`);
+    /* The connector layer is an executable now (F187). The supervisor is handed a shim this test
+       owns — never the binary itself, which a test that writes a broken candidate would otherwise
+       overwrite — and the shim execs the real one until the failure case replaces it. */
+    const toolWorkerFile = path.join(directory, 'tool-worker');
+    const connector = process.env.RENGINE_RED_MCP || path.resolve('red/target/debug/red-mcp');
+    await writeFile(toolWorkerFile, `#!/bin/sh\nexec ${JSON.stringify(connector)} "$@"\n`, { mode: 0o755 });
     const runtimeDir = path.join(directory, 'runtime');
     runtime = await startRuntime({ host: legacy, directory: runtimeDir, workerFile, toolWorkerFile });
     assert.equal((await request(runtime, 'state')).capabilities.desktopActions, 1);
@@ -103,14 +107,16 @@ process.stdin.setRawMode(true); console.log('CLI_READY'); process.stdin.on('data
     const failure = await until(async () => { const value = await call('update_status'); return value.jobs.find(x => x.id === failed.jobId)?.status === 'failed' && value; }, 'failed candidate');
     assert.equal(failure.workspace.pid, finished.workspace.pid);
     assert.equal(host.sessions.snapshot(session.id).state, 'running');
-    await writeFile(toolWorkerFile, 'this is not valid javascript;');
+    /* A candidate that will not start: the probe runs it and it exits non-zero, which is what the
+       supervisor must refuse to adopt. */
+    await writeFile(toolWorkerFile, '#!/bin/sh\nexit 3\n', { mode: 0o755 });
     const badTools = await call('update_workspace', { layers: ['connector'] });
     const toolFailure = await until(async () => { const value = await call('update_status'); return value.jobs.find(x => x.id === badTools.jobId)?.status === 'failed' && value; }, 'failed MCP candidate');
     assert.equal(toolFailure.connectorGeneration, finished.connectorGeneration);
     assert.equal(toolFailure.toolWorkerPid, finished.toolWorkerPid);
     /* The facade recreates a crashed worker from the file the supervisor published (spec 101), which
        is this one; a crash while it is still broken on disk is the source edit's failure, not recovery's. */
-    await writeFile(toolWorkerFile, `import ${JSON.stringify(pathToFileURL(path.resolve('orchestrator/agents/mcp-worker.mjs')).href)};`);
+    await writeFile(toolWorkerFile, `#!/bin/sh\nexec ${JSON.stringify(connector)} "$@"\n`, { mode: 0o755 });
     process.kill(toolFailure.toolWorkerPid, 'SIGTERM'); await delay(100);
     const toolRecovery = await call('update_status'); assert.notEqual(toolRecovery.toolWorkerPid, toolFailure.toolWorkerPid);
     await writeFile(workerFile, workerSource);

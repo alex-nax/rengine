@@ -17,7 +17,10 @@ import { agentLaunch } from '../agents/agents-client.mjs';
 import { tokenProject, identity, api, ok, until, fakeDesktop, feedSocket } from './token-fixtures.mjs';
 
 const WINDOW = 700;
-const toolWorkerMain = fileURLToPath(new URL('../agents/mcp-worker.mjs', import.meta.url));
+/* The tool server is the red-mcp binary now (F187): these tests drive the same connection an agent
+   pane gets, so they start the same executable a pane starts. */
+const toolServer = process.env.RENGINE_RED_MCP
+  || fileURLToPath(new URL('../../red/target/debug/red-mcp', import.meta.url));
 
 async function workspace(t, { directory: given, window = WINDOW } = {}) {
   const directory = given ?? await mkdtemp(path.join(tmpdir(), 'rengine-token-'));
@@ -374,7 +377,7 @@ test('the tools carry the token, and against a worker without the ledger they re
     const context = { url: target.url, token: target.token, instance: host.instance, rootId: root.id, runtimeDirectory: empty };
     const plan = await agentLaunch({ agent: who, executable: who, context, directory, env: {} });
     const connection = new Client({ name: 'rengine-token-test', version: '1.0.0' });
-    await connection.connect(new StdioClientTransport({ command: process.execPath, args: [toolWorkerMain, '--context', plan.contextFile], stderr: 'pipe' }));
+    await connection.connect(new StdioClientTransport({ command: toolServer, args: ['--context', plan.contextFile], stderr: 'pipe' }));
     t.after(() => connection.close());
     return { connection, identity: plan.identity,
       call: async (name, args = {}) => { const result = await connection.callTool({ name, arguments: args }); return { error: result.isError === true, text: result.content?.[0]?.text ?? '', value: result.structuredContent }; } };

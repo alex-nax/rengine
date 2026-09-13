@@ -3379,7 +3379,7 @@
         "Running panes survive the cutover (their MCP is spawned per launch); only new launches pick up red-mcp.",
         "agents/mcp-worker.mjs and runtime/tools.mjs are deleted in the same commit the replacement goes green."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         184
       ],
@@ -3387,7 +3387,9 @@
       "deliverable": "The Rust tool calls, the native exec change, the fixture-identical conversation, and the deletion commit.",
       "evidence": [
         "docs/evidence/mcp-calls-f185-2026-09-13.md",
-        "Criterion 1 is met: orchestrator/tests/red-mcp-calls.test.mjs runs a 50-call conversation covering all 38 tools against both servers and compares every answer, normalising only per-workspace values (uuids, hashes, timestamps, ports, pids, durations, the workspace directory and a conversation's eight-character prefix). Four sabotages observed failing for their own reasons. Criteria 2 and 3 are F187's: the cutover turns on what updating a connector layer means once that layer is a compiled binary."
+        "Criterion 1 is met: orchestrator/tests/red-mcp-calls.test.mjs runs a 50-call conversation covering all 38 tools against both servers and compares every answer, normalising only per-workspace values (uuids, hashes, timestamps, ports, pids, durations, the workspace directory and a conversation's eight-character prefix). Four sabotages observed failing for their own reasons. Criteria 2 and 3 are F187's: the cutover turns on what updating a connector layer means once that layer is a compiled binary.",
+        "docs/evidence/mcp-cutover-f187-2026-09-13.md",
+        "Criteria 2 and 3 are met by F187, which lands in the same arc: the modules are deleted, a pane's MCP is still spawned per launch, and hot-update.test.mjs holds the generation swap — a running facade keeps serving and picks up the new connector on the next generation."
       ],
       "external_references": []
     },
@@ -3420,13 +3422,18 @@
         "Running panes survive the cutover (their MCP is spawned per launch); only new launches pick up red-mcp.",
         "agents/mcp-worker.mjs and runtime/tools.mjs are deleted in the same commit the replacement goes green."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         185
       ],
       "owner_workspace": "rengine",
       "deliverable": "The recorded update-contract decision, the launch and probe changes, and the deletion commit.",
-      "evidence": [],
+      "evidence": [
+        "docs/evidence/mcp-cutover-f187-2026-09-13.md",
+        "The decision: the connector layer's contract is unchanged and its payload is an executable — the layer builds (cargo build -p red-mcp), probes by running the binary's own --probe, and adopts by bumping connectorGeneration, which is the desktop layer's order. Spec 065's completion-vs-acceptance, the generation and per-launch spawning are untouched.",
+        "orchestrator/agents/mcp-worker.mjs and orchestrator/runtime/tools.mjs are deleted; agents/mcp.mjs spawns its worker as a command; six suites that drove the JS worker directly now drive the binary unchanged.",
+        "orchestrator/tests/incomplete-tool-worker.mjs pins the probe's required tools — a candidate that starts and answers but cannot serve the update path is refused naming what it lacks, and the generation does not move. Added because emptying the probe's required list changed no test."
+      ],
       "external_references": []
     }
   ]

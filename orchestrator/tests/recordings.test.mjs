@@ -14,6 +14,9 @@ import { request } from '../launcher/sidecar.mjs';
 import { listRecordings, readRecording } from '../server/recordings.mjs';
 import { manifest, segment } from './recording-fixtures.mjs';
 
+/* The tool server is the red-mcp binary now (F187): this drives the same connection a pane gets. */
+const toolServer = process.env.RENGINE_RED_MCP || path.resolve('red/target/debug/red-mcp');
+
 const call = (target, route) => request(target, route);
 
 /* A proxy host that advertises only what a service predating spec 081 would: the recording routes
@@ -148,7 +151,7 @@ test('the session host serves the recording routes and the replaceable worker se
     const contextFile = path.join(directory, 'context.json');
     await writeFile(contextFile, JSON.stringify({ ...worker, rootId: root.id }), { mode: 0o600 });
     mcp = new Client({ name: 'recording-test', version: '1.0.0' });
-    await mcp.connect(new StdioClientTransport({ command: process.execPath, args: [path.resolve('orchestrator/agents/mcp-worker.mjs'), '--context', contextFile], stderr: 'pipe' }));
+    await mcp.connect(new StdioClientTransport({ command: toolServer, args: ['--context', contextFile], stderr: 'pipe' }));
     const tools = (await mcp.listTools()).tools;
     const list = tools.find(tool => tool.name === 'recordings_list'), read = tools.find(tool => tool.name === 'recording_read');
     assert.ok(list && read, 'both recording tools are discoverable');
@@ -182,7 +185,7 @@ test('a service without the capability refuses the recording tools by name with 
     const contextFile = path.join(directory, 'context.json');
     await writeFile(contextFile, JSON.stringify({ ...aged, rootId: root.id }), { mode: 0o600 });
     mcp = new Client({ name: 'recording-guard-test', version: '1.0.0' });
-    await mcp.connect(new StdioClientTransport({ command: process.execPath, args: [path.resolve('orchestrator/agents/mcp-worker.mjs'), '--context', contextFile], stderr: 'pipe' }));
+    await mcp.connect(new StdioClientTransport({ command: toolServer, args: ['--context', contextFile], stderr: 'pipe' }));
     for (const name of ['recordings_list', 'recording_read']) {
       const result = await mcp.callTool({ name, arguments: name === 'recording_read' ? { id: 'x' } : {} });
       assert.equal(result.isError, true, name);

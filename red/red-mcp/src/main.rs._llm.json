@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "probe-without-provider-session",
+      "kind": "rationale",
+      "anchor": {
+        "start": 140,
+        "end": 140,
+        "symbol": "probe",
+        "snippet": "fn probe(workspace: &mut Workspace, surface: &Value) -> Result<(), String> {"
+      },
+      "note": "Start a candidate MCP tool implementation with a private immutable root/host context, check required tools and the actual workspace_info binding, then close it. This is an MCP protocol probe, not a coding agent/provider conversation. The supervisor publishes a connector generation only after this check; facades then replace their tool worker between requests.",
+      "refs": [
+        "docs/specs/065-layered-workspace-updates.md",
+        "docs/evidence/mcp-cutover-f187-2026-09-13.md"
+      ]
+    },
+    {
+      "id": "root-bound-replaceable-tools",
+      "kind": "rationale",
+      "anchor": {
+        "start": 158,
+        "end": 158,
+        "symbol": "main",
+        "snippet": "fn main() -> ExitCode {"
+      },
+      "note": "Tool implementation lives in a replaceable process behind the stable facade. Resolve only a validated runtime descriptor for the original host, retain the original root and reject foreign sessions/desktops before each operation. Probe/update/status never launches a coding conversation. The existing eight-tool connector can remain running while an agent uses runtime/client.mjs with its original context.",
+      "refs": [
+        "docs/specs/065-layered-workspace-updates.md",
+        "docs/evidence/mcp-cutover-f187-2026-09-13.md"
+      ]
+    }
+  ]
+}

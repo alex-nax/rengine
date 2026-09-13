@@ -1,17 +1,18 @@
-/* F184 (F150a, spec 129, KI-100): red-mcp serves the same tool surface as the JS worker.
+/* F184/F187 (F150a, spec 129, KI-100): red-mcp serves the tool surface the JS worker served.
  *
- * Both servers are started for real and driven by the same MCP client, and the comparison is
- * deep: names, descriptions, JSON Schemas and annotations. That matters because `tools/list` IS
- * the surface — an agent reads those descriptions to decide what to call — so "identical" has to
- * mean identical prose, not a matching set of names.
+ * While `agents/mcp-worker.mjs` existed this started both servers and compared them deeply. F187
+ * deleted it, so what red-mcp is judged against is the declaration that worker answered with —
+ * captured from it while it ran, committed, and never regenerated. The comparison is still the
+ * whole surface: names in order, descriptions, JSON Schemas, annotations, server identity,
+ * instructions and capabilities. That matters because `tools/list` IS the surface — an agent reads
+ * those descriptions to decide what to call.
  *
- * The declaration red-mcp serves was captured from the JS worker while it was running. This test
- * is what keeps that honest while both exist: a tool added, renamed or reworded on the JS side
- * without a recapture fails here rather than silently leaving the Rust side a version behind.
+ * What this catches now is the code drifting from its own declaration: a binary that serves fewer
+ * tools than it ships, or answers a different identity, fails here.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -36,7 +37,7 @@ async function connect(t, command, args, env) {
   return client;
 }
 
-test('red-mcp answers tools/list exactly as the JS worker does', { timeout: 120000 }, async t => {
+test('red-mcp answers tools/list exactly as the JS worker did', { timeout: 120000 }, async t => {
   await run('cargo', ['build', '-p', 'red-mcp', '--bin', 'red-mcp'], { cwd: path.join(ROOT, 'red'), maxBuffer: 1 << 24 });
   assert.ok(existsSync(BINARY), `red-mcp was built at ${BINARY}`);
   const directory = await mkdtemp(path.join(tmpdir(), 'red-mcp-'));
@@ -47,18 +48,17 @@ test('red-mcp answers tools/list exactly as the JS worker does', { timeout: 1200
   const contextFile = path.join(directory, 'context.json');
   await writeFile(contextFile, JSON.stringify({ url: server.url, token: server.token, instance: server.instance, rootId: root.id }), { mode: 0o600 });
 
-  const js = await connect(t, process.execPath, [path.join(ROOT, 'orchestrator/agents/mcp-worker.mjs'), '--context', contextFile]);
+  const declared = JSON.parse(await readFile(path.join(ROOT, 'red/red-mcp/src/tools.json'), 'utf8'));
   const rust = await connect(t, BINARY, ['--context', contextFile]);
 
-  const fromJs = await js.listTools();
   const fromRust = await rust.listTools();
-  assert.deepEqual(fromRust.tools.map(tool => tool.name), fromJs.tools.map(tool => tool.name),
-    'the same tools, in the same order');
-  assert.deepEqual(fromRust.tools, fromJs.tools,
-    'every description, schema and annotation is the one the JS worker answers');
-  assert.deepEqual(rust.getServerVersion(), js.getServerVersion(), 'the same server identity');
-  assert.equal(rust.getInstructions(), js.getInstructions(), 'the same instructions a CLI reads on connect');
-  assert.deepEqual(rust.getServerCapabilities(), js.getServerCapabilities(), 'the same capabilities');
+  assert.deepEqual(fromRust.tools.map(tool => tool.name), declared.tools.map(tool => tool.name),
+    'the same tools, in the same order the worker answered them');
+  assert.deepEqual(fromRust.tools, declared.tools,
+    'every description, schema and annotation is the one the JS worker answered with');
+  assert.deepEqual(rust.getServerVersion(), declared.server, 'the same server identity');
+  assert.equal(rust.getInstructions(), declared.instructions, 'the same instructions a CLI reads on connect');
+  assert.deepEqual(rust.getServerCapabilities(), declared.capabilities, 'the same capabilities');
 });
 
 test('red-mcp refuses a binding it cannot serve, in the words the worker uses', { timeout: 120000 }, async t => {

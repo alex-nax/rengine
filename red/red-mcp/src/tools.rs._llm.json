@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "token-gate-in-the-tool-worker",
+      "kind": "constraint",
+      "anchor": {
+        "start": 88,
+        "end": 88,
+        "symbol": "token_gate",
+        "snippet": "fn token_gate(workspace: &Workspace, state: &Value, tool: &str) -> Result<(), String> {"
+      },
+      "note": "Two of the six extended tools cannot be gated where the others are. The runtime supervisor answers /api/update-workspace and /api/desktop-action itself and forwards everything else to the workspace worker, so update_workspace and reload_desktop never reach the worker's gate and read the ledger here instead, before the call. The capability half is separate and applies to all six: agentToken says the worker serves a ledger, so an identified agent against a worker that does not advertise it is refused naming the layer to update rather than calling a worker that would pass every request. An anonymous caller — probeTools, an older launch with no identity — is not an agent and is never gated at all, which is what keeps update_workspace able to prepare its own replacement.",
+      "refs": [
+        "docs/specs/095-project-token.md",
+        "docs/evidence/mcp-cutover-f187-2026-09-13.md"
+      ]
+    },
+    {
+      "id": "interactive-script-tools",
+      "kind": "rationale",
+      "anchor": {
+        "start": 257,
+        "end": 257,
+        "symbol": "call",
+        "snippet": "\"open_script\" => {"
+      },
+      "note": "Script execution is effectful and not idempotent; root-bound tools require an explicit script path, literal argv and a target desktop. View attachment failure returns a retained process identity. show_session attaches that process without another execution, and ordinary stop_session remains the explicit termination action.",
+      "refs": [
+        "docs/specs/071-interactive-script-tabs.md",
+        "docs/evidence/mcp-cutover-f187-2026-09-13.md"
+      ]
+    },
+    {
+      "id": "preview-file-tool",
+      "kind": "rationale",
+      "anchor": {
+        "start": 473,
+        "end": 473,
+        "symbol": "preview",
+        "snippet": "fn preview(workspace: &Workspace, state: &Value, args: &Args<'_>, root: &str) -> Result<Value, String> {"
+      },
+      "note": "preview_file runs the project's own declared executable, so it is open-world and not read-only even though it never writes. The route returns the whole sanitized tree; the tool slices dir/depth and pages files with offset/limit, then shrinks depth and limit until the serialized reply fits the 32,000-character budget, reporting truncated/nextOffset (review finding 5). Command metadata is made root-relative and the generic tool wrapper replaces the absolute root path in error text with <root>. Entry text is bounded like read_file; the hex window is dropped because agents get size and SHA-256 instead.",
+      "refs": [
+        "docs/specs/074-project-format-registry.md",
+        "docs/evidence/mcp-cutover-f187-2026-09-13.md"
+      ]
+    },
+    {
+      "id": "dashboard-tools",
+      "kind": "rationale",
+      "anchor": {
+        "start": 263,
+        "end": 263,
+        "symbol": "call",
+        "snippet": "\"dashboard_actions\" => {"
+      },
+      "note": "dashboard_actions is read-only (availability only); dashboard_capture is open-world because it runs a project executable and writes files. Script and log actions deliberately get no new tool: scripts go through open_script with the listed script/args/env, logs start from the desktop tab and are followed with show_session/session_output, so process creation stays on the existing audited paths.",
+      "refs": [
+        "docs/specs/075-project-dashboard.md",
+        "docs/evidence/mcp-cutover-f187-2026-09-13.md"
+      ]
+    },
+    {
+      "id": "declared-game-tools",
+      "kind": "rationale",
+      "anchor": {
+        "start": 357,
+        "end": 357,
+        "symbol": "call",
+        "snippet": "\"game_preflight\" => {"
+      },
+      "note": "game_preflight and launch_game address only the games the bound project declares in .rengine/project.json; their descriptions name no game, and the connector never carries a built-in executable or data path. Both take an optional gameId and default to the first declared record, so a single-game project needs no argument while a multi-game one is addressed explicitly and an unknown id is answered with the declared ids. launch_game is open-world because it executes the project's own program; it returns the running session of that same game id when one exists, so agents inspect the returned id rather than assuming a fresh process, and two declared games of one project can be running at once. The removed nolf_preflight/launch_nolf have no alias: nothing had shipped them to a user. The two tools gate on two capabilities, because the workspace layer can deliver only one of them: game_preflight needs projectGame, which the replaceable worker advertises for the route it serves itself, while launch_game needs projectGameLaunch, which only a session host that answers from the declaration can offer — replacing that host requires quiescence, so the refusal names it instead of telling the agent to update the workspace layer again.",
+      "refs": [
+        "docs/specs/078-project-game-declaration.md",
+        "docs/evidence/mcp-cutover-f187-2026-09-13.md"
+      ]
+    },
+    {
+      "id": "devices-tool",
+      "kind": "constraint",
+      "anchor": {
+        "start": 300,
+        "end": 300,
+        "symbol": "call",
+        "snippet": "\"devices\" => {"
+      },
+      "note": "The devices tool is readOnlyHint (it changes nothing in the project) but openWorldHint, because it reaches the network or a USB device. Its description deliberately does NOT claim read-only: adb get-state and adb devices start the adb server when no daemon is running, so a probe is bounded and side-effect-light, not free of side effects. It also states that reachable is not launchable — a green ssh probe still cannot create a GL context in a logon session with no window station — so an agent does not read a reachable device as permission to launch on it. It gates on projectDevices, which the replaceable workspace worker advertises (KI-043: a capability served only by the retained host cannot be delivered by a layered update). The description now also states what each bound target carries — an action's availability as the dashboard computed it, a game's preflight — because the Devices tab renders those as controls and an agent reading this tool should not need a second listing to learn what can be run where.",
+      "refs": [
+        "docs/specs/082-project-devices.md",
+        "docs/evidence/mcp-cutover-f187-2026-09-13.md"
+      ]
+    },
+    {
+      "id": "linked-project-operations",
+      "kind": "rationale",
+      "anchor": {
+        "start": 226,
+        "end": 226,
+        "symbol": "call",
+        "snippet": "\"open_project_window\" => {"
+      },
+      "note": "New window and report tools retain the connector’s captured root. Opening a window attaches an existing root-bound agent; only the recorded origin/project pair can inspect its window or exchange reports. The origin can explicitly view its linked project inbox or attribute its own project-side observation without claiming another agent wrote it.",
+      "refs": [
+        "docs/specs/069-project-window-dogfooding.md",
+        "docs/evidence/mcp-cutover-f187-2026-09-13.md"
+      ]
+    }
+  ]
+}

@@ -170,7 +170,7 @@ test('a conversation the workspace persisted is a known identity to the token le
 
   const runtime = path.join(directory, 'runtime');
   const ledger = await Ledger.open(runtime, root.id, { alive: () => true });
-  // The headers the tool worker puts on the wire for this launch (mcp-worker.mjs).
+  // The headers the tool server puts on the wire for this launch (red-mcp).
   ledger.seen(readIdentity({ 'x-rengine-agent': plan.identity.agentId, 'x-rengine-agent-label': plan.identity.label,
     'x-rengine-agent-pid': String(plan.identity.pid) }));
   await ledger.persist();

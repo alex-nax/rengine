@@ -2,18 +2,56 @@ import http from 'node:http';
 import { fork } from 'node:child_process';
 import { createServer } from 'node:net';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { mkdir, writeFile, rename } from 'node:fs/promises';
+import { mkdir, rm, writeFile, rename } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { request as call } from '../launcher/sidecar.mjs';
 import { authenticated, body, checkConnection, fail, forward, json, tunnel } from './protocol.mjs';
 import { prepareDesktop, snapshotBinary, nativeBinary, launchDesktop } from './desktop.mjs';
-import { probeTools } from './tools.mjs';
+import { execFile } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { windowStore, nativeControl, inspectWindow } from './windows.mjs';
 
 const defaultWorker = fileURLToPath(new URL('./worker.mjs', import.meta.url));
-const defaultToolWorker = fileURLToPath(new URL('../agents/mcp-worker.mjs', import.meta.url));
+/* The connector layer is an executable now (F187): red-mcp, built from this checkout. It is
+   resolved the way every other Rust client here is resolved — the environment names one, then the
+   release build, then the debug build — and published in the descriptor so a facade runs the
+   binary this supervisor probed rather than whichever one it finds. */
+const project = fileURLToPath(new URL('../../', import.meta.url));
+export function redMcpBinary(env = process.env) {
+  const declared = env.RENGINE_RED_MCP;
+  if (declared) {
+    if (existsSync(declared)) return declared;
+    throw new Error(`RENGINE_RED_MCP names ${declared}, which does not exist.`);
+  }
+  for (const profile of ['release', 'debug']) {
+    const candidate = path.join(project, 'red/target', profile, 'red-mcp');
+    if (existsSync(candidate)) return candidate;
+  }
+  throw new Error('The red-mcp binary is required (run: cargo build -p red-mcp, or set RENGINE_RED_MCP).');
+}
+
+/* Spec 065 unchanged, payload changed: "update the connector layer" still means prove a candidate
+   starts and answers bound to this root, then bump the generation so every facade replaces its
+   worker on its next request. What is new is that a compiled connector has to be BUILT before it
+   can be probed — the JS file changed as soon as the checkout did, a binary does not — so the
+   layer builds first, exactly as the desktop layer does. */
+const buildConnectorDefault = async () => {
+  await new Promise((resolve, reject) => {
+    execFile('cargo', ['build', '--quiet', '--manifest-path', path.join(project, 'red/Cargo.toml'), '-p', 'red-mcp'],
+      { maxBuffer: 1 << 24 }, (error, _out, err) => error ? reject(new Error(`red-mcp did not build: ${err || error.message}`)) : resolve());
+  });
+  return redMcpBinary();
+};
+
+/* The probe the supervisor runs against a candidate connector: the binary checks itself — it
+   carries the tools the update path needs and answers bound to this root — and says so by exiting
+   0. `runtime/tools.mjs` used to ask the same three questions over MCP from here. */
+const probeConnector = (binary, contextFile) => new Promise((resolve, reject) => {
+  execFile(binary, ['--probe', '--context', contextFile], { timeout: 30000 },
+    (error, _out, err) => error ? reject(new Error(`Candidate MCP worker failed: ${err || error.message}`)) : resolve());
+});
 
 /* Ask the OS for a free port and let go of it. There is a window in which something else could take
    it; the worker that then cannot bind says so and the IDE bridge stays unpublished, which is a
@@ -46,11 +84,12 @@ async function startWorker(host, filename, directory, idePort) {
 }
 
 export async function startRuntime({ host, directory, initial, binary = nativeBinary, workerFile = defaultWorker,
-  buildDesktop = prepareDesktop, toolWorkerFile = defaultToolWorker, inspectUI = false, onDesktop = () => {} } = {}) {
+  buildDesktop = prepareDesktop, toolWorkerFile = null, buildConnector = buildConnectorDefault, inspectUI = false, onDesktop = () => {} } = {}) {
   host = checkConnection(host);
   if (!path.isAbsolute(directory)) fail('Runtime directory must be absolute.');
   /* Published in the descriptor so a facade runs the tool worker this supervisor probed — see sidecar: probed-worker-runs. */
-  toolWorkerFile = path.resolve(toolWorkerFile);
+  const namedWorker = toolWorkerFile !== null;
+  toolWorkerFile = path.resolve(toolWorkerFile ?? redMcpBinary());
   const hostState = async () => { const state = await call(host, 'state'); if (state.instance !== host.instance) fail('Original session host is no longer available.'); return state; };
   await hostState(); await mkdir(directory, { recursive: true, mode: 0o700 });
   /* One port for this runtime's whole life, handed to every worker it starts. Claude Code reconnects
@@ -171,13 +210,31 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
     if (!opens.has(key)) opens.set(key, openView(data).finally(() => opens.delete(key)));
     return opens.get(key);
   };
+  /* The probe needs a context of its own: the same binding a pane gets, in a file that is removed
+     whether the probe passed or not. `runtime/tools.mjs` wrote the same document. */
+  const connectorContext = async rootId => {
+    const filename = path.join(directory, `tool-probe-${randomUUID()}.json`);
+    await writeFile(filename, JSON.stringify({ url: host.url, token: host.token, instance: host.instance, rootId, runtimeDirectory: directory }), { mode: 0o600 });
+    return filename;
+  };
+
   const perform = async (job, desktop, closed = false) => {
     let candidate, replacement, record = desktop && desktops.get(desktop.owner), previous, previousWorker, startedDesktop = false;
     const previousConnector = connectorGeneration;
     try {
       if (job.layers.includes('workspace')) candidate = await startWorker(host, workerFile, directory, idePort);
       if (job.layers.includes('desktop')) replacement = await buildDesktop(path.join(directory, 'versions', job.id));
-      if (job.layers.includes('connector')) await probeTools(host, directory, job.rootId, toolWorkerFile);
+      if (job.layers.includes('connector')) {
+        /* Build, then probe, then adopt — the desktop layer's order. A candidate that does not
+           build is a job that failed before anything was switched. */
+        const built = await buildConnector();
+        /* A caller that named its own connector keeps it: the default builder answers with the
+           binary it built, and only the default path may move. */
+        if (typeof built === 'string' && !namedWorker) toolWorkerFile = path.resolve(built);
+        const probeFile = await connectorContext(job.rootId);
+        try { await probeConnector(toolWorkerFile, probeFile); }
+        finally { await rm(probeFile, { force: true }); }
+      }
       if (closing) throw new Error('Supervisor is closing.');
       job.status = 'switching';
       if (record) {

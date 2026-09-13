@@ -1,6 +1,7 @@
 //! red-mcp: the root-bound MCP server of the Rust orchestrator (F184/F150a, spec 129, KI-100).
 //!
 //!   red-mcp --context <workspace-context.json>
+//!   red-mcp --probe --context <workspace-context.json>   (the supervisor's candidate check)
 //!
 //! This is the connection every agent pane talks to the workspace through. It speaks MCP over
 //! stdio — newline-delimited JSON-RPC 2.0 — and serves the same tool surface `mcp-worker.mjs`
@@ -131,6 +132,29 @@ fn answer(method: &str, params: &Value, surface: &Value, workspace: &mut Workspa
     }
 }
 
+/// What the supervisor asks a candidate connector before it adopts one (F187, spec 065): does this
+/// executable start, does it carry the tools the workspace's own update path needs, and does it
+/// answer bound to the root it was given? The JS supervisor asked those three questions of a
+/// candidate over MCP; the binary answers them about itself, which is the same three questions
+/// without a second process to speak to.
+fn probe(workspace: &mut Workspace, surface: &Value) -> Result<(), String> {
+    let names: Vec<&str> = surface["tools"]
+        .as_array()
+        .map(|tools| tools.iter().filter_map(|tool| tool["name"].as_str()).collect())
+        .unwrap_or_default();
+    for required in ["workspace_info", "update_status", "update_workspace"] {
+        if !names.contains(&required) {
+            return Err(format!("Candidate MCP tools are incomplete: {required} is missing."));
+        }
+    }
+    let state = workspace.scoped_state()?;
+    let bound = state.get("root").and_then(|root| root.get("id")).and_then(Value::as_str).unwrap_or_default();
+    if bound != workspace.binding.root_id {
+        return Err("Candidate MCP worker failed the project binding check.".into());
+    }
+    Ok(())
+}
+
 fn main() -> ExitCode {
     let argv: Vec<String> = std::env::args().skip(1).collect();
     if argv.first().map(String::as_str) == Some("--version") {
@@ -151,6 +175,18 @@ fn main() -> ExitCode {
         }
     };
     let surface = declaration();
+    if argv.iter().any(|argument| argument == "--probe") {
+        return match probe(&mut workspace, &surface) {
+            Ok(()) => {
+                println!("red-mcp: {} tools, bound to {}", surface["tools"].as_array().map(Vec::len).unwrap_or(0), workspace.binding.root_id);
+                ExitCode::SUCCESS
+            }
+            Err(message) => {
+                eprintln!("red-mcp: {message}");
+                ExitCode::FAILURE
+            }
+        };
+    }
     let stdin = std::io::stdin();
     let mut out = std::io::stdout();
     for line in stdin.lock().lines() {

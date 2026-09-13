@@ -13,7 +13,10 @@ import { request } from '../launcher/sidecar.mjs';
 import { agentLaunch, describeSession } from '../agents/agents-client.mjs';
 import { bind } from '../agents/agents-client.mjs';
 
-const workerMain = fileURLToPath(new URL('../agents/mcp-worker.mjs', import.meta.url));
+/* The tool server is the red-mcp binary now (F187): these tests drive the same connection an agent
+   pane gets, so they start the same executable a pane starts. */
+const toolServer = process.env.RENGINE_RED_MCP
+  || fileURLToPath(new URL('../../red/target/debug/red-mcp', import.meta.url));
 
 /* A recording reverse proxy: every request the tool worker makes is seen here before it reaches the
    thing it is talking to, so the header is observed on the wire rather than inferred from the code. */
@@ -34,7 +37,7 @@ async function recorder(target) {
 }
 async function toolWorker(t, contextFile, snapshot) {
   const client = new Client({ name: 'rengine-identity-test', version: '1.0.0' });
-  await client.connect(new StdioClientTransport({ command: process.execPath, args: [workerMain, '--context', contextFile], stderr: 'pipe',
+  await client.connect(new StdioClientTransport({ command: toolServer, args: ['--context', contextFile], stderr: 'pipe',
     ...(snapshot ? { env: { ...process.env, RENGINE_MCP_CONTEXT_SNAPSHOT: JSON.stringify(snapshot) } } : {}) }));
   t.after(() => client.close());
   return client;
@@ -171,7 +174,8 @@ test('the identity travels on every tool call and on nothing else', { timeout: 2
   assert.equal(second.agent?.agentId, plan.identity.agentId, 'a replacement worker keeps the identity');
   assert.deepEqual([...new Set(proxy.seen.slice(after).map(entry => entry.agent))], [plan.identity.agentId]);
 
-  /* probeTools writes a context with no identity, and update_workspace depends on it working. */
+  /* The supervisor's connector probe runs with a context that names no identity, and
+     update_workspace depends on that working — an anonymous caller is never gated (spec 095). */
   const anonymousFile = path.join(directory, 'probe-context.json');
   await writeFile(anonymousFile, JSON.stringify(context), { mode: 0o600 });
   const anonymous = await toolWorker(t, anonymousFile);

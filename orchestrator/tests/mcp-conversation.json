@@ -1,0 +1,2304 @@
+{
+ "calls": [
+  {
+   "name": "workspace_info",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"root\":{\"id\":\"<uuid>\",\"path\":\"/private<workspace>/project\",\"name\":\"project\"},\"capabilities\":{\"taskConversations\":1,\"handoff\":1,\"desktopActions\":1,\"formatRegistry\":1,\"dashboard\":1,\"projectGame\":1,\"recordings\":1,\"projectDevices\":1,\"externalDeclarations\":1,\"agentConversations\":1,\"tracker\":1,\"layeredUpdates\":1,\"scriptActions\":1,\"ide\":1,\"agentsMenu\":1,\"agentToken\":1,\"taskWrites\":1,\"agentSpawn\":1,\"projectGameLaunch\":1},\"sessions\":[{\"id\":\"<uuid>\",\"rootId\":\"<uuid>\",\"type\":\"terminal\",\"title\":\"Terminal · project\",\"pid\":111,\"state\":\"running\",\"createdAt\":1700000000000,\"cols\":100,\"rows\":30,\"sequence\":1}],\"drafts\":[],\"conversations\":[],\"agent\":{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111}}"
+     }
+    ],
+    "structuredContent": {
+     "root": {
+      "id": "<uuid>",
+      "path": "/private<workspace>/project",
+      "name": "project"
+     },
+     "capabilities": {
+      "taskConversations": 1,
+      "handoff": 1,
+      "desktopActions": 1,
+      "formatRegistry": 1,
+      "dashboard": 1,
+      "projectGame": 1,
+      "recordings": 1,
+      "projectDevices": 1,
+      "externalDeclarations": 1,
+      "agentConversations": 1,
+      "tracker": 1,
+      "layeredUpdates": 1,
+      "scriptActions": 1,
+      "ide": 1,
+      "agentsMenu": 1,
+      "agentToken": 1,
+      "taskWrites": 1,
+      "agentSpawn": 1,
+      "projectGameLaunch": 1
+     },
+     "sessions": [
+      {
+       "id": "<uuid>",
+       "rootId": "<uuid>",
+       "type": "terminal",
+       "title": "Terminal · project",
+       "pid": 111,
+       "state": "running",
+       "createdAt": 1700000000000,
+       "cols": 100,
+       "rows": 30,
+       "sequence": 1
+      }
+     ],
+     "drafts": [],
+     "conversations": [],
+     "agent": {
+      "agentId": "<uuid>",
+      "label": "parity",
+      "pid": 111
+     }
+    }
+   }
+  },
+  {
+   "name": "list_files",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"path\":\"\",\"truncated\":false,\"entries\":[{\"name\":\".rengine\",\"path\":\".rengine\",\"directory\":true,\"symlink\":false,\"children\":1},{\"name\":\"tools\",\"path\":\"tools\",\"directory\":true,\"symlink\":false,\"children\":1},{\"name\":\"features.json\",\"path\":\"features.json\",\"directory\":false,\"symlink\":false},{\"name\":\"note.txt\",\"path\":\"note.txt\",\"directory\":false,\"symlink\":false},{\"name\":\"sample.pack\",\"path\":\"sample.pack\",\"directory\":false,\"symlink\":false},{\"name\":\"say.sh\",\"path\":\"say.sh\",\"directory\":false,\"symlink\":false}]}"
+     }
+    ],
+    "structuredContent": {
+     "path": "",
+     "truncated": false,
+     "entries": [
+      {
+       "name": ".rengine",
+       "path": ".rengine",
+       "directory": true,
+       "symlink": false,
+       "children": 1
+      },
+      {
+       "name": "tools",
+       "path": "tools",
+       "directory": true,
+       "symlink": false,
+       "children": 1
+      },
+      {
+       "name": "features.json",
+       "path": "features.json",
+       "directory": false,
+       "symlink": false
+      },
+      {
+       "name": "note.txt",
+       "path": "note.txt",
+       "directory": false,
+       "symlink": false
+      },
+      {
+       "name": "sample.pack",
+       "path": "sample.pack",
+       "directory": false,
+       "symlink": false
+      },
+      {
+       "name": "say.sh",
+       "path": "say.sh",
+       "directory": false,
+       "symlink": false
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "list_files",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"path\":\".rengine\",\"truncated\":false,\"entries\":[{\"name\":\"project.json\",\"path\":\".rengine/project.json\",\"directory\":false,\"symlink\":false}]}"
+     }
+    ],
+    "structuredContent": {
+     "path": ".rengine",
+     "truncated": false,
+     "entries": [
+      {
+       "name": "project.json",
+       "path": ".rengine/project.json",
+       "directory": false,
+       "symlink": false
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "read_file",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"path\":\"note.txt\",\"version\":\"<hex>\",\"startLine\":1,\"totalLines\":4,\"draftAvailable\":false,\"usingDraft\":false,\"text\":\"first line\\nsecond line\\nthird line\\n\",\"truncated\":false}"
+     }
+    ],
+    "structuredContent": {
+     "path": "note.txt",
+     "version": "<hex>",
+     "startLine": 1,
+     "totalLines": 4,
+     "draftAvailable": false,
+     "usingDraft": false,
+     "text": "first line\nsecond line\nthird line\n",
+     "truncated": false
+    }
+   }
+  },
+  {
+   "name": "read_file",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"path\":\"note.txt\",\"version\":\"<hex>\",\"startLine\":2,\"totalLines\":4,\"draftAvailable\":false,\"usingDraft\":false,\"text\":\"second line\",\"truncated\":true}"
+     }
+    ],
+    "structuredContent": {
+     "path": "note.txt",
+     "version": "<hex>",
+     "startLine": 2,
+     "totalLines": 4,
+     "draftAvailable": false,
+     "usingDraft": false,
+     "text": "second line",
+     "truncated": true
+    }
+   }
+  },
+  {
+   "name": "read_file",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "File is outside the selected project root."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "read_file",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "ENOENT: no such file or directory, realpath '<root>/missing.txt'"
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "list_sessions",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"sessions\":[{\"id\":\"<uuid>\",\"rootId\":\"<uuid>\",\"type\":\"terminal\",\"title\":\"Terminal · project\",\"pid\":111,\"state\":\"running\",\"createdAt\":1700000000000,\"cols\":100,\"rows\":30,\"sequence\":1}]}"
+     }
+    ],
+    "structuredContent": {
+     "sessions": [
+      {
+       "id": "<uuid>",
+       "rootId": "<uuid>",
+       "type": "terminal",
+       "title": "Terminal · project",
+       "pid": 111,
+       "state": "running",
+       "createdAt": 1700000000000,
+       "cols": 100,
+       "rows": 30,
+       "sequence": 1
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "session_output",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"id\":\"<uuid>\",\"rootId\":\"<uuid>\",\"type\":\"terminal\",\"title\":\"Terminal · project\",\"pid\":111,\"state\":\"running\",\"createdAt\":1700000000000,\"cols\":100,\"rows\":30,\"sequence\":1,\"output\":\"pane output line\\r\\n\",\"truncated\":false}"
+     }
+    ],
+    "structuredContent": {
+     "id": "<uuid>",
+     "rootId": "<uuid>",
+     "type": "terminal",
+     "title": "Terminal · project",
+     "pid": 111,
+     "state": "running",
+     "createdAt": 1700000000000,
+     "cols": 100,
+     "rows": 30,
+     "sequence": 1,
+     "output": "pane output line\r\n",
+     "truncated": false
+    }
+   }
+  },
+  {
+   "name": "session_output",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"id\":\"<uuid>\",\"rootId\":\"<uuid>\",\"type\":\"terminal\",\"title\":\"Terminal · project\",\"pid\":111,\"state\":\"running\",\"createdAt\":1700000000000,\"cols\":100,\"rows\":30,\"sequence\":1,\"output\":\"utput line\\r\\n\",\"truncated\":true}"
+     }
+    ],
+    "structuredContent": {
+     "id": "<uuid>",
+     "rootId": "<uuid>",
+     "type": "terminal",
+     "title": "Terminal · project",
+     "pid": 111,
+     "state": "running",
+     "createdAt": 1700000000000,
+     "cols": 100,
+     "rows": 30,
+     "sequence": 1,
+     "output": "utput line\r\n",
+     "truncated": true
+    }
+   }
+  },
+  {
+   "name": "show_session",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "Desktop is not attached to this project."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "list_desktops",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"desktops\":[]}"
+     }
+    ],
+    "structuredContent": {
+     "desktops": []
+    }
+   }
+  },
+  {
+   "name": "reload_desktop",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "The project token for this root is free, and reload_desktop needs it. Nothing was attempted. Call token_contest: a free token is claimed at once."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "update_status",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "Unknown workspace endpoint."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "update_workspace",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "The project token for this root is free, and update_workspace needs it. Nothing was attempted. Call token_contest: a free token is claimed at once."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "list_project_windows",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "Project-window control needs the current runtime supervisor. Use the documented context-bound bootstrap."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "project_window_action",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "Project-window control needs the current runtime supervisor. Use the documented context-bound bootstrap."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "integration_inbox",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "Project-window control needs the current runtime supervisor. Use the documented context-bound bootstrap."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "report_integration",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "Project-window control needs the current runtime supervisor. Use the documented context-bound bootstrap."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "open_project_window",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "Project-window control needs the current runtime supervisor. Use the documented context-bound bootstrap."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "open_script",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "The project token for this root is free, and open_script needs it. Nothing was attempted. Call token_contest: a free token is claimed at once."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "dashboard_actions",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"rootId\":\"<uuid>\",\"declared\":true,\"contract\":6,\"title\":\"Fixture\",\"groups\":[{\"id\":\"verify\",\"title\":\"Verify\",\"actions\":[{\"id\":\"echo\",\"title\":\"Echo\",\"description\":\"Says hello.\",\"kind\":\"script\",\"script\":\"say.sh\",\"args\":[\"hello\"],\"device\":{\"id\":\"local\",\"kind\":\"local\",\"title\":\"This machine\",\"reachable\":true,\"checkedAt\":\"<time>\",\"issues\":[]},\"available\":true,\"missing\":[]}]}]}"
+     }
+    ],
+    "structuredContent": {
+     "rootId": "<uuid>",
+     "declared": true,
+     "contract": 6,
+     "title": "Fixture",
+     "groups": [
+      {
+       "id": "verify",
+       "title": "Verify",
+       "actions": [
+        {
+         "id": "echo",
+         "title": "Echo",
+         "description": "Says hello.",
+         "kind": "script",
+         "script": "say.sh",
+         "args": [
+          "hello"
+         ],
+         "device": {
+          "id": "local",
+          "kind": "local",
+          "title": "This machine",
+          "reachable": true,
+          "checkedAt": "<time>",
+          "issues": []
+         },
+         "available": true,
+         "missing": []
+        }
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "dashboard_capture",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "The project token for this root is free, and dashboard_capture needs it. Nothing was attempted. Call token_contest: a free token is claimed at once."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "show_session",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "Session is not bound to this project."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "session_output",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "Session is not bound to this project."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "preview_file",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "No registered format matches note.txt."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "preview_file",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "File is outside the selected project root."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "devices",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"rootId\":\"<uuid>\",\"declared\":true,\"contract\":6,\"refreshed\":false,\"devices\":[{\"id\":\"local\",\"kind\":\"local\",\"title\":\"This machine\",\"reachable\":true,\"checkedAt\":\"<time>\",\"issues\":[],\"declared\":false,\"probed\":false,\"games\":[],\"actions\":[\"echo\"],\"controls\":[{\"id\":\"echo\",\"title\":\"Echo\",\"kind\":\"script\",\"available\":true,\"missing\":[]}],\"targets\":[]}]}"
+     }
+    ],
+    "structuredContent": {
+     "rootId": "<uuid>",
+     "declared": true,
+     "contract": 6,
+     "refreshed": false,
+     "devices": [
+      {
+       "id": "local",
+       "kind": "local",
+       "title": "This machine",
+       "reachable": true,
+       "checkedAt": "<time>",
+       "issues": [],
+       "declared": false,
+       "probed": false,
+       "games": [],
+       "actions": [
+        "echo"
+       ],
+       "controls": [
+        {
+         "id": "echo",
+         "title": "Echo",
+         "kind": "script",
+         "available": true,
+         "missing": []
+        }
+       ],
+       "targets": []
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "list_tasks",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"rootId\":\"<uuid>\",\"declared\":true,\"provider\":\"local\",\"rows\":[{\"id\":\"1\",\"key\":\"F1\",\"title\":\"The parent task\",\"state\":{\"id\":\"ready\",\"name\":\"ready\",\"category\":\"unstarted\"},\"priority\":\"high\",\"labels\":[\"M0\",\"core\"],\"assignee\":null,\"url\":null,\"updatedAt\":null,\"blockedBy\":[],\"criteria\":[\"The write runs the project’s own command\",\"Nothing is edited by hand\"],\"evidence\":[],\"tests\":[]},{\"id\":\"2\",\"key\":\"F2\",\"title\":\"A task that is done\",\"state\":{\"id\":\"passing\",\"name\":\"passing\",\"category\":\"completed\"},\"priority\":\"low\",\"labels\":[],\"assignee\":null,\"url\":null,\"updatedAt\":null,\"blockedBy\":[\"F1\"],\"criteria\":[],\"evidence\":[],\"tests\":[]}],\"categories\":[\"backlog\",\"unstarted\",\"started\",\"completed\",\"canceled\",\"blocked\"],\"contract\":6,\"fresh\":true}"
+     }
+    ],
+    "structuredContent": {
+     "rootId": "<uuid>",
+     "declared": true,
+     "provider": "local",
+     "rows": [
+      {
+       "id": "1",
+       "key": "F1",
+       "title": "The parent task",
+       "state": {
+        "id": "ready",
+        "name": "ready",
+        "category": "unstarted"
+       },
+       "priority": "high",
+       "labels": [
+        "M0",
+        "core"
+       ],
+       "assignee": null,
+       "url": null,
+       "updatedAt": null,
+       "blockedBy": [],
+       "criteria": [
+        "The write runs the project’s own command",
+        "Nothing is edited by hand"
+       ],
+       "evidence": [],
+       "tests": []
+      },
+      {
+       "id": "2",
+       "key": "F2",
+       "title": "A task that is done",
+       "state": {
+        "id": "passing",
+        "name": "passing",
+        "category": "completed"
+       },
+       "priority": "low",
+       "labels": [],
+       "assignee": null,
+       "url": null,
+       "updatedAt": null,
+       "blockedBy": [
+        "F1"
+       ],
+       "criteria": [],
+       "evidence": [],
+       "tests": []
+      }
+     ],
+     "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+     ],
+     "contract": 6,
+     "fresh": true
+    }
+   }
+  },
+  {
+   "name": "list_agents_menu",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"rootId\":\"<uuid>\",\"declared\":false,\"agents\":[{\"cli\":\"claude\",\"installed\":true,\"models\":[\"claude-fable-5-1\",\"claude-opus-5\",\"claude-sonnet-5\",\"claude-haiku-4-5-20251001\"],\"default\":\"claude-opus-5\"},{\"cli\":\"codex\",\"installed\":true,\"models\":[],\"default\":\"\"},{\"cli\":\"gemini\",\"installed\":false,\"models\":[],\"default\":\"\"},{\"cli\":\"opencode\",\"installed\":true,\"models\":[],\"default\":\"\"},{\"cli\":\"kimi\",\"installed\":true,\"models\":[],\"default\":\"\"}],\"live\":[]}"
+     }
+    ],
+    "structuredContent": {
+     "rootId": "<uuid>",
+     "declared": false,
+     "agents": [
+      {
+       "cli": "claude",
+       "installed": true,
+       "models": [
+        "claude-fable-5-1",
+        "claude-opus-5",
+        "claude-sonnet-5",
+        "claude-haiku-4-5-20251001"
+       ],
+       "default": "claude-opus-5"
+      },
+      {
+       "cli": "codex",
+       "installed": true,
+       "models": [],
+       "default": ""
+      },
+      {
+       "cli": "gemini",
+       "installed": false,
+       "models": [],
+       "default": ""
+      },
+      {
+       "cli": "opencode",
+       "installed": true,
+       "models": [],
+       "default": ""
+      },
+      {
+       "cli": "kimi",
+       "installed": true,
+       "models": [],
+       "default": ""
+      }
+     ],
+     "live": []
+    }
+   }
+  },
+  {
+   "name": "game_preflight",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"rootId\":\"<uuid>\",\"declared\":false,\"args\":[],\"cwd\":\"/private<workspace>/project\",\"issues\":[\"This project declares no games in .rengine/project.json (contract 3).\"],\"ready\":false}"
+     }
+    ],
+    "structuredContent": {
+     "rootId": "<uuid>",
+     "declared": false,
+     "args": [],
+     "cwd": "/private<workspace>/project",
+     "issues": [
+      "This project declares no games in .rengine/project.json (contract 3)."
+     ],
+     "ready": false
+    }
+   }
+  },
+  {
+   "name": "launch_game",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "The project token for this root is free, and launch_game needs it. Nothing was attempted. Call token_contest: a free token is claimed at once."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "recordings_list",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"rootId\":\"<uuid>\",\"path\":\".cache/recordings\",\"truncated\":false,\"recordings\":[]}"
+     }
+    ],
+    "structuredContent": {
+     "rootId": "<uuid>",
+     "path": ".cache/recordings",
+     "truncated": false,
+     "recordings": []
+    }
+   }
+  },
+  {
+   "name": "recording_read",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "Unknown recording none in this project."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "token_status",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"rootId\":\"<uuid>\",\"holder\":null,\"window\":60000,\"contest\":null,\"holdsToken\":false,\"holderAlive\":null,\"cooldown\":{},\"identities\":[{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\"}],\"sequence\":1,\"tokenSequence\":0,\"feedCursor\":1,\"history\":[{\"sequence\":1,\"at\":\"<time>\",\"type\":\"workspace.updated\",\"by\":{\"kind\":\"workspace\",\"pid\":111}}],\"caller\":{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111},\"refusal\":\"The project token for this root is free, and needs it. Nothing was attempted. Call token_contest: a free token is claimed at once.\",\"feed\":\"ws://127.0.0.1:<port>/feed?rootId=<uuid>&token=<hex>\"}"
+     }
+    ],
+    "structuredContent": {
+     "rootId": "<uuid>",
+     "holder": null,
+     "window": 60000,
+     "contest": null,
+     "holdsToken": false,
+     "holderAlive": null,
+     "cooldown": {},
+     "identities": [
+      {
+       "agentId": "<uuid>",
+       "label": "parity",
+       "pid": 111,
+       "firstSeenAt": "<time>",
+       "lastSeenAt": "<time>"
+      }
+     ],
+     "sequence": 1,
+     "tokenSequence": 0,
+     "feedCursor": 1,
+     "history": [
+      {
+       "sequence": 1,
+       "at": "<time>",
+       "type": "workspace.updated",
+       "by": {
+        "kind": "workspace",
+        "pid": 111
+       }
+      }
+     ],
+     "caller": {
+      "agentId": "<uuid>",
+      "label": "parity",
+      "pid": 111
+     },
+     "refusal": "The project token for this root is free, and needs it. Nothing was attempted. Call token_contest: a free token is claimed at once.",
+     "feed": "ws://127.0.0.1:<port>/feed?rootId=<uuid>&token=<hex>"
+    }
+   }
+  },
+  {
+   "name": "token_contest",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"state\":\"claimed\",\"holder\":{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111,\"since\":\"<time>\"},\"by\":\"agent\",\"status\":{\"rootId\":\"<uuid>\",\"holder\":{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111,\"since\":\"<time>\"},\"window\":60000,\"contest\":null,\"holdsToken\":true,\"holderAlive\":true,\"cooldown\":{},\"identities\":[{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\"}],\"sequence\":2,\"tokenSequence\":2,\"feedCursor\":2,\"history\":[{\"sequence\":1,\"at\":\"<time>\",\"type\":\"workspace.updated\",\"by\":{\"kind\":\"workspace\",\"pid\":111}},{\"sequence\":2,\"at\":\"<time>\",\"type\":\"token.claimed\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}}]}}"
+     }
+    ],
+    "structuredContent": {
+     "state": "claimed",
+     "holder": {
+      "agentId": "<uuid>",
+      "label": "parity",
+      "pid": 111,
+      "since": "<time>"
+     },
+     "by": "agent",
+     "status": {
+      "rootId": "<uuid>",
+      "holder": {
+       "agentId": "<uuid>",
+       "label": "parity",
+       "pid": 111,
+       "since": "<time>"
+      },
+      "window": 60000,
+      "contest": null,
+      "holdsToken": true,
+      "holderAlive": true,
+      "cooldown": {},
+      "identities": [
+       {
+        "agentId": "<uuid>",
+        "label": "parity",
+        "pid": 111,
+        "firstSeenAt": "<time>",
+        "lastSeenAt": "<time>"
+       }
+      ],
+      "sequence": 2,
+      "tokenSequence": 2,
+      "feedCursor": 2,
+      "history": [
+       {
+        "sequence": 1,
+        "at": "<time>",
+        "type": "workspace.updated",
+        "by": {
+         "kind": "workspace",
+         "pid": 111
+        }
+       },
+       {
+        "sequence": 2,
+        "at": "<time>",
+        "type": "token.claimed",
+        "by": {
+         "kind": "agent",
+         "agentId": "<uuid>",
+         "label": "parity"
+        }
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "token_status",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"rootId\":\"<uuid>\",\"holder\":{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111,\"since\":\"<time>\"},\"window\":60000,\"contest\":null,\"holdsToken\":true,\"holderAlive\":true,\"cooldown\":{},\"identities\":[{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\"}],\"sequence\":2,\"tokenSequence\":2,\"feedCursor\":2,\"history\":[{\"sequence\":1,\"at\":\"<time>\",\"type\":\"workspace.updated\",\"by\":{\"kind\":\"workspace\",\"pid\":111}},{\"sequence\":2,\"at\":\"<time>\",\"type\":\"token.claimed\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}}],\"caller\":{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111},\"refusal\":null,\"feed\":\"ws://127.0.0.1:<port>/feed?rootId=<uuid>&token=<hex>\"}"
+     }
+    ],
+    "structuredContent": {
+     "rootId": "<uuid>",
+     "holder": {
+      "agentId": "<uuid>",
+      "label": "parity",
+      "pid": 111,
+      "since": "<time>"
+     },
+     "window": 60000,
+     "contest": null,
+     "holdsToken": true,
+     "holderAlive": true,
+     "cooldown": {},
+     "identities": [
+      {
+       "agentId": "<uuid>",
+       "label": "parity",
+       "pid": 111,
+       "firstSeenAt": "<time>",
+       "lastSeenAt": "<time>"
+      }
+     ],
+     "sequence": 2,
+     "tokenSequence": 2,
+     "feedCursor": 2,
+     "history": [
+      {
+       "sequence": 1,
+       "at": "<time>",
+       "type": "workspace.updated",
+       "by": {
+        "kind": "workspace",
+        "pid": 111
+       }
+      },
+      {
+       "sequence": 2,
+       "at": "<time>",
+       "type": "token.claimed",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      }
+     ],
+     "caller": {
+      "agentId": "<uuid>",
+      "label": "parity",
+      "pid": 111
+     },
+     "refusal": null,
+     "feed": "ws://127.0.0.1:<port>/feed?rootId=<uuid>&token=<hex>"
+    }
+   }
+  },
+  {
+   "name": "task_add",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"rootId\":\"<uuid>\",\"action\":\"add\",\"key\":\"F700\",\"command\":[\"tools/write-task.mjs\",\"{\\\"id\\\":700,\\\"key\\\":\\\"F700\\\",\\\"description\\\":\\\"from the conversation\\\",\\\"action\\\":\\\"add\\\"}\"],\"durationMs\":111,\"stdout\":\"{\\\"wrote\\\":700,\\\"action\\\":\\\"add\\\",\\\"parent\\\":null}\\n\",\"result\":{\"wrote\":700,\"action\":\"add\",\"parent\":null},\"sequence\":3,\"tracker\":{\"rootId\":\"<uuid>\",\"declared\":true,\"provider\":\"local\",\"rows\":[{\"id\":\"1\",\"key\":\"F1\",\"title\":\"The parent task\",\"state\":{\"id\":\"ready\",\"name\":\"ready\",\"category\":\"unstarted\"},\"priority\":\"high\",\"labels\":[\"M0\",\"core\"],\"assignee\":null,\"url\":null,\"updatedAt\":null,\"blockedBy\":[],\"criteria\":[\"The write runs the project’s own command\",\"Nothing is edited by hand\"],\"evidence\":[],\"tests\":[]},{\"id\":\"2\",\"key\":\"F2\",\"title\":\"A task that is done\",\"state\":{\"id\":\"passing\",\"name\":\"passing\",\"category\":\"completed\"},\"priority\":\"low\",\"labels\":[],\"assignee\":null,\"url\":null,\"updatedAt\":null,\"blockedBy\":[\"F1\"],\"criteria\":[],\"evidence\":[],\"tests\":[]},{\"id\":\"700\",\"key\":\"F700\",\"title\":\"from the conversation\",\"state\":{\"id\":\"ready\",\"name\":\"ready\",\"category\":\"unstarted\"},\"priority\":\"medium\",\"labels\":[],\"assignee\":null,\"url\":null,\"updatedAt\":null,\"blockedBy\":[],\"criteria\":[],\"evidence\":[],\"tests\":[]}],\"categories\":[\"backlog\",\"unstarted\",\"started\",\"completed\",\"canceled\",\"blocked\"],\"contract\":6,\"fresh\":true}}"
+     }
+    ],
+    "structuredContent": {
+     "rootId": "<uuid>",
+     "action": "add",
+     "key": "F700",
+     "command": [
+      "tools/write-task.mjs",
+      "{\"id\":700,\"key\":\"F700\",\"description\":\"from the conversation\",\"action\":\"add\"}"
+     ],
+     "durationMs": 111,
+     "stdout": "{\"wrote\":700,\"action\":\"add\",\"parent\":null}\n",
+     "result": {
+      "wrote": 700,
+      "action": "add",
+      "parent": null
+     },
+     "sequence": 3,
+     "tracker": {
+      "rootId": "<uuid>",
+      "declared": true,
+      "provider": "local",
+      "rows": [
+       {
+        "id": "1",
+        "key": "F1",
+        "title": "The parent task",
+        "state": {
+         "id": "ready",
+         "name": "ready",
+         "category": "unstarted"
+        },
+        "priority": "high",
+        "labels": [
+         "M0",
+         "core"
+        ],
+        "assignee": null,
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [
+         "The write runs the project’s own command",
+         "Nothing is edited by hand"
+        ],
+        "evidence": [],
+        "tests": []
+       },
+       {
+        "id": "2",
+        "key": "F2",
+        "title": "A task that is done",
+        "state": {
+         "id": "passing",
+         "name": "passing",
+         "category": "completed"
+        },
+        "priority": "low",
+        "labels": [],
+        "assignee": null,
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [
+         "F1"
+        ],
+        "criteria": [],
+        "evidence": [],
+        "tests": []
+       },
+       {
+        "id": "700",
+        "key": "F700",
+        "title": "from the conversation",
+        "state": {
+         "id": "ready",
+         "name": "ready",
+         "category": "unstarted"
+        },
+        "priority": "medium",
+        "labels": [],
+        "assignee": null,
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [],
+        "evidence": [],
+        "tests": []
+       }
+      ],
+      "categories": [
+       "backlog",
+       "unstarted",
+       "started",
+       "completed",
+       "canceled",
+       "blocked"
+      ],
+      "contract": 6,
+      "fresh": true
+     }
+    }
+   }
+  },
+  {
+   "name": "task_update",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"rootId\":\"<uuid>\",\"action\":\"update\",\"key\":\"F700\",\"command\":[\"tools/write-task.mjs\",\"{\\\"key\\\":\\\"F700\\\",\\\"description\\\":\\\"updated by the conversation\\\",\\\"action\\\":\\\"update\\\"}\"],\"durationMs\":111,\"stdout\":\"{\\\"wrote\\\":700,\\\"action\\\":\\\"update\\\",\\\"parent\\\":null}\\n\",\"result\":{\"wrote\":700,\"action\":\"update\",\"parent\":null},\"sequence\":4,\"tracker\":{\"rootId\":\"<uuid>\",\"declared\":true,\"provider\":\"local\",\"rows\":[{\"id\":\"1\",\"key\":\"F1\",\"title\":\"The parent task\",\"state\":{\"id\":\"ready\",\"name\":\"ready\",\"category\":\"unstarted\"},\"priority\":\"high\",\"labels\":[\"M0\",\"core\"],\"assignee\":null,\"url\":null,\"updatedAt\":null,\"blockedBy\":[],\"criteria\":[\"The write runs the project’s own command\",\"Nothing is edited by hand\"],\"evidence\":[],\"tests\":[]},{\"id\":\"2\",\"key\":\"F2\",\"title\":\"A task that is done\",\"state\":{\"id\":\"passing\",\"name\":\"passing\",\"category\":\"completed\"},\"priority\":\"low\",\"labels\":[],\"assignee\":null,\"url\":null,\"updatedAt\":null,\"blockedBy\":[\"F1\"],\"criteria\":[],\"evidence\":[],\"tests\":[]},{\"id\":\"700\",\"key\":\"F700\",\"title\":\"updated by the conversation\",\"state\":{\"id\":\"ready\",\"name\":\"ready\",\"category\":\"unstarted\"},\"priority\":\"medium\",\"labels\":[],\"assignee\":null,\"url\":null,\"updatedAt\":null,\"blockedBy\":[],\"criteria\":[],\"evidence\":[],\"tests\":[]}],\"categories\":[\"backlog\",\"unstarted\",\"started\",\"completed\",\"canceled\",\"blocked\"],\"contract\":6,\"fresh\":true}}"
+     }
+    ],
+    "structuredContent": {
+     "rootId": "<uuid>",
+     "action": "update",
+     "key": "F700",
+     "command": [
+      "tools/write-task.mjs",
+      "{\"key\":\"F700\",\"description\":\"updated by the conversation\",\"action\":\"update\"}"
+     ],
+     "durationMs": 111,
+     "stdout": "{\"wrote\":700,\"action\":\"update\",\"parent\":null}\n",
+     "result": {
+      "wrote": 700,
+      "action": "update",
+      "parent": null
+     },
+     "sequence": 4,
+     "tracker": {
+      "rootId": "<uuid>",
+      "declared": true,
+      "provider": "local",
+      "rows": [
+       {
+        "id": "1",
+        "key": "F1",
+        "title": "The parent task",
+        "state": {
+         "id": "ready",
+         "name": "ready",
+         "category": "unstarted"
+        },
+        "priority": "high",
+        "labels": [
+         "M0",
+         "core"
+        ],
+        "assignee": null,
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [
+         "The write runs the project’s own command",
+         "Nothing is edited by hand"
+        ],
+        "evidence": [],
+        "tests": []
+       },
+       {
+        "id": "2",
+        "key": "F2",
+        "title": "A task that is done",
+        "state": {
+         "id": "passing",
+         "name": "passing",
+         "category": "completed"
+        },
+        "priority": "low",
+        "labels": [],
+        "assignee": null,
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [
+         "F1"
+        ],
+        "criteria": [],
+        "evidence": [],
+        "tests": []
+       },
+       {
+        "id": "700",
+        "key": "F700",
+        "title": "updated by the conversation",
+        "state": {
+         "id": "ready",
+         "name": "ready",
+         "category": "unstarted"
+        },
+        "priority": "medium",
+        "labels": [],
+        "assignee": null,
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [],
+        "evidence": [],
+        "tests": []
+       }
+      ],
+      "categories": [
+       "backlog",
+       "unstarted",
+       "started",
+       "completed",
+       "canceled",
+       "blocked"
+      ],
+      "contract": 6,
+      "fresh": true
+     }
+    }
+   }
+  },
+  {
+   "name": "task_decompose",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"rootId\":\"<uuid>\",\"action\":\"decompose\",\"key\":\"F701\",\"command\":[\"tools/write-task.mjs\",\"{\\\"id\\\":701,\\\"key\\\":\\\"F701\\\",\\\"description\\\":\\\"a child\\\",\\\"parent\\\":\\\"F700\\\",\\\"action\\\":\\\"decompose\\\"}\"],\"durationMs\":111,\"stdout\":\"{\\\"wrote\\\":701,\\\"action\\\":\\\"decompose\\\",\\\"parent\\\":\\\"F700\\\"}\\n\",\"result\":{\"wrote\":701,\"action\":\"decompose\",\"parent\":\"F700\"},\"sequence\":5,\"tracker\":{\"rootId\":\"<uuid>\",\"declared\":true,\"provider\":\"local\",\"rows\":[{\"id\":\"1\",\"key\":\"F1\",\"title\":\"The parent task\",\"state\":{\"id\":\"ready\",\"name\":\"ready\",\"category\":\"unstarted\"},\"priority\":\"high\",\"labels\":[\"M0\",\"core\"],\"assignee\":null,\"url\":null,\"updatedAt\":null,\"blockedBy\":[],\"criteria\":[\"The write runs the project’s own command\",\"Nothing is edited by hand\"],\"evidence\":[],\"tests\":[]},{\"id\":\"2\",\"key\":\"F2\",\"title\":\"A task that is done\",\"state\":{\"id\":\"passing\",\"name\":\"passing\",\"category\":\"completed\"},\"priority\":\"low\",\"labels\":[],\"assignee\":null,\"url\":null,\"updatedAt\":null,\"blockedBy\":[\"F1\"],\"criteria\":[],\"evidence\":[],\"tests\":[]},{\"id\":\"700\",\"key\":\"F700\",\"title\":\"updated by the conversation\",\"state\":{\"id\":\"ready\",\"name\":\"ready\",\"category\":\"unstarted\"},\"priority\":\"medium\",\"labels\":[],\"assignee\":null,\"url\":null,\"updatedAt\":null,\"blockedBy\":[],\"criteria\":[],\"evidence\":[],\"tests\":[]},{\"id\":\"701\",\"key\":\"F701\",\"title\":\"a child\",\"state\":{\"id\":\"ready\",\"name\":\"ready\",\"category\":\"unstarted\"},\"priority\":\"medium\",\"labels\":[],\"assignee\":null,\"url\":null,\"updatedAt\":null,\"blockedBy\":[],\"criteria\":[],\"evidence\":[],\"tests\":[]}],\"categories\":[\"backlog\",\"unstarted\",\"started\",\"completed\",\"canceled\",\"blocked\"],\"contract\":6,\"fresh\":true}}"
+     }
+    ],
+    "structuredContent": {
+     "rootId": "<uuid>",
+     "action": "decompose",
+     "key": "F701",
+     "command": [
+      "tools/write-task.mjs",
+      "{\"id\":701,\"key\":\"F701\",\"description\":\"a child\",\"parent\":\"F700\",\"action\":\"decompose\"}"
+     ],
+     "durationMs": 111,
+     "stdout": "{\"wrote\":701,\"action\":\"decompose\",\"parent\":\"F700\"}\n",
+     "result": {
+      "wrote": 701,
+      "action": "decompose",
+      "parent": "F700"
+     },
+     "sequence": 5,
+     "tracker": {
+      "rootId": "<uuid>",
+      "declared": true,
+      "provider": "local",
+      "rows": [
+       {
+        "id": "1",
+        "key": "F1",
+        "title": "The parent task",
+        "state": {
+         "id": "ready",
+         "name": "ready",
+         "category": "unstarted"
+        },
+        "priority": "high",
+        "labels": [
+         "M0",
+         "core"
+        ],
+        "assignee": null,
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [
+         "The write runs the project’s own command",
+         "Nothing is edited by hand"
+        ],
+        "evidence": [],
+        "tests": []
+       },
+       {
+        "id": "2",
+        "key": "F2",
+        "title": "A task that is done",
+        "state": {
+         "id": "passing",
+         "name": "passing",
+         "category": "completed"
+        },
+        "priority": "low",
+        "labels": [],
+        "assignee": null,
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [
+         "F1"
+        ],
+        "criteria": [],
+        "evidence": [],
+        "tests": []
+       },
+       {
+        "id": "700",
+        "key": "F700",
+        "title": "updated by the conversation",
+        "state": {
+         "id": "ready",
+         "name": "ready",
+         "category": "unstarted"
+        },
+        "priority": "medium",
+        "labels": [],
+        "assignee": null,
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [],
+        "evidence": [],
+        "tests": []
+       },
+       {
+        "id": "701",
+        "key": "F701",
+        "title": "a child",
+        "state": {
+         "id": "ready",
+         "name": "ready",
+         "category": "unstarted"
+        },
+        "priority": "medium",
+        "labels": [],
+        "assignee": null,
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [],
+        "evidence": [],
+        "tests": []
+       }
+      ],
+      "categories": [
+       "backlog",
+       "unstarted",
+       "started",
+       "completed",
+       "canceled",
+       "blocked"
+      ],
+      "contract": 6,
+      "fresh": true
+     }
+    }
+   }
+  },
+  {
+   "name": "list_tasks",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"rootId\":\"<uuid>\",\"declared\":true,\"provider\":\"local\",\"rows\":[{\"id\":\"1\",\"key\":\"F1\",\"title\":\"The parent task\",\"state\":{\"id\":\"ready\",\"name\":\"ready\",\"category\":\"unstarted\"},\"priority\":\"high\",\"labels\":[\"M0\",\"core\"],\"assignee\":null,\"url\":null,\"updatedAt\":null,\"blockedBy\":[],\"criteria\":[\"The write runs the project’s own command\",\"Nothing is edited by hand\"],\"evidence\":[],\"tests\":[]},{\"id\":\"2\",\"key\":\"F2\",\"title\":\"A task that is done\",\"state\":{\"id\":\"passing\",\"name\":\"passing\",\"category\":\"completed\"},\"priority\":\"low\",\"labels\":[],\"assignee\":null,\"url\":null,\"updatedAt\":null,\"blockedBy\":[\"F1\"],\"criteria\":[],\"evidence\":[],\"tests\":[]},{\"id\":\"700\",\"key\":\"F700\",\"title\":\"updated by the conversation\",\"state\":{\"id\":\"ready\",\"name\":\"ready\",\"category\":\"unstarted\"},\"priority\":\"medium\",\"labels\":[],\"assignee\":null,\"url\":null,\"updatedAt\":null,\"blockedBy\":[],\"criteria\":[],\"evidence\":[],\"tests\":[]},{\"id\":\"701\",\"key\":\"F701\",\"title\":\"a child\",\"state\":{\"id\":\"ready\",\"name\":\"ready\",\"category\":\"unstarted\"},\"priority\":\"medium\",\"labels\":[],\"assignee\":null,\"url\":null,\"updatedAt\":null,\"blockedBy\":[],\"criteria\":[],\"evidence\":[],\"tests\":[]}],\"categories\":[\"backlog\",\"unstarted\",\"started\",\"completed\",\"canceled\",\"blocked\"],\"contract\":6,\"fresh\":true}"
+     }
+    ],
+    "structuredContent": {
+     "rootId": "<uuid>",
+     "declared": true,
+     "provider": "local",
+     "rows": [
+      {
+       "id": "1",
+       "key": "F1",
+       "title": "The parent task",
+       "state": {
+        "id": "ready",
+        "name": "ready",
+        "category": "unstarted"
+       },
+       "priority": "high",
+       "labels": [
+        "M0",
+        "core"
+       ],
+       "assignee": null,
+       "url": null,
+       "updatedAt": null,
+       "blockedBy": [],
+       "criteria": [
+        "The write runs the project’s own command",
+        "Nothing is edited by hand"
+       ],
+       "evidence": [],
+       "tests": []
+      },
+      {
+       "id": "2",
+       "key": "F2",
+       "title": "A task that is done",
+       "state": {
+        "id": "passing",
+        "name": "passing",
+        "category": "completed"
+       },
+       "priority": "low",
+       "labels": [],
+       "assignee": null,
+       "url": null,
+       "updatedAt": null,
+       "blockedBy": [
+        "F1"
+       ],
+       "criteria": [],
+       "evidence": [],
+       "tests": []
+      },
+      {
+       "id": "700",
+       "key": "F700",
+       "title": "updated by the conversation",
+       "state": {
+        "id": "ready",
+        "name": "ready",
+        "category": "unstarted"
+       },
+       "priority": "medium",
+       "labels": [],
+       "assignee": null,
+       "url": null,
+       "updatedAt": null,
+       "blockedBy": [],
+       "criteria": [],
+       "evidence": [],
+       "tests": []
+      },
+      {
+       "id": "701",
+       "key": "F701",
+       "title": "a child",
+       "state": {
+        "id": "ready",
+        "name": "ready",
+        "category": "unstarted"
+       },
+       "priority": "medium",
+       "labels": [],
+       "assignee": null,
+       "url": null,
+       "updatedAt": null,
+       "blockedBy": [],
+       "criteria": [],
+       "evidence": [],
+       "tests": []
+      }
+     ],
+     "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+     ],
+     "contract": 6,
+     "fresh": true
+    }
+   }
+  },
+  {
+   "name": "feed_read",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"cursor\":5,\"retainedFrom\":1,\"frames\":[{\"sequence\":1,\"at\":\"<time>\",\"rootId\":\"<uuid>\",\"type\":\"workspace.updated\",\"by\":{\"kind\":\"workspace\",\"pid\":111},\"layers\":[\"workspace\"],\"generation\":1},{\"sequence\":2,\"at\":\"<time>\",\"rootId\":\"<uuid>\",\"type\":\"token.claimed\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"},\"holder\":{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111,\"since\":\"<time>\"}},{\"sequence\":3,\"at\":\"<time>\",\"rootId\":\"<uuid>\",\"type\":\"task.added\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"},\"key\":\"F700\",\"action\":\"add\"},{\"sequence\":4,\"at\":\"<time>\",\"rootId\":\"<uuid>\",\"type\":\"task.updated\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"},\"key\":\"F700\",\"action\":\"update\"},{\"sequence\":5,\"at\":\"<time>\",\"rootId\":\"<uuid>\",\"type\":\"task.added\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"},\"key\":\"F701\",\"action\":\"decompose\"}],\"rootId\":\"<uuid>\"}"
+     }
+    ],
+    "structuredContent": {
+     "cursor": 5,
+     "retainedFrom": 1,
+     "frames": [
+      {
+       "sequence": 1,
+       "at": "<time>",
+       "rootId": "<uuid>",
+       "type": "workspace.updated",
+       "by": {
+        "kind": "workspace",
+        "pid": 111
+       },
+       "layers": [
+        "workspace"
+       ],
+       "generation": 1
+      },
+      {
+       "sequence": 2,
+       "at": "<time>",
+       "rootId": "<uuid>",
+       "type": "token.claimed",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       },
+       "holder": {
+        "agentId": "<uuid>",
+        "label": "parity",
+        "pid": 111,
+        "since": "<time>"
+       }
+      },
+      {
+       "sequence": 3,
+       "at": "<time>",
+       "rootId": "<uuid>",
+       "type": "task.added",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       },
+       "key": "F700",
+       "action": "add"
+      },
+      {
+       "sequence": 4,
+       "at": "<time>",
+       "rootId": "<uuid>",
+       "type": "task.updated",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       },
+       "key": "F700",
+       "action": "update"
+      },
+      {
+       "sequence": 5,
+       "at": "<time>",
+       "rootId": "<uuid>",
+       "type": "task.added",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       },
+       "key": "F701",
+       "action": "decompose"
+      }
+     ],
+     "rootId": "<uuid>"
+    }
+   }
+  },
+  {
+   "name": "feed_url",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"url\":\"ws://127.0.0.1:<port>/feed?rootId=<uuid>&token=<hex>&after=5\",\"cursor\":5,\"retainedFrom\":1,\"detail\":\"Open this with a WebSocket monitor. Frames arrive as one JSON object per message.\"}"
+     }
+    ],
+    "structuredContent": {
+     "url": "ws://127.0.0.1:<port>/feed?rootId=<uuid>&token=<hex>&after=5",
+     "cursor": 5,
+     "retainedFrom": 1,
+     "detail": "Open this with a WebSocket monitor. Frames arrive as one JSON object per message."
+    }
+   }
+  },
+  {
+   "name": "spawn_agent",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"rootId\":\"<uuid>\",\"taskKey\":\"F700\",\"agent\":\"claude\",\"model\":null,\"brief\":\"task\",\"conversation\":\"<uuid>\",\"session\":{\"id\":\"<uuid>\",\"rootId\":\"<uuid>\",\"type\":\"agent\",\"agent\":\"claude\",\"title\":\"claude <short> · project\",\"pid\":111,\"state\":\"running\",\"createdAt\":1700000000000,\"cols\":100,\"rows\":30,\"sequence\":0,\"conversation\":\"<uuid>\"},\"sequence\":6}"
+     }
+    ],
+    "structuredContent": {
+     "rootId": "<uuid>",
+     "taskKey": "F700",
+     "agent": "claude",
+     "model": null,
+     "brief": "task",
+     "conversation": "<uuid>",
+     "session": {
+      "id": "<uuid>",
+      "rootId": "<uuid>",
+      "type": "agent",
+      "agent": "claude",
+      "title": "claude <short> · project",
+      "pid": 111,
+      "state": "running",
+      "createdAt": 1700000000000,
+      "cols": 100,
+      "rows": 30,
+      "sequence": 0,
+      "conversation": "<uuid>"
+     },
+     "sequence": 6
+    }
+   }
+  },
+  {
+   "name": "stop_session",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "Session is not bound to this project."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "restart_agent",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "Session is not bound to this project."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "token_reject",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "No contest is open on this root."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "token_release",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"state\":\"free\",\"previousHolder\":{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111,\"since\":\"<time>\"},\"status\":{\"rootId\":\"<uuid>\",\"holder\":null,\"window\":60000,\"contest\":null,\"holdsToken\":false,\"holderAlive\":null,\"cooldown\":{},\"identities\":[{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\"}],\"sequence\":7,\"tokenSequence\":7,\"feedCursor\":7,\"history\":[{\"sequence\":1,\"at\":\"<time>\",\"type\":\"workspace.updated\",\"by\":{\"kind\":\"workspace\",\"pid\":111}},{\"sequence\":2,\"at\":\"<time>\",\"type\":\"token.claimed\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":3,\"at\":\"<time>\",\"type\":\"task.added\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":4,\"at\":\"<time>\",\"type\":\"task.updated\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":5,\"at\":\"<time>\",\"type\":\"task.added\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":6,\"at\":\"<time>\",\"type\":\"agent.spawned\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":7,\"at\":\"<time>\",\"type\":\"token.released\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}}]}}"
+     }
+    ],
+    "structuredContent": {
+     "state": "free",
+     "previousHolder": {
+      "agentId": "<uuid>",
+      "label": "parity",
+      "pid": 111,
+      "since": "<time>"
+     },
+     "status": {
+      "rootId": "<uuid>",
+      "holder": null,
+      "window": 60000,
+      "contest": null,
+      "holdsToken": false,
+      "holderAlive": null,
+      "cooldown": {},
+      "identities": [
+       {
+        "agentId": "<uuid>",
+        "label": "parity",
+        "pid": 111,
+        "firstSeenAt": "<time>",
+        "lastSeenAt": "<time>"
+       }
+      ],
+      "sequence": 7,
+      "tokenSequence": 7,
+      "feedCursor": 7,
+      "history": [
+       {
+        "sequence": 1,
+        "at": "<time>",
+        "type": "workspace.updated",
+        "by": {
+         "kind": "workspace",
+         "pid": 111
+        }
+       },
+       {
+        "sequence": 2,
+        "at": "<time>",
+        "type": "token.claimed",
+        "by": {
+         "kind": "agent",
+         "agentId": "<uuid>",
+         "label": "parity"
+        }
+       },
+       {
+        "sequence": 3,
+        "at": "<time>",
+        "type": "task.added",
+        "by": {
+         "kind": "agent",
+         "agentId": "<uuid>",
+         "label": "parity"
+        }
+       },
+       {
+        "sequence": 4,
+        "at": "<time>",
+        "type": "task.updated",
+        "by": {
+         "kind": "agent",
+         "agentId": "<uuid>",
+         "label": "parity"
+        }
+       },
+       {
+        "sequence": 5,
+        "at": "<time>",
+        "type": "task.added",
+        "by": {
+         "kind": "agent",
+         "agentId": "<uuid>",
+         "label": "parity"
+        }
+       },
+       {
+        "sequence": 6,
+        "at": "<time>",
+        "type": "agent.spawned",
+        "by": {
+         "kind": "agent",
+         "agentId": "<uuid>",
+         "label": "parity"
+        }
+       },
+       {
+        "sequence": 7,
+        "at": "<time>",
+        "type": "token.released",
+        "by": {
+         "kind": "agent",
+         "agentId": "<uuid>",
+         "label": "parity"
+        }
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "token_status",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"rootId\":\"<uuid>\",\"holder\":null,\"window\":60000,\"contest\":null,\"holdsToken\":false,\"holderAlive\":null,\"cooldown\":{},\"identities\":[{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\"},{\"agentId\":\"<uuid>\",\"label\":\"claude <short>\",\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\",\"conversation\":true}],\"sequence\":7,\"tokenSequence\":7,\"feedCursor\":7,\"history\":[{\"sequence\":1,\"at\":\"<time>\",\"type\":\"workspace.updated\",\"by\":{\"kind\":\"workspace\",\"pid\":111}},{\"sequence\":2,\"at\":\"<time>\",\"type\":\"token.claimed\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":3,\"at\":\"<time>\",\"type\":\"task.added\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":4,\"at\":\"<time>\",\"type\":\"task.updated\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":5,\"at\":\"<time>\",\"type\":\"task.added\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":6,\"at\":\"<time>\",\"type\":\"agent.spawned\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":7,\"at\":\"<time>\",\"type\":\"token.released\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}}],\"caller\":{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111},\"refusal\":\"The project token for this root is free, and needs it. Nothing was attempted. Call token_contest: a free token is claimed at once.\",\"feed\":\"ws://127.0.0.1:<port>/feed?rootId=<uuid>&token=<hex>\"}"
+     }
+    ],
+    "structuredContent": {
+     "rootId": "<uuid>",
+     "holder": null,
+     "window": 60000,
+     "contest": null,
+     "holdsToken": false,
+     "holderAlive": null,
+     "cooldown": {},
+     "identities": [
+      {
+       "agentId": "<uuid>",
+       "label": "parity",
+       "pid": 111,
+       "firstSeenAt": "<time>",
+       "lastSeenAt": "<time>"
+      },
+      {
+       "agentId": "<uuid>",
+       "label": "claude <short>",
+       "firstSeenAt": "<time>",
+       "lastSeenAt": "<time>",
+       "conversation": true
+      }
+     ],
+     "sequence": 7,
+     "tokenSequence": 7,
+     "feedCursor": 7,
+     "history": [
+      {
+       "sequence": 1,
+       "at": "<time>",
+       "type": "workspace.updated",
+       "by": {
+        "kind": "workspace",
+        "pid": 111
+       }
+      },
+      {
+       "sequence": 2,
+       "at": "<time>",
+       "type": "token.claimed",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      },
+      {
+       "sequence": 3,
+       "at": "<time>",
+       "type": "task.added",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      },
+      {
+       "sequence": 4,
+       "at": "<time>",
+       "type": "task.updated",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      },
+      {
+       "sequence": 5,
+       "at": "<time>",
+       "type": "task.added",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      },
+      {
+       "sequence": 6,
+       "at": "<time>",
+       "type": "agent.spawned",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      },
+      {
+       "sequence": 7,
+       "at": "<time>",
+       "type": "token.released",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      }
+     ],
+     "caller": {
+      "agentId": "<uuid>",
+      "label": "parity",
+      "pid": 111
+     },
+     "refusal": "The project token for this root is free, and needs it. Nothing was attempted. Call token_contest: a free token is claimed at once.",
+     "feed": "ws://127.0.0.1:<port>/feed?rootId=<uuid>&token=<hex>"
+    }
+   }
+  },
+  {
+   "name": "#another-agent-claims",
+   "answer": {
+    "marker": "#another-agent-claims"
+   }
+  },
+  {
+   "name": "token_status",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"rootId\":\"<uuid>\",\"holder\":{\"agentId\":\"<uuid>\",\"label\":\"the-other-agent\",\"pid\":111,\"since\":\"<time>\"},\"window\":60000,\"contest\":null,\"holdsToken\":false,\"holderAlive\":true,\"cooldown\":{},\"identities\":[{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\"},{\"agentId\":\"<uuid>\",\"label\":\"the-other-agent\",\"pid\":111,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\"},{\"agentId\":\"<uuid>\",\"label\":\"claude <short>\",\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\",\"conversation\":true}],\"sequence\":8,\"tokenSequence\":8,\"feedCursor\":8,\"history\":[{\"sequence\":1,\"at\":\"<time>\",\"type\":\"workspace.updated\",\"by\":{\"kind\":\"workspace\",\"pid\":111}},{\"sequence\":2,\"at\":\"<time>\",\"type\":\"token.claimed\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":3,\"at\":\"<time>\",\"type\":\"task.added\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":4,\"at\":\"<time>\",\"type\":\"task.updated\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":5,\"at\":\"<time>\",\"type\":\"task.added\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":6,\"at\":\"<time>\",\"type\":\"agent.spawned\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":7,\"at\":\"<time>\",\"type\":\"token.released\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":8,\"at\":\"<time>\",\"type\":\"token.claimed\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"the-other-agent\"}}],\"caller\":{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111},\"refusal\":\"The project token is held by the-other-agent (<uuid>) since <time> (0s ago), and needs it. Nothing was attempted. Call token_contest to open a 60s window; the holder or the person at the desktop may reject it, otherwise the token transfers to you at the deadline.\",\"feed\":\"ws://127.0.0.1:<port>/feed?rootId=<uuid>&token=<hex>\"}"
+     }
+    ],
+    "structuredContent": {
+     "rootId": "<uuid>",
+     "holder": {
+      "agentId": "<uuid>",
+      "label": "the-other-agent",
+      "pid": 111,
+      "since": "<time>"
+     },
+     "window": 60000,
+     "contest": null,
+     "holdsToken": false,
+     "holderAlive": true,
+     "cooldown": {},
+     "identities": [
+      {
+       "agentId": "<uuid>",
+       "label": "parity",
+       "pid": 111,
+       "firstSeenAt": "<time>",
+       "lastSeenAt": "<time>"
+      },
+      {
+       "agentId": "<uuid>",
+       "label": "the-other-agent",
+       "pid": 111,
+       "firstSeenAt": "<time>",
+       "lastSeenAt": "<time>"
+      },
+      {
+       "agentId": "<uuid>",
+       "label": "claude <short>",
+       "firstSeenAt": "<time>",
+       "lastSeenAt": "<time>",
+       "conversation": true
+      }
+     ],
+     "sequence": 8,
+     "tokenSequence": 8,
+     "feedCursor": 8,
+     "history": [
+      {
+       "sequence": 1,
+       "at": "<time>",
+       "type": "workspace.updated",
+       "by": {
+        "kind": "workspace",
+        "pid": 111
+       }
+      },
+      {
+       "sequence": 2,
+       "at": "<time>",
+       "type": "token.claimed",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      },
+      {
+       "sequence": 3,
+       "at": "<time>",
+       "type": "task.added",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      },
+      {
+       "sequence": 4,
+       "at": "<time>",
+       "type": "task.updated",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      },
+      {
+       "sequence": 5,
+       "at": "<time>",
+       "type": "task.added",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      },
+      {
+       "sequence": 6,
+       "at": "<time>",
+       "type": "agent.spawned",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      },
+      {
+       "sequence": 7,
+       "at": "<time>",
+       "type": "token.released",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      },
+      {
+       "sequence": 8,
+       "at": "<time>",
+       "type": "token.claimed",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "the-other-agent"
+       }
+      }
+     ],
+     "caller": {
+      "agentId": "<uuid>",
+      "label": "parity",
+      "pid": 111
+     },
+     "refusal": "The project token is held by the-other-agent (<uuid>) since <time> (0s ago), and needs it. Nothing was attempted. Call token_contest to open a 60s window; the holder or the person at the desktop may reject it, otherwise the token transfers to you at the deadline.",
+     "feed": "ws://127.0.0.1:<port>/feed?rootId=<uuid>&token=<hex>"
+    }
+   }
+  },
+  {
+   "name": "task_add",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "The project token is held by the-other-agent (<uuid>) since <time> (0s ago), and task_add needs it. Nothing was attempted. Call token_contest to open a 60s window; the holder or the person at the desktop may reject it, otherwise the token transfers to you at the deadline."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "token_contest",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"state\":\"pending\",\"contestId\":\"<uuid>\",\"deadline\":\"<time>\",\"holder\":{\"agentId\":\"<uuid>\",\"label\":\"the-other-agent\",\"pid\":111,\"since\":\"<time>\"},\"status\":{\"rootId\":\"<uuid>\",\"holder\":{\"agentId\":\"<uuid>\",\"label\":\"the-other-agent\",\"pid\":111,\"since\":\"<time>\"},\"window\":60000,\"contest\":{\"id\":\"<uuid>\",\"contester\":{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111},\"openedAt\":\"<time>\",\"windowMs\":60000,\"deadline\":\"<time>\",\"reason\":\"my turn now\",\"secondsRemaining\":60},\"holdsToken\":false,\"holderAlive\":true,\"cooldown\":{},\"identities\":[{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\"},{\"agentId\":\"<uuid>\",\"label\":\"the-other-agent\",\"pid\":111,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\"}],\"sequence\":9,\"tokenSequence\":9,\"feedCursor\":9,\"history\":[{\"sequence\":1,\"at\":\"<time>\",\"type\":\"workspace.updated\",\"by\":{\"kind\":\"workspace\",\"pid\":111}},{\"sequence\":2,\"at\":\"<time>\",\"type\":\"token.claimed\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":3,\"at\":\"<time>\",\"type\":\"task.added\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":4,\"at\":\"<time>\",\"type\":\"task.updated\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":5,\"at\":\"<time>\",\"type\":\"task.added\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":6,\"at\":\"<time>\",\"type\":\"agent.spawned\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":7,\"at\":\"<time>\",\"type\":\"token.released\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":8,\"at\":\"<time>\",\"type\":\"token.claimed\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"the-other-agent\"}},{\"sequence\":9,\"at\":\"<time>\",\"type\":\"token.contested\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}}]}}"
+     }
+    ],
+    "structuredContent": {
+     "state": "pending",
+     "contestId": "<uuid>",
+     "deadline": "<time>",
+     "holder": {
+      "agentId": "<uuid>",
+      "label": "the-other-agent",
+      "pid": 111,
+      "since": "<time>"
+     },
+     "status": {
+      "rootId": "<uuid>",
+      "holder": {
+       "agentId": "<uuid>",
+       "label": "the-other-agent",
+       "pid": 111,
+       "since": "<time>"
+      },
+      "window": 60000,
+      "contest": {
+       "id": "<uuid>",
+       "contester": {
+        "agentId": "<uuid>",
+        "label": "parity",
+        "pid": 111
+       },
+       "openedAt": "<time>",
+       "windowMs": 60000,
+       "deadline": "<time>",
+       "reason": "my turn now",
+       "secondsRemaining": 60
+      },
+      "holdsToken": false,
+      "holderAlive": true,
+      "cooldown": {},
+      "identities": [
+       {
+        "agentId": "<uuid>",
+        "label": "parity",
+        "pid": 111,
+        "firstSeenAt": "<time>",
+        "lastSeenAt": "<time>"
+       },
+       {
+        "agentId": "<uuid>",
+        "label": "the-other-agent",
+        "pid": 111,
+        "firstSeenAt": "<time>",
+        "lastSeenAt": "<time>"
+       }
+      ],
+      "sequence": 9,
+      "tokenSequence": 9,
+      "feedCursor": 9,
+      "history": [
+       {
+        "sequence": 1,
+        "at": "<time>",
+        "type": "workspace.updated",
+        "by": {
+         "kind": "workspace",
+         "pid": 111
+        }
+       },
+       {
+        "sequence": 2,
+        "at": "<time>",
+        "type": "token.claimed",
+        "by": {
+         "kind": "agent",
+         "agentId": "<uuid>",
+         "label": "parity"
+        }
+       },
+       {
+        "sequence": 3,
+        "at": "<time>",
+        "type": "task.added",
+        "by": {
+         "kind": "agent",
+         "agentId": "<uuid>",
+         "label": "parity"
+        }
+       },
+       {
+        "sequence": 4,
+        "at": "<time>",
+        "type": "task.updated",
+        "by": {
+         "kind": "agent",
+         "agentId": "<uuid>",
+         "label": "parity"
+        }
+       },
+       {
+        "sequence": 5,
+        "at": "<time>",
+        "type": "task.added",
+        "by": {
+         "kind": "agent",
+         "agentId": "<uuid>",
+         "label": "parity"
+        }
+       },
+       {
+        "sequence": 6,
+        "at": "<time>",
+        "type": "agent.spawned",
+        "by": {
+         "kind": "agent",
+         "agentId": "<uuid>",
+         "label": "parity"
+        }
+       },
+       {
+        "sequence": 7,
+        "at": "<time>",
+        "type": "token.released",
+        "by": {
+         "kind": "agent",
+         "agentId": "<uuid>",
+         "label": "parity"
+        }
+       },
+       {
+        "sequence": 8,
+        "at": "<time>",
+        "type": "token.claimed",
+        "by": {
+         "kind": "agent",
+         "agentId": "<uuid>",
+         "label": "the-other-agent"
+        }
+       },
+       {
+        "sequence": 9,
+        "at": "<time>",
+        "type": "token.contested",
+        "by": {
+         "kind": "agent",
+         "agentId": "<uuid>",
+         "label": "parity"
+        }
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "token_status",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"rootId\":\"<uuid>\",\"holder\":{\"agentId\":\"<uuid>\",\"label\":\"the-other-agent\",\"pid\":111,\"since\":\"<time>\"},\"window\":60000,\"contest\":{\"id\":\"<uuid>\",\"contester\":{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111},\"openedAt\":\"<time>\",\"windowMs\":60000,\"deadline\":\"<time>\",\"reason\":\"my turn now\",\"secondsRemaining\":60},\"holdsToken\":false,\"holderAlive\":true,\"cooldown\":{},\"identities\":[{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\"},{\"agentId\":\"<uuid>\",\"label\":\"the-other-agent\",\"pid\":111,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\"},{\"agentId\":\"<uuid>\",\"label\":\"claude <short>\",\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\",\"conversation\":true}],\"sequence\":9,\"tokenSequence\":9,\"feedCursor\":9,\"history\":[{\"sequence\":1,\"at\":\"<time>\",\"type\":\"workspace.updated\",\"by\":{\"kind\":\"workspace\",\"pid\":111}},{\"sequence\":2,\"at\":\"<time>\",\"type\":\"token.claimed\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":3,\"at\":\"<time>\",\"type\":\"task.added\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":4,\"at\":\"<time>\",\"type\":\"task.updated\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":5,\"at\":\"<time>\",\"type\":\"task.added\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":6,\"at\":\"<time>\",\"type\":\"agent.spawned\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":7,\"at\":\"<time>\",\"type\":\"token.released\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}},{\"sequence\":8,\"at\":\"<time>\",\"type\":\"token.claimed\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"the-other-agent\"}},{\"sequence\":9,\"at\":\"<time>\",\"type\":\"token.contested\",\"by\":{\"kind\":\"agent\",\"agentId\":\"<uuid>\",\"label\":\"parity\"}}],\"caller\":{\"agentId\":\"<uuid>\",\"label\":\"parity\",\"pid\":111},\"refusal\":\"The project token is held by the-other-agent (<uuid>) since <time> (0s ago), and needs it. Nothing was attempted. Call token_contest to open a 60s window; parity already has one open until <time>.\",\"feed\":\"ws://127.0.0.1:<port>/feed?rootId=<uuid>&token=<hex>\"}"
+     }
+    ],
+    "structuredContent": {
+     "rootId": "<uuid>",
+     "holder": {
+      "agentId": "<uuid>",
+      "label": "the-other-agent",
+      "pid": 111,
+      "since": "<time>"
+     },
+     "window": 60000,
+     "contest": {
+      "id": "<uuid>",
+      "contester": {
+       "agentId": "<uuid>",
+       "label": "parity",
+       "pid": 111
+      },
+      "openedAt": "<time>",
+      "windowMs": 60000,
+      "deadline": "<time>",
+      "reason": "my turn now",
+      "secondsRemaining": 60
+     },
+     "holdsToken": false,
+     "holderAlive": true,
+     "cooldown": {},
+     "identities": [
+      {
+       "agentId": "<uuid>",
+       "label": "parity",
+       "pid": 111,
+       "firstSeenAt": "<time>",
+       "lastSeenAt": "<time>"
+      },
+      {
+       "agentId": "<uuid>",
+       "label": "the-other-agent",
+       "pid": 111,
+       "firstSeenAt": "<time>",
+       "lastSeenAt": "<time>"
+      },
+      {
+       "agentId": "<uuid>",
+       "label": "claude <short>",
+       "firstSeenAt": "<time>",
+       "lastSeenAt": "<time>",
+       "conversation": true
+      }
+     ],
+     "sequence": 9,
+     "tokenSequence": 9,
+     "feedCursor": 9,
+     "history": [
+      {
+       "sequence": 1,
+       "at": "<time>",
+       "type": "workspace.updated",
+       "by": {
+        "kind": "workspace",
+        "pid": 111
+       }
+      },
+      {
+       "sequence": 2,
+       "at": "<time>",
+       "type": "token.claimed",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      },
+      {
+       "sequence": 3,
+       "at": "<time>",
+       "type": "task.added",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      },
+      {
+       "sequence": 4,
+       "at": "<time>",
+       "type": "task.updated",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      },
+      {
+       "sequence": 5,
+       "at": "<time>",
+       "type": "task.added",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      },
+      {
+       "sequence": 6,
+       "at": "<time>",
+       "type": "agent.spawned",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      },
+      {
+       "sequence": 7,
+       "at": "<time>",
+       "type": "token.released",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      },
+      {
+       "sequence": 8,
+       "at": "<time>",
+       "type": "token.claimed",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "the-other-agent"
+       }
+      },
+      {
+       "sequence": 9,
+       "at": "<time>",
+       "type": "token.contested",
+       "by": {
+        "kind": "agent",
+        "agentId": "<uuid>",
+        "label": "parity"
+       }
+      }
+     ],
+     "caller": {
+      "agentId": "<uuid>",
+      "label": "parity",
+      "pid": 111
+     },
+     "refusal": "The project token is held by the-other-agent (<uuid>) since <time> (0s ago), and needs it. Nothing was attempted. Call token_contest to open a 60s window; parity already has one open until <time>.",
+     "feed": "ws://127.0.0.1:<port>/feed?rootId=<uuid>&token=<hex>"
+    }
+   }
+  },
+  {
+   "name": "stop_session",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "The project token is held by the-other-agent (<uuid>) since <time> (0s ago), and stop_session needs it. Nothing was attempted. Call token_contest to open a 60s window; parity already has one open until <time>."
+     }
+    ],
+    "isError": true
+   }
+  },
+  {
+   "name": "not_a_tool",
+   "answer": {
+    "content": [
+     {
+      "type": "text",
+      "text": "MCP error -32602: Tool not_a_tool not found"
+     }
+    ],
+    "isError": true
+   }
+  }
+ ]
+}

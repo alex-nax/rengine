@@ -319,11 +319,11 @@ flowchart TD
   F184["F184: passing"]
   F141 --> F184
   F149 --> F184
-  F185["F185: ready"]
+  F185["F185: passing"]
   F184 --> F185
-  F186["F186: blocked"]
+  F186["F186: ready"]
   F185 --> F186
-  F187["F187: blocked"]
+  F187["F187: passing"]
   F185 --> F187
 ```
 
@@ -464,6 +464,6 @@ flowchart TD
 | F182 | N0 | rengine | passing | F181a (the contract half of F181): red.v1 carries the workspace lifecycle ring — the worker's feed of token, task, agent, game, capture, device-action and workspace frames — translated strictly, with the live ring judged by the F140 harness (owner, 2026-09-13; spec 128 decision 5, KI-099). |
 | F183 | N0 | rengine | passing | F181b (the transport half of F181): the lifecycle ring arrives on a long-lived libp2p stream in order with monotonic sequence, and a reconnect resumes from a cursor exactly as the worker's /feed clients do (owner, 2026-09-13; spec 128 decision 2, KI-099). |
 | F184 | J0 | rengine | passing | F150a (the surface half of F150): the MCP tool surface becomes data — captured from the live JS worker into a declaration red-mcp serves — so the port cannot drift on fifteen kilobytes of hand-transcribed description, with both servers driven by one MCP client and compared (owner, 2026-09-13; spec 129, KI-100). |
-| F185 | J0 | rengine | ready | F150b (the calls half of F150): tools/call for the full root-bound surface in Rust over the façade/host API, the native desktop taught to exec red-mcp, and agents/mcp-worker.mjs and runtime/tools.mjs deleted (owner, 2026-09-13; spec 129, KI-100). |
-| F186 | J0 | rengine | blocked | F150c (the live-pane half of F150): a real pane of each CLI completes a task-scoped action through the Rust MCP — the consumer-path evidence this row exists for, which is a dogfooding run in the owner's workspace rather than a fixture (owner, 2026-09-13; spec 129, KI-100). |
-| F187 | J0 | rengine | blocked | F150b2 (the cutover half of F185): the workspace launches red-mcp instead of the node tool worker, agents/mcp-worker.mjs and runtime/tools.mjs are deleted, and the layered-update contract answers what updating a connector layer means once that layer is a compiled binary (owner, 2026-09-13; spec 129/065, KI-100). |
+| F185 | J0 | rengine | passing | F150b (the calls half of F150): tools/call for the full root-bound surface in Rust over the façade/host API, the native desktop taught to exec red-mcp, and agents/mcp-worker.mjs and runtime/tools.mjs deleted (owner, 2026-09-13; spec 129, KI-100). |
+| F186 | J0 | rengine | ready | F150c (the live-pane half of F150): a real pane of each CLI completes a task-scoped action through the Rust MCP — the consumer-path evidence this row exists for, which is a dogfooding run in the owner's workspace rather than a fixture (owner, 2026-09-13; spec 129, KI-100). |
+| F187 | J0 | rengine | passing | F150b2 (the cutover half of F185): the workspace launches red-mcp instead of the node tool worker, agents/mcp-worker.mjs and runtime/tools.mjs are deleted, and the layered-update contract answers what updating a connector layer means once that layer is a compiled binary (owner, 2026-09-13; spec 129/065, KI-100). |

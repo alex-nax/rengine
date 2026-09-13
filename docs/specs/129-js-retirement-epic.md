@@ -93,6 +93,33 @@ After F165, `node` is gone from the boot path and this epic is complete. What re
 design: nothing. What remains in other languages by design: the C desktop and companions
 (charter), the Python tools (charter), and the games' own stacks (their authority).
 
+## F187 (F150b2): what "update the connector layer" means once the layer is a binary
+
+Date: 2026-09-13. Evidence: `docs/evidence/mcp-cutover-f187-2026-09-13.md`. KI-100.
+
+The row was filed because `mcp.mjs` spawns the worker named by `runtime.toolWorker` and the
+supervisor probes a candidate before adopting it — both written when the tool layer was a JS file.
+Reading the supervisor answered it: **a connector update never staged an artifact.** It re-probed
+the worker at its published path and, if the probe passed, bumped `connectorGeneration` so every
+facade replaced its child on the next request; the new code came from the checkout itself.
+
+So spec 065's contract is unchanged and the payload is an executable:
+
+- the layer **builds** (`cargo build -p red-mcp`) before probing, because a checkout changes a JS
+  file immediately and a binary only after a build — the desktop layer already takes this step;
+- the probe is `red-mcp --probe`, the binary asking itself the three questions `runtime/tools.mjs`
+  asked over MCP, and answering by exiting 0;
+- adoption is still the generation bump, completion is still distinct from acceptance, and a pane's
+  MCP is still spawned per launch.
+
+`agents/mcp.mjs` stays — it is the facade that keeps a pane's connection alive across a replacement
+— and it spawns its worker as a command now. A JS test fixture standing in for a worker is
+executable for the same reason.
+
+**A check nobody could break was a check nobody was making.** Emptying the probe's required-tools
+list changed no test, because nothing fed the supervisor a candidate that starts and answers but
+cannot serve the update path. `tests/incomplete-tool-worker.mjs` is that candidate now.
+
 ## Bookkeeping
 
 - Rows F139–F165 filed in `features.json` on 2026-09-11 with this spec and spec 128 as their

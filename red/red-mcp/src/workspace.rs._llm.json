@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "identity-is-re-read-binding-is-not",
+      "kind": "rationale",
+      "anchor": {
+        "start": 87,
+        "end": 87,
+        "symbol": "refresh_identity",
+        "snippet": "pub fn refresh_identity(&mut self) {"
+      },
+      "note": "Two things live in the per-launch context and they have opposite rules. The BINDING -- url, token, instance, rootId -- is taken once from the facade's snapshot (RENGINE_MCP_CONTEXT_SNAPSHOT) precisely so that editing the file cannot retarget a running CLI to another project (spec 065); do not make the binding follow the file. The IDENTITY is the conversation, and the conversation can legitimately change under a running CLI: report-session.mjs rewrites this file when Claude Code's SessionStart hook says the process moved to another session id. So the identity alone is re-read, once per tool call at the top of scopedState, and identityHeaders is a function rather than a frozen object -- a frozen object passes workspace_info and still puts the stale id on the wire, which is the ledger's whole input. A missing, torn or anonymous file leaves the identity as it was rather than dropping it.",
+      "refs": [
+        "docs/specs/095-project-token.md",
+        "docs/evidence/report-session-hook-2026-09-07.md",
+        "docs/evidence/mcp-cutover-f187-2026-09-13.md"
+      ]
+    }
+  ]
+}

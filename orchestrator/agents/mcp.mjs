@@ -1,4 +1,5 @@
 import { readFile, stat } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -43,7 +44,20 @@ async function bindingContext(env = process.env, argv = process.argv.slice(2), {
 const filename = await bindingContext(process.env, process.argv.slice(2), { envFirst: true });
 if (!filename) throw new Error('A workspace context file is required.');
 const context = JSON.parse(await readFile(filename, 'utf8'));
-const siblingWorker = fileURLToPath(new URL('./mcp-worker.mjs', import.meta.url));
+/* The tool worker is an executable (F187): red-mcp, built from this checkout. The descriptor names
+   the one the supervisor probed; without a descriptor this facade resolves the same way every
+   other Rust client here does. A test fixture standing in for a worker is executable too — it is
+   spawned as a command, never as an argument to node. */
+const project = fileURLToPath(new URL('../../', import.meta.url));
+const siblingWorker = () => {
+  const declared = process.env.RENGINE_RED_MCP;
+  if (declared) return declared;
+  for (const profile of ['release', 'debug']) {
+    const candidate = path.join(project, 'red/target', profile, 'red-mcp');
+    if (existsSync(candidate)) return candidate;
+  }
+  throw new Error('The red-mcp binary is required (run: cargo build -p red-mcp, or set RENGINE_RED_MCP).');
+};
 const descriptor = path.join(context.runtimeDirectory ?? runtimeDirectory(context), 'runtime.json');
 let worker, generation, workerFile, serial = Promise.resolve(), refreshing, closed = false;
 const server = new Server({ name: 'rengine-workspace', version: '1.1.0' }, {
@@ -52,8 +66,8 @@ const server = new Server({ name: 'rengine-workspace', version: '1.1.0' }, {
 });
 async function replace(next, file) {
   const candidate = new Client({ name: 'rengine-tool-facade', version: '1.0.0' });
-  const transport = new StdioClientTransport({ command: process.execPath,
-    args: [file, '--context', filename], stderr: 'pipe',
+  const transport = new StdioClientTransport({ command: file,
+    args: ['--context', filename], stderr: 'pipe',
     env: { ...process.env, RENGINE_MCP_CONTEXT_SNAPSHOT: JSON.stringify(context) } });
   let diagnostics = ''; transport.stderr?.on('data', data => { diagnostics = (diagnostics + data).slice(-4000); });
   try { await candidate.connect(transport); await candidate.listTools(); }
@@ -66,7 +80,7 @@ async function replace(next, file) {
 async function ready() {
   const runtime = await resolveRuntime(context), next = runtime.connectorGeneration ?? 0;
   /* The worker the supervisor probed is the worker that runs; a descriptor from before it was published names none, and the sibling serves. */
-  const file = typeof runtime.toolWorker === 'string' && path.isAbsolute(runtime.toolWorker) ? runtime.toolWorker : siblingWorker;
+  const file = typeof runtime.toolWorker === 'string' && path.isAbsolute(runtime.toolWorker) ? runtime.toolWorker : siblingWorker();
   if (!worker || next !== generation || file !== workerFile) {
     refreshing ??= replace(next, file).finally(() => { refreshing = null; });
     try { await refreshing; } catch (error) { if (!worker) throw error; process.stderr.write(`${error.message}; keeping previous tool worker.\n`); }

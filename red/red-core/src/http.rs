@@ -73,7 +73,11 @@ fn request(url: &str, token: &str, method: &str, path: &str, body: Option<&serde
         raw_body
     };
     let status = head.lines().next().and_then(|line| line.split_whitespace().nth(1)).unwrap_or("000");
-    if status != "200" {
+    /* Any 2xx, because the workspace uses them: `update-workspace` answers **202 Accepted** with
+       the job it queued, and a client that only accepted 200 would report a queued update as a
+       failure — `fetch`'s `response.ok`, which the JS side checks, is the same range. */
+    let accepted = status.starts_with('2');
+    if !accepted {
         /* The workspace's own words when it gave any: its routes answer `{error}` and a caller
            should see that sentence, not an HTTP status it cannot act on. */
         if let Ok(value) = serde_json::from_str::<serde_json::Value>(body) {

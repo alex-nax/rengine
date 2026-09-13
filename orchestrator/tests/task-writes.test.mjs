@@ -19,7 +19,10 @@ import { api, fakeDesktop, feedSocket, identity, ok, until } from './token-fixtu
 import { fakeCli, features, taskDeclaration, taskProject, writeLog } from './task-fixtures.mjs';
 
 const schema = JSON.parse(readFileSync('contracts/project-v1.schema.json', 'utf8'));
-const toolWorkerMain = fileURLToPath(new URL('../agents/mcp-worker.mjs', import.meta.url));
+/* The tool server is the red-mcp binary now (F187): these tests drive the same connection an agent
+   pane gets, so they start the same executable a pane starts. */
+const toolServer = process.env.RENGINE_RED_MCP
+  || fileURLToPath(new URL('../../red/target/debug/red-mcp', import.meta.url));
 const status = (worker, rootId, who) => ok(worker, `token?${new URLSearchParams({ rootId })}`, undefined, who);
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
@@ -378,7 +381,7 @@ test('a worker that owns no ledger serves neither task writes nor spawns, and th
     const context = { url: target.url, token: target.token, instance: host.instance, rootId: root.id, runtimeDirectory: path.join(directory, 'none') };
     const plan = await agentLaunch({ agent: who, executable: who, context, directory, env: {} });
     const connection = new Client({ name: 'rengine-task-test', version: '1.0.0' });
-    await connection.connect(new StdioClientTransport({ command: process.execPath, args: [toolWorkerMain, '--context', plan.contextFile], stderr: 'pipe' }));
+    await connection.connect(new StdioClientTransport({ command: toolServer, args: ['--context', plan.contextFile], stderr: 'pipe' }));
     t.after(() => connection.close());
     return { connection, identity: plan.identity,
       call: async (name, args = {}) => { const result = await connection.callTool({ name, arguments: args }); return { error: result.isError === true, text: result.content?.[0]?.text ?? '', value: result.structuredContent }; } };

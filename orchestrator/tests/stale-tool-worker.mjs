@@ -1,4 +1,7 @@
-/* A tool worker from before a capability existed, for hot-update.test.mjs. It carries the three names
+#!/usr/bin/env node
+/* A tool worker from before a capability existed, for hot-update.test.mjs. Executable, because the
+   facade spawns its tool worker as a command now that the shipped one is a binary (F187); a test
+   fixture may be JavaScript, but it has to be startable the same way. It carries the three names
    the supervisor's probe insists on and one tool the real worker does not have, so a facade that
    switches generations can be seen to drop `old_tool` and gain what the checkout serves. */
 import { readFile } from 'node:fs/promises';
