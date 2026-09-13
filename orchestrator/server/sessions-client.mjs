@@ -155,7 +155,9 @@ export class Sessions extends EventEmitter {
     const item = this.items.get(snapshot?.id);
     if (!item || snapshot.state !== 'exited' || item.state === 'exited') return;
     item.state = 'exited'; item.exitCode = snapshot.exitCode ?? null; item.signal = snapshot.signal ?? null;
-    item.endedAt = Date.now();
+    /* The service's clock, not this host's arrival: two hosts watching one pane die must not
+       report two different endings (D62). A service that does not say still leaves an answer. */
+    item.endedAt = snapshot.endedAt ?? Date.now();
     this.changed(item);
   }
 
@@ -198,6 +200,15 @@ export class Sessions extends EventEmitter {
     const record = snapshot?.meta;
     if (!item || !record || typeof record !== 'object') return;
     let differs = false;
+    /* The pane's own dimensions belong to the service, not to the host that last set them: a
+       resize through another host changes the terminal this host is drawing, and a host that kept
+       its own numbers would describe the pane at the wrong size. The scrollback and its sequence
+       are NOT taken from here — this host accumulates those from the output stream, and an event
+       carries neither. */
+    for (const name of ['cols', 'rows', 'pid']) {
+      if (!Number.isInteger(snapshot[name]) || item[name] === snapshot[name]) continue;
+      item[name] = snapshot[name]; differs = true;
+    }
     for (const name of RECORD) {
       const value = record[name] === null || record[name] === undefined ? undefined : record[name];
       if (JSON.stringify(item[name] ?? null) === JSON.stringify(value ?? null)) continue;

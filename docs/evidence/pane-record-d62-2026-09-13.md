@@ -90,18 +90,57 @@ the announcement is the thing under test.
 
 ## Gates
 
-`npm test` — **321 of 321**, twice in a row, zero services left behind. `cargo test` — all crates.
+`npm test` — **321 of 321**, three runs, zero services left behind. `cargo test` — all crates.
 `./init.sh`. `python3 tools/features.py validate`.
+
+## The pane as an answer: `/api/session` and `/api/stop`
+
+With the record shared, the snapshot the JS host answers with can be assembled anywhere, and the
+door assembles it. Three things had to be right.
+
+**Absence is meaningful.** `exitCode`, `signal` and `endedAt` are *missing* while a pane runs, not
+null: the JS host leaves them undefined until it has an ending to report, and a client that asks
+whether the field is there would read a null as an answer. Sabotaging this — always reporting an
+ending — shows up as `+ exitCode: null, + signal: null` against the host's own answer.
+
+**The scrollback cannot travel through a Rust `String`.** Spec 060 counts the history in JS string
+characters and the service ships UTF-16 for exactly that reason: a chunk boundary can leave a lone
+surrogate in it, which is a legal JS string and not a legal Rust one. So `output` is written into
+the answer from the UTF-16 units, each non-ASCII unit as its own `\uXXXX` escape, which `JSON.parse`
+turns back into the same JS string. The spec prints an emoji into the pane and compares both
+answers; with the field built as a Rust string instead, the astral pair comes back as `?? fire`
+against the host's `🔥 fire`.
+
+**Two more fields turned out not to be the host's.** A resize through the door changed the terminal
+and the JS host went on describing the pane at its old size, because the service never announced a
+resize — the same gap as the spawn announcement, found the same way, by two hosts disagreeing about
+one pane. A resize is announced now, and a host applies the dimensions it is told rather than only
+the ones it set. And `endedAt` moved into the service: the host used to stamp its own arrival time,
+which is fine while one host watches a pane and is two different deaths when two do.
+
+While they were being announced, the events themselves got smaller: a broadcast carries the pane
+without its history. Nothing that reads those lines reads the scrollback — a host keeps its own, a
+door asks for it when somebody wants it — and a snapshot per resize with a megabyte of history in it
+would be a service shouting its whole memory every time a person drags a pane edge.
+
+`stop` also learned to answer the ending it caused rather than `stopping`: it SIGKILLs and then
+waits for its own watcher, instead of handing the caller a death it has already arranged and leaving
+it to poll for the news. The door's `/api/stop` answers `state: 'exited'` with the service's
+`endedAt` and, like the JS host's, without the scrollback.
+
+| Sabotage | Observed |
+| --- | --- |
+| the scrollback written as a Rust string | `?? fire` where both hosts should say `🔥 fire` |
+| a running pane reports an ending anyway | `+ exitCode: null, + signal: null` against the host's answer |
+| a resize is not announced | `+ cols: 90, - cols: 100` — the door resized it, the host never heard |
+| `stop` answers before the ending it caused | `+ 'stopping', - 'exited'` |
 
 ## What this does not claim
 
-- **F189 is not finished.** `/api/session`, `/api/terminal`, `/api/stop`, `/api/agent-restart`,
-  `/api/agent-conversation`, `/api/state`, desktops, surfaces and both sockets are still forwarded,
-  and nothing is deleted.
-- **`/api/session` waits for the socket.** Its answer carries the scrollback, which the service
-  ships as UTF-16 because a JS string holds a lone surrogate at the slice boundary and a Rust
-  `String` cannot. The door will need to write that field's JSON escapes itself, and that belongs
-  with `/events`, which carries the same bytes.
+- **F189 is not finished.** `/api/terminal`, `/api/agent-restart`, `/api/agent-conversation`,
+  `/api/state`, desktops, surfaces and both sockets are still forwarded, and nothing is deleted.
+  Spawning a pane is the interesting one left: it composes an agent's launch, which is red-agents'
+  work, and it is where `/events` will have to follow.
 - **The door's record cache never forgets an exited pane**, which matches the JS host's `items` map
   — but the JS host is restarted often and a door is not. If a door ever runs for weeks, that is
   the first place to look.

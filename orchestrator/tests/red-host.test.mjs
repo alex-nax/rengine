@@ -273,6 +273,29 @@ test('a pane record changed by one host is the record every host answers from', 
   assert.equal(unknown.status, 404, 'input for a pane that is not there names it, rather than judging the data first');
   assert.equal((await unknown.json()).error, 'Unknown session.');
 
+  /* The pane as each of them says it. `/api/session` is the answer a native client reads to draw a
+     pane — its title, its dimensions, its scrollback — so the door's version of it and the JS
+     host's are compared field by field rather than trusted. */
+  const seen = async instance => (await ask(instance, `/api/session?id=${session.id}`)).json();
+  await until(async () => (await seen(instance)).sequence === (await seen(backend)).sequence, 'both hosts are level');
+  const [ours, theirs] = await Promise.all([seen(instance), seen(backend)]);
+  assert.deepEqual(ours, theirs, 'the door answers the pane exactly as the host does');
+  assert.match(ours.output, /after the gate/, 'scrollback and all');
+  assert.equal(ours.waitingForView, undefined, 'a pane with no handoff says nothing about waiting');
+  assert.equal('exitCode' in ours, false, 'and a running pane has no ending to report');
+  const missing = await ask(instance, '/api/session?id=no-such-pane');
+  assert.equal(missing.status, 404);
+  assert.equal((await missing.json()).error, 'Unknown session.');
+
+  /* The scrollback is UTF-16 because a pane's history can end mid-character: the limit in spec 060
+     counts JS string characters, and a chunk boundary can leave one half of an astral pair in the
+     history. A Rust string cannot hold that half, so the door writes the field's JSON itself —
+     which this checks by printing an emoji and comparing what comes back on both sides. */
+  await ask(instance, '/api/input', { id: session.id, data: 'printf "\\xf0\\x9f\\x94\\xa5 fire\\n"\n' });
+  await until(async () => (await seen(backend)).output.includes('\u{1f525} fire'), 'the pane printed it');
+  await until(async () => (await seen(instance)).sequence === (await seen(backend)).sequence, 'both hosts are level');
+  assert.deepEqual(await seen(instance), await seen(backend), 'a pane that printed an astral character reads the same from both');
+
   /* A pane this door heard about from nobody. The client spawns it and says nothing else about it:
      no host writes a record, no exit arrives, and the door still has to know it exists — which is
      the service's job, announcing a session the moment there is one. Without that, a second host
@@ -294,8 +317,15 @@ test('a pane record changed by one host is the record every host answers from', 
   assert.match(held.output, /no backend/, 'and the shell received it');
   assert.equal(held.meta.released, true, 'the record is still the one the last host wrote');
 
+  /* And the door ends it, with no host behind it at all: the answer is the pane's ending in the JS
+     host's shape — the scrollback is not in it, because `stop` answers a plain snapshot. */
+  const ended = await (await ask(instance, '/api/stop', { id: session.id })).json();
+  assert.equal(ended.state, 'exited', 'the door stopped the pane');
+  assert.equal('output' in ended, false, 'and answered without the history, the way stop does');
+  assert.ok(Number.isInteger(ended.endedAt), 'with the ending timed by the service that watched it');
+  assert.equal((await client.snapshot(session.id)).state, 'exited', 'the service agrees the child is gone');
+
   /* A pane that has ended refuses input in the JS host's words, from the state the service keeps. */
-  await client.stop(session.id);
   await until(async () => (await waiting(instance))[0] === 409, 'the door sees the exit');
   assert.deepEqual(await waiting(instance), [409, 'Session is not running.']);
 });

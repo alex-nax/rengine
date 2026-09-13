@@ -81,6 +81,10 @@ pub struct PtySession {
     pub state: &'static str,
     pub exit_code: Option<i64>,
     pub signal: Option<i64>,
+    /* When the child ended, by this service's clock. The host used to stamp this itself when the
+       exit event arrived, which was fine while one host watched a pane; two hosts stamping their
+       own arrival times would report two different endings for one death (charter D62). */
+    pub ended_at: Option<u64>,
     pub cols: u16,
     pub rows: u16,
     pub sequence: u64,
@@ -110,6 +114,18 @@ impl PtySession {
         base64_encode(&bytes)
     }
 
+    /// What an event carries: the same pane, without the megabyte of history. Nothing that reads
+    /// these lines reads the scrollback — a host keeps its own, a door asks for it when somebody
+    /// wants it — and a snapshot per resize with the history in it would be a service shouting its
+    /// whole memory every time a person drags a pane edge.
+    pub fn event_snapshot(&self) -> Value {
+        let mut snapshot = self.core_snapshot();
+        if let Some(fields) = snapshot.as_object_mut() {
+            fields.remove("output");
+        }
+        snapshot
+    }
+
     pub fn core_snapshot(&self) -> Value {
         json!({
             "id": self.id,
@@ -117,6 +133,7 @@ impl PtySession {
             "state": self.state,
             "exitCode": self.exit_code,
             "signal": self.signal,
+            "endedAt": self.ended_at,
             "cols": self.cols,
             "rows": self.rows,
             "sequence": self.sequence,
@@ -182,6 +199,7 @@ impl<F: FnMut(Value) + Send + 'static> PtyHost<F> {
             state: "running",
             exit_code: None,
             signal: None,
+            ended_at: None,
             cols,
             rows,
             sequence: 0,
@@ -232,16 +250,18 @@ impl<F: FnMut(Value) + Send + 'static> PtyHost<F> {
                 session.state = "exited";
                 session.exit_code = code;
                 session.signal = signal.map(|value| value as i64);
-                session.core_snapshot()
+                session.ended_at = Some(now_ms());
+                session.event_snapshot()
             };
             (watch_emit.lock().expect("emit lock"))(json!({ "type": "session", "session": snapshot }));
         });
+        let announced = session.lock().expect("session lock").event_snapshot();
         let snapshot = session.lock().expect("session lock").core_snapshot();
         /* Announced, not just answered. The caller gets this snapshot as its result, but every
            OTHER host attached to this directory has to learn the pane exists somehow, and waiting
            for its first record change or its exit would leave a live pane that a second host
            answers `Unknown session.` about (charter D62). */
-        (self.emit.lock().expect("emit lock"))(json!({ "type": "session", "session": snapshot }));
+        (self.emit.lock().expect("emit lock"))(json!({ "type": "session", "session": announced }));
         Ok(snapshot)
     }
 
@@ -276,6 +296,12 @@ impl<F: FnMut(Value) + Send + 'static> PtyHost<F> {
             .map_err(|error| Fail::raw(error.to_string()))?;
         session.cols = cols;
         session.rows = rows;
+        let snapshot = session.event_snapshot();
+        drop(session);
+        /* Announced for the same reason a spawn is: the dimensions are this service's, and a host
+           that resized through another host would otherwise keep describing a pane the wrong size
+           to the person looking at it (charter D62). */
+        (self.emit.lock().expect("emit lock"))(json!({ "type": "session", "session": snapshot }));
         Ok(())
     }
 
@@ -312,7 +338,7 @@ impl<F: FnMut(Value) + Send + 'static> PtyHost<F> {
             if serde_json::to_string(&session.meta).map(|text| text.len()).unwrap_or(usize::MAX) > RECORD_LIMIT {
                 return Err(Fail::new("Pane record exceeds the 64 KiB limit.", 400));
             }
-            session.core_snapshot()
+            session.event_snapshot()
         };
         (self.emit.lock().expect("emit lock"))(json!({ "type": "session", "session": snapshot }));
         self.snapshot(id)
@@ -339,18 +365,13 @@ impl<F: FnMut(Value) + Send + 'static> PtyHost<F> {
             guard.state = "stopping";
         }
         signal_tree(pid, "TERM")?;
-        let deadline = std::time::Instant::now() + std::time::Duration::from_millis(2000);
-        loop {
-            if session.lock().expect("session lock").state == "exited" {
-                break;
-            }
-            if std::time::Instant::now() >= deadline {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(20));
-        }
+        wait_for_exit(&session, 2000);
         if session.lock().expect("session lock").state != "exited" {
             signal_tree(pid, "KILL")?;
+            /* And wait for the ending this call just caused. A `stop` that answered "stopping"
+               would hand its caller a death it has already arranged and leave it polling for the
+               news — and two hosts would poll for it separately (charter D62). */
+            wait_for_exit(&session, 2000);
         }
         let snapshot = session.lock().expect("session lock").core_snapshot();
         Ok(snapshot)
@@ -464,4 +485,22 @@ mod tests {
         }
         assert_eq!(base64_encode(&bytes), "AN492ADeYQA=");
     }
+}
+
+/// Wait for the exit watcher to record an ending, up to `limit` milliseconds. The watcher owns the
+/// child handle, so this is how any other thread learns the child is gone.
+fn wait_for_exit(session: &Arc<Mutex<PtySession>>, limit: u64) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_millis(limit);
+    while session.lock().expect("session lock").state != "exited" && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+}
+
+/// Milliseconds since the epoch, the way `Date.now()` counts them: this record travels to a JS host
+/// that shows it to a person, so it is that clock or it is nothing.
+fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|since| since.as_millis() as u64)
+        .unwrap_or(0)
 }

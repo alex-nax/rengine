@@ -55,10 +55,124 @@ fn store_route(method: &str, path: &str) -> Option<&'static str> {
 /// accepts input.
 fn session_route(method: &str, path: &str) -> Option<&'static str> {
     Some(match (method, path) {
+        ("GET", "/api/session") => "snapshot",
         ("POST", "/api/input") => "input",
         ("POST", "/api/resize") => "resize",
+        ("POST", "/api/stop") => "stop",
         _ => return None,
     })
+}
+
+/// The pane as the JS host says it: the service's own fields, the host's record, and the two
+/// shapes a caller reads — `waitingForView` for a handoff pane, and the scrollback on request.
+///
+/// Absence is meaningful here. `exitCode`, `signal` and `endedAt` are *missing* while a pane runs
+/// rather than null, because the JS host leaves them undefined until it has an ending to report,
+/// and a native client that asked `has exitCode` would read a null as an answer.
+fn pane_snapshot(session: &serde_json::Value) -> serde_json::Value {
+    let empty = serde_json::Map::new();
+    let record = session.get("meta").and_then(|value| value.as_object()).unwrap_or(&empty);
+    let held = |name: &str| record.get(name).filter(|value| !value.is_null()).cloned();
+    let own = |name: &str| session.get(name).filter(|value| !value.is_null()).cloned();
+    let kind = held("type").and_then(|value| value.as_str().map(str::to_string)).unwrap_or_default();
+    let ended = session.get("state").and_then(serde_json::Value::as_str) == Some("exited");
+    let mut out = serde_json::Map::new();
+    /* A field the JS host leaves undefined is a field its answer does not carry, so `None` here
+       means "say nothing" rather than "say null". */
+    fn put(out: &mut serde_json::Map<String, serde_json::Value>, name: &str, value: Option<serde_json::Value>) {
+        if let Some(value) = value {
+            out.insert(name.to_string(), value);
+        }
+    }
+    put(&mut out, "id", own("id"));
+    put(&mut out, "rootId", held("rootId"));
+    put(&mut out, "type", held("type"));
+    put(&mut out, "agent", held("agent"));
+    put(&mut out, "title", held("title"));
+    put(&mut out, "pid", own("pid"));
+    put(&mut out, "state", own("state"));
+    /* An ending the JS host has not seen is an ending it does not mention; one it has seen it
+       mentions even when the service could not say how (`exitCode: null`). */
+    if ended {
+        out.insert("exitCode".to_string(), session.get("exitCode").cloned().unwrap_or(serde_json::Value::Null));
+        out.insert("signal".to_string(), session.get("signal").cloned().unwrap_or(serde_json::Value::Null));
+    }
+    put(&mut out, "createdAt", held("createdAt"));
+    if ended {
+        put(&mut out, "endedAt", own("endedAt"));
+    }
+    put(&mut out, "cols", own("cols"));
+    put(&mut out, "rows", own("rows"));
+    put(&mut out, "sequence", own("sequence"));
+    put(&mut out, "conversation", held("conversation"));
+    put(&mut out, "task", held("task"));
+    if kind == "game" {
+        put(&mut out, "surface", held("surface"));
+        put(&mut out, "game", held("game"));
+        out.insert("args".to_string(), held("args").unwrap_or_else(|| serde_json::json!([])));
+    }
+    if let Some(handoff) = held("handoff") {
+        out.insert("handoff".to_string(), serde_json::json!({
+            "sessionId": handoff.get("sessionId").cloned().unwrap_or(serde_json::Value::Null),
+            "checkpoint": handoff.get("checkpoint").cloned().unwrap_or(serde_json::Value::Null),
+        }));
+        out.insert("waitingForView".to_string(), serde_json::json!(!held("released").and_then(|value| value.as_bool()).unwrap_or(false)));
+    }
+    serde_json::Value::Object(out)
+}
+
+/// The snapshot as JSON TEXT, because its scrollback cannot travel through a Rust `String` — and
+/// that is not a detail to route around. Spec 060 counts the history in JS string characters and
+/// the service ships UTF-16 for exactly that reason: a chunk boundary can leave a LONE SURROGATE in
+/// it, which is a legal JS string and not a legal Rust one. So `output` is written straight into the
+/// answer from the UTF-16 units, every non-ASCII unit as its own `\uXXXX` escape, which `JSON.parse`
+/// turns back into the same JS string with its unpaired halves intact. It goes last, where the JS
+/// host puts it.
+fn pane_answer(session: &serde_json::Value, with_output: bool) -> String {
+    let text = pane_snapshot(session).to_string();
+    if !with_output {
+        return text;
+    }
+    let units = utf16_from_base64(session.get("output").and_then(serde_json::Value::as_str).unwrap_or_default());
+    format!("{},\"output\":{}}}", &text[..text.len() - 1], json_from_utf16(&units))
+}
+
+fn json_from_utf16(units: &[u16]) -> String {
+    let mut out = String::with_capacity(units.len() + 2);
+    out.push('"');
+    for unit in units {
+        match *unit {
+            0x22 => out.push_str("\\\""),
+            0x5c => out.push_str("\\\\"),
+            0x08 => out.push_str("\\b"),
+            0x0c => out.push_str("\\f"),
+            0x0a => out.push_str("\\n"),
+            0x0d => out.push_str("\\r"),
+            0x09 => out.push_str("\\t"),
+            unit if (0x20..0x7f).contains(&unit) => out.push(unit as u8 as char),
+            unit => out.push_str(&format!("\\u{unit:04x}")),
+        }
+    }
+    out.push('"');
+    out
+}
+
+/// Base64 (the wire form the service sends) back to the UTF-16 units it encodes.
+fn utf16_from_base64(text: &str) -> Vec<u16> {
+    const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut bytes: Vec<u8> = Vec::with_capacity(text.len() / 4 * 3);
+    let mut buffer: u32 = 0;
+    let mut bits = 0;
+    for byte in text.bytes() {
+        let Some(value) = ALPHABET.iter().position(|entry| *entry == byte) else { continue };
+        buffer = (buffer << 6) | value as u32;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            bytes.push((buffer >> bits) as u8);
+        }
+    }
+    bytes.chunks_exact(2).map(|pair| u16::from_le_bytes([pair[0], pair[1]])).collect()
 }
 
 /// The number `pty-client.mjs` speaks: a service on another number belongs to another build, and
@@ -269,8 +383,8 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
         }
         /* The session routes, answered from the same pane records the JS host reads (D62). */
         if let Some(method) = session_route(&head.method, &head.path()) {
-            let body = head.read_body(&mut client, &mut buffered).await?;
-            let answer = answer_about_pane(&front, method, &body);
+            let body = if head.method == "POST" { head.read_body(&mut client, &mut buffered).await? } else { String::new() };
+            let answer = answer_about_pane(&front, method, &head, &body);
             client.write_all(answer.as_bytes()).await?;
             continue;
         }
@@ -477,11 +591,35 @@ fn answer_from_store(front: &Front, method: &str, head: &Head, body: &str) -> St
 /// `/api/input` and `/api/resize`, in the JS host's own order of refusals — the order matters,
 /// because `input` names an unknown session before it judges the data and `resize` judges the
 /// dimensions before it looks the session up, and a caller sees a different status if they swap.
-fn answer_about_pane(front: &Front, method: &str, body: &str) -> String {
+fn answer_about_pane(front: &Front, method: &str, head: &Head, body: &str) -> String {
     let refusal = |status: u16, message: &str| http_json(status, reason(status), &serde_json::json!({ "error": message }));
     let Some(client) = front.pty.as_ref() else {
         return refusal(503, "This workspace's sessions are not attached.");
     };
+    /* The two routes that ASK rather than decide. The record cache answers the refusals below
+       because they have to be decided before anything is delivered; a snapshot is a different
+       thing — its scrollback is current as of the question, and the only current copy is the
+       service's. */
+    if method == "snapshot" || method == "stop" {
+        let id = if method == "snapshot" {
+            head.query("id").unwrap_or_default()
+        } else {
+            match serde_json::from_str::<serde_json::Value>(body) {
+                Ok(payload) => payload.get("id").and_then(|value| value.as_str()).unwrap_or_default().to_string(),
+                Err(error) => return refusal(400, &format!("Invalid JSON body: {error}")),
+            }
+        };
+        return match client.call(method, serde_json::json!([id])) {
+            /* `/api/session` carries the scrollback and `/api/stop` does not, because the JS host's
+               `snapshot(id, true)` and its `stop`'s plain `snapshot(id)` differ in exactly that. */
+            Ok(session) => http_text(200, "OK", &pane_answer(&session, method == "snapshot")),
+            Err(fault) => {
+                let (status, message) = fault.split_once('|').unwrap_or(("500", fault.as_str()));
+                let code: u16 = status.parse().unwrap_or(500);
+                http_json(code, reason(code), &serde_json::json!({ "error": message }))
+            }
+        };
+    }
     let payload: serde_json::Value = match serde_json::from_str(body) {
         Ok(value) => value,
         Err(error) => return refusal(400, &format!("Invalid JSON body: {error}")),
@@ -549,7 +687,10 @@ fn reason(status: u16) -> &'static str {
 }
 
 fn http_json(status: u16, reason: &str, value: &serde_json::Value) -> String {
-    let body = value.to_string();
+    http_text(status, reason, &value.to_string())
+}
+
+fn http_text(status: u16, reason: &str, body: &str) -> String {
     format!(
         "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nContent-Length: {}\r\n\r\n{body}",
         body.len()

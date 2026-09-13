@@ -48,7 +48,21 @@ for the socket on purpose — its answer carries the scrollback, and a lone surr
 boundary is a thing a JS string holds and a Rust `String` cannot, so the door will write that
 field's escapes itself when it takes `/events`.
 
-Commands: `npm test` (**321 of 321**, twice, zero services left), `cargo test`, `./init.sh`,
+With the record shared, the pane's snapshot can be assembled anywhere, so `/api/session` and
+`/api/stop` moved too. Three things had to be right: **absence is meaningful** (a running pane has
+no `exitCode`, not a null one); **the scrollback cannot travel through a Rust `String`**, because
+spec 060 counts the history in JS characters and a chunk boundary can leave a lone surrogate in it,
+so the door writes that field's JSON escapes itself from the UTF-16 units; and **two fields turned
+out not to be the host's** — a resize through the door left the JS host describing the pane at its
+old size, and `endedAt` was each host's own arrival time rather than the one death that happened.
+Both are the service's now and both are announced. While they were being announced the events got
+smaller: a broadcast carries the pane without its history, since nothing that reads those lines
+reads the scrollback. And `stop` answers the ending it caused rather than `stopping`.
+
+Four more sabotages: the scrollback as a Rust string (`?? fire` for `🔥 fire`), a running pane
+reporting an ending, a resize not announced, and `stop` answering early.
+
+Commands: `npm test` (**321 of 321**, three runs, zero services left), `cargo test`, `./init.sh`,
 `python3 tools/features.py validate`.
 
 ## Session 145 (macos) — 2026-09-13 — the first routes stop being forwarded (F189, first half)
