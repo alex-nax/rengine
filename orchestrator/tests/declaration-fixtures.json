@@ -1032,5 +1032,457 @@
     "tests": {
       "manifest": ".cache/tests.json"
     }
+  },
+  "a dashboard action naming a game nobody declared": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 3,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "games": [
+      {
+        "id": "fixture-game",
+        "title": "Fixture game",
+        "executable": [
+          "build/missing-game",
+          "tools/game.sh"
+        ],
+        "args": [
+          "--flat",
+          "--width",
+          "640"
+        ],
+        "env": {
+          "FIXTURE_FLAVOUR": "blue"
+        },
+        "requires": [
+          "data/present.bin"
+        ],
+        "surface": "external"
+      }
+    ],
+    "dashboardError": ".rengine/project.json: $.dashboard.groups[0].actions[0] (run).game references undeclared game id \"no-such-game\"; this declaration declares fixture-game"
+  },
+  "a script action that is not a root-relative .sh": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 2,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "dashboardError": ".rengine/project.json: $.dashboard.groups[0].actions[0] (check).script must be a root-relative .sh path inside the root"
+  },
+  "a capture action writing outside the root": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 2,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "dashboardError": ".rengine/project.json: $.dashboard.groups[0].actions[0] (shot).into must be root-relative"
+  },
+  "a dashboard env key that is not UPPER_SNAKE": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 2,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "dashboardError": ".rengine/project.json: $.dashboard.groups[0].actions[0] (check).env key lower must be UPPER_SNAKE"
+  },
+  "two dashboard groups with one id": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 2,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "dashboardError": ".rengine/project.json: $.dashboard.groups[0].actions[0] requires kind; $.dashboard.groups[1].actions[0] requires kind; $.dashboard.groups[1].id repeats \"build\""
+  },
+  "two games with one id": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 3,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "gamesError": ".rengine/project.json: $.games[1].id repeats \"fixture-game\""
+  },
+  "a game requiring a path outside the root": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 3,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "gamesError": ".rengine/project.json: $.games[0] (fixture-game).requires[0] must be root-relative"
+  },
+  "a game env key the workspace reserves": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 3,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "gamesError": ".rengine/project.json: $.games[0] (fixture-game).env key RENGINE_MINE is reserved for the workspace"
+  },
+  "a format whose default is not one of its modes": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: $.formats[0] (fixture-pack).default must be one of its modes",
+    "formats": []
+  },
+  "a format whose preview command never names the file": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: $.formats[0] (fixture-pack).preview.command must name ${file}",
+    "formats": []
+  },
+  "two formats with one id": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: $.formats[1].id repeats \"fixture-pack\"",
+    "formats": []
+  },
+  "two agents with one cli": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: $.agents[1].cli repeats \"claude\"",
+    "formats": []
+  },
+  "an agent default that is not one of its models": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: $.agents[0].default must be one of its models",
+    "formats": []
+  },
+  "a pack pinned to a tag rather than a digest": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 9,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "packsError": ".rengine/project.json: $.packs[0] (fixture).pin.revision must be a 40- or 64-character hex digest, not \"v1.0.0\""
+  },
+  "a pack whose library path escapes the root": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 9,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "packsError": ".rengine/project.json: $.packs[0] (fixture).library.path must be root-relative"
   }
 }

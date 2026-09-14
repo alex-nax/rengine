@@ -29,6 +29,7 @@ const FORMAT = {
   entry: { kind: 'bytes', command: ['/bin/cat', '${file}', '${entry}'], timeoutMs: 4000, maxBytes: 65536 },
 };
 const base = (extra = {}) => ({ contract: 1, project: 'fixture', formats: [FORMAT], ...extra });
+export { FORMAT };
 const DASHBOARD = { title: 'Fixture', groups: [{ id: 'build', title: 'Build', actions: [
   { id: 'check', title: 'Check', command: ['/bin/echo', 'checked'] }] }] };
 
@@ -81,6 +82,40 @@ export const CASES = [
     { name: 'fixture', pin: { version: '1.0.0', revision: 'a'.repeat(40) } }] } }],
   ['a tests manifest that is not root-relative', { document: { ...base(), contract: 10, tests: { manifest: '/etc/manifest.json' } } }],
   ['a tests manifest that is', { document: { ...base(), contract: 10, tests: { manifest: '.cache/tests.json' } } }],
+
+  /* The section rules, which are where most of a declaration's judgements live. Each case carries
+     exactly one mistake, so the message it produces is the message being recorded. */
+  ['a dashboard action naming a game nobody declared', { document: { ...base(), contract: 3, games: [game()], dashboard: {
+    title: 'Fixture', groups: [{ id: 'play', title: 'Play', actions: [
+      { id: 'run', title: 'Run', kind: 'game', game: 'no-such-game' }] }] } } }],
+  ['a script action that is not a root-relative .sh', { document: { ...base(), contract: 2, dashboard: {
+    title: 'Fixture', groups: [{ id: 'build', title: 'Build', actions: [
+      { id: 'check', title: 'Check', kind: 'script', script: '/opt/check.sh' }] }] } } }],
+  ['a capture action writing outside the root', { document: { ...base(), contract: 2, dashboard: {
+    title: 'Fixture', groups: [{ id: 'build', title: 'Build', actions: [
+      { id: 'shot', title: 'Shot', kind: 'capture', command: ['/bin/echo'], into: '../out.png', format: 'png' }] }] } } }],
+  ['a dashboard env key that is not UPPER_SNAKE', { document: { ...base(), contract: 2, dashboard: {
+    title: 'Fixture', groups: [{ id: 'build', title: 'Build', actions: [
+      { id: 'check', title: 'Check', kind: 'script', script: 'check.sh', env: { lower: 'x' } }] }] } } }],
+  ['two dashboard groups with one id', { document: { ...base(), contract: 2, dashboard: {
+    title: 'Fixture', groups: [
+      { id: 'build', title: 'Build', actions: [{ id: 'a', title: 'A', command: ['/bin/echo'] }] },
+      { id: 'build', title: 'Build again', actions: [{ id: 'b', title: 'B', command: ['/bin/echo'] }] }] } } }],
+  ['two games with one id', { document: { ...base(), contract: 3, games: [game(), game()] } }],
+  ['a game requiring a path outside the root', { document: { ...base(), contract: 3, games: [game({ requires: ['../elsewhere'] })] } }],
+  ['a game env key the workspace reserves', { document: { ...base(), contract: 3, games: [game({ env: { RENGINE_MINE: 'x' } })] } }],
+  ['a format whose default is not one of its modes', { document: base({ formats: [{ ...FORMAT, default: 'preview', modes: ['raw'] }] }) }],
+  ['a format whose preview command never names the file', { document: base({ formats: [
+    { ...FORMAT, preview: { kind: 'tree', command: ['/bin/cat'], timeoutMs: 4000, maxBytes: 65536 } }] }) }],
+  ['two formats with one id', { document: base({ formats: [FORMAT, FORMAT] }) }],
+  ['two agents with one cli', { document: { ...base(), contract: 6, agents: [
+    { cli: 'claude', models: ['m'], default: 'm' }, { cli: 'claude', models: ['n'], default: 'n' }] } }],
+  ['an agent default that is not one of its models', { document: { ...base(), contract: 6, agents: [
+    { cli: 'claude', models: ['m'], default: 'n' }] } }],
+  ['a pack pinned to a tag rather than a digest', { document: { ...base(), contract: 9, packs: [
+    { name: 'fixture', pin: { version: '1.0.0', revision: 'v1.0.0' }, library: { path: 'lib', target: 'fixture' } }] } }],
+  ['a pack whose library path escapes the root', { document: { ...base(), contract: 9, packs: [
+    { name: 'fixture', pin: { version: '1.0.0', revision: 'a'.repeat(40) }, library: { path: '../lib', target: 'fixture' } }] } }],
 ];
 
 /* One project per case, read the way a workspace reads it. */

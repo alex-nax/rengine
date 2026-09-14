@@ -15,7 +15,7 @@ checkout where `formats.mjs` still reads declarations — that is, never again a
 
 ## What is in it
 
-**38 cases, chosen for the judgements rather than the happy path.** A declaration that is missing,
+**53 cases, 40 of which record a refusal, chosen for the judgements rather than the happy path.** A declaration that is missing,
 unreadable, too large, not JSON, not an object, or on an unknown contract. A schema refusal with one
 problem and with several (the "and N more problems" clipping is part of the answer). A contract floor
 for every key that has one — `title` and `icon` at 5, `agents` at 6, brand artwork at 8, `tests` at
@@ -24,6 +24,14 @@ that escapes the declaration's directory, that is not an `.svg`, and that simply
 last of which is *reported* while the artwork that did resolve is still handed over. A tracker
 missing its provider's required key and a tracker wearing another provider's. A pack with a facet and
 one with none. Two language servers sharing an id.
+
+The section rules are in it too, one mistake per case, because a record that only held valid games
+and dashboards would pass a port that omitted every rule about them: a dashboard action naming a
+game nobody declared, a script action that is not a root-relative `.sh`, a capture writing outside
+the root, an env key that is not UPPER_SNAKE, duplicate group, game, format and agent ids, a game
+requiring a path outside the root or claiming a reserved `RENGINE_` key, a format whose default is
+not one of its modes and one whose preview command never names `${file}`, an agent default that is
+not one of its models, and a pack pinned to a tag rather than a digest.
 
 Every path in the record is `<root>` or a constant: the corpus declares its own format rather than
 borrowing the one that names this machine's node and this checkout's producer, because a record only
@@ -40,6 +48,8 @@ bad block disables that block alone rather than the formats with it.
 | --- | --- |
 | the reader stops naming the contract floor for an icon | the recorded answers are no longer the ones the reader gives |
 | artwork that cannot be read is dropped instead of reported | the same, on the `artworkError` the chrome shows |
+| a dashboard action may name a game nobody declared | the `dashboardError` about an undeclared game id disappears |
+| a game may claim a reserved `RENGINE_` environment key | the `gamesError` about it disappears |
 
 ## Gates
 
