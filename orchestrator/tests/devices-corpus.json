@@ -1,0 +1,1221 @@
+{
+  "no declaration at all": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": false,
+      "devices": []
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": false,
+      "groups": []
+    },
+    "probes": 0
+  },
+  "a declaration with no devices block": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 1,
+      "refreshed": false,
+      "devices": [
+        {
+          "id": "local",
+          "kind": "local",
+          "title": "This machine",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": false,
+          "probed": false,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        }
+      ]
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 1,
+      "groups": []
+    },
+    "probes": 0
+  },
+  "a devices block the rules refuse": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "error": ".rengine/project.json: $.devices[0] (bare).probe is required for a ssh device, so its reachability is measured rather than assumed",
+      "devices": []
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "groups": []
+    },
+    "probes": 0
+  },
+  "no devices declared at contract 4": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "error": ".rengine/project.json: $.devices needs at least 1 items",
+      "devices": []
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "groups": []
+    },
+    "probes": 0
+  },
+  "a declared local device wins its own title": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "refreshed": false,
+      "devices": [
+        {
+          "id": "local",
+          "kind": "local",
+          "title": "The workstation",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": true,
+          "probed": false,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        }
+      ]
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "groups": []
+    },
+    "probes": 0
+  },
+  "a remote device that answers": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "refreshed": false,
+      "devices": [
+        {
+          "id": "local",
+          "kind": "local",
+          "title": "This machine",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": false,
+          "probed": false,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        },
+        {
+          "id": "answering-box",
+          "kind": "ssh",
+          "title": "Answering box",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": true,
+          "probed": true,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        }
+      ]
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "groups": []
+    },
+    "probes": 0
+  },
+  "a remote device that refuses, with only its first stderr line": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "refreshed": false,
+      "devices": [
+        {
+          "id": "local",
+          "kind": "local",
+          "title": "This machine",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": false,
+          "probed": false,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        },
+        {
+          "id": "silent-box",
+          "kind": "ssh",
+          "title": "Silent box",
+          "reachable": false,
+          "checkedAt": "<stamp>",
+          "issues": [
+            "Silent box (silent-box) is not reachable: the probe failed (exit 7): fixture: the box is not answering."
+          ],
+          "declared": true,
+          "probed": true,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        }
+      ]
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "groups": []
+    },
+    "probes": 0
+  },
+  "a remote device whose probe hangs past its own timeout": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "refreshed": false,
+      "devices": [
+        {
+          "id": "local",
+          "kind": "local",
+          "title": "This machine",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": false,
+          "probed": false,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        },
+        {
+          "id": "stalling-box",
+          "kind": "ssh",
+          "title": "Stalling box",
+          "reachable": false,
+          "checkedAt": "<stamp>",
+          "issues": [
+            "Stalling box (stalling-box) is not reachable: the probe timed out after 400 ms."
+          ],
+          "declared": true,
+          "probed": true,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        }
+      ]
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "groups": []
+    },
+    "probes": 0
+  },
+  "a device whose requires and tools are missing here": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "refreshed": false,
+      "devices": [
+        {
+          "id": "local",
+          "kind": "local",
+          "title": "This machine",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": false,
+          "probed": false,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        },
+        {
+          "id": "gated-box",
+          "kind": "ssh",
+          "title": "Gated box",
+          "reachable": false,
+          "checkedAt": "<stamp>",
+          "issues": [
+            "Gated box (gated-box) needs config/host.env, which is missing here.",
+            "Gated box (gated-box) needs definitely-missing-tool-9f on this machine's PATH."
+          ],
+          "declared": true,
+          "probed": true,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        }
+      ]
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "groups": []
+    },
+    "probes": 0
+  },
+  "the same device once its required file exists": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "refreshed": false,
+      "devices": [
+        {
+          "id": "local",
+          "kind": "local",
+          "title": "This machine",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": false,
+          "probed": false,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        },
+        {
+          "id": "gated-box",
+          "kind": "ssh",
+          "title": "Gated box",
+          "reachable": false,
+          "checkedAt": "<stamp>",
+          "issues": [
+            "Gated box (gated-box) needs definitely-missing-tool-9f on this machine's PATH."
+          ],
+          "declared": true,
+          "probed": true,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        }
+      ]
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "groups": []
+    },
+    "probes": 0
+  },
+  "a placeholder whose environment variable is unset": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "refreshed": false,
+      "devices": [
+        {
+          "id": "local",
+          "kind": "local",
+          "title": "This machine",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": false,
+          "probed": false,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        },
+        {
+          "id": "headset",
+          "kind": "adb",
+          "title": "Fixture headset",
+          "reachable": false,
+          "checkedAt": "<stamp>",
+          "issues": [
+            "Fixture headset (headset) is not reachable: RENGINE_FIXTURE_SERIAL is not set in the workspace environment."
+          ],
+          "declared": true,
+          "probed": true,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        }
+      ]
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "groups": []
+    },
+    "probes": 0
+  },
+  "a placeholder whose environment variable is empty": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "refreshed": false,
+      "devices": [
+        {
+          "id": "local",
+          "kind": "local",
+          "title": "This machine",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": false,
+          "probed": false,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        },
+        {
+          "id": "headset",
+          "kind": "adb",
+          "title": "Fixture headset",
+          "reachable": false,
+          "checkedAt": "<stamp>",
+          "issues": [
+            "Fixture headset (headset) is not reachable: RENGINE_FIXTURE_SERIAL is empty in the workspace environment."
+          ],
+          "declared": true,
+          "probed": true,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        }
+      ]
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "groups": []
+    },
+    "probes": 0
+  },
+  "a placeholder the environment answers": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "refreshed": false,
+      "devices": [
+        {
+          "id": "local",
+          "kind": "local",
+          "title": "This machine",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": false,
+          "probed": false,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        },
+        {
+          "id": "headset",
+          "kind": "adb",
+          "title": "Fixture headset",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": true,
+          "probed": true,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        }
+      ]
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "groups": []
+    },
+    "probes": 0
+  },
+  "a host the environment answers": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "refreshed": false,
+      "devices": [
+        {
+          "id": "local",
+          "kind": "local",
+          "title": "This machine",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": false,
+          "probed": false,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        },
+        {
+          "id": "remote-box",
+          "kind": "ssh",
+          "title": "Remote box",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": true,
+          "probed": true,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        }
+      ]
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "groups": []
+    },
+    "probes": 0
+  },
+  "a declared literal value rather than an environment one": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "refreshed": false,
+      "devices": [
+        {
+          "id": "local",
+          "kind": "local",
+          "title": "This machine",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": false,
+          "probed": false,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        },
+        {
+          "id": "remote-box",
+          "kind": "ssh",
+          "title": "Remote box",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": true,
+          "probed": true,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        }
+      ]
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "groups": []
+    },
+    "probes": 0
+  },
+  "games and actions bound to their devices": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "refreshed": false,
+      "devices": [
+        {
+          "id": "local",
+          "kind": "local",
+          "title": "This machine",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": false,
+          "probed": false,
+          "games": [
+            "local-target"
+          ],
+          "actions": [
+            "check"
+          ],
+          "controls": [
+            {
+              "id": "check",
+              "title": "Check",
+              "kind": "log",
+              "available": true,
+              "missing": []
+            }
+          ],
+          "targets": [
+            {
+              "id": "local-target",
+              "title": "Local target",
+              "ready": false,
+              "remote": false,
+              "issue": "Game executable not found; expected build/never-built in the selected project.",
+              "location": ""
+            }
+          ]
+        },
+        {
+          "id": "answering-box",
+          "kind": "ssh",
+          "title": "Answering box",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": true,
+          "probed": true,
+          "games": [
+            "remote-target"
+          ],
+          "actions": [
+            "remote-check"
+          ],
+          "controls": [
+            {
+              "id": "remote-check",
+              "title": "Remote check",
+              "kind": "log",
+              "available": true,
+              "missing": []
+            }
+          ],
+          "targets": [
+            {
+              "id": "remote-target",
+              "title": "Remote target",
+              "ready": true,
+              "remote": true,
+              "issue": "",
+              "location": "build/present-locally on Answering box (answering-box), not on this machine"
+            }
+          ]
+        },
+        {
+          "id": "silent-box",
+          "kind": "ssh",
+          "title": "Silent box",
+          "reachable": false,
+          "checkedAt": "<stamp>",
+          "issues": [
+            "Silent box (silent-box) is not reachable: the probe failed (exit 7): fixture: the box is not answering."
+          ],
+          "declared": true,
+          "probed": true,
+          "games": [
+            "offline-target"
+          ],
+          "actions": [],
+          "controls": [],
+          "targets": [
+            {
+              "id": "offline-target",
+              "title": "Offline target",
+              "ready": false,
+              "remote": true,
+              "issue": "",
+              "location": "build/present-locally on Silent box (silent-box), not on this machine"
+            }
+          ]
+        }
+      ]
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "title": "Fixture",
+      "groups": [
+        {
+          "id": "build",
+          "title": "Build",
+          "actions": [
+            {
+              "id": "check",
+              "title": "Check",
+              "kind": "log",
+              "command": [
+                "/bin/echo",
+                "checked"
+              ],
+              "device": {
+                "id": "local",
+                "kind": "local",
+                "title": "This machine",
+                "reachable": true,
+                "checkedAt": "<stamp>",
+                "issues": []
+              },
+              "available": true,
+              "missing": []
+            },
+            {
+              "id": "remote-check",
+              "title": "Remote check",
+              "kind": "log",
+              "command": [
+                "/bin/echo",
+                "checked"
+              ],
+              "device": {
+                "id": "answering-box",
+                "kind": "ssh",
+                "title": "Answering box",
+                "reachable": true,
+                "checkedAt": "<stamp>",
+                "issues": []
+              },
+              "available": true,
+              "missing": []
+            }
+          ]
+        }
+      ]
+    },
+    "probes": 0
+  },
+  "an action naming a device the project does not declare": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "refreshed": false,
+      "devices": [
+        {
+          "id": "local",
+          "kind": "local",
+          "title": "This machine",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": false,
+          "probed": false,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        },
+        {
+          "id": "answering-box",
+          "kind": "ssh",
+          "title": "Answering box",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": true,
+          "probed": true,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        }
+      ]
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "error": ".rengine/project.json: $.dashboard.groups[0].actions[0] (stray).device references undeclared device id \"no-such-box\"; this declaration offers local, answering-box",
+      "groups": []
+    },
+    "probes": 0
+  },
+  "an action whose local prerequisites are missing": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "refreshed": false,
+      "devices": [
+        {
+          "id": "local",
+          "kind": "local",
+          "title": "This machine",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": false,
+          "probed": false,
+          "games": [],
+          "actions": [
+            "needs"
+          ],
+          "controls": [
+            {
+              "id": "needs",
+              "title": "Needs",
+              "kind": "log",
+              "available": false,
+              "missing": [
+                {
+                  "type": "requires",
+                  "name": "build/never-built"
+                },
+                {
+                  "type": "tools",
+                  "name": "definitely-missing-tool-9f"
+                }
+              ]
+            }
+          ],
+          "targets": []
+        },
+        {
+          "id": "answering-box",
+          "kind": "ssh",
+          "title": "Answering box",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": true,
+          "probed": true,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        }
+      ]
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "title": "Fixture",
+      "groups": [
+        {
+          "id": "build",
+          "title": "Build",
+          "actions": [
+            {
+              "id": "needs",
+              "title": "Needs",
+              "kind": "log",
+              "command": [
+                "/bin/echo",
+                "checked"
+              ],
+              "requires": [
+                "build/never-built"
+              ],
+              "tools": [
+                "definitely-missing-tool-9f"
+              ],
+              "device": {
+                "id": "local",
+                "kind": "local",
+                "title": "This machine",
+                "reachable": true,
+                "checkedAt": "<stamp>",
+                "issues": []
+              },
+              "available": false,
+              "missing": [
+                {
+                  "type": "requires",
+                  "name": "build/never-built"
+                },
+                {
+                  "type": "tools",
+                  "name": "definitely-missing-tool-9f"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "probes": 0
+  },
+  "an action whose prerequisites are present": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "refreshed": false,
+      "devices": [
+        {
+          "id": "local",
+          "kind": "local",
+          "title": "This machine",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": false,
+          "probed": false,
+          "games": [],
+          "actions": [
+            "present"
+          ],
+          "controls": [
+            {
+              "id": "present",
+              "title": "Present",
+              "kind": "log",
+              "available": true,
+              "missing": []
+            }
+          ],
+          "targets": []
+        },
+        {
+          "id": "answering-box",
+          "kind": "ssh",
+          "title": "Answering box",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": true,
+          "probed": true,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        }
+      ]
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "title": "Fixture",
+      "groups": [
+        {
+          "id": "build",
+          "title": "Build",
+          "actions": [
+            {
+              "id": "present",
+              "title": "Present",
+              "kind": "log",
+              "command": [
+                "/bin/echo",
+                "checked"
+              ],
+              "requires": [
+                "build/present-locally"
+              ],
+              "device": {
+                "id": "local",
+                "kind": "local",
+                "title": "This machine",
+                "reachable": true,
+                "checkedAt": "<stamp>",
+                "issues": []
+              },
+              "available": true,
+              "missing": []
+            }
+          ]
+        }
+      ]
+    },
+    "probes": 0
+  },
+  "an action on an unreachable device with a missing file too": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "refreshed": false,
+      "devices": [
+        {
+          "id": "local",
+          "kind": "local",
+          "title": "This machine",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": false,
+          "probed": false,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        },
+        {
+          "id": "silent-box",
+          "kind": "ssh",
+          "title": "Silent box",
+          "reachable": false,
+          "checkedAt": "<stamp>",
+          "issues": [
+            "Silent box (silent-box) is not reachable: the probe failed (exit 7): fixture: the box is not answering."
+          ],
+          "declared": true,
+          "probed": true,
+          "games": [],
+          "actions": [
+            "both"
+          ],
+          "controls": [
+            {
+              "id": "both",
+              "title": "Both",
+              "kind": "log",
+              "available": false,
+              "missing": [
+                {
+                  "type": "requires",
+                  "name": "build/never-built"
+                },
+                {
+                  "type": "device",
+                  "name": "Silent box (silent-box) is not reachable: the probe failed (exit 7): fixture: the box is not answering."
+                }
+              ]
+            }
+          ],
+          "targets": []
+        }
+      ]
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "title": "Fixture",
+      "groups": [
+        {
+          "id": "build",
+          "title": "Build",
+          "actions": [
+            {
+              "id": "both",
+              "title": "Both",
+              "kind": "log",
+              "command": [
+                "/bin/echo",
+                "checked"
+              ],
+              "device": {
+                "id": "silent-box",
+                "kind": "ssh",
+                "title": "Silent box",
+                "reachable": false,
+                "checkedAt": "<stamp>",
+                "issues": [
+                  "Silent box (silent-box) is not reachable: the probe failed (exit 7): fixture: the box is not answering."
+                ]
+              },
+              "requires": [
+                "build/never-built"
+              ],
+              "available": false,
+              "missing": [
+                {
+                  "type": "requires",
+                  "name": "build/never-built"
+                },
+                {
+                  "type": "device",
+                  "name": "Silent box (silent-box) is not reachable: the probe failed (exit 7): fixture: the box is not answering."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "probes": 0
+  },
+  "a game action whose target is not built": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "refreshed": false,
+      "devices": [
+        {
+          "id": "local",
+          "kind": "local",
+          "title": "This machine",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": false,
+          "probed": false,
+          "games": [
+            "local-target"
+          ],
+          "actions": [
+            "play"
+          ],
+          "controls": [
+            {
+              "id": "play",
+              "title": "Play",
+              "kind": "game",
+              "available": false,
+              "missing": [
+                {
+                  "type": "game",
+                  "name": "Game executable not found; expected build/never-built in the selected project."
+                }
+              ]
+            }
+          ],
+          "targets": [
+            {
+              "id": "local-target",
+              "title": "Local target",
+              "ready": false,
+              "remote": false,
+              "issue": "Game executable not found; expected build/never-built in the selected project.",
+              "location": ""
+            }
+          ]
+        },
+        {
+          "id": "answering-box",
+          "kind": "ssh",
+          "title": "Answering box",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": true,
+          "probed": true,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        }
+      ]
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "title": "Fixture",
+      "groups": [
+        {
+          "id": "build",
+          "title": "Build",
+          "actions": [
+            {
+              "id": "play",
+              "title": "Play",
+              "kind": "game",
+              "game": "local-target",
+              "device": {
+                "id": "local",
+                "kind": "local",
+                "title": "This machine",
+                "reachable": true,
+                "checkedAt": "<stamp>",
+                "issues": []
+              },
+              "available": false,
+              "missing": [
+                {
+                  "type": "game",
+                  "name": "Game executable not found; expected build/never-built in the selected project."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "probes": 0
+  },
+  "a refresh asks again rather than answering from the cache": {
+    "devices": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "refreshed": true,
+      "devices": [
+        {
+          "id": "local",
+          "kind": "local",
+          "title": "This machine",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": false,
+          "probed": false,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        },
+        {
+          "id": "counted-box",
+          "kind": "ssh",
+          "title": "Counted box",
+          "reachable": true,
+          "checkedAt": "<stamp>",
+          "issues": [],
+          "declared": true,
+          "probed": true,
+          "games": [],
+          "actions": [],
+          "controls": [],
+          "targets": []
+        }
+      ]
+    },
+    "dashboard": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "contract": 4,
+      "groups": []
+    },
+    "probes": 1
+  }
+}
