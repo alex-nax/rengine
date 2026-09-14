@@ -2808,7 +2808,9 @@
       "owner_workspace": "rengine",
       "deliverable": "The Rust feed and token protocol, the ported token-e2e and token-retirement suites; the two JS modules removed.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "F157 PREPARATION, 2026-09-14: docs/evidence/token-transcript-f157-2026-09-14.md — the ledger's clock and mint travel as data (defaults unchanged), and its answers are recorded as a 40-step transcript with both files it leaves behind (orchestrator/tests/token-transcript.{mjs,json}). Recording it found that status() settles nothing — the worker settles before every answer, and a transcript of status alone would have let a replacement skip it — and that the session-not-process identity rule had no case until a sabotage passed. Three sabotages verified. Nothing is ported by this."
+      ]
     },
     {
       "id": 158,

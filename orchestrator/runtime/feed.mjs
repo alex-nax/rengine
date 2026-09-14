@@ -25,14 +25,17 @@ export async function writeAtomically(filename, value) {
    file never sees a PTY byte, because the only producer that reads the host's stream discards
    everything that is not a session transition (spec 095, decision 7). */
 export class Feed {
-  constructor(directory, rootId, limit = FEED_LIMIT) {
-    this.directory = directory; this.rootId = rootId; this.limit = limit;
+  /* The clock travels as data (F157, spec 132): two implementations of this ring cannot be compared
+     while either reads the wall clock itself, and the default is the wall clock, so nothing about a
+     running workspace changes. */
+  constructor(directory, rootId, limit = FEED_LIMIT, { now = Date.now } = {}) {
+    this.directory = directory; this.rootId = rootId; this.limit = limit; this.now = now;
     this.file = path.join(directory, 'feed.json');
     this.frames = []; this.sequence = 0; this.listeners = new Set(); this.writing = Promise.resolve();
   }
-  static async open(directory, rootId, limit = FEED_LIMIT) {
+  static async open(directory, rootId, limit = FEED_LIMIT, options = {}) {
     await mkdir(directory, { recursive: true, mode: 0o700 });
-    const feed = new Feed(directory, rootId, limit);
+    const feed = new Feed(directory, rootId, limit, options);
     await feed.load();
     return feed;
   }
@@ -48,7 +51,7 @@ export class Feed {
      cursor and never repeats a number a monitor has already seen. */
   emit(type, by, fields = {}) {
     if (!TYPES.has(type)) throw new Error(`Unknown feed frame type ${type}.`);
-    const frame = { sequence: ++this.sequence, at: new Date().toISOString(), rootId: this.rootId, type, by, ...fields };
+    const frame = { sequence: ++this.sequence, at: new Date(this.now()).toISOString(), rootId: this.rootId, type, by, ...fields };
     this.frames.push(frame);
     if (this.frames.length > this.limit) this.frames.splice(0, this.frames.length - this.limit);
     this.persisting = this.writing = this.writing.then(() => writeAtomically(this.file, { version: 1, rootId: this.rootId, frames: this.frames })).catch(() => {});

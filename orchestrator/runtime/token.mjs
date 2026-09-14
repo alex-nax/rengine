@@ -1,7 +1,7 @@
 import { mkdir, readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
-import { Feed, writeAtomically } from './feed.mjs';
+import { Feed, FEED_LIMIT, writeAtomically } from './feed.mjs';
 
 export const DEFAULT_WINDOW_MS = 60000;
 export const MIN_WINDOW_MS = 250;
@@ -36,8 +36,8 @@ export function segmentFrame(status) {
     windowMs: status.window, sequence: status.tokenSequence };
 }
 const seconds = ms => `${Math.max(0, Math.round(ms / 1000))}s`;
-function elapsed(since) {
-  const ms = Date.now() - Date.parse(since);
+function elapsed(since, now) {
+  const ms = now - Date.parse(since);
   if (!Number.isFinite(ms) || ms < 0) return 'an unknown time';
   const total = Math.round(ms / 1000);
   return total < 60 ? `${total}s` : `${Math.floor(total / 60)}m ${total % 60}s`;
@@ -46,15 +46,23 @@ function elapsed(since) {
 /* One ledger per project root, persisted atomically as token.json in the runtime directory so a
    replaced workspace worker resumes the same holder and the same absolute deadline. */
 export class Ledger {
-  constructor(directory, rootId, feed, { window = () => DEFAULT_WINDOW_MS, alive = () => true } = {}) {
+  /* The clock and the mint travel as data (F157, spec 132), the way a pane's composition already
+     takes them: a ledger is a state machine, and two implementations of one cannot be compared while
+     either reads the wall clock or draws an id for itself. Both default to the real thing, so a
+     running workspace is unchanged. */
+  constructor(directory, rootId, feed, { window = () => DEFAULT_WINDOW_MS, alive = () => true, now = Date.now, mint = randomUUID } = {}) {
     this.directory = directory; this.rootId = rootId; this.feed = feed; this.windowOf = window; this.alive = alive;
+    this.now = now; this.mint = mint;
     this.file = path.join(directory, 'token.json');
     this.state = { version: 1, rootId, holder: null, contest: null, cooldown: {}, sequence: 0, tokenSequence: 0, identities: {}, history: [] };
     this.writing = Promise.resolve(); this.timer = null; this.watchers = new Set();
   }
+  /* One reading of the clock, in the shape every record here stores. */
+  at() { return new Date(this.now()).toISOString(); }
+
   static async open(directory, rootId, options) {
     await mkdir(directory, { recursive: true, mode: 0o700 });
-    const feed = await Feed.open(directory, rootId);
+    const feed = await Feed.open(directory, rootId, FEED_LIMIT, { now: options?.now });
     const ledger = new Ledger(directory, rootId, feed, options);
     await ledger.load();
     return ledger;
@@ -88,7 +96,7 @@ export class Ledger {
     if (this.timer) { clearTimeout(this.timer); this.timer = null; }
     const deadline = this.state.contest ? Date.parse(this.state.contest.deadline) : NaN;
     if (!Number.isFinite(deadline)) return;
-    this.timer = setTimeout(() => { this.timer = null; void this.settle(); }, Math.max(0, deadline - Date.now()));
+    this.timer = setTimeout(() => { this.timer = null; void this.settle(); }, Math.max(0, deadline - this.now()));
     this.timer.unref?.();
   }
   frame(type, by, fields) {
@@ -104,7 +112,7 @@ export class Ledger {
     if (!identity) return;
     const known = this.state.identities[identity.agentId];
     this.state.identities[identity.agentId] = { agentId: identity.agentId, label: identity.label,
-      ...(identity.pid ? { pid: identity.pid } : {}), firstSeenAt: known?.firstSeenAt ?? new Date().toISOString(), lastSeenAt: new Date().toISOString() };
+      ...(identity.pid ? { pid: identity.pid } : {}), firstSeenAt: known?.firstSeenAt ?? this.at(), lastSeenAt: this.at() };
     /* The identity is the agent's session, not its process (spec 095, Identity): a resumed session
        is the same agentId under a new pid, so the hold stands and liveness follows the process that
        is running it now. Without this the resumed holder reads as gone and loses its own token. */
@@ -124,12 +132,12 @@ export class Ledger {
   async settle() {
     let changed = false;
     for (const [agentId, until] of Object.entries(this.state.cooldown)) {
-      if (!(Date.parse(until) > Date.now())) { delete this.state.cooldown[agentId]; changed = true; }
+      if (!(Date.parse(until) > this.now())) { delete this.state.cooldown[agentId]; changed = true; }
     }
     const contest = this.state.contest;
-    if (contest && Date.parse(contest.deadline) <= Date.now()) {
+    if (contest && Date.parse(contest.deadline) <= this.now()) {
       this.state.contest = null;
-      this.state.holder = { ...contest.contester, since: new Date().toISOString() };
+      this.state.holder = { ...contest.contester, since: this.at() };
       this.frame('token.claimed', { kind: 'deadline' }, { holder: this.state.holder, contestId: contest.id });
       changed = true;
     }
@@ -139,7 +147,7 @@ export class Ledger {
   status(caller = null) {
     const contest = this.state.contest;
     return { rootId: this.rootId, holder: this.state.holder, window: this.window(),
-      contest: contest ? { ...contest, secondsRemaining: Math.max(0, Math.round((Date.parse(contest.deadline) - Date.now()) / 1000)) } : null,
+      contest: contest ? { ...contest, secondsRemaining: Math.max(0, Math.round((Date.parse(contest.deadline) - this.now()) / 1000)) } : null,
       holdsToken: Boolean(caller && this.state.holder?.agentId === caller.agentId),
       holderAlive: this.state.holder ? !this.gone(this.state.holder) : null,
       cooldown: this.state.cooldown, identities: Object.values(this.state.identities),
@@ -161,7 +169,7 @@ export class Ledger {
       return `The project token for this root is free, and ${named}needs it. Nothing was attempted. Call token_contest: a free token is claimed at once.`;
     }
     const contest = this.state.contest;
-    return `The project token is held by ${holder.label} (${holder.agentId}) since ${holder.since} (${elapsed(holder.since)} ago)`
+    return `The project token is held by ${holder.label} (${holder.agentId}) since ${holder.since} (${elapsed(holder.since, this.now())} ago)`
       + `, and ${named}needs it. Nothing was attempted. Call token_contest to open a ${seconds(this.window())} window`
       + (contest ? `; ${contest.contester.label} already has one open until ${contest.deadline}.` : '; the holder or the person at the desktop may reject it, otherwise the token transfers to you at the deadline.');
   }
@@ -172,8 +180,8 @@ export class Ledger {
     const holder = this.state.holder;
     if (holder?.agentId === caller.agentId) { await this.persist(); return { state: 'held', holder, detail: 'This agent already holds the token.' }; }
     const cooldown = this.state.cooldown[caller.agentId];
-    if (cooldown && Date.parse(cooldown) > Date.now()) {
-      const error = new Error(`This agent's contest was rejected and it cannot contest again until ${cooldown} (${seconds(Date.parse(cooldown) - Date.now())} from now).`);
+    if (cooldown && Date.parse(cooldown) > this.now()) {
+      const error = new Error(`This agent's contest was rejected and it cannot contest again until ${cooldown} (${seconds(Date.parse(cooldown) - this.now())} from now).`);
       throw Object.assign(error, { status: 409 });
     }
     if (this.state.contest) {
@@ -185,17 +193,17 @@ export class Ledger {
     if (!holder || this.gone(holder)) {
       const by = holder ? { kind: 'holder-gone' } : { kind: 'agent', agentId: caller.agentId, label: caller.label };
       const previous = holder;
-      this.state.holder = { ...contester, since: new Date().toISOString() };
+      this.state.holder = { ...contester, since: this.at() };
       this.frame('token.claimed', by, { holder: this.state.holder, ...(previous ? { previousHolder: previous } : {}) });
       await this.persist();
       return { state: 'claimed', holder: this.state.holder, by: by.kind };
     }
-    const openedAt = new Date().toISOString();
+    const openedAt = this.at();
     /* The window a contest was opened under travels with it: the deadline is fixed at this instant,
        and so is the cooldown a rejection of it costs. Changing the preference re-times nothing. */
     const windowMs = this.window();
-    this.state.contest = { id: randomUUID(), contester, openedAt, windowMs,
-      deadline: new Date(Date.now() + windowMs).toISOString(), reason: printable(reason, 200) };
+    this.state.contest = { id: this.mint(), contester, openedAt, windowMs,
+      deadline: new Date(this.now() + windowMs).toISOString(), reason: printable(reason, 200) };
     this.frame('token.contested', { kind: 'agent', agentId: caller.agentId, label: caller.label },
       { contestId: this.state.contest.id, contester, holder, deadline: this.state.contest.deadline, reason: this.state.contest.reason });
     this.arm(); await this.persist();
@@ -213,7 +221,7 @@ export class Ledger {
      the token to a chosen agent settles the open contest rather than leaving it to time out, and the
      contester did nothing wrong, so it is not charged the window a refusal costs. */
   async settleRejection(contest, by, reason, { cooldown = true } = {}) {
-    const until = new Date(Date.now() + (contest.windowMs ?? this.window())).toISOString();
+    const until = new Date(this.now() + (contest.windowMs ?? this.window())).toISOString();
     this.state.contest = null;
     if (cooldown) this.state.cooldown[contest.contester.agentId] = until;
     this.frame('token.rejected', by, { contestId: contest.id, contester: contest.contester, holder: this.state.holder,
@@ -231,7 +239,7 @@ export class Ledger {
     const holder = this.state.holder, contest = this.state.contest;
     if (contest) {
       this.state.contest = null;
-      this.state.holder = { ...contest.contester, since: new Date().toISOString() };
+      this.state.holder = { ...contest.contester, since: this.at() };
       this.frame('token.claimed', { kind: 'release', agentId: holder.agentId, label: holder.label },
         { holder: this.state.holder, previousHolder: holder, contestId: contest.id });
       this.arm(); await this.persist();
@@ -260,7 +268,7 @@ export class Ledger {
       if (contest) await this.settleRejection(contest, by, 'the token was assigned from the desktop', { cooldown: false });
       const previous = this.state.holder;
       this.state.holder = { agentId, label: printable(known.label, 64) || 'agent',
-        ...(Number.isSafeInteger(known.pid) && known.pid > 0 ? { pid: known.pid } : {}), since: new Date().toISOString() };
+        ...(Number.isSafeInteger(known.pid) && known.pid > 0 ? { pid: known.pid } : {}), since: this.at() };
       this.frame('token.claimed', by, { holder: this.state.holder, ...(previous ? { previousHolder: previous } : {}) });
       this.arm(); await this.persist();
       return { state: 'claimed', holder: this.state.holder, ...(previous ? { previousHolder: previous } : {}), by: 'desktop' };
@@ -273,7 +281,7 @@ export class Ledger {
     if (action === 'reject') return this.settleRejection(contest, by, reason);
     if (action === 'grant') {
       this.state.contest = null;
-      this.state.holder = { ...contest.contester, since: new Date().toISOString() };
+      this.state.holder = { ...contest.contester, since: this.at() };
       this.frame('token.claimed', by, { holder: this.state.holder, contestId: contest.id });
       this.arm(); await this.persist();
       return { state: 'claimed', holder: this.state.holder, by: 'desktop' };

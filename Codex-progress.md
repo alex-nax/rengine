@@ -152,7 +152,20 @@ producers in one process; and watchers are pushes, not polls. So it is a service
 mint and the clock travel as data so a transcript can be recorded from the JavaScript while the
 JavaScript still exists.
 
-That row is deliberately not started here. The ledger is what stops two agents writing over each
+**Started after all, from the safe end.** The clock and the mint now travel as data through `Ledger`
+and `Feed` — defaults unchanged, so a running workspace is untouched — and the ledger's answers are
+recorded as a **40-step transcript** with both files it leaves behind. Recording it found two things
+before a line of Rust was written. **`status()` settles nothing**: the ledger's comment says settling
+is applied before every read, but `status` is a synchronous read and the worker awaits `settle()`
+before every answer, which is where a passed deadline resolves — a transcript of `status` alone would
+have recorded a view no caller sees and let a replacement skip the settle. And **one rule had no case
+until a sabotage passed**: identity is the agent's session, not its process, so a resumed session is
+the same agentId under a new pid and the hold stands; nothing in the transcript resumed, so removing
+the rule changed nothing. Four steps were added for it.
+
+The Rust itself is the next session's, and it now has an oracle rather than a reading of the source.
+
+The original caution still stands for why the port was not rushed. The ledger is what stops two agents writing over each
 other's work, and its failure mode is not lost work but a wrong ledger that passes its tests: a
 refusal whose wording changed, a cooldown charged to the wrong contest, a deadline that re-times
 when a preference changes, a holder that reads as gone because liveness followed the process rather
