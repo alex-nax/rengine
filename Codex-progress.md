@@ -82,6 +82,23 @@ that rule, and the only place it can still be observed.
 
 JavaScript on the app path: **5,388**.
 
+### The door owns every project route
+
+`/api/bytes`, `/api/format-preview` and `/api/dashboard-capture` are red-host's. That completes the
+project's own routes at the door: everything `red-project` answers is answered there, and what
+still forwards needs something the door has not got — the session host (`dashboard-run`, `game`),
+the OAuth listener (tracker sign-in), or the network client F154 owns (a remote tracker).
+
+The handler takes a BODY now, because these two POSTs name their root in a JSON document rather
+than a query string — which is where `main.mjs` read it from. The two that run a project's own
+command are given `red_agents::shell_environment` over the door's environment, so a producer cannot
+tell which process asked it.
+
+`red-host.test.mjs`'s agreement loop — the one that stops the backend and asks what still answers —
+covers all five GETs and both POSTs, and its forward-only example is `/api/dashboard-run` now,
+because a byte window is no longer one. Two sabotages: the door forwarding each of them instead of
+owning it, which the test sees as the connection failure it is written against.
+
 ## Session 148 (macos) — 2026-09-14 — the token ledger becomes a service, and the record it kept catches the record
 
 `orchestrator/runtime/token.mjs` and `runtime/feed.mjs` are gone. `red-token` answers now — the

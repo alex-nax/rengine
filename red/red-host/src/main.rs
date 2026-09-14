@@ -348,16 +348,19 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
             if !head.keeps_alive() { return Ok(()); }
             continue;
         }
-        /* What the project itself declares and leaves behind (F156). */
-        if head.method == "GET"
+        /* What the project itself declares and leaves behind (F156). The last two are POSTs, asked
+           with a JSON document rather than a query string; the capture is the one that writes. */
+        if (head.method == "GET"
             && matches!(
                 head.path().as_str(),
-                "/api/formats" | "/api/recordings" | "/api/recording" | "/api/dashboard" | "/api/devices" | "/api/game-config" | "/api/tracker"
-            )
+                "/api/formats" | "/api/recordings" | "/api/recording" | "/api/dashboard" | "/api/devices" | "/api/game-config" | "/api/tracker" | "/api/bytes"
+            ))
+            || (head.method == "POST" && matches!(head.path().as_str(), "/api/format-preview" | "/api/dashboard-capture"))
         {
+            let body = if head.method == "POST" { head.read_body(&mut client, &mut buffered).await? } else { String::new() };
             /* `None` is this door declining after all — a remote tracker, whose providers need a
                network client F154 owns — and it falls through to the forwarder below. */
-            if let Some(answer) = routes::answer_about_project(&front, &head.path(), &head).await {
+            if let Some(answer) = routes::answer_about_project(&front, &head.path(), &head, &body).await {
                 client.write_all(answer.as_bytes()).await?;
                 if !head.keeps_alive() { return Ok(()); }
                 continue;

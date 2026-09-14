@@ -44,8 +44,15 @@ pub(crate) fn store_route(method: &str, path: &str) -> Option<&'static str> {
 /// `/api/tracker` is the exception, and it says so by forwarding: only the LOCAL backend is Rust,
 /// because the remote providers need a network client and F154 owns that decision.
 /// `None` means "not this door's after all" — the caller falls through to the forwarder.
-pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &Head) -> Option<String> {
-    let root_id = head.query("rootId").unwrap_or_default();
+pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &Head, body: &str) -> Option<String> {
+    /* A POST's body, parsed before anything else: `/api/format-preview` and
+       `/api/dashboard-capture` are asked with a JSON document, and the root is named IN it rather
+       than in a query string — which is where `main.mjs` read it from too. */
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let root_id = head
+        .query("rootId")
+        .or_else(|| data.get("rootId").and_then(serde_json::Value::as_str).map(str::to_string))
+        .unwrap_or_default();
     let root = match ask(front, "root", serde_json::json!([root_id])).await {
         Ok(root) => root,
         Err(fault) => return Some(faulted(&fault)),
@@ -56,7 +63,7 @@ pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &
     /* Everything the blocking half needs, taken before it starts: a task that outlives this call
        cannot borrow the request it came from. */
     let path = path.to_string();
-    let asked: Vec<Option<String>> = ["limit", "id", "artifact", "offset", "maxCharacters", "refresh", "gameId"]
+    let asked: Vec<Option<String>> = ["limit", "id", "artifact", "offset", "maxCharacters", "refresh", "gameId", "path", "length"]
         .into_iter()
         .map(|name| head.query(name))
         .collect();
@@ -77,7 +84,10 @@ pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &
     let front = front.clone();
     let answer = tokio::task::spawn_blocking(move || {
         let query = |index: usize| asked[index].clone();
-        let environment: Vec<(String, String)> = std::env::vars().collect();
+        /* The two routes that RUN a project's own command see the shell environment, because the JS
+           worker spawned their producer with `shellEnvironment()` and a producer must not notice
+           which process asked. Every other route only reads. */
+        let environment: Vec<(String, String)> = shell_vars();
         let now = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|since| since.as_millis() as i64).unwrap_or(0);
         let context = |controls: bool, refresh: bool| red_project::devices::Context {
             root_id: &id,
@@ -122,6 +132,27 @@ pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &
         "/api/tracker" => {
             let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
             Ok(red_project::tracker::project_tracker(&id, &root_path, &declared))
+        }
+        /* A window of a file's own bytes. The query is handed over as it arrived — `Number('')` is 0
+           and an absent parameter is not an empty one — because that is what `readBytes` was given. */
+        "/api/bytes" => {
+            let mut asked_window = serde_json::Map::new();
+            asked_window.insert("path".into(), serde_json::json!(query(7).unwrap_or_default()));
+            for (name, index) in [("offset", 3usize), ("length", 8)] {
+                if let Some(value) = query(index) {
+                    asked_window.insert(name.into(), serde_json::json!(value));
+                }
+            }
+            red_project::preview::read_bytes(&id, &root_path, &serde_json::Value::Object(asked_window)).map_err(refusal)
+        }
+        "/api/format-preview" => {
+            let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
+            red_project::preview::format_preview(&root_path, &declared, &data, &environment).map_err(refusal)
+        }
+        /* The one project route that WRITES. */
+        "/api/dashboard-capture" => {
+            let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
+            red_project::capture::capture(&context(false, false), &declared, data.get("actionId").and_then(serde_json::Value::as_str)).map_err(refusal)
         }
         _ => red_project::recordings::read(
             &id,
@@ -335,6 +366,16 @@ pub(crate) async fn answer_desktop_action(front: &Arc<Front>, body: &str) -> Str
         Ok(value) => http_json(200, "OK", &value),
         Err(fault) => faulted(&fault),
     }
+}
+
+/// `shellEnvironment()` over this process's own environment, as a list of pairs — what a project's
+/// declared command is run with, on either side of the port.
+fn shell_vars() -> Vec<(String, String)> {
+    let inherited: serde_json::Map<String, serde_json::Value> =
+        std::env::vars().map(|(name, value)| (name, serde_json::json!(value))).collect();
+    red_agents::spawn::shell_environment(&serde_json::Map::new(), &inherited, std::env::consts::OS, &std::env::var("HOME").unwrap_or_default())
+        .into_iter()
+        .collect()
 }
 
 /* A refusal's HTTP status, and 500 where it carries none.

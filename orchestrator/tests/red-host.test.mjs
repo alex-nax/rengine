@@ -289,22 +289,34 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
     'and so is what the project declares');
   assert.equal((await (await ask(instance, `/api/recordings?rootId=${root.id}`)).json()).path, '.cache/recordings',
     'and what it left behind');
-  /* F153 and F155 moved four more of the project's own questions into the door, so a workspace with
-     no backend still answers what a person's Devices tab, dashboard, game chooser and Tasks tab ask
-     about the project in front of them. */
-  for (const [route, what] of [
+  /* F153, F155 and F156 moved the rest of the project's own questions into the door, so a workspace
+     with no backend still answers what a person's Devices tab, dashboard, game chooser, Tasks tab and
+     file viewer ask about the project in front of them. */
+  for (const [route, what, extra = ''] of [
     ['dashboard', 'which of its actions may be pressed'],
     ['devices', 'which of the boxes it declares answer'],
     ['game-config', 'what a declared game needs before it can be launched'],
     ['tracker', 'its own task inventory'],
+    ['bytes', 'a window of one of its files', '&path=note.txt'],
   ]) {
-    assert.equal((await ask(instance, `/api/${route}?rootId=${root.id}`)).status, 200, what);
+    assert.equal((await ask(instance, `/api/${route}?rootId=${root.id}${extra}`)).status, 200, what);
+  }
+  /* The two POSTs among them, which name their root IN a JSON document rather than in a query
+     string. This fixture declares nothing, so each earns the refusal a project without a declaration
+     earns — which is the point: a refusal in the door's own words is an ANSWER, and a route the door
+     only forwards has nowhere to send this at all. */
+  for (const [route, body, said] of [
+    ['format-preview', { rootId: root.id, path: 'note.txt' }, /This project does not declare formats in \.rengine\/project\.json\./],
+    ['dashboard-capture', { rootId: root.id, actionId: 'no-such-action' }, /This project does not declare a dashboard in \.rengine\/project\.json\./],
+  ]) {
+    const answered = await ask(instance, `/api/${route}`, body);
+    assert.match((await answered.json()).error, said, `${route} is refused by the door, not forwarded`);
   }
   assert.equal((await alone.json()).text, 'through the door\n', 'from the state directory\'s own store');
   await assert.rejects(async () => {
-    /* A byte window is still the backend's: `formats.mjs` runs the project's own commands, and that
-       half has not moved. */
-    const forwarded = await ask(instance, `/api/bytes?rootId=${root.id}&path=note.txt`);
+    /* Running a dashboard action is still the backend's: it becomes a terminal, and the session host
+       is the one process that spawns those. */
+    const forwarded = await ask(instance, '/api/dashboard-run', { rootId: root.id, actionId: 'hello' });
     await forwarded.text();
   }, 'while a route it only forwards has nowhere left to go');
 });
