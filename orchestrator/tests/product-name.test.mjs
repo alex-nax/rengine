@@ -19,7 +19,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { PRODUCT_NAME, PRODUCT_FAMILY } from '../runtime/product.mjs';
 import { startIdeBridge, IDE_NAME } from '../runtime/ide.mjs';
-import { LanguageServers } from '../runtime/lsp.mjs';
+import { LanguageServers } from '../runtime/lsp-client.mjs';
 import { begin, cancel } from '../server/tracker-auth.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

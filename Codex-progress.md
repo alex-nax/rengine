@@ -130,6 +130,24 @@ the caller's business; knowing **which** to run is the module's rule. So the men
 halves — what it can build now, and the CLIs whose `--help` it still wants — and the client asks
 again with what it found.
 
+**F161: the language-server client is Rust.** `runtime/lsp.mjs` (260) is deleted; `red-lsp` holds
+the diagnostic half of the protocol and `lsp-client.mjs` (112) reaches it. A process per root on
+stdio rather than a service of a state directory, because a language server dies with the worker
+that started it — which is what the JavaScript did. Six recorded cases, three sabotages.
+
+**Three defects, none of which a corpus could have caught.** A Rust temporary-lifetime trap:
+`let status = { live.lock().child.take() }.map(|mut child| child.wait());` looks like it releases
+the lock at the end of the block and does not — the guard belongs to the enclosing *statement*, so
+it was held across `wait()`, which for a working server is forever. Every call then blocked, and the
+symptom was an `initialize` that was never even sent. Then the client unref'd its child and the loop
+drained mid-call; then `stop()` released its refs before awaiting an exit. The last two are the
+discipline `store-client` already wrote down, and the debris the first left is worth naming: a
+deadlocked service never returns to read its stdin, so it never notices the EOF that ends it.
+Fourteen were left behind while debugging; after the fix a full suite run leaves zero.
+
+The worker's diagnostics route asks **once** now rather than reading a version and then the items: a
+version drawn before the publish a poller is waiting for is a poller told "unchanged" about a change.
+
 **The desktop gate, run for the first time in this arc.** 43 specs, ten minutes, not in `npm test`
 (KI-105). 78 of 81 pass — including every token spec, so the ledger-as-a-service did not break the
 desktop's status segment, which is the consumer path F157 most had to keep. Both failures predate
@@ -153,9 +171,9 @@ And a defect of my own, found by comparing the new service with red-store rather
 drops it first. One client that stopped reading would have frozen a workspace's arbitration for
 every other client and for the settle sweep. The pushes queue under the lock and go out after it.
 
-Commands: `npm test` 341/341 (run twice) · `cargo test` 91/91 · `./init.sh` ·
+Commands: `npm test` 339/339 · `cargo test` 93/93 · `./init.sh` ·
 `python3 tools/features.py validate` · `python3 tools/design.py check`.
-JavaScript on the app path: **6,533 → 5,652**.
+JavaScript on the app path: **6,533 → 5,524**.
 
 One defect the ports left and the full suite found: the probe cache was keyed by the project root,
 which made it machine-global, so `forgetProbes` — which takes no root — cleared a concurrent

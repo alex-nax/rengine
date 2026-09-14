@@ -72,7 +72,9 @@ export async function sweep(directory, { alive = pid => { try { process.kill(pid
    the same way to the editor pane and to an agent, so the person and the model cannot be told
    different things about the same file (charter D37). A project that declares no server gets an
    empty list, which is the true answer from an editor that runs nothing, not a refusal. */
-const diagnostics = (uri, source) => [{ uri, diagnostics: source?.(uri) ?? [] }];
+/* `source` reaches the language servers, which since F161 answer over a socket — so this is
+   awaited. Same shape either way: one entry for the file asked about, empty when nothing serves it. */
+const diagnostics = async (uri, source) => [{ uri, diagnostics: (await source?.(uri)) ?? [] }];
 
 /* A worker replacement must not move the port. Claude Code reads a lock once and then reconnects to
    the port it read; it never goes back to the directory. An ephemeral port per worker therefore ends
@@ -128,9 +130,10 @@ export async function startIdeBridge({ roots = [], hostPid, workerPid = process.
       description: `Diagnostics ${PRODUCT_NAME} holds for a file, from the language servers the project declares. A project that declares none answers an empty list rather than refusing.`,
       inputSchema: { type: 'object', properties: { uri: { type: 'string' } } },
     }] }));
-    mcp.setRequestHandler(CallToolRequestSchema, request => {
+    mcp.setRequestHandler(CallToolRequestSchema, async request => {
       if (request.params.name !== 'getDiagnostics') throw new Error(`${request.params.name} is not a tool ${PRODUCT_NAME} serves yet.`);
-      return { content: [{ type: 'text', text: JSON.stringify(diagnostics(request.params.arguments?.uri ?? '', diagnosticsFor)) }] };
+      return diagnostics(request.params.arguments?.uri ?? '', diagnosticsFor)
+        .then(answer => ({ content: [{ type: 'text', text: JSON.stringify(answer) }] }));
     });
     socket.mcp = mcp;
     sockets.add(socket);

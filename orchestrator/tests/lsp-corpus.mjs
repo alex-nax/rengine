@@ -8,7 +8,9 @@
  *
  *   node orchestrator/tests/lsp-corpus.mjs > orchestrator/tests/lsp-corpus.json
  *
- * Regenerate ONLY from a checkout where `runtime/lsp.mjs` still holds the client.
+ * `runtime/lsp.mjs` is gone: `answers()` drives the CLIENT now, which is the client, the binary and
+ * `red-lsp` together — one layer more than `lsp-parity` drives, and a regenerated record would be
+ * judging the replacement against itself. Never regenerate.
  *
  * Two things are folded, because they are a machine's rather than a rule's: the temporary project
  * path, and the pid a spawn failure quotes. The RESTART WAIT is not folded — the first backoff is
@@ -73,7 +75,7 @@ const DECLARATIONS = {
 
 const until = async (check, label) => {
   for (let attempt = 0; attempt < 120; attempt++) {
-    const value = check();
+    const value = await check();
     if (value) return value;
     await delay(50);
   }
@@ -81,7 +83,7 @@ const until = async (check, label) => {
 };
 
 export async function answers() {
-  const { LanguageServers, uriFor } = await import('../runtime/lsp.mjs');
+  const { LanguageServers, uriFor } = await import('../runtime/lsp-client.mjs');
   const recorded = {};
   for (const [name, options] of CASES) {
     const directory = await mkdtemp(path.join(tmpdir(), 'rengine-lsp-corpus-'));
@@ -93,19 +95,19 @@ export async function answers() {
       for (const step of options.steps) {
         if (step.open) {
           const answer = await servers.open(path.join(directory, step.open), step.text);
-          if (step.awaitItems) await until(() => (servers.for(answer.uri).length === step.awaitItems ? true : null), `${step.awaitItems} items`);
+          if (step.awaitItems) await until(async () => ((await servers.for(answer.uri)).length === step.awaitItems ? true : null), `${step.awaitItems} items`);
           steps.push({ opened: step.open, servers: answer.servers });
         } else if (step.close) {
-          servers.close(path.join(directory, step.close));
+          await servers.close(path.join(directory, step.close));
           steps.push({ closed: step.close });
         } else if (step.read) {
-          steps.push({ read: step.read, items: servers.for(uriFor(path.join(directory, step.read))) });
+          steps.push({ read: step.read, items: await servers.for(uriFor(path.join(directory, step.read))) });
         } else if (step.awaitUnavailable) {
-          const said = await until(() => (servers.unavailable().length ? servers.unavailable() : null), 'a named absence');
+          const said = await until(async () => { const list = await servers.unavailable(); return list.length ? list : null; }, 'a named absence');
           steps.push({ unavailable: said.map(fold) });
         }
       }
-      recorded[name] = { steps, unavailable: servers.unavailable().map(fold) };
+      recorded[name] = { steps, unavailable: (await servers.unavailable()).map(fold) };
     } finally {
       await servers.stop();
       await rm(directory, { recursive: true, force: true });

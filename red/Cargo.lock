@@ -2732,6 +2732,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "red-lsp"
+version = "0.1.0"
+dependencies = [
+ "red-core",
+ "serde_json",
+]
+
+[[package]]
 name = "red-mcp"
 version = "0.1.0"
 dependencies = [

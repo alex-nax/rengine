@@ -5,7 +5,24 @@
 
    Arguments: --word WORD (default TODO), --crash-after N (exit non-zero after N opens),
    --slow-initialize MS. */
-import { framer } from '../runtime/lsp.mjs';
+/* Its own framer, because the client it exists to talk to is Rust now (F161) and a test double
+   that imported the implementation would be testing it against itself. */
+const framer = onMessage => {
+  let buffer = Buffer.alloc(0);
+  return chunk => {
+    buffer = Buffer.concat([buffer, chunk]);
+    for (;;) {
+      const header = buffer.indexOf('\r\n\r\n');
+      if (header < 0) return;
+      const length = Number(/content-length:\s*(\d+)/i.exec(buffer.subarray(0, header).toString('ascii'))?.[1]);
+      if (!Number.isInteger(length)) { buffer = buffer.subarray(header + 4); continue; }
+      if (buffer.length < header + 4 + length) return;
+      const body = buffer.subarray(header + 4, header + 4 + length).toString('utf8');
+      buffer = buffer.subarray(header + 4 + length);
+      try { onMessage(JSON.parse(body)); } catch { /* a frame we cannot parse is not a reason to stop reading */ }
+    }
+  };
+};
 
 const argv = process.argv.slice(2);
 const option = (name, fallback) => { const i = argv.indexOf(name); return i < 0 ? fallback : argv[i + 1]; };

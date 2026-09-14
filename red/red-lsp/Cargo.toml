@@ -1,0 +1,16 @@
+[package]
+name = "red-lsp"
+version = "0.1.0"
+edition = "2021"
+description = "The Language Server Protocol client the workspace runs (F161, charter D37, spec 102): the diagnostic half, and nothing else"
+
+[dependencies]
+red-core = { path = "../red-core" }
+serde_json = { version = "1", features = ["preserve_order"] }
+
+# One process per project root, owned by the caller and dying with it — the stdio shape
+# red-store-serve established, rather than a service of a state directory: a language server belongs
+# to the worker that started it, exactly as it did in JavaScript.
+[[bin]]
+name = "red-lsp-serve"
+path = "src/bin/red_lsp_serve.rs"

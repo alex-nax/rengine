@@ -15,7 +15,7 @@ import { hostStateDirectory, readTasks, trackerSignIn, trackerSignOut } from './
 import { agentsMenu, modelArgs, promptFor, promptValues, taskWrite } from '../server/tasks.mjs';
 import { recipe } from '../agents/agents-client.mjs';
 import { startIdeBridge } from './ide.mjs';
-import { LanguageServers, uriFor } from './lsp.mjs';
+import { LanguageServers, uriFor } from './lsp-client.mjs';
 import { runtimeDirectory, alive, discoverRuntime } from './discovery.mjs';
 import { Tokens, UUID, readIdentity, readDesktop, segmentFrame } from './token-client.mjs';
 
@@ -62,7 +62,7 @@ export async function startWorker(host, options = {}) {
     }
     return servers.get(selected.id);
   };
-  const diagnosticsFor = uri => [...servers.values()].flatMap(group => group.for(uri));
+  const diagnosticsFor = async uri => (await Promise.all([...servers.values()].map(group => group.for(uri)))).flat();
   let ide = null;
   if (options.ide !== false) {
     ide = await startIdeBridge({ roots: state.roots.map(root => root.path), hostPid, port: options.idePort ?? 0,
@@ -552,15 +552,15 @@ export async function startWorker(host, options = {}) {
            gets told nothing changed. */
         const selected = root(target.searchParams.get('rootId'));
         const group = await serversFor(selected);
-        const version = group.version;
+        const file = path.join(selected.path, target.searchParams.get('path') ?? '');
+        /* One call, and the version it answers is current: asking for the version first and the
+           items afterwards would hand a poller a version drawn before the publish it is waiting for. */
+        const answer = await group.diagnostics(uriFor(file));
         /* `has`, not a parsed value: Number(null) is 0 and version starts at 0, so a caller that
            omits `since` was being told nothing had changed since a version it never held. */
         const since = target.searchParams.has('since') ? Number(target.searchParams.get('since')) : null;
-        if (Number.isInteger(since) && since === version) { json(res, 200, { version, unchanged: true }); }
-        else {
-          const file = path.join(selected.path, target.searchParams.get('path') ?? '');
-          json(res, 200, { version, items: group.for(uriFor(file)), unavailable: group.unavailable() });
-        }
+        if (Number.isInteger(since) && since === answer.version) { json(res, 200, { version: answer.version, unchanged: true }); }
+        else json(res, 200, { version: answer.version, items: answer.items, unavailable: answer.unavailable });
       } else if (req.method === 'POST' && target.pathname === '/api/ide-mention') {
         /* Deliberate, unlike the selection stream: the person pressed a button that says so, and the
            CLI treats the two differently. */

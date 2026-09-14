@@ -8,7 +8,7 @@ import { WebSocket } from 'ws';
 import { startIdeBridge, sweep, IDE_NAME } from '../runtime/ide.mjs';
 import { startServer } from '../server/main.mjs';
 import { startWorker } from '../runtime/worker.mjs';
-import { uriFor } from '../runtime/lsp.mjs';
+import { uriFor } from '../runtime/lsp-client.mjs';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const directory = async () => mkdtemp(path.join(tmpdir(), 'rengine-ide-'));

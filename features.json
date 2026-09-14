@@ -2897,7 +2897,9 @@
       "owner_workspace": "rengine",
       "deliverable": "The Rust editor-integration crate, the ported ide fixtures, and the LSP behavior or its recorded re-scope; the two JS modules removed.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "F161 (the LSP half), 2026-09-14: docs/evidence/lsp-f161-2026-09-14.md — red-lsp holds the diagnostic half of the protocol; runtime/lsp.mjs is deleted and runtime/lsp-client.mjs (112) is how a caller reaches it. A process per root on stdio rather than a service of a state directory, because a language server dies with the worker that started it exactly as it did in JavaScript. Judged against six recorded cases driven at the fake server, stable across three runs; three sabotages (diagnostics outliving a crashed server, no restart backoff, a single star crossing a directory). Three defects none of which a corpus could catch: a Rust temporary-lifetime trap held the server lock across child.wait() and deadlocked every call; the client unref'd its child so the loop drained mid-call; and stop() released its refs before awaiting an exit. The worker's diagnostics route now asks once rather than reading a version and then the items — a version drawn before the publish a poller waits for is a poller told 'unchanged' about a change. npm test 339/339, cargo test 93/93, zero processes left behind. JS on the app path 5,652 -> 5,524."
+      ]
     },
     {
       "id": 162,
