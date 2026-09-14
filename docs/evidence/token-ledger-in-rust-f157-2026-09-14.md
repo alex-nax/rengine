@@ -90,10 +90,29 @@ Five, each observed failing for its own reason and restored:
   and the half that rounds the other way in Rust than in JavaScript).
 - `./init.sh`, `python3 tools/features.py validate`.
 
+## Then the third copy of the attach discipline went too
+
+`service-client.mjs` was written for the token client, but the thing it holds — find the
+descriptor, refuse anything but loopback with a 64-hex token, end a service whose protocol this host
+cannot read, start one under a lock whose stale owner is reaped by PID, connect — already existed
+twice, in `store-client.mjs` and `pty-client.mjs`, at about eighty-five lines each. Three copies of
+one security check is three chances to check the token differently, so both were collapsed onto
+`findOrStart` in a second commit.
+
+Verified by sabotage rather than by reading: disabling the protocol check *in the shared module*
+turns `pty-retention.test.mjs`'s "a service that speaks another protocol is ended by name, never
+adopted" red, and green again on restore — so the extracted code is the code the suite was already
+exercising. `npm test` 331/331 across both commits.
+
+| | before | after |
+|---|---|---|
+| `store-client.mjs` | 322 | 230 |
+| `pty-client.mjs` | 288 | 189 |
+| `token-client.mjs` | — | 161 |
+| `service-client.mjs` | — | 199 |
+
 ## JavaScript on the app path
 
-6,533 → 6,458. `token.mjs` (372) and `feed.mjs` (67) are gone; `token-client.mjs` (161) and
-`service-client.mjs` (191) arrive. The second of those is the per-state-directory attach discipline
-— descriptor, lock, spawn, protocol handshake, JSON-RPC — that `store-client.mjs` and
-`pty-client.mjs` each hold their own copy of today, and that they collapse onto when F158 deletes
-them.
+**6,533 → 6,275.** `token.mjs` (372) and `feed.mjs` (67) are gone, `token-client.mjs` and
+`service-client.mjs` arrive, and the two older clients give back 191 lines between them. When F158
+deletes `store-client.mjs` and `pty-client.mjs`, `service-client.mjs` is what stays behind.

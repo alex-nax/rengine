@@ -43,7 +43,7 @@ async function readDescriptor(directory, name) {
   catch (error) { if (error.code === 'ENOENT') return null; throw error; }
   const address = typeof document.url === 'string' ? /^tcp:\/\/127\.0\.0\.1:(\d{1,5})$/.exec(document.url) : null;
   if (!address || !/^[0-9a-f]{64}$/.test(document.token ?? '') || !Number.isSafeInteger(document.pid)) {
-    throw new Error(`Invalid ${name} descriptor in ${descriptorPath(directory, name)}.`);
+    throw new Error(`Invalid red-${name} descriptor in ${descriptorPath(directory, name)}.`);
   }
   return { ...document, port: Number(address[1]) };
 }
@@ -54,8 +54,11 @@ const connect = port => new Promise((resolve, reject) => {
   socket.once('error', reject);
 });
 
+/* A service whose protocol this host cannot read is ended rather than left holding what it holds
+   for a client that cannot reach it. Its state ends with it, which is today's host-replacement
+   behaviour, named out loud. */
 async function endService(directory, name, descriptor, why) {
-  process.emitWarning(`${name}: ${why} Ending PID ${descriptor.pid} and starting a service this host can read.`);
+  process.emitWarning(`red-${name}: ${why} Ending PID ${descriptor.pid} and starting a service this host can read.`);
   try { process.kill(descriptor.pid, 'SIGTERM'); } catch { /* already gone */ }
   for (let waited = 0; waited < 2000 && alive(descriptor.pid); waited += 50) await pause(50);
   if (alive(descriptor.pid)) { try { process.kill(descriptor.pid, 'SIGKILL'); } catch { /* raced */ } }
@@ -90,7 +93,7 @@ async function startService(directory, { name, protocol, binary, env, args }) {
         const owner = JSON.parse(await readFile(lockPath, 'utf8'));
         if (Number.isSafeInteger(owner.pid) && !alive(owner.pid)) { await rm(lockPath, { force: true }); continue; }
       } catch { await rm(lockPath, { force: true }); continue; }
-      if (Date.now() > deadline) throw new Error(`${lockPath} is held by a live process; no second ${name} service was started.`);
+      if (Date.now() > deadline) throw new Error(`${lockPath} is held by a live process; no second red-${name} service was started.`);
       await pause(50);
     }
   }
@@ -113,20 +116,25 @@ async function startService(directory, { name, protocol, binary, env, args }) {
   }
 }
 
+/** The service serving `directory`: found if one is running, started if not, connected either way. */
+export async function findOrStart(directory, { name, protocol, variable, basename, env = process.env, args }) {
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  const binary = serveBinary(variable, basename);
+  const options = { name, protocol, binary, env, args: args ?? ['--state', directory] };
+  return (await liveDescriptor(directory, name, protocol)) ?? (await startService(directory, options));
+}
+
 export class ServiceClient {
   /** Attach to the service serving `directory`, starting one if there is none. */
   static async attach(directory, { name, protocol, variable, basename, env = process.env, args, onEvent = () => {} }) {
-    await mkdir(directory, { recursive: true, mode: 0o700 });
-    const binary = serveBinary(variable, basename);
-    const options = { name, protocol, binary, env, args: args ?? ['--state', directory] };
-    const found = (await liveDescriptor(directory, name, protocol)) ?? (await startService(directory, options));
+    const found = await findOrStart(directory, { name, protocol, variable, basename, env, args });
     const client = new ServiceClient(name, found.socket, onEvent);
     const hello = await client.call('attach', [{ token: found.descriptor.token, protocol }]);
     /* The instance, not the port: a service that died and was replaced between the descriptor read
        and the connect answers on the same port as something this client never agreed to talk to. */
     if (hello.instance !== found.descriptor.instance) {
       client.socket.destroy();
-      throw new Error(`${name} at ${found.descriptor.url} answered as ${hello.instance}, not the ${found.descriptor.instance} its descriptor names.`);
+      throw new Error(`red-${name} at ${found.descriptor.url} answered as ${hello.instance}, not the ${found.descriptor.instance} its descriptor names.`);
     }
     client.greeting = hello;
     client.service = { url: found.descriptor.url, pid: hello.pid, instance: hello.instance };
@@ -146,7 +154,7 @@ export class ServiceClient {
     this.lines.on('line', line => this.answer(line));
     socket.on('error', () => { /* the close handler below is the one that matters */ });
     socket.on('close', () => {
-      for (const waiting of this.pending.values()) waiting.reject(new Error(`the ${name} service closed the connection.`));
+      for (const waiting of this.pending.values()) waiting.reject(new Error(`the red-${name} service closed the connection.`));
       this.pending.clear();
     });
     socket.unref();

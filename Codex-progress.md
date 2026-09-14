@@ -35,13 +35,19 @@ with the request.
 off `<file>.<pid>.<write>.tmp`. It now asserts that *neither* worker writes the ledger — the one
 writer is the service both attach to — which is a stronger statement about the same file.
 
-`orchestrator/runtime/service-client.mjs` is new beside the token client: the per-state-directory
-attach discipline (descriptor, lock, spawn, protocol handshake, JSON-RPC) that `store-client.mjs`
-and `pty-client.mjs` each keep their own copy of today, and that they collapse onto in F158.
+**And then the third copy of the attach discipline went.**
+`orchestrator/runtime/service-client.mjs` was written for the token client, but what it holds —
+find the descriptor, refuse anything but loopback with a 64-hex token, end a service whose protocol
+this host cannot read, start one under a lock whose stale owner is reaped by PID — already existed
+twice, at about eighty-five lines each. Three copies of one security check is three chances to check
+the token differently, so `store-client.mjs` (322 → 230) and `pty-client.mjs` (288 → 189) were
+collapsed onto it in a second commit. Verified by sabotage rather than by reading: disabling the
+protocol check *in the shared module* turns `pty-retention`'s "a service that speaks another
+protocol is ended by name, never adopted" red, and green again on restore.
 
 Commands: `npm test` 331/331 · `cargo test -p red-token -p red-core` 22/22 · `./init.sh` ·
 `python3 tools/features.py validate` · `python3 tools/design.py check`.
-JavaScript on the app path: **6,533 → 6,458**.
+JavaScript on the app path: **6,533 → 6,275**.
 
 Remaining: F158 (the worker, and with it `main.mjs`, `sessions-client.mjs`, `store-client.mjs`,
 `pty-client.mjs`). F152/F189 still wait on F186, which is the owner's live-pane run. KI-105 (the

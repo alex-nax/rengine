@@ -7,35 +7,27 @@
  * The binary resolves as $RENGINE_RED_STORE_SERVE, then the repo's debug or release build;
  * a missing binary is named, never silently worked around. F175 swaps the consumers to this
  * module and deletes store.mjs and schema.mjs.
+ *
+ * The store as a service of its state directory (charter D61): one owner for a directory, every
+ * host attaching to it, so a front door serving `/api/tree` and a JS backend serving the routes it
+ * has not moved yet are reading and writing one store rather than two copies of one file. Finding
+ * and starting that service is `runtime/service-client.mjs`'s, shared with red-pty and red-token.
  */
 import { spawn } from 'node:child_process';
-import net from 'node:net';
-import { closeSync, openSync } from 'node:fs';
-import { mkdir, open as openFile, readFile, rm } from 'node:fs/promises';
-import { alive } from '../launcher/sidecar.mjs';
 import { createHash } from 'node:crypto';
-import { existsSync } from 'node:fs';
 import readline from 'node:readline';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { findOrStart, serveBinary as resolveBinary } from '../runtime/service-client.mjs';
 
 export const MAX_TEXT_BYTES = 2 * 1024 * 1024;
 export const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 export function fail(message, status = 400) { const error = new Error(message); error.status = status; throw error; }
 
-const CHECKOUT = fileURLToPath(new URL('../../', import.meta.url));
-function serveBinary() {
-  const declared = process.env.RENGINE_RED_STORE_SERVE;
-  if (declared) {
-    if (existsSync(declared)) return declared;
-    throw new Error(`RENGINE_RED_STORE_SERVE names ${declared}, which does not exist.`);
-  }
-  for (const profile of ['debug', 'release']) {
-    const candidate = path.join(CHECKOUT, 'red/target', profile, 'red-store-serve');
-    if (existsSync(candidate)) return candidate;
-  }
-  throw new Error('The red-store-serve binary is required (run: cargo build -p red-store, or set RENGINE_RED_STORE_SERVE).');
-}
+/* The service-of-a-state-directory discipline — descriptor, protocol handshake, startup lock,
+   spawn — is `runtime/service-client.mjs`'s, because three services now want the same thing and
+   three copies of it were three chances to check the token differently (charter D60/D61). */
+const SERVICE = { name: 'store', protocol: 1, variable: 'RENGINE_RED_STORE_SERVE', basename: 'red-store-serve' };
+const serveBinary = () => resolveBinary(SERVICE.variable, SERVICE.basename);
 
 /* The service a standalone call (resolveInRoot, validateSchema) is answered by: the most
    recently opened store's, or a lazily spawned scratch store on a temp directory when nothing
@@ -43,90 +35,7 @@ function serveBinary() {
    store.mjs, and their tests never open a store. The scratch process exits with this one. */
 let latest = null;
 
-/* The store as a service of its state directory (charter D61): one owner for a directory, every
-   host attaching to it, so a front door serving `/api/tree` and a JS backend serving the routes it
-   has not moved yet are reading and writing one store rather than two copies of one file.
-   The discipline is `pty-client`'s, because it is `discoverSidecar`'s: refuse anything but loopback
-   with a 64-hex token, start one only under a lock whose stale owner is reaped by PID, and never
-   adopt a service whose protocol this client cannot read. */
-export const STORE_PROTOCOL = 1;
-const descriptorPath = directory => path.join(directory, 'store.json');
-const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
-
-async function readDescriptor(directory) {
-  let document;
-  try { document = JSON.parse(await readFile(descriptorPath(directory), 'utf8')); }
-  catch (error) { if (error.code === 'ENOENT') return null; throw error; }
-  const address = typeof document.url === 'string' ? /^tcp:\/\/127\.0\.0\.1:(\d{1,5})$/.exec(document.url) : null;
-  if (!address || !/^[0-9a-f]{64}$/.test(document.token ?? '') || !Number.isSafeInteger(document.pid)) {
-    throw new Error(`Invalid red-store descriptor in ${descriptorPath(directory)}.`);
-  }
-  return { ...document, port: Number(address[1]) };
-}
-
-const connect = port => new Promise((resolve, reject) => {
-  const socket = net.connect({ host: '127.0.0.1', port });
-  socket.once('connect', () => { socket.removeListener('error', reject); resolve(socket); });
-  socket.once('error', reject);
-});
-
-async function endService(directory, descriptor, why) {
-  process.emitWarning(`red-store: ${why} Ending PID ${descriptor.pid} and starting a service this host can read.`);
-  try { process.kill(descriptor.pid, 'SIGTERM'); } catch { /* already gone */ }
-  for (let waited = 0; waited < 2000 && alive(descriptor.pid); waited += 50) await pause(50);
-  if (alive(descriptor.pid)) { try { process.kill(descriptor.pid, 'SIGKILL'); } catch { /* raced */ } }
-  await rm(descriptorPath(directory), { force: true });
-}
-
-async function liveDescriptor(directory) {
-  const descriptor = await readDescriptor(directory);
-  if (!descriptor) return null;
-  if (descriptor.protocol !== STORE_PROTOCOL) {
-    await endService(directory, descriptor, `${descriptorPath(directory)} names protocol ${descriptor.protocol}; this host speaks ${STORE_PROTOCOL}.`);
-    return null;
-  }
-  if (!alive(descriptor.pid)) return null;
-  try { return { descriptor, socket: await connect(descriptor.port) }; }
-  catch { return null; }
-}
-
-async function startService(directory, env) {
-  const binary = serveBinary();
-  const lockPath = path.join(directory, 'store-startup.lock');
-  const deadline = Date.now() + 15000;
-  let lock;
-  while (!lock) {
-    try { lock = await openFile(lockPath, 'wx', 0o600); await lock.writeFile(JSON.stringify({ pid: process.pid })); }
-    catch (error) {
-      if (error.code !== 'EEXIST') throw error;
-      const ready = await liveDescriptor(directory);
-      if (ready) return ready;
-      try {
-        const owner = JSON.parse(await readFile(lockPath, 'utf8'));
-        if (Number.isSafeInteger(owner.pid) && !alive(owner.pid)) { await rm(lockPath, { force: true }); continue; }
-      } catch { await rm(lockPath, { force: true }); continue; }
-      if (Date.now() > deadline) throw new Error(`${lockPath} is held by a live process; no second red-store service was started.`);
-      await pause(50);
-    }
-  }
-  try {
-    const ready = await liveDescriptor(directory);
-    if (ready) return ready;
-    const log = openSync(path.join(directory, 'store-serve.log'), 'a');
-    const child = spawn(binary, ['--state', directory], { detached: true, stdio: ['ignore', 'ignore', log], env });
-    child.unref();
-    closeSync(log);
-    for (let waited = 0; waited < 15000; waited += 50) {
-      const started = await liveDescriptor(directory);
-      if (started) return started;
-      await pause(50);
-    }
-    throw new Error(`red-store-serve did not write ${descriptorPath(directory)} within 15s; see ${path.join(directory, 'store-serve.log')}.`);
-  } finally {
-    await lock.close();
-    await rm(lockPath, { force: true });
-  }
-}
+export const STORE_PROTOCOL = SERVICE.protocol;
 
 export class WorkspaceStore {
   static async open(directory, { env = process.env } = {}) {
@@ -152,8 +61,7 @@ export class WorkspaceStore {
 
   /** The state directory's own store: found if a service is running, started if not (D61). */
   static async attach(directory, { env = process.env } = {}) {
-    await mkdir(directory, { recursive: true, mode: 0o700 });
-    const found = (await liveDescriptor(directory)) ?? (await startService(directory, env));
+    const found = await findOrStart(directory, { ...SERVICE, env });
     const store = new WorkspaceStore(directory, null, found.socket);
     const hello = await store.call('attach', [{ token: found.descriptor.token, protocol: STORE_PROTOCOL }]);
     if (hello.instance !== found.descriptor.instance) {
