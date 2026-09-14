@@ -231,8 +231,7 @@
               "kimi"
             ],
             "requires": [
-              "orchestrator/actions/bootstrap-agent-hooks.sh",
-              "orchestrator/agents/report-session.mjs"
+              "orchestrator/actions/bootstrap-agent-hooks.sh"
             ],
             "tools": [
               "node",
