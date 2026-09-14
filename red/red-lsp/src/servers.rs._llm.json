@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "diagnostics-die-with-their-server",
+      "kind": "rationale",
+      "anchor": {
+        "start": 239,
+        "end": 239,
+        "symbol": "on_exit",
+        "snippet": "fn on_exit(self: &Arc<Self>, generation: u64, code: i32, said: &str) {"
+      },
+      "note": "When a server exits, everything it said is dropped rather than kept until a replacement contradicts it. Keeping them means reporting a file as broken on the authority of a process that is no longer running — and one that may have died precisely because it was confused about that file. An empty list from a restarting server is a true statement about what the workspace currently knows; a stale error is a false one, and the person cannot tell the difference.\n\nThe restart is backed off and bounded, and a server that keeps dying is reported instead of restarted forever, because a crash loop that hides itself is indistinguishable from a language with no diagnostics.\n\nPorted from `orchestrator/runtime/lsp.mjs` (spec 129); the JavaScript this describes is gone."
+    }
+  ]
+}

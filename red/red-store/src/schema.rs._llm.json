@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "subset-scope",
+      "kind": "constraint",
+      "anchor": {
+        "start": 41,
+        "end": 41,
+        "symbol": "validate_schema",
+        "snippet": "pub fn validate_schema(schema: &Value, value: &Value) -> Vec<String> {"
+      },
+      "note": "Deliberately a bounded Draft 2020-12 subset (type, const, enum, string/number/array bounds, uniqueItems, properties/required/additionalProperties, items/prefixItems, allOf, local $ref) so the committed contracts stay the machine-readable truth without adding an npm dependency. A keyword outside the subset is silently ignored, so contracts must only use listed keywords; extend the validator and its tests together when a contract needs more. Type mismatches stop deeper checks to avoid cascades. Property and required checks use Object.hasOwn so prototype names such as toString are unknown keys, not matches (review finding 2). additionalProperties may also be a schema (used for env maps); keys stay unchecked there and cross rules constrain them.\n\nPorted from `orchestrator/server/schema.mjs` (spec 129, F175). The prototype-name rule is not a hazard in Rust — a serde_json map has no prototype — but the CASES it produced are the contract's, so the tests came across with it: a document with a `toString` key must still be reported as an unknown key rather than matched.",
+      "refs": [
+        "docs/specs/074-project-format-registry.md",
+        "contracts/project-v1.schema.json"
+      ]
+    }
+  ]
+}

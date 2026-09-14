@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "framing-is-not-lines",
+      "kind": "constraint",
+      "anchor": {
+        "start": 8,
+        "end": 8,
+        "symbol": "Framer",
+        "snippet": "pub struct Framer {"
+      },
+      "note": "The protocol frames every message with a `Content-Length` header, and the body is arbitrary UTF-8 — a diagnostic message routinely contains newlines, and can contain the blank line that ends a header block. A reader that splits on newlines therefore works on every message anyone writes a test for and fails on real compiler output. It also has to tolerate a pipe delivering one byte at a time, which is why the buffer is kept across calls rather than parsed per chunk; the test feeds it a byte at a time for that reason.\n\nPorted from `orchestrator/runtime/lsp.mjs` (spec 129); the JavaScript this describes is gone.",
+      "refs": [
+        "docs/evidence/editor-as-claude-ide-2026-09-07.md"
+      ]
+    },
+    {
+      "id": "one-pass-glob",
+      "kind": "history",
+      "anchor": {
+        "start": 74,
+        "end": 74,
+        "symbol": "glob",
+        "snippet": "fn glob(pattern: &str, value: &str) -> bool {"
+      },
+      "note": "Written first as two passes — expand the directory wildcard, then rewrite every remaining star — which is wrong, because the second pass rewrites the star inside what the first pass just produced. `src/**/*.c` stopped matching `src/deep.c`, and the test caught it. Reordering the passes would have worked and would have left the trap in place for the next person; matching the tokens in one alternation cannot have the bug at all. An intermediate version parked the wildcard behind a placeholder, which ended up in the file as a literal NUL byte: invisible in a diff, and worse than what it fixed.\n\nPorted from `orchestrator/runtime/lsp.mjs` (spec 129); the JavaScript this describes is gone.",
+      "refs": [
+        "docs/evidence/editor-as-claude-ide-2026-09-07.md"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "root-path-binding",
+      "kind": "constraint",
+      "anchor": {
+        "start": 663,
+        "end": 663,
+        "symbol": "resolve_in_root",
+        "snippet": "pub fn resolve_in_root(root_path: &str, relative: &str, allow_missing: bool) -> Result<(String, String)> {"
+      },
+      "note": "Resolve paths using their stored root and real paths, including symlink targets. Roots identify distinct worktrees; a focused tree never supplies an implicit file root. File API confinement is separate from shell/agent OS access. Exported as a plain function so the replaceable workspace worker's format registry (spec 074) applies the identical root/symlink boundary without a store instance.\n\nPorted from `orchestrator/server/store.mjs` (spec 129); the JavaScript this describes is gone.",
+      "refs": [
+        "docs/specs/055-nolf-workspace-goal.md",
+        "docs/specs/074-project-format-registry.md"
+      ]
+    },
+    {
+      "id": "save-and-draft-order",
+      "kind": "rationale",
+      "anchor": {
+        "start": 445,
+        "end": 445,
+        "symbol": "save_text",
+        "snippet": "pub fn save_text(&mut self, draft: &Value) -> Result<Value> {"
+      },
+      "note": "Serialize saves per canonical file, check the disk hash before and after staging, and retain the draft on conflicts. Rename preserves a whole file version. This is not an OS-level compare-and-swap against arbitrary external writers; power-loss durability and draft checkpoint scheduling still require qualification.\n\nPorted from `orchestrator/server/store.mjs` (spec 129); the JavaScript this describes is gone.",
+      "refs": [
+        "docs/specs/055-nolf-workspace-goal.md"
+      ]
+    },
+    {
+      "id": "external-declaration-binding",
+      "kind": "constraint",
+      "anchor": {
+        "start": 240,
+        "end": 240,
+        "symbol": "add_root",
+        "snippet": "pub fn add_root(&mut self, directory: &str, declaration_file: Option<&str>) -> Result<Value> {"
+      },
+      "note": "The canonical declaration filename is durable metadata on the real project root, not a substitute root. Omitted declarations preserve an existing binding; a conflicting explicit filename is refused. The original host owns this state, so a worker update alone cannot add support to a legacy host. Registration checks file existence and type; later read errors belong to the declaration reader. No project-local configuration is written.\n\nPorted from `orchestrator/server/store.mjs` (spec 129); the JavaScript this describes is gone.",
+      "refs": [
+        "docs/specs/085-external-project-capabilities.md"
+      ]
+    },
+    {
+      "id": "conversations-must-outlive-the-host",
+      "kind": "rationale",
+      "anchor": {
+        "start": 519,
+        "end": 519,
+        "symbol": "record_conversation",
+        "snippet": "pub fn record_conversation(&mut self, root_id: &str, input: &Value, shape: IdShape) -> Result<Value> {"
+      },
+      "note": "This exists because spec 096 shipped without it and was shaped for the wrong event. Session records live in the host's memory (Sessions keeps a Map), so a conversation recorded there dies with the host — and a host restart is precisely what a person reaches for a resume after. Persisting here, beside roots and drafts, is what makes resuming mean anything across the only event that matters. The bound is not decoration: this file is rewritten whole on every persist, so an unbounded per-root list would grow the write. Re-recording touches and re-fronts an existing row rather than appending, so a conversation resumed daily stays one row. See docs/specs/097-agent-conversation-persistence.md. What a conversation id may look like is per agent (spec 127): a UUID rEngine minted for anyone, or one of kimi's own shapes (session_<uuid>, ULID) when and only when the record names kimi — a shape is only ever accepted under the CLI that resumes by it.\n\nPorted from `orchestrator/server/store.mjs` (spec 129); the JavaScript this describes is gone.",
+      "refs": [
+        "docs/specs/097-agent-conversation-persistence.md",
+        "docs/specs/127-kimi-agent-integration.md"
+      ]
+    },
+    {
+      "id": "per-root-preferences-merge",
+      "kind": "constraint",
+      "anchor": {
+        "start": 578,
+        "end": 578,
+        "symbol": "preferences",
+        "snippet": "pub fn preferences(&mut self, values: &Value) -> Result<Value> {"
+      },
+      "note": "`themes` and `recording` are merged into what is stored rather than replacing it, and that is load-bearing rather than stylistic. The desktop sends only the key it just changed — one root's theme, one recording bound — because it has no reason to send the rest, and it may not even know the rest: a second window can hold a project this one never opened. Replacing the map (`{ themes }`) would silently drop every other project's remembered theme on the next change, which reads as \"my theme keeps resetting\" rather than as an error. The 64-entry cap exists for the reason the conversation bound does: this file is rewritten whole on every persist, so an unbounded map grows every write. Scalar preferences are not merged because they have no per-root structure to lose.\n\nPorted from `orchestrator/server/store.mjs` (spec 129); the JavaScript this describes is gone.",
+      "refs": [
+        "docs/specs/080-desktop-settings.md"
+      ]
+    }
+  ]
+}
