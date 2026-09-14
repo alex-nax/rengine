@@ -6,7 +6,14 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { readDeclaration } from '../server/formats.mjs';
 import { CONTRACTS } from './contract.mjs';
-import { deviceStatus, declaredDevices, deviceFor, forgetProbes, projectDevices, PROBE_TTL_MS } from '../server/devices.mjs';
+import { declaredDevices, deviceFor, forgetProbes, projectDevices, PROBE_TTL_MS } from '../server/devices.mjs';
+
+/* One device's status, read out of the listing that carries it. `deviceStatus` was this module's
+   own export until F155; the implementation is `red_project::devices` now, and a caller asks for a
+   LISTING — which is also what makes "one probe per device, not one per action" true, since both
+   listings come from one run. */
+const statusOf = async (root, declared, id, options) =>
+  (await projectDevices(root, declared, options)).devices.find(device => device.id === id);
 import { inspectGame } from '../server/games.mjs';
 import { dashboardActions } from '../server/dashboard.mjs';
 import { declaration } from './format-fixtures.mjs';
@@ -131,14 +138,14 @@ test('probes answer under the declared-command boundary: exit 0, a named failure
     const declared = await readDeclaration(project);
     const of = id => deviceFor(declared, id);
 
-    const local = await deviceStatus(root, of('local'));
+    const local = await statusOf(root, declared, 'local');
     assert.equal(local.reachable, true); assert.deepEqual(local.issues, []);
     assert.ok(Date.parse(local.checkedAt) > 0, 'checkedAt is a timestamp');
 
-    const ok = await deviceStatus(root, of('answering-box'));
+    const ok = await statusOf(root, declared, 'answering-box');
     assert.equal(ok.reachable, true); assert.equal(ok.title, 'Answering box');
 
-    const bad = await deviceStatus(root, of('silent-box'));
+    const bad = await statusOf(root, declared, 'silent-box');
     assert.equal(bad.reachable, false);
     assert.match(reasons(bad), /^Silent box \(silent-box\) is not reachable: the probe failed \(exit 7\): fixture: the box is not answering\.$/,
       'the first stderr line is the reason, and only the first');
@@ -146,7 +153,7 @@ test('probes answer under the declared-command boundary: exit 0, a named failure
 
     /* The backgrounded writer proves the whole process group went, not just the direct child. */
     const started = Date.now();
-    const timedOut = await deviceStatus(root, of('stalling-box'));
+    const timedOut = await statusOf(root, declared, 'stalling-box');
     assert.equal(timedOut.reachable, false);
     assert.match(reasons(timedOut), /Stalling box \(stalling-box\) is not reachable: the probe timed out after 400 ms/);
     assert.ok(Date.now() - started < 3000, 'the timeout bounded the wait');
@@ -155,14 +162,14 @@ test('probes answer under the declared-command boundary: exit 0, a named failure
 
     /* Absent or empty at probe time is an unreachable device naming the variable, never a spawn. */
     delete process.env[SERIAL];
-    const unset = await deviceStatus(root, of('headset'));
+    const unset = await statusOf(root, declared, 'headset');
     assert.equal(unset.reachable, false);
     assert.match(reasons(unset), new RegExp(`Fixture headset \\(headset\\) is not reachable: ${SERIAL} is not set in the workspace environment\\.`));
     assert.ok(await missing(project, 'probe-argv.txt'), 'nothing was spawned for an unresolved selector');
 
     process.env[SERIAL] = '';
     forgetProbes();
-    const empty = await deviceStatus(root, of('headset'));
+    const empty = await statusOf(root, declared, 'headset');
     assert.equal(empty.reachable, false);
     assert.match(reasons(empty), new RegExp(`${SERIAL} is empty in the workspace environment`));
     assert.ok(await missing(project, 'probe-argv.txt'), 'an empty selector is not spawned with an empty argument either');
@@ -171,8 +178,9 @@ test('probes answer under the declared-command boundary: exit 0, a named failure
     process.env[SERIAL] = '1WMHH815K9000X';
     process.env[HOST] = 'fixture-host';
     forgetProbes();
-    assert.equal((await deviceStatus(root, of('headset'))).reachable, true);
-    assert.equal((await deviceStatus(root, of('remote-box'))).reachable, true);
+    const answered = await projectDevices(root, declared);
+    assert.equal(answered.devices.find(device => device.id === 'headset').reachable, true);
+    assert.equal(answered.devices.find(device => device.id === 'remote-box').reachable, true);
     const argv = await readFile(path.join(project, 'probe-argv.txt'), 'utf8');
     assert.match(argv, /^-s 1WMHH815K9000X get-state$/m, 'the selector was substituted for ${selector}');
     assert.match(argv, /^fixture-host true$/m, 'the host was substituted for ${host}');
@@ -185,9 +193,9 @@ test('a device requires/tools gate short-circuits before the probe, and names wh
     forgetProbes();
     const project = await deviceProject(directory, 'project', devicesDeclaration([gated()]));
     const root = asRoot('gate-root', project);
-    const device = deviceFor(await readDeclaration(project), 'gated-box');
+    const declared = await readDeclaration(project);
 
-    const blocked = await deviceStatus(root, device);
+    const blocked = await statusOf(root, declared, 'gated-box');
     assert.equal(blocked.reachable, false);
     assert.match(reasons(blocked), /Gated box \(gated-box\) needs config\/host\.env, which is missing here\./);
     assert.match(reasons(blocked), /Gated box \(gated-box\) needs definitely-missing-tool-9f on this machine's PATH\./);
@@ -195,7 +203,7 @@ test('a device requires/tools gate short-circuits before the probe, and names wh
 
     await writeFile(path.join(project, 'config/host.env'), 'HOST=x\n');
     forgetProbes();
-    const stillBlocked = await deviceStatus(root, device);
+    const stillBlocked = await statusOf(root, declared, 'gated-box');
     assert.equal(stillBlocked.reachable, false);
     assert.equal(stillBlocked.issues.length, 1, 'only the failing half is named once the file exists');
     assert.match(reasons(stillBlocked), /definitely-missing-tool-9f/);
@@ -203,32 +211,37 @@ test('a device requires/tools gate short-circuits before the probe, and names wh
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test('probe results are cached for the TTL, coalesced while in flight, and bypassed by an explicit refresh', async () => {
+test('probe results are cached for the TTL, cost one probe per device rather than per action, and are bypassed by an explicit refresh', async () => {
   const directory = await scratch('device-cache');
   try {
-    forgetProbes();
-    const project = await deviceProject(directory, 'project', devicesDeclaration([counted()]));
+    await forgetProbes();
+    const document = { ...devicesDeclaration([counted()]), dashboard: { title: 'Fixture', groups: [{ id: 'g', title: 'G', actions: [
+      { id: 'one', title: 'One', kind: 'log', command: ['/bin/echo', '1'], device: 'counted-box' },
+      { id: 'two', title: 'Two', kind: 'log', command: ['/bin/echo', '2'], device: 'counted-box' },
+      { id: 'three', title: 'Three', kind: 'log', command: ['/bin/echo', '3'], device: 'counted-box' },
+    ] }] } };
+    const project = await deviceProject(directory, 'project', document);
     const root = asRoot('cache-root', project);
-    const device = deviceFor(await readDeclaration(project), 'counted-box');
+    const declared = await readDeclaration(project);
     const runs = async () => { try { return (await readFile(path.join(project, 'probe-count.txt'), 'utf8')).length; } catch { return 0; } };
 
     assert.equal(PROBE_TTL_MS >= 10000 && PROBE_TTL_MS <= 30000, true, 'the chosen TTL stays inside the agreed band');
-    const first = await deviceStatus(root, device);
-    assert.equal(first.reachable, true); assert.equal(await runs(), 1);
-    const second = await deviceStatus(root, device);
-    assert.equal(await runs(), 1, 'a second check inside the TTL is served from the cache');
-    assert.equal(second.checkedAt, first.checkedAt, 'and reports when it was actually checked');
+    /* Three actions on one device, and the devices listing beside them: one probe. That is what the
+       shared cache is FOR, and it is the property that survived the move to a per-call
+       implementation — the two listings come from one run of it. */
+    const first = await projectDevices(root, declared);
+    assert.equal(first.devices.find(device => device.id === 'counted-box').reachable, true);
+    assert.equal(await runs(), 1, 'one probe for one device, however many actions name it');
 
-    /* A TTL alone would not help a dashboard: its actions resolve concurrently, so the first checks
-       all start before any result exists. */
-    forgetProbes();
-    const together = await Promise.all(Array.from({ length: 6 }, () => deviceStatus(root, device)));
-    assert.equal(await runs(), 2, 'six concurrent checks coalesced into one probe');
-    assert.equal(new Set(together.map(x => x.checkedAt)).size, 1);
+    const second = await projectDevices(root, declared);
+    assert.equal(await runs(), 1, 'and a second listing inside the TTL is served from the cache');
+    assert.equal(second.devices.find(device => device.id === 'counted-box').checkedAt,
+      first.devices.find(device => device.id === 'counted-box').checkedAt, 'which reports when it was actually checked');
 
-    const refreshed = await deviceStatus(root, device, { refresh: true });
-    assert.equal(await runs(), 3, 'an explicit refresh bypasses the cache');
-    assert.notEqual(refreshed.checkedAt, together[0].checkedAt);
+    const refreshed = await projectDevices(root, declared, { refresh: true });
+    assert.equal(await runs(), 2, 'an explicit refresh bypasses the cache');
+    assert.notEqual(refreshed.devices.find(device => device.id === 'counted-box').checkedAt,
+      first.devices.find(device => device.id === 'counted-box').checkedAt);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 

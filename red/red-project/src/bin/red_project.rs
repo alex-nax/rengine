@@ -4,7 +4,9 @@
 //!   red-project recordings <rootId> <rootPath> [limit]
 //!   red-project recording  <rootId> <rootPath> <id> [artifact] [offset] [limit] [maxCharacters]
 //!   red-project env-rules                    the env object on stdin, its problems on stdout
-//!   red-project workspace <rootId> <rootPath> [refresh] [probeCache]  devices and dashboard
+//!   red-project workspace <rootId> <rootPath> [flags] [probeCache] [declarationFile]
+//!     flags: a comma-separated set of `refresh` and `controls`
+//!   red-project game <rootId> <rootPath> [gameId] [probeCache] [declarationFile]
 //!
 //! A refusal is `{"error": …, "status": N}` and exit 1, because the JS client this answers turns it
 //! back into the same `fail()` the module it replaced threw. Both of this crate's callers — the
@@ -37,6 +39,7 @@ fn main() -> ExitCode {
            to each one. Answering them separately would cost a probe per action. */
         Some("workspace") => {
             let (root_id, root_path) = (arg(1).unwrap_or_default(), arg(2).unwrap_or_default());
+            let flags: Vec<&str> = arg(3).unwrap_or_default().split(',').collect();
             let environment: Vec<(String, String)> = std::env::vars().collect();
             let probes = match arg(4) {
                 Some(file) => red_project::devices::Probes::kept_at(std::path::Path::new(file)),
@@ -48,16 +51,36 @@ fn main() -> ExitCode {
                 root_path,
                 environment: &environment,
                 probes: &probes,
-                refresh: arg(3) == Some("refresh"),
+                refresh: flags.contains(&"refresh"),
+                controls: flags.contains(&"controls"),
                 now: &now,
             };
-            let declared = red_project::declaration::read(root_path, None);
+            let declared = red_project::declaration::read(root_path, arg(5));
             let answer = serde_json::json!({
                 "devices": red_project::dashboard::project_devices(&context, &declared),
                 "dashboard": red_project::dashboard::dashboard_actions(&context, &declared),
             });
             probes.keep(now());
             Ok(answer)
+        }
+        /* One game's preflight, which is what a launch asks before it spawns anything and what the
+           game-config route answers. It shares the same probe cache, so asking about a game on an
+           unreachable box does not wait out that box's timeout a second time. */
+        Some("game") => {
+            let (root_id, root_path) = (arg(1).unwrap_or_default(), arg(2).unwrap_or_default());
+            let environment: Vec<(String, String)> = std::env::vars().collect();
+            let probes = match arg(4) {
+                Some(file) => red_project::devices::Probes::kept_at(std::path::Path::new(file)),
+                None => red_project::devices::Probes::default(),
+            };
+            let now = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|since| since.as_millis() as i64).unwrap_or(0);
+            let context = red_project::devices::Context {
+                root_id, root_path, environment: &environment, probes: &probes, refresh: false, controls: false, now: &now,
+            };
+            let declared = red_project::declaration::read(root_path, arg(5));
+            let answer = red_project::games::inspect_game(&context, &declared, arg(3));
+            probes.keep(now());
+            answer
         }
         Some("recordings") => red_project::recordings::list(arg(1).unwrap_or_default(), arg(2).unwrap_or_default(), arg(3)),
         Some("declaration") => Ok(red_project::declaration::read(arg(1).unwrap_or_default(), arg(2))),

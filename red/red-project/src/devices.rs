@@ -125,6 +125,14 @@ struct Cached {
 /// cache on disk shared by two processes could not coalesce the probes they start at once.
 pub struct Probes {
     entries: Mutex<HashMap<String, Cached>>,
+    /// The keys a refresh has already dropped in this run.
+    ///
+    /// `refresh` means "ask again", once — not "ask again every time you are asked". The JavaScript
+    /// got that by NOT passing its options into the dashboard resolution it triggered, so only the
+    /// devices listing's own per-device calls refreshed. Said here instead, because it is a property
+    /// of the word rather than of who happened to forward an argument: three actions on one box
+    /// refreshed three times would probe it three times.
+    refreshed: Mutex<std::collections::HashSet<String>>,
     /// Where this cache outlives its process, when the caller has somewhere to keep it.
     ///
     /// A long-lived host keeps its probes in memory and joins the ones already in flight. A CLI
@@ -137,7 +145,7 @@ pub struct Probes {
 
 impl Default for Probes {
     fn default() -> Self {
-        Probes { entries: Mutex::new(HashMap::new()), file: None }
+        Probes { entries: Mutex::new(HashMap::new()), refreshed: Mutex::new(std::collections::HashSet::new()), file: None }
     }
 }
 
@@ -156,7 +164,7 @@ impl Probes {
                 }
             }
         }
-        Probes { entries: Mutex::new(entries), file: Some(file.to_path_buf()) }
+        Probes { entries: Mutex::new(entries), refreshed: Mutex::new(std::collections::HashSet::new()), file: Some(file.to_path_buf()) }
     }
 
     /// Write what this run learned, for the next one. Only entries still inside the TTL, so the
@@ -198,8 +206,11 @@ impl Probes {
         }
     }
 
-    fn forget_one(&self, key: &str) {
-        self.entries.lock().expect("probe cache").remove(key);
+    /// Drop this key once per run, and say whether this call is the one that dropped it.
+    fn forget_once(&self, key: &str) {
+        if self.refreshed.lock().expect("refreshed keys").insert(key.to_string()) {
+            self.entries.lock().expect("probe cache").remove(key);
+        }
     }
 }
 
@@ -211,6 +222,13 @@ pub struct Context<'a> {
     pub environment: &'a [(String, String)],
     pub probes: &'a Probes,
     pub refresh: bool,
+    /// Whether the devices listing carries the controls and targets bound to each device.
+    ///
+    /// The JavaScript decided this by whether the caller handed it a `resolve` function; there is
+    /// nothing to hand in now, so the caller says so instead. It stays a choice because the payload
+    /// is bigger with them, and a caller that only wants to know which boxes answer should not have
+    /// to carry every button bound to each one.
+    pub controls: bool,
     pub now: &'a dyn Fn() -> i64,
 }
 
@@ -319,7 +337,7 @@ pub fn device_status(context: &Context<'_>, device: &Value) -> Value {
     ]
     .join("\u{0}");
     if context.refresh {
-        context.probes.forget_one(&key);
+        context.probes.forget_once(&key);
     }
     let now = (context.now)();
     let result = match context.probes.get(&key, now) {
@@ -433,7 +451,7 @@ mod tests {
         let once = |refresh: bool| {
             let probes = Probes::kept_at(&file);
             let environment: Vec<(String, String)> = Vec::new();
-            let context = Context { root_id: "r", root_path: &root_path, environment: &environment, probes: &probes, refresh, now: &now };
+            let context = Context { root_id: "r", root_path: &root_path, environment: &environment, probes: &probes, refresh, controls: false, now: &now };
             let answer = device_status(&context, &device);
             probes.keep(at);
             answer

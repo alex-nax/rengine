@@ -1,12 +1,6 @@
-import { stat, access } from 'node:fs/promises';
-import { constants } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { fail } from './store-client.mjs';
-import { shellEnvironment } from './sessions-client.mjs';
-import { readDeclaration } from './formats.mjs';
-import { deviceFor, deviceStatus, isLocal } from './devices.mjs';
-import { LOCAL } from './devices.mjs';
+import { askProject } from './project-client.mjs';
+import { declarationOf, probeCacheFor } from './devices.mjs';
 /* The surfaces that reserve a workspace pane. red-project holds the same set for the rule that
    refuses a pane game bound to another machine (`rules.rs`, sidecar: pane-surfaces); the two move
    together in F155, when this module follows the rules it shares them with. */
@@ -14,8 +8,6 @@ const PANE_SURFACES = ['embedded', 'cooperative'];
 const streamsIntoPane = surface => PANE_SURFACES.includes(surface);
 import { Surfaces } from './surfaces.mjs';
 
-const nativeDirectory = fileURLToPath(new URL('../../.cache/native/', import.meta.url));
-export const UNDECLARED = 'This project declares no games in .rengine/project.json (contract 3).';
 const PLACEHOLDER = /\$\{/;
 const same = (a, b) => a.length === b.length && a.every((value, index) => value === b[index]);
 /* Literal argv a caller appends to the record's own, held to the record's own rules. */
@@ -29,82 +21,15 @@ function extraArguments(args) {
   }
   return [...args];
 }
-async function executableAt(file) {
-  try { await access(file, constants.X_OK); return (await stat(file)).isFile(); } catch { return false; }
-}
-export async function resolveCandidate(rootPath, candidate, environment = shellEnvironment()) {
-  const suffixes = process.platform === 'win32' ? ['', '.exe'] : [''];
-  if (path.isAbsolute(candidate) || /[\\/]/.test(candidate)) {
-    const resolved = path.resolve(rootPath, candidate);
-    for (const suffix of suffixes) if (await executableAt(`${resolved}${suffix}`)) return `${resolved}${suffix}`;
-    return null;
-  }
-  const pathKey = Object.keys(environment).find(key => key.toUpperCase() === 'PATH');
-  for (const directory of (environment[pathKey] ?? '').split(path.delimiter).filter(Boolean)) {
-    for (const suffix of suffixes) { const file = path.join(directory, `${candidate}${suffix}`); if (await executableAt(file)) return file; }
-  }
-  return null;
-}
-/* Preflight reads only the declaration, the filesystem and the root record, so the replaceable
-   workspace worker serves it from its own checkout; launching keeps the session host's process
-   state. See sidecar: preflight-relocation. */
-/* The remote launch belongs to the project's own script, which holds knowledge that does not belong
-   in an orchestrator; the refusal names the declaration's own actions. See sidecar: remote-launch. */
-function remoteRefusal(declared, game, device) {
-  const scripts = (declared.dashboard?.groups ?? []).flatMap(group => group.actions ?? [])
-    .filter(action => action?.kind === 'script' && (action.device ?? LOCAL) === device.id).map(action => action.id).slice(0, 3);
-  const where = `${game.title} runs on ${device.title} (${device.id}), not on this machine, and rEngine does not launch on a remote device.`;
-  return scripts.length
-    ? `${where} Use this project's own dashboard script ${scripts.length === 1 ? 'action' : 'actions'}: ${scripts.join(', ')}.`
-    : `${where} Declare a dashboard script action bound to that device; the remote launch stays with the project's own script.`;
-}
+/* The preflight is `red_project::games`'s (F155): what a declared game needs before it can be
+   launched, including THE rule of spec 082 — a non-local target is never resolved or stat-ed
+   against the local filesystem, because that check is what produced "Game executable not found"
+   for a target that can never be built here. It shares the Devices tab's probe cache, so asking
+   about a game on an unreachable box does not wait out that box's timeout a second time.
+
+   Launching stays here, with the session host's process state. */
 export async function inspectGame(root, gameId, options = {}) {
-  const rootId = root.id;
-  const declared = await readDeclaration(root);
-  const unready = issue => ({ rootId, declared: false, args: [], cwd: root.path, issues: [issue], ready: false });
-  if (!declared.declared) return unready(UNDECLARED);
-  if (declared.error) return unready(declared.error);
-  if (declared.gamesError) return unready(declared.gamesError);
-  if (!declared.games?.length) return unready(UNDECLARED);
-  const game = gameId === undefined || gameId === null || gameId === '' ? declared.games[0]
-    : declared.games.find(item => item.id === gameId)
-      ?? fail(`Unknown gameId ${JSON.stringify(gameId)} for this project; it declares ${declared.games.map(item => item.id).join(', ')}.`, 404);
-  const record = deviceFor(declared, game.device);
-  if (!record) fail(`Game ${JSON.stringify(game.id)} names undeclared device ${JSON.stringify(game.device)}.`, 409);
-  const device = await deviceStatus(root, record, options), local = isLocal(record);
-  const issues = [];
-  if (!device.reachable) issues.push(...device.issues);
-  /* THE rule (spec 082): a non-local target is never resolved or stat-ed against the local
-     filesystem — that check is what produced "Game executable not found" for a target that can
-     never be built here. Its requires stay local. See sidecar: device-relative-executable. */
-  let executable = null;
-  if (local) {
-    for (const candidate of game.executable) { const found = await resolveCandidate(root.path, candidate); if (found) { executable = found; break; } }
-    if (!executable) issues.push(`Game executable not found; expected ${game.executable.join(' or ')} in the selected project.`);
-  }
-  for (const relative of game.requires ?? []) {
-    try { if (!(await stat(path.join(root.path, relative))).isFile()) throw new Error(); }
-    catch { issues.push(`Required file is missing: ${relative}.`); }
-  }
-  const declaredCwd = game.cwd ?? '', cwd = local ? path.resolve(root.path, declaredCwd) : null;
-  if (local && declaredCwd) {
-    try { if (!(await stat(cwd)).isDirectory()) throw new Error(); }
-    catch { issues.push(`Working directory is missing: ${declaredCwd}.`); }
-  }
-  const config = { rootId, declared: true, id: game.id, title: game.title, surface: game.surface, device, executable,
-    candidates: game.executable, args: game.args ?? [], env: game.env ?? {}, requires: game.requires ?? [], cwd };
-  if (!local) {
-    config.location = `${game.executable[0]} on ${device.title} (${device.id}), not on this machine`;
-    config.refusal = remoteRefusal(declared, game, device);
-  } else if (game.surface === 'embedded') {
-    /* The adapter and its platform gate belong to injection alone. A cooperative game carries its
-       own client, which is a loopback socket and a byte layout, so it inherits neither. */
-    config.adapter = path.join(nativeDirectory, 'librengine_surface.dylib');
-    if (process.platform === 'darwin') {
-      try { await access(config.adapter); } catch { issues.push('Build the native surface first: npm run build:surface'); }
-    } else issues.push('The embedded game surface needs host integration and qualification on this platform.');
-  }
-  return { ...config, issues, ready: issues.length === 0 };
+  return askProject(['game', root.id, root.path, gameId ?? '', probeCacheFor(root), declarationOf(root)]);
 }
 export class Games {
   constructor(store, sessions, surfaces) { this.store = store; this.sessions = sessions; this.surfaces = surfaces; this.items = new Map(); this.launches = new Map(); }

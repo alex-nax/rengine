@@ -82,6 +82,30 @@ written `\0`; what differs is whether the file can be searched. One such file in
 escaped, and `suite-coverage.test.mjs` asserts there is never another — the right home for it, since
 its whole subject is things that become invisible in a green report.
 
+**F155: devices, the dashboard and the game preflight are Rust.** `devices.mjs` 166 → 76,
+`dashboard.mjs` 82 → 60, `games.mjs` 166 → 90 — three thin clients of
+`red_project::{command,devices,dashboard,games}`, judged against 22 cases recorded from the
+JavaScript before it was replaced. Every refusal word for word, and the probe count each listing
+costs. It matched on the first run; four sabotages confirm the comparison is real.
+
+Three defects the corpus could NOT catch, and the suite did:
+
+- **`refresh` meant "ask again", once — not "ask again every time you are asked".** The JavaScript
+  got that by not passing its options into the dashboard resolution it triggered; written as a field
+  on a shared context it refreshed per lookup, and three actions on one box probed it three times.
+  The corpus's refresh case has one device and no actions, so it recorded 1 either way.
+- **`controls` was a function the caller handed in**, and a function is not nothing: a caller that
+  wants only reachability got a lighter payload, and still does — it is a flag now.
+- **An external declaration file was not threaded through**, so a root registered with one would
+  have been read from the project's file instead.
+
+Two things had to be built rather than translated. There was no Rust command runner: a declared
+command is the one path by which anything here executes something a project chose, and it runs in
+its own process group so a timeout takes what it started with it. And the probe cache had to outlive
+its process — the JavaScript kept one in memory and joined probes already in flight, which a
+per-call implementation cannot do, so it is on disk under the same TTL. The half that matters is
+preserved exactly: both listings come from ONE run, so three actions on one device cost one probe.
+
 **The desktop gate, run for the first time in this arc.** 43 specs, ten minutes, not in `npm test`
 (KI-105). 78 of 81 pass — including every token spec, so the ledger-as-a-service did not break the
 desktop's status segment, which is the consumer path F157 most had to keep. Both failures predate
@@ -105,9 +129,9 @@ And a defect of my own, found by comparing the new service with red-store rather
 drops it first. One client that stopped reading would have frozen a workspace's arbitration for
 every other client and for the settle sweep. The pushes queue under the lock and go out after it.
 
-Commands: `npm test` 332/332 · `cargo test` 83/83 · `./init.sh` ·
+Commands: `npm test` 335/335 · `cargo test` 89/89 · `./init.sh` ·
 `python3 tools/features.py validate` · `python3 tools/design.py check`.
-JavaScript on the app path: **6,533 → 6,086**.
+JavaScript on the app path: **6,533 → 5,906**.
 
 Remaining: KI-108's layout half. F158 (the worker, and with it `main.mjs`, `sessions-client.mjs`, `store-client.mjs`,
 `pty-client.mjs`). F152/F189 still wait on F186, which is the owner's live-pane run. KI-105 (the

@@ -147,13 +147,13 @@ pub fn project_devices(context: &Context<'_>, declared: &Value) -> Value {
     }
     let records = declared_devices(declared);
     let resolved: Vec<Value> = records.iter().map(|device| device_status(context, device)).collect();
-    let board = dashboard_actions(context, declared);
+    let board = if context.controls { dashboard_actions(context, declared) } else { Value::Null };
     let actions: Vec<Value> = board
         .get("groups")
         .and_then(Value::as_array)
         .map(|groups| groups.iter().flat_map(|group| group.get("actions").and_then(Value::as_array).cloned().unwrap_or_default()).collect())
         .unwrap_or_default();
-    let game_records: Vec<Value> = declared.get("games").and_then(Value::as_array).cloned().unwrap_or_default();
+    let game_records: Vec<Value> = if context.controls { declared.get("games").and_then(Value::as_array).cloned().unwrap_or_default() } else { Vec::new() };
     let mut states: serde_json::Map<String, Value> = serde_json::Map::new();
     for game in &game_records {
         let id = text(game, "id").to_string();
@@ -227,8 +227,10 @@ pub fn project_devices(context: &Context<'_>, declared: &Value) -> Value {
                 .filter(|game| game.get("device").and_then(Value::as_str).unwrap_or(LOCAL) == id)
                 .filter_map(|game| states.get(text(game, "id")).cloned())
                 .collect();
-            out.insert("controls".into(), json!(controls));
-            out.insert("targets".into(), json!(targets));
+            if context.controls {
+                out.insert("controls".into(), json!(controls));
+                out.insert("targets".into(), json!(targets));
+            }
             Value::Object(out)
         })
         .collect();

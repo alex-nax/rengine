@@ -1,8 +1,8 @@
 import { stat, mkdir, readFile, writeFile, rename, rm } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
-import { readDeclaration, runCommand } from './formats.mjs';
-import { onPath, present, targetAvailability } from './devices.mjs';
+import { runCommand } from './formats.mjs';
+import { present, workspaceListings } from './devices.mjs';
 import { fail, hash, resolveInRoot } from './store-client.mjs';
 import { bashPath } from './sessions-client.mjs';
 
@@ -10,34 +10,12 @@ export const CAPTURE_TIMEOUT_MS = 10000;
 export const CAPTURE_MAX_BYTES = 8 * 1024 * 1024;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
-/* A game action's availability is its referenced record's preflight, taken from the spec-078 path
-   the launch itself uses rather than a second copy of those checks. See sidecar: game-availability. */
-async function gameMissing(root, action, preflight) {
-  if (typeof preflight !== 'function') return [{ type: 'game', name: 'This workspace layer cannot preflight games; update it.' }];
-  let config;
-  try { config = await preflight(root.id, action.game); }
-  catch (error) { return [{ type: 'game', name: error.message }]; }
-  return config?.ready ? [] : [{ type: 'game', name: config?.issues?.[0] ?? 'The game preflight failed.' }];
-}
+/* Which actions may be pressed is `red_project::dashboard`'s (F155), asked through the same run
+   that answers the Devices tab so the two share one probe cache. `preflight` is still taken and
+   still ignored: the reader on the other side runs the game preflight itself, from the same
+   declaration, which is what made a second copy of those checks unnecessary in the first place. */
 export async function dashboardActions(root, preflight, options = {}) {
-  const declared = await readDeclaration(root), base = { rootId: root.id, declared: declared.declared };
-  if (!declared.declared) return { ...base, groups: [] };
-  if (declared.error) return { ...base, error: declared.error, groups: [] };
-  if (declared.dashboardError) return { ...base, contract: declared.contract, error: declared.dashboardError, groups: [] };
-  if (!declared.dashboard) return { ...base, contract: declared.contract, groups: [] };
-  const groups = await Promise.all(declared.dashboard.groups.map(async group => ({ id: group.id, title: group.title, actions: await Promise.all(group.actions.map(async action => {
-    const missing = [];
-    for (const name of action.requires ?? []) if (!(await present(root, name))) missing.push({ type: 'requires', name });
-    for (const name of action.tools ?? []) if (!(await onPath(name))) missing.push({ type: 'tools', name });
-    /* Availability composes: the device answering AND this action's own local prerequisites, with
-       the failing half named. Probes are cached and coalesced, so one listing probes each device
-       once rather than once per action. See sidecar: composed-availability. */
-    const { device, missing: unreachable } = await targetAvailability(root, declared, action, options);
-    missing.push(...unreachable);
-    if (action.kind === 'game' && !missing.length) missing.push(...await gameMissing(root, action, preflight));
-    return { ...action, device: device ?? undefined, available: !missing.length, missing };
-  })) })));
-  return { ...base, contract: declared.contract, title: declared.dashboard.title, groups };
+  return (await workspaceListings(root, options)).dashboard;
 }
 export async function dashboardAction(root, actionId, preflight) {
   const board = await dashboardActions(root, preflight);

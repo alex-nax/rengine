@@ -24,7 +24,9 @@ const BINARY = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..
 
 function ask(root, id, refresh, env) {
   return new Promise((resolve, reject) => {
-    const argv = ['workspace', id, root, ...(refresh ? ['refresh'] : [])];
+    /* `controls`, because the record was made with a `resolve` function handed in — the corpus is
+       the full listing a Devices tab asks for. */
+    const argv = ['workspace', id, root, refresh ? 'refresh,controls' : 'controls'];
     execFile(BINARY, argv, { maxBuffer: 1 << 26, env }, (error, stdout, stderr) =>
       error ? reject(new Error(`red-project workspace: ${stderr || error.message}`)) : resolve(JSON.parse(stdout)));
   });

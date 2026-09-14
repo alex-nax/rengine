@@ -124,9 +124,12 @@ fn resolve_from(root_path: &str, relative: &str) -> String {
 
 /// The checkout's built surface adapter, which belongs to injection alone.
 fn adapter_path() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(Path::parent)
+    /* From the BINARY, not from `CARGO_MANIFEST_DIR`, which is baked at compile time: the
+       JavaScript resolved this against its own module URL, so it named the checkout the code was
+       running from. `red/target/<profile>/red-project` is four levels down from that checkout. */
+    std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.ancestors().nth(4).map(Path::to_path_buf))
         .map(|checkout| checkout.join(".cache/native/librengine_surface.dylib"))
         .unwrap_or_default()
 }

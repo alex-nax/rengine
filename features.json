@@ -2762,7 +2762,9 @@
       "owner_workspace": "rengine",
       "deliverable": "The Rust dashboard/devices/games routes and rule engines with scenario parity; the six JS modules removed.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "F155, 2026-09-14: docs/evidence/devices-dashboard-f155-2026-09-14.md — red_project::{command,devices,dashboard,games} answer what devices.mjs, dashboard.mjs and games.mjs's preflight answered; the three become thin clients (166->76, 82->60, 166->90). Judged against a 22-case corpus recorded from the JavaScript (devices-corpus.json): every refusal word for word and the probe count each listing costs. Matched on the first run; four sabotages confirm the comparison. Three defects the corpus could not catch and the suite did: refresh meant 'ask again' once, not once per lookup (8 probes where 2 were expected); `controls` was a function the caller handed in and is a flag now, so a caller that wants only reachability keeps the lighter payload; and an external declaration file was not threaded through. Two things were built rather than translated: a Rust command runner that runs a declared command in its own process group, so a timeout takes what it started with it; and a probe cache that outlives its process, because a per-call implementation keeps the TTL and loses in-flight coalescing — both listings still come from ONE run, so three actions on one device cost one probe. npm test 335/335, cargo test 89/89. JS on the app path 6,086 -> 5,906."
+      ]
     },
     {
       "id": 156,

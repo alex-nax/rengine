@@ -1,17 +1,41 @@
-import { stat, access, constants } from 'node:fs/promises';
+/* The thin client of `red_project::devices` (F155, spec 129, KI-107).
+ *
+ * Whether a declared device answers — and, when it does not, in whose words — is one implementation
+ * now, in `red/red-project/src/devices.rs`, judged against the answers this module used to give
+ * (`orchestrator/tests/devices-corpus.json`). What stayed here is what a caller needs SYNCHRONOUSLY
+ * or without a process: the reserved local device, the two pure lookups over a declaration, and the
+ * two local prerequisites a dashboard action is checked against.
+ *
+ * The probe cache moved with the probes. It was a Map in this process; it is a file now, because
+ * the implementation runs per call and the thing it protects — not waiting out an unreachable box's
+ * timeout twice — is exactly what a per-call implementation would lose. It is keyed by the project
+ * root rather than by a workspace, because a device's reachability is a fact about this machine and
+ * that box, not about who asked.
+ */
+import { createHash } from 'node:crypto';
+import { rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { runCommand } from './formats.mjs';
+import { askProject } from './project-client.mjs';
+import { resolveInRoot } from './store-client.mjs';
+import { shellEnvironment } from './sessions-client.mjs';
+import { stat, access, constants } from 'node:fs/promises';
+
 /* The device that is this machine. Named here because this module is what a caller asks about
    devices; the rules that validate a declared one are red-project's. */
 export const LOCAL = 'local';
-import { resolveInRoot } from './store-client.mjs';
-import { shellEnvironment } from './sessions-client.mjs';
-
-export const PROBE_TTL_MS = 15000; /* see sidecar: probe-cache */
-export const PROBE_TIMEOUT_MS = 5000;
-export const PROBE_MAX_BYTES = 64 * 1024;
-const CACHE_LIMIT = 256;
+export const PROBE_TTL_MS = 15000; /* the window red-project honours; stated here for its readers */
 export const THIS_MACHINE = { id: LOCAL, kind: LOCAL, title: 'This machine' };
+
+const probeDirectory = path.join(tmpdir(), 'rengine-probes');
+const probeCache = rootPath => path.join(probeDirectory, `${createHash('sha256').update(rootPath).digest('hex').slice(0, 32)}.json`);
+/** The cache a game preflight shares with the two listings, so one root's probes are one cache. */
+export const probeCacheFor = root => probeCache(root.path);
+/* A root registered with a declaration file of its own is read from THAT file, not from the
+   project's — an external declaration describes a project this workspace does not own. */
+export const declarationOf = root => (root?.declarationFile === undefined ? '' : root.declarationFile);
+/** Drop every remembered probe, for a caller that wants the next question asked for real. */
+export const forgetProbes = () => rm(probeDirectory, { recursive: true, force: true });
 
 export async function present(root, relative) { try { await resolveInRoot(root, relative); return true; } catch { return false; } }
 export async function onPath(name) {
@@ -24,10 +48,11 @@ export async function onPath(name) {
   return false;
 }
 
-const label = device => `${device.title} (${device.id})`;
 export const isLocal = device => device.kind === LOCAL;
 /* The implicit local device is always offered, so a consumer never has to declare it to bind to it
-   or to see it listed; a declared one wins so its own title is used. See sidecar: implicit-local. */
+   or to see it listed; a declared one wins so its own title is used.
+   See sidecar: red/red-project/src/devices.rs._llm.json#implicit-local — this is the JS copy of a
+   rule the reader on the other side applies too, and the two must not drift. */
 export function declaredDevices(declared) {
   const records = Array.isArray(declared?.devices) ? declared.devices : [];
   return records.some(device => device?.id === LOCAL) ? records : [THIS_MACHINE, ...records];
@@ -36,79 +61,6 @@ export function deviceFor(declared, id) {
   const records = declaredDevices(declared);
   return records.find(device => device.id === (id ?? LOCAL)) ?? null;
 }
-/* value or env; an env that is unset or empty is a named reason, never a spawn with an empty
-   argument and never one with the placeholder left in. See sidecar: placeholder-resolution. */
-function resolveValue(node, field, environment) {
-  if (!node || typeof node !== 'object') return { missing: `it declares no ${field}` };
-  if (node.value !== undefined) return node.value ? { value: node.value } : { missing: `its ${field} is empty` };
-  const key = node.env, raw = environment[key];
-  if (raw === undefined) return { missing: `${key} is not set in the workspace environment` };
-  if (!raw.length) return { missing: `${key} is empty in the workspace environment` };
-  return { value: raw };
-}
-
-const cache = new Map();
-export function forgetProbes() { cache.clear(); }
-/* A TTL alone would not help: dashboardActions resolves its actions concurrently, so the first
-   checks all start before any result exists. In-flight probes are joined. See sidecar: probe-cache. */
-function coalesced(key, produce) {
-  const hit = cache.get(key);
-  if (hit && (hit.pending || Date.now() - hit.at < PROBE_TTL_MS)) return hit.promise;
-  const entry = { at: Date.now(), pending: true };
-  entry.promise = produce().then(result => { entry.at = Date.now(); entry.pending = false; return result; },
-    error => { cache.delete(key); throw error; });
-  cache.set(key, entry);
-  if (cache.size > CACHE_LIMIT) for (const stale of [...cache.keys()].slice(0, cache.size - CACHE_LIMIT)) cache.delete(stale);
-  return entry.promise;
-}
-async function probe(root, device, argv) {
-  const spec = { command: argv, timeoutMs: device.probeTimeoutMs ?? PROBE_TIMEOUT_MS, maxBytes: PROBE_MAX_BYTES };
-  try {
-    await runCommand(root, spec, {});
-    return { reachable: true, checkedAt: new Date().toISOString(), issues: [] };
-  } catch (error) {
-    /* runCommand already names the exit status and the first stderr line, or the timeout. */
-    const reason = String(error.message).replace(/^Command /, 'the probe ').replace(/[.\s]*$/, '');
-    return { reachable: false, checkedAt: new Date().toISOString(), issues: [`${label(device)} is not reachable: ${reason}.`] };
-  }
-}
-/* Reachability, never launchability: a green ssh probe still cannot create a GL context in a logon
-   session without a window station, which is why remote launching stays with the project's own
-   script. Bounded and side-effect-light rather than read-only: adb starts its own daemon.
-   See sidecar: probe-contract. */
-export async function deviceStatus(root, device, options = {}) {
-  const base = { id: device.id, kind: device.kind, title: device.title };
-  const unreachable = issues => ({ ...base, reachable: false, checkedAt: new Date().toISOString(), issues });
-  const issues = [];
-  /* requires and tools are LOCAL by definition even on a remote device, and are checked first:
-     there is no point probing an ssh device when ssh is not installed. See sidecar: local-requires. */
-  for (const name of device.requires ?? []) if (!(await present(root, name))) issues.push(`${label(device)} needs ${name}, which is missing here.`);
-  for (const name of device.tools ?? []) if (!(await onPath(name))) issues.push(`${label(device)} needs ${name} on this machine's PATH.`);
-  if (issues.length) return unreachable(issues);
-  if (isLocal(device) || !Array.isArray(device.probe)) return { ...base, reachable: true, checkedAt: new Date().toISOString(), issues: [] };
-  const environment = shellEnvironment(), values = {};
-  for (const field of ['host', 'selector']) {
-    if (!device.probe.some(argument => typeof argument === 'string' && argument.includes(`\${${field}}`))) continue;
-    const resolved = resolveValue(device[field], field, environment);
-    if (resolved.missing) return unreachable([`${label(device)} is not reachable: ${resolved.missing}.`]);
-    values[field] = resolved.value;
-  }
-  const argv = device.probe.map(argument => argument.replace(/\$\{(host|selector)\}/g, (match, key) => values[key] ?? match));
-  if (argv.some(argument => argument.includes('${'))) return unreachable([`${label(device)} is not reachable: its probe has an unresolved placeholder.`]);
-  /* NUL-separated so no component can forge a boundary; the argv and timeout are in the key so
-     editing the declaration or the environment variable invalidates the entry. */
-  const key = [root.id, device.id, JSON.stringify(argv), device.probeTimeoutMs ?? PROBE_TIMEOUT_MS].join('\u0000');
-  if (options.refresh) cache.delete(key);
-  return coalesced(key, () => probe(root, device, argv)).then(result => ({ ...base, ...result }));
-}
-/* The failing half is named, and both halves are reported: a reachable device with a missing local
-   file reports the file. See sidecar: composed-availability. */
-export async function targetAvailability(root, declared, target, options = {}) {
-  const device = deviceFor(declared, target?.device);
-  if (!device) return { device: null, missing: [{ type: 'device', name: `Unknown device ${JSON.stringify(target?.device)} for this project.` }] };
-  const status = await deviceStatus(root, device, options);
-  return { device: status, missing: status.reachable ? [] : status.issues.map(name => ({ type: 'device', name })) };
-}
 const boundTo = (target, id) => (target?.device ?? LOCAL) === id;
 export function boundTargets(declared, id) {
   return {
@@ -116,53 +68,18 @@ export function boundTargets(declared, id) {
     actions: (declared?.dashboard?.groups ?? []).flatMap(group => group.actions ?? []).filter(action => boundTo(action, id)).map(action => action.id),
   };
 }
-/* The controls a device's targets become in the Devices tab. Availability is NOT recomputed here:
-   `options.resolve` is the caller's own dashboardActions, which already composes each action's
-   local prerequisites with its device's reachability, and a game's state is the same preflight the
-   launch uses. Both run after every device status above, so they read the probe cache those filled
-   and a control costs no probe of its own. See sidecar: bound-controls. */
-async function boundControls(root, declared, statuses, options) {
-  if (typeof options.resolve !== 'function') return null;
-  const board = await options.resolve();
-  const actions = (board.groups ?? []).flatMap(group => group.actions ?? []);
-  const records = Array.isArray(declared?.games) ? declared.games : [];
-  const games = new Map();
-  for (const game of records) {
-    let config = null;
-    try { config = typeof options.preflight === 'function' ? await options.preflight(root.id, game.id) : null; }
-    catch (error) { games.set(game.id, { id: game.id, title: game.title, ready: false, remote: false, issue: error.message, location: '' }); continue; }
-    /* A reason the device already carries is dropped rather than restated: an unreachable device is
-       one reason on one row, never the same sentence under every target bound to it. */
-    const carried = new Set(statuses.get(game.device ?? LOCAL)?.issues ?? []);
-    games.set(game.id, {
-      id: game.id, title: game.title, ready: Boolean(config?.ready), remote: Boolean(config?.refusal),
-      issue: (config?.issues ?? []).find(issue => !carried.has(issue)) ?? '', location: config?.location ?? '',
-    });
-  }
-  return { actions, games, records };
+
+/* Both listings come from ONE run of red-project, because they share a probe cache: the dashboard
+   asks each action's device whether it answers, and this tab asks the dashboard what is bound to
+   each one. `declared` is still taken, and still ignored — the reader reads it again on the other
+   side — so every caller of this module keeps its signature. */
+export async function workspaceListings(root, options = {}) {
+  /* `controls` was a `resolve` function the caller handed in; there is nothing to hand in now, so
+     it is a flag. A caller that only wants to know which boxes answer still gets the lighter
+     payload it always got. */
+  const flags = [options.refresh ? 'refresh' : '', typeof options.resolve === 'function' ? 'controls' : ''].filter(Boolean).join(',');
+  return askProject(['workspace', root.id, root.path, flags, probeCache(root.path), declarationOf(root)]);
 }
 export async function projectDevices(root, declared, options = {}) {
-  const base = { rootId: root.id, declared: declared.declared };
-  if (!declared.declared) return { ...base, devices: [] };
-  if (declared.error) return { ...base, error: declared.error, devices: [] };
-  if (declared.devicesError) return { ...base, contract: declared.contract, error: declared.devicesError, devices: [] };
-  const records = declaredDevices(declared);
-  const resolved = await Promise.all(records.map(device => deviceStatus(root, device, options)));
-  const statuses = new Map(records.map((device, index) => [device.id, resolved[index]]));
-  const bound = await boundControls(root, declared, statuses, options);
-  const devices = records.map((device, index) => ({
-    ...resolved[index],
-    declared: Array.isArray(declared.devices) && declared.devices.some(item => item.id === device.id),
-    probed: !isLocal(device) && Array.isArray(device.probe),
-    ...boundTargets(declared, device.id),
-    /* A resolved action carries the device RECORD in `device`, not the declared id, and an action
-       naming an undeclared device carries none — so it lands under no device, exactly as its id
-       does in `actions` above. */
-    ...(bound ? {
-      controls: bound.actions.filter(action => action.device?.id === device.id)
-        .map(({ id, title, kind, available, missing }) => ({ id, title, kind, available, missing })),
-      targets: bound.records.filter(game => boundTo(game, device.id)).map(game => bound.games.get(game.id)),
-    } : {}),
-  }));
-  return { ...base, contract: declared.contract, refreshed: Boolean(options.refresh), devices };
+  return (await workspaceListings(root, options)).devices;
 }
