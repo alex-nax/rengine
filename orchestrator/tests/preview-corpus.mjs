@@ -7,14 +7,15 @@
  * will not run is what a person sees instead of their file, and the sentence is the whole
  * explanation.
  *
- *   node orchestrator/tests/preview-corpus.mjs > orchestrator/tests/preview-corpus.json
- *
- * Regenerate ONLY from a checkout where `formats.mjs` still runs them. Three things are folded
- * because they are a machine's rather than a rule's: the project path inside a resolved command,
- * how long a command took, and a file's modification time.
+ * The record is FROZEN. It was taken from `orchestrator/server/formats.mjs` at be626ea, the last
+ * commit where that module ran these itself; it is a thin client of `red_project::preview` now, so
+ * regenerating would judge the replacement against itself. The generator is gone with the module it
+ * asked — recover it from that commit if the record ever has to be taken again, and only against a
+ * checkout where the JavaScript still answers. Three things are folded because they are a machine's
+ * rather than a rule's: the project path inside a resolved command, how long a command took, and a
+ * file's modification time.
  */
-import { mkdtemp, mkdir, writeFile, chmod, rm, realpath, readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, writeFile, chmod, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 /* Constant commands, so the record is the same on any machine: `/bin/cat` prints the file it is
@@ -120,31 +121,11 @@ const fold = (value, root) => JSON.parse(JSON.stringify(value, (key, item) => {
   return typeof item === 'string' ? item.split(root).join('<root>') : item;
 }));
 
-export async function answers() {
-  const { formatPreview, readBytes } = await import('../server/formats.mjs');
-  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-preview-corpus-')));
-  await writeFile(path.join(directory, 'escape.txt'), 'outside\n');
-  const recorded = {};
-  try {
-    for (const [name, options] of CASES) {
-      const slug = name.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 48);
-      const root = { id: `root-${slug}`, path: await fixture(directory, slug, options), name: 'fixture' };
-      try {
-        const answer = options.call === 'preview' ? await formatPreview(root, options.data) : await readBytes(root, options.data);
-        recorded[name] = { ok: fold({ ...answer, rootId: answer.rootId === undefined ? undefined : '<rootId>' }, root.path) };
-      } catch (error) {
-        recorded[name] = { refused: { message: error.message.split(root.path).join('<root>'), status: error.status ?? null } };
-      }
-    }
-    return recorded;
-  } finally { await rm(directory, { recursive: true, force: true }); }
-}
-
 export const RECORDED = await (async () => {
   try { return JSON.parse(await readFile(new URL('./preview-corpus.json', import.meta.url), 'utf8')); }
   catch { return null; }
 })();
 
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
-  console.log(JSON.stringify(await answers(), null, 2));
-}
+/** The one answer whose parenthetical belongs to whichever runtime read the file: V8 and serde word
+    an invalid-JSON complaint differently, and the record holds the prefix both agree on. */
+export const PARSER_WORDED = 'a declaration that would not read';

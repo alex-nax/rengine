@@ -1,5 +1,54 @@
 # Progress Log
 
+## Session 149 (macos) — 2026-09-14 — the preview and the byte window, and the rule a record cannot hold
+
+`formats.mjs` is **80 lines**, from 152. `formatPreview` and `readBytes` are
+`red/red-project/src/preview.rs`; the module keeps their names and asks the binary, the shape
+`store-client.mjs` established. What is left in it is `runCommand` (62 lines), because a dashboard
+**capture** still runs a project's command here and writes the bytes into the project — it goes
+with that write.
+
+The record is 29 cases, taken from the JavaScript while it still answered (be626ea) and **frozen**:
+the generator was deleted with the implementation it asked, so the record cannot be regenerated
+against its own replacement. `preview-record.test.mjs` went with it — that spec judged the record
+against `formats.mjs`, and `formats.mjs` is the replacement now. Its rules moved into
+`preview-parity.test.mjs`, which is what the record is for.
+
+**Three defects, each found by extending the record while there was still JavaScript to extend it
+from.** `recordings::Fail.status` was `u16`, so a refusal the store raised carrying none — `realpath`
+on a file that is not there — was answered with an invented 500; the JS recorded `status: null`,
+because a store refusal crosses the store service and `store-client` rebuilds the error from
+`{message, status}` alone. `Option<u16>` now, and turning an absent status into a number is the
+ROUTE's rule: `red-host::routes::refusal` does it where `main.mjs` did (whose `ENOENT → 404` arm
+never fired for a store refusal, because `code` did not survive the service either). An entry's byte
+window fell back to offset 0 for a value it could not read, where the JavaScript refused; and
+`as_window` read only decimal integers, where `/api/bytes` is a query string and delivers `offset=`
+empty — `Number('')` is 0 — and `1e1`. Six cases added and one `window_bounds` under both windows.
+
+**And one the record could not have found.** `read_bytes` resolved the name, stat'd the name and
+opened the name, which confines what the name pointed at rather than what was read. The rule is
+`raw-read-confinement`: open first, fstat the handle, resolve the same relative path again, require
+the same file, 409 on a mismatch. It is about a RACE, and a record of answers has no case for a
+race. What caught it was the **sidecar entry**, when it was moved from `formats.mjs` to `preview.rs`
+because its code had moved — the anchor maintenance AGENTS.md asks for, doing the job the corpus
+could not. `same_file` is dev+ino on unix and size+mtime elsewhere, because an open handle's
+identity is not stable API on Windows: a weaker check there, stated rather than hidden. The
+predicate is unit-tested and sabotage-verified; the race is not stageable.
+
+Four sabotages: the invented status, `${file}` substituting the relative path, an empty query
+parameter refusing, and the identity predicate answering "same file" for two different files.
+
+Two facts the specs imported from the shipping module moved to `orchestrator/tests/contract.mjs`,
+where `CONTRACTS` already lives: `MAX_RAW_WINDOW` (a drifted copy turns the spec asserting the cap
+red, so a copy is safe) and a reader's `matchFormat` for the two specs that ask what a SHIPPED
+declaration matches. The glob RULE's cases went to red-project's own unit tests, where the
+implementation is, rather than testing a reader's copy against itself.
+
+`npm test` 341/341, `cargo test --workspace` 96/96, `./init.sh` passes.
+`docs/evidence/preview-in-rust-f156e-2026-09-14.md`.
+
+JavaScript on the app path: **5,456**, from 5,524.
+
 ## Session 148 (macos) — 2026-09-14 — the token ledger becomes a service, and the record it kept catches the record
 
 `orchestrator/runtime/token.mjs` and `runtime/feed.mjs` are gone. `red-token` answers now — the

@@ -31,11 +31,15 @@ export function projectBinary(env = process.env) {
 }
 
 /* `input`, when given, is written to the binary's stdin and the question takes no argument: the
-   subjects that are not paths — an env object a caller proposes — are arbitrary caller input, and
-   argv has a length a caller could reach. */
-export function askProject(argv, input) {
+   subjects that are not paths — an env object a caller proposes, a preview request — are arbitrary
+   caller input, and argv has a length a caller could reach.
+
+   `environment` is for the one question that RUNS a project's own command: a preview's producer saw
+   `shellEnvironment()` when this module spawned it, and must still. Every other question only reads,
+   and inherits this process's own. */
+export function askProject(argv, input, environment) {
   return new Promise((resolve, reject) => {
-    const child = execFile(projectBinary(), argv, { maxBuffer: 32 * 1024 * 1024 }, (error, stdout) => {
+    const child = execFile(projectBinary(), argv, { maxBuffer: 32 * 1024 * 1024, ...(environment ? { env: environment } : {}) }, (error, stdout) => {
       let value;
       try { value = JSON.parse(stdout); } catch { reject(error ?? new Error(`red-project answered nothing for ${argv[0]}`)); return; }
       if (value?.error && value?.status !== undefined) { try { fail(value.error, value.status); } catch (refusal) { reject(refusal); } return; }

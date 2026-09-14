@@ -16,6 +16,22 @@
         "docs/specs/105-packs-editions-and-the-name.md",
         "docs/evidence/pack-manifest-2026-09-07.md"
       ]
+    },
+    {
+      "id": "declaration-reporting",
+      "kind": "constraint",
+      "anchor": {
+        "start": 295,
+        "end": 330,
+        "symbol": "read",
+        "snippet": "pub fn read(root_path: &str, declaration_file: Option<&str>) -> Value {"
+      },
+      "note": "A malformed, oversized or unknown-contract declaration is returned as { declared: true, error, formats: [] } rather than thrown: the listing route shows it and the workspace, editor and other roots keep working. Structural (schema) problems are reported before cross-field rules run, and the cross-field pass guards every shape it touches, because a thrown TypeError here surfaced as a 500 that left native editors waiting (review finding 2). Only the first three problems are reported to keep the status line readable. Later contracts are read in stages: the contract-1 part (everything but dashboard and games) decides error/formats, then the shared section helper validates each optional block on its own into dashboard/dashboardError and games/gamesError. The SECTIONS table gives each block the contract it needs — dashboard 2, games 3, devices 4, tracker 5, languageServers 7, packs 9 — so a block under too low a contract is reported by name and ignored instead of disabling previews, and the two blocks stay independent of each other. Spec 085 accepts a root record carrying declarationFile, while string callers retain project-local discovery. The selected filename is returned as source and used in every error. An explicitly missing external declaration is an error, never absence and never permission to read the project-local file. Pass the complete root record from every runtime consumer; passing only root.path silently drops the binding. The packs block (contract 9) references nothing and is referenced by nothing, so it settles first in the chain and cannot disturb the devices-then-games-then-dashboard order the others depend on. The contract ceiling is CONTRACTS, and raising it is what makes a new block answer \"unknown contract\" to an older reader rather than \"unknown key\". Contract 10 adds `tests` (spec 117), which like packs references nothing and is referenced by nothing, so it settles first for the same reason. It names a file and validates only the path; the manifest itself is the project's artifact and is read where the rows are built, not here — the same split the local inventory already uses.\n\nPorted from `orchestrator/server/formats.mjs` with F156b (spec 129); `readDeclaration` there is a thin client of this. CONTRACTS is the schema's enum, pinned to this module's copy by a test.",
+      "refs": [
+        "docs/specs/074-project-format-registry.md",
+        "docs/specs/085-external-project-capabilities.md",
+        "docs/specs/107-pack-manifest.md"
+      ]
     }
   ]
 }

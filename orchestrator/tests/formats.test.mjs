@@ -9,7 +9,8 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { startServer } from '../server/main.mjs';
 import { startRuntime } from '../runtime/supervisor.mjs';
 import { request } from '../launcher/sidecar.mjs';
-import { readDeclaration, matchFormat, MAX_RAW_WINDOW } from '../server/formats.mjs';
+import { readDeclaration } from '../server/formats.mjs';
+import { MAX_RAW_WINDOW } from './contract.mjs';
 import { CONTRACTS } from './contract.mjs';
 
 import { producer, pack, declaration, entries, project } from './format-fixtures.mjs';
@@ -50,10 +51,8 @@ test('declaration discovery reports malformed files visibly and never disables t
   assert.equal(good.error, undefined); assert.equal(good.formats[0].preview.timeoutMs, 4000);
   const defaults = await readDeclaration(await project(directory, 'defaults', { preview: { kind: 'tree', command: ['x', '${file}'] } }));
   assert.equal(defaults.formats[0].preview.timeoutMs, 10000); assert.equal(defaults.formats[0].preview.maxBytes, 4194304);
-  for (const name of ['NOLF.REZ', 'nolf.rez', 'Sample.PACK']) assert.equal(matchFormat([{ id: 'a', match: ['*.rez', '*.pack'] }], name)?.id, 'a', name);
-  assert.equal(matchFormat([{ id: 'a', match: ['*.rez'] }], 't01s01.dat'), null);
-  assert.equal(matchFormat([{ id: 'a', match: ['t0?s0[12].dat'] }], 'T01S02.DAT')?.id, 'a');
-  assert.equal(matchFormat([{ id: 'a', match: ['*.rez'] }], 'dir.rez/file.txt'), null);
+  /* The glob rule itself is `red_project::preview::match_format`'s — its cases live in that module's
+     unit tests, where the implementation is, rather than against a reader's copy here. */
 });
 
 test('previews, entries and raw windows run declared commands inside the root boundary', async t => {
