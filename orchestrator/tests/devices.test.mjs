@@ -4,7 +4,8 @@ import { mkdtemp, mkdir, writeFile, rm, stat, realpath, readFile } from 'node:fs
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { readDeclaration, CONTRACTS } from '../server/formats.mjs';
+import { readDeclaration } from '../server/formats.mjs';
+import { CONTRACTS } from './contract.mjs';
 import { deviceStatus, declaredDevices, deviceFor, forgetProbes, projectDevices, PROBE_TTL_MS } from '../server/devices.mjs';
 import { inspectGame } from '../server/games.mjs';
 import { dashboardActions } from '../server/dashboard.mjs';

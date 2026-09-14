@@ -6,31 +6,19 @@ import { fail, hash, resolveInRoot, MAX_TEXT_BYTES } from './store-client.mjs';
 import { askProject } from './project-client.mjs';
 import { shellEnvironment } from './sessions-client.mjs';
 
-/* A provider only accepts the locator it can use, so a declaration that names the wrong one is
-   refused at declaration time rather than failing later against the network. */
+/* What is left in this file is what RUNS a project's own commands — a preview, an entry, a byte
+   window. Everything that judges what a project declares went to `red-project` with the declaration
+   reader (F156b): the contract list and its floors, the icon tokens, the pack facets, the tracker
+   locators and the agent menu's rules, each of which left a constant or a paragraph of rationale
+   stranded here until 2026-09-14. The rationale moved to `rules.rs._llm.json` and
+   `declaration.rs._llm.json`; the constants were deleted; the contract ceiling seven specs asked
+   this module for is read from the schema that declares it (`orchestrator/tests/contract.mjs`). */
 
-/* The agent/model menu a project offers (spec 103 decision 8). A default outside its own models is a
-   menu whose first choice is not on it, and two records for one CLI make the chooser ambiguous. */
-
-/* One pinned, versioned artifact whose facets say how it is consumed (charter D39, spec 107): a
-   library facet at build time, a plugin facet at run time, or both. The pack is DECLARED here and
-   acquired nowhere — no path is opened and no revision is checked against bytes, because
-   identifying bytes is acquisition and KI-008 has not decided it. */
-
-export const CONTRACTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-/* Brand-mark colours a project may name. Each is a saturated fill the design system pairs with
-   the on-accent ink, which is what keeps the letter legible in every preset. */
-export const ICON_TOKENS = ['accent', 'ok', 'warn', 'err', 'info'];
-export const DEFAULT_TIMEOUT_MS = 10000;
 export const DEFAULT_MAX_BYTES = 4 * 1024 * 1024;
 export const MAX_RAW_WINDOW = 64 * 1024;
-const MAX_DECLARATION_BYTES = 256 * 1024, MAX_TREE_DEPTH = 64, MAX_TREE_NODES = 200000, MAX_STDERR = 16 * 1024;
+const MAX_TREE_DEPTH = 64, MAX_TREE_NODES = 200000, MAX_STDERR = 16 * 1024;
 const PLACEHOLDER = /\$\{(file|entry|host|selector|json)\}/g; /* host/selector only reach here from a device probe and json only from a task write; the schema permits each nowhere else */
 
-
-/* Contract 10 (spec 117). The declaration only names the file; its contents are the project's
-   artifact and are read where the rows are built, not here. The path is confined the way every other
-   declared path is, because a manifest outside the root is not this project describing itself. */
 /* The declaration reader is `red-project`'s (F156b): the contract document, the contract floors, the
    artwork resolution and every section rule are one implementation now, and this asks it. What
    stayed in this file is what runs a project's own commands — a preview, an entry, a byte window —

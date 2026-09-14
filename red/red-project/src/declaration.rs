@@ -560,3 +560,24 @@ fn error_text(error: &std::io::Error) -> &'static str {
         _ => "input/output error",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    /// The contract list is stated twice — here, and as the `contract` enum of the schema this crate
+    /// embeds — because the reader needs it before the schema is parsed and the schema needs it to
+    /// refuse an unknown one. Two statements of one fact drift, so this is the assertion that they
+    /// have not: a contract added to the document and not here would otherwise be accepted
+    /// structurally and then refused by a floor that has never heard of it.
+    #[test]
+    fn the_contract_list_is_the_schemas_own() {
+        let schema: serde_json::Value =
+            serde_json::from_str(include_str!("../../../contracts/project-v1.schema.json")).expect("the contract document");
+        let declared: Vec<i64> = schema["properties"]["contract"]["enum"]
+            .as_array()
+            .expect("the contract enum")
+            .iter()
+            .filter_map(serde_json::Value::as_i64)
+            .collect();
+        assert_eq!(declared, super::CONTRACTS.to_vec());
+    }
+}

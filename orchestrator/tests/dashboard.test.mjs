@@ -10,7 +10,8 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { startServer } from '../server/main.mjs';
 import { startRuntime } from '../runtime/supervisor.mjs';
 import { request } from '../launcher/sidecar.mjs';
-import { readDeclaration, listFormats, CONTRACTS } from '../server/formats.mjs';
+import { readDeclaration, listFormats } from '../server/formats.mjs';
+import { CONTRACTS } from './contract.mjs';
 import { validateSchema } from '../server/store-client.mjs';
 import { hash } from '../server/store-client.mjs';
 import { redImage } from './image-fixtures.mjs';

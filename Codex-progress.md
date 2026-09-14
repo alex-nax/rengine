@@ -55,6 +55,15 @@ protocol is ended by name, never adopted" red, and green again on restore.
 copy of the rules over it. Their ten sidecar entries moved to the code that holds the rules now,
 along with two that had been stranded on `formats.mjs` since the port.
 
+The same audit over every export on the app path found `formats.mjs` still carrying the declaration
+reader's constants — `CONTRACTS`, `ICON_TOKENS`, `DEFAULT_TIMEOUT_MS`, `MAX_DECLARATION_BYTES` — and
+three paragraphs of rationale with no code left under them. `CONTRACTS` was a **third** statement of
+a fact the contract schema already declares: seven specs imported it to say "one above the ceiling",
+and they read the schema now, while `declaration.rs`'s own copy (needed before the schema is parsed)
+is pinned to the schema by a test. Thirty of the thirty-five exports with no external consumer turned
+out to be used inside their own module — over-exported, not dead — which is worth recording so the
+next audit does not chase them.
+
 **Two porting hazards came out of that audit.**
 
 *JavaScript's `String#length` counts UTF-16 code units; `chars().count()` counts code points.* Six
@@ -73,9 +82,9 @@ written `\0`; what differs is whether the file can be searched. One such file in
 escaped, and `suite-coverage.test.mjs` asserts there is never another — the right home for it, since
 its whole subject is things that become invisible in a green report.
 
-Commands: `npm test` 332/332 · `cargo test` 82/82 · `./init.sh` ·
+Commands: `npm test` 332/332 · `cargo test` 83/83 · `./init.sh` ·
 `python3 tools/features.py validate` · `python3 tools/design.py check`.
-JavaScript on the app path: **6,533 → 6,098**.
+JavaScript on the app path: **6,533 → 6,086**.
 
 Remaining: F158 (the worker, and with it `main.mjs`, `sessions-client.mjs`, `store-client.mjs`,
 `pty-client.mjs`). F152/F189 still wait on F186, which is the owner's live-pane run. KI-105 (the
