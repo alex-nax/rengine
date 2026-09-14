@@ -10,6 +10,11 @@ import { offeredEditors, autoConnect, ideConnectFlag } from '../agents/ide-conne
 import { IDE_NAME } from '../runtime/ide.mjs';
 import { agentLaunch } from '../agents/agents-client.mjs';
 
+/* Real pids, because liveness is the binary's own `kill(pid, 0)` and a function does not cross a
+   socket: this process and its parent are alive, pid 1 answers EPERM (which discovery counts as
+   alive, as it always did), and 2147483647 is ESRCH on every unix. */
+const LIVE = process.pid, PARENT = process.ppid, DEAD = 2147483647;
+
 async function locks(entries) {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-locks-'));
   for (const [port, value] of Object.entries(entries)) {
@@ -17,30 +22,28 @@ async function locks(entries) {
   }
   return dir;
 }
-const alive = () => true;
-
 test('an editor is offered when its folders cover the directory, and not when they merely look like it', async () => {
   const dir = await locks({
-    100: { pid: 1, ideName: IDE_NAME, workspaceFolders: ['/work/rengine'] },
-    200: { pid: 2, ideName: IDE_NAME, workspaceFolders: ['/work/rengine-old'] },
-    300: { pid: 3, ideName: IDE_NAME, workspaceFolders: ['/elsewhere'] },
+    100: { pid: LIVE, ideName: IDE_NAME, workspaceFolders: ['/work/rengine'] },
+    200: { pid: PARENT, ideName: IDE_NAME, workspaceFolders: ['/work/rengine-old'] },
+    300: { pid: 1, ideName: IDE_NAME, workspaceFolders: ['/elsewhere'] },
   });
   try {
-    const offered = await offeredEditors('/work/rengine/orchestrator', { locks: dir, alive });
+    const offered = await offeredEditors('/work/rengine/orchestrator', { locks: dir });
     assert.deepEqual(offered.map(x => x.port), [100], `a directory inside the folder: ${JSON.stringify(offered)}`);
 
     // The direction a bare prefix test gets wrong, which is the one worth asserting: a sibling whose
     // name starts with the folder's name is not inside it. Querying from `/work/rengine-old` must
     // not match the editor that serves `/work/rengine`.
-    const sibling = await offeredEditors('/work/rengine-old', { locks: dir, alive });
+    const sibling = await offeredEditors('/work/rengine-old', { locks: dir });
     assert.deepEqual(sibling.map(x => x.port), [200], `a sibling is not inside: ${JSON.stringify(sibling)}`);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
 test('a lock whose process is gone is not offered', async () => {
-  const dir = await locks({ 100: { pid: 4242, ideName: IDE_NAME, workspaceFolders: ['/work'] } });
+  const dir = await locks({ 100: { pid: DEAD, ideName: IDE_NAME, workspaceFolders: ['/work'] } });
   try {
-    assert.deepEqual(await offeredEditors('/work', { locks: dir, alive: () => false }), []);
+    assert.deepEqual(await offeredEditors('/work', { locks: dir }), []);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
@@ -49,45 +52,45 @@ test('this workspace\'s own editor is named by port, so a machine-mate\'s does n
   // alone would decline forever on a machine where two workspaces bind the same project. Naming our
   // port is what the CLI itself honours to select one outright.
   const shared = await locks({
-    100: { pid: 1, ideName: IDE_NAME, workspaceFolders: ['/work'] },
-    200: { pid: 2, ideName: IDE_NAME, workspaceFolders: ['/work'] },
+    100: { pid: LIVE, ideName: IDE_NAME, workspaceFolders: ['/work'] },
+    200: { pid: PARENT, ideName: IDE_NAME, workspaceFolders: ['/work'] },
   });
   try {
-    const ours = await autoConnect('claude', '/work', { locks: shared, alive, ourPids: [2, 77] });
+    const ours = await autoConnect('claude', '/work', { locks: shared, ourPids: [PARENT, 77] });
     assert.deepEqual(ours.flags, ['--ide'], `two offered, but one of them is ours: ${ours.reason}`);
     assert.equal(ours.env.CLAUDE_CODE_SSE_PORT, '200', 'and the CLI is told which one');
 
     // None of them ours: there is genuinely nothing to choose, so nothing is passed.
-    const theirs = await autoConnect('claude', '/work', { locks: shared, alive, ourPids: [999] });
+    const theirs = await autoConnect('claude', '/work', { locks: shared, ourPids: [999] });
     assert.deepEqual(theirs.flags, []);
     assert.match(theirs.reason, /none of them is this workspace's/);
 
     // A host too old to report its pid falls back to counting, which is the previous behaviour.
-    const blind = await autoConnect('claude', '/work', { locks: shared, alive });
+    const blind = await autoConnect('claude', '/work', { locks: shared });
     assert.deepEqual(blind.flags, []);
   } finally { await rm(shared, { recursive: true, force: true }); }
 });
 
 test('exactly one is the rule when this workspace cannot be identified', async () => {
   const two = await locks({
-    100: { pid: 1, ideName: IDE_NAME, workspaceFolders: ['/work'] },
-    200: { pid: 2, ideName: IDE_NAME, workspaceFolders: ['/work'] },
+    100: { pid: LIVE, ideName: IDE_NAME, workspaceFolders: ['/work'] },
+    200: { pid: PARENT, ideName: IDE_NAME, workspaceFolders: ['/work'] },
   });
   const one = await locks({ 100: { pid: 1, ideName: IDE_NAME, workspaceFolders: ['/work'] } });
   const foreign = await locks({ 100: { pid: 1, ideName: 'VS Code', workspaceFolders: ['/work'] } });
   try {
-    const many = await autoConnect('claude', '/work', { locks: two, alive });
+    const many = await autoConnect('claude', '/work', { locks: two });
     assert.deepEqual(many.flags, [], 'two offered and neither identified means no flag');
 
-    const single = await autoConnect('claude', '/work', { locks: one, alive });
+    const single = await autoConnect('claude', '/work', { locks: one });
     assert.deepEqual(single.flags, ['--ide'], `one offered means the flag: ${single.reason}`);
 
-    const none = await autoConnect('claude', '/work', { locks: await locks({}), alive });
+    const none = await autoConnect('claude', '/work', { locks: await locks({}) });
     assert.deepEqual(none.flags, [], 'nothing published means no flag, rather than a startup error');
     assert.match(none.reason, /No editor is published/);
 
     // Another editor's lock is not ours to connect a pane to.
-    const other = await autoConnect('claude', '/work', { locks: foreign, alive });
+    const other = await autoConnect('claude', '/work', { locks: foreign });
     assert.deepEqual(other.flags, []);
     assert.match(other.reason, /VS Code/);
   } finally { for (const d of [two, one, foreign]) await rm(d, { recursive: true, force: true }); }
@@ -98,7 +101,7 @@ test('a CLI with no auto-connect option gets nothing added to its command line',
   try {
     assert.equal(ideConnectFlag('codex'), null);
     for (const agent of ['codex', 'gemini', 'opencode']) {
-      const value = await autoConnect(agent, '/work', { locks: dir, alive });
+      const value = await autoConnect(agent, '/work', { locks: dir });
       assert.deepEqual(value.flags, [], `${agent} is left alone`);
       assert.match(value.reason, /no auto-connect option/);
     }

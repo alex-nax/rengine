@@ -1,15 +1,16 @@
-/* The answers `agents/ide-connect.mjs` gives, recorded before it is replaced (F161, F103, spec 133).
+/* The answers `agents/ide-connect.mjs` gave, recorded before it was replaced (F161, F103, spec 133).
  *
  * Which published editors a pane's directory is inside, and whether its CLI is told to connect:
  * the rule the CLI was MEASURED to apply (folders against cwd, a live pid) plus the one thing that
  * makes it usable on a machine where two workspaces bind one folder — naming this workspace's own
  * editor by port. Every sentence a pane prints at startup is here, word for word.
  *
- *   node orchestrator/tests/ide-connect-corpus.mjs > orchestrator/tests/ide-connect-corpus.json
- *
- * Regenerate ONLY from a checkout where `ide-connect.mjs` still decides — never after the wiring
- * commit. Folded: the two live pids this process can vouch for (its own and its parent's), and the
- * product's name. The pid that answers EPERM is 1 on every unix and is recorded as itself.
+ * `ide-connect-corpus.json` was taken at 77595e5, while `ide-connect.mjs` still decided, and is
+ * FROZEN: the generator was deleted with the implementation it asked, so the record cannot be
+ * regenerated against its own replacement. `ide-connect-parity.test.mjs` asks the binary the same
+ * questions through `answers()` and compares. Folded: the two live pids this process can vouch
+ * for (its own and its parent's), and the product's name. The pid that answers EPERM is 1 on every
+ * unix and is recorded as itself.
  */
 import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -148,19 +149,7 @@ export async function answers(harness) {
   return recorded;
 }
 
-export async function jsHarness() {
-  const module = await import('../agents/ide-connect.mjs');
-  return {
-    offered: (directory, locks) => module.offeredEditors(directory, { locks }),
-    connect: (agent, directory, options) => module.autoConnect(agent, directory, options),
-  };
-}
-
 export const RECORDED = await (async () => {
   try { return JSON.parse(await readFile(new URL('./ide-connect-corpus.json', import.meta.url), 'utf8')); }
   catch { return null; }
 })();
-
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
-  console.log(JSON.stringify(await answers(await jsHarness()), null, 2));
-}

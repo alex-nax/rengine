@@ -566,8 +566,9 @@ export async function startWorker(host, options = {}) {
            CLI treats the two differently. */
         const data = await body(req);
         const selected = root(data.rootId);
+        /* Awaited since spec 133: the count lives in the bridge's own process now. */
         json(res, 200, { delivered: ide?.published
-          ? ide.mention({ filePath: path.join(selected.path, data.path ?? ''), lineStart: data.lineStart, lineEnd: data.lineEnd })
+          ? await ide.mention({ filePath: path.join(selected.path, data.path ?? ''), lineStart: data.lineStart, lineEnd: data.lineEnd })
           : 0 });
       } else if (req.method === 'POST' && target.pathname === '/api/ide-selection') {
         /* The desktop reports a fact about itself — which file, which range — and this turns it into
@@ -580,7 +581,7 @@ export async function startWorker(host, options = {}) {
            and that is what the servers are told, so a diagnostic describes the unsaved edit. */
         const opened = typeof data.buffer === 'string' ? await (await serversFor(selected)).open(file, data.buffer) : null;
         json(res, 200, { delivered: ide?.published
-          ? ide.selection({ filePath: file, text: data.text ?? '', selection: data.selection })
+          ? await ide.selection({ filePath: file, text: data.text ?? '', selection: data.selection })
           : 0, servers: opened?.servers ?? [] });
       } else if (req.method === 'POST' && target.pathname === '/api/tracker/signout') {
         const data = await body(req); await refresh(); json(res, 200, await trackerSignOut(root(data.rootId), located));

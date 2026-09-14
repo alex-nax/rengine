@@ -95,8 +95,8 @@ test('a connection without the token is refused', async () => {
       setTimeout(() => reject(new Error('the socket was neither closed nor refused')), 5000).unref?.();
     });
     assert.equal(closed, 1008, 'the socket is closed with a policy violation, not left open');
-    assert.equal(bridge.clients(), 0, 'and no client is registered');
-    const refused = bridge.observed.at(-1);
+    assert.equal(await bridge.clients(), 0, 'and no client is registered');
+    const refused = (await bridge.observed()).at(-1);
     assert.equal(refused.accepted, false);
   } finally { await bridge.close(); await rm(dir, { recursive: true, force: true }); }
 });
@@ -108,7 +108,7 @@ test('a selection posted by the desktop reaches a connected CLI', async () => {
     const client = await connected(bridge);
     const arrived = new Promise(resolve => client.fallbackNotificationHandler = notification => { resolve(notification); return Promise.resolve(); });
     const value = { filePath: '/work/a.c', text: 'int main(void)', selection: { start: { line: 3, character: 0 }, end: { line: 3, character: 14 } } };
-    assert.equal(bridge.selection(value), 1, 'the bridge reports how many CLIs it reached');
+    assert.equal(await bridge.selection(value), 1, 'the bridge reports how many CLIs it reached');
     const notification = await arrived;
     assert.equal(notification.method, 'selection_changed', `the CLI's own vocabulary: ${JSON.stringify(notification)}`);
     assert.deepEqual(notification.params, value);
@@ -199,8 +199,8 @@ test('the deliberate mention is a different notification from the passive select
     const client = await connected(bridge);
     const seen = [];
     client.fallbackNotificationHandler = notification => { seen.push(notification); return Promise.resolve(); };
-    bridge.selection({ filePath: '/work/a.c', text: 'x', selection: { start: { line: 2, character: 0 }, end: { line: 2, character: 1 } } });
-    assert.equal(bridge.mention({ filePath: '/work/a.c', lineStart: 2, lineEnd: 4 }), 1);
+    await bridge.selection({ filePath: '/work/a.c', text: 'x', selection: { start: { line: 2, character: 0 }, end: { line: 2, character: 1 } } });
+    assert.equal(await bridge.mention({ filePath: '/work/a.c', lineStart: 2, lineEnd: 4 }), 1);
     for (let i = 0; i < 60 && seen.length < 2; i++) await delay(50);
     const methods = seen.map(n => n.method);
     assert.deepEqual(methods, ['selection_changed', 'at_mentioned'],
@@ -262,12 +262,14 @@ test('the port survives a worker replacement, because the CLI reconnects to the 
 test(`a lock left by a dead ${IDE_NAME} worker is collected, and another IDE is left alone`, async () => {
   const dir = await directory();
   await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, '111.lock'), JSON.stringify({ pid: 1, ideName: IDE_NAME, rengineWorker: 4242 }));
+  /* Real pids, because liveness is the binary's own `kill(pid, 0)` and a function does not cross a
+     socket: 2147483647 is ESRCH on every unix, and this process is alive. */
+  await writeFile(path.join(dir, '111.lock'), JSON.stringify({ pid: 1, ideName: IDE_NAME, rengineWorker: 2147483647 }));
   await writeFile(path.join(dir, '222.lock'), JSON.stringify({ pid: 1, ideName: IDE_NAME, rengineWorker: process.pid }));
   await writeFile(path.join(dir, '333.lock'), JSON.stringify({ pid: 1, ideName: 'VS Code' }));
   // The CLI collects a lock whose pid is dead; ours names the session host, which outlives the
   // worker, so nobody but us can tell that this one is stale.
-  const removed = await sweep(dir, { alive: pid => pid === process.pid });
+  const removed = await sweep(dir);
   assert.deepEqual(removed.map(file => path.basename(file)), ['111.lock']);
   const left = (await readdir(dir)).sort();
   assert.deepEqual(left, ['222.lock', '333.lock'], `a live worker's lock and another IDE's are untouched: ${left.join(', ')}`);

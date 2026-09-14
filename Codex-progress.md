@@ -1,5 +1,63 @@
 # Progress Log
 
+## Session 150 (macos) — 2026-09-14 — the IDE bridge is Rust, and two rules the record could not see
+
+F161's second half (spec 133). `runtime/ide.mjs` (199 → 191) and `agents/ide-connect.mjs` (76 → 26)
+are thin clients of **`red-ide`**: `red-ide serve` is the bridge — the lock the CLI reads, the
+startup sweep, the WebSocket that speaks MCP, the KI-066 port retake — one process per worker on
+stdio, `red-lsp-serve`'s shape, because the port is the runtime's and the token and lock are the
+worker's; `red-ide offered` / `auto-connect` / `directory` / `sweep` are the one-shots. Discovery
+came with the slice because the row's first criterion is about discovery, and it stays the caller's
+probe (owner, 2026-09-13) with only the decision in Rust. A new crate, because the bridge needs
+tokio and tungstenite (already linked by red-host) and red-lsp rightly links neither; `icu_normalizer`
+for NFC with idna's feature set, so the lockfile gains no crate. Diagnostics are asked back over
+the pipe — the language servers are the worker's — and the worker's two IDE routes gain an `await`
+(spec 132's precedent, D4).
+
+**Two records, frozen at 77595e5.** `ide-corpus.json` (20 cases, 174 steps) is driven through a
+raw WebSocket client so every frame is the TEXT that crossed the socket, and a silence is a
+silence — proven by the ping sent behind it, not by a clock. That is how the record holds the
+SDK's strictness: a request without `jsonrpc`, with an extra key, with `id: 9.5` or `params: null`
+is not answered, and `initialize` with `params: {}` is answered with three zod issues in a
+pretty-printed message, reproduced. `ide-connect-corpus.json` (13 cases, 38 asks) holds every
+startup sentence, `undefined` for a nameless editor included. Both stable across three runs.
+
+**All 18 bridge cases were byte-identical on the first pass. Discovery drifted once**, and it was
+a rule: `fs.readdir` sorts (libuv's scandir does) and `read_dir` does not.
+
+**Thirty-four sabotages, each observed red for its own reason** — the 2026-09-07 evidence's
+S1–S8, C1–C4 and P1–P2 under their old numbers, plus this port's. **Two passed first, and each
+was a rule with no case.** A diagnostics call awaited on the read loop held every later frame from
+that CLI behind a slow language server, and no step could see it because every step waits for its
+own answer: the case sends two frames at once. A retake loop that ignored its own retirement passed
+because the record cannot see TIME — with the predecessor holding the port, the closed successor
+merely took ten seconds to fail on its deadline: the case closes successor and predecessor
+concurrently, so the port frees under the running loop and the difference is a lock on disk
+written by a retired worker. Both cases added while the JavaScript still existed; the other cases
+came back byte-identical. And the runner itself was wrong once: `copytree` restores keep the
+backup's mtimes and cargo took a restored file for an unchanged one, so the binary on disk after a
+run was the last sabotage's. The verdicts stood; a restore is touched as a change now.
+
+`npm test` 352/352 · `cargo test --workspace` 129/129 · `./init.sh` passes · desktop gate **78 of 81** — the recorded baseline, on a quiet machine, with KI-105's `native-handoff.spec.mjs` and KI-108's `native-project-windows.spec.mjs` the only failures and both by name.
+A first run of that gate came back 75/81 — the two known failures plus three Tasks-tab/editor
+specs, all green by name re-run in isolation — while a sidecar index refresh held a core for
+twenty minutes and a second gate ran beside it. That is KI-109's recorded shape twice over, and
+the number above is the quiet re-run.
+
+`docs/evidence/ide-f161-2026-09-14.md`. JavaScript on the app path: **5,566**, from 5,620.
+
+**The count changed denominator here, and the jump from Session 149's 5,388 is that and not
+growth.** Sessions up to 149 counted `orchestrator/{server,runtime,launcher,agents}`; this one adds
+the four entry points `orchestrator/{launch,build,prepare,external-project}.mjs` (233 lines), which
+F162 and F163 name and which this epic must retire like the rest. 5,388 + 233 = 5,621, and the
+slice took 54 of them. The wider set is the honest denominator and later sessions should keep it.
+
+Not done, and said so: F161 stays `passes: false` on its F160 prerequisite, as the LSP half did.
+The stdio-client shape now exists four times in JavaScript (`lsp-client`, `store-client`,
+`agents-client`, `ide.mjs`), each with the counted refs and the same close; a `runtime/stdio-client.mjs`
+the way `service-client.mjs` collapsed the per-state-directory ones would take ~100 lines out of
+each, and belongs to F158, which deletes their caller.
+
 ## Session 149 (macos) — 2026-09-14 — the preview and the byte window, and the rule a record cannot hold
 
 `formats.mjs` is **80 lines**, from 152. `formatPreview` and `readBytes` are

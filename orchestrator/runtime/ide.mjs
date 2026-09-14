@@ -1,199 +1,191 @@
-/* Red as a Claude Code IDE (spec 102).
+/* Red as a Claude Code IDE (spec 102, spec 133): the thin client of `red-ide serve`.
  *
  * Claude Code finds an editor by reading `<config>/ide/<port>.lock` and connecting to the port its
- * filename names, where `<config>` is ~/.claude unless CLAUDE_CONFIG_DIR moves it. This serves that
- * socket from the workspace worker, which is the replaceable layer:
- * the bridge needs no PTY, no surface and no store state, only the root paths, so it arrives by a
- * routine layered update rather than needing the retained host to change (spec 101).
+ * filename names. The lock, the startup sweep, the socket and the MCP it speaks are `red/red-ide/`
+ * now, judged against the answers this module used to give (`orchestrator/tests/ide-corpus.json`).
+ * This spawns one `red-ide serve` per bridge — one per worker, dying when this process does, which
+ * is what the JavaScript's socket did — and keeps `startIdeBridge`'s shape over it.
  *
- * Everything this file assumes about the CLI was read out of one binary and can change under us, so
- * the assumptions are asserted by tests rather than trusted.
+ * Two things cross the pipe the other way: the retake's outcome, as an event that settles `ready`,
+ * and `getDiagnostics`, which the bridge asks THIS process to answer, because the language servers
+ * are the worker's (spec 133 D3). Every call is awaited, `selection` and `mention` included (D4).
  */
+import { execFile, execFileSync, spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { mkdir, readdir, readFile, writeFile, unlink } from 'node:fs/promises';
-import { WebSocketServer } from 'ws';
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import readline from 'node:readline';
+import { fileURLToPath } from 'node:url';
 import { PRODUCT_NAME } from './product.mjs';
 
 /* What other people see in their `/ide` menu, beside VS Code and Cursor. It is the product's own
    name, declared once and generated (charter D41, spec 108), so a rename is a data edit — and
-   ide-connect.mjs compares a lock's ideName against this, never against a word of its own. */
+   `red_ide::discovery` compares a lock's ideName against the same declaration's Rust target. */
 export const IDE_NAME = PRODUCT_NAME;
-/* The CLI reads this one path, so it is the default rather than a setting — but it stays an explicit
-   input, because a test that publishes into the developer's own `/ide` menu is a test with a side
-   effect on the person running it. CLAUDE_CONFIG_DIR moves the lock directory with it, as Anthropic
-   documents; rEngine's own override still wins. */
-export const ideDirectory = () => process.env.RENGINE_IDE_DIRECTORY
-  || path.join(process.env.CLAUDE_CONFIG_DIR ?? path.join(os.homedir(), '.claude'), 'ide');
 
-/* MCP over a WebSocket, which the SDK has no server transport for: a frame is one JSON-RPC message. */
-class SocketTransport {
-  constructor(socket) { this.socket = socket; }
-  async start() {
-    this.socket.on('message', data => {
-      let message;
-      try { message = JSON.parse(data.toString()); }
-      catch (error) { this.onerror?.(error); return; }
-      this.onmessage?.(message);
+const CHECKOUT = fileURLToPath(new URL('../../', import.meta.url));
+
+/** $RENGINE_RED_IDE, then the repo's debug or release build; a missing binary is named. */
+export function ideBinary() {
+  const declared = process.env.RENGINE_RED_IDE;
+  if (declared) {
+    if (existsSync(declared)) return declared;
+    throw new Error(`RENGINE_RED_IDE names ${declared}, which does not exist.`);
+  }
+  for (const profile of ['debug', 'release']) {
+    const candidate = path.join(CHECKOUT, 'red/target', profile, 'red-ide');
+    if (existsSync(candidate)) return candidate;
+  }
+  throw new Error('The red-ide binary is required (run: cargo build -p red-ide, or set RENGINE_RED_IDE).');
+}
+
+/* The CLI reads one path, `~/.claude/ide`, moved by CLAUDE_CONFIG_DIR as Anthropic documents;
+   rEngine's own RENGINE_IDE_DIRECTORY still wins, because a test that publishes into the
+   developer's own `/ide` menu is a test with a side effect on the person running it. The rule is
+   `red_ide::lock::directory`, asked with this process's environment — synchronously, because two
+   callers read it as a default. */
+export const ideDirectory = () => JSON.parse(execFileSync(ideBinary(), ['directory'], { encoding: 'utf8' }));
+
+/** A one-shot answer from the binary. A refusal arrives as `{error, status}` and is thrown. */
+export function ask(subcommand, input = null, args = []) {
+  return new Promise((resolve, reject) => {
+    const child = execFile(ideBinary(), [subcommand, ...args], { maxBuffer: 1 << 24 }, (failure, stdout) => {
+      let value;
+      try { value = JSON.parse(stdout); }
+      catch { reject(new Error(`red-ide ${subcommand} answered nothing: ${failure?.message ?? stdout}`)); return; }
+      if (value && typeof value === 'object' && !Array.isArray(value) && value.error !== undefined && 'status' in value) {
+        const error = new Error(value.error);
+        if (value.status !== null && value.status !== undefined) error.status = value.status;
+        reject(error);
+        return;
+      }
+      resolve(value);
     });
-    this.socket.on('close', () => this.onclose?.());
-    this.socket.on('error', error => this.onerror?.(error));
-  }
-  async send(message) { this.socket.send(JSON.stringify(message)); }
-  async close() { this.socket.close(); }
+    child.stdin.end(input === null ? '' : JSON.stringify(input));
+  });
 }
 
-const constantEqual = (a, b) => {
-  const left = Buffer.from(String(a ?? '')), right = Buffer.from(String(b ?? ''));
-  return left.length === right.length && left.length > 0 && timingSafeEqual(left, right);
-};
+/** The startup sweep, on its own: locks marked `rengineWorker` whose worker is gone. */
+export const sweep = directory => ask('sweep', null, [directory]);
 
-/* The CLI's own parser reads six named keys and ignores the rest, so `rengineWorker` rides along as
-   the mark that says a lock is ours. See sidecar: our-locks-are-ours-to-collect. */
-export async function sweep(directory, { alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } } } = {}) {
-  let names = [];
-  try { names = await readdir(directory); } catch { return []; }
-  const removed = [];
-  for (const name of names) {
-    if (!name.endsWith('.lock')) continue;
-    const file = path.join(directory, name);
-    let value;
-    try { value = JSON.parse(await readFile(file, 'utf8')); } catch { continue; }
-    if (typeof value?.rengineWorker !== 'number' || alive(value.rengineWorker)) continue;
-    try { await unlink(file); removed.push(file); } catch { /* another worker swept it first */ }
+/* One `red-ide serve`: requests down, answers up, plus the two things that come up unprompted. */
+class IdeService {
+  constructor(diagnosticsFor) {
+    this.child = spawn(ideBinary(), ['serve'], { stdio: ['pipe', 'pipe', 'inherit'] });
+    this.pending = new Map();
+    this.sequence = 0;
+    this.events = [];
+    this.eventWaiters = [];
+    /* Loop-neutral at rest, the discipline `store-client` established: the refs are COUNTED, so a
+       call in flight — or an ask being answered — is always heard, and a bridge nobody is calling
+       does not hold the process open. */
+    this.flights = 0;
+    this.idle = [this.child, this.child.stdin, this.child.stdout];
+    this.lines = readline.createInterface({ input: this.child.stdout });
+    this.lines.on('line', line => this.answer(line, diagnosticsFor));
+    this.started = new Promise((resolve, reject) => {
+      this.onStarted = resolve;
+      this.child.once('error', reject);
+      this.child.once('exit', (code, signal) => {
+        const error = new Error(`red-ide serve exited (${code ?? signal}).`);
+        if (this.onStarted) { this.onStarted = null; reject(error); }
+        for (const waiting of this.pending.values()) waiting.reject(error);
+        this.pending.clear();
+      });
+    });
+    this.hold();
+    this.started.finally(() => this.release()).catch(() => {});
   }
-  return removed;
+
+  answer(line, diagnosticsFor) {
+    let message;
+    try { message = JSON.parse(line); } catch { return; }
+    if (message.started) { const resolve = this.onStarted; this.onStarted = null; resolve?.(); return; }
+    if (message.ask !== undefined) {
+      /* The bridge asking for diagnostics, answered from the source this worker holds. */
+      this.hold();
+      Promise.resolve().then(() => diagnosticsFor?.(...(message.args ?? [])))
+        .then(result => this.write({ answer: message.ask, result }), error => this.write({ answer: message.ask, error: { message: error.message } }))
+        .finally(() => this.release());
+      return;
+    }
+    if (message.event) { const waiter = this.eventWaiters.shift(); waiter ? waiter(message) : this.events.push(message); return; }
+    const waiting = this.pending.get(message.id);
+    if (!waiting) return;
+    this.pending.delete(message.id);
+    message.error ? waiting.reject(new Error(message.error.message)) : waiting.resolve(message.result);
+  }
+
+  write(value) { if (!this.child.stdin.destroyed) this.child.stdin.write(`${JSON.stringify(value)}\n`); }
+  hold() { if (this.flights++ === 0) for (const handle of this.idle) handle.ref?.(); }
+  release() { if (--this.flights === 0) for (const handle of this.idle) handle.unref?.(); }
+
+  call(method, args = []) {
+    const id = ++this.sequence;
+    const answer = new Promise((resolve, reject) => this.pending.set(id, { resolve, reject }));
+    this.hold();
+    this.write({ id, method, args });
+    return answer.finally(() => this.release());
+  }
+
+  /* Held while waited on: a retake settling with nobody else keeping the loop alive would settle
+     into a process that had already exited. */
+  nextEvent() {
+    this.hold();
+    return new Promise(resolve => { this.events.length ? resolve(this.events.shift()) : this.eventWaiters.push(resolve); })
+      .finally(() => this.release());
+  }
+
+  async end() {
+    if (this.ending) return this.ending;
+    this.ending = (async () => {
+      this.hold();
+      try { await this.started; await this.call('close'); } catch { /* going away regardless */ }
+      this.child.stdin.end();
+      await new Promise(resolve => {
+        if (this.child.exitCode !== null || this.child.signalCode !== null) { resolve(); return; }
+        const timer = setTimeout(() => { this.child.kill('SIGKILL'); resolve(); }, 4000);
+        timer.unref?.();
+        this.child.once('exit', () => { clearTimeout(timer); resolve(); });
+      });
+      this.lines.close();
+      this.release();
+    })();
+    return this.ending;
+  }
 }
 
-/* One store, two readers: whatever the project's declared language servers have published, answered
-   the same way to the editor pane and to an agent, so the person and the model cannot be told
-   different things about the same file (charter D37). A project that declares no server gets an
-   empty list, which is the true answer from an editor that runs nothing, not a refusal. */
-/* `source` reaches the language servers, which since F161 answer over a socket — so this is
-   awaited. Same shape either way: one entry for the file asked about, empty when nothing serves it. */
-const diagnostics = async (uri, source) => [{ uri, diagnostics: (await source?.(uri)) ?? [] }];
-
-/* A worker replacement must not move the port. Claude Code reads a lock once and then reconnects to
-   the port it read; it never goes back to the directory. An ephemeral port per worker therefore ends
-   every IDE session on every layered update, silently — which is KI-066, found by this session's own
-   connection dying. So the supervisor keeps one port for the runtime's life and each worker takes it
-   over. The worker being replaced still holds it for a moment after its successor starts, so the
-   successor retries rather than settling for a different port: a different port is a session the CLI
-   cannot get back. See sidecar: the-port-may-not-move. */
-const RETAKE_INTERVAL_MS = 250;
-const RETAKE_TIMEOUT_MS = 20000;
-
-async function listen(host, port) {
-  const server = new WebSocketServer({ host, port, handleProtocols: offered => (offered.has('mcp') ? 'mcp' : false) });
+/* `startIdeBridge`'s shape, kept: `published`, `port`, `lock`, `authToken`, `reason` and `ready`
+   as before; `clients()`, `observed()`, `selection()` and `mention()` awaited (spec 133 D4). */
+export async function startIdeBridge({ roots = [], hostPid, workerPid = process.pid, port = 0, directory, host = '127.0.0.1',
+  retakeTimeoutMs, diagnosticsFor = null } = {}) {
+  const service = new IdeService(diagnosticsFor);
+  await service.started;
+  let answer;
   try {
-    await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); });
-    return server;
+    answer = await service.call('start', [{ roots, hostPid, workerPid, port, directory, host, retakeTimeoutMs,
+      diagnostics: typeof diagnosticsFor === 'function' }]);
   } catch (error) {
-    server.close();
-    if (error.code === 'EADDRINUSE') return null;
+    await service.end();
     throw error;
   }
-}
-
-export async function startIdeBridge({ roots = [], hostPid, workerPid = process.pid, port: wanted = 0,
-  directory = ideDirectory(), host = '127.0.0.1', retakeTimeoutMs = RETAKE_TIMEOUT_MS, diagnosticsFor = null } = {}) {
-  /* Without the host's pid there is nothing to publish: the CLI checks that the lock's pid is one of
-     its own first ten ancestors, and the host is the only process in a pane's chain (spec 102 D2). */
-  if (!Number.isInteger(hostPid)) {
-    return { published: false, ready: Promise.resolve(false), clients: () => 0, selection: () => 0, close: async () => {},
-      reason: 'the session host process could not be identified, so no lock was written' };
-  }
-  await mkdir(directory, { recursive: true, mode: 0o700 });
-  await sweep(directory);
-
-  const authToken = randomBytes(32).toString('hex');
-  const sockets = new Set(), observed = [];
-  let server = null, lock = null, closed = false;
-
-  /* Measured, not assumed: `claude` 2.1.263 sends the lock's token in this header and asks for the
-     `mcp` subprotocol. One place is checked because one place is what it uses; a version that moves
-     it fails the handshake loudly rather than being let in on a guess. See sidecar: token-arrival. */
-  const presented = request =>
-    constantEqual(request.headers['x-claude-code-ide-authorization'], authToken) ? 'header' : null;
-
-  const connection = (socket, request) => {
-    const where = presented(request);
-    observed.push({ at: new Date().toISOString(), accepted: where !== null, where,
-      headers: Object.fromEntries(Object.entries(request.headers).filter(([name]) => !name.startsWith('sec-websocket-key'))) });
-    if (!where) { socket.close(1008, 'A valid IDE token is required.'); return; }
-    const mcp = new Server({ name: 'rengine-ide', version: '1.0.0' }, { capabilities: { tools: {} } });
-    mcp.setRequestHandler(ListToolsRequestSchema, () => ({ tools: [{
-      name: 'getDiagnostics',
-      description: `Diagnostics ${PRODUCT_NAME} holds for a file, from the language servers the project declares. A project that declares none answers an empty list rather than refusing.`,
-      inputSchema: { type: 'object', properties: { uri: { type: 'string' } } },
-    }] }));
-    mcp.setRequestHandler(CallToolRequestSchema, async request => {
-      if (request.params.name !== 'getDiagnostics') throw new Error(`${request.params.name} is not a tool ${PRODUCT_NAME} serves yet.`);
-      return diagnostics(request.params.arguments?.uri ?? '', diagnosticsFor)
-        .then(answer => ({ content: [{ type: 'text', text: JSON.stringify(answer) }] }));
-    });
-    socket.mcp = mcp;
-    sockets.add(socket);
-    socket.on('close', () => sockets.delete(socket));
-    mcp.connect(new SocketTransport(socket)).catch(() => socket.close());
-  };
-
   const bridge = {
-    published: false, authToken, observed, ready: null, port: null, lock: null, reason: null,
-    clients: () => sockets.size,
-    /* A selection is a fact about the editor; naming it `selection_changed` is this file's business. */
-    selection(value) {
-      for (const socket of sockets) socket.mcp?.notification({ method: 'selection_changed', params: value }).catch(() => {});
-      return sockets.size;
-    },
-    /* `at_mentioned` carries the file and a line range, not the selection shape: the CLI's own schema
-       is { filePath, lineStart?, lineEnd? }, read out of its binary rather than guessed. */
-    mention(value) {
-      for (const socket of sockets) socket.mcp?.notification({ method: 'at_mentioned', params: value }).catch(() => {});
-      return sockets.size;
-    },
-    async close() {
-      closed = true;
-      await bridge.ready?.catch(() => {});
-      /* Unlinked before the socket closes, so the successor that is waiting for this port cannot
-         bind and write the lock in the gap and then have this one delete it. */
-      if (lock) { try { await unlink(lock); } catch { /* already gone */ } }
-      for (const socket of sockets) socket.close();
-      if (server) await new Promise(resolve => server.close(resolve));
-    },
+    published: answer.published, authToken: answer.authToken ?? undefined, port: answer.port, lock: answer.lock, reason: answer.reason,
+    ready: null,
+    clients: () => service.call('clients'),
+    observed: () => service.call('observed'),
+    /* A selection is a fact about the editor; naming it `selection_changed` is the bridge's business,
+       and `at_mentioned` carries the file and a line range, the CLI's own schema. */
+    selection: value => service.call('selection', [value]),
+    mention: value => service.call('mention', [value]),
+    close: () => service.end(),
   };
-
-  const serve = async bound => {
-    server = bound;
-    server.on('connection', connection);
-    lock = path.join(directory, `${server.address().port}.lock`);
-    await writeFile(lock, JSON.stringify({
-      pid: hostPid, workspaceFolders: roots, ideName: IDE_NAME, transport: 'ws',
-      useWebSocket: true, runningInWindows: false, authToken, rengineWorker: workerPid,
-    }, null, 2), { mode: 0o600 });
-    bridge.published = true; bridge.port = server.address().port; bridge.lock = lock; bridge.reason = null;
-    return true;
-  };
-
-  const first = await listen(host, wanted);
-  if (first) { bridge.ready = serve(first); await bridge.ready; return bridge; }
-
-  bridge.reason = `port ${wanted} is still held by the worker being replaced`;
-  bridge.ready = (async () => {
-    const deadline = Date.now() + retakeTimeoutMs;
-    while (!closed && Date.now() < deadline) {
-      /* Not unref'd: the wait is bounded and `close` ends it, and a timer that lets the process
-         exit mid-retry would strand the bridge unpublished with nothing said. */
-      await new Promise(resolve => setTimeout(resolve, RETAKE_INTERVAL_MS));
-      if (closed) break;
-      const taken = await listen(host, wanted);
-      if (taken) return serve(taken);
-    }
-    bridge.reason = `port ${wanted} was never released by the worker being replaced`;
-    return false;
-  })();
+  if (answer.published) bridge.ready = Promise.resolve(true);
+  else if (/still held/.test(answer.reason ?? '')) {
+    bridge.ready = service.nextEvent().then(event => {
+      if (event.event === 'published') { bridge.published = true; bridge.port = event.port; bridge.lock = event.lock; bridge.reason = null; return true; }
+      bridge.reason = event.reason;
+      return false;
+    });
+  } else bridge.ready = Promise.resolve(false);
   return bridge;
 }

@@ -3,6 +3,11 @@
 > Renamed 2026-09-07 by charter D41: the product is Red. The decision rows below keep the word
 > they were written with; the published `ideName` is now the generated product name, and where
 > it comes from is [spec 108](108-the-product-name.md).
+>
+> Ported 2026-09-14 (F161, [spec 133](133-ide-bridge-in-rust.md)): the bridge and the discovery
+> are `red/red-ide/`; `runtime/ide.mjs` and `agents/ide-connect.mjs` are its clients. Every rule
+> below is unchanged and is held by `orchestrator/tests/ide-corpus.json` and
+> `ide-connect-corpus.json`, recorded from the JavaScript before it was replaced.
 
 Date: 2026-09-07. Status: recorded from owner direction — *"claude code has /ide integration can we
 use it?"*, then *"yes, spec it and build the first slice"*. Parent: [spec 065](065-layered-workspace-updates.md)

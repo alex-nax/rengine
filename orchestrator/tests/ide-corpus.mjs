@@ -1,4 +1,4 @@
-/* The answers `runtime/ide.mjs` gives, recorded before it is replaced (F161, spec 102, spec 133).
+/* The answers `runtime/ide.mjs` gave, recorded before it was replaced (F161, spec 102, spec 133).
  *
  * Red presents itself to Claude Code as an IDE: a lock file the CLI reads, a WebSocket that speaks
  * MCP, and a token the socket requires. Every rule here was read out of one CLI binary and then
@@ -7,10 +7,10 @@
  * what a connection must present. So what is recorded is not only the answers but the SILENCES:
  * a frame the SDK does not answer is a frame the port must not answer either.
  *
- *   node orchestrator/tests/ide-corpus.mjs > orchestrator/tests/ide-corpus.json
- *
- * Regenerate ONLY from a checkout where `ide.mjs` still holds the implementation — never after the
- * wiring commit, because a regenerated record would be judging the replacement against itself.
+ * `ide-corpus.json` was taken at 77595e5, while `ide.mjs` still held the implementation, and is
+ * FROZEN: the generator was deleted with the implementation it asked, so the record cannot be
+ * regenerated against its own replacement. `ide.mjs` is a client of `red-ide serve` now, and
+ * `ide-parity.test.mjs` drives the binary through `answers()` and compares.
  *
  * Folded, because they are a machine's rather than a rule's: the port, the token, the temporary
  * directory, this process's pid, the product's name and the `host` header. Not folded: the retake
@@ -540,37 +540,7 @@ function foldHeaders(headers, fold) {
   return sorted;
 }
 
-/* ---- the JavaScript harness: the module under replacement ------------------------------------ */
-
-export async function jsHarness() {
-  const ide = await import('../runtime/ide.mjs');
-  return {
-    async start(options, source) {
-      const handle = await ide.startIdeBridge({ ...options, diagnosticsFor: source });
-      return {
-        get published() { return handle.published; }, get reason() { return handle.reason; },
-        get port() { return handle.port; }, get lock() { return handle.lock; }, authToken: handle.authToken, ready: handle.ready,
-        selection: async value => handle.selection(value), mention: async value => handle.mention(value),
-        clients: async () => handle.clients(), observed: async () => handle.observed ?? [],
-        close: () => handle.close(),
-      };
-    },
-    sweep: directory => ide.sweep(directory),
-    async directory(env) {
-      const saved = {};
-      for (const key of ['HOME', 'RENGINE_IDE_DIRECTORY', 'CLAUDE_CONFIG_DIR']) { saved[key] = process.env[key]; delete process.env[key]; }
-      for (const [key, value] of Object.entries(env)) process.env[key] = value;
-      try { return ide.ideDirectory(); }
-      finally { for (const [key, value] of Object.entries(saved)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
-    },
-  };
-}
-
 export const RECORDED = await (async () => {
   try { return JSON.parse(await readFile(new URL('./ide-corpus.json', import.meta.url), 'utf8')); }
   catch { return null; }
 })();
-
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
-  console.log(JSON.stringify(await answers(await jsHarness()), null, 2));
-}

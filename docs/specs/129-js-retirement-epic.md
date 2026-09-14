@@ -145,6 +145,18 @@ Two things the door carries that belong to the JS host rather than the store: th
 an unknown root, 409 for a stale save). The door attaches to the store service and never starts one:
 a door racing the host to start one would be the second owner D61 exists to prevent.
 
+## F161, second half: the IDE bridge, and what a record cannot see
+
+Date: 2026-09-14. Evidence: `docs/evidence/ide-f161-2026-09-14.md`. Shape: [spec 133](133-ide-bridge-in-rust.md).
+
+`runtime/ide.mjs` and `agents/ide-connect.mjs` are thin clients of `red-ide`; `ide-connect.mjs`
+came with the slice because the row's first criterion is about **discovery**, and discovery is that
+module. Two records, 34 sabotages, and the method's two findings: a slow source held the next
+frame behind it and a retake loop that ignored its own retirement — each a rule with no case,
+because a record of answers cannot see cost or time — got their cases while the JavaScript still
+existed. And a sabotage runner that restores sources with their old mtimes leaves cargo believing
+nothing changed: the verdicts stood, the binary on disk did not.
+
 ## Bookkeeping
 
 - Rows F139–F165 filed in `features.json` on 2026-09-11 with this spec and spec 128 as their
