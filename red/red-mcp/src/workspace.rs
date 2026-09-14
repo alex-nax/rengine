@@ -14,6 +14,8 @@
 //! * **The identity headers are arbitration, never authentication** (spec 095). They name who is
 //!   asking so a refusal can name a holder; they prove nothing.
 
+use std::path::{Path, PathBuf};
+
 use serde_json::{json, Value};
 
 #[derive(Clone, Debug)]
@@ -93,12 +95,21 @@ impl Workspace {
         }
     }
 
+    /// The directory the runtime descriptor lives in: the one the context names, or the default
+    /// `runtime/discovery.mjs` computes for a context that leaves the field out (spec 095).
+    fn runtime_directory(&self) -> Option<PathBuf> {
+        match self.binding.runtime_directory.as_ref() {
+            Some(named) => Some(PathBuf::from(named)),
+            None => default_runtime_directory(&checkout()?, &self.binding.instance),
+        }
+    }
+
     /// Where this project's routes are served from right now: the root-bound runtime worker when
     /// one is alive and belongs to this host, the session host otherwise.
     fn runtime(&self) -> (String, String) {
         let host = (self.binding.url.clone(), self.binding.token.clone());
-        let Some(directory) = self.binding.runtime_directory.as_ref() else { return host };
-        let descriptor = std::path::Path::new(directory).join("runtime.json");
+        let Some(directory) = self.runtime_directory() else { return host };
+        let descriptor = directory.join("runtime.json");
         let Ok(document) = std::fs::read_to_string(&descriptor) else { return host };
         let Ok(value) = serde_json::from_str::<Value>(&document) else { return host };
         let belongs = value.get("version").and_then(Value::as_i64) == Some(1)
@@ -187,6 +198,24 @@ impl Workspace {
     }
 }
 
+/// `<checkout>/.cache/runtime/<instance>`, the path `runtimeDirectory(host)` names on the JS side.
+fn default_runtime_directory(checkout: &Path, instance: &str) -> Option<PathBuf> {
+    if instance.is_empty() {
+        return None;
+    }
+    Some(checkout.join(".cache/runtime").join(instance))
+}
+
+/// The checkout this binary runs from, taken from the BINARY the way red-project finds its own
+/// built adapter: `red/target/<profile>/red-mcp` is four levels down from the checkout.
+fn checkout_of(exe: &Path) -> Option<&Path> {
+    exe.ancestors().nth(4)
+}
+
+fn checkout() -> Option<PathBuf> {
+    std::env::current_exe().ok().and_then(|exe| checkout_of(&exe).map(Path::to_path_buf))
+}
+
 fn text_at(value: &Value, path: &[&str]) -> String {
     let mut current = value;
     for key in path {
@@ -249,5 +278,42 @@ mod tests {
     #[test]
     fn a_launch_with_no_identity_sends_no_headers() {
         assert!(Workspace::open(binding(), None).headers().is_empty());
+    }
+
+    /// The hop this fallback rests on, pinned against the layout the launcher builds into: the JS
+    /// side names `<checkout>/.cache/runtime/<instance>` and so must this (KI-110, spec 095).
+    #[test]
+    fn the_default_runtime_directory_is_the_one_the_js_side_computes() {
+        let exe = Path::new("/x/rengine/red/target/debug/red-mcp");
+        assert_eq!(checkout_of(exe), Some(Path::new("/x/rengine")));
+        assert_eq!(checkout_of(Path::new("/x/rengine/red/target/release/red-mcp")), Some(Path::new("/x/rengine")));
+        assert_eq!(
+            default_runtime_directory(checkout_of(exe).expect("a checkout"), "i").expect("a directory"),
+            Path::new("/x/rengine/.cache/runtime/i"),
+        );
+        assert!(default_runtime_directory(Path::new("/x/rengine"), "").is_none(), "a context with no instance names nothing");
+    }
+
+    /// KI-110: a context an older supervisor left without the field routed every pane to the SESSION
+    /// HOST, which serves eight capabilities fewer than the runtime worker.
+    #[test]
+    fn a_context_without_a_runtime_directory_still_finds_the_runtime() {
+        let instance = "b2f0e0de-0000-4000-8000-ki110fallback";
+        let directory = default_runtime_directory(&checkout().expect("a checkout"), instance).expect("a directory");
+        std::fs::create_dir_all(&directory).expect("the runtime directory");
+        let descriptor = directory.join("runtime.json");
+        std::fs::write(&descriptor, json!({
+            "version": 1, "pid": std::process::id(),
+            "url": "http://127.0.0.1:2", "token": "runtime-token",
+            "instance": instance,
+            "host": { "url": "http://127.0.0.1:1", "token": "t", "instance": instance },
+        }).to_string()).expect("the descriptor");
+        let workspace = Workspace::open(Binding { instance: instance.into(), ..binding() }, None);
+        let resolved = workspace.runtime();
+        let _ = std::fs::remove_dir_all(&directory);
+        // The scratch directory is this checkout's own; a real one holds every live runtime and stays.
+        let _ = directory.parent().map(std::fs::remove_dir);
+        assert_eq!(resolved, ("http://127.0.0.1:2".to_string(), "runtime-token".to_string()),
+            "the runtime worker answers, not the session host the binding names");
     }
 }

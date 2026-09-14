@@ -16,6 +16,7 @@ import { projectDevices } from './devices.mjs';
 import { projectTracker } from './tracker.mjs';
 import { revoke as revokeSignIn, signIn as trackerSignIn } from './tracker-auth.mjs';
 import { listRecordings, readRecording } from './recordings.mjs';
+import { runtimeDirectory } from '../runtime/discovery.mjs';
 
 const authorized = (value, token) => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value) && timingSafeEqual(Buffer.from(value), Buffer.from(token));
 
@@ -134,7 +135,9 @@ export async function startServer({ stateDir, port = 0, retainSessions = false, 
   });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
   url = `http://127.0.0.1:${server.address().port}`;
-  sessions.workspaceContext = { url, token, instance };
+  /* The runtime directory too, the same field `runtime/supervisor.mjs` writes: a reader without
+     the JS default computes nothing and would route a pane to this host (KI-110, spec 095). */
+  sessions.workspaceContext = { url, token, instance, runtimeDirectory: runtimeDirectory({ url, token, instance }) };
   /* What the directory's service is already holding, before anything is served: a pane whose host
      was replaced is in the list its first caller reads, not one refresh later. */
   const adopted = await sessions.adopt();

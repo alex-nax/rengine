@@ -12,9 +12,10 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { WebSocket } from 'ws';
 import { startServer } from '../server/main.mjs';
 import { startRuntime } from '../runtime/supervisor.mjs';
-import { discoverRuntime, ensureRuntime, alive } from '../runtime/discovery.mjs';
+import { discoverRuntime, ensureRuntime, alive, runtimeDirectory } from '../runtime/discovery.mjs';
 import { forward, json, tunnel } from '../runtime/protocol.mjs';
 import { request } from '../launcher/sidecar.mjs';
+import { fakeCli } from './task-fixtures.mjs';
 
 /* A worker publishes an IDE lock for Claude Code to find (spec 102), and these workers are real, so
    the suite must not publish into the `/ide` menu of whoever is running it. The npm scripts set
@@ -151,4 +152,23 @@ test('cold runtime startup is serialized and an unavailable live owner never cre
     if (runtime) { process.kill(runtime.pid, 'SIGTERM'); await until(() => !alive(runtime.pid), 'isolated runtime stopped'); }
     await host?.close(); await rm(directory, { recursive: true, force: true });
   }
+});
+
+/* KI-110: the connector reads `runtimeDirectory` from the context and computes nothing of its own
+   when the field is absent, so a host that minted the field away routed every pane to itself —
+   eight capabilities short of the runtime worker. */
+test('the agent context a host mints names the runtime directory its own supervisor uses', { timeout: 30000 }, async t => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-agent-context-'));
+  const project = path.join(directory, 'project');
+  await mkdir(project);
+  const host = await startServer({ stateDir: path.join(directory, 'host'), frontDoor: false });
+  t.after(async () => { await host.close(); await rm(directory, { recursive: true, force: true }); });
+  const root = await host.store.addRoot(project);
+  await fakeCli(host.store.directory, 'claude');
+  await host.sessions.terminal({ rootId: root.id, type: 'agent', agent: 'claude' });
+  const context = JSON.parse(await readFile(path.join(host.store.directory, 'integrations', `${root.id}.json`), 'utf8'));
+  assert.ok(context.runtimeDirectory, 'the minted context names a runtime directory');
+  assert.equal(context.runtimeDirectory, runtimeDirectory(host), 'the one ensureRuntime would start this host’s supervisor in');
+  assert.deepEqual(Object.keys(context).sort(), ['instance', 'rootId', 'runtimeDirectory', 'token', 'url'],
+    'and it is the shape runtime/supervisor.mjs writes for a pane of its own');
 });

@@ -5,8 +5,8 @@
       "id": "identity-is-re-read-binding-is-not",
       "kind": "rationale",
       "anchor": {
-        "start": 87,
-        "end": 87,
+        "start": 89,
+        "end": 89,
         "symbol": "refresh_identity",
         "snippet": "pub fn refresh_identity(&mut self) {"
       },
@@ -16,6 +16,27 @@
         "docs/evidence/report-session-hook-2026-09-07.md",
         "docs/evidence/mcp-cutover-f187-2026-09-13.md"
       ]
+    },
+    {
+      "id": "runtime-directory-default",
+      "kind": "rationale",
+      "anchor": {
+        "start": 100,
+        "end": 100,
+        "symbol": "runtime_directory",
+        "snippet": "fn runtime_directory(&self) -> Option<PathBuf> {"
+      },
+      "note": "KI-110. This arm used to be `let Some(directory) = ... else { return host }`: a context without the field routed the pane to the SESSION HOST, which declares eight capabilities fewer than the root-bound worker. Spec 095 names the computed directory as the fallback 'an older supervisor leaves', and runtime/discovery.mjs has always defaulted to it, so returning the host contradicted both. The default is <checkout>/.cache/runtime/<instance>, the same path runtimeDirectory(host) produces. The checkout comes from the BINARY (current_exe, four ancestors up) rather than CARGO_MANIFEST_DIR, because CARGO_MANIFEST_DIR is baked at compile time while the JS resolves its own module URL -- it names the checkout the code is RUNNING from, which is what a sibling checkout's workspace needs. That is red-project's existing choice for its built surface adapter (games.rs adapter_path), and it is why checkout_of is a pure function on a path: the hop count is the fragile part and it is pinned by a test of its own, separate from the resolution test, which cannot see a wrong hop because it computes the same one. A binary named by RENGINE_RED_MCP from outside its own checkout is the residual case; it resolves against wherever that binary lives, as every other red-* crate does.",
+      "refs": [
+        "docs/specs/095-project-token.md",
+        "known-issues.md"
+      ]
     }
-  ]
+  ],
+  "source": {
+    "path": "red/red-mcp/src/workspace.rs",
+    "sha256": "556ff2dc22b8aeb9c39d0c88b1466e992d6103a61aa1150b60aa84b8c13e7213",
+    "format": "rust",
+    "format_fingerprint": "3802714b4569aa9e93696227dc96f5433c9f027b6349406e4e8901968d9e7fea"
+  }
 }

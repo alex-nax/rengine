@@ -5,9 +5,9 @@
       "id": "local-session-capability",
       "kind": "constraint",
       "anchor": {
-        "start": 36,
-        "end": 36,
-        "snippet": "export async function startServer({ stateDir, port = 0 } = {}) {"
+        "start": 42,
+        "end": 42,
+        "snippet": "export async function startServer({ stateDir, port = 0, retainSessions = false, frontDoor = true } = {}) {"
       },
       "note": "This is a loopback-only desktop service. HTTP and WebSocket requests need the private runtime token and compatible Origin; it is not the Quest pairing protocol. Tokens stay in mode-0600 local state, never tracked files. Slow sockets reconnect to bounded retained output without stopping sessions. The retired browser bundle is not served; a later web client needs separate delivery authorization. State advertises handoff and desktopActions version 1. Presented requires a session attached on that socket. Desktop registration/action acknowledgement use the same authenticated events connection; discovery/reload route through the ephemeral desktop broker. These are local workflow bindings, not protection against an authenticated client deliberately forging readiness or displayed roots.",
       "refs": [
@@ -19,9 +19,9 @@
       "id": "format-registry-routes",
       "kind": "rationale",
       "anchor": {
-        "start": 70,
-        "end": 70,
-        "snippet": "case '/api/formats': value = await listFormats(store.root(query.get('rootId'))); break;"
+        "start": 72,
+        "end": 72,
+        "snippet": "case '/api/formats': value = await listFormats(await store.root(query.get('rootId'))); break;"
       },
       "note": "The host serves the format registry so a directly connected desktop and the service tests need no supervisor; the replaceable worker serves the same three routes for the live layered runtime whose host predates them. Both advertise formatRegistry: 1. Declared commands run only from format-preview (explicit open/refresh/agent call), never from tree listing. dashboard: 1 and projectGame: 1 tell connectors that the dashboard routes and that game-config answer from the per-project declaration; projectGameLaunch: 1 says the same of the launch, and the host advertises it because it both preflights and spawns. The workspace worker advertises projectGame on its own (it serves game-config from its checkout) but mirrors projectGameLaunch from the host, whose Sessions and Surfaces own the spawn: an older host still launches the removed built-in game, so that half is refused by name rather than forwarded. game-config and game take an optional gameId selecting one declared game; omitted, both use the first declared record, which is what the launcher and an agent calling the tool without arguments get.",
       "refs": [
@@ -32,20 +32,34 @@
       "id": "tracker-is-host-only",
       "kind": "constraint",
       "anchor": {
-        "start": 72,
+        "start": 74,
         "end": 75,
-        "snippet": "case '/api/tracker': { const selected = store.root(query.get('rootId'));"
+        "snippet": "case '/api/tracker': { const selected = await store.root(query.get('rootId'));"
       },
-      "note": "The tracker routes are served here and nowhere else, which means a workspace whose session host predates them cannot get them by a layered update: an update replaces the worker, and the host is the one component it cannot replace. That is the KI-043 shape, and it bit the owner — their development workspace, running a host from the previous day, answered 404 for /api/tracker while the desktop binary beside it had the button. The durable fix is the one games took: serve the read from the worker and leave only what genuinely needs the host's own state here. Until that happens, a new route added in this file reaches a running workspace only when its host is replaced.",
+      "note": "The tracker routes are served here and nowhere else, which means a workspace whose session host predates them cannot get them by a layered update: an update replaces the worker, and the host is the one component it cannot replace. That is the KI-043 shape, and it bit the owner \u2014 their development workspace, running a host from the previous day, answered 404 for /api/tracker while the desktop binary beside it had the button. The durable fix is the one games took: serve the read from the worker and leave only what genuinely needs the host's own state here. Until that happens, a new route added in this file reaches a running workspace only when its host is replaced.",
       "refs": [
         "docs/specs/083-task-tracking.md",
+        "known-issues.md"
+      ]
+    },
+    {
+      "id": "minted-agent-context-names-its-runtime",
+      "kind": "rationale",
+      "anchor": {
+        "start": 140,
+        "end": 140,
+        "snippet": "sessions.workspaceContext = { url, token, instance, runtimeDirectory: runtimeDirectory({ url, token, instance }) };"
+      },
+      "note": "KI-110: this context is the whole binding a pane gets, and until 2026-09-14 it named no runtime directory. Every JS reader survived that because discovery.mjs DEFAULTS the argument -- discoverRuntime(host, directory = runtimeDirectory(host)) -- so resolveRuntime and the mcp.mjs facade computed the same path anyway. red-mcp does not default: workspace.rs returned the session host outright when the field was absent, so every pane was served by the host rather than the root-bound worker and lost the eight capabilities only the worker declares (layeredUpdates, projectWindows, agentToken, scriptActions, ide, agentsMenu, taskWrites, agentSpawn -- measured 12 against 20 on a live launch). The value must be derived from THIS host's own identity, not from a caller's: runtimeDirectory is exactly ensureRuntime's default, so a supervisor bootstrapped from this context lands in the directory the context names, and the document then matches the one runtime/supervisor.mjs:217 writes for a pane of its own. Note the front door mints its own context for panes it starts (red/red-host/src/panes.rs), from ITS identity, which is the instance a live workspace's runtime directory is keyed on; that writer is separate from this one and still omits the field, which is why red-mcp's computed fallback is the half that fixes a running workspace.",
+      "refs": [
+        "docs/specs/095-project-token.md",
         "known-issues.md"
       ]
     }
   ],
   "source": {
     "path": "orchestrator/server/main.mjs",
-    "sha256": "ab4500ce41df1cc7419632d4191b5884f0eb860bfe548cdf0f4a115c2f2b5362",
+    "sha256": "486d92117b8035cf82007971e6eb52723fb446b82bee5abfe7dbf85bf6d3177e",
     "format": "text",
     "format_fingerprint": "05db8feb0843c51a026668bb69cc122617afc04000263bbb759093d8bf2f314e"
   }
