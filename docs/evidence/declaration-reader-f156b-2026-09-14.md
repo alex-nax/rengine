@@ -49,6 +49,13 @@ and recorded from the JavaScript, which still existed in the working tree for ex
 | a section's problem takes the whole document with it | the contract-5 tracker case loses everything but its error |
 | a dashboard capture may write outside the root | the action is accepted where the record refuses it |
 
+## And the door answers them
+
+`/api/formats`, `/api/recordings` and `/api/recording` are red-host's now, answered from
+`red_project` directly rather than forwarded: what a project declares and what it left behind are
+read from the root, not from the host. The spec proves ownership the way the store routes did — with
+the backend stopped, they still answer — and a sabotage that forwards them again fails there.
+
 ## Gates
 
 `npm test` — **328 of 328**. `cargo test` — all crates. `native-identity` and `native-dashboard`.

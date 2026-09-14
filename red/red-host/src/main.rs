@@ -340,6 +340,13 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
             if !head.keeps_alive() { return Ok(()); }
             continue;
         }
+        /* What the project itself declares and leaves behind (F156). */
+        if head.method == "GET" && matches!(head.path().as_str(), "/api/formats" | "/api/recordings" | "/api/recording") {
+            let answer = routes::answer_about_project(&front, &head.path(), &head).await;
+            client.write_all(answer.as_bytes()).await?;
+            if !head.keeps_alive() { return Ok(()); }
+            continue;
+        }
         /* The one route whose answer is bytes rather than JSON. */
         if head.path() == "/api/image" && head.method == "GET" {
             let answer = images::image(&front, &head.query("rootId").unwrap_or_default(), &head.query("path").unwrap_or_default()).await;

@@ -13,6 +13,9 @@ red-core = { path = "../red-core" }
 # A pane's title carries the conversation's short form, and the short form is the CLI's recipe
 # (a prefix to strip, a length) rather than a rule this crate may invent (F148/F149).
 red-agents = { path = "../red-agents" }
+# What a project declares about itself and what it leaves behind: the door answers those routes from
+# the same implementation the JS host's clients ask for (F156).
+red-project = { path = "../red-project" }
 serde_json = "1"
 getrandom = "0.3"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "sync"] }

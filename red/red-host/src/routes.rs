@@ -31,6 +31,62 @@ pub(crate) fn store_route(method: &str, path: &str) -> Option<&'static str> {
     })
 }
 
+/// What a project declares about itself and what it leaves behind (F156): the declaration, its
+/// formats, and the recordings the desktop's recorder committed. These read a project root rather
+/// than the workspace's own state, so the door answers them from `red_project` directly — the same
+/// implementation `formats.mjs` and `recordings.mjs` ask for through their client.
+pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &Head) -> String {
+    let root_id = head.query("rootId").unwrap_or_default();
+    let root = match ask(front, "root", serde_json::json!([root_id])).await {
+        Ok(root) => root,
+        Err(fault) => return faulted(&fault),
+    };
+    let root_path = root.get("path").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    let id = root.get("id").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    let declaration_file = root.get("declarationFile").and_then(serde_json::Value::as_str).map(str::to_string);
+    /* Everything the blocking half needs, taken before it starts: a task that outlives this call
+       cannot borrow the request it came from. */
+    let path = path.to_string();
+    let asked: Vec<Option<String>> = ["limit", "id", "artifact", "offset", "maxCharacters"]
+        .into_iter()
+        .map(|name| head.query(name))
+        .collect();
+    let answer = tokio::task::spawn_blocking(move || {
+        let query = |index: usize| asked[index].clone();
+        match path.as_str() {
+        "/api/formats" => {
+            /* `listFormats`: the declaration, wearing the id of the root it was read for. */
+            let mut listed = serde_json::Map::new();
+            listed.insert("rootId".to_string(), serde_json::json!(id));
+            if let Some(fields) = red_project::declaration::read(&root_path, declaration_file.as_deref()).as_object() {
+                for (key, value) in fields {
+                    listed.insert(key.clone(), value.clone());
+                }
+            }
+            Ok(serde_json::Value::Object(listed))
+        }
+        "/api/recordings" => red_project::recordings::list(&id, &root_path, query(0).as_deref())
+            .map_err(|fail| format!("{}|{}", fail.status, fail.message)),
+        _ => red_project::recordings::read(
+            &id,
+            &root_path,
+            &query(1).unwrap_or_default(),
+            query(2).as_deref(),
+            query(3).as_deref(),
+            query(0).as_deref(),
+            query(4).as_deref(),
+        )
+        .map_err(|fail| format!("{}|{}", fail.status, fail.message)),
+        }
+    })
+    .await;
+    match answer {
+        Ok(Ok(value)) => http_json(200, "OK", &value),
+        Ok(Err(fault)) => faulted(&fault),
+        Err(error) => faulted(&format!("500|{error}")),
+    }
+}
+
 /// The session routes this door answers itself. They are here rather than forwarded because the
 /// pane's record is the service's now (charter D62): the refusals below are the JS host's, applied
 /// to the same record the JS host applies them to, so the two cannot disagree about whether a pane

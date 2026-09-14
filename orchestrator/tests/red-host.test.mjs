@@ -277,6 +277,12 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   stopped = true;
   const alone = await ask(instance, `/api/file?rootId=${root.id}&path=note.txt`);
   assert.equal(alone.status, 200, 'a route the door owns is answered with no backend behind it');
+  /* The project's own routes are the door's too (F156): what a project declares and what it left
+     behind are read from the root, not from the host that is gone. */
+  assert.equal((await ask(instance, `/api/formats?rootId=${root.id}`)).status, 200,
+    'and so is what the project declares');
+  assert.equal((await (await ask(instance, `/api/recordings?rootId=${root.id}`)).json()).path, '.cache/recordings',
+    'and what it left behind');
   assert.equal((await alone.json()).text, 'through the door\n', 'from the state directory\'s own store');
   await assert.rejects(async () => {
     const forwarded = await ask(instance, `/api/dashboard?rootId=${root.id}`);
