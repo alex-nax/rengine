@@ -66,6 +66,16 @@ actions on one device cost one probe, and a second listing inside the TTL costs 
 Twelve sidecar entries moved with the code they describe, to `devices.rs`, `dashboard.rs` and
 `games.rs`; `devices.mjs` has no sidecar left because nothing non-obvious stayed in it.
 
+## A defect in the cache the suite found afterwards
+
+Keying the probe cache by the project ROOT made it machine-global, and `forgetProbes` — which takes
+no root — then cleared a concurrent caller's cache as well as its own. Running the whole suite
+surfaced it as one spec probing twice because another had just cleared; the spec passed alone.
+
+The fix is also the more faithful shape: the JavaScript cache was a `Map` in the worker process,
+lost when the worker was replaced, so keying the directory by the calling PROCESS reproduces exactly
+that lifetime. The cross-call TTL a worker relies on is within one process either way.
+
 ## Gates
 
 `npm test` 335/335 · `cargo test` 89/89 · `./init.sh` · `features.py validate`.

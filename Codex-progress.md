@@ -153,9 +153,15 @@ And a defect of my own, found by comparing the new service with red-store rather
 drops it first. One client that stopped reading would have frozen a workspace's arbitration for
 every other client and for the settle sweep. The pushes queue under the lock and go out after it.
 
-Commands: `npm test` 341/341 · `cargo test` 91/91 · `./init.sh` ·
+Commands: `npm test` 341/341 (run twice) · `cargo test` 91/91 · `./init.sh` ·
 `python3 tools/features.py validate` · `python3 tools/design.py check`.
-JavaScript on the app path: **6,533 → 5,678**.
+JavaScript on the app path: **6,533 → 5,652**.
+
+One defect the ports left and the full suite found: the probe cache was keyed by the project root,
+which made it machine-global, so `forgetProbes` — which takes no root — cleared a concurrent
+caller's cache as well as its own. It passed alone and failed in the suite. Keyed by the calling
+process now, which is also what the JavaScript cache was: a Map in the worker, lost when the worker
+was replaced. Six exports the ports orphaned went with it.
 
 Remaining: KI-108's layout half. F158 (the worker, and with it `main.mjs`, `sessions-client.mjs`, `store-client.mjs`,
 `pty-client.mjs`). F152/F189 still wait on F186, which is the owner's live-pane run. KI-105 (the

@@ -24,10 +24,6 @@ import { agentNames, recipe } from '../agents/agents-client.mjs';
 import { fail } from './store-client.mjs';
 
 const agentScript = fileURLToPath(new URL('../../scripts/agent.sh', import.meta.url));
-export const TASK_ACTIONS = ['add', 'update', 'decompose'];
-export const BRIEFS = ['task', 'decompose'];
-export const PLACEHOLDERS = ['id', 'key', 'title', 'criteria', 'labels'];
-
 const ask = (call, root, input) => askProject(['tasks', call, root.id, root.path], JSON.stringify(input));
 
 /* What the menu offers when a project declares no `agents` block: the registry's recipes, each with

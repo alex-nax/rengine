@@ -14,7 +14,6 @@ import { shellEnvironment } from './sessions-client.mjs';
    `declaration.rs._llm.json`; the constants were deleted; the contract ceiling seven specs asked
    this module for is read from the schema that declares it (`orchestrator/tests/contract.mjs`). */
 
-export const DEFAULT_MAX_BYTES = 4 * 1024 * 1024;
 export const MAX_RAW_WINDOW = 64 * 1024;
 const MAX_TREE_DEPTH = 64, MAX_TREE_NODES = 200000, MAX_STDERR = 16 * 1024;
 const PLACEHOLDER = /\$\{(file|entry|host|selector|json)\}/g; /* host/selector only reach here from a device probe and json only from a task write; the schema permits each nowhere else */

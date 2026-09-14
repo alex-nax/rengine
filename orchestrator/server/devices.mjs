@@ -18,8 +18,6 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { askProject } from './project-client.mjs';
 import { resolveInRoot } from './store-client.mjs';
-import { shellEnvironment } from './sessions-client.mjs';
-import { stat, access, constants } from 'node:fs/promises';
 
 /* The device that is this machine. Named here because this module is what a caller asks about
    devices; the rules that validate a declared one are red-project's. */
@@ -27,7 +25,11 @@ export const LOCAL = 'local';
 export const PROBE_TTL_MS = 15000; /* the window red-project honours; stated here for its readers */
 export const THIS_MACHINE = { id: LOCAL, kind: LOCAL, title: 'This machine' };
 
-const probeDirectory = path.join(tmpdir(), 'rengine-probes');
+/* Per PROCESS, which is what the JavaScript cache was: a Map in the worker, lost when the worker
+   was replaced. Keying the directory by the root alone made it machine-global, and `forgetProbes`
+   — which takes no root — then wiped a concurrent caller's cache as well as its own. The suite
+   found it as one spec probing twice because another had just cleared. */
+const probeDirectory = path.join(tmpdir(), 'rengine-probes', String(process.pid));
 const probeCache = rootPath => path.join(probeDirectory, `${createHash('sha256').update(rootPath).digest('hex').slice(0, 32)}.json`);
 /** The cache a game preflight shares with the two listings, so one root's probes are one cache. */
 export const probeCacheFor = root => probeCache(root.path);
@@ -38,17 +40,6 @@ export const declarationOf = root => (root?.declarationFile === undefined ? '' :
 export const forgetProbes = () => rm(probeDirectory, { recursive: true, force: true });
 
 export async function present(root, relative) { try { await resolveInRoot(root, relative); return true; } catch { return false; } }
-export async function onPath(name) {
-  const env = shellEnvironment(), key = Object.keys(env).find(k => k.toLowerCase() === 'path');
-  const extensions = process.platform === 'win32' ? (env.PATHEXT ?? '.EXE;.CMD;.BAT').split(';') : [''];
-  for (const directory of (env[key] ?? '').split(path.delimiter).filter(Boolean)) for (const extension of extensions) {
-    const candidate = path.join(directory, name + extension);
-    try { if ((await stat(candidate)).isFile()) { await access(candidate, constants.X_OK); return true; } } catch { /* next candidate */ }
-  }
-  return false;
-}
-
-export const isLocal = device => device.kind === LOCAL;
 /* The implicit local device is always offered, so a consumer never has to declare it to bind to it
    or to see it listed; a declared one wins so its own title is used.
    See sidecar: red/red-project/src/devices.rs._llm.json#implicit-local — this is the JS copy of a
@@ -61,14 +52,6 @@ export function deviceFor(declared, id) {
   const records = declaredDevices(declared);
   return records.find(device => device.id === (id ?? LOCAL)) ?? null;
 }
-const boundTo = (target, id) => (target?.device ?? LOCAL) === id;
-export function boundTargets(declared, id) {
-  return {
-    games: (Array.isArray(declared?.games) ? declared.games : []).filter(game => boundTo(game, id)).map(game => game.id),
-    actions: (declared?.dashboard?.groups ?? []).flatMap(group => group.actions ?? []).filter(action => boundTo(action, id)).map(action => action.id),
-  };
-}
-
 /* Both listings come from ONE run of red-project, because they share a probe cache: the dashboard
    asks each action's device whether it answers, and this tab asks the dashboard what is bound to
    each one. `declared` is still taken, and still ignored — the reader reads it again on the other
