@@ -20,6 +20,11 @@ FORMAT_CATALOG_VERSION = 1
 
 SKIP_DIRS = {
     ".cache",
+    # A git worktree is a full second checkout of the repository, and an agent that takes one
+    # leaves it behind: `.claude/worktrees/` held 1.9 GB of them here, each carrying its own copy
+    # of this skill. Walking those cost a refresh twenty minutes and reported the skill's OWN
+    # sidecar as a moved source, because a copy of a tracked file is not the tracked file.
+    "worktrees",
     "third_party",
     ".git",
     ".hg",
