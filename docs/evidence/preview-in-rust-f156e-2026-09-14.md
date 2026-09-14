@@ -225,3 +225,19 @@ same day — which a sidecar entry caught, not a corpus.
 
 The cheap conclusion: **a port needs a reader who has the original open beside it**, and that reader
 should not be from the family that wrote it.
+
+## What the review found and this did NOT change
+
+Three, recorded rather than fixed, so they are not silently dropped:
+
+- **`Number()` on a boolean or an array.** `Number(true)` is 1 and `Number([7])` is 7, and a JSON
+  body can carry either as a window bound. The port refuses instead. The record cannot be extended
+  to cover it — the JavaScript that would answer is gone — and a refusal is the safe direction, so
+  the divergence is stated at the site and here rather than coerced to match.
+- **A filesystem error's wording on a race-only path.** `File::open` losing a race after
+  `resolve_in_root` succeeded answers `No such file or directory (os error 2)` with a 500, where
+  Node threw `ENOENT: no such file or directory, open '…'` with no status, which `main.mjs` turned
+  into a 404. Reachable only by deleting the file between the resolve and the open.
+- **`content-length` is bounded for the allocation but not refused.** The door reserves at most
+  8 MiB whatever a client's header claims, which is what stops the header being a way to take the
+  process down; the 413 `main.mjs` answered for a body past that is still the backend's.
