@@ -115,6 +115,14 @@ placeholder dropped rather than left in place had no case, because `promptValues
 all five. A case was added and the corpus re-recorded while the JavaScript still answered; the 44
 existing came back identical.
 
+And its second half: the **local tracker** and the tests manifest. `tracker.mjs` 344 → 209, judged
+against 18 recorded cases. Three sabotages, the load-bearing one being `proven`: a green run says a
+command went green, and only a sabotage row says the test can go red for its own reason. Collapsing
+those is a change nobody would see in a green report, which is why it is a case rather than a
+comment. Rewiring found that the remote providers still build rows through the same helper — so it
+stays until F154 moves them — and that the JSON parser's wording is the one machine-dependent
+answer, held to its prefix exactly as the declaration corpus holds it.
+
 The menu needed designing rather than translating. It asks `codex --help` for its own model list —
 but only when the project declares no agents, and only when that CLI is installed, which
 `task-writes.test.mjs` pins by throwing from the `help` function it injects. Running a process is
@@ -145,9 +153,9 @@ And a defect of my own, found by comparing the new service with red-store rather
 drops it first. One client that stopped reading would have frozen a workspace's arbitration for
 every other client and for the settle sweep. The pushes queue under the lock and go out after it.
 
-Commands: `npm test` 338/338 · `cargo test` 91/91 · `./init.sh` ·
+Commands: `npm test` 341/341 · `cargo test` 91/91 · `./init.sh` ·
 `python3 tools/features.py validate` · `python3 tools/design.py check`.
-JavaScript on the app path: **6,533 → 5,791**.
+JavaScript on the app path: **6,533 → 5,678**.
 
 Remaining: KI-108's layout half. F158 (the worker, and with it `main.mjs`, `sessions-client.mjs`, `store-client.mjs`,
 `pty-client.mjs`). F152/F189 still wait on F186, which is the owner's live-pane run. KI-105 (the

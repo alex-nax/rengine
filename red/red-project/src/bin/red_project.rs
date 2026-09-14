@@ -5,6 +5,8 @@
 //!   red-project recording  <rootId> <rootPath> <id> [artifact] [offset] [limit] [maxCharacters]
 //!   red-project env-rules                    the env object on stdin, its problems on stdout
 //!   red-project tasks <call> <rootId> <rootPath>   one task question, its input on stdin
+//!   red-project tracker <rootId> <rootPath>        the local inventory, the declaration on stdin
+//!   red-project tracker-tests <rootId> <rootPath>  a remote provider's rows, with the manifest joined
 //!   red-project workspace <rootId> <rootPath> [flags] [probeCache] [declarationFile]
 //!     flags: a comma-separated set of `refresh` and `controls`
 //!   red-project game <rootId> <rootPath> [gameId] [probeCache] [declarationFile]
@@ -150,6 +152,21 @@ fn main() -> ExitCode {
            a CLI's own --help can be any size a caller sends. One call per run; none of them is a
            hot path — they are what a person or an agent does once, deliberately. */
         Some("tasks") => tasks(arg(1).unwrap_or_default(), arg(2).unwrap_or_default(), arg(3).unwrap_or_default()),
+        /* The local backend and the tests-manifest join. The remote providers are not here: they
+           need a network client, and F154 owns that decision — so a caller that has fetched rows of
+           its own asks `tracker-tests` to join the manifest onto them. */
+        Some("tracker") | Some("tracker-tests") => {
+            let mut text = String::new();
+            let _ = std::io::Read::read_to_string(&mut std::io::stdin(), &mut text);
+            let input: serde_json::Value = serde_json::from_str(text.trim()).unwrap_or(serde_json::Value::Null);
+            let declared = input.get("declared").cloned().unwrap_or(serde_json::Value::Null);
+            let (root_id, root_path) = (arg(1).unwrap_or_default(), arg(2).unwrap_or_default());
+            Ok(if arg(0) == Some("tracker") {
+                red_project::tracker::project_tracker(root_id, root_path, &declared)
+            } else {
+                red_project::tracker::with_tests(root_path, &declared, &input.get("result").cloned().unwrap_or(serde_json::Value::Null))
+            })
+        }
         Some("recordings") => red_project::recordings::list(arg(1).unwrap_or_default(), arg(2).unwrap_or_default(), arg(3)),
         Some("declaration") => Ok(red_project::declaration::read(arg(1).unwrap_or_default(), arg(2))),
         Some("recording") => red_project::recordings::read(

@@ -1,0 +1,936 @@
+{
+  "no declaration at all": {
+    "rootId": "<rootId>",
+    "declared": false,
+    "provider": "local",
+    "rows": [
+      {
+        "id": "1",
+        "key": "F1",
+        "title": "Feature 1",
+        "state": {
+          "id": "ready",
+          "name": "ready",
+          "category": "unstarted"
+        },
+        "priority": "medium",
+        "labels": [
+          "M1",
+          "workspace"
+        ],
+        "assignee": "rengine",
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [
+          "1 does the thing",
+          "1 does the other thing"
+        ],
+        "evidence": [],
+        "tests": []
+      },
+      {
+        "id": "2",
+        "key": "F2",
+        "title": "Feature 2",
+        "state": {
+          "id": "ready",
+          "name": "ready",
+          "category": "unstarted"
+        },
+        "priority": "medium",
+        "labels": [
+          "M1",
+          "workspace"
+        ],
+        "assignee": "rengine",
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [
+          "2 does the thing",
+          "2 does the other thing"
+        ],
+        "evidence": [],
+        "tests": []
+      }
+    ],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "fresh": true
+  },
+  "a declaration that would not read": {
+    "rootId": "<rootId>",
+    "declared": true,
+    "provider": null,
+    "rows": [],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "error": ".rengine/project.json: broken"
+  },
+  "a tracker block that would not read": {
+    "rootId": "<rootId>",
+    "declared": true,
+    "provider": null,
+    "rows": [],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 6,
+    "error": ".rengine/project.json: $.tracker is wrong"
+  },
+  "a declaration that names no tracker": {
+    "rootId": "<rootId>",
+    "declared": true,
+    "provider": "local",
+    "rows": [
+      {
+        "id": "1",
+        "key": "F1",
+        "title": "Feature 1",
+        "state": {
+          "id": "ready",
+          "name": "ready",
+          "category": "unstarted"
+        },
+        "priority": "medium",
+        "labels": [
+          "M1",
+          "workspace"
+        ],
+        "assignee": "rengine",
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [
+          "1 does the thing",
+          "1 does the other thing"
+        ],
+        "evidence": [],
+        "tests": []
+      }
+    ],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 6,
+    "fresh": true
+  },
+  "an inventory this project does not have": {
+    "rootId": "<rootId>",
+    "declared": true,
+    "provider": "local",
+    "rows": [],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 6,
+    "unavailable": "features.json is not in this project.",
+    "fresh": true
+  },
+  "an inventory that is not JSON": {
+    "rootId": "<rootId>",
+    "declared": true,
+    "provider": "local",
+    "rows": [],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 6,
+    "invalid": [
+      "features.json: Expected property name or '}' in JSON at position 2 (line 1 column 3)"
+    ],
+    "fresh": true
+  },
+  "an inventory under a name the declaration gives": {
+    "rootId": "<rootId>",
+    "declared": true,
+    "provider": "local",
+    "rows": [
+      {
+        "id": "1",
+        "key": "F1",
+        "title": "Feature 1",
+        "state": {
+          "id": "passing",
+          "name": "passing",
+          "category": "completed"
+        },
+        "priority": "medium",
+        "labels": [
+          "M1",
+          "workspace"
+        ],
+        "assignee": "rengine",
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [
+          "1 does the thing",
+          "1 does the other thing"
+        ],
+        "evidence": [],
+        "tests": []
+      }
+    ],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 6,
+    "fresh": true
+  },
+  "readiness: passing, blocked and ready": {
+    "rootId": "<rootId>",
+    "declared": true,
+    "provider": "local",
+    "rows": [
+      {
+        "id": "1",
+        "key": "F1",
+        "title": "Feature 1",
+        "state": {
+          "id": "passing",
+          "name": "passing",
+          "category": "completed"
+        },
+        "priority": "medium",
+        "labels": [
+          "M1",
+          "workspace"
+        ],
+        "assignee": "rengine",
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [
+          "1 does the thing",
+          "1 does the other thing"
+        ],
+        "evidence": [],
+        "tests": []
+      },
+      {
+        "id": "2",
+        "key": "F2",
+        "title": "Feature 2",
+        "state": {
+          "id": "ready",
+          "name": "ready",
+          "category": "unstarted"
+        },
+        "priority": "medium",
+        "labels": [
+          "M1",
+          "workspace"
+        ],
+        "assignee": "rengine",
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [
+          "F1"
+        ],
+        "criteria": [
+          "2 does the thing",
+          "2 does the other thing"
+        ],
+        "evidence": [],
+        "tests": []
+      },
+      {
+        "id": "3",
+        "key": "F3",
+        "title": "Feature 3",
+        "state": {
+          "id": "blocked",
+          "name": "blocked",
+          "category": "blocked"
+        },
+        "priority": "medium",
+        "labels": [
+          "M1",
+          "workspace"
+        ],
+        "assignee": "rengine",
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [
+          "F2"
+        ],
+        "criteria": [
+          "3 does the thing",
+          "3 does the other thing"
+        ],
+        "evidence": [],
+        "tests": []
+      },
+      {
+        "id": "4",
+        "key": "F4",
+        "title": "Feature 4",
+        "state": {
+          "id": "ready",
+          "name": "ready",
+          "category": "unstarted"
+        },
+        "priority": "medium",
+        "labels": [
+          "M1",
+          "workspace"
+        ],
+        "assignee": "rengine",
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [
+          "4 does the thing",
+          "4 does the other thing"
+        ],
+        "evidence": [],
+        "tests": []
+      }
+    ],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 6,
+    "fresh": true
+  },
+  "a row carries its criteria, labels, owner and blockers": {
+    "rootId": "<rootId>",
+    "declared": true,
+    "provider": "local",
+    "rows": [
+      {
+        "id": "9",
+        "key": "F9",
+        "title": "Feature 9",
+        "state": {
+          "id": "blocked",
+          "name": "blocked",
+          "category": "blocked"
+        },
+        "priority": "high",
+        "labels": [
+          "M1",
+          "workspace"
+        ],
+        "assignee": "rengine",
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [
+          "F1",
+          "F2"
+        ],
+        "criteria": [
+          "9 does the thing",
+          "9 does the other thing"
+        ],
+        "evidence": [
+          "first",
+          "second"
+        ],
+        "tests": []
+      }
+    ],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 6,
+    "fresh": true
+  },
+  "an inventory whose features key is not a list": {
+    "rootId": "<rootId>",
+    "declared": true,
+    "provider": "local",
+    "rows": [],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 6,
+    "fresh": true
+  },
+  "a declared manifest this project does not have": {
+    "rootId": "<rootId>",
+    "declared": true,
+    "provider": "local",
+    "rows": [
+      {
+        "id": "2",
+        "key": "F2",
+        "title": "Feature 2",
+        "state": {
+          "id": "ready",
+          "name": "ready",
+          "category": "unstarted"
+        },
+        "priority": "medium",
+        "labels": [
+          "M1",
+          "workspace"
+        ],
+        "assignee": "rengine",
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [
+          "2 does the thing",
+          "2 does the other thing"
+        ],
+        "evidence": [],
+        "tests": []
+      }
+    ],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 10,
+    "fresh": true,
+    "testsError": "tests.json: the declared tests manifest is not in this project."
+  },
+  "a manifest the schema refuses": {
+    "rootId": "<rootId>",
+    "declared": true,
+    "provider": "local",
+    "rows": [
+      {
+        "id": "2",
+        "key": "F2",
+        "title": "Feature 2",
+        "state": {
+          "id": "ready",
+          "name": "ready",
+          "category": "unstarted"
+        },
+        "priority": "medium",
+        "labels": [
+          "M1",
+          "workspace"
+        ],
+        "assignee": "rengine",
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [
+          "2 does the thing",
+          "2 does the other thing"
+        ],
+        "evidence": [],
+        "tests": []
+      }
+    ],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 10,
+    "fresh": true,
+    "testsError": "tests.json: $.entries[0] requires test; $.entries[0] requires claim"
+  },
+  "a manifest joined onto the rows it names": {
+    "rootId": "<rootId>",
+    "declared": true,
+    "provider": "local",
+    "rows": [
+      {
+        "id": "2",
+        "key": "F2",
+        "title": "Feature 2",
+        "state": {
+          "id": "ready",
+          "name": "ready",
+          "category": "unstarted"
+        },
+        "priority": "medium",
+        "labels": [
+          "M1",
+          "workspace"
+        ],
+        "assignee": "rengine",
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [
+          "2 does the thing",
+          "2 does the other thing"
+        ],
+        "evidence": [],
+        "tests": [
+          {
+            "task": "F2",
+            "test": {
+              "path": "tests/thing.test.mjs",
+              "name": "the thing holds"
+            },
+            "claim": "the thing holds when the other thing does not",
+            "criteria": [
+              1
+            ],
+            "proven": false
+          }
+        ]
+      },
+      {
+        "id": "3",
+        "key": "F3",
+        "title": "Feature 3",
+        "state": {
+          "id": "ready",
+          "name": "ready",
+          "category": "unstarted"
+        },
+        "priority": "medium",
+        "labels": [
+          "M1",
+          "workspace"
+        ],
+        "assignee": "rengine",
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [
+          "3 does the thing",
+          "3 does the other thing"
+        ],
+        "evidence": [],
+        "tests": [
+          {
+            "task": "F3",
+            "test": {
+              "path": "tests/thing.test.mjs",
+              "name": "the thing holds"
+            },
+            "claim": "another thing holds",
+            "criteria": [
+              1
+            ],
+            "proven": false
+          }
+        ]
+      }
+    ],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 10,
+    "fresh": true,
+    "tests": {
+      "at": "2026-09-14T00:00:00.000Z",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "count": 2,
+      "current": true
+    }
+  },
+  "an entry with a sabotage is proven, and one without is not": {
+    "rootId": "<rootId>",
+    "declared": true,
+    "provider": "local",
+    "rows": [
+      {
+        "id": "2",
+        "key": "F2",
+        "title": "Feature 2",
+        "state": {
+          "id": "ready",
+          "name": "ready",
+          "category": "unstarted"
+        },
+        "priority": "medium",
+        "labels": [
+          "M1",
+          "workspace"
+        ],
+        "assignee": "rengine",
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [
+          "2 does the thing",
+          "2 does the other thing"
+        ],
+        "evidence": [],
+        "tests": [
+          {
+            "task": "F2",
+            "test": {
+              "path": "tests/thing.test.mjs",
+              "name": "the thing holds"
+            },
+            "claim": "the thing holds when the other thing does not",
+            "criteria": [
+              1
+            ],
+            "sabotage": [
+              {
+                "break": "removed the guard",
+                "red": "the guard test, for its own reason"
+              }
+            ],
+            "proven": true
+          },
+          {
+            "task": "F2",
+            "test": {
+              "path": "tests/thing.test.mjs",
+              "name": "the thing holds"
+            },
+            "claim": "unproven but green",
+            "criteria": [
+              1
+            ],
+            "proven": false
+          }
+        ]
+      }
+    ],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 10,
+    "fresh": true,
+    "tests": {
+      "at": "2026-09-14T00:00:00.000Z",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "count": 2,
+      "current": true
+    }
+  },
+  "a manifest whose commit is not this checkout": {
+    "rootId": "<rootId>",
+    "declared": true,
+    "provider": "local",
+    "rows": [
+      {
+        "id": "2",
+        "key": "F2",
+        "title": "Feature 2",
+        "state": {
+          "id": "ready",
+          "name": "ready",
+          "category": "unstarted"
+        },
+        "priority": "medium",
+        "labels": [
+          "M1",
+          "workspace"
+        ],
+        "assignee": "rengine",
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [
+          "2 does the thing",
+          "2 does the other thing"
+        ],
+        "evidence": [],
+        "tests": [
+          {
+            "task": "F2",
+            "test": {
+              "path": "tests/thing.test.mjs",
+              "name": "the thing holds"
+            },
+            "claim": "the thing holds when the other thing does not",
+            "criteria": [
+              1
+            ],
+            "proven": false
+          }
+        ]
+      }
+    ],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 10,
+    "fresh": true,
+    "tests": {
+      "at": "2026-09-14T00:00:00.000Z",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "count": 1,
+      "current": false
+    }
+  },
+  "a manifest with no commit at all": {
+    "rootId": "<rootId>",
+    "declared": true,
+    "provider": "local",
+    "rows": [
+      {
+        "id": "2",
+        "key": "F2",
+        "title": "Feature 2",
+        "state": {
+          "id": "ready",
+          "name": "ready",
+          "category": "unstarted"
+        },
+        "priority": "medium",
+        "labels": [
+          "M1",
+          "workspace"
+        ],
+        "assignee": "rengine",
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [
+          "2 does the thing",
+          "2 does the other thing"
+        ],
+        "evidence": [],
+        "tests": [
+          {
+            "task": "F2",
+            "test": {
+              "path": "tests/thing.test.mjs",
+              "name": "the thing holds"
+            },
+            "claim": "the thing holds when the other thing does not",
+            "criteria": [
+              1
+            ],
+            "proven": false
+          }
+        ]
+      }
+    ],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 10,
+    "fresh": true,
+    "tests": {
+      "at": null,
+      "commit": null,
+      "count": 1,
+      "current": null
+    }
+  },
+  "a claim past the task’s own criteria": {
+    "rootId": "<rootId>",
+    "declared": true,
+    "provider": "local",
+    "rows": [
+      {
+        "id": "2",
+        "key": "F2",
+        "title": "Feature 2",
+        "state": {
+          "id": "ready",
+          "name": "ready",
+          "category": "unstarted"
+        },
+        "priority": "medium",
+        "labels": [
+          "M1",
+          "workspace"
+        ],
+        "assignee": "rengine",
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [
+          "2 does the thing",
+          "2 does the other thing"
+        ],
+        "evidence": [],
+        "tests": [
+          {
+            "task": "F2",
+            "test": {
+              "path": "tests/thing.test.mjs",
+              "name": "the thing holds"
+            },
+            "claim": "the thing holds when the other thing does not",
+            "criteria": [
+              1,
+              9
+            ],
+            "proven": false
+          }
+        ]
+      }
+    ],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 10,
+    "fresh": true,
+    "tests": {
+      "at": "2026-09-14T00:00:00.000Z",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "count": 1,
+      "current": true
+    },
+    "testsError": "tests.json: F2 claims criterion 9, but the task has 2 criterions"
+  },
+  "artifacts that are there, missing and outside the project": {
+    "rootId": "<rootId>",
+    "declared": true,
+    "provider": "local",
+    "rows": [
+      {
+        "id": "2",
+        "key": "F2",
+        "title": "Feature 2",
+        "state": {
+          "id": "ready",
+          "name": "ready",
+          "category": "unstarted"
+        },
+        "priority": "medium",
+        "labels": [
+          "M1",
+          "workspace"
+        ],
+        "assignee": "rengine",
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [
+          "2 does the thing",
+          "2 does the other thing"
+        ],
+        "evidence": [],
+        "tests": [
+          {
+            "task": "F2",
+            "test": {
+              "path": "tests/thing.test.mjs",
+              "name": "the thing holds"
+            },
+            "claim": "the thing holds when the other thing does not",
+            "criteria": [
+              1
+            ],
+            "last": {
+              "result": "pass",
+              "at": "2026-09-14T00:00:00.000Z",
+              "artifacts": [
+                {
+                  "path": "artifacts/there.txt",
+                  "label": "there",
+                  "state": "ok"
+                },
+                {
+                  "path": "artifacts/gone.txt",
+                  "label": "gone",
+                  "state": "missing"
+                },
+                {
+                  "path": "../escape.txt",
+                  "label": "escape",
+                  "state": "outside"
+                }
+              ]
+            },
+            "proven": false
+          }
+        ]
+      }
+    ],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 10,
+    "fresh": true,
+    "tests": {
+      "at": "2026-09-14T00:00:00.000Z",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "count": 1,
+      "current": true
+    },
+    "testsError": "tests.json: ../escape.txt is outside this project"
+  }
+}

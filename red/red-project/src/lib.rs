@@ -13,6 +13,7 @@ pub mod games;
 pub mod recordings;
 pub mod rules;
 pub mod tasks;
+pub mod tracker;
 
 /// tmp + rename, so a reader never sees half a document. The probe cache is the only thing this
 /// crate writes; everything else here answers questions about files it did not make.

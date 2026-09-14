@@ -10,6 +10,7 @@
  */
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { askProject } from './project-client.mjs';
 import { fail, resolveInRoot } from './store-client.mjs';
 import { parseCredential, expiring, refresh } from './tracker-auth.mjs';
 import { validateSchema } from './store-client.mjs';
@@ -61,10 +62,16 @@ export async function credential(stateDirectory, project, options = {}) {
   return grant.accessToken ?? null;
 }
 
-/* The neutral row. State is (id, name, category) and never a boolean: a two-value enum cannot
-   represent Linear's team-defined workflow states, and a local row's `passes` is never read back
-   from a provider as truth. */
+/* The neutral row's categories, stated here because the route answers them and a caller reads them
+   to lay out a board. The row itself, the local backend and the tests-manifest join are
+   `red_project::tracker`'s (F153) — the backend this repository uses is one implementation now,
+   judged against the answers this module used to give (`orchestrator/tests/tracker-corpus.json`).
+   The remote providers stay: they need a network client, and F154 owns that decision. */
 const CATEGORIES = ['backlog', 'unstarted', 'started', 'completed', 'canceled', 'blocked'];
+/* The neutral row a REMOTE provider is flattened into. The local backend builds its own on the
+   other side; this stays until F154 moves the providers with it, and the two are the same shape by
+   the corpus that judges the local one. State is (id, name, category) and never a boolean: a
+   two-value enum cannot represent Linear's team-defined workflow states. */
 const row = value => ({
   id: String(value.id),
   key: value.key ?? String(value.id),
@@ -76,53 +83,13 @@ const row = value => ({
   url: value.url ?? null,
   updatedAt: value.updatedAt ?? null,
   blockedBy: value.blockedBy ?? [],
-  /* Added for spec 103: the prompt a spawned agent is seeded with says what "done" means, and only
-     the local backend has that written down. A remote row answers with an empty list rather than
-     with the issue body, which is prose rather than criteria. */
+  /* A remote row answers with an empty list rather than with the issue body, which is prose rather
+     than criteria (spec 103) — and the same rule for its evidence (spec 116) and its tests
+     (spec 117), which the manifest join fills in from the project's own file. */
   criteria: value.criteria ?? [],
-  /* Added for spec 116: what a criterion claims and what proves it are one question, and reading
-     them apart is what left the Tasks tab unable to answer "which test backs this". Same empty-list
-     rule as criteria, and for the same reason — an issue body is prose, not an evidence list. */
   evidence: value.evidence ?? [],
-  /* Added for spec 117: the entries a project's own tests manifest records for this task. rEngine
-     joins them by the provider's key and runs nothing; an entry never moves a row. */
   tests: value.tests ?? [],
 });
-
-/* Local. Readiness follows the same rule tools/features.py applies, so the view and the command
-   line cannot disagree about what is blocked. */
-function localState(feature, byId) {
-  if (feature.passes) return { stateId: 'passing', stateName: 'passing', category: 'completed' };
-  const unmet = (feature.dependencies ?? []).some(id => !byId.get(id)?.passes);
-  if (unmet) return { stateId: 'blocked', stateName: 'blocked', category: 'blocked' };
-  return { stateId: 'ready', stateName: 'ready', category: 'unstarted' };
-}
-async function localRows(root, block) {
-  const name = block.inventory ?? 'features.json';
-  let parsed;
-  try {
-    parsed = JSON.parse(await readFile(path.join(root.path, name), 'utf8'));
-  } catch (error) {
-    if (error.code === 'ENOENT') return { rows: [], unavailable: `${name} is not in this project.` };
-    return { rows: [], invalid: [`${name}: ${error.message}`] };
-  }
-  const features = Array.isArray(parsed?.features) ? parsed.features : [];
-  const byId = new Map(features.map(feature => [feature.id, feature]));
-  return {
-    rows: features.map(feature => row({
-      id: feature.id,
-      key: `F${feature.id}`,
-      title: feature.description,
-      ...localState(feature, byId),
-      priority: feature.priority ?? null,
-      labels: [feature.milestone, feature.category].filter(Boolean),
-      assignee: feature.owner_workspace ?? null,
-      blockedBy: (feature.dependencies ?? []).map(id => `F${id}`),
-      criteria: Array.isArray(feature.acceptance_criteria) ? feature.acceptance_criteria : [],
-      evidence: Array.isArray(feature.evidence) ? feature.evidence.filter(item => typeof item === 'string') : [],
-    })),
-  };
-}
 
 /* Linear. A personal API key sends the token bare, without a Bearer prefix, which is the one thing
    about its auth that surprises everyone. States are objects carrying a category, so they reach the
@@ -232,103 +199,20 @@ const TESTS_SCHEMA = JSON.parse(await readFile(new URL('../../contracts/task-tes
 /* The checkout's own revision, read from files and never by running git: a subprocess for a display
    detail is a cost and a permission this reader should not take. A layout it cannot follow answers
    null, so "stale" and "cannot tell" stay different answers. */
-async function headCommit(rootPath) {
-  try {
-    const head = (await readFile(path.join(rootPath, '.git', 'HEAD'), 'utf8')).trim();
-    if (/^[0-9a-f]{40}$/.test(head)) return head;
-    const ref = head.startsWith('ref: ') ? head.slice(5).trim() : null;
-    if (!ref) return null;
-    const value = (await readFile(path.join(rootPath, '.git', ref), 'utf8')).trim();
-    return /^[0-9a-f]{40}$/.test(value) ? value : null; /* packed refs are a follow-up; unknown beats a guess */
-  } catch { return null; }
-}
-
-async function withTests(root, declared, result) {
-  const manifest = declared?.tests?.manifest;
-  if (!manifest) return result;
-  let parsed;
-  try {
-    parsed = JSON.parse(await readFile(path.join(root.path, manifest), 'utf8'));
-  } catch (error) {
-    const missing = error.code === 'ENOENT';
-    return { ...result, testsError: `${manifest}: ${missing ? 'the declared tests manifest is not in this project.' : error.message}` };
-  }
-  const problems = await validateSchema(TESTS_SCHEMA, parsed, TESTS_SCHEMA, '$');
-  if (problems.length) return { ...result, testsError: `${manifest}: ${problems.slice(0, 3).join('; ')}` };
-
-  const byTask = new Map();
-  for (const entry of parsed.entries ?? []) {
-    if (!byTask.has(entry.task)) byTask.set(entry.task, []);
-    byTask.get(entry.task).push(entry);
-  }
-  /* A manifest drifts from its inventory the moment a criterion is renumbered, and a claim pointing
-     past the task's criteria reads as coverage it does not have — worse than claiming none. Only a
-     provider that knows its own criteria can be checked, so the others carry the index unjudged. */
-  const drift = [];
-  for (const row of result.rows ?? []) {
-    for (const entry of byTask.get(row.key) ?? []) {
-      for (const index of entry.criteria ?? []) {
-        if (row.criteria.length && index > row.criteria.length) {
-          drift.push(`${manifest}: ${row.key} claims criterion ${index}, but the task has ${row.criteria.length} criterion${row.criteria.length === 1 ? '' : 's'}`);
-        }
-      }
-    }
-  }
-  const head = await headCommit(root.path);
-  /* An artifact is answered for HERE rather than when someone clicks it, so a row can say "missing"
-     or "outside this project" instead of a click failing. rEngine still opens nothing it was not
-     asked to open and still produces nothing: this is a resolve and a stat (spec 126). */
-  const outside = [];
-  const settle = async artifact => {
-    const label = typeof artifact.label === 'string' ? artifact.label : '';
-    try {
-      const { relative } = await resolveInRoot(root, artifact.path, true);
-      let state = 'ok';
-      try { await stat(path.join(root.path, relative)); } catch { state = 'missing'; }
-      return { path: relative, label, state };
-    } catch {
-      outside.push(artifact.path);
-      return { path: artifact.path, label, state: 'outside' };
-    }
-  };
-  const rows = await Promise.all((result.rows ?? []).map(async row => ({
-    ...row,
-    tests: await Promise.all((byTask.get(row.key) ?? []).map(async entry => ({
-      ...entry,
-      /* The field the format exists for: a green run says a command went green, and only a sabotage
-         row says the test can go red for its own reason (AGENTS.md). Never collapsed into one word. */
-      proven: Array.isArray(entry.sabotage) && entry.sabotage.length > 0,
-      ...(Array.isArray(entry.last?.artifacts)
-        ? { last: { ...entry.last, artifacts: await Promise.all(entry.last.artifacts.map(settle)) } }
-        : {}),
-    }))),
-  })));
-  if (outside.length) drift.push(`${manifest}: ${outside.slice(0, 3).map(p => `${p} is outside this project`).join('; ')}`);
-  return {
-    ...result, rows,
-    tests: { at: parsed.at ?? null, commit: parsed.commit ?? null, count: parsed.entries?.length ?? 0,
-             current: head && parsed.commit ? head === parsed.commit : null },
-    ...(drift.length ? { testsError: drift.slice(0, 3).join('; ') } : {}),
-  };
-}
-
 export async function projectTracker(root, declared, options = {}) {
   const fetchImpl = options.fetch ?? globalThis.fetch;
-  const base = { rootId: root.id, declared: declared.declared === true, provider: null, rows: [], categories: CATEGORIES };
-  /* A project that declares nothing at all still has its own inventory if it keeps one, which is
-     the default backend and the one this repository uses. */
-  if (!declared.declared) return { ...base, provider: 'local', ...(await localRows(root, {})), fresh: true };
-  if (declared.error) return { ...base, error: declared.error };
-  if (declared.trackerError) return { ...base, contract: declared.contract, error: declared.trackerError };
-  /* A project that declares no tracker still has its own inventory, which is the default backend. */
+  const local = () => askProject(['tracker', root.id, root.path], JSON.stringify({ declared }));
+  /* Every answer that is not a remote provider's is red-project's whole answer: the refusals a
+     declaration carries, the inventory, and the tests manifest joined onto it. */
+  if (!declared.declared || declared.error || declared.trackerError) return local();
   const block = declared.tracker ?? { provider: 'local' };
+  if (block.provider === 'local') return local();
+  const base = { rootId: root.id, declared: true, provider: null, rows: [], categories: CATEGORIES };
   /* `identity` is the declared project name the token file is keyed by; `project` inside the block
      is Linear's project filter. Naming both `project` made the filter silently take the token's
      value, which the tests caught by asserting the variable that reaches the query. */
   const named = { ...block, identity: declared.project ?? root.id };
   const result = { ...base, contract: declared.contract, provider: block.provider };
-  if (block.provider === 'local') return withTests(root, declared, { ...result, ...(await localRows(root, block)), fresh: true });
-
   if (typeof fetchImpl !== 'function') fail('This build cannot reach a network tracker.', 501);
   const token = await credential(options.stateDirectory, named.identity, options);
   /* The narrowing is part of the key: two declarations that ask different questions are different
@@ -340,5 +224,8 @@ export async function projectTracker(root, declared, options = {}) {
     : githubRows(named, token, fetchImpl));
   const entry = await coalesced(key, produce);
   const at = cache.get(key)?.at ?? Date.now();
-  return withTests(root, declared, { ...result, ...entry, fresh: Date.now() - at < PROBE_TTL_MS, checkedAt: new Date(at).toISOString() });
+  /* The manifest is joined onto a remote provider's rows by the same reader, so a GitHub row and a
+     local one carry their evidence in the same shape. */
+  return askProject(['tracker-tests', root.id, root.path],
+    JSON.stringify({ declared, result: { ...result, ...entry, fresh: Date.now() - at < PROBE_TTL_MS, checkedAt: new Date(at).toISOString() } }));
 }
