@@ -1,0 +1,280 @@
+{
+  "a project that declares nothing": {
+    "refused": {
+      "message": "This project does not declare formats in .rengine/project.json.",
+      "status": 415
+    }
+  },
+  "a declaration that would not read": {
+    "refused": {
+      "message": ".rengine/project.json: invalid JSON (key must be a string at line 1 column 3)",
+      "status": 415
+    }
+  },
+  "a preview of a directory": {
+    "refused": {
+      "message": "Previews require a regular file.",
+      "status": 415
+    }
+  },
+  "a preview of a file no format matches": {
+    "refused": {
+      "message": "No registered format matches nothing.md.",
+      "status": 415
+    }
+  },
+  "a preview naming a formatId this project has not": {
+    "refused": {
+      "message": "Unknown formatId for this project.",
+      "status": 404
+    }
+  },
+  "a preview of a format that declares none": {
+    "refused": {
+      "message": "Format bare-format declares no preview command.",
+      "status": 415
+    }
+  },
+  "a text preview": {
+    "ok": {
+      "kind": "text",
+      "format": "text-format",
+      "title": "Text format",
+      "path": "a.txt",
+      "command": [
+        "/bin/cat",
+        "<root>/a.txt"
+      ],
+      "durationMs": "<ms>",
+      "bytes": 14,
+      "text": "one two three\n"
+    }
+  },
+  "a text preview whose command fails": {
+    "refused": {
+      "message": "Command failed (exit 4): the producer could not read it",
+      "status": 502
+    }
+  },
+  "a text preview that is not UTF-8": {
+    "refused": {
+      "message": "Preview output is not UTF-8 text without NUL.",
+      "status": 502
+    }
+  },
+  "a tree preview": {
+    "ok": {
+      "kind": "tree",
+      "format": "tree-format",
+      "title": "Tree format",
+      "path": "a.tree",
+      "command": [
+        "/bin/cat",
+        "<root>/a.tree"
+      ],
+      "durationMs": "<ms>",
+      "bytes": 155,
+      "tree": {
+        "name": "root",
+        "dirs": [
+          {
+            "name": "sub",
+            "dirs": [],
+            "files": [
+              {
+                "name": "b.dat",
+                "path": "sub/b.dat",
+                "size": 3
+              }
+            ]
+          }
+        ],
+        "files": [
+          {
+            "name": "a.dat",
+            "path": "a.dat",
+            "size": 7
+          }
+        ]
+      }
+    }
+  },
+  "a tree preview whose output is not JSON": {
+    "refused": {
+      "message": "Preview output is not one JSON tree object.",
+      "status": 502
+    }
+  },
+  "a tree preview whose node is the wrong shape": {
+    "refused": {
+      "message": "Preview output is not one JSON tree object.",
+      "status": 502
+    }
+  },
+  "an entry": {
+    "ok": {
+      "kind": "entry",
+      "format": "entry-format",
+      "title": "Entry format",
+      "path": "a.pack",
+      "entry": "readme.txt",
+      "command": [
+        "<root>/tools/entry.sh",
+        "<root>/a.pack",
+        "readme.txt"
+      ],
+      "durationMs": "<ms>",
+      "size": 10,
+      "sha256": "9e6e4772050998a5c0dc3c61acf3dab0a7e594566171fa5746d6b62f9598efb6",
+      "text": "readme.txt",
+      "window": {
+        "offset": 0,
+        "length": 10,
+        "hex": "726561646d652e747874"
+      }
+    }
+  },
+  "an entry that is not a bounded string": {
+    "refused": {
+      "message": "Entry must be a bounded string.",
+      "status": 400
+    }
+  },
+  "an entry on a format that declares none": {
+    "refused": {
+      "message": "Format text-format declares no entry command.",
+      "status": 415
+    }
+  },
+  "an entry with a byte window": {
+    "ok": {
+      "kind": "entry",
+      "format": "entry-format",
+      "title": "Entry format",
+      "path": "a.pack",
+      "entry": "readme.txt",
+      "command": [
+        "<root>/tools/entry.sh",
+        "<root>/a.pack",
+        "readme.txt"
+      ],
+      "durationMs": "<ms>",
+      "size": 10,
+      "sha256": "9e6e4772050998a5c0dc3c61acf3dab0a7e594566171fa5746d6b62f9598efb6",
+      "text": "readme.txt",
+      "window": {
+        "offset": 2,
+        "length": 4,
+        "hex": "61646d65"
+      }
+    }
+  },
+  "an entry whose byte window has a negative offset": {
+    "refused": {
+      "message": "Byte window needs non-negative integer offset and length.",
+      "status": 400
+    }
+  },
+  "a byte window": {
+    "ok": {
+      "rootId": "<rootId>",
+      "path": "a.txt",
+      "size": 14,
+      "modified": "<mtime>",
+      "offset": 0,
+      "length": 14,
+      "hex": "6f6e652074776f2074687265650a"
+    }
+  },
+  "a byte window with an offset and a length": {
+    "ok": {
+      "rootId": "<rootId>",
+      "path": "a.txt",
+      "size": 14,
+      "modified": "<mtime>",
+      "offset": 3,
+      "length": 5,
+      "hex": "2074776f20"
+    }
+  },
+  "a byte window past the end of the file": {
+    "ok": {
+      "rootId": "<rootId>",
+      "path": "a.txt",
+      "size": 14,
+      "modified": "<mtime>",
+      "offset": 9000,
+      "length": 0,
+      "hex": ""
+    }
+  },
+  "a byte window with a negative offset": {
+    "refused": {
+      "message": "Byte window needs non-negative integer offset and length.",
+      "status": 400
+    }
+  },
+  "a byte window of a directory": {
+    "refused": {
+      "message": "Raw view requires a regular file.",
+      "status": 415
+    }
+  },
+  "a byte window of a file that is not there": {
+    "refused": {
+      "message": "ENOENT: no such file or directory, realpath '<root>/missing.txt'",
+      "status": null
+    }
+  },
+  "a byte window that leaves the project": {
+    "refused": {
+      "message": "File is outside the selected project root.",
+      "status": 403
+    }
+  },
+  "a byte window whose offset and length arrived as text": {
+    "ok": {
+      "rootId": "<rootId>",
+      "path": "a.txt",
+      "size": 14,
+      "modified": "<mtime>",
+      "offset": 3,
+      "length": 5,
+      "hex": "2074776f20"
+    }
+  },
+  "a byte window whose offset arrived empty": {
+    "ok": {
+      "rootId": "<rootId>",
+      "path": "a.txt",
+      "size": 14,
+      "modified": "<mtime>",
+      "offset": 0,
+      "length": 4,
+      "hex": "6f6e6520"
+    }
+  },
+  "a byte window whose offset is not a number": {
+    "refused": {
+      "message": "Byte window needs non-negative integer offset and length.",
+      "status": 400
+    }
+  },
+  "a byte window whose offset is fractional": {
+    "refused": {
+      "message": "Byte window needs non-negative integer offset and length.",
+      "status": 400
+    }
+  },
+  "a byte window whose length is written in exponent form": {
+    "ok": {
+      "rootId": "<rootId>",
+      "path": "a.txt",
+      "size": 14,
+      "modified": "<mtime>",
+      "offset": 0,
+      "length": 10,
+      "hex": "6f6e652074776f207468"
+    }
+  }
+}

@@ -102,7 +102,7 @@ pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &
             Ok(serde_json::Value::Object(listed))
         }
         "/api/recordings" => red_project::recordings::list(&id, &root_path, query(0).as_deref())
-            .map_err(|fail| format!("{}|{}", fail.status, fail.message)),
+            .map_err(refusal),
         "/api/dashboard" => {
             let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
             Ok(red_project::dashboard::dashboard_actions(&context(false, false), &declared))
@@ -117,7 +117,7 @@ pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &
         "/api/game-config" => {
             let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
             red_project::games::inspect_game(&context(false, false), &declared, query(6).as_deref())
-                .map_err(|fail| format!("{}|{}", fail.status, fail.message))
+                .map_err(refusal)
         }
         "/api/tracker" => {
             let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
@@ -132,7 +132,7 @@ pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &
             query(0).as_deref(),
             query(4).as_deref(),
         )
-        .map_err(|fail| format!("{}|{}", fail.status, fail.message)),
+        .map_err(refusal),
         }
     })
     .await;
@@ -335,6 +335,16 @@ pub(crate) async fn answer_desktop_action(front: &Arc<Front>, body: &str) -> Str
         Ok(value) => http_json(200, "OK", &value),
         Err(fault) => faulted(&fault),
     }
+}
+
+/* A refusal's HTTP status, and 500 where it carries none.
+   `main.mjs` read `error.status ?? (error.code === 'ENOENT' ? 404 : 500)` — but a store refusal
+   reaching a route had already crossed the store service, and `store-client` rebuilds the error from
+   `{ message, status }` alone, so `code` was gone and the 404 arm never fired for one. A module-level
+   refusal keeps the absent status the JS module raised; turning it into a number is the ROUTE's rule,
+   and it belongs here rather than in the answer. */
+pub(crate) fn refusal(fail: red_project::recordings::Fail) -> String {
+    format!("{}|{}", fail.status.unwrap_or(500), fail.message)
 }
 
 /// A service's refusal, or one of this door's own, as the HTTP answer a client acts on.

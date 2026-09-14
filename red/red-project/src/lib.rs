@@ -10,6 +10,7 @@ pub mod dashboard;
 pub mod declaration;
 pub mod devices;
 pub mod games;
+pub mod preview;
 pub mod recordings;
 pub mod rules;
 pub mod tasks;

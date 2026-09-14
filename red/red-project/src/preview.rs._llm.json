@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "tree-sanitization",
+      "kind": "rationale",
+      "anchor": {
+        "start": 116,
+        "end": 145,
+        "symbol": "sanitize",
+        "snippet": "fn sanitize(node: &Value, depth: usize, nodes: &mut usize) -> Result<Value, Fail> {"
+      },
+      "note": "Only name/dirs/files with name/path/size survive; producer extras (relith-rez offset/time/type) are dropped so the native client and agents see one shape. Depth 64 and 200,000 nodes bound recursion and memory below the 4 MiB stdout default; a malformed node fails the whole preview rather than showing a partial tree.\n\nPorted from `orchestrator/server/formats.mjs` with F156 (spec 129); the JavaScript this describes is gone. The record it is judged against is `orchestrator/tests/preview-corpus.json`, where 'a tree preview whose node is the wrong shape' is the malformed-node case.",
+      "refs": [
+        "docs/specs/074-project-format-registry.md",
+        "orchestrator/tests/preview-corpus.mjs"
+      ]
+    },
+    {
+      "id": "raw-read-confinement",
+      "kind": "constraint",
+      "anchor": {
+        "start": 309,
+        "end": 345,
+        "symbol": "read_bytes",
+        "snippet": "pub fn read_bytes(root_id: &str, root_path: &str, data: &Value) -> Result<Value, Fail> {"
+      },
+      "note": "Open first, then fstat the handle, then confine a fresh resolution of the same relative path and require the same dev/inode as the opened handle; a swap between resolution and open is reported as a 409 rather than served. Node has no frealpath, so inode identity is the strongest confinement of what was actually opened.\n\nPorted from `orchestrator/server/formats.mjs` with F156 (spec 129). The FIRST port dropped this: it resolved the name, stat'd the name and opened the name, which confines what the name pointed at rather than what was read. No corpus case could have caught it — the rule is about a race, and a record of answers has no case for one; this entry is what caught it, while the JavaScript still existed to compare against. Rust has no frealpath either, so the shape is the same: open, `File::metadata` (fstat on the handle), re-resolve, compare. `same_file` is dev+ino on unix and size+mtime elsewhere, because an open handle's identity is not stable API on Windows — a weaker check there, stated rather than hidden. The predicate is unit-tested; the race is not stageable.",
+      "refs": [
+        "docs/specs/074-project-format-registry.md",
+        "orchestrator/tests/preview-corpus.mjs"
+      ]
+    }
+  ]
+}

@@ -158,7 +158,7 @@ pub fn inspect_game(context: &Context<'_>, declared: &Value, game_id: Option<&st
                     serde_json::to_string(id).unwrap_or_default(),
                     games.iter().map(|game| text(game, "id")).collect::<Vec<_>>().join(", ")
                 ),
-                status: 404,
+                status: Some(404),
             }
         })?,
     };
@@ -168,7 +168,7 @@ pub fn inspect_game(context: &Context<'_>, declared: &Value, game_id: Option<&st
             serde_json::to_string(text(&game, "id")).unwrap_or_default(),
             game.get("device").map(|value| value.to_string()).unwrap_or_else(|| "undefined".into())
         ),
-        status: 409,
+        status: Some(409),
     })?;
     let device = device_status(context, &record);
     let local = is_local(&record);

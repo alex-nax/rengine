@@ -27,7 +27,7 @@ const WRITE_TIMEOUT_MS: u64 = 60_000;
 const DEFAULT_MAX_BYTES: usize = 4 * 1024 * 1024;
 
 fn refuse(message: impl Into<String>, status: u16) -> Fail {
-    Fail { message: message.into(), status }
+    Fail { message: message.into(), status: Some(status) }
 }
 
 fn text<'a>(value: &'a Value, key: &str) -> &'a str {
@@ -450,8 +450,8 @@ mod tests {
         assert_eq!(super::model_args(&recipes, "claude", Some("claude-opus-5")).expect("args"), vec!["--model", "claude-opus-5"]);
         assert_eq!(super::model_args(&recipes, "claude", None).expect("args"), Vec::<String>::new());
         assert_eq!(super::model_args(&recipes, "claude", Some("")).expect("args"), Vec::<String>::new());
-        assert_eq!(super::model_args(&recipes, "claude", Some("a model")).expect_err("refused").status, 400);
-        assert_eq!(super::model_args(&recipes, "gemini", Some("x")).expect_err("refused").status, 409);
+        assert_eq!(super::model_args(&recipes, "claude", Some("a model")).expect_err("refused").status, Some(400));
+        assert_eq!(super::model_args(&recipes, "gemini", Some("x")).expect_err("refused").status, Some(409));
     }
 
     /// `--model` the word, not a flag that merely starts with it.

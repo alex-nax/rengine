@@ -23,12 +23,19 @@ const MAX_INDEX_BYTES: usize = 16 * 1024 * 1024;
 #[derive(Debug, Clone)]
 pub struct Fail {
     pub message: String,
-    pub status: u16,
+    /// `None` where the JS answered `status: null`: a refusal from the store's own path resolution
+    /// carries no route status, and inventing a 500 there would be this side making one up.
+    pub status: Option<u16>,
 }
 
 impl Fail {
     fn new(message: impl Into<String>, status: u16) -> Fail {
-        Fail { message: message.into(), status }
+        Fail { message: message.into(), status: Some(status) }
+    }
+
+    /// A refusal the store already worded, with whatever status it carried — including none.
+    pub fn from_store(fail: red_store::store::Fail) -> Fail {
+        Fail { message: fail.message, status: fail.status }
     }
 }
 

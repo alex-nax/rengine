@@ -4,6 +4,8 @@
 //!   red-project recordings <rootId> <rootPath> [limit]
 //!   red-project recording  <rootId> <rootPath> <id> [artifact] [offset] [limit] [maxCharacters]
 //!   red-project env-rules                    the env object on stdin, its problems on stdout
+//!   red-project preview <rootId> <rootPath> [declarationFile]   the request on stdin
+//!   red-project bytes   <rootId> <rootPath>                     the request on stdin
 //!   red-project tasks <call> <rootId> <rootPath>   one task question, its input on stdin
 //!   red-project tracker <rootId> <rootPath>        the local inventory, the declaration on stdin
 //!   red-project tracker-tests <rootId> <rootPath>  a remote provider's rows, with the manifest joined
@@ -76,7 +78,7 @@ fn tasks(call: &str, root_id: &str, root_path: &str) -> Result<serde_json::Value
             red_project::tasks::task_write(root_id, root_path, &field("declared"), &field("data"), &environment)
         }
         "promptFor" => red_project::tasks::prompt_for(root_path, &string("name"), &field("values"), &shipped_prompts()),
-        other => Err(red_project::recordings::Fail { message: format!("unknown task call {other}"), status: 400 }),
+        other => Err(red_project::recordings::Fail { message: format!("unknown task call {other}"), status: Some(400) }),
     }
 }
 
@@ -97,7 +99,7 @@ fn main() -> ExitCode {
                     let env = named.get("env");
                     Ok(serde_json::json!({ "problems": red_project::rules::env_rules(env, "env") }))
                 }
-                Err(error) => Err(red_project::recordings::Fail { message: format!("cannot read the env: {error}"), status: 400 }),
+                Err(error) => Err(red_project::recordings::Fail { message: format!("cannot read the env: {error}"), status: Some(400) }),
             }
         }
         /* Both listings in one run, because they share a probe cache: the dashboard asks each
@@ -167,6 +169,21 @@ fn main() -> ExitCode {
             } else {
                 red_project::tracker::with_tests(root_path, &declared, &input.get("result").cloned().unwrap_or(serde_json::Value::Null))
             })
+        }
+        /* What a project's own producer says about one of its files, and the bytes themselves.
+           The request arrives on stdin because a caller's `entry` is arbitrary text. */
+        Some("preview") | Some("bytes") => {
+            let mut text = String::new();
+            let _ = std::io::Read::read_to_string(&mut std::io::stdin(), &mut text);
+            let data: serde_json::Value = serde_json::from_str(text.trim()).unwrap_or(serde_json::Value::Null);
+            let (root_id, root_path) = (arg(1).unwrap_or_default(), arg(2).unwrap_or_default());
+            if arg(0) == Some("bytes") {
+                red_project::preview::read_bytes(root_id, root_path, &data)
+            } else {
+                let environment: Vec<(String, String)> = std::env::vars().collect();
+                let declared = red_project::declaration::read(root_path, arg(3));
+                red_project::preview::format_preview(root_path, &declared, &data, &environment)
+            }
         }
         Some("recordings") => red_project::recordings::list(arg(1).unwrap_or_default(), arg(2).unwrap_or_default(), arg(3)),
         Some("declaration") => Ok(red_project::declaration::read(arg(1).unwrap_or_default(), arg(2))),
