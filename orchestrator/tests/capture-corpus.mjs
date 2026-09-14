@@ -5,11 +5,12 @@
  * things per case — the answer, what is in the capture directory afterwards, and what the manifest
  * says — because "nothing was written" is half of what several of these refusals promise.
  *
- *   node orchestrator/tests/capture-corpus.mjs > orchestrator/tests/capture-corpus.json
- *
- * Regenerate ONLY from a checkout where `dashboard.mjs` still captures. A capture's file name is the
- * moment it was taken, so the timestamp is folded wherever it appears; the bytes are a fixture's, so
- * the size and the sha256 are the rule's and are recorded as they are.
+ * The record is FROZEN. It was taken from `orchestrator/server/dashboard.mjs` at 5f84f05, the last
+ * commit where that module captured itself; it is a thin client of `red_project::capture` now, so
+ * regenerating would judge the replacement against itself. The generator is gone with the module it
+ * asked — recover it from that commit if the record ever has to be taken again. A capture's file
+ * name is the moment it was taken, so the timestamp is folded wherever it appears; the bytes are a
+ * fixture's, so the size and the sha256 are the rule's and are recorded as they are.
  *
  * One rule is NOT here, because it cannot be: a second capture in the same millisecond is named
  * `<time>-2.png`, and nothing in a corpus can make two calls share a millisecond. It is unit-tested
@@ -95,28 +96,3 @@ export const RECORDED = await (async () => {
   try { return JSON.parse(await readFile(new URL('./capture-corpus.json', import.meta.url), 'utf8')); }
   catch { return null; }
 })();
-
-export async function answers() {
-  const { dashboardCapture } = await import('../server/dashboard.mjs');
-  const { mkdtemp, realpath, rm } = await import('node:fs/promises');
-  const { tmpdir } = await import('node:os');
-  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-capture-corpus-')));
-  const recorded = {};
-  try {
-    for (const [name, options] of CASES) {
-      const slug = name.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 48);
-      const root = { id: `root-${slug}`, path: await fixture(directory, slug, options), name: 'fixture' };
-      const take = async () => {
-        try { return { ok: fold(await dashboardCapture(root, options.action, undefined)) }; }
-        catch (error) { return { refused: { message: fold(error.message.split(root.path).join('<root>')), status: error.status ?? null } }; }
-      };
-      if (options.twice) await take();
-      recorded[name] = { ...await take(), landed: fold(await landed(root.path)) };
-    }
-    return recorded;
-  } finally { await rm(directory, { recursive: true, force: true }); }
-}
-
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
-  console.log(JSON.stringify(await answers(), null, 2));
-}

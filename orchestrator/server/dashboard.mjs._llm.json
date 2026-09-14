@@ -5,11 +5,12 @@
       "id": "run-and-capture-boundary",
       "kind": "constraint",
       "anchor": {
-        "start": 28,
-        "end": 28,
+        "start": 27,
+        "end": 37,
+        "symbol": "dashboardRunPayload",
         "snippet": "export async function dashboardRunPayload(root, action) {"
       },
-      "note": "Running goes through the retained host's terminal route with a payload built here (bash + resolved script + literal args + env for scripts, the argv itself for logs) so the replaceable worker never spawns PTYs; unavailable actions are refused with the missing items and capture actions are redirected. Captures reuse the format runner (no shell, cwd = root, 10 s / 8 MiB), require the PNG signature before touching disk, create `into` after a lexical boundary check and confine its realpath, then write the image and the manifest through temp-and-rename; a same-millisecond collision gets a numeric suffix. The returned title also overrides the snapshot because a retained host older than the title option labels sessions generically. The action is now selected once by dashboardAction and passed in, because a game action does not produce a terminal payload at all: the caller launches it through the project game route and returns that game session, so this function refuses the game kind the way it already refuses capture.",
+      "note": "Running goes through the retained host's terminal route with a payload built here (bash + resolved script + literal args + env for scripts, the argv itself for logs) so the replaceable worker never spawns PTYs; unavailable actions are refused with the missing items and capture actions are redirected. The returned title also overrides the snapshot because a retained host older than the title option labels sessions generically. The action is selected once by dashboardAction and passed in, because a game action does not produce a terminal payload at all: the caller launches it through the project game route and returns that game session, so this function refuses the game kind the way it already refuses capture.\n\nThe capture half of this note moved to `red/red-project/src/capture.rs._llm.json#capture-boundary` with the capture itself (F156, 2026-09-14).",
       "refs": [
         "docs/specs/075-project-dashboard.md",
         "docs/specs/074-project-format-registry.md"

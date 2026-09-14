@@ -8,7 +8,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { startServer } from '../server/main.mjs';
 import { request } from '../launcher/sidecar.mjs';
-import { readDeclaration, runCommand } from '../server/formats.mjs';
+import { readDeclaration } from '../server/formats.mjs';
 import { validateSchema } from '../server/store-client.mjs';
 import { producer, pack, declaration, entries, project } from './format-fixtures.mjs';
 
@@ -34,19 +34,24 @@ test('structurally broken declarations and prototype-named keys are reported, ne
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test('the runner re-validates ${file} against the root immediately before spawning', async () => {
+/* The rule is `red_project::preview`'s now, so the spec drives the ROUTE — which is where a caller
+   reaches it, and the only place the re-confinement can be observed since nothing in JavaScript
+   spawns a project's command any more. */
+test('the runner re-validates ${file} against the root immediately before spawning', async t => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-formats-revalidate-')));
-  try {
-    const rootPath = await project(directory, 'game'), foreign = path.join(directory, 'foreign'); await mkdir(foreign);
-    await writeFile(path.join(foreign, 'outside.pack'), pack({ entries: {} }));
-    await symlink(path.join(foreign, 'outside.pack'), path.join(rootPath, 'escape.pack'));
-    const root = { id: 'r', path: rootPath }, spec = { ...declaration().formats[0].preview, timeoutMs: 4000, maxBytes: 65536 };
-    await assert.rejects(runCommand(root, spec, { file: '../foreign/outside.pack' }), /outside/);
-    await assert.rejects(runCommand(root, spec, { file: 'escape.pack' }), /outside/);
-    await assert.rejects(runCommand(root, spec, { file: path.join(foreign, 'outside.pack') }), /relative/);
-    const run = await runCommand(root, spec, { file: 'sample.pack' });
-    assert.equal(run.argv.at(-1), path.join(rootPath, 'sample.pack')); assert.ok(JSON.parse(run.stdout.toString()).dirs.length);
-  } finally { await rm(directory, { recursive: true, force: true }); }
+  const server = await startServer({ stateDir: path.join(directory, 'state') });
+  t.after(async () => { await server.close(); await rm(directory, { recursive: true, force: true }); });
+  const rootPath = await project(directory, 'game'), foreign = path.join(directory, 'foreign'); await mkdir(foreign);
+  await writeFile(path.join(foreign, 'outside.pack'), pack({ entries: {} }));
+  await symlink(path.join(foreign, 'outside.pack'), path.join(rootPath, 'escape.pack'));
+  const root = await server.store.addRoot(rootPath);
+  const preview = file => request(server, 'format-preview', { rootId: root.id, path: file });
+  await assert.rejects(preview('../foreign/outside.pack'), /outside/);
+  await assert.rejects(preview('escape.pack'), /outside/);
+  await assert.rejects(preview(path.join(foreign, 'outside.pack')), /relative/);
+  const run = await preview('sample.pack');
+  assert.equal(run.command.at(-1), path.join(rootPath, 'sample.pack'), 'the producer is given the resolved path, not the asked one');
+  assert.ok(run.tree.dirs.length);
 });
 
 test('timeouts kill the whole process group, including a sleeping grandchild', { timeout: 20000 }, async t => {

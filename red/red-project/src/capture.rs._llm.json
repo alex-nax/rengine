@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "capture-boundary",
+      "kind": "constraint",
+      "anchor": {
+        "start": 76,
+        "end": 140,
+        "symbol": "capture",
+        "snippet": "pub fn capture(context: &Context<'_>, declared: &Value, action_id: Option<&str>) -> Result<Value, Fail> {"
+      },
+      "note": "A capture reuses the declared-command runner (no shell, cwd = root, 10 s / 8 MiB), requires the PNG signature **before touching disk**, creates `into` after a LEXICAL boundary check and confines its realpath afterwards, then writes the image and the manifest through temp-and-rename; a same-millisecond collision gets a numeric suffix.\n\nThe ORDER is the contract, and the record (`orchestrator/tests/capture-corpus.json`) holds the capture directory after every case because of it: a refusal promises that nothing was written, and only what is on disk can check that promise. Two consequences of the order are easy to 'fix' into bugs — the directory is created before the path is resolved, so `into` naming an existing FILE refuses with the filesystem's own EEXIST and no route status; and the lexical check runs before anything is created, so it must not be replaced with a resolve (which would follow a symlink and refuse differently, after creating nothing). A manifest this workspace cannot read is replaced rather than fatal: the capture a person just took is not lost to a file something else wrote badly.\n\nPorted from `orchestrator/server/dashboard.mjs` with F156 (spec 129).",
+      "refs": [
+        "docs/specs/075-project-dashboard.md",
+        "docs/specs/074-project-format-registry.md",
+        "orchestrator/tests/capture-corpus.mjs"
+      ]
+    }
+  ]
+}

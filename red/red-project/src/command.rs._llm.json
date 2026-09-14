@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "execution-boundary",
+      "kind": "constraint",
+      "anchor": {
+        "start": 42,
+        "end": 120,
+        "symbol": "run",
+        "snippet": "pub fn run(root: &Path, argv: &[String], env: &[(String, String)], timeout_ms: u64, max_bytes: usize) -> Result<Run, Failed> {"
+      },
+      "note": "The runner takes the root record and a root-relative file and re-confines it through resolveInRoot immediately before the spawn, passing that resolved path; it never trusts a caller-supplied absolute path. Argv is literal after substituting only ${file}/${entry}; no shell, stdin closed, cwd = root, the sidecar's shell environment. The child is its own POSIX process group, so timeout and oversized output kill the whole tree (taskkill /T /F on Windows), close the pipes and wait for the exit before rejecting (review finding 4). The window between this resolution and the producer's own open cannot be closed for a path-taking executable; spec 074 and KI-037 state it.\n\nPorted from `orchestrator/server/formats.mjs` with F156 (spec 129); nothing in this workspace spawns a project's command from JavaScript any more. The re-confinement of `${file}` is `red_project::preview::run_declared`'s, which resolves the asked path and hands this runner the ABSOLUTE one; `formats-hardening.test.mjs` drives that through the route, which is where a caller reaches it.",
+      "refs": [
+        "docs/specs/074-project-format-registry.md"
+      ]
+    }
+  ]
+}

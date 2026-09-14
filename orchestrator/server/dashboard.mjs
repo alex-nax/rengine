@@ -1,19 +1,18 @@
-import { stat, mkdir, readFile, writeFile, rename, rm } from 'node:fs/promises';
-import { randomUUID } from 'node:crypto';
+/* The thin client of `red_project::dashboard` and `red_project::capture` (F155/F156, spec 129).
+ *
+ * Which actions may be pressed, and what a capture does, are one implementation now. What stayed
+ * here is the shape a caller hands to a terminal: a script or a log action becomes a PTY payload,
+ * and that is the session host's business rather than the project reader's.
+ */
 import path from 'node:path';
-import { runCommand } from './formats.mjs';
-import { present, workspaceListings } from './devices.mjs';
-import { fail, hash, resolveInRoot } from './store-client.mjs';
-import { bashPath } from './sessions-client.mjs';
+import { probeCacheFor, declarationOf, workspaceListings } from './devices.mjs';
+import { fail, resolveInRoot } from './store-client.mjs';
+import { askProject } from './project-client.mjs';
+import { bashPath, shellEnvironment } from './sessions-client.mjs';
+import { stat } from 'node:fs/promises';
 
-export const CAPTURE_TIMEOUT_MS = 10000;
-export const CAPTURE_MAX_BYTES = 8 * 1024 * 1024;
-const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-
-/* Which actions may be pressed is `red_project::dashboard`'s (F155), asked through the same run
-   that answers the Devices tab so the two share one probe cache. `preflight` is still taken and
-   still ignored: the reader on the other side runs the game preflight itself, from the same
-   declaration, which is what made a second copy of those checks unnecessary in the first place. */
+/* `preflight` is still taken and still ignored: the reader on the other side runs the game preflight
+   itself, from the same declaration, which is what made a second copy of those checks unnecessary. */
 export async function dashboardActions(root, preflight, options = {}) {
   return (await workspaceListings(root, options)).dashboard;
 }
@@ -35,26 +34,10 @@ export async function dashboardRunPayload(root, action) {
   }
   return { rootId: root.id, command: action.command[0], args: action.command.slice(1), env: {}, title: `Log · ${action.title}` };
 }
+/* The one project question that WRITES. It carries the shell environment because the capture runs
+   the project's own command and its producer saw one when this module spawned it; it carries this
+   root's probe cache because the availability it checks first is the board's, and the board probes
+   every device an action is bound to. */
 export async function dashboardCapture(root, actionId, preflight) {
-  const action = await dashboardAction(root, actionId, preflight);
-  if (action.kind !== 'capture') fail(`Action ${action.id} is not a capture action.`, 400);
-  const target = path.resolve(root.path, action.into), relative = path.relative(root.path, target);
-  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) fail('Capture directory is outside the selected project root.', 403);
-  await mkdir(target, { recursive: true });
-  const into = await resolveInRoot(root, action.into);
-  if (!(await stat(into.absolute)).isDirectory()) fail('Capture target is not a directory.', 415);
-  const run = await runCommand(root, { command: action.command, timeoutMs: CAPTURE_TIMEOUT_MS, maxBytes: CAPTURE_MAX_BYTES }, {});
-  if (!run.stdout.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) fail('Capture output is not a PNG (signature mismatch); nothing was written.', 502);
-  const time = new Date().toISOString(); let file = `${time.replaceAll(':', '-')}.png`;
-  for (let n = 2; await present(root, `${into.relative}/${file}`); n++) file = `${time.replaceAll(':', '-')}-${n}.png`;
-  const entry = { file, time, size: run.stdout.length, sha256: hash(run.stdout), action: action.id };
-  const manifestPath = path.join(into.absolute, 'manifest.json');
-  let manifest = [];
-  try { const parsed = JSON.parse(await readFile(manifestPath, 'utf8')); if (Array.isArray(parsed)) manifest = parsed; } catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error; }
-  const temp = path.join(into.absolute, `.rengine-capture-${randomUUID()}`);
-  try {
-    await writeFile(temp, run.stdout, { mode: 0o644 }); await rename(temp, path.join(into.absolute, file));
-    await writeFile(temp, JSON.stringify([...manifest, entry], null, 2), { mode: 0o644 }); await rename(temp, manifestPath);
-  } finally { await rm(temp, { force: true }); }
-  return { ...entry, path: `${into.relative}/${file}`, manifest: `${into.relative}/manifest.json` };
+  return askProject(['dashboard-capture', root.id, root.path, actionId ?? '', probeCacheFor(root), declarationOf(root)], undefined, shellEnvironment());
 }

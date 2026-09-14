@@ -17,7 +17,6 @@ import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { askProject } from './project-client.mjs';
-import { resolveInRoot } from './store-client.mjs';
 
 /* The device that is this machine. Named here because this module is what a caller asks about
    devices; the rules that validate a declared one are red-project's. */
@@ -39,7 +38,6 @@ export const declarationOf = root => (root?.declarationFile === undefined ? '' :
 /** Drop every remembered probe, for a caller that wants the next question asked for real. */
 export const forgetProbes = () => rm(probeDirectory, { recursive: true, force: true });
 
-export async function present(root, relative) { try { await resolveInRoot(root, relative); return true; } catch { return false; } }
 /* The implicit local device is always offered, so a consumer never has to declare it to bind to it
    or to see it listed; a declared one wins so its own title is used.
    See sidecar: red/red-project/src/devices.rs._llm.json#implicit-local — this is the JS copy of a

@@ -74,3 +74,72 @@ it judged, and its rules moved into the parity spec). `cargo test --workspace` 9
 passes.
 
 JavaScript on the app path: **5,456**, from 5,524.
+
+---
+
+# The dashboard capture is red-project's, and `formats.mjs` runs nothing (2026-09-14)
+
+F156f, spec 129. The second half of the same day's work, and the end of `formats.mjs` as anything
+but a client: **33 lines**, four functions, no `spawn`.
+
+## What a capture is
+
+The one declared action that WRITES. It runs the project's own command, judges the bytes, and lands
+a PNG and a manifest row inside the project — so the ORDER of its steps is its contract, not an
+implementation detail:
+
+1. the board decides whether the action may be pressed at all, and a grey button's reason is this
+   refusal's sentence;
+2. `into` is checked **lexically**, before anything is created;
+3. the directory is created, and only then is the path resolved and required to be a directory;
+4. the command runs under this route's own bounds — 10 s, 8 MiB — not the declaration's;
+5. the PNG signature is checked **before anything is written**;
+6. the image and the manifest land through temp-and-rename.
+
+## The record holds what is on disk
+
+14 cases, `orchestrator/tests/capture-corpus.json`, taken from `dashboard.mjs` while it still
+captured (5f84f05) and frozen the same way the preview's was — the generator deleted with the
+implementation it asked. Each case records three things: the answer, the capture directory
+afterwards, and the manifest as it now reads. That is not thoroughness for its own sake: several of
+these refusals **promise that nothing was written**, and only what is on disk can check a promise
+like that.
+
+Two rules the record pins that reading the code would not have settled:
+
+- a contract-1 project is not a project *without* a dashboard, it is a project whose dashboard is
+  empty — so the action is simply unknown (**404**, not the 415 the `!board.declared` branch
+  suggests). The 415 belongs to a project with no declaration at all.
+- `into` naming an existing **file** refuses with the filesystem's own `EEXIST: file already exists,
+  mkdir '…'` and **no route status**, because step 3 creates before it resolves. `Fail::raw` exists
+  for exactly this: an error the filesystem raised carried no status in the JavaScript either, and
+  `main.mjs` decided what such a thing answered.
+
+One rule is **not recordable**: a second capture in the same millisecond is named `<time>-2.png`,
+and nothing in a corpus can make two calls share a millisecond. It is a function — `free_name` —
+with a unit test, rather than a line inside the one that writes.
+
+## Sabotages
+
+| Sabotage | Observed |
+| --- | --- |
+| the manifest is replaced instead of appended to | the second capture's manifest holds one row where the record has two |
+| the signature is not checked before the write | `bad-shot` lands a file of text named `.png` and answers as a capture |
+| the collision loop stops after one bump | a third capture in one millisecond reuses `-2` |
+
+The manifest file was also compared **byte for byte** against the JavaScript's, not only its parsed
+value: `serde_json::to_string_pretty` and `JSON.stringify(…, null, 2)` leave the same file, and
+`preserve_order` keeps the row's keys in the order they were written.
+
+## What the deletion took with it
+
+`runCommand` and its helpers (62 lines) — nothing in this workspace spawns a project's command from
+JavaScript now. `devices.mjs`'s `present` and `store-client.mjs`'s `MAX_TEXT_BYTES` went with their
+last readers. `formats-hardening.test.mjs`'s re-confinement spec drives the **route** now, which is
+where a caller reaches that rule and the only place it can still be observed.
+
+## Gates
+
+`npm test` 343/343, `cargo test --workspace` 97/97, `./init.sh` passes.
+
+JavaScript on the app path: **5,388**, from 5,456.

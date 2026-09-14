@@ -19,7 +19,6 @@ import readline from 'node:readline';
 import path from 'node:path';
 import { findOrStart, serveBinary as resolveBinary } from '../runtime/service-client.mjs';
 
-export const MAX_TEXT_BYTES = 2 * 1024 * 1024;
 export const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 export function fail(message, status = 400) { const error = new Error(message); error.status = status; throw error; }
 

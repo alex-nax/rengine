@@ -49,6 +49,39 @@ implementation is, rather than testing a reader's copy against itself.
 
 JavaScript on the app path: **5,456**, from 5,524.
 
+### The capture, and the end of `runCommand`
+
+`dashboardCapture` is `red_project::capture`. `formats.mjs` is **33 lines** and spawns nothing:
+`runCommand` was the last thing in this workspace that ran a project's own command from JavaScript,
+and it is gone. `dashboard.mjs` is 42, keeping only the payload a script or a log action becomes for
+the terminal route.
+
+The record is 14 cases and holds **what is on disk** after each one — the capture directory and the
+manifest — not only the answer. That is not thoroughness: several of these refusals *promise that
+nothing was written*, and only what is on disk can check a promise like that. It pinned two rules
+reading the code would not have settled. A contract-1 project is not a project without a dashboard,
+it is a project whose dashboard is empty, so the action is simply unknown — **404**, not the 415 the
+`!board.declared` branch suggests; the 415 belongs to a project with no declaration at all. And
+`into` naming an existing FILE refuses with the filesystem's own `EEXIST … mkdir` and **no route
+status**, because the directory is created before the path is resolved — the order its other
+refusals depend on, and the reason `Fail::raw` exists.
+
+One rule is not recordable at all: a second capture in the same millisecond is named
+`<time>-2.png`, and nothing can make two calls share a millisecond. It is a function with a unit
+test — `free_name` — rather than a line inside the one that writes.
+
+Three sabotages: the manifest replaced instead of appended to, the signature gate removed, the
+collision loop stopping after one bump. The manifest file was also compared byte for byte against
+the JavaScript's, not only its parsed value.
+
+`devices.mjs`'s `present` and `store-client.mjs`'s `MAX_TEXT_BYTES` went with their last readers,
+and `formats-hardening.test.mjs`'s re-confinement spec drives the ROUTE now — where a caller reaches
+that rule, and the only place it can still be observed.
+
+`npm test` 343/343, `cargo test --workspace` 97/97, `./init.sh` passes.
+
+JavaScript on the app path: **5,388**.
+
 ## Session 148 (macos) — 2026-09-14 — the token ledger becomes a service, and the record it kept catches the record
 
 `orchestrator/runtime/token.mjs` and `runtime/feed.mjs` are gone. `red-token` answers now — the
