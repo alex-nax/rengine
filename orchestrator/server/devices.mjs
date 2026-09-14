@@ -1,7 +1,9 @@
 import { stat, access, constants } from 'node:fs/promises';
 import path from 'node:path';
 import { runCommand } from './formats.mjs';
-import { LOCAL } from './device-rules.mjs';
+/* The device that is this machine. Named here because this module is what a caller asks about
+   devices; the rules that validate a declared one are red-project's. */
+export const LOCAL = 'local';
 import { resolveInRoot } from './store-client.mjs';
 import { shellEnvironment } from './sessions-client.mjs';
 

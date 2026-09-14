@@ -7,15 +7,14 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { bashPath } from '../server/sessions-client.mjs';
 import { readDeclaration } from '../server/formats.mjs';
+import { askProject } from '../server/project-client.mjs';
 import { validateSchema } from '../server/store-client.mjs';
-import { dashboardRules } from '../server/dashboard-rules.mjs';
 
 const execute = promisify(execFile);
 const ENGINE = path.resolve();
 const ACTION = path.join(ENGINE, 'orchestrator/actions/integrate-project.sh');
 const SCHEMA = JSON.parse(await readFile(path.join(ENGINE, 'contracts/project-v1.schema.json'), 'utf8'));
 const CONTRACTS = new Set(SCHEMA.properties.contract.enum ?? []);
-const gameRules = await import('../server/game-rules.mjs').then(module => module.gameRules, () => null);
 const knowsGames = CONTRACTS.has(3) && Boolean(SCHEMA.properties.games);
 const cleanup = [];
 
@@ -36,7 +35,8 @@ const declarationOf = async root => JSON.parse(await readFile(path.join(root, '.
 const missing = async file => { try { await stat(file); return false; } catch { return true; } };
 
 /** Validate a scaffolded declaration with the rules this checkout actually ships — the committed
- * contract through validateSchema plus the shared cross-rule modules — instead of restating them.
+ * contract through validateSchema, plus the cross-field rules read back through red-project, which
+ * is the answer a person opening this project would see — instead of restating them.
  * `games` (contract 3) is owned by the game lane, so while the committed schema predates it the
  * core is still validated for real and the games tier is reported as uncovered here. */
 async function declarationProblems(value, root) {
@@ -48,9 +48,12 @@ async function declarationProblems(value, root) {
     uncovered.push('games');
   }
   problems.push(...await validateSchema(SCHEMA, subject));
-  problems.push(...dashboardRules(value.dashboard));
-  if (gameRules) problems.push(...gameRules(value.games ?? []));
-  else uncovered.push('game-rules.mjs');
+  /* The cross-field rules are red-project's, and the way to ask them is to read the project the
+     wizard just wrote: one implementation, and the answer a person would actually see. */
+  const declared = await askProject(['declaration', root]);
+  for (const key of ['error', 'dashboardError', 'gamesError', 'devicesError', 'trackerError']) {
+    if (declared[key]) problems.push(declared[key]);
+  }
   if (value.dashboard !== undefined && value.contract < 2) problems.push('a dashboard requires contract 2');
   if (value.games !== undefined && value.contract !== 3) problems.push('a games array requires contract 3');
   const scripts = (value.dashboard?.groups ?? []).flatMap(group =>

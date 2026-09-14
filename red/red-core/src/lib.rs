@@ -10,6 +10,7 @@
 
 pub mod http;
 pub mod service;
+pub mod text;
 pub mod theme;
 pub mod time;
 pub mod translate;

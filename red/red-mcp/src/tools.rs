@@ -178,7 +178,8 @@ pub fn call(workspace: &mut Workspace, name: &str, arguments: &Value) -> Result<
             let lines: Vec<&str> = source.split('\n').collect();
             let from = start_line - 1;
             let excerpt = lines.iter().skip(from).take(max_lines).copied().collect::<Vec<_>>().join("\n");
-            let truncated = excerpt.chars().count() > PREVIEW_BUDGET || from + max_lines < lines.len();
+            /* `excerpt.length > PREVIEW_BUDGET` in the worker this replaced: UTF-16 units. */
+            let truncated = red_core::text::utf16_len(&excerpt) > PREVIEW_BUDGET || from + max_lines < lines.len();
             Ok(json!({
                 "path": file.get("path").cloned().unwrap_or(Value::Null),
                 "version": file.get("version").cloned().unwrap_or(Value::Null),
@@ -491,8 +492,8 @@ fn preview(workspace: &Workspace, state: &Value, args: &Args<'_>, root: &str) ->
         let map = result.as_object_mut().expect("object");
         map.remove("window");
         if let Some(text) = map.get("text").and_then(Value::as_str) {
-            if text.chars().count() > PREVIEW_BUDGET {
-                let cut: String = text.chars().take(PREVIEW_BUDGET).collect();
+            if red_core::text::utf16_len(text) > PREVIEW_BUDGET {
+                let cut = red_core::text::truncate_utf16(text, PREVIEW_BUDGET);
                 map.insert("text".into(), json!(cut));
                 map.insert("truncated".into(), json!(true));
             }
@@ -538,7 +539,7 @@ fn preview(workspace: &Workspace, state: &Value, args: &Args<'_>, root: &str) ->
             }
             map.insert("tree".into(), sliced);
         }
-        if output.to_string().chars().count() <= PREVIEW_BUDGET || (use_depth == 1 && use_limit == 1) {
+        if red_core::text::utf16_len(&output.to_string()) <= PREVIEW_BUDGET || (use_depth == 1 && use_limit == 1) {
             return Ok(output);
         }
         if use_depth > 1 {

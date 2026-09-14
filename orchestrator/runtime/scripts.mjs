@@ -3,12 +3,15 @@ import { realpath, stat } from 'node:fs/promises';
 import { bashPath } from '../server/sessions-client.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { fail } from './protocol.mjs';
-import { envRules } from '../server/dashboard-rules.mjs';
+import { askProject } from '../server/project-client.mjs';
 
 export async function openScript(host, desktops, data, state) {
   const root = state.roots.find(x => x.id === data.rootId);
   if (!root) fail('Unknown project root.', 404);
-  const envProblems = envRules(data.env); if (envProblems.length) fail(`Script env: ${envProblems[0]}`);
+  /* The same rules a declared action's env is judged by, asked of the one implementation of them
+     (red-project). `env` is sent as a field so an absent one and a null one stay different answers. */
+  const { problems } = await askProject(['env-rules'], JSON.stringify('env' in data ? { env: data.env } : {}));
+  if (problems.length) fail(`Script env: ${problems[0]}`);
   desktops.target(data.rootId, data.desktopId, 'attach-session');
   if (typeof data.path !== 'string' || path.isAbsolute(data.path) || !data.path.endsWith('.sh') || data.path.includes('\0')) fail('Choose a project-relative .sh script.');
   const script = await realpath(path.resolve(root.path, data.path)), relative = path.relative(root.path, script);

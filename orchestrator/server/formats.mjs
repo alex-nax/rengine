@@ -5,9 +5,6 @@ import path from 'node:path';
 import { fail, hash, resolveInRoot, MAX_TEXT_BYTES } from './store-client.mjs';
 import { askProject } from './project-client.mjs';
 import { shellEnvironment } from './sessions-client.mjs';
-import { dashboardRules, nameOf, rootRelative } from './dashboard-rules.mjs';
-import { gamesRules } from './game-rules.mjs';
-import { devicesRules } from './device-rules.mjs';
 
 /* A provider only accepts the locator it can use, so a declaration that names the wrong one is
    refused at declaration time rather than failing later against the network. */

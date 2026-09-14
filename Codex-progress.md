@@ -45,9 +45,37 @@ collapsed onto it in a second commit. Verified by sabotage rather than by readin
 protocol check *in the shared module* turns `pty-retention`'s "a service that speaks another
 protocol is ended by name, never adopted" red, and green again on restore.
 
-Commands: `npm test` 331/331 · `cargo test -p red-token -p red-core` 22/22 · `./init.sh` ·
+**Then an audit of what F156b left behind.** The declaration port moved every cross-field rule to
+`red-project/src/rules.rs` and left the JavaScript standing: `dashboard-rules.mjs`,
+`device-rules.mjs` and `game-rules.mjs` (186 lines) had been duplicates since the day it landed, and
+`formats.mjs` imported three of them and used none. Deleted. `runtime/scripts.mjs` asks
+`red-project env-rules` instead (the env on stdin, because it is arbitrary caller input, and as a
+*field* so an absent env and a null one stay different answers); `LOCAL` is `devices.mjs`'s own; and
+`integrate-project.test.mjs` reads the project back through red-project rather than running a second
+copy of the rules over it. Their ten sidecar entries moved to the code that holds the rules now,
+along with two that had been stranded on `formats.mjs` since the port.
+
+**Two porting hazards came out of that audit.**
+
+*JavaScript's `String#length` counts UTF-16 code units; `chars().count()` counts code points.* Six
+bounds across `red-project` and `red-mcp` accepted twice their stated limit above U+FFFF — 4096
+emoji where a declaration allows 2048, a 32000-unit preview budget measured in code points. Fixed
+with `red_core::text::utf16_len`/`truncate_utf16`. The frozen declaration corpus is entirely ASCII
+and could never have caught it, so the regression is a sabotage-verified unit test at the site that
+names the JavaScript answer it mirrors.
+
+*A source file with a literal NUL byte is invisible to grep.* `orchestrator/server/games.mjs` had
+one in a template string — `${rootId}<NUL>${config.id}`, typed rather than escaped — so `grep -r`,
+`rg` and everything else that sniffs for binary content excluded the whole file silently. A survey
+of who still imported the three rule modules came back clean while that file imported two of them,
+and the deletion that followed broke nine specs. That is how it was found. The string is identical
+written `\0`; what differs is whether the file can be searched. One such file in the checkout, now
+escaped, and `suite-coverage.test.mjs` asserts there is never another — the right home for it, since
+its whole subject is things that become invisible in a green report.
+
+Commands: `npm test` 332/332 · `cargo test` 82/82 · `./init.sh` ·
 `python3 tools/features.py validate` · `python3 tools/design.py check`.
-JavaScript on the app path: **6,533 → 6,275**.
+JavaScript on the app path: **6,533 → 6,098**.
 
 Remaining: F158 (the worker, and with it `main.mjs`, `sessions-client.mjs`, `store-client.mjs`,
 `pty-client.mjs`). F152/F189 still wait on F186, which is the owner's live-pane run. KI-105 (the

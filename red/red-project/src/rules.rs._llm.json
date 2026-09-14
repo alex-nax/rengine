@@ -1,0 +1,160 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "record-identity",
+      "kind": "rationale",
+      "anchor": {
+        "start": 28,
+        "end": 33,
+        "symbol": "name_of",
+        "snippet": "pub fn name_of(record: &Value) -> String {"
+      },
+      "note": "A section fails whole (the reader reports `dashboardError` instead of the block) and, since the toolbar game control was removed, the dashboard is the only human path to launch any game: one typo in one unrelated action empties every group, so this message is the entire recovery path and must name the record, not only its index. The innermost record on the path is named because action ids are unique across the dashboard and naming the group as well would push the id ~8 columns further right in surfaces that clip; an action with no usable id falls back to its group (`gw`), and with nothing named the bare path stands alone, so 'undefined' is never printed and no name is invented. The duplicate-id error deliberately keeps the bare path `gp`/`ap`: it already quotes the id, and what has to stay unambiguous there is which occurrence repeats.\n\nThe JavaScript this replaces carried THREE copies of this function — dashboard-rules.mjs, game-rules.mjs and formats.mjs — and kept every rules module import-free, because the reader awaited its schema at top level and a cycle through dashboard.mjs would have deadlocked module evaluation. None of that survives the port: there is one implementation here and the cycle it was avoiding does not exist in a crate.",
+      "refs": [
+        "docs/specs/078-project-game-declaration.md",
+        "docs/specs/129-js-retirement-epic.md"
+      ]
+    },
+    {
+      "id": "shared-cross-rules",
+      "kind": "rationale",
+      "anchor": {
+        "start": 347,
+        "end": 352,
+        "symbol": "dashboard_rules",
+        "snippet": "pub fn dashboard_rules(dashboard: &Value, context: &Context) -> Vec<String> {"
+      },
+      "note": "The committed schema lists every kind's fields as optional on one action object because the validator subset has no `oneOf`/`if`; these rules add the per-kind required and forbidden fields, unique ids, root-relative paths and UPPER_SNAKE env keys, each message carrying the offending JSON path.\n\n`context` is the PARTIALLY BUILT declaration, not another block to validate: the reader settles devices, then games, then the dashboard, so a game action's reference resolves against the already-accepted array without this function reaching for the games block itself. That ordering is the contract between `declaration.rs` and this module, and reordering the sections there would silently change which errors are reachable here.",
+      "refs": [
+        "docs/specs/075-project-dashboard.md"
+      ]
+    },
+    {
+      "id": "game-reference",
+      "kind": "rationale",
+      "anchor": {
+        "start": 349,
+        "end": 356,
+        "symbol": "dashboard_rules",
+        "snippet": "    let declared: Option<Vec<Value>> = if context.games_error {"
+      },
+      "note": "Three states, deliberately distinct. An accepted games array yields its ids, so an action naming something else is reported with the id and the declared ids. No games key at all yields an empty list, so the message says the declaration declares no games — the true diagnosis for a game action under contract 2. A failed games block yields `None` and the reference check is skipped entirely: `gamesError` already names the real problem, and a derived 'undeclared id' error on top of it would send the reader after the wrong key.\n\nThe distinction is Option-shaped here and was `null` versus `[]` in the JavaScript; it is the same three-way answer, and collapsing it to two is the bug this note exists to prevent.",
+      "refs": [
+        "docs/specs/078-project-game-declaration.md"
+      ]
+    },
+    {
+      "id": "device-reference",
+      "kind": "rationale",
+      "anchor": {
+        "start": 253,
+        "end": 258,
+        "symbol": "device_reference_rules",
+        "snippet": "pub fn device_reference_rules(record: &Value, where_: &str, context: &Context) -> Vec<String> {"
+      },
+      "note": "The contract-4 device binding is validated for EVERY action kind, not only the ones that look remote, because `device` is a property of where an action runs rather than of what it does — a log, a capture and a script can all be device-scoped. Ordering matters: the reader settles devices before games and games before the dashboard, so `context` already carries the accepted devices array, or `devices_error`, which suppresses a derived \"undeclared id\" error that would only mislead — the same shape the game reference uses.",
+      "refs": [
+        "docs/specs/082-project-devices.md"
+      ]
+    },
+    {
+      "id": "reserved-local",
+      "kind": "constraint",
+      "anchor": {
+        "start": 150,
+        "end": 155,
+        "symbol": "devices_rules",
+        "snippet": "pub fn devices_rules(devices: &Value) -> Vec<String> {"
+      },
+      "note": "`local` is a reserved id bound to a reserved kind: at most one kind-`local` device, a kind-`local` device must use the id `local`, and the id `local` may not be taken by another kind. Without all three the implicit binding is ambiguous — every target without a device resolves to the id `local`, so a declaration could otherwise point that at an ssh box and silently make unbound targets remote. A remote device must declare a probe, so `reachable` is always evidence and never an assumption; and `local` may not carry `probe`, `host` or `selector`, which are all about reaching somewhere else.",
+      "refs": [
+        "docs/specs/082-project-devices.md"
+      ]
+    },
+    {
+      "id": "contract-gate",
+      "kind": "constraint",
+      "anchor": {
+        "start": 253,
+        "end": 260,
+        "symbol": "device_reference_rules",
+        "snippet": "pub fn device_reference_rules(record: &Value, where_: &str, context: &Context) -> Vec<String> {"
+      },
+      "note": "The `device` key is accepted STRUCTURALLY by the schema for every contract, and gated here instead. That is deliberate: if the schema rejected it under contract 3 the message would be \"unknown key device\" and an operator would delete the key. Gated here, the message names the contract to update to — the same discipline that carried `games` into contract 3. The top-level devices array is gated by the section reader's own minimum; this covers the two places the key can appear on a target.",
+      "refs": [
+        "docs/specs/082-project-devices.md"
+      ]
+    },
+    {
+      "id": "reserved-env-prefixes",
+      "kind": "constraint",
+      "anchor": {
+        "start": 91,
+        "end": 96,
+        "symbol": "game_env_rules",
+        "snippet": "pub fn game_env_rules(env: Option<&Value>, where_: &str) -> Vec<String> {"
+      },
+      "note": "`RENGINE_`, `DYLD_` and `LD_` keys are rejected when the declaration is READ, not merely overridden at launch: a project must not be able to re-point the surface reservation, the workspace connection or library injection through the workspace, and a silent override would hide the mistake. The launch still layers the reservation and the adapter over declared env as defence in depth.",
+      "refs": [
+        "docs/specs/078-project-game-declaration.md"
+      ]
+    },
+    {
+      "id": "working-directory",
+      "kind": "constraint",
+      "anchor": {
+        "start": 45,
+        "end": 47,
+        "symbol": "root_relative_directory",
+        "snippet": "pub fn root_relative_directory(value: &Value) -> bool {"
+      },
+      "note": "`cwd` is the one declared path where the empty string is meaningful: it names the project root, which is also the default when the key is absent, so a declaration can state the root explicitly without a special token. Everything else is the same confinement every declared path gets (no absolute path, no drive letter, no backslash, no `..` segment, no NUL), and the terminal spawn re-checks the resolved directory against the root before spawning, so a reader change alone can never widen where a game runs.",
+      "refs": [
+        "docs/specs/078-project-game-declaration.md"
+      ]
+    },
+    {
+      "id": "pane-surfaces",
+      "kind": "rationale",
+      "anchor": {
+        "start": 276,
+        "end": 276,
+        "symbol": "PANE_SURFACES",
+        "snippet": "pub const PANE_SURFACES: [&str; 2] = [\"embedded\", \"cooperative\"];"
+      },
+      "note": "Named once because two different questions are asked about the same set and they must not drift: 'does this reserve a workspace surface' (the game start path) and 'must this be on the local device' (the rule below). A pane is on this machine and the protocol is loopback, so neither `embedded` nor `cooperative` can describe a window on another one; the message quotes the record's own surface so a third value added later says its own name rather than 'embedded'. Deliberately NOT used for the injection decision, which stays an equality test against `embedded` — widening it recreates a two-producer race.",
+      "refs": [
+        "docs/specs/078-project-game-declaration.md"
+      ]
+    },
+    {
+      "id": "javascript-string-lengths",
+      "kind": "constraint",
+      "anchor": {
+        "start": 64,
+        "end": 68,
+        "symbol": "literal",
+        "snippet": "fn literal(value: &Value) -> bool {"
+      },
+      "note": "The 4096 here is JavaScript's `value.length`, which counts UTF-16 code units — `chars().count()` counts code points, and the two disagree by a factor of two above U+FFFF. Written the obvious way, this rule accepted 4096 emoji where the declaration allows 2048, and every fixture in the frozen corpus is ASCII, so nothing caught it. `red_core::text::utf16_len` is the spelling that means what the rule says; the other five sites this was found at are in `docs/evidence/utf16-lengths-2026-09-14.md`.",
+      "refs": [
+        "docs/evidence/utf16-lengths-2026-09-14.md"
+      ]
+    },
+    {
+      "id": "bounded-report",
+      "kind": "rationale",
+      "anchor": {
+        "start": 465,
+        "end": 470,
+        "symbol": "report",
+        "snippet": "pub fn report(problems: &[String]) -> String {"
+      },
+      "note": "Three problems, not more, and the count of what is hidden. The string is read as ONE unwrapped line in two places: the dashboard tab label, clipped at the pane width, and the workspace status row, about 159 monospace columns at the default 1280-wide window (8 px cell) and copied into a 512-byte buffer. Three problems that each carry a record id already fill that, so raising the cap would push content off the right edge rather than closer to a fix, and cascading errors from one bad record make the tail low-value anyway. What was missing was knowing the list was cut, so the count is stated, and stated last: it is the least load-bearing part of the line and therefore the right thing to lose to clipping or truncation. Every call site reports through this helper so the three sections read alike.",
+      "refs": [
+        "docs/specs/078-project-game-declaration.md"
+      ]
+    }
+  ]
+}

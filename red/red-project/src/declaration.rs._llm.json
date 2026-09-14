@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "pack-facets",
+      "kind": "rationale",
+      "anchor": {
+        "start": 140,
+        "end": 145,
+        "symbol": "packs_rules",
+        "snippet": "fn packs_rules(block: &Value) -> Vec<String> {"
+      },
+      "note": "Three decisions that are not visible from the code alone. (1) A key in the wrong facet is refused TWICE and deliberately: the schema's additionalProperties:false says the key is unknown, and this rule says which facet owns it. Only the second tells a human what to do, and only the first survives if the facet key sets ever change, so neither is redundant. (2) poweredBy is checked for PRESENCE, not truth, and since charter D45 (spec 112) it is refused on EITHER facet rather than earned on the library one: the key left the manifest because an adoption is recorded by the owner's sign-off in a spec, not claimed by the project that made it. Presence rather than truth still matters for the same reason it did before — poweredBy:false is the removed key too, and reading the value would let a declaration carry it silently. This rule is not redundant with the schema's additionalProperties:false: deleting it leaves the document still refused, but the reader is told only that the key is unknown, never where the record went. That is sabotage S3 in spec 112. (Historical note: while the key existed, inverting its facet condition left every structural check green — sabotage S9 in the evidence document was caught by the ACCEPTANCE test, not by any refusal test.) (3) Nothing here opens a file. library.path and plugin.module are shape-checked and confined but never stat'ed, and pin.revision is never compared against bytes, because identifying bytes is acquisition and KI-008 has not decided it; a pack that has not been fetched is a missing prerequisite, not a malformed declaration. plugin.abi is shape-checked and never parsed, ordered or compared — its meaning belongs to the plugin-ABI lane, not to this reader.",
+      "refs": [
+        "docs/specs/107-pack-manifest.md",
+        "docs/specs/105-packs-editions-and-the-name.md",
+        "docs/evidence/pack-manifest-2026-09-07.md"
+      ]
+    }
+  ]
+}

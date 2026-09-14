@@ -78,3 +78,31 @@ test('the suite builds the Rust binaries once, before any spec races another spe
   assert.match(pretest, /--bins/, 'every binary, not only the default one a crate builds');
   assert.match(pretest, /red\/Cargo\.toml/, "the workspace's own manifest");
 });
+
+/* The same hole again, one layer further down. `orchestrator/server/games.mjs` carried a LITERAL NUL
+   byte in a template string — `${rootId}\0${config.id}`, typed rather than escaped — and grep, rg
+   and every tool that sniffs for binary content silently excluded the whole file. A survey of "who
+   still imports this module?" came back clean while that file imported two of them, and the deletion
+   that followed broke nine specs. The string is identical either way; what differs is whether the
+   file can be searched. Owned sources are text. */
+test('every owned source is text, so a search of the repository can see it', async () => {
+  const roots = ['orchestrator', 'red/red-core/src', 'red/red-agents/src', 'red/red-store/src',
+    'red/red-pty/src', 'red/red-mcp/src', 'red/red-host/src', 'red/red-project/src', 'red/red-token/src', 'tools'];
+  const SOURCE = /\.(mjs|js|rs|c|h|py|json|toml|sh|md|css|html)$/;
+  const opaque = [];
+  const walk = async directory => {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const full = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        if (['node_modules', 'target', '.cache', 'third_party', 'build'].includes(entry.name)) continue;
+        await walk(full);
+      } else if (SOURCE.test(entry.name)) {
+        const bytes = await readFile(full);
+        if (bytes.includes(0)) opaque.push(path.relative(ROOT, full));
+      }
+    }
+  };
+  for (const root of roots) await walk(path.join(ROOT, root));
+  assert.deepEqual(opaque, [],
+    'a source with a NUL byte reads as binary to grep, rg and code search: write the escape, not the byte');
+});

@@ -181,7 +181,8 @@ fn jsonl(root: &str, id: &str, file: &str) -> Result<Vec<Value>> {
         Ok(text) => text,
         Err(_) => return Ok(Vec::new()),
     };
-    if text.chars().count() > MAX_INDEX_BYTES {
+    /* The JavaScript compared `text.length`, which is UTF-16 code units. */
+    if red_core::text::utf16_len(&text) > MAX_INDEX_BYTES {
         return Err(Fail::new(
             format!("Recording {id} has a {file} above the {MAX_INDEX_BYTES}-byte read limit."),
             413,
@@ -286,7 +287,7 @@ pub fn read(
         let mut kept: Vec<Value> = Vec::new();
         let mut used = 0usize;
         for entry in entries.iter().rev() {
-            used += entry.get("text").and_then(Value::as_str).map(|text| text.chars().count()).unwrap_or(0) + 1;
+            used += entry.get("text").and_then(Value::as_str).map(red_core::text::utf16_len).unwrap_or(0) + 1;
             if used > budget && !kept.is_empty() {
                 break;
             }

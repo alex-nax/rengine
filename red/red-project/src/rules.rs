@@ -62,7 +62,9 @@ fn env_key_ok(key: &str) -> bool {
 }
 
 fn literal(value: &Value) -> bool {
-    value.as_str().is_some_and(|text| text.chars().count() <= 4096 && !text.contains('\0'))
+    /* 4096 as JavaScript counted it: `value.length` is UTF-16 code units, so a string of 2049
+       astral characters is 4098 and refused, where `chars().count()` would call it 2049. */
+    value.as_str().is_some_and(|text| red_core::text::utf16_len(text) <= 4096 && !text.contains('\0'))
 }
 
 pub fn env_rules(env: Option<&Value>, where_: &str) -> Vec<String> {
@@ -481,4 +483,35 @@ pub fn object(pairs: Vec<(&str, Value)>) -> Value {
         map.insert(key.to_string(), value);
     }
     Value::Object(map)
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    /* The corpus that judges these rules (`orchestrator/tests/declaration-fixtures.json`) is frozen:
+       it was recorded from the JavaScript while the JavaScript existed, so a case cannot be added to
+       it now. This is the rule it could not have caught either way — every fixture in it is ASCII,
+       and the bound is the one place where "how long is this string" has two answers. */
+    #[test]
+    fn a_value_is_bounded_the_way_javascript_bounded_it() {
+        /* `envRules({ A: '😀'.repeat(2049) })` answered `['env.A must be a literal string']`:
+           2049 astral characters are 2049 code points and 4098 UTF-16 code units, and the rule is
+           written in code units. Counting code points would accept twice the declared limit. */
+        let over = json!({ "A": "😀".repeat(2049) });
+        assert_eq!(super::env_rules(Some(&over), "env"), vec!["env.A must be a literal string".to_string()]);
+        let under = json!({ "A": "😀".repeat(2048) });
+        assert!(super::env_rules(Some(&under), "env").is_empty(), "4096 units exactly is still a literal string");
+        let ascii = json!({ "A": "x".repeat(4097) });
+        assert_eq!(super::env_rules(Some(&ascii), "env"), vec!["env.A must be a literal string".to_string()]);
+    }
+
+    /// Absence and null are different answers, as they were on the other side: a declaration with no
+    /// env has no rules to break, and one whose env is null is refused by name.
+    #[test]
+    fn an_absent_env_is_not_a_null_one() {
+        assert!(super::env_rules(None, "env").is_empty());
+        assert_eq!(super::env_rules(Some(&json!(null)), "env"), vec!["env must be an object of UPPER_SNAKE keys".to_string()]);
+        assert_eq!(super::env_rules(Some(&json!([])), "env"), vec!["env must be an object of UPPER_SNAKE keys".to_string()]);
+    }
 }

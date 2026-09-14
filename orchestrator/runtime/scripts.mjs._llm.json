@@ -19,10 +19,11 @@
       "kind": "constraint",
       "anchor": {
         "start": 11,
-        "end": 11,
-        "snippet": "const envProblems = envRules(data.env); if (envProblems.length) fail(`Script env: ${envProblems[0]}`);"
+        "end": 14,
+        "symbol": "openScript",
+        "snippet": "/* The same rules a declared action's env is judged by, asked of the one implementation of them"
       },
-      "note": "env is validated before the desktop target so an agent sees the precise env problem even without a desktop; keys are UPPER_SNAKE literals merged over the shell environment by the host, matching dashboard script actions so open_script can reproduce one exactly.",
+      "note": "env is validated before the desktop target so an agent sees the precise env problem even without a desktop; keys are UPPER_SNAKE literals merged over the shell environment by the host, matching dashboard script actions so open_script can reproduce one exactly. Since F156b the rules themselves are red-project's, so this asks rather than restates them; `env` travels as a FIELD of the request object so an absent env and a null one stay different answers — absent has no rules to break, null is refused by name.",
       "refs": [
         "docs/specs/075-project-dashboard.md"
       ]

@@ -30,13 +30,17 @@ export function projectBinary(env = process.env) {
   throw new Error('The red-project binary is required (run: cargo build -p red-project, or set RENGINE_RED_PROJECT).');
 }
 
-export function askProject(argv) {
+/* `input`, when given, is written to the binary's stdin and the question takes no argument: the
+   subjects that are not paths — an env object a caller proposes — are arbitrary caller input, and
+   argv has a length a caller could reach. */
+export function askProject(argv, input) {
   return new Promise((resolve, reject) => {
-    execFile(projectBinary(), argv, { maxBuffer: 32 * 1024 * 1024 }, (error, stdout) => {
+    const child = execFile(projectBinary(), argv, { maxBuffer: 32 * 1024 * 1024 }, (error, stdout) => {
       let value;
       try { value = JSON.parse(stdout); } catch { reject(error ?? new Error(`red-project answered nothing for ${argv[0]}`)); return; }
       if (value?.error && value?.status !== undefined) { try { fail(value.error, value.status); } catch (refusal) { reject(refusal); } return; }
       resolve(value);
     });
+    child.stdin.end(input ?? '');
   });
 }

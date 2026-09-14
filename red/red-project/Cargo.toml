@@ -5,6 +5,9 @@ edition = "2021"
 description = "What a project declares about itself, and the artifacts it produces: recordings today, the declaration and its formats next (F153-F156, spec 129)"
 
 [dependencies]
+# `utf16_len`: every bound in this crate was written against JavaScript's String#length, which
+# counts UTF-16 code units rather than code points.
+red-core = { path = "../red-core" }
 # The bounded JSON Schema 2020-12 subset with identical error strings, ported in F169/F147a: the
 # declaration is validated by the same code the store validates with.
 red-store = { path = "../red-store" }
