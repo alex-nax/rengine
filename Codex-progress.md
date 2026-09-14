@@ -1,5 +1,40 @@
 # Progress Log
 
+## Session 152 (macos) — 2026-09-14 — resumed pane; exact JSON numbers restore the window gate
+
+Resumed the original Codex conversation through native session
+`04d13d34-887f-4a80-b340-1a66ae2e8919`, PID 69970; verified the environment and root-bound
+MCP for `/Users/alex/rengine` before edits. No new goal or conversation. Read the current
+charter, handoff, architecture and NOLF integration scope. Inventory: 61 passing of 144,
+11 ready. Before taking F118's next game-control slice, repaired the existing project-window
+gate KI-108 under specs 055/069. Other-session F192 Projects-modal, rendering-reference,
+charter, inventory and shared-document edits were already present and are preserved.
+
+The exact layout comparison was right: direct native inspection reported
+`0.23000000417232513`, MCP reported `0.2300000041723251`. A Rust bit-level regression and a
+real MCP HTTP tool-call regression both failed at that number, isolating JSON decoding from
+the native float32 storage. Enabled pinned `serde_json`'s `float_roundtrip` feature in
+shared `red-core`. No dependency version or layout type changed; no tolerance added. Both
+new checks pass, and the unchanged native project-window fixture now completes close/reopen,
+retained agent/draft recovery, interactive script input and durable reports.
+
+Verification: `npm test` 352/352 before, **353/353 after** (31.44 s); native project-window
+fixture red at the exact ratio before, **1/1 after** (13.20 s); `npm run build` and CTest
+**20/20** (35.39 s); harness, design, inventory and whitespace gates pass. The first sandboxed
+service/native attempts were blocked at local sockets, not useful red checks; authorized
+isolated runs reached the assertions. The Rust regression is in CTest's red-core gate and
+the MCP regression in npm's test glob. Full desktop suite not repeated; KI-105 remains open.
+
+Loaded the connector layer through MCP job `a2aa5eb1-d343-4dca-80e0-a9b31008887b` after the
+gates: succeeded, generation 2 → 3, tool worker 70146 → 67559. Original agent PID 69970,
+supervisor, workspace worker, host identity and both desktop IDs/PIDs retained. Project token
+released afterward. No native restart, game launch, sibling edit or training/export operation.
+
+Spec: `docs/specs/135-json-number-roundtrip.md`; evidence:
+`docs/evidence/json-number-roundtrip-macos-2026-09-14.md`. KI-108 closed; no feature gate
+promoted. Remaining: KI-024/F118's meaningful NOLF world-entry/recording oracle, KI-105's
+handoff investigation, Windows qualification and the overall NOLF workspace goal.
+
 ## Session 151 (macos) — 2026-09-14 — the worktree survey, and a spec written before any of it
 
 `/grill-me` on the worktree browser, then the first of its three rows.

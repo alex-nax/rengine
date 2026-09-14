@@ -20,6 +20,21 @@ host and supervisor protocol replacement still requires explicit session managem
 
 ## Goal and current checkpoint
 
+### Verified continuation — 2026-09-14
+
+The same Codex conversation was verified running in native session
+`04d13d34-887f-4a80-b340-1a66ae2e8919` with root-bound MCP for `/Users/alex/rengine`.
+Read the current charter and inventory before acting on historical gaps below: later owner
+decisions include the Rust migration and explicit Windows-host authorization.
+
+The first resumed repair closes KI-108: Rust JSON decoding changed a native split ratio by
+one binary64 step in MCP inspection. Spec 135 enables correctly rounded decoding; the
+unchanged native project-window close/reopen fixture and two isolated numeric regressions
+pass. See `docs/evidence/json-number-roundtrip-macos-2026-09-14.md`. Another session's
+Projects-modal work was preserved. KI-105 remains an independent handoff investigation;
+KI-024/F118 still require the stronger real gameplay oracle. No duplicate goal or CLI was
+started, and no existing game/session was stopped. Re-query live identities on the next turn.
+
 Continue the existing goal: launch the orchestrator on NOLF with a working game tab, project
 tree, basic editor, terminal and agent launcher supporting explicit detection/install/update/
 launch and integrations. Do not create a duplicate goal. The scheduler's pause/resume state is

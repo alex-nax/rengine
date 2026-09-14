@@ -16,7 +16,8 @@ crate-type = ["rlib"]
 getrandom = "0.3"
 prost = "0.13"
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1"
+# Preserve native JSON numbers across transport hops, including standalone MCP builds (spec 135).
+serde_json = { version = "1", features = ["float_roundtrip"] }
 
 [build-dependencies]
 prost-build = "0.13"
