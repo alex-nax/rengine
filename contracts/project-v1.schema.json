@@ -22,7 +22,8 @@
         7,
         8,
         9,
-        10
+        10,
+        11
       ]
     },
     "project": {
@@ -234,6 +235,20 @@
         "manifest": {
           "$ref": "#/$defs/relativePath",
           "description": "The manifest, root-relative and refused when it escapes; declaration-relative for a project declared outside its checkout. The project's own tooling writes it; nothing here fetches or generates it."
+        }
+      }
+    },
+    "worktrees": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "directory"
+      ],
+      "description": "Contract 11 (docs/specs/134-project-and-worktree-browser.md, charter D63). Where this project's git worktrees are created. It is declared rather than conventional because 30 of them accumulated in this repository unseen, inside gitignored directories nothing but git knew about. The directory is normally a SIBLING of the checkout (`../worktrees`): a worktree inside the main working tree is a mistake git itself warns about, and a gitignored one inside it is exactly the invisibility this block exists to end. rEngine creates worktrees here and removes them only when they are clean and merged; it never removes a branch.",
+      "properties": {
+        "directory": {
+          "$ref": "#/$defs/siblingPath",
+          "description": "The directory worktrees are created under, relative to the project root and usually leaving it. Created on first use; never removed."
         }
       }
     }
@@ -934,6 +949,13 @@
           }
         }
       }
+    },
+    "siblingPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^/].*",
+      "description": "Relative to the project root and permitted to LEAVE it (`../worktrees`), unlike relativePath, which refuses `..`. Absolute paths stay refused: a declaration is committed and shared, and a machine's own path is not a fact about the project (AGENTS.md forbids required `~/...` paths). Used where the thing named is deliberately a sibling of the checkout rather than a file in it."
     }
   }
 }

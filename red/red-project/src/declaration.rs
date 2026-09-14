@@ -19,7 +19,7 @@ use crate::rules::{
     dashboard_rules, devices_rules, games_rules, name_of, quoted, report, root_relative, uses, Context,
 };
 
-pub const CONTRACTS: [i64; 10] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+pub const CONTRACTS: [i64; 11] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 /// Brand-mark colours a project may name: each is a saturated fill the design system pairs with the
 /// on-accent ink, which is what keeps the letter legible in every preset.
 pub const ICON_TOKENS: [&str; 5] = ["accent", "ok", "warn", "err", "info"];
@@ -257,7 +257,8 @@ struct Section {
 
 /// devices settle before games, and games before dashboard, so each can resolve the references it
 /// makes; tests and packs reference nothing and are referenced by nothing, so they settle first.
-const SECTIONS: [Section; 7] = [
+const SECTIONS: [Section; 8] = [
+    Section { name: "worktrees", minimum: 11 },
     Section { name: "tests", minimum: 10 },
     Section { name: "packs", minimum: 9 },
     Section { name: "languageServers", minimum: 7 },

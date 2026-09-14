@@ -50,8 +50,10 @@ test('contract 9 carries a pack whose facets are a library and a plugin (spec 10
   // pack assertions below still read as they do.
   // Confirmed for 10: tests is its own block with its own SECTIONS floor, reaches nothing in packs,
   // and every assertion below ran unchanged.
+  // Confirmed for 11: worktrees is its own block naming one directory, with its own SECTIONS floor;
+  // it reaches nothing in packs, and every assertion below ran unchanged (spec 134, charter D63).
   assert.ok(CONTRACTS.at(-1) >= 9, 'the ceiling is at least the packs floor');
-  assert.equal(CONTRACTS.at(-1), 10, 'the ceiling moved with the tests block');
+  assert.equal(CONTRACTS.at(-1), 11, 'the ceiling moved with the worktrees block');
   assert.ok(schema.properties.contract.enum.includes(9), 'the schema knows contract 9 too');
 
   // The renderer's shape (D30): one artifact, one pin, consumed at build time by a game and loaded

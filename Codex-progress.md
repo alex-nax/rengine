@@ -38,6 +38,47 @@ Run on this repository, the consumer path refuses the one remaining worktree on 
 and the declaration offer) and F192 (the modal, the status-bar opener, the agent dropdown) are the
 rest of spec 134.
 
+### F191, the half that writes — and three checks that caught the ceiling moving
+
+The `worktrees` block at **contract 11**, create, remove, and charter D63's declaration offer.
+
+**Implementing D5 found a tension the interview had not reached.** `relativePath` refuses `..`, so
+a declared directory would put worktrees INSIDE the checkout — which git itself warns about, and
+which, gitignored, is precisely the invisibility this feature exists to end. That is how the 15 GB
+accumulated. So the schema gained `$defs/siblingPath`: relative, permitted to leave the root,
+absolute still refused, because a declaration is committed and shared and a machine's own path is
+not a fact about the project.
+
+**D63's bound is structural rather than remembered.** The offer is two calls on purpose:
+`declaration_offer` composes what the file would become and touches nothing; `accept_offer` writes
+the offer it is handed back, and re-composes first so an offer made against a declaration that has
+since changed is refused rather than applied over the change. A caller cannot compose its own text,
+so what lands is what was shown. Unparseable JSON is reported and not rewritten; the contract raise
+is part of the shown edit, because a raised contract is what makes an older reader say "unknown
+contract" rather than "unknown key". Removal refuses by name in the order a person can act on, and
+**never deletes the branch**.
+
+**A sabotage that printed nothing had not passed — it had not run.** The first attempt at "the
+offer writes while it shows" was mis-escaped, never compiled, and a grep for `FAILED` hid the
+compile error. Exactly this morning's `copytree` trap one layer over. Redone so it compiled, it
+failed for its own reason.
+
+**Raising the ceiling turned three JS specs red, and each was right to.** Two are written
+tripwires — "whoever raises the ceiling comes here and confirms the assertions below still read as
+they do" — and both got their `Confirmed for 11` line after the confirmation was actually made.
+The third is the FROZEN declaration record, whose `unknown contract` sentence enumerates the
+supported set; a contract added to the schema must move it, and the record cannot be regenerated
+because the JavaScript that produced it is gone. The enumeration is folded on both sides now, the
+way that corpus already folds the JSON parser's own phrasing: the record stops asserting data
+another document owns and asserts the rule it was taken for — an unknown contract is refused by
+name, with the supported set in the reader's own sentence.
+
+The macOS `/var` → `/private/var` symlink cost the first removal test: git reports real paths.
+Both sides are canonicalised now, and for the worktree whose directory is gone the PARENT is
+canonicalised and the name put back.
+
+`npm test` 352/352, `cargo test --workspace` 139/139, `./init.sh` passes. No JavaScript retired.
+
 ## Session 150 (macos) — 2026-09-14 — the IDE bridge is Rust, and two rules the record could not see
 
 F161's second half (spec 133). `runtime/ide.mjs` (199 → 191) and `agents/ide-connect.mjs` (76 → 26)

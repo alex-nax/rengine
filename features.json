@@ -3592,7 +3592,9 @@
       "owner_workspace": "rengine",
       "deliverable": "The worktrees block in contracts/project-v1.schema.json at contract 11, its rules in red-project, create/remove with the survey, and the declaration offer bounded as D63 states.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "F191, 2026-09-14: docs/evidence/worktree-lifecycle-f191-2026-09-14.md — the worktrees block at contract 11, create and remove, and charter D63's declaration offer. Implementing D5 found a tension the interview had not reached: relativePath refuses `..`, so a declared directory would put worktrees INSIDE the checkout, which git warns about and which — gitignored — is the invisibility this feature exists to end. Hence $defs/siblingPath: relative, may leave the root, absolute still refused. D63's bound is structural rather than remembered: the offer is two calls, `declaration_offer` composes the text and touches nothing, `accept_offer` writes only the offer it is handed and re-composes to refuse one made against a declaration that has since changed; unparseable JSON is reported and not rewritten; the contract raise is part of the shown edit. Removal refuses by name in the order a person can act on, and never deletes the branch. Five sabotages — and the first attempt at one printed nothing because it never compiled, which a grep for FAILED hid: a sabotage with no output has not passed, it has not run. Raising the ceiling turned three JS specs red and each was right: two written tripwires got their Confirmed-for-11 lines, and the frozen declaration record now folds the contract enumeration on both sides — the record cannot be regenerated, so it stops asserting data the schema owns and asserts the rule it was taken for. npm test 352/352, cargo test 139/139."
+      ]
     },
     {
       "id": 192,

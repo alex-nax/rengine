@@ -15,6 +15,7 @@
 //!   red-project dashboard-capture <rootId> <rootPath> <actionId> [probeCache] [declarationFile]
 //!   red-project dashboard-run <rootId> <rootPath> <actionId> <bash> [probeCache] [declarationFile]
 //!   red-project worktrees <rootPath>              every worktree of that root's repository
+//!   red-project worktree <call> <rootPath> [declarationFile]   create|remove|offer|declare, on stdin
 //!
 //! A refusal is `{"error": …, "status": N}` and exit 1, because the JS client this answers turns it
 //! back into the same `fail()` the module it replaced threw. Both of this crate's callers — the
@@ -231,6 +232,30 @@ fn main() -> ExitCode {
         Some("worktrees") => {
             let environment: Vec<(String, String)> = std::env::vars().collect();
             red_project::worktrees::worktrees(arg(1).unwrap_or_default(), &environment)
+        }
+        /* Creating and removing one, and charter D63's declaration offer (F191). The offer is two
+           calls on purpose: `offer` SHOWS what would be written and touches nothing, `declare`
+           writes the offer it is handed back — so nothing can write a block a person never saw. */
+        Some("worktree") => {
+            let mut text = String::new();
+            let _ = std::io::Read::read_to_string(&mut std::io::stdin(), &mut text);
+            let input: serde_json::Value = serde_json::from_str(text.trim()).unwrap_or(serde_json::Value::Null);
+            let string = |name: &str| input.get(name).and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+            let root_path = arg(2).unwrap_or_default();
+            let environment: Vec<(String, String)> = std::env::vars().collect();
+            match arg(1) {
+                Some("create") => {
+                    let declared = red_project::declaration::read(root_path, arg(3));
+                    red_project::worktrees::create(root_path, &declared, &string("branch"), &environment)
+                }
+                Some("remove") => red_project::worktrees::remove(root_path, &string("path"), &environment),
+                Some("offer") => red_project::worktrees::declaration_offer(root_path, &string("directory")),
+                Some("declare") => red_project::worktrees::accept_offer(root_path, &input),
+                other => Err(red_project::recordings::Fail::with_status(
+                    format!("unknown worktree call {}", other.unwrap_or("(none)")),
+                    400,
+                )),
+            }
         }
         Some("recordings") => red_project::recordings::list(arg(1).unwrap_or_default(), arg(2).unwrap_or_default(), arg(3)),
         Some("declaration") => Ok(red_project::declaration::read(arg(1).unwrap_or_default(), arg(2))),
