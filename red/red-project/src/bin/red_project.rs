@@ -4,6 +4,7 @@
 //!   red-project recordings <rootId> <rootPath> [limit]
 //!   red-project recording  <rootId> <rootPath> <id> [artifact] [offset] [limit] [maxCharacters]
 //!   red-project env-rules                    the env object on stdin, its problems on stdout
+//!   red-project workspace <rootId> <rootPath> [refresh] [probeCache]  devices and dashboard
 //!
 //! A refusal is `{"error": …, "status": N}` and exit 1, because the JS client this answers turns it
 //! back into the same `fail()` the module it replaced threw. Both of this crate's callers — the
@@ -30,6 +31,33 @@ fn main() -> ExitCode {
                 }
                 Err(error) => Err(red_project::recordings::Fail { message: format!("cannot read the env: {error}"), status: 400 }),
             }
+        }
+        /* Both listings in one run, because they share a probe cache: the dashboard asks each
+           action's device whether it answers, and the devices tab asks the dashboard what is bound
+           to each one. Answering them separately would cost a probe per action. */
+        Some("workspace") => {
+            let (root_id, root_path) = (arg(1).unwrap_or_default(), arg(2).unwrap_or_default());
+            let environment: Vec<(String, String)> = std::env::vars().collect();
+            let probes = match arg(4) {
+                Some(file) => red_project::devices::Probes::kept_at(std::path::Path::new(file)),
+                None => red_project::devices::Probes::default(),
+            };
+            let now = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|since| since.as_millis() as i64).unwrap_or(0);
+            let context = red_project::devices::Context {
+                root_id,
+                root_path,
+                environment: &environment,
+                probes: &probes,
+                refresh: arg(3) == Some("refresh"),
+                now: &now,
+            };
+            let declared = red_project::declaration::read(root_path, None);
+            let answer = serde_json::json!({
+                "devices": red_project::dashboard::project_devices(&context, &declared),
+                "dashboard": red_project::dashboard::dashboard_actions(&context, &declared),
+            });
+            probes.keep(now());
+            Ok(answer)
         }
         Some("recordings") => red_project::recordings::list(arg(1).unwrap_or_default(), arg(2).unwrap_or_default(), arg(3)),
         Some("declaration") => Ok(red_project::declaration::read(arg(1).unwrap_or_default(), arg(2))),

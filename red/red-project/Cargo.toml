@@ -13,6 +13,11 @@ red-core = { path = "../red-core" }
 red-store = { path = "../red-store" }
 serde_json = { version = "1", features = ["preserve_order"] }
 
+# A declared command runs in its own process group so a timeout takes what it started with it, and
+# a holder's liveness is `kill(pid, 0)`. Already in the lock through getrandom.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 # One binary, one subcommand per question, so a JS caller that still needs an answer asks the same
 # implementation red-host does rather than keeping a second one in JavaScript.
 [[bin]]

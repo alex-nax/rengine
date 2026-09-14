@@ -2743,6 +2743,7 @@ dependencies = [
 name = "red-project"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "red-core",
  "red-store",
  "serde_json",

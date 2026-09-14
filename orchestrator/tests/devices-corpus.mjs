@@ -111,10 +111,7 @@ export async function answers() {
       const held = {};
       for (const [key, value] of Object.entries(options.env ?? {})) { held[key] = process.env[key]; process.env[key] = value; }
       try {
-        const root = options.document === null
-          ? await bare(directory, name)
-          : await deviceProject(directory, slug(name), options.document);
-        for (const [file, body] of Object.entries(options.files ?? {})) await writeFile(path.join(root, file), body);
+        const root = await project(directory, name, options);
         const selected = { id: `root-${slug(name)}`, path: root, name: 'fixture' };
         const declared = await readDeclaration(root);
         const preflight = (rootId, gameId) => inspectGame(selected, gameId);
@@ -134,12 +131,23 @@ export async function answers() {
   } finally { await rm(directory, { recursive: true, force: true }); }
 }
 
-const slug = name => name.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 48);
-async function bare(directory, name) {
-  const root = path.join(directory, slug(name));
-  await mkdir(root, { recursive: true });
+export const slug = name => name.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 48);
+export const rootId = name => `root-${slug(name)}`;
+
+/** The project a case is asked about, written fresh so its probe counter starts at zero. */
+export async function project(directory, name, options) {
+  if (options.document === null) {
+    const root = path.join(directory, slug(name));
+    await mkdir(root, { recursive: true });
+    return root;
+  }
+  const root = await deviceProject(directory, slug(name), options.document);
+  for (const [file, body] of Object.entries(options.files ?? {})) await writeFile(path.join(root, file), body);
   return root;
 }
+
+/** The folding both harnesses apply, so the Rust side is compared on the same terms. */
+export { fold };
 
 export const RECORDED = await (async () => {
   try { return JSON.parse(await readFile(new URL('./devices-corpus.json', import.meta.url), 'utf8')); }
