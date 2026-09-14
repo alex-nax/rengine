@@ -158,6 +158,8 @@ pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &
             }
             red_project::preview::read_bytes(&id, &root_path, &serde_json::Value::Object(asked_window)).map_err(refusal)
         }
+        /* What git already knows about this root's repository (F190, spec 134). Read-only. */
+        "/api/worktrees" => red_project::worktrees::worktrees(&root_path, &environment).map_err(refusal),
         "/api/format-preview" => {
             let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
             red_project::preview::format_preview(&root_path, &declared, &data, &environment).map_err(refusal)

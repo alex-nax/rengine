@@ -299,6 +299,8 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
     ['game-config', 'what a declared game needs before it can be launched'],
     ['tracker', 'its own task inventory'],
     ['bytes', 'a window of one of its files', '&path=note.txt'],
+    /* F190/F192: a root that is not in a repository still ANSWERS — by name, 415 — which is the
+       ordinary case for a project root and not a fault. Asserted below rather than here. */
   ]) {
     assert.equal((await ask(instance, `/api/${route}?rootId=${root.id}${extra}`)).status, 200, what);
   }
@@ -313,6 +315,13 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
     const answered = await ask(instance, `/api/${route}`, body);
     assert.match((await answered.json()).error, said, `${route} is refused by the door, not forwarded`);
   }
+  /* The worktree survey (F190, spec 134). This fixture is a scratch directory rather than a
+     checkout, so the door answers the refusal a project outside a repository earns — which is the
+     point: it ANSWERS, from the root, with no backend behind it. */
+  const surveyed = await ask(instance, `/api/worktrees?rootId=${root.id}`);
+  assert.equal(surveyed.status, 415, 'the worktree survey is the door\'s too');
+  assert.equal((await surveyed.json()).error, 'This project is not in a git repository.');
+
   assert.equal((await alone.json()).text, 'through the door\n', 'from the state directory\'s own store');
   await assert.rejects(async () => {
     /* Launching a game is still the backend's: it reserves a workspace surface and joins an

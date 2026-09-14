@@ -3614,7 +3614,9 @@
       "owner_workspace": "rengine",
       "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "F192 (the data path), 2026-09-14: /api/worktrees is answered by red-host from red_project::worktrees and by the worker from a thin client, so the desktop can ask for the survey over HTTP rather than through a binary. Proven the way every owned project route is: with the backend stopped, the door still answers — here with the refusal a project outside a repository earns (415, 'This project is not in a git repository.'), which is the ordinary case for a scratch root and not a fault. Sabotage verified by removing it from the door's match, which the spec sees as the forward-with-no-backend it is written against. The repository stays a grouping for the view: the route answers one root's repository and its worktrees, and nothing in the store learns what a repository is (spec 134 D2). The modal, the status-bar opener, the toolbar removals and the agent dropdown are the rest of this row."
+      ]
     }
   ]
 }

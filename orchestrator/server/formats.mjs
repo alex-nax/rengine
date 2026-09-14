@@ -28,6 +28,12 @@ export async function formatPreview(root, data) {
   return askProject(['preview', root.id, root.path, declarationOf(root)], JSON.stringify(data));
 }
 
+/* What git already knows about a root's repository (F190/F192, spec 134). Read-only, and grouped by
+   the caller: the repository is a heading in the view and never a record in the store (D2). */
+export async function projectWorktrees(root) {
+  return askProject(['worktrees', typeof root === 'string' ? root : root.path]);
+}
+
 export async function readBytes(root, data) {
   return askProject(['bytes', root.id, root.path], JSON.stringify(data));
 }

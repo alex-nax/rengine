@@ -1,7 +1,7 @@
 import http from 'node:http';
 import path from 'node:path';
 import { openScript } from './scripts.mjs';
-import { listFormats, formatPreview, readBytes, readDeclaration } from '../server/formats.mjs';
+import { listFormats, formatPreview, projectWorktrees, readBytes, readDeclaration } from '../server/formats.mjs';
 import { dashboardAction, dashboardActions, dashboardRunPayload, dashboardCapture } from '../server/dashboard.mjs';
 import { inspectGame } from '../server/games.mjs';
 import { LOCAL, projectDevices } from '../server/devices.mjs';
@@ -478,6 +478,8 @@ export async function startWorker(host, options = {}) {
         await refresh(); json(res, 200, await listFormats(root(target.searchParams.get('rootId'))));
       } else if (req.method === 'POST' && target.pathname === '/api/format-preview') {
         const data = await body(req); await refresh(); json(res, 200, await formatPreview(root(data.rootId), data));
+      } else if (req.method === 'GET' && target.pathname === '/api/worktrees') {
+        await refresh(); json(res, 200, await projectWorktrees(root(target.searchParams.get('rootId'))));
       } else if (req.method === 'GET' && target.pathname === '/api/bytes') {
         await refresh(); json(res, 200, await readBytes(root(target.searchParams.get('rootId')), Object.fromEntries(target.searchParams)));
       } else if (req.method === 'GET' && target.pathname === '/api/game-config') {

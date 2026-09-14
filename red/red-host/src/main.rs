@@ -380,7 +380,7 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
         if (head.method == "GET"
             && matches!(
                 head.path().as_str(),
-                "/api/formats" | "/api/recordings" | "/api/recording" | "/api/dashboard" | "/api/devices" | "/api/game-config" | "/api/tracker" | "/api/bytes"
+                "/api/formats" | "/api/recordings" | "/api/recording" | "/api/dashboard" | "/api/devices" | "/api/game-config" | "/api/tracker" | "/api/bytes" | "/api/worktrees"
             ))
             || (head.method == "POST" && matches!(head.path().as_str(), "/api/format-preview" | "/api/dashboard-capture"))
         {
