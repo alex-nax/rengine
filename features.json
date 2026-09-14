@@ -2723,7 +2723,9 @@
       "owner_workspace": "rengine",
       "deliverable": "The Rust local tracker and task-write path, the byte-compared fixtures, the corrected schema description, and the two-writer test; the JS removed.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "F153 (the local half), 2026-09-14: docs/evidence/tasks-f153-2026-09-14.md — red_project::tasks answers what tasks.mjs answered; the module is a thin client (194 -> 79). Judged against 45 cases recorded from the JavaScript, every refusal word for word: spec 103's boundary is that the workspace never edits an inventory, and an agent acts on 'Nothing was attempted'. Three sabotages; the third passed first — an unfilled KNOWN placeholder dropped rather than left in place had no case, because promptValues always supplies all five, so a case was added and the corpus re-recorded (the 44 existing came back identical). The agent menu needed designing rather than translating: running a CLI is the caller's business but knowing which to run is the module's rule, so the menu answers in two halves — what it can build now, and the CLIs whose --help it still wants — which keeps 'a declared menu asks no CLI anything' one rule. knownAgents and modelArgs stay in JS, read synchronously from the registry projection a caller composing an argv needs. npm test 338/338. JS on the app path 5,906 -> 5,791."
+      ]
     },
     {
       "id": 154,

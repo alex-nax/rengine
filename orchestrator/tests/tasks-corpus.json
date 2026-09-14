@@ -1,0 +1,480 @@
+{
+  "writeCommand with no declaration": {
+    "refused": {
+      "message": "This project declares nothing in .rengine/project.json, so it names no tracker.write command for the workspace to run. Nothing was attempted.",
+      "status": 415
+    }
+  },
+  "writeCommand on a declaration that would not read": {
+    "refused": {
+      "message": ".rengine/project.json: broken",
+      "status": 415
+    }
+  },
+  "writeCommand on a tracker block that would not read": {
+    "refused": {
+      "message": ".rengine/project.json: $.tracker is wrong",
+      "status": 415
+    }
+  },
+  "writeCommand against a remote tracker": {
+    "refused": {
+      "message": "This project's tracker is github, and the workspace writes only the local backend: neither GitHub nor Linear offers concurrency control on an issue write, so a write from here would be last-write-wins against a teammate's web edit (spec 083 decision 1, amended for local only by spec 103 decision 3). Nothing was attempted.",
+      "status": 409
+    }
+  },
+  "writeCommand with no write command declared": {
+    "refused": {
+      "message": "This project declares no tracker.write command, so the workspace has nothing to run: the workspace never edits the inventory itself. Add tracker.write to .rengine/project.json (contract 6) naming the project’s own write command with ${json}. Nothing was attempted.",
+      "status": 409
+    }
+  },
+  "writeCommand with nothing declared at all": {
+    "refused": {
+      "message": "This project declares no tracker.write command, so the workspace has nothing to run: the workspace never edits the inventory itself. Add tracker.write to .rengine/project.json (contract 6) naming the project’s own write command with ${json}. Nothing was attempted.",
+      "status": 409
+    }
+  },
+  "writeCommand a project declares": {
+    "ok": {
+      "kind": "text",
+      "command": [
+        "tools/write.sh",
+        "${json}"
+      ],
+      "timeoutMs": 60000,
+      "maxBytes": 4194304
+    }
+  },
+  "writeDocument with an unknown action": {
+    "refused": {
+      "message": "Choose one of add, update, decompose.",
+      "status": 400
+    }
+  },
+  "writeDocument with no row": {
+    "refused": {
+      "message": "A task write carries its row as a JSON object.",
+      "status": 400
+    }
+  },
+  "writeDocument with an array for a row": {
+    "refused": {
+      "message": "A task write carries its row as a JSON object.",
+      "status": 400
+    }
+  },
+  "writeDocument with an empty parent": {
+    "refused": {
+      "message": "A parent is the key of the task the new row belongs under.",
+      "status": 400
+    }
+  },
+  "writeDocument decomposing without a parent": {
+    "refused": {
+      "message": "A decompose write is a child row and needs the parent it belongs under. Nothing was attempted.",
+      "status": 400
+    }
+  },
+  "writeDocument over the row limit": {
+    "refused": {
+      "message": "A task row is at most 65536 bytes of JSON.",
+      "status": 413
+    }
+  },
+  "writeDocument for an add": {
+    "ok": {
+      "document": {
+        "id": "7",
+        "key": "F7",
+        "title": "A row",
+        "labels": [
+          "one",
+          "two"
+        ],
+        "criteria": [
+          "first",
+          "second"
+        ],
+        "action": "add"
+      },
+      "json": "{\"id\":\"7\",\"key\":\"F7\",\"title\":\"A row\",\"labels\":[\"one\",\"two\"],\"criteria\":[\"first\",\"second\"],\"action\":\"add\"}"
+    }
+  },
+  "writeDocument for a decompose under a parent": {
+    "ok": {
+      "document": {
+        "id": "7",
+        "key": "F7",
+        "title": "A row",
+        "labels": [
+          "one",
+          "two"
+        ],
+        "criteria": [
+          "first",
+          "second"
+        ],
+        "parent": "F1",
+        "action": "decompose"
+      },
+      "json": "{\"id\":\"7\",\"key\":\"F7\",\"title\":\"A row\",\"labels\":[\"one\",\"two\"],\"criteria\":[\"first\",\"second\"],\"parent\":\"F1\",\"action\":\"decompose\"}"
+    }
+  },
+  "writeDocument for a row that carries its own action": {
+    "ok": {
+      "document": {
+        "id": "7",
+        "key": "F7",
+        "title": "A row",
+        "labels": [
+          "one",
+          "two"
+        ],
+        "criteria": [
+          "first",
+          "second"
+        ],
+        "action": "add"
+      },
+      "json": "{\"id\":\"7\",\"key\":\"F7\",\"title\":\"A row\",\"labels\":[\"one\",\"two\"],\"criteria\":[\"first\",\"second\"],\"action\":\"add\"}"
+    }
+  },
+  "renderPrompt with every placeholder": {
+    "ok": {
+      "text": "7 F7 A row\n1. first\n2. second\none, two"
+    }
+  },
+  "renderPrompt with one the workspace does not fill": {
+    "refused": {
+      "message": "the fixture brief names ${owner}, which is not a placeholder the workspace fills. Use ${id}, ${key}, ${title}, ${criteria}, ${labels}. Nothing was started.",
+      "status": 422
+    }
+  },
+  "renderPrompt with several it does not fill": {
+    "refused": {
+      "message": "the fixture brief names ${owner}, ${due}, which are not placeholders the workspace fills. Use ${id}, ${key}, ${title}, ${criteria}, ${labels}. Nothing was started.",
+      "status": 422
+    }
+  },
+  "renderPrompt with an empty placeholder name": {
+    "refused": {
+      "message": "the fixture brief names ${}, which is not a placeholder the workspace fills. Use ${id}, ${key}, ${title}, ${criteria}, ${labels}. Nothing was started.",
+      "status": 422
+    }
+  },
+  "renderPrompt with a known placeholder the values do not carry": {
+    "ok": {
+      "text": "Only the title: ${criteria}"
+    }
+  },
+  "promptValues for a full row": {
+    "ok": {
+      "id": "7",
+      "key": "F7",
+      "title": "A row",
+      "labels": "one, two",
+      "criteria": "1. first\n2. second"
+    }
+  },
+  "promptValues for a row with nothing on it": {
+    "ok": {
+      "id": "",
+      "key": "",
+      "title": "",
+      "labels": "none",
+      "criteria": "None are recorded in the inventory; establish them with the project before implementing."
+    }
+  },
+  "promptValues for a row with no criteria": {
+    "ok": {
+      "id": "7",
+      "key": "F7",
+      "title": "A row",
+      "labels": "one, two",
+      "criteria": "None are recorded in the inventory; establish them with the project before implementing."
+    }
+  },
+  "modelArgs with no model": {
+    "ok": {
+      "args": []
+    }
+  },
+  "modelArgs with a model that is not an identifier": {
+    "refused": {
+      "message": "A model is a plain identifier the CLI accepts.",
+      "status": 400
+    }
+  },
+  "modelArgs for a CLI whose recipe names no flag": {
+    "refused": {
+      "message": "rEngine does not know how gemini is told which model to run, so it will not guess a flag: start gemini without a model, or declare the flagged CLI you meant. Nothing was started.",
+      "status": 409
+    }
+  },
+  "modelArgs for a CLI whose recipe names one": {
+    "ok": {
+      "args": [
+        "--model",
+        "claude-opus-5"
+      ]
+    }
+  },
+  "codexModels on help that names none": {
+    "ok": {
+      "models": []
+    }
+  },
+  "codexModels on help that lists them": {
+    "ok": {
+      "models": [
+        "gpt-6-astra",
+        "gpt-6-sol"
+      ]
+    }
+  },
+  "codexModels on help whose list wraps": {
+    "ok": {
+      "models": [
+        "a-one"
+      ]
+    }
+  },
+  "codexModels on help with names it will not take": {
+    "ok": {
+      "models": [
+        "ok-one",
+        "ok-two"
+      ]
+    }
+  },
+  "parseInstalled on nothing": {
+    "ok": {
+      "installed": {}
+    }
+  },
+  "parseInstalled on a listing": {
+    "ok": {
+      "installed": {
+        "claude": true,
+        "codex": false,
+        "kimi": false
+      }
+    }
+  },
+  "knownAgents from the registry": {
+    "ok": {
+      "agents": [
+        {
+          "cli": "claude",
+          "models": [
+            "claude-fable-5-1",
+            "claude-opus-5",
+            "claude-sonnet-5",
+            "claude-haiku-4-5-20251001"
+          ],
+          "default": "claude-opus-5"
+        },
+        {
+          "cli": "codex",
+          "models": [],
+          "default": ""
+        },
+        {
+          "cli": "gemini",
+          "models": [],
+          "default": ""
+        },
+        {
+          "cli": "opencode",
+          "models": [],
+          "default": ""
+        },
+        {
+          "cli": "kimi",
+          "models": [],
+          "default": ""
+        }
+      ]
+    }
+  },
+  "agentsMenu a project declares": {
+    "ok": {
+      "rootId": "<rootId>",
+      "declared": true,
+      "agents": [
+        {
+          "cli": "claude",
+          "installed": true,
+          "models": [
+            "m-one",
+            "m-two"
+          ],
+          "default": "m-one"
+        }
+      ]
+    }
+  },
+  "agentsMenu with nothing declared": {
+    "ok": {
+      "rootId": "<rootId>",
+      "declared": false,
+      "agents": [
+        {
+          "cli": "claude",
+          "installed": true,
+          "models": [
+            "claude-fable-5-1",
+            "claude-opus-5",
+            "claude-sonnet-5",
+            "claude-haiku-4-5-20251001"
+          ],
+          "default": "claude-opus-5"
+        },
+        {
+          "cli": "codex",
+          "installed": true,
+          "models": [
+            "gpt-6-astra",
+            "gpt-6-sol"
+          ],
+          "default": "gpt-6-astra"
+        },
+        {
+          "cli": "gemini",
+          "installed": false,
+          "models": [],
+          "default": ""
+        },
+        {
+          "cli": "opencode",
+          "installed": false,
+          "models": [],
+          "default": ""
+        },
+        {
+          "cli": "kimi",
+          "installed": false,
+          "models": [],
+          "default": ""
+        }
+      ]
+    }
+  },
+  "agentsMenu when the help CLI is not installed": {
+    "ok": {
+      "rootId": "<rootId>",
+      "declared": false,
+      "agents": [
+        {
+          "cli": "claude",
+          "installed": true,
+          "models": [
+            "claude-fable-5-1",
+            "claude-opus-5",
+            "claude-sonnet-5",
+            "claude-haiku-4-5-20251001"
+          ],
+          "default": "claude-opus-5"
+        },
+        {
+          "cli": "codex",
+          "installed": false,
+          "models": [],
+          "default": ""
+        },
+        {
+          "cli": "gemini",
+          "installed": false,
+          "models": [],
+          "default": ""
+        },
+        {
+          "cli": "opencode",
+          "installed": false,
+          "models": [],
+          "default": ""
+        },
+        {
+          "cli": "kimi",
+          "installed": false,
+          "models": [],
+          "default": ""
+        }
+      ]
+    }
+  },
+  "taskWrite through a project command that answers JSON": {
+    "ok": {
+      "rootId": "<rootId>",
+      "action": "add",
+      "key": "F7",
+      "command": [
+        "tools/write.sh",
+        "{\"id\":\"7\",\"key\":\"F7\",\"title\":\"A row\",\"labels\":[\"one\",\"two\"],\"criteria\":[\"first\",\"second\"],\"action\":\"add\"}"
+      ],
+      "durationMs": "<ms>",
+      "stdout": "{\"ok\":true,\"got\":{\"id\":\"7\",\"key\":\"F7\",\"title\":\"A row\",\"labels\":[\"one\",\"two\"],\"criteria\":[\"first\",\"second\"],\"action\":\"add\"}}",
+      "result": {
+        "ok": true,
+        "got": {
+          "id": "7",
+          "key": "F7",
+          "title": "A row",
+          "labels": [
+            "one",
+            "two"
+          ],
+          "criteria": [
+            "first",
+            "second"
+          ],
+          "action": "add"
+        }
+      }
+    }
+  },
+  "taskWrite through a command that answers prose": {
+    "ok": {
+      "rootId": "<rootId>",
+      "action": "update",
+      "key": "F7",
+      "command": [
+        "tools/write.sh",
+        "{\"id\":\"7\",\"key\":\"F7\",\"title\":\"A row\",\"labels\":[\"one\",\"two\"],\"criteria\":[\"first\",\"second\"],\"action\":\"update\"}"
+      ],
+      "durationMs": "<ms>",
+      "stdout": "wrote {\"id\":\"7\",\"key\":\"F7\",\"title\":\"A row\",\"labels\":[\"one\",\"two\"],\"criteria\":[\"first\",\"second\"],\"action\":\"update\"}\n"
+    }
+  },
+  "taskWrite through a command that refuses": {
+    "refused": {
+      "message": "Command failed (exit 3): the inventory is locked",
+      "status": 502
+    }
+  },
+  "promptFor a brief the workspace ships": {
+    "ok": {
+      "source": "rEngine's shipped task.md",
+      "text": "# F7 — A row\n\nYou were started on this task from the workspace's Tasks pane. It is the whole of your assignment;\nfinish it, or say clearly what stopped you.\n\n- Task: `F7` (id `7`)\n- Title: A row\n- Labels: one, two\n\nAcceptance criteria:\n\n1. first\n2. second\n\nBefore you write anything:\n\n1. Read this project's agent instructions (`AGENTS.md`, `CLAUDE.md`, or whatever the root carries)\n   and follow them. They outrank this prompt wherever the two disagree.\n2. Take the project token before any exclusive edit — a file two agents could touch, the task\n   inventory, a build directory. `token_status` says who holds it; `token_contest` takes it, with\n   one line saying what you are about to do. Release it with `token_release` when that work is done.\n   The workspace enforces the token on what passes through it and shows every hold on the feed; your\n   own editor and shell are not gated, so the token there is a promise you keep.\n3. Record progress the way this project records it — its progress log, its inventory, its commit\n   conventions — not in a form of your own.\n\nWrite the task's state back through the workspace's task tools (`task_update`), so the pane and\neverybody watching the feed see it move. Do not edit the inventory file by hand.\n"
+    }
+  },
+  "promptFor a brief the project overrides": {
+    "ok": {
+      "source": ".rengine/prompts/task.md",
+      "text": "Project brief for F7: A row\n1. first\n2. second"
+    }
+  },
+  "promptFor a brief that is not one": {
+    "refused": {
+      "message": "Choose a brief: task or decompose.",
+      "status": 400
+    }
+  },
+  "promptFor a project brief naming a placeholder the workspace does not fill": {
+    "refused": {
+      "message": ".rengine/prompts/decompose.md names ${owner}, which is not a placeholder the workspace fills. Use ${id}, ${key}, ${title}, ${criteria}, ${labels}. Nothing was started.",
+      "status": 422
+    }
+  }
+}

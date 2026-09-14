@@ -20,6 +20,7 @@ pub const PAGE_MAX: i64 = 1000;
 const MAX_INDEX_BYTES: usize = 16 * 1024 * 1024;
 
 /// A refusal carrying the status the JS route answered with.
+#[derive(Debug, Clone)]
 pub struct Fail {
     pub message: String,
     pub status: u16,

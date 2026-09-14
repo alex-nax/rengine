@@ -106,6 +106,22 @@ its process — the JavaScript kept one in memory and joined probes already in f
 per-call implementation cannot do, so it is on disk under the same TTL. The half that matters is
 preserved exactly: both listings come from ONE run, so three actions on one device cost one probe.
 
+**F153's local half: task writes, prompts and the agent menu are Rust.** `tasks.mjs` 194 → 79,
+judged against 45 recorded cases. Spec 083 refused task writes outright; spec 103 amended that for
+the local backend only, and only by running the command the project declared — so every refusal here
+is a boundary someone argued for, and an agent acts on the sentence: "Nothing was attempted" means
+its inventory is untouched. Three sabotages, and the third passed first: an unfilled *known*
+placeholder dropped rather than left in place had no case, because `promptValues` always supplies
+all five. A case was added and the corpus re-recorded while the JavaScript still answered; the 44
+existing came back identical.
+
+The menu needed designing rather than translating. It asks `codex --help` for its own model list —
+but only when the project declares no agents, and only when that CLI is installed, which
+`task-writes.test.mjs` pins by throwing from the `help` function it injects. Running a process is
+the caller's business; knowing **which** to run is the module's rule. So the menu answers in two
+halves — what it can build now, and the CLIs whose `--help` it still wants — and the client asks
+again with what it found.
+
 **The desktop gate, run for the first time in this arc.** 43 specs, ten minutes, not in `npm test`
 (KI-105). 78 of 81 pass — including every token spec, so the ledger-as-a-service did not break the
 desktop's status segment, which is the consumer path F157 most had to keep. Both failures predate
@@ -129,9 +145,9 @@ And a defect of my own, found by comparing the new service with red-store rather
 drops it first. One client that stopped reading would have frozen a workspace's arbitration for
 every other client and for the settle sweep. The pushes queue under the lock and go out after it.
 
-Commands: `npm test` 335/335 · `cargo test` 89/89 · `./init.sh` ·
+Commands: `npm test` 338/338 · `cargo test` 91/91 · `./init.sh` ·
 `python3 tools/features.py validate` · `python3 tools/design.py check`.
-JavaScript on the app path: **6,533 → 5,906**.
+JavaScript on the app path: **6,533 → 5,791**.
 
 Remaining: KI-108's layout half. F158 (the worker, and with it `main.mjs`, `sessions-client.mjs`, `store-client.mjs`,
 `pty-client.mjs`). F152/F189 still wait on F186, which is the owner's live-pane run. KI-105 (the

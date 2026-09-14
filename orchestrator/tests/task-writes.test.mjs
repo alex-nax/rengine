@@ -92,7 +92,7 @@ test('a project prompt overrides the shipped one, a missing file uses the defaul
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-prompt-')));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const root = { id: 'r', path: directory };
-  const values = promptValues({ id: 7, key: 'F7', title: 'Ship the thing', labels: ['M1', 'core'], criteria: ['One thing', 'Another'] });
+  const values = await promptValues({ id: 7, key: 'F7', title: 'Ship the thing', labels: ['M1', 'core'], criteria: ['One thing', 'Another'] });
 
   const shipped = await promptFor(root, 'task', values);
   assert.match(shipped.source, /shipped task\.md/);
@@ -352,8 +352,8 @@ test('the agent menu is the declaration’s when it has one and rEngine’s know
   assert.equal(declared.declared, true);
   assert.deepEqual(declared.agents, [{ cli: 'claude', installed: false, models: ['claude-opus-5'], default: 'claude-opus-5' }]);
 
-  assert.deepEqual(codexModels('nothing here mentions a model'), []);
-  assert.deepEqual(codexModels('  --profile <P>  [possible values: a, b]\n'), [], 'a possible-values list belonging to another flag is not a model list');
+  assert.deepEqual(await codexModels('nothing here mentions a model'), []);
+  assert.deepEqual(await codexModels('  --profile <P>  [possible values: a, b]\n'), [], 'a possible-values list belonging to another flag is not a model list');
   assert.deepEqual(modelArgs('claude', 'claude-opus-5'), ['--model', 'claude-opus-5']);
   assert.deepEqual(modelArgs('codex', 'gpt-5'), ['-m', 'gpt-5']);
   assert.deepEqual(modelArgs('kimi', 'kimi-code/kimi-for-coding'), ['-m', 'kimi-code/kimi-for-coding'], 'kimi spells its model flag -m');
@@ -361,7 +361,7 @@ test('the agent menu is the declaration’s when it has one and rEngine’s know
   assert.throws(() => modelArgs('opencode', 'anything'), /does not know how opencode is told which model/);
 
   /* The workspace's own two fields win over a row that carries them, so a row cannot rename the call. */
-  assert.deepEqual(writeDocument({ action: 'add', row: { key: 'F1', action: 'update', parent: 'F9' }, parent: 'F2' }).document,
+  assert.deepEqual((await writeDocument({ action: 'add', row: { key: 'F1', action: 'update', parent: 'F9' }, parent: 'F2' })).document,
     { key: 'F1', parent: 'F2', action: 'add' });
 });
 

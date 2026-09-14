@@ -195,7 +195,7 @@ export async function startWorker(host, options = {}) {
     const agent = typeof data.agent === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(data.agent) ? data.agent : fail('Choose an agent CLI to spawn.');
     const brief = data.brief ?? 'task';
     const row = await taskRow(rootId, data.taskKey);
-    const args = [...modelArgs(agent, data.model), (await promptFor(root(rootId), brief, promptValues(row))).text];
+    const args = [...modelArgs(agent, data.model), (await promptFor(root(rootId), brief, await promptValues(row))).text];
     /* Named here rather than left to the host, and only for a CLI that accepts being told which
        conversation to start: one that can only resume (codex, kimi) or names its own is started
        unnamed and records none — the same treatment the pane launcher gives it, never a refusal

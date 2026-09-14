@@ -11,6 +11,8 @@ red-core = { path = "../red-core" }
 # The bounded JSON Schema 2020-12 subset with identical error strings, ported in F169/F147a: the
 # declaration is validated by the same code the store validates with.
 red-store = { path = "../red-store" }
+# The recipe registry: which CLIs there are, which models each offers and how it is told one.
+red-agents = { path = "../red-agents" }
 serde_json = { version = "1", features = ["preserve_order"] }
 
 # A declared command runs in its own process group so a timeout takes what it started with it, and
