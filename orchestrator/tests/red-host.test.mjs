@@ -23,6 +23,7 @@ import { WebSocket } from 'ws';
 import { startServer } from '../server/main.mjs';
 import { PtyHost } from '../server/pty-client.mjs';
 import { agentTitle } from '../server/sessions-client.mjs';
+import { runtimeDirectory } from '../runtime/discovery.mjs';
 import { fakeCli } from './task-fixtures.mjs';
 import { Desktops } from '../server/desktops.mjs';
 import { endStateServices } from './state-services.mjs';
@@ -719,9 +720,22 @@ test('a pane started at the door is the pane the JS host would have started', { 
 
   /* An agent pane, where the composition decides what is launched. Both hosts run the same
      red-agents composition, so the argv, the conversation and the title must agree. */
-  const [mine, theirsAgent] = [await started(instance, { rootId: root.id, type: 'agent', agent: 'claude' }),
-    await started(backend, { rootId: root.id, type: 'agent', agent: 'claude' })];
+  const mine = await started(instance, { rootId: root.id, type: 'agent', agent: 'claude' });
+  /* KI-110: the context the pane's connector routes by, read BEFORE the JS host launches its own —
+     both hosts write the same filename, and the door is the writer the live path uses. A context
+     without `runtimeDirectory` leaves red-mcp's computed default as the only thing standing, and a
+     reader that computed nothing served every pane from this door: eight capabilities short of the
+     root-bound worker. The value is the one `ensureRuntime` would start THIS host's supervisor in. */
+  const doorContext = JSON.parse(await readFile(path.join(stateDir, 'integrations', `${root.id}.json`), 'utf8'));
+  const theirsAgent = await started(backend, { rootId: root.id, type: 'agent', agent: 'claude' });
   assert.deepEqual(comparable(mine), comparable(theirsAgent), 'the same agent pane');
+  const theirsContext = JSON.parse(await readFile(path.join(stateDir, 'integrations', `${root.id}.json`), 'utf8'));
+  assert.deepEqual(Object.keys(doorContext).sort(), Object.keys(theirsContext).sort(),
+    'the door mints the shape the JS host mints');
+  assert.equal(doorContext.instance, door.instance, 'the door binds a pane to itself, not to the backend');
+  assert.equal(doorContext.runtimeDirectory, runtimeDirectory({ ...instance, instance: door.instance }),
+    'and names the runtime directory its own supervisor uses');
+  assert.equal(theirsContext.runtimeDirectory, runtimeDirectory(backend), 'each host names its own');
   assert.match(mine.title, /^claude [0-9a-f]{8} · /, 'titled with the conversation the composition minted');
   assert.equal(mine.title, agentTitle('claude', mine.conversation, root.name), 'exactly as the JS host titles it');
   assert.notEqual(mine.conversation, theirsAgent.conversation, 'each pane mints its own');

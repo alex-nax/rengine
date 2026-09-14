@@ -323,9 +323,7 @@ async fn spawn_pane(front: &Arc<Front>, options: &Value) -> Result<Value, String
             overrides.insert("RENGINE_HANDOFF_FILE".to_string(), json!(snapshot.to_string_lossy()));
         }
         let context = integrations.join(format!("{root_id}.json"));
-        write_private(&context, json!({
-            "url": front.url, "token": front.token, "instance": front.instance, "rootId": root_id,
-        }).to_string().as_bytes())?;
+        write_private(&context, agent_context(&front.url, &front.token, &front.instance, &root_id).to_string().as_bytes())?;
 
         let decided = conversation.is_some() || options.get("args").and_then(Value::as_array).is_some_and(|args| !args.is_empty());
         let remembered = if decided {
@@ -515,6 +513,17 @@ fn node_path() -> String {
         }
     }
     "node".to_string()
+}
+
+/// The binding an agent pane's CLI reads, and the one its connector routes by (spec 095).
+///
+/// `runtimeDirectory` is the writer arm of KI-110: the reader computes this same default when the
+/// field is absent, and a door that left it out made that reader the only thing standing.
+fn agent_context(url: &str, token: &str, instance: &str, root_id: &str) -> Value {
+    json!({
+        "url": url, "token": token, "instance": instance, "rootId": root_id,
+        "runtimeDirectory": checkout().join(".cache/runtime").join(instance).to_string_lossy(),
+    })
 }
 
 fn checkout() -> std::path::PathBuf {
@@ -740,4 +749,27 @@ pub(crate) async fn present(front: &Arc<Front>, id: &str) -> Result<(), String> 
         Err(error) => return Err(error.to_string()),
     }
     ask_pty(front, "describe", serde_json::json!([id, { "released": true }])).await.map(|_| ()).map_err(crate::plain)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// KI-110: the door is the live writer of a pane's context — the JS host is reached only by
+    /// `/api/dashboard-run` and the suite — so a field only the reader computed was a fix with one
+    /// arm. The value is the path `runtimeDirectory(host)` names in `runtime/discovery.mjs` and the
+    /// one `red-mcp`'s `default_runtime_directory` computes: `<checkout>/.cache/runtime/<instance>`.
+    #[test]
+    fn the_context_a_pane_is_given_names_the_runtime_directory_its_connector_would_compute() {
+        let document = agent_context("http://127.0.0.1:1", &"a".repeat(64), "i", "r");
+        let named = document.get("runtimeDirectory").and_then(Value::as_str).expect("a runtime directory");
+        assert_eq!(named, checkout().join(".cache/runtime/i").to_string_lossy(), "keyed on the instance the context itself carries");
+        /* The checkout is this crate's, which is the one the JS resolves from its own module URL:
+           `red/red-host` is two levels down from it. */
+        assert_eq!(checkout().join("red/red-host"), std::path::Path::new(env!("CARGO_MANIFEST_DIR")));
+        let mut keys: Vec<&str> = document.as_object().expect("an object").keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        assert_eq!(keys, ["instance", "rootId", "runtimeDirectory", "token", "url"],
+                   "the shape runtime/supervisor.mjs writes for a pane of its own");
+    }
 }
