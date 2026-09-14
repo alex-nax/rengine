@@ -727,9 +727,16 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
     }
     re_app_control(a, ui, "toolbar", "Add project", -1);
     toolbar_label(&bar, "Agent");
-    toolbar_next(&bar, RE_METRIC_TOOLBAR_AGENT_WIDTH, RE_METRIC_DESIGN_GAP_LG);
-    re_ui_textbox_ex(ui, a->agent, sizeof(a->agent), RE_ICON_AGENT, "codex", 0);
-    re_app_control(a, ui, "textbox", "agent", -1);
+    /* A SELECT, which is what `design/previews/workspace/toolbar.html` has specified since spec 064
+       (`re-button re-select agent`); the native drifted to a text box, so a person could type a CLI
+       this machine has not got and find out when the pane failed. Spec 134 D7. */
+    if (toolbar_cell(&bar, *a->agent ? a->agent : "codex", RE_ICON_AGENT,
+                     RE_UI_ALIGN_LEFT | RE_UI_CARET | (!strcmp(a->dropdown, "agent") ? RE_UI_ON : 0),
+                     RE_METRIC_DESIGN_GAP_LG)) {
+      re_app_agents_menu(a);
+      re_overlay_dropdown_toggle(a, ui, "agent");
+    }
+    re_app_control(a, ui, "select", "agent", -1);
     /* Vim moved into the settings popover with the rest of the settings (spec 080 decision 4). */
     if (toolbar_cell(&bar, "Settings", RE_ICON_THEME, RE_UI_GHOST | RE_UI_ICON_ONLY | (a->overlay == RE_OVERLAY_SETTINGS ? RE_UI_ON : 0), RE_METRIC_DESIGN_GAP_LG)) {
       overlay_open(a, ui, RE_OVERLAY_SETTINGS);
@@ -747,7 +754,9 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
   else if (a->overlay == RE_OVERLAY_ROOTS) re_overlay_roots(a, ui);
   else if (a->overlay == RE_OVERLAY_PANE) re_overlay_pane(a, ui);
   else if (a->overlay == RE_OVERLAY_TOKEN) re_overlay_token(a, ui);
-  if (!a->overlay) a->dropdown[0] = 0;          /* a list cannot outlive the surface it opened from */
+  /* A list cannot outlive the surface it opened from — and the toolbar's own select has no overlay
+     behind it, so the test is against the surface it was opened FROM rather than against any. */
+  if (a->overlay != a->dropdown_overlay) a->dropdown[0] = 0;
   if (*a->dropdown) re_overlay_dropdown(a, ui);
   re_layout_measure(&a->layout, mu_rect(0, RE_METRIC_WORKSPACE_TOP, width, height - RE_METRIC_WORKSPACE_TOP - RE_METRIC_WORKSPACE_STATUS_HEIGHT));
   for (int i = 0; i < RE_TABS; i++) { a->tabs[i].rect = mu_rect(0, 0, 0, 0); a->tabs[i].header = mu_rect(0, 0, 0, 0); }

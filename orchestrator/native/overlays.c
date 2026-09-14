@@ -169,10 +169,13 @@ void re_app_project_theme(ReApp *a) {
 /* A select opens a list; it does not step to the next value. Cycling was a placeholder from before
  * the overlay layer existed, and it hides the choices from anyone who has not memorised them. */
 static bool dropdown_open(const ReApp *a, const char *key) { return !strcmp(a->dropdown, key); }
-static void dropdown_toggle(ReApp *a, mu_Context *ui, const char *key) {
+void re_overlay_dropdown_toggle(ReApp *a, mu_Context *ui, const char *key) {
   if (dropdown_open(a, key)) { a->dropdown[0] = 0; return; }
   re_copy(a->dropdown, sizeof(a->dropdown), key);
   a->dropdown_anchor = ui->last_rect;
+  /* Which surface it belongs to, so the rule "a list cannot outlive the surface it opened from"
+     can still be applied to one opened from the TOOLBAR, whose surface is always there. */
+  a->dropdown_overlay = a->overlay;
 }
 static void choose_preset(ReApp *a, int index) {
   if (index < 0 || index >= RE_PRESET_COUNT) return;
@@ -198,10 +201,26 @@ static int current_scheme(const ReApp *a) {
 /* The list a select opens. It is built after the surface that holds the select and recorded into the
  * same overlay buffer, so replay order puts it above; its own container is brought to front so the
  * pointer agrees with what is drawn. */
+/* Which agent the toolbar's select names. An empty preference is the registry's first installed
+   CLI, which is what the Tasks tab's chooser already falls back to. */
+static int current_agent(const ReApp *a) {
+  for (int i = 0; i < a->agent_count; i++) if (!strcmp(a->agents[i], a->agent)) return i;
+  return -1;
+}
+static void choose_agent(ReApp *a, int index) {
+  if (index < 0 || index >= a->agent_count) return;
+  re_copy(a->agent, sizeof(a->agent), a->agents[index]);
+  cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "agent", a->agent);
+  re_app_action(a, "preferences", j); cJSON_Delete(j);
+}
+
 void re_overlay_dropdown(ReApp *a, mu_Context *ui) {
-  bool theme = dropdown_open(a, "theme");
-  int count = theme ? RE_PRESET_COUNT : RE_SCHEME_COUNT;
-  int current = theme ? a->preset : current_scheme(a);
+  bool theme = dropdown_open(a, "theme"), agent = dropdown_open(a, "agent");
+  int count = agent ? a->agent_count : theme ? RE_PRESET_COUNT : RE_SCHEME_COUNT;
+  int current = agent ? current_agent(a) : theme ? a->preset : current_scheme(a);
+  /* A select with nothing to offer still opens, and says so, rather than drawing an empty popover
+     a person cannot tell from a broken one. */
+  if (agent && count == 0) count = 1;
   int pad = RE_METRIC_DESIGN_PAD, row = RE_METRIC_DESIGN_ROW, gap = RE_METRIC_DESIGN_GAP;
   int height = pad + count * (row + 2);
   int width = re_max(a->dropdown_anchor.w, RE_METRIC_SETTINGS_LABEL_WIDTH);
@@ -217,12 +236,18 @@ void re_overlay_dropdown(ReApp *a, mu_Context *ui) {
   re_ui_overlay_resume();
   re_ui_popover(rect);
   for (int i = 0; i < count; i++) {
-    const char *name = theme ? re_theme_preset_names[i] : re_scheme_names[i];
-    const char *title = theme ? re_theme_preset_names[i] : re_scheme_titles[i];
+    bool empty = agent && a->agent_count == 0;
+    const char *name = empty ? "none" : agent ? a->agents[i] : theme ? re_theme_preset_names[i] : re_scheme_names[i];
+    const char *title = empty ? "No agent is installed" : agent ? a->agents[i] : theme ? re_theme_preset_names[i] : re_scheme_titles[i];
+    int icon = agent ? RE_ICON_AGENT : theme ? RE_ICON_THEME : RE_ICON_FILE;
+    /* An agent the registry knows but this machine has not got is listed and NOT offered: the
+       menu is what the workspace could run, and a name a person cannot pick is a name they can
+       still see is missing. */
+    bool pick = !empty && (!agent || a->agents_installed[i]);
     mu_layout_row(ui, 1, (int[]){-1}, row);
     mu_push_id(ui, name, (int)strlen(name));
-    if (re_ui_menu_item(ui, title, theme ? RE_ICON_THEME : RE_ICON_FILE, "", i == current)) {
-      if (theme) choose_preset(a, i); else choose_scheme(a, i);
+    if (re_ui_menu_item(ui, title, icon, agent && !pick ? "not installed" : "", i == current) && pick) {
+      if (agent) choose_agent(a, i); else if (theme) choose_preset(a, i); else choose_scheme(a, i);
       a->dropdown[0] = 0;
     }
     re_app_control(a, ui, "dropdown", name, -1);
@@ -244,14 +269,14 @@ void re_overlay_settings(ReApp *a, mu_Context *ui) {
   re_ui_label_ex(ui, "Theme", RE_UI_MUTED | RE_UI_SMALL);
   if (re_ui_select_ex(ui, re_theme_preset_names[a->preset], RE_ICON_THEME,
                       RE_UI_ALIGN_LEFT | (dropdown_open(a, "theme") ? RE_UI_ON : 0))) {
-    dropdown_toggle(a, ui, "theme");
+    re_overlay_dropdown_toggle(a, ui, "theme");
   }
   re_app_control(a, ui, "settings", "theme", -1);
   mu_layout_row(ui, 2, (int[]){RE_METRIC_SETTINGS_LABEL_WIDTH, -1}, row);
   re_ui_label_ex(ui, "Syntax", RE_UI_MUTED | RE_UI_SMALL);
   if (re_ui_select_ex(ui, re_scheme_titles[current_scheme(a)], RE_ICON_FILE,
                       RE_UI_ALIGN_LEFT | (dropdown_open(a, "syntax") ? RE_UI_ON : 0))) {
-    dropdown_toggle(a, ui, "syntax");
+    re_overlay_dropdown_toggle(a, ui, "syntax");
   }
   re_app_control(a, ui, "settings", "syntax", -1);
   mu_layout_row(ui, 2, (int[]){RE_METRIC_SETTINGS_LABEL_WIDTH, -1}, row);

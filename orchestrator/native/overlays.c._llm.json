@@ -5,8 +5,8 @@
       "id": "offered-not-applied",
       "kind": "constraint",
       "anchor": {
-        "start": 128,
-        "end": 128,
+        "start": 136,
+        "end": 136,
         "symbol": "project_theme_probe",
         "snippet": "static void project_theme_probe(ReApp *a) {"
       },

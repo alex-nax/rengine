@@ -11,6 +11,9 @@
 #include "imageview.h"
 enum { RE_TREE = 1, RE_EDITOR, RE_TERMINAL, RE_SESSIONS, RE_GAME, RE_DASHBOARD, RE_DEVICES, RE_TRACKER, RE_PLUGIN };
 #define RE_DEVICES_TIMEOUT_MS 45000L /* a devices load runs every declared probe; see sidecar: devices-route */
+/* The toolbar's agent select offers what the workspace has; the registry ships a handful, and a
+   list that outgrows this is a registry change rather than a workspace one (spec 134 D7). */
+#define RE_WORKSPACE_AGENTS 16
 typedef struct {
   /* Wheel steps a plugin tab has not been shown yet. Per tab rather than per window because the
      contract is "since this plugin's previous frame", and an unfocused tab has no frames. */
@@ -52,6 +55,13 @@ typedef struct ReApp {
   char initial_scene[1024]; bool scene_opened;   /* RENGINE_INITIAL_SCENE, opened once (spec 126) */
   char primary_root[65];                     /* the root the window opened on; identity comes from it (spec 084) */
   char project_input[1024], agent[256], status[512];
+  /* The workspace's own agent list, for the toolbar's select (spec 134 D7). The Tasks tab keeps a
+     per-tab menu of its own; this one is the workspace's, fetched for the selected root when the
+     select is opened, so a tab that was never opened does not decide what the toolbar offers. */
+  char agents[RE_WORKSPACE_AGENTS][64];
+  bool agents_installed[RE_WORKSPACE_AGENTS];
+  int agent_count;
+  char agents_root[65];
   bool initialized, connected, vim, layout_dirty, quitting;
   int width, height, preset;                 /* last laid-out size and the active theme preset */
   bool explorer_nested;                      /* the explorer's mode (spec 080) */
@@ -64,6 +74,7 @@ typedef struct ReApp {
   mu_Rect overlay_anchor, overlay_rect;      /* the control the surface hangs from, and where it landed */
   mu_Id overlay_opener;                      /* focus returns here when the surface closes */
   char dropdown[32];                         /* the open select's key, empty when none */
+  int dropdown_overlay;                      /* the overlay that opened it; RE_OVERLAY_NONE for the toolbar's */
   mu_Rect dropdown_anchor, dropdown_rect;    /* the select it hangs from, and where it landed */
   bool overlay_restore;
   bool desktop_registered, reload_requested; char desktop_id[65];
@@ -147,6 +158,7 @@ void re_app_devices_refresh(ReApp *app, int tab);
 int re_app_tracker(ReApp *app, const char *root);       /* the project's task list (spec 083) */
 void re_app_tracker_refresh(ReApp *app, int tab);
 void re_app_tracker_signin(ReApp *app, int tab);        /* opens the provider's sign-in page */
+void re_app_agents_menu(ReApp *app);  /* spec 134 D7: the toolbar select's list, for the selected root */
 void re_app_agent_spawn(ReApp *app, int tab, const cJSON *body);  /* spec 103: the Tasks pane owns the answer */
 void re_app_open_url(ReApp *app, const char *url);      /* hands a task's link to the browser */
 void re_devices_ui(ReApp *app, mu_Context *ui, int tab);

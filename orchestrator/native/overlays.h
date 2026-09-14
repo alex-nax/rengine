@@ -36,6 +36,9 @@ void re_overlay_settings(ReApp *app, mu_Context *ui);
 void re_overlay_roots(ReApp *app, mu_Context *ui);    /* the project menu */
 void re_overlay_pane(ReApp *app, mu_Context *ui);     /* the pane menu */
 void re_overlay_dropdown(ReApp *app, mu_Context *ui); /* the open select, drawn above its own surface */
+/* Open or close a select's list. The toolbar's agent select is in workspace.c, so the toggle the
+   settings popover uses is shared rather than copied (spec 134 D7). */
+void re_overlay_dropdown_toggle(ReApp *app, mu_Context *ui, const char *key);
 void re_overlay_token(ReApp *app, mu_Context *ui);
 
 /* The other direction: what the overlays need back from the workspace. Kept to four so the seam

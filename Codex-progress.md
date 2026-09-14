@@ -79,6 +79,34 @@ canonicalised and the name put back.
 
 `npm test` 352/352, `cargo test --workspace` 139/139, `./init.sh` passes. No JavaScript retired.
 
+### F192 begins: the agent control is a select, and generalising it found a hidden rule
+
+`/api/worktrees` is the door's and the worker's, so the modal can ask for the survey over HTTP
+rather than through a binary — proven with the backend stopped, where it answers the refusal a
+project outside a repository earns.
+
+Then the toolbar's **Agent** control, which is drift repair rather than new design:
+`design/previews/workspace/toolbar.html` has said `re-button re-select agent` since spec 064 while
+the native rendered `re_ui_textbox_ex`, so a person could type a CLI this machine has not got and
+find out when the pane failed. It lists the workspace's own `agents-menu` for the selected root —
+its own list, not the Tasks tab's, so a tab nobody opened does not decide what the toolbar offers —
+and an agent the registry knows but this machine lacks is **listed and refused** rather than
+hidden: a name someone can see is missing beats an absence they have to guess at.
+
+**Generalising the dropdown found a rule it had been hiding.** `if (!a->overlay) a->dropdown[0] = 0`
+— "a list cannot outlive the surface it opened from" — was right for the only two lists there were,
+both opened from inside the settings popover, and wrong the moment one opened from the toolbar: it
+vanished the frame after it appeared. The rule is kept and made precise rather than loosened, by
+remembering the surface a list was opened FROM and closing it when that surface goes. Only running
+it shows this; no amount of reading the diff would have.
+
+Three sabotages, each red at its own assertion. And `suite-coverage` caught the new spec before I
+did: it was not in `test:desktop`, which is the lesson that spec exists for — a fixture no script
+runs is invisible in a green report.
+
+`npm test` 352/352, `ctest` 20/20, `./init.sh` passes. The modal, the status-bar opener and the two
+toolbar removals are the rest of F192.
+
 ## Session 150 (macos) — 2026-09-14 — the IDE bridge is Rust, and two rules the record could not see
 
 F161's second half (spec 133). `runtime/ide.mjs` (199 → 191) and `agents/ide-connect.mjs` (76 → 26)

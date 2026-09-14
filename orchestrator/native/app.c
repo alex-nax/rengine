@@ -250,6 +250,17 @@ static void tracker_request(ReApp *a, int tab, bool refresh) {
   free(agents);
 }
 void re_app_tracker_refresh(ReApp *a, int tab) { tracker_request(a, tab, true); }
+/* The workspace's own agent list, for the toolbar's select (spec 134 D7). Asked for the SELECTED
+   root when the select is opened and not already held for it — the devices/tasks rule, because a
+   menu is a request and a toolbar must not spend one per frame. */
+void re_app_agents_menu(ReApp *a) {
+  if (!*a->root || !strcmp(a->agents_root, a->root)) return;
+  char *route = re_net_query("agents-menu", a->root, "");
+  if (!route) return;
+  re_copy(a->agents_root, sizeof(a->agents_root), a->root);
+  request(a, OP_AGENTS_MENU, -1, route, NULL);
+  free(route);
+}
 /* Sign-in is a round trip the desktop cannot shortcut: the service mints the challenge and owns the
    loopback listener, and hands back only a URL to open, so no credential passes through here. */
 void re_app_tracker_signin(ReApp *a, int tab) {
@@ -654,6 +665,9 @@ static void response(ReApp *a, ReMessage *m) {
       cJSON_AddStringToObject(settled, "error", error); cJSON_AddArrayToObject(settled, "formats"); formats_loaded(a, settled); cJSON_Delete(settled); cJSON_Delete(j); return;
     }
     if (p.operation == OP_AGENTS_MENU && p.tab >= 0) { re_tracker_menu_failed(a, p.tab, error); cJSON_Delete(j); return; }
+    /* The toolbar's list failing takes nothing down: the select keeps whatever it had and a root
+       that answers nothing is simply asked again next time it is opened. */
+    if (p.operation == OP_AGENTS_MENU) { a->agents_root[0] = 0; cJSON_Delete(j); return; }
     if (p.operation == OP_AGENT_SPAWN && p.tab >= 0) { re_tracker_spawn_failed(a, p.tab, error); cJSON_Delete(j); return; }
     if (!m->status && p.timeout > 0) { snprintf(budget, sizeof(budget), "%s · no reply within %ld ms (declared timeoutMs %ld plus transport)", error, p.timeout, p.timeout - 2000L); error = budget; }
     re_copy(a->status, sizeof(a->status), error);
@@ -667,7 +681,22 @@ static void response(ReApp *a, ReMessage *m) {
     case OP_STATE: state_loaded(a, j); break;
     case OP_FORMATS: formats_loaded(a, j); break;
     case OP_DASHBOARD: dashboard_probed(a, j); break;
-    case OP_AGENTS_MENU: re_tracker_menu(a, p.tab, j); break;
+    case OP_AGENTS_MENU:
+      /* tab < 0 is the TOOLBAR's list, not a Tasks pane's: same route, different holder, so a tab
+         that was never opened does not decide what the toolbar offers. */
+      if (p.tab < 0) {
+        a->agent_count = 0;
+        const cJSON *item = NULL;
+        cJSON_ArrayForEach(item, cJSON_GetObjectItemCaseSensitive(j, "agents")) {
+          if (a->agent_count >= RE_WORKSPACE_AGENTS) break;
+          const char *cli = re_string(item, "cli");
+          if (!cli || !*cli) continue;
+          re_copy(a->agents[a->agent_count], sizeof(a->agents[0]), cli);
+          a->agents_installed[a->agent_count] = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(item, "installed"));
+          a->agent_count++;
+        }
+      } else re_tracker_menu(a, p.tab, j);
+      break;
     case OP_AGENT_SPAWN: re_tracker_spawned(a, p.tab, j); break;
     case OP_CAPTURE: snprintf(a->status, sizeof(a->status), "Captured %s (%d bytes, sha256 %.12s…)", re_string(j, "path"), re_number(j, "size"), re_string(j, "sha256")); t->error[0] = 0; break;
     case OP_EXPAND: {
@@ -942,6 +971,9 @@ cJSON *re_app_inspect(ReApp *a) {
   /* The settings a person can change, so a test and a second window can read what this one holds. */
   cJSON_AddBoolToObject(j, "vim", a->vim); cJSON_AddBoolToObject(j, "explorerNested", a->explorer_nested);
   cJSON_AddStringToObject(j, "scheme", a->scheme); cJSON_AddNumberToObject(j, "accentHue", a->accent_hue);
+  /* The agent the toolbar's select names, beside the other chosen-and-remembered settings: a spec
+     that drives the select has nowhere else to read what it chose (spec 134 D7). */
+  cJSON_AddStringToObject(j, "agent", a->agent);
   cJSON_AddStringToObject(j, "themePath", a->theme_path);
   /* Exactly what the focused editor last told the workspace, so a test reads the report rather than
      re-deriving it: root|path|startLine:startCharacter-endLine:endCharacter|revision. */
