@@ -125,6 +125,23 @@ three defects this session were caught by extending a record while the JavaScrip
 and it is blind to cost, to resource lifetime, and to anything a caller never sees in the payload.
 So was `raw-read-confinement` earlier the same day, which a sidecar entry caught.
 
+### The door presses a dashboard action
+
+`dashboardRunPayload` is `red_project::dashboard::run_payload`, and `/api/dashboard-run` is the
+door's for every action kind but **game** — a game reserves a workspace surface and joins an
+in-flight launch, which is the session host's state. So the door declines that one and forwards it,
+the way it declines a remote tracker.
+
+That makes it the first route that reads a POST body and may still hand the request on. The body's
+bytes are off the socket by the time the decision is made, so they go back **in front of** whatever
+is still buffered; a chunked body is never read at all, because `read_body_bytes` frames by
+`content-length` and the forwarder copies chunked framing correctly. The restore ORDER is only
+observable with two requests pipelined on one socket, so that is what the spec sends — a declined
+game action followed immediately by a `/health`, and both answers have to be right. Sabotaged: the
+body restored behind rather than in front, and the test sees it.
+
+`dashboard.mjs` is **36 lines** and every function in it is a client.
+
 `npm test` 347/347, `cargo test --workspace` 108/108, `./init.sh` passes, desktop gate 78 of 81 —
 the recorded baseline, and the two failures confirmed by name.
 

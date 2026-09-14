@@ -5,12 +5,12 @@
       "id": "bound-controls",
       "kind": "rationale",
       "anchor": {
-        "start": 144,
-        "end": 152,
+        "start": 151,
+        "end": 159,
         "symbol": "project_devices",
         "snippet": "pub fn project_devices(context: &Context<'_>, declared: &Value) -> Value {"
       },
-      "note": "Ordering here is the whole correctness argument. The device statuses above are awaited FIRST, and only then is options.resolve() called, so dashboardActions reads the probe cache those statuses filled instead of probing again: a listing that carries controls costs exactly one probe per device, which is what the 15 s TTL and the in-flight coalescing were built for. Never pass this function's own options (which may carry refresh: true) down into resolve — that deletes the cache keys the statuses just wrote and doubles every probe. Availability is CARRIED, never recomputed: dashboardActions has already composed each action's own requires/tools with its device's reachability and named the failing half, and a second computation here would be a second opinion that can disagree with the dashboard. A resolved action carries the device RECORD in `device`, not the declared id, which is why the filter reads action.device?.id — an earlier draft compared against the raw id and silently filed every action under nobody. An action naming an undeclared device carries no record and lands under no device, matching what boundTargets already does with its id. A game's `issue` is filtered against the device's own issues so an unreachable device stays one reason on one row rather than the same sentence under every target bound to it.",
+      "note": "Ordering here is the whole correctness argument. The device statuses above are awaited FIRST, and only then is options.resolve() called, so dashboardActions reads the probe cache those statuses filled instead of probing again: a listing that carries controls costs exactly one probe per device, which is what the 15 s TTL and the in-flight coalescing were built for. Never pass this function's own options (which may carry refresh: true) down into resolve \u2014 that deletes the cache keys the statuses just wrote and doubles every probe. Availability is CARRIED, never recomputed: dashboardActions has already composed each action's own requires/tools with its device's reachability and named the failing half, and a second computation here would be a second opinion that can disagree with the dashboard. A resolved action carries the device RECORD in `device`, not the declared id, which is why the filter reads action.device?.id \u2014 an earlier draft compared against the raw id and silently filed every action under nobody. An action naming an undeclared device carries no record and lands under no device, matching what boundTargets already does with its id. A game's `issue` is filtered against the device's own issues so an unreachable device stays one reason on one row rather than the same sentence under every target bound to it.",
       "refs": [
         "docs/specs/082-project-devices.md"
       ]
@@ -19,8 +19,8 @@
       "id": "game-availability",
       "kind": "rationale",
       "anchor": {
-        "start": 48,
-        "end": 55,
+        "start": 55,
+        "end": 62,
         "symbol": "game_missing",
         "snippet": "/// A game action's availability is its referenced record's preflight, taken from the spec-078 path"
       },
@@ -34,12 +34,12 @@
       "id": "availability-without-execution",
       "kind": "constraint",
       "anchor": {
-        "start": 64,
-        "end": 70,
+        "start": 71,
+        "end": 77,
         "symbol": "dashboard_actions",
         "snippet": "pub fn dashboard_actions(context: &Context<'_>, declared: &Value) -> Value {"
       },
-      "note": "Availability is computed by resolving each required file through the root boundary (a symlink escaping the root counts as missing) and by an explicit PATH walk with the same shell environment terminals get (PATHEXT on Windows). A declaration or dashboard error is returned with empty groups instead of thrown so the tab can render it while formats keep working.\n\nCORRECTED by contract 4 (spec 082): the old claim that \"nothing is executed and nothing is cached\" no longer holds, and the id is now a historical name rather than a description. An action bound to a device runs that device's declared probe, and probe results ARE cached for 15 s with in-flight coalescing (devices.mjs). Nothing else is executed: the action's own command is still never run to decide availability. The freshly-copied-pcvr-host.env property survives, because requires/tools are still stat/PATH checks with no cache of their own — but a device that comes back up can be up to 15 s stale here, and the Devices section's refresh is the explicit way to bypass that.",
+      "note": "Availability is computed by resolving each required file through the root boundary (a symlink escaping the root counts as missing) and by an explicit PATH walk with the same shell environment terminals get (PATHEXT on Windows). A declaration or dashboard error is returned with empty groups instead of thrown so the tab can render it while formats keep working.\n\nCORRECTED by contract 4 (spec 082): the old claim that \"nothing is executed and nothing is cached\" no longer holds, and the id is now a historical name rather than a description. An action bound to a device runs that device's declared probe, and probe results ARE cached for 15 s with in-flight coalescing (devices.mjs). Nothing else is executed: the action's own command is still never run to decide availability. The freshly-copied-pcvr-host.env property survives, because requires/tools are still stat/PATH checks with no cache of their own \u2014 but a device that comes back up can be up to 15 s stale here, and the Devices section's refresh is the explicit way to bypass that.",
       "refs": [
         "docs/specs/075-project-dashboard.md",
         "docs/specs/082-project-devices.md"
@@ -49,14 +49,29 @@
       "id": "composed-availability",
       "kind": "rationale",
       "anchor": {
-        "start": 106,
-        "end": 115,
+        "start": 113,
+        "end": 122,
         "symbol": "resolve_action",
         "snippet": "fn resolve_action(context: &Context<'_>, declared: &Value, action: &Value) -> Value {"
       },
       "note": "Every action is evaluated against its device, not only the ones that look remote, because the device defaults to local and an unbound action must still report which device it ran its checks against. The probe cost is bounded by the cache and its in-flight coalescing in devices.mjs: this map runs under Promise.all, so a plain TTL would let every action miss at once. The action's own requires/tools are checked first and both halves are pushed, so the reported reason names what actually has to change. A game action still short-circuits to its record's preflight only when nothing else is missing, so one message is reported rather than a pile.",
       "refs": [
         "docs/specs/082-project-devices.md"
+      ]
+    },
+    {
+      "id": "run-and-capture-boundary",
+      "kind": "constraint",
+      "anchor": {
+        "start": 289,
+        "end": 313,
+        "symbol": "run_payload",
+        "snippet": "pub fn run_payload(root_id: &str, root_path: &str, bash: &str, action: &Value) -> Result<Value, Fail> {"
+      },
+      "note": "Running goes through the retained host's terminal route with a payload built by this function (bash + resolved script + literal args + env for scripts, the argv itself for logs) so the replaceable worker never spawns PTYs; unavailable actions are refused with the missing items and capture actions are redirected. The returned title also overrides the snapshot because a retained host older than the title option labels sessions generically. The action is selected once by dashboardAction and passed in, because a game action does not produce a terminal payload at all: the caller launches it through the project game route and returns that game session, so this function refuses the game kind the way it already refuses capture.\n\nThe capture half of this note moved to `red/red-project/src/capture.rs._llm.json#capture-boundary` with the capture itself (F156, 2026-09-14).\n\nPorted from `orchestrator/server/dashboard.mjs` with F156 (spec 129); that module is a thin client of this now. The `bash` is the CALLER's, because which one a machine has is the session host's business and not a rule the project reader may decide.",
+      "refs": [
+        "docs/specs/075-project-dashboard.md",
+        "docs/specs/074-project-format-registry.md"
       ]
     }
   ]

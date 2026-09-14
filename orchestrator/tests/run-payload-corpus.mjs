@@ -5,10 +5,11 @@
  * contract with the session host on the other side and the two refusals are what a person sees when
  * a declared action names something that is not there.
  *
- *   node orchestrator/tests/run-payload-corpus.mjs > orchestrator/tests/run-payload-corpus.json
- *
- * Regenerate ONLY from a checkout where `dashboard.mjs` still builds it. The project path and the
- * bash this machine has are folded; nothing else here is a machine's.
+ * The record is FROZEN. It was taken from `orchestrator/server/dashboard.mjs` at d8a05aa, the last
+ * commit where that module built it; it is a thin client of `red_project::dashboard` now, so
+ * regenerating would judge the replacement against itself. The generator is gone with the module it
+ * asked. The project path and the bash this machine has are folded; nothing else here is a
+ * machine's.
  */
 import { mkdir, writeFile, readFile, chmod, symlink } from 'node:fs/promises';
 import path from 'node:path';
@@ -65,29 +66,3 @@ export const RECORDED = await (async () => {
   try { return JSON.parse(await readFile(new URL('./run-payload-corpus.json', import.meta.url), 'utf8')); }
   catch { return null; }
 })();
-
-export async function answers() {
-  const { dashboardAction, dashboardRunPayload } = await import('../server/dashboard.mjs');
-  const { bashPath } = await import('../server/sessions-client.mjs');
-  const { mkdtemp, realpath, rm } = await import('node:fs/promises');
-  const { tmpdir } = await import('node:os');
-  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-run-payload-')));
-  const recorded = {};
-  try {
-    for (const [name, actionId] of CASES) {
-      const slug = name.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 48);
-      const root = { id: `root-${slug}`, path: await fixtureFor(directory, slug), name: 'fixture' };
-      try {
-        const action = await dashboardAction(root, actionId, undefined);
-        recorded[name] = { ok: fold(await dashboardRunPayload(root, action), root.path, bashPath()) };
-      } catch (error) {
-        recorded[name] = { refused: { message: fold(error.message, root.path, bashPath()), status: error.status ?? null } };
-      }
-    }
-    return recorded;
-  } finally { await rm(directory, { recursive: true, force: true }); }
-}
-
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
-  console.log(JSON.stringify(await answers(), null, 2));
-}

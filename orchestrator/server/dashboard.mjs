@@ -4,12 +4,10 @@
  * here is the shape a caller hands to a terminal: a script or a log action becomes a PTY payload,
  * and that is the session host's business rather than the project reader's.
  */
-import path from 'node:path';
 import { probeCacheFor, declarationOf, workspaceListings } from './devices.mjs';
-import { fail, resolveInRoot } from './store-client.mjs';
+import { fail } from './store-client.mjs';
 import { askProject } from './project-client.mjs';
 import { bashPath } from './sessions-client.mjs';
-import { stat } from 'node:fs/promises';
 
 /* `preflight` is still taken and still ignored: the reader on the other side runs the game preflight
    itself, from the same declaration, which is what made a second copy of those checks unnecessary. */
@@ -24,15 +22,11 @@ export async function dashboardAction(root, actionId, preflight) {
   if (!action.available) fail(`Action ${action.id} is unavailable: ${action.missing.map(m => `${m.type} ${m.name}`).join(', ')}.`, 409);
   return action;
 }
+/* What a script or a log action becomes for the session host. The action is passed in because the
+   caller already has it — a game action never reaches here, it goes to the project game route — and
+   the bash is this machine's, which is the session host's business and not a rule. */
 export async function dashboardRunPayload(root, action) {
-  if (action.kind === 'capture') fail('Capture actions run through dashboard-capture.', 400);
-  if (action.kind === 'game') fail('Game actions run through the project game route.', 400);
-  if (action.kind === 'script') {
-    const script = await resolveInRoot(root, action.script);
-    if (!(await stat(script.absolute)).isFile()) fail('Dashboard script is not a file.', 415);
-    return { rootId: root.id, command: bashPath(), args: [script.absolute, ...(action.args ?? [])], env: action.env ?? {}, title: `Script · ${path.posix.basename(script.relative)}` };
-  }
-  return { rootId: root.id, command: action.command[0], args: action.command.slice(1), env: {}, title: `Log · ${action.title}` };
+  return askProject(['dashboard-run', root.id, root.path, action?.id ?? '', bashPath(), probeCacheFor(root), declarationOf(root)]);
 }
 /* The one project question that WRITES. It carries this root's probe cache because the availability
    it checks first is the board's, and the board probes every device an action is bound to. The
