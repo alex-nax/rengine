@@ -136,6 +136,28 @@ was reported as an unpinned registry dependency — a true statement about the w
 
 JavaScript on the app path: **6,743**.
 
+**Where the thin-client seam ends.** After the declaration, the next modules were examined and the
+pattern does not reach them: `tasks.mjs`, `dashboard.mjs` and `devices.mjs` take injected callbacks
+(`preflight`, `resolve`, `list`, `help`) a one-shot binary cannot accept; `replace.mjs` is built
+around seams its spec feeds fake process tables through; `worker.mjs`, `supervisor.mjs`, `token.mjs`
+and `lsp.mjs` are stateful servers; and `tracker.mjs`'s remote half needs an HTTPS client, which is a
+dependency decision. The mechanical wins are taken.
+
+**F157 is the next row and it is designed rather than started** (`docs/specs/132-token-ledger-in-rust.md`).
+It cannot be a thin client for three reasons found by reading rather than guessing: the feed keeps
+its frames in memory and a second writer would hand a monitor a sequence it had already seen; the
+worker emits frames that are not the ledger's, through `note()`, so the ring already has two
+producers in one process; and watchers are pushes, not polls. So it is a service — the shape
+`red-store` and `red-pty` already take, with `red_core::service`'s machinery — and before it, the
+mint and the clock travel as data so a transcript can be recorded from the JavaScript while the
+JavaScript still exists.
+
+That row is deliberately not started here. The ledger is what stops two agents writing over each
+other's work, and its failure mode is not lost work but a wrong ledger that passes its tests: a
+refusal whose wording changed, a cooldown charged to the wrong contest, a deadline that re-times
+when a preference changes, a holder that reads as gone because liveness followed the process rather
+than the session. It wants a session that starts on it, not one that reaches it.
+
 Commands: `npm test` (**328 of 328**, zero services left), `cargo test`, `./init.sh`,
 `python3 tools/features.py validate`, and four native specs including `native-front-door`.
 
