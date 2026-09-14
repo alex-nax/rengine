@@ -1,0 +1,217 @@
+{
+  "a project that declares nothing at all": {
+    "refused": {
+      "message": "This project does not declare a dashboard in .rengine/project.json.",
+      "status": 415
+    },
+    "landed": {
+      "directory": null,
+      "manifest": null,
+      "bytes": null
+    }
+  },
+  "a project whose contract has no dashboard": {
+    "refused": {
+      "message": "Unknown dashboard action.",
+      "status": 404
+    },
+    "landed": {
+      "directory": null,
+      "manifest": null,
+      "bytes": null
+    }
+  },
+  "an action this dashboard has not": {
+    "refused": {
+      "message": "Unknown dashboard action.",
+      "status": 404
+    },
+    "landed": {
+      "directory": null,
+      "manifest": null,
+      "bytes": null
+    }
+  },
+  "an action that is not a capture": {
+    "refused": {
+      "message": "Action hello is not a capture action.",
+      "status": 400
+    },
+    "landed": {
+      "directory": null,
+      "manifest": null,
+      "bytes": null
+    }
+  },
+  "a capture whose prerequisite is missing": {
+    "refused": {
+      "message": "Action needy-shot is unavailable: requires missing.env.",
+      "status": 409
+    },
+    "landed": {
+      "directory": null,
+      "manifest": null,
+      "bytes": null
+    }
+  },
+  "a capture into a path outside the project": {
+    "refused": {
+      "message": "Symlink points outside the selected project root.",
+      "status": 403
+    },
+    "landed": {
+      "directory": null,
+      "manifest": null,
+      "bytes": null
+    }
+  },
+  "a capture into a path that is a file": {
+    "refused": {
+      "message": "EEXIST: file already exists, mkdir '<root>/notes.txt'",
+      "status": null
+    },
+    "landed": {
+      "directory": null,
+      "manifest": null,
+      "bytes": null
+    }
+  },
+  "a capture whose command fails": {
+    "refused": {
+      "message": "Command failed (exit 2): capture: device offline",
+      "status": 502
+    },
+    "landed": {
+      "directory": [],
+      "manifest": "unreadable",
+      "bytes": null
+    }
+  },
+  "a capture whose output is not a PNG": {
+    "refused": {
+      "message": "Capture output is not a PNG (signature mismatch); nothing was written.",
+      "status": 502
+    },
+    "landed": {
+      "directory": [],
+      "manifest": "unreadable",
+      "bytes": null
+    }
+  },
+  "a capture": {
+    "ok": {
+      "file": "<time>.png",
+      "time": "<time>",
+      "size": 226,
+      "sha256": "8c5b34cdea53d7862f4d69aba2617d02eeaea28d19caa1148c41359a912108bd",
+      "action": "shot",
+      "path": ".cache/captures/<time>.png",
+      "manifest": ".cache/captures/manifest.json"
+    },
+    "landed": {
+      "directory": [
+        "<time>.png",
+        "manifest.json"
+      ],
+      "manifest": [
+        {
+          "file": "<time>.png",
+          "time": "<time>",
+          "size": 226,
+          "sha256": "8c5b34cdea53d7862f4d69aba2617d02eeaea28d19caa1148c41359a912108bd",
+          "action": "shot"
+        }
+      ],
+      "bytes": "8c5b34cdea53d7862f4d69aba2617d02eeaea28d19caa1148c41359a912108bd"
+    }
+  },
+  "a capture into a directory that already holds a manifest": {
+    "ok": {
+      "file": "<time>.png",
+      "time": "<time>",
+      "size": 226,
+      "sha256": "8c5b34cdea53d7862f4d69aba2617d02eeaea28d19caa1148c41359a912108bd",
+      "action": "shot",
+      "path": ".cache/captures/<time>.png",
+      "manifest": ".cache/captures/manifest.json"
+    },
+    "landed": {
+      "directory": [
+        "<time>.png",
+        "<time>.png",
+        "manifest.json"
+      ],
+      "manifest": [
+        {
+          "file": "<time>.png",
+          "time": "<time>",
+          "size": 226,
+          "sha256": "8c5b34cdea53d7862f4d69aba2617d02eeaea28d19caa1148c41359a912108bd",
+          "action": "shot"
+        },
+        {
+          "file": "<time>.png",
+          "time": "<time>",
+          "size": 226,
+          "sha256": "8c5b34cdea53d7862f4d69aba2617d02eeaea28d19caa1148c41359a912108bd",
+          "action": "shot"
+        }
+      ],
+      "bytes": "8c5b34cdea53d7862f4d69aba2617d02eeaea28d19caa1148c41359a912108bd"
+    }
+  },
+  "a capture whose manifest is not JSON": {
+    "ok": {
+      "file": "<time>.png",
+      "time": "<time>",
+      "size": 226,
+      "sha256": "8c5b34cdea53d7862f4d69aba2617d02eeaea28d19caa1148c41359a912108bd",
+      "action": "shot",
+      "path": ".cache/captures/<time>.png",
+      "manifest": ".cache/captures/manifest.json"
+    },
+    "landed": {
+      "directory": [
+        "<time>.png",
+        "manifest.json"
+      ],
+      "manifest": [
+        {
+          "file": "<time>.png",
+          "time": "<time>",
+          "size": 226,
+          "sha256": "8c5b34cdea53d7862f4d69aba2617d02eeaea28d19caa1148c41359a912108bd",
+          "action": "shot"
+        }
+      ],
+      "bytes": "8c5b34cdea53d7862f4d69aba2617d02eeaea28d19caa1148c41359a912108bd"
+    }
+  },
+  "a capture whose manifest is JSON but not a list": {
+    "ok": {
+      "file": "<time>.png",
+      "time": "<time>",
+      "size": 226,
+      "sha256": "8c5b34cdea53d7862f4d69aba2617d02eeaea28d19caa1148c41359a912108bd",
+      "action": "shot",
+      "path": ".cache/captures/<time>.png",
+      "manifest": ".cache/captures/manifest.json"
+    },
+    "landed": {
+      "directory": [
+        "<time>.png",
+        "manifest.json"
+      ],
+      "manifest": [
+        {
+          "file": "<time>.png",
+          "time": "<time>",
+          "size": 226,
+          "sha256": "8c5b34cdea53d7862f4d69aba2617d02eeaea28d19caa1148c41359a912108bd",
+          "action": "shot"
+        }
+      ],
+      "bytes": "8c5b34cdea53d7862f4d69aba2617d02eeaea28d19caa1148c41359a912108bd"
+    }
+  }
+}

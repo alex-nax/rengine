@@ -51,6 +51,10 @@ fn enoent(syscall: &str, path: &str) -> Fail {
 }
 
 // ---- the path spellings, lexically, exactly as Node's path.posix resolves them ----------------
+// `js_resolve` and `js_relative` are public because a caller outside this crate needs the LEXICAL
+// answer before the filesystem is touched: a dashboard capture decides whether `into` leaves the
+// project before it creates the directory, which is the order the JavaScript established and the
+// order its refusals depend on.
 
 fn js_normalize(path: &str) -> String {
     let absolute = path.starts_with('/');
@@ -77,7 +81,7 @@ fn js_normalize(path: &str) -> String {
     }
 }
 
-fn js_resolve(base: &str, relative: &str) -> String {
+pub fn js_resolve(base: &str, relative: &str) -> String {
     if relative.is_empty() {
         js_normalize(base)
     } else if relative.starts_with('/') {
@@ -87,7 +91,7 @@ fn js_resolve(base: &str, relative: &str) -> String {
     }
 }
 
-fn js_relative(from: &str, to: &str) -> String {
+pub fn js_relative(from: &str, to: &str) -> String {
     if from == to {
         return String::new();
     }

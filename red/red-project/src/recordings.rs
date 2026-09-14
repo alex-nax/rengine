@@ -30,12 +30,23 @@ pub struct Fail {
 
 impl Fail {
     fn new(message: impl Into<String>, status: u16) -> Fail {
+        Fail::with_status(message, status)
+    }
+
+    /// A refusal carrying the status its route answers with.
+    pub fn with_status(message: impl Into<String>, status: u16) -> Fail {
         Fail { message: message.into(), status: Some(status) }
     }
 
     /// A refusal the store already worded, with whatever status it carried — including none.
     pub fn from_store(fail: red_store::store::Fail) -> Fail {
         Fail { message: fail.message, status: fail.status }
+    }
+
+    /// A refusal carrying no route status, the way an error the filesystem raised reached a route
+    /// in the JavaScript: `main.mjs` decided what such a thing answers, not the module that threw.
+    pub fn raw(message: impl Into<String>) -> Fail {
+        Fail { message: message.into(), status: None }
     }
 }
 

@@ -5,6 +5,7 @@
 //! word — a workspace's refusals are what a person reads when their project will not load, and a
 //! port that improved the wording would be a port that broke the record it is judged against.
 
+pub mod capture;
 pub mod command;
 pub mod dashboard;
 pub mod declaration;

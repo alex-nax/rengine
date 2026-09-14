@@ -12,6 +12,7 @@
 //!   red-project workspace <rootId> <rootPath> [flags] [probeCache] [declarationFile]
 //!     flags: a comma-separated set of `refresh` and `controls`
 //!   red-project game <rootId> <rootPath> [gameId] [probeCache] [declarationFile]
+//!   red-project dashboard-capture <rootId> <rootPath> <actionId> [probeCache] [declarationFile]
 //!
 //! A refusal is `{"error": …, "status": N}` and exit 1, because the JS client this answers turns it
 //! back into the same `fail()` the module it replaced threw. Both of this crate's callers — the
@@ -135,6 +136,25 @@ fn main() -> ExitCode {
         /* One game's preflight, which is what a launch asks before it spawns anything and what the
            game-config route answers. It shares the same probe cache, so asking about a game on an
            unreachable box does not wait out that box's timeout a second time. */
+        /* The one question that WRITES: a capture runs the project's own command and lands a PNG
+           and a manifest row inside the project. Its caller passes the shell environment, because
+           the producer saw one when `dashboard.mjs` spawned it. */
+        Some("dashboard-capture") => {
+            let (root_id, root_path) = (arg(1).unwrap_or_default(), arg(2).unwrap_or_default());
+            let environment: Vec<(String, String)> = std::env::vars().collect();
+            let probes = match arg(4) {
+                Some(file) => red_project::devices::Probes::kept_at(std::path::Path::new(file)),
+                None => red_project::devices::Probes::default(),
+            };
+            let now = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|since| since.as_millis() as i64).unwrap_or(0);
+            let context = red_project::devices::Context {
+                root_id, root_path, environment: &environment, probes: &probes, refresh: false, refreshed: Default::default(), controls: false, now: &now,
+            };
+            let declared = red_project::declaration::read(root_path, arg(5));
+            let answer = red_project::capture::capture(&context, &declared, arg(3));
+            probes.keep(now());
+            answer
+        }
         Some("game") => {
             let (root_id, root_path) = (arg(1).unwrap_or_default(), arg(2).unwrap_or_default());
             let environment: Vec<(String, String)> = std::env::vars().collect();
