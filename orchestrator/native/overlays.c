@@ -65,6 +65,87 @@ void re_overlay_roots(ReApp *a, mu_Context *ui) {
   overlay_end(ui);
 }
 
+/* The Projects modal (spec 134 D3/D4): the one place a project is chosen, added, or reached through
+ * its repository's worktrees. It replaces the toolbar's switcher AND its path field, which were two
+ * halves of one gesture — the old menu had to say "Type a project path in the toolbar, then choose
+ * Add project", a UI apologising for its own split.
+ *
+ * A worktree is a distinct ROOT (charter D20, spec 002), so this offers to add one rather than to
+ * "switch checkouts": the repository is a heading in the view and never a record in the store (D2).
+ */
+void re_overlay_projects(ReApp *a, mu_Context *ui) {
+  const cJSON *roots = cJSON_GetObjectItemCaseSensitive(a->state, "roots");
+  int count = cJSON_GetArraySize(roots), row = RE_METRIC_DESIGN_ROW, pad = RE_METRIC_DESIGN_PAD;
+  int control = RE_METRIC_DESIGN_CONTROL_HEIGHT, gap = RE_METRIC_DESIGN_GAP;
+  /* Only the worktrees that are not already roots are offered; the rest are in the list above. */
+  int offered = 0;
+  for (int i = 0; i < a->worktree_count; i++) if (!a->worktrees[i].is_root) offered++;
+  int sections = 2 + (offered || *a->worktrees_error ? 1 : 0);
+  int height = pad * 2 + sections * (row + gap) + (count + offered) * (row + 2) + control + gap * 3;
+  if (!overlay_begin(a, ui, RE_METRIC_SETTINGS_WIDTH + RE_METRIC_SETTINGS_LABEL_WIDTH, height)) return;
+
+  mu_layout_row(ui, 1, (int[]){-1}, row);
+  re_ui_heading(ui, "Projects");
+  for (int i = 0; i < count; i++) {
+    const cJSON *entry = cJSON_GetArrayItem(roots, i);
+    const char *id = re_string(entry, "id"), *name = re_workspace_root_name(a, id);
+    mu_layout_row(ui, 1, (int[]){-1}, row);
+    mu_push_id(ui, id, (int)strlen(id));
+    if (re_ui_menu_item(ui, name, RE_ICON_PROJECT, "", !strcmp(id, a->root))) {
+      /* Selecting a project retargets nothing that is already running: spec 002's rule, and the
+         reason this is a choice of which root the tree and new sessions follow. */
+      re_copy(a->root, sizeof(a->root), id); re_workspace_overlay_close(a);
+    }
+    re_app_control(a, ui, "menu-root", name, -1);
+    mu_pop_id(ui);
+  }
+
+  if (offered || *a->worktrees_error) {
+    const char *repository = *a->worktrees_repository ? a->worktrees_repository : "This repository";
+    const char *leaf = strrchr(repository, '/');
+    mu_layout_row(ui, 1, (int[]){-1}, row + gap);
+    re_ui_heading(ui, *a->worktrees_error ? "Worktrees" : leaf ? leaf + 1 : repository);
+    if (*a->worktrees_error) {
+      mu_layout_row(ui, 1, (int[]){-1}, row);
+      re_ui_label_ex(ui, a->worktrees_error, RE_UI_MUTED | RE_UI_SMALL);
+    }
+    for (int i = 0; i < a->worktree_count; i++) {
+      ReWorktreeRow *w = &a->worktrees[i];
+      if (w->is_root) continue;
+      char note[96];
+      /* What a person needs to decide with, in the words the survey already refuses by. */
+      if (!w->present) re_copy(note, sizeof(note), "directory is gone");
+      else if (w->dirty > 0) snprintf(note, sizeof(note), "%d uncommitted", w->dirty);
+      else re_copy(note, sizeof(note), "clean");
+      mu_layout_row(ui, 1, (int[]){-1}, row);
+      mu_push_id(ui, w->path, (int)strlen(w->path));
+      if (re_ui_menu_item(ui, *w->branch ? w->branch : w->path, RE_ICON_PROJECT, note, false) && w->present) {
+        cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "path", w->path);
+        re_app_action(a, "roots", j); cJSON_Delete(j);
+        re_workspace_overlay_close(a);
+      }
+      re_app_control(a, ui, "menu-worktree", *w->branch ? w->branch : w->path, -1);
+      mu_pop_id(ui);
+    }
+  }
+
+  /* Adding a project is HERE, with the field it needs, rather than split across two surfaces. */
+  mu_layout_row(ui, 1, (int[]){-1}, row + gap);
+  re_ui_heading(ui, "Add a project");
+  mu_layout_row(ui, 2, (int[]){-1, RE_METRIC_SETTINGS_LABEL_WIDTH}, control);
+  re_ui_textbox_ex(ui, a->project_input, sizeof(a->project_input), RE_ICON_SEARCH, "Project path\u2026", 0);
+  re_app_control(a, ui, "textbox", "project", -1);
+  if (re_ui_button_ex(ui, "Add project", RE_ICON_ADD, 0)) {
+    if (*a->project_input) {
+      cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "path", a->project_input);
+      re_app_action(a, "roots", j); cJSON_Delete(j);
+      re_workspace_overlay_close(a);
+    } else re_copy(a->status, sizeof(a->status), "Type a project path, then choose Add project.");
+  }
+  re_app_control(a, ui, "menu-root", "Add project", -1);
+  overlay_end(ui);
+}
+
 /* The context menu from the menus card, with the shortcuts the workspace actually serves. */
 void re_overlay_pane(ReApp *a, mu_Context *ui) {
   int row = RE_METRIC_DESIGN_ROW, sep = RE_METRIC_DESIGN_GAP * 2;
@@ -214,8 +295,31 @@ static void choose_agent(ReApp *a, int index) {
   re_app_action(a, "preferences", j); cJSON_Delete(j);
 }
 
+/* One row of an open select, decided in one place: the width pass and the draw pass have to agree
+   about every string, or the popover is sized for a list it does not draw. */
+typedef struct { const char *name, *title, *note; int icon; bool pick; } ReDropdownRow;
+static ReDropdownRow dropdown_row(ReApp *a, bool agent, bool theme, int i) {
+  ReDropdownRow r;
+  bool empty = agent && a->agent_count == 0;
+  r.name = empty ? "none" : agent ? a->agents[i] : theme ? re_theme_preset_names[i] : re_scheme_names[i];
+  /* Absent is not empty. A list that has not answered yet says so; only an answer that carried no
+     agent says none is installed. Rendering the two the same is how a person is told a lie. */
+  r.title = !empty ? (agent ? a->agents[i] : theme ? re_theme_preset_names[i] : re_scheme_titles[i])
+                   : a->agents_known ? "No agent is installed" : "Looking for agents\u2026";
+  r.icon = agent ? RE_ICON_AGENT : theme ? RE_ICON_THEME : RE_ICON_FILE;
+  /* An agent the registry knows but this machine has not got is listed and NOT offered: the
+     menu is what the workspace could run, and a name a person cannot pick is a name they can
+     still see is missing. */
+  r.pick = !empty && (!agent || a->agents_installed[i]);
+  /* The note belongs to a NAMED agent that is missing, never to the placeholder row — drawing it
+     there put "not installed" on top of the row's own sentence. */
+  r.note = agent && !empty && !r.pick ? "not installed" : "";
+  return r;
+}
+
 void re_overlay_dropdown(ReApp *a, mu_Context *ui) {
   bool theme = dropdown_open(a, "theme"), agent = dropdown_open(a, "agent");
+  a->agent_row_count = 0;
   int count = agent ? a->agent_count : theme ? RE_PRESET_COUNT : RE_SCHEME_COUNT;
   int current = agent ? current_agent(a) : theme ? a->preset : current_scheme(a);
   /* A select with nothing to offer still opens, and says so, rather than drawing an empty popover
@@ -223,7 +327,24 @@ void re_overlay_dropdown(ReApp *a, mu_Context *ui) {
   if (agent && count == 0) count = 1;
   int pad = RE_METRIC_DESIGN_PAD, row = RE_METRIC_DESIGN_ROW, gap = RE_METRIC_DESIGN_GAP;
   int height = pad + count * (row + 2);
-  int width = re_max(a->dropdown_anchor.w, RE_METRIC_SETTINGS_LABEL_WIDTH);
+  /* The popover is as wide as its WIDEST ROW, not as wide as the control it hangs from. A select
+     is narrow and a row carries an icon, a name and a right-aligned note; sized to the anchor, the
+     note is placed on top of the name rather than beside it, which a screenshot showed and no
+     rectangle could (2026-09-14). Measured from the same strings the loop below draws. */
+  ReDraw *draw = re_draw_active();
+  int content = 0;
+  for (int i = 0; draw && i < count; i++) {
+    ReDropdownRow r = dropdown_row(a, agent, theme, i);
+    int need = gap + RE_METRIC_DESIGN_ICON_GAP * 2 + gap
+             + re_draw_text_width(draw, RE_FACE_UI, RE_METRIC_DESIGN_SIZE, r.title, -1) + gap;
+    if (*r.note) need += re_draw_text_width(draw, RE_FACE_MONO, RE_METRIC_DESIGN_SIZE_SM, r.note, -1) + gap;
+    content = re_max(content, need);
+  }
+  /* microui insets a window's body by style->padding on each side, so a popover sized to its
+     content exactly is still a row too narrow by twice that. */
+  if (content) content += 2 * ui->style->padding;
+  int width = re_max(re_max(a->dropdown_anchor.w, RE_METRIC_SETTINGS_LABEL_WIDTH), content);
+  width = re_min(width, re_max(RE_METRIC_SETTINGS_LABEL_WIDTH, a->width - 2 * pad));
   int x = re_min(a->dropdown_anchor.x, a->width - width - pad);
   int y = a->dropdown_anchor.y + a->dropdown_anchor.h + 2;
   if (y + height > a->height - pad) y = re_max(pad, a->dropdown_anchor.y - height - 2);
@@ -236,21 +357,19 @@ void re_overlay_dropdown(ReApp *a, mu_Context *ui) {
   re_ui_overlay_resume();
   re_ui_popover(rect);
   for (int i = 0; i < count; i++) {
-    bool empty = agent && a->agent_count == 0;
-    const char *name = empty ? "none" : agent ? a->agents[i] : theme ? re_theme_preset_names[i] : re_scheme_names[i];
-    const char *title = empty ? "No agent is installed" : agent ? a->agents[i] : theme ? re_theme_preset_names[i] : re_scheme_titles[i];
-    int icon = agent ? RE_ICON_AGENT : theme ? RE_ICON_THEME : RE_ICON_FILE;
-    /* An agent the registry knows but this machine has not got is listed and NOT offered: the
-       menu is what the workspace could run, and a name a person cannot pick is a name they can
-       still see is missing. */
-    bool pick = !empty && (!agent || a->agents_installed[i]);
+    ReDropdownRow r = dropdown_row(a, agent, theme, i);
+    if (agent && a->agent_row_count < RE_WORKSPACE_AGENTS + 1) {
+      re_copy(a->agent_rows[a->agent_row_count][0], sizeof(a->agent_rows[0][0]), r.title);
+      re_copy(a->agent_rows[a->agent_row_count][1], sizeof(a->agent_rows[0][1]), r.note);
+      a->agent_row_count++;
+    }
     mu_layout_row(ui, 1, (int[]){-1}, row);
-    mu_push_id(ui, name, (int)strlen(name));
-    if (re_ui_menu_item(ui, title, icon, agent && !pick ? "not installed" : "", i == current) && pick) {
+    mu_push_id(ui, r.name, (int)strlen(r.name));
+    if (re_ui_menu_item(ui, r.title, r.icon, r.note, i == current) && r.pick) {
       if (agent) choose_agent(a, i); else if (theme) choose_preset(a, i); else choose_scheme(a, i);
       a->dropdown[0] = 0;
     }
-    re_app_control(a, ui, "dropdown", name, -1);
+    re_app_control(a, ui, "dropdown", r.name, -1);
     mu_pop_id(ui);
   }
   re_ui_overlay_end();

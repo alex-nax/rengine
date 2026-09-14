@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """Compare two native snapshots under a recorded tolerance.
 
-  render_compare.py REFERENCE CANDIDATE [--max-fraction F] [--max-delta D] [--edge-band N] [--json]
+  render_compare.py REFERENCE CANDIDATE [--max-fraction F] [--max-delta D] [--edge-band N]
+                    [--region X,Y,W,H] [--json]
 
 Either side may be a BMP written by the desktop or a PNG. PNG is read because a committed reference
 frame has to live in the repository, and 2560x1600 is 16 MiB as a BMP and about 100 KiB as a PNG
 (charter D54, spec 124): once SDL_Renderer stops being a shipping path, the oracle it served has to
 become data rather than a code path, and data that large cannot be committed.
+
+With --region X,Y,W,H the comparison is confined to that rectangle in DEVICE pixels, so a
+renderer gate can ask about one primitive instead of a whole scene: "385 pixels somewhere" becomes
+"the shadow differs" (KI-111). Everything outside the rectangle is ignored, including for the
+fraction, which is then of the region's own pixels.
 
 Reports the fraction of pixels whose RGB differs, the largest per-channel difference, and, with
 --edge-band N, how many differing pixels lie farther than N pixels from an edge of the reference
@@ -134,16 +140,26 @@ def edge_mask(width, height, rows, band):
     return dilated
 
 
-def compare(reference, candidate, band):
+def compare(reference, candidate, band, region=None):
     width, height, a = read_image(reference)
     cw, ch, b = read_image(candidate)
     if (width, height) != (cw, ch):
         raise SystemExit("ERROR: size mismatch %dx%d vs %dx%d" % (width, height, cw, ch))
     differing, max_delta, outside = 0, 0, 0
     band_mask = edge_mask(width, height, a, band) if band is not None else None
-    for y in range(height):
+    # The window the comparison is confined to, clamped to the image: a region is a primitive's own
+    # rectangle grown by its blur, and a shape near an edge would otherwise ask about pixels that
+    # are not there.
+    x0, y0, x1, y1 = (0, 0, width, height)
+    if region is not None:
+        rx, ry, rw, rh = region
+        x0, y0 = max(0, rx), max(0, ry)
+        x1, y1 = min(width, rx + rw), min(height, ry + rh)
+        if x0 >= x1 or y0 >= y1:
+            raise SystemExit("ERROR: region %s lies outside the %dx%d image" % (region, width, height))
+    for y in range(y0, y1):
         ra, rb = a[y], b[y]
-        for x in range(width):
+        for x in range(x0, x1):
             pa, pb = ra[x], rb[x]
             if pa != pb:
                 differing += 1
@@ -152,15 +168,20 @@ def compare(reference, candidate, band):
                     max_delta = delta
                 if band_mask is not None and (x, y) not in band_mask:
                     outside += 1
-    total = width * height
-    return {"width": width, "height": height, "pixels": total, "differing": differing,
-            "fraction": differing / total if total else 0.0, "max_delta": max_delta,
-            "outside_edge_band": outside if band is not None else None, "edge_band": band}
+    # The fraction is of what was COMPARED, not of the image: a region's own pixels, so a tolerance
+    # written for a whole frame does not silently become a thousand times looser inside a small one.
+    total = (x1 - x0) * (y1 - y0)
+    result = {"width": width, "height": height, "pixels": total, "differing": differing,
+              "fraction": differing / total if total else 0.0, "max_delta": max_delta,
+              "outside_edge_band": outside if band is not None else None, "edge_band": band}
+    if region is not None:
+        result["region"] = [x0, y0, x1 - x0, y1 - y0]
+    return result
 
 
 def main(argv):
     args = [a for a in argv[1:] if not a.startswith("--")]
-    options = {"--max-fraction": None, "--max-delta": None, "--edge-band": None}
+    options = {"--max-fraction": None, "--max-delta": None, "--edge-band": None, "--region": None}
     as_json = "--json" in argv
     for key in options:
         if key in argv:
@@ -170,7 +191,13 @@ def main(argv):
         print(__doc__.strip())
         return 2
     band = int(options["--edge-band"]) if options["--edge-band"] is not None else None
-    result = compare(args[0], args[1], band)
+    region = None
+    if options["--region"] is not None:
+        parts = options["--region"].split(",")
+        if len(parts) != 4:
+            raise SystemExit("ERROR: --region wants X,Y,W,H in device pixels")
+        region = tuple(int(p) for p in parts)
+    result = compare(args[0], args[1], band, region)
     failures = []
     if options["--max-fraction"] is not None and result["fraction"] > float(options["--max-fraction"]):
         failures.append("differing fraction %.5f exceeds %s" % (result["fraction"], options["--max-fraction"]))

@@ -97,18 +97,19 @@
         "symbol": "re_ui_menu_item",
         "snippet": "int re_ui_menu_item(mu_Context *ctx, const char *label, int icon, const char *hint, bool marked) {"
       },
-      "note": "The menus card fills a hovered row with the accent and flips its text to the on-accent ink, rather than tinting a selection colour. The icon, the check mark and the keyboard hint follow the same ink past the halfway point of the transition, so a row never shows accent-coloured glyphs on an accent ground. The hint is drawn in the mono face at the small size, as the card does, and is right-aligned by measurement rather than by a reserved column, so a row without a hint has no gap.",
+      "note": "The menus card fills a hovered row with the accent and flips its text to the on-accent ink, rather than tinting a selection colour. The icon, the check mark and the keyboard hint follow the same ink past the halfway point of the transition, so a row never shows accent-coloured glyphs on an accent ground. The hint is drawn in the mono face at the small size, as the card does, and is placed by measurement rather than in a fixed column, so a row without a hint has no gap.\n\nIt is drawn FIRST and its measured width taken out of the label's box, which is how re_ui_row_ex has always done it. Drawn independently, a right-aligned hint in a row too narrow for both lands on top of the label instead of beside it: the strings are individually correct and their boxes overlap, which is legible in a screenshot and invisible to every assertion about the row. That is exactly what the agent list did to \u201cgemini\u201d and \u201cnot installed\u201d on 2026-09-14. Reserving here is the second of two guards \u2014 the caller sizing its popover to its widest row is the first \u2014 because either alone still leaves a row that can put two strings in one place.",
       "refs": [
         "design/previews/controls/menus.html",
-        "docs/specs/080-settings-popover.md"
+        "docs/specs/080-settings-popover.md",
+        "docs/specs/134-project-and-worktree-browser.md"
       ]
     },
     {
       "id": "hue-track",
       "kind": "rationale",
       "anchor": {
-        "start": 458,
-        "end": 488,
+        "start": 464,
+        "end": 494,
         "symbol": "re_ui_hue_slider",
         "snippet": "int re_ui_hue_slider(mu_Context *ctx, float *hue) {"
       },
@@ -137,7 +138,7 @@
   ],
   "source": {
     "path": "orchestrator/native/ui/ui.c",
-    "sha256": "64c9e08ebf726a6b4a511424c95f3405906a944effbd158cebf8e433a06b25c0",
+    "sha256": "fc27d6784c49ac886462b519db4c0fc1b07523a195cd7b0cdafd0791e02d663b",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

@@ -139,8 +139,90 @@ Three sabotages, each red at its own assertion. And `suite-coverage` caught the 
 did: it was not in `test:desktop`, which is the lesson that spec exists for — a fixture no script
 runs is invisible in a green report.
 
-`npm test` 352/352, `ctest` 20/20, `./init.sh` passes. The modal, the status-bar opener and the two
-toolbar removals are the rest of F192.
+`npm test` 352/352, `ctest` 20/20, `./init.sh` passes.
+
+### The Projects modal, and two sabotages that were the spec's fault
+
+The modal is the one place a project is chosen, added, or reached through its repository's
+worktrees. It opens from the **status bar's project segment** — which already named the project —
+or from `Cmd/Ctrl P`, and the toolbar now carries no switcher, no path field and no Add project.
+The segment is drawn outside microui like the token segment beside it, for the reason the code
+gives there: a window of its own would cost one of microui's 32 root containers, and fifteen panes
+with a surface already crowd that list.
+
+A worktree that is not yet a root is offered with its state — `clean`, `3 uncommitted`,
+`directory is gone` — and adding it makes it a root of its own, which is what D20 says a worktree
+is. The repository is a heading, never a record (D2).
+
+**Two sabotages passed on the first attempt, and both were the SPEC's fault rather than the
+code's**: offering a worktree the workspace already holds, and adding one whose directory is gone.
+The second was a missing fixture. The first was worse — the final assertion could pass while the
+survey was still in flight, because *an offer list that has not arrived reads exactly like an empty
+one*. The survey is in the inspect payload now, so the spec waits on the ANSWER rather than on a
+frame, and a `vanished` worktree joined the fixture. Both then failed for their own reason. That is
+the same shape as this morning's sabotage that printed nothing: a check that cannot distinguish
+"not yet" from "not there" is not a check.
+
+Five existing specs drove the removed controls and now drive `project/segment`. One of them earned
+its keep immediately: `native-game-declaration` asserts the toolbar's cells add up to the window
+width, and the first spacer left it 27 pixels short.
+
+### The agent list: three defects a screenshot found and no rectangle could
+
+The owner opened the Agent select and photographed it three times, and each photograph named a
+defect the spec could not see, because the payload exposed the CONTROL and not what the control
+drew.
+
+1. "No agent is installed" while the fetch was still in flight — `agents.known` distinguishes an
+   unanswered list from an empty one, and the rows now say `Looking for agents…`.
+2. "not installed" drawn on top of that placeholder's own sentence — the note belongs to a *named*
+   agent that is missing, never to the placeholder.
+3. "not installed" drawn on top of **gemini**. Both strings were correct; their boxes overlapped.
+   The popover was sized to the select it hangs from — `max(anchor.w, 84)` logical pixels — and one
+   row needs `4 + 12 + 4 + width(name) + 4 + width_mono(note) + 4`, which for gemini is 137. It is
+   now sized to its **widest row**, plus twice microui's body padding, because a window's layout is
+   inset by that on each side and a popover sized to its content exactly is still a row too narrow.
+   `re_ui_menu_item` also reserves the note's room and clips the label into what is left, the way
+   `re_ui_row_ex` already did, so no width can put two strings in one place.
+
+The first two were assertable once the rows' STRINGS were in the payload. The third was not: two
+strings can be correct and still be drawn on top of each other. So the draw list answers now — a
+`text-runs` operation reports every string the last frame drew, its box, and the clip in force,
+which is the difference between a clipped label and an overlapping one. The regression asserts
+that inside the open popover every string is drawn **whole** and **no two share a pixel**.
+
+Sabotaged both ways. With the popover sized to the anchor again, `gemini` is clipped to nothing and
+the spec fails on the four strings it expected. With the reserve removed as well — the state the
+photograph caught — it fails naming `"not installed" and "gemini" are drawn on top of each other`.
+Restored, 4/4.
+
+`text-runs` is the general answer to the note in `app.h`: a rectangle says a row exists and nothing
+about the strings inside it.
+
+### The renderer gate, per primitive — and KI-111 answered differently than it was filed
+
+D64 made OpenGL the recorded baseline, and the first thing the regenerated references showed was a
+divergence nothing had ever asserted: `metal primitives` at 385 pixels outside the edge band, while
+OpenGL and Vulkan agreed exactly. The spec had been computing `scene.cross` on every run and never
+checking it — recorded and never read, which is KI-109's failure one layer down.
+
+Both halves are closed now. The gate compares every backend pair **per primitive**, over regions the
+scene reports as it draws them (`scene-regions`) rather than from a table beside the drawing code,
+and it asserts the result. "Some pixels differ somewhere in a 2560×1600 frame" is not something a
+person can act on; "`gradient@x,y` differs" is.
+
+And the 385 was not what the row said it was. A clean run of the same drawing code returns **0
+differing pixels** across all nine scene comparisons and all 27 per-primitive regions, `metal
+primitives` included. The arithmetic already implied it — 385 for `opengl-vs-metal` and 592 for
+`metal-vs-vulkan` cannot both hold when OpenGL and Vulkan are identical, and each backend is
+captured in its own run — so "this is Metal alone" was wrong. It is run-to-run variation. One clean
+run does not bound how often or how far a run drifts; what the per-primitive assertion buys is that
+the next one will be named rather than summed.
+
+One process note worth keeping: the first attempt at this run was worthless and looked fine. It had
+been going for fifteen minutes when the desktop binary was rebuilt underneath it — twice, once with
+deliberately sabotaged code — and a pixel gate that reads a binary mid-run is comparing frames from
+two different programs. It was killed and re-run rather than reported.
 
 ## Session 150 (macos) — 2026-09-14 — the IDE bridge is Rust, and two rules the record could not see
 

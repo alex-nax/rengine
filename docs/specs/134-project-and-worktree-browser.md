@@ -113,6 +113,29 @@ the agent menu that already exists — `red_project::tasks::known_agents` filter
   dropdown listing the installed agents.
 - `native-design.spec.mjs` stays green across all three presets.
 
+## Built so far
+
+- **F190** `red_project::worktrees` — the survey, with `removable` computed rather than judged.
+- **F191** the `worktrees` block at contract 11, create/remove, and D63's declaration offer.
+- **F192** `/api/worktrees` at the door and the worker; the Agent control as the select design
+  always specified; and the Projects modal with the status-bar opener, the `Cmd/Ctrl P` shortcut,
+  and the toolbar's switcher and path field removed.
+
+What the modal does NOT do yet: create or remove a worktree from the UI. The survey, the refusals
+and D63's offer all exist underneath it (F191); wiring the two buttons is what remains.
+
+A select's popover is sized to its **widest row**, not to the control it hangs from, plus twice
+microui's body padding — a window's layout is inset by that on each side. `re_ui_menu_item` also
+reserves the hint's room and clips the label into what is left. Both, because either alone leaves a
+row that can put two strings in one place, which is what D7's first build did to `gemini` and
+`not installed`.
+
+The automation channel reports **text runs**: every string the last frame drew, its box, and the
+clip in force. A control's rectangle says a row exists and nothing about the strings inside it, so
+two strings drawn on top of each other was invisible to every spec and plain in a screenshot. The
+clip is part of the answer rather than an afterthought — without it a clipped label reads as an
+overlap and an elided name reads as whole.
+
 ## Not decided here
 
 - Whether the Agent dropdown's *placement* stays in the toolbar at all. D7 fixes its shape; its

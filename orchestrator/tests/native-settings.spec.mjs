@@ -153,8 +153,9 @@ setInterval(() => {}, 1000);`);
     await gui.key('Escape');
     await gui.until(s => !s.controls?.some(c => c.role === 'settings'), 'popover closed by Escape');
 
-    // Opening the project menu is the one overlay; opening settings again closes it.
-    await gui.control('toolbar', 'Root', -1);
+    // Opening the Projects modal is the one overlay; opening settings again closes it. The switcher
+    // moved to the status bar's project segment with spec 134 D3.
+    await gui.control('project', 'segment', -1);
     state = await gui.until(s => s.controls?.some(c => c.role === 'menu-root'), 'project menu');
     assert.ok(!state.controls.some(c => c.role === 'settings'), 'the menu replaced the popover');
     const menu = path.join(dir, 'menu.bmp');

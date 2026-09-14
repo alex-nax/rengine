@@ -44,7 +44,14 @@ export async function startTasksSidecar(host, { tracker = { provider: 'local', r
       answer(response, 200, { fresh: true, checkedAt: new Date().toISOString(), ...rows });
       return;
     }
-    if (target.pathname === '/api/agents-menu') { answer(response, offered.status ?? 200, offered.body ?? offered); return; }
+    if (target.pathname === '/api/agents-menu') {
+      /* `menu.holdMs` keeps the answer back, which is the only way to stage the state a list is in
+         between being asked for and arriving — the one a desktop used to draw as "nothing is
+         installed" (2026-09-14). */
+      const send = () => answer(response, offered.status ?? 200, offered.body ?? offered);
+      if (offered.holdMs) delay(offered.holdMs).then(send); else send();
+      return;
+    }
     if (target.pathname === '/api/agent-spawn') {
       let body = '';
       request.setEncoding('utf8');

@@ -59,6 +59,62 @@ void re_automation_command(ReApp *app, SDL_Window *window, const cJSON *j) {
     e.type = SDL_WINDOWEVENT; e.window.event = SDL_WINDOWEVENT_EXPOSED; SDL_PushEvent(&e);
     re_automation_reply(id, index >= 0 ? cJSON_CreateTrue() : cJSON_CreateString(app->status)); return;
   }
+  /* What the scene drew and where, so the renderer gate can compare BY PRIMITIVE (KI-111). The
+     rectangles come from the drawing code rather than from a table beside it, which is what stops
+     them drifting the first time a shape moves. */
+  if (!strcmp(op, "scene-regions")) {
+    cJSON *list = cJSON_CreateArray();
+    for (int i = 0; i < re_scene_region_count(); i++) {
+      const ReSceneRegion *r = re_scene_region(i);
+      cJSON *item = cJSON_CreateObject();
+      cJSON_AddStringToObject(item, "name", r->name);
+      cJSON_AddNumberToObject(item, "x", r->rect.x); cJSON_AddNumberToObject(item, "y", r->rect.y);
+      cJSON_AddNumberToObject(item, "w", r->rect.w); cJSON_AddNumberToObject(item, "h", r->rect.h);
+      cJSON_AddItemToArray(list, item);
+    }
+    re_automation_reply(id, list); return;
+  }
+  /* Every string the last frame DREW and the box it occupies, optionally narrowed to a rectangle.
+     A control's rectangle told a spec that a row existed and nothing about the strings inside it,
+     so two strings drawn on top of each other was invisible to every test and plain in a
+     screenshot (2026-09-14). Runs are what makes overlap assertable. */
+  if (!strcmp(op, "text-runs")) {
+    ReDraw *draw = re_draw_active();
+    ReDrawList *list = draw ? re_draw_list(draw) : NULL;
+    bool scoped = cJSON_HasObjectItem(j, "w") && cJSON_HasObjectItem(j, "h");
+    mu_Rect box = mu_rect(re_number(j, "x"), re_number(j, "y"), re_number(j, "w"), re_number(j, "h"));
+    /* The clip in force is carried along, because the run a person SEES is the string intersected
+       with it. Reporting the unclipped box alone calls a clipped label an overlap; reporting only
+       the clipped one calls an elided name whole. Both are here, so a spec can say which it means. */
+    mu_Rect clip = mu_rect(0, 0, list ? list->width : 0, list ? list->height : 0);
+    cJSON *runs = cJSON_CreateArray();
+    for (size_t i = 0; list && i < list->count; i++) {
+      const ReCommand *c = &list->commands[i];
+      if (c->type == RE_CMD_CLIP) {
+        clip = c->flags & RE_CLIP_RESET ? mu_rect(0, 0, list->width, list->height)
+                                        : mu_rect(c->rect.x, c->rect.y, c->rect.w, c->rect.h);
+        continue;
+      }
+      if (c->type != RE_CMD_TEXT) continue;
+      const char *text = re_draw_list_string(list, c);
+      int w = re_draw_text_width(draw, c->face, c->size, text, (int)c->text_length), h = c->size;
+      int vx = re_max(c->rect.x, clip.x), vy = re_max(c->rect.y, clip.y);
+      int vw = re_max(0, re_min(c->rect.x + w, clip.x + clip.w) - vx);
+      int vh = re_max(0, re_min(c->rect.y + h, clip.y + clip.h) - vy);
+      if (scoped && (vw == 0 || vh == 0 || vx >= box.x + box.w || vx + vw <= box.x ||
+                     vy >= box.y + box.h || vy + vh <= box.y)) continue;
+      cJSON *item = cJSON_CreateObject();
+      cJSON_AddStringToObject(item, "text", text);
+      cJSON_AddNumberToObject(item, "x", c->rect.x); cJSON_AddNumberToObject(item, "y", c->rect.y);
+      cJSON_AddNumberToObject(item, "w", w); cJSON_AddNumberToObject(item, "h", h);
+      cJSON_AddNumberToObject(item, "face", c->face); cJSON_AddNumberToObject(item, "size", c->size);
+      cJSON *seen = cJSON_AddObjectToObject(item, "visible");
+      cJSON_AddNumberToObject(seen, "x", vx); cJSON_AddNumberToObject(seen, "y", vy);
+      cJSON_AddNumberToObject(seen, "w", vw); cJSON_AddNumberToObject(seen, "h", vh);
+      cJSON_AddItemToArray(runs, item);
+    }
+    re_automation_reply(id, runs); return;
+  }
   if (!strcmp(op, "scene")) app->scene = re_scene_id(re_string(j, "name"));
   else
   if (!strcmp(op, "text")) {

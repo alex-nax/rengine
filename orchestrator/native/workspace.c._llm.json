@@ -45,8 +45,8 @@
       "id": "one-overlay",
       "kind": "rationale",
       "anchor": {
-        "start": 621,
-        "end": 650,
+        "start": 629,
+        "end": 658,
         "symbol": "overlay_open",
         "snippet": "static void overlay_open(ReApp *a, mu_Context *ui, int kind) {"
       },
@@ -59,8 +59,8 @@
       "id": "view-switcher-indices",
       "kind": "constraint",
       "anchor": {
-        "start": 673,
-        "end": 673,
+        "start": 681,
+        "end": 681,
         "snippet": "struct { const char *label; int icon; } switcher[] = {"
       },
       "note": "The view switcher is a fixed table walked by index, and the click handler branches on that same index \u2014 so inserting an entry is not a one-line change: `views` must match the table length and every later branch must be re-numbered. Tasks sits at index 2 and Devices at 3, so the terminal/agent branch is `i == 4`/`i == 5`; getting it wrong opens a shell where the user asked for an agent, silently, because both call launch_terminal. The group ring is drawn once around the whole run using GROUP_FIRST/LAST, so the first and last entries must stay first and last.",
@@ -72,8 +72,8 @@
       "id": "external-game-status-row",
       "kind": "rationale",
       "anchor": {
-        "start": 801,
-        "end": 801,
+        "start": 805,
+        "end": 805,
         "snippet": "      } else if (t->type == RE_GAME && t->terminal) {"
       },
       "note": "An external game runs in its own window, so its tab has no frame surface to draw: it shows the retained PTY output with a status row above it, and the row reads the session's live state rather than the tab's, because the process can exit while the tab stays open. The rect is still set from the game insets so the terminal below occupies the same area an embedded surface would. This branch must precede the t->game one \u2014 an external tab has a terminal and no game surface. Without it surface \"external\" has no view at all, which is what the vtmb-vr consumer declares for both of its games."
@@ -82,8 +82,8 @@
       "id": "native-focus-and-detach",
       "kind": "rationale",
       "anchor": {
-        "start": 882,
-        "end": 882,
+        "start": 886,
+        "end": 886,
         "snippet": "bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {"
       },
       "note": "Pointer focus selects a view without changing its root/session binding. Toolbar focus clears custom editor/terminal/game keyboard routing. Detach never calls Stop. Wheel targets the visible hovered terminal/editor; negotiated terminal reporting gets first refusal before native history. Mouse motion/buttons route to an existing held terminal first, otherwise the hovered visible terminal; layout drags do not become application motion. Hover never changes keyboard focus. Focus loss releases all terminal holds, focus transfer releases the previous terminal, and hidden views release during drawing. Native UI still receives mouse motion to settle microui hover; consumed application buttons are not forwarded to chrome. Modified file clicks are consumed locally before negotiated terminal buttons; both halves are handled by re_app_file_link_event. Image panes receive their own hovered wheel events and release image resources on detach while preserving tab identity.",

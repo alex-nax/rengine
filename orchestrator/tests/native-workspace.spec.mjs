@@ -58,7 +58,8 @@ test('normal launcher opens the declared NOLF game, source tree, editor, shell a
       for (const _ of previousInput) await gui.key('Backspace');
       for (const chunk of projectPath.match(/.{1,16}/gu)) { await gui.command({ op: 'text', text: chunk }); await delay(40); }
       previousInput = projectPath;
-      await gui.control('toolbar', 'Add project');
+      await gui.control('project', 'segment');
+      await gui.control('menu-root', 'Add project');
       const s = await gui.until(s => s.state.roots.some(r => r.path === projectPath), 'project added through native textbox');
       return s.state.roots.find(r => r.path === projectPath);
     };

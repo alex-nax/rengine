@@ -5,8 +5,8 @@
       "id": "offered-not-applied",
       "kind": "constraint",
       "anchor": {
-        "start": 136,
-        "end": 136,
+        "start": 217,
+        "end": 217,
         "symbol": "project_theme_probe",
         "snippet": "static void project_theme_probe(ReApp *a) {"
       },
@@ -15,11 +15,27 @@
         "docs/specs/000-charter.md",
         "docs/specs/080-settings-popover.md"
       ]
+    },
+    {
+      "id": "popover-sized-to-its-widest-row",
+      "kind": "constraint",
+      "anchor": {
+        "start": 301,
+        "end": 320,
+        "symbol": "dropdown_row",
+        "snippet": "static ReDropdownRow dropdown_row(ReApp *a, bool agent, bool theme, int i) {"
+      },
+      "note": "A select's popover is sized to its widest ROW, not to the control it hangs from. Sized to the anchor \u2014 which is what `max(dropdown_anchor.w, RE_METRIC_SETTINGS_LABEL_WIDTH)` did \u2014 the row is whatever the toolbar cell happened to be, and a row carries an icon, a name and a right-aligned note: 4 + 12 + 4 + width(name) + 4 + width_mono(note) + 4, which for `gemini` / `not installed` is 137 logical pixels against a popover of 84. The note landed on top of the name. Both strings were correct; only their boxes were wrong, which is why no assertion about the rows caught it and a screenshot did (2026-09-14).\n\nTwo things a later editor will be tempted to simplify and must not. The measurement adds **twice microui's `style->padding`**, because `push_container_body` insets a window's layout by that on each side \u2014 a popover sized to its content exactly is still a row too narrow by ten pixels, which reads as the same defect slightly reduced. And every string is decided in `dropdown_row` rather than inline in the loop: the width pass and the draw pass have to agree about every string, and a second copy of the placeholder/known/installed rules is a popover sized for a list it does not draw.\n\n`re_ui_menu_item` reserving the hint's room is the other half. Both, because the reserve alone leaves a readable-but-clipped name and the width alone leaves nothing to stop the next narrow row.",
+      "refs": [
+        "docs/specs/134-project-and-worktree-browser.md",
+        "orchestrator/native/ui/ui.c._llm.json#menu-item",
+        "orchestrator/tests/native-agent-select.spec.mjs"
+      ]
     }
   ],
   "source": {
     "path": "orchestrator/native/overlays.c",
-    "sha256": "a5856fa0d942bc19f22efc9acdf2a05e3aed0864c0763051b064b901295205c0",
+    "sha256": "7dd64d7c6bc52b0c639848b4570da41c7b73086c9f44cda4d3926d0e59da224e",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

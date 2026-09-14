@@ -19,10 +19,12 @@ test('a dashboard game action launches the declared game in its own window while
     const plain = await server.store.addRoot(plainPath);
     const declared = await server.store.addRoot(await gameProject(dir, 'declared', launcherDeclaration()));
     gui = await nativeClient(server, { root: plain.id });
-    let state = await gui.until(s => s.connected && s.controls?.some(c => c.role === 'toolbar' && c.key === 'Root'), 'connected toolbar');
+    let state = await gui.until(s => s.connected && s.controls?.some(c => c.role === 'toolbar' && c.key === 'Settings'), 'connected toolbar');
     const toolbarKeys = s => s.controls.filter(c => c.role === 'toolbar' && c.tab === -1).map(c => c.key);
-    assert.deepEqual(toolbarKeys(state).filter(k => k !== 'Root'),
-      ['Tree', 'Dashboard', 'Tasks', 'Devices', 'Shell', 'Agent', 'Manage', 'Sessions', 'Split vertical', 'Split horizontal', 'Merge pane', 'Add project', 'Settings'],
+    assert.deepEqual(toolbarKeys(state),
+      // The project switcher and its path field left the toolbar with spec 134 D3; they are the
+      // Projects modal now, opened from the status bar's project segment.
+      ['Tree', 'Dashboard', 'Tasks', 'Devices', 'Shell', 'Agent', 'Manage', 'Sessions', 'Split vertical', 'Split horizontal', 'Merge pane', 'Settings'],
       'the toolbar is a fixed set of cells with no game control (Devices joined it in spec 082)');
     assert.equal(state.games, undefined, 'the desktop no longer publishes a toolbar game list');
 
@@ -38,7 +40,7 @@ test('a dashboard game action launches the declared game in its own window while
     for (let i = 1; i < bar.length; i++) assert.ok(bar[i].left >= bar[i - 1].right, `cells do not overlap: ${bar[i - 1].key}/${bar[i].key}`);
 
     // The root cell opens the project menu now, and the menu names the root (spec 080 decision 2).
-    await gui.control('toolbar', 'Root');
+    await gui.control('project', 'segment');
     await gui.until(s => s.controls?.some(c => c.role === 'menu-root' && c.key === 'declared'), 'the project menu');
     await gui.control('menu-root', 'declared');
     state = await gui.until(s => s.root === declared.id && s.tabs.some(t => t?.type === 6 && t.root === declared.id && t.dashboard?.groups?.length === 1),

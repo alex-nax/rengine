@@ -5,7 +5,7 @@
 /* Operations at or above OP_BYTES belong to a format view and carry its mode in `revision`;
  * everything else must sort below it, or the request path reads a format that is not there. */
 enum { OP_STATE = 1, OP_LOAD, OP_SAVE, OP_DRAFT, OP_DISCARD, OP_CREATE, OP_ROOT, OP_GENERIC, OP_LAYOUT, OP_EXPAND,
-       OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_SIGNIN, OP_DIAGNOSTICS, OP_AGENTS_MENU, OP_AGENT_SPAWN, OP_IMAGE, OP_BYTES, OP_PREVIEW, OP_ENTRY };
+       OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_SIGNIN, OP_DIAGNOSTICS, OP_AGENTS_MENU, OP_AGENT_SPAWN, OP_WORKTREES, OP_IMAGE, OP_BYTES, OP_PREVIEW, OP_ENTRY };
 /* Enforced rather than remembered. A merge that appends a new operation after OP_BYTES makes the
  * request path read a format a tracker or agent tab does not have, and the symptom is a request that
  * never completes rather than an error where the mistake was made. */
@@ -253,11 +253,26 @@ void re_app_tracker_refresh(ReApp *a, int tab) { tracker_request(a, tab, true); 
 /* The workspace's own agent list, for the toolbar's select (spec 134 D7). Asked for the SELECTED
    root when the select is opened and not already held for it — the devices/tasks rule, because a
    menu is a request and a toolbar must not spend one per frame. */
+/* The selected root's repository and every worktree of it (spec 134 D1). Asked when the Projects
+   modal opens and not already held for that root: the survey runs `git status` in each worktree,
+   which is the devices/tasks shape — a gesture, never a timer. */
+void re_app_worktrees(ReApp *a) {
+  if (!*a->root || !strcmp(a->worktrees_root, a->root)) return;
+  char *route = re_net_query("worktrees", a->root, "");
+  if (!route) return;
+  re_copy(a->worktrees_root, sizeof(a->worktrees_root), a->root);
+  a->worktree_count = 0; a->worktrees_error[0] = 0; a->worktrees_repository[0] = 0;
+  request(a, OP_WORKTREES, -1, route, NULL);
+  free(route);
+}
+
 void re_app_agents_menu(ReApp *a) {
   if (!*a->root || !strcmp(a->agents_root, a->root)) return;
   char *route = re_net_query("agents-menu", a->root, "");
   if (!route) return;
   re_copy(a->agents_root, sizeof(a->agents_root), a->root);
+  a->agents_known = false;
+  a->agent_count = 0;
   request(a, OP_AGENTS_MENU, -1, route, NULL);
   free(route);
 }
@@ -558,6 +573,10 @@ static void state_loaded(ReApp *a, const cJSON *j) {
   a->initialized = true;
   const cJSON *preferences = cJSON_GetObjectItemCaseSensitive(j, "preferences");
   a->vim = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(preferences, "vim")); re_copy(a->agent, sizeof(a->agent), re_string(preferences, "agent"));
+  /* The menu is fetched when the ROOT is known rather than when the select is opened: a list that
+     has not arrived yet draws exactly like an empty one, and the person opening it cannot tell
+     "none installed" from "not asked yet". Guarded by the root, so it costs one request per root. */
+  re_app_agents_menu(a);
   /* Settings follow the workspace, so a second window and a restart agree (spec 080 decision 6). */
   a->explorer_nested = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(preferences, "explorer"))
     || !strcmp(re_string(preferences, "explorer"), "nested");
@@ -667,7 +686,13 @@ static void response(ReApp *a, ReMessage *m) {
     if (p.operation == OP_AGENTS_MENU && p.tab >= 0) { re_tracker_menu_failed(a, p.tab, error); cJSON_Delete(j); return; }
     /* The toolbar's list failing takes nothing down: the select keeps whatever it had and a root
        that answers nothing is simply asked again next time it is opened. */
-    if (p.operation == OP_AGENTS_MENU) { a->agents_root[0] = 0; cJSON_Delete(j); return; }
+    if (p.operation == OP_AGENTS_MENU) { a->agents_root[0] = 0; a->agents_known = false; cJSON_Delete(j); return; }
+    /* A root that is not in a repository is the ORDINARY case, not a fault: the modal says so in
+       its own section and every other section stays exactly as it was. */
+    if (p.operation == OP_WORKTREES) {
+      re_copy(a->worktrees_error, sizeof(a->worktrees_error), error);
+      a->worktree_count = 0; cJSON_Delete(j); return;
+    }
     if (p.operation == OP_AGENT_SPAWN && p.tab >= 0) { re_tracker_spawn_failed(a, p.tab, error); cJSON_Delete(j); return; }
     if (!m->status && p.timeout > 0) { snprintf(budget, sizeof(budget), "%s · no reply within %ld ms (declared timeoutMs %ld plus transport)", error, p.timeout, p.timeout - 2000L); error = budget; }
     re_copy(a->status, sizeof(a->status), error);
@@ -681,11 +706,37 @@ static void response(ReApp *a, ReMessage *m) {
     case OP_STATE: state_loaded(a, j); break;
     case OP_FORMATS: formats_loaded(a, j); break;
     case OP_DASHBOARD: dashboard_probed(a, j); break;
+    case OP_WORKTREES: {
+      a->worktree_count = 0;
+      re_copy(a->worktrees_repository, sizeof(a->worktrees_repository), re_string(j, "repository"));
+      const cJSON *w = NULL;
+      cJSON_ArrayForEach(w, cJSON_GetObjectItemCaseSensitive(j, "worktrees")) {
+        if (a->worktree_count >= RE_WORKTREES) break;
+        ReWorktreeRow *row = &a->worktrees[a->worktree_count];
+        re_copy(row->path, sizeof(row->path), re_string(w, "path"));
+        re_copy(row->branch, sizeof(row->branch), re_string(w, "branch"));
+        row->present = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(w, "present"));
+        row->main = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(w, "main"));
+        row->removable = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(w, "removable"));
+        const cJSON *dirty = cJSON_GetObjectItemCaseSensitive(w, "dirty");
+        row->dirty = cJSON_IsNumber(dirty) ? dirty->valueint : -1;
+        /* Whether this workspace already holds it as a root, which is what decides between
+           "switch to it" and "add it" — and a worktree is a distinct root (charter D20). */
+        row->is_root = false;
+        const cJSON *r = NULL;
+        cJSON_ArrayForEach(r, cJSON_GetObjectItemCaseSensitive(a->state, "roots")) {
+          if (!strcmp(re_string(r, "path"), row->path)) { row->is_root = true; break; }
+        }
+        a->worktree_count++;
+      }
+      break;
+    }
     case OP_AGENTS_MENU:
       /* tab < 0 is the TOOLBAR's list, not a Tasks pane's: same route, different holder, so a tab
          that was never opened does not decide what the toolbar offers. */
       if (p.tab < 0) {
         a->agent_count = 0;
+        a->agents_known = true;
         const cJSON *item = NULL;
         cJSON_ArrayForEach(item, cJSON_GetObjectItemCaseSensitive(j, "agents")) {
           if (a->agent_count >= RE_WORKSPACE_AGENTS) break;
@@ -974,6 +1025,41 @@ cJSON *re_app_inspect(ReApp *a) {
   /* The agent the toolbar's select names, beside the other chosen-and-remembered settings: a spec
      that drives the select has nowhere else to read what it chose (spec 134 D7). */
   cJSON_AddStringToObject(j, "agent", a->agent);
+  /* Whether the agent menu has ANSWERED, beside the agent it names: a spec that cannot tell an
+     unanswered list from an empty one asserts nothing about either. */
+  cJSON *agents = cJSON_AddObjectToObject(j, "agents");
+  cJSON_AddBoolToObject(agents, "known", a->agents_known);
+  cJSON_AddNumberToObject(agents, "count", a->agent_count);
+  cJSON *drawn = cJSON_AddArrayToObject(agents, "rows");
+  for (int i = 0; i < a->agent_row_count; i++) {
+    cJSON *row = cJSON_CreateObject();
+    cJSON_AddStringToObject(row, "title", a->agent_rows[i][0]);
+    cJSON_AddStringToObject(row, "note", a->agent_rows[i][1]);
+    cJSON_AddItemToArray(drawn, row);
+  }
+  /* Which select is open and where its popover LANDED, so a spec can ask the draw list what was
+     drawn inside it. Row strings say what a row holds; only the rectangle plus the runs say
+     whether two of those strings were placed on top of each other. */
+  cJSON *open = cJSON_AddObjectToObject(j, "dropdown");
+  cJSON_AddStringToObject(open, "key", a->dropdown);
+  cJSON_AddNumberToObject(open, "x", a->dropdown_rect.x); cJSON_AddNumberToObject(open, "y", a->dropdown_rect.y);
+  cJSON_AddNumberToObject(open, "w", a->dropdown_rect.w); cJSON_AddNumberToObject(open, "h", a->dropdown_rect.h);
+  /* The repository survey the Projects modal draws, so a spec can wait for the ANSWER rather than
+     for a frame — a list that is merely not there yet reads exactly like one that is empty. */
+  cJSON *survey = cJSON_AddObjectToObject(j, "worktrees");
+  cJSON_AddStringToObject(survey, "root", a->worktrees_root);
+  cJSON_AddStringToObject(survey, "repository", a->worktrees_repository);
+  cJSON_AddStringToObject(survey, "error", a->worktrees_error);
+  cJSON *rows = cJSON_AddArrayToObject(survey, "rows");
+  for (int i = 0; i < a->worktree_count; i++) {
+    cJSON *row = cJSON_CreateObject();
+    cJSON_AddStringToObject(row, "path", a->worktrees[i].path);
+    cJSON_AddStringToObject(row, "branch", a->worktrees[i].branch);
+    cJSON_AddBoolToObject(row, "present", a->worktrees[i].present);
+    cJSON_AddBoolToObject(row, "isRoot", a->worktrees[i].is_root);
+    cJSON_AddNumberToObject(row, "dirty", a->worktrees[i].dirty);
+    cJSON_AddItemToArray(rows, row);
+  }
   cJSON_AddStringToObject(j, "themePath", a->theme_path);
   /* Exactly what the focused editor last told the workspace, so a test reads the report rather than
      re-deriving it: root|path|startLine:startCharacter-endLine:endCharacter|revision. */

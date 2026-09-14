@@ -45,7 +45,8 @@ test(`the workspace wears the project name, and ${PRODUCT_NAME} when none is dec
     assert.ok(state.windowTitle.startsWith(PRODUCT_NAME), `and the window title agrees: ${state.windowTitle}`);
 
     // The declared name reaches the chrome.
-    await gui.control('toolbar', 'Root', -1);
+    /* The switcher is the status bar's project segment since spec 134 D3. */
+    await gui.control('project', 'segment', -1);
     await gui.until(s => s.controls?.some(c => c.role === 'menu-root' && c.key === 'named'), 'the project menu lists both');
     await gui.control('menu-root', 'named', -1);
     await gui.until(s => s.root === other.id, 'the second root is selected');

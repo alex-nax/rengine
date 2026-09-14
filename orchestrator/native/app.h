@@ -14,6 +14,14 @@ enum { RE_TREE = 1, RE_EDITOR, RE_TERMINAL, RE_SESSIONS, RE_GAME, RE_DASHBOARD, 
 /* The toolbar's agent select offers what the workspace has; the registry ships a handful, and a
    list that outgrows this is a registry change rather than a workspace one (spec 134 D7). */
 #define RE_WORKSPACE_AGENTS 16
+/* A repository's worktrees, as the Projects modal draws them (spec 134 D1/D2). Bounded because a
+   modal is a list a person reads: a repository with more than this has a shell, not a browser. */
+#define RE_WORKTREES 32
+typedef struct {
+  char path[1024], branch[96];
+  bool present, main, removable, is_root;
+  int dirty;
+} ReWorktreeRow;
 typedef struct {
   /* Wheel steps a plugin tab has not been shown yet. Per tab rather than per window because the
      contract is "since this plugin's previous frame", and an unfocused tab has no frames. */
@@ -61,7 +69,17 @@ typedef struct ReApp {
   char agents[RE_WORKSPACE_AGENTS][64];
   bool agents_installed[RE_WORKSPACE_AGENTS];
   int agent_count;
+  bool agents_known;                         /* an answer ARRIVED; absent is not the same as empty */
+  /* What the open agent list is actually DRAWING, row by row. A control's rectangle told a spec the
+     row existed and nothing about the strings inside it, so two strings drawn on top of each other
+     was invisible to every test and obvious in a screenshot (2026-09-14). */
+  char agent_rows[RE_WORKSPACE_AGENTS + 1][2][96]; int agent_row_count;
   char agents_root[65];
+  /* The selected root's repository and its worktrees, asked when the Projects modal opens and not
+     on a timer — the devices/tasks rule, because the survey runs git in every worktree. */
+  ReWorktreeRow worktrees[RE_WORKTREES]; int worktree_count;
+  char worktrees_root[65], worktrees_repository[1024], worktrees_error[256];
+  mu_Rect project_rect;                      /* the status bar's project segment, which opens the modal */
   bool initialized, connected, vim, layout_dirty, quitting;
   int width, height, preset;                 /* last laid-out size and the active theme preset */
   bool explorer_nested;                      /* the explorer's mode (spec 080) */
@@ -93,7 +111,7 @@ typedef struct ReApp {
   int scene;
 } ReApp;
 /* The overlay layer. Opening one closes the other, so the kind is a single value (spec 080). */
-enum { RE_OVERLAY_NONE = 0, RE_OVERLAY_SETTINGS, RE_OVERLAY_ROOTS, RE_OVERLAY_PANE, RE_OVERLAY_TOKEN };
+enum { RE_OVERLAY_NONE = 0, RE_OVERLAY_SETTINGS, RE_OVERLAY_ROOTS, RE_OVERLAY_PANE, RE_OVERLAY_TOKEN, RE_OVERLAY_PROJECTS };
 
 ReApp *re_app_open(const char *url, const char *token);
 void re_app_close(ReApp *app);
@@ -159,6 +177,7 @@ int re_app_tracker(ReApp *app, const char *root);       /* the project's task li
 void re_app_tracker_refresh(ReApp *app, int tab);
 void re_app_tracker_signin(ReApp *app, int tab);        /* opens the provider's sign-in page */
 void re_app_agents_menu(ReApp *app);  /* spec 134 D7: the toolbar select's list, for the selected root */
+void re_app_worktrees(ReApp *app);    /* spec 134 D1: the selected root's repository, for the Projects modal */
 void re_app_agent_spawn(ReApp *app, int tab, const cJSON *body);  /* spec 103: the Tasks pane owns the answer */
 void re_app_open_url(ReApp *app, const char *url);      /* hands a task's link to the browser */
 void re_devices_ui(ReApp *app, mu_Context *ui, int tab);

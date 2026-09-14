@@ -18,6 +18,9 @@ const run = promisify(execFile);
 // The current-UI scenes gained anti-aliased rounded controls with the design update (spec 076), so
 // they carry the edge-band rule the owner set for the primitives scene instead of a channel limit:
 // the differing fraction stays tight and nothing may differ outside a 2px band of a shape's edge.
+// The scene draws in LOGICAL coordinates and the frame is captured in device pixels; the ratio is
+// measured per run rather than assumed, because a retina window is not the only one this runs on.
+const LOGICAL_WIDTH = 1280;
 const TOLERANCE = {
   workspace: ['--max-fraction', '0.001', '--edge-band', '2'],
   terminal: ['--max-fraction', '0.001', '--edge-band', '2'],
@@ -90,9 +93,10 @@ async function resident(pid) {
 }
 const median = values => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
 
-async function compare(reference, candidate, name) {
+async function compare(reference, candidate, name, region) {
   let output;
-  try { ({ stdout: output } = await run(PYTHON, ['tools/render_compare.py', reference, candidate, ...TOLERANCE[name], '--json'])); }
+  const scoped = region ? ['--region', [region.x, region.y, region.w, region.h].join(',')] : [];
+  try { ({ stdout: output } = await run(PYTHON, ['tools/render_compare.py', reference, candidate, ...TOLERANCE[name], ...scoped, '--json'])); }
   catch (error) { output = error.stdout; if (!output) throw error; }
   return JSON.parse(output);
 }
@@ -127,6 +131,9 @@ async function capture(project, backend, dir, extraEnv = {}, tag = backend) {
     await scene('terminal');
     assert.equal(await gui.command({ op: 'scene', name: 'primitives' }), true);
     await scene('primitives');
+    /* The regions come from the drawing code (KI-111), read while the scene is still up. A table
+       of rectangles written down beside the test drifts the first time a shape moves. */
+    result.regions = await gui.command({ op: 'scene-regions' });
     await gui.command({ op: 'scene', name: '' });
     result.samples.push(await resident(gui.child.pid));
     result.rss = median(result.samples);
@@ -194,6 +201,43 @@ test('every renderer matches the recorded reference frames within the tolerances
       for (const [backend, result] of Object.entries(report.reference[name])) {
         assert.deepEqual(result.failures, [],
           `${backend} ${name} still matches the recorded frame: ${JSON.stringify(result)}`);
+      }
+    }
+
+    /* Per PRIMITIVE, and cross-backend as well as against the reference (KI-111).
+     *
+     * Two holes this closes. The cross-backend comparison was computed on every run and asserted on
+     * none — it sat in the evidence file, so a real divergence could live in a green report; the
+     * day OpenGL became the baseline it turned out Metal had been differing intermittently and
+     * nobody had ever been told. And a whole-scene comparison could only ever say "385 pixels
+     * somewhere", which is not something a person can act on. The regions are the drawing code's
+     * own, so what fails has the primitive's name on it.
+     *
+     * The scale is measured rather than assumed: the scene draws in logical coordinates and the
+     * frame is captured in device pixels, and a retina window is not the only ratio this runs on. */
+    const drawn = gpu[backends[0]].regions ?? [];
+    assert.ok(drawn.length > 0, 'the primitives scene reported the regions it drew');
+    const { width } = report.reference.primitives[backends[0]];
+    const scale = Math.round(width / LOGICAL_WIDTH);
+    const scaled = ({ name, x, y, w, h }) => ({ name, x: x * scale, y: y * scale, w: w * scale, h: h * scale });
+    report.primitives = {};
+    for (const region of drawn.map(scaled)) {
+      const key = `${region.name}@${region.x},${region.y}`;
+      report.primitives[key] = {};
+      const recorded = path.join('orchestrator/tests/references', 'render-primitives.png');
+      for (const backend of backends) {
+        report.primitives[key][backend] = await compare(recorded, gpu[backend].snapshots.primitives, 'primitives', region);
+      }
+      for (let i = 0; i < backends.length; i++) for (let j = i + 1; j < backends.length; j++) {
+        report.primitives[key][`${backends[i]}-vs-${backends[j]}`] =
+          await compare(gpu[backends[i]].snapshots.primitives, gpu[backends[j]].snapshots.primitives, 'primitives', region);
+      }
+    }
+    await writeFile('.cache/evidence/render-compare.json', JSON.stringify(report, null, 2));
+    for (const [key, per] of Object.entries(report.primitives)) {
+      for (const [who, result] of Object.entries(per)) {
+        assert.deepEqual(result.failures, [],
+          `the ${key.split('@')[0]} primitive differs for ${who}: ${JSON.stringify(result)}`);
       }
     }
     for (const backend of backends) {

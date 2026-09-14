@@ -570,17 +570,25 @@ void re_app_status(ReApp *a, ReDraw *draw) {
     re_draw_text_face(draw, RE_FACE_UI_SEMIBOLD, size, mode, -1, RE_METRIC_DESIGN_GAP_LG, text_y, RE_COLOR_STATUS_ACCENT_FG);
     x = width + RE_METRIC_DESIGN_PAD;
   }
-  char facts[256];
+  /* The project's name is its OWN segment, because pressing it opens the Projects modal — the
+     toolbar no longer carries a switcher (spec 134 D3/D4). Drawn outside microui like the token
+     segment beside it, and for the same reason: a window of its own would cost a root container. */
+  char project[160], facts[256];
   int sessions = cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(a->state, "sessions"));
-  snprintf(facts, sizeof(facts), "%s · %s · %d session%s", re_workspace_root_name(a, a->root), *a->agent ? a->agent : "no agent",
+  re_copy(project, sizeof(project), re_workspace_root_name(a, a->root));
+  snprintf(facts, sizeof(facts), " · %s · %d session%s", *a->agent ? a->agent : "no agent",
            sessions, sessions == 1 ? "" : "s");
-  int facts_width = re_draw_text_width(draw, RE_FACE_UI, size, facts, -1);
+  int project_width = re_draw_text_width(draw, RE_FACE_UI_SEMIBOLD, size, project, -1);
+  int facts_width = project_width + re_draw_text_width(draw, RE_FACE_UI, size, facts, -1);
   /* The token segment owns the right edge and the facts move left of it, so its rectangle depends
      on the window width and its own text alone (spec 095). */
   re_token_status(a, draw);
   int edge = a->token.rect.w ? a->token.rect.x : a->width;
   int right = edge - RE_METRIC_DESIGN_PAD - facts_width;
-  re_draw_text_face(draw, RE_FACE_UI, size, facts, -1, right, text_y, RE_COLOR_STATUS_FG);
+  re_draw_text_face(draw, RE_FACE_UI_SEMIBOLD, size, project, -1, right, text_y,
+                    a->overlay == RE_OVERLAY_PROJECTS ? RE_COLOR_STATUS_ACCENT_FG : RE_COLOR_STATUS_FG);
+  a->project_rect = mu_rect(right, y, project_width, height);
+  re_draw_text_face(draw, RE_FACE_UI, size, facts, -1, right + project_width, text_y, RE_COLOR_STATUS_FG);
   re_draw_icon(draw, RE_ICON_AGENT, mu_rect(right - size - RE_METRIC_DESIGN_GAP, y, size, height), RE_COLOR_TEXT_FAINT);
   mu_Rect clip = mu_rect(x, y, re_max(0, right - x - RE_METRIC_DESIGN_PAD - size), height);
   re_draw_clip(draw, &clip);
@@ -708,24 +716,18 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
     }
     re_app_control(a, ui, "toolbar", "Merge pane", -1);
     toolbar_separator(&bar);
-    if (toolbar_cell(&bar, re_workspace_root_name(a, a->root), RE_ICON_PROJECT,
-                     RE_UI_ALIGN_LEFT | RE_UI_CARET | (a->overlay == RE_OVERLAY_ROOTS ? RE_UI_ON : 0), RE_METRIC_DESIGN_GAP_LG)) {
-      overlay_open(a, ui, RE_OVERLAY_ROOTS);   /* the project list is a menu now, not a cycle (spec 080) */
+    /* No project switcher and no path field: opening another project is the Projects modal, reached
+       from the status bar's project segment or its shortcut (spec 134 D3). The spacer takes the
+       slack the field used to, so the row still ends at the window's edge — measured from the cells
+       that actually follow rather than from a constant, which is what the old `trailing` did. */
+    {
+      const char *chosen = *a->agent ? a->agent : "codex";
+      int trailing = re_draw_text_width(bar.draw, RE_FACE_UI, RE_METRIC_DESIGN_SIZE_SM, "Agent", -1)
+                   + toolbar_width(&bar, chosen, RE_ICON_AGENT, RE_UI_ALIGN_LEFT | RE_UI_CARET)
+                   + RE_METRIC_DESIGN_ICON_BUTTON
+                   + 4 * RE_METRIC_DESIGN_GAP_LG;
+      toolbar_next(&bar, re_max(RE_METRIC_DESIGN_ICON_BUTTON, bar.right - bar.x - trailing), RE_METRIC_DESIGN_GAP_LG);
     }
-    re_app_control(a, ui, "toolbar", "Root", -1);
-    /* The path field takes the slack, as the card's caption describes. */
-    int trailing = toolbar_width(&bar, "Add project", RE_ICON_UNKNOWN, 0)
-                 + re_draw_text_width(bar.draw, RE_FACE_UI, RE_METRIC_DESIGN_SIZE_SM, "Agent", -1)
-                 + RE_METRIC_TOOLBAR_AGENT_WIDTH
-                 + RE_METRIC_DESIGN_ICON_BUTTON
-                 + 5 * RE_METRIC_DESIGN_GAP_LG;
-    toolbar_next(&bar, re_max(RE_METRIC_DESIGN_ICON_BUTTON, bar.right - bar.x - trailing), RE_METRIC_DESIGN_GAP_LG);
-    re_ui_textbox_ex(ui, a->project_input, sizeof(a->project_input), RE_ICON_SEARCH, "Project path or repository URL…", 0);
-    re_app_control(a, ui, "textbox", "project", -1);
-    if (toolbar_cell(&bar, "Add project", RE_ICON_UNKNOWN, 0, RE_METRIC_DESIGN_GAP_LG)) {
-      cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "path", a->project_input); re_app_action(a, "roots", j); cJSON_Delete(j);
-    }
-    re_app_control(a, ui, "toolbar", "Add project", -1);
     toolbar_label(&bar, "Agent");
     /* A SELECT, which is what `design/previews/workspace/toolbar.html` has specified since spec 064
        (`re-button re-select agent`); the native drifted to a text box, so a person could type a CLI
@@ -749,11 +751,13 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
    * and fifteen panes with a surface open already sit at microui's root list of 32. The press is
    * served by re_app_event, the way the pane strip's context menu is. */
   if (a->token.rect.w > 0) inspect_rect(a, "token", "segment", -1, a->token.rect);
+  if (a->project_rect.w > 0) inspect_rect(a, "project", "segment", -1, a->project_rect);
   if (a->overlay_restore) { mu_set_focus(ui, a->overlay_opener); a->overlay_restore = false; }
   if (a->overlay == RE_OVERLAY_SETTINGS) re_overlay_settings(a, ui);
   else if (a->overlay == RE_OVERLAY_ROOTS) re_overlay_roots(a, ui);
   else if (a->overlay == RE_OVERLAY_PANE) re_overlay_pane(a, ui);
   else if (a->overlay == RE_OVERLAY_TOKEN) re_overlay_token(a, ui);
+  else if (a->overlay == RE_OVERLAY_PROJECTS) re_overlay_projects(a, ui);
   /* A list cannot outlive the surface it opened from — and the toolbar's own select has no overlay
      behind it, so the test is against the surface it was opened FROM rather than against any. */
   if (a->overlay != a->dropdown_overlay) a->dropdown[0] = 0;
@@ -935,6 +939,11 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
     switch (e->key.keysym.sym) {
       case SDLK_BACKSLASH: re_workspace_command(a, shift ? RE_COMMAND_SPLIT_HORIZONTAL : RE_COMMAND_SPLIT_VERTICAL); return true;
       case SDLK_BACKSPACE: re_workspace_command(a, RE_COMMAND_MERGE); return true;
+      case SDLK_p:
+        /* The Projects modal, since the toolbar no longer carries one (spec 134 D4). */
+        if (a->overlay == RE_OVERLAY_PROJECTS) re_workspace_overlay_close(a);
+        else { re_app_worktrees(a); a->overlay = RE_OVERLAY_PROJECTS; a->overlay_anchor = a->project_rect; a->overlay_opener = 0; }
+        return true;
       case SDLK_t: re_workspace_command(a, RE_COMMAND_SHELL); return true;
       case SDLK_e: re_workspace_command(a, RE_COMMAND_SCENE); return true;
       case SDLK_w: re_workspace_command(a, RE_COMMAND_CLOSE_VIEW); return true;
@@ -950,6 +959,12 @@ bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {
    * press lands here; the surface hangs from the segment's own rectangle, which the anchor rule then
    * places above it because the bar is at the bottom of the window. */
   if (e->type == SDL_MOUSEBUTTONDOWN && e->button.button == SDL_BUTTON_LEFT && !a->quitting &&
+      a->project_rect.w > 0 && re_inside(a->project_rect, e->button.x, e->button.y)) {
+    if (a->overlay == RE_OVERLAY_PROJECTS) re_workspace_overlay_close(a);
+    else { re_app_worktrees(a); a->overlay = RE_OVERLAY_PROJECTS; a->overlay_anchor = a->project_rect; a->overlay_opener = 0; }
+    return true;
+  }
+  if (e->type == SDL_MOUSEBUTTONDOWN && e->button.button == SDL_BUTTON_LEFT &&
       a->token.rect.w > 0 && re_inside(a->token.rect, e->button.x, e->button.y)) {
     if (a->overlay == RE_OVERLAY_TOKEN) re_workspace_overlay_close(a);
     else { a->overlay = RE_OVERLAY_TOKEN; a->overlay_anchor = a->token.rect; a->overlay_opener = 0; }

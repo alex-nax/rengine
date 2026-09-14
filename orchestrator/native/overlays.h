@@ -34,6 +34,7 @@ enum { RE_COMMAND_SPLIT_VERTICAL = 0, RE_COMMAND_SPLIT_HORIZONTAL, RE_COMMAND_ME
  * holds one at a time — and calls the matching one of these to fill it. */
 void re_overlay_settings(ReApp *app, mu_Context *ui);
 void re_overlay_roots(ReApp *app, mu_Context *ui);    /* the project menu */
+void re_overlay_projects(ReApp *app, mu_Context *ui); /* spec 134: projects, their worktrees, and adding one */
 void re_overlay_pane(ReApp *app, mu_Context *ui);     /* the pane menu */
 void re_overlay_dropdown(ReApp *app, mu_Context *ui); /* the open select, drawn above its own surface */
 /* Open or close a select's list. The toolbar's agent select is in workspace.c, so the toggle the

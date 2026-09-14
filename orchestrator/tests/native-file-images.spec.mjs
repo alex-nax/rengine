@@ -52,7 +52,7 @@ test('native image tabs draw real pixels and retain root identity through refres
     await gui.command({ op: 'motion', x: 700, y: 400 });
     await gui.command({ op: 'button', x: 700, y: 400, down: false });
     await gui.until(s => s.tabs[tab].rect[0] > 280, 'image moved to the right pane');
-    await gui.control('toolbar', 'Root'); await gui.control('menu-root', 'two');
+    await gui.control('project', 'segment'); await gui.control('menu-root', 'two');
     await gui.control('toolbar', 'Tree');
     state = await gui.until(s => s.tabs.some(t => t?.root === other.id && t.tree));
     await gui.control('tree-entry', 'proof.png', state.tabs.findIndex(t => t?.root === other.id && t.tree));
@@ -139,7 +139,7 @@ process.stdin.on('data', data => { fs.appendFileSync(${JSON.stringify(received)}
       await gui.command({ op: 'button', x, y, mod, down: false });
       await gui.command({ op: 'motion', x, y, mod: 0 }); await delay(150);
     };
-    await gui.control('toolbar', 'Root'); await gui.control('menu-root', 'other');
+    await gui.control('project', 'segment'); await gui.control('menu-root', 'other');
     await click(3, 0);
     state = await gui.command({ op: 'state' });
     assert.ok(state.tabs.some(t => t?.path === 'proof.png'), 'clicking the Markdown label opens a file tab');
@@ -270,7 +270,7 @@ test('file-reference hover selects the real system hand cursor and clears it out
     await gui.command({ op: 'focus', focused: true });
     await point(25, 0);
     await gui.until(s => s.fileLinkCursor === true, 'hover restores the hand cursor');
-    await gui.control('toolbar', 'Root');
+    await gui.control('project', 'segment');
     await point(25, 0);
     assert.equal((await gui.command({ op: 'state' })).fileLinkCursor, false, 'an overlay releases the link cursor');
     await gui.key('Escape');

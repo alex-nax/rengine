@@ -437,12 +437,18 @@ int re_ui_menu_item(mu_Context *ctx, const char *label, int icon, const char *hi
   mu_Color ink = mix(RE_COLOR_TEXT, RE_COLOR_TEXT_ON_ACCENT, hover);
   if (marked) ui_icon_sized(RE_ICON_CHECK, icon_width, mu_rect(rect.x + gap, rect.y, icon_width, rect.h), hover > 0.5f ? ink : RE_COLOR_ACCENT);
   else if (icon >= 0) ui_icon((uint8_t)icon, mu_rect(rect.x + gap, rect.y, icon_width, rect.h), hover > 0.5f ? ink : RE_COLOR_TEXT_MUTED);
-  ui_text(RE_FACE_UI, size, label, rect.x + gap + icon_width + gap, rect.y + (rect.h - size) / 2 - 1, ink);
-  if (hint && *hint) {
-    int width = re_draw_text_width(ui.draw, RE_FACE_MONO, RE_METRIC_DESIGN_SIZE_SM, hint, -1);
-    ui_text(RE_FACE_MONO, RE_METRIC_DESIGN_SIZE_SM, hint, rect.x + rect.w - gap - width,
+  /* The hint is placed FIRST and its room taken out of the label's, the way re_ui_row_ex does it.
+   * Drawn independently, a right-aligned hint in a row too narrow for both lands on top of the
+   * label instead of beside it — legible in a screenshot, invisible to every rectangle. */
+  int hint_width = hint && *hint ? re_draw_text_width(ui.draw, RE_FACE_MONO, RE_METRIC_DESIGN_SIZE_SM, hint, -1) : 0;
+  if (hint_width) {
+    ui_text(RE_FACE_MONO, RE_METRIC_DESIGN_SIZE_SM, hint, rect.x + rect.w - gap - hint_width,
             rect.y + (rect.h - RE_METRIC_DESIGN_SIZE_SM) / 2 - 1, hover > 0.5f ? ink : RE_COLOR_TEXT_FAINT);
+    hint_width += gap;
   }
+  int label_x = rect.x + gap + icon_width + gap;
+  text_clipped(RE_FACE_UI, size, label, label_x, rect.y + (rect.h - size) / 2 - 1, ink,
+               mu_rect(label_x, rect.y, re_max(0, rect.x + rect.w - gap - hint_width - label_x), rect.h));
   return res;
 }
 void re_ui_menu_separator(mu_Context *ctx) {
