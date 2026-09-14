@@ -2739,6 +2739,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "red-project"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "red-pty"
 version = "0.1.0"
 dependencies = [

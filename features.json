@@ -2784,7 +2784,8 @@
       "external_references": [],
       "evidence": [
         "F156a, 2026-09-14: docs/evidence/image-route-f156a-2026-09-14.md — /api/image is answered by red-host and orchestrator/server/images.mjs is deleted, with the image-dimensions npm dependency. The first JavaScript module this epic removes. The spec is unchanged in what it drives and gained each refusal's own words; three sabotages verified. formats.mjs and recordings.mjs, the rest of this row, are unchanged.",
-        "F156b PREPARATION, 2026-09-14: docs/evidence/declaration-record-f156b-2026-09-14.md — readDeclaration's answers are recorded over a 38-case corpus (orchestrator/tests/declaration-fixtures.{mjs,json}) before the module is replaced, the way F148/F172/F178 recorded theirs. declaration-record.test.mjs drives the live reader over the same corpus so the record cannot drift from what it froze; two sabotages verified. Nothing is ported or deleted by this."
+        "F156b PREPARATION, 2026-09-14: docs/evidence/declaration-record-f156b-2026-09-14.md — readDeclaration's answers are recorded over a 38-case corpus (orchestrator/tests/declaration-fixtures.{mjs,json}) before the module is replaced, the way F148/F172/F178 recorded theirs. declaration-record.test.mjs drives the live reader over the same corpus so the record cannot drift from what it froze; two sabotages verified. Nothing is ported or deleted by this.",
+        "F156c, 2026-09-14: docs/evidence/recordings-f156c-2026-09-14.md — the recording reader is red-project's, and recordings.mjs is a 46-line client over it (was 115). KI-107's blocker was not one: the thin-client pattern store-client/pty-client/agents-client already established lets the implementation leave while the module's API stays, so the worker goes on serving the capability from its own checkout by running the checkout's Rust. recordings.test.mjs and native-recording.spec.mjs are unchanged; three sabotages verified."
       ]
     },
     {

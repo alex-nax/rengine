@@ -1,0 +1,14 @@
+[package]
+name = "red-project"
+version = "0.1.0"
+edition = "2021"
+description = "What a project declares about itself, and the artifacts it produces: recordings today, the declaration and its formats next (F153-F156, spec 129)"
+
+[dependencies]
+serde_json = { version = "1", features = ["preserve_order"] }
+
+# One binary, one subcommand per question, so a JS caller that still needs an answer asks the same
+# implementation red-host does rather than keeping a second one in JavaScript.
+[[bin]]
+name = "red-project"
+path = "src/bin/red_project.rs"

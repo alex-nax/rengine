@@ -99,6 +99,26 @@ in Rust. `red_store::schema::validate_schema` is the bounded JSON Schema 2020-12
 identical error strings (F169/F147a), so the port is the section rules and the bounded command
 execution, not a validator.
 
+**And then the blocker turned out not to be one.** KI-107 said the remaining `server/*` modules
+cannot leave while the worker imports them, and that unpicking it needed a decision about spec 065's
+layering. That framing was wrong: this repository has answered the question three times.
+`store-client.mjs`, `pty-client.mjs` and `agents-client.mjs` are thin JS clients over Rust — **the
+implementation leaves, the module's API stays, and every caller is untouched**, including the worker,
+which goes on serving the capability from its own checkout exactly as spec 065 says it must, by
+running the checkout's Rust rather than importing its JavaScript.
+
+`red/red-project/` is the crate for what a project declares and what it leaves behind, and its first
+module is the recording store. `recordings.mjs` went from 115 lines to 46, all client. **Its spec is
+unchanged — all 212 lines of it — and so are `native-recording.spec.mjs` and the worker**, which is
+the whole point: the spec that judged the JavaScript judges the Rust, because the module it imports
+still answers. Three sabotages: an incomplete recording dropped instead of reported, the log tail
+taken from the front, and a keyframe page that ignores its offset.
+
+`rust-workspace.test.mjs` reads the workspace's members from its manifest now, because a new crate
+was reported as an unpinned registry dependency — a true statement about the wrong thing.
+
+JavaScript on the app path: **6,743**.
+
 Commands: `npm test` (**328 of 328**, zero services left), `cargo test`, `./init.sh`,
 `python3 tools/features.py validate`, and four native specs including `native-front-door`.
 

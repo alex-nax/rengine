@@ -6,4 +6,4 @@
 # dependency in F140 (prost).
 [workspace]
 resolver = "2"
-members = ["red-core", "red-link", "red-agents", "red-store", "red-pty", "red-mcp", "red-host"]
+members = ["red-core", "red-link", "red-agents", "red-store", "red-pty", "red-mcp", "red-host", "red-project"]
