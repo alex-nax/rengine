@@ -69,6 +69,25 @@ JavaScript on the app path: **6,801**, from 6,845. The rest of F156 is `formats.
 (194), `devices.mjs` (166), `games.mjs` (161), `dashboard.mjs` (82) and their rule modules. 1,866
 lines behind fifteen routes, and that is where the total moves.
 
+**And then the next module would not come out, which is the finding.** `recordings.mjs` is 115 lines
+behind two GETs and nothing else should hold it — except `runtime/worker.mjs` imports it, and
+`formats`, `dashboard`, `devices`, `games`, `tasks`, `tracker` and `desktops` besides, and
+**intercepts their routes unconditionally** rather than forwarding. That is spec 065/098's layering:
+the worker is the newest code, so a capability can arrive above a host too old to have it. The
+consequence for this epic is that moving a route into red-host removes `main.mjs`'s importer and
+leaves the worker's — `images.mjs` came out only because the worker never imported it. **The line
+count cannot fall again until the worker's capability layer moves or stops intercepting**, which is
+filed as **KI-107** with a recommendation: the worker forwards what the host advertises, since
+`/api/state` already carries the capability map and `forward()` already exists — and since the
+premise has changed underneath the layering, because spec 098 layered capabilities above the host to
+avoid ending retained panes, and since **D60** those panes survive host replacement.
+
+One note for whoever takes the next port: `formats.mjs` (386 lines) is the keystone — `dashboard`,
+`devices`, `games` and `tracker` all read its `readDeclaration` — and the hard part of it is already
+in Rust. `red_store::schema::validate_schema` is the bounded JSON Schema 2020-12 subset with
+identical error strings (F169/F147a), so the port is the section rules and the bounded command
+execution, not a validator.
+
 Commands: `npm test` (**326 of 326**, zero services left), `cargo test`, `./init.sh`,
 `python3 tools/features.py validate`, and four native specs including `native-front-door`.
 
