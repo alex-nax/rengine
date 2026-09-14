@@ -27,7 +27,14 @@ test('project windows retain one agent, isolated layouts, inspection and durable
     host = await startServer({ stateDir: path.join(directory, 'host') });
     const origin = await host.store.addRoot(originPath), project = await host.store.addRoot(projectPath), foreign = await host.store.addRoot(foreignPath);
     const agent = await host.sessions.terminal({ rootId: origin.id, command: process.execPath, args: [fixture] });
-    host.sessions.items.get(agent.id).type = 'agent';
+    /* A fixture process relabelled as an agent, because `type: 'agent'` would replace this command
+       with a real agent launch. Since charter D62 the pane record belongs to the PTY service, so the
+       relabel has to be WRITTEN THROUGH: mutating this host's own copy left `/api/state` still
+       saying `terminal`, and `open_project_window` reads that — "Select a running agent bound to the
+       originating project" for a session that is running and bound. */
+    const record = host.sessions.items.get(agent.id);
+    record.type = 'agent';
+    await host.sessions.record(record);
     originUI = await nativeClient(host, { root: origin.id, agent: agent.id });
     await originUI.until(s => s.tabs.some(t => t?.session === agent.id && t.text?.includes('ORIGINAL_AGENT_READY')));
     await delay(400); const originalLayout = structuredClone(host.store.state.layout);

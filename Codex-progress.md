@@ -82,11 +82,34 @@ written `\0`; what differs is whether the file can be searched. One such file in
 escaped, and `suite-coverage.test.mjs` asserts there is never another — the right home for it, since
 its whole subject is things that become invisible in a green report.
 
+**The desktop gate, run for the first time in this arc.** 43 specs, ten minutes, not in `npm test`
+(KI-105). 78 of 81 pass — including every token spec, so the ledger-as-a-service did not break the
+desktop's status segment, which is the consumer path F157 most had to keep. Both failures predate
+this session's commits, each verified by running the spec at `c127141`:
+
+- KI-105's `native-handoff` spec, already filed.
+- `native-project-windows`, **not** filed until now. Bisected across the 38 commits from `cfb58c8`
+  to `c127141` and confirmed on both sides: `a0cb7d5` passes, `bfc0675` (the MCP connector becomes a
+  binary) fails. Instrumenting the refusal showed the session present, running and bound, with
+  `type: "terminal"` — because the spec relabels a fixture process by mutating the host's own copy
+  of the record, and **since charter D62 that record belongs to the PTY service**. Writing the
+  relabel through fixes it, and the spec then reaches assertion 14 and fails on a split `ratio` one
+  ULP apart (`0.23000000417232513` against `0.2300000041723251`) — `layout.h` declares `float ratio`
+  and narrows a double into it on load. Both halves are KI-108; the second is open.
+
+Filed KI-109 with it: the gate is worth ten minutes, both runs agreed exactly, and the thing that
+makes it invisible is still KI-105's unanswered question.
+
+And a defect of my own, found by comparing the new service with red-store rather than by a test:
+`red-token-serve` held the ledger lock across the socket write, where `red_store_serve` deliberately
+drops it first. One client that stopped reading would have frozen a workspace's arbitration for
+every other client and for the settle sweep. The pushes queue under the lock and go out after it.
+
 Commands: `npm test` 332/332 · `cargo test` 83/83 · `./init.sh` ·
 `python3 tools/features.py validate` · `python3 tools/design.py check`.
 JavaScript on the app path: **6,533 → 6,086**.
 
-Remaining: F158 (the worker, and with it `main.mjs`, `sessions-client.mjs`, `store-client.mjs`,
+Remaining: KI-108's layout half. F158 (the worker, and with it `main.mjs`, `sessions-client.mjs`, `store-client.mjs`,
 `pty-client.mjs`). F152/F189 still wait on F186, which is the owner's live-pane run. KI-105 (the
 `native-handoff` failure and the 43-spec desktop gate `npm test` does not run) is open.
 

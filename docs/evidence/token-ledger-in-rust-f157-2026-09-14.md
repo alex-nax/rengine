@@ -82,10 +82,26 @@ Five, each observed failing for its own reason and restored:
   answers; `transcript()` went with `token.mjs`, because a recorder that replayed the replacement
   would be judging it against itself.
 
+## The desktop gate, and a defect it did not find
+
+The 43-spec desktop suite is not run by `npm test` (KI-105). Run here because F157 replaces the
+ledger the desktop's status segment reads: **78 of 81 pass**, the token specs among them —
+`the status segment reads the ledger, and the popover sends the four desktop gestures` is the
+consumer path, and it passes against the Rust ledger through the same pushes. Both failures predate
+this session, each verified by running the spec at `c127141`; one is KI-105's, the other is now
+KI-108, bisected to `bfc0675` and half fixed.
+
+The defect the gate did *not* find was found by reading red-store beside the new service:
+`red-token-serve` held the ledger lock across `Emitter::say`, which is a blocking socket write, where
+`red_store_serve` drops its lock first and says so in a comment. One client that stopped reading
+would have held this directory's arbitration for every other client and for the settle sweep. The
+watcher and the feed subscriber queue under the lock now and the queue is drained after it — which
+is the shape red-store already had, for a ledger with two push points.
+
 ## Gates
 
-- `npm test` — 331 of 331.
-- `cargo test -p red-token -p red-core` — 22 of 22 (8 in red-token, 14 in red-core, four of which
+- `npm test` — 332 of 332.
+- `cargo test` — 83 of 83, of which 22 are red-token's and red-core's (8 in red-token, 14 in red-core, four of which
   are `red_core::time`, new: the ISO shape the ledger writes, its inverse, the stamps it refuses,
   and the half that rounds the other way in Rust than in JavaScript).
 - `./init.sh`, `python3 tools/features.py validate`.

@@ -54,6 +54,14 @@ struct Shared {
     /// subscription is attached — once, however many times the root is asked for.
     wired: Mutex<HashSet<String>>,
     listeners: Arc<Mutex<Option<Emitter>>>,
+    /// What the ledger said while the lock was held, waiting to go out after it is released.
+    ///
+    /// A watcher fires INSIDE `frame()`, which is inside the ledger lock, and `Emitter::say` writes
+    /// to every attached socket — a blocking write. Emitting from there would let one client that
+    /// has stopped reading hold the lock on this directory's arbitration for every other client and
+    /// for the settle sweep. red-store drops its lock before it says anything for the same reason;
+    /// this is the queue that lets a ledger with two push points do it too.
+    queued: Arc<Mutex<Vec<Value>>>,
 }
 
 fn identity(value: Option<&Value>) -> Option<Identity> {
@@ -63,31 +71,43 @@ fn identity(value: Option<&Value>) -> Option<Identity> {
 impl Shared {
     /// The ledger for `root_id`, with its pushes wired the first time it is opened.
     fn with<T>(&self, root_id: &str, act: impl FnOnce(&mut red_token::ledger::Ledger) -> T) -> Result<T, Refused> {
-        let mut tokens = self.tokens.lock().expect("tokens lock");
-        let ledger = tokens.ledger(root_id)?;
-        let fresh = self.wired.lock().expect("wired lock").insert(root_id.to_string());
-        if fresh {
-            let listeners = self.listeners.clone();
-            let named = root_id.to_string();
-            /* The frame and the status a frame leaves go out together, because the JS emitted them
-               together: `feed.subscribe` fed the /feed socket and `ledger.watch` fed the desktop's
-               status segment, and both fired inside `frame()`. */
-            ledger.watch(Arc::new(move |status: &Value| {
-                let event = json!({ "event": "status", "rootId": named, "status": status });
-                if let Some(emitter) = listeners.lock().expect("listener lock").as_ref() {
-                    emitter.say(&event);
-                }
-            }));
-            let listeners = self.listeners.clone();
-            let named = root_id.to_string();
-            ledger.feed.subscribe(Arc::new(move |frame: &Value| {
-                let event = json!({ "event": "frame", "rootId": named, "frame": frame });
-                if let Some(emitter) = listeners.lock().expect("listener lock").as_ref() {
-                    emitter.say(&event);
-                }
-            }));
+        let answer = {
+            let mut tokens = self.tokens.lock().expect("tokens lock");
+            let ledger = tokens.ledger(root_id)?;
+            let fresh = self.wired.lock().expect("wired lock").insert(root_id.to_string());
+            if fresh {
+                let queued = self.queued.clone();
+                let named = root_id.to_string();
+                /* The frame and the status a frame leaves go out together, because the JS emitted
+                   them together: `feed.subscribe` fed the /feed socket and `ledger.watch` fed the
+                   desktop's status segment, and both fired inside `frame()`. Both queue rather than
+                   write, because both fire under the ledger lock. */
+                ledger.watch(Arc::new(move |status: &Value| {
+                    queued.lock().expect("queue lock").push(json!({ "event": "status", "rootId": named, "status": status }));
+                }));
+                let queued = self.queued.clone();
+                let named = root_id.to_string();
+                ledger.feed.subscribe(Arc::new(move |frame: &Value| {
+                    queued.lock().expect("queue lock").push(json!({ "event": "frame", "rootId": named, "frame": frame }));
+                }));
+            }
+            act(ledger)
+        };
+        self.flush();
+        Ok(answer)
+    }
+
+    /// Say everything the last call queued, with no lock held but the emitter's own.
+    fn flush(&self) {
+        let events = std::mem::take(&mut *self.queued.lock().expect("queue lock"));
+        if events.is_empty() {
+            return;
         }
-        Ok(act(ledger))
+        if let Some(emitter) = self.listeners.lock().expect("listener lock").as_ref() {
+            for event in events {
+                emitter.say(&event);
+            }
+        }
     }
 
     /* The workspace preferences, pushed rather than polled: a client reads the window inside a
@@ -259,7 +279,12 @@ fn main() -> ExitCode {
         }
     };
     let listeners: Arc<Mutex<Option<Emitter>>> = Arc::new(Mutex::new(None));
-    let shared = Arc::new(Shared { tokens: Mutex::new(tokens), wired: Mutex::new(HashSet::new()), listeners: listeners.clone() });
+    let shared = Arc::new(Shared {
+        tokens: Mutex::new(tokens),
+        wired: Mutex::new(HashSet::new()),
+        listeners: listeners.clone(),
+        queued: Arc::new(Mutex::new(Vec::new())),
+    });
     settle_when_deadlines_pass(shared.clone());
     let idle = Duration::from_secs(std::env::var("RED_TOKEN_IDLE_SECONDS").ok().and_then(|value| value.parse().ok()).unwrap_or(600));
     match red_core::service::serve(path, "token", 1, idle, Held(shared), |emitter| {
