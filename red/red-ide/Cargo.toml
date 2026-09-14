@@ -1,0 +1,28 @@
+[package]
+name = "red-ide"
+version = "0.1.0"
+edition = "2021"
+description = "Red as a Claude Code IDE (F161, spec 102, spec 133): the lock the CLI reads, the socket that speaks MCP, and the discovery that decides whether a pane's CLI is told to connect"
+
+[dependencies]
+red-core = { path = "../red-core" }
+serde_json = { version = "1", features = ["preserve_order"] }
+getrandom = "0.3"
+# The socket. Both already linked by red-host, so no new registry decision: the bridge is an async
+# server and red-lsp is deliberately a thread-and-pipe crate that links neither (spec 133, D1).
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "sync"] }
+tokio-tungstenite = "0.30"
+futures-util = "0.3"
+# `covers()` compares paths in NFC because a macOS path can arrive decomposed; this crate is already
+# in the lockfile through idna (spec 133, D6).
+icu_normalizer = { version = "2", default-features = false, features = ["compiled_data"] }
+
+# `kill(pid, 0)` for liveness, as every other crate that asks it. Already in the lock.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+# One binary, one subcommand per question: `serve` is the bridge over stdio (the shape
+# red-lsp-serve established); `directory`, `sweep`, `offered` and `auto-connect` answer once.
+[[bin]]
+name = "red-ide"
+path = "src/bin/red_ide.rs"

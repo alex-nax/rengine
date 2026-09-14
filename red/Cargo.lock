@@ -2718,6 +2718,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "red-ide"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "getrandom 0.3.4",
+ "icu_normalizer",
+ "libc",
+ "red-core",
+ "serde_json",
+ "tokio",
+ "tokio-tungstenite",
+]
+
+[[package]]
 name = "red-link"
 version = "0.1.0"
 dependencies = [

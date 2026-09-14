@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "the-port-may-not-move",
+      "kind": "history",
+      "anchor": {
+        "start": 128,
+        "end": 128,
+        "snippet": "let retake = tokio::spawn(async move {"
+      },
+      "note": "The first version bound an ephemeral port per worker, which looked obviously right and was obviously wrong the first time a layered update ran: the port moved from 49953 to 61709 and the owner's own connected session reported `WebSocket connection to 'ws://127.0.0.1:49953/' failed`. Claude Code reads a lock once, then reconnects to the port it read; it does not go back to the directory to look again. So an IDE whose port moves is an IDE that dies on every update \u2014 in a feature whose entire premise is that capabilities arrive *by* update (KI-066).\n\nThe port therefore belongs to the runtime, not to the worker: the supervisor reserves it once and hands the same number to every worker it starts. A worker starting during an update finds its predecessor still holding it, because the successor is started before the old one retires, so it retries for a bounded while instead of taking a free port. Taking a free port is the tempting fallback and it is the bug: it succeeds, logs nothing, and silently ends every session. Failing to get the port leaves the bridge unpublished with a reason, which someone can see.\n\nThe loop checks `closed` after every sleep and never before a bind: a successor retired while waiting must not take the port after its own retirement and publish a lock nobody will unlink. That rule had no case until a sabotage that ignored `closed` passed the record \u2014 the retirement merely took longer \u2014 so the case closes the successor and its predecessor concurrently, where the difference is a lock on disk.\n\nPorted from `orchestrator/runtime/ide.mjs` (spec 129); the JavaScript this describes is gone.",
+      "refs": [
+        "known-issues.md",
+        "docs/specs/102-editor-as-claude-ide.md",
+        "docs/specs/133-ide-bridge-in-rust.md"
+      ]
+    },
+    {
+      "id": "token-arrival",
+      "kind": "history",
+      "anchor": {
+        "start": 355,
+        "end": 355,
+        "snippet": "let presented = headers.iter().find(|(name, _)| name == \"x-claude-code-ide-authorization\").map(|(_, value)| value.as_str());"
+      },
+      "note": "The lock carries an `authToken` and the CLI's binary never says where it presents it. The first implementation accepted it in any of three plausible places \u2014 header, query string, subprotocol \u2014 which is the kind of hedge that survives forever because nothing ever disproves it. Driving the real CLI settled it instead: `claude` 2.1.263 connects with `x-claude-code-ide-authorization: <token>` and asks for the `mcp` subprotocol (headers recorded in the evidence document). The hedge was then deleted. If a future version moves the token, this refuses the connection and the handshake fails loudly, which is the intended outcome: the alternative is a socket that accepts whatever a local process offers.\n\nThe comparison is on the header value as HTTP delivers it \u2014 trailing whitespace already trimmed, a duplicated header joined with `, ` the way Node joins one \u2014 and the record holds both: a token followed by a space is accepted, a token presented twice is not.\n\nPorted from `orchestrator/runtime/ide.mjs` (spec 129); the JavaScript this describes is gone.",
+      "refs": [
+        "docs/evidence/editor-as-claude-ide-2026-09-07.md",
+        "docs/specs/133-ide-bridge-in-rust.md"
+      ]
+    },
+    {
+      "id": "answered-off-the-read-loop",
+      "kind": "rationale",
+      "anchor": {
+        "start": 407,
+        "end": 407,
+        "snippet": "Reply::Later(pending) => {"
+      },
+      "note": "The SDK answered every request on its own promise, so a `ping` sent behind a slow `getDiagnostics` was answered first; the diagnostics source is the language servers, reached over a pipe and then a socket, and a read loop that awaited it would hold every later frame from that CLI behind it. Only the diagnostics call is spawned: everything else is answered inline, in order, because a multi-thread runtime would otherwise be free to answer two synchronous requests out of the order they arrived in, which the single-threaded SDK never did.",
+      "refs": [
+        "docs/specs/133-ide-bridge-in-rust.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "red/red-ide/src/bridge.rs",
+    "sha256": "58dabcf53a574c5c5b463785b7ae2386f9a318da4d76d58cf76c66c7f449ab82",
+    "format": "rust",
+    "format_fingerprint": "3802714b4569aa9e93696227dc96f5433c9f027b6349406e4e8901968d9e7fea"
+  }
+}

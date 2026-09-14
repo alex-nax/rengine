@@ -1,0 +1,598 @@
+{
+  "a folder covers the directory, and a lookalike does not": [
+    {
+      "offered": "/work/rengine/orchestrator",
+      "editors": [
+        {
+          "port": 100,
+          "ideName": "<product>",
+          "pid": "<self>",
+          "ours": true
+        }
+      ]
+    },
+    {
+      "offered": "/work/rengine-old",
+      "editors": [
+        {
+          "port": 200,
+          "ideName": "<product>",
+          "pid": "<self>",
+          "ours": true
+        }
+      ]
+    },
+    {
+      "offered": "/work/rengine",
+      "editors": [
+        {
+          "port": 100,
+          "ideName": "<product>",
+          "pid": "<self>",
+          "ours": true
+        }
+      ]
+    },
+    {
+      "offered": "/work",
+      "editors": []
+    },
+    {
+      "offered": "/work/rengine/",
+      "editors": [
+        {
+          "port": 100,
+          "ideName": "<product>",
+          "pid": "<self>",
+          "ours": true
+        }
+      ]
+    },
+    {
+      "offered": "/work/./rengine/../rengine/x",
+      "editors": [
+        {
+          "port": 100,
+          "ideName": "<product>",
+          "pid": "<self>",
+          "ours": true
+        }
+      ]
+    }
+  ],
+  "a folder with a trailing slash still covers": [
+    {
+      "offered": "/work/rengine",
+      "editors": [
+        {
+          "port": 100,
+          "ideName": "<product>",
+          "pid": "<self>",
+          "ours": true
+        }
+      ]
+    },
+    {
+      "offered": "/work/rengine/sub",
+      "editors": [
+        {
+          "port": 100,
+          "ideName": "<product>",
+          "pid": "<self>",
+          "ours": true
+        }
+      ]
+    }
+  ],
+  "paths are compared in NFC, because a macOS path can arrive decomposed": [
+    {
+      "offered": "/work/café/src",
+      "editors": [
+        {
+          "port": 100,
+          "ideName": "<product>",
+          "pid": "<self>",
+          "ours": true
+        }
+      ]
+    },
+    {
+      "offered": "/work/café/src",
+      "editors": [
+        {
+          "port": 100,
+          "ideName": "<product>",
+          "pid": "<self>",
+          "ours": true
+        }
+      ]
+    },
+    {
+      "offered": "/work/näive",
+      "editors": [
+        {
+          "port": 200,
+          "ideName": "<product>",
+          "pid": "<self>",
+          "ours": true
+        }
+      ]
+    },
+    {
+      "offered": "/work/näive",
+      "editors": [
+        {
+          "port": 200,
+          "ideName": "<product>",
+          "pid": "<self>",
+          "ours": true
+        }
+      ]
+    }
+  ],
+  "liveness: which pids a lock may name": [
+    {
+      "offered": "/work",
+      "editors": [
+        {
+          "port": 100,
+          "ideName": "<product>",
+          "pid": "<self>",
+          "ours": true
+        },
+        {
+          "port": 300,
+          "ideName": "<product>",
+          "pid": 1,
+          "ours": true
+        },
+        {
+          "port": 400,
+          "ideName": "<product>",
+          "pid": 0,
+          "ours": true
+        }
+      ]
+    }
+  ],
+  "the shape of a lock, and what is skipped": [
+    {
+      "offered": "/work",
+      "editors": [
+        {
+          "port": -3,
+          "ideName": "<product>",
+          "pid": "<self>",
+          "ours": true
+        },
+        {
+          "port": 7,
+          "ideName": "<product>",
+          "pid": "<self>",
+          "ours": true
+        },
+        {
+          "port": 12.5,
+          "ideName": "<product>",
+          "pid": "<self>",
+          "ours": true
+        },
+        {
+          "port": 100,
+          "ideName": "<product>",
+          "pid": "<self>",
+          "ours": true
+        },
+        {
+          "port": 300,
+          "ideName": "<product>",
+          "pid": "<self>",
+          "ours": true
+        },
+        {
+          "port": 700,
+          "pid": "<self>",
+          "ours": false
+        },
+        {
+          "port": 800,
+          "ideName": 5,
+          "pid": "<self>",
+          "ours": false
+        },
+        {
+          "port": 900,
+          "ideName": "VS Code",
+          "pid": "<self>",
+          "ours": false
+        },
+        {
+          "port": null,
+          "ideName": "<product>",
+          "pid": "<self>",
+          "ours": true
+        }
+      ]
+    }
+  ],
+  "a lock directory that is not there": [
+    {
+      "offered": "/work",
+      "editors": []
+    },
+    {
+      "connect": [
+        "claude",
+        "/work",
+        {
+          "ourPids": []
+        }
+      ],
+      "decision": {
+        "flags": [],
+        "env": {},
+        "reason": "No editor is published for this directory, so auto-connect would fail at startup."
+      }
+    }
+  ],
+  "this workspace's own editor is named by port, so a machine-mate's does not block it": [
+    {
+      "connect": [
+        "claude",
+        "/work",
+        {
+          "ourPids": [
+            "<parent>",
+            77
+          ]
+        }
+      ],
+      "decision": {
+        "flags": [
+          "--ide"
+        ],
+        "env": {
+          "CLAUDE_CODE_SSE_PORT": "200"
+        },
+        "offered": 2,
+        "reason": "2 editors are published for this directory; connecting to this workspace's own on port 200."
+      }
+    },
+    {
+      "connect": [
+        "claude",
+        "/work",
+        {
+          "ourPids": [
+            "<self>"
+          ]
+        }
+      ],
+      "decision": {
+        "flags": [
+          "--ide"
+        ],
+        "env": {
+          "CLAUDE_CODE_SSE_PORT": "100"
+        },
+        "offered": 2,
+        "reason": "2 editors are published for this directory; connecting to this workspace's own on port 100."
+      }
+    },
+    {
+      "connect": [
+        "claude",
+        "/work",
+        {
+          "ourPids": [
+            999
+          ]
+        }
+      ],
+      "decision": {
+        "flags": [],
+        "env": {},
+        "offered": 2,
+        "reason": "2 editors are published for this directory and none of them is this workspace's, so there is nothing to choose; run /ide."
+      }
+    },
+    {
+      "connect": [
+        "claude",
+        "/work",
+        {
+          "ourPids": []
+        }
+      ],
+      "decision": {
+        "flags": [],
+        "env": {},
+        "offered": 2,
+        "reason": "2 editors are published for this directory and this workspace could not be identified among them, so there is nothing to choose; run /ide."
+      }
+    },
+    {
+      "connect": [
+        "claude",
+        "/work",
+        {}
+      ],
+      "decision": {
+        "flags": [],
+        "env": {},
+        "offered": 2,
+        "reason": "2 editors are published for this directory and this workspace could not be identified among them, so there is nothing to choose; run /ide."
+      }
+    },
+    {
+      "connect": [
+        "claude",
+        "/work",
+        {
+          "ourPids": [
+            "1",
+            1.5,
+            null,
+            "<parent>"
+          ]
+        }
+      ],
+      "decision": {
+        "flags": [
+          "--ide"
+        ],
+        "env": {
+          "CLAUDE_CODE_SSE_PORT": "200"
+        },
+        "offered": 2,
+        "reason": "2 editors are published for this directory; connecting to this workspace's own on port 200."
+      }
+    },
+    {
+      "connect": [
+        "claude",
+        "/work",
+        {
+          "ourPids": [
+            "<parent as a string>"
+          ]
+        }
+      ],
+      "decision": {
+        "flags": [],
+        "env": {},
+        "offered": 2,
+        "reason": "2 editors are published for this directory and this workspace could not be identified among them, so there is nothing to choose; run /ide."
+      }
+    }
+  ],
+  "a pid of ours whose lock is another editor's is not ours": [
+    {
+      "connect": [
+        "claude",
+        "/work",
+        {
+          "ourPids": [
+            "<parent>"
+          ]
+        }
+      ],
+      "decision": {
+        "flags": [],
+        "env": {},
+        "offered": 2,
+        "reason": "2 editors are published for this directory and none of them is this workspace's, so there is nothing to choose; run /ide."
+      }
+    },
+    {
+      "connect": [
+        "claude",
+        "/work",
+        {
+          "ourPids": [
+            "<self>"
+          ]
+        }
+      ],
+      "decision": {
+        "flags": [
+          "--ide"
+        ],
+        "env": {
+          "CLAUDE_CODE_SSE_PORT": "100"
+        },
+        "offered": 2,
+        "reason": "2 editors are published for this directory; connecting to this workspace's own on port 100."
+      }
+    }
+  ],
+  "exactly one is the rule when this workspace cannot be identified": [
+    {
+      "connect": [
+        "claude",
+        "/work",
+        {}
+      ],
+      "decision": {
+        "flags": [
+          "--ide"
+        ],
+        "env": {},
+        "offered": 1,
+        "reason": "One <product> is published for this directory; connecting on startup."
+      }
+    },
+    {
+      "connect": [
+        "claude",
+        "/work",
+        {
+          "ourPids": [
+            "<self>"
+          ]
+        }
+      ],
+      "decision": {
+        "flags": [
+          "--ide"
+        ],
+        "env": {
+          "CLAUDE_CODE_SSE_PORT": "100"
+        },
+        "offered": 1,
+        "reason": "This workspace's <product> is published for this directory; connecting on startup."
+      }
+    },
+    {
+      "connect": [
+        "claude",
+        "/work",
+        {
+          "ourPids": [
+            999
+          ]
+        }
+      ],
+      "decision": {
+        "flags": [
+          "--ide"
+        ],
+        "env": {},
+        "offered": 1,
+        "reason": "One <product> is published for this directory; connecting on startup."
+      }
+    },
+    {
+      "connect": [
+        "claude",
+        "/elsewhere",
+        {}
+      ],
+      "decision": {
+        "flags": [],
+        "env": {},
+        "reason": "No editor is published for this directory, so auto-connect would fail at startup."
+      }
+    }
+  ],
+  "the one editor published is not ours to connect to": [
+    {
+      "connect": [
+        "claude",
+        "/work",
+        {}
+      ],
+      "decision": {
+        "flags": [],
+        "env": {},
+        "reason": "The one editor published here is VS Code, not <product>; it is not ours to connect to."
+      }
+    },
+    {
+      "connect": [
+        "claude",
+        "/work",
+        {
+          "ourPids": [
+            "<self>"
+          ]
+        }
+      ],
+      "decision": {
+        "flags": [],
+        "env": {},
+        "reason": "The one editor published here is VS Code, not <product>; it is not ours to connect to."
+      }
+    }
+  ],
+  "the one editor published has no name at all": [
+    {
+      "connect": [
+        "claude",
+        "/work",
+        {}
+      ],
+      "decision": {
+        "flags": [],
+        "env": {},
+        "reason": "The one editor published here is undefined, not <product>; it is not ours to connect to."
+      }
+    }
+  ],
+  "nothing is published for the directory": [
+    {
+      "connect": [
+        "claude",
+        "/work",
+        {}
+      ],
+      "decision": {
+        "flags": [],
+        "env": {},
+        "reason": "No editor is published for this directory, so auto-connect would fail at startup."
+      }
+    }
+  ],
+  "a CLI with no auto-connect option is left alone, whatever is published": [
+    {
+      "connect": [
+        "codex",
+        "/work",
+        {}
+      ],
+      "decision": {
+        "flags": [],
+        "env": {},
+        "reason": "codex has no auto-connect option; nothing was added to its command line."
+      }
+    },
+    {
+      "connect": [
+        "gemini",
+        "/work",
+        {}
+      ],
+      "decision": {
+        "flags": [],
+        "env": {},
+        "reason": "gemini has no auto-connect option; nothing was added to its command line."
+      }
+    },
+    {
+      "connect": [
+        "opencode",
+        "/work",
+        {}
+      ],
+      "decision": {
+        "flags": [],
+        "env": {},
+        "reason": "opencode has no auto-connect option; nothing was added to its command line."
+      }
+    },
+    {
+      "connect": [
+        "kimi",
+        "/work",
+        {}
+      ],
+      "decision": {
+        "flags": [],
+        "env": {},
+        "reason": "kimi has no auto-connect option; nothing was added to its command line."
+      }
+    },
+    {
+      "connect": [
+        "nonexistent",
+        "/work",
+        {}
+      ],
+      "decision": {
+        "flags": [],
+        "env": {},
+        "reason": "nonexistent has no auto-connect option; nothing was added to its command line."
+      }
+    }
+  ]
+}

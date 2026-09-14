@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "our-locks-are-ours-to-collect",
+      "kind": "constraint",
+      "anchor": {
+        "start": 190,
+        "end": 190,
+        "symbol": "sweep",
+        "snippet": "pub fn sweep(directory: &Path, alive: &dyn Fn(i64) -> bool) -> Vec<PathBuf> {"
+      },
+      "note": "Claude Code garbage-collects an IDE lock by killing the process it names: a lock whose `pid` is dead is deleted. That never fires for us. Our lock names the **session host** (spec 102, decision 2), because the CLI only trusts a lock naming one of a pane's own first ten ancestors, and the host \u2014 which forks the PTY a pane runs in \u2014 is the only such process. The host outlives dozens of workers, so every lock this bridge writes would survive its writer and accumulate as a dead entry in the user's `/ide` menu, each pointing at a closed port. Hence both halves: the bridge unlinks its own lock when it retires, and sweeps on startup for locks marked `rengineWorker` whose worker is gone. `rengineWorker` is safe to add because the CLI's parser reads six named keys and ignores the rest \u2014 and it is what keeps the sweep from touching VS Code's locks, which look equally stale to us and are none of our business.\n\nTwo details are the JavaScript's and kept on purpose (spec 133, D5): a mark that is a number but not an integer is still a mark (`typeof === 'number'`), and a worker one cannot signal \u2014 `EPERM` \u2014 counts as gone here, where `discovery::living` counts it as alive. The record holds a case for each (`777.lock` in `ide-corpus.json`).\n\nPorted from `orchestrator/runtime/ide.mjs` (spec 129); the JavaScript this describes is gone.",
+      "refs": [
+        "docs/specs/102-editor-as-claude-ide.md",
+        "docs/specs/133-ide-bridge-in-rust.md",
+        "docs/evidence/editor-as-claude-ide-2026-09-07.md"
+      ]
+    },
+    {
+      "id": "the-directory-is-the-clis",
+      "kind": "constraint",
+      "anchor": {
+        "start": 66,
+        "end": 66,
+        "symbol": "directory",
+        "snippet": "pub fn directory(env: &dyn Fn(&str) -> Option<String>) -> String {"
+      },
+      "note": "The CLI reads one path, `~/.claude/ide`, moved by `CLAUDE_CONFIG_DIR` as Anthropic documents (KI-071, repaired under F113). It is the default rather than a setting \u2014 but `RENGINE_IDE_DIRECTORY` stays an explicit override that wins, because a test that publishes into the developer's own `/ide` menu is a test with a side effect on the person running it; `npm test` sets it for exactly that reason. Two edges are recorded rather than tidied: `CLAUDE_CONFIG_DIR` set to the empty string is a relative `ide` (`??` sees a string), and an empty override is no override (`||` sees a falsy one).",
+      "refs": [
+        "known-issues.md",
+        "docs/specs/133-ide-bridge-in-rust.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "red/red-ide/src/lock.rs",
+    "sha256": "adf94663778ede7be892e76e28a76a57c7cf1166190aab3c75cb5143392e94de",
+    "format": "rust",
+    "format_fingerprint": "3802714b4569aa9e93696227dc96f5433c9f027b6349406e4e8901968d9e7fea"
+  }
+}

@@ -1,0 +1,1723 @@
+{
+  "the lock is the one the CLI reads": [
+    {
+      "started": "main",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>"
+    },
+    {
+      "disk": [
+        {
+          "name": "<port>.lock",
+          "mode": "600",
+          "text": "{\n  \"pid\": 4242,\n  \"workspaceFolders\": [\n    \"/work/one\",\n    \"/work/two\"\n  ],\n  \"ideName\": \"<product>\",\n  \"transport\": \"ws\",\n  \"useWebSocket\": true,\n  \"runningInWindows\": false,\n  \"authToken\": \"<token>\",\n  \"rengineWorker\": 99\n}"
+        }
+      ],
+      "directoryMode": "700"
+    },
+    {
+      "closed": "main"
+    },
+    {
+      "disk": [],
+      "directoryMode": "700"
+    }
+  ],
+  "without a host pid nothing is published, four ways": [
+    {
+      "started": "absent",
+      "published": false,
+      "reason": "the session host process could not be identified, so no lock was written",
+      "port": null,
+      "lock": null,
+      "token": null
+    },
+    {
+      "started": "null",
+      "published": false,
+      "reason": "the session host process could not be identified, so no lock was written",
+      "port": null,
+      "lock": null,
+      "token": null
+    },
+    {
+      "started": "string",
+      "published": false,
+      "reason": "the session host process could not be identified, so no lock was written",
+      "port": null,
+      "lock": null,
+      "token": null
+    },
+    {
+      "started": "fraction",
+      "published": false,
+      "reason": "the session host process could not be identified, so no lock was written",
+      "port": null,
+      "lock": null,
+      "token": null
+    },
+    {
+      "disk": [],
+      "directoryMode": "700"
+    },
+    {
+      "closed": "absent"
+    },
+    {
+      "closed": "null"
+    },
+    {
+      "closed": "string"
+    },
+    {
+      "closed": "fraction"
+    }
+  ],
+  "no roots, and a root with a name worth escaping": [
+    {
+      "started": "none",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>"
+    },
+    {
+      "disk": [
+        {
+          "name": "<port>.lock",
+          "mode": "600",
+          "text": "{\n  \"pid\": <self>,\n  \"workspaceFolders\": [],\n  \"ideName\": \"<product>\",\n  \"transport\": \"ws\",\n  \"useWebSocket\": true,\n  \"runningInWindows\": false,\n  \"authToken\": \"<token>\",\n  \"rengineWorker\": 7\n}"
+        }
+      ],
+      "directoryMode": "700"
+    },
+    {
+      "closed": "none"
+    },
+    {
+      "started": "odd",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>"
+    },
+    {
+      "disk": [
+        {
+          "name": "<port>.lock",
+          "mode": "600",
+          "text": "{\n  \"pid\": <self>,\n  \"workspaceFolders\": [\n    \"/work/héllo 🙂\",\n    \"/work/\\\"quoted\\\"\\\\back\"\n  ],\n  \"ideName\": \"<product>\",\n  \"transport\": \"ws\",\n  \"useWebSocket\": true,\n  \"runningInWindows\": false,\n  \"authToken\": \"<token>\",\n  \"rengineWorker\": 8\n}"
+        }
+      ],
+      "directoryMode": "700"
+    },
+    {
+      "closed": "odd"
+    }
+  ],
+  "the worker pid defaults to the caller": [
+    {
+      "started": "main",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>"
+    },
+    {
+      "disk": [
+        {
+          "name": "<port>.lock",
+          "mode": "600",
+          "text": "{\n  \"pid\": 4242,\n  \"workspaceFolders\": [\n    \"/work\"\n  ],\n  \"ideName\": \"<product>\",\n  \"transport\": \"ws\",\n  \"useWebSocket\": true,\n  \"runningInWindows\": false,\n  \"authToken\": \"<token>\",\n  \"rengineWorker\": <self>\n}"
+        }
+      ],
+      "directoryMode": "700"
+    },
+    {
+      "closed": "main"
+    }
+  ],
+  "the startup sweep collects only ours, and only the dead": [
+    {
+      "swept": [
+        "<dir>/111.lock",
+        "<dir>/1212.lock",
+        "<dir>/777.lock"
+      ]
+    },
+    {
+      "disk": [
+        {
+          "name": "1010.lock",
+          "mode": "644",
+          "text": "[]"
+        },
+        {
+          "name": "1111.lock",
+          "mode": "644",
+          "text": "null"
+        },
+        {
+          "name": "222.lock",
+          "mode": "644",
+          "text": "{\"pid\":1,\"ideName\":\"<product>\",\"rengineWorker\":<self>}"
+        },
+        {
+          "name": "333.lock",
+          "mode": "644",
+          "text": "{\"pid\":1,\"ideName\":\"VS Code\"}"
+        },
+        {
+          "name": "444.lock",
+          "mode": "644",
+          "text": "{\"pid\":1,\"ideName\":\"<product>\",\"rengineWorker\":\"2147483647\"}"
+        },
+        {
+          "name": "555.lock",
+          "mode": "644",
+          "text": "not json at all"
+        },
+        {
+          "name": "666.txt",
+          "mode": "644"
+        },
+        {
+          "name": "888.lock",
+          "mode": "644",
+          "text": "{\"pid\":1,\"ideName\":\"<product>\",\"rengineWorker\":0}"
+        },
+        {
+          "name": "999.lock",
+          "mode": "644",
+          "text": "{\"pid\":1,\"ideName\":\"<product>\",\"rengineWorker\":null}"
+        }
+      ],
+      "directoryMode": "700"
+    },
+    {
+      "started": "main",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>"
+    },
+    {
+      "disk": [
+        {
+          "name": "1010.lock",
+          "mode": "644",
+          "text": "[]"
+        },
+        {
+          "name": "1111.lock",
+          "mode": "644",
+          "text": "null"
+        },
+        {
+          "name": "222.lock",
+          "mode": "644",
+          "text": "{\"pid\":1,\"ideName\":\"<product>\",\"rengineWorker\":<self>}"
+        },
+        {
+          "name": "333.lock",
+          "mode": "644",
+          "text": "{\"pid\":1,\"ideName\":\"VS Code\"}"
+        },
+        {
+          "name": "444.lock",
+          "mode": "644",
+          "text": "{\"pid\":1,\"ideName\":\"<product>\",\"rengineWorker\":\"2147483647\"}"
+        },
+        {
+          "name": "555.lock",
+          "mode": "644",
+          "text": "not json at all"
+        },
+        {
+          "name": "666.txt",
+          "mode": "644"
+        },
+        {
+          "name": "888.lock",
+          "mode": "644",
+          "text": "{\"pid\":1,\"ideName\":\"<product>\",\"rengineWorker\":0}"
+        },
+        {
+          "name": "999.lock",
+          "mode": "644",
+          "text": "{\"pid\":1,\"ideName\":\"<product>\",\"rengineWorker\":null}"
+        },
+        {
+          "name": "<port>.lock",
+          "mode": "600",
+          "text": "{\n  \"pid\": <self>,\n  \"workspaceFolders\": [\n    \"/work\"\n  ],\n  \"ideName\": \"<product>\",\n  \"transport\": \"ws\",\n  \"useWebSocket\": true,\n  \"runningInWindows\": false,\n  \"authToken\": \"<token>\",\n  \"rengineWorker\": 5\n}"
+        }
+      ],
+      "directoryMode": "700"
+    },
+    {
+      "closed": "main"
+    }
+  ],
+  "a sweep of a directory that is not there": [
+    {
+      "swept": []
+    }
+  ],
+  "the MCP handshake, the tool list, and every silence": [
+    {
+      "started": "main",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>"
+    },
+    {
+      "connected": "a",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":\"probe-a\"}"
+      }
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+          "protocolVersion": "2025-06-18",
+          "capabilities": {},
+          "clientInfo": {
+            "name": "claude-code",
+            "version": "2.1.263"
+          }
+        }
+      },
+      "answered": "{\"result\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{\"tools\":{}},\"serverInfo\":{\"name\":\"rengine-ide\",\"version\":\"1.0.0\"}},\"jsonrpc\":\"2.0\",\"id\":1}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "method": "notifications/initialized"
+      },
+      "silent": true
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/list"
+      },
+      "answered": "{\"result\":{\"tools\":[{\"name\":\"getDiagnostics\",\"description\":\"Diagnostics <product> holds for a file, from the language servers the project declares. A project that declares none answers an empty list rather than refusing.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"uri\":{\"type\":\"string\"}}}}]},\"jsonrpc\":\"2.0\",\"id\":2}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "ping"
+      },
+      "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":3}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "method": "resources/list"
+      },
+      "answered": "{\"jsonrpc\":\"2.0\",\"id\":4,\"error\":{\"code\":-32601,\"message\":\"Method not found\"}}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": "five",
+        "method": "tools/list"
+      },
+      "answered": "{\"result\":{\"tools\":[{\"name\":\"getDiagnostics\",\"description\":\"Diagnostics <product> holds for a file, from the language servers the project declares. A project that declares none answers an empty list rather than refusing.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"uri\":{\"type\":\"string\"}}}}]},\"jsonrpc\":\"2.0\",\"id\":\"five\"}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 6,
+        "method": "tools/list",
+        "extra": true
+      },
+      "silent": true
+    },
+    {
+      "sent": {
+        "id": 7,
+        "method": "tools/list"
+      },
+      "silent": true
+    },
+    {
+      "sent": {
+        "jsonrpc": "1.0",
+        "id": 8,
+        "method": "tools/list"
+      },
+      "silent": true
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 9.5,
+        "method": "tools/list"
+      },
+      "silent": true
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": null,
+        "method": "tools/list"
+      },
+      "silent": true
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "method": "ide_connected",
+        "params": {
+          "pid": 1
+        }
+      },
+      "silent": true
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 10,
+        "result": {}
+      },
+      "silent": true
+    },
+    {
+      "sent": "this is not json",
+      "silent": true
+    },
+    {
+      "sent": {
+        "binary": {
+          "jsonrpc": "2.0",
+          "id": 11,
+          "method": "ping"
+        }
+      },
+      "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":11}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 12,
+        "method": "initialize",
+        "params": {
+          "protocolVersion": "1999-01-01",
+          "capabilities": {},
+          "clientInfo": {
+            "name": "claude-code",
+            "version": "2.1.263"
+          }
+        }
+      },
+      "answered": "{\"result\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{\"tools\":{}},\"serverInfo\":{\"name\":\"rengine-ide\",\"version\":\"1.0.0\"}},\"jsonrpc\":\"2.0\",\"id\":12}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 13,
+        "method": "initialize",
+        "params": {
+          "protocolVersion": "2024-11-05",
+          "capabilities": {},
+          "clientInfo": {
+            "name": "claude-code",
+            "version": "2.1.263"
+          }
+        }
+      },
+      "answered": "{\"result\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{\"tools\":{}},\"serverInfo\":{\"name\":\"rengine-ide\",\"version\":\"1.0.0\"}},\"jsonrpc\":\"2.0\",\"id\":13}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 14,
+        "method": "initialize"
+      },
+      "answered": "{\"jsonrpc\":\"2.0\",\"id\":14,\"error\":{\"code\":-32603,\"message\":\"[\\n  {\\n    \\\"expected\\\": \\\"object\\\",\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"path\\\": [\\n      \\\"params\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid input: expected object, received undefined\\\"\\n  }\\n]\"}}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 15,
+        "method": "tools/list",
+        "params": {
+          "cursor": "x"
+        }
+      },
+      "answered": "{\"result\":{\"tools\":[{\"name\":\"getDiagnostics\",\"description\":\"Diagnostics <product> holds for a file, from the language servers the project declares. A project that declares none answers an empty list rather than refusing.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"uri\":{\"type\":\"string\"}}}}]},\"jsonrpc\":\"2.0\",\"id\":15}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 16,
+        "method": "initialize",
+        "params": {}
+      },
+      "answered": "{\"jsonrpc\":\"2.0\",\"id\":16,\"error\":{\"code\":-32603,\"message\":\"[\\n  {\\n    \\\"expected\\\": \\\"string\\\",\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"path\\\": [\\n      \\\"params\\\",\\n      \\\"protocolVersion\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid input: expected string, received undefined\\\"\\n  },\\n  {\\n    \\\"expected\\\": \\\"object\\\",\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"path\\\": [\\n      \\\"params\\\",\\n      \\\"capabilities\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid input: expected object, received undefined\\\"\\n  },\\n  {\\n    \\\"expected\\\": \\\"object\\\",\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"path\\\": [\\n      \\\"params\\\",\\n      \\\"clientInfo\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid input: expected object, received undefined\\\"\\n  }\\n]\"}}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 17,
+        "method": "initialize",
+        "params": []
+      },
+      "silent": true
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 18,
+        "method": "initialize",
+        "params": {
+          "protocolVersion": 5,
+          "capabilities": null,
+          "clientInfo": {
+            "name": "x"
+          }
+        }
+      },
+      "answered": "{\"jsonrpc\":\"2.0\",\"id\":18,\"error\":{\"code\":-32603,\"message\":\"[\\n  {\\n    \\\"expected\\\": \\\"string\\\",\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"path\\\": [\\n      \\\"params\\\",\\n      \\\"protocolVersion\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid input: expected string, received number\\\"\\n  },\\n  {\\n    \\\"expected\\\": \\\"object\\\",\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"path\\\": [\\n      \\\"params\\\",\\n      \\\"capabilities\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid input: expected object, received null\\\"\\n  },\\n  {\\n    \\\"expected\\\": \\\"string\\\",\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"path\\\": [\\n      \\\"params\\\",\\n      \\\"clientInfo\\\",\\n      \\\"version\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid input: expected string, received undefined\\\"\\n  }\\n]\"}}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 19,
+        "method": "tools/list",
+        "params": {
+          "cursor": 5
+        }
+      },
+      "answered": "{\"jsonrpc\":\"2.0\",\"id\":19,\"error\":{\"code\":-32603,\"message\":\"[\\n  {\\n    \\\"expected\\\": \\\"string\\\",\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"path\\\": [\\n      \\\"params\\\",\\n      \\\"cursor\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid input: expected string, received number\\\"\\n  }\\n]\"}}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 20,
+        "method": "tools/list",
+        "params": null
+      },
+      "silent": true
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 21,
+        "method": "ping",
+        "params": "x"
+      },
+      "silent": true
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 22,
+        "method": "ping",
+        "params": {
+          "_meta": 5
+        }
+      },
+      "silent": true
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 23,
+        "method": "ping",
+        "params": {
+          "_meta": {
+            "progressToken": "p"
+          },
+          "extra": 1
+        }
+      },
+      "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":23}"
+    },
+    {
+      "connected": "b",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":\"probe-b\"}"
+      }
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/list"
+      },
+      "answered": "{\"result\":{\"tools\":[{\"name\":\"getDiagnostics\",\"description\":\"Diagnostics <product> holds for a file, from the language servers the project declares. A project that declares none answers an empty list rather than refusing.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"uri\":{\"type\":\"string\"}}}}]},\"jsonrpc\":\"2.0\",\"id\":1}"
+    },
+    {
+      "clients": 2
+    },
+    {
+      "closed": "main",
+      "clientsSaw": {
+        "a": {
+          "code": 1005,
+          "reason": ""
+        },
+        "b": {
+          "code": 1005,
+          "reason": ""
+        }
+      }
+    }
+  ],
+  "getDiagnostics, every way it can be asked": [
+    {
+      "started": "main",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>"
+    },
+    {
+      "connected": "a",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":\"probe-a\"}"
+      }
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+          "name": "getDiagnostics",
+          "arguments": {
+            "uri": "file:///work/a.c"
+          }
+        }
+      },
+      "answered": "{\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"[{\\\"uri\\\":\\\"file:///work/a.c\\\",\\\"diagnostics\\\":[{\\\"range\\\":{\\\"start\\\":{\\\"line\\\":1,\\\"character\\\":5},\\\"end\\\":{\\\"line\\\":1,\\\"character\\\":9}},\\\"severity\\\":2,\\\"source\\\":\\\"fake\\\",\\\"message\\\":\\\"TODO on line 2\\\"}]}]\"}]},\"jsonrpc\":\"2.0\",\"id\":1}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/call",
+        "params": {
+          "name": "getDiagnostics"
+        }
+      },
+      "answered": "{\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"[{\\\"uri\\\":\\\"\\\",\\\"diagnostics\\\":[{\\\"range\\\":{\\\"start\\\":{\\\"line\\\":1,\\\"character\\\":5},\\\"end\\\":{\\\"line\\\":1,\\\"character\\\":9}},\\\"severity\\\":2,\\\"source\\\":\\\"fake\\\",\\\"message\\\":\\\"TODO on line 2\\\"}]}]\"}]},\"jsonrpc\":\"2.0\",\"id\":2}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "tools/call",
+        "params": {
+          "name": "getDiagnostics",
+          "arguments": {}
+        }
+      },
+      "answered": "{\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"[{\\\"uri\\\":\\\"\\\",\\\"diagnostics\\\":[{\\\"range\\\":{\\\"start\\\":{\\\"line\\\":1,\\\"character\\\":5},\\\"end\\\":{\\\"line\\\":1,\\\"character\\\":9}},\\\"severity\\\":2,\\\"source\\\":\\\"fake\\\",\\\"message\\\":\\\"TODO on line 2\\\"}]}]\"}]},\"jsonrpc\":\"2.0\",\"id\":3}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "method": "tools/call",
+        "params": {
+          "name": "getDiagnostics",
+          "arguments": {
+            "uri": 5
+          }
+        }
+      },
+      "answered": "{\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"[{\\\"uri\\\":5,\\\"diagnostics\\\":[{\\\"range\\\":{\\\"start\\\":{\\\"line\\\":1,\\\"character\\\":5},\\\"end\\\":{\\\"line\\\":1,\\\"character\\\":9}},\\\"severity\\\":2,\\\"source\\\":\\\"fake\\\",\\\"message\\\":\\\"TODO on line 2\\\"}]}]\"}]},\"jsonrpc\":\"2.0\",\"id\":4}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "method": "tools/call",
+        "params": {
+          "name": "getDiagnostics",
+          "arguments": {
+            "uri": null
+          }
+        }
+      },
+      "answered": "{\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"[{\\\"uri\\\":\\\"\\\",\\\"diagnostics\\\":[{\\\"range\\\":{\\\"start\\\":{\\\"line\\\":1,\\\"character\\\":5},\\\"end\\\":{\\\"line\\\":1,\\\"character\\\":9}},\\\"severity\\\":2,\\\"source\\\":\\\"fake\\\",\\\"message\\\":\\\"TODO on line 2\\\"}]}]\"}]},\"jsonrpc\":\"2.0\",\"id\":5}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 6,
+        "method": "tools/call",
+        "params": {
+          "name": "getDiagnostics",
+          "arguments": {
+            "uri": "file:///work/é 🙂.c"
+          }
+        }
+      },
+      "answered": "{\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"[{\\\"uri\\\":\\\"file:///work/é 🙂.c\\\",\\\"diagnostics\\\":[{\\\"range\\\":{\\\"start\\\":{\\\"line\\\":1,\\\"character\\\":5},\\\"end\\\":{\\\"line\\\":1,\\\"character\\\":9}},\\\"severity\\\":2,\\\"source\\\":\\\"fake\\\",\\\"message\\\":\\\"TODO on line 2\\\"}]}]\"}]},\"jsonrpc\":\"2.0\",\"id\":6}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 7,
+        "method": "tools/call",
+        "params": {
+          "name": "openDiff",
+          "arguments": {}
+        }
+      },
+      "answered": "{\"jsonrpc\":\"2.0\",\"id\":7,\"error\":{\"code\":-32603,\"message\":\"openDiff is not a tool <product> serves yet.\"}}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 8,
+        "method": "tools/call",
+        "params": {
+          "arguments": {}
+        }
+      },
+      "answered": "{\"jsonrpc\":\"2.0\",\"id\":8,\"error\":{\"code\":-32603,\"message\":\"[\\n  {\\n    \\\"expected\\\": \\\"string\\\",\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"path\\\": [\\n      \\\"params\\\",\\n      \\\"name\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid input: expected string, received undefined\\\"\\n  }\\n]\"}}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 9,
+        "method": "tools/call"
+      },
+      "answered": "{\"jsonrpc\":\"2.0\",\"id\":9,\"error\":{\"code\":-32603,\"message\":\"[\\n  {\\n    \\\"expected\\\": \\\"object\\\",\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"path\\\": [\\n      \\\"params\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid input: expected object, received undefined\\\"\\n  }\\n]\"}}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 10,
+        "method": "tools/call",
+        "params": {
+          "name": "getDiagnostics",
+          "arguments": "x"
+        }
+      },
+      "answered": "{\"jsonrpc\":\"2.0\",\"id\":10,\"error\":{\"code\":-32603,\"message\":\"[\\n  {\\n    \\\"expected\\\": \\\"record\\\",\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"path\\\": [\\n      \\\"params\\\",\\n      \\\"arguments\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid input: expected record, received string\\\"\\n  }\\n]\"}}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 11,
+        "method": "tools/call",
+        "params": {
+          "name": 5
+        }
+      },
+      "answered": "{\"jsonrpc\":\"2.0\",\"id\":11,\"error\":{\"code\":-32603,\"message\":\"[\\n  {\\n    \\\"expected\\\": \\\"string\\\",\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"path\\\": [\\n      \\\"params\\\",\\n      \\\"name\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid input: expected string, received number\\\"\\n  }\\n]\"}}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 12,
+        "method": "tools/call",
+        "params": {
+          "name": "getDiagnostics",
+          "arguments": null
+        }
+      },
+      "answered": "{\"jsonrpc\":\"2.0\",\"id\":12,\"error\":{\"code\":-32603,\"message\":\"[\\n  {\\n    \\\"expected\\\": \\\"record\\\",\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"path\\\": [\\n      \\\"params\\\",\\n      \\\"arguments\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid input: expected record, received null\\\"\\n  }\\n]\"}}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 13,
+        "method": "tools/call",
+        "params": {
+          "name": "getDiagnostics",
+          "arguments": []
+        }
+      },
+      "answered": "{\"jsonrpc\":\"2.0\",\"id\":13,\"error\":{\"code\":-32603,\"message\":\"[\\n  {\\n    \\\"expected\\\": \\\"record\\\",\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"path\\\": [\\n      \\\"params\\\",\\n      \\\"arguments\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid input: expected record, received array\\\"\\n  }\\n]\"}}"
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 14,
+        "method": "tools/call",
+        "params": {
+          "name": "getDiagnostics",
+          "arguments": {
+            "uri": "file:///work/a.c"
+          },
+          "_meta": {
+            "progressToken": 1
+          }
+        }
+      },
+      "answered": "{\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"[{\\\"uri\\\":\\\"file:///work/a.c\\\",\\\"diagnostics\\\":[{\\\"range\\\":{\\\"start\\\":{\\\"line\\\":1,\\\"character\\\":5},\\\"end\\\":{\\\"line\\\":1,\\\"character\\\":9}},\\\"severity\\\":2,\\\"source\\\":\\\"fake\\\",\\\"message\\\":\\\"TODO on line 2\\\"}]}]\"}]},\"jsonrpc\":\"2.0\",\"id\":14}"
+    },
+    {
+      "closed": "main",
+      "clientsSaw": {
+        "a": {
+          "code": 1005,
+          "reason": ""
+        }
+      }
+    }
+  ],
+  "diagnostics from every kind of source": [
+    {
+      "started": "nothing",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>"
+    },
+    {
+      "connected": "a",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":\"probe-a\"}"
+      }
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+          "name": "getDiagnostics",
+          "arguments": {
+            "uri": "file:///work/a.c"
+          }
+        }
+      },
+      "answered": "{\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"[{\\\"uri\\\":\\\"file:///work/a.c\\\",\\\"diagnostics\\\":[]}]\"}]},\"jsonrpc\":\"2.0\",\"id\":1}"
+    },
+    {
+      "closed": "nothing",
+      "clientsSaw": {
+        "a": {
+          "code": 1005,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "started": "null",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>"
+    },
+    {
+      "connected": "b",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":\"probe-b\"}"
+      }
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+          "name": "getDiagnostics",
+          "arguments": {
+            "uri": "file:///work/a.c"
+          }
+        }
+      },
+      "answered": "{\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"[{\\\"uri\\\":\\\"file:///work/a.c\\\",\\\"diagnostics\\\":[]}]\"}]},\"jsonrpc\":\"2.0\",\"id\":1}"
+    },
+    {
+      "closed": "null",
+      "clientsSaw": {
+        "b": {
+          "code": 1005,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "started": "fire",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>"
+    },
+    {
+      "connected": "c",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":\"probe-c\"}"
+      }
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+          "name": "getDiagnostics",
+          "arguments": {
+            "uri": "file:///work/a.c"
+          }
+        }
+      },
+      "answered": "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32603,\"message\":\"the language server is on fire\"}}"
+    },
+    {
+      "closed": "fire",
+      "clientsSaw": {
+        "c": {
+          "code": 1005,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "started": "none",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>"
+    },
+    {
+      "connected": "d",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":\"probe-d\"}"
+      }
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+          "name": "getDiagnostics",
+          "arguments": {
+            "uri": "file:///work/a.c"
+          }
+        }
+      },
+      "answered": "{\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"[{\\\"uri\\\":\\\"file:///work/a.c\\\",\\\"diagnostics\\\":[]}]\"}]},\"jsonrpc\":\"2.0\",\"id\":1}"
+    },
+    {
+      "closed": "none",
+      "clientsSaw": {
+        "d": {
+          "code": 1005,
+          "reason": ""
+        }
+      }
+    }
+  ],
+  "the token gate, in every place a token could be presented": [
+    {
+      "started": "main",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>"
+    },
+    {
+      "connected": "bare",
+      "open": true,
+      "protocol": "",
+      "verdict": {
+        "closed": {
+          "code": 1008,
+          "reason": "A valid IDE token is required."
+        }
+      }
+    },
+    {
+      "connected": "wrong",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "closed": {
+          "code": 1008,
+          "reason": "A valid IDE token is required."
+        }
+      }
+    },
+    {
+      "connected": "query",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "closed": {
+          "code": 1008,
+          "reason": "A valid IDE token is required."
+        }
+      }
+    },
+    {
+      "connected": "subprotocol",
+      "open": false,
+      "error": "Server sent no subprotocol",
+      "closed": {
+        "code": 1006,
+        "reason": ""
+      }
+    },
+    {
+      "connected": "upper",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":\"probe-upper\"}"
+      }
+    },
+    {
+      "connected": "twice",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "closed": {
+          "code": 1008,
+          "reason": "A valid IDE token is required."
+        }
+      }
+    },
+    {
+      "connected": "spaced",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":\"probe-spaced\"}"
+      }
+    },
+    {
+      "connected": "empty",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "closed": {
+          "code": 1008,
+          "reason": "A valid IDE token is required."
+        }
+      }
+    },
+    {
+      "connected": "right",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":\"probe-right\"}"
+      }
+    },
+    {
+      "clients": 3
+    },
+    {
+      "observed": [
+        {
+          "accepted": false,
+          "where": null,
+          "headers": {
+            "connection": "Upgrade",
+            "host": "127.0.0.1:<port>",
+            "sec-websocket-extensions": "permessage-deflate; client_max_window_bits",
+            "sec-websocket-version": "13",
+            "upgrade": "websocket"
+          }
+        },
+        {
+          "accepted": false,
+          "where": null,
+          "headers": {
+            "connection": "Upgrade",
+            "host": "127.0.0.1:<port>",
+            "sec-websocket-extensions": "permessage-deflate; client_max_window_bits",
+            "sec-websocket-protocol": "mcp",
+            "sec-websocket-version": "13",
+            "upgrade": "websocket",
+            "x-claude-code-ide-authorization": "not-the-token"
+          }
+        },
+        {
+          "accepted": false,
+          "where": null,
+          "headers": {
+            "connection": "Upgrade",
+            "host": "127.0.0.1:<port>",
+            "sec-websocket-extensions": "permessage-deflate; client_max_window_bits",
+            "sec-websocket-protocol": "mcp",
+            "sec-websocket-version": "13",
+            "upgrade": "websocket"
+          }
+        },
+        {
+          "accepted": false,
+          "where": null,
+          "headers": {
+            "connection": "Upgrade",
+            "host": "127.0.0.1:<port>",
+            "sec-websocket-extensions": "permessage-deflate; client_max_window_bits",
+            "sec-websocket-protocol": "<token>",
+            "sec-websocket-version": "13",
+            "upgrade": "websocket"
+          }
+        },
+        {
+          "accepted": true,
+          "where": "header",
+          "headers": {
+            "connection": "Upgrade",
+            "host": "127.0.0.1:<port>",
+            "sec-websocket-extensions": "permessage-deflate; client_max_window_bits",
+            "sec-websocket-protocol": "mcp",
+            "sec-websocket-version": "13",
+            "upgrade": "websocket",
+            "x-claude-code-ide-authorization": "<token>"
+          }
+        },
+        {
+          "accepted": false,
+          "where": null,
+          "headers": {
+            "connection": "Upgrade",
+            "host": "127.0.0.1:<port>",
+            "sec-websocket-extensions": "permessage-deflate; client_max_window_bits",
+            "sec-websocket-protocol": "mcp",
+            "sec-websocket-version": "13",
+            "upgrade": "websocket",
+            "x-claude-code-ide-authorization": "<token>, <token>"
+          }
+        },
+        {
+          "accepted": true,
+          "where": "header",
+          "headers": {
+            "connection": "Upgrade",
+            "host": "127.0.0.1:<port>",
+            "sec-websocket-extensions": "permessage-deflate; client_max_window_bits",
+            "sec-websocket-protocol": "mcp",
+            "sec-websocket-version": "13",
+            "upgrade": "websocket",
+            "x-claude-code-ide-authorization": "<token>"
+          }
+        },
+        {
+          "accepted": false,
+          "where": null,
+          "headers": {
+            "connection": "Upgrade",
+            "host": "127.0.0.1:<port>",
+            "sec-websocket-extensions": "permessage-deflate; client_max_window_bits",
+            "sec-websocket-protocol": "mcp",
+            "sec-websocket-version": "13",
+            "upgrade": "websocket",
+            "x-claude-code-ide-authorization": ""
+          }
+        },
+        {
+          "accepted": true,
+          "where": "header",
+          "headers": {
+            "connection": "Upgrade",
+            "host": "127.0.0.1:<port>",
+            "sec-websocket-extensions": "permessage-deflate; client_max_window_bits",
+            "sec-websocket-protocol": "mcp",
+            "sec-websocket-version": "13",
+            "upgrade": "websocket",
+            "x-claude-code-ide-authorization": "<token>"
+          }
+        }
+      ]
+    },
+    {
+      "closed": "main",
+      "clientsSaw": {
+        "upper": {
+          "code": 1005,
+          "reason": ""
+        },
+        "spaced": {
+          "code": 1005,
+          "reason": ""
+        },
+        "right": {
+          "code": 1005,
+          "reason": ""
+        }
+      }
+    }
+  ],
+  "the subprotocol is echoed when asked for, and only then": [
+    {
+      "started": "main",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>"
+    },
+    {
+      "connected": "mcp",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":\"probe-mcp\"}"
+      }
+    },
+    {
+      "connected": "other",
+      "open": false,
+      "error": "Server sent no subprotocol",
+      "closed": {
+        "code": 1006,
+        "reason": ""
+      }
+    },
+    {
+      "connected": "both",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":\"probe-both\"}"
+      }
+    },
+    {
+      "connected": "none",
+      "open": true,
+      "protocol": "",
+      "verdict": {
+        "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":\"probe-none\"}"
+      }
+    },
+    {
+      "connected": "twice",
+      "open": false,
+      "error": "Unexpected server response: 400",
+      "closed": {
+        "code": 1006,
+        "reason": ""
+      }
+    },
+    {
+      "clients": 3
+    },
+    {
+      "closed": "main",
+      "clientsSaw": {
+        "mcp": {
+          "code": 1005,
+          "reason": ""
+        },
+        "both": {
+          "code": 1005,
+          "reason": ""
+        },
+        "none": {
+          "code": 1005,
+          "reason": ""
+        }
+      }
+    }
+  ],
+  "a selection and a mention reach every connected CLI": [
+    {
+      "started": "main",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>"
+    },
+    {
+      "selection": {
+        "filePath": "/work/a.c",
+        "text": "int main(void)",
+        "selection": {
+          "start": {
+            "line": 3,
+            "character": 0
+          },
+          "end": {
+            "line": 3,
+            "character": 14
+          }
+        }
+      },
+      "delivered": 0,
+      "received": {}
+    },
+    {
+      "connected": "a",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":\"probe-a\"}"
+      }
+    },
+    {
+      "connected": "b",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":\"probe-b\"}"
+      }
+    },
+    {
+      "connected": "refused",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "closed": {
+          "code": 1008,
+          "reason": "A valid IDE token is required."
+        }
+      }
+    },
+    {
+      "selection": {
+        "filePath": "/work/a.c",
+        "text": "int main(void)",
+        "selection": {
+          "start": {
+            "line": 3,
+            "character": 0
+          },
+          "end": {
+            "line": 3,
+            "character": 14
+          }
+        }
+      },
+      "delivered": 2,
+      "received": {
+        "a": "{\"method\":\"selection_changed\",\"params\":{\"filePath\":\"/work/a.c\",\"text\":\"int main(void)\",\"selection\":{\"start\":{\"line\":3,\"character\":0},\"end\":{\"line\":3,\"character\":14}}},\"jsonrpc\":\"2.0\"}",
+        "b": "{\"method\":\"selection_changed\",\"params\":{\"filePath\":\"/work/a.c\",\"text\":\"int main(void)\",\"selection\":{\"start\":{\"line\":3,\"character\":0},\"end\":{\"line\":3,\"character\":14}}},\"jsonrpc\":\"2.0\"}"
+      }
+    },
+    {
+      "mention": {
+        "filePath": "/work/a.c",
+        "lineStart": 2,
+        "lineEnd": 4
+      },
+      "delivered": 2,
+      "received": {
+        "a": "{\"method\":\"at_mentioned\",\"params\":{\"filePath\":\"/work/a.c\",\"lineStart\":2,\"lineEnd\":4},\"jsonrpc\":\"2.0\"}",
+        "b": "{\"method\":\"at_mentioned\",\"params\":{\"filePath\":\"/work/a.c\",\"lineStart\":2,\"lineEnd\":4},\"jsonrpc\":\"2.0\"}"
+      }
+    },
+    {
+      "selection": {
+        "filePath": "/work/é 🙂.c",
+        "text": "const char *s = \"🙂🙂\";",
+        "selection": {
+          "start": {
+            "line": 0,
+            "character": 0
+          },
+          "end": {
+            "line": 0,
+            "character": 23
+          }
+        }
+      },
+      "delivered": 2,
+      "received": {
+        "a": "{\"method\":\"selection_changed\",\"params\":{\"filePath\":\"/work/é 🙂.c\",\"text\":\"const char *s = \\\"🙂🙂\\\";\",\"selection\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":0,\"character\":23}}},\"jsonrpc\":\"2.0\"}",
+        "b": "{\"method\":\"selection_changed\",\"params\":{\"filePath\":\"/work/é 🙂.c\",\"text\":\"const char *s = \\\"🙂🙂\\\";\",\"selection\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":0,\"character\":23}}},\"jsonrpc\":\"2.0\"}"
+      }
+    },
+    {
+      "mention": {
+        "filePath": "/work/a.c"
+      },
+      "delivered": 2,
+      "received": {
+        "a": "{\"method\":\"at_mentioned\",\"params\":{\"filePath\":\"/work/a.c\"},\"jsonrpc\":\"2.0\"}",
+        "b": "{\"method\":\"at_mentioned\",\"params\":{\"filePath\":\"/work/a.c\"},\"jsonrpc\":\"2.0\"}"
+      }
+    },
+    {
+      "disconnected": "a",
+      "clients": 1
+    },
+    {
+      "selection": {
+        "filePath": "/work/a.c",
+        "text": "int main(void)",
+        "selection": {
+          "start": {
+            "line": 3,
+            "character": 0
+          },
+          "end": {
+            "line": 3,
+            "character": 14
+          }
+        }
+      },
+      "delivered": 1,
+      "received": {
+        "b": "{\"method\":\"selection_changed\",\"params\":{\"filePath\":\"/work/a.c\",\"text\":\"int main(void)\",\"selection\":{\"start\":{\"line\":3,\"character\":0},\"end\":{\"line\":3,\"character\":14}}},\"jsonrpc\":\"2.0\"}"
+      }
+    },
+    {
+      "closed": "main",
+      "clientsSaw": {
+        "b": {
+          "code": 1005,
+          "reason": ""
+        }
+      }
+    }
+  ],
+  "closing the bridge removes its lock and ends its sockets": [
+    {
+      "started": "main",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>"
+    },
+    {
+      "connected": "a",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":\"probe-a\"}"
+      }
+    },
+    {
+      "disk": [
+        {
+          "name": "<port>.lock",
+          "mode": "600",
+          "text": "{\n  \"pid\": <self>,\n  \"workspaceFolders\": [\n    \"/work\"\n  ],\n  \"ideName\": \"<product>\",\n  \"transport\": \"ws\",\n  \"useWebSocket\": true,\n  \"runningInWindows\": false,\n  \"authToken\": \"<token>\",\n  \"rengineWorker\": 9\n}"
+        }
+      ],
+      "directoryMode": "700"
+    },
+    {
+      "closed": "main",
+      "clientsSaw": {
+        "a": {
+          "code": 1005,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "disk": [],
+      "directoryMode": "700"
+    },
+    {
+      "connectAfterClose": "ECONNREFUSED"
+    },
+    {
+      "clients": 0
+    },
+    {
+      "closed": "main"
+    }
+  ],
+  "the port survives a worker replacement": [
+    {
+      "started": "first",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>"
+    },
+    {
+      "started": "second",
+      "published": false,
+      "reason": "port <port> is still held by the worker being replaced",
+      "port": null,
+      "lock": null,
+      "token": "<token>"
+    },
+    {
+      "disk": [],
+      "directoryMode": "700"
+    },
+    {
+      "closed": "first"
+    },
+    {
+      "ready": true,
+      "reason": null,
+      "published": true,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock"
+    },
+    {
+      "disk": [
+        {
+          "name": "<port>.lock",
+          "mode": "600",
+          "text": "{\n  \"pid\": <self>,\n  \"workspaceFolders\": [\n    \"/work\"\n  ],\n  \"ideName\": \"<product>\",\n  \"transport\": \"ws\",\n  \"useWebSocket\": true,\n  \"runningInWindows\": false,\n  \"authToken\": \"<token>\",\n  \"rengineWorker\": 2\n}"
+        }
+      ],
+      "directoryMode": "700"
+    },
+    {
+      "connected": "a",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":\"probe-a\"}"
+      }
+    },
+    {
+      "sent": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/list"
+      },
+      "answered": "{\"result\":{\"tools\":[{\"name\":\"getDiagnostics\",\"description\":\"Diagnostics <product> holds for a file, from the language servers the project declares. A project that declares none answers an empty list rather than refusing.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"uri\":{\"type\":\"string\"}}}}]},\"jsonrpc\":\"2.0\",\"id\":1}"
+    },
+    {
+      "closed": "second",
+      "clientsSaw": {
+        "a": {
+          "code": 1005,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "disk": [],
+      "directoryMode": "700"
+    }
+  ],
+  "a port that is never released is a named absence": [
+    {
+      "started": "first",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>"
+    },
+    {
+      "started": "second",
+      "published": false,
+      "reason": "port <port> is still held by the worker being replaced",
+      "port": null,
+      "lock": null,
+      "token": "<token>"
+    },
+    {
+      "ready": false,
+      "reason": "port <port> was never released by the worker being replaced",
+      "published": false,
+      "port": null,
+      "lock": null
+    },
+    {
+      "disk": [],
+      "directoryMode": "700"
+    },
+    {
+      "closed": "second"
+    },
+    {
+      "disk": [],
+      "directoryMode": "700"
+    },
+    {
+      "closed": "first"
+    }
+  ],
+  "a slow source does not hold the next frame behind it": [
+    {
+      "started": "main",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>"
+    },
+    {
+      "connected": "a",
+      "open": true,
+      "protocol": "mcp",
+      "verdict": {
+        "answered": "{\"result\":{},\"jsonrpc\":\"2.0\",\"id\":\"probe-a\"}"
+      }
+    },
+    {
+      "burst": [
+        "diagnostics",
+        "ping"
+      ],
+      "answered": [
+        "ping",
+        "diagnostics"
+      ]
+    },
+    {
+      "closed": "main",
+      "clientsSaw": {
+        "a": {
+          "code": 1005,
+          "reason": ""
+        }
+      }
+    }
+  ],
+  "a successor closed while waiting stops waiting": [
+    {
+      "started": "first",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>"
+    },
+    {
+      "started": "second",
+      "published": false,
+      "reason": "port <port> is still held by the worker being replaced",
+      "port": null,
+      "lock": null,
+      "token": "<token>"
+    },
+    {
+      "closedAll": [
+        "second",
+        "first"
+      ]
+    },
+    {
+      "ready": false,
+      "reason": "port <port> was never released by the worker being replaced",
+      "published": false,
+      "port": null,
+      "lock": null
+    },
+    {
+      "disk": [],
+      "directoryMode": "700"
+    }
+  ],
+  "a wanted port that is free is taken at once": [
+    {
+      "started": "main",
+      "published": true,
+      "reason": null,
+      "port": "<port>",
+      "lock": "<dir>/<port>.lock",
+      "token": "<token>",
+      "wantedTaken": true
+    },
+    {
+      "disk": [
+        {
+          "name": "<port>.lock",
+          "mode": "600",
+          "text": "{\n  \"pid\": <self>,\n  \"workspaceFolders\": [\n    \"/work\"\n  ],\n  \"ideName\": \"<product>\",\n  \"transport\": \"ws\",\n  \"useWebSocket\": true,\n  \"runningInWindows\": false,\n  \"authToken\": \"<token>\",\n  \"rengineWorker\": 9\n}"
+        }
+      ],
+      "directoryMode": "700"
+    },
+    {
+      "closed": "main"
+    }
+  ],
+  "a lock directory that cannot be created": [
+    {
+      "started": "file",
+      "error": "EEXIST: file already exists, mkdir '<dir>/afile'"
+    },
+    {
+      "started": "under",
+      "error": "ENOTDIR: not a directory, mkdir '<dir>/afile/ide'"
+    }
+  ],
+  "the lock directory follows the CLI, unless rEngine says otherwise": [
+    {
+      "environment": {},
+      "directory": "<home>/.claude/ide"
+    },
+    {
+      "environment": {
+        "CLAUDE_CONFIG_DIR": "/cfg"
+      },
+      "directory": "/cfg/ide"
+    },
+    {
+      "environment": {
+        "CLAUDE_CONFIG_DIR": "/cfg",
+        "RENGINE_IDE_DIRECTORY": "/explicit"
+      },
+      "directory": "/explicit"
+    },
+    {
+      "environment": {
+        "CLAUDE_CONFIG_DIR": ""
+      },
+      "directory": "ide"
+    },
+    {
+      "environment": {
+        "RENGINE_IDE_DIRECTORY": "",
+        "CLAUDE_CONFIG_DIR": "/cfg/"
+      },
+      "directory": "/cfg/ide"
+    },
+    {
+      "environment": {
+        "CLAUDE_CONFIG_DIR": "relative/cfg"
+      },
+      "directory": "relative/cfg/ide"
+    },
+    {
+      "environment": {
+        "CLAUDE_CONFIG_DIR": "/cfg/../x/./y//"
+      },
+      "directory": "/x/y/ide"
+    },
+    {
+      "environment": {
+        "CLAUDE_CONFIG_DIR": "//cfg"
+      },
+      "directory": "/cfg/ide"
+    }
+  ]
+}
