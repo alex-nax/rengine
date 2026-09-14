@@ -76,6 +76,29 @@ The fix is also the more faithful shape: the JavaScript cache was a `Map` in the
 lost when the worker was replaced, so keying the directory by the calling PROCESS reproduces exactly
 that lifetime. The cross-call TTL a worker relies on is within one process either way.
 
+## The door takes the route, and the desktop gate finds what that changes
+
+2026-09-14, later the same day: `/api/dashboard`, `/api/devices`, `/api/game-config` and the local
+`/api/tracker` moved into red-host, which links `red-project` directly. A workspace with no JS
+backend now answers what a person's Devices tab, dashboard, game chooser and Tasks tab ask about the
+project in front of them, and `red-host.test.mjs` asserts the door and the backend give identical
+answers on all six project routes — during a migration, that agreement is the assertion that matters.
+
+Moving it found a defect in this row's own `refresh`. The fix above made `refresh` mean "ask again,
+once" by keeping the set of already-dropped keys **in the probe cache**. That is right for a CLI
+invocation, which gets a fresh cache per call, and wrong for a door, which keeps one for as long as
+it runs: the first Refresh press marked every device, and the second found them all marked and
+served the very cache it was asked to bypass — a person pressing Refresh and being shown the same
+stale answer. The set belongs to the CALL, and lives on `Context` now, which
+`project_devices` and `dashboard_actions` share within one request and never across two.
+
+Nothing in `npm test` could have caught it: the JS specs drive a per-call binary, where a per-call
+set and a per-process set are indistinguishable. The corpus could not either — both answers are
+well-formed, and only the second press being stale is wrong. `native-devices.spec.mjs` found it,
+which is the gate KI-105 records as the one nothing routinely runs. The regression is now a Rust
+test that refreshes twice through one long-lived cache and counts the probes: sabotaging it back
+gives 3 where 4 are required.
+
 ## Gates
 
 `npm test` 335/335 · `cargo test` 89/89 · `./init.sh` · `features.py validate`.

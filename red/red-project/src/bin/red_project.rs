@@ -118,6 +118,7 @@ fn main() -> ExitCode {
                 environment: &environment,
                 probes: &probes,
                 refresh: flags.contains(&"refresh"),
+                refreshed: Default::default(),
                 controls: flags.contains(&"controls"),
                 now: &now,
             };
@@ -141,7 +142,7 @@ fn main() -> ExitCode {
             };
             let now = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|since| since.as_millis() as i64).unwrap_or(0);
             let context = red_project::devices::Context {
-                root_id, root_path, environment: &environment, probes: &probes, refresh: false, controls: false, now: &now,
+                root_id, root_path, environment: &environment, probes: &probes, refresh: false, refreshed: Default::default(), controls: false, now: &now,
             };
             let declared = red_project::declaration::read(root_path, arg(5));
             let answer = red_project::games::inspect_game(&context, &declared, arg(3));

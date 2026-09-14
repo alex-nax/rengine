@@ -31,15 +31,24 @@ pub(crate) fn store_route(method: &str, path: &str) -> Option<&'static str> {
     })
 }
 
-/// What a project declares about itself and what it leaves behind (F156): the declaration, its
-/// formats, and the recordings the desktop's recorder committed. These read a project root rather
-/// than the workspace's own state, so the door answers them from `red_project` directly — the same
-/// implementation `formats.mjs` and `recordings.mjs` ask for through their client.
-pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &Head) -> String {
+/// What a project declares about itself and what it leaves behind (F153, F155, F156): the
+/// declaration and its formats, the recordings the desktop's recorder committed, the devices it
+/// declares and whether each answers, which of its dashboard actions may be pressed, a game's
+/// preflight, and its own task inventory.
+///
+/// These read a project ROOT rather than the workspace's own state, so the door answers them from
+/// `red_project` directly — the same implementation the JS clients ask for through a binary. The
+/// door is the longer-lived of the two, so the probe cache it keeps is the same optimisation with a
+/// longer life: one listing costs one probe per device, not one per action.
+///
+/// `/api/tracker` is the exception, and it says so by forwarding: only the LOCAL backend is Rust,
+/// because the remote providers need a network client and F154 owns that decision.
+/// `None` means "not this door's after all" — the caller falls through to the forwarder.
+pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &Head) -> Option<String> {
     let root_id = head.query("rootId").unwrap_or_default();
     let root = match ask(front, "root", serde_json::json!([root_id])).await {
         Ok(root) => root,
-        Err(fault) => return faulted(&fault),
+        Err(fault) => return Some(faulted(&fault)),
     };
     let root_path = root.get("path").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
     let id = root.get("id").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
@@ -47,12 +56,39 @@ pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &
     /* Everything the blocking half needs, taken before it starts: a task that outlives this call
        cannot borrow the request it came from. */
     let path = path.to_string();
-    let asked: Vec<Option<String>> = ["limit", "id", "artifact", "offset", "maxCharacters"]
+    let asked: Vec<Option<String>> = ["limit", "id", "artifact", "offset", "maxCharacters", "refresh", "gameId"]
         .into_iter()
         .map(|name| head.query(name))
         .collect();
+    /* A remote tracker is the backend's business until F154; the door says so rather than answering
+       half of it. Read before the blocking half starts, because the answer decides whether there is
+       one. */
+    if path == "/api/tracker" {
+        let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
+        let provider = declared
+            .get("tracker")
+            .and_then(|block| block.get("provider"))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("local");
+        if provider != "local" {
+            return None;
+        }
+    }
+    let front = front.clone();
     let answer = tokio::task::spawn_blocking(move || {
         let query = |index: usize| asked[index].clone();
+        let environment: Vec<(String, String)> = std::env::vars().collect();
+        let now = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|since| since.as_millis() as i64).unwrap_or(0);
+        let context = |controls: bool, refresh: bool| red_project::devices::Context {
+            root_id: &id,
+            root_path: &root_path,
+            environment: &environment,
+            probes: &front.probes,
+            refresh,
+            refreshed: Default::default(),
+            controls,
+            now: &now,
+        };
         match path.as_str() {
         "/api/formats" => {
             /* `listFormats`: the declaration, wearing the id of the root it was read for. */
@@ -67,6 +103,26 @@ pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &
         }
         "/api/recordings" => red_project::recordings::list(&id, &root_path, query(0).as_deref())
             .map_err(|fail| format!("{}|{}", fail.status, fail.message)),
+        "/api/dashboard" => {
+            let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
+            Ok(red_project::dashboard::dashboard_actions(&context(false, false), &declared))
+        }
+        "/api/devices" => {
+            let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
+            /* The Devices tab asks for the controls bound to each box; a caller that only wants to
+               know which boxes answer asks the same route without them, which is what `resolve`
+               decided on the other side. The tab is the only caller of this route. */
+            Ok(red_project::dashboard::project_devices(&context(true, query(5).as_deref() == Some("1")), &declared))
+        }
+        "/api/game-config" => {
+            let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
+            red_project::games::inspect_game(&context(false, false), &declared, query(6).as_deref())
+                .map_err(|fail| format!("{}|{}", fail.status, fail.message))
+        }
+        "/api/tracker" => {
+            let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
+            Ok(red_project::tracker::project_tracker(&id, &root_path, &declared))
+        }
         _ => red_project::recordings::read(
             &id,
             &root_path,
@@ -80,11 +136,11 @@ pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &
         }
     })
     .await;
-    match answer {
+    Some(match answer {
         Ok(Ok(value)) => http_json(200, "OK", &value),
         Ok(Err(fault)) => faulted(&fault),
         Err(error) => faulted(&format!("500|{error}")),
-    }
+    })
 }
 
 /// The session routes this door answers itself. They are here rather than forwarded because the

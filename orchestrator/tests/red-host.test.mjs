@@ -112,13 +112,19 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   assert.match(descriptor.token, /^[0-9a-f]{64}$/);
   const instance = { url: door.url, token: descriptor.token };
 
-  /* Routes the door FORWARDS: the same answers, through the door and around it. These are the
-     thirteen F153–F156 still own, so the JS host still serves them and the comparison is a proxy's. */
+  /* The door and the backend AGREE about what a project says. Since F153–F156 both sides run the
+     same Rust — the door links `red-project`, the JS host asks the same implementation through its
+     client — so this is no longer a proxy's comparison but the migration's own: a route the door
+     has taken over answers what the route it replaced answers, on the same project, at the same
+     moment. The remaining forwarded routes are the ones that run a project's own commands. */
+  const fold = value => JSON.parse(JSON.stringify(value, (key, item) => (key === 'checkedAt' ? '<stamp>' : item)));
   for (const route of [`/api/dashboard?rootId=${root.id}`, `/api/formats?rootId=${root.id}`,
-    `/api/recordings?rootId=${root.id}`]) {
+    `/api/recordings?rootId=${root.id}`, `/api/devices?rootId=${root.id}`,
+    `/api/game-config?rootId=${root.id}`, `/api/tracker?rootId=${root.id}`]) {
     const [through, around] = await Promise.all([ask(instance, route), ask(backend, route)]);
     assert.equal(through.status, around.status, `${route} answers the same status`);
-    assert.deepEqual(await through.json(), await around.json(), `${route} answers the same body`);
+    /* `checkedAt` is a wall clock on both sides and the two calls are not the same instant. */
+    assert.deepEqual(fold(await through.json()), fold(await around.json()), `${route} answers the same body`);
   }
 
   /* Routes the door OWNS. The JS host no longer serves these, so the comparison is against the
@@ -283,9 +289,22 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
     'and so is what the project declares');
   assert.equal((await (await ask(instance, `/api/recordings?rootId=${root.id}`)).json()).path, '.cache/recordings',
     'and what it left behind');
+  /* F153 and F155 moved four more of the project's own questions into the door, so a workspace with
+     no backend still answers what a person's Devices tab, dashboard, game chooser and Tasks tab ask
+     about the project in front of them. */
+  for (const [route, what] of [
+    ['dashboard', 'which of its actions may be pressed'],
+    ['devices', 'which of the boxes it declares answer'],
+    ['game-config', 'what a declared game needs before it can be launched'],
+    ['tracker', 'its own task inventory'],
+  ]) {
+    assert.equal((await ask(instance, `/api/${route}?rootId=${root.id}`)).status, 200, what);
+  }
   assert.equal((await alone.json()).text, 'through the door\n', 'from the state directory\'s own store');
   await assert.rejects(async () => {
-    const forwarded = await ask(instance, `/api/dashboard?rootId=${root.id}`);
+    /* A byte window is still the backend's: `formats.mjs` runs the project's own commands, and that
+       half has not moved. */
+    const forwarded = await ask(instance, `/api/bytes?rootId=${root.id}&path=note.txt`);
     await forwarded.text();
   }, 'while a route it only forwards has nowhere left to go');
 });

@@ -148,6 +148,21 @@ Fourteen were left behind while debugging; after the fix a full suite run leaves
 The worker's diagnostics route asks **once** now rather than reading a version and then the items: a
 version drawn before the publish a poller is waiting for is a poller told "unchanged" about a change.
 
+**Four more routes moved into the door.** `/api/dashboard`, `/api/devices`, `/api/game-config` and
+the local `/api/tracker` are red-host's now, answered from `red-project` — so a workspace with no JS
+backend answers what a person's Devices tab, dashboard, game chooser and Tasks tab ask about the
+project in front of them. A remote tracker is declined and forwarded, because its providers need the
+network client F154 owns. `red-host.test.mjs` asserts the door and the backend give **identical**
+answers on all six project routes, which during a migration is the assertion that matters.
+
+It also found a defect in F155's own `refresh`. Making `refresh` mean "ask again, once" had put the
+set of already-dropped keys in the probe CACHE — right for a per-call binary, wrong for a door that
+keeps one cache for as long as it runs: the first Refresh press marked every device, and the second
+found them all marked and served the very cache it was asked to bypass. The set belongs to the
+CALL. Neither `npm test` nor the corpus could catch it — a per-call binary cannot tell the two
+scopes apart, and both answers are well-formed — and `native-devices.spec.mjs` did, which is the
+gate KI-105 records as the one nothing routinely runs.
+
 **The desktop gate, run for the first time in this arc.** 43 specs, ten minutes, not in `npm test`
 (KI-105). 78 of 81 pass — including every token spec, so the ledger-as-a-service did not break the
 desktop's status segment, which is the consumer path F157 most had to keep. Both failures predate

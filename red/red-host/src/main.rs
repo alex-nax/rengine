@@ -76,6 +76,13 @@ struct Front {
     url: String,
     backend: String,
     backend_token: String,
+    /// The device probes this door has taken, kept for as long as it is running.
+    ///
+    /// A probe is a bounded spawn against a box that may be unreachable, so one listing must cost
+    /// one probe per device and not one per action. The JavaScript kept this in the worker; a door
+    /// is the longer-lived of the two, so keeping it here is the same optimisation with a longer
+    /// life — and the worker's client keeps its own for the routes it still answers.
+    probes: red_project::devices::Probes,
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -234,6 +241,7 @@ async fn serve(options: Options) -> Result<(), String> {
         url: format!("http://127.0.0.1:{port}"),
         backend: options.backend.clone(),
         backend_token: options.backend_token.clone(),
+        probes: red_project::devices::Probes::default(),
     });
     /* The descriptor every consumer reads, written the way the JS host writes it: tmp then rename,
        0600, and the token this door checks rather than the backend's. */
@@ -341,11 +349,19 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
             continue;
         }
         /* What the project itself declares and leaves behind (F156). */
-        if head.method == "GET" && matches!(head.path().as_str(), "/api/formats" | "/api/recordings" | "/api/recording") {
-            let answer = routes::answer_about_project(&front, &head.path(), &head).await;
-            client.write_all(answer.as_bytes()).await?;
-            if !head.keeps_alive() { return Ok(()); }
-            continue;
+        if head.method == "GET"
+            && matches!(
+                head.path().as_str(),
+                "/api/formats" | "/api/recordings" | "/api/recording" | "/api/dashboard" | "/api/devices" | "/api/game-config" | "/api/tracker"
+            )
+        {
+            /* `None` is this door declining after all — a remote tracker, whose providers need a
+               network client F154 owns — and it falls through to the forwarder below. */
+            if let Some(answer) = routes::answer_about_project(&front, &head.path(), &head).await {
+                client.write_all(answer.as_bytes()).await?;
+                if !head.keeps_alive() { return Ok(()); }
+                continue;
+            }
         }
         /* The one route whose answer is bytes rather than JSON. */
         if head.path() == "/api/image" && head.method == "GET" {
@@ -504,6 +520,7 @@ mod tests {
             hub: Arc::new(Hub::new()), desktops: Desktops::new(),
             token: "a".repeat(64), instance: "i".into(), state: "/tmp/x".into(), url: "http://127.0.0.1:1".into(),
             backend: "http://127.0.0.1:2".into(), backend_token: "b".repeat(64),
+            probes: red_project::devices::Probes::default(),
         }
     }
 
