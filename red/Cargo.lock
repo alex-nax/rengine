@@ -2742,6 +2742,7 @@ dependencies = [
 name = "red-project"
 version = "0.1.0"
 dependencies = [
+ "red-store",
  "serde_json",
 ]
 

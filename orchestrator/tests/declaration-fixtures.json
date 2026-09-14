@@ -656,6 +656,172 @@
       "team": "KOH"
     }
   },
+  "a tracker write below its contract floor": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 5,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "trackerError": ".rengine/project.json: $.tracker write requires contract 6 (declared contract 5)"
+  },
+  "a tracker write on a remote provider": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 6,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "trackerError": ".rengine/project.json: $.tracker write belongs to provider local"
+  },
+  "a tracker write that never names the row": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 6,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "trackerError": ".rengine/project.json: $.tracker.write must name ${json} in one of its arguments"
+  },
+  "a tracker write that does": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 6,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "tracker": {
+      "provider": "local",
+      "write": [
+        "tools/write.mjs",
+        "${json}"
+      ]
+    }
+  },
   "games and a dashboard together": {
     "declared": true,
     "source": ".rengine/project.json",

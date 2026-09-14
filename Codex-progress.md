@@ -93,11 +93,28 @@ because a record only one machine can check is not a record. `declaration-record
 the live reader over the same corpus so the evidence cannot drift from what it froze, and two
 sabotages confirm it notices when the reader changes its mind.
 
-One note for whoever takes the next port: `formats.mjs` (386 lines) is the keystone — `dashboard`,
-`devices`, `games` and `tracker` all read its `readDeclaration` — and the hard part of it is already
-in Rust. `red_store::schema::validate_schema` is the bounded JSON Schema 2020-12 subset with
-identical error strings (F169/F147a), so the port is the section rules and the bounded command
-execution, not a validator.
+**And then the keystone itself.** `readDeclaration` is `red-project`'s now, with the cross-field
+rules of `device-rules`, `game-rules` and `dashboard-rules` beside it: the 256 KiB bound, the
+contract table, the contract floors, the icon's exactly-one rule and its design token, the artwork
+that must be relative, `.svg` and readable, the format cross-rules, and the seven sections in the
+order that lets each resolve the references it makes. `formats.mjs` is **169 lines where it was
+386** — what stayed is what RUNS a project's own commands, which is the other half of what a format
+is for. The contract document is compiled into the binary, and the schema subset it validates with
+is `red_store::schema`, already ported with identical error strings in F169.
+
+**56 of 57 recorded answers matched exactly**, on the second run; the first differed on four, three
+of them one mistake — a pack is named by its `name` where every other record is named by its `id`.
+The 57th is the JSON parser's own wording, V8's against serde's, which no port can reproduce: that
+case is marked in the corpus and held to the prefix a person reads first, with every other field
+compared exactly. It is the single deviation and it is written down.
+
+**And one rule was missing that the record did not catch**, because the corpus had no case for it:
+`tracker.write` is the only key whose contract floor differs from its block's, so it is checked with
+the block rather than the section. `task-writes.test.mjs` caught it. Four cases were added and
+recorded from the JavaScript, which still existed in the working tree for exactly that reason — the
+record is only as good as the questions put to it, and that is worth remembering next time.
+
+JavaScript on the app path: **6,533**, from 6,743.
 
 **And then the blocker turned out not to be one.** KI-107 said the remaining `server/*` modules
 cannot leave while the worker imports them, and that unpicking it needed a decision about spec 065's

@@ -5,6 +5,9 @@ edition = "2021"
 description = "What a project declares about itself, and the artifacts it produces: recordings today, the declaration and its formats next (F153-F156, spec 129)"
 
 [dependencies]
+# The bounded JSON Schema 2020-12 subset with identical error strings, ported in F169/F147a: the
+# declaration is validated by the same code the store validates with.
+red-store = { path = "../red-store" }
 serde_json = { version = "1", features = ["preserve_order"] }
 
 # One binary, one subcommand per question, so a JS caller that still needs an answer asks the same

@@ -15,13 +15,21 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CASES, RECORDED, answers } from './declaration-fixtures.mjs';
+import { CASES, PARSER_WORDED, RECORDED, answers } from './declaration-fixtures.mjs';
 
 test('the recorded declaration answers are the ones the reader gives', { timeout: 120000 }, async () => {
   assert.ok(RECORDED, 'declaration-fixtures.json is present; it is the evidence, not a cache');
   assert.equal(Object.keys(RECORDED).length, CASES.length, 'every case has a recorded answer');
   const live = await answers();
   for (const [name] of CASES) {
+    /* The one answer whose parenthetical is the JSON parser's rather than this workspace's: V8 says
+       one thing and serde another, so the reader is held to the prefix — which is the half a person
+       reads — and not to a runtime's phrasing. Everything else is compared exactly. */
+    if (name === PARSER_WORDED) {
+      assert.match(live[name].error, /^\.rengine\/project\.json: invalid JSON \(/, name);
+      assert.deepEqual({ ...live[name], error: null }, { ...RECORDED[name], error: null }, name);
+      continue;
+    }
     assert.deepEqual(live[name], RECORDED[name], name);
   }
 });

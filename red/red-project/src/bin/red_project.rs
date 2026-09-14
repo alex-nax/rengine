@@ -1,5 +1,6 @@
 //! One question per run, answered as JSON on stdout (F156c, spec 129).
 //!
+//!   red-project declaration <rootPath> [declarationFile]
 //!   red-project recordings <rootId> <rootPath> [limit]
 //!   red-project recording  <rootId> <rootPath> <id> [artifact] [offset] [limit] [maxCharacters]
 //!
@@ -14,6 +15,7 @@ fn main() -> ExitCode {
     let arg = |index: usize| argv.get(index).map(String::as_str).filter(|value| !value.is_empty());
     let answer = match arg(0) {
         Some("recordings") => red_project::recordings::list(arg(1).unwrap_or_default(), arg(2).unwrap_or_default(), arg(3)),
+        Some("declaration") => Ok(red_project::declaration::read(arg(1).unwrap_or_default(), arg(2))),
         Some("recording") => red_project::recordings::read(
             arg(1).unwrap_or_default(),
             arg(2).unwrap_or_default(),

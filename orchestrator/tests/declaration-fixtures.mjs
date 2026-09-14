@@ -35,9 +35,14 @@ const DASHBOARD = { title: 'Fixture', groups: [{ id: 'build', title: 'Build', ac
 
 /* Each case is a declaration and the files beside it, if any. A `document` of `null` writes no
    declaration at all; a string is written verbatim, so a case can be invalid JSON. */
+export const PARSER_WORDED = 'a declaration that is not JSON';
 export const CASES = [
   ['no declaration at all', { document: null }],
-  ['a declaration that is not JSON', { document: '{ not json' }],
+  /* The parenthetical here is the JSON parser's own wording, which belongs to whichever runtime
+     read the file — V8 says one thing, serde another. It is the single place in this record that a
+     port cannot match word for word, and it is marked rather than quietly excused: everything
+     around it, including the prefix a person reads first, is still compared exactly. */
+  ['a declaration that is not JSON', { document: '{ not json', parserWorded: true }],
   ['a declaration that is not an object', { document: '[]' }],
   ['a declaration above the 256 KiB limit', { document: JSON.stringify({ ...base(), pad: 'x'.repeat(256 * 1024) }) }],
   ['an unknown contract', { document: { ...base(), contract: 99 } }],
@@ -69,6 +74,17 @@ export const CASES = [
   ['a github tracker with no repository', { document: { ...base(), contract: 5, tracker: { provider: 'github' } } }],
   ['a github tracker wearing linear\'s filters', { document: { ...base(), contract: 5, tracker: { provider: 'github', repository: 'owner/repo', project: 'p' } } }],
   ['a linear tracker', { document: { ...base(), contract: 5, tracker: { provider: 'linear', team: 'KOH' } } }],
+  /* `write` is the one key of the tracker block that is WRITTEN rather than read, and the only one
+     whose contract floor is 6 while its block's is 5 — so it is checked with the block rather than
+     with the section, and a contract-5 project would otherwise have it accepted in silence. */
+  ['a tracker write below its contract floor', { document: { ...base(), contract: 5, tracker: {
+    provider: 'local', write: ['tools/write.mjs', '${json}'] } } }],
+  ['a tracker write on a remote provider', { document: { ...base(), contract: 6, tracker: {
+    provider: 'github', repository: 'owner/name', write: ['tools/write.mjs', '${json}'] } } }],
+  ['a tracker write that never names the row', { document: { ...base(), contract: 6, tracker: {
+    provider: 'local', write: ['tools/write.mjs', 'add'] } } }],
+  ['a tracker write that does', { document: { ...base(), contract: 6, tracker: {
+    provider: 'local', write: ['tools/write.mjs', '${json}'] } } }],
 
   ['games and a dashboard together', { document: { ...base(), contract: 3, games: [game(), second()], dashboard: DASHBOARD } }],
   ['a dashboard on contract 2', { document: { ...base(), contract: 2, dashboard: DASHBOARD } }],
