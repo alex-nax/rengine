@@ -14,6 +14,7 @@
 //!   red-project game <rootId> <rootPath> [gameId] [probeCache] [declarationFile]
 //!   red-project dashboard-capture <rootId> <rootPath> <actionId> [probeCache] [declarationFile]
 //!   red-project dashboard-run <rootId> <rootPath> <actionId> <bash> [probeCache] [declarationFile]
+//!   red-project worktrees <rootPath>              every worktree of that root's repository
 //!
 //! A refusal is `{"error": …, "status": N}` and exit 1, because the JS client this answers turns it
 //! back into the same `fail()` the module it replaced threw. Both of this crate's callers — the
@@ -224,6 +225,12 @@ fn main() -> ExitCode {
                 let declared = red_project::declaration::read(root_path, arg(3));
                 red_project::preview::format_preview(root_path, &declared, &data, &environment)
             }
+        }
+        /* What git already knows about a root's repository (F190, spec 134). Read-only: the survey
+           that decides whether a worktree may be removed, never the removal. */
+        Some("worktrees") => {
+            let environment: Vec<(String, String)> = std::env::vars().collect();
+            red_project::worktrees::worktrees(arg(1).unwrap_or_default(), &environment)
         }
         Some("recordings") => red_project::recordings::list(arg(1).unwrap_or_default(), arg(2).unwrap_or_default(), arg(3)),
         Some("declaration") => Ok(red_project::declaration::read(arg(1).unwrap_or_default(), arg(2))),

@@ -1,5 +1,43 @@
 # Progress Log
 
+## Session 151 (macos) — 2026-09-14 — the worktree survey, and a spec written before any of it
+
+`/grill-me` on the worktree browser, then the first of its three rows.
+
+**The interview's own finding is that most of it was already decided.** Eight questions came out
+of the repository rather than out of the owner — a worktree is already a distinct root (D20,
+"two worktrees of one repository remain distinct roots"), sessions already do not retarget, a
+vanished root is already "do not guess replacement checkouts", the Agent control's shape has been
+`re-button re-select` in `design/previews` since spec 064 while the native drifted to a textbox.
+They are recorded in spec 134's table so the next session does not spend the owner's time on them.
+
+Three decisions went past the recommendation offered. The toolbar loses its project switcher AND
+its path field for a modal — and the code already agreed, because the popover has to apologise for
+the split ("Type a project path in the toolbar, then choose Add project."). A created worktree
+lands where the project's declaration says, contract 11, rather than by git's `../<repo>-<branch>`
+convention. And an undeclared repository is **asked, and offered the declaration** — which is a
+boundary change, so it is **charter D63** rather than a spec line: rEngine has read
+`.rengine/project.json` and never written it, and D47's precedent is weaker because there a
+judgement goes back through the project's OWN declared `tracker.write`. The bound is the decision:
+shown in full, written only on confirmation, untouched on refusal or unparseable JSON.
+
+**F190, the survey.** `red_project::worktrees` answers every worktree with branch, dirty count,
+merged state and one `removable` field. The survey IS the feature: pruning 30 worktrees safely that
+morning meant checking each by hand, and that is exactly what a Remove button must not skip. A
+`null` in either fact is not a yes — a worktree whose directory is gone reports both null and
+`removable: false`, spec 002's rule for a checkout that is not there. `--is-ancestor`'s exit 1 is
+"no", and any other failure is a question that could not be asked and answers null, because a
+false "not merged" annoys where a false "merged" deletes work.
+
+Read-only and bounded through `red_project::command`, so it inherits the deadline and the byte
+ceiling every declared command has. Four sabotages, each observed failing at its own assertion.
+Run on this repository, the consumer path refuses the one remaining worktree on its **lock** alone
+— clean, merged, and correctly not removable. That is the morning's hand survey, mechanical.
+
+`cargo test --workspace` 133/133, `./init.sh` passes. No JavaScript changed; F191 (create/remove
+and the declaration offer) and F192 (the modal, the status-bar opener, the agent dropdown) are the
+rest of spec 134.
+
 ## Session 150 (macos) — 2026-09-14 — the IDE bridge is Rust, and two rules the record could not see
 
 F161's second half (spec 133). `runtime/ide.mjs` (199 → 191) and `agents/ide-connect.mjs` (76 → 26)

@@ -3551,6 +3551,68 @@
         "THE HOST STOPS SERVING WHAT THE DOOR OWNS, 2026-09-14: docs/evidence/host-routes-deleted-2026-09-14.md — eighteen route cases, the /events socket and the host's Desktops are deleted from main.mjs, which is now the backend of the fifteen routes F153-F156 own plus the /surface upgrade. red-host is required to serve a workspace. The comparisons in red-host.test.mjs moved one layer down, to the functions the deleted routes called, so they survive the modules' own deletion. Found on the way: the door erased a conversation's task on every pane report (an absent field sent as null, which the store reads as forget), and could not answer about a pane it had just started."
       ],
       "external_references": []
+    },
+    {
+      "id": 190,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "A repository's git worktrees are visible as a set: red-project discovers every worktree of a root's repository with its branch, whether its tree is clean, and whether its branch is merged into its base — the survey that decides whether one may be removed (spec 134 D1/D2; charter D20).",
+      "acceptance_criteria": [
+        "Every worktree of a repository is listed with its branch, its dirty count and its merged state, for a root that is itself a worktree and for one that is the main checkout.",
+        "A detached worktree, a worktree whose directory is gone, and a repository with no worktrees each answer by name rather than failing.",
+        "Discovery reads what git already knows and never writes; a bare `git worktree list --porcelain` equivalent is the only state consulted."
+      ],
+      "passes": false,
+      "dependencies": [
+        155
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "red-project worktree discovery with its record, judged against a fixture repository; the grouping shape spec 134 D2 requires.",
+      "external_references": [],
+      "evidence": [
+        "F190, 2026-09-14: docs/evidence/worktree-discovery-f190-2026-09-14.md — red_project::worktrees answers every worktree of a root's repository with branch, dirty count, merged state and one `removable` field, because the survey is the feature: pruning 30 worktrees safely that morning meant checking each by hand for uncommitted work and for whether its branch had landed, and that is exactly what a Remove button must not skip. A null in either fact is not a yes — a worktree whose directory is gone reports both null and removable false, spec 002's rule for a checkout that is not there. `--is-ancestor`'s exit 1 is 'no' while any other failure is a question that could not be asked and answers null, because a false 'not merged' annoys and a false 'merged' deletes work. Read-only and bounded through red_project::command. Four sabotages, each observed failing at its own assertion. The consumer path run on this repository correctly refuses the one remaining worktree on its lock alone. cargo test 133/133, ./init.sh passes."
+      ]
+    },
+    {
+      "id": 191,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "Creating and removing a worktree from the workspace: the destination is the project's declared `worktrees` directory at contract 11, an undeclared project is asked and offered the declaration (charter D63), and removal is refused by name unless the worktree is clean and merged (spec 134 D1/D5/D6).",
+      "acceptance_criteria": [
+        "A worktree is created under the declared directory; a project below contract 11 reports the block by name and keeps every other capability.",
+        "Creating in an undeclared project shows the exact declaration edit, writes it only on confirmation, and leaves the file untouched on refusal and on unparseable JSON.",
+        "Removing a clean merged worktree succeeds and leaves its branch; a dirty one and an unmerged one are each refused by name with nothing changed on disk."
+      ],
+      "passes": false,
+      "dependencies": [
+        190
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The worktrees block in contracts/project-v1.schema.json at contract 11, its rules in red-project, create/remove with the survey, and the declaration offer bounded as D63 states.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 192,
+      "milestone": "O1",
+      "category": "desktop",
+      "priority": "medium",
+      "description": "The Projects modal replaces the toolbar's project switcher and path field: repositories group their worktree roots, the status bar names the current project and opens the modal, and the Agent control becomes the dropdown design has specified since spec 064 (spec 134 D3/D4/D7).",
+      "acceptance_criteria": [
+        "The toolbar carries no project switcher, no project path field and no Add-project button, and native-design.spec.mjs stays green across all three presets.",
+        "Pressing the status bar's project segment opens the modal, as does its keyboard command; the modal lists roots grouped by repository with each branch.",
+        "Switching the selected project retargets no existing session, and the Agent control is a dropdown listing the installed agents."
+      ],
+      "passes": false,
+      "dependencies": [
+        190
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }
