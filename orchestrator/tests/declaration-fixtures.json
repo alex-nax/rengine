@@ -1,0 +1,1036 @@
+{
+  "no declaration at all": {
+    "declared": false,
+    "formats": []
+  },
+  "a declaration that is not JSON": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: invalid JSON (Expected property name or '}' in JSON at position 2 (line 1 column 3))",
+    "formats": []
+  },
+  "a declaration that is not an object": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: declaration must be a JSON object",
+    "formats": []
+  },
+  "a declaration above the 256 KiB limit": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: declaration exceeds 256 KiB",
+    "formats": []
+  },
+  "an unknown contract": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: unknown contract 99; this rEngine supports contracts 1, 2, 3, 4, 5, 6, 7, 8, 9 and 10",
+    "formats": []
+  },
+  "a contract that is not a number": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: unknown contract \"1\"; this rEngine supports contracts 1, 2, 3, 4, 5, 6, 7, 8, 9 and 10",
+    "formats": []
+  },
+  "a document the schema refuses": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: $ requires formats",
+    "formats": []
+  },
+  "a document with several schema problems": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: $.project must be string; $.formats must be array",
+    "formats": []
+  },
+  "the minimal contract-1 declaration": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 1,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ]
+  },
+  "a title below its contract floor": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: title requires contract 5 (declared contract 4)",
+    "formats": []
+  },
+  "a title on contract 5": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 5,
+    "project": "fixture",
+    "title": "Fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ]
+  },
+  "an icon below its contract floor": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: icon requires contract 5 (declared contract 4)",
+    "formats": []
+  },
+  "an icon token that is not a design token": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: icon token \"purple\" is not a design token; use accent, ok, warn, err, info",
+    "formats": []
+  },
+  "an icon token that is": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 5,
+    "project": "fixture",
+    "icon": {
+      "glyph": "F",
+      "token": "accent"
+    },
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ]
+  },
+  "an icon carrying both a glyph and an image": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: icon carries exactly one of glyph and image, not glyph and image",
+    "formats": []
+  },
+  "an icon carrying neither": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: icon carries exactly one of glyph and image, not neither",
+    "formats": []
+  },
+  "agents below their contract floor": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: agents requires contract 6 (declared contract 5)",
+    "formats": []
+  },
+  "agents on contract 6": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 6,
+    "project": "fixture",
+    "agents": [
+      {
+        "cli": "claude",
+        "models": [
+          "claude-opus-5"
+        ],
+        "default": "claude-opus-5"
+      }
+    ],
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ]
+  },
+  "brand artwork below its contract floor": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: brand artwork requires contract 8 (declared contract 7)",
+    "formats": []
+  },
+  "an icon image outside the declaration's directory": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: icon.image must be a relative path inside the declaration's directory",
+    "formats": []
+  },
+  "an icon image that is not an svg": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "error": ".rengine/project.json: icon.image must name an .svg file",
+    "formats": []
+  },
+  "an icon image that cannot be read": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 8,
+    "project": "fixture",
+    "icon": {
+      "image": "missing.svg"
+    },
+    "artworkError": ".rengine/project.json: icon.image names missing.svg, which cannot be read",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ]
+  },
+  "an icon image that can": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 8,
+    "project": "fixture",
+    "icon": {
+      "image": "mark.svg",
+      "imageFile": "<root>/mark.svg"
+    },
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ]
+  },
+  "a wordmark named once for both themes": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 8,
+    "project": "fixture",
+    "wordmark": {
+      "light": "word.svg",
+      "dark": "word.svg",
+      "lightFile": "<root>/word.svg",
+      "darkFile": "<root>/word.svg"
+    },
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ]
+  },
+  "a wordmark named per theme": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 8,
+    "project": "fixture",
+    "wordmark": {
+      "light": "light.svg",
+      "dark": "dark.svg",
+      "lightFile": "<root>/light.svg",
+      "darkFile": "<root>/dark.svg"
+    },
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ]
+  },
+  "a wordmark whose dark half is missing": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 8,
+    "project": "fixture",
+    "wordmark": {
+      "light": "light.svg",
+      "dark": "dark.svg",
+      "lightFile": "<root>/light.svg"
+    },
+    "artworkError": ".rengine/project.json: wordmark.dark names dark.svg, which cannot be read",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ]
+  },
+  "a local tracker": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 5,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "tracker": {
+      "provider": "local",
+      "inventory": "features.json"
+    }
+  },
+  "a github tracker with no repository": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 5,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "trackerError": ".rengine/project.json: $.tracker requires repository for provider github"
+  },
+  "a github tracker wearing linear's filters": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 5,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "trackerError": ".rengine/project.json: $.tracker project belongs to provider linear"
+  },
+  "a linear tracker": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 5,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "tracker": {
+      "provider": "linear",
+      "team": "KOH"
+    }
+  },
+  "games and a dashboard together": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 3,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "games": [
+      {
+        "id": "fixture-game",
+        "title": "Fixture game",
+        "executable": [
+          "build/missing-game",
+          "tools/game.sh"
+        ],
+        "args": [
+          "--flat",
+          "--width",
+          "640"
+        ],
+        "env": {
+          "FIXTURE_FLAVOUR": "blue"
+        },
+        "requires": [
+          "data/present.bin"
+        ],
+        "surface": "external"
+      },
+      {
+        "id": "fixture-second",
+        "title": "Fixture second",
+        "executable": [
+          "tools/second.sh"
+        ],
+        "args": [
+          "--second"
+        ],
+        "surface": "external"
+      }
+    ],
+    "dashboardError": ".rengine/project.json: $.dashboard.groups[0].actions[0] requires kind"
+  },
+  "a dashboard on contract 2": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 2,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "dashboardError": ".rengine/project.json: $.dashboard.groups[0].actions[0] requires kind"
+  },
+  "two language servers with one id": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 9,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "languageServersError": ".rengine/project.json: $.languageServers[1] repeats id ls"
+  },
+  "one language server": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 9,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "languageServers": [
+      {
+        "id": "ls",
+        "command": [
+          "/bin/cat"
+        ],
+        "match": [
+          "*.rs"
+        ]
+      }
+    ]
+  },
+  "a pack with a library facet": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 9,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "packs": [
+      {
+        "name": "fixture",
+        "pin": {
+          "version": "1.0.0",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "library": {
+          "path": "lib",
+          "target": "fixture"
+        }
+      }
+    ]
+  },
+  "a pack with neither facet": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 9,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "packsError": ".rengine/project.json: $.packs[0] (fixture) declares no facet; a pack declares library, plugin or both"
+  },
+  "a tests manifest that is not root-relative": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 10,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "testsError": ".rengine/project.json: $.tests.manifest must be root-relative"
+  },
+  "a tests manifest that is": {
+    "declared": true,
+    "source": ".rengine/project.json",
+    "contract": 10,
+    "project": "fixture",
+    "formats": [
+      {
+        "id": "fixture-pack",
+        "title": "Fixture pack",
+        "match": [
+          "*.pack"
+        ],
+        "modes": [
+          "raw",
+          "preview"
+        ],
+        "default": "raw",
+        "preview": {
+          "kind": "tree",
+          "command": [
+            "/bin/cat",
+            "${file}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        },
+        "entry": {
+          "kind": "bytes",
+          "command": [
+            "/bin/cat",
+            "${file}",
+            "${entry}"
+          ],
+          "timeoutMs": 4000,
+          "maxBytes": 65536
+        }
+      }
+    ],
+    "tests": {
+      "manifest": ".cache/tests.json"
+    }
+  }
+}

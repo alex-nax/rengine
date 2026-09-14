@@ -82,13 +82,24 @@ filed as **KI-107** with a recommendation: the worker forwards what the host adv
 premise has changed underneath the layering, because spec 098 layered capabilities above the host to
 avoid ending retained panes, and since **D60** those panes survive host replacement.
 
+**So the next port got its record instead.** `readDeclaration` is the keystone — `dashboard`,
+`devices`, `games` and `tracker` all read a project through it — and the house rule for replacing a
+module is to record its answers while it still exists (F148, F172, F178). 38 cases, chosen for the
+judgements rather than the happy path: every contract floor, both halves of the icon's exactly-one
+rule, artwork that escapes its directory, is not an svg, or is simply missing (reported, while the
+artwork that did resolve is still handed over), a tracker wearing another provider's keys, a pack
+with no facet, two language servers sharing an id. Every path in it is `<root>` or a constant,
+because a record only one machine can check is not a record. `declaration-record.test.mjs` drives
+the live reader over the same corpus so the evidence cannot drift from what it froze, and two
+sabotages confirm it notices when the reader changes its mind.
+
 One note for whoever takes the next port: `formats.mjs` (386 lines) is the keystone — `dashboard`,
 `devices`, `games` and `tracker` all read its `readDeclaration` — and the hard part of it is already
 in Rust. `red_store::schema::validate_schema` is the bounded JSON Schema 2020-12 subset with
 identical error strings (F169/F147a), so the port is the section rules and the bounded command
 execution, not a validator.
 
-Commands: `npm test` (**326 of 326**, zero services left), `cargo test`, `./init.sh`,
+Commands: `npm test` (**328 of 328**, zero services left), `cargo test`, `./init.sh`,
 `python3 tools/features.py validate`, and four native specs including `native-front-door`.
 
 ## Session 146 (macos) — 2026-09-13 — a pane's record belongs to its service too (D62, F189)
