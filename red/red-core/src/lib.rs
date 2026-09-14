@@ -11,6 +11,7 @@
 pub mod http;
 pub mod service;
 pub mod theme;
+pub mod time;
 pub mod translate;
 pub mod version;
 

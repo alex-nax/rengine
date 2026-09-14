@@ -18,7 +18,7 @@ import { recipe } from '../agents/agents-client.mjs';
 import { startIdeBridge } from './ide.mjs';
 import { LanguageServers, uriFor } from './lsp.mjs';
 import { runtimeDirectory, alive, discoverRuntime } from './discovery.mjs';
-import { Tokens, UUID, readIdentity, readDesktop, segmentFrame } from './token.mjs';
+import { Tokens, UUID, readIdentity, readDesktop, segmentFrame } from './token-client.mjs';
 
 /* Named once because a monitor reads it: the close reason a retired worker gives its feed clients
    so they re-read feed_url and reattach to the current worker from the cursor they had. */
@@ -130,7 +130,7 @@ export async function startWorker(host, options = {}) {
   const note = async (rootId, type, by, fields) => {
     if (!tokens || !rootId) return null;
     const ledger = await tokens.ledger(rootId);
-    const frame = ledger.frame(type, by, fields);
+    const frame = await ledger.frame(type, by, fields);
     await ledger.persist();
     return frame;
   };
@@ -139,11 +139,7 @@ export async function startWorker(host, options = {}) {
   const gate = async (req, rootId, tool) => {
     const who = readIdentity(req.headers);
     if (!who || !tokens) return { who, by: actor(who, req.headers) };
-    const ledger = await tokens.ledger(rootId);
-    await ledger.settle();
-    ledger.seen(who);
-    const refusal = ledger.refusal(who, tool);
-    await ledger.persist();
+    const refusal = await (await tokens.ledger(rootId)).gate(who, tool);
     if (refusal) fail(refusal, 409);
     return { who, by: actor(who, req.headers) };
   };
@@ -230,9 +226,8 @@ export async function startWorker(host, options = {}) {
     if (!tokens) fail(`This workspace worker does not serve the project token ledger: ${ledgerError ?? 'no runtime directory'}.`, 409);
     const who = readIdentity(req.headers);
     const ledger = await tokens.ledger(rootId);
-    await ledger.settle();
-    if (who) { ledger.seen(who); await ledger.persist(); }
-    return { ...withConversations(ledger.status(who), rootId), caller: who, refusal: ledger.refusal(who, tool), feed: feedUrl(rootId) };
+    const { status, refusal } = await ledger.callerStatus(who, tool);
+    return { ...withConversations(status, rootId), caller: who, refusal, feed: feedUrl(rootId) };
   };
   const feedUrl = rootId => `${url.replace('http:', 'ws:')}/feed?${new URLSearchParams({ rootId, token })}`;
   /* One announcement per worker process, on the first request that is not a health or state probe:
@@ -317,7 +312,7 @@ export async function startWorker(host, options = {}) {
   const pushToken = async (rootId, only = null) => {
     if (!tokens && !retired) return;
     const frame = retired ? segmentFrame(await relay(`token?${new URLSearchParams({ rootId })}`))
-      : (await tokens.ledger(rootId)).segment();
+      : await (await tokens.ledger(rootId)).segment();
     const message = JSON.stringify(frame);
     for (const desktop of desktops.clients.values()) {
       if (only && desktop.socket !== only) continue;
@@ -393,7 +388,7 @@ export async function startWorker(host, options = {}) {
     if (!tokens) return;
     for (const item of bindings.roots) {
       const ledger = await tokens.ledger(item.id);
-      for (const frame of ledger.feed.frames) {
+      for (const frame of (await ledger.feed.after(0)).frames) {
         if (frame.type === 'game.started') announced.set(frame.sessionId, { rootId: frame.rootId, gameId: frame.gameId, surface: frame.surface, args: frame.args ?? [], by: frame.by });
         else if (frame.type === 'game.ended') announced.delete(frame.sessionId);
         else if (frame.type === 'device-action.started') {
@@ -457,7 +452,7 @@ export async function startWorker(host, options = {}) {
           : data.action === 'release' ? await ledger.release(who)
           : fail('Choose contest, reject or release.');
         await pushToken(data.rootId);
-        json(res, 200, { ...result, status: ledger.status(who) });
+        json(res, 200, { ...result, status: await ledger.status(who) });
       } else if (req.method === 'POST' && target.pathname === '/api/recording') {
         /* The desktop's own recording frame, arriving over HTTP because the desktop that sent it is
            draining through a retired worker. Same body, same frames, same attribution. */
@@ -471,7 +466,7 @@ export async function startWorker(host, options = {}) {
         const rootId = root(target.searchParams.get('rootId')).id;
         const ledger = await tokens.ledger(rootId);
         const after = Number(target.searchParams.get('after') ?? 0), limit = Number(target.searchParams.get('limit') ?? 200);
-        json(res, 200, { ...ledger.feed.after(Number.isSafeInteger(after) ? after : 0, Number.isSafeInteger(limit) ? Math.min(limit, 1000) : 200),
+        json(res, 200, { ...await ledger.feed.after(Number.isSafeInteger(after) ? after : 0, Number.isSafeInteger(limit) ? Math.min(limit, 1000) : 200),
           rootId, socket: feedUrl(rootId) });
       } else if (req.method === 'POST' && target.pathname === '/api/script-open') {
         const data = await body(req); const state = await refresh(); await announce();
@@ -648,7 +643,7 @@ export async function startWorker(host, options = {}) {
         if (client.bufferedAmount > 1024 * 1024) client.close(1013, 'Reopen the feed with the last sequence you read');
         else client.send(JSON.stringify(frame));
       };
-      for (const frame of ledger.feed.after(Number.isSafeInteger(after) ? after : 0).frames) send(frame);
+      for (const frame of (await ledger.feed.after(Number.isSafeInteger(after) ? after : 0)).frames) send(frame);
       const unsubscribe = ledger.feed.subscribe(send);
       feeds.add(client);
       client.once('close', () => { feeds.delete(client); unsubscribe(); });

@@ -8,7 +8,7 @@ import { bind } from '../agents/agents-client.mjs';
 import { startServer } from '../server/main.mjs';
 import { WorkspaceStore } from '../server/store-client.mjs';
 import { Sessions, agentTitle } from '../server/sessions-client.mjs';
-import { Ledger, readIdentity } from '../runtime/token.mjs';
+import { Tokens, readIdentity } from '../runtime/token-client.mjs';
 
 /* Two lanes taught the launcher to pass --session-id: the per-launch identity (spec 095) and the
    pane's conversation (spec 096). Merged as-is a pane would carry both, with two different UUIDs.
@@ -169,17 +169,21 @@ test('a conversation the workspace persisted is a known identity to the token le
   await store.recordConversation(root.id, { conversation: plan.conversation, agent: 'claude' });
 
   const runtime = path.join(directory, 'runtime');
-  const ledger = await Ledger.open(runtime, root.id, { alive: () => true });
+  const tokens = await Tokens.open(runtime);
+  t.after(() => tokens.close());
+  const ledger = await tokens.ledger(root.id);
   // The headers the tool server puts on the wire for this launch (red-mcp).
-  ledger.seen(readIdentity({ 'x-rengine-agent': plan.identity.agentId, 'x-rengine-agent-label': plan.identity.label,
+  await ledger.seen(readIdentity({ 'x-rengine-agent': plan.identity.agentId, 'x-rengine-agent-label': plan.identity.label,
     'x-rengine-agent-pid': String(plan.identity.pid) }));
   await ledger.persist();
 
   const reopenedStore = await WorkspaceStore.open(path.join(directory, 'state'));
   const remembered = reopenedStore.listConversations(root.id);
   assert.deepEqual(remembered.map(entry => entry.id), [HOST], 'the conversation outlives the host that recorded it');
-  const reopened = await Ledger.open(runtime, root.id, { alive: () => true });
-  const identities = reopened.status().identities;
+  /* The ledger ON DISK, which is what a replacement reads: the service holds this one in memory, so
+     asking it again would prove only that it remembered, not that it wrote it down. */
+  const stored = JSON.parse(await readFile(path.join(runtime, 'tokens', root.id, 'token.json'), 'utf8'));
+  const identities = Object.values(stored.identities);
   assert.deepEqual(identities.map(entry => entry.agentId), [HOST],
     'and the ledger knows it by the very same id — there is nothing to migrate, because there is only one uuid');
   assert.equal(identities[0].label, `claude ${HOST.slice(0, 8)}`, 'under the label derived from that id and the agent');

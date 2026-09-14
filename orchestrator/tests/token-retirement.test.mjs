@@ -1,13 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { watch } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { WebSocket } from 'ws';
 import { startServer } from '../server/main.mjs';
 import { startRuntime } from '../runtime/supervisor.mjs';
-import { Feed } from '../runtime/feed.mjs';
 import { tokenProject, identity, identityHeaders, api, ok, until, fakeDesktop, feedSocket } from './token-fixtures.mjs';
 
 /* KI-061, closed: after a workspace-only replacement the desktop's /events socket keeps draining
@@ -172,9 +171,12 @@ test('a retired worker mints nothing: one writer, one game.started, and the file
 
   /* KI-061's collision was a second writer: both workers stayed subscribed to the host's /events
      and both persisted this root's ring, so the sequence a third worker loads disagreed with the
-     one the feed serves. writeAtomically names its temporary `<file>.<pid>.<write>.tmp` — the pid
-     first, so which processes wrote is a fact on the filesystem rather than a race to sample, and a
-     per-write component so two writes in one process cannot share a name (KI-065). */
+     one the feed serves. The temporary is named `<file>.<pid>.<write>.tmp` — the pid first, so
+     which processes wrote is a fact on the filesystem rather than a race to sample, and a per-write
+     component so two writes in one process cannot share a name (KI-065).
+     Since F157 the writer is the token SERVICE, one per state directory, and both workers are its
+     clients — so the collision is now impossible by construction rather than avoided by discipline,
+     and what this watches for is any writer that is not that one service. */
   const writers = new Set();
   const watcher = watch(path.join(runtimeDir, 'tokens', root.id), (event, name) => {
     const match = /^(?:feed|token)\.json\.(\d+)\.[0-9a-z]+\.tmp$/.exec(name ?? '');
@@ -206,12 +208,17 @@ test('a retired worker mints nothing: one writer, one game.started, and the file
   assert.equal(feed.frames.filter(frame => frame.type === 'game.started').length, 1, 'one worker minted the start, not two');
   assert.equal(feed.frames.filter(frame => frame.type === 'game.ended').length, 1);
   assert.equal(host.sessions.snapshot(game.id).state, 'exited');
-  assert.deepEqual([...writers], [status.workspace.pid],
-    `only the worker that owns the ledger wrote it; the retired one is pid ${status.workspace.retiring[0].pid}`);
+  const service = JSON.parse(await readFile(path.join(runtimeDir, 'token.json'), 'utf8'));
+  assert.deepEqual([...writers], [service.pid],
+    `one writer, and it is the token service both workers attach to (${service.url})`);
+  assert.ok(!writers.has(status.workspace.pid) && !writers.has(status.workspace.retiring[0].pid),
+    `neither worker writes the ledger itself: the current one is pid ${status.workspace.pid}, the retired one ${status.workspace.retiring[0].pid}`);
 
   const served = await ok(runtime, `feed?${query({ rootId: root.id })}`);
+  /* The ring as it is on disk, read the way a third worker's service reads it: the file itself,
+     because the loader that used to live in JavaScript is `red-token`'s now. */
   const third = await until(async () => {
-    const loaded = await Feed.open(path.join(runtimeDir, 'tokens', root.id), root.id);
+    const loaded = JSON.parse(await readFile(path.join(runtimeDir, 'tokens', root.id, 'feed.json'), 'utf8'));
     return loaded.frames.length === served.frames.length && loaded;
   }, 'the ring on disk finishes being written', SLOW);
   assert.deepEqual(third.frames.map(frame => [frame.sequence, frame.type]), served.frames.map(frame => [frame.sequence, frame.type]),

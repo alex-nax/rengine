@@ -1,23 +1,22 @@
-/* The answers the project token ledger gives, recorded before it is replaced (F157, spec 132).
+/* The answers the project token ledger gave, recorded before it was replaced (F157, spec 132).
  *
  * A ledger is a STATE MACHINE, so its record is a transcript rather than a set of independent
  * answers: each step is a call, and what it is judged on is the answer, the status the ledger is
- * left in, and the frames it wrote. Replaying the same script against a replacement is the only way
- * to know the replacement holds the same rules — a per-call comparison would miss a cooldown
+ * left in, and the frames it wrote. Replaying the same script against the replacement is the only
+ * way to know the replacement holds the same rules — a per-call comparison would miss a cooldown
  * charged to the wrong contest or a deadline that re-timed.
  *
- * The clock and the mint are data (the ledger takes them since this row), so nothing here depends
- * on a draw or on how fast the machine is.
+ * `runtime/token.mjs` is gone; `red-token` answers now, and `token-parity.test.mjs` replays this
+ * script against it through `red-token-replay`. **There is no recorder here any more, and that is
+ * deliberate**: the record was made from the JavaScript while the JavaScript existed, and one
+ * regenerated from the replacement would be judging the replacement against itself. The script and
+ * the record are frozen together — a step added now would have no recorded answer to be right or
+ * wrong about.
  *
- *   node orchestrator/tests/token-transcript.mjs > orchestrator/tests/token-transcript.json
- *
- * Regenerate ONLY from a checkout where `runtime/token.mjs` still holds the ledger — that is, never
- * again after the deletion commit; the file is the evidence, and a regenerated one would be judging
- * the replacement against itself.
+ * The clock, the mint and the window preference are data, so nothing here depends on a draw or on
+ * how fast the machine is.
  */
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
+import { readFile } from 'node:fs/promises';
 
 const ALICE = { agentId: '11111111-1111-4111-8111-111111111111', label: 'claude aaaa', pid: 4001 };
 const BOB = { agentId: '22222222-2222-4222-8222-222222222222', label: 'codex bbbb', pid: 4002 };
@@ -25,8 +24,12 @@ const CAROL = { agentId: '33333333-3333-4333-8333-333333333333', label: 'kimi cc
 /* The same agent, resumed: one session id under a new process. Spec 095's Identity rule, and the
    case that once cost a resumed holder its own token. */
 const ALICE_RESUMED = { ...ALICE, pid: 4005 };
-const ROOT = '44444444-4444-4444-4444-444444444444';
-const WINDOW = 60000;
+export const ROOT = '44444444-4444-4444-4444-444444444444';
+export const WINDOW = 60000;
+export const STARTED_AT = Date.parse('2026-09-14T12:00:00.000Z');
+/* Ids that count rather than draw. Exported because the replacement is replayed against this same
+   script and must mint the same ids: a second copy of this formula is a second thing to get wrong. */
+export const mintOf = ordinal => `c0ffee${String(ordinal).padStart(2, '0')}-0000-4000-8000-000000000000`;
 
 /* The script. Each step names the call and what it is made with; `advance` moves the clock, which is
    how a deadline or a cooldown is reached without waiting for one. */
@@ -77,68 +80,23 @@ export const SCRIPT = [
   ['its process ends', { call: 'gone', pid: ALICE.pid }],
   ['the same session comes back under a new process', { call: 'contest', caller: ALICE_RESUMED }],
   ['so another agent opens a contest rather than claiming it', { call: 'contest', caller: BOB, reason: 'is it free?' }],
-];
 
-export async function transcript() {
-  const { Ledger } = await import('../runtime/token.mjs');
-  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-token-record-'));
-  const steps = [];
-  try {
-    /* A clock that only moves when the script says so, ids that count, and a set of processes that
-       have gone away — every input this ledger has, made data. */
-    let clock = Date.parse('2026-09-14T12:00:00.000Z');
-    let minted = 0;
-    const dead = new Set();
-    const ledger = await Ledger.open(path.join(directory, ROOT), ROOT, {
-      window: () => WINDOW,
-      alive: pid => !dead.has(pid),
-      now: () => clock,
-      mint: () => `c0ffee${String(++minted).padStart(2, '0')}-0000-4000-8000-000000000000`,
-    });
-    const answer = async step => {
-      if (step.advance !== undefined) { clock += step.advance; return { advanced: step.advance }; }
-      switch (step.call) {
-        /* What a caller goes through, which is `settle` and then `status`: the ledger's own
-           `status()` is a synchronous read that settles nothing, and the worker awaits a settle
-           before every answer (worker.mjs:143, :233). A transcript that called `status` alone would
-           record a view no caller ever sees — and would let a replacement skip the settle. */
-        case 'status': await ledger.settle(); return ledger.status(step.caller ?? null);
-        case 'rawStatus': return ledger.status(step.caller ?? null);
-        case 'segment': return ledger.segment();
-        case 'refusal': return { refusal: ledger.refusal(step.caller, step.tool) };
-        case 'feed': return ledger.feed.after(step.cursor ?? 0);
-        case 'gone': dead.add(step.pid); return { gone: step.pid };
-        case 'contest': return ledger.contest(step.caller, step.reason ?? '');
-        case 'reject': return ledger.reject(step.caller, step.reason ?? '');
-        case 'release': return ledger.release(step.caller);
-        case 'desktop': {
-          /* `open` stands for whatever contest is open now, so the script can name it without
-             knowing which id the mint produced. */
-          const contestId = step.contestId === 'open' ? ledger.state.contest?.id : step.contestId;
-          return ledger.desktop(step.action, { ...step, contestId });
-        }
-        default: throw new Error(`unknown call ${step.call}`);
-      }
-    };
-    for (const [name, step] of SCRIPT) {
-      let result;
-      try { result = { ok: await answer(step) }; }
-      catch (error) { result = { refused: { message: error.message, status: error.status ?? null } }; }
-      steps.push({ name, ...result, status: ledger.status(step.caller ?? null) });
-    }
-    await ledger.drained();
-    ledger.close();
-    /* The two files the ledger leaves behind, which is what a replaced worker reads. */
-    const file = async name => JSON.parse(await readFile(path.join(directory, ROOT, name), 'utf8'));
-    return { steps, ledger: await file('token.json'), feed: await file('feed.json') };
-  } finally { await rm(directory, { recursive: true, force: true }); }
-}
+  /* The desktop answering an open contest (spec 103 decision 5). The contester did nothing wrong,
+     so it is charged nothing — the one branch `settleRejection`'s `cooldown: false` exists for, and
+     a branch nothing above reaches: every assign so far has met a free token. */
+  ['the desktop assigns while a contest is open', { call: 'desktop', action: 'assign', agentId: ALICE.agentId, desktopId: 'desk-1' }],
+  ['and charges the contester it answered nothing', { call: 'contest', caller: BOB, reason: 'straight back' }],
+
+  /* The window a contest was opened under travels WITH the contest. Changing the preference must
+     not re-time a deadline already running, and must not change what rejecting it costs; the next
+     contest is the first to use the new length. Nothing above ever changes the preference. */
+  ['the window preference is halved', { window: WINDOW / 2 }],
+  ['the open contest keeps the deadline it was opened with', { call: 'status', caller: BOB }],
+  ['and rejecting it charges the window it ran on', { call: 'reject', caller: ALICE_RESUMED, reason: 'still writing' }],
+  ['while the next contest opens on the new one', { call: 'contest', caller: CAROL, reason: 'after the change' }],
+];
 
 export const RECORDED = await (async () => {
   try { return JSON.parse(await readFile(new URL('./token-transcript.json', import.meta.url), 'utf8')); }
   catch { return null; }
 })();
-
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
-  console.log(JSON.stringify(await transcript(), null, 2));
-}

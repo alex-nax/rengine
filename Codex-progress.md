@@ -1,5 +1,52 @@
 # Progress Log
 
+## Session 148 (macos) — 2026-09-14 — the token ledger becomes a service, and the record it kept catches the record
+
+`orchestrator/runtime/token.mjs` and `runtime/feed.mjs` are gone. `red-token` answers now — the
+ledger, the lifecycle ring and the workspace preferences — as `red-token-serve`, one per state
+directory on `red_core::service`, with `runtime/token-client.mjs` keeping the `Tokens`/`Ledger`
+surface over it. Judged against the 46-step transcript recorded from the JavaScript last session:
+every answer, every status and both files on disk, key for key.
+
+**The first run disagreed on four steps, and the JavaScript was wrong.** `status()` returned the
+ledger's own cooldown map rather than a copy of it — every other field it answered was already a
+copy — so the transcript, which serialises at the end of the run, had recorded forty views of that
+map as it looked *then*: empty. The step that charged a cooldown said so in its answer and denied it
+in its status, in the same breath. Fixed in the JavaScript and re-recorded; the regeneration changed
+five values and nothing else, which is what makes a regenerated record safe to trust.
+
+**Two rules had no case at all.** Sabotaging the assign that answers an open contest — charging the
+contester a cooldown it did not earn — left the transcript green, because every assign in the script
+met a free token. So did re-timing a running contest from the current preference, because the window
+never changed. Six steps were added and the record regenerated while `token.mjs` still existed; the
+first forty came back byte-identical, so the additions are additions. Five sabotages verified in
+all, including KI-065's temporary-naming regression, ported to Rust with the rule it is about.
+
+**Spec 132 said `worker.mjs` would not change. It was wrong, and the correction is recorded there.**
+A socket has no synchronous read, and `status`/`refusal`/`seen`/`frame`/`segment` were synchronous
+reads of an in-process object; nine call sites gain an `await`. Two of them got better: `gate` and
+the token-status answer are each ONE call now — settle, note the caller, ask for the refusal,
+persist — where four would have been four moments another attached host could move the ledger
+between. `alive` and `lookup` were functions the worker handed in, and a function does not cross a
+socket: liveness is the service's own `kill(pid, 0)`, and what `lookup` would have answered travels
+with the request.
+
+**One writer, by construction.** `token-retirement` watched for KI-061's collision by reading pids
+off `<file>.<pid>.<write>.tmp`. It now asserts that *neither* worker writes the ledger — the one
+writer is the service both attach to — which is a stronger statement about the same file.
+
+`orchestrator/runtime/service-client.mjs` is new beside the token client: the per-state-directory
+attach discipline (descriptor, lock, spawn, protocol handshake, JSON-RPC) that `store-client.mjs`
+and `pty-client.mjs` each keep their own copy of today, and that they collapse onto in F158.
+
+Commands: `npm test` 331/331 · `cargo test -p red-token -p red-core` 22/22 · `./init.sh` ·
+`python3 tools/features.py validate` · `python3 tools/design.py check`.
+JavaScript on the app path: **6,533 → 6,458**.
+
+Remaining: F158 (the worker, and with it `main.mjs`, `sessions-client.mjs`, `store-client.mjs`,
+`pty-client.mjs`). F152/F189 still wait on F186, which is the owner's live-pane run. KI-105 (the
+`native-handoff` failure and the 43-spec desktop gate `npm test` does not run) is open.
+
 ## Session 147 (macos) — 2026-09-14 — the door goes on the path, and the host stops serving what it owns
 
 The previous session moved every route F152 names into red-host and left it started by nothing but

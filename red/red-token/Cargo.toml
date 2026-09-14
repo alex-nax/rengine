@@ -1,0 +1,29 @@
+[package]
+name = "red-token"
+version = "0.1.0"
+edition = "2021"
+description = "The project token ledger and the lifecycle feed ring in Rust (F157, spec 132): arbitration among cooperating agents, judged against the transcript recorded from the JavaScript it replaces"
+
+# preserve_order for the same reason red-store takes it: JS object insertion order is the on-disk
+# key order, and the transcript compares the two files the ledger leaves behind.
+[dependencies]
+red-core = { path = "../red-core" }
+serde_json = { version = "1", features = ["preserve_order"] }
+getrandom = "0.3"
+# `kill(pid, 0)`, which is what `launcher/sidecar.mjs` asks and what a holder's liveness is. Already
+# in the lock through getrandom; nothing new is fetched by naming it.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+
+# The service (spec 132): one per state directory, on red_core::service, because a ledger is state
+# with two producers and a push — not a question a one-shot binary can answer.
+[[bin]]
+name = "red-token-serve"
+path = "src/bin/red_token_serve.rs"
+
+# The judge: replays a recorded script against this ledger and prints the same document the JS
+# transcript printed, so the suite can diff them. A binary rather than a test, as red-store-check is.
+[[bin]]
+name = "red-token-replay"
+path = "src/bin/red_token_replay.rs"

@@ -559,7 +559,9 @@
         "contest": null,
         "holdsToken": true,
         "holderAlive": true,
-        "cooldown": {},
+        "cooldown": {
+          "22222222-2222-4222-8222-222222222222": "2026-09-14T12:01:00.000Z"
+        },
         "identities": [
           {
             "agentId": "11111111-1111-4111-8111-111111111111",
@@ -638,7 +640,9 @@
         "contest": null,
         "holdsToken": false,
         "holderAlive": true,
-        "cooldown": {},
+        "cooldown": {
+          "22222222-2222-4222-8222-222222222222": "2026-09-14T12:01:00.000Z"
+        },
         "identities": [
           {
             "agentId": "11111111-1111-4111-8111-111111111111",
@@ -713,7 +717,9 @@
         "contest": null,
         "holdsToken": false,
         "holderAlive": true,
-        "cooldown": {},
+        "cooldown": {
+          "22222222-2222-4222-8222-222222222222": "2026-09-14T12:01:00.000Z"
+        },
         "identities": [
           {
             "agentId": "11111111-1111-4111-8111-111111111111",
@@ -785,7 +791,9 @@
         "contest": null,
         "holdsToken": false,
         "holderAlive": true,
-        "cooldown": {},
+        "cooldown": {
+          "22222222-2222-4222-8222-222222222222": "2026-09-14T12:01:00.000Z"
+        },
         "identities": [
           {
             "agentId": "11111111-1111-4111-8111-111111111111",
@@ -863,7 +871,9 @@
         "contest": null,
         "holdsToken": false,
         "holderAlive": true,
-        "cooldown": {},
+        "cooldown": {
+          "22222222-2222-4222-8222-222222222222": "2026-09-14T12:01:00.000Z"
+        },
         "identities": [
           {
             "agentId": "11111111-1111-4111-8111-111111111111",
@@ -5285,6 +5295,1086 @@
           }
         ]
       }
+    },
+    {
+      "name": "the desktop assigns while a contest is open",
+      "ok": {
+        "state": "claimed",
+        "holder": {
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa",
+          "pid": 4005,
+          "since": "2026-09-14T12:02:02.000Z"
+        },
+        "previousHolder": {
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa",
+          "pid": 4005,
+          "since": "2026-09-14T12:02:02.000Z"
+        },
+        "by": "desktop"
+      },
+      "status": {
+        "rootId": "44444444-4444-4444-4444-444444444444",
+        "holder": {
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa",
+          "pid": 4005,
+          "since": "2026-09-14T12:02:02.000Z"
+        },
+        "window": 60000,
+        "contest": null,
+        "holdsToken": false,
+        "holderAlive": true,
+        "cooldown": {},
+        "identities": [
+          {
+            "agentId": "11111111-1111-4111-8111-111111111111",
+            "label": "claude aaaa",
+            "pid": 4005,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          },
+          {
+            "agentId": "22222222-2222-4222-8222-222222222222",
+            "label": "codex bbbb",
+            "pid": 4002,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          },
+          {
+            "agentId": "33333333-3333-4333-8333-333333333333",
+            "label": "kimi cccc",
+            "pid": 4003,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          }
+        ],
+        "sequence": 19,
+        "tokenSequence": 19,
+        "feedCursor": 19,
+        "history": [
+          {
+            "sequence": 10,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.revoked",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 11,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 12,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "33333333-3333-4333-8333-333333333333",
+              "label": "kimi cccc"
+            }
+          },
+          {
+            "sequence": 13,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 14,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "holder-gone"
+            }
+          },
+          {
+            "sequence": 15,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.released",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 16,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "agent",
+              "agentId": "11111111-1111-4111-8111-111111111111",
+              "label": "claude aaaa"
+            }
+          },
+          {
+            "sequence": 17,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "22222222-2222-4222-8222-222222222222",
+              "label": "codex bbbb"
+            }
+          },
+          {
+            "sequence": 18,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.rejected",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 19,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "and charges the contester it answered nothing",
+      "ok": {
+        "state": "pending",
+        "contestId": "c0ffee06-0000-4000-8000-000000000000",
+        "deadline": "2026-09-14T12:03:02.000Z",
+        "holder": {
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa",
+          "pid": 4005,
+          "since": "2026-09-14T12:02:02.000Z"
+        }
+      },
+      "status": {
+        "rootId": "44444444-4444-4444-4444-444444444444",
+        "holder": {
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa",
+          "pid": 4005,
+          "since": "2026-09-14T12:02:02.000Z"
+        },
+        "window": 60000,
+        "contest": {
+          "id": "c0ffee06-0000-4000-8000-000000000000",
+          "contester": {
+            "agentId": "22222222-2222-4222-8222-222222222222",
+            "label": "codex bbbb",
+            "pid": 4002
+          },
+          "openedAt": "2026-09-14T12:02:02.000Z",
+          "windowMs": 60000,
+          "deadline": "2026-09-14T12:03:02.000Z",
+          "reason": "straight back",
+          "secondsRemaining": 60
+        },
+        "holdsToken": false,
+        "holderAlive": true,
+        "cooldown": {},
+        "identities": [
+          {
+            "agentId": "11111111-1111-4111-8111-111111111111",
+            "label": "claude aaaa",
+            "pid": 4005,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          },
+          {
+            "agentId": "22222222-2222-4222-8222-222222222222",
+            "label": "codex bbbb",
+            "pid": 4002,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          },
+          {
+            "agentId": "33333333-3333-4333-8333-333333333333",
+            "label": "kimi cccc",
+            "pid": 4003,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          }
+        ],
+        "sequence": 20,
+        "tokenSequence": 20,
+        "feedCursor": 20,
+        "history": [
+          {
+            "sequence": 11,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 12,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "33333333-3333-4333-8333-333333333333",
+              "label": "kimi cccc"
+            }
+          },
+          {
+            "sequence": 13,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 14,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "holder-gone"
+            }
+          },
+          {
+            "sequence": 15,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.released",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 16,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "agent",
+              "agentId": "11111111-1111-4111-8111-111111111111",
+              "label": "claude aaaa"
+            }
+          },
+          {
+            "sequence": 17,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "22222222-2222-4222-8222-222222222222",
+              "label": "codex bbbb"
+            }
+          },
+          {
+            "sequence": 18,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.rejected",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 19,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 20,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "22222222-2222-4222-8222-222222222222",
+              "label": "codex bbbb"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "the window preference is halved",
+      "ok": {
+        "window": 30000
+      },
+      "status": {
+        "rootId": "44444444-4444-4444-4444-444444444444",
+        "holder": {
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa",
+          "pid": 4005,
+          "since": "2026-09-14T12:02:02.000Z"
+        },
+        "window": 30000,
+        "contest": {
+          "id": "c0ffee06-0000-4000-8000-000000000000",
+          "contester": {
+            "agentId": "22222222-2222-4222-8222-222222222222",
+            "label": "codex bbbb",
+            "pid": 4002
+          },
+          "openedAt": "2026-09-14T12:02:02.000Z",
+          "windowMs": 60000,
+          "deadline": "2026-09-14T12:03:02.000Z",
+          "reason": "straight back",
+          "secondsRemaining": 60
+        },
+        "holdsToken": false,
+        "holderAlive": true,
+        "cooldown": {},
+        "identities": [
+          {
+            "agentId": "11111111-1111-4111-8111-111111111111",
+            "label": "claude aaaa",
+            "pid": 4005,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          },
+          {
+            "agentId": "22222222-2222-4222-8222-222222222222",
+            "label": "codex bbbb",
+            "pid": 4002,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          },
+          {
+            "agentId": "33333333-3333-4333-8333-333333333333",
+            "label": "kimi cccc",
+            "pid": 4003,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          }
+        ],
+        "sequence": 20,
+        "tokenSequence": 20,
+        "feedCursor": 20,
+        "history": [
+          {
+            "sequence": 11,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 12,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "33333333-3333-4333-8333-333333333333",
+              "label": "kimi cccc"
+            }
+          },
+          {
+            "sequence": 13,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 14,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "holder-gone"
+            }
+          },
+          {
+            "sequence": 15,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.released",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 16,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "agent",
+              "agentId": "11111111-1111-4111-8111-111111111111",
+              "label": "claude aaaa"
+            }
+          },
+          {
+            "sequence": 17,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "22222222-2222-4222-8222-222222222222",
+              "label": "codex bbbb"
+            }
+          },
+          {
+            "sequence": 18,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.rejected",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 19,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 20,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "22222222-2222-4222-8222-222222222222",
+              "label": "codex bbbb"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "the open contest keeps the deadline it was opened with",
+      "ok": {
+        "rootId": "44444444-4444-4444-4444-444444444444",
+        "holder": {
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa",
+          "pid": 4005,
+          "since": "2026-09-14T12:02:02.000Z"
+        },
+        "window": 30000,
+        "contest": {
+          "id": "c0ffee06-0000-4000-8000-000000000000",
+          "contester": {
+            "agentId": "22222222-2222-4222-8222-222222222222",
+            "label": "codex bbbb",
+            "pid": 4002
+          },
+          "openedAt": "2026-09-14T12:02:02.000Z",
+          "windowMs": 60000,
+          "deadline": "2026-09-14T12:03:02.000Z",
+          "reason": "straight back",
+          "secondsRemaining": 60
+        },
+        "holdsToken": false,
+        "holderAlive": true,
+        "cooldown": {},
+        "identities": [
+          {
+            "agentId": "11111111-1111-4111-8111-111111111111",
+            "label": "claude aaaa",
+            "pid": 4005,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          },
+          {
+            "agentId": "22222222-2222-4222-8222-222222222222",
+            "label": "codex bbbb",
+            "pid": 4002,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          },
+          {
+            "agentId": "33333333-3333-4333-8333-333333333333",
+            "label": "kimi cccc",
+            "pid": 4003,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          }
+        ],
+        "sequence": 20,
+        "tokenSequence": 20,
+        "feedCursor": 20,
+        "history": [
+          {
+            "sequence": 11,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 12,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "33333333-3333-4333-8333-333333333333",
+              "label": "kimi cccc"
+            }
+          },
+          {
+            "sequence": 13,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 14,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "holder-gone"
+            }
+          },
+          {
+            "sequence": 15,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.released",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 16,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "agent",
+              "agentId": "11111111-1111-4111-8111-111111111111",
+              "label": "claude aaaa"
+            }
+          },
+          {
+            "sequence": 17,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "22222222-2222-4222-8222-222222222222",
+              "label": "codex bbbb"
+            }
+          },
+          {
+            "sequence": 18,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.rejected",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 19,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 20,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "22222222-2222-4222-8222-222222222222",
+              "label": "codex bbbb"
+            }
+          }
+        ]
+      },
+      "status": {
+        "rootId": "44444444-4444-4444-4444-444444444444",
+        "holder": {
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa",
+          "pid": 4005,
+          "since": "2026-09-14T12:02:02.000Z"
+        },
+        "window": 30000,
+        "contest": {
+          "id": "c0ffee06-0000-4000-8000-000000000000",
+          "contester": {
+            "agentId": "22222222-2222-4222-8222-222222222222",
+            "label": "codex bbbb",
+            "pid": 4002
+          },
+          "openedAt": "2026-09-14T12:02:02.000Z",
+          "windowMs": 60000,
+          "deadline": "2026-09-14T12:03:02.000Z",
+          "reason": "straight back",
+          "secondsRemaining": 60
+        },
+        "holdsToken": false,
+        "holderAlive": true,
+        "cooldown": {},
+        "identities": [
+          {
+            "agentId": "11111111-1111-4111-8111-111111111111",
+            "label": "claude aaaa",
+            "pid": 4005,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          },
+          {
+            "agentId": "22222222-2222-4222-8222-222222222222",
+            "label": "codex bbbb",
+            "pid": 4002,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          },
+          {
+            "agentId": "33333333-3333-4333-8333-333333333333",
+            "label": "kimi cccc",
+            "pid": 4003,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          }
+        ],
+        "sequence": 20,
+        "tokenSequence": 20,
+        "feedCursor": 20,
+        "history": [
+          {
+            "sequence": 11,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 12,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "33333333-3333-4333-8333-333333333333",
+              "label": "kimi cccc"
+            }
+          },
+          {
+            "sequence": 13,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 14,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "holder-gone"
+            }
+          },
+          {
+            "sequence": 15,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.released",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 16,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "agent",
+              "agentId": "11111111-1111-4111-8111-111111111111",
+              "label": "claude aaaa"
+            }
+          },
+          {
+            "sequence": 17,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "22222222-2222-4222-8222-222222222222",
+              "label": "codex bbbb"
+            }
+          },
+          {
+            "sequence": 18,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.rejected",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 19,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 20,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "22222222-2222-4222-8222-222222222222",
+              "label": "codex bbbb"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "and rejecting it charges the window it ran on",
+      "ok": {
+        "state": "rejected",
+        "contestId": "c0ffee06-0000-4000-8000-000000000000",
+        "cooldownUntil": "2026-09-14T12:03:02.000Z",
+        "holder": {
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa",
+          "pid": 4005,
+          "since": "2026-09-14T12:02:02.000Z"
+        }
+      },
+      "status": {
+        "rootId": "44444444-4444-4444-4444-444444444444",
+        "holder": {
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa",
+          "pid": 4005,
+          "since": "2026-09-14T12:02:02.000Z"
+        },
+        "window": 30000,
+        "contest": null,
+        "holdsToken": true,
+        "holderAlive": true,
+        "cooldown": {
+          "22222222-2222-4222-8222-222222222222": "2026-09-14T12:03:02.000Z"
+        },
+        "identities": [
+          {
+            "agentId": "11111111-1111-4111-8111-111111111111",
+            "label": "claude aaaa",
+            "pid": 4005,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          },
+          {
+            "agentId": "22222222-2222-4222-8222-222222222222",
+            "label": "codex bbbb",
+            "pid": 4002,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          },
+          {
+            "agentId": "33333333-3333-4333-8333-333333333333",
+            "label": "kimi cccc",
+            "pid": 4003,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          }
+        ],
+        "sequence": 21,
+        "tokenSequence": 21,
+        "feedCursor": 21,
+        "history": [
+          {
+            "sequence": 12,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "33333333-3333-4333-8333-333333333333",
+              "label": "kimi cccc"
+            }
+          },
+          {
+            "sequence": 13,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 14,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "holder-gone"
+            }
+          },
+          {
+            "sequence": 15,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.released",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 16,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "agent",
+              "agentId": "11111111-1111-4111-8111-111111111111",
+              "label": "claude aaaa"
+            }
+          },
+          {
+            "sequence": 17,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "22222222-2222-4222-8222-222222222222",
+              "label": "codex bbbb"
+            }
+          },
+          {
+            "sequence": 18,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.rejected",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 19,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 20,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "22222222-2222-4222-8222-222222222222",
+              "label": "codex bbbb"
+            }
+          },
+          {
+            "sequence": 21,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.rejected",
+            "by": {
+              "kind": "agent",
+              "agentId": "11111111-1111-4111-8111-111111111111",
+              "label": "claude aaaa"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "while the next contest opens on the new one",
+      "ok": {
+        "state": "pending",
+        "contestId": "c0ffee07-0000-4000-8000-000000000000",
+        "deadline": "2026-09-14T12:02:32.000Z",
+        "holder": {
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa",
+          "pid": 4005,
+          "since": "2026-09-14T12:02:02.000Z"
+        }
+      },
+      "status": {
+        "rootId": "44444444-4444-4444-4444-444444444444",
+        "holder": {
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa",
+          "pid": 4005,
+          "since": "2026-09-14T12:02:02.000Z"
+        },
+        "window": 30000,
+        "contest": {
+          "id": "c0ffee07-0000-4000-8000-000000000000",
+          "contester": {
+            "agentId": "33333333-3333-4333-8333-333333333333",
+            "label": "kimi cccc",
+            "pid": 4003
+          },
+          "openedAt": "2026-09-14T12:02:02.000Z",
+          "windowMs": 30000,
+          "deadline": "2026-09-14T12:02:32.000Z",
+          "reason": "after the change",
+          "secondsRemaining": 30
+        },
+        "holdsToken": false,
+        "holderAlive": true,
+        "cooldown": {
+          "22222222-2222-4222-8222-222222222222": "2026-09-14T12:03:02.000Z"
+        },
+        "identities": [
+          {
+            "agentId": "11111111-1111-4111-8111-111111111111",
+            "label": "claude aaaa",
+            "pid": 4005,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          },
+          {
+            "agentId": "22222222-2222-4222-8222-222222222222",
+            "label": "codex bbbb",
+            "pid": 4002,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          },
+          {
+            "agentId": "33333333-3333-4333-8333-333333333333",
+            "label": "kimi cccc",
+            "pid": 4003,
+            "firstSeenAt": "2026-09-14T12:00:00.000Z",
+            "lastSeenAt": "2026-09-14T12:02:02.000Z"
+          }
+        ],
+        "sequence": 22,
+        "tokenSequence": 22,
+        "feedCursor": 22,
+        "history": [
+          {
+            "sequence": 13,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 14,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "holder-gone"
+            }
+          },
+          {
+            "sequence": 15,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.released",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 16,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "agent",
+              "agentId": "11111111-1111-4111-8111-111111111111",
+              "label": "claude aaaa"
+            }
+          },
+          {
+            "sequence": 17,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "22222222-2222-4222-8222-222222222222",
+              "label": "codex bbbb"
+            }
+          },
+          {
+            "sequence": 18,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.rejected",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 19,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.claimed",
+            "by": {
+              "kind": "desktop",
+              "desktopId": "desk-1"
+            }
+          },
+          {
+            "sequence": 20,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "22222222-2222-4222-8222-222222222222",
+              "label": "codex bbbb"
+            }
+          },
+          {
+            "sequence": 21,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.rejected",
+            "by": {
+              "kind": "agent",
+              "agentId": "11111111-1111-4111-8111-111111111111",
+              "label": "claude aaaa"
+            }
+          },
+          {
+            "sequence": 22,
+            "at": "2026-09-14T12:02:02.000Z",
+            "type": "token.contested",
+            "by": {
+              "kind": "agent",
+              "agentId": "33333333-3333-4333-8333-333333333333",
+              "label": "kimi cccc"
+            }
+          }
+        ]
+      }
     }
   ],
   "ledger": {
@@ -5297,20 +6387,22 @@
       "since": "2026-09-14T12:02:02.000Z"
     },
     "contest": {
-      "id": "c0ffee05-0000-4000-8000-000000000000",
+      "id": "c0ffee07-0000-4000-8000-000000000000",
       "contester": {
-        "agentId": "22222222-2222-4222-8222-222222222222",
-        "label": "codex bbbb",
-        "pid": 4002
+        "agentId": "33333333-3333-4333-8333-333333333333",
+        "label": "kimi cccc",
+        "pid": 4003
       },
       "openedAt": "2026-09-14T12:02:02.000Z",
-      "windowMs": 60000,
-      "deadline": "2026-09-14T12:03:02.000Z",
-      "reason": "is it free?"
+      "windowMs": 30000,
+      "deadline": "2026-09-14T12:02:32.000Z",
+      "reason": "after the change"
     },
-    "cooldown": {},
-    "sequence": 17,
-    "tokenSequence": 17,
+    "cooldown": {
+      "22222222-2222-4222-8222-222222222222": "2026-09-14T12:03:02.000Z"
+    },
+    "sequence": 22,
+    "tokenSequence": 22,
     "identities": {
       "11111111-1111-4111-8111-111111111111": {
         "agentId": "11111111-1111-4111-8111-111111111111",
@@ -5495,6 +6587,54 @@
           "kind": "agent",
           "agentId": "22222222-2222-4222-8222-222222222222",
           "label": "codex bbbb"
+        }
+      },
+      {
+        "sequence": 18,
+        "at": "2026-09-14T12:02:02.000Z",
+        "type": "token.rejected",
+        "by": {
+          "kind": "desktop",
+          "desktopId": "desk-1"
+        }
+      },
+      {
+        "sequence": 19,
+        "at": "2026-09-14T12:02:02.000Z",
+        "type": "token.claimed",
+        "by": {
+          "kind": "desktop",
+          "desktopId": "desk-1"
+        }
+      },
+      {
+        "sequence": 20,
+        "at": "2026-09-14T12:02:02.000Z",
+        "type": "token.contested",
+        "by": {
+          "kind": "agent",
+          "agentId": "22222222-2222-4222-8222-222222222222",
+          "label": "codex bbbb"
+        }
+      },
+      {
+        "sequence": 21,
+        "at": "2026-09-14T12:02:02.000Z",
+        "type": "token.rejected",
+        "by": {
+          "kind": "agent",
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa"
+        }
+      },
+      {
+        "sequence": 22,
+        "at": "2026-09-14T12:02:02.000Z",
+        "type": "token.contested",
+        "by": {
+          "kind": "agent",
+          "agentId": "33333333-3333-4333-8333-333333333333",
+          "label": "kimi cccc"
         }
       }
     ]
@@ -5846,6 +6986,127 @@
         },
         "deadline": "2026-09-14T12:03:02.000Z",
         "reason": "is it free?"
+      },
+      {
+        "sequence": 18,
+        "at": "2026-09-14T12:02:02.000Z",
+        "rootId": "44444444-4444-4444-4444-444444444444",
+        "type": "token.rejected",
+        "by": {
+          "kind": "desktop",
+          "desktopId": "desk-1"
+        },
+        "contestId": "c0ffee05-0000-4000-8000-000000000000",
+        "contester": {
+          "agentId": "22222222-2222-4222-8222-222222222222",
+          "label": "codex bbbb",
+          "pid": 4002
+        },
+        "holder": {
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa",
+          "pid": 4005,
+          "since": "2026-09-14T12:02:02.000Z"
+        },
+        "reason": "the token was assigned from the desktop",
+        "cooldownUntil": null
+      },
+      {
+        "sequence": 19,
+        "at": "2026-09-14T12:02:02.000Z",
+        "rootId": "44444444-4444-4444-4444-444444444444",
+        "type": "token.claimed",
+        "by": {
+          "kind": "desktop",
+          "desktopId": "desk-1"
+        },
+        "holder": {
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa",
+          "pid": 4005,
+          "since": "2026-09-14T12:02:02.000Z"
+        },
+        "previousHolder": {
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa",
+          "pid": 4005,
+          "since": "2026-09-14T12:02:02.000Z"
+        }
+      },
+      {
+        "sequence": 20,
+        "at": "2026-09-14T12:02:02.000Z",
+        "rootId": "44444444-4444-4444-4444-444444444444",
+        "type": "token.contested",
+        "by": {
+          "kind": "agent",
+          "agentId": "22222222-2222-4222-8222-222222222222",
+          "label": "codex bbbb"
+        },
+        "contestId": "c0ffee06-0000-4000-8000-000000000000",
+        "contester": {
+          "agentId": "22222222-2222-4222-8222-222222222222",
+          "label": "codex bbbb",
+          "pid": 4002
+        },
+        "holder": {
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa",
+          "pid": 4005,
+          "since": "2026-09-14T12:02:02.000Z"
+        },
+        "deadline": "2026-09-14T12:03:02.000Z",
+        "reason": "straight back"
+      },
+      {
+        "sequence": 21,
+        "at": "2026-09-14T12:02:02.000Z",
+        "rootId": "44444444-4444-4444-4444-444444444444",
+        "type": "token.rejected",
+        "by": {
+          "kind": "agent",
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa"
+        },
+        "contestId": "c0ffee06-0000-4000-8000-000000000000",
+        "contester": {
+          "agentId": "22222222-2222-4222-8222-222222222222",
+          "label": "codex bbbb",
+          "pid": 4002
+        },
+        "holder": {
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa",
+          "pid": 4005,
+          "since": "2026-09-14T12:02:02.000Z"
+        },
+        "reason": "still writing",
+        "cooldownUntil": "2026-09-14T12:03:02.000Z"
+      },
+      {
+        "sequence": 22,
+        "at": "2026-09-14T12:02:02.000Z",
+        "rootId": "44444444-4444-4444-4444-444444444444",
+        "type": "token.contested",
+        "by": {
+          "kind": "agent",
+          "agentId": "33333333-3333-4333-8333-333333333333",
+          "label": "kimi cccc"
+        },
+        "contestId": "c0ffee07-0000-4000-8000-000000000000",
+        "contester": {
+          "agentId": "33333333-3333-4333-8333-333333333333",
+          "label": "kimi cccc",
+          "pid": 4003
+        },
+        "holder": {
+          "agentId": "11111111-1111-4111-8111-111111111111",
+          "label": "claude aaaa",
+          "pid": 4005,
+          "since": "2026-09-14T12:02:02.000Z"
+        },
+        "deadline": "2026-09-14T12:02:32.000Z",
+        "reason": "after the change"
       }
     ]
   }
