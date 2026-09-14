@@ -82,6 +82,52 @@ that rule, and the only place it can still be observed.
 
 JavaScript on the app path: **5,388**.
 
+### A second model read the port, and found what the records could not
+
+The three ports were green against their frozen records, `npm test`, `cargo test` and the desktop
+gate. A cross-family read-only review — the original JavaScript open beside the Rust, line by line —
+found **sixteen divergences**. That is the finding, and it is about the METHOD: a record of answers
+proves the answers and says nothing about what a call costs or what it holds.
+
+**Two were severe.** `command::run` applied its deadline to `child.wait()` and then joined the reader
+threads, which block until every holder of the pipe closes it — so a producer that leaves a
+background child holding stdout and exits 0 answered when that child did, or never. Measured: a
+`timeoutMs: 1000` format answering **200 after six seconds**, and with a daemonised child not
+answering at all, with one of the door's blocking threads parked on it for good. The JavaScript
+answered on Node's `close`, which needs the exit AND the streams ended, and its timer refused at
+`timeoutMs` regardless; the port waits for the same two things now. And `maxBytes` was a verdict on
+a collected buffer rather than a bound on it, checked only on the success arm — an endless producer
+buffered without limit for the whole timeout, and one that also exited non-zero was reported as
+`Command failed (exit 3)` with no mention of size.
+
+Ten more were real divergences, each now a sabotage-verified unit test at the site, because the
+records are frozen and the JavaScript that would extend them is deleted: the entry bound counting
+code points where `String#length` counts UTF-16 units; a `formatId` that is present and not a string
+silently ignored; a window bound of explicit `null` taking the default where `Number(null)` is 0;
+glob character RANGES unimplemented, so `level[0-9].dat` stopped matching `level5.dat`; a `size`
+spelled `7.0` refusing a whole preview; `SIG11` where Node said `SIGSEGV`; `./tools/run.sh` left
+un-normalised in the answer; a manifest that is not UTF-8 refusing a capture the JavaScript landed;
+a landed capture overriding the person's umask; and a failed read answered as a short window.
+
+Two were the door's, and one was a regression **this session introduced**: `/api/dashboard` judged a
+`tools` prerequisite against a shell PATH while the JS host judged it against `process.env`, so a
+tool in `~/.cargo/bin` drew a grey button and then ran. The shell environment is composed at the
+**spawn** now — in `red_project::command`, where `runCommand` composed it — so one PATH is under
+both halves of an availability check, and `askProject` no longer takes an environment at all. The
+other: `/api/bytes` read a repeated query key first-wins where `Object.fromEntries` keeps the last,
+and a bare `?length` as absent where `URLSearchParams` gives `''`.
+
+Two were wrong claims in this epic's own evidence, now corrected in place.
+
+**The cheap conclusion**: a port needs a reader with the original open beside it, and that reader
+should not be from the family that wrote it. The record discipline is what it claims for ANSWERS —
+three defects this session were caught by extending a record while the JavaScript still existed —
+and it is blind to cost, to resource lifetime, and to anything a caller never sees in the payload.
+So was `raw-read-confinement` earlier the same day, which a sidecar entry caught.
+
+`npm test` 347/347, `cargo test --workspace` 108/108, `./init.sh` passes, desktop gate 78 of 81 —
+the recorded baseline, and the two failures confirmed by name.
+
 ### The door owns every project route
 
 `/api/bytes`, `/api/format-preview` and `/api/dashboard-capture` are red-host's. That completes the

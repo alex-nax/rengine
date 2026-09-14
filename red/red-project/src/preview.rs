@@ -78,7 +78,7 @@ fn glob(pattern: &str, value: &str) -> bool {
             };
             let mut rest = value.chars();
             match rest.next() {
-                Some(character) => set.contains(character) != negated && glob(after, rest.as_str()),
+                Some(character) => in_class(set, character) != negated && glob(after, rest.as_str()),
                 None => false,
             }
         }
@@ -87,6 +87,29 @@ fn glob(pattern: &str, value: &str) -> bool {
             rest.next() == Some(literal) && glob(characters.as_str(), rest.as_str())
         }
     }
+}
+
+/// A character class as `RegExp` read it: literals AND ranges, `a-z` and `0-9` included. Written
+/// first as `set.contains(character)`, which made `level[0-9].dat` a set of three literals and quietly
+/// stopped matching `level5.dat` — a declaration that worked before the port and not after.
+fn in_class(set: &str, character: char) -> bool {
+    let members: Vec<char> = set.chars().collect();
+    let mut index = 0;
+    while index < members.len() {
+        /* A `-` first or last in the class is itself, not a range — the rule `RegExp` applies. */
+        if index + 2 < members.len() && members[index + 1] == '-' {
+            if (members[index]..=members[index + 2]).contains(&character) {
+                return true;
+            }
+            index += 3;
+            continue;
+        }
+        if members[index] == character {
+            return true;
+        }
+        index += 1;
+    }
+    false
 }
 
 fn decode(bytes: &[u8]) -> Option<String> {
@@ -132,7 +155,9 @@ fn sanitize(node: &Value, depth: usize, nodes: &mut usize) -> Result<Value, Fail
     }
     let mut kept = Vec::new();
     for file in files {
-        let size = file.get("size").and_then(Value::as_i64);
+        /* `Number.isSafeInteger(7.0)` is true: a producer that writes its sizes through a JSON
+           library which spells whole numbers as floats described a file, not a broken node. */
+        let size = file.get("size").and_then(Value::as_f64).filter(|size| size.fract() == 0.0 && size.abs() <= 9_007_199_254_740_991.0).map(|size| size as i64);
         let (name, at) = (file.get("name").and_then(Value::as_str), file.get("path").and_then(Value::as_str));
         match (name, at, size) {
             (Some(name), Some(at), Some(size)) if size >= 0 => {
@@ -190,8 +215,17 @@ pub fn format_preview(root_path: &str, declared: &Value, data: &Value, environme
         return Err(refuse("Previews require a regular file.", 415));
     }
     let formats: Vec<Value> = declared.get("formats").and_then(Value::as_array).cloned().unwrap_or_default();
-    let format = match data.get("formatId").and_then(Value::as_str) {
-        Some(wanted) => formats.iter().find(|format| text(format, "id") == wanted).ok_or_else(|| refuse("Unknown formatId for this project.", 404))?,
+    /* PRESENT, not present-and-a-string: `data.formatId !== undefined` is what chose this branch,
+       so a `formatId` of null or 5 named a format this project has not rather than falling through
+       to the globs and answering about some other format. */
+    let format = match data.get("formatId") {
+        Some(asked) => {
+            let wanted = asked.as_str().unwrap_or_default();
+            formats
+                .iter()
+                .find(|format| !wanted.is_empty() && text(format, "id") == wanted)
+                .ok_or_else(|| refuse("Unknown formatId for this project.", 404))?
+        }
         None => match_format(&formats, &relative).ok_or_else(|| {
             refuse(format!("No registered format matches {}.", relative.rsplit('/').next().unwrap_or(&relative)), 415)
         })?,
@@ -202,7 +236,10 @@ pub fn format_preview(root_path: &str, declared: &Value, data: &Value, environme
         ("path", json!(relative)),
     ];
     if let Some(entry) = data.get("entry") {
-        let named = entry.as_str().filter(|named| !named.is_empty() && named.chars().count() <= 4096 && !named.contains('\0'));
+        /* `String#length` counts UTF-16 code units, not code points: a bound written in `chars()`
+           accepts twice its stated limit above U+FFFF. `red_core::text::utf16_len` is what the rest
+           of this workspace uses for the same reason. */
+        let named = entry.as_str().filter(|named| !named.is_empty() && red_core::text::utf16_len(named) <= 4096 && !named.contains('\0'));
         let Some(named) = named else { return Err(refuse("Entry must be a bounded string.", 400)) };
         let Some(spec) = format.get("entry").filter(|spec| spec.is_object()) else {
             return Err(refuse(format!("Format {} declares no entry command.", text(format, "id")), 415));
@@ -280,15 +317,15 @@ fn as_window(value: &Value) -> Option<u64> {
 /// would show a person the wrong bytes in place of the reason.
 fn window_bounds(data: &Value) -> Result<(u64, u64), Fail> {
     let bad = || refuse("Byte window needs non-negative integer offset and length.", 400);
-    let offset = match data.get("offset") {
-        None | Some(Value::Null) => 0,
-        Some(value) => as_window(value).ok_or_else(bad)?,
+    /* ABSENT takes the default; an explicit null does not. A JavaScript default parameter fills in
+       for `undefined` alone, so `{ length: null }` reached `Number(null)` — which is 0, and read
+       nothing. The two are different answers and a JSON body can send either. */
+    let bound = |name: &str, default: u64| match data.get(name) {
+        None => Ok(default),
+        Some(Value::Null) => Ok(0),
+        Some(value) => as_window(value).ok_or_else(bad),
     };
-    let length = match data.get("length") {
-        None | Some(Value::Null) => MAX_RAW_WINDOW,
-        Some(value) => as_window(value).ok_or_else(bad)?,
-    };
-    Ok((offset, length))
+    Ok((bound("offset", 0)?, bound("length", MAX_RAW_WINDOW)?))
 }
 
 /// Whether the handle that was opened and the name that was re-resolved are the same file.
@@ -330,8 +367,12 @@ pub fn read_bytes(root_id: &str, root_path: &str, data: &Value) -> Result<Value,
         let mut read = 0;
         while read < buffer.len() {
             match file.read(&mut buffer[read..]) {
-                Ok(0) | Err(_) => break,
+                Ok(0) => break,
                 Ok(got) => read += got,
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+                /* A read that FAILED is not a short window. `handle.read` threw, and answering the
+                   bytes that did arrive would describe the file wrongly and say nothing about it. */
+                Err(error) => return Err(refuse(format!("{error}"), 500)),
             }
         }
         buffer.truncate(read);
@@ -393,6 +434,79 @@ mod tests {
         assert!(super::same_file(&a, &again), "one file resolved twice is the same file");
         assert!(!super::same_file(&a, &b), "two files of equal size and content are not one file");
         let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    /* The five rules below have no corpus case and cannot get one: each was found after the
+       JavaScript that answered them was deleted, so the record they belong in can no longer be
+       taken. They are tested at the site instead, and each was observed failing here first. */
+
+    #[test]
+    fn a_character_class_is_its_ranges_as_well_as_its_literals() {
+        let formats = vec![json!({ "id": "levels", "match": ["level[0-9].dat", "map[a-c].dat", "odd[-x].dat"] })];
+        let of = |name: &str| super::match_format(&formats, name).map(|format| format["id"].as_str().unwrap());
+        assert_eq!(of("level5.dat"), Some("levels"), "a digit range is a range, not three literals");
+        assert_eq!(of("mapB.dat"), Some("levels"), "and the match is case-insensitive through it");
+        assert_eq!(of("level-.dat"), None, "the dash inside a range is not a member of it");
+        assert_eq!(of("odd-.dat"), Some("levels"), "but a leading dash is itself");
+        assert_eq!(of("levelX.dat"), None);
+    }
+
+    /// A root holding one file of each name the tests below ask about.
+    fn asked_about() -> String {
+        let root = std::env::temp_dir().join(format!("red-project-preview-{}", crate::uuid_like()));
+        std::fs::create_dir_all(&root).expect("a directory");
+        for name in ["a.txt", "a.pack"] {
+            std::fs::write(root.join(name), b"bytes").expect("a file");
+        }
+        std::fs::canonicalize(&root).expect("a real path").to_string_lossy().into_owned()
+    }
+
+    #[test]
+    fn the_entry_bound_counts_what_javascript_counted() {
+        let root = asked_about();
+        let declared = json!({ "declared": true, "formats": [{ "id": "f", "title": "F", "match": ["*.pack"], "entry": { "kind": "bytes", "command": ["/bin/echo"] } }] });
+        /* `String#length` counts UTF-16 units, so 2049 astral characters is 4098 and over the 4096
+           bound. Counting code points would accept it — twice the stated limit. */
+        let long: String = "\u{1F600}".repeat(2049);
+        let refused = super::format_preview(&root, &declared, &json!({ "path": "a.pack", "entry": long }), &[]).expect_err("a refusal");
+        assert_eq!(refused.message, "Entry must be a bounded string.");
+        /* One unit under the bound is accepted, which is what makes the bound the bound. */
+        let short: String = "\u{1F600}".repeat(2048);
+        let ran = super::format_preview(&root, &declared, &json!({ "path": "a.pack", "entry": short }), &[]);
+        assert!(ran.is_ok(), "2048 astral characters is 4096 units and inside it: {ran:?}");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_window_bound_that_is_present_and_null_is_zero() {
+        /* A JavaScript default parameter fills in for `undefined` alone, so an explicit null
+           reached `Number(null)` — which is 0, and read nothing. A JSON body sends either. */
+        let absent = super::window_bounds(&json!({})).expect("defaults");
+        assert_eq!(absent, (0, super::MAX_RAW_WINDOW));
+        let nulled = super::window_bounds(&json!({ "offset": null, "length": null })).expect("zeroes");
+        assert_eq!(nulled, (0, 0));
+    }
+
+    #[test]
+    fn a_format_id_that_is_not_a_string_is_still_one_this_project_has_not() {
+        let root = asked_about();
+        let declared = json!({ "declared": true, "formats": [{ "id": "f", "title": "F", "match": ["*.txt"], "preview": { "kind": "text", "command": ["/bin/cat", "${file}"] } }] });
+        for asked in [json!(null), json!(5), json!({})] {
+            let refused = super::format_preview(&root, &declared, &json!({ "path": "a.txt", "formatId": asked }), &[]).expect_err("a refusal");
+            assert_eq!(refused.message, "Unknown formatId for this project.", "a formatId that was SENT is never ignored");
+            assert_eq!(refused.status, Some(404));
+        }
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_size_a_producer_spelled_as_a_float_is_a_size() {
+        let mut nodes = 0;
+        /* `Number.isSafeInteger(7.0)` is true, and a producer using a JSON library that spells
+           whole numbers as floats described a file rather than a broken node. */
+        assert!(super::sanitize(&json!({ "name": "r", "dirs": [], "files": [{ "name": "a", "path": "a", "size": 7.0 }] }), 0, &mut nodes).is_ok());
+        let mut nodes = 0;
+        assert!(super::sanitize(&json!({ "name": "r", "dirs": [], "files": [{ "name": "a", "path": "a", "size": 7.5 }] }), 0, &mut nodes).is_err(), "a fraction is not a byte count");
     }
 
     #[test]

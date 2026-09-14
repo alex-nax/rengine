@@ -8,7 +8,7 @@ import path from 'node:path';
 import { probeCacheFor, declarationOf, workspaceListings } from './devices.mjs';
 import { fail, resolveInRoot } from './store-client.mjs';
 import { askProject } from './project-client.mjs';
-import { bashPath, shellEnvironment } from './sessions-client.mjs';
+import { bashPath } from './sessions-client.mjs';
 import { stat } from 'node:fs/promises';
 
 /* `preflight` is still taken and still ignored: the reader on the other side runs the game preflight
@@ -34,10 +34,10 @@ export async function dashboardRunPayload(root, action) {
   }
   return { rootId: root.id, command: action.command[0], args: action.command.slice(1), env: {}, title: `Log · ${action.title}` };
 }
-/* The one project question that WRITES. It carries the shell environment because the capture runs
-   the project's own command and its producer saw one when this module spawned it; it carries this
-   root's probe cache because the availability it checks first is the board's, and the board probes
-   every device an action is bound to. */
+/* The one project question that WRITES. It carries this root's probe cache because the availability
+   it checks first is the board's, and the board probes every device an action is bound to. The
+   shell environment is composed where the command is spawned (`red_project::command`), so the board
+   judges a `tools` entry against the same PATH the run will use. */
 export async function dashboardCapture(root, actionId, preflight) {
-  return askProject(['dashboard-capture', root.id, root.path, actionId ?? '', probeCacheFor(root), declarationOf(root)], undefined, shellEnvironment());
+  return askProject(['dashboard-capture', root.id, root.path, actionId ?? '', probeCacheFor(root), declarationOf(root)]);
 }

@@ -1,0 +1,69 @@
+{
+  "a script action": {
+    "ok": {
+      "rootId": "root-a-script-action",
+      "command": "<bash>",
+      "args": [
+        "<root>/hello.sh"
+      ],
+      "env": {},
+      "title": "Script · hello.sh"
+    }
+  },
+  "a script action with arguments and an environment": {
+    "ok": {
+      "rootId": "root-a-script-action-with-arguments-and-an-environmen",
+      "command": "<bash>",
+      "args": [
+        "<root>/hello.sh",
+        "--fast",
+        "two"
+      ],
+      "env": {
+        "BUILD_TYPE": "RELEASE"
+      },
+      "title": "Script · hello.sh"
+    }
+  },
+  "a script action naming a file that is not there": {
+    "refused": {
+      "message": "ENOENT: no such file or directory, realpath '<root>/not-there.sh'",
+      "status": null
+    }
+  },
+  "a script action naming a directory": {
+    "refused": {
+      "message": "Dashboard script is not a file.",
+      "status": 415
+    }
+  },
+  "a script action naming a path that leaves the project": {
+    "refused": {
+      "message": "Symlink points outside the selected project root.",
+      "status": 403
+    }
+  },
+  "a log action": {
+    "ok": {
+      "rootId": "root-a-log-action",
+      "command": "/bin/echo",
+      "args": [
+        "LOG_LINE"
+      ],
+      "env": {},
+      "title": "Log · Log stream"
+    }
+  },
+  "a capture action": {
+    "refused": {
+      "message": "Capture actions run through dashboard-capture.",
+      "status": 400
+    }
+  },
+  "a game action": {
+    "refused": {
+      "message": "Game actions run through the project game route.",
+      "status": 400
+    }
+  }
+}

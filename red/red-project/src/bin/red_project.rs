@@ -13,6 +13,7 @@
 //!     flags: a comma-separated set of `refresh` and `controls`
 //!   red-project game <rootId> <rootPath> [gameId] [probeCache] [declarationFile]
 //!   red-project dashboard-capture <rootId> <rootPath> <actionId> [probeCache] [declarationFile]
+//!   red-project dashboard-run <rootId> <rootPath> <actionId> <bash> [probeCache] [declarationFile]
 //!
 //! A refusal is `{"error": …, "status": N}` and exit 1, because the JS client this answers turns it
 //! back into the same `fail()` the module it replaced threw. Both of this crate's callers — the
@@ -152,6 +153,25 @@ fn main() -> ExitCode {
             };
             let declared = red_project::declaration::read(root_path, arg(5));
             let answer = red_project::capture::capture(&context, &declared, arg(3));
+            probes.keep(now());
+            answer
+        }
+        /* What a script or a log action becomes for the session host. The bash is the CALLER's,
+           because which one this machine has is the session host's business and not a rule. */
+        Some("dashboard-run") => {
+            let (root_id, root_path) = (arg(1).unwrap_or_default(), arg(2).unwrap_or_default());
+            let environment: Vec<(String, String)> = std::env::vars().collect();
+            let probes = match arg(5) {
+                Some(file) => red_project::devices::Probes::kept_at(std::path::Path::new(file)),
+                None => red_project::devices::Probes::default(),
+            };
+            let now = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|since| since.as_millis() as i64).unwrap_or(0);
+            let context = red_project::devices::Context {
+                root_id, root_path, environment: &environment, probes: &probes, refresh: false, refreshed: Default::default(), controls: false, now: &now,
+            };
+            let declared = red_project::declaration::read(root_path, arg(6));
+            let answer = red_project::dashboard::dashboard_action(&context, &declared, arg(3))
+                .and_then(|action| red_project::dashboard::run_payload(root_id, root_path, arg(4).unwrap_or("/bin/bash"), &action));
             probes.keep(now());
             answer
         }

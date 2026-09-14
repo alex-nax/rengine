@@ -43,8 +43,11 @@ arm never fired for a store refusal, because `code` did not survive the service 
 read, where the JavaScript refused; and `as_window` read only decimal integers, where `/api/bytes`
 is a query string and delivers `offset=` empty (`Number('')` is 0) and `1e1` (10). Six cases added,
 `window_bounds` now shared by both windows. What a route cannot deliver — a boolean, an array — is
-not recorded and refuses rather than following `Number()` into coercions this project does not rely
-on.
+**refused rather than coerced, and this is a stated divergence, not an absence**: `Number(true)` is
+1 and `Number([7])` is 7, and `/api/format-preview` is a JSON body that can carry either. An earlier
+draft of this document claimed a route could not deliver them; it can. The record cannot be extended
+to cover it — the JavaScript that would answer is gone — so the divergence is written down here and
+at the site instead, and it is the safe direction: a refusal, never a different window.
 
 **A confinement the port dropped**, and the one no record could have caught. `read_bytes` resolved
 the name, stat'd the name and opened the name — which confines what the name pointed at, not what
@@ -58,7 +61,7 @@ it was moved from `formats.mjs` to `preview.rs` because its code had moved.
 | Sabotage | Observed |
 | --- | --- |
 | a store refusal's absent status is filled in with 500 | `a byte window of a file that is not there` answers `status: 500` where the record has `null` |
-| `${file}` substitutes the relative path | every declared command runs against a path the producer cannot open |
+| `${file}` substitutes the relative path | the `command` a person reads names a path that is not the one the producer was given (the cwd is the root, so it still opens — which is exactly why the ANSWER is what catches this) |
 | an empty query parameter refuses instead of reading from the start | `a byte window whose offset arrived empty` refuses where the record reads 4 bytes |
 | the identity predicate compares size instead of the inode | two different files of equal size pass as one file |
 
@@ -135,11 +138,90 @@ value: `serde_json::to_string_pretty` and `JSON.stringify(…, null, 2)` leave t
 
 `runCommand` and its helpers (62 lines) — nothing in this workspace spawns a project's command from
 JavaScript now. `devices.mjs`'s `present` and `store-client.mjs`'s `MAX_TEXT_BYTES` went with their
-last readers. `formats-hardening.test.mjs`'s re-confinement spec drives the **route** now, which is
-where a caller reaches that rule and the only place it can still be observed.
+last readers. `formats-hardening.test.mjs`'s spec drives the **route** now. Its name still says
+"re-validates … immediately before spawning", and that is no longer what it observes: there is one
+resolution in `red_project::preview`, and the producer is handed the path it produced. What the spec
+checks is that the confinement happens at all and that the producer is given the RESOLVED path — the
+window `execution-boundary` says cannot be closed for a path-taking executable is still open, and
+closing it was never what the JavaScript did either.
 
 ## Gates
 
 `npm test` 343/343, `cargo test --workspace` 97/97, `./init.sh` passes.
 
 JavaScript on the app path: **5,388**, from 5,456.
+
+---
+
+# A second model read the port, and found what the records could not (2026-09-14)
+
+F156h. The three ports above were green against their frozen records, `npm test`, `cargo test` and
+the desktop gate. A cross-family review (Fable, read-only, given the original JavaScript to compare
+against line by line) then found **sixteen divergences**, two of them severe. That is the finding:
+a record of answers proves the answers, and says nothing about what a call COSTS or what it holds.
+
+## The two that mattered
+
+**The timeout did not bound the call.** `red_project::command::run` applied its deadline to
+`child.wait()` and then joined the reader threads — which block until every holder of the pipe
+closes it. A producer that leaves a background child holding stdout and exits 0 never reaches
+end-of-file, so the call returned when that child did, or never. Measured: a declaration with
+`timeoutMs: 1000` whose script is `( sleep 6 ) & echo hi; exit 0` answered **200 after 6 seconds**;
+with a daemonised child it does not return at all, and in `red-host` that parks one of tokio's
+blocking threads permanently.
+
+The JavaScript never had this: it answered on Node's `close`, which needs the exit AND the streams
+ended, and its timer refused at `timeoutMs` whether or not either had happened. The port now waits
+for the same two things and refuses at the deadline if either is missing — and on the refusal path
+it kills the group and then tells the readers to stop, which is `child.stdout.destroy()` by another
+name.
+
+**`maxBytes` was a verdict, not a bound.** The output was read to end-of-file and the ceiling checked
+afterwards, and only on the success arm — so a producer printing without end buffered gigabytes for
+the whole timeout, and one that also exited non-zero was reported as `Command failed (exit 3)` with
+no mention of size. It is enforced per chunk now, and the child is killed on the first chunk past it,
+which is what `runCommand` did.
+
+Neither is visible in a corpus of answers. Both are sabotage-verified unit tests now: the first one
+FAILED at 20 seconds before the fix.
+
+## The other fourteen
+
+Ten were real divergences from the JavaScript, each now fixed with a sabotage-verified test at the
+site — because the records are frozen and the JavaScript that would extend them is deleted, which is
+the cost of the discipline and is worth stating:
+
+| | The JavaScript | The port |
+| --- | --- | --- |
+| entry name bound | `String#length`, UTF-16 units | `chars().count()` — accepted twice the limit above U+FFFF |
+| `formatId` present but not a string | `!== undefined` → 404 | ignored, and answered about some other format |
+| window bound present and null | `Number(null)` is 0 | took the default and read the whole window |
+| glob `[0-9]` | a `RegExp` range | three literals; `level5.dat` stopped matching |
+| tree `size` as `7.0` | `isSafeInteger(7.0)` is true | 502, a whole preview refused |
+| a crashing producer | `SIGSEGV` | `SIG11` |
+| `./tools/run.sh` | `path.resolve` normalises | `<root>/./tools/run.sh` in the answer |
+| a manifest that is not UTF-8 | decoded lossily, capture landed | refused, and nothing written |
+| a landed capture's mode | `open(…, {mode})`, umask applied | stamped after, world-readable |
+| a read that fails mid-window | threw | answered a short window as success |
+
+Two were the door's, and one of those was a regression this session introduced: `/api/dashboard`
+judged a `tools` prerequisite against a shell PATH while the JS host judged it against
+`process.env`, so a tool in `~/.cargo/bin` made the button grey and the action run. The shell
+environment is composed at the **spawn** now, in `red_project::command`, which is where `runCommand`
+composed it — one PATH under both halves of an availability check. The other: `/api/bytes` read a
+repeated query key as the first value where `Object.fromEntries` kept the last, and a bare `?length`
+as absent where `URLSearchParams` gives `''`.
+
+Two were this document's own claims, corrected above: a sabotage's stated consequence, and a
+sentence about what `formats-hardening.test.mjs` observes.
+
+## What this says about the method
+
+The record→port→judge→sabotage discipline is what it claims to be for ANSWERS, and three defects
+this session were caught by extending a record while the JavaScript still existed. It is blind to
+cost, to resource lifetime, and to anything a caller never sees in the payload. The two severe
+findings here are of exactly that shape, and so was the `raw-read-confinement` defect earlier the
+same day — which a sidecar entry caught, not a corpus.
+
+The cheap conclusion: **a port needs a reader who has the original open beside it**, and that reader
+should not be from the family that wrote it.

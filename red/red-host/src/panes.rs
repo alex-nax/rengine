@@ -152,6 +152,64 @@ pub(crate) async fn terminal(front: &Arc<Front>, body: &str) -> String {
     }
 }
 
+/// Pressing a dashboard action that becomes a terminal (F156).
+///
+/// `None` is this door declining: a GAME action reserves a workspace surface and joins an in-flight
+/// launch, which is the session host's state and not the door's, so it falls through to the
+/// forwarder exactly as a remote tracker does. Everything else is `red_project::dashboard`'s payload
+/// and this crate's own pane spawn.
+pub(crate) async fn dashboard_run(front: &Arc<Front>, body: &str) -> Option<String> {
+    let data: Value = serde_json::from_str(body).unwrap_or(Value::Null);
+    let root = match ask(front, "root", json!([data.get("rootId").and_then(Value::as_str).unwrap_or_default()])).await {
+        Ok(root) => root,
+        Err(fault) => return Some(faulted(&fault)),
+    };
+    let id = root.get("id").and_then(Value::as_str).unwrap_or_default().to_string();
+    let root_path = root.get("path").and_then(Value::as_str).unwrap_or_default().to_string();
+    let declaration_file = root.get("declarationFile").and_then(Value::as_str).map(str::to_string);
+    let action_id = data.get("actionId").and_then(Value::as_str).map(str::to_string);
+    let bash = bash_path();
+    let front_for_board = front.clone();
+    /* The board probes every device an action is bound to, so it is read off the async threads. */
+    let composed = tokio::task::spawn_blocking(move || {
+        let environment: Vec<(String, String)> = std::env::vars().collect();
+        let now = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|since| since.as_millis() as i64).unwrap_or(0);
+        let context = red_project::devices::Context {
+            root_id: &id,
+            root_path: &root_path,
+            environment: &environment,
+            probes: &front_for_board.probes,
+            refresh: false,
+            refreshed: Default::default(),
+            controls: false,
+            now: &now,
+        };
+        let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
+        let action = red_project::dashboard::dashboard_action(&context, &declared, action_id.as_deref())?;
+        if action.get("kind").and_then(Value::as_str) == Some("game") {
+            return Ok(None);
+        }
+        red_project::dashboard::run_payload(&id, &root_path, &bash, &action).map(Some)
+    })
+    .await;
+    let payload = match composed {
+        Ok(Ok(Some(payload))) => payload,
+        Ok(Ok(None)) => return None,
+        Ok(Err(fail)) => return Some(faulted(&crate::routes::refusal(fail))),
+        Err(error) => return Some(faulted(&format!("500|{error}"))),
+    };
+    match spawn_pane(front, &payload).await {
+        Ok(session) => {
+            /* `{ ...session, title: payload.title }`: a retained host older than the title option
+               labels its sessions generically, so the title this composed is the one answered. */
+            let mut answer = pane_snapshot(&session).as_object().cloned().unwrap_or_default();
+            answer.insert("title".into(), payload.get("title").cloned().unwrap_or(Value::Null));
+            Some(http_text(200, "OK", &Value::Object(answer).to_string()))
+        }
+        Err(fault) => Some(faulted(&fault)),
+    }
+}
+
 async fn spawn_pane(front: &Arc<Front>, options: &Value) -> Result<Value, String> {
     let text = |name: &str| options.get(name).and_then(Value::as_str).map(str::to_string);
     let title = options.get("title").filter(|value| !value.is_null());

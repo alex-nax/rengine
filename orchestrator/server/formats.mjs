@@ -9,7 +9,6 @@
  * `red_project::capture` now. Nothing in this workspace spawns a project's command from JavaScript.
  */
 import { askProject } from './project-client.mjs';
-import { shellEnvironment } from './sessions-client.mjs';
 
 /* A root registered with a declaration file of its own is read from THAT file, not from the
    project's — an external declaration describes a project this workspace does not own. */
@@ -21,11 +20,12 @@ export async function readDeclaration(root) {
 
 export async function listFormats(root) { return { rootId: root.id, ...await readDeclaration(root) }; }
 
-/* The environment a declared command runs in is the SHELL's, as it was when this module spawned it
-   itself: `shellEnvironment()` is what adds TERM and COLORTERM and drops the launcher's own marker,
-   and a project's producer sees the same environment either side of the port. */
+/* The environment a declared command runs in is the SHELL's, and `red_project::command` composes it
+   at the spawn — where this module composed it — rather than here. Composing it in the caller made
+   the two halves of an availability check disagree: the board judged a `tools` entry against
+   `process.env` and the route that ran the action judged it against a shell's PATH. */
 export async function formatPreview(root, data) {
-  return askProject(['preview', root.id, root.path, declarationOf(root)], JSON.stringify(data), shellEnvironment());
+  return askProject(['preview', root.id, root.path, declarationOf(root)], JSON.stringify(data));
 }
 
 export async function readBytes(root, data) {

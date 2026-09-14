@@ -67,6 +67,11 @@ pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &
         .into_iter()
         .map(|name| head.query(name))
         .collect();
+    /* `/api/bytes` alone read its query as an OBJECT, where a repeated key keeps its last value. */
+    let last: std::collections::HashMap<String, String> = ["offset", "length", "path"]
+        .into_iter()
+        .filter_map(|name| head.query_last(name).map(|value| (name.to_string(), value)))
+        .collect();
     /* A remote tracker is the backend's business until F154; the door says so rather than answering
        half of it. Read before the blocking half starts, because the answer decides whether there is
        one. */
@@ -84,10 +89,11 @@ pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &
     let front = front.clone();
     let answer = tokio::task::spawn_blocking(move || {
         let query = |index: usize| asked[index].clone();
-        /* The two routes that RUN a project's own command see the shell environment, because the JS
-           worker spawned their producer with `shellEnvironment()` and a producer must not notice
-           which process asked. Every other route only reads. */
-        let environment: Vec<(String, String)> = shell_vars();
+        /* This process's own environment, which is what every one of these is answered against —
+           including the `tools` half of an availability check. A route that RUNS a project's command
+           gets the shell environment composed at the spawn, in `red_project::command`, so the board
+           and the run read one PATH. */
+        let environment: Vec<(String, String)> = std::env::vars().collect();
         let now = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|since| since.as_millis() as i64).unwrap_or(0);
         let context = |controls: bool, refresh: bool| red_project::devices::Context {
             root_id: &id,
@@ -140,6 +146,13 @@ pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &
             asked_window.insert("path".into(), serde_json::json!(query(7).unwrap_or_default()));
             for (name, index) in [("offset", 3usize), ("length", 8)] {
                 if let Some(value) = query(index) {
+                    asked_window.insert(name.into(), serde_json::json!(value));
+                }
+            }
+            /* `Object.fromEntries` is how this one route read its query, and it keeps the LAST of a
+               repeated key where `URLSearchParams#get` keeps the first. */
+            for (name, key) in [("offset", "offset"), ("length", "length"), ("path", "path")] {
+                if let Some(value) = last.get(key) {
                     asked_window.insert(name.into(), serde_json::json!(value));
                 }
             }
@@ -366,16 +379,6 @@ pub(crate) async fn answer_desktop_action(front: &Arc<Front>, body: &str) -> Str
         Ok(value) => http_json(200, "OK", &value),
         Err(fault) => faulted(&fault),
     }
-}
-
-/// `shellEnvironment()` over this process's own environment, as a list of pairs — what a project's
-/// declared command is run with, on either side of the port.
-fn shell_vars() -> Vec<(String, String)> {
-    let inherited: serde_json::Map<String, serde_json::Value> =
-        std::env::vars().map(|(name, value)| (name, serde_json::json!(value))).collect();
-    red_agents::spawn::shell_environment(&serde_json::Map::new(), &inherited, std::env::consts::OS, &std::env::var("HOME").unwrap_or_default())
-        .into_iter()
-        .collect()
 }
 
 /* A refusal's HTTP status, and 500 where it carries none.

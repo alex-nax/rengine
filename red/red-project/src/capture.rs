@@ -10,15 +10,15 @@
 use serde_json::{json, Value};
 
 use crate::command;
-use crate::dashboard::dashboard_actions;
+use crate::dashboard::dashboard_action;
 use crate::devices::Context;
 use crate::recordings::Fail;
+use crate::rules::object;
 
 /// This module refuses with a status, like the routes it answers; `refuse` is the local spelling.
 fn refuse(message: impl Into<String>, status: u16) -> Fail {
     Fail::with_status(message, status)
 }
-use crate::rules::object;
 
 /// The bounds a capture runs under. They are this route's, not the declaration's: a screenshot is
 /// a person waiting, and an 8 MiB PNG is already larger than any pane will draw.
@@ -41,36 +41,6 @@ fn fs_refusal(error: &std::io::Error, syscall: &str, path: &str) -> Fail {
         _ => return Fail::raw(format!("{error}")),
     };
     Fail::raw(format!("{code}, {syscall} '{path}'"))
-}
-
-/// The action a capture is, or the reason a person cannot press it.
-pub fn dashboard_action(context: &Context<'_>, declared: &Value, action_id: Option<&str>) -> Result<Value, Fail> {
-    let board = dashboard_actions(context, declared);
-    if board.get("declared").and_then(Value::as_bool) != Some(true) || board.get("error").is_some() {
-        let said = board.get("error").and_then(Value::as_str).unwrap_or("This project does not declare a dashboard in .rengine/project.json.");
-        return Err(refuse(said, 415));
-    }
-    let wanted = action_id.unwrap_or_default();
-    let action = board
-        .get("groups")
-        .and_then(Value::as_array)
-        .and_then(|groups| {
-            groups
-                .iter()
-                .flat_map(|group| group.get("actions").and_then(Value::as_array).cloned().unwrap_or_default())
-                .find(|action| text(action, "id") == wanted)
-        })
-        .ok_or_else(|| refuse("Unknown dashboard action.", 404))?;
-    if action.get("available").and_then(Value::as_bool) != Some(true) {
-        /* The same sentence the grey button carries, in the same order the board composed it. */
-        let missing: Vec<String> = action
-            .get("missing")
-            .and_then(Value::as_array)
-            .map(|items| items.iter().map(|item| format!("{} {}", text(item, "type"), text(item, "name"))).collect())
-            .unwrap_or_default();
-        return Err(refuse(format!("Action {} is unavailable: {}.", text(&action, "id"), missing.join(", ")), 409));
-    }
-    Ok(action)
 }
 
 pub fn capture(context: &Context<'_>, declared: &Value, action_id: Option<&str>) -> Result<Value, Fail> {
@@ -119,11 +89,7 @@ pub fn capture(context: &Context<'_>, declared: &Value, action_id: Option<&str>)
     let manifest_path = format!("{absolute}/manifest.json");
     /* A manifest this workspace cannot read is REPLACED rather than fatal: the capture a person
        just took is not lost to a file something else wrote badly. */
-    let mut manifest: Vec<Value> = match std::fs::read_to_string(&manifest_path) {
-        Ok(text) => serde_json::from_str::<Value>(&text).ok().and_then(|parsed| parsed.as_array().cloned()).unwrap_or_default(),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
-        Err(error) => return Err(fs_refusal(&error, "open", &manifest_path)),
-    };
+    let mut manifest = existing_manifest(&manifest_path).map_err(|error| fs_refusal(&error, "open", &manifest_path))?;
     manifest.push(entry.clone());
     let temporary = format!("{absolute}/.rengine-capture-{}", scratch_name());
     let landed = (|| -> std::io::Result<()> {
@@ -155,6 +121,20 @@ fn free_name(root_path: &str, relative: &str, stamp: &str) -> String {
     file
 }
 
+/// The rows a manifest already holds, or none.
+///
+/// LOSSY, because `readFile(…, 'utf8')` was: a manifest holding a byte that is not UTF-8 was decoded
+/// with replacement characters and then parsed, and whether that parse succeeded or threw, the
+/// capture landed either way. Refusing here would lose a capture a person just took to a file
+/// something else wrote badly — the opposite of what this promises.
+fn existing_manifest(path: &str) -> std::io::Result<Vec<Value>> {
+    match std::fs::read(path) {
+        Ok(bytes) => Ok(serde_json::from_str::<Value>(&String::from_utf8_lossy(&bytes)).ok().and_then(|parsed| parsed.as_array().cloned()).unwrap_or_default()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
+        Err(error) => Err(error),
+    }
+}
+
 /// A scratch name nothing keeps, unique enough that two captures into one directory never collide.
 fn scratch_name() -> String {
     let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|since| since.as_nanos()).unwrap_or(0);
@@ -163,17 +143,62 @@ fn scratch_name() -> String {
 
 /// Write beside the destination and rename onto it, so a reader never sees half a capture.
 fn write_then_rename(temporary: &str, bytes: &[u8], destination: &str) -> std::io::Result<()> {
-    std::fs::write(temporary, bytes)?;
+    use std::io::Write;
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    /* The mode goes to the OPEN, not to a `set_permissions` after it: `writeFile(…, {mode: 0o644})`
+       passed it to `open`, so the person's umask applied and a private workspace kept private
+       captures. Setting it afterwards makes every capture world-readable whatever they chose. */
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(temporary, std::fs::Permissions::from_mode(0o644))?;
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o644);
     }
+    options.open(temporary)?.write_all(bytes)?;
     std::fs::rename(temporary, destination)
 }
 
 #[cfg(test)]
 mod tests {
+    /* Three rules with no corpus case, each found after the JavaScript that answered them was
+       deleted, so the record they belong in can no longer be taken. */
+
+    #[test]
+    fn a_manifest_that_is_not_utf8_is_replaced_rather_than_fatal() {
+        let root = std::env::temp_dir().join(format!("red-project-manifest-{}", crate::uuid_like()));
+        std::fs::create_dir_all(&root).expect("a directory");
+        let manifest = root.join("manifest.json");
+        /* Valid JSON with one byte that is not UTF-8 inside a string: `readFile(…, 'utf8')` decoded
+           it with a replacement character and parsed it, and the capture landed. */
+        let mut bytes = br#"[{"file":"old.png","note":""#.to_vec();
+        bytes.extend_from_slice(&[0xff, 0xfe]);
+        bytes.extend_from_slice(br#""}]"#);
+        std::fs::write(&manifest, &bytes).expect("a manifest");
+        let held = super::existing_manifest(&manifest.to_string_lossy()).expect("read, not refused");
+        assert_eq!(held.len(), 1, "the row it already held survives, replacement character and all");
+        assert_eq!(super::existing_manifest(&root.join("absent.json").to_string_lossy()).expect("absent is empty").len(), 0);
+        std::fs::write(&manifest, b"not json at all").expect("a manifest");
+        assert_eq!(super::existing_manifest(&manifest.to_string_lossy()).expect("unreadable is empty").len(), 0);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_landed_capture_honours_the_umask() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = std::env::temp_dir().join(format!("red-project-umask-{}", crate::uuid_like()));
+        std::fs::create_dir_all(&root).expect("a directory");
+        let previous = unsafe { libc::umask(0o077) };
+        let landed = root.join("shot.png");
+        super::write_then_rename(&root.join("scratch").to_string_lossy(), b"bytes", &landed.to_string_lossy()).expect("landed");
+        let mode = std::fs::metadata(&landed).expect("stat").permissions().mode() & 0o777;
+        unsafe { libc::umask(previous) };
+        /* `writeFile(…, {mode: 0o644})` passed the mode to `open`, so a person working under a
+           private umask kept private captures. Setting the mode afterwards overrides their choice. */
+        assert_eq!(mode, 0o600, "the umask applied to the create");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     #[test]
     fn a_second_capture_in_the_same_millisecond_gets_its_own_name() {
         let root = std::env::temp_dir().join(format!("red-project-capture-{}", crate::uuid_like()));

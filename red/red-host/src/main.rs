@@ -327,6 +327,33 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
             if !head.keeps_alive() { return Ok(()); }
             continue;
         }
+        /* Pressing a dashboard action that becomes a terminal (F156). `None` is the door declining
+           a GAME action, which reserves a workspace surface the session host owns. */
+        /* Chunked framing is not read here: `read_body_bytes` frames by `content-length`, so a
+           chunked request would be read as empty and its bytes then parsed as the next request's
+           head. This route may DECLINE, and a declined request has to reach the forwarder whole —
+           `forward_body` copies chunked framing correctly, so an unframed body is left to it. */
+        if head.path() == "/api/dashboard-run"
+            && head.method == "POST"
+            && !head.header("transfer-encoding").is_some_and(|value| value.to_ascii_lowercase().contains("chunked"))
+        {
+            let body = head.read_body_bytes(&mut client, &mut buffered).await?;
+            match panes::dashboard_run(&front, &String::from_utf8_lossy(&body)).await {
+                Some(answer) => {
+                    client.write_all(answer.as_bytes()).await?;
+                    if !head.keeps_alive() { return Ok(()); }
+                    continue;
+                }
+                None => {
+                    /* Declined after the body was read. Those bytes are off the socket now, so they
+                       go back in front of whatever is still buffered — the forwarder frames what it
+                       sends from `content-length`, and it must find the same request here. */
+                    let mut restored = body;
+                    restored.append(&mut buffered);
+                    buffered = restored;
+                }
+            }
+        }
         if head.path() == "/api/terminal" && head.method == "POST" {
             let body = head.read_body(&mut client, &mut buffered).await?;
             let answer = panes::terminal(&front, &body).await;

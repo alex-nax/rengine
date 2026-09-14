@@ -10,6 +10,10 @@ use std::io;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
+/// What `main.mjs` would read before refusing with a 413. The door does not own that refusal yet —
+/// the route behind it does — but it must not RESERVE what a client's header claims.
+const MAX_BODY: usize = 8 * 1024 * 1024;
+
 pub struct Head {
     pub raw: String,
     pub method: String,
@@ -71,12 +75,27 @@ impl Head {
         self.target.split('?').next().unwrap_or("/").to_string()
     }
 
+    /// `URLSearchParams#get`: the FIRST value, and a bare key is the empty string rather than
+    /// nothing — `?length` is a length of `''`, which `Number` reads as 0.
     pub fn query(&self, name: &str) -> Option<String> {
-        let query = self.target.split_once('?')?.1;
-        query.split('&').find_map(|pair| {
-            let (key, value) = pair.split_once('=')?;
-            (key == name).then(|| decode(value))
-        })
+        self.query_values(name).into_iter().next()
+    }
+
+    /// `Object.fromEntries(query)`: the LAST value wins, which is the other half of the same rule
+    /// and the one `/api/bytes` was read with, because that route took the whole query as an object.
+    pub fn query_last(&self, name: &str) -> Option<String> {
+        self.query_values(name).pop()
+    }
+
+    fn query_values(&self, name: &str) -> Vec<String> {
+        let Some(query) = self.target.split_once('?').map(|(_, rest)| rest) else { return Vec::new() };
+        query
+            .split('&')
+            .filter_map(|pair| match pair.split_once('=') {
+                Some((key, value)) => (key == name).then(|| decode(value)),
+                None => (pair == name).then(String::new),
+            })
+            .collect()
     }
 
     /// The same head, with this door's credential swapped for the backend's. Nothing else is
@@ -136,8 +155,18 @@ impl Head {
 
     /// The body as a string, for a route this door answers itself rather than forwards.
     pub async fn read_body(&self, from: &mut TcpStream, buffered: &mut Vec<u8>) -> io::Result<String> {
+        Ok(String::from_utf8_lossy(&self.read_body_bytes(from, buffered).await?).to_string())
+    }
+
+    /// The body's own bytes. A caller that may still DECLINE the request needs these rather than the
+    /// lossy string: the forwarder frames what it sends from `content-length`, and a replacement
+    /// character in place of a byte it never saw would be a different request.
+    pub async fn read_body_bytes(&self, from: &mut TcpStream, buffered: &mut Vec<u8>) -> io::Result<Vec<u8>> {
         let length: usize = self.header("content-length").and_then(|value| value.trim().parse().ok()).unwrap_or(0);
-        let mut body = Vec::with_capacity(length);
+        /* `content-length` is a number a client chose. `main.mjs` refused a body past 8 MiB with a
+           413 rather than reserving what it was told to; reserving it is how an authenticated client
+           takes the door down with one header. */
+        let mut body = Vec::with_capacity(length.min(MAX_BODY));
         let take = buffered.len().min(length);
         body.extend_from_slice(&buffered[..take]);
         buffered.drain(..take);
@@ -149,7 +178,7 @@ impl Head {
             }
             body.extend_from_slice(&chunk[..read]);
         }
-        Ok(String::from_utf8_lossy(&body).to_string())
+        Ok(body)
     }
 
     /// Copy the body the way its own head framed it, and nothing more: a byte past the body belongs

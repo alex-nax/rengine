@@ -18,6 +18,7 @@ import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import net from 'node:net';
 import { WebSocket } from 'ws';
 import { startServer } from '../server/main.mjs';
 import { PtyHost } from '../server/pty-client.mjs';
@@ -314,9 +315,9 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   }
   assert.equal((await alone.json()).text, 'through the door\n', 'from the state directory\'s own store');
   await assert.rejects(async () => {
-    /* Running a dashboard action is still the backend's: it becomes a terminal, and the session host
-       is the one process that spawns those. */
-    const forwarded = await ask(instance, '/api/dashboard-run', { rootId: root.id, actionId: 'hello' });
+    /* Launching a game is still the backend's: it reserves a workspace surface and joins an
+       in-flight launch, which is the session host's state. */
+    const forwarded = await ask(instance, '/api/game', { rootId: root.id, gameId: 'any' });
     await forwarded.text();
   }, 'while a route it only forwards has nowhere left to go');
 });
@@ -783,4 +784,91 @@ test('a pane started at the door is the pane the JS host would have started', { 
     const behind = backend.sessions.list().map(session => session.id);
     return [...behind].sort().join() === [...listed].sort().join();
   }, 'and the JS host behind it came to the same list');
+});
+
+/* F156. Pressing a dashboard action is the first route the door answers for SOME requests and
+ * declines for others: a script or a log action becomes a pane, which the door can spawn, and a
+ * GAME action reserves a workspace surface and joins an in-flight launch — session-host state the
+ * door has not got.
+ *
+ * Declining after the body has been read is the hazard, and it is the reason this test exists
+ * rather than a parity comparison: the body's bytes are off the socket by then, and a forwarder
+ * that framed the request from `content-length` would send a body that is no longer there. So the
+ * game half is not "the door refuses" — it is "the backend receives the action it was asked about,
+ * whole, and launches it".
+ */
+test('a dashboard action the door can press is pressed there, and a game reaches the host that owns surfaces',
+  { timeout: 300000 }, async t => {
+  await built('-p', 'red-host', '--bin', 'red-host');
+  const directory = await mkdtemp(path.join(tmpdir(), 'red-host-run-'));
+  const stateDir = path.join(directory, 'state');
+  const project = path.join(directory, 'project');
+  await mkdir(path.join(project, '.rengine'), { recursive: true });
+  await writeFile(path.join(project, 'hello.sh'), '#!/bin/bash\necho PRESSED\nsleep 2\n');
+  await writeFile(path.join(project, 'play.sh'), '#!/bin/bash\necho PLAYING\nsleep 2\n');
+  await run('chmod', ['755', path.join(project, 'hello.sh'), path.join(project, 'play.sh')]);
+  await writeFile(path.join(project, '.rengine/project.json'), JSON.stringify({
+    contract: 3, project: 'fixture',
+    formats: [{ id: 'nothing', title: 'Nothing', match: ['*.nothing'], modes: ['raw'], default: 'raw' }],
+    games: [{ id: 'fixture-game', title: 'Fixture game', executable: ['./play.sh'], surface: 'external' }],
+    dashboard: { title: 'Fixture', groups: [{ id: 'run', title: 'Run', actions: [
+      { id: 'press', title: 'Press me', kind: 'script', script: 'hello.sh', args: ['--fast'] },
+      { id: 'play', title: 'Play', kind: 'game', game: 'fixture-game' },
+    ] }] },
+  }));
+  const backend = await startServer({ stateDir, retainSessions: true, frontDoor: false });
+  let stopped = false;
+  t.after(async () => {
+    if (!stopped) await backend.close({ retain: false });
+    await endStateServices(stateDir);
+    await rm(directory, { recursive: true, force: true });
+  });
+  const root = await backend.store.addRoot(project);
+  const door = await front(t, stateDir, backend);
+  const descriptor = JSON.parse(await readFile(path.join(stateDir, 'sidecar.json'), 'utf8'));
+  const instance = { url: door.url, token: descriptor.token };
+
+  const pressed = await (await ask(instance, '/api/dashboard-run', { rootId: root.id, actionId: 'press' })).json();
+  assert.equal(pressed.title, 'Script · hello.sh', 'the title the payload composed, not the pane\'s generic one');
+  assert.equal(pressed.rootId, root.id);
+  await until(() => backend.sessions.snapshot(pressed.id, true).output.includes('PRESSED'),
+    'the script the door pressed actually ran');
+
+  /* The game action: declined by the door, forwarded WITH ITS BODY, launched by the backend. */
+  const launched = await (await ask(instance, '/api/dashboard-run', { rootId: root.id, actionId: 'play' })).json();
+  assert.equal(launched.game, 'fixture-game', 'the backend launched the declared game');
+  await until(() => backend.sessions.snapshot(launched.id, true).output.includes('PLAYING'),
+    'and the game it named is the one running');
+
+  /* PIPELINED, which is what makes the restore order observable. The declined request's body is
+     read off the socket before the door decides, so it is pushed back in front of whatever is still
+     buffered; pushing it back BEHIND would frame the forwarded request from the next request's
+     bytes. Two requests in one write, and both answers have to be right. */
+  const pipelined = await new Promise((resolve, reject) => {
+    const target = new URL(instance.url);
+    const socket = net.connect({ host: target.hostname, port: Number(target.port) }, () => {
+      const body = JSON.stringify({ rootId: root.id, actionId: 'play' });
+      socket.write(
+        `POST /api/dashboard-run HTTP/1.1\r\nHost: ${target.host}\r\nAuthorization: Bearer ${instance.token}\r\n`
+        + `Content-Type: application/json\r\nContent-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`
+        + `GET /health HTTP/1.1\r\nHost: ${target.host}\r\nAuthorization: Bearer ${instance.token}\r\n\r\n`);
+    });
+    let text = '';
+    socket.on('data', chunk => { text += chunk; if (text.includes('"protocol"')) { socket.destroy(); resolve(text); } });
+    socket.on('error', reject);
+    setTimeout(() => { socket.destroy(); resolve(text); }, 10000).unref();
+  });
+  assert.match(pipelined, /"game":"fixture-game"/, 'the declined request reached the backend with its body');
+  assert.match(pipelined, /"protocol"/, 'and the request pipelined behind it was still framed correctly');
+
+  /* And with the backend gone, the half the door owns keeps answering while the half it forwards
+     has nowhere to go — the same demonstration the store routes get. */
+  await backend.close({ retain: true });
+  stopped = true;
+  const alone = await (await ask(instance, '/api/dashboard-run', { rootId: root.id, actionId: 'press' })).json();
+  assert.equal(alone.title, 'Script · hello.sh', 'a script action is pressed with no backend behind the door');
+  await assert.rejects(async () => {
+    const forwarded = await ask(instance, '/api/dashboard-run', { rootId: root.id, actionId: 'play' });
+    await forwarded.text();
+  }, 'while a game action has nowhere left to go');
 });

@@ -12,9 +12,16 @@
 
 use serde_json::{json, Value};
 
+use crate::recordings::Fail;
+
 use crate::devices::{bound_targets, declared_devices, device_status, is_local, target_availability, Context, LOCAL};
 use crate::games::inspect_game;
 use crate::rules::object;
+
+/// A refusal carrying the status its route answers with.
+fn refuse(message: impl Into<String>, status: u16) -> Fail {
+    Fail::with_status(message, status)
+}
 
 fn text<'a>(value: &'a Value, key: &str) -> &'a str {
     value.get(key).and_then(Value::as_str).unwrap_or_default()
@@ -241,4 +248,71 @@ pub fn project_devices(context: &Context<'_>, declared: &Value) -> Value {
         ("refreshed", json!(context.refresh)),
         ("devices", json!(devices)),
     ])
+}
+
+/// The action a capture is, or the reason a person cannot press it.
+pub fn dashboard_action(context: &Context<'_>, declared: &Value, action_id: Option<&str>) -> Result<Value, Fail> {
+    let board = dashboard_actions(context, declared);
+    if board.get("declared").and_then(Value::as_bool) != Some(true) || board.get("error").is_some() {
+        let said = board.get("error").and_then(Value::as_str).unwrap_or("This project does not declare a dashboard in .rengine/project.json.");
+        return Err(refuse(said, 415));
+    }
+    let wanted = action_id.unwrap_or_default();
+    let action = board
+        .get("groups")
+        .and_then(Value::as_array)
+        .and_then(|groups| {
+            groups
+                .iter()
+                .flat_map(|group| group.get("actions").and_then(Value::as_array).cloned().unwrap_or_default())
+                .find(|action| text(action, "id") == wanted)
+        })
+        .ok_or_else(|| refuse("Unknown dashboard action.", 404))?;
+    if action.get("available").and_then(Value::as_bool) != Some(true) {
+        /* The same sentence the grey button carries, in the same order the board composed it. */
+        let missing: Vec<String> = action
+            .get("missing")
+            .and_then(Value::as_array)
+            .map(|items| items.iter().map(|item| format!("{} {}", text(item, "type"), text(item, "name"))).collect())
+            .unwrap_or_default();
+        return Err(refuse(format!("Action {} is unavailable: {}.", text(&action, "id"), missing.join(", ")), 409));
+    }
+    Ok(action)
+}
+
+/// What a script or a log action becomes for the session host: an argv, an environment and a title.
+///
+/// A script is run THROUGH bash with the RESOLVED absolute path and literal arguments, because the
+/// host is handed argv and never a command line to re-parse. The two kinds that are not terminals
+/// say where they go instead of becoming one — a capture writes a file and a game reserves a
+/// surface, and a pane that called itself either would be a session with nothing behind it.
+pub fn run_payload(root_id: &str, root_path: &str, bash: &str, action: &Value) -> Result<Value, Fail> {
+    match text(action, "kind") {
+        "capture" => return Err(refuse("Capture actions run through dashboard-capture.", 400)),
+        "game" => return Err(refuse("Game actions run through the project game route.", 400)),
+        "script" => {}
+        _ => {
+            let command: Vec<&str> = action.get("command").and_then(Value::as_array).map(|items| items.iter().filter_map(Value::as_str).collect()).unwrap_or_default();
+            return Ok(object(vec![
+                ("rootId", json!(root_id)),
+                ("command", json!(command.first().copied().unwrap_or_default())),
+                ("args", json!(command.iter().skip(1).collect::<Vec<_>>())),
+                ("env", json!({})),
+                ("title", json!(format!("Log · {}", text(action, "title")))),
+            ]));
+        }
+    }
+    let (absolute, relative) = red_store::store::resolve_in_root(root_path, text(action, "script"), false).map_err(Fail::from_store)?;
+    if !std::fs::metadata(&absolute).map(|info| info.is_file()).unwrap_or(false) {
+        return Err(refuse("Dashboard script is not a file.", 415));
+    }
+    let mut args = vec![json!(absolute)];
+    args.extend(action.get("args").and_then(Value::as_array).cloned().unwrap_or_default());
+    Ok(object(vec![
+        ("rootId", json!(root_id)),
+        ("command", json!(bash)),
+        ("args", json!(args)),
+        ("env", action.get("env").filter(|value| value.is_object()).cloned().unwrap_or_else(|| json!({}))),
+        ("title", json!(format!("Script · {}", relative.rsplit('/').next().unwrap_or(&relative)))),
+    ]))
 }
