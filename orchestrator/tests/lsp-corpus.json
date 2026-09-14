@@ -1,0 +1,180 @@
+{
+  "a declared server is matched, started and read": {
+    "steps": [
+      {
+        "opened": "a.c",
+        "servers": [
+          "fake"
+        ]
+      },
+      {
+        "read": "a.c",
+        "items": [
+          {
+            "range": {
+              "start": {
+                "line": 1,
+                "character": 5
+              },
+              "end": {
+                "line": 1,
+                "character": 9
+              }
+            },
+            "severity": 2,
+            "source": "fake",
+            "message": "TODO on line 2"
+          }
+        ]
+      },
+      {
+        "opened": "a.c",
+        "servers": [
+          "fake"
+        ]
+      },
+      {
+        "read": "a.c",
+        "items": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 3
+              },
+              "end": {
+                "line": 0,
+                "character": 7
+              }
+            },
+            "severity": 2,
+            "source": "fake",
+            "message": "TODO on line 1"
+          },
+          {
+            "range": {
+              "start": {
+                "line": 1,
+                "character": 3
+              },
+              "end": {
+                "line": 1,
+                "character": 7
+              }
+            },
+            "severity": 2,
+            "source": "fake",
+            "message": "TODO on line 2"
+          }
+        ]
+      }
+    ],
+    "unavailable": []
+  },
+  "a file no server declares is nobody’s business": {
+    "steps": [
+      {
+        "opened": "notes.txt",
+        "servers": []
+      },
+      {
+        "read": "notes.txt",
+        "items": []
+      }
+    ],
+    "unavailable": []
+  },
+  "a directory wildcard reaches a file directly inside it": {
+    "steps": [
+      {
+        "opened": "src/deep.c",
+        "servers": [
+          "fake"
+        ]
+      },
+      {
+        "read": "src/deep.c",
+        "items": [
+          {
+            "range": {
+              "start": {
+                "line": 1,
+                "character": 5
+              },
+              "end": {
+                "line": 1,
+                "character": 9
+              }
+            },
+            "severity": 2,
+            "source": "fake",
+            "message": "TODO on line 2"
+          }
+        ]
+      }
+    ],
+    "unavailable": []
+  },
+  "a server that is not on this machine is named": {
+    "steps": [
+      {
+        "opened": "a.c",
+        "servers": [
+          "absent"
+        ]
+      },
+      {
+        "unavailable": [
+          "absent: definitely-not-a-language-server-9f is not on this machine; rEngine runs a declared language server but never installs one"
+        ]
+      },
+      {
+        "read": "a.c",
+        "items": []
+      }
+    ],
+    "unavailable": [
+      "absent: definitely-not-a-language-server-9f is not on this machine; rEngine runs a declared language server but never installs one"
+    ]
+  },
+  "a crash clears what the server said, and says when it will come back": {
+    "steps": [
+      {
+        "opened": "a.c",
+        "servers": [
+          "fake"
+        ]
+      },
+      {
+        "unavailable": [
+          "fake: exited (code N); restarting in 500 ms"
+        ]
+      },
+      {
+        "read": "a.c",
+        "items": []
+      }
+    ],
+    "unavailable": [
+      "fake: exited (code N); restarting in 500 ms"
+    ]
+  },
+  "closing a file tells the server and drops what it said": {
+    "steps": [
+      {
+        "opened": "a.c",
+        "servers": [
+          "fake"
+        ]
+      },
+      {
+        "closed": "a.c"
+      },
+      {
+        "read": "a.c",
+        "items": []
+      }
+    ],
+    "unavailable": []
+  }
+}
