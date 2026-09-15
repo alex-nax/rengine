@@ -391,12 +391,12 @@ flowchart TD
   F213 --> F215
   F216["F216: blocked"]
   F213 --> F216
-  F217["F217: ready"]
+  F217["F217: passing"]
   F218["F218: blocked"]
   F214 --> F218
-  F219["F219: blocked"]
+  F219["F219: ready"]
   F217 --> F219
-  F220["F220: blocked"]
+  F220["F220: ready"]
   F217 --> F220
 ```
 
@@ -570,7 +570,7 @@ flowchart TD
 | F214 | O1 | rengine | blocked | Agent-specific branches in the bind and launch path move behind a declared capability. red-agents/src/bind.rs asks `if agent == "kimi"` to decide where MCP wiring goes and launch.rs inserts a kimi-named plan key; both are identity checks standing in for a capability the recipe should declare, so a fourth agent needing the same treatment means editing shared code again. |
 | F215 | O1 | rengine | blocked | The store stops knowing what an agent's conversation ids look like. red-store carries IdShape::KimiSession and red_store_check maps the literal "kimi" to it, so the component that persists conversations knows one CLI's id format — knowledge that belongs to that CLI's recipe. |
 | F216 | O1 | rengine | blocked | red-host's codex-specific branches move behind a declared capability: panes.rs refuses a resume path unless the agent is literally codex, and handoff.rs spawns with --agent codex hard-coded. Both encode a capability (which CLIs can be handed a conversation to resume) as an identity. |
-| F217 | O1 | rengine | ready | A guard that fails the build when an agent's name appears in shared code — the check that would have caught F210 and every row above. The product name already has one (design.py check fails on a hand-written occurrence); an agent name has none, which is why a spec saying "one adapter per CLI" did not prevent one file holding three. |
+| F217 | O1 | rengine | passing | A guard that fails the build when an agent's name appears in shared code — the check that would have caught F210 and every row above. The product name already has one (design.py check fails on a hand-written occurrence); an agent name has none, which is why a spec saying "one adapter per CLI" did not prevent one file holding three. |
 | F218 | O1 | rengine | blocked | bind's start hints for a CUSTOM agent are a per-CLI catalogue written out in shared code: red-agents/src/bind.rs prints claude's --mcp-config/--settings line, codex's -c mcp_servers line, and a sentence naming gemini, opencode and kimi. F214 declared those spellings in the registry, so the catalogue now DUPLICATES them — change a recipe's flag and bind's hint silently lies. The hints should be generated from what each recipe declares. |
-| F219 | O1 | rengine | blocked | Two identity DEFAULTS: red-agents/src/report.rs defaults an absent --provider to claude, from when only claude reported a session, and orchestrator/native/workspace.c falls back to "codex" when no agent is chosen. Both are one CLI's name standing in for "the first one declared", and both are load-bearing — changing the reporter's default moves hooks already installed in people's CLI configuration, and changing the desktop's changes what a person gets when they press the button. tools/agent_names.py carries them as declared exceptions. |
-| F220 | O1 | rengine | blocked | Per-CLI knowledge that lives in shared code because it has nowhere declared to go: the CLAUDE_CODE_* identity variables a pane scrubs (spawn.rs and sessions-client.mjs, KI-113), the install directories a PATH search adds (.opencode/bin), red-ide's whole claude-shaped bridge (the lock directory, the discovery path, the x-claude-code-ide-authorization header), red-project's tasks.rs and its codexModels method, red-mcp's message and orchestrator/agents/mcp.mjs's explanation that two CLIs differ in how they take a changed tool list, and launch.mjs's usage line listing the five agents. Each is either a recipe key or an adapter file; tools/agent_names.py carries all of them as declared exceptions, which is the list this row works through. |
+| F219 | O1 | rengine | ready | Two identity DEFAULTS: red-agents/src/report.rs defaults an absent --provider to claude, from when only claude reported a session, and orchestrator/native/workspace.c falls back to "codex" when no agent is chosen. Both are one CLI's name standing in for "the first one declared", and both are load-bearing — changing the reporter's default moves hooks already installed in people's CLI configuration, and changing the desktop's changes what a person gets when they press the button. tools/agent_names.py carries them as declared exceptions. |
+| F220 | O1 | rengine | ready | Per-CLI knowledge that lives in shared code because it has nowhere declared to go: the CLAUDE_CODE_* identity variables a pane scrubs (spawn.rs and sessions-client.mjs, KI-113), the install directories a PATH search adds (.opencode/bin), red-ide's whole claude-shaped bridge (the lock directory, the discovery path, the x-claude-code-ide-authorization header), red-project's tasks.rs and its codexModels method, red-mcp's message and orchestrator/agents/mcp.mjs's explanation that two CLIs differ in how they take a changed tool list, and launch.mjs's usage line listing the five agents. Each is either a recipe key or an adapter file; tools/agent_names.py carries all of them as declared exceptions, which is the list this row works through. |

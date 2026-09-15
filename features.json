@@ -4075,7 +4075,11 @@
       "owner_workspace": "rengine",
       "deliverable": "red-agents/src/parsers.rs as two declared spellings, conversation.read in registry.toml, and spec 141.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/specs/141-provider-abstraction.md",
+        "orchestrator/tests/red-agents-cli.test.mjs",
+        "orchestrator/agents/registry.toml"
+      ]
     },
     {
       "id": 214,
@@ -4096,7 +4100,11 @@
       "owner_workspace": "rengine",
       "deliverable": "The project-file, flag and env-defaults overlay arms in red-agents/src/launch.rs reading declared spellings, bind.rs asking the recipe, and their registry declarations.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/specs/141-provider-abstraction.md",
+        "orchestrator/tests/agent-kimi.test.mjs",
+        "orchestrator/tests/agent-registry.test.mjs"
+      ]
     },
     {
       "id": 215,
@@ -4117,7 +4125,11 @@
       "owner_workspace": "rengine",
       "deliverable": "red-store's conversation id shape, taken from the recipe rather than an enum naming an agent.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/specs/141-provider-abstraction.md",
+        "orchestrator/tests/conversations.test.mjs",
+        "red/red-store/src/recipes.rs"
+      ]
     },
     {
       "id": 216,
@@ -4138,7 +4150,11 @@
       "owner_workspace": "rengine",
       "deliverable": "red-host's panes.rs and handoff.rs asking the recipe what a CLI can be handed.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/specs/141-provider-abstraction.md",
+        "orchestrator/tests/handoff.test.mjs",
+        "red/red-host/src/handoff/mod.rs"
+      ]
     },
     {
       "id": 217,
@@ -4153,12 +4169,17 @@
         "Observed failing by reintroducing a single agent name into a shared file, and passing once removed.",
         "The allowed places are declared in one list rather than inferred, so widening it is a visible decision."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [],
       "owner_workspace": "rengine",
       "deliverable": "A build-failing check for an agent name in shared code, its declared exception list, and its wiring into init.sh.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/specs/141-provider-abstraction.md",
+        "docs/lessons-learned.md",
+        "orchestrator/tests/agent-names.test.mjs",
+        "tools/agent_names.py"
+      ]
     },
     {
       "id": 218,

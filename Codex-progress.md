@@ -1,3 +1,73 @@
+## Session 158 (macos) — 2026-09-15 — the provider split: a recipe declares, shared code implements
+
+Owner goal: *"design abstraction interface and achieve complete provider split"*, after catching an
+agent-per-function file that contradicted the project's own stated design. F213–F217, spec 141.
+
+**The rule, in one line:** shared code asks the recipe what a CLI CAN DO; it never asks who the CLI
+is. A file that is not an agent's own may contain no agent name.
+
+**F213** — `parsers.rs` knew three agents by name and held two hand-rolled id shapes that disagreed
+with the declared one about kimi's ULIDs. It knows none now: two spellings named for what they do
+(`flags`, `subcommand`), and `conversation.read` says which one a CLI speaks.
+
+**F214** — the identity check the row named (`if agent == "kimi"`) stood for a capability the
+registry ALREADY declared. The larger half the survey missed: the arms implementing each overlay
+kind imposed one CLI's spellings on every CLI declaring that kind. A second CLI declaring
+`kind = "flag"` was silently handed claude's `--mcp-config`; the registry's own end-to-end proof
+asserted exactly that. `testcli` declares `--servers` now and gets it.
+
+**F215** — the store's `IdShape::KimiSession` and the THIRD hand-rolled copy of the uuid/ULID rules
+are gone; the pattern arrives from the caller. Underneath sat a quieter bug: the store's registry
+lookup passed `None` for the extra document, so **a recipe added as data could never have had its
+conversation shape reach the store** — the registry's central promise, broken in the one component
+that persists what a recipe declares. red-host's `recipes()` had it too.
+
+**F216** — three copies of one identity check, in three languages: red-host, `agent.sh`, the JS door.
+`conversation.handoff` declares `kind` and `ready`; `handoff.rs` split into `handoff/mod.rs` (the
+manifest, rEngine's format) and `handoff/codex.rs` (the rollout store, codex's). A kind rEngine has
+no reader for is refused BY THE KIND. A fourth hand-rolled id shape lived in the manifest.
+
+**F217** — `python3 tools/agent_names.py check`, in `init.sh`. It found three places the survey
+missed, and two bugs in itself, each of which passed a first test before failing a better one:
+
+- **`\b` does not break at `_`.** `\bkimi\b` does not match `kimi_flags` — the exact shape the guard
+  exists for. It passed that case the first time it was tried.
+- **A naive `//` strip hides code.** `"https://claude.ai/code"` truncates at the slashes.
+
+All four of its defences are sabotage-verified. Exceptions are one declared list with a reason and a
+feature each: F218, F219, F220.
+
+### The methodological finding, which cost the most
+
+**Twenty-four specs drove a Rust binary and never built one** (KI-120). Under `npm test` the
+`pretest` step hides it; run alone — which is exactly how a sabotage is checked — they judge whatever
+binary is on disk. The F214 fixture **passed against its own sabotage** for that reason and only a
+second look caught it. All twenty-four call `built('--bins')` now, and the same sabotage fails on its
+own. *A regression checked against a stale artifact is not a regression; the compile step is part of
+the sabotage.*
+
+A second one of the same family: cargo runs in-crate tests as threads in ONE process, so a test that
+names an extra registry through the environment changes what every other test sees. It surfaced
+immediately as a roster test answering six CLIs instead of five.
+
+### What is open, and one thing needing the owner
+
+- **F213's row asks for a file per agent; what shipped has none**, because the difference between
+  claude and kimi was data, not code — the same flag scan with different flag lists. Three files of
+  identical code around different constants would be duplication wearing an abstraction's clothes.
+  The criteria are left as accepted and **F213 is not marked passing on my own reading**; F215 and
+  F216 depend on it and are held with it, which is the inventory doing its job. Spec 141 records
+  the rationale in full. F217 stands alone and passes.
+- **KI-119**: `task-writes.test.mjs`'s token-contest spec fails under load with
+  `ERR_STREAM_WRITE_AFTER_END` and passes alone — red in four of fourteen runs, ruled out as this
+  work's by running it on a stashed tree. A service client that writes to a child it has not checked
+  is the defect, whichever idle timer fires.
+- F218 (bind's per-CLI hint catalogue, which now duplicates declared spellings), F219 (two identity
+  defaults), F220 (per-CLI knowledge with nowhere declared to go).
+
+Commands: `cargo test` per crate (red-agents 26/26, red-store 2/2, red-host 19/19, red-project
+43/43); `npm test` 360/360; `./init.sh` green with the new gate.
+
 ## Session 157 (macos) — 2026-09-15 — one adapter per agent, and the antipattern that needed a guard
 
 The owner, reading F210 as it landed:
