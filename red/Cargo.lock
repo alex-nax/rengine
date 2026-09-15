@@ -2806,6 +2806,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "red-worker"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "red-core",
+ "red-token",
+ "serde_json",
+ "tokio",
+ "tokio-tungstenite",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.5.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
