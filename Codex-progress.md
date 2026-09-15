@@ -1,3 +1,43 @@
+## Session 1 (opus-5) — 2026-09-15 — The workspace worker is Rust, and worker.mjs is deleted
+
+Owner goal: *"finish remaining js"*. The workspace worker layer is done.
+
+**`red-worker` is the workspace worker.** The supervisor runs the binary, and every route the
+JavaScript worker served is answered: the ledger and the feed, the agents menu, task writes and
+spawns, script tabs, the editor pane's three, the project's own nine, the launch and the board's
+button, the tracker's sign-in, and the desktop registry. Three sockets — `/feed` served, `/events`
+terminated and four of its frames understood, `/surface` tunnelled — and the host's own session
+stream followed for the pair a game leaves on the feed.
+
+**F154 is done.** `red_core::tls` is the one thing here that talks to the internet, and its trust
+roots are the MACHINE's rather than a bundled CA set: a person behind a proxy that inspects TLS has
+their organisation's root in the OS store and nowhere else. `red_project::tracker_auth` is the PKCE
+flow, `red_worker::signin` the loopback listener, `red_project::tracker_remote` the two providers.
+
+**Deleted: `runtime/worker.mjs` (733), `runtime/scripts.mjs` (25), `server/desktops.mjs` (76).**
+Production JavaScript is 4,667 lines across 41 files, from 5,504 across 43.
+
+Three findings are worth more than the lines:
+
+- **A route the worker forwards answers from whatever is beneath it, and what is beneath it may
+  predate the route.** Found twice: the project routes, and then the desktop registry. Both had to
+  come back to the worker, and the second is why `red_core::desktops` exists — one registry, two
+  sockets. The test that says so is `capabilities`, which is a promise about what having a worker
+  adds, and forwarding cannot keep it.
+- **`own_route` was quietly excusing a gate.** Answering a route rather than forwarding it moves its
+  gate inside, and the parity test skipped anything the worker owned. `/api/dashboard-capture`
+  WRITES and had lost its gate that way. `serve::gates_internally` is where a gate inside a route is
+  written down now, and the two gate tables may not overlap.
+- **Trying to DELETE is what finds the rest.** The legacy-host case, the `undefined/` directory a
+  fixture wrote into the repo, and two parity bugs the MCP corpus caught byte for byte, all surfaced
+  from attempting the deletion rather than from reasoning about it.
+
+Gates: `./init.sh` green; `cargo test` green; `npm test` 390 of 391, the one being KI-124's
+load-sensitive language-server spec, which passes alone.
+
+What is left, in order, is in `docs/js-retirement-status.md`: F159's supervisor (1,368), the JS host
+behind red-host (1,868), and F163's entry points (839).
+
 ## Session 160 (macos) — 2026-09-15 — red-worker begins, and the head is shared
 
 Owner goal: *"finish remaining js"*. This session did not finish it — 5,456 lines will not go in
