@@ -118,10 +118,10 @@ what it does. (3) is the real feature.
 
 ## Why we are asking
 
-rEngine (the owner's editor) is adding a generic Agent tab that drives any declared ACP agent, with
-`kohai-acp` as one recipe. rEngine offers its declared MCP servers at `session/new` and reports, by
-name, which ones an agent did not take — so the integration works today for conversation and is
-correct without this change; the Kohai agent simply shows as taking none.
+**rEdit** — the desktop editor built by the rEngine project — is adding a generic Agent tab that
+drives any declared ACP agent, with `kohai-acp` as one recipe. It offers its declared MCP servers at
+`session/new` and reports, by name, which ones an agent did not take. So the integration works today
+for conversation and is correct without this change; a Kohai agent simply shows as taking none.
 
 This issue is what would let a Kohai agent use the operator's local tools. It is Kohai's call
 whether that is wanted: the design deliberately asserts nothing about the bridge's behaviour and
