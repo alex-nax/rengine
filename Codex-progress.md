@@ -76,6 +76,34 @@ The parity suite could not outlive the module it compares against, so the JavaSc
 the 50-case corpus were **recorded before the deletion** (F173's device) and Rust is judged against
 the record.
 
+### What is actually left, measured
+
+5,456 lines of production JS in 43 files (test JS stays — the standing rule is js is fine for tests).
+Two facts change how the rest should be approached:
+
+**1,669 of those lines are thin clients to Rust services** — `store-client`, `sessions-client`,
+`pty-client`, `project-client`, `token-client`, `lsp-client`, `service-client`, `agents-client`.
+They are handles on crates that already do the work, and they die with their callers rather than
+needing a port.
+
+**`runtime/worker.mjs` is 60% redundant.** It serves 32 routes; **19 are already answered in Rust**
+by red-host. Only 13 are its own — and of those, `/api/token` and `/api/token-action` sit on the
+`red-token` crate that exists, and `/api/diagnostics`, `/api/ide-mention` and `/api/ide-selection`
+sit on `red-ide`, which exists too. F158 is therefore far more deletion-and-forwarding than rewrite,
+which is not what its row assumes.
+
+**And a module retires with its CALLER.** `windows.mjs` is a clean self-contained store and porting
+it alone would leave dead Rust beside live JS, because only `supervisor.mjs` calls it. Spec 142
+learned the same thing about `surfaces.mjs`: it belonged to `games.mjs`, and the two moved together.
+So the remaining units are whole callers, not whole files:
+
+| unit | lines | what it needs |
+|---|---|---|
+| F158 red-worker | 733 + its clients | 13 routes, five of them already crate-backed |
+| F159 supervisor + launcher | 391 + 109 + 432 | process management; no new dependencies |
+| F154 remote tracker | 463 | **a TLS decision**: rustls, hyper and hyper-util are already linked through libp2p, but there is no root-certificate store in the workspace |
+| F163 entry points | 227 | red-host starting standalone, which changes how every workspace starts |
+
 ### What is open
 
 - **F186 needs the owner**, in a pane bound to a current host. It is one dogfood run and it unblocks
