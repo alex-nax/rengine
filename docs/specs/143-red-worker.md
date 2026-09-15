@@ -147,11 +147,19 @@ The callback that hears a `token.*` frame cannot ask the ledger for the segment:
 service client's own reader, and a call from there would be the reader waiting for itself. It names
 the project and a task does the asking.
 
-**One gap before the cutover.** `Client::attaching` only attaches; nothing in Rust STARTS a service.
-Today the JS worker starts the ledger through `ServiceClient.attach`, and the door and the Rust
-worker attach to what it left running. When the supervisor spawns `red-worker` instead of node,
-something has to start `red-token-serve` — and it belongs in `red-core::service`, so the door and
-the worker get it from one place.
+**Closed:** `red_core::service::start_service` and `serve_binary`. `attaching` still only attaches —
+deliberately, because two in-memory owners of one set of files is stale reads and lost writes — so
+starting one is a separate act, and it is the WORKER's: the layer that owns the ledger's routes is
+the layer that makes sure there is a ledger to own. The discipline is `service-client.mjs`'s, which
+is the only thing that has ever started one of these, and a Rust process that started them
+differently would be a second convention for the same file.
+
+The one-per-directory rule turns out to be held twice: by the lock here, and by the service itself,
+which refuses to be a second one. That means the lock's own evidence cannot be the descriptor — the
+service's refusal leaves it looking right either way — so the test counts what actually RAN. What
+the lock buys beyond the service's refusal is that no doomed process is spawned, a lock whose owner
+died is reclaimed rather than blocking the survivor forever, and one held by a live process is
+refused by name with nothing started.
 
 ## The two children, and the ask between them
 

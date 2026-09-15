@@ -111,6 +111,24 @@ async fn main() -> std::process::ExitCode {
        whatever arrived first. */
     let watchers = Arc::new(Watchers::default());
     let fan_out = watchers.clone();
+    /* Started if nobody has: a worker is the layer that owns the ledger's routes, so it is the layer
+       that makes sure there is one to own. `attaching` only attaches — deliberately, because two
+       in-memory owners of one set of files is stale reads and lost writes — so the start is a
+       separate act, taken under a lock that two workers cannot both win. A failure here is not
+       fatal: the feed and the token say so by name, and everything else still serves. */
+    match red_core::service::serve_binary("RENGINE_RED_TOKEN_SERVE", "red-token-serve")
+        .and_then(|binary| {
+            red_core::service::start_service(
+                std::path::Path::new(&state),
+                "token",
+                TOKEN_PROTOCOL,
+                &binary,
+                &["--state".to_string(), state.clone()],
+            )
+        }) {
+        Ok(()) => {}
+        Err(message) => eprintln!("red-worker: no token ledger ({message})"),
+    }
     let ledger = match red_core::service::Client::attaching(
         std::path::Path::new(&state),
         "token",

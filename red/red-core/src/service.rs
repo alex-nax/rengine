@@ -115,6 +115,182 @@ pub fn already_serving(path: &Path) -> Option<Value> {
     Some(document)
 }
 
+/// The binary that serves one of these: `$VARIABLE`, then this checkout's debug or release build.
+///
+/// A missing binary is NAMED rather than worked around, and the sentence says how to make one —
+/// this is the failure a person meets when they run a workspace out of a fresh clone, and the
+/// difference between a two-word fix and an afternoon.
+pub fn serve_binary(variable: &str, basename: &str) -> Result<std::path::PathBuf, String> {
+    if let Some(declared) = std::env::var(variable).ok().filter(|value| !value.is_empty()) {
+        let path = std::path::PathBuf::from(&declared);
+        if path.exists() {
+            return Ok(path);
+        }
+        return Err(format!("{variable} names {declared}, which does not exist."));
+    }
+    let checkout = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.ancestors().nth(4).map(Path::to_path_buf))
+        .ok_or_else(|| format!("cannot find {basename}: this binary is nowhere it recognises."))?;
+    for profile in ["debug", "release"] {
+        let candidate = checkout.join("red/target").join(profile).join(basename);
+        if candidate.exists() {
+            return Ok(candidate);
+        }
+    }
+    Err(format!(
+        "The {basename} binary is required (run: cargo build --manifest-path red/Cargo.toml --bins, or set {variable})."
+    ))
+}
+
+/// Start the service serving `directory` if none is, and say nothing if one already is.
+///
+/// **One service per directory**, so the start is taken under a lock: two processes attaching at
+/// once must not each spawn one, and a lock whose owner died must not block the survivor forever.
+/// The discipline is `service-client.mjs`'s, which is the only thing that has ever started one of
+/// these — and a Rust process that started them differently would be a second convention for the
+/// same file.
+///
+/// Detached, with its own log beside the descriptor, because the service outlives whoever started
+/// it: that is the whole of D60/D61.
+pub fn start_service(
+    directory: &Path,
+    name: &str,
+    protocol: u64,
+    binary: &Path,
+    args: &[String],
+) -> Result<(), String> {
+    std::fs::create_dir_all(directory).map_err(|error| format!("{} cannot be created: {error}", directory.display()))?;
+    let descriptor = directory.join(format!("{name}.json"));
+    if serving_this_protocol(&descriptor, protocol) {
+        return Ok(());
+    }
+    let lock = directory.join(format!("{name}-startup.lock"));
+    let deadline = std::time::Instant::now() + Duration::from_secs(15);
+    loop {
+        match std::fs::OpenOptions::new().write(true).create_new(true).open(&lock) {
+            Ok(mut held) => {
+                use std::io::Write;
+                let _ = write!(held, "{{\"pid\":{}}}", std::process::id());
+                let outcome = under_lock(directory, name, protocol, binary, args, &descriptor);
+                let _ = std::fs::remove_file(&lock);
+                return outcome;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                /* Somebody else is starting one. If it arrived, that is the answer; if the holder is
+                   gone, the lock is theirs no longer. */
+                if serving_this_protocol(&descriptor, protocol) {
+                    return Ok(());
+                }
+                let owner = std::fs::read_to_string(&lock)
+                    .ok()
+                    .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+                    .and_then(|held| held.get("pid").and_then(Value::as_i64));
+                match owner {
+                    Some(pid) if pid_is_live(pid) => {}
+                    /* A lock with no readable owner is a lock nobody is holding. */
+                    _ => {
+                        let _ = std::fs::remove_file(&lock);
+                        continue;
+                    }
+                }
+                if std::time::Instant::now() > deadline {
+                    return Err(format!(
+                        "{} is held by a live process; no second {name} service was started.",
+                        lock.display()
+                    ));
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            Err(error) => return Err(format!("{} cannot be taken: {error}", lock.display())),
+        }
+    }
+}
+
+fn under_lock(
+    directory: &Path,
+    name: &str,
+    protocol: u64,
+    binary: &Path,
+    args: &[String],
+    descriptor: &Path,
+) -> Result<(), String> {
+    /* Checked again with the lock held: whoever we waited behind may have started it. */
+    if serving_this_protocol(descriptor, protocol) {
+        return Ok(());
+    }
+    let log_path = directory.join(format!("{name}-serve.log"));
+    let log = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)
+        .map_err(|error| format!("{} cannot be opened: {error}", log_path.display()))?;
+    let mut command = std::process::Command::new(binary);
+    command.args(args).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(log);
+    /* Its own session, so it is not in this process's group and does not die with it. */
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        unsafe {
+            command.pre_exec(|| {
+                libc_setsid();
+                Ok(())
+            });
+        }
+    }
+    command.spawn().map_err(|error| format!("cannot start {}: {error}", binary.display()))?;
+    let deadline = std::time::Instant::now() + Duration::from_secs(15);
+    while std::time::Instant::now() < deadline {
+        if serving_this_protocol(descriptor, protocol) {
+            return Ok(());
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    Err(format!(
+        "{} did not write {} within 15s; see {}.",
+        binary.display(),
+        descriptor.display(),
+        log_path.display()
+    ))
+}
+
+/// A descriptor that names a service this build can speak to, and that answers.
+fn serving_this_protocol(descriptor: &Path, protocol: u64) -> bool {
+    already_serving(descriptor)
+        .and_then(|document| document.get("protocol").and_then(Value::as_u64))
+        .is_some_and(|named| named == protocol)
+}
+
+/// `process.kill(pid, 0)` — is anything still there? EPERM is something, owned by somebody else.
+fn pid_is_live(pid: i64) -> bool {
+    #[cfg(unix)]
+    {
+        if pid < 1 {
+            return false;
+        }
+        let outcome = unsafe { kill(pid as i32, 0) };
+        return outcome == 0 || std::io::Error::last_os_error().raw_os_error() == Some(1);
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = pid;
+        true
+    }
+}
+
+#[cfg(unix)]
+extern "C" {
+    fn kill(pid: i32, signal: i32) -> i32;
+    fn setsid() -> i32;
+}
+
+#[cfg(unix)]
+fn libc_setsid() {
+    unsafe {
+        setsid();
+    }
+}
+
 /// Start the service and serve until it reaps itself. `name` is the descriptor's basename and the
 /// word this service calls itself in a refusal; `idle` is how long it waits, holding nothing and
 /// unattached, before removing its descriptor and exiting.
@@ -313,6 +489,101 @@ fn attach<S: Served>(service: &Service<S>, request: &Value) -> Result<Value, (u1
         map.insert("pid".into(), json!(std::process::id()));
     }
     Ok(greeting)
+}
+
+#[cfg(test)]
+mod starting {
+    use super::*;
+
+    /// A stand-in service: a script that writes the descriptor its client is waiting for.
+    fn stand_in(directory: &Path, listening: u16) -> std::path::PathBuf {
+        let script = directory.join("stand-in.sh");
+        std::fs::write(
+            &script,
+            format!(
+                "#!/bin/bash\necho started >> \"$2/runs.txt\"\nprintf '%s' '{{\"url\":\"tcp://127.0.0.1:{listening}\",\"token\":\"{}\",\"pid\":'$$',\"protocol\":1,\"instance\":\"x\"}}' > \"$2/token.json\"\nsleep 30\n",
+                "a".repeat(64)
+            ),
+        )
+        .expect("a script");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).expect("executable");
+        }
+        script
+    }
+
+    fn scratch(name: &str) -> std::path::PathBuf {
+        let at = std::env::temp_dir().join(format!("red-core-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&at);
+        std::fs::create_dir_all(&at).expect("a directory");
+        at
+    }
+
+    /// Something to connect to, since `already_serving` asks whether the address ANSWERS.
+    fn listening() -> (std::net::TcpListener, u16) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("a port");
+        let port = listener.local_addr().expect("an address").port();
+        (listener, port)
+    }
+
+    #[test]
+    fn a_service_is_started_once_and_then_found() {
+        let at = scratch("started");
+        let (_held, port) = listening();
+        let script = stand_in(&at, port);
+        let args = vec!["--state".to_string(), at.to_string_lossy().to_string()];
+        start_service(&at, "token", 1, &script, &args).expect("started");
+        assert!(at.join("token.json").exists(), "the descriptor a client reads");
+        /* The second call FINDS it rather than starting another. Counted by what actually ran,
+           because the service refuses to be a second one itself — so a client that spawned one
+           anyway would leave the descriptor looking right and a doomed process in the log. The
+           assertion has to be about the process, or the service's own refusal masks it. */
+        start_service(&at, "token", 1, &script, &args).expect("found");
+        std::thread::sleep(Duration::from_millis(300));
+        let runs = std::fs::read_to_string(at.join("runs.txt")).unwrap_or_default();
+        assert_eq!(runs.lines().count(), 1, "one service per directory: {runs:?}");
+        let _ = std::fs::remove_dir_all(&at);
+    }
+
+    /* A lock whose owner died must not block the survivor forever — a workspace that would not open
+       because a process crashed mid-start is a workspace nobody can recover without a manual
+       delete, and the person has no reason to know which file. */
+    #[test]
+    fn a_lock_whose_owner_is_gone_is_taken_by_whoever_is_still_here() {
+        let at = scratch("stale");
+        let (_held, port) = listening();
+        let script = stand_in(&at, port);
+        /* PID 2^31-1 is not a process on any machine this runs on. */
+        std::fs::write(at.join("token-startup.lock"), "{\"pid\":2147483647}").expect("a lock");
+        start_service(&at, "token", 1, &script, &vec!["--state".to_string(), at.to_string_lossy().to_string()])
+            .expect("the stale lock was reclaimed");
+        assert!(at.join("token.json").exists());
+        assert!(!at.join("token-startup.lock").exists(), "and released again");
+        let _ = std::fs::remove_dir_all(&at);
+    }
+
+    /* A lock held by something that IS alive is somebody else starting one, and a caller that waited
+       forever would be a workspace that hangs. It is named instead, with nothing started. */
+    #[test]
+    fn a_lock_held_by_a_live_process_is_refused_by_name() {
+        let at = scratch("live");
+        let script = stand_in(&at, 1);
+        std::fs::write(at.join("token-startup.lock"), format!("{{\"pid\":{}}}", std::process::id())).expect("a lock");
+        let refused = start_service(&at, "token", 1, &script, &[]).expect_err("refused");
+        assert!(refused.contains("held by a live process"), "{refused}");
+        assert!(refused.contains("no second token service was started"), "{refused}");
+        assert!(!at.join("token.json").exists(), "and nothing was");
+        let _ = std::fs::remove_dir_all(&at);
+    }
+
+    #[test]
+    fn a_binary_nobody_has_is_named_with_the_command_that_makes_one() {
+        let refused = serve_binary("RENGINE_A_VARIABLE_NOBODY_SET", "red-nothing-serve").expect_err("refused");
+        assert!(refused.contains("red-nothing-serve"), "{refused}");
+        assert!(refused.contains("cargo build"), "it says how to make one: {refused}");
+    }
 }
 
 #[cfg(test)]

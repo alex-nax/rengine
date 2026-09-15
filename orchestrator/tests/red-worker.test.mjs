@@ -70,7 +70,13 @@ async function host(t, answers = {}) {
 async function worker(t, upstream, stateDir, options = {}) {
   const child = spawn(BIN, ['--state', stateDir ?? upstream.state, '--host', upstream.url, '--host-token', HOST_TOKEN,
     ...(options.ide ? [] : ['--no-ide'])],
-    { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, ...(options.env ?? {}) } });
+    { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env,
+      /* No ledger unless a test asks for one, and by the PRODUCTION means: a worker whose
+         `red-token-serve` is missing starts none and says so, which is the condition every
+         "this workspace worker does not serve the project token ledger" assertion is about. A
+         suite that started a real ledger everywhere would have no way to reach those. */
+      ...(options.ledger ? {} : { RENGINE_RED_TOKEN_SERVE: '/nonexistent/red-token-serve' }),
+      ...(options.env ?? {}) } });
   let noise = '';
   child.stderr.on('data', bytes => { noise += bytes; });
   t.after(() => { try { child.kill('SIGKILL'); } catch { /* gone */ } });
@@ -816,4 +822,49 @@ test('a recording frame is the desktop\'s, and is refused when it is anyone else
   assert.match((await desktop.json()).error, /does not serve the project token ledger/);
   assert.deepEqual(upstream.seen.filter(request => request.url === '/api/recording'), [],
     'and it was never forwarded to a host that has no feed');
+});
+
+/* --- the ledger the worker owns the routes to, which it also has to make sure exists ------------ */
+/* `attaching` only attaches, deliberately: two in-memory owners of one set of files is stale reads
+ * and lost writes (KI-103, D60/D61). So starting one is a separate act, and it is the WORKER's —
+ * it is the layer that owns the token's routes, so it is the layer that makes sure there is a
+ * ledger to own. Until now the JavaScript worker did this and everything else attached to what it
+ * left running; after the cutover nobody would.
+ */
+test('a worker starts the ledger it serves, and a second one attaches to the same', { timeout: 120000 }, async t => {
+  const upstream = await host(t, ROOTS);
+  t.after(async () => {
+    try {
+      const descriptor = JSON.parse(await readFile(path.join(upstream.state, 'token.json'), 'utf8'));
+      if (Number.isSafeInteger(descriptor.pid)) process.kill(descriptor.pid, 'SIGKILL');
+    } catch { /* never started, or already gone */ }
+  });
+  /* Nothing is running: no descriptor, and nobody has started one. */
+  assert.equal(await readFile(path.join(upstream.state, 'token.json'), 'utf8').catch(() => null), null);
+
+  const started = await worker(t, upstream, undefined, { ledger: true });
+  const descriptor = JSON.parse(await readFile(path.join(upstream.state, 'token.json'), 'utf8'));
+  assert.match(descriptor.url, /^tcp:\/\/127\.0\.0\.1:\d+$/, 'the service says where it is');
+  assert.equal(descriptor.protocol, 1);
+  assert.notEqual(descriptor.pid, undefined);
+
+  /* And the worker is attached to it: the feed answers from the ledger rather than saying it has
+     none, which is the whole difference this makes. */
+  const root = randomUUID();
+  const feed = await ask(started, `/api/feed?rootId=${root}`);
+  assert.equal(feed.status, 200, JSON.stringify(await feed.clone().json()));
+  assert.deepEqual((await feed.json()).frames, []);
+
+  /* A second worker on the same directory ATTACHES rather than starting a second: one ledger per
+     directory is the rule, and two would be two sequences on one feed. */
+  const second = await worker(t, upstream, undefined, { ledger: true });
+  const again = JSON.parse(await readFile(path.join(upstream.state, 'token.json'), 'utf8'));
+  assert.equal(again.pid, descriptor.pid, 'the same service, not a second one');
+  const theirs = await ask(second, `/api/feed?rootId=${root}`);
+  assert.equal(theirs.status, 200);
+
+  /* The service outlives the worker that started it, which is the whole of D60/D61: a replaced
+     worker finds the ledger where it left it, with its sequence unbroken. */
+  const window = await ask(started, '/api/state').then(read => read.json());
+  assert.equal(typeof window.preferences.tokenWindowMs, 'number', 'and the worker can read it');
 });
