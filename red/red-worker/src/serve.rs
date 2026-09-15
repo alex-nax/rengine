@@ -53,6 +53,12 @@ pub fn own_route(method: &str, path: &str) -> bool {
             | ("GET", "/api/state")
             | ("POST", "/api/preferences")
             | ("POST", "/api/recording")
+            /* The desktop registry's own routes. They are the worker's for the same reason every
+               route it answers rather than forwards is: the host beneath may have none of them. */
+            | ("GET", "/api/desktops")
+            | ("POST", "/api/desktop-action")
+            | ("GET", "/api/runtime-desktops")
+            | ("POST", "/api/session-view")
             /* And the two the door performs and this worker composes AROUND. The launch: the host
                announces the new session before the call returns, so who asked has to be queued
                before the call is made. The board's button: an action is a launch, a device-bound
@@ -97,6 +103,10 @@ pub fn implemented(method: &str, path: &str) -> bool {
             | ("POST", "/api/dashboard-run")
             | ("POST", "/api/tracker/signin")
             | ("POST", "/api/tracker/signout")
+            | ("GET", "/api/desktops")
+            | ("POST", "/api/desktop-action")
+            | ("GET", "/api/runtime-desktops")
+            | ("POST", "/api/session-view")
     )
 }
 
@@ -124,7 +134,6 @@ pub fn gated(method: &str, path: &str) -> Option<(&'static str, Names)> {
     Some(match (method, path) {
         ("POST", "/api/stop") => ("stop_session", Names::Session),
         ("POST", "/api/agent-restart") => ("restart_agent", Names::Session),
-        ("POST", "/api/desktop-action") => ("reload_desktop", Names::Root),
         _ => return None,
     })
 }
@@ -186,6 +195,7 @@ pub fn gates_internally(method: &str, path: &str) -> Option<&'static str> {
         ("POST", "/api/game") => "launch_game",
         ("POST", "/api/dashboard-run") => "dashboard_run",
         ("POST", "/api/dashboard-capture") => "dashboard_capture",
+        ("POST", "/api/desktop-action") => "reload_desktop",
         _ => return None,
     })
 }
@@ -226,7 +236,15 @@ pub fn token_refusal(
 /// `/surface` belong to whoever answers the session routes, so they are tunnelled through: a client
 /// that reached the worker for a pane's bytes gets the host's, and never a second opinion.
 pub fn own_socket(path: &str) -> bool {
-    path == "/feed"
+    /* `/events` is TERMINATED here rather than tunnelled, because four of its frames are this
+       worker's: a desktop registering, a desktop answering an action, a person acting on the token,
+       and a capture the desktop recorded. The host beneath may predate all four (spec 065), and a
+       worker that passed them through would answer from a host that never had them. Everything else
+       on the socket is forwarded unchanged, which is what "a pane's bytes are never a second
+       opinion" actually protects.
+
+       `/surface` carries ONE game's frames and has nothing this worker decides, so it is tunnelled. */
+    matches!(path, "/feed" | "/events")
 }
 
 /// Is this request for us at all? A worker answers `/api/*`, its own socket, and `/health`; nothing
@@ -250,7 +268,7 @@ mod tests {
 
         /* And the routes the door already answers, which it must NOT: answering them here would
            answer from a worker's view of a workspace rather than the workspace's own. */
-        for path in ["/api/desktops", "/api/stop", "/api/state-not-a-route"] {
+        for path in ["/api/stop", "/api/state-not-a-route"] {
             assert!(!own_route("GET", path), "{path} is the door's");
         }
         /* And a project's own, which the door answers AND the worker answers — because the host
@@ -277,8 +295,15 @@ mod tests {
            socket, so the two routes over that registry are answered where the sockets are. Listed
            separately because they were the worker's in the JavaScript and the reason they are not
            here is a decision (spec 143) rather than an omission. */
-        assert!(!own_route("POST", "/api/session-view"), "the registry is the door's");
-        assert!(!own_route("GET", "/api/runtime-desktops"), "and so is the workspace's list of it");
+        /* The desktop registry, which is the worker's — and was briefly the door's, until deleting
+           `worker.mjs` showed what that cost above a host with no desktop routes (spec 143). The
+           door keeps its own for a workspace with no worker in front, and the two are one
+           implementation (`red_core::desktops`) over two sockets. */
+        for path in ["/api/desktops", "/api/runtime-desktops"] {
+            assert!(own_route("GET", path), "{path} is the registry's");
+        }
+        assert!(own_route("POST", "/api/session-view"));
+        assert!(own_route("POST", "/api/desktop-action"));
     }
 
     /* A method is half of a route. `GET /api/recording` reads a recording out of a project and is
@@ -398,7 +423,7 @@ mod tests {
         }
         /* A read is not gated: the token arbitrates what a caller may CHANGE. */
         assert_eq!(gated("GET", "/api/state"), None);
-        assert_eq!(gated("GET", "/api/desktops"), None);
+        assert_eq!(gated("GET", "/api/desktops"), None, "a read is not gated");
         assert_eq!(gated("GET", "/api/stop"), None, "the stop is a POST");
     }
 
@@ -471,10 +496,11 @@ mod tests {
     }
 
     #[test]
-    fn the_feed_is_the_workers_socket_and_the_others_are_tunnelled() {
-        assert!(own_socket("/feed"));
-        assert!(!own_socket("/events"), "a pane's bytes belong to whoever answers the session routes");
-        assert!(!own_socket("/surface"), "and so do a game's frames");
+    fn the_sockets_with_something_on_them_are_served_and_the_rest_are_tunnelled() {
+        assert!(own_socket("/feed"), "the one thing nothing else can serve");
+        /* Four of `/events`' frames are this worker's, and the host beneath may predate all four. */
+        assert!(own_socket("/events"));
+        assert!(!own_socket("/surface"), "a game's frames are whoever answers the session routes'");
     }
 
     /* The port's own progress, and the property that makes it safe to be half-done: everything

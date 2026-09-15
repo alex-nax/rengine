@@ -386,36 +386,85 @@ test('a project script opens as a pane, titled by the file the person named', as
   assert.equal(asked.length, 1, 'nothing was started for it');
 });
 
-/* Showing the pane is the DOOR's (spec 143): desktops register on its socket. A failure to show is
+/* Showing the pane is the worker's, because the registry is (spec 143). A failure to show is
  * REPORTED rather than retried — the pane is already running and retained, so a caller that tried
  * again would start a second one. */
 test('a pane that cannot be shown is reported, never started twice', async t => {
   const at = await mkdtemp(path.join(tmpdir(), 'rengine-scripts-'));
   t.after(() => rm(at, { recursive: true, force: true }));
   await writeFile(path.join(at, 'deploy.sh'), '#!/bin/bash\necho deployed\n', { mode: 0o755 });
-  const upstream = await host(t, {
-    ...withRoot(at),
-    '/api/terminal': { id: 'pane-4', rootId: 'r' },
-    '/api/session-view': { __status: 404, error: 'Desktop is not attached to this project.' },
-  });
+  const upstream = await host(t, { ...withRoot(at), '/api/terminal': { id: 'pane-4', rootId: 'r' } });
   const started = await worker(t, upstream);
 
-  const opened = await ask(started, '/api/script-open',
+  /* A desktop that cannot show it is asked about FIRST, before the path is even looked at and
+     before anything is started: being told to open a desktop beats being told, a moment later, that
+     the pane you just started is unattachable. */
+  const missing = await ask(started, '/api/script-open',
     { method: 'POST', body: JSON.stringify({ rootId: 'r', path: 'deploy.sh', desktopId: 'gone' }) });
-  assert.equal(opened.status, 200, 'the script RAN; only showing it failed');
-  const answer = await opened.json();
-  assert.equal(answer.view.status, 'not_attached');
-  assert.equal(answer.view.error, 'Desktop is not attached to this project.');
-  assert.match(answer.detail, /do not launch it again/);
-  const view = upstream.seen.find(request => request.url === '/api/session-view');
-  assert.deepEqual(JSON.parse(view.body), { rootId: 'r', desktopId: 'gone', id: 'pane-4' });
+  assert.equal(missing.status, 404);
+  assert.equal((await missing.json()).error, 'Desktop is not attached to this project.');
+  assert.deepEqual(upstream.seen.filter(request => request.url === '/api/terminal'), [],
+    'and nothing was started for a desktop that could not have shown it');
 
-  /* And a caller that named no desktop is never asked about one. */
+  /* A caller that named no desktop starts the pane and is told about no view. */
   const alone = await ask(started, '/api/script-open',
     { method: 'POST', body: JSON.stringify({ rootId: 'r', path: 'deploy.sh' }) });
+  assert.equal(alone.status, 200);
   assert.equal((await alone.json()).view, undefined);
-  assert.equal(upstream.seen.filter(request => request.url === '/api/session-view').length, 1);
 });
+
+/* The other half: a desktop that IS there and then does not answer. The pane is already running and
+ * retained by then, so the failure is REPORTED rather than retried — a caller that tried again would
+ * start a second one, which is why the detail says so in words. */
+test('a desktop that goes quiet is reported, and the pane it could not show is not started twice', { timeout: 120000 }, async t => {
+  const at = await mkdtemp(path.join(tmpdir(), 'rengine-scripts-'));
+  t.after(() => rm(at, { recursive: true, force: true }));
+  await writeFile(path.join(at, 'deploy.sh'), '#!/bin/bash\necho deployed\n', { mode: 0o755 });
+  const panes = [];
+  const upstream = await host(t, {
+    ...withRoot(at),
+    '/api/terminal': body => { panes.push(body); return { id: `pane-${panes.length}`, rootId: 'r' }; },
+  });
+  /* The host's own `/events`, because the worker opens one upstream before it serves this socket:
+     four frames are its own and the rest are the host's, and a worker that served the socket with
+     nowhere to forward the rest would be a view of a pane that takes no input. */
+  const sockets = new WebSocketServer({ server: upstream.server });
+  sockets.on('connection', socket => socket.on('message', () => {}));
+  /* A short acknowledgement budget, so this can watch a desktop fail to answer without spending the
+     production four seconds on it. */
+  const started = await worker(t, upstream, undefined, { env: { RENGINE_DESKTOP_ACTION_MS: '700' } });
+
+  const desktop = new WebSocket(`${started.url.replace('http', 'ws')}/events?token=${started.token}`);
+  t.after(() => { try { desktop.close(); } catch { /* gone */ } });
+  const frames = [];
+  desktop.on('message', bytes => frames.push(JSON.parse(bytes.toString())));
+  await once(desktop, 'open');
+  desktop.send(JSON.stringify({ type: 'desktop-register', rootIds: ['r'], sessionIds: [], canReload: true, canAttach: true }));
+  const registered = await until(() => frames.find(frame => frame.type === 'desktop-registered'), 'the desktop registered');
+
+  /* It never answers the attach. */
+  const opened = await ask(started, '/api/script-open',
+    { method: 'POST', body: JSON.stringify({ rootId: 'r', path: 'deploy.sh', desktopId: registered.id }) });
+  assert.equal(opened.status, 200, 'the script RAN; only showing it failed');
+  const answer = await opened.json();
+  assert.equal(answer.session.title, 'Script · deploy.sh');
+  assert.equal(answer.view.status, 'not_attached');
+  assert.match(answer.view.error, /did not acknowledge/);
+  assert.match(answer.detail, /do not launch it again/);
+  assert.equal(panes.length, 1, 'and it was started once');
+  /* The desktop was asked, on the socket it registered on. */
+  assert.ok(frames.some(frame => frame.type === 'desktop-action' && frame.action === 'attach-session'),
+    `the desktop was asked to show it: ${JSON.stringify(frames.map(frame => frame.type))}`);
+});
+
+async function until(check, what, timeout = 15000) {
+  for (let waited = 0; waited < timeout; waited += 25) {
+    const value = await check();
+    if (value) return value;
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  assert.fail(what);
+}
 
 /* A task write is token-gated and serialised, and the frame is minted AFTER the project's own
  * command returned — a feed that announced a write that then failed would be a feed a reader could
@@ -695,11 +744,12 @@ test('a route the door answers is gated here before it is handed on', async t =>
   /* With no ledger there is nothing to be refused BY, so each goes through — and what this asserts
      is that it went through the gate on its way, not around it. The refusal order itself is
      `serve::token_refusal`'s, and the gate's own answers are the ledger's. */
-  /* Only the routes that are gated ON THE WAY PAST are here. `/api/game`, `/api/dashboard-run` and
-     `/api/dashboard-capture` are gated too and are not: the worker ANSWERS all three, so there is no
-     way past, and each carries its gate inside itself (`serve::gates_internally`, which is where
-     that is written down so `own_route` can never quietly excuse one). */
-  for (const [route, body] of [['/api/desktop-action', { rootId: 'r', desktopId: 'd', action: 'reload' }]]) {
+  /* Only the routes that are gated ON THE WAY PAST are here. `/api/game`, `/api/dashboard-run`,
+     `/api/dashboard-capture` and `/api/desktop-action` are gated too and are not: the worker ANSWERS
+     all four, so there is no way past, and each carries its gate inside itself
+     (`serve::gates_internally`, which is where that is written down so `own_route` can never quietly
+     excuse one). */
+  for (const [route, body] of [['/api/agent-restart', { id: 'pane-1' }]]) {
     const answered = await ask(started, route, { method: 'POST', body: JSON.stringify(body) });
     assert.equal(answered.status, 200, route);
     assert.equal(upstream.seen.at(-1).url, route, `${route} reached the door after the gate`);

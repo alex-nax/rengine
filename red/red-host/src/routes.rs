@@ -297,7 +297,14 @@ pub(crate) async fn answer_desktop_action(front: &Arc<Front>, body: &str) -> Str
     if let Err(fault) = ask(front, "root", serde_json::json!([root])).await {
         return faulted(&fault);
     }
-    match front.desktops.act(&root, &desktop, "reload", serde_json::Value::Null).await {
+    /* Blocking: the answer comes from the socket's reader, so a door on an async runtime hands it
+       to a thread rather than parking a worker for as long as a desktop takes to answer. */
+    let acting = front.clone();
+    let asked = tokio::task::spawn_blocking(move || {
+        acting.desktops.act(&root, &desktop, "reload", serde_json::Value::Null, &crate::uuid_v4)
+    })
+    .await;
+    match asked.unwrap_or_else(|error| Err(format!("500|{error}"))) {
         Ok(value) => http_json(200, "OK", &value),
         Err(fault) => faulted(&fault),
     }
@@ -328,7 +335,12 @@ pub(crate) async fn answer_session_view(front: &Arc<Front>, body: &str) -> Strin
     if session.get("rootId").and_then(serde_json::Value::as_str) != Some(root.as_str()) {
         return faulted("403|Session belongs to another root.");
     }
-    match front.desktops.act(&root, &desktop, "attach-session", serde_json::json!({ "session": session })).await {
+    let acting = front.clone();
+    let asked = tokio::task::spawn_blocking(move || {
+        acting.desktops.act(&root, &desktop, "attach-session", serde_json::json!({ "session": session }), &crate::uuid_v4)
+    })
+    .await;
+    match asked.unwrap_or_else(|error| Err(format!("500|{error}"))) {
         Ok(value) => http_json(200, "OK", &value),
         Err(fault) => faulted(&fault),
     }

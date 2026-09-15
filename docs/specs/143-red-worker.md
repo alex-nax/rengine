@@ -2,7 +2,7 @@
 
 Owner goal, 2026-09-15: *"finish remaining js"* (charter D57, spec 129; F158).
 
-Status: **cut over.** The supervisor runs `red-worker` by default. Every route is answered — the project's own, `dashboard-run`, F154's two tracker routes — both sockets are served, and the host's own stream is followed.
+Status: **done, and `worker.mjs` is deleted.** The supervisor runs `red-worker`; every route is answered, three sockets are served, the host's own stream is followed, and the desktop registry is the worker's.
 
 `docs/js-retirement-status.md` is the whole picture this row sits in: what JavaScript is left, which
 caller each file retires with, and the order the remaining four callers come off in.
@@ -164,7 +164,7 @@ the lock buys beyond the service's refusal is that no doomed process is spawned,
 died is reclaimed rather than blocking the survivor forever, and one held by a live process is
 refused by name with nothing started.
 
-## The registry decision, revisited — and it was half wrong
+## The registry decision, revisited — and it was half wrong (now fixed)
 
 Trying to DELETE `worker.mjs` is what found this, which is the argument for trying.
 
@@ -200,8 +200,26 @@ So the registry belongs at the **worker**, as `worker.mjs` had it, and the worke
 the door's own case and is tested. The two are not a duplicate — they are the same registry for two
 different sockets, and the shared rules are already in one place.
 
-**Until that is done, `worker.mjs` stays**, and `runtime.test.mjs` is the one spec that still uses
-it. Everything else in the tree runs on `red-worker`.
+**Done.** `red_core::desktops` is the registry — one implementation, over a trait for "something you
+can say a line to", so the door and the worker share it and neither has a copy. The worker terminates
+`/events`, understands those four frames and forwards the rest, and holds the registry; the door keeps
+its own for a workspace with no worker in front, which is its own case and is tested.
+
+Two things fell out of doing it:
+
+- **The token segment settled itself.** The worker has the registry and the ledger together now, as
+  `worker.mjs` did, so it pushes the segment from its own client. `POST /api/ledger` and the door's
+  copy of the push both went — the interim below is gone, and option (1), moving the ledger beside
+  the store and the PTYs, is now a tidying rather than a fix.
+- **A desktop is asked whether it CAN show a pane before the pane is started.** `worker.mjs` called
+  `desktops.target` before it even looked at the path; answering the routes locally made that order
+  visible again. Being told to update a desktop beats being told, a moment later, that the pane you
+  just started cannot be shown in it — and nothing is started for a desktop that could not have
+  shown it.
+
+`runtime.test.mjs`'s legacy-host case now runs on `red-worker` and passes, which is what it was
+holding out for: the worker serves the desktop registry above a host that has no desktop routes at
+all.
 
 ## The last thing, and where it landed
 

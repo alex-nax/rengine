@@ -64,6 +64,20 @@ struct Worker {
     /// Who asked for which launch, and which games are open. The feed carries a PAIR for a game and
     /// this is what keeps it trustworthy across a launch that has not been given an id yet.
     launches: red_worker::launches::Launches,
+    /// The desktops attached through this worker, and the actions it can ask them to perform.
+    ///
+    /// The worker's rather than the door's, and the reason is the reason for every route it answers
+    /// rather than forwards: **the host beneath may predate the desktop routes entirely** (spec 065,
+    /// KI-043). A worker that forwarded them would answer from a host that never had them, and
+    /// `capabilities.desktopActions` is the promise it makes that they work.
+    ///
+    /// Holding them here means terminating `/events` rather than tunnelling it — which is what
+    /// `worker.mjs` did, and the four frames below are the four it understood. Everything else on
+    /// that socket passes through, which is what "a pane's bytes are never a second opinion" is
+    /// actually about.
+    desktops: red_core::desktops::Desktops,
+    /// Numbers a socket, so a registration can be keyed by one without holding it.
+    sockets: std::sync::atomic::AtomicU64,
     /// Replaced, but still draining (spec 095, Retirement).
     ///
     /// A retired worker keeps answering everything it can, because its streams are still somebody's
@@ -136,6 +150,11 @@ async fn main() -> std::process::ExitCode {
        whatever arrived first. */
     let watchers = Arc::new(Watchers::default());
     let fan_out = watchers.clone();
+    /* A `token.*` frame moved the ledger, so every desktop bound to that project is pushed the
+       pinned segment — which is what lets the status bar never poll. The callback cannot ASK for the
+       segment: it runs on the client's own reader, and a call from there would be the reader waiting
+       for itself. So it names the project and a task does the asking. */
+    let (wants, mut wanted) = tokio::sync::mpsc::unbounded_channel::<String>();
     /* Started if nobody has: a worker is the layer that owns the ledger's routes, so it is the layer
        that makes sure there is one to own. `attaching` only attaches — deliberately, because two
        in-memory owners of one set of files is stale reads and lost writes — so the start is a
@@ -161,6 +180,17 @@ async fn main() -> std::process::ExitCode {
         Box::new(move |event: &serde_json::Value| {
             for behind in fan_out.deliver(event) {
                 fan_out.close(behind, Close::Behind);
+            }
+            let moved = event.get("event").and_then(serde_json::Value::as_str) == Some("frame")
+                && event
+                    .get("frame")
+                    .and_then(|frame| frame.get("type"))
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|kind| kind.starts_with("token."));
+            if moved {
+                if let Some(root) = event.get("rootId").and_then(serde_json::Value::as_str) {
+                    let _ = wants.send(root.to_string());
+                }
             }
         }),
     ) {
@@ -188,6 +218,8 @@ async fn main() -> std::process::ExitCode {
         launches: red_worker::launches::Launches::new(),
         retired: std::sync::atomic::AtomicBool::new(false),
         probes: red_project::devices::Probes::default(),
+        desktops: red_core::desktops::Desktops::new(),
+        sockets: std::sync::atomic::AtomicU64::new(0),
         signing_in: red_worker::signin::SigningIn::new(),
         draining: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
     });
@@ -239,14 +271,14 @@ async fn main() -> std::process::ExitCode {
         });
     }
 
-    /* The door pushes a desktop's token segment, and the ledger is in THIS directory rather than
-       its own — so it is told where. The worker is the process that knows; the door is the process
-       that needs to know. Spec 143 recommends moving the ledger beside the store and the PTYs, at
-       which point the door attaches on its own and this call goes. */
-    if worker.ledger.is_some() {
-        if let Err(fault) = ask_host(&worker, "POST", "/api/ledger", &serde_json::json!({ "directory": state }).to_string()) {
-            eprintln!("red-worker: the door could not attach to this ledger ({fault}). A desktop's token segment will not update.");
-        }
+    {
+        let worker = worker.clone();
+        tokio::spawn(async move {
+            while let Some(root) = wanted.recv().await {
+                let held = worker.clone();
+                let _ = tokio::task::spawn_blocking(move || push_segment(&held, &root, None)).await;
+            }
+        });
     }
     /* The open pairs this worker inherits, and then the stream that closes them. A worker replaced
        mid-game reads its predecessor's `game.started` frames back out of the ring, so the `ended`
@@ -296,10 +328,16 @@ async fn connection(worker: Arc<Worker>, mut client: TcpStream) -> io::Result<()
            nothing else can serve it — one writer, one sequence. `/events` and `/surface` belong to
            whoever answers the session routes, so they are tunnelled byte for byte: a client that
            reached the worker for a pane's bytes gets the host's, and never a second opinion. */
-        if head.upgrade && red_worker::serve::own_socket(&head.path()) {
+        if head.upgrade && head.path() == "/feed" {
             let key = head.header("sec-websocket-key").unwrap_or_default();
             client.write_all(accepted(&key).as_bytes()).await?;
             serve_feed(worker, client, buffered, &head).await;
+            return Ok(());
+        }
+        if head.upgrade && red_worker::serve::own_socket(&head.path()) {
+            let key = head.header("sec-websocket-key").unwrap_or_default();
+            client.write_all(accepted(&key).as_bytes()).await?;
+            serve_events(worker, client, buffered, &head).await;
             return Ok(());
         }
         if head.upgrade {
@@ -879,6 +917,324 @@ async fn serve_feed(worker: Arc<Worker>, client: TcpStream, buffered: Vec<u8>, h
     let _ = writer.await;
 }
 
+/// One desktop's end of its socket, as the registry sees it.
+struct Desk(tokio::sync::mpsc::UnboundedSender<String>);
+
+impl red_core::desktops::Says for Desk {
+    fn say(&self, line: String) {
+        let _ = self.0.send(line);
+    }
+}
+
+/// The `/events` socket: the host's, with four frames taken out of it.
+///
+/// A desktop registering, a desktop answering an action, a person acting on the token, and a
+/// capture the desktop recorded are all **this worker's** — the host beneath may predate every one
+/// of them (spec 065), and a worker that passed them through would answer from a host that never
+/// had them. Everything else goes upstream unchanged, which is what "a pane's bytes are never a
+/// second opinion" is actually about: this reads four frame TYPES and forwards the rest.
+async fn serve_events(worker: Arc<Worker>, client: TcpStream, buffered: Vec<u8>, head: &Head) {
+    let socket = worker.sockets.fetch_add(1, Ordering::SeqCst);
+    let stream = Prefixed { buffered, inner: client };
+    let downstream = WebSocketStream::from_raw_socket(stream, Role::Server, None).await;
+    let (mut writing, mut reading) = downstream.split();
+    let (out, mut queue) = unbounded_channel::<String>();
+
+    /* The host's own socket, opened as a client: everything it says reaches the desktop, and
+       everything the desktop says that is not one of the four reaches it. */
+    let upstream = match dial_events(&worker, head).await {
+        Ok(upstream) => upstream,
+        Err(_) => {
+            let _ = writing.close().await;
+            return;
+        }
+    };
+    let (mut to_host, mut from_host) = upstream.split();
+
+    let writer = tokio::spawn(async move {
+        while let Some(line) = queue.recv().await {
+            if writing.send(Message::Text(line.into())).await.is_err() {
+                break;
+            }
+        }
+        let _ = writing.close().await;
+    });
+    let downward = out.clone();
+    let carrying = tokio::spawn(async move {
+        while let Some(Ok(message)) = from_host.next().await {
+            let Message::Text(text) = message else { continue };
+            if downward.send(text.to_string()).is_err() {
+                break;
+            }
+        }
+    });
+
+    while let Some(Ok(message)) = reading.next().await {
+        let Message::Text(text) = message else { continue };
+        let Ok(frame) = serde_json::from_str::<serde_json::Value>(&text) else {
+            let _ = to_host.send(Message::Text(text)).await;
+            continue;
+        };
+        let kind = frame.get("type").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+        if !matches!(kind.as_str(), "desktop-register" | "desktop-action-result" | "token-action" | "recording") {
+            if to_host.send(Message::Text(text)).await.is_err() {
+                break;
+            }
+            continue;
+        }
+        let said = out.clone();
+        let held = worker.clone();
+        let answered = tokio::task::spawn_blocking(move || desktop_frame(&held, socket, &kind, &frame, said)).await;
+        if let Ok(Err(refusal)) = answered {
+            /* The JS host's `{type:'error'}`, which is how every refusal on this socket reaches a
+               person. */
+            let _ = out.send(serde_json::json!({ "type": "error", "error": refusal }).to_string());
+        }
+    }
+    worker.desktops.disconnected(socket);
+    drop(out);
+    carrying.abort();
+    let _ = writer.await;
+}
+
+/// One of the four frames on `/events` that are this worker's.
+///
+/// The order of the checks in each is the JavaScript's, and load-bearing: a frame from somebody who
+/// is not a registered desktop is refused as theirs before anything is asked of the ledger.
+fn desktop_frame(
+    worker: &Arc<Worker>,
+    socket: u64,
+    kind: &str,
+    frame: &serde_json::Value,
+    said: tokio::sync::mpsc::UnboundedSender<String>,
+) -> Result<(), String> {
+    match kind {
+        "desktop-register" => {
+            let registered = register_desktop(worker, socket, frame, Arc::new(Desk(said)));
+            if let Err(message) = &registered {
+                worker.desktops.refused(message, now_ms());
+            }
+            registered?;
+            /* The pinned segment, straight away: a desktop that has just registered draws its status
+               bar from this and would otherwise have nothing until the next transition. */
+            for root in worker.desktops.bound(socket) {
+                push_segment(worker, &root, Some(socket));
+            }
+            Ok(())
+        }
+        "desktop-action-result" => worker.desktops.acknowledge(socket, frame),
+        "token-action" => desktop_token(worker, socket, frame),
+        "recording" => desktop_recording(worker, socket, frame),
+        _ => Ok(()),
+    }
+}
+
+/// A registration, with its bindings resolved against the workspace this worker fronts.
+fn register_desktop(
+    worker: &Arc<Worker>,
+    socket: u64,
+    frame: &serde_json::Value,
+    says: Arc<dyn red_core::desktops::Says>,
+) -> Result<(), String> {
+    if let Some(refusal) = red_core::desktops::Desktops::malformed(frame, 0) {
+        return Err(refusal.to_string());
+    }
+    let state = ask_host(worker, "GET", "/api/state", "").map_err(|fault| plain(&fault))?;
+    let empty = Vec::new();
+    let known: Vec<String> = state
+        .get("roots")
+        .and_then(serde_json::Value::as_array)
+        .unwrap_or(&empty)
+        .iter()
+        .filter_map(|root| root.get("id").and_then(serde_json::Value::as_str).map(str::to_string))
+        .collect();
+    let roots = red_core::desktops::unique(listed(frame, "rootIds"));
+    for root in &roots {
+        if !known.contains(root) {
+            return Err("Unknown project root.".to_string());
+        }
+    }
+    /* A session this workspace has never had is NOT an invalid binding: it ended with the host that
+       owned it and the desktop's saved layout outlived that process. Refusing the frame would leave
+       the desktop unregistered and every desktop action, and the whole runtime layer, invisible. */
+    let panes = state.get("sessions").and_then(serde_json::Value::as_array).cloned().unwrap_or_default();
+    let (mut sessions, mut unknown) = (Vec::new(), Vec::new());
+    for id in red_core::desktops::unique(listed(frame, "sessionIds")) {
+        match panes.iter().find(|pane| pane.get("id").and_then(serde_json::Value::as_str) == Some(id.as_str())) {
+            Some(pane) => {
+                if pane.get("rootId").and_then(serde_json::Value::as_str).map(str::to_string) != roots.iter().find(|root| Some(root.as_str()) == pane.get("rootId").and_then(serde_json::Value::as_str)).cloned() {
+                    return Err("Desktop session has a different root.".to_string());
+                }
+                sessions.push(id);
+            }
+            None => unknown.push(id),
+        }
+    }
+    worker.desktops.register(
+        socket,
+        says,
+        frame,
+        red_core::desktops::Bindings { roots, sessions, unknown },
+        red_core::service::uuid_v4(),
+    );
+    Ok(())
+}
+
+fn listed(frame: &serde_json::Value, key: &str) -> Vec<String> {
+    frame
+        .get(key)
+        .and_then(serde_json::Value::as_array)
+        .map(|items| items.iter().filter_map(serde_json::Value::as_str).map(str::to_string).collect())
+        .unwrap_or_default()
+}
+
+/// A desktop acting on the project token, over the socket it registered on.
+///
+/// A desktop has more actions than an agent does — settling, assigning, rejecting on someone's
+/// behalf — so this does not narrow them the way an agent's are narrowed; the ledger judges them.
+/// What is judged HERE is that the frame came from a registered desktop bound to the project.
+fn desktop_token(worker: &Arc<Worker>, socket: u64, frame: &serde_json::Value) -> Result<(), String> {
+    let (root, desktop) = acting(worker, socket, frame, "token actions")?;
+    let Some(ledger) = &worker.ledger else {
+        return Err("This workspace worker does not serve the project token ledger.".to_string());
+    };
+    /* An assign resolves an agent id against the conversations this project remembers, and a
+       function does not cross a socket — so what a `lookup` would have answered comes with it. */
+    let asked = frame.get("agentId").and_then(serde_json::Value::as_str);
+    let lookup = match asked {
+        Some(agent) => conversation_identity(worker, &root, agent),
+        None => serde_json::Value::Null,
+    };
+    ledger
+        .call(
+            "desktop",
+            serde_json::json!([root, frame.get("action"), {
+                "contestId": frame.get("contestId"), "desktopId": desktop,
+                "reason": frame.get("reason"), "agentId": asked, "lookup": lookup,
+            }]),
+        )
+        .map_err(|fault| plain(&fault))?;
+    push_segment(worker, &root, None);
+    Ok(())
+}
+
+/// A desktop announcing a capture it started or committed (spec 081).
+fn desktop_recording(worker: &Arc<Worker>, socket: u64, frame: &serde_json::Value) -> Result<(), String> {
+    let (root, desktop) = acting(worker, socket, frame, "recording frames")?;
+    if worker.ledger.is_none() {
+        return Err("This workspace worker does not serve the project token ledger.".to_string());
+    }
+    let kind = match frame.get("event").and_then(serde_json::Value::as_str) {
+        Some("started") => "capture.started",
+        Some("committed") => "capture.committed",
+        _ => return Err("A recording frame carries event started or committed.".to_string()),
+    };
+    let by = serde_json::json!({ "kind": "desktop", "desktopId": desktop });
+    note(worker, &root, kind, &by, capture_fields(frame));
+    Ok(())
+}
+
+/// The project and the desktop a frame on this socket is acting as — or why it is neither.
+fn acting(worker: &Arc<Worker>, socket: u64, frame: &serde_json::Value, what: &str) -> Result<(String, String), String> {
+    let root = frame.get("rootId").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    let Some(desktop) = worker.desktops.identify(socket) else {
+        return Err(format!("Register the desktop before sending {what}."));
+    };
+    if !worker.desktops.bound(socket).iter().any(|bound| *bound == root) {
+        return Err("That project is not bound to this desktop.".to_string());
+    }
+    Ok((root, desktop))
+}
+
+/// An agent the Tasks pane can list is not necessarily one the ledger has met on the wire, so a
+/// desktop's assign resolves through the conversations this project remembers (spec 103).
+fn conversation_identity(worker: &Arc<Worker>, root_id: &str, agent_id: &str) -> serde_json::Value {
+    let Ok(state) = ask_host(worker, "GET", "/api/state", "") else { return serde_json::Value::Null };
+    let listed = state.get("conversations").and_then(|held| held.get(root_id)).cloned().unwrap_or(serde_json::Value::Null);
+    let empty = Vec::new();
+    let Some(found) = listed
+        .as_array()
+        .unwrap_or(&empty)
+        .iter()
+        .find(|row| row.get("id").and_then(serde_json::Value::as_str) == Some(agent_id))
+    else {
+        return serde_json::Value::Null;
+    };
+    let name: String = found
+        .get("agent")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("agent")
+        .chars()
+        .filter(|c| (' '..='~').contains(c))
+        .take(32)
+        .collect();
+    let name = if name.is_empty() { "agent".to_string() } else { name };
+    serde_json::json!({ "agentId": agent_id, "label": format!("{name} {}", &agent_id[..agent_id.len().min(8)]) })
+}
+
+/// The pinned segment, to every desktop bound to this project — or to one of them.
+fn push_segment(worker: &Arc<Worker>, root_id: &str, only: Option<u64>) {
+    let Some(ledger) = &worker.ledger else { return };
+    let Ok(frame) = ledger.call("segment", serde_json::json!([root_id])) else { return };
+    worker.desktops.push(root_id, &frame.to_string(), only);
+}
+
+/// What a capture frame leaves on the feed. The same fields however it arrived — over this socket
+/// from the desktop that recorded it, or over HTTP from a worker forwarding one.
+fn capture_fields(data: &serde_json::Value) -> serde_json::Value {
+    let mut fields = serde_json::json!({
+        "sessionId": data.get("sessionId").cloned().unwrap_or(serde_json::Value::Null),
+        "gameId": data.get("gameId").cloned().unwrap_or(serde_json::Value::Null),
+        "recordingId": data.get("recordingId").cloned().unwrap_or(serde_json::Value::Null),
+        "kind": if data.get("kind") == Some(&serde_json::json!("explicit")) { "explicit" } else { "ring" },
+    });
+    if let Some(at) = data.get("at").and_then(serde_json::Value::as_str) {
+        fields["startedAt"] = serde_json::json!(at.chars().take(40).collect::<String>());
+    }
+    if let Some(error) = data.get("error").and_then(serde_json::Value::as_str) {
+        fields["error"] = serde_json::json!(error.chars().take(400).collect::<String>());
+    }
+    fields
+}
+
+/// A refusal's sentence, with the status a socket client is never told.
+fn plain(fault: &str) -> String {
+    fault.split_once('|').map(|(_, message)| message.to_string()).unwrap_or_else(|| fault.to_string())
+}
+
+fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|since| since.as_millis() as i64)
+        .unwrap_or(0)
+}
+
+/// This worker's own connection to the host's `/events`.
+async fn dial_events(worker: &Worker, head: &Head) -> io::Result<WebSocketStream<TcpStream>> {
+    let (address, authority) = red_core::http::address(&worker.host).map_err(io::Error::other)?;
+    let mut upstream = TcpStream::connect(&address).await?;
+    upstream
+        .write_all(
+            format!(
+                "GET {} HTTP/1.1\r\nHost: {authority}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: {}\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                head.replaced_target_for(&worker.host_token),
+                tokio_tungstenite::tungstenite::handshake::client::generate_key()
+            )
+            .as_bytes(),
+        )
+        .await?;
+    let mut buffered = Vec::new();
+    let Some(answer) = Head::read(&mut upstream, &mut buffered).await? else {
+        return Err(io::Error::other("the session host closed the stream"));
+    };
+    if !answer.raw.starts_with("HTTP/1.1 101") {
+        return Err(io::Error::other("the session host refused the stream"));
+    }
+    /* Anything read past the head belongs to the socket, so it is handed over rather than dropped. */
+    let _ = buffered;
+    Ok(WebSocketStream::from_raw_socket(upstream, Role::Client, None).await)
+}
+
 /// A socket the host owns, carried through byte for byte.
 ///
 /// Not decoded and re-encoded: a pane's bytes and a game's frames are the host's answer, and a
@@ -1088,6 +1444,15 @@ fn answer_own(worker: &Worker, head: &Head, body: &str) -> String {
            WORKSPACE state and never in the committed declaration (spec 101). */
         ("POST", "/api/tracker/signin") => answered_or_faulted(tracker_signin(worker, body)),
         ("POST", "/api/tracker/signout") => answered_or_faulted(tracker_signout(worker, body)),
+        /* The desktop registry's own routes, which are the worker's because the registry is: the
+           host beneath may have none of them (spec 065). */
+        ("GET", "/api/desktops") => answered_or_faulted(
+            root_of(worker, &head.query("rootId").unwrap_or_default())
+                .map(|(root, _)| serde_json::json!({ "desktops": worker.desktops.list(&root) })),
+        ),
+        ("GET", "/api/runtime-desktops") => json(200, "OK", &worker.desktops.registry().to_string()),
+        ("POST", "/api/desktop-action") => answered_or_faulted(desktop_action(worker, head, body)),
+        ("POST", "/api/session-view") => answered_or_faulted(session_view(worker, body)),
         ("GET", "/api/diagnostics") => answered_or_faulted(diagnostics(worker, head)),
         /* Everything a PROJECT declares about itself and leaves behind, answered here and never
            forwarded — the host beneath may predate these routes, and forwarding would answer from a
@@ -1214,6 +1579,12 @@ fn script_open(worker: &Worker, head: &Head, body: &str) -> Result<serde_json::V
             return Err(format!("400|Script env: {problem}"));
         }
     }
+    /* The desktop FIRST, before the path is even looked at: a caller whose desktop cannot show a
+       script tab is told to update it, rather than told a moment later that the pane it started
+       is unattachable. The order is the JavaScript's, and it is what a person reads. */
+    if let Some(desktop) = data.get("desktopId").and_then(serde_json::Value::as_str) {
+        worker.desktops.may(&root_id, desktop, "attach-session")?;
+    }
     let resolve = |path: &std::path::Path| std::fs::canonicalize(path).ok();
     let script = red_worker::scripts::script_path(std::path::Path::new(&root_path), data.get("path").and_then(serde_json::Value::as_str), &resolve)
         .map_err(|refused| format!("{}|{}", refused.status, refused.message))?;
@@ -1240,7 +1611,6 @@ fn script_open(worker: &Worker, head: &Head, body: &str) -> Result<serde_json::V
 ///
 /// **A failure to show is reported, never retried.** The pane is already running and retained, so a
 /// caller that tried again would start a second one — which is why the detail says so in words.
-/// Attaching is the DOOR's (spec 143): the desktops register on its socket, so the worker asks it.
 fn shown(
     worker: &Worker,
     data: &serde_json::Value,
@@ -1250,9 +1620,8 @@ fn shown(
     detail: &str,
 ) -> serde_json::Value {
     let Some(desktop) = data.get("desktopId").and_then(serde_json::Value::as_str) else { return answer };
-    let asked = serde_json::json!({ "rootId": root_id, "desktopId": desktop, "id": session.get("id") });
     let mut answer = answer.as_object().cloned().unwrap_or_default();
-    match ask_host(worker, "POST", "/api/session-view", &asked.to_string()) {
+    match show(worker, root_id, desktop, session) {
         Ok(view) => {
             answer.insert("view".to_string(), view);
         }
@@ -1409,6 +1778,45 @@ fn dashboard_run(worker: &Worker, head: &Head, body: &str) -> Result<serde_json:
         answer.insert("title".to_string(), title.clone());
     }
     Ok(serde_json::Value::Object(answer))
+}
+
+/// `POST /api/desktop-action`: the only action the workspace takes here is a reload, and an unknown
+/// one is refused by name rather than passed to a desktop that would not understand it.
+fn desktop_action(worker: &Worker, head: &Head, body: &str) -> Result<serde_json::Value, String> {
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    if data.get("action").and_then(serde_json::Value::as_str) != Some("reload") {
+        return Err("400|Unknown desktop action.".to_string());
+    }
+    let (root, _) = root_of(worker, named(&data, "rootId"))?;
+    gate(worker, &root, "reload_desktop", head)?;
+    worker.desktops.act(&root, named(&data, "desktopId"), "reload", serde_json::Value::Null, &red_core::service::uuid_v4)
+}
+
+/// `POST /api/session-view`: show a retained pane in a named desktop's own tab.
+///
+/// What travels is the pane RECORD, because a desktop told only an id would have to ask for it back,
+/// and the one thing it must not do between being asked and answering is make another round trip.
+fn session_view(worker: &Worker, body: &str) -> Result<serde_json::Value, String> {
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let session = ask_host(worker, "GET", &format!("/api/session?id={}", named(&data, "id")), "")
+        .map_err(|_| "404|Unknown session.".to_string())?;
+    show(worker, named(&data, "rootId"), named(&data, "desktopId"), &session)
+}
+
+/// The same attach, for a route that has just started the pane it is showing.
+fn show(worker: &Worker, root_id: &str, desktop_id: &str, session: &serde_json::Value) -> Result<serde_json::Value, String> {
+    /* The pane's own root, not the caller's claim about it: a desktop bound to one project must
+       never be handed another's pane, and only the record knows which it is. */
+    if session.get("rootId").and_then(serde_json::Value::as_str) != Some(root_id) {
+        return Err("403|Session belongs to another root.".to_string());
+    }
+    worker.desktops.act(
+        root_id,
+        desktop_id,
+        "attach-session",
+        serde_json::json!({ "session": session }),
+        &red_core::service::uuid_v4,
+    )
 }
 
 /// Start a browser sign-in for this project's tracker.

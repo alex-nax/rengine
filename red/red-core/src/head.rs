@@ -125,6 +125,12 @@ impl Head {
         out
     }
 
+    /// The same target with an upgrade's credential swapped, for a caller that is opening its OWN
+    /// socket upstream rather than replaying a whole head.
+    pub fn replaced_target_for(&self, credential: &str) -> String {
+        self.replaced_target(credential)
+    }
+
     /// A socket's token rides in the query string, so the swap has to happen there too.
     fn replaced_target(&self, credential: &str) -> String {
         if !self.upgrade {

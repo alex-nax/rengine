@@ -11,6 +11,7 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runtimeDirectory } from '../runtime/discovery.mjs';
 import { built } from './cargo.mjs';
 
 const BIN = process.env.RENGINE_RED_WORKER
@@ -18,6 +19,10 @@ const BIN = process.env.RENGINE_RED_WORKER
 
 export async function startWorker(host, { directory, ide = false, idePort = 0, env = {}, ideOptions } = {}) {
   await built('-p', 'red-worker', '--bin', 'red-worker');
+  /* The same default `startWorker` had: this workspace's own runtime directory. A caller that named
+     none used to get one, and a fixture that handed the binary the word `undefined` instead wrote a
+     directory of that name wherever the suite was run from. */
+  directory ??= runtimeDirectory(host);
   /* `ideOptions` is how `worker.mjs` was asked for a bridge into a directory of the test's own. The
      binary reads that directory from the environment, which is the same ask spelled for a process. */
   if (ideOptions?.directory) {

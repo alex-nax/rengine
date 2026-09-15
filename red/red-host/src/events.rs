@@ -176,15 +176,19 @@ async fn handle(front: &Arc<Front>, viewer: &Arc<Viewer>, text: &str) -> Result<
             crate::panes::present(front, &id).await
         }
         "desktop-register" => {
-            front.desktops.register(front, viewer.clone(), &message).await?;
+            crate::desktops::register(front, viewer.clone(), &message).await?;
             /* The pinned segment, straight away: a desktop that has just registered draws its
                status bar from this and would otherwise have nothing until the next transition. */
-            for root in front.desktops.bound(viewer) {
-                crate::push_segment(front, &root, Some(viewer)).await;
+            let socket = front.hub.identify(viewer).ok_or_else(|| "This socket is no longer registered.".to_string())?;
+            for root in front.desktops.bound(socket) {
+                crate::push_segment(front, &root, Some(socket)).await;
             }
             Ok(())
         }
-        "desktop-action-result" => front.desktops.acknowledge(viewer, &message),
+        "desktop-action-result" => {
+            let socket = front.hub.identify(viewer).ok_or_else(|| "This socket is no longer registered.".to_string())?;
+            front.desktops.acknowledge(socket, &message)
+        }
         /* The two things a desktop SAYS about this workspace rather than asks of it. Both are the
            ledger's, and both are the door's because the desktop is on the door's socket. */
         "token-action" => crate::desktop_token(front, viewer, &message).await,

@@ -22,7 +22,7 @@ const NOLF = '/home/x/.local/state/rengine/nolf-improved-2056293539';
 const TABLE = parseProcessTable(`
     1     0 /sbin/launchd
  9599     1 /usr/bin/node /home/x/rengine/orchestrator/runtime/supervisor.mjs
- 9603  9599 /usr/bin/node /home/x/rengine/orchestrator/runtime/worker.mjs
+ 9603  9599 /home/x/rengine/red/target/debug/red-worker --state /home/x/rengine/.cache/runtime/d5fe12fe --host http://127.0.0.1:1234
 82044  9599 /home/x/rengine/.cache/runtime/d5fe12fe/versions/ccd74ad2/bin/rengine --control
 68944     1 /usr/bin/node /home/x/rengine/orchestrator/server/main.mjs --state ${HIREBASE}
 12336 68944 /usr/bin/node /home/x/rengine/scripts/../orchestrator/agents/launch.mjs claude /usr/bin/claude

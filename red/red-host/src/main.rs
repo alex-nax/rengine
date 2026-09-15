@@ -43,7 +43,7 @@ mod routes;
 mod surface_socket;
 mod surfaces;
 
-use desktops::Desktops;
+use red_core::desktops::Desktops;
 use events::Hub;
 use red_core::head::Head;
 use routes::{answer_about_pane, answer_desktop_action, answer_from_store, answer_state, faulted, http_json, session_route, store_route};
@@ -752,7 +752,7 @@ pub(crate) async fn desktop_token(
     viewer: &Arc<events::Viewer>,
     message: &serde_json::Value,
 ) -> Result<(), String> {
-    let (root, desktop) = desktop_acting(front, viewer, message, "token actions")?;
+    let (root, desktop, _socket) = desktop_acting(front, viewer, message, "token actions")?;
     /* An assign resolves an agent id against the conversations this project remembers, and a
        function does not cross a socket — so what the worker's `lookup` would have answered is
        looked up here and sent with the request. */
@@ -785,7 +785,7 @@ pub(crate) async fn desktop_recording(
     viewer: &Arc<events::Viewer>,
     message: &serde_json::Value,
 ) -> Result<(), String> {
-    let (root, desktop) = desktop_acting(front, viewer, message, "recording frames")?;
+    let (root, desktop, _socket) = desktop_acting(front, viewer, message, "recording frames")?;
     let kind = match message.get("event").and_then(serde_json::Value::as_str) {
         Some("started") => "capture.started",
         Some("committed") => "capture.committed",
@@ -818,15 +818,16 @@ fn desktop_acting(
     viewer: &Arc<events::Viewer>,
     message: &serde_json::Value,
     what: &str,
-) -> Result<(String, String), String> {
+) -> Result<(String, String, u64), String> {
     let root = message.get("rootId").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
-    let Some(desktop) = front.desktops.identify(viewer) else {
+    let socket = front.hub.identify(viewer).ok_or_else(|| format!("Register the desktop before sending {what}."))?;
+    let Some(desktop) = front.desktops.identify(socket) else {
         return Err(format!("Register the desktop before sending {what}."));
     };
-    if !front.desktops.bound(viewer).iter().any(|bound| *bound == root) {
+    if !front.desktops.bound(socket).iter().any(|bound| *bound == root) {
         return Err("That project is not bound to this desktop.".to_string());
     }
-    Ok((root, desktop))
+    Ok((root, desktop, socket))
 }
 
 /// An agent the Tasks pane can list is not necessarily one the ledger has met on the wire, so a
@@ -851,7 +852,7 @@ async fn conversation_identity(front: &Arc<Front>, root_id: &str, agent_id: &str
 /// Flat holder/contest/windowMs plus the sequence of the last `token.*` frame (spec 095, Native
 /// desktop). Pushed when a desktop registers and after every transition, so the status-bar segment
 /// never polls.
-pub(crate) async fn push_segment(front: &Arc<Front>, root_id: &str, only: Option<&Arc<events::Viewer>>) {
+pub(crate) async fn push_segment(front: &Arc<Front>, root_id: &str, only: Option<u64>) {
     let Ok(frame) = ask_token(front, "segment", serde_json::json!([root_id])).await else { return };
     front.desktops.push(root_id, &frame.to_string(), only);
 }

@@ -54,14 +54,16 @@ process.stdin.setRawMode(true); console.log('CLI_READY'); process.stdin.on('data
     const session = await host.sessions.terminal({ rootId: root.id, command: process.execPath, args: [fixture] });
     legacy = await legacyHost(host);
     assert.equal((await request(legacy, 'state')).capabilities.desktopActions, undefined);
-    /* Deliberately the JAVASCRIPT worker, and the last spec that is: this is the legacy-host case,
-       and red-worker cannot serve the desktop registry above a host that has no desktop routes,
-       because the registry is the door's and this worker tunnels `/events` rather than terminating
-       it. Spec 143 records the finding and what it costs. Until that is settled, `worker.mjs` is
-       what answers here — which is why it is still in the tree. */
-    const workerFile = path.join(directory, 'workspace-worker.mjs');
-    const workerSource = `import ${JSON.stringify(pathToFileURL(path.resolve('orchestrator/runtime/worker.mjs')).href)};`;
-    await writeFile(workerFile, workerSource);
+    /* The workspace worker is an executable (F158). The supervisor is handed a shim this test owns —
+       never the binary itself, which the broken-candidate case below would otherwise overwrite — and
+       the shim execs the real one until that case replaces it. Same device as the connector's.
+
+       This is the LEGACY-HOST case, which is why it is worth saying what it proves: the worker
+       serves the desktop registry above a host that has no desktop routes at all, because it holds
+       the registry and terminates `/events` itself (spec 143). */
+    const workerFile = path.join(directory, 'workspace-worker');
+    const workerBinary = process.env.RENGINE_RED_WORKER || path.resolve('red/target/debug/red-worker');
+    await writeFile(workerFile, `#!/bin/sh\nexec ${JSON.stringify(workerBinary)} "$@" --no-ide\n`, { mode: 0o755 });
     /* The connector layer is an executable now (F187). The supervisor is handed a shim this test
        owns — never the binary itself, which a test that writes a broken candidate would otherwise
        overwrite — and the shim execs the real one until the failure case replaces it. */
@@ -108,7 +110,9 @@ process.stdin.setRawMode(true); console.log('CLI_READY'); process.stdin.on('data
     await until(() => host.sessions.snapshot(session.id, true).output.includes('INPUT_7374696c6c2d616c697665'), 'input across worker update');
     assert.equal(host.sessions.snapshot(session.id).pid, session.pid);
     assert.equal(await readFile(marker, 'utf8'), 'once\n');
-    await writeFile(workerFile, 'this is not valid javascript;');
+    /* A candidate that will not start, which is what a broken build looks like to the layer above:
+       the supervisor must refuse to adopt it and keep serving from the worker it has. */
+    await writeFile(workerFile, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
     const failed = await call('update_workspace', { layers: ['workspace'] });
     const failure = await until(async () => { const value = await call('update_status'); return value.jobs.find(x => x.id === failed.jobId)?.status === 'failed' && value; }, 'failed candidate');
     assert.equal(failure.workspace.pid, finished.workspace.pid);
@@ -125,7 +129,8 @@ process.stdin.setRawMode(true); console.log('CLI_READY'); process.stdin.on('data
     await writeFile(toolWorkerFile, `#!/bin/sh\nexec ${JSON.stringify(connector)} "$@"\n`, { mode: 0o755 });
     process.kill(toolFailure.toolWorkerPid, 'SIGTERM'); await delay(100);
     const toolRecovery = await call('update_status'); assert.notEqual(toolRecovery.toolWorkerPid, toolFailure.toolWorkerPid);
-    await writeFile(workerFile, workerSource);
+    /* Put the working shim back before crashing the worker, so recovery has something to start. */
+    await writeFile(workerFile, `#!/bin/sh\nexec ${JSON.stringify(workerBinary)} "$@" --no-ide\n`, { mode: 0o755 });
     process.kill(toolRecovery.workspace.pid, 'SIGTERM');
     const recovered = await until(async () => { const value = await call('update_status'); return value.workspace.recovery.state === 'recovered' && value; }, 'workspace worker recovers independently');
     assert.notEqual(recovered.workspace.pid, toolRecovery.workspace.pid); assert.equal(host.sessions.snapshot(session.id).pid, session.pid);
