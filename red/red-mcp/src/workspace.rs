@@ -106,23 +106,25 @@ impl Workspace {
 
     /// Where this project's routes are served from right now: the root-bound runtime worker when
     /// one is alive and belongs to this host, the session host otherwise.
+    ///
+    /// `red_core::descriptor` owns the reading, because a fourth private copy of "is this
+    /// descriptor mine and is its process alive" is a fourth chance to answer it differently — and
+    /// this one had: it asked the process table by SHELLING OUT to `kill -0`, which reports a live
+    /// process the caller may not signal as dead. The quiet variant is the right one here: a dead
+    /// supervisor falls back to the session host rather than breaking a pane's tool call.
     fn runtime(&self) -> (String, String) {
         let host = (self.binding.url.clone(), self.binding.token.clone());
         let Some(directory) = self.runtime_directory() else { return host };
-        let descriptor = directory.join("runtime.json");
-        let Ok(document) = std::fs::read_to_string(&descriptor) else { return host };
-        let Ok(value) = serde_json::from_str::<Value>(&document) else { return host };
-        let belongs = value.get("version").and_then(Value::as_i64) == Some(1)
-            && text_at(&value, &["host", "url"]) == self.binding.url
-            && text_at(&value, &["host", "token"]) == self.binding.token
-            && text_at(&value, &["host", "instance"]) == self.binding.instance
-            && text(&value, "instance") == self.binding.instance;
-        if !belongs || !alive(value.get("pid").and_then(Value::as_i64)) {
-            return host;
+        let named = red_core::descriptor::Connection {
+            url: self.binding.url.clone(),
+            token: self.binding.token.clone(),
+            instance: self.binding.instance.clone(),
+            pid: None,
+        };
+        match red_core::descriptor::runtime_for(&named, &directory) {
+            Some(runtime) => (runtime.url, runtime.token),
+            None => host,
         }
-        let url = text(&value, "url");
-        let token = text(&value, "token");
-        if url.is_empty() || token.is_empty() { host } else { (url, token) }
     }
 
     /// A GET on the workspace's own API, with this launch's identity attached.
@@ -216,32 +218,6 @@ fn checkout() -> Option<PathBuf> {
     std::env::current_exe().ok().and_then(|exe| checkout_of(&exe).map(Path::to_path_buf))
 }
 
-fn text_at(value: &Value, path: &[&str]) -> String {
-    let mut current = value;
-    for key in path {
-        match current.get(key) {
-            Some(next) => current = next,
-            None => return String::new(),
-        }
-    }
-    current.as_str().unwrap_or_default().to_string()
-}
-
-/// `kill(pid, 0)` without a libc dependency: the process table, the way the rest of the tree asks.
-fn alive(pid: Option<i64>) -> bool {
-    let Some(pid) = pid.filter(|pid| *pid > 0) else { return false };
-    if cfg!(windows) {
-        return true;
-    }
-    std::process::Command::new("kill")
-        .args(["-0", &pid.to_string()])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -298,22 +274,40 @@ mod tests {
     /// HOST, which serves eight capabilities fewer than the runtime worker.
     #[test]
     fn a_context_without_a_runtime_directory_still_finds_the_runtime() {
-        let instance = "b2f0e0de-0000-4000-8000-ki110fallback";
+        /* Shaped the way a supervisor actually writes one — a 64-hex token and a uuid instance —
+           because `red_core::descriptor` holds a descriptor to that shape, as `discoverRuntime`
+           always did. The old fixture here used "runtime-token" and got away with it only because
+           this module read the file itself. */
+        let instance = "b2f0e0de-0110-4000-8000-000000000110";
+        let host_token = "0".repeat(64);
+        let runtime_token = "1".repeat(64);
         let directory = default_runtime_directory(&checkout().expect("a checkout"), instance).expect("a directory");
         std::fs::create_dir_all(&directory).expect("the runtime directory");
         let descriptor = directory.join("runtime.json");
         std::fs::write(&descriptor, json!({
             "version": 1, "pid": std::process::id(),
-            "url": "http://127.0.0.1:2", "token": "runtime-token",
+            "url": "http://127.0.0.1:2", "token": runtime_token,
             "instance": instance,
-            "host": { "url": "http://127.0.0.1:1", "token": "t", "instance": instance },
+            "host": { "url": "http://127.0.0.1:1", "token": host_token, "instance": instance },
         }).to_string()).expect("the descriptor");
-        let workspace = Workspace::open(Binding { instance: instance.into(), ..binding() }, None);
+        let bound = Binding { instance: instance.into(), token: host_token.clone(), ..binding() };
+        let workspace = Workspace::open(bound.clone(), None);
         let resolved = workspace.runtime();
+        /* And a descriptor left by a DIFFERENT host is not adopted: the pane falls back to the
+           session host it was given rather than following somebody else's supervisor. */
+        std::fs::write(&descriptor, json!({
+            "version": 1, "pid": std::process::id(),
+            "url": "http://127.0.0.1:2", "token": runtime_token,
+            "instance": instance,
+            "host": { "url": "http://127.0.0.1:1", "token": "2".repeat(64), "instance": instance },
+        }).to_string()).expect("the descriptor");
+        let foreign = Workspace::open(bound, None).runtime();
         let _ = std::fs::remove_dir_all(&directory);
         // The scratch directory is this checkout's own; a real one holds every live runtime and stays.
         let _ = directory.parent().map(std::fs::remove_dir);
-        assert_eq!(resolved, ("http://127.0.0.1:2".to_string(), "runtime-token".to_string()),
+        assert_eq!(resolved, ("http://127.0.0.1:2".to_string(), runtime_token),
             "the runtime worker answers, not the session host the binding names");
+        assert_eq!(foreign, ("http://127.0.0.1:1".to_string(), host_token),
+            "a supervisor bound to another host is not adopted");
     }
 }

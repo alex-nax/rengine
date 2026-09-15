@@ -24,6 +24,23 @@ run; five sabotages confirm the comparison, each observed failing at its own cas
 the side that sent it; a bound counting bytes; a retry key overwriting; the listing carrying the
 layout; `hasMore` asked from the old cursor).
 
+**The descriptors are one implementation** — `red_core::descriptor`, which is `protocol.mjs`'s
+`checkConnection` plus the discovery half of `sidecar.mjs` and `discovery.mjs`. There were FOUR
+copies of "is this descriptor mine, and is its process alive?" in the Rust tree, and the one in
+`red-mcp` had a real defect: it asked the process table by **shelling out to `kill -0`**, which
+reports a live process the caller may not signal as *dead*. Every agent pane's tool routing went
+through it. Four sabotages, including that one.
+
+The shape that makes this worth having one of: *yes*, *nobody is serving it*, and *something is
+there and I could not reach it* — and the third is an **error** rather than a `None`, because a live
+pid that will not answer must never become "start another one". Two session hosts on one state
+directory is two writers of the same store.
+
+`red_core::http` also grew `carried`, which `sidecar.mjs` always applied and the Rust client did
+not: only `X-Rengine-*` NAMES with printable ASCII values are laid down. The name half is the
+load-bearing one — those lines travel beside `Authorization`, and a caller that could name its own
+header could send a second one.
+
 Two things worth keeping:
 
 - **UTF-16 again**, and this is the second time this epic has hit it (F156b was the first). Every
@@ -43,9 +60,9 @@ replays the same 47 cases against `windows.mjs` and compares, so the record cann
 froze. It goes with the module (F173), and the Rust replay is then the whole of the evidence.
 Sabotage-verified from the JavaScript side as well as the Rust.
 
-Gates: `./init.sh` green; `cargo test --workspace` **297/297**; `npm test` **365/365**. One earlier
-run in this session reported one failure and one cancelled test; it was not captured and did not
-reproduce across three subsequent full runs.
+Gates: `./init.sh` green; `cargo test --workspace` **308/308**; `npm test` **365/365** on five
+consecutive runs. Two earlier runs in the session each reported one failure or one cancelled test;
+neither was captured and neither reproduced.
 
 What is left, in order, is in `docs/js-retirement-status.md`: the rest of F159's supervisor and
 launchers, the JS host behind red-host (1,405), and F163's entry points (839).

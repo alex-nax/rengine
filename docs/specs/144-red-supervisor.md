@@ -89,9 +89,10 @@ tell why. This is the second time this epic has hit it (F156b was the first).
 ## The order the rest comes in
 
 1. ~~**The window store.**~~ Done.
-2. **The descriptor and discovery.** `checkConnection`, `runtime.json`, and the startup lock that
-   makes two callers asking together produce one supervisor. Shares its shape with
-   `launcher/sidecar.mjs`'s ensure path, which F159's third criterion asks be **one** implementation.
+2. ~~**The descriptors.**~~ Done: `red_core::descriptor` is `runtime/protocol.mjs`'s
+   `checkConnection` and the discovery half of `launcher/sidecar.mjs` and `runtime/discovery.mjs`.
+   What is left of this piece is the **ensure** half — the startup lock that makes two callers
+   asking together produce one process — which waits for a Rust caller to have.
 3. **The desktop child.** Snapshot, launch, the newline-framed control channel, `--plan`-style
    inspection. `runtime/desktop.mjs` and the `nativeControl` half of `runtime/windows.mjs`.
 4. **The worker child and the job.** `startWorker`'s identity/capability check, `perform`'s ordering,
@@ -103,6 +104,31 @@ tell why. This is the second time this epic has hit it (F156b was the first).
 7. **Cut over and delete.** `discovery.mjs` spawns the binary where it forks the module — the same
    fork-versus-spawn seam the supervisor itself grew for `red-worker` — and the eleven JavaScript
    files retire together, with their caller.
+
+## The third criterion, and the one thing standing in its way
+
+F159 asks that *"the sidecar request/ensure path the remaining Rust binaries use is one shared
+implementation."* There were **four** copies of "is this descriptor mine, and is its process alive?"
+in the Rust tree. Two are now one:
+
+- `red_core::descriptor` is the implementation, with `red_core::http` underneath it.
+- `red-mcp`'s private copy is gone, and it had a real defect: it asked the process table by
+  **shelling out to `kill -0`**, which reports a live process the caller may not signal as *dead*.
+  Every agent pane's tool routing went through that check.
+
+Two copies are left, and both are in `red-agents`, which **deliberately has no `red-core`
+dependency**: its manifest says so, because the hand-rolled TOML parser exists to accept exactly the
+grammar the JavaScript parser accepts. Taking the dependency would pull prost, rustls and tokio into
+a crate whose binaries are spawned per pane, to read one JSON file.
+
+- `red-agents::bind::discover` is `discoverSidecar` again, with a **weaker** health check: it
+  ignores the `protocol` and `instance` a `/health` answer carries, so it would bind an agent to
+  any process answering on that port.
+- `red-agents::bind::http_get` is a fifth hand-rolled HTTP client.
+
+The choice is between taking the dependency and extracting the descriptor reader into a crate small
+enough for `red-agents` to depend on. It belongs with the rest of F159 rather than before it, and
+it is written down here so the criterion is met on purpose rather than declared.
 
 ## What this does not change
 

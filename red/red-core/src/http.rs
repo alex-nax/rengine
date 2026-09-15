@@ -44,9 +44,11 @@ fn request(url: &str, token: &str, method: &str, path: &str, body: Option<&serde
     let payload = body.map(|value| value.to_string()).unwrap_or_default();
     let mut lines = format!("{method} {path} HTTP/1.0\r\nHost: {authority}\r\nAuthorization: Bearer {token}\r\nAccept: application/json\r\n");
     for (name, value) in headers {
-        /* Only printable ASCII reaches a header line, because a value with a newline in it would
-           be another header — the same rule the JS side's `carried` applies. */
-        if value.bytes().all(|byte| (0x20..=0x7e).contains(&byte)) {
+        /* `carried`, which `launcher/sidecar.mjs` applies and this did not: only `X-Rengine-*` NAMES
+           with printable ASCII values are laid down. The name rule is the load-bearing half — a
+           caller that could name its own header could send a second `Authorization`, and these
+           lines go out beside the one that authenticates the request. */
+        if carried(name, value) {
             lines.push_str(&format!("{name}: {value}\r\n"));
         }
     }
@@ -113,6 +115,20 @@ fn dechunk(body: &str) -> Option<String> {
     }
 }
 
+/// `/^X-Rengine-[A-Za-z-]+$/` with a printable ASCII value of 1..=256 bytes — the rule
+/// `launcher/sidecar.mjs`'s `carried` applies, word for word.
+///
+/// The value bound stops a newline from becoming another header. The NAME bound stops a caller from
+/// writing a header this client already writes: these lines travel beside `Authorization`, and a
+/// caller that could name its own would be able to send a second one.
+pub fn carried(name: &str, value: &str) -> bool {
+    let named = name
+        .strip_prefix("X-Rengine-")
+        .is_some_and(|rest| !rest.is_empty() && rest.bytes().all(|byte| byte.is_ascii_alphabetic() || byte == b'-'));
+    let printable = (1..=256).contains(&value.len()) && value.bytes().all(|byte| (0x20..=0x7e).contains(&byte));
+    named && printable
+}
+
 /// Percent-encoding for the things that reach a query string here: ids and paths.
 pub fn encode(value: &str) -> String {
     value
@@ -136,6 +152,28 @@ mod tests {
         assert_eq!(super::dechunk("5\r\nhello\r\n6\r\n world\r\n0\r\n\r\n").unwrap(), "hello world");
         assert_eq!(super::dechunk("0\r\n\r\n").unwrap(), "");
         assert!(super::dechunk("zz\r\nnope\r\n").is_none(), "a length that is not hex is refused, not guessed");
+    }
+
+    /* The rule that decides what a caller may add to a request this client authenticates. A caller
+       that could name its own header could send a second Authorization beside the real one. */
+    #[test]
+    fn only_an_x_rengine_header_with_a_printable_value_is_carried() {
+        assert!(super::carried("X-Rengine-Agent", "abc"));
+        assert!(super::carried("X-Rengine-Agent-Label", "a label"));
+        for (name, value) in [
+            ("Authorization", "Bearer x"),
+            ("X-Rengine-", "x"),
+            ("X-Rengine-Agent2", "x"),
+            ("x-rengine-agent", "x"),
+            ("X-Other-Agent", "x"),
+            ("X-Rengine-Agent", ""),
+            ("X-Rengine-Agent", "line\r\nX-Rengine-Other: y"),
+            ("X-Rengine-Agent", "é"),
+        ] {
+            assert!(!super::carried(name, value), "{name}: {value:?}");
+        }
+        assert!(super::carried("X-Rengine-Agent", &"a".repeat(256)));
+        assert!(!super::carried("X-Rengine-Agent", &"a".repeat(257)), "the bound is a bound");
     }
 
     #[test]

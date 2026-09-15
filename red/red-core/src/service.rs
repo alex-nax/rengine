@@ -262,25 +262,15 @@ fn serving_this_protocol(descriptor: &Path, protocol: u64) -> bool {
 }
 
 /// `process.kill(pid, 0)` — is anything still there? EPERM is something, owned by somebody else.
+/// Is this process still there? One implementation, in `descriptor` — every layer of this workspace
+/// asks it about a pid out of a descriptor, and two answers to that question is how a second host
+/// gets started beside a live one.
 fn pid_is_live(pid: i64) -> bool {
-    #[cfg(unix)]
-    {
-        if pid < 1 {
-            return false;
-        }
-        let outcome = unsafe { kill(pid as i32, 0) };
-        return outcome == 0 || std::io::Error::last_os_error().raw_os_error() == Some(1);
-    }
-    #[cfg(not(unix))]
-    {
-        let _ = pid;
-        true
-    }
+    crate::descriptor::alive(pid)
 }
 
 #[cfg(unix)]
 extern "C" {
-    fn kill(pid: i32, signal: i32) -> i32;
     fn setsid() -> i32;
 }
 
