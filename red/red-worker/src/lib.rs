@@ -13,4 +13,5 @@
 
 pub mod feed;
 pub mod identity;
+pub mod scripts;
 pub mod serve;
