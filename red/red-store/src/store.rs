@@ -208,6 +208,21 @@ impl Store {
                 if damaged {
                     return Err(Fail::new("Unsupported or damaged workspace state. Preserve the file before repairing it.", 500));
                 }
+                /* A state file written by an older build is missing whatever was added since, and
+                   every accessor below `expect`s its key — so a workspace that predates a key
+                   panics the store thread the first time that feature is used, which reads as the
+                   host hanging rather than as a state file one key short. `conversations` did
+                   exactly that to a state directory written before agent conversations existed.
+                   The damage check above deliberately stays narrow: an absent key is not damage,
+                   it is an older shape, and the difference is that this can be repaired. */
+                let mut state = state;
+                if let (Some(object), Some(defaults)) = (state.as_object_mut(), default_state().as_object()) {
+                    for (key, value) in defaults {
+                        if !object.contains_key(key) {
+                            object.insert(key.clone(), value.clone());
+                        }
+                    }
+                }
                 state
             }
             Err(_) => default_state(),
@@ -682,4 +697,44 @@ pub fn resolve_in_root(root_path: &str, relative: &str, allow_missing: bool) -> 
         return Err(Fail::new("Symlink points outside the selected project root.", 403));
     }
     Ok((resolved.clone(), js_relative(root_path, &resolved)))
+}
+
+#[cfg(test)]
+mod older_state_tests {
+    use super::*;
+
+    /* A workspace written before a key existed is an OLDER SHAPE, not a damaged file. Every
+       accessor here `expect`s its key, so a state directory one key short panics the store thread
+       the first time that feature is used — and a panicked store reads as the host hanging, not as
+       a missing key. This is that case, with `conversations`: the key added last. */
+    #[test]
+    fn a_state_file_missing_a_later_key_is_filled_rather_than_trusted() {
+        let directory = std::env::temp_dir().join(format!("red-store-older-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&directory);
+        fs::create_dir_all(&directory).expect("the temp directory");
+        /* Exactly what a pre-conversations host wrote: version, roots and drafts — which is all the
+           damage check looks at — and nothing else. */
+        fs::write(
+            directory.join("workspace.json"),
+            r#"{"version":1,"roots":[],"drafts":{},"layout":null,"preferences":{}}"#,
+        )
+        .expect("the state file");
+
+        let mut store = Store::open(&directory).expect("an older state file opens");
+        assert!(
+            store.state.get("conversations").is_some_and(Value::is_object),
+            "the missing key is filled from the canonical shape, not trusted absent",
+        );
+
+        /* The path that panicked: recording a conversation against a root. It must reach its own
+           refusal for an unknown root rather than take the store's thread down. */
+        let outcome = store.record_conversation(
+            "no-such-root",
+            &json!({"id": "00000000-0000-4000-8000-000000000000"}),
+            IdShape::Uuid,
+        );
+        assert!(outcome.is_err(), "an unknown root is refused");
+
+        let _ = fs::remove_dir_all(&directory);
+    }
 }
