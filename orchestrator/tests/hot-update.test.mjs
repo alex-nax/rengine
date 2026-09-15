@@ -14,7 +14,6 @@ import { startRuntime } from '../runtime/supervisor.mjs';
 import { forward, json, tunnel } from '../runtime/protocol.mjs';
 import { alive, ensureSidecar, request } from '../launcher/sidecar.mjs';
 import { parseProcessTable } from '../launcher/replace.mjs';
-import { hostStateDirectory } from '../runtime/tracker.mjs';
 import { endStateServices } from './state-services.mjs';
 
 /* A native spec starts a real workspace, and a real workspace publishes an IDE lock for Claude Code
@@ -136,46 +135,11 @@ test('the tracker routes are served by the worker above a retained host that nev
   }
 });
 
-test('a host that says where its state lives needs no process table', { timeout: 30000 }, async () => {
-  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-hot-update-state-'));
-  let host, runtime;
-  try {
-    const stateDir = path.join(directory, 'state');
-    host = await startServer({ stateDir });
-    const root = await host.store.addRoot(await project(directory, 'linear', { contract: 5, project: 'kohai', formats: [FORMAT], tracker: { provider: 'linear', team: 'KOH' } }));
-    assert.equal((await request(host, 'state')).stateDir, stateDir);
-    runtime = await startRuntime({ host: { url: host.url, token: host.token, instance: host.instance, pid: process.pid }, directory: path.join(directory, 'runtime') });
-    const setup = await request(runtime, 'tracker/signin', { rootId: root.id });
-    assert.equal(setup.ok, false);
-    assert.equal(setup.setup.step3.includes(path.join(stateDir, 'trackers', 'oauth.json')), true, setup.setup.step3);
-  } finally {
-    await runtime?.close(); await host?.close(); await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('the state directory is keyed by the descriptor instance, never the URL or the first host row', async () => {
-  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-hot-update-table-'));
-  try {
-    const a = path.join(directory, 'a'), b = path.join(directory, 'b');
-    for (const [dir, instance, port] of [[a, 'aaaaaaaa-1111-4111-8111-111111111111', 61942], [b, 'bbbbbbbb-2222-4222-8222-222222222222', 61943]]) {
-      await mkdir(dir); await writeFile(path.join(dir, 'sidecar.json'), JSON.stringify({ url: `http://127.0.0.1:${port}`, token: 'f'.repeat(64), instance, pid: 1 }));
-    }
-    const table = parseProcessTable(`
-    1     0 /sbin/launchd
-  100     1 /usr/bin/node /x/rengine/orchestrator/server/main.mjs --state ${b}
-  200     1 /usr/bin/node /x/rengine/orchestrator/server/main.mjs --state ${a}
-  300     1 /usr/bin/node /x/rengine/orchestrator/runtime/supervisor.mjs
-  400     1 /usr/bin/node /x/rengine/orchestrator/server/main.mjs --state ${path.join(directory, 'gone')}
-`);
-    // The worker is handed a proxy's URL, not the descriptor's, and host b is the first row.
-    const proxied = { url: 'http://127.0.0.1:50000', token: 'f'.repeat(64), instance: 'aaaaaaaa-1111-4111-8111-111111111111' };
-    assert.deepEqual(await hostStateDirectory(proxied, {}, { processes: table }), { stateDir: a, source: 'process-table', pid: 200 });
-    assert.deepEqual(await hostStateDirectory(proxied, { stateDir: '/elsewhere' }, { processes: table }), { stateDir: '/elsewhere', source: 'host' });
-    const unknown = await hostStateDirectory({ ...proxied, instance: 'cccccccc-3333-4333-8333-333333333333' }, {}, { processes: table });
-    assert.equal(unknown.stateDir, null); assert.match(unknown.reason, /cccccccc-3333/);
-  } finally { await rm(directory, { recursive: true, force: true }); }
-});
-
+/* Where a RETAINED host keeps its state — found by its instance in the process table, never by the
+ * URL a worker was handed and never by the first host row — is `red_worker::signin`'s
+ * `a_retained_host_is_found_by_its_instance_and_never_by_being_first`, which is where the rule
+ * lives now (F154).
+ */
 test('an idle facade learns of a connector update without a request, and a stale name is refused with the way back', { timeout: 60000 }, async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-hot-update-facade-'));
   let host, runtime, client;

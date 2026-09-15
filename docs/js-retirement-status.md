@@ -13,11 +13,11 @@ git ls-files '*.mjs' | grep -vE 'tests/|\.test\.mjs' | xargs wc -l | tail -1
 
 | | lines |
 |---|---|
-| Production JavaScript remaining | **4,667** across 41 files |
+| Production JavaScript remaining | **4,594** across 40 files |
 | Rust in `red/` | ~34,000 |
 
-Down from 5,504 across 43 when this was first written: `runtime/worker.mjs`, `runtime/scripts.mjs`
-and `server/desktops.mjs` are gone.
+Down from 5,504 across 43 when this was first written: `runtime/worker.mjs`, `runtime/scripts.mjs`,
+`server/desktops.mjs` and `runtime/tracker.mjs` are gone.
 
 **The line count is the wrong headline, and it is worth saying why.** Most of what remains is not
 waiting to be rewritten — it is waiting to be *deleted*. A JS module retires with its CALLER, not on
@@ -38,7 +38,7 @@ not how many lines are left but **how many callers are left**, and there are fou
 | `runtime/token-client.mjs` | 161 | client of `red-token-serve`; four specs still drive it |
 | `runtime/lsp-client.mjs` | 125 | client of `red-lsp-serve`; the LSP corpus compares against it (F173) |
 | `runtime/protocol.mjs` | 60 | shared with the supervisor, so it goes with F159 |
-| `runtime/tracker.mjs` | 58 | one spec's `hostStateDirectory` |
+| ~~`runtime/tracker.mjs`~~ | ~~58~~ | **deleted** — `red_worker::signin` finds a retained host |
 
 **Status: the supervisor runs `red-worker`.** Every route is answered, both sockets are served, the
 host's session stream is followed, and the whole suite is green on it. Eight specs that drove the
@@ -113,8 +113,12 @@ types, and F163 is the row that deletes them.
 2. **Bring the desktop registry back to the worker**, terminating `/events` there (spec 143). One
    spec is waiting on it, and it settles the token segment's plumbing too. Then delete `worker.mjs` and delete `worker.mjs` + the seven files that retire
    with it. **−1,429 lines**, the largest single deletion left.
-3. ~~**F154**~~ — **done**: `red_core::tls`, `red_project::tracker_auth`, `red_project::tracker_remote`
-   and `red_worker::signin`. `tracker.mjs` + `tracker-auth.mjs` (**−463**) retire with `main.mjs`.
+3. **F154's last mile** — the Rust is done and has its own recorded corpus; what is left is
+   removing the JavaScript it replaces. `server/tracker-auth.mjs` (232) has one importer left:
+   `server/tracker.mjs`'s `credential()`. Removing the remote half of `tracker.mjs` (231) frees it,
+   and needs `tracker.test.mjs` and `tracker-filter.test.mjs` converted — their coverage is already
+   established: the local half by `tracker-parity`, the remote by `tracker-remote-parity`, the
+   declaration rules by the frozen `declaration-fixtures.json`. **−463.**
 4. **F159** — the supervisor. **−1,368**, the largest remaining port.
 5. **`sessions-client.mjs`** — how an agent CLI is launched. **−459**.
 6. **F163** — the entry points, `main.mjs` and the service clients that retire with it. **−~1,700**.
