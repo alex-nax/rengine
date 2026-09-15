@@ -13,8 +13,11 @@ git ls-files '*.mjs' | grep -vE 'tests/|\.test\.mjs' | xargs wc -l | tail -1
 
 | | lines |
 |---|---|
-| Production JavaScript remaining | **5,504** across 43 files |
-| Rust in `red/` | 30,328 |
+| Production JavaScript remaining | **4,667** across 41 files |
+| Rust in `red/` | ~34,000 |
+
+Down from 5,504 across 43 when this was first written: `runtime/worker.mjs`, `runtime/scripts.mjs`
+and `server/desktops.mjs` are gone.
 
 **The line count is the wrong headline, and it is worth saying why.** Most of what remains is not
 waiting to be rewritten — it is waiting to be *deleted*. A JS module retires with its CALLER, not on
@@ -24,18 +27,18 @@ not how many lines are left but **how many callers are left**, and there are fou
 
 ## The four callers
 
-### 1. `worker.mjs` and its world — 1,429 lines
+### 1. `worker.mjs` and its world — ~600 lines left of 1,429
 
 | file | lines | |
 |---|---|---|
-| `runtime/worker.mjs` | 733 | the workspace worker |
-| `runtime/ide.mjs` | 191 | client of `red-ide serve` |
-| `runtime/token-client.mjs` | 161 | client of `red-token-serve` |
-| `runtime/lsp-client.mjs` | 125 | client of `red-lsp-serve` |
-| `server/desktops.mjs` | 76 | the desktop registry — already the door's |
-| `runtime/protocol.mjs` | 60 | shared with the supervisor |
-| `runtime/tracker.mjs` | 58 | the worker's tracker routes |
-| `runtime/scripts.mjs` | 25 | `openScript` |
+| ~~`runtime/worker.mjs`~~ | ~~733~~ | **deleted** |
+| ~~`server/desktops.mjs`~~ | ~~76~~ | **deleted** — the registry is `red_core::desktops` |
+| ~~`runtime/scripts.mjs`~~ | ~~25~~ | **deleted** |
+| `runtime/ide.mjs` | 191 | client of `red-ide serve`; retires with `agents/ide-connect.mjs` (F163) |
+| `runtime/token-client.mjs` | 161 | client of `red-token-serve`; four specs still drive it |
+| `runtime/lsp-client.mjs` | 125 | client of `red-lsp-serve`; the LSP corpus compares against it (F173) |
+| `runtime/protocol.mjs` | 60 | shared with the supervisor, so it goes with F159 |
+| `runtime/tracker.mjs` | 58 | one spec's `hostStateDirectory` |
 
 **Status: the supervisor runs `red-worker`.** Every route is answered, both sockets are served, the
 host's session stream is followed, and the whole suite is green on it. Eight specs that drove the

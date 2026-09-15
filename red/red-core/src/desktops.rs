@@ -458,6 +458,24 @@ mod tests {
         assert_eq!(answer["status"], json!("accepted"));
         assert!(answer["detail"].as_str().expect("detail").contains("accepted does not mean the build succeeded"));
 
+        /* A desktop that says NO is a different answer from one that says nothing: the first is a
+           desktop that cannot do it right now, the second is one that may be gone. */
+        let asking = registry.clone();
+        let refusing = std::thread::spawn(move || asking.act("r", "d", "reload", Value::Null, &|| "req2".to_string()));
+        let asked = loop {
+            let held = heard.0.lock().expect("heard");
+            if let Some(frame) = held.iter().filter(|frame| frame["type"] == json!("desktop-action")).nth(1).cloned() {
+                break frame;
+            }
+            drop(held);
+            std::thread::sleep(Duration::from_millis(5));
+        };
+        registry.acknowledge(1, &json!({ "requestId": asked["requestId"], "accepted": false })).expect("acknowledged");
+        let refused = refusing.join().expect("joined").expect_err("rejected");
+        assert!(refused.contains("rejected reload"), "{refused}");
+        /* And an acknowledgement for a request that is already settled is not one. */
+        assert!(registry.acknowledge(1, &json!({ "requestId": asked["requestId"], "accepted": true })).is_err());
+
         /* A desktop that was not started through the reload-capable launcher says so, and one that
            is not attached to this project is a different refusal with a different status. */
         let plain = Desktops::new();

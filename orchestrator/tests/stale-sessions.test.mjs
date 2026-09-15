@@ -6,7 +6,6 @@ import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { WorkspaceStore, fail } from '../server/store-client.mjs';
-import { Desktops } from '../server/desktops.mjs';
 import { startServer } from '../server/main.mjs';
 import { startWorker, withoutEndedSessions } from './red-worker-fixture.mjs';
 import { fakeDesktop, ok } from './token-fixtures.mjs';
@@ -26,33 +25,11 @@ before(() => built('--bins'));
 
 const RESTING = [process.execPath, '-e', 'setInterval(() => {}, 1000)'];
 
-test('a registration naming sessions the host does not have registers, minus those ids', async t => {
-  const dir = await mkdtemp(path.join(tmpdir(), 'rengine-stale-'));
-  t.after(() => rm(dir, { recursive: true, force: true }));
-  await mkdir(path.join(dir, 'a')); await mkdir(path.join(dir, 'b'));
-  const store = await WorkspaceStore.open(path.join(dir, 'state'));
-  const a = await store.addRoot(path.join(dir, 'a')), b = await store.addRoot(path.join(dir, 'b'));
-  const live = randomUUID(), foreign = randomUUID(), dead = [randomUUID(), randomUUID()];
-  const sessions = { snapshot: id => id === live ? { id, rootId: a.id } : id === foreign ? { id, rootId: b.id } : fail('Unknown session.', 404) };
-  const desktops = new Desktops(store, sessions, 25);
-  const client = new EventEmitter(); const messages = [];
-  client.send = text => messages.push(JSON.parse(text));
-
-  desktops.register(client, { rootIds: [a.id], sessionIds: [live, ...dead], canReload: true, canAttach: true });
-  const registered = messages.at(-1);
-  assert.equal(registered.type, 'desktop-registered', 'the desktop is registered rather than refused');
-  assert.deepEqual(registered.unknownSessions, dead, 'and is told which of its views name sessions that ended');
-  const listed = desktops.list(a.id);
-  assert.equal(listed.length, 1, 'it is listed for the root it bound');
-  assert.deepEqual(listed[0].sessionIds, [live], 'bound to the session the host still has, and to no other');
-
-  /* The two refusals that stay refusals: a frame that is not a registration at all, and a session
-     this host does have, on a root this desktop did not bind. */
-  assert.throws(() => desktops.register(client, { rootIds: [a.id], sessionIds: 'both of them' }), /Invalid desktop bindings/);
-  assert.throws(() => desktops.register(client, { rootIds: [a.id], sessionIds: [foreign] }), /different root/);
-  assert.deepEqual(desktops.list(a.id)[0].sessionIds, [live], 'and neither refusal disturbed the registration');
-});
-
+/* The registry itself — who may register, which bindings are kept, which refusals stay refusals — is
+ * `red_core::desktops` and is unit-tested there, against the same cases this file used to drive the
+ * JavaScript `Desktops` through. What is left here is the half that is about a WORKSPACE: the frame
+ * a real desktop sends to a real worker whose host no longer has the panes its layout names.
+ */
 test('the worker layer removes ended sessions from a registration before anything else sees it', () => {
   const state = { sessions: [{ id: 'a' }, { id: 'b' }] };
   const frame = { type: 'desktop-register', rootIds: ['r'], sessionIds: ['a', 'gone', 'b'], canReload: true };

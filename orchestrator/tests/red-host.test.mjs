@@ -25,7 +25,6 @@ import { PtyHost } from '../server/pty-client.mjs';
 import { agentTitle } from '../server/sessions-client.mjs';
 import { runtimeDirectory } from '../runtime/discovery.mjs';
 import { fakeCli } from './task-fixtures.mjs';
-import { Desktops } from '../server/desktops.mjs';
 import { endStateServices } from './state-services.mjs';
 import { built } from './cargo.mjs';
 
@@ -530,28 +529,19 @@ test('a desktop registers on the door and answers what the workspace asks it', {
   await ours.open;
   ours.socket.send(JSON.stringify(registration));
   await until(() => ours.seen('desktop-registered'), 'the door registered the desktop');
-  /* The JS host's `Desktops` answers the same frame, driven directly: it no longer serves `/events`,
-     and this is the implementation its socket used to hand the frame to. A socket that records what
-     it is sent is all that class needs. */
-  const sent = [];
-  const fake = { send: line => sent.push(JSON.parse(line)), once: () => {}, on: () => {} };
-  const theirs = { seen: kind => sent.find(frame => frame.type === kind),
-    registry: new Desktops(backend.store, backend.sessions) };
-  await theirs.registry.register(fake, registration);
-
   /* A pane this host never had is NOT an invalid binding: it ended with the host that owned it and
      the desktop's saved layout outlived that process. Refusing the frame would leave the desktop
      unregistered and every desktop action invisible (spec 098). */
   assert.deepEqual(ours.seen('desktop-registered').unknownSessions, ['a-pane-from-a-previous-host']);
-  assert.deepEqual(ours.seen('desktop-registered').unknownSessions, theirs.seen('desktop-registered').unknownSessions);
   assert.match(ours.seen('desktop-registered').id, /^[0-9a-f-]{36}$/);
 
   const listed = where => ask(where, `/api/desktops?rootId=${root.id}`).then(answer => answer.json());
   const named = ({ id, ...rest }) => rest;
   const mine = await listed(instance);
   assert.equal(mine.desktops.length, 1, 'the door lists the desktop attached to it');
-  assert.deepEqual(named(mine.desktops[0]), named(JSON.parse(JSON.stringify(theirs.registry.list(root.id)))[0]),
-    'and describes it exactly as the JS host describes its own');
+  assert.deepEqual(named(mine.desktops[0]),
+    { rootIds: [root.id], sessionIds: [session.id], canReload: true, canAttach: true, owner: 'alex', view: 'workspace' },
+    'and describes it in the shape a caller reads');
   assert.deepEqual(mine.desktops[0].sessionIds, [session.id], 'with the pane that is actually here');
   assert.equal(mine.desktops[0].owner, 'alex');
   const unknownRoot = await ask(instance, '/api/desktops?rootId=no-such-root');
