@@ -10,8 +10,8 @@
 # shapes, so their backslashes need no escaping), integers, booleans, and one-line arrays of
 # those. An absent capability is an OMITTED table — TOML has no null. A recipe that omits a
 # capability is refused by name for that capability alone, by the consumer, and works for the
-# rest. Parsers named here ('claude-flags', 'kimi-flags', 'codex-resume') stay code in
-# red-agents: each is the read side of a resume spelling the recipe declares.
+# rest. The read side of a resume spelling is DECLARED too, in `conversation.read` (spec 141):
+# red-agents implements the spellings ('flags', 'subcommand') and knows no agent by name.
 
 [recipes.claude]
 package = "@anthropic-ai/claude-code"
@@ -34,6 +34,14 @@ parser = "claude-flags"
 normalize = "lowercase"
 provider = "claude"
 resumeLine = "claude --resume {id}"
+
+# How this CLI's own argv SPELLS a conversation: the read side, declared rather than coded
+# (spec 141). `flags` scans for naming flags and opaque ones; the id is validated against `ids`
+# above and normalised by `normalize`, so no shape is hand-rolled anywhere.
+[recipes.claude.conversation.read]
+kind = "flags"
+names = ["--session-id", "--resume", "-r"]
+opaque = ["--fork-session", "-c", "--continue"]
 
 [recipes.claude.conversation.start]
 args = ["--session-id"]
@@ -73,6 +81,13 @@ parser = "codex-resume"
 normalize = "lowercase"
 provider = "codex"
 resumeLine = "codex resume {id}"
+
+# codex names a conversation with a positional after a subcommand rather than with a flag, so the
+# scan skips flags that take values and reads the first bare word.
+[recipes.codex.conversation.read]
+kind = "subcommand"
+word = "resume"
+valueFlags = ["-c", "--config", "-m", "--model", "-p", "--profile", "-i", "--image"]
 
 [recipes.codex.conversation.resume]
 args = ["resume"]
@@ -131,6 +146,11 @@ parser = "kimi-flags"
 normalize = "none"
 provider = "kimi"
 resumeLine = "kimi --session {id}"
+
+[recipes.kimi.conversation.read]
+kind = "flags"
+names = ["--session", "-S", "--resume", "-r"]
+opaque = ["-c", "--continue"]
 
 [recipes.kimi.conversation.resume]
 args = ["--session"]

@@ -15,7 +15,6 @@
 use serde_json::{json, Value};
 use std::io::Read;
 
-use crate::parsers;
 
 pub struct Outcome {
     pub notes: Vec<String>,
@@ -75,7 +74,10 @@ fn connection(context: &Value) -> Result<(String, String), String> {
 }
 
 struct Kind {
-    kimi: bool,
+    /* The shape the recipe declares, not a flag naming one CLI. This field was `kimi: bool`,
+       derived from the parser's NAME, with the shape hand-rolled below — the fourth copy of a
+       pattern the registry already states once (spec 141). */
+    ids: Option<String>,
     strip_prefix: Option<String>,
     short_length: usize,
     lowercase: bool,
@@ -84,12 +86,12 @@ struct Kind {
 
 impl Kind {
     fn matches(&self, conversation: &str) -> bool {
-        if self.kimi {
-            let body = conversation.get(8..).filter(|_| conversation[..8].eq_ignore_ascii_case("session_")).unwrap_or(conversation);
-            parsers::uuid_shape(body) || parsers::ulid_shape(body)
-        } else {
-            parsers::uuid_shape(conversation)
-        }
+        let Some(pattern) = self.ids.as_deref() else { return false };
+        regex::RegexBuilder::new(pattern)
+            .case_insensitive(true)
+            .build()
+            .map(|expression| expression.is_match(conversation))
+            .unwrap_or(false)
     }
     fn short(&self, id: &str) -> String {
         let stripped = match &self.strip_prefix {
@@ -113,7 +115,7 @@ fn provider_kind(name: &str, recipes: &[(String, crate::Value)]) -> Option<Kind>
     let talk = raw.get("conversation")?;
     let normalize = talk.get("normalize").and_then(crate::Value::string).unwrap_or("");
     Some(Kind {
-        kimi: talk.get("parser").and_then(crate::Value::string) == Some("kimi-flags"),
+        ids: talk.get("ids").and_then(crate::Value::string).map(str::to_string),
         strip_prefix: talk
             .get("short")
             .and_then(|short| short.get("stripPrefix"))

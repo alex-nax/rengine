@@ -289,6 +289,9 @@ pub fn parse_toml(text: &str, name: &str) -> Result<Value, String> {
 const MCP_OVERLAYS: [&str; 5] = ["flag", "config-args", "env-defaults", "env-inline", "project-file"];
 const HOOK_OVERLAYS: [&str; 3] = ["per-launch-settings", "per-launch-config", "guided-bootstrap"];
 const PARSERS: [&str; 3] = ["claude-flags", "kimi-flags", "codex-resume"];
+/* The resume spellings `parsers.rs` implements, named for what they do (spec 141). A recipe
+   declares which one it speaks; nothing here knows which CLI that is. */
+const READ_SPELLINGS: [&str; 2] = ["flags", "subcommand"];
 
 fn agent_name(cli: &str) -> bool {
     let bytes = cli.as_bytes();
@@ -335,12 +338,25 @@ pub fn cook(cli: &str, raw: &Value) -> Result<(), String> {
         if !parser.map_or(false, |name| PARSERS.contains(&name)) {
             return Err(format!("Registry recipe {cli} names a conversation parser rEngine does not implement."));
         }
+        if let Some(read) = talk.get("read") {
+            let kind = read.get("kind").and_then(Value::string);
+            if !kind.map_or(false, |kind| READ_SPELLINGS.contains(&kind)) {
+                return Err(format!("Registry recipe {cli} names a conversation read spelling rEngine does not implement."));
+            }
+        }
     }
     Ok(())
 }
 
 fn string_or_null(value: Option<&Value>) -> serde_json::Value {
     value.and_then(Value::string).map(|text| json!(text)).unwrap_or(serde_json::Value::Null)
+}
+
+fn strings_or_null(value: Option<&Value>) -> serde_json::Value {
+    match value {
+        Some(Value::Array(items)) => json!(items.iter().map(|item| item.string()).collect::<Vec<_>>()),
+        _ => serde_json::Value::Null,
+    }
 }
 
 fn args_or_null(value: Option<&Value>) -> serde_json::Value {
@@ -350,9 +366,32 @@ fn args_or_null(value: Option<&Value>) -> serde_json::Value {
     }
 }
 
+/// How this recipe's resume spellings are READ, for `parsers` (F213, spec 141): the declared
+/// spelling and its data. `launch::talk_of` hands it to `parsers` alongside the projected
+/// conversation, which carries the id shape and the normalisation that reading an id needs.
+///
+/// Deliberately NOT an atom of `project()`. That projection is frozen to the shape registry.mjs
+/// emitted, and `agent-registry-toml.test.mjs` deep-compares it against a record that must never be
+/// regenerated — so a capability declared after that module was deleted cannot appear in its
+/// answer, and widening the projection to carry one would quietly weaken the parity proof into a
+/// comparison against itself. New declarations get their own projection instead.
+///
+/// `None` when the recipe declares no read spelling: an honest "this CLI has not said", not a guess.
+pub fn conversation_read(raw: &Value) -> Option<serde_json::Value> {
+    let read = raw.get("conversation")?.get("read")?;
+    Some(json!({
+        "kind": read.get("kind").and_then(Value::string),
+        "names": strings_or_null(read.get("names")),
+        "opaque": strings_or_null(read.get("opaque")),
+        "word": string_or_null(read.get("word")),
+        "valueFlags": strings_or_null(read.get("valueFlags")),
+    }))
+}
+
 /// The resolved atom projection of one cooked recipe — exactly the shape registry.mjs's
 /// resolvedRecipes() emits, omitted capabilities as explicit nulls, so the parity test can
-/// deep-compare the two sides of the one document.
+/// deep-compare the two sides of the one document. **Frozen**: see `conversation_read` for why a
+/// newly declared capability does not belong here.
 pub fn project(raw: &Value) -> serde_json::Value {
     let update = raw.get("update").expect("cook ran first");
     let models = raw.get("models");
@@ -508,6 +547,38 @@ mod tests {
         let bad_parser = parse_toml("[recipes.x]\npackage=\"@t/x\"\n[recipes.x.update]\nkind=\"reinstall\"\n[recipes.x.mcp]\nkind=\"flag\"\n[recipes.x.conversation]\nparser=\"telepathy\"\n", "t.toml").unwrap();
         assert!(cook("x", bad_parser.get("recipes").unwrap().get("x").unwrap()).unwrap_err().contains("conversation parser"));
         assert!(cook("Bad Name", bad_update.get("recipes").unwrap().get("x").unwrap()).unwrap_err().contains("Invalid agent name"));
+    }
+
+    /* The read spelling is validated the way the overlays are: a recipe may only ask for one
+       `parsers.rs` implements, and asking for one it does not is refused at cook rather than
+       becoming a silent "this CLI has not told us how to read it" at launch. */
+    #[test]
+    fn a_read_spelling_rengine_does_not_implement_is_refused() {
+        let recipe = |spelling: &str| {
+            format!("[recipes.x]\npackage=\"@t/x\"\n[recipes.x.update]\nkind=\"reinstall\"\n[recipes.x.mcp]\nkind=\"flag\"\n[recipes.x.conversation]\nparser=\"claude-flags\"\n[recipes.x.conversation.read]\nkind=\"{spelling}\"\n")
+        };
+        let cooked = |spelling: &str| {
+            let parsed = parse_toml(&recipe(spelling), "t.toml").unwrap();
+            cook("x", parsed.get("recipes").unwrap().get("x").unwrap())
+        };
+        assert!(cooked("telepathy").unwrap_err().contains("conversation read spelling"));
+        for spelling in READ_SPELLINGS {
+            assert!(cooked(spelling).is_ok(), "{spelling} is a spelling parsers.rs implements");
+        }
+    }
+
+    /* The declared block must reach the parser. It rides on `talk_of`'s view rather than inside
+       `project()`, so a projection that drops it leaves every launch minting its own id — which is
+       what F213 shipped broken for an afternoon. */
+    #[test]
+    fn the_declared_read_block_reaches_the_conversation_view() {
+        let recipes = load_registry(&std::fs::read_to_string("../../orchestrator/agents/registry.toml").unwrap(), "registry.toml", None).unwrap();
+        for (cli, spelling) in [("claude", "flags"), ("kimi", "flags"), ("codex", "subcommand")] {
+            let talk = launch::conversation_of(&recipes, cli).expect("a shipped CLI that resumes");
+            assert_eq!(talk.get("read").and_then(|read| read.get("kind")).and_then(serde_json::Value::as_str), Some(spelling),
+                       "{cli} carries its declared read spelling into the view parsers reads");
+            assert!(talk.get("ids").and_then(serde_json::Value::as_str).is_some(), "{cli} keeps the projected atoms alongside it");
+        }
     }
 
     #[test]

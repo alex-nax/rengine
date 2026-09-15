@@ -91,16 +91,23 @@ fn dispatch(method: &str, args: &Json) -> Result<Json, String> {
             let matcher = text_arg(args, 1).unwrap_or("startup|resume");
             Ok(json!(red_agents::hooks::hook_trust_hash(command, matcher)))
         }
-        "claudeFlags" | "kimiFlags" | "codexResume" => {
+        /* One method, not one per agent (spec 141). It takes the CLI's name and reads that
+           recipe's declared spelling; the three agent-named methods it replaces had no caller
+           outside this file, which is what a wire surface shaped around identities tends to
+           become. */
+        "conversationRead" => {
+            let cli = args.get(0).and_then(Json::as_str).unwrap_or_default();
             let rest: Vec<String> = args
-                .get(0)
+                .get(1)
                 .and_then(Json::as_array)
                 .map(|values| values.iter().filter_map(Json::as_str).map(str::to_string).collect())
                 .unwrap_or_default();
-            let parsed = match method {
-                "claudeFlags" => red_agents::parsers::claude_flags(&rest),
-                "kimiFlags" => red_agents::parsers::kimi_flags(&rest),
-                _ => red_agents::parsers::codex_resume(&rest),
+            let recipes = load()?;
+            let Some(talk) = red_agents::launch::conversation_of(&recipes, cli) else {
+                return Err(format!("No conversation parser for {cli}."));
+            };
+            let Some(parsed) = red_agents::parsers::read(&talk, &rest) else {
+                return Err(format!("No conversation parser for {cli}."));
             };
             Ok(json!({ "id": parsed.0, "source": parsed.1 }))
         }

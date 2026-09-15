@@ -128,11 +128,19 @@ fn main() -> ExitCode {
                 Some("--") => args[3..].to_vec(),
                 _ => return fail(USAGE),
             };
-            let parsed = match cli.as_str() {
-                "claude" => parsers::claude_flags(&rest),
-                "kimi" => parsers::kimi_flags(&rest),
-                "codex" => parsers::codex_resume(&rest),
-                _ => return fail(format!("No conversation parser for {cli}.")),
+            /* The roster is data: the recipe is looked up and its declared spelling read. An arm
+               per agent here was the dispatch that made adding one an edit to shared code. */
+            let recipes = match load() {
+                Ok(recipes) => recipes,
+                Err(error) => return fail(error),
+            };
+            /* The same projection launch.rs reads a recipe through, so `parse` and a real launch
+               agree about what the recipe says. */
+            let Some(talk) = red_agents::launch::conversation_of(&recipes, cli) else {
+                return fail(format!("No conversation parser for {cli}."));
+            };
+            let Some(parsed) = parsers::read(&talk, &rest) else {
+                return fail(format!("No conversation parser for {cli}."));
             };
             println!("{}", serde_json::json!({ "id": parsed.0, "source": parsed.1 }));
             ExitCode::SUCCESS

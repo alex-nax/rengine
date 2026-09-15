@@ -22,8 +22,25 @@ fn recipe_of<'a>(recipes: &'a [(String, Value)], cli: &str) -> Option<&'a Value>
 fn projected(recipes: &[(String, Value)], cli: &str) -> Option<Json> {
     recipe_of(recipes, cli).map(crate::project)
 }
+/// A recipe's whole conversation view. Public because `parse` on the CLI must read a recipe
+/// exactly as a launch does, or the two could disagree about the same declaration.
+pub fn conversation_of(recipes: &[(String, Value)], cli: &str) -> Option<Json> {
+    talk_of(recipes, cli)
+}
+/// The projected conversation, with the declared `read` block carried alongside it. The block rides
+/// here rather than inside `project()` because that projection is frozen evidence — see
+/// `crate::conversation_read`. This view is the crate's own, so the two do not have to be one.
 fn talk_of(recipes: &[(String, Value)], cli: &str) -> Option<Json> {
-    projected(recipes, cli).and_then(|r| r.get("conversation").cloned()).filter(|v| !v.is_null())
+    let mut talk = projected(recipes, cli)
+        .and_then(|recipe| recipe.get("conversation").cloned())
+        .filter(|value| !value.is_null())?;
+    match (talk.as_object_mut(), recipe_of(recipes, cli).and_then(crate::conversation_read)) {
+        (Some(table), Some(read)) => {
+            table.insert("read".to_string(), read);
+        }
+        _ => {}
+    }
+    Some(talk)
 }
 fn text<'a>(value: &'a Json, key: &str) -> Option<&'a str> {
     value.get(key).and_then(Json::as_str)
@@ -157,12 +174,9 @@ pub fn describe_session(identity: &Json) -> Json {
 /* ---- the identity ---------------------------------------------------------------------------- */
 
 fn parse_named(talk: &Json, args: &[String]) -> (Option<String>, String) {
-    let parsed = match text(talk, "parser") {
-        Some("claude-flags") => crate::parsers::claude_flags(args),
-        Some("kimi-flags") => crate::parsers::kimi_flags(args),
-        Some("codex-resume") => crate::parsers::codex_resume(args),
-        _ => (None, "minted"),
-    };
+    /* The recipe's own `conversation.read` block decides this — a spelling, not a name. The arms
+       here used to be one per parser name, which is one per agent wearing a different hat. */
+    let parsed = crate::parsers::read(talk, args).unwrap_or((None, "minted"));
     (parsed.0, parsed.1.to_string())
 }
 

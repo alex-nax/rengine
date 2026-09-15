@@ -1,0 +1,99 @@
+# Spec 141 — the provider abstraction: a recipe declares, shared code implements
+
+Owner goal, 2026-09-15: *"design abstraction interface and achieve complete provider split"*, after
+catching an agent-per-function file that contradicted the project's own stated design
+(`docs/lessons-learned.md`).
+
+Status: **design, with F213–F217 as the work.**
+
+## The rule, in one line
+
+**Shared code asks the recipe what a CLI can do. It never asks who the CLI is.**
+
+A file that is not an agent's own may contain no agent name — not in a function name, not in a
+branch, not in an enum variant. Where behaviour differs per agent, either a recipe key describes the
+difference, or the agent gets an adapter file of its own. There is no third option.
+
+## What the survey found
+
+The registry is already a strong declaration: `conversation.ids` is a regular expression,
+`normalize`, `resumeLine`, `start.args`, `resume.args`, `short.length` and `short.stripPrefix` are
+all data. The gap is not that rEngine lacks an abstraction — it is that **code was written beside
+the abstraction instead of through it**.
+
+| where | what it knows that it should not |
+|---|---|
+| `red-agents/parsers.rs` | `claude_flags`, `kimi_flags`, `codex_resume`, and hand-rolled `uuid_shape` / `ulid_shape` / `kimi_id_shape` |
+| `red-agents/main.rs` | a match arm per agent, dispatching to those |
+| `red-agents/bind.rs` | `if agent == "kimi"` deciding where MCP wiring goes |
+| `red-agents/launch.rs` | a kimi-named key in a shared plan |
+| `red-store/store.rs` | `IdShape::KimiSession`, plus a **third** hand-rolled copy of the id shapes |
+| `red-host/panes.rs`, `handoff.rs` | a resume path gated on the agent literally being codex |
+
+**The id shape exists in three places**: declared as a regex in the registry, hand-rolled in
+`parsers.rs`, and hand-rolled again in `red-store`. `launch.rs:103` already matches the declared one
+with a real engine, and both crates already depend on a regex library — so the two hand-rolled
+copies are not even a dependency saving. `parsers.rs`'s comment claiming a regex "would be the
+crate's first" is stale; `red-agents/Cargo.toml` has carried `regex` since `ids_match` was written.
+
+## Decisions
+
+| # | Decision |
+|---|---|
+| 1 | **The declared pattern is the only id shape.** `conversation.ids` is matched with a real engine wherever a shape is checked. Both hand-rolled copies are deleted, not refactored. |
+| 2 | **A parser becomes a declared spelling.** The three parsers are two algorithms with different data: claude and kimi are the same flag scan with different flag lists, codex is a positional subcommand. A new `conversation.read` block names which spelling and its data; shared code implements the spellings, named for what they do (`flags`, `subcommand`) and never for who uses them. |
+| 3 | **The store stops judging shape by identity.** `record_conversation` takes the declared pattern from its caller rather than an enum naming an agent. The store still refuses an id that does not match — the refusal is the point — but it learns the rule instead of containing it. |
+| 4 | **An identity check that stands for a capability becomes a capability.** `if agent == "kimi"` for MCP placement, and codex-only handoff, are capabilities the recipe declares. A fourth agent needing the same treatment declares it and works, with no shared-code edit. |
+| 5 | **The roster is data.** Dispatch is a lookup over declared recipes, not a `match` with an arm per agent. An unknown agent is refused by name, as today. |
+| 6 | **A guard, not a rule.** The specs this violated already existed and did not prevent it — the writer who broke the rule had written it, the same day. A check fails the build when an agent name appears outside its adapter, the registry, or a declared exception list, the way `design.py check` already does for the product name. |
+
+## What this does not do
+
+- It does not change what any agent does today. Every existing behaviour is preserved and its
+  current evidence path re-run; this moves knowledge, it does not redesign launching.
+- It does not remove `provider` from a conversation record. A conversation belongs to the CLI that
+  can resume it, and saying which is data, not an identity check in shared logic.
+- It does not forbid an agent's name in that agent's own adapter, in the registry, or in a fixture
+  that names one deliberately. Those are where it belongs.
+
+## What implementation found: the projection is frozen, so a new declaration needs its own view
+
+F213 hit a wall worth writing down, because the next declared capability will hit it too.
+
+`red-agents::project()` is not a general projection — it is **frozen evidence**. It emits exactly
+the shape `registry.mjs`'s `resolvedRecipes()` emitted, and `agent-registry-toml.test.mjs`
+deep-compares it against a record taken before that module was deleted, which by its own terms must
+never be regenerated. So a capability declared *after* that module died cannot appear in its answer:
+adding `read` to `project()` fails the parity test, and regenerating the record to make it pass
+would turn a parity proof into a comparison against itself.
+
+The resolution: `conversation_read()` projects the declared block on its own, and `launch::talk_of`
+carries it alongside the projected conversation. `project()` stays byte-identical to the record, the
+crate's own view of a conversation gains the new declaration, and **both the launch path and `parse`
+read that one view** — which is what `conversation_of` promised all along and briefly did not
+deliver: for one build the two read different views, the launch minted its own id, and five tests
+said so.
+
+**The rule for the next declaration:** new capability data goes in its own projection, never into
+`project()`. A frozen artifact stays frozen or it stops being evidence.
+
+## Where the implementation departs from F213's written criteria — for the owner
+
+F213's row says *"each agent's flag parsing lives in a file named for that agent"*: three adapter
+files. What landed has **no per-agent parser file at all**, because the survey found the difference
+between claude and kimi was not code — it is the same flag scan with different flag lists. Three
+files of identical code around different constants would be duplication wearing an abstraction's
+clothes, and the constants belong where every other per-agent datum already lives: the registry.
+
+So each agent's flag parsing does live in exactly one place that names it — `registry.toml` — and
+shared code implements two spellings named for what they do. The row's third criterion ("the shared
+module contains no agent name") is met more completely this way than by the route the first
+criterion describes. **The criteria are left as accepted and the row is not marked passing on this
+reading; the owner's call.** Where an agent genuinely differs in *code* rather than data — the
+conversation stores of F210 — the per-agent file stands, and this does not weaken that.
+
+## Sequence
+
+F213 (parsers to declared spellings) unblocks F215 (the store's shape) and F216 (codex handoff),
+because all three stop at the same place: a declared pattern and a declared capability. F214 follows.
+**F217 lands last and proves the rest** — it is the row that makes this stay true.

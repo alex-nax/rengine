@@ -200,6 +200,18 @@ fn find_instance(project: &str, state: Option<&str>, home: &str) -> Result<Found
     Ok(claim)
 }
 
+/* `--session` here is rEngine's OWN identifier for a bound session, not any CLI's conversation id:
+   the workspace mints it as a UUID, so the shape is this command's and not a recipe's. Named for
+   what it checks rather than borrowed from an agent's parser. */
+fn session_uuid_shape(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    bytes.len() == 36
+        && bytes.iter().enumerate().all(|(index, byte)| match index {
+            8 | 13 | 18 | 23 => *byte == b'-',
+            _ => byte.is_ascii_hexdigit(),
+        })
+}
+
 const USAGE: &str = "red-agents bind --project DIR [--agent NAME|EXECUTABLE] [--session UUID] [--state DIR]
 Binds an agent this workspace never spawned: finds the live instance that already serves DIR,
 gives this agent an identity, and writes the MCP configuration to start the agent with.
@@ -233,7 +245,7 @@ pub fn bind(
     }
     let Some(project) = options.get("project") else { return Err(format!("--project DIR is required.\n{USAGE}")) };
     if let Some(session) = options.get("session") {
-        if !crate::parsers::uuid_shape(session) {
+        if !session_uuid_shape(session) {
             return Err(format!("--session takes the agent session's UUID, not {session}."));
         }
     }

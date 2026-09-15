@@ -35,6 +35,14 @@ async function build() {
 }
 
 const cli = async args => run(BIN, args).catch(error => error);
+/* A refusal should read as a refusal. `parse` prints its answer on stdout and its refusal on
+   stderr, so JSON.parse of a refused run used to throw "Unexpected end of JSON input" and hide
+   which CLI said no and why — an afternoon of F213 went into re-deriving that. */
+const parsed = async (cliName, args) => {
+  const answered = await cli(['parse', cliName, '--', ...args]);
+  assert.ok(answered.stdout, `parse ${cliName} ${args.join(' ')} answered — instead: ${(answered.stderr || '').trim() || 'nothing at all'}`);
+  return JSON.parse(answered.stdout);
+};
 /* Two recordings, and `list --names` is in both: which one a case is judged against is the whole
    point of the case, so the table is named rather than searched. */
 const recorded = (args, table = 'cli') => FIXTURES[table][args.join(' ')];
@@ -96,9 +104,9 @@ test('the conversation parsers answer what the JS parsers answer', async t => {
      below are the half that needs no other implementation at all, and they are why this test still
      says something once there is only one parser left. */
   for (const [cliName, cases] of Object.entries(FIXTURES.parsers)) {
-    for (const { args, parsed } of cases) {
-      const rust = JSON.parse((await cli(['parse', cliName, '--', ...args])).stdout);
-      assert.deepEqual(rust, parsed, `${cliName} ${args.join(' ')}`);
+    for (const { args, parsed: expected } of cases) {
+      const rust = await parsed(cliName, args);
+      assert.deepEqual(rust, expected, `${cliName} ${args.join(' ')}`);
     }
   }
   const anchors = [
@@ -108,7 +116,7 @@ test('the conversation parsers answer what the JS parsers answer', async t => {
     [['codex', []], { id: null, source: 'minted' }],
   ];
   for (const [[cliName, args], expected] of anchors) {
-    const rust = JSON.parse((await cli(['parse', cliName, '--', ...args])).stdout);
+    const rust = await parsed(cliName, args);
     assert.deepEqual(rust, expected, `${cliName} ${args.join(' ')} pinned`);
   }
 });
