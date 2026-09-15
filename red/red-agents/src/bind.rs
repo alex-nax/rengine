@@ -274,9 +274,10 @@ pub fn bind(
     plan_inputs.insert("context".into(), context);
     plan_inputs.insert("directory".into(), json!(bindings.to_string_lossy()));
     plan_inputs.insert("identity".into(), identity.clone());
-    /* kimi reads its MCP servers from the project's own .kimi-code/mcp.json, so the wiring goes to
-       the bound root rather than wherever this command was run from. */
-    if agent == "kimi" {
+    /* A CLI whose MCP overlay is written INTO the project needs the bound root as its working
+       directory, or the overlay lands wherever this command was run from. Which CLIs those are is
+       the recipes' to say: `project-file` is the declared capability, not a name (F214, spec 141). */
+    if crate::launch::mcp_kind(recipes, &agent).as_deref() == Some("project-file") {
         plan_inputs.insert("cwd".into(), root.get("path").cloned().unwrap_or(Json::Null));
     }
     let plan = crate::launch::launch_plan(recipes, &Json::Object(plan_inputs), mint, now)?;
@@ -298,8 +299,8 @@ pub fn bind(
     }
     lines.push(format!("  context  {}", text(&plan, "contextFile")));
     lines.push(format!("  MCP configuration {}", text(&plan, "generic")));
-    if let Some(kimi) = plan.get("kimi").and_then(Json::as_str) {
-        lines.push(format!("  project MCP {kimi} (rEngine owns only the {} entry)", text(&plan, "name")));
+    if let Some(written) = plan.get("projectFile").and_then(Json::as_str) {
+        lines.push(format!("  project MCP {written} (rEngine owns only the {} entry)", text(&plan, "name")));
     }
     if plan.get("custom").and_then(Json::as_bool).unwrap_or(false) {
         /* claude and codex consume this configuration as it stands; gemini, opencode and kimi need
@@ -310,7 +311,7 @@ pub fn bind(
         let generic = text(&plan, "generic");
         let name = text(&plan, "name");
         let context_file = text(&plan, "contextFile");
-        let settings = crate::launch::claude_settings(
+        let settings = crate::launch::per_launch_settings(
             inputs.get("redAgents").and_then(Json::as_str).unwrap_or("red-agents"), &context_file, cfg!(windows));
         let settings_file = crate::launch::write_private(
             &std::path::Path::new(text(&plan, "directory").as_str()).join("settings.json"), &settings)?;

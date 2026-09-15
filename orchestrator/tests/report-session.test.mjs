@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { before } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { spawn } from 'node:child_process';
@@ -9,6 +9,14 @@ import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { agentLaunch } from '../agents/agents-client.mjs';
+import { built } from './cargo.mjs';
+
+/* This spec drives a Rust binary through the service client, so it builds one first: run alone — or
+   used to check that a regression fails for its own reason — it would otherwise judge whatever
+   binary happened to be on disk, and a sabotage that is never compiled always passes. `npm test`
+   prebuilds and this is a no-op there (orchestrator/tests/cargo.mjs). */
+before(() => built('--bins'));
+
 
 /* The launcher decides the conversation at launch and then cannot see a /resume performed inside the
    running CLI: observed live on 2026-09-07, a pane launched as b9e2114c ran 5b8d47c2 while every

@@ -4073,7 +4073,7 @@
       "passes": false,
       "dependencies": [],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "red-agents/src/parsers.rs as two declared spellings, conversation.read in registry.toml, and spec 141.",
       "external_references": [],
       "evidence": []
     },
@@ -4094,7 +4094,7 @@
         213
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The project-file, flag and env-defaults overlay arms in red-agents/src/launch.rs reading declared spellings, bind.rs asking the recipe, and their registry declarations.",
       "external_references": [],
       "evidence": []
     },
@@ -4115,7 +4115,7 @@
         213
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "red-store's conversation id shape, taken from the recipe rather than an enum naming an agent.",
       "external_references": [],
       "evidence": []
     },
@@ -4136,7 +4136,7 @@
         213
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "red-host's panes.rs and handoff.rs asking the recipe what a CLI can be handed.",
       "external_references": [],
       "evidence": []
     },
@@ -4156,7 +4156,29 @@
       "passes": false,
       "dependencies": [],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "A build-failing check for an agent name in shared code, its declared exception list, and its wiring into init.sh.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 218,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "bind's start hints for a CUSTOM agent are a per-CLI catalogue written out in shared code: red-agents/src/bind.rs prints claude's --mcp-config/--settings line, codex's -c mcp_servers line, and a sentence naming gemini, opencode and kimi. F214 declared those spellings in the registry, so the catalogue now DUPLICATES them — change a recipe's flag and bind's hint silently lies. The hints should be generated from what each recipe declares.",
+      "acceptance_criteria": [
+        "The hint for each CLI is built from that recipe's declared spellings, so changing a recipe changes the hint.",
+        "bind.rs contains no agent name, including in the hint text.",
+        "The list of CLIs hinted comes from the loaded recipes rather than from a literal list.",
+        "A CLI whose overlay must be written for it is hinted to re-run with its own name, generated the same way.",
+        "The existing bind report evidence still passes, including the claude line agent-identity.test.mjs matches."
+      ],
+      "passes": false,
+      "dependencies": [
+        214
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "bind.rs's per-CLI start hints, generated from the declared spellings instead of written out per agent.",
       "external_references": [],
       "evidence": []
     }

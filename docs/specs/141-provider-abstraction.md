@@ -77,6 +77,42 @@ said so.
 **The rule for the next declaration:** new capability data goes in its own projection, never into
 `project()`. A frozen artifact stays frozen or it stops being evidence.
 
+## What F214 found: a KIND is rEngine's, every SPELLING is the CLI's
+
+The identity check F214 names (`if agent == "kimi"`) turned out to be the small half. The capability
+it stood for was **already declared** — `mcp.kind = "project-file"` — and the code simply did not
+ask. But the overlay arms that implement those kinds were full of one CLI's spellings applied to
+every CLI that declared the kind:
+
+| the arm | what it imposed on everyone |
+|---|---|
+| `flag` | claude's `--mcp-config`, and claude's `--settings` for the hook file |
+| `project-file` | kimi's `.kimi-code/mcp.json` |
+| `env-defaults` | gemini's `GEMINI_CLI_SYSTEM_DEFAULTS_PATH` and `gemini-defaults.json` |
+
+A second CLI declaring `kind = "flag"` was silently handed claude's flag. The registry's own
+end-to-end proof showed it: `testcli`, a recipe added as pure data, asserted `['--mcp-config', …]`.
+It now declares `--servers` — nobody's real flag — and gets it.
+
+So the line is: **rEngine implements the KIND; the recipe spells it.** `flag`, `path`, `pathVar` and
+the hooks `flag` are declarations, a recipe naming a kind without its spellings is refused at cook
+time by name and by missing key, and `claude_settings` is `per_launch_settings`, named for the
+capability it serves.
+
+Two frozen artifacts shaped this and are worth knowing about before touching a recipe:
+
+- `project()` freezes the *shape*, so a new key must live in `declared_since` (F213 above).
+- The frozen record also freezes the *shipped document's projected atoms*, so a new declaration may
+  not reuse a key `project()` already emits. That is why the `env-defaults` variable is `pathVar`
+  rather than the existing `envVar` — and the two genuinely differ: `envVar` carries configuration
+  text inline, `pathVar` carries a path.
+- The frozen *launch* record pins `gemini-defaults.json`, so the filename moved into the recipe
+  rather than being renamed. Declaring it kept the evidence intact and removed the name from code.
+
+**Still open:** `bind.rs` prints a per-CLI catalogue of start hints for a custom agent, which now
+duplicates the spellings the registry declares — change a recipe's flag and the hint lies. That is
+**F218**, and F217's guard must list it as a declared exception until it lands.
+
 ## Where the implementation departs from F213's written criteria — for the owner
 
 F213's row says *"each agent's flag parsing lives in a file named for that agent"*: three adapter

@@ -392,6 +392,8 @@ flowchart TD
   F216["F216: blocked"]
   F213 --> F216
   F217["F217: ready"]
+  F218["F218: blocked"]
+  F214 --> F218
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -565,3 +567,4 @@ flowchart TD
 | F215 | O1 | rengine | blocked | The store stops knowing what an agent's conversation ids look like. red-store carries IdShape::KimiSession and red_store_check maps the literal "kimi" to it, so the component that persists conversations knows one CLI's id format — knowledge that belongs to that CLI's recipe. |
 | F216 | O1 | rengine | blocked | red-host's codex-specific branches move behind a declared capability: panes.rs refuses a resume path unless the agent is literally codex, and handoff.rs spawns with --agent codex hard-coded. Both encode a capability (which CLIs can be handed a conversation to resume) as an identity. |
 | F217 | O1 | rengine | ready | A guard that fails the build when an agent's name appears in shared code — the check that would have caught F210 and every row above. The product name already has one (design.py check fails on a hand-written occurrence); an agent name has none, which is why a spec saying "one adapter per CLI" did not prevent one file holding three. |
+| F218 | O1 | rengine | blocked | bind's start hints for a CUSTOM agent are a per-CLI catalogue written out in shared code: red-agents/src/bind.rs prints claude's --mcp-config/--settings line, codex's -c mcp_servers line, and a sentence naming gemini, opencode and kimi. F214 declared those spellings in the registry, so the catalogue now DUPLICATES them — change a recipe's flag and bind's hint silently lies. The hints should be generated from what each recipe declares. |

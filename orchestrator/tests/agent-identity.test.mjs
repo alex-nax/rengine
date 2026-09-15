@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { before } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { mkdtemp, mkdir, writeFile, readFile, realpath, rm } from 'node:fs/promises';
@@ -12,6 +12,14 @@ import { startWorker } from '../runtime/worker.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { agentLaunch, describeSession } from '../agents/agents-client.mjs';
 import { bind } from '../agents/agents-client.mjs';
+import { built } from './cargo.mjs';
+
+/* This spec drives a Rust binary through the service client, so it builds one first: run alone — or
+   used to check that a regression fails for its own reason — it would otherwise judge whatever
+   binary happened to be on disk, and a sabotage that is never compiled always passes. `npm test`
+   prebuilds and this is a no-op there (orchestrator/tests/cargo.mjs). */
+before(() => built('--bins'));
+
 
 /* The tool server is the red-mcp binary now (F187): these tests drive the same connection an agent
    pane gets, so they start the same executable a pane starts. */
@@ -254,8 +262,8 @@ test('binding by discovery finds the one instance serving the directory, and ref
   /* kimi reads its MCP servers from the project's own file (spec 127 decision 8), so a binding
      writes it at the bound root — not wherever this command happened to run from. */
   const kimi = await bind(['--project', path.join(directory, 'project'), '--state', servers[0].stateDir, '--agent', 'kimi']);
-  assert.equal(kimi.plan.kimi, path.join(await realpath(directory), 'project', '.kimi-code', 'mcp.json'));
-  const wired = JSON.parse(await readFile(kimi.plan.kimi, 'utf8'));
+  assert.equal(kimi.plan.projectFile, path.join(await realpath(directory), 'project', '.kimi-code', 'mcp.json'));
+  const wired = JSON.parse(await readFile(kimi.plan.projectFile, 'utf8'));
   assert.equal(wired.mcpServers[kimi.plan.name].args.at(-1), kimi.plan.contextFile, 'the project file names this binding’s own context');
   assert.match(kimi.report, /project MCP .*\.kimi-code\/mcp\.json/, 'and the report says where the wiring went');
   assert.equal(kimi.identity.session, undefined, 'a binding names no conversation the CLI has not started');

@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { before } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, mkdir, writeFile, rm, realpath } from 'node:fs/promises';
@@ -18,6 +18,14 @@ import { agentsMenu, codexModels, modelArgs, promptFor, promptValues, writeDocum
 import { declaration } from './format-fixtures.mjs';
 import { api, fakeDesktop, feedSocket, identity, ok, until } from './token-fixtures.mjs';
 import { fakeCli, features, taskDeclaration, taskProject, writeLog } from './task-fixtures.mjs';
+import { built } from './cargo.mjs';
+
+/* This spec drives a Rust binary through the service client, so it builds one first: run alone — or
+   used to check that a regression fails for its own reason — it would otherwise judge whatever
+   binary happened to be on disk, and a sabotage that is never compiled always passes. `npm test`
+   prebuilds and this is a no-op there (orchestrator/tests/cargo.mjs). */
+before(() => built('--bins'));
+
 
 const schema = JSON.parse(readFileSync('contracts/project-v1.schema.json', 'utf8'));
 /* The tool server is the red-mcp binary now (F187): these tests drive the same connection an agent

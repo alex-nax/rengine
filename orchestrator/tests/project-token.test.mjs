@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { before } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -15,6 +15,14 @@ import { startServer } from '../server/main.mjs';
 import { startWorker } from '../runtime/worker.mjs';
 import { agentLaunch } from '../agents/agents-client.mjs';
 import { tokenProject, identity, api, ok, until, fakeDesktop, feedSocket } from './token-fixtures.mjs';
+import { built } from './cargo.mjs';
+
+/* This spec drives a Rust binary through the service client, so it builds one first: run alone — or
+   used to check that a regression fails for its own reason — it would otherwise judge whatever
+   binary happened to be on disk, and a sabotage that is never compiled always passes. `npm test`
+   prebuilds and this is a no-op there (orchestrator/tests/cargo.mjs). */
+before(() => built('--bins'));
+
 
 const WINDOW = 700;
 /* The tool server is the red-mcp binary now (F187): these tests drive the same connection an agent

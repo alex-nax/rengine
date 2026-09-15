@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { before } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -9,6 +9,14 @@ import { startServer } from '../server/main.mjs';
 import { WorkspaceStore } from '../server/store-client.mjs';
 import { Sessions, agentTitle } from '../server/sessions-client.mjs';
 import { Tokens, readIdentity } from '../runtime/token-client.mjs';
+import { built } from './cargo.mjs';
+
+/* This spec drives a Rust binary through the service client, so it builds one first: run alone — or
+   used to check that a regression fails for its own reason — it would otherwise judge whatever
+   binary happened to be on disk, and a sabotage that is never compiled always passes. `npm test`
+   prebuilds and this is a no-op there (orchestrator/tests/cargo.mjs). */
+before(() => built('--bins'));
+
 
 /* Two lanes taught the launcher to pass --session-id: the per-launch identity (spec 095) and the
    pane's conversation (spec 096). Merged as-is a pane would carry both, with two different UUIDs.

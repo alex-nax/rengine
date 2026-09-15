@@ -20,27 +20,15 @@ fn recipe_of<'a>(recipes: &'a [(String, Value)], cli: &str) -> Option<&'a Value>
     recipes.iter().find(|(name, _)| name == cli).map(|(_, raw)| raw)
 }
 fn projected(recipes: &[(String, Value)], cli: &str) -> Option<Json> {
-    recipe_of(recipes, cli).map(crate::project)
+    recipe_of(recipes, cli).map(crate::view)
 }
 /// A recipe's whole conversation view. Public because `parse` on the CLI must read a recipe
 /// exactly as a launch does, or the two could disagree about the same declaration.
 pub fn conversation_of(recipes: &[(String, Value)], cli: &str) -> Option<Json> {
     talk_of(recipes, cli)
 }
-/// The projected conversation, with the declared `read` block carried alongside it. The block rides
-/// here rather than inside `project()` because that projection is frozen evidence — see
-/// `crate::conversation_read`. This view is the crate's own, so the two do not have to be one.
 fn talk_of(recipes: &[(String, Value)], cli: &str) -> Option<Json> {
-    let mut talk = projected(recipes, cli)
-        .and_then(|recipe| recipe.get("conversation").cloned())
-        .filter(|value| !value.is_null())?;
-    match (talk.as_object_mut(), recipe_of(recipes, cli).and_then(crate::conversation_read)) {
-        (Some(table), Some(read)) => {
-            table.insert("read".to_string(), read);
-        }
-        _ => {}
-    }
-    Some(talk)
+    projected(recipes, cli).and_then(|r| r.get("conversation").cloned()).filter(|v| !v.is_null())
 }
 fn text<'a>(value: &'a Json, key: &str) -> Option<&'a str> {
     value.get(key).and_then(Json::as_str)
@@ -50,6 +38,13 @@ fn strings(value: Option<&Json>) -> Vec<String> {
         .and_then(Json::as_array)
         .map(|items| items.iter().filter_map(Json::as_str).map(str::to_string).collect())
         .unwrap_or_default()
+}
+
+/// Which MCP overlay this recipe declares — the capability, so callers ask what a CLI needs rather
+/// than who it is.
+pub fn mcp_kind(recipes: &[(String, Value)], cli: &str) -> Option<String> {
+    projected(recipes, cli)
+        .and_then(|recipe| recipe.get("mcp").and_then(|mcp| mcp.get("kind")).and_then(Json::as_str).map(str::to_string))
 }
 
 /// `agentCli`: the recipe's name when there is one, else the executable's basename.
@@ -359,7 +354,9 @@ fn hook_quote(value: &str, windows: bool) -> String {
     if plain { value.to_string() } else { format!("\"{}\"", value.replace('"', "\"\"")) }
 }
 
-pub fn claude_settings(red_agents: &str, context_file: &str, windows: bool) -> Json {
+/// The settings a `per-launch-settings` CLI is handed for this launch: a SessionStart hook that
+/// reports the conversation back, so a session started outside the workspace still names itself.
+pub fn per_launch_settings(red_agents: &str, context_file: &str, windows: bool) -> Json {
     let command = [red_agents, "report-session", "--context", context_file]
         .iter()
         .map(|part| hook_quote(part, windows))
@@ -463,7 +460,7 @@ pub fn launch_plan(
         }
         "flag" => {
             if hooks_kind == "per-launch-settings" {
-                let settings = private_json(&home.join("settings.json"), &claude_settings(red_agents, &bound_file, windows))?;
+                let settings = private_json(&home.join("settings.json"), &per_launch_settings(red_agents, &bound_file, windows))?;
                 plan.insert("settings".into(), json!(settings));
             }
             /* The IDE answer is the caller's: probing for a published editor is a scan of the
@@ -473,9 +470,16 @@ pub fn launch_plan(
                     plan.insert("ide".into(), ide.clone());
                 }
             }
-            consume_args = vec!["--mcp-config".into(), generic.clone()];
+            let Some(flag) = declared.get("mcp").and_then(|mcp| mcp.get("flag")).and_then(Json::as_str) else {
+                return Err(format!("Recipe {agent} consumes its MCP configuration by flag but does not declare which flag."));
+            };
+            consume_args = vec![flag.to_string(), generic.clone()];
             if let Some(settings) = plan.get("settings").and_then(Json::as_str) {
-                consume_args.extend(["--settings".into(), settings.to_string()]);
+                let settings_flag = declared.get("hooks").and_then(|hooks| hooks.get("flag")).and_then(Json::as_str);
+                let Some(settings_flag) = settings_flag else {
+                    return Err(format!("Recipe {agent} is handed per-launch settings but does not declare which flag carries them."));
+                };
+                consume_args.extend([settings_flag.to_string(), settings.to_string()]);
             }
             consume_args.extend(strings(plan.get("ide").and_then(|ide| ide.get("flags"))));
             consume_args.extend(conversation_args(recipes, agent, &identity, resume));
@@ -495,8 +499,10 @@ pub fn launch_plan(
             consume_env.insert(var.to_string(), json!(serde_json::to_string(&Json::Object(merged)).map_err(|e| e.to_string())?));
         }
         "env-defaults" => {
-            let declared_path = env.get("GEMINI_CLI_SYSTEM_DEFAULTS_PATH").and_then(Json::as_str).map(str::to_string);
-            let defaults = declared_path.unwrap_or_else(|| text(inputs, "geminiDefaults").unwrap_or("").to_string());
+            let Some(var) = declared.get("mcp").and_then(|mcp| mcp.get("pathVar")).and_then(Json::as_str) else {
+                return Err(format!("Recipe {agent} reads its MCP servers from a defaults file but does not declare which variable names it."));
+            };
+            let defaults = env.get(var).and_then(Json::as_str).unwrap_or("").to_string();
             let previous: Json = match std::fs::read_to_string(&defaults) {
                 Ok(text) => parse_jsonc(&text).map_err(|_| "Invalid Gemini system defaults; existing configuration was preserved.".to_string())?,
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => json!({}),
@@ -507,14 +513,21 @@ pub fn launch_plan(
                 "mcpServers".into(),
                 add(previous.get("mcpServers"), &name, json!({ "command": node, "args": [mcp_main, "--context", bound_file] }))?,
             );
-            let written = private_json(&home.join("gemini-defaults.json"), &Json::Object(merged))?;
-            consume_env.insert("GEMINI_CLI_SYSTEM_DEFAULTS_PATH".into(), json!(written));
+            let Some(name) = declared.get("mcp").and_then(|mcp| mcp.get("path")).and_then(Json::as_str) else {
+                return Err(format!("Recipe {agent} writes a defaults file but does not declare what it is called."));
+            };
+            let written = private_json(&home.join(name), &Json::Object(merged))?;
+            consume_env.insert(var.to_string(), json!(written));
         }
         "project-file" => {
-            /* kimi reads its MCP servers from the project's own .kimi-code/mcp.json, at the repository
-               root rather than wherever the launch happened to run. rEngine owns only its own
-               `rengine_` entries there: everything else in the file is somebody's and is preserved,
-               and a previous launch's entry is replaced rather than accumulated. */
+            /* Some CLIs read their MCP servers from a file inside the project rather than from a
+               flag or the environment. The recipe says WHICH file; this knows only that it sits at
+               the repository root rather than wherever the launch happened to run. rEngine owns only
+               its own `rengine_` entries there: everything else in the file is somebody's and is
+               preserved, and a previous launch's entry is replaced rather than accumulated. */
+            let Some(relative) = declared.get("mcp").and_then(|mcp| mcp.get("path")).and_then(Json::as_str) else {
+                return Err(format!("Recipe {agent} writes its MCP overlay into the project but does not declare which file."));
+            };
             let start = text(inputs, "cwd").filter(|value| !value.is_empty()).unwrap_or(".");
             let mut root = std::path::PathBuf::from(start);
             let mut walk = root.clone();
@@ -525,16 +538,16 @@ pub fn launch_plan(
                     _ => { root = std::path::PathBuf::from(start); break; }
                 }
             }
-            let file = root.join(".kimi-code").join("mcp.json");
+            let file = relative.split('/').fold(root, |path, part| path.join(part));
             let previous: Json = match std::fs::read_to_string(&file) {
-                Ok(text) => parse_jsonc(&text).map_err(|_| "Invalid Kimi MCP configuration; existing configuration was preserved.".to_string())?,
+                Ok(text) => parse_jsonc(&text).map_err(|_| format!("Invalid MCP configuration in {}; existing configuration was preserved.", file.display()))?,
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => json!({}),
                 Err(error) => return Err(format!("cannot read {}: {error}", file.display())),
             };
             let existing = previous.get("mcpServers");
             if let Some(value) = existing {
                 if !value.is_object() && !value.is_null() {
-                    return Err("Existing Kimi MCP configuration is not an object; it was preserved.".to_string());
+                    return Err(format!("Existing MCP configuration in {} is not an object; it was preserved.", file.display()));
                 }
             }
             let mut servers = Map::new();
@@ -544,9 +557,10 @@ pub fn launch_plan(
             servers.insert(name.clone(), json!({ "command": node, "args": [mcp_main, "--context", bound_file] }));
             let mut merged = previous.as_object().cloned().unwrap_or_default();
             merged.insert("mcpServers".into(), Json::Object(servers));
-            std::fs::create_dir_all(file.parent().expect("the file has a directory"))
-                .map_err(|error| format!("cannot make the .kimi-code directory: {error}"))?;
-            plan.insert("kimi".into(), json!(private_json(&file, &Json::Object(merged))?));
+            let directory = file.parent().expect("the declared path names a file");
+            std::fs::create_dir_all(directory)
+                .map_err(|error| format!("cannot make {}: {error}", directory.display()))?;
+            plan.insert("projectFile".into(), json!(private_json(&file, &Json::Object(merged))?));
             consume_args = conversation_args(recipes, agent, &identity, resume);
         }
         _ => {

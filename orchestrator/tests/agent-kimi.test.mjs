@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { before } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { mkdtemp, mkdir, writeFile, readFile, rm, stat } from 'node:fs/promises';
@@ -8,6 +8,14 @@ import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { agentLaunch, describeSession } from '../agents/agents-client.mjs';
+import { built } from './cargo.mjs';
+
+/* This spec drives a Rust binary through the service client, so it builds one first: run alone — or
+   used to check that a regression fails for its own reason — it would otherwise judge whatever
+   binary happened to be on disk, and a sabotage that is never compiled always passes. `npm test`
+   prebuilds and this is a no-op there (orchestrator/tests/cargo.mjs). */
+before(() => built('--bins'));
+
 
 /* Kimi Code is a named CLI like the other four (docs/specs/127-kimi-agent-integration.md). Its
    channels are its own: the workspace MCP reaches it through the project-level .kimi-code/mcp.json
@@ -41,7 +49,7 @@ test('a kimi launch wires the workspace MCP into the project it runs in, and now
   assert.equal(plan.custom, undefined, 'kimi is named, so it is no longer told to configure itself');
   assert.deepEqual(plan.args, args, 'kimi needs no flag to consume its configuration, so the pane’s own args pass through untouched');
   const file = path.join(root, '.kimi-code', 'mcp.json');
-  assert.equal(plan.kimi, file, 'the project file lands at the repository root, not the pane’s subdirectory');
+  assert.equal(plan.projectFile, file, 'the project file lands at the repository root, not the pane’s subdirectory');
   assert.equal((await stat(file)).mode & 0o777, 0o600);
   const written = JSON.parse(await readFile(file, 'utf8'));
   assert.deepEqual(written.mcpServers[plan.name], { command: process.execPath, args: [fileURLToPath(new URL('../agents/mcp.mjs', import.meta.url)), '--context', plan.contextFile] },
@@ -59,7 +67,10 @@ test('a kimi launch wires the workspace MCP into the project it runs in, and now
   assert.equal(merged.mcpServers[second.name].args.at(-1), second.contextFile, 'and the current key names this launch');
 
   await writeFile(file, '{damaged');
-  await assert.rejects(agentLaunch({ agent: 'kimi', executable: '/installed/kimi', contextFile, env: {}, cwd: nested }), /Kimi MCP configuration/);
+  /* The refusal names the FILE rather than the CLI (F214): the launch path knows it is writing a
+     project-level overlay, and which CLI reads that file is the recipe's business, not the error's. */
+  await assert.rejects(agentLaunch({ agent: 'kimi', executable: '/installed/kimi', contextFile, env: {}, cwd: nested }),
+    new RegExp(`Invalid MCP configuration in .*${'\\'}.kimi-code`));
   assert.equal(await readFile(file, 'utf8'), '{damaged', 'an unreadable file is refused with the file left untouched');
 });
 
@@ -135,4 +146,54 @@ test('the MCP facade resolves its context from the pane environment before the s
   assert.equal(info.isError, undefined, info.content?.[0]?.text);
   assert.equal(info.structuredContent.root.id, ROOT_ID,
     'the pane’s own environment named the context: pane A’s host answers even though the shared file’s argv pointed at pane B, which is unreachable');
+});
+
+/* F214, spec 141: the project-level overlay is a CAPABILITY, not kimi. A recipe that declares
+   `mcp.kind = "project-file"` and the file it reads gets exactly the wiring kimi gets — the walk to
+   the repository root, the 0600 file, the one `rengine_` entry rEngine owns — with no shared-code
+   edit. This CLI does not exist; the declaration is the whole of what makes it work. */
+const EXTRA_RECIPE = `[recipes.testcli]
+package = "@test/testcli"
+
+[recipes.testcli.update]
+kind = "self"
+command = "upgrade"
+
+[recipes.testcli.model]
+flag = "--model"
+
+[recipes.testcli.models]
+kind = "none"
+
+[recipes.testcli.mcp]
+kind = "project-file"
+path = ".testcli/servers.json"
+`;
+
+test('a CLI that is not kimi gets the same project wiring by declaring it', async t => {
+  const { root, contextFile, directory } = await project(t);
+  const nested = path.join(root, 'nested', 'deeper');
+  await mkdir(nested, { recursive: true });
+  const extra = path.join(directory, 'extra.toml');
+  await writeFile(extra, EXTRA_RECIPE);
+  process.env.RENGINE_AGENT_REGISTRY_EXTRA = extra;
+  t.after(() => { delete process.env.RENGINE_AGENT_REGISTRY_EXTRA; });
+
+  const plan = await agentLaunch({ agent: 'testcli', executable: '/installed/testcli', args: [], contextFile, env: {}, cwd: nested });
+  assert.equal(plan.custom, undefined, 'a declared recipe configures itself rather than asking the person to');
+  const file = path.join(root, '.testcli', 'servers.json');
+  assert.equal(plan.projectFile, file, 'the overlay landed at the declared path, at the repository root');
+  assert.equal((await stat(file)).mode & 0o777, 0o600, 'and is private, the way kimi’s is');
+  const written = JSON.parse(await readFile(file, 'utf8'));
+  assert.deepEqual(written.mcpServers[plan.name], { command: process.execPath, args: [fileURLToPath(new URL('../agents/mcp.mjs', import.meta.url)), '--context', plan.contextFile] },
+    'with the one entry rEngine owns, pointing at this launch’s context');
+  assert.equal(Object.keys(written.mcpServers).length, 1);
+
+  /* And the same ownership rule, for a CLI whose name appears in no shared file. */
+  await writeFile(file, '{"mcpServers":{"theirs":{"command":"existing"},"rengine_876543218765":{"command":"stale"}}}\n');
+  const second = await agentLaunch({ agent: 'testcli', executable: '/installed/testcli', args: [], contextFile, env: {}, cwd: nested });
+  const merged = JSON.parse(await readFile(file, 'utf8'));
+  assert.deepEqual(merged.mcpServers.theirs, { command: 'existing' }, 'a foreign entry is preserved');
+  assert.equal(merged.mcpServers.rengine_876543218765, undefined, 'a stale rEngine key is reclaimed');
+  assert.equal(merged.mcpServers[second.name].args.at(-1), second.contextFile);
 });

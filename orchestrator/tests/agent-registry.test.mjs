@@ -121,6 +121,7 @@ kind = "none"
 
 [recipes.testcli.mcp]
 kind = "flag"
+flag = "--servers"
 `);
   const env = { ...process.env, RENGINE_AGENT_REGISTRY_EXTRA: extra };
   process.env.RENGINE_AGENT_REGISTRY_EXTRA = extra;
@@ -132,11 +133,13 @@ kind = "flag"
   assert.equal(recipe('testcli').package, '@test/testcli');
   assert.ok(knownAgents().some(entry => entry.cli === 'testcli'), 'the menu offers it');
 
-  /* launchable with its MCP overlay: kind 'flag' is the generic --mcp-config channel */
+  /* launchable with its MCP overlay: kind 'flag' is the generic configuration channel, and the
+     recipe spells the flag. `--servers` is nobody's real flag, which is the point — shared code
+     used to impose claude's `--mcp-config` on every CLI declaring this kind (F214, spec 141). */
   const contextFile = path.join(directory, 'context.json');
   await writeFile(contextFile, JSON.stringify({ url: 'http://127.0.0.1:1/', token: 'f'.repeat(64), instance: '87654321-4321-4321-4321-cba987654321', rootId: ROOT_ID }));
   const plan = await agentLaunch({ agent: 'testcli', executable: '/installed/testcli', contextFile, env: {} });
-  assert.deepEqual(plan.args, ['--mcp-config', plan.generic], 'the overlay the recipe names is the wiring it gets');
+  assert.deepEqual(plan.args, ['--servers', plan.generic], 'the overlay the recipe names is the wiring it gets, spelled the way the recipe spells it');
   assert.equal(plan.env.RENGINE_MCP_CONFIG, plan.generic);
   assert.equal(plan.conversation, undefined, 'no conversation capability, so nothing is recorded or invented');
 
@@ -174,6 +177,7 @@ kind = "none"
 
 [recipes.barecli.mcp]
 kind = "flag"
+flag = "--servers"
 `);
   process.env.RENGINE_AGENT_REGISTRY_EXTRA = extra;
   t.after(() => { delete process.env.RENGINE_AGENT_REGISTRY_EXTRA; });

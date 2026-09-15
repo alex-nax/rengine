@@ -147,9 +147,9 @@ fn dispatch(method: &str, args: &Json) -> Result<Json, String> {
             &load()?, text_arg(args, 0).unwrap_or(""), text_arg(args, 1), text_arg(args, 2)
         ))),
         "shellQuote" => Ok(json!(red_agents::launch::shell_quote(text_arg(args, 0).unwrap_or("")))),
-        "claudeSettings" => {
+        "perLaunchSettings" => {
             let windows = cfg!(windows);
-            Ok(red_agents::launch::claude_settings(text_arg(args, 0).unwrap_or(""), text_arg(args, 1).unwrap_or(""), windows))
+            Ok(red_agents::launch::per_launch_settings(text_arg(args, 0).unwrap_or(""), text_arg(args, 1).unwrap_or(""), windows))
         }
         /* bind's own two: a command a person runs, and the scan it does to find a workspace. Home
            is passed in rather than read here, because a caller may be probing another one. */

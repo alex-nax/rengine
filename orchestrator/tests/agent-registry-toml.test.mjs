@@ -49,6 +49,7 @@ kind = "none"
 
 [recipes.testcli.mcp]
 kind = "flag"
+flag = "--servers"
 `;
 
 test('the shipped document resolves to the recipes registry.mjs resolved it to', async t => {

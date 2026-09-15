@@ -59,7 +59,7 @@ test('list and show are byte-exact with the registry.mjs CLI, errors included', 
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-cli-extra-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const extra = path.join(directory, 'extra.toml');
-  await writeFile(extra, `[recipes.testcli]\npackage = "@test/testcli"\n\n[recipes.testcli.update]\nkind = "self"\ncommand = "upgrade"\n\n[recipes.testcli.models]\nkind = "none"\n\n[recipes.testcli.mcp]\nkind = "flag"\n`);
+  await writeFile(extra, `[recipes.testcli]\npackage = "@test/testcli"\n\n[recipes.testcli.update]\nkind = "self"\ncommand = "upgrade"\n\n[recipes.testcli.models]\nkind = "none"\n\n[recipes.testcli.mcp]\nkind = "flag"\nflag = "--servers"\n`);
   const env = { ...process.env, RENGINE_AGENT_REGISTRY_EXTRA: extra };
   for (const args of [['list', '--names'], ['show', 'testcli'], ['show', 'testcli', 'UPDATE_COMMAND']]) {
     const rust = await run(BIN, args, { env }).catch(error => error), js = recorded(args, 'cliWithExtra');

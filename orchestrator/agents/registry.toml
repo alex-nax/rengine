@@ -54,9 +54,14 @@ length = 8
 
 [recipes.claude.mcp]
 kind = "flag"
+# The flag this CLI consumes the generic configuration with. The launch path knows the KIND of
+# overlay; the spelling is the recipe's (F214, spec 141).
+flag = "--mcp-config"
 
 [recipes.claude.hooks]
 kind = "per-launch-settings"
+# And the flag that hands the CLI the settings file written for this launch.
+flag = "--settings"
 
 [recipes.claude.ide]
 flags = ["--ide"]
@@ -112,6 +117,13 @@ kind = "none"
 
 [recipes.gemini.mcp]
 kind = "env-defaults"
+# The environment variable naming the defaults FILE this CLI reads. `envVar` elsewhere carries
+# configuration text inline; this one carries a path, so it is its own declaration (F214, spec 141).
+pathVar = "GEMINI_CLI_SYSTEM_DEFAULTS_PATH"
+# And the file written for it, named by the recipe rather than by shared code. `path` is always the
+# file an overlay writes, relative to the base its KIND implies: the project root for
+# `project-file`, this launch's own directory for `env-defaults`.
+path = "gemini-defaults.json"
 
 [recipes.opencode]
 package = "opencode-ai"
@@ -161,6 +173,9 @@ length = 8
 
 [recipes.kimi.mcp]
 kind = "project-file"
+# Where the overlay is written, relative to the project root. The launch path knows the KIND of
+# overlay; which file this CLI reads is the recipe's to say (F214, spec 141).
+path = ".kimi-code/mcp.json"
 
 [recipes.kimi.hooks]
 kind = "guided-bootstrap"

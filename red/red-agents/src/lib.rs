@@ -328,6 +328,19 @@ pub fn cook(cli: &str, raw: &Value) -> Result<(), String> {
     if !mcp.map_or(false, |kind| MCP_OVERLAYS.contains(&kind)) {
         return Err(format!("Registry recipe {cli} names an MCP overlay rEngine does not implement."));
     }
+    /* An overlay KIND is a capability rEngine implements; every spelling inside it is the recipe's
+       to say, and a recipe that names a kind without its spellings is refused here rather than at
+       the launch that needed it (F214, spec 141). */
+    for key in required_spellings(mcp.unwrap_or("")) {
+        if raw.get("mcp").and_then(|m| m.get(key)).and_then(Value::string).is_none() {
+            return Err(format!("Registry recipe {cli} declares the {} MCP overlay without `{key}`.", mcp.unwrap_or("")));
+        }
+    }
+    if let Some(kind) = raw.get("hooks").and_then(|h| h.get("kind")).and_then(Value::string) {
+        if kind == "per-launch-settings" && raw.get("hooks").and_then(|h| h.get("flag")).and_then(Value::string).is_none() {
+            return Err(format!("Registry recipe {cli} is handed per-launch settings without declaring the flag that carries them."));
+        }
+    }
     if let Some(kind) = raw.get("hooks").and_then(|h| h.get("kind")).and_then(Value::string) {
         if !HOOK_OVERLAYS.contains(&kind) {
             return Err(format!("Registry recipe {cli} names a hooks overlay rEngine does not implement."));
@@ -366,15 +379,68 @@ fn args_or_null(value: Option<&Value>) -> serde_json::Value {
     }
 }
 
-/// How this recipe's resume spellings are READ, for `parsers` (F213, spec 141): the declared
-/// spelling and its data. `launch::talk_of` hands it to `parsers` alongside the projected
-/// conversation, which carries the id shape and the normalisation that reading an id needs.
+/// What each MCP overlay kind needs the recipe to spell out. The kind is rEngine's to implement;
+/// the flag, the file and the variable are the CLI's, and declaring one without them is refused.
+fn required_spellings(kind: &str) -> &'static [&'static str] {
+    match kind {
+        "flag" => &["flag"],
+        "project-file" => &["path"],
+        "env-defaults" => &["pathVar", "path"],
+        "env-inline" => &["envVar"],
+        _ => &[],
+    }
+}
+
+/// The capabilities declared AFTER registry.mjs was deleted, patched onto a recipe's view.
 ///
-/// Deliberately NOT an atom of `project()`. That projection is frozen to the shape registry.mjs
-/// emitted, and `agent-registry-toml.test.mjs` deep-compares it against a record that must never be
-/// regenerated — so a capability declared after that module was deleted cannot appear in its
-/// answer, and widening the projection to carry one would quietly weaken the parity proof into a
-/// comparison against itself. New declarations get their own projection instead.
+/// `project()` is **frozen evidence**: it emits exactly the shape `registry.mjs`'s
+/// `resolvedRecipes()` emitted, and `agent-registry-toml.test.mjs` deep-compares it against a record
+/// taken before that module was deleted, which by its own terms must never be regenerated. A
+/// capability declared since cannot appear in that answer, and widening the projection to carry one
+/// would turn a parity proof into a comparison against itself.
+///
+/// So every later declaration lands here instead, and **this is the one list to add the next one
+/// to**. `launch::projected` applies it, so everything inside the crate reads one complete view
+/// while the artifact the parity test compares stays byte-identical to the record.
+fn declared_since(raw: &Value, view: &mut serde_json::Value) {
+    let Some(table) = view.as_object_mut() else { return };
+    /* F213: how this CLI's resume spellings are read — a spelling, not a name. */
+    if let Some(read) = conversation_read(raw) {
+        if let Some(talk) = table.get_mut("conversation").and_then(serde_json::Value::as_object_mut) {
+            talk.insert("read".to_string(), read);
+        }
+    }
+    /* F214: how an MCP overlay reaches this CLI — the file a `project-file` overlay is written to,
+       relative to the project root; the flag a `flag` overlay is consumed with; the environment
+       variable an `env-defaults` overlay names its file in. The launch path implements the KINDS;
+       every spelling belongs to the recipe. */
+    for key in ["path", "flag", "pathVar"] {
+        if let Some(value) = raw.get("mcp").and_then(|mcp| mcp.get(key)).and_then(Value::string) {
+            if let Some(mcp) = table.get_mut("mcp").and_then(serde_json::Value::as_object_mut) {
+                mcp.insert(key.to_string(), json!(value));
+            }
+        }
+    }
+    /* F214: the flag that hands a `per-launch-settings` CLI the settings written for its launch. */
+    if let Some(flag) = raw.get("hooks").and_then(|hooks| hooks.get("flag")).and_then(Value::string) {
+        if let Some(hooks) = table.get_mut("hooks").and_then(serde_json::Value::as_object_mut) {
+            hooks.insert("flag".to_string(), json!(flag));
+        }
+    }
+}
+
+/// A recipe's whole view as this crate reads it: the frozen projection with `declared_since`
+/// applied. Every consumer inside the crate goes through here, so no two of them can disagree about
+/// what one recipe declares.
+pub fn view(raw: &Value) -> serde_json::Value {
+    let mut view = project(raw);
+    declared_since(raw, &mut view);
+    view
+}
+
+/// How this recipe's resume spellings are READ, for `parsers` (F213, spec 141): the declared
+/// spelling and its data. It rides on the conversation view, which carries the id shape and the
+/// normalisation that reading an id needs.
 ///
 /// `None` when the recipe declares no read spelling: an honest "this CLI has not said", not a guess.
 pub fn conversation_read(raw: &Value) -> Option<serde_json::Value> {
@@ -540,11 +606,11 @@ mod tests {
 
     #[test]
     fn cook_refuses_what_the_js_side_refuses() {
-        let bad_update = parse_toml("[recipes.x]\npackage=\"@t/x\"\n[recipes.x.update]\nkind=\"weird\"\n[recipes.x.mcp]\nkind=\"flag\"\n", "t.toml").unwrap();
+        let bad_update = parse_toml("[recipes.x]\npackage=\"@t/x\"\n[recipes.x.update]\nkind=\"weird\"\n[recipes.x.mcp]\nkind=\"flag\"\nflag=\"--servers\"\n", "t.toml").unwrap();
         assert!(cook("x", bad_update.get("recipes").unwrap().get("x").unwrap()).unwrap_err().contains("unknown update mode"));
         let bad_mcp = parse_toml("[recipes.x]\npackage=\"@t/x\"\n[recipes.x.update]\nkind=\"reinstall\"\n[recipes.x.mcp]\nkind=\"warp\"\n", "t.toml").unwrap();
         assert!(cook("x", bad_mcp.get("recipes").unwrap().get("x").unwrap()).unwrap_err().contains("MCP overlay"));
-        let bad_parser = parse_toml("[recipes.x]\npackage=\"@t/x\"\n[recipes.x.update]\nkind=\"reinstall\"\n[recipes.x.mcp]\nkind=\"flag\"\n[recipes.x.conversation]\nparser=\"telepathy\"\n", "t.toml").unwrap();
+        let bad_parser = parse_toml("[recipes.x]\npackage=\"@t/x\"\n[recipes.x.update]\nkind=\"reinstall\"\n[recipes.x.mcp]\nkind=\"flag\"\nflag=\"--servers\"\n[recipes.x.conversation]\nparser=\"telepathy\"\n", "t.toml").unwrap();
         assert!(cook("x", bad_parser.get("recipes").unwrap().get("x").unwrap()).unwrap_err().contains("conversation parser"));
         assert!(cook("Bad Name", bad_update.get("recipes").unwrap().get("x").unwrap()).unwrap_err().contains("Invalid agent name"));
     }
@@ -555,7 +621,7 @@ mod tests {
     #[test]
     fn a_read_spelling_rengine_does_not_implement_is_refused() {
         let recipe = |spelling: &str| {
-            format!("[recipes.x]\npackage=\"@t/x\"\n[recipes.x.update]\nkind=\"reinstall\"\n[recipes.x.mcp]\nkind=\"flag\"\n[recipes.x.conversation]\nparser=\"claude-flags\"\n[recipes.x.conversation.read]\nkind=\"{spelling}\"\n")
+            format!("[recipes.x]\npackage=\"@t/x\"\n[recipes.x.update]\nkind=\"reinstall\"\n[recipes.x.mcp]\nkind=\"flag\"\nflag=\"--servers\"\n[recipes.x.conversation]\nparser=\"claude-flags\"\n[recipes.x.conversation.read]\nkind=\"{spelling}\"\n")
         };
         let cooked = |spelling: &str| {
             let parsed = parse_toml(&recipe(spelling), "t.toml").unwrap();
@@ -565,6 +631,37 @@ mod tests {
         for spelling in READ_SPELLINGS {
             assert!(cooked(spelling).is_ok(), "{spelling} is a spelling parsers.rs implements");
         }
+    }
+
+    /* A KIND is rEngine's to implement; the spellings inside it are the CLI's. A recipe that names
+       a kind and leaves its spellings out used to inherit claude's `--mcp-config` or kimi's
+       `.kimi-code/mcp.json` — one CLI's spelling imposed on every other (F214, spec 141). */
+    #[test]
+    fn an_overlay_kind_without_its_spellings_is_refused_by_name() {
+        let recipe = |mcp: &str| format!("[recipes.x]\npackage=\"@t/x\"\n[recipes.x.update]\nkind=\"reinstall\"\n[recipes.x.mcp]\n{mcp}");
+        let cooked = |mcp: &str| {
+            let parsed = parse_toml(&recipe(mcp), "t.toml").unwrap();
+            cook("x", parsed.get("recipes").unwrap().get("x").unwrap())
+        };
+        for (mcp, missing) in [
+            ("kind=\"flag\"\n", "flag"),
+            ("kind=\"project-file\"\n", "path"),
+            ("kind=\"env-inline\"\n", "envVar"),
+            ("kind=\"env-defaults\"\npath=\"d.json\"\n", "pathVar"),
+            ("kind=\"env-defaults\"\npathVar=\"VAR\"\n", "path"),
+        ] {
+            let refusal = cooked(mcp).unwrap_err();
+            assert!(refusal.contains(&format!("`{missing}`")), "{mcp} should be refused for {missing}, said: {refusal}");
+        }
+        assert!(cooked("kind=\"flag\"\nflag=\"--servers\"\n").is_ok(), "a kind with its spelling is accepted");
+        /* And the settings flag, which belongs to the CLI the same way. */
+        let hooked = |hooks: &str| {
+            let text = format!("[recipes.x]\npackage=\"@t/x\"\n[recipes.x.update]\nkind=\"reinstall\"\n[recipes.x.mcp]\nkind=\"flag\"\nflag=\"--servers\"\n[recipes.x.hooks]\n{hooks}");
+            let parsed = parse_toml(&text, "t.toml").unwrap();
+            cook("x", parsed.get("recipes").unwrap().get("x").unwrap())
+        };
+        assert!(hooked("kind=\"per-launch-settings\"\n").unwrap_err().contains("flag that carries them"));
+        assert!(hooked("kind=\"per-launch-settings\"\nflag=\"--settings\"\n").is_ok());
     }
 
     /* The declared block must reach the parser. It rides on `talk_of`'s view rather than inside
@@ -583,8 +680,8 @@ mod tests {
 
     #[test]
     fn an_extra_merges_and_a_redeclaration_is_refused() {
-        let registry = "[recipes.claude]\npackage=\"@a/claude\"\n[recipes.claude.update]\nkind=\"self\"\ncommand=\"update\"\n[recipes.claude.mcp]\nkind=\"flag\"\n";
-        let extra = "[recipes.testcli]\npackage=\"@t/testcli\"\n[recipes.testcli.update]\nkind=\"reinstall\"\n[recipes.testcli.mcp]\nkind=\"flag\"\n";
+        let registry = "[recipes.claude]\npackage=\"@a/claude\"\n[recipes.claude.update]\nkind=\"self\"\ncommand=\"update\"\n[recipes.claude.mcp]\nkind=\"flag\"\nflag=\"--servers\"\n";
+        let extra = "[recipes.testcli]\npackage=\"@t/testcli\"\n[recipes.testcli.update]\nkind=\"reinstall\"\n[recipes.testcli.mcp]\nkind=\"flag\"\nflag=\"--servers\"\n";
         let merged = load_registry(registry, "r.toml", Some((extra, "extra.toml"))).expect("the extra merges");
         assert_eq!(merged.len(), 2);
         assert_eq!(merged[1].0, "testcli");
