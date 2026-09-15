@@ -1,3 +1,65 @@
+## Session 159 (macos) — 2026-09-15 — the last route off the JS host
+
+Owner goal: *"proceed with js retirement in favour of rust"* (charter D57, spec 129).
+
+**Where the retirement actually stands, measured rather than assumed:** `red-host` owns **32
+routes**. The JS host uniquely serves **one** — `POST /api/game` — plus the `/surface` socket.
+Everything else `main.mjs` answers is a copy the door already intercepts. The JS session host is
+nearly retired, and KI-102 named this the row that deletes it: when the game launch and its surface
+move, `main.mjs`, `games.mjs`, `surfaces.mjs`, `surface-protocol.mjs` and `desktops.mjs` go together.
+
+Spec 142 is that row. Three of its four pieces landed, each tested and sabotage-verified:
+
+- **The wire format** (`red_core::surface`), proved byte-exact against the JavaScript on a 54-case
+  corpus through a new `red-surface` judge — the evidence shape F169 and F185 used.
+- **The transport** (`red-host/surfaces.rs`): the loopback listener, one producer per channel, the
+  bounded greeting, frames fanned out with the latest kept for a viewer that attaches late.
+- **The launch decisions** (`red-host/games.rs`): the four refusals and the flight de-duplication,
+  kept apart from the spawning so they can be stated as a table.
+
+**What the corpus caught, which is why it exists.** On its first run: the JavaScript refuses input
+in TWO stages with two different messages — the kind and the arity are "Unsupported game input.", a
+bad VALUE including a non-integer is "Game input is out of range." — and the Rust judge reported the
+first for the second case. Then under sabotage: the width and height cases wrote the field as a
+header override and left the byte count saying what the ORIGINAL dimensions gave, so the byte-count
+check refused them first and the dimension bound was never reached. **Dropping the width bound
+entirely left the suite green.** The cases come in pairs now. That is the control masking the thing
+under test, which `docs/evidence/blind-regressions-2026-09-06.md` already has six of.
+
+**"Verbatim" needs an observation.** F189 requires the focus-eviction semantic preserved verbatim,
+so I drove `surfaces.mjs` directly with a stand-in input channel and recorded every packet kind it
+wrote (`docs/evidence/surface-focus-2026-09-15.md`). It says a release precedes EVERY focus gain
+including the first — `item.owner` starts unset and `undefined !== viewer` — which reads like an
+oversight and is not one to fix in a port. My first draft of the Rust tests asserted what I assumed
+instead, and three of them failed until I went and looked.
+
+### Why this row and not the one the graph wanted
+
+Everything below F152 is gated on **F186**: a real pane of kimi, claude and codex each completing a
+task-scoped action through the Rust MCP, in the owner's own workspace. F150's CODE is done —
+`red-mcp` is already the live connector for every pane on this machine, and `mcp-worker.mjs` and
+`tools.mjs` are deleted — so only that evidence row is open.
+
+I could not run it from this pane, and the reason is now **KI-122**: this pane's binding names a
+host instance that no longer exists, so every root-bound MCP call answers `Connection refused` and
+never says that the cause is a replaced host. Driving the token-gated spawn path by hand from bash
+would have meant reimplementing the workspace's own cooperative machinery, which is not a thing to
+do by hand. Also found: **this workspace's host is `server/main.mjs` with no `red-host` in front**,
+unlike the three other workspaces on this machine, so it predates F188's door; and **KI-123**, 1134
+runtime directories with 11 descriptors, all sampled ones dead.
+
+### What is open
+
+- **F186 needs the owner**, in a pane bound to a current host. It is one dogfood run and it unblocks
+  F150 → F189 → F152 → the whole chain.
+- **Spec 142's cutover**: wiring `/api/game` and `/surface` into the door, then deleting the five JS
+  modules. The wiring is the same reversible pattern every other route used. The deletion is not:
+  the owner's live workspace is served by `main.mjs` alone, so deleting it changes how that
+  workspace starts, and that belongs in a run where a full start can be verified.
+
+Commands: `cargo test` per crate (red-core 21/21, red-host 34/34); `npm test` 363/363; `./init.sh`
+green.
+
 ## Session 158 (macos) — 2026-09-15 — the provider split: a recipe declares, shared code implements
 
 Owner goal: *"design abstraction interface and achieve complete provider split"*, after catching an
