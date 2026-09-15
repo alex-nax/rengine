@@ -20,7 +20,6 @@ import { fileURLToPath } from 'node:url';
 import { PRODUCT_NAME, PRODUCT_FAMILY } from '../runtime/product.mjs';
 import { startIdeBridge, IDE_NAME } from '../runtime/ide.mjs';
 import { LanguageServers } from '../runtime/lsp-client.mjs';
-import { begin, cancel } from '../server/tracker-auth.mjs';
 import { built } from './cargo.mjs';
 
 /* This spec drives a Rust binary through a service client, so it builds one first: run alone — or
@@ -116,19 +115,10 @@ test('a language server is told the declared name', async () => {
   } finally { await servers.stop(); await rm(directory, { recursive: true, force: true }); }
 });
 
-test('the sign-in callback page wears the declared name', async () => {
-  const state = await temporary('auth-name');
-  await mkdir(path.join(state, 'trackers'), { recursive: true });
-  await writeFile(path.join(state, 'trackers', 'oauth.json'), JSON.stringify({ linear: { clientId: 'client-fixture' } }));
-  try {
-    // The wrong state on purpose: nothing is exchanged and nothing is stored, but the listener still
-    // serves the real page, which is the thing being asserted.
-    const started = await begin(state, 'kohai', { fetch: async () => { throw new Error('no exchange should be attempted'); } });
-    const body = await (await fetch(`${started.redirect}?code=x&state=not-the-one`)).text();
-    assert.ok(body.includes(`<title>${PRODUCT_NAME}</title>`), `the callback page's title: ${body.slice(0, 120)}`);
-  } finally { cancel(); await rm(state, { recursive: true, force: true }); }
-});
-
+/* The sign-in callback page wears the declared name too, and that assertion moved with the page:
+ * `red_worker::signin`'s `the_page_wears_the_declared_name_a_person_came_from` holds it, because the
+ * page is Rust's now (F154).
+ */
 test('no shipping source hard-codes the product name, and the guard says so when one does', async () => {
   // The real tree. Scoped to the name, so an unrelated colour literal in another lane's native edit
   // does not turn this red for something it is not about.

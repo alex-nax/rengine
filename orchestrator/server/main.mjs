@@ -12,7 +12,6 @@ import { listFormats, formatPreview, readBytes, readDeclaration } from './format
 import { dashboardAction, dashboardActions, dashboardRunPayload, dashboardCapture } from './dashboard.mjs';
 import { inspectGame, projectDevices } from './devices.mjs';
 import { projectTracker } from './tracker.mjs';
-import { revoke as revokeSignIn, signIn as trackerSignIn } from './tracker-auth.mjs';
 import { listRecordings, readRecording } from './recordings.mjs';
 import { runtimeDirectory } from '../runtime/discovery.mjs';
 
@@ -87,20 +86,6 @@ export async function startServer({ stateDir, port = 0, retainSessions = false, 
           const data = await body(request);
           if (!data || typeof data !== 'object' || Array.isArray(data)) fail('Expected an object.');
           switch (target.pathname) {
-            /* Sign-in returns a URL for the desktop to open; the browser comes back to a loopback
-               listener this module owns, so no credential passes through the desktop (spec 083). */
-            case '/api/tracker/signin': {
-              const selected = await store.root(data.rootId);
-              const declaration = await readDeclaration(selected);
-              value = await trackerSignIn(stateDir, declaration.project ?? selected.id);
-              break;
-            }
-            case '/api/tracker/signout': {
-              const selected = await store.root(data.rootId);
-              const declaration = await readDeclaration(selected);
-              value = await revokeSignIn(stateDir, declaration.project ?? selected.id);
-              break;
-            }
             case '/api/format-preview': value = await formatPreview(await store.root(data.rootId), data); break;
             case '/api/dashboard-run': {
               const root = await store.root(data.rootId), action = await dashboardAction(root, data.actionId, preflight);

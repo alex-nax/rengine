@@ -113,6 +113,13 @@ fn decode(value: &str) -> String {
     String::from_utf8_lossy(&out).to_string()
 }
 
+/// A code, for the grant it buys. The network step, handed in so the rest can be driven without one.
+pub type Exchanging = Box<dyn Fn(&str, &str, &str, &str, i64) -> Result<Value, String> + Send + 'static>;
+
+fn exchange_for_real(client_id: &str, code: &str, redirect: &str, verifier: &str, now: i64) -> Result<Value, String> {
+    auth::exchange(client_id, code, redirect, verifier, now).map_err(|fail| fail.message)
+}
+
 /// The sign-in in flight, if there is one. At most one per workspace.
 #[derive(Default)]
 pub struct SigningIn {
@@ -139,6 +146,22 @@ impl SigningIn {
         state_directory: &str,
         project: &str,
         settled: Box<dyn Fn(&Value) + Send + 'static>,
+    ) -> Result<Value, String> {
+        self.beginning(state_directory, project, settled, Box::new(exchange_for_real))
+    }
+
+    /// The same, with the exchange handed in.
+    ///
+    /// The code-for-grant exchange is the one step that leaves this machine, and it is the last step
+    /// of a flow whose earlier ones — a port bound, a browser sent somewhere, a state compared —
+    /// have nothing to do with a network. Injecting it is what lets the whole sign-in be driven end
+    /// to end without one, which is the only way this is tested at all.
+    pub fn beginning(
+        &self,
+        state_directory: &str,
+        project: &str,
+        settled: Box<dyn Fn(&Value) + Send + 'static>,
+        exchanging: Exchanging,
     ) -> Result<Value, String> {
         let Some(client_id) = auth::client(state_directory) else {
             return Err("409|No Linear application is registered for this workspace yet.".to_string());
@@ -167,7 +190,7 @@ impl SigningIn {
         let (directory, project, redirect_for) = (state_directory.to_string(), project.to_string(), redirect.clone());
         let serving = pending.clone();
         std::thread::spawn(move || {
-            serve_callback(&serving, &directory, &project, &client_id, &redirect_for, &verifier, &state, settled)
+            serve_callback(&serving, &directory, &project, &client_id, &redirect_for, &verifier, &state, settled, exchanging)
         });
         /* The deadline is its own thread because the listener blocks: a forgotten tab must not hold
            a registered port until the workspace closes. */
@@ -209,6 +232,7 @@ fn serve_callback(
     verifier: &str,
     state: &str,
     settled: Box<dyn Fn(&Value) + Send + 'static>,
+    exchanging: Exchanging,
 ) {
     for stream in pending.listener.incoming() {
         if pending.ended.load(std::sync::atomic::Ordering::SeqCst) {
@@ -237,15 +261,15 @@ fn serve_callback(
                     .duration_since(std::time::UNIX_EPOCH)
                     .map(|since| since.as_millis() as i64)
                     .unwrap_or(0);
-                match auth::exchange(client_id, &code, redirect, verifier, now)
-                    .and_then(|grant| auth::store(state_directory, project, &grant).map(|()| grant))
+                match exchanging(client_id, &code, redirect, verifier, now)
+                    .and_then(|grant| auth::store(state_directory, project, &grant).map_err(|fail| fail.message).map(|()| grant))
                 {
                     Ok(_) => (
                         200,
                         page(&format!("Signed in. You can close this tab and go back to {}.", red_core::theme::PRODUCT_NAME)),
                         Some(json!({ "ok": true })),
                     ),
-                    Err(fail) => (500, page(&format!("Sign-in failed: {}", fail.message)), Some(json!({ "ok": false, "error": fail.message }))),
+                    Err(message) => (500, page(&format!("Sign-in failed: {message}")), Some(json!({ "ok": false, "error": message }))),
                 }
             }
         };
@@ -310,12 +334,197 @@ mod tests {
         assert!(same_secret("", ""));
     }
 
-    /* A person reads this page and closes the tab, so it says which of the four things happened. */
+    fn scratch(name: &str) -> String {
+        let at = std::env::temp_dir().join(format!("red-worker-flow-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&at);
+        std::fs::create_dir_all(at.join("trackers")).expect("a directory");
+        std::fs::write(at.join("trackers/oauth.json"), r#"{"linear":{"clientId":"client-123"}}"#).expect("written");
+        at.to_string_lossy().to_string()
+    }
+
+    /// The browser's half: open the URL the sign-in gave, with a code.
+    fn browser(url: &str, state: &str, query: &str) -> String {
+        use std::io::{Read, Write};
+        let port: u16 = url.split(':').nth(2).and_then(|rest| rest.split('/').next()).and_then(|port| port.parse().ok()).expect("a port");
+        let Ok(mut socket) = std::net::TcpStream::connect(("127.0.0.1", port)) else {
+            /* Nothing is listening, which is itself an answer for a test asking whether anything is. */
+            return String::new();
+        };
+        /* A deadline, because a listener that is gone leaves a connection in the backlog that nobody
+           will ever answer — and a test that hangs says less than one that fails. */
+        socket.set_read_timeout(Some(std::time::Duration::from_secs(5))).expect("a deadline");
+        socket
+            .write_all(format!("GET {}?state={state}&{query} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n", auth::CALLBACK_PATH).as_bytes())
+            .expect("asked");
+        let mut answer = String::new();
+        let _ = socket.read_to_string(&mut answer);
+        answer
+    }
+
+    /// The `state` a sign-in bound itself to, read out of the URL it handed back.
+    fn state_of(url: &str) -> String {
+        url.split("&state=").nth(1).and_then(|rest| rest.split('&').next()).expect("a state").to_string()
+    }
+
+    /* The whole flow, end to end, with only the network step handed in: a port bound, a browser sent
+       somewhere, a code coming back, a grant on disk at 0600. This is what the JavaScript's own
+       sign-in test proved, and the reason the exchange is injectable at all. */
     #[test]
-    fn the_page_names_the_product_a_person_came_from() {
+    fn a_browser_sign_in_stores_a_grant_and_the_tab_says_so() {
+        let at = scratch("stores");
+        let signing = SigningIn::new();
+        let outcome: Arc<Mutex<Option<Value>>> = Arc::new(Mutex::new(None));
+        let heard = outcome.clone();
+        let started = signing
+            .beginning(
+                &at,
+                "kohai",
+                Box::new(move |said| *heard.lock().expect("outcome") = Some(said.clone())),
+                Box::new(|client_id, code, redirect, verifier, now| {
+                    /* Everything the provider will check, and the verifier it proves the sign-in
+                       with — which is never in the URL a browser was given. */
+                    assert_eq!(client_id, "client-123");
+                    assert_eq!(code, "the-code");
+                    assert!(redirect.starts_with("http://127.0.0.1:"));
+                    assert!(!verifier.is_empty());
+                    Ok(auth::grant_from(&json!({ "access_token": "at", "refresh_token": "rt", "expires_in": 3600 }), now))
+                }),
+            )
+            .expect("started");
+        assert_eq!(started["ok"], json!(true));
+        let url = started["url"].as_str().expect("a url").to_string();
+        let redirect = started["redirect"].as_str().expect("a redirect").to_string();
+        assert!(url.starts_with(auth::AUTHORIZE), "{url}");
+
+        let said = browser(&redirect, &state_of(&url), "code=the-code");
+        assert!(said.starts_with("HTTP/1.1 200"), "{said}");
+        assert!(said.contains("Signed in"), "{said}");
+
+        let grant = wait_for(|| auth::stored(&at, "kohai")).expect("a grant");
+        assert_eq!(grant["accessToken"], json!("at"));
+        assert_eq!(grant["refreshToken"], json!("rt"));
+        assert_eq!(grant["kind"], json!("oauth"));
+        assert_eq!(wait_for(|| outcome.lock().expect("outcome").clone()).expect("an outcome")["ok"], json!(true));
+        let _ = std::fs::remove_dir_all(&at);
+    }
+
+    /* A callback that does not match this workspace stores NOTHING and does not end the sign-in
+       this workspace is still waiting on — otherwise a stranger could cancel it by guessing a path. */
+    #[test]
+    fn a_callback_that_is_not_this_sign_in_stores_nothing_and_does_not_end_it() {
+        let at = scratch("mismatched");
+        let signing = SigningIn::new();
+        let started = signing
+            .beginning(&at, "kohai", Box::new(|_| {}), Box::new(|_, _, _, _, now| {
+                Ok(auth::grant_from(&json!({ "access_token": "at" }), now))
+            }))
+            .expect("started");
+        let redirect = started["redirect"].as_str().expect("a redirect").to_string();
+
+        let said = browser(&redirect, "not-this-workspaces-state", "code=the-code");
+        assert!(said.starts_with("HTTP/1.1 400"), "{said}");
+        assert!(said.contains("did not match this workspace"), "{said}");
+        assert_eq!(auth::stored(&at, "kohai"), None, "nothing was stored");
+
+        /* And the real one still completes, because the stranger's callback did not end it. */
+        let url = started["url"].as_str().expect("a url").to_string();
+        let mine = browser(&redirect, &state_of(&url), "code=the-code");
+        assert!(mine.starts_with("HTTP/1.1 200"), "{mine}");
+        assert!(wait_for(|| auth::stored(&at, "kohai")).is_some(), "the sign-in was still waiting");
+        let _ = std::fs::remove_dir_all(&at);
+    }
+
+    /* A person who declined is told so and left with nothing, which is a different answer from a
+       sign-in that failed. */
+    #[test]
+    fn a_declined_sign_in_says_so_and_leaves_no_grant() {
+        let at = scratch("declined");
+        let signing = SigningIn::new();
+        let outcome: Arc<Mutex<Option<Value>>> = Arc::new(Mutex::new(None));
+        let heard = outcome.clone();
+        let started = signing
+            .beginning(&at, "kohai", Box::new(move |said| *heard.lock().expect("outcome") = Some(said.clone())),
+                       Box::new(|_, _, _, _, _| panic!("a declined sign-in exchanges nothing")))
+            .expect("started");
+        let url = started["url"].as_str().expect("a url").to_string();
+        let said = browser(started["redirect"].as_str().expect("a redirect"), &state_of(&url), "error=access_denied");
+        assert!(said.contains("was declined"), "{said}");
+        assert_eq!(auth::stored(&at, "kohai"), None);
+        let answer = wait_for(|| outcome.lock().expect("outcome").clone()).expect("an outcome");
+        assert_eq!(answer["ok"], json!(false));
+        assert_eq!(answer["error"], json!("access_denied"));
+        let _ = std::fs::remove_dir_all(&at);
+    }
+
+    /* Before an application is registered there is nothing to open, and a caller is told what to do
+       rather than refused — which is the whole of the setup for a person who has never done this. */
+    #[test]
+    fn a_sign_in_with_no_application_registered_is_refused_by_name() {
+        let at = std::env::temp_dir().join(format!("red-worker-flow-bare-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&at);
+        std::fs::create_dir_all(&at).expect("a directory");
+        let signing = SigningIn::new();
+        let refused = signing
+            .begin(&at.to_string_lossy(), "kohai", Box::new(|_| {}))
+            .expect_err("refused");
+        assert!(refused.starts_with("409|"), "{refused}");
+        assert!(refused.contains("No Linear application is registered"), "{refused}");
+        let _ = std::fs::remove_dir_all(&at);
+    }
+
+    /* At most one per workspace: a second start replaces the first rather than leaving a listener
+       and a pending state behind, because two pending sign-ins mean a callback that could belong to
+       either. */
+    #[test]
+    fn a_second_sign_in_replaces_the_first_rather_than_leaving_it_listening() {
+        let at = scratch("second");
+        let signing = SigningIn::new();
+        let first = signing.beginning(&at, "kohai", Box::new(|_| {}), Box::new(|_, _, _, _, now| {
+            Ok(auth::grant_from(&json!({ "access_token": "first" }), now))
+        })).expect("started");
+        let second = signing.beginning(&at, "kohai", Box::new(|_| {}), Box::new(|_, _, _, _, now| {
+            Ok(auth::grant_from(&json!({ "access_token": "second" }), now))
+        })).expect("started");
+        let first_url = first["url"].as_str().expect("a url").to_string();
+        let second_url = second["url"].as_str().expect("a url").to_string();
+        assert_ne!(state_of(&first_url), state_of(&second_url), "a new sign-in is a new secret");
+
+        /* The first is GONE, not merely superseded: its own callback, with its own state, completes
+           nothing. A listener left behind would still hold a registered port — there are five — and
+           would still store a grant for a sign-in the person abandoned. */
+        let stale = browser(first["redirect"].as_str().expect("a redirect"), &state_of(&first_url), "code=c");
+        assert!(stale.is_empty() || !stale.contains("Signed in"), "the replaced sign-in answered: {stale}");
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        assert_eq!(auth::stored(&at, "kohai"), None, "and stored nothing");
+
+        /* The second is the one that works. */
+        let said = browser(second["redirect"].as_str().expect("a redirect"), &state_of(&second_url), "code=c");
+        assert!(said.contains("Signed in"), "{said}");
+        assert_eq!(wait_for(|| auth::stored(&at, "kohai")).expect("a grant")["accessToken"], json!("second"));
+        signing.cancel();
+        let _ = std::fs::remove_dir_all(&at);
+    }
+
+    /// A listener answers on its own thread, so a test waits for it rather than asserting instantly.
+    fn wait_for<T>(mut check: impl FnMut() -> Option<T>) -> Option<T> {
+        for _ in 0..200 {
+            if let Some(value) = check() {
+                return Some(value);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(25));
+        }
+        None
+    }
+
+    /* A person reads this page and closes the tab, so it says which of the four things happened —
+       and it wears the DECLARED name, which is a data edit and never typed into shipping code
+       (charter D41, spec 108). The tab's title is where a person sees it. */
+    #[test]
+    fn the_page_wears_the_declared_name_a_person_came_from() {
         let said = page("Signed in.");
-        assert!(said.contains(red_core::theme::PRODUCT_NAME), "{said}");
+        assert!(said.contains(&format!("<title>{}</title>", red_core::theme::PRODUCT_NAME)), "{said}");
         assert!(said.starts_with("<!doctype html>"), "{said}");
+        assert!(said.contains("Signed in."), "and the thing that happened");
     }
 }
 
