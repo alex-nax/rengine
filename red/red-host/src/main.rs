@@ -479,6 +479,25 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
             if !head.keeps_alive() { return Ok(()); }
             continue;
         }
+        /* Showing a retained pane in a desktop's own tab, which is the registry's other action.
+           It is the door's for the same reason the registry is: the desktop that has to draw it is
+           on the door's socket. */
+        if head.path() == "/api/session-view" && head.method == "POST" {
+            let body = head.read_body(&mut client, &mut buffered).await?;
+            let answer = routes::answer_session_view(&front, &body).await;
+            client.write_all(answer.as_bytes()).await?;
+            if !head.keeps_alive() { return Ok(()); }
+            continue;
+        }
+        /* Every desktop on this workspace, whatever root it is bound to, and the last registration
+           this door refused. A launcher waiting for a window it just started has no root to filter
+           by yet, and needs the reason when none appears (spec 098). */
+        if head.path() == "/api/runtime-desktops" && head.method == "GET" {
+            let answer = http_json(200, "OK", &front.desktops.registry());
+            client.write_all(answer.as_bytes()).await?;
+            if !head.keeps_alive() { return Ok(()); }
+            continue;
+        }
         /* The two sockets this door serves itself. `/events` carries a pane's bytes and the
            desktops that register on it; `/surface` carries ONE game's frames to the viewers of its
            pane, and moved here with games (F155, spec 142). */

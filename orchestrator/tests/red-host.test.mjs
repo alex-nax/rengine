@@ -581,6 +581,71 @@ test('a desktop registers on the door and answers what the workspace asks it', {
   assert.equal(unknownAction.status, 400);
   assert.equal((await unknownAction.json()).error, 'Unknown desktop action.');
 
+  /* --- the registry's other two routes (spec 143) -------------------------------------------- */
+  /* Settled here rather than in the worker: a desktop says it exists on the door's socket, so the
+     door is the only process that can answer a question about it. The JS worker held a SECOND
+     registry over its own socket for exactly these two routes; this is that registry, asked the
+     same questions, and the JS `Desktops` is still the record of what the answers are. */
+
+  /* Every desktop on the workspace, whatever root it is bound to — the question a launcher asks
+     while it is waiting for a window it just started and has no root to filter by. */
+  const runtime = await ask(instance, '/api/runtime-desktops').then(answer => answer.json());
+  /* One, not two: the bystander has a socket on this door and never said it was a desktop, and a
+     registry of sockets would have counted it. */
+  assert.equal(runtime.desktops.length, 1, 'the desktop that registered, and only that one');
+  assert.equal(runtime.desktops[0].id, desktopId);
+  assert.equal(runtime.registerError, null, 'nothing has been refused');
+  /* The socket itself never travels: a caller reads a desktop, not a connection. */
+  assert.ok(runtime.desktops.every(entry => !('socket' in entry)));
+
+  /* A refusal is REMEMBERED, so a launcher whose window never appeared is told why rather than only
+     that it did not (spec 098). */
+  const wrong = desktop(instance);
+  await wrong.open;
+  wrong.socket.send(JSON.stringify({ type: 'desktop-register', rootIds: 'not-an-array', sessionIds: [] }));
+  await until(() => wrong.seen('error'), 'the door refused the frame');
+  const refused = await ask(instance, '/api/runtime-desktops').then(answer => answer.json());
+  assert.equal(refused.registerError.message, 'Invalid desktop bindings.');
+  assert.ok(Number.isInteger(refused.registerError.at), 'and when');
+  /* And cleared by the next one that succeeds, because a stale reason is worse than none. */
+  wrong.socket.send(JSON.stringify({ ...registration, sessionIds: [] }));
+  await until(async () => (await ask(instance, '/api/runtime-desktops').then(answer => answer.json())).registerError === null,
+    'a registration that succeeded cleared the reason the last one failed');
+  wrong.socket.close();
+  await until(async () => (await ask(instance, '/api/runtime-desktops').then(answer => answer.json())).desktops.length === 1,
+    'and the socket that closed took its desktop with it');
+
+  /* Showing a retained pane in a desktop's own tab. What travels is the pane RECORD, because a
+     desktop that was told only an id would have to ask for it back, and the one thing it must not
+     do between being asked and answering is make another round trip. */
+  const view = ask(instance, '/api/session-view', { rootId: root.id, desktopId, id: session.id });
+  await until(() => ours.frames.find(frame => frame.type === 'desktop-action' && frame.action === 'attach-session'),
+    'the desktop was asked to show the pane');
+  const attach = ours.frames.find(frame => frame.type === 'desktop-action' && frame.action === 'attach-session');
+  assert.ok(attach.session, 'the frame carries the pane record, not the id alone');
+  assert.equal(attach.session.id, session.id);
+  assert.equal(attach.session.rootId, root.id);
+  assert.equal(attach.session.state, 'running');
+  ours.socket.send(JSON.stringify({ type: 'desktop-action-result', requestId: attach.requestId, accepted: true }));
+  const shown = await view;
+  assert.equal(shown.status, 200);
+  const view_answer = await shown.json();
+  assert.equal(view_answer.status, 'accepted');
+  assert.equal(view_answer.detail, 'Retained session attached to a native tab.',
+    'the JS sentence, because a caller reads it and decides whether to retry');
+
+  /* A desktop bound to one project is never handed another's pane, and the PANE's own record says
+     which project it is — never the caller's claim about it. */
+  const elsewhere = await mkdtemp(path.join(tmpdir(), 'red-host-other-root-'));
+  t.after(() => rm(elsewhere, { recursive: true, force: true }));
+  const other = await backend.store.addRoot(elsewhere);
+  const stranger = await backend.sessions.terminal({ rootId: other.id, command: '/bin/bash', args: ['--noprofile', '--norc'] });
+  const crossed = await ask(instance, '/api/session-view', { rootId: root.id, desktopId, id: stranger.id });
+  assert.equal(crossed.status, 403);
+  assert.equal((await crossed.json()).error, 'Session belongs to another root.');
+  const missing = await ask(instance, '/api/session-view', { rootId: root.id, desktopId, id: 'no-such-pane' });
+  assert.equal(missing.status, 404, 'a pane nobody has is not a pane this desktop can show');
+
   /* And a desktop that goes away is gone from the list: the registry is the socket's, so it cannot
      outlive it. */
   ours.socket.close();

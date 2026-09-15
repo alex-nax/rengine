@@ -7,8 +7,9 @@
 //!
 //! **The forwarder is the default, not the exception.** Nineteen of the thirty-two routes
 //! `runtime/worker.mjs` serves are already the door's, and they reach it by being passed along
-//! unchanged. What stays here is the pair the worker owns — the ledger and the feed — and the thin
-//! routes over crates that already exist.
+//! unchanged — twenty-one since the desktop registry was settled as the door's (spec 143). What
+//! stays here is the pair the worker owns — the ledger and the feed — and the thin routes over
+//! crates that already exist.
 
 use red_core::head::Head;
 
@@ -29,8 +30,6 @@ pub fn own_route(method: &str, path: &str) -> bool {
             | ("POST", "/api/ide-mention")
             | ("POST", "/api/ide-selection")
             | ("POST", "/api/script-open")
-            | ("POST", "/api/session-view")
-            | ("GET", "/api/runtime-desktops")
             | ("POST", "/api/update-workspace")
             | ("POST", "/api/task")
             /* The tracker's sign-in, which is the worker's because the grant it writes lives beside
@@ -117,6 +116,12 @@ mod tests {
                      "/api/preferences", "/api/desktops", "/api/stop"] {
             assert!(!own_route("GET", path), "{path} is the door's");
         }
+        /* The desktop registry, settled as the door's: a desktop says it exists on the door's
+           socket, so the two routes over that registry are answered where the sockets are. Listed
+           separately because they were the worker's in the JavaScript and the reason they are not
+           here is a decision (spec 143) rather than an omission. */
+        assert!(!own_route("POST", "/api/session-view"), "the registry is the door's");
+        assert!(!own_route("GET", "/api/runtime-desktops"), "and so is the workspace's list of it");
     }
 
     /* A method is half of a route. `GET /api/recording` reads a recording out of a project and is

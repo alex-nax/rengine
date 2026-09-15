@@ -31,23 +31,47 @@ rather than on the day a single enormous commit is reviewed.
 | `POST /api/token-action` | the ledger service | **done** |
 | `GET /api/agents-menu` | — | **done** |
 | `POST /api/task` | the token gate, a per-root serialisation, `red_project::tasks::task_write`, a feed frame, and the tracker read back — **the tracker is F154's** unless the worker asks the door for it, which it may, since it already forwards there | crate exists |
-| `POST /api/agent-spawn` | the token gate, `red_agents::spawn`, and the host's own pane spawn | crate exists |
-| `POST /api/script-open` | the desktop registry and the host's pane spawn; **its rules are done** — `scripts::script_path` judges the resolved path, `scripts::script_arguments` the bounds | half |
+| `POST /api/agent-spawn` | the token gate, `spawn`'s three decisions (**done**), the host's own pane spawn, and the door's `/api/session-view` to show it | half |
+| `POST /api/script-open` | the host's pane spawn, then the door's `/api/session-view`; **its rules are done** — `scripts::script_path` judges the resolved path, `scripts::script_arguments` the bounds | half |
 | `GET /api/diagnostics`<br>`POST /api/ide-mention`<br>`POST /api/ide-selection` | **the IDE bridge**: the worker spawns one `red-ide serve` per bridge and answers `getDiagnostics` back down the pipe, because the language servers are the worker's (spec 133 D3) | infrastructure |
-| `POST /api/session-view`<br>`GET /api/runtime-desktops`<br>`POST /api/update-workspace` | **the desktop registry**: desktops register over the worker's socket and it holds them | infrastructure |
+| `POST /api/session-view`<br>`GET /api/runtime-desktops` | ~~the desktop registry~~ — **the door's** (below) | **done, and not here** |
+| `POST /api/update-workspace` | the token gate, then the host's own call | crate exists |
 | `POST /api/tracker/signin`<br>`POST /api/tracker/signout` | **a TLS decision** — rustls, hyper and hyper-util are already linked through libp2p, but the workspace has no root-certificate store | F154 |
 | the `/feed` socket | the fan-out, which exists; the socket, which does not | next |
 
-## A question worth asking before the desktop registry is built
+## The answer: the registry is the door's
 
-Three routes are the worker's only because **it** holds the desktop sockets. `red-host` holds
-desktop sockets too — it serves `/events` and owns a `Desktops` registry — and it is the
-longer-lived of the two, which is the reason D62 gave for moving a pane's RECORD there.
+Asked before the work, and the answer was already shipped: **`red-host` has held the registry since
+F189.** It serves `/events`, and a desktop says it exists by sending a frame on that socket, so the
+door is the only process that can know about one. There was never a second registry to build — only
+two routes over the one that exists.
 
-If desktops registered with the door instead, those three routes would become the door's and the
-worker would forward them, the way it forwards nineteen others. That is a smaller worker and one
-fewer socket, and it is the kind of change that is cheap now and expensive after the registry is
-built twice. It is not this row's to decide alone: it touches D60/D62 and the retirement protocol in
-spec 095, where a RETIRED worker forwards a retained desktop's frames to the current one.
+So the registry is the door's, and with it:
 
-**Recorded here so it is asked before the work, not after.**
+| route | was | is |
+|---|---|---|
+| `POST /api/session-view` | the worker's second registry | **the door's** — `answer_session_view` |
+| `GET /api/runtime-desktops` | the worker's second registry | **the door's** — `Desktops::registry` |
+| `POST /api/update-workspace` | listed here as the registry's | **the worker's** — it never touched the registry; it is the token GATE and a forward, and the table above had it in the wrong row |
+
+Two things followed from actually doing it, and both were latent gaps rather than new work:
+
+- **`act` carried no payload.** A reload needs none — the desktop knows how to rebuild itself — so
+  the one that shipped took only an action name. An attach is nothing without the session: a desktop
+  told only an id would have to ask for the record back, and the one thing it must not do between
+  being asked and answering is make another round trip.
+- **A refusal was not remembered.** Spec 098's launcher waits for a window and has to name the
+  reason one never appeared. The JS worker kept that beside its registry; the door now does, cleared
+  by the next registration that succeeds, because a stale reason is worse than none.
+
+What this buys beyond two routes: the JS worker's registry existed so it could push the pinned token
+segment to a desktop over a socket it owned, and that is the whole reason spec 095's retirement has
+a **relay** — a retired worker following the current worker's feed to push frames to desktops it
+still holds. With the registry at the door, the desktops never belonged to a worker in the first
+place, and a worker being replaced is not something a desktop can notice. That machinery retires
+with `worker.mjs` rather than being ported.
+
+Evidence: `orchestrator/tests/red-host.test.mjs`, in the F189 registry test — the two routes
+against the JS `Desktops` while it is still the record of what the answers are. Three sabotages,
+each rebuilt before its run (KI-120): an attach frame with no session record, the pane's root read
+from the caller's claim instead of the record, and a refusal that is never cleared.

@@ -388,10 +388,47 @@ pub(crate) async fn answer_desktop_action(front: &Arc<Front>, body: &str) -> Str
     if let Err(fault) = ask(front, "root", serde_json::json!([root])).await {
         return faulted(&fault);
     }
-    match front.desktops.act(&root, &desktop, "reload").await {
+    match front.desktops.act(&root, &desktop, "reload", serde_json::Value::Null).await {
         Ok(value) => http_json(200, "OK", &value),
         Err(fault) => faulted(&fault),
     }
+}
+
+/// `POST /api/session-view`: show a retained pane in a named desktop's own tab.
+///
+/// The registry is the door's because a desktop says it exists on the door's socket, and this is
+/// the route that follows from that: the caller names a session and a desktop, and what travels to
+/// the desktop is the pane RECORD, so it can draw a tab without asking anything back.
+///
+/// **Accepted does not mean drawn**, the same way a reload's is: the answer says the desktop took
+/// the request. A caller that got a refusal is told the pane is running and retained — nothing here
+/// ever starts one, so there is never anything to retry.
+pub(crate) async fn answer_session_view(front: &Arc<Front>, body: &str) -> String {
+    let payload: serde_json::Value = match serde_json::from_str(body) {
+        Ok(value) => value,
+        Err(error) => return faulted(&format!("400|Invalid JSON body: {error}")),
+    };
+    let field = |name: &str| payload.get(name).and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    let (root, desktop, id) = (field("rootId"), field("desktopId"), field("id"));
+    let session = match pane_snapshot_of(front, &id).await {
+        Ok(session) => session,
+        Err(fault) => return faulted(&fault),
+    };
+    /* The pane's own root, not the caller's claim about it: a desktop bound to one project must
+       never be handed another's pane, and only the record knows which it is. */
+    if session.get("rootId").and_then(serde_json::Value::as_str) != Some(root.as_str()) {
+        return faulted("403|Session belongs to another root.");
+    }
+    match front.desktops.act(&root, &desktop, "attach-session", serde_json::json!({ "session": session })).await {
+        Ok(value) => http_json(200, "OK", &value),
+        Err(fault) => faulted(&fault),
+    }
+}
+
+/// One retained pane as a caller reads it, or the service's refusal.
+async fn pane_snapshot_of(front: &Arc<Front>, id: &str) -> Result<serde_json::Value, String> {
+    let session = crate::ask_pty(front, "snapshot", serde_json::json!([id])).await?;
+    Ok(pane_snapshot(&session))
 }
 
 /* A refusal's HTTP status, and 500 where it carries none.

@@ -570,7 +570,7 @@ fn checkout() -> std::path::PathBuf {
         .unwrap_or_default()
 }
 
-fn now_ms() -> i64 {
+pub(crate) fn now_ms() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|since| since.as_millis() as i64)

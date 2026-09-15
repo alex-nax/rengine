@@ -42,6 +42,10 @@ pub struct Desktops {
     /// Keyed by the hub's id for the socket, so a closed socket takes its desktop with it.
     clients: Mutex<HashMap<u64, Desktop>>,
     pending: Mutex<HashMap<String, Pending>>,
+    /// The last registration this workspace REFUSED, so a launcher waiting for a window can name
+    /// the reason one never appeared rather than only that it did not (spec 098). Cleared by the
+    /// next registration that succeeds, because a stale reason is worse than none.
+    refused: Mutex<Option<Value>>,
     sequence: AtomicU64,
     timeout: Duration,
 }
@@ -51,6 +55,7 @@ impl Desktops {
         Desktops {
             clients: Mutex::new(HashMap::new()),
             pending: Mutex::new(HashMap::new()),
+            refused: Mutex::new(None),
             sequence: AtomicU64::new(0),
             timeout: Duration::from_millis(
                 std::env::var("RENGINE_DESKTOP_ACTION_MS").ok().and_then(|value| value.parse().ok()).unwrap_or(4000),
@@ -59,6 +64,16 @@ impl Desktops {
     }
 
     pub async fn register(&self, front: &Arc<Front>, viewer: Arc<Viewer>, data: &Value) -> Result<(), String> {
+        let outcome = self.registering(front, viewer, data).await;
+        /* Recorded here rather than by the caller, so every way in remembers it the same way. */
+        *self.refused.lock().expect("refused lock") = match &outcome {
+            Err(message) => Some(json!({ "at": crate::panes::now_ms(), "message": message })),
+            Ok(()) => None,
+        };
+        outcome
+    }
+
+    async fn registering(&self, front: &Arc<Front>, viewer: Arc<Viewer>, data: &Value) -> Result<(), String> {
         let roots = strings(data.get("rootIds"));
         let named = strings(data.get("sessionIds"));
         if roots.is_none() || named.is_none() {
@@ -121,11 +136,26 @@ impl Desktops {
         Ok(())
     }
 
+    /// Every desktop attached to this workspace, and the last registration it refused.
+    ///
+    /// `list` answers a PROJECT's question — which desktops can show this root — and takes a root.
+    /// This answers the WORKSPACE's: a launcher that has just started a desktop is waiting for one
+    /// to appear at all and has no root to filter by yet.
+    pub fn registry(&self) -> Value {
+        let listed = self.entries(|_| true);
+        json!({ "desktops": listed, "registerError": self.refused.lock().expect("refused lock").clone() })
+    }
+
     pub fn list(&self, root_id: &str) -> Value {
+        json!(self.entries(|desktop| desktop.root_ids.iter().any(|root| root == root_id)))
+    }
+
+    /// The desktops matching a question, as a caller reads them — the socket itself never travels.
+    fn entries(&self, wanted: impl Fn(&Desktop) -> bool) -> Vec<Value> {
         let clients = self.clients.lock().expect("desktops lock");
-        let listed: Vec<Value> = clients
+        clients
             .values()
-            .filter(|desktop| desktop.root_ids.iter().any(|root| root == root_id))
+            .filter(|desktop| wanted(desktop))
             .map(|desktop| {
                 let mut entry = serde_json::Map::new();
                 entry.insert("id".to_string(), json!(desktop.id));
@@ -139,13 +169,23 @@ impl Desktops {
                 }
                 Value::Object(entry)
             })
-            .collect();
-        json!(listed)
+            .collect()
     }
 
     /// Ask a desktop to do something, and wait for it to say it took the request. The refusals are
     /// the JS host's, including the statuses a caller acts on.
-    pub async fn act(&self, root_id: &str, desktop_id: &str, action: &'static str) -> Result<Value, String> {
+    ///
+    /// `carried` is what the ACTION needs and the frame does not already say. A reload carries
+    /// nothing — the desktop knows how to rebuild itself. An attach carries the session, because a
+    /// desktop that was told only an id would have to ask for the record back, and the one thing it
+    /// must not do between being asked and answering is make another round trip.
+    pub async fn act(
+        &self,
+        root_id: &str,
+        desktop_id: &str,
+        action: &'static str,
+        carried: Value,
+    ) -> Result<Value, String> {
         let (viewer, request) = {
             let clients = self.clients.lock().expect("desktops lock");
             let Some(desktop) = clients
@@ -171,7 +211,13 @@ impl Desktops {
             .lock()
             .expect("pending lock")
             .insert(request_id.clone(), Pending { desktop: request, action, answer: sender });
-        viewer.say(json!({ "type": "desktop-action", "action": action, "desktopId": desktop_id, "requestId": request_id }).to_string());
+        let mut frame = json!({ "type": "desktop-action", "action": action, "desktopId": desktop_id, "requestId": request_id });
+        if let (Some(frame), Some(carried)) = (frame.as_object_mut(), carried.as_object()) {
+            for (name, value) in carried {
+                frame.insert(name.clone(), value.clone());
+            }
+        }
+        viewer.say(frame.to_string());
         match tokio::time::timeout(self.timeout, receiver).await {
             Ok(Ok(outcome)) => outcome,
             /* The desktop said nothing in time, or went away while it was thinking. */
