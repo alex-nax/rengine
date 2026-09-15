@@ -63,5 +63,6 @@ offers declared servers and reports, by name, which ones an agent did not take.
 
 ## Open, and deliberately not decided here
 
-Whether kohai implements the experimental ACP MCP transport. That is a ticket in kohai's tracker.
-F200 passes on the generic behaviour and records what `kohai-acp` takes as measured fact.
+Whether kohai implements the experimental ACP MCP transport. That is a ticket in kohai's tracker
+(prefix `BAS-`), drafted at `docs/integration/kohai-acp-mcp-servers.md` for the owner to file. F200
+passes on the generic behaviour and records what `kohai-acp` takes as measured fact.
