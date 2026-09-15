@@ -1,0 +1,210 @@
+{
+  "one small frame, whole": {
+    "frames": [
+      {
+        "width": 2,
+        "height": 1,
+        "sequence": 7,
+        "bytes": 8,
+        "digest": "a4dc49e2b28ecb7d"
+      }
+    ]
+  },
+  "one small frame, a byte at a time": {
+    "frames": [
+      {
+        "width": 2,
+        "height": 1,
+        "sequence": 7,
+        "bytes": 8,
+        "digest": "a4dc49e2b28ecb7d"
+      }
+    ]
+  },
+  "one small frame, split across the header": {
+    "frames": [
+      {
+        "width": 4,
+        "height": 2,
+        "sequence": 3,
+        "bytes": 32,
+        "digest": "e6cb594c1a148ac5"
+      }
+    ]
+  },
+  "a frame at the format's largest dimensions": {
+    "frames": [
+      {
+        "width": 1920,
+        "height": 1080,
+        "sequence": 1,
+        "bytes": 8294400,
+        "digest": "ec2f6c9a6115d41c"
+      }
+    ]
+  },
+  "a one-pixel frame": {
+    "frames": [
+      {
+        "width": 1,
+        "height": 1,
+        "sequence": 0,
+        "bytes": 4,
+        "digest": "4475327f98e05411"
+      }
+    ]
+  },
+  "a header with no pixels yet is no frame at all": {
+    "frames": []
+  },
+  "nothing at all": {
+    "frames": []
+  },
+  "a header whose magic is wrong": {
+    "refused": "Invalid game frame header."
+  },
+  "a width past the format": {
+    "refused": "Invalid game frame header."
+  },
+  "a width of zero": {
+    "refused": "Invalid game frame header."
+  },
+  "a height of zero": {
+    "refused": "Invalid game frame header."
+  },
+  "a height past the format": {
+    "refused": "Invalid game frame header."
+  },
+  "a byte count that is not the dimensions": {
+    "refused": "Invalid game frame header."
+  },
+  "a byte count that would allocate four gigabytes": {
+    "refused": "Invalid game frame header."
+  },
+  "a flag this format does not have": {
+    "refused": "Invalid game frame header."
+  },
+  "a refusal mid-stream, after a good frame": {
+    "refused": "Invalid game frame header."
+  },
+  "a width one past the format, its byte count agreeing": {
+    "refused": "Invalid game frame header."
+  },
+  "a height one past the format, its byte count agreeing": {
+    "refused": "Invalid game frame header."
+  },
+  "a width of zero, its byte count agreeing": {
+    "refused": "Invalid game frame header."
+  },
+  "a height of zero, its byte count agreeing": {
+    "refused": "Invalid game frame header."
+  },
+  "the largest width the format admits": {
+    "frames": [
+      {
+        "width": 1920,
+        "height": 1,
+        "sequence": 1,
+        "bytes": 7680,
+        "digest": "c8668d33cc9d9ef8"
+      }
+    ]
+  },
+  "the largest height the format admits": {
+    "frames": [
+      {
+        "width": 1,
+        "height": 1080,
+        "sequence": 1,
+        "bytes": 4320,
+        "digest": "70bd3c386606b7a4"
+      }
+    ]
+  },
+  "a key down": {
+    "packet": "010000001a000000010000000000000000000000000000000000000000000000"
+  },
+  "a key with its trailing values omitted": {
+    "packet": "010000001a000000000000000000000000000000000000000000000000000000"
+  },
+  "a key at the top of its range": {
+    "packet": "01000000ff010000010000000100000000000000000000000000000000000000"
+  },
+  "a key past the top of its range": {
+    "refused": "Game input is out of range."
+  },
+  "a key with a bad value in a LATER slot": {
+    "refused": "Game input is out of range."
+  },
+  "a motion event at both extremes": {
+    "packet": "020000000080ffffff7f00000080ffffff7f0000000000000000000000000000"
+  },
+  "a motion event past an extreme": {
+    "refused": "Game input is out of range."
+  },
+  "a button": {
+    "packet": "0300000005000000010000000000000000000000000000000000000000000000"
+  },
+  "a button this format does not have": {
+    "refused": "Game input is out of range."
+  },
+  "a button numbered zero": {
+    "refused": "Game input is out of range."
+  },
+  "a wheel": {
+    "packet": "0400000018fcffffe80300000000000000000000000000000000000000000000"
+  },
+  "focus gained": {
+    "packet": "0500000001000000000000000000000000000000000000000000000000000000"
+  },
+  "focus lost": {
+    "packet": "0500000000000000000000000000000000000000000000000000000000000000"
+  },
+  "a release, which carries nothing": {
+    "packet": "0600000000000000000000000000000000000000000000000000000000000000"
+  },
+  "a release handed a value anyway": {
+    "refused": "Unsupported game input."
+  },
+  "a kind this format does not have": {
+    "refused": "Unsupported game input."
+  },
+  "kind zero": {
+    "refused": "Unsupported game input."
+  },
+  "a negative kind": {
+    "refused": "Unsupported game input."
+  },
+  "more values than the kind admits": {
+    "refused": "Unsupported game input."
+  },
+  "a value that is not a whole number": {
+    "refused": "Game input is out of range."
+  },
+  "a frame producer": {
+    "channel": "frames",
+    "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "an input producer": {
+    "channel": "input",
+    "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "a channel this door does not serve": {
+    "refused": "not a greeting"
+  },
+  "a version this door does not speak": {
+    "refused": "not a greeting"
+  },
+  "a token a character short": {
+    "refused": "not a greeting"
+  },
+  "a token in capitals": {
+    "refused": "not a greeting"
+  },
+  "a token that is not hex": {
+    "refused": "not a greeting"
+  },
+  "an empty line": {
+    "refused": "not a greeting"
+  }
+}

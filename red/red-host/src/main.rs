@@ -41,6 +41,7 @@ mod head;
 mod images;
 mod panes;
 mod routes;
+mod surface_socket;
 mod surfaces;
 
 use desktops::Desktops;
@@ -54,6 +55,13 @@ const PTY_PROTOCOL: u64 = 2;
 const STORE_PROTOCOL: u64 = 1;
 
 const USAGE: &str = "usage: red-host --state <dir> --backend <url> --backend-token <token> [--port N] [--pid N]";
+
+impl Front {
+    /// The next surface viewer's number.
+    fn next_viewer(&self) -> u64 {
+        self.viewers.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+    }
+}
 
 struct Front {
     /// The state directory's store, attached rather than opened: the JS backend is attached to the
@@ -69,6 +77,13 @@ struct Front {
     /// Everyone watching `/events`, and the desktops among them.
     hub: Arc<Hub>,
     desktops: Desktops,
+    /// The surfaces games stream into (F155, spec 142): the loopback listener this door opened, the
+    /// reservations it has minted, and the viewers attached to each. `None` when the listener could
+    /// not be opened, and then a game that streams into a pane is refused rather than launched
+    /// blind — a pane with no surface behind it is a black rectangle with no way to say why.
+    surfaces: Option<crate::surfaces::Surfaces>,
+    /// Numbers a surface viewer, so an eviction can name an owner without holding its socket.
+    viewers: std::sync::atomic::AtomicU64,
     /// The token this workspace's clients present. The backend has its own, and this process never
     /// hands a client the backend's.
     token: String,
@@ -181,6 +196,16 @@ async fn serve(options: Options) -> Result<(), String> {
     let recording = panes.clone();
     let watching = std::sync::Arc::new(Hub::new());
     let told = watching.clone();
+    /* Opened before the PTY client, because the pane events that client delivers are how a
+       reservation LEARNS its game is gone (F155, spec 142). */
+    let surfaces = match crate::surfaces::Surfaces::listen().await {
+        Ok(surfaces) => Some(surfaces),
+        Err(error) => {
+            eprintln!("red-host: no surface listener ({error}). Games that stream into a pane will be refused.");
+            None
+        }
+    };
+    let releasing = surfaces.clone();
     let pty = match red_core::service::Client::attaching(
         std::path::Path::new(&options.state),
         "pty",
@@ -205,6 +230,20 @@ async fn serve(options: Options) -> Result<(), String> {
                 Some("session") => {
                     let Some(session) = event.get("session") else { return };
                     let Some(id) = session.get("id").and_then(serde_json::Value::as_str) else { return };
+                    /* A game that has exited has no more pictures to send: the reservation goes and
+                       its viewers are closed, rather than left watching one that will never change
+                       again. `games.mjs` did this on the same event. */
+                    if session.get("state").and_then(serde_json::Value::as_str) == Some("exited") {
+                        if let Some(surfaces) = &releasing {
+                            if let Some(token) = surfaces.token_of(id) {
+                                for viewer in surfaces.remove(&token) {
+                                    let _ = viewer.send(crate::surfaces::ToViewer::Text(
+                                        serde_json::json!({ "type": "closed", "reason": "Game session exited" }).to_string(),
+                                    ));
+                                }
+                            }
+                        }
+                    }
                     recording.lock().expect("panes lock").insert(id.to_string(), session.clone());
                     told.pane(session);
                 }
@@ -237,6 +276,8 @@ async fn serve(options: Options) -> Result<(), String> {
         panes,
         hub: hub.clone(),
         desktops: Desktops::new(),
+        surfaces,
+        viewers: std::sync::atomic::AtomicU64::new(0),
         token: secret(),
         instance: uuid_v4(),
         state: options.state.clone(),
@@ -356,6 +397,17 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
                 }
             }
         }
+        /* The last route the JS host uniquely served (F155, spec 142). It is here rather than
+           forwarded because everything it needs is already this door's: the preflight from
+           `red_project`, the pane records it holds, the PTY service it spawns through, and the
+           surface listener it opened. */
+        if head.path() == "/api/game" && head.method == "POST" {
+            let body = head.read_body(&mut client, &mut buffered).await?;
+            let answer = games::launch(&front, &body).await;
+            client.write_all(answer.as_bytes()).await?;
+            if !head.keeps_alive() { return Ok(()); }
+            continue;
+        }
         if head.path() == "/api/terminal" && head.method == "POST" {
             let body = head.read_body(&mut client, &mut buffered).await?;
             let answer = panes::terminal(&front, &body).await;
@@ -428,13 +480,22 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
             if !head.keeps_alive() { return Ok(()); }
             continue;
         }
-        /* The socket this door serves itself. `/surface` is still the backend's — it carries a
-           game's frames, and games have not moved. */
+        /* The two sockets this door serves itself. `/events` carries a pane's bytes and the
+           desktops that register on it; `/surface` carries ONE game's frames to the viewers of its
+           pane, and moved here with games (F155, spec 142). */
         if head.upgrade && head.path() == "/events" {
             let key = head.header("sec-websocket-key").unwrap_or_default();
             client.write_all(events::accepted(&key).as_bytes()).await?;
             let stream = events::Prefixed { buffered: std::mem::take(&mut buffered), inner: client };
             events::serve(front, stream).await;
+            return Ok(());
+        }
+        if head.upgrade && head.path() == "/surface" {
+            let key = head.header("sec-websocket-key").unwrap_or_default();
+            let session = head.query("id").unwrap_or_default();
+            client.write_all(events::accepted(&key).as_bytes()).await?;
+            let stream = events::Prefixed { buffered: std::mem::take(&mut buffered), inner: client };
+            surface_socket::serve(front, stream, session).await;
             return Ok(());
         }
         /* Everything else is the backend's, for now. The head is replayed with this door's token
@@ -548,6 +609,8 @@ mod tests {
 
     fn front() -> Front {
         Front {
+            surfaces: None,
+            viewers: std::sync::atomic::AtomicU64::new(0),
             store: None, pty: None, panes: Arc::new(Mutex::new(std::collections::HashMap::new())),
             hub: Arc::new(Hub::new()), desktops: Desktops::new(),
             token: "a".repeat(64), instance: "i".into(), state: "/tmp/x".into(), url: "http://127.0.0.1:1".into(),

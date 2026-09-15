@@ -3,8 +3,7 @@ import path from 'node:path';
 import { openScript } from './scripts.mjs';
 import { listFormats, formatPreview, projectWorktrees, readBytes, readDeclaration } from '../server/formats.mjs';
 import { dashboardAction, dashboardActions, dashboardRunPayload, dashboardCapture } from '../server/dashboard.mjs';
-import { inspectGame } from '../server/games.mjs';
-import { LOCAL, projectDevices } from '../server/devices.mjs';
+import { LOCAL, inspectGame, projectDevices } from '../server/devices.mjs';
 import { listRecordings, readRecording } from '../server/recordings.mjs';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { WebSocket, WebSocketServer } from 'ws';
@@ -79,6 +78,7 @@ export async function startWorker(host, options = {}) {
   const refresh = async () => { const state = await call(host, 'state'); if (state.instance !== host.instance) fail('Session host identity changed.'); bindings = state; return state; };
   /* Preflight runs here, from this checkout, exactly as the dashboard does; only the launch needs
      the retained host, which owns the PTY and the embedded surface. See sidecar: game-routes. */
+  /* The preflight is red-project's; LAUNCHING moved to red-host with games.mjs (F155, spec 142). */
   const preflight = (rootId, gameId) => inspectGame(root(rootId), gameId);
   /* The ledger is the only capability this worker advertises conditionally: a worker whose runtime
      directory it cannot own serves everything else and says agentToken nowhere, so the tools refuse

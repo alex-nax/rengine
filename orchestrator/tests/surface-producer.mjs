@@ -5,7 +5,15 @@
 // --frames N sends N frames and exits; the default streams until it is stopped.
 import net from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
-import { frameHeader } from '../server/surface-protocol.mjs';
+/* Its OWN encoder, not the workspace's: `surface: "cooperative"` means a game whose own code speaks
+   the protocol, so a fixture that imported rEngine's encoder would be proving less than the value
+   claims. Twenty-four little-endian bytes (spec 142). */
+const MAGIC = 0x31464752;
+const frameHeader = (width, height, sequence) => {
+  const header = Buffer.alloc(24);
+  [MAGIC, width, height, sequence, width * height * 4, 0].forEach((value, index) => header.writeUInt32LE(value, index * 4));
+  return header;
+};
 
 const argv = process.argv.slice(2);
 const option = (name, fallback) => { const at = argv.indexOf(name); return at < 0 ? fallback : Number(argv[at + 1]); };

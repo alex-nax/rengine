@@ -159,7 +159,11 @@ test('declared games launch in their own window, run side by side and expose gen
   await waitOutput(server, session.id, 'FIXTURE_GAME_STARTED');
   const quoted = value => value.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&');
   assert.match(server.sessions.snapshot(session.id, true).output, new RegExp(`FIXTURE_GAME_STARTED args=--flat --width 640 flavour=blue cwd=${quoted(path.join(rootPath, 'work'))}`));
-  assert.equal(server.games.surfaces.items.size, 0, 'no surface reservation for an external game'); assert.equal(server.games.items.size, 0);
+  /* No reservation for an external game, said by the game: it opens its own window and has nothing
+     to stream, so it is handed no surface token (spec 142). The launch's own composition is asserted
+     in `red-host/src/games.rs`, where it now happens. */
+  assert.match(server.sessions.snapshot(session.id, true).output, /surface=$|surface=\s/m,
+    'no surface reservation for an external game');
   assert.equal((await request(server, 'game', { rootId: root.id })).id, session.id, 'the running session is reused');
   assert.equal((await request(server, 'game', { rootId: root.id, gameId: 'fixture-game' })).id, session.id, 'reuse is keyed by game id');
 

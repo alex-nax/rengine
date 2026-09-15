@@ -3,11 +3,13 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import path from 'node:path';
-import { Surfaces } from '../server/surfaces.mjs';
-import { inputPacket } from '../server/surface-protocol.mjs';
+/* The other end of the wire, owned by the specs (spec 142). This spec's subject is the PRODUCER —
+   an SDL/GL game packing pixels — and the workspace's transport is red-host's now; standing the
+   whole door up to watch one game draw would make this spec about the door. */
+import { listen } from './surface-harness.mjs';
 
 test('real SDL/GL surface preserves packing and receives key input/release', { timeout: 20000 }, async t => {
-  const surfaces = await new Surfaces().listen();
+  const surfaces = await listen();
   const { item, env } = surfaces.reserve();
   const directory = path.resolve('.cache/native');
   const child = spawn(path.join(directory, process.platform === 'win32' ? 'Release/rengine_surface_fixture.exe' : 'rengine_surface_fixture'), [], {
@@ -24,14 +26,16 @@ test('real SDL/GL surface preserves packing and receives key input/release', { t
       await new Promise(resolve => setTimeout(resolve, 20));
     }
   };
-  await waitFor(() => item.latest && item.input);
-  assert.equal(item.width, 64); assert.equal(item.height, 32);
-  const top = () => [...item.latest.subarray(24 + 64 * 31 * 4, 24 + 64 * 31 * 4 + 4)];
+  await waitFor(() => item.frames.length > 0 && item.input);
+  const latest = () => item.frames.at(-1);
+  assert.equal(latest().width, 64); assert.equal(latest().height, 32);
+  /* The pixels only: the harness hands over the decoded frame, so the 24-byte header is not in it. */
+  const top = () => [...latest().pixels.subarray(64 * 31 * 4, 64 * 31 * 4 + 4)];
   assert.deepEqual(top(), [255, 0, 0, 255]);
-  assert.deepEqual([...item.latest.subarray(24, 28)], [0, 0, 255, 255]);
-  item.input.write(inputPacket({ kind: 1, values: [26, 1, 0] }));
+  assert.deepEqual([...latest().pixels.subarray(0, 4)], [0, 0, 255, 255]);
+  item.write({ kind: 1, values: [26, 1, 0] });
   await waitFor(() => top()[1] === 255);
-  item.input.write(inputPacket({ kind: 6 }));
+  item.write({ kind: 6 });
   await waitFor(() => top()[0] === 255);
   const result = await exited;
   assert.equal(result[0], 0, logs);

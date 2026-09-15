@@ -34,7 +34,10 @@ export const gameActions = (extra = {}) => ({ title: 'Fixture launcher', groups:
 ] }], ...extra });
 export const launcherDeclaration = (games = [game(), second(), absent()], board = gameActions()) => ({ ...gamesDeclaration(games), dashboard: board });
 
-const script = marker => `#!/bin/bash\nprintf "${marker} args=%s flavour=%s cwd=%s\\n" "$*" "\${FIXTURE_FLAVOUR:-unset}" "$PWD"\n`
+/* `surface=` says whether this launch was handed a reservation. An EXTERNAL game must not be —
+   it opens its own window and has nothing to stream — and with the composition in red-host now
+   (spec 142), what the game was given is the observable half of that claim. */
+const script = marker => `#!/bin/bash\nprintf "${marker} args=%s flavour=%s cwd=%s surface=%s\\n" "$*" "\${FIXTURE_FLAVOUR:-unset}" "$PWD" "\${RENGINE_SURFACE_TOKEN:+reserved}"\n`
   + 'trap \'echo FIXTURE_GAME_EXIT; exit 0\' TERM\nfor i in $(seq 1 600); do sleep 0.1; done\n';
 /* The declared executable of a cooperative record: a root-relative launcher, like a real one, over
    the committed producer beside this file. */

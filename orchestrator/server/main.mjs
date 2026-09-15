@@ -6,13 +6,11 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import { WebSocketServer } from 'ws';
 import { WorkspaceStore, fail } from './store-client.mjs';
 import { Sessions } from './sessions-client.mjs';
-import { Games } from './games.mjs';
 import { listFormats, formatPreview, readBytes, readDeclaration } from './formats.mjs';
 import { dashboardAction, dashboardActions, dashboardRunPayload, dashboardCapture } from './dashboard.mjs';
-import { projectDevices } from './devices.mjs';
+import { inspectGame, projectDevices } from './devices.mjs';
 import { projectTracker } from './tracker.mjs';
 import { revoke as revokeSignIn, signIn as trackerSignIn } from './tracker-auth.mjs';
 import { listRecordings, readRecording } from './recordings.mjs';
@@ -51,8 +49,11 @@ export async function startServer({ stateDir, port = 0, retainSessions = false, 
      deleted stops on its own, which is what makes this safe for a suite. */
   const store = await WorkspaceStore.attach(stateDir);
   const sessions = new Sessions(store, { stateDir });
-  const games = await Games.open(store, sessions);
-  const preflight = (rootId, gameId) => games.inspect(rootId, gameId);
+  /* The preflight only. LAUNCHING a game, and the `/surface` socket its frames travel on, moved to
+     red-host with `games.mjs`, `surfaces.mjs` and `surface-protocol.mjs` (F155, spec 142) — the
+     last route this process uniquely served. What is left here is the read the dashboard's own
+     composition needs, and red-project answers it. */
+  const preflight = async (rootId, gameId) => inspectGame(await store.root(rootId), gameId);
   const token = randomBytes(32).toString('hex');
   const instance = randomUUID();
   let url;
@@ -77,7 +78,7 @@ export async function startServer({ stateDir, port = 0, retainSessions = false, 
               value = await projectDevices(selected, await readDeclaration(selected),
                 { refresh: query.get('refresh') === '1', preflight, resolve: () => dashboardActions(selected, preflight) }); break; }
             case '/api/bytes': value = await readBytes(await store.root(query.get('rootId')), Object.fromEntries(query)); break;
-            case '/api/game-config': value = await games.inspect(query.get('rootId'), query.get('gameId') ?? undefined); break;
+            case '/api/game-config': value = await preflight(query.get('rootId'), query.get('gameId') ?? undefined); break;
             case '/api/recordings': value = await listRecordings(await store.root(query.get('rootId')), Object.fromEntries(query)); break;
             case '/api/recording': value = await readRecording(await store.root(query.get('rootId')), query.get('id'), Object.fromEntries(query)); break;
             default: fail('Unknown workspace endpoint.', 404);
@@ -103,11 +104,11 @@ export async function startServer({ stateDir, port = 0, retainSessions = false, 
             case '/api/format-preview': value = await formatPreview(await store.root(data.rootId), data); break;
             case '/api/dashboard-run': {
               const root = await store.root(data.rootId), action = await dashboardAction(root, data.actionId, preflight);
-              if (action.kind === 'game') { value = await games.launch(root.id, action.game, action.args); break; }
+              /* A game action is a launch, and the door answers those now — it never reaches here. */
+              if (action.kind === 'game') fail('Use the door to launch a game.', 409);
               const payload = await dashboardRunPayload(root, action); value = { ...await sessions.terminal(payload), title: payload.title }; break;
             }
             case '/api/dashboard-capture': value = await dashboardCapture(await store.root(data.rootId), data.actionId, preflight); break;
-            case '/api/game': value = await games.launch(data.rootId, data.gameId, data.args); break;
             default: fail('Unknown workspace endpoint.', 404);
           }
         } else fail('Method not supported.', 405);
@@ -120,18 +121,12 @@ export async function startServer({ stateDir, port = 0, retainSessions = false, 
       else response.destroy();
     }
   });
-  /* `/surface` only. `/events` is red-host's (F189): it carries a pane's bytes and the desktops that
-     register on it, and both belong to whoever answers the session routes. A game's frames do not —
-     they are `games.mjs`'s transport, and they move with games. */
-  const gameSockets = new WebSocketServer({ noServer: true, maxPayload: 4096 });
-  server.on('upgrade', (request, socket, head) => {
-    const target = new URL(request.url, 'http://127.0.0.1');
-    if (target.pathname !== '/surface' || !authorized(target.searchParams.get('token'), token) || (request.headers.origin && request.headers.origin !== url)) {
-      socket.end('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n'); return;
-    }
-    gameSockets.handleUpgrade(request, socket, head, ws => {
-      ws.on('error', () => {}); games.attach(target.searchParams.get('id'), ws);
-    });
+  /* No sockets here. `/events` has been red-host's since F189 — it carries a pane's bytes and the
+     desktops that register on it — and `/surface` joined it with games (F155, spec 142): a game's
+     frames are its transport, and the transport moved with the launch. An upgrade reaching this
+     process is one the door did not recognise, and it is refused rather than answered. */
+  server.on('upgrade', (_request, socket) => {
+    socket.end('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n');
   });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
   url = `http://127.0.0.1:${server.address().port}`;
@@ -148,13 +143,10 @@ export async function startServer({ stateDir, port = 0, retainSessions = false, 
   const door = frontDoor ? await openFrontDoor(stateDir, { url, token }) : null;
   const backend = { url, token, instance };
   return { url: door?.url ?? url, token: door?.token ?? token, instance: door?.instance ?? instance,
-    backend, door: door?.child ?? null, store, sessions, games, adopted, async close({ retain = retainSessions } = {}) {
+    backend, door: door?.child ?? null, store, sessions, adopted, async close({ retain = retainSessions } = {}) {
     /* The door first: one that outlived its backend would answer for a workspace that is going. */
     try { door?.child.kill('SIGTERM'); } catch { /* already gone */ }
     await sessions.shutdown({ retain });
-    await games.close();
-    for (const client of gameSockets.clients) client.terminate();
-    gameSockets.close();
     await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });
     await store.close();
   } };

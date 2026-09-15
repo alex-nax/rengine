@@ -35,6 +35,13 @@ export const probeCacheFor = root => probeCache(root.path);
 /* A root registered with a declaration file of its own is read from THAT file, not from the
    project's — an external declaration describes a project this workspace does not own. */
 export const declarationOf = root => (root?.declarationFile === undefined ? '' : root.declarationFile);
+
+/* What a declared game needs before it can be launched, answered by red-project (F155). It lives
+   beside the probe cache because it SHARES it: asking about a game on an unreachable box must not
+   wait out that box's timeout a second time. Launching moved to red-host with `games.mjs`; this is
+   the read that stayed, because the dashboard's own composition needs it (spec 142). */
+export const inspectGame = (root, gameId) =>
+  askProject(['game', root.id, root.path, gameId ?? '', probeCacheFor(root), declarationOf(root)]);
 /** Drop every remembered probe, for a caller that wants the next question asked for real. */
 export const forgetProbes = () => rm(probeDirectory, { recursive: true, force: true });
 

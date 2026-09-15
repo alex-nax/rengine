@@ -19,15 +19,32 @@ const waitOutput = async (server, id, text) => {
   throw new Error(`session never printed ${text}: ${server.sessions.snapshot(id, true).output}`);
 };
 const waitExit = async (server, id) => { for (let i = 0; i < 200 && server.sessions.snapshot(id).state !== 'exited'; i++) await delay(20); return server.sessions.snapshot(id).state; };
-/* The environment rEngine composes, captured where it is composed. macOS purges DYLD_* before a
-   protected interpreter can report its own environment, so the child's view cannot carry this. */
-function watchLaunches(server) {
-  const seen = [];
-  const original = server.sessions.terminal.bind(server.sessions);
-  server.sessions.terminal = options => { seen.push(options); return original(options); };
-  return seen;
+/* The environment rEngine composes is composed in red-host now (F155, spec 142), so it cannot be
+   captured by wrapping a method in this process. THE injection-race claim moved with it, to
+   `games::surface_environment`'s own test where the composition is — which is also the only place
+   it can be made: macOS purges DYLD_* before a protected interpreter can report its own
+   environment, so a cooperative game reporting "no injection" cannot be told apart from one that
+   was injected and purged. What this spec asserts is the OBSERVABLE half, end to end. */
+
+/* Whether a surface is reserved for a pane, asked the way a person's desktop asks: by attaching a
+   viewer. A pane with no reservation is closed with the door's own sentence, which is better
+   evidence than counting an internal map — it is the consequence the reservation exists for. */
+async function attaches(server, id) {
+  const viewer = new WebSocket(`${server.url.replace('http', 'ws')}/surface?${new URLSearchParams({ token: server.token, id })}`);
+  try {
+    return await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('the viewer neither opened nor closed')), 10000);
+      viewer.on('error', () => { clearTimeout(timer); resolve(null); });
+      viewer.on('close', () => { clearTimeout(timer); resolve(null); });
+      /* The status is TEXT. A running game's latest frame can arrive first and is binary, so a
+         handler that parsed whatever came would parse a picture. */
+      viewer.on('message', (bytes, binary) => {
+        if (binary) return;
+        clearTimeout(timer); resolve(JSON.parse(bytes));
+      });
+    });
+  } finally { viewer.removeAllListeners(); viewer.close(); }
 }
-const injectionKeys = env => Object.keys(env ?? {}).filter(key => /^(?:DYLD_|LD_)/.test(key));
 const scratch = async name => realpath(await mkdtemp(path.join(tmpdir(), `rengine-cooperative-${name}-`)));
 
 /* THE injection-race regression, deliberately alone in its own test with its own launch: held
@@ -36,23 +53,25 @@ const scratch = async name => realpath(await mkdtemp(path.join(tmpdir(), `rengin
    sabotage it is written against is a FUTURE edit that injects into the cooperative path while
    leaving everything else intact — so the first thing asserted, before anything easier, is that the
    composed environment carries no injection variable at all. */
-test('the launch environment of a cooperative game carries no injection variable at all', { timeout: 40000 }, async t => {
+test('a cooperative game is handed a usable token, its own env, and no injection it can see', { timeout: 40000 }, async t => {
   const directory = await scratch('injection');
   const server = await startServer({ stateDir: path.join(directory, 'state') });
   t.after(async () => { await server.close(); await rm(directory, { recursive: true, force: true }); });
-  const launches = watchLaunches(server);
   const root = await server.store.addRoot(await gameProject(directory, 'coop', gamesDeclaration([cooperativeGame()])));
 
   const session = await request(server, 'game', { rootId: root.id, gameId: 'fixture-cooperative' });
-  const composed = launches.find(options => options.game === 'fixture-cooperative');
-  assert.ok(composed, 'the cooperative launch was seen');
-  assert.deepEqual(injectionKeys(composed.env), [],
-    `no injection variable may reach a cooperative game, or its own connection races an injected one: ${JSON.stringify(composed.env)}`);
-  assert.equal('DYLD_INSERT_LIBRARIES' in composed.env, false);
-  /* The other half of the same environment, asserted after it so it can never stand in for it. */
-  assert.match(composed.env.RENGINE_SURFACE_PORT, /^\d+$/);
-  assert.match(composed.env.RENGINE_SURFACE_TOKEN, /^[0-9a-f]{64}$/);
-  assert.equal(composed.env.FIXTURE_FLAVOUR, 'violet', "the record's own env survives beside the surface variables");
+  /* What the game itself was handed, said by the game itself. `inject=none` is corroboration on
+     macOS — dyld purges DYLD_* before this fixture sees them — and the load-bearing half of the
+     claim is asserted where the environment is COMPOSED, in
+     `red-host/src/games.rs::a_cooperative_game_is_handed_no_injection_and_an_embedded_one_is`.
+     What this proves is the consequence: the game received a usable token and connected with it,
+     which an injected second producer would have raced for. */
+  const started = await waitOutput(server, session.id, 'COOPERATIVE_STARTED');
+  assert.match(started, /token=64 inject=none/, 'the game sees a 64-character token and no injection it can observe');
+  assert.match(started, /flavour=violet/, "the record's own env survives beside the surface variables");
+  const status = await attaches(server, session.id);
+  assert.ok(status, 'a surface was reserved for it, or no viewer could attach');
+  assert.equal(status.type, 'surface');
   await server.sessions.stop(session.id); assert.equal(await waitExit(server, session.id), 'exited');
 });
 
@@ -75,18 +94,22 @@ test('a cooperative game preflights with no adapter and no platform gate, connec
   const session = await request(server, 'game', { rootId: root.id, gameId: 'fixture-cooperative' });
   assert.equal(session.type, 'game'); assert.equal(session.surface, 'cooperative'); assert.equal(session.game, 'fixture-cooperative');
   assert.equal(session.title, 'Fixture co-op · coop');
-  assert.equal(server.games.surfaces.items.size, 1, 'a cooperative game reserves a surface, exactly as embedded does');
-  assert.equal(server.games.items.size, 1, 'and the session is bound to that item, or no viewer can attach');
-
   const started = await waitOutput(server, session.id, 'COOPERATIVE_STARTED');
   assert.match(started, /token=64 inject=none/, 'the game itself sees the token and no injection');
   assert.match(started, /flavour=violet/);
 
-  /* Its own connection carries frames to the server and on to a viewer of the live pane. */
-  const item = [...server.games.surfaces.items.values()][0];
-  for (let i = 0; i < 200 && item.frameCount < 2; i++) await delay(50);
-  assert.ok(item.frameCount >= 2, `frames reached the server: ${item.frameCount}`);
-  assert.equal(item.width, 8); assert.equal(item.height, 4); assert.equal(item.status, 'Live');
+  /* Its own connection carries frames to the door and on to a viewer of the live pane. The door's
+     own account of the surface is what a viewer is told on attaching — the status and the count —
+     so that is what this reads, rather than an internal map it no longer has. */
+  let status = null;
+  for (let i = 0; i < 200 && !(status?.status === 'Live' && status.frameCount >= 2); i++) {
+    status = await attaches(server, session.id);
+    if (status?.status === 'Live' && status.frameCount >= 2) break;
+    await delay(50);
+  }
+  assert.ok(status, 'a cooperative game reserves a surface, exactly as embedded does');
+  assert.equal(status.status, 'Live', 'both halves of its own connection arrived');
+  assert.ok(status.frameCount >= 2, `frames reached the door: ${status.frameCount}`);
 
   /* Two frames with different sequence numbers, not one: attaching replays the latest frame the
      server already holds, so a single frame would pass with the live fan-out to viewers removed. */
@@ -105,6 +128,8 @@ test('a cooperative game preflights with no adapter and no platform gate, connec
   viewer.removeAllListeners('close'); viewer.close();
   for (const frame of frames) {
     assert.equal(frame.readUInt32LE(0), 0x31464752, 'the viewer receives the framed protocol');
+    /* The dimensions the fixture draws at, read off the frame the viewer got: with the surface's
+       own record gone from this process, the frame IS where the size is stated. */
     assert.equal(frame.readUInt32LE(4), 8); assert.equal(frame.readUInt32LE(8), 4);
     assert.equal(frame.length, 24 + 8 * 4 * 4);
   }
@@ -112,9 +137,11 @@ test('a cooperative game preflights with no adapter and no platform gate, connec
 
   await server.sessions.stop(session.id);
   assert.equal(await waitExit(server, session.id), 'exited');
-  for (let i = 0; i < 100 && server.games.surfaces.items.size; i++) await delay(20);
-  assert.equal(server.games.surfaces.items.size, 0, 'the reservation is released when the session exits');
-  assert.equal(server.games.items.size, 0);
+  /* And the reservation goes with the pane: a viewer attaching to an exited game is closed rather
+     than left watching a picture that will never change again. */
+  let after = await attaches(server, session.id);
+  for (let i = 0; i < 100 && after; i++) { await delay(20); after = await attaches(server, session.id); }
+  assert.equal(after, null, 'the reservation is released when the session exits');
 });
 
 test('embedded still injects the adapter on macOS, external still reserves nothing', { timeout: 40000 }, async t => {
@@ -126,16 +153,16 @@ test('embedded still injects the adapter on macOS, external still reserves nothi
     if (placeholder) await rm(adapter, { force: true });
     await server.close(); await rm(directory, { recursive: true, force: true });
   });
-  const launches = watchLaunches(server);
   const rootPath = await gameProject(directory, 'peers', gamesDeclaration([game(), cooperativeGame({ id: 'fixture-embedded', title: 'Fixture embed', surface: 'embedded' })]));
   const root = await server.store.addRoot(rootPath);
 
   const external = await request(server, 'game', { rootId: root.id, gameId: 'fixture-game' });
-  await waitOutput(server, external.id, 'FIXTURE_GAME_STARTED');
-  assert.equal(server.games.surfaces.items.size, 0, 'external reserves no surface');
-  const externalEnv = launches.find(options => options.game === 'fixture-game').env;
-  assert.equal(externalEnv.RENGINE_SURFACE_TOKEN, undefined, 'external is passed no surface variables');
-  assert.deepEqual(injectionKeys(externalEnv), []);
+  const externalStarted = await waitOutput(server, external.id, 'FIXTURE_GAME_STARTED');
+  assert.equal(await attaches(server, external.id), null, 'external reserves no surface, so no viewer can attach');
+  /* Said by the game: an external one is handed no surface variables at all, which is what leaves
+     it nothing to connect with. The composition itself is asserted in
+     `red-host/src/games.rs::a_cooperative_game_is_handed_no_injection_and_an_embedded_one_is`. */
+  assert.match(externalStarted, /surface=$|surface=\s/m, 'external is handed no surface reservation at all');
   await server.sessions.stop(external.id); assert.equal(await waitExit(server, external.id), 'exited');
 
   if (process.platform !== 'darwin') {
@@ -149,9 +176,11 @@ test('embedded still injects the adapter on macOS, external still reserves nothi
   try { await access(adapter); } catch { await mkdir(path.dirname(adapter), { recursive: true }); await writeFile(adapter, ''); placeholder = true; }
   const embedded = await request(server, 'game', { rootId: root.id, gameId: 'fixture-embedded' });
   assert.equal(embedded.surface, 'embedded');
-  assert.equal(server.games.surfaces.items.size, 1, 'embedded reserves a surface too');
-  const embeddedEnv = launches.find(options => options.game === 'fixture-embedded').env;
-  assert.match(embeddedEnv.RENGINE_SURFACE_TOKEN, /^[0-9a-f]{64}$/);
-  assert.match(embeddedEnv.DYLD_INSERT_LIBRARIES, /librengine_surface\.dylib(?::|$)/, 'embedded is still injected');
+  assert.ok(await attaches(server, embedded.id), 'embedded reserves a surface too');
+  /* That the adapter is INJECTED cannot be asserted from here: dyld purges DYLD_* before a
+     protected interpreter sees them, so the child cannot report it and this process no longer
+     composes it. The claim lives where the composition does — see the Rust test named above, which
+     is sabotage-verified against a cooperative game being injected and against an inherited
+     injection being dropped. */
   await server.sessions.stop(embedded.id); assert.equal(await waitExit(server, embedded.id), 'exited');
 });

@@ -2,9 +2,9 @@
 
 Owner goal, 2026-09-15: *"proceed with js retirement in favour of rust"* (charter D57, spec 129).
 
-Status: **three of four landed** — the wire format (proved byte-exact against the JavaScript), the
-transport with focus eviction preserved, and the launch decisions. The cutover — wiring `/api/game`
-and `/surface` into the door and deleting the five JS modules — is what remains.
+Status: **done.** The wire format, the transport, the launch decisions and the cutover all landed.
+`games.mjs`, `surfaces.mjs` and `surface-protocol.mjs` are deleted, and **the JS host has no route
+the door does not own** — all eleven it still answers are intercepted.
 
 ## Why this row, and why now
 
@@ -54,19 +54,50 @@ of each pair builds the header from the bad dimension so its byte count agrees a
 can refuse it. This is the control masking the thing under test, which
 `docs/evidence/blind-regressions-2026-09-06.md` already has six of.
 
+## What the cutover found
+
+Two real bugs, both caught by specs that had to be migrated rather than deleted:
+
+- **The reservation was never released.** `games.mjs` subscribed to session-exit events and removed
+  the surface; the door did not, so a viewer could attach to an exited game forever. It releases on
+  the pane event now, and closes the viewers with the JS host's own sentence.
+- **The door read a pane's fields from the wrong level.** What rEngine composes lives under the
+  service's `meta`; only the id and the state are the service's own. Reading `type` and `game` from
+  the top meant *no* pane ever matched "already running", so every launch of a running game would
+  have started a second one.
+
+Both were found by pointing the existing specs at the door instead of rewriting them to suit it.
+
+## Where the evidence moved
+
+Seven specs asserted on the JS host's internals — `server.sessions.terminal` wrapped to capture a
+composed environment, `server.games.surfaces.items.size` counted to prove a reservation. Neither
+exists here any more, so each claim moved to where it can still be made:
+
+| claim | now |
+|---|---|
+| no injection reaches a cooperative game | `games.rs::a_cooperative_game_is_handed_no_injection_and_an_embedded_one_is` — the composition's own test, and the ONLY place it can be made: macOS purges `DYLD_*` before a protected interpreter sees them, so a game reporting "no injection" cannot be told from one that was injected and purged |
+| a surface is reserved / released | whether a viewer can attach, which is the consequence the reservation exists for |
+| frame count, size, status | the status message a viewer is sent on attaching, which is the door's own account |
+| an external game gets no surface | the fixture reports `surface=`, so the game says what it was handed |
+
+That is a better set than the one it replaces: every row is an observable consequence rather than a
+private field, and the one claim that genuinely needs composition-side capture is asserted where the
+composition is, with four sabotages behind it.
+
 ## What is left
+
+`server/main.mjs` is not deleted here, and KI-102 is why: it is the process a launcher starts and
+the backend the door is pointed at, so retiring it is **F163** — entry points move off Node — not
+this row. What this row did is empty it: the door owns every route it answers.
+
+
 
 The three pieces above are the parts with decisions in them, and each is tested and
 sabotage-verified on its own. What remains is wiring:
 
-1. `POST /api/game` answered by the door: `red_project::games::inspect_game` for the preflight,
-   `games::decide` for the verdict, `panes` for the spawn, `surfaces` for the reservation.
-2. The `/surface` upgrade served by the door instead of spliced to the backend.
-3. `main.mjs`, `games.mjs`, `surfaces.mjs`, `surface-protocol.mjs` and `desktops.mjs` deleted, per
-   KI-102 — this is the row that moves the last route, so it is the row that deletes them.
-
-The cooperative surface suite (`surface.test.mjs`, `native-game.spec.mjs`) is the evidence for the
-cutover, and it is a real gate: it drives a producer through the actual socket.
+`desktops.mjs` also survives: `runtime/worker.mjs` still imports `Desktops`, so it retires with the
+worker (F158). The two that could go, went.
 
 ## Evidence
 

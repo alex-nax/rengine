@@ -324,12 +324,13 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   assert.equal((await surveyed.json()).error, 'This project is not in a git repository.');
 
   assert.equal((await alone.json()).text, 'through the door\n', 'from the state directory\'s own store');
-  await assert.rejects(async () => {
-    /* Launching a game is still the backend's: it reserves a workspace surface and joins an
-       in-flight launch, which is the session host's state. */
-    const forwarded = await ask(instance, '/api/game', { rootId: root.id, gameId: 'any' });
-    await forwarded.text();
-  }, 'while a route it only forwards has nowhere left to go');
+  /* Launching a game is the DOOR's now (F155, spec 142) — the last route the JS host uniquely
+     served. This project declares no game, so the answer is the preflight's refusal rather than a
+     forward with nowhere to go: the door reached `red_project`'s own inspection and said what it
+     found. Before this row the same call could not be answered at all. */
+  const launched = await ask(instance, '/api/game', { rootId: root.id, gameId: 'any' });
+  assert.equal(launched.status, 409, 'the door answers the launch itself');
+  assert.match((await launched.json()).error, /game/i, 'with the preflight\'s own words');
 });
 
 /* Charter D62. The pane's PROCESS has had one owner since D60; its RECORD — the title, the
@@ -858,16 +859,18 @@ test('a dashboard action the door can press is pressed there, and a game reaches
   await until(() => backend.sessions.snapshot(pressed.id, true).output.includes('PRESSED'),
     'the script the door pressed actually ran');
 
-  /* The game action: declined by the door, forwarded WITH ITS BODY, launched by the backend. */
+  /* The game action: pressed BY THE DOOR (F155, spec 142). It used to be declined and forwarded,
+     because the surface it reserves was the session host's state; the surfaces are the door's now,
+     so the launch is too — and this is the last thing the JS host uniquely did. */
   const launched = await (await ask(instance, '/api/dashboard-run', { rootId: root.id, actionId: 'play' })).json();
-  assert.equal(launched.game, 'fixture-game', 'the backend launched the declared game');
+  assert.equal(launched.game, 'fixture-game', 'the door launched the declared game');
   await until(() => backend.sessions.snapshot(launched.id, true).output.includes('PLAYING'),
     'and the game it named is the one running');
 
-  /* PIPELINED, which is what makes the restore order observable. The declined request's body is
-     read off the socket before the door decides, so it is pushed back in front of whatever is still
-     buffered; pushing it back BEHIND would frame the forwarded request from the next request's
-     bytes. Two requests in one write, and both answers have to be right. */
+  /* PIPELINED, which is what makes the body handling observable. The door reads this request's
+     body off the socket before it acts, so the socket has to be left positioned exactly at the next
+     request — a reader that took one byte too few or too many would frame the request behind it
+     from the wrong bytes. Two requests in one write, and both answers have to be right. */
   const pipelined = await new Promise((resolve, reject) => {
     const target = new URL(instance.url);
     const socket = net.connect({ host: target.hostname, port: Number(target.port) }, () => {
@@ -882,17 +885,17 @@ test('a dashboard action the door can press is pressed there, and a game reaches
     socket.on('error', reject);
     setTimeout(() => { socket.destroy(); resolve(text); }, 10000).unref();
   });
-  assert.match(pipelined, /"game":"fixture-game"/, 'the declined request reached the backend with its body');
+  assert.match(pipelined, /"game":"fixture-game"/, 'the door read the body and pressed the action it named');
   assert.match(pipelined, /"protocol"/, 'and the request pipelined behind it was still framed correctly');
 
-  /* And with the backend gone, the half the door owns keeps answering while the half it forwards
-     has nowhere to go — the same demonstration the store routes get. */
+  /* And with the backend gone, BOTH halves keep answering: a script action and a game action are
+     the door's alike now. The JS host has no route left that the door does not own, which is what
+     KI-102 was waiting for. */
   await backend.close({ retain: true });
   stopped = true;
   const alone = await (await ask(instance, '/api/dashboard-run', { rootId: root.id, actionId: 'press' })).json();
   assert.equal(alone.title, 'Script · hello.sh', 'a script action is pressed with no backend behind the door');
-  await assert.rejects(async () => {
-    const forwarded = await ask(instance, '/api/dashboard-run', { rootId: root.id, actionId: 'play' });
-    await forwarded.text();
-  }, 'while a game action has nowhere left to go');
+  const played = await ask(instance, '/api/dashboard-run', { rootId: root.id, actionId: 'play' });
+  assert.equal(played.status, 200, 'and so is a game action, with nothing behind the door at all');
+  assert.equal((await played.json()).game, 'fixture-game');
 });

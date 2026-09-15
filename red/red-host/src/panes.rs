@@ -194,15 +194,23 @@ pub(crate) async fn dashboard_run(front: &Arc<Front>, body: &str) -> Option<Stri
         };
         let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
         let action = red_project::dashboard::dashboard_action(&context, &declared, action_id.as_deref())?;
+        /* A GAME action is a launch, and launching is this door's now (F155, spec 142): the action
+           names the game and the arguments, and `games::launch` does the rest. It used to be
+           declined here because the surface it reserves was the JS host's state. */
         if action.get("kind").and_then(Value::as_str) == Some("game") {
-            return Ok(None);
+            return Ok(Err(json!({
+                "rootId": id,
+                "gameId": action.get("game").cloned().unwrap_or(Value::Null),
+                "args": action.get("args").cloned().unwrap_or(Value::Null),
+            })));
         }
-        red_project::dashboard::run_payload(&id, &root_path, &bash, &action).map(Some)
+        red_project::dashboard::run_payload(&id, &root_path, &bash, &action).map(Ok)
     })
     .await;
     let payload = match composed {
-        Ok(Ok(Some(payload))) => payload,
-        Ok(Ok(None)) => return None,
+        Ok(Ok(Ok(payload))) => payload,
+        /* The action was a game: the launch route answers it, refusals and all. */
+        Ok(Ok(Err(launch))) => return Some(crate::games::launch(front, &launch.to_string()).await),
         Ok(Err(fail)) => return Some(faulted(&crate::routes::refusal(fail))),
         Err(error) => return Some(faulted(&format!("500|{error}"))),
     };
@@ -216,6 +224,13 @@ pub(crate) async fn dashboard_run(front: &Arc<Front>, body: &str) -> Option<Stri
         }
         Err(fault) => Some(faulted(&fault)),
     }
+}
+
+/// A game's pane, composed by  once every refusal has passed. The same spawn as a
+/// terminal's, reached past the route's refusal of the word  — that refusal is about a caller
+/// naming a type, not about this door being unable to start one.
+pub(crate) async fn spawn_for_game(front: &Arc<Front>, options: &Value) -> Result<Value, String> {
+    spawn_pane(front, options).await
 }
 
 async fn spawn_pane(front: &Arc<Front>, options: &Value) -> Result<Value, String> {

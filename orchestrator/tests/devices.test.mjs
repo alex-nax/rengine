@@ -14,7 +14,7 @@ import { declaredDevices, deviceFor, forgetProbes, projectDevices, PROBE_TTL_MS 
    listings come from one run. */
 const statusOf = async (root, declared, id, options) =>
   (await projectDevices(root, declared, options)).devices.find(device => device.id === id);
-import { inspectGame } from '../server/games.mjs';
+import { inspectGame } from '../server/devices.mjs';
 import { dashboardActions } from '../server/dashboard.mjs';
 import { declaration } from './format-fixtures.mjs';
 import { gameDeclaration } from './game-fixtures.mjs';

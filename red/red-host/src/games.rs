@@ -82,6 +82,11 @@ pub enum Launch {
     Start { argv: Vec<String>, reserve: bool, inject_adapter: bool },
 }
 
+/// What rEngine composed for a pane, which the service keeps under `meta`.
+fn meta<'a>(pane: &'a Value, key: &str) -> Option<&'a Value> {
+    pane.get("meta").and_then(|meta| meta.get(key)).filter(|value| !value.is_null())
+}
+
 /// One running game pane, as much of it as this decision needs.
 pub struct Pane<'a> {
     pub id: &'a str,
@@ -147,11 +152,172 @@ pub fn decide(config: &Value, extra: Vec<String>, running: &[Pane<'_>]) -> Resul
     })
 }
 
+/// The environment a game with a pane surface is launched in: the record's own, the two variables
+/// that name the reservation, and — for an `embedded` surface only — the adapter to inject.
+///
+/// Composed here rather than inline so it can be stated: on macOS dyld purges `DYLD_*` before a
+/// protected interpreter can report its own environment, so the CHILD cannot be asked what it was
+/// given and the composition is the only place this claim can be made. A cooperative game
+/// connecting itself while an injected adapter also connects would put two producers on one token,
+/// and the survivor of that is a restart race.
+pub fn surface_environment(
+    declared: &Value,
+    config: &Value,
+    variables: &[(String, String)],
+    inject_adapter: bool,
+    inherited: Option<&str>,
+) -> Value {
+    let mut environment = declared.as_object().cloned().unwrap_or_default();
+    for (name, value) in variables {
+        environment.insert(name.clone(), json!(value));
+    }
+    if inject_adapter {
+        let adapter = config.get("adapter").and_then(Value::as_str).unwrap_or_default();
+        /* Ahead of whatever this process already carries, and never replacing it: a workspace
+           started under an injection of its own keeps it. */
+        let joined = match inherited.filter(|value| !value.is_empty()) {
+            Some(existing) => format!("{adapter}:{existing}"),
+            None => adapter.to_string(),
+        };
+        environment.insert("DYLD_INSERT_LIBRARIES".to_string(), json!(joined));
+    }
+    Value::Object(environment)
+}
+
 /// The launch key: the root AND the declared game, so two games in one project launch side by side
 /// and two callers asking for the same one join instead of starting two processes.
 pub fn flight_key(config: &Value) -> String {
     let text = |key: &str| config.get(key).and_then(Value::as_str).unwrap_or("");
     format!("{}\0{}", text("rootId"), text("id"))
+}
+
+/* ---- the route ------------------------------------------------------------------------------ */
+
+use std::sync::Arc;
+
+use crate::routes::{faulted, http_text, refusal};
+use crate::{ask, Front};
+
+/// `POST /api/game`: launch a declared game, or answer the pane already running it.
+///
+/// The preflight is `red_project::games`'s, the verdict is `decide`'s, the spawn is `panes`'s, and
+/// the reservation is `surfaces`'s — this function is the order those happen in and the place a
+/// refusal stops them. A surface is reserved only after every refusal has passed, so a refused
+/// launch leaves no reservation behind.
+pub(crate) async fn launch(front: &Arc<Front>, body: &str) -> String {
+    let data: Value = match serde_json::from_str(body) {
+        Ok(value) => value,
+        Err(error) => return faulted(&format!("400|Invalid JSON body: {error}")),
+    };
+    let extra = match extra_arguments(data.get("args")) {
+        Ok(extra) => extra,
+        Err(refused) => return faulted(&format!("{}|{}", refused.status, refused.message)),
+    };
+    let root = match ask(front, "root", json!([data.get("rootId").and_then(Value::as_str).unwrap_or_default()])).await {
+        Ok(root) => root,
+        Err(fault) => return faulted(&fault),
+    };
+    let text = |value: &Value, key: &str| value.get(key).and_then(Value::as_str).unwrap_or_default().to_string();
+    let (root_id, root_path, root_name) = (text(&root, "id"), text(&root, "path"), text(&root, "name"));
+
+    /* The preflight, in a scope of its own: its context carries a probe cache and a clock that are
+       not `Send`, and this function awaits a spawn further down. */
+    let config = {
+        let declared = red_project::declaration::read(&root_path, None);
+        let environment: Vec<(String, String)> = std::env::vars().collect();
+        let now = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|since| since.as_millis() as i64).unwrap_or(0);
+        let context = red_project::devices::Context {
+            root_id: &root_id,
+            root_path: &root_path,
+            environment: &environment,
+            probes: &front.probes,
+            refresh: false,
+            refreshed: Default::default(),
+            controls: false,
+            now: &now,
+        };
+        match red_project::games::inspect_game(&context, &declared, data.get("gameId").and_then(Value::as_str)) {
+            Ok(config) => config,
+            Err(fail) => return faulted(&refusal(fail)),
+        }
+    };
+
+    /* Every game pane this workspace holds, so the decision can see the one already running. */
+    let held: Vec<Value> = front.panes.lock().expect("panes").values().cloned().collect();
+    let running: Vec<Pane<'_>> = held
+        .iter()
+        .filter(|pane| {
+            /* The record a pane keeps is the SERVICE's: what rEngine composed lives under `meta`,
+               and only the process facts — the id and the state — are the service's own. A filter
+               reading `type` from the top level would find no game at all. */
+            meta(pane, "type").and_then(Value::as_str) == Some("game")
+                && pane.get("state").and_then(Value::as_str) == Some("running")
+        })
+        .map(|pane| Pane {
+            id: pane.get("id").and_then(Value::as_str).unwrap_or_default(),
+            root_id: meta(pane, "rootId").and_then(Value::as_str).unwrap_or_default(),
+            game: meta(pane, "game").and_then(Value::as_str).unwrap_or_default(),
+            args: meta(pane, "args")
+                .and_then(Value::as_array)
+                .map(|items| items.iter().filter_map(Value::as_str).map(str::to_string).collect())
+                .unwrap_or_default(),
+        })
+        .collect();
+
+    let decided = match decide(&config, extra, &running) {
+        Ok(decided) => decided,
+        Err(refused) => return faulted(&format!("{}|{}", refused.status, refused.message)),
+    };
+    let (argv, reserve, inject_adapter) = match decided {
+        Launch::Running(id) => {
+            let held = front.panes.lock().expect("panes").get(&id).cloned();
+            return match held {
+                Some(pane) => http_text(200, "OK", &crate::panes::pane_answer(&pane, false)),
+                None => faulted("409|That game's pane is no longer running."),
+            };
+        }
+        Launch::Start { argv, reserve, inject_adapter } => (argv, reserve, inject_adapter),
+    };
+
+    let mut environment = config.get("env").cloned().unwrap_or_else(|| json!({}));
+    let mut reserved: Option<String> = None;
+    if reserve {
+        let Some(surfaces) = &front.surfaces else {
+            return faulted("500|This workspace has no surface listener, so a game that streams into a pane cannot be launched.");
+        };
+        let (token, variables) = surfaces.reserve();
+        let inherited = std::env::var("DYLD_INSERT_LIBRARIES").ok();
+        environment = surface_environment(&environment, &config, &variables, inject_adapter, inherited.as_deref());
+        reserved = Some(token);
+    }
+
+    let options = json!({
+        "rootId": root_id,
+        "type": "game",
+        "command": config.get("executable").cloned().unwrap_or(Value::Null),
+        "args": argv,
+        "cwd": config.get("cwd").cloned().unwrap_or(Value::Null),
+        "title": format!("{} · {root_name}", text(&config, "title")),
+        "surface": config.get("surface").cloned().unwrap_or(Value::Null),
+        "game": config.get("id").cloned().unwrap_or(Value::Null),
+        "env": environment,
+    });
+    match crate::panes::spawn_for_game(front, &options).await {
+        Ok(session) => {
+            /* The reservation is bound to the pane only once there IS a pane: a launch that failed
+               must not leave a surface claiming to belong to a session that never started. */
+            if let (Some(token), Some(surfaces)) = (&reserved, &front.surfaces) {
+                surfaces.claim(token, session.get("id").and_then(Value::as_str).unwrap_or_default());
+            }
+            http_text(200, "OK", &crate::panes::pane_answer(&session, false))
+        }
+        Err(fault) => {
+            if let (Some(token), Some(surfaces)) = (&reserved, &front.surfaces) {
+                surfaces.remove(token);
+            }
+            faulted(&fault)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -247,6 +413,36 @@ mod tests {
         let running = [pane("pane-7", "the-game", &["--fullscreen"])];
         assert_eq!(decide(&unready, vec![], &running), Ok(Launch::Running("pane-7".to_string())),
                    "a running game is not re-judged against its preflight");
+    }
+
+    /* THE injection-race claim, where the composition is. It cannot be made from the child: on
+       macOS dyld purges DYLD_* before a protected interpreter sees them, so a cooperative game
+       reporting "no injection" cannot be told apart from one that was injected and purged. */
+    #[test]
+    fn a_cooperative_game_is_handed_no_injection_and_an_embedded_one_is() {
+        let variables = [
+            ("RENGINE_SURFACE_PORT".to_string(), "51000".to_string()),
+            ("RENGINE_SURFACE_TOKEN".to_string(), "a".repeat(64)),
+        ];
+        let declared = json!({ "FIXTURE_FLAVOUR": "violet" });
+        let config = json!({ "adapter": "/build/librengine_surface.dylib" });
+
+        let cooperative = surface_environment(&declared, &config, &variables, false, Some("/other.dylib"));
+        let keys: Vec<&String> = cooperative.as_object().expect("an object").keys()
+            .filter(|key| key.starts_with("DYLD_") || key.starts_with("LD_")).collect();
+        assert!(keys.is_empty(), "no injection variable may reach a cooperative game: {keys:?}");
+        /* The other half of the same environment, asserted after it so it can never stand in for it. */
+        assert_eq!(cooperative["RENGINE_SURFACE_PORT"], json!("51000"));
+        assert_eq!(cooperative["RENGINE_SURFACE_TOKEN"], json!("a".repeat(64)));
+        assert_eq!(cooperative["FIXTURE_FLAVOUR"], json!("violet"), "the record's own env survives beside them");
+
+        let embedded = surface_environment(&declared, &config, &variables, true, None);
+        assert_eq!(embedded["DYLD_INSERT_LIBRARIES"], json!("/build/librengine_surface.dylib"));
+        assert_eq!(embedded["RENGINE_SURFACE_TOKEN"], json!("a".repeat(64)), "and it is reserved just the same");
+
+        /* A workspace started under an injection of its own keeps it, ahead of nothing. */
+        let beside = surface_environment(&declared, &config, &variables, true, Some("/other.dylib"));
+        assert_eq!(beside["DYLD_INSERT_LIBRARIES"], json!("/build/librengine_surface.dylib:/other.dylib"));
     }
 
     #[test]

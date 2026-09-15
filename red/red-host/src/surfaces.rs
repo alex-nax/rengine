@@ -281,6 +281,19 @@ impl Surfaces {
         Ok(())
     }
 
+    /// Say one thing to one viewer — the `{"type":"error"}` a refused input is answered with. The
+    /// viewer is answered, never the others: an input this door would not deliver is that viewer's
+    /// business alone.
+    pub fn tell_viewer(&self, token: &str, viewer: ViewerId, message: &str) {
+        let items = self.items.lock().expect("surfaces");
+        let Some(item) = items.get(token) else { return };
+        if let Some(sender) = item.viewers.get(&viewer) {
+            let _ = sender.send(ToViewer::Text(
+                serde_json::json!({ "type": "error", "error": message }).to_string(),
+            ));
+        }
+    }
+
     /// A viewer leaves. If it held the input, the game is told so rather than left holding keys.
     pub fn detach(&self, token: &str, viewer: ViewerId) {
         let mut items = self.items.lock().expect("surfaces");
