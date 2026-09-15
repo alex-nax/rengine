@@ -62,7 +62,10 @@ break the implementation in the specific way the test claims to catch, confirm i
 that and not for something earlier, then restore. Watching any red is not enough, and a test
 that has never failed is an assertion with no evidence behind it. Six worked cases, including
 one where the control under test masked the failure of the thing under test, are in
-`docs/evidence/blind-regressions-2026-09-06.md`. Keep every spec reachable from an npm script
+`docs/evidence/blind-regressions-2026-09-06.md`. **Rebuild between the sabotage and the run**: a
+spec that drives a compiled binary judges whatever is on disk, so a sabotage that is never compiled
+always passes — which is how twenty-four specs came to run against stale binaries (KI-120). A
+regression checked against a stale artifact is not a regression. Keep every spec reachable from an npm script
 or listed in `orchestrator/tests/suite-coverage.test.mjs` with its reason; a fixture that
 leaves the suite is invisible in a green report.
 
