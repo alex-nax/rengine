@@ -44,9 +44,23 @@ test('the Rust remote providers give the recorded answers', { timeout: 300000 },
     await writeFile(path.join(root, '.rengine/project.json'), JSON.stringify(spec.declared));
     const live = await ask(root, { declared: { declared: true, ...spec.declared }, credential: spec.credential, answered: spec.answered });
     const { checkedAt, fresh, ...rest } = live;
-    if (JSON.stringify(rest) !== JSON.stringify(RECORDED[name])) drift.push([name, rest]);
+    /* Headers are compared by a RULE rather than whole: every header the JavaScript set must be
+       here with the same value, and the Rust sets one more. `fetch` sent a User-Agent of Node's own
+       choosing and GitHub requires one; a client with no default has to say it, and naming the
+       product is the honest thing to send. */
+    const bare = value => ({ ...value, asked: value.asked.map(({ headers, ...request }) => request) });
+    for (const [index, request] of rest.asked.entries()) {
+      const was = RECORDED[name].asked[index]?.headers ?? {};
+      for (const [header, value] of Object.entries(was)) {
+        assert.equal(request.headers[header], value, `${name}: ${header}`);
+      }
+      const extra = Object.keys(request.headers).filter(header => !(header in was));
+      assert.deepEqual(extra, extra.length ? ['user-agent'] : [], `${name}: headers the JavaScript did not send`);
+    }
+    if (JSON.stringify(bare(rest)) !== JSON.stringify(bare(RECORDED[name]))) drift.push([name, bare(rest)]);
   }
-  for (const [name, live] of drift) assert.deepEqual(live, RECORDED[name], name);
+  const bare = value => ({ ...value, asked: value.asked.map(({ headers, ...request }) => request) });
+  for (const [name, live] of drift) assert.deepEqual(live, bare(RECORDED[name]), name);
   assert.deepEqual(drift.map(([name]) => name), [], 'every case answers as recorded');
 
   /* The four a person acts on differently are each present, and each names something to do. A
@@ -60,5 +74,20 @@ test('the Rust remote providers give the recorded answers', { timeout: 300000 },
     'only the provider a browser sign-in exists for names the gesture');
   /* And rows, so the four states are not the only thing this proves. */
   const rows = Object.values(RECORDED).filter(answer => answer.rows.length > 0);
-  assert.equal(rows.length, 2, 'one list from each provider');
+  assert.equal(rows.length, 3, 'one list from each provider, and the priority scale');
+
+  /* The auth header is the one thing about these providers that surprises everyone: a personal key
+     goes BARE, with no Bearer prefix, and GitHub's does not. A corpus that recorded only the body
+     would let either change without a word. */
+  assert.equal(RECORDED['linear, rows'].asked[0].headers.authorization, 'lin_api_x',
+    'a Linear personal key is sent bare');
+  assert.equal(RECORDED['github, rows'].asked[0].headers.authorization, 'Bearer gh_x');
+  assert.equal(RECORDED['github, rows'].asked[0].headers['x-github-api-version'], '2022-11-28',
+    'and the API version the endpoint requires');
+
+  /* Linear counts 1 as the MOST urgent and 0 as no priority at all, which is the opposite of the
+     obvious reading: a list that had them backwards would sort a board upside down. */
+  assert.deepEqual(RECORDED['linear, the whole priority scale'].rows.map(row => row.priority),
+    [null, 'urgent', 'high', 'medium', 'low', null],
+    'the scale, and a number past the end of it is no priority rather than the lowest');
 });

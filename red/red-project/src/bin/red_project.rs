@@ -35,6 +35,17 @@ fn recipes() -> serde_json::Value {
         .unwrap_or_else(|| serde_json::json!({}))
 }
 
+/// The headers a request carried, as a record compares them: the AUTHORIZATION is the one that
+/// surprises everyone — a personal key goes bare and an OAuth grant does not — and a corpus that
+/// recorded only the body would let that change without a word.
+fn named(headers: &[(&str, &str)]) -> serde_json::Value {
+    let mut out = serde_json::Map::new();
+    for (name, value) in headers {
+        out.insert(name.to_ascii_lowercase(), serde_json::json!(value));
+    }
+    serde_json::Value::Object(out)
+}
+
 /// A provider's answer, handed in rather than fetched.
 struct Recorded {
     status: u16,
@@ -43,12 +54,15 @@ struct Recorded {
 }
 
 impl red_project::tracker_remote::Fetching for Recorded {
-    fn post(&self, url: &str, _headers: &[(&str, &str)], body: &str) -> Result<(u16, String), String> {
-        self.asked.lock().expect("asked").push(serde_json::json!({ "url": url, "body": serde_json::from_str::<serde_json::Value>(body).unwrap_or(serde_json::Value::Null) }));
+    fn post(&self, url: &str, headers: &[(&str, &str)], body: &str) -> Result<(u16, String), String> {
+        self.asked.lock().expect("asked").push(serde_json::json!({
+            "url": url, "headers": named(headers),
+            "body": serde_json::from_str::<serde_json::Value>(body).unwrap_or(serde_json::Value::Null),
+        }));
         Ok((self.status, self.body.clone()))
     }
-    fn get(&self, url: &str, _headers: &[(&str, &str)]) -> Result<(u16, String), String> {
-        self.asked.lock().expect("asked").push(serde_json::json!({ "url": url }));
+    fn get(&self, url: &str, headers: &[(&str, &str)]) -> Result<(u16, String), String> {
+        self.asked.lock().expect("asked").push(serde_json::json!({ "url": url, "headers": named(headers) }));
         Ok((self.status, self.body.clone()))
     }
 }

@@ -51,6 +51,12 @@ export const CASES = [
     answered: { status: 200, body: JSON.stringify({ errors: [{ message: 'no such team' }] }) } }],
   ['linear, rows', { declared: linear(), credential: 'lin_api_x',
     answered: { status: 200, body: JSON.stringify({ data: { issues: { nodes: [ISSUE] } } }) } }],
+  /* Linear counts 1 as the MOST urgent and 0 as no priority at all, which is the opposite of the
+     obvious reading — a list that had them backwards would sort a board upside down. */
+  ['linear, the whole priority scale', { declared: linear(), credential: 'lin_api_x',
+    answered: { status: 200, body: JSON.stringify({ data: { issues: { nodes: [0, 1, 2, 3, 4, 9].map(priority => ({
+      ...ISSUE, id: `p${priority}`, identifier: `KOH-${priority}`, priority,
+    })) } } }) } }],
   ['linear, narrowed by project, assignee and states', { declared: linear({ project: 'Platform', assignee: 'Alex', states: ['started', 'unstarted'] }),
     credential: 'lin_api_x', answered: { status: 200, body: JSON.stringify({ data: { issues: { nodes: [] } } }) } }],
   ['linear, narrowed to whoever holds the token', { declared: linear({ assignee: 'me' }), credential: 'lin_api_x',
@@ -65,7 +71,8 @@ export const CASES = [
 /* A stand-in provider: it records what it was asked and answers what the case says. */
 function stub(answered, asked) {
   return async (url, options = {}) => {
-    asked.push(options.body ? { url, body: JSON.parse(options.body) } : { url });
+    const headers = Object.fromEntries(Object.entries(options.headers ?? {}).map(([name, value]) => [name.toLowerCase(), value]));
+    asked.push(options.body ? { url, headers, body: JSON.parse(options.body) } : { url, headers });
     return {
       ok: answered.status >= 200 && answered.status < 300,
       status: answered.status,

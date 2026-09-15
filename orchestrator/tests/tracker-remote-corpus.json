@@ -35,6 +35,10 @@
     "asked": [
       {
         "url": "https://api.linear.app/graphql",
+        "headers": {
+          "content-type": "application/json",
+          "authorization": "lin_api_x"
+        },
         "body": {
           "query": "query Issues($filter: IssueFilter, $first: Int!) {\n  issues(first: $first, filter: $filter, orderBy: updatedAt) {\n    nodes {\n      id identifier title url priority updatedAt\n      state { id name type }\n      assignee { displayName }\n      labels(first: 10) { nodes { name } }\n      relations(first: 20) { nodes { type relatedIssue { identifier } } }\n    }\n  }\n}",
           "variables": {
@@ -74,6 +78,10 @@
     "asked": [
       {
         "url": "https://api.linear.app/graphql",
+        "headers": {
+          "content-type": "application/json",
+          "authorization": "lin_api_x"
+        },
         "body": {
           "query": "query Issues($filter: IssueFilter, $first: Int!) {\n  issues(first: $first, filter: $filter, orderBy: updatedAt) {\n    nodes {\n      id identifier title url priority updatedAt\n      state { id name type }\n      assignee { displayName }\n      labels(first: 10) { nodes { name } }\n      relations(first: 20) { nodes { type relatedIssue { identifier } } }\n    }\n  }\n}",
           "variables": {
@@ -113,6 +121,10 @@
     "asked": [
       {
         "url": "https://api.linear.app/graphql",
+        "headers": {
+          "content-type": "application/json",
+          "authorization": "lin_api_x"
+        },
         "body": {
           "query": "query Issues($filter: IssueFilter, $first: Int!) {\n  issues(first: $first, filter: $filter, orderBy: updatedAt) {\n    nodes {\n      id identifier title url priority updatedAt\n      state { id name type }\n      assignee { displayName }\n      labels(first: 10) { nodes { name } }\n      relations(first: 20) { nodes { type relatedIssue { identifier } } }\n    }\n  }\n}",
           "variables": {
@@ -154,6 +166,10 @@
     "asked": [
       {
         "url": "https://api.linear.app/graphql",
+        "headers": {
+          "content-type": "application/json",
+          "authorization": "lin_api_x"
+        },
         "body": {
           "query": "query Issues($filter: IssueFilter, $first: Int!) {\n  issues(first: $first, filter: $filter, orderBy: updatedAt) {\n    nodes {\n      id identifier title url priority updatedAt\n      state { id name type }\n      assignee { displayName }\n      labels(first: 10) { nodes { name } }\n      relations(first: 20) { nodes { type relatedIssue { identifier } } }\n    }\n  }\n}",
           "variables": {
@@ -217,6 +233,197 @@
     "asked": [
       {
         "url": "https://api.linear.app/graphql",
+        "headers": {
+          "content-type": "application/json",
+          "authorization": "lin_api_x"
+        },
+        "body": {
+          "query": "query Issues($filter: IssueFilter, $first: Int!) {\n  issues(first: $first, filter: $filter, orderBy: updatedAt) {\n    nodes {\n      id identifier title url priority updatedAt\n      state { id name type }\n      assignee { displayName }\n      labels(first: 10) { nodes { name } }\n      relations(first: 20) { nodes { type relatedIssue { identifier } } }\n    }\n  }\n}",
+          "variables": {
+            "filter": {
+              "team": {
+                "key": {
+                  "eq": "KOH"
+                }
+              },
+              "project": {
+                "name": {
+                  "eq": null
+                }
+              }
+            },
+            "first": 100
+          }
+        }
+      }
+    ]
+  },
+  "linear, the whole priority scale": {
+    "rootId": "11111111-2222-3333-4444-555555555555",
+    "declared": true,
+    "provider": "linear",
+    "rows": [
+      {
+        "id": "p0",
+        "key": "KOH-0",
+        "title": "A thing",
+        "state": {
+          "id": "s1",
+          "name": "In Progress",
+          "category": "started"
+        },
+        "priority": null,
+        "labels": [
+          "bug",
+          "ui"
+        ],
+        "assignee": "Alex",
+        "url": "https://linear.app/x",
+        "updatedAt": "2026-01-01T00:00:00.000Z",
+        "blockedBy": [
+          "KOH-9"
+        ],
+        "criteria": [],
+        "evidence": [],
+        "tests": []
+      },
+      {
+        "id": "p1",
+        "key": "KOH-1",
+        "title": "A thing",
+        "state": {
+          "id": "s1",
+          "name": "In Progress",
+          "category": "started"
+        },
+        "priority": "urgent",
+        "labels": [
+          "bug",
+          "ui"
+        ],
+        "assignee": "Alex",
+        "url": "https://linear.app/x",
+        "updatedAt": "2026-01-01T00:00:00.000Z",
+        "blockedBy": [
+          "KOH-9"
+        ],
+        "criteria": [],
+        "evidence": [],
+        "tests": []
+      },
+      {
+        "id": "p2",
+        "key": "KOH-2",
+        "title": "A thing",
+        "state": {
+          "id": "s1",
+          "name": "In Progress",
+          "category": "started"
+        },
+        "priority": "high",
+        "labels": [
+          "bug",
+          "ui"
+        ],
+        "assignee": "Alex",
+        "url": "https://linear.app/x",
+        "updatedAt": "2026-01-01T00:00:00.000Z",
+        "blockedBy": [
+          "KOH-9"
+        ],
+        "criteria": [],
+        "evidence": [],
+        "tests": []
+      },
+      {
+        "id": "p3",
+        "key": "KOH-3",
+        "title": "A thing",
+        "state": {
+          "id": "s1",
+          "name": "In Progress",
+          "category": "started"
+        },
+        "priority": "medium",
+        "labels": [
+          "bug",
+          "ui"
+        ],
+        "assignee": "Alex",
+        "url": "https://linear.app/x",
+        "updatedAt": "2026-01-01T00:00:00.000Z",
+        "blockedBy": [
+          "KOH-9"
+        ],
+        "criteria": [],
+        "evidence": [],
+        "tests": []
+      },
+      {
+        "id": "p4",
+        "key": "KOH-4",
+        "title": "A thing",
+        "state": {
+          "id": "s1",
+          "name": "In Progress",
+          "category": "started"
+        },
+        "priority": "low",
+        "labels": [
+          "bug",
+          "ui"
+        ],
+        "assignee": "Alex",
+        "url": "https://linear.app/x",
+        "updatedAt": "2026-01-01T00:00:00.000Z",
+        "blockedBy": [
+          "KOH-9"
+        ],
+        "criteria": [],
+        "evidence": [],
+        "tests": []
+      },
+      {
+        "id": "p9",
+        "key": "KOH-9",
+        "title": "A thing",
+        "state": {
+          "id": "s1",
+          "name": "In Progress",
+          "category": "started"
+        },
+        "priority": null,
+        "labels": [
+          "bug",
+          "ui"
+        ],
+        "assignee": "Alex",
+        "url": "https://linear.app/x",
+        "updatedAt": "2026-01-01T00:00:00.000Z",
+        "blockedBy": [
+          "KOH-9"
+        ],
+        "criteria": [],
+        "evidence": [],
+        "tests": []
+      }
+    ],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 5,
+    "asked": [
+      {
+        "url": "https://api.linear.app/graphql",
+        "headers": {
+          "content-type": "application/json",
+          "authorization": "lin_api_x"
+        },
         "body": {
           "query": "query Issues($filter: IssueFilter, $first: Int!) {\n  issues(first: $first, filter: $filter, orderBy: updatedAt) {\n    nodes {\n      id identifier title url priority updatedAt\n      state { id name type }\n      assignee { displayName }\n      labels(first: 10) { nodes { name } }\n      relations(first: 20) { nodes { type relatedIssue { identifier } } }\n    }\n  }\n}",
           "variables": {
@@ -255,6 +462,10 @@
     "asked": [
       {
         "url": "https://api.linear.app/graphql",
+        "headers": {
+          "content-type": "application/json",
+          "authorization": "lin_api_x"
+        },
         "body": {
           "query": "query Issues($filter: IssueFilter, $first: Int!) {\n  issues(first: $first, filter: $filter, orderBy: updatedAt) {\n    nodes {\n      id identifier title url priority updatedAt\n      state { id name type }\n      assignee { displayName }\n      labels(first: 10) { nodes { name } }\n      relations(first: 20) { nodes { type relatedIssue { identifier } } }\n    }\n  }\n}",
           "variables": {
@@ -306,6 +517,10 @@
     "asked": [
       {
         "url": "https://api.linear.app/graphql",
+        "headers": {
+          "content-type": "application/json",
+          "authorization": "lin_api_x"
+        },
         "body": {
           "query": "query Issues($filter: IssueFilter, $first: Int!) {\n  issues(first: $first, filter: $filter, orderBy: updatedAt) {\n    nodes {\n      id identifier title url priority updatedAt\n      state { id name type }\n      assignee { displayName }\n      labels(first: 10) { nodes { name } }\n      relations(first: 20) { nodes { type relatedIssue { identifier } } }\n    }\n  }\n}",
           "variables": {
@@ -366,7 +581,12 @@
     "denied": "GitHub refused the token.",
     "asked": [
       {
-        "url": "https://api.github.com/repos/o/r/issues?state=all&sort=updated&direction=desc&per_page=100"
+        "url": "https://api.github.com/repos/o/r/issues?state=all&sort=updated&direction=desc&per_page=100",
+        "headers": {
+          "authorization": "Bearer gh_x",
+          "accept": "application/vnd.github+json",
+          "x-github-api-version": "2022-11-28"
+        }
       }
     ]
   },
@@ -389,7 +609,12 @@
     ],
     "asked": [
       {
-        "url": "https://api.github.com/repos/o/r/issues?state=all&sort=updated&direction=desc&per_page=100"
+        "url": "https://api.github.com/repos/o/r/issues?state=all&sort=updated&direction=desc&per_page=100",
+        "headers": {
+          "authorization": "Bearer gh_x",
+          "accept": "application/vnd.github+json",
+          "x-github-api-version": "2022-11-28"
+        }
       }
     ]
   },
@@ -410,7 +635,12 @@
     "unavailable": "GitHub answered 502.",
     "asked": [
       {
-        "url": "https://api.github.com/repos/o/r/issues?state=all&sort=updated&direction=desc&per_page=100"
+        "url": "https://api.github.com/repos/o/r/issues?state=all&sort=updated&direction=desc&per_page=100",
+        "headers": {
+          "authorization": "Bearer gh_x",
+          "accept": "application/vnd.github+json",
+          "x-github-api-version": "2022-11-28"
+        }
       }
     ]
   },
@@ -491,7 +721,12 @@
     "contract": 5,
     "asked": [
       {
-        "url": "https://api.github.com/repos/o/r/issues?state=all&sort=updated&direction=desc&per_page=100"
+        "url": "https://api.github.com/repos/o/r/issues?state=all&sort=updated&direction=desc&per_page=100",
+        "headers": {
+          "authorization": "Bearer gh_x",
+          "accept": "application/vnd.github+json",
+          "x-github-api-version": "2022-11-28"
+        }
       }
     ]
   }
