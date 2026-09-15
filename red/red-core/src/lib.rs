@@ -8,6 +8,7 @@
 //! F146 adds `theme`: the product name and theme tokens `tools/design.py` generates for Rust, so
 //! no source here hand-writes what charter D41 made a data edit.
 
+pub mod head;
 pub mod http;
 pub mod service;
 /// The game surface wire format (F155/F189, spec 142): frames one way, input the other. Here

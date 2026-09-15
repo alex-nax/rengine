@@ -12,4 +12,5 @@ red-core = { path = "../red-core" }
 # The ledger and the feed themselves (F157): this crate serves them, it does not own them.
 red-token = { path = "../red-token" }
 serde_json = { version = "1", features = ["preserve_order"] }
+red-project = { path = "../red-project" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "sync"] }

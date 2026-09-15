@@ -17,6 +17,9 @@ getrandom = "0.3"
 prost = "0.13"
 serde = { version = "1.0.229", features = ["derive"] }
 # Preserve native JSON numbers across transport hops, including standalone MCP builds (spec 135).
+# The head is read off a socket, so this crate reads sockets: the same tokio every server here
+# already links, with only the io and net features the parsing needs.
+tokio = { version = "1", features = ["io-util", "net"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 
 [build-dependencies]

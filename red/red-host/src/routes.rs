@@ -10,7 +10,7 @@
 
 use std::sync::Arc;
 
-use crate::head::Head;
+use red_core::head::Head;
 use crate::panes::{deliver_input, deliver_resize, pane_answer, pane_snapshot};
 use crate::{ask, ask_pty, Front};
 

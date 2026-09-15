@@ -37,7 +37,6 @@ mod desktops;
 mod events;
 mod games;
 mod handoff;
-mod head;
 mod images;
 mod panes;
 mod routes;
@@ -46,7 +45,7 @@ mod surfaces;
 
 use desktops::Desktops;
 use events::Hub;
-use head::Head;
+use red_core::head::Head;
 use routes::{answer_about_pane, answer_desktop_action, answer_from_store, answer_state, faulted, http_json, session_route, store_route};
 
 /// The number `pty-client.mjs` speaks: a service on another number belongs to another build, and
@@ -503,7 +502,7 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
            is forwarded by its own framing. */
         let (backend_host, _) = red_core::http::address(&front.backend).map_err(io::Error::other)?;
         let mut upstream = TcpStream::connect(&backend_host).await?;
-        upstream.write_all(head.replayed(&front).as_bytes()).await?;
+        upstream.write_all(head.replayed(&front.backend, &front.backend_token).as_bytes()).await?;
         if head.upgrade {
             /* After an upgrade there is no HTTP left to understand: copy bytes both ways until one
                side goes away. Whatever the protocol is, it arrives as it was sent. */
@@ -678,7 +677,8 @@ mod tests {
     #[test]
     fn the_backends_credential_never_reaches_a_client_and_the_door_uses_its_own() {
         let raw = format!("GET /api/state HTTP/1.1\r\nAuthorization: Bearer {}\r\nHost: front\r\n\r\n", "a".repeat(64));
-        let replayed = head(&raw).replayed(&front());
+        let door = front();
+        let replayed = head(&raw).replayed(&door.backend, &door.backend_token);
         assert!(replayed.contains(&format!("Authorization: Bearer {}", "b".repeat(64))), "{replayed}");
         assert!(!replayed.contains(&"a".repeat(64)), "the client's token is not passed upstream: {replayed}");
     }

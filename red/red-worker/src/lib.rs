@@ -12,3 +12,4 @@
 //! and a watcher that resumes from a cursor.
 
 pub mod feed;
+pub mod serve;

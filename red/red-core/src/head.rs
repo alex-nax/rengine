@@ -1,9 +1,9 @@
-//! One HTTP message head, read and replayed (F188/F152a).
+//! One HTTP request head, read off a socket and understood well enough to forward it.
 //!
-//! Only what a front door needs: the request line, the headers it decides on, and enough framing to
-//! forward a body without re-writing it. Bodies are copied **as they were framed** — by
-//! `Content-Length` or by chunks — because a proxy that re-frames is a proxy that can change what
-//! a route said, and every route here belongs to something else.
+//! In `red-core` rather than in a server because two of them forward now: the door replays a head
+//! at its backend, and the worker replays one at the door. A third copy of this parsing is exactly
+//! what this crate exists to prevent.
+//!
 
 use std::io;
 
@@ -98,30 +98,34 @@ impl Head {
             .collect()
     }
 
-    /// The same head, with this door's credential swapped for the backend's. Nothing else is
-    /// touched: a header this process does not understand is a header it must not edit.
-    pub fn replayed(&self, front: &crate::Front) -> String {
-        let mut out = format!("{} {} HTTP/1.1\r\n", self.method, self.replaced_target(front));
+    /// The same head, with this process's credential swapped for the one upstream expects. Nothing
+    /// else is touched: a header this process does not understand is a header it must not edit.
+    ///
+    /// `upstream` and `credential` rather than a borrowed server, because two processes forward now
+    /// — the door to its backend, and the worker to the door — and a third copy of this parsing was
+    /// what moving it here avoided.
+    pub fn replayed(&self, upstream: &str, credential: &str) -> String {
+        let mut out = format!("{} {} HTTP/1.1\r\n", self.method, self.replaced_target(credential));
         for (name, value) in &self.headers {
             let line = match name.as_str() {
-                "authorization" => format!("Authorization: Bearer {}", front.backend_token),
+                "authorization" => format!("Authorization: Bearer {credential}"),
                 /* The backend authenticates an upgrade from the query string, which is rewritten
                    above; the host header names the backend it is going to. */
-                "host" => format!("Host: {}", red_core::http::address(&front.backend).map(|(socket, _)| socket).unwrap_or_default()),
+                "host" => format!("Host: {}", crate::http::address(upstream).map(|(socket, _)| socket).unwrap_or_default()),
                 _ => format!("{}: {}", canonical(name), value),
             };
             out.push_str(&line);
             out.push_str("\r\n");
         }
         if self.header("authorization").is_none() && !self.upgrade {
-            out.push_str(&format!("Authorization: Bearer {}\r\n", front.backend_token));
+            out.push_str(&format!("Authorization: Bearer {credential}\r\n"));
         }
         out.push_str("\r\n");
         out
     }
 
     /// A socket's token rides in the query string, so the swap has to happen there too.
-    fn replaced_target(&self, front: &crate::Front) -> String {
+    fn replaced_target(&self, credential: &str) -> String {
         if !self.upgrade {
             return self.target.clone();
         }
@@ -129,7 +133,7 @@ impl Head {
         let rewritten: Vec<String> = query
             .split('&')
             .map(|pair| match pair.split_once('=') {
-                Some(("token", _)) => format!("token={}", front.backend_token),
+                Some(("token", _)) => format!("token={credential}"),
                 _ => pair.to_string(),
             })
             .collect();
