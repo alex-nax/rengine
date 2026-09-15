@@ -3993,6 +3993,66 @@
       "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
+    },
+    {
+      "id": 210,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "Conversation-store adapters (spec 140): one per agent CLI, answering which conversations exist for a root with an id, a modified time and a title. Read-only - the stores belong to the CLIs. Identity is the declared project and root id; a CLI's path-derived key is mapped, never adopted.",
+      "acceptance_criteria": [
+        "The claude adapter lists the transcripts held for a root, with the last ai-title as the title and the first user message where none exists, and never returns a bare id as a title.",
+        "The kimi adapter answers from its own session index without opening a transcript.",
+        "The codex adapter, whose tree is partitioned by date rather than by project, answers on demand only and never as part of a frame or a poll.",
+        "An agent with no conversation store reports that, distinguishably from an empty list and from a store that could not be read.",
+        "Nothing under the CLIs' directories is modified, asserted by comparing a digest of the tree before and after."
+      ],
+      "passes": false,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 211,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "The conversations view: the stores joined with rEngine's own session records, so a conversation the workspace has a pane for is marked and one it only knows from the CLI is listed all the same. Choosing one resumes it through the capability spec 096 already declares.",
+      "acceptance_criteria": [
+        "A conversation rEngine launched is listed and marked as having a session; one started outside the editor is listed without that mark.",
+        "Choosing a conversation starts a pane resumed on it; a CLI that does not declare resume has the action refused by name rather than hidden.",
+        "The list is fetched when the view opens rather than on a timer.",
+        "With a host that predates agentConversations the view still lists what the stores hold and says the join is unavailable, rather than showing nothing."
+      ],
+      "passes": false,
+      "dependencies": [
+        210
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 212,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "low",
+      "description": "A workspace-visible warning when the retained session host advertises fewer capabilities than the running build declares, so a feature that is off because the host is old reads as old rather than as broken (KI-116).",
+      "acceptance_criteria": [
+        "A host advertising fewer capabilities than the build is reported in the workspace with its age and the count, not only in the launcher's start-up output.",
+        "The warning names replacing the host as the remedy and states plainly that doing so ends its sessions.",
+        "A current host produces no warning.",
+        "Observed failing by pointing the desktop at a host built before a capability was added."
+      ],
+      "passes": false,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }
