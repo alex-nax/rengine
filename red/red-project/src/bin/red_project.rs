@@ -57,7 +57,7 @@ fn tasks(call: &str, root_id: &str, root_path: &str) -> Result<serde_json::Value
         "promptValues" => Ok(red_project::tasks::prompt_values(&field("row"))),
         "modelArgs" => red_project::tasks::model_args(&recipes(), &string("cli"), input.get("model").and_then(serde_json::Value::as_str))
             .map(|args| json!({ "args": args })),
-        "codexModels" => Ok(json!({ "models": red_project::tasks::codex_models(&string("help")) })),
+        "helpModels" => Ok(json!({ "models": red_project::tasks::models_from_help(&string("help")) })),
         "parseInstalled" => Ok(json!({ "installed": red_project::rules::object(
             red_project::tasks::parse_installed(&string("text")).iter().map(|(name, known)| (name.as_str(), json!(known))).collect()) })),
         "knownAgents" => Ok(json!({ "agents": red_project::tasks::known_agents(&recipes()) })),

@@ -23,8 +23,8 @@ import { built } from './cargo.mjs';
 const FIXTURES = JSON.parse(await readFile(new URL('./agents-fixtures.json', import.meta.url), 'utf8'));
 const agentNames = () => FIXTURES.agentNames;
 const resolvedRecipes = () => FIXTURES.resolvedRecipes;
-const codexHookKey = (group, handler) => FIXTURES.hookKeys[`${group},${handler}`];
-const codexHookTrustHash = (command, matcher = 'startup|resume') => {
+const hookKey = (group, handler) => FIXTURES.hookKeys[`${group},${handler}`];
+const hookTrustHash = (command, matcher = 'startup|resume') => {
   if (command !== FIXTURES.trustCommand) throw new Error('the record holds one command');
   return FIXTURES.trustHashes[matcher];
 };
@@ -76,12 +76,12 @@ test('the service answers what registry.mjs answers, and says so before the firs
 
 test('the service carries the codex hook numbers the launcher composes with', async t => {
   const { call } = await serve(t);
-  assert.equal(await call('codexHookKey', [0, 0]), codexHookKey(0, 0));
-  assert.equal(await call('codexHookKey', [2, 1]), codexHookKey(2, 1));
+  assert.equal(await call('hookKey', [0, 0]), hookKey(0, 0));
+  assert.equal(await call('hookKey', [2, 1]), hookKey(2, 1));
   const command = FIXTURES.trustCommand;
-  assert.equal(await call('codexHookTrustHash', [command]), codexHookTrustHash(command),
+  assert.equal(await call('hookTrustHash', [command]), hookTrustHash(command),
     'the trust hash codex looks this launch’s hook up by');
-  assert.equal(await call('codexHookTrustHash', [command, 'startup']), codexHookTrustHash(command, 'startup'));
+  assert.equal(await call('hookTrustHash', [command, 'startup']), hookTrustHash(command, 'startup'));
 });
 
 test('a malformed request is answered, never fatal: the service outlives a bad line', async t => {

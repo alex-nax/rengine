@@ -61,12 +61,28 @@ fn ide_option(value: Option<&Value>) -> Option<IdeOption> {
     Some(IdeOption { flags, env_var: text(value, "envVar").unwrap_or_default() })
 }
 
+/// The editor protocol this run speaks, from the recipe that declares one. The library implements
+/// the protocol and names no CLI; the binary is the composition root that reads which CLI's it is
+/// (F220, spec 141). A registry that declares none is a refusal, not a guess: there is no editor
+/// protocol to speak.
+fn protocol() -> Option<lock::Protocol> {
+    let recipes = red_agents::shipped_recipes();
+    recipes.iter().find_map(|(cli, _)| {
+        red_agents::view(recipes.iter().find(|(name, _)| name == cli).map(|(_, raw)| raw)?)
+            .get("ide")
+            .and_then(lock::Protocol::declared)
+    })
+}
+
 fn main() -> ExitCode {
     let argv: Vec<String> = std::env::args().collect();
+    let Some(protocol) = protocol() else {
+        return refused("No agent recipe declares an editor protocol, so there is none to speak.");
+    };
     match argv.get(1).map(String::as_str) {
-        Some("serve") => serve(),
+        Some("serve") => serve(protocol),
         Some("directory") => {
-            print(&json!(lock::directory(&env)));
+            print(&json!(lock::directory(&env, &protocol)));
             ExitCode::SUCCESS
         }
         Some("sweep") => {
@@ -78,7 +94,7 @@ fn main() -> ExitCode {
         Some("offered") => {
             let input = match read_stdin_json() { Ok(value) => value, Err(error) => return refused(&error) };
             let Some(directory) = text(&input, "directory") else { return refused("offered takes a directory.") };
-            let locks = text(&input, "locks").unwrap_or_else(|| lock::directory(&env));
+            let locks = text(&input, "locks").unwrap_or_else(|| lock::directory(&env, &protocol));
             let editors: Vec<Value> = discovery::offered_editors(&directory, &PathBuf::from(locks), &cwd(), &discovery::living).iter().map(|editor| editor.to_value()).collect();
             print(&json!(editors));
             ExitCode::SUCCESS
@@ -87,7 +103,7 @@ fn main() -> ExitCode {
             let input = match read_stdin_json() { Ok(value) => value, Err(error) => return refused(&error) };
             let Some(directory) = text(&input, "directory") else { return refused("auto-connect takes a directory.") };
             let agent = text(&input, "agent").unwrap_or_default();
-            let locks = text(&input, "locks").unwrap_or_else(|| lock::directory(&env));
+            let locks = text(&input, "locks").unwrap_or_else(|| lock::directory(&env, &protocol));
             let our_pids: Vec<Value> = input.get("ourPids").and_then(Value::as_array).cloned().unwrap_or_default();
             let option = ide_option(input.get("ide"));
             print(&discovery::auto_connect(option.as_ref(), &agent, &directory, &PathBuf::from(locks), &cwd(), &our_pids, &discovery::living));
@@ -141,7 +157,7 @@ fn caller_pid() -> Value {
     }
 }
 
-fn options_from(value: &Value) -> Result<Options, String> {
+fn options_from(value: &Value, protocol: &lock::Protocol) -> Result<Options, String> {
     let port = match value.get("port") {
         None | Some(Value::Null) => 0,
         Some(port) => u16::try_from(port.as_u64().unwrap_or(0)).map_err(|_| format!("{port} is not a port"))?,
@@ -151,9 +167,10 @@ fn options_from(value: &Value) -> Result<Options, String> {
         host_pid: value.get("hostPid").cloned().unwrap_or(Value::Null),
         worker_pid: value.get("workerPid").cloned().filter(|pid| !pid.is_null()).unwrap_or_else(caller_pid),
         port,
-        directory: PathBuf::from(text(value, "directory").unwrap_or_else(|| lock::directory(&env))),
+        directory: PathBuf::from(text(value, "directory").unwrap_or_else(|| lock::directory(&env, protocol))),
         host: text(value, "host").unwrap_or_else(|| "127.0.0.1".to_string()),
         retake_timeout_ms: value.get("retakeTimeoutMs").and_then(Value::as_u64).unwrap_or(lock::RETAKE_TIMEOUT_MS),
+        protocol: protocol.clone(),
     })
 }
 
@@ -169,6 +186,8 @@ struct Serve {
     bridge: Mutex<Option<Arc<Bridge>>>,
     asks: Mutex<HashMap<u64, oneshot::Sender<Result<Value, String>>>>,
     next_ask: Mutex<u64>,
+    /// The editor protocol this run speaks, read once at startup from the recipe that declares it.
+    protocol: lock::Protocol,
 }
 
 impl Serve {
@@ -199,7 +218,7 @@ impl Serve {
         match method {
             "start" => {
                 let input = args.get(0).cloned().unwrap_or_else(|| json!({}));
-                let options = options_from(&input)?;
+                let options = options_from(&input, &self.protocol)?;
                 let source = if input.get("diagnostics").and_then(Value::as_bool).unwrap_or(false) { Some(self.source()) } else { None };
                 let started = Bridge::start(options, source).await?;
                 *self.bridge.lock().expect("bridge") = Some(started.clone());
@@ -227,7 +246,7 @@ impl Serve {
                 Ok(Value::Null)
             }
             "sweep" => {
-                let directory = args.get(0).and_then(Value::as_str).map(PathBuf::from).unwrap_or_else(|| PathBuf::from(lock::directory(&env)));
+                let directory = args.get(0).and_then(Value::as_str).map(PathBuf::from).unwrap_or_else(|| PathBuf::from(lock::directory(&env, &self.protocol)));
                 let removed: Vec<String> = lock::sweep(&directory, &lock::alive).iter().map(|path| path.to_string_lossy().into_owned()).collect();
                 Ok(json!(removed))
             }
@@ -246,7 +265,7 @@ fn answer_for(bridge: &Arc<Bridge>) -> Value {
     })
 }
 
-fn serve() -> ExitCode {
+fn serve(protocol: lock::Protocol) -> ExitCode {
     let runtime = match tokio::runtime::Builder::new_multi_thread().enable_all().build() {
         Ok(runtime) => runtime,
         Err(error) => {
@@ -255,7 +274,7 @@ fn serve() -> ExitCode {
         }
     };
     runtime.block_on(async {
-        let serve = Arc::new(Serve { bridge: Mutex::new(None), asks: Mutex::new(HashMap::new()), next_ask: Mutex::new(0) });
+        let serve = Arc::new(Serve { bridge: Mutex::new(None), asks: Mutex::new(HashMap::new()), next_ask: Mutex::new(0), protocol });
         say(&json!({ "started": true }));
         /* stdin on its own thread: a blocking read must not sit on a runtime worker. */
         let (lines, mut incoming) = mpsc::unbounded_channel::<String>();

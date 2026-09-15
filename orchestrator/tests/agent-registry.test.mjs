@@ -11,8 +11,8 @@ import { spawnSync } from 'node:child_process';
    id shapes, MCP overlay kind, hooks overlay kind and IDE connect. config.mjs, tasks.mjs,
    ide-connect.mjs and agent.sh read it rather than carrying their own tables, so adding an agent is
    a data edit — proven here by registering one as data and watching every consumer follow. */
-import { agentNames, recipe, resolvedRecipes, MCP_OVERLAYS, HOOK_OVERLAYS } from '../agents/agents-client.mjs';
-import { agentLaunch, agentConversation, codexHookTrustHash } from '../agents/agents-client.mjs';
+import { agentNames, recipe, resolvedRecipes, MCP_OVERLAYS, HOOK_OVERLAYS, processIdentity, installPaths } from '../agents/agents-client.mjs';
+import { agentLaunch, agentConversation, hookTrustHash } from '../agents/agents-client.mjs';
 import { knownAgents, modelArgs } from '../server/tasks.mjs';
 import { ideConnectFlag } from '../agents/ide-connect.mjs';
 import { ideDirectory } from '../runtime/ide.mjs';
@@ -213,8 +213,8 @@ test('a codex launch carries the SessionStart hook overlay beside its MCP wiring
   const command = /(\/[^ '"]*red-agents)[^"]* report-session --provider codex --context [^"']+/.exec(joined)?.[0];
   assert.ok(command?.includes('/red-agents'), 'the reporter is the red-agents binary');
   assert.ok(command, 'the exact command the hook will run');
-  assert.equal(hash, await codexHookTrustHash(command), 'and the trusted hash is for exactly that command, nothing else');
-  assert.notEqual(hash, await codexHookTrustHash(`${command} --tampered`), 'a different command hashes differently, so trusting one trusts no other');
+  assert.equal(hash, await hookTrustHash(command), 'and the trusted hash is for exactly that command, nothing else');
+  assert.notEqual(hash, await hookTrustHash(`${command} --tampered`), 'a different command hashes differently, so trusting one trusts no other');
 });
 
 /* Criterion 5: the IDE lock directory follows CLAUDE_CONFIG_DIR, which Anthropic documents as
@@ -229,4 +229,20 @@ test('the IDE lock directory honours CLAUDE_CONFIG_DIR', t => {
   assert.equal(ideDirectory(), path.join('/tmp/claude-config-elsewhere', 'ide'), 'a moved config moves the lock directory with it');
   process.env.RENGINE_IDE_DIRECTORY = '/tmp/rengine-ide-explicit';
   assert.equal(ideDirectory(), '/tmp/rengine-ide-explicit', 'and rEngine’s explicit override still wins');
+});
+
+/* KI-121: two reads of the recipe service AT ONCE. ref/unref are not counted by the runtime, so a
+ * client that unrefs on every answer releases the handles a second call is still waiting on — the
+ * loop drains and that call never resolves. `runtime/service-client.mjs` had already met this and
+ * counts its refs; this client carried a comment claiming an answer in flight is always heard, and
+ * did not. Any caller reaching for Promise.all could hang, which is how it was found.
+ */
+test('two reads of the recipe service at once both answer', async () => {
+  const [identity, installs] = await Promise.all([processIdentity(), installPaths()]);
+  assert.ok(Array.isArray(identity) && identity.length > 0, 'the first answered');
+  assert.ok(Array.isArray(installs), 'and so did the second, rather than waiting forever');
+  /* Three at once, to prove the count rather than a two-deep special case. */
+  const three = await Promise.all([processIdentity(), installPaths(), processIdentity()]);
+  assert.equal(three.length, 3);
+  assert.deepEqual(three[2], identity, 'and the answers are not crossed between flights');
 });

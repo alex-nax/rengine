@@ -40,6 +40,39 @@ fn strings(value: Option<&Json>) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// The environment variables every declared CLI stamps on its children, as a union in declaration
+/// order. A pane must inherit NONE of them: it is a fresh top-level session, nobody's child
+/// (KI-113, F220). Which variables those are is each CLI's to declare.
+pub fn process_identity(recipes: &[(String, Value)]) -> Vec<String> {
+    let mut named: Vec<String> = Vec::new();
+    for (cli, _) in recipes {
+        let Some(view) = projected(recipes, cli) else { continue };
+        for value in view.get("identity").and_then(|block| block.get("vars")).and_then(Json::as_array).into_iter().flatten() {
+            if let Some(name) = value.as_str() {
+                if !named.iter().any(|seen| seen == name) {
+                    named.push(name.to_string());
+                }
+            }
+        }
+    }
+    named
+}
+
+/// Where the declared CLIs install themselves, relative to a person's home directory, in
+/// declaration order. A launch puts these on PATH so a CLI its own installer placed is found.
+pub fn install_paths(recipes: &[(String, Value)]) -> Vec<String> {
+    let mut paths: Vec<String> = Vec::new();
+    for (cli, _) in recipes {
+        let Some(view) = projected(recipes, cli) else { continue };
+        if let Some(path) = view.get("install").and_then(|block| block.get("path")).and_then(Json::as_str) {
+            if !paths.iter().any(|seen| seen == path) {
+                paths.push(path.to_string());
+            }
+        }
+    }
+    paths
+}
+
 /// How to start this CLI BY HAND against a binding rEngine has already written — the line `bind`
 /// prints when the caller named an agent rEngine has no recipe for (F218, spec 141).
 ///

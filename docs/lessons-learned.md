@@ -66,5 +66,10 @@ Two things that guard learned the hard way, both worth keeping in mind for any c
 will remove it — so widening it is a visible decision in a diff. A check whose exceptions are
 inferred teaches nothing; one with no exceptions at all gets deleted the first time it is in the way.
 
-**Open cleanup:** F218 (bind's per-CLI hint catalogue), F219 (two identity defaults) and F220 (the
-per-CLI knowledge with nowhere declared to go) work through that list. F213–F217 are done.
+**Open cleanup:** none. F213–F220 worked the list down from 21 exceptions to 5, and all five are
+marked PERMANENT: three adapter rosters (a module dispatch keyed on a declared KIND is the
+prescribed shape), one frozen record's vocabulary, and one design-source name that is not a CLI.
+
+A word boundary is the wrong tool for this check, twice over: `\b` does not break at `_`, so
+`\bkimi\b` misses `kimi_flags`; widening it to "not a letter or digit" then misses `codexModels`,
+because JavaScript spells the same violation in camelCase. Split identifiers into words instead.

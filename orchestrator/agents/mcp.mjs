@@ -94,7 +94,10 @@ const queued = action => {
 /* A name the current worker does not have is answered with the way back — see sidecar: stale-tool-answer. */
 const stale = async (client, name) => {
   const names = (await client.listTools()).tools.map(tool => tool.name);
-  return { isError: true, content: [{ type: 'text', text: `${name} is not in this workspace’s current tool set (connector generation ${generation}): the tool list changed after this CLI read it. Current tools: ${names.join(', ')}. Claude Code refreshes on tools/list_changed and has the new list by its next turn; Codex does not, so a new name needs the CLI restarted (codex resume <id>) — behaviour behind an existing name is already current.` }] };
+  /* What to do about it, said once for every CLI: whether a particular one refreshes was written
+     out here per agent, which meant the sentence was wrong for the next CLI to arrive and right for
+     nobody who had not been named (F220, spec 141). */
+  return { isError: true, content: [{ type: 'text', text: `${name} is not in this workspace’s current tool set (connector generation ${generation}): the tool list changed after this CLI read it. Current tools: ${names.join(', ')}. A CLI that refreshes on tools/list_changed has the new list by its next turn; one that does not needs restarting before a NEW name is reachable — behaviour behind an existing name is already current either way.` }] };
 };
 /* The SDK answers an unknown name as an isError result carrying exactly this text (older releases threw it). */
 const missing = (result, name) => result?.isError === true && result.content?.length === 1 && result.content[0].type === 'text' &&

@@ -1,5 +1,5 @@
-import { readFile, realpath, readdir, open, access, stat } from 'node:fs/promises';
-import { homedir } from 'node:os';
+import { readFile, realpath, access, stat } from 'node:fs/promises';
+import * as codex from './codex.mjs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -7,24 +7,17 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const execute = promisify(execFile);
-const agentScript = fileURLToPath(new URL('../../scripts/agent.sh', import.meta.url));
+const agentScript = fileURLToPath(new URL('../../../scripts/agent.sh', import.meta.url));
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 
-async function findRollout(directory, sessionId, depth = 0) {
-  let entries;
-  try { entries = await readdir(directory, { withFileTypes: true }); }
-  catch (error) { if (error.code === 'ENOENT') return; throw error; }
-  for (const entry of entries) {
-    const filename = path.join(directory, entry.name);
-    if (entry.isFile() && entry.name.endsWith(`-${sessionId}.jsonl`)) return filename;
-    if (entry.isDirectory() && depth < 3) {
-      const found = await findRollout(filename, sessionId, depth + 1);
-      if (found) return found;
-    }
-  }
+/* The declared kinds this module can read a conversation store for, and who reads each. One arm per
+   adapter: a CLI whose store is a new shape is a new file and one line here (F220, spec 141). */
+async function confirmConversation(kind, sessionId, root, env) {
+  if (kind === 'rollout-jsonl') return codex.confirm(sessionId, root, env);
+  throw new Error(`rEngine cannot read a ${kind} conversation store, so this handoff was not launched.`);
 }
 
-export async function readHandoff(filename, project, env = process.env) {
+export async function readHandoff(filename, project, env = process.env, kind = 'rollout-jsonl') {
   filename = await realpath(filename);
   const source = await readFile(filename, 'utf8');
   if (source.length > 16384) throw new Error('Handoff manifest is too large.');
@@ -38,20 +31,9 @@ export async function readHandoff(filename, project, env = process.env) {
   const relative = path.relative(root, checkpoint);
   if (relative.startsWith(`..${path.sep}`) || relative === '..' || path.isAbsolute(relative)) throw new Error('Checkpoint must be inside the project.');
   if (!(await stat(checkpoint)).isFile()) throw new Error('Checkpoint must be a file.');
-  const home = env.CODEX_HOME ?? path.join(homedir(), '.codex');
-  const rollout = await findRollout(path.join(home, 'sessions'), value.sessionId)
-    ?? await findRollout(path.join(home, 'archived_sessions'), value.sessionId);
-  if (!rollout) throw new Error(`Cannot find local Codex conversation ${value.sessionId}. No substitute session was launched.`);
-  const file = await open(rollout, 'r');
-  let meta;
-  try {
-    const buffer = Buffer.alloc(65536); const { bytesRead } = await file.read(buffer);
-    const end = buffer.subarray(0, bytesRead).indexOf(10);
-    if (end < 0) throw new Error('Codex session metadata is missing or too large.');
-    meta = JSON.parse(buffer.subarray(0, end).toString('utf8'));
-  } finally { await file.close(); }
-  if (meta.type !== 'session_meta' || meta.payload?.id !== value.sessionId) throw new Error('Codex conversation metadata does not match the handoff.');
-  if (await realpath(meta.payload.cwd) !== root) throw new Error('Codex conversation belongs to a different project.');
+  /* The conversation has to exist ON THIS MACHINE, which only the CLI's own adapter can say. The
+     kind its recipe declares picks the reader; this half names no CLI (F220, spec 141). */
+  await confirmConversation(kind, value.sessionId, root, env);
   return { filename, project: root, checkpoint, sessionId: value.sessionId };
 }
 

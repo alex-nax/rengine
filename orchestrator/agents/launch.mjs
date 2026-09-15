@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { agentLaunch, describeSession } from './agents-client.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { checkConnection } from '../runtime/protocol.mjs';
-import { readHandoff, waitForPresentation, resumeArgs, checkResume } from './handoff.mjs';
+import { readHandoff, waitForPresentation, resumeArgs, checkResume } from './handoff/index.mjs';
 import { ancestorsOf, listProcesses } from '../launcher/replace.mjs';
 
 const [agent, executable, contextFile, ...args] = process.argv.slice(2);

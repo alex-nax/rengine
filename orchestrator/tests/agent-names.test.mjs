@@ -45,7 +45,7 @@ test('the guard goes red for its own reason, and says which name and where', asy
     'fn claude_flags() {}',
     'const HOME: &str = "https://codex.example/path";  // a name after a URL is still a name',
     '#[cfg(test)]',
-    'mod tests {',
+    'pub(crate) mod tests {',
     '    const FIXTURE: &str = "gemini";  // a fixture naming one deliberately is the point of it',
     '}',
     ''].join('\n'));
@@ -57,6 +57,26 @@ test('the guard goes red for its own reason, and says which name and where', asy
   assert.match(lines[0], /decoy\.rs:2: \[kimi\] fn kimi_flags/, 'by name and by location');
   assert.match(lines[1], /decoy\.rs:3: \[claude\]/);
   assert.match(lines[2], /decoy\.rs:4: \[codex\]/, 'a name after `//` inside a string is not hidden');
+  /* `pub(crate) mod tests` is a test module like any other. Missing the visibility modifier made
+     deliberate fixtures fire, which pushes the next person toward an exception for TEST code — the
+     one kind this list must never collect. */
+  assert.ok(!refused.stdout.includes('[gemini]'), `a fixture inside pub(crate) mod tests is not a finding: ${refused.stdout}`);
+
+  /* A word boundary is the wrong tool TWICE over. `\b` does not break at `_`, so `\bkimi\b` misses
+     `kimi_flags`; widening it to "not a letter or digit" then misses `codexModels`, because
+     JavaScript spells the same violation in camelCase. Both spellings were live findings when the
+     boundary was fixed the second time (F220). */
+  const camel = path.join(directory, 'camel.mjs');
+  await writeFile(camel, [
+    "export const codexModels = help => ask('codexModels', help);",
+    'export const claudeSettings = x => x;',
+    'const codexish = 1;  // a different word, and not a finding',
+    ''].join('\n'));
+  const spelled = await run('python3', [...GUARD, camel], { cwd: ROOT }).catch(error => error);
+  const found = spelled.stdout.split('\n').filter(line => line.includes(': ['));
+  assert.equal(found.length, 2, `camelCase counts, and a longer word does not: ${spelled.stdout}`);
+  assert.match(found[0], /camel\.mjs:1: \[codex\]/);
+  assert.match(found[1], /camel\.mjs:2: \[claude\]/);
   /* It names the antipattern and points at the record, rather than only reporting a match. */
   assert.match(refused.stdout, /docs\/lessons-learned\.md/);
   assert.match(refused.stdout, /one file that knows every agent/);

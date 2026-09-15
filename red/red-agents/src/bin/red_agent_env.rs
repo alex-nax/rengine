@@ -46,14 +46,20 @@ fn load_recipes(registry: &str) -> Result<Vec<(String, red_agents::Value)>, Exit
 fn main() -> ExitCode {
     let mut args = std::env::args().skip(1);
     let Some(mode) = args.next() else {
-        eprintln!("usage: red-agent-env shell <fixture.json> | pane <registry.toml> <fixture.json> | spawn <registry.toml> <fixture.json>");
+        eprintln!("usage: red-agent-env shell <registry.toml> <fixture.json> | pane <registry.toml> <fixture.json> | spawn <registry.toml> <fixture.json>");
         return ExitCode::from(2);
     };
     let answer = match mode.as_str() {
         "shell" => {
-            let Some(fixture) = args.next() else {
-                eprintln!("usage: red-agent-env shell <fixture.json>");
+            /* The registry too, since F220: what a pane must not inherit and where a CLI installs
+               itself are the recipes' to say, so the envelope cannot be composed without them. */
+            let (Some(registry), Some(fixture)) = (args.next(), args.next()) else {
+                eprintln!("usage: red-agent-env shell <registry.toml> <fixture.json>");
                 return ExitCode::from(2);
+            };
+            let recipes = match load_recipes(&registry) {
+                Ok(recipes) => recipes,
+                Err(code) => return code,
             };
             let fixture = match json(&fixture) {
                 Ok(value) => value,
@@ -65,6 +71,8 @@ fn main() -> ExitCode {
                     object(&fixture["inherited"], "inherited")?,
                     fixture["platform"].as_str().unwrap_or(""),
                     fixture["userDirectory"].as_str().unwrap_or(""),
+                    &red_agents::launch::process_identity(&recipes),
+                    &red_agents::launch::install_paths(&recipes),
                 );
                 Ok(serde_json::to_value(env).expect("a string map serializes"))
             };
@@ -97,7 +105,9 @@ fn main() -> ExitCode {
                 let mut first = object(&shell["env"], "shell.env")?.clone();
                 first.insert("RENGINE_AGENT_HOME".to_string(), serde_json::json!(agent_home));
                 first.extend(cleared());
-                let stage_one = shell_environment(&first, inherited, platform, user_directory);
+                let identity = red_agents::launch::process_identity(&recipes);
+                let installs = red_agents::launch::install_paths(&recipes);
+                let stage_one = shell_environment(&first, inherited, platform, user_directory, &identity, &installs);
                 let mut merged: serde_json::Map<String, serde_json::Value> =
                     stage_one.into_iter().map(|(key, value)| (key, serde_json::Value::String(value))).collect();
                 if let serde_json::Value::Object(sets) = &plan["sets"] {
@@ -106,13 +116,13 @@ fn main() -> ExitCode {
                 merged.insert("RENGINE_AGENT_HOME".to_string(), serde_json::json!(agent_home));
                 let mut second = cleared();
                 second.extend(merged);
-                let stage_two = shell_environment(&second, inherited, platform, user_directory);
+                let stage_two = shell_environment(&second, inherited, platform, user_directory, &identity, &installs);
                 Ok(serde_json::to_value(stage_two).expect("a string map serializes"))
             };
             run()
         }
         _ => {
-            eprintln!("usage: red-agent-env shell <fixture.json> | pane <registry.toml> <fixture.json> | spawn <registry.toml> <fixture.json>");
+            eprintln!("usage: red-agent-env shell <registry.toml> <fixture.json> | pane <registry.toml> <fixture.json> | spawn <registry.toml> <fixture.json>");
             Err(ExitCode::from(2))
         }
     };

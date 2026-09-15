@@ -129,23 +129,27 @@ function open() {
   const idle = [child, child.stdin, child.stdout];
   /* Loop-neutral at rest: a service nobody closed must not keep the host process alive. */
   started.finally(() => { for (const handle of idle) handle.unref(); }).catch(() => {});
+  /* Refs are COUNTED, because ref/unref are not: with two calls in flight, the first answer's
+     unref would release the handles the second is still waiting on, the loop would drain, and that
+     call would never resolve. `Promise.all` of two reads did exactly that (KI-121); the sibling
+     client in runtime/service-client.mjs had already met this and says so in the same words. */
+  let flights = 0;
+  const hold = () => { if (flights++ === 0) for (const handle of idle) handle.ref(); };
+  const release = () => { if (--flights === 0) for (const handle of idle) handle.unref(); };
   service = {
     child,
     started,
-    /* A call refs the pipes for its flight and unrefs after: the handles are loop-neutral at rest,
-       so a client nobody closed cannot hold the process open, and an answer in flight is always
-       heard. Without the ref the loop drains before the service replies. */
     /* Every request names the documents it is about: the service must not answer from the
        environment it was spawned in. */
     call: (method, args = []) => started.then(() => {
-      for (const handle of idle) handle.ref();
+      hold();
       return new Promise((resolve, reject) => {
         const id = ++sequence;
         pending.set(id, { resolve, reject });
         child.stdin.write(`${JSON.stringify({ id, method, args,
           registry: process.env.RENGINE_AGENT_REGISTRY || REGISTRY_DOCUMENT,
           extra: process.env.RENGINE_AGENT_REGISTRY_EXTRA ?? '' })}\n`);
-      }).finally(() => { for (const handle of idle) handle.unref(); });
+      }).finally(release);
     }),
   };
   return service;
@@ -176,6 +180,10 @@ export const agentIdentity = ({ sessions = [], ...inputs } = {}) => open().call(
 /* What this CLI declares it can be handed: `{ kind, ready }` or null. The door asks this rather
    than comparing a name, so a CLI that declares the capability reaches the same path (F216). */
 export const conversationHandoff = agent => open().call('conversationHandoff', [agent]);
+/* Unions over every declared CLI, not facts about one: what each stamps on its children (a pane
+   must inherit none of it, KI-113) and where each installs itself (F220, spec 141). */
+export const processIdentity = () => open().call('processIdentity', []);
+export const installPaths = () => open().call('installPaths', []);
 /* Every CLI that declares it, for a caller with a manifest and no CLI named: one is the answer,
    several means the caller has to say which, none means nothing here can be handed one. */
 export const handoffCapableAgents = async () => {
@@ -185,13 +193,13 @@ export const handoffCapableAgents = async () => {
 };
 export const conversationArgs = (agent, identity, resume = false) =>
   open().call('conversationArgs', [agent, identity ?? null, resume]);
-export const codexHookKey = (group = 0, handler = 0) => open().call('codexHookKey', [group, handler]);
-export const codexHookTrustHash = (command, matcher = 'startup|resume') => open().call('codexHookTrustHash', [command, matcher]);
+export const hookKey = (group = 0, handler = 0) => open().call('hookKey', [group, handler]);
+export const hookTrustHash = (command, matcher = 'startup|resume') => open().call('hookTrustHash', [command, matcher]);
 
 /* The environment-dependent inputs the service does not gather for itself (owner, 2026-09-13): the
    root context, the workspace's session list and the IDE probe's answer. */
 export async function agentLaunch({ agent, executable, args = [], contextFile, context, directory, identity, handoff,
-  conversation, resume = false, env = process.env, cwd = null, ourPids = [], ide, sessions = [], kimiFile = null } = {}) {
+  conversation, resume = false, env = process.env, cwd = null, ourPids = [], ide, sessions = [] } = {}) {
   /* The IDE answer, resolved here because probing for a published editor is a filesystem and port
      scan (owner, 2026-09-13). A recipe that declares an editor flag always gets an answer — with no
      working directory the honest one is that auto-connect was not considered, which is what the CLI
@@ -224,7 +232,7 @@ export async function agentLaunch({ agent, executable, args = [], contextFile, c
   return open().call('agentLaunch', [{
     agent, executable, args, contextFile, context: root, directory: directory ?? null,
     identity: identity ?? null, handoff: handoff ?? null, conversation: conversation ?? null, resume,
-    env: { ...env }, cwd, sessions: listed, ide: resolvedIde, kimiFile, ptySessionId: ptySessionId(listed),
+    env: { ...env }, cwd, sessions: listed, ide: resolvedIde, ptySessionId: ptySessionId(listed),
     platform: process.platform, pid: process.pid, nodeExecutable: NODE, mcpMain: MCP_MAIN, redAgents: redAgentsBinary(),
   }]);
 }

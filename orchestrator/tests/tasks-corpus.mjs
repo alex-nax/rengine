@@ -68,10 +68,10 @@ export const CASES = [
   ['modelArgs with a model that is not an identifier', { call: 'modelArgs', cli: 'claude', model: 'a model' }],
   ['modelArgs for a CLI whose recipe names no flag', { call: 'modelArgs', cli: 'gemini', model: 'some-model' }],
   ['modelArgs for a CLI whose recipe names one', { call: 'modelArgs', cli: 'claude', model: 'claude-opus-5' }],
-  ['codexModels on help that names none', { call: 'codexModels', help: 'usage: codex\n  --flag  a flag\n' }],
-  ['codexModels on help that lists them', { call: 'codexModels', help: '  -m, --model <MODEL>  the model\n        [possible values: gpt-6-astra, gpt-6-sol]\n' }],
-  ['codexModels on help whose list wraps', { call: 'codexModels', help: '  --model <M>\n    the model to run\n    [possible values: a-one,\n b-two]\n' }],
-  ['codexModels on help with names it will not take', { call: 'codexModels', help: '  --model <M> [possible values: ok-one, "not a name", ok-two]\n' }],
+  ['codexModels on help that names none', { call: 'helpModels', help: 'usage: codex\n  --flag  a flag\n' }],
+  ['codexModels on help that lists them', { call: 'helpModels', help: '  -m, --model <MODEL>  the model\n        [possible values: gpt-6-astra, gpt-6-sol]\n' }],
+  ['codexModels on help whose list wraps', { call: 'helpModels', help: '  --model <M>\n    the model to run\n    [possible values: a-one,\n b-two]\n' }],
+  ['codexModels on help with names it will not take', { call: 'helpModels', help: '  --model <M> [possible values: ok-one, "not a name", ok-two]\n' }],
   ['parseInstalled on nothing', { call: 'parseInstalled', text: '' }],
   ['parseInstalled on a listing', { call: 'parseInstalled', text: 'claude\t/usr/bin/claude\ncodex\tnot installed\nkimi\t\n\n  \t/x\n' }],
   ['knownAgents from the registry', { call: 'knownAgents' }],
@@ -125,7 +125,7 @@ export async function answers() {
           case 'renderPrompt': return { text: await tasks.renderPrompt(options.template, values, 'the fixture brief') };
           case 'promptValues': return tasks.promptValues(options.row);
           case 'modelArgs': return { args: tasks.modelArgs(options.cli, options.model) };
-          case 'codexModels': return { models: await tasks.codexModels(options.help) };
+          case 'helpModels': return { models: await tasks.helpModels(options.help) };
           case 'parseInstalled': return { installed: Object.fromEntries(await tasks.parseInstalled(options.text)) };
           case 'knownAgents': return { agents: tasks.knownAgents() };
           case 'agentsMenu': return { ...await tasks.agentsMenu(root, options.declared,

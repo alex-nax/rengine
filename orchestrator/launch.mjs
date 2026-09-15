@@ -5,9 +5,9 @@ import { fileURLToPath } from 'node:url';
 import { ensureSidecar, request } from './launcher/sidecar.mjs';
 import { runHeadless } from './launcher/headless.mjs';
 import { hostAge, replaceHost } from './launcher/replace.mjs';
-import { readHandoff, checkResume } from './agents/handoff.mjs';
-import { handoffCapableAgents } from './agents/agents-client.mjs';
-import { bashPath, shellEnvironment } from './server/sessions-client.mjs';
+import { readHandoff, checkResume } from './agents/handoff/index.mjs';
+import { handoffCapableAgents, agentNames } from './agents/agents-client.mjs';
+import { bashPath, envelope } from './server/sessions-client.mjs';
 
 const options = { state: path.join(homedir(), '.local/state/rengine'), agent: undefined };
 for (let index = 2; index < process.argv.length; index++) {
@@ -21,7 +21,9 @@ for (let index = 2; index < process.argv.length; index++) {
   else if (flag === '--inspect-ui') options.inspectUI = true;
   else if (flag === '--replace-host') options.replaceHost = true;
   else if (flag === '--help') {
-    console.log('npm start -- [--project DIR] [--declaration FILE] [--agent codex|claude|gemini|opencode|kimi|EXEC] [--state DIR] [--no-agent] [--headless] [--launch-game] [--handoff FILE] [--inspect-ui] [--replace-host]\n--declaration binds an external project.json without writing inside the project.\n--handoff resumes an explicit Codex conversation once its native pane is presented.\n--launch-game requires an explicit --project. --inspect-ui enables native stdin automation.\n--headless runs the sidecar alone: no desktop build, no desktop and no agent, so it starts on a\nmachine with no C toolchain. It stays in the foreground; npm run start:headless is the same command.\nCmd/Ctrl+Shift+R saves, rebuilds and reloads the desktop, retaining sessions.\nThe C/microui desktop detaches on exit; manage retained processes in Sessions.\n--replace-host stops this state directory\'s retained session host and its update supervisor, ending their sessions,\nthen starts a fresh host from this checkout before continuing. Run it from a terminal outside rEngine.');
+    /* The agents are the registry's to list, not this line's: a CLI added as data appears here the
+       day it is declared, and none is named in source (F220, spec 141). */
+    console.log(`npm start -- [--project DIR] [--declaration FILE] [--agent ${agentNames().join('|')}|EXEC] [--state DIR] [--no-agent] [--headless] [--launch-game] [--handoff FILE] [--inspect-ui] [--replace-host]\n--declaration binds an external project.json without writing inside the project.\n--handoff resumes an explicit paused conversation once its native pane is presented.\n--launch-game requires an explicit --project. --inspect-ui enables native stdin automation.\n--headless runs the sidecar alone: no desktop build, no desktop and no agent, so it starts on a\nmachine with no C toolchain. It stays in the foreground; npm run start:headless is the same command.\nCmd/Ctrl+Shift+R saves, rebuilds and reloads the desktop, retaining sessions.\nThe C/microui desktop detaches on exit; manage retained processes in Sessions.\n--replace-host stops this state directory\'s retained session host and its update supervisor, ending their sessions,\nthen starts a fresh host from this checkout before continuing. Run it from a terminal outside rEngine.`);
     process.exit(0);
   } else throw new Error(`Unknown option: ${flag}`);
 }
@@ -45,7 +47,7 @@ if (options.handoff) {
   if (!cli) throw new Error(`--handoff needs --agent to say which CLI: ${capable.join(', ') || 'none is declared'}.`);
   const handoff = await readHandoff(options.handoff, options.project && path.resolve(options.project));
   options.project = handoff.project; options.agent = cli; options.handoff = handoff.filename;
-  await checkResume(bashPath(), cli, handoff.project, shellEnvironment({ RENGINE_AGENT_HOME: path.join(path.resolve(options.state), 'agents') }));
+  await checkResume(bashPath(), cli, handoff.project, await envelope({ RENGINE_AGENT_HOME: path.join(path.resolve(options.state), 'agents') }));
 }
 if (options.launchGame && !options.project) throw new Error('--launch-game requires --project DIR.');
 if (options.declaration && !options.project) throw new Error('--declaration requires --project DIR.');

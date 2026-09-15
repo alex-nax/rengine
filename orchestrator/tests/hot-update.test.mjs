@@ -233,7 +233,12 @@ test('an idle facade learns of a connector update without a request, and a stale
     const stale = await client.callTool({ name: 'old_tool', arguments: {} });
     assert.equal(stale.isError, true);
     assert.match(stale.content[0].text, /old_tool is not in this workspace’s current tool set/);
-    assert.match(stale.content[0].text, /list_tasks/); assert.match(stale.content[0].text, /Codex/);
+    assert.match(stale.content[0].text, /list_tasks/);
+    /* The way back, said once for every CLI rather than per agent: whether a particular one
+       refreshes was written out in the message, which made it wrong for the next CLI to arrive and
+       right for nobody unnamed (F220, spec 141). */
+    assert.match(stale.content[0].text, /refreshes on tools\/list_changed/);
+    assert.match(stale.content[0].text, /needs restarting/);
     const status = await client.callTool({ name: 'update_status', arguments: {} });
     assert.notEqual(status.structuredContent.toolWorkerPid, stalePid);
   } finally {

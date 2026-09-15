@@ -18,7 +18,7 @@ import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { agentLaunch, codexHookTrustHash, closeAgents } from '../agents/agents-client.mjs';
+import { agentLaunch, hookTrustHash, closeAgents } from '../agents/agents-client.mjs';
 import { LAUNCHES, recordLaunch, scrub } from './agents-fixtures.mjs';
 import { built } from './cargo.mjs';
 
@@ -71,8 +71,8 @@ test('the codex hook layer carries the trust hash codex will compute for it', { 
 
 test('the trust hash is computed, not copied: a different command hashes differently', async t => {
   t.after(() => closeAgents());
-  const one = await codexHookTrustHash("'/opt/red-agents' report-session --context '/tmp/a.json'");
-  const other = await codexHookTrustHash("'/opt/red-agents' report-session --context '/tmp/b.json'");
+  const one = await hookTrustHash("'/opt/red-agents' report-session --context '/tmp/a.json'");
+  const other = await hookTrustHash("'/opt/red-agents' report-session --context '/tmp/b.json'");
   assert.notEqual(one, other, 'two commands codex would trust separately hash separately');
   assert.match(one, /^sha256:[0-9a-f]{64}$/);
 });

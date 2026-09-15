@@ -46,6 +46,8 @@ pub struct Options {
     pub directory: PathBuf,
     pub host: String,
     pub retake_timeout_ms: u64,
+    /// The editor protocol this bridge speaks, declared by the CLI's own recipe (F220, spec 141).
+    pub protocol: crate::lock::Protocol,
 }
 
 struct State {
@@ -349,10 +351,12 @@ async fn connection(bridge: Arc<Bridge>, stream: TcpStream) {
                 Some((_, value)) => parse_protocols(value).map_err(|_| bad_request("Invalid Sec-WebSocket-Protocol header"))?,
                 None => Vec::new(),
             };
-            /* Measured, not assumed: `claude` 2.1.263 sends the lock's token in this header. One
-               place is checked because one place is what it uses; a version that moves it fails the
-               handshake loudly rather than being let in on a guess. */
-            let presented = headers.iter().find(|(name, _)| name == "x-claude-code-ide-authorization").map(|(_, value)| value.as_str());
+            /* Measured, not assumed: the CLI sends the lock's token in the header its own recipe
+               declares. ONE place is checked because one place is what it uses; a version that moves
+               it changes the declaration, and until then fails the handshake loudly rather than
+               being let in on a guess. */
+            let header = bridge.options.protocol.auth_header.as_str();
+            let presented = headers.iter().find(|(name, _)| name == header).map(|(_, value)| value.as_str());
             let accepted = presented.is_some_and(|value| !value.is_empty() && red_core::service::same_secret(value, &bridge.auth_token));
             let mut recorded = Map::new();
             for (name, value) in &headers {

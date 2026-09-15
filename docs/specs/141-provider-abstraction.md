@@ -4,7 +4,7 @@ Owner goal, 2026-09-15: *"design abstraction interface and achieve complete prov
 catching an agent-per-function file that contradicted the project's own stated design
 (`docs/lessons-learned.md`).
 
-Status: **F213–F217 implemented; F218–F220 carry what the guard now declares as exceptions.**
+Status: **F213–F220 implemented. The guard carries five exceptions, all PERMANENT.**
 
 ## The rule, in one line
 
@@ -195,6 +195,41 @@ The exceptions are a declared list with a reason and a feature each: **F218** (b
 catalogue), **F219** (two identity defaults — the reporter's `--provider` and the desktop's agent
 fallback), **F220** (per-CLI knowledge with nowhere declared to go: the identity scrub, install
 paths, red-ide's claude-shaped bridge, tasks, and the usage line).
+
+## F218–F220: the split is complete, and the guard's exception list is what says so
+
+The list `tools/agent_names.py` carries is the measure. It went **21 → 5**, and the five that remain
+are marked PERMANENT: three adapter rosters (`conversations/mod.rs`, `handoff/mod.rs`,
+`handoff/index.mjs` — a module dispatch keyed on a declared KIND is the prescribed shape), the
+frozen `PARSERS` vocabulary, and `"Claude Design"`, which is the name of a design source rather than
+a CLI. **No outstanding exception is left.**
+
+What F220 moved, each to a declaration or an adapter:
+
+| where | became |
+|---|---|
+| the `CLAUDE_CODE_*` identity scrub, in both languages | `identity.vars`, read as a union over every recipe |
+| `.opencode/bin` in the PATH search | `install.path`, likewise a union |
+| red-ide's lock directory, config variable and auth header | `ide.configVar` / `configDirectory` / `authHeader`, handed in as `lock::Protocol` — the library implements ONE CLI's editor protocol and names none |
+| `codex_models`, `codexModels`, `codexHookKey`, `codexHookTrustHash` | named for what they do: `models_from_help`, `helpModels`, `hookKey`, `hookTrustHash` |
+| `kimiFile` | deleted; it was passed in and read by nothing |
+| the JS handoff's rollout reader | `agents/handoff/codex.mjs`, mirroring the Rust split |
+| `--help`'s list of agents | printed from the declared roster |
+| the stale-tool message naming two CLIs' refresh behaviour | said once, for any CLI |
+
+Three things worth keeping from the doing of it:
+
+- **The guard's word boundary was wrong twice.** `\b` does not break at `_` (missing `kimi_flags`);
+  "not a letter or digit" then misses `codexModels`, because JavaScript spells the same violation in
+  camelCase. It splits identifiers into words now, and both spellings were live findings the day the
+  second fix landed. `pub(crate) mod tests` was a third: unmatched, it made deliberate fixtures fire,
+  which pushes the next person toward an exception for test code — the one kind this must not collect.
+- **A test that computes its expectation from the declaration proves nothing on its own.** Changing
+  `configDirectory` moved both sides and passed; the evidence is the library disagreeing with the
+  declaration, which is what the sabotage has to be.
+- **KI-121**, found by this work and unrelated to it: two concurrent calls to the recipe service hang,
+  because ref/unref were not counted. The sibling client had already met it and said so in a comment;
+  this one carried a comment claiming the property and not the code that gives it.
 
 ## Where the implementation departs from F213's written criteria — for the owner
 

@@ -63,9 +63,23 @@ kind = "per-launch-settings"
 # And the flag that hands the CLI the settings file written for this launch.
 flag = "--settings"
 
+# What this CLI stamps on every process it starts, naming that one session. A pane that inherited
+# them would be a CHILD session of whoever started the host (KI-113), so the launch environment
+# scrubs the union of what every recipe declares here — a CLI that stamps its own is scrubbed by
+# saying so, with no shared-code edit (F220, spec 141).
+[recipes.claude.identity]
+vars = ["CLAUDECODE", "CLAUDE_PID", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_CHILD_SESSION", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_SESSION_ATTENDED", "CLAUDE_CODE_BRIDGE_SESSION_ID", "CLAUDE_CODE_EXECPATH", "CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN"]
+
 [recipes.claude.ide]
 flags = ["--ide"]
 envVar = "CLAUDE_CODE_SSE_PORT"
+# The rest of this CLI's IDE protocol, which red-ide implements and does not name: where the CLI
+# looks for a published editor, the variable that moves that directory, and the header it presents
+# the lock's token in. Measured against a real CLI — a version that moves any of them changes this
+# declaration rather than a source file (F220, spec 141).
+configVar = "CLAUDE_CONFIG_DIR"
+configDirectory = ".claude"
+authHeader = "x-claude-code-ide-authorization"
 
 [recipes.codex]
 package = "@openai/codex"
@@ -147,6 +161,11 @@ command = "upgrade"
 
 [recipes.opencode.models]
 kind = "none"
+
+# Where this CLI installs itself, relative to the person's home directory. A launch adds every
+# declared one to PATH so a CLI installed by its own installer is found (F220, spec 141).
+[recipes.opencode.install]
+path = ".opencode/bin"
 
 [recipes.opencode.mcp]
 kind = "env-inline"

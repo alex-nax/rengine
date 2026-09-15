@@ -25,7 +25,9 @@ WHAT IT SKIPS, and why each is not a loophole:
     what an adapter is;
   * the registry document itself, and the specs.
 
-EXCEPTIONS are declared below, in ONE list, each with a reason and the row that will remove it.
+EXCEPTIONS are declared below, in ONE list, each with a reason. An entry marked PERMANENT is one
+that belongs: a module dispatch to an adapter file, or a frozen record's own vocabulary. Every other
+entry names the feature that will remove it.
 Widening it is a visible decision in a diff, which is the whole design: a check whose exceptions are
 inferred teaches nothing, and one with no exceptions at all gets deleted the first time it is
 inconvenient.
@@ -43,52 +45,19 @@ SKIP = ("node_modules", "red/target", "third_party", ".cache", "/tests/", "orche
 # a file; a (path, line-substring) pair narrows an exception to the one line that earned it.
 EXCEPTIONS = [
     ("red/red-agents/src/lib.rs", 'const PARSERS',
-     "The values registry.mjs refused, frozen with the record its projection is judged against. "
+     "PERMANENT. The values registry.mjs refused, frozen with the record its projection is judged against. "
      "`conversation.read` is the live declaration; `parser` is a vestigial atom of the frozen shape."),
-    ("red/red-agents/src/spawn.rs", 'CLAUDE',
-     "The environment variables one CLI stamps on its own children, scrubbed so a pane does not "
-     "inherit another session's identity (KI-113). Which variables those are is that CLI's, and "
-     "belongs in its recipe: F220."),
-    ("orchestrator/server/sessions-client.mjs", 'CLAUDE',
-     "The JS half of the same identity scrub. F220."),
-    ("red/red-project/src/bin/red_project.rs", 'codexModels',
-     "A service method named for the CLI whose model list it reads, beside tasks.rs's own naming. "
-     "F220 takes both."),
-    ("red/red-agents/src/spawn.rs", '.opencode/bin',
-     "Where a CLI installs itself, in a PATH search list. F220 declares it per recipe."),
-    ("orchestrator/server/sessions-client.mjs", '.opencode/bin',
-     "The JS half of the same PATH search list. F220."),
-    ("orchestrator/agents/handoff.mjs", None,
-     "The JavaScript half of the `rollout-jsonl` kind — codex's own adapter, in the JS host that is "
-     "retiring under D57. Its gate and its probe already ask the recipe (F216)."),
-    ("orchestrator/agents/mcp.mjs", 'refreshes on tools/list_changed',
-     "A message explaining that two CLIs differ in how they take a changed tool list. F220 declares "
-     "the behaviour rather than describing it in shared prose."),
-    ("orchestrator/launch.mjs", '--agent codex|claude',
-     "The usage line's list of agents. F220 prints the roster the registry declares."),
     ("orchestrator/native/render/syntax_theme.h", "Claude Design",
-     "The name of a DESIGN SOURCE, not an agent: the theme this workspace's colours came from "
-     "(spec 064). It is the one place the word is not about a CLI."),
-    ("red/red-ide/src/lock.rs", None,
-     "The IDE lock file lives in claude's own directory because the protocol is claude's. F220 "
-     "gives red-ide the adapter split red-project's conversations already have."),
-    ("red/red-ide/src/bridge.rs", 'x-claude-code-ide-authorization',
-     "The header name the IDE bridge protocol defines. F220."),
-    ("red/red-ide/src/discovery.rs", None,
-     "Finding a published editor means looking where claude publishes one. F220."),
-    ("red/red-project/src/tasks.rs", None,
-     "Task rows carry the agent that owns them and name the CLIs a task may be handed to. F220 "
-     "decides whether that is a roster read or a declaration."),
-    ("red/red-token/src/lib.rs", None,
-     "The token ledger names agents in its own records, which is data about who holds a token "
-     "rather than behaviour that differs by name. F220 confirms or removes it."),
-    ("red/red-mcp/src/workspace.rs", None,
-     "One message naming a CLI. F220."),
+     "PERMANENT. The name of a DESIGN SOURCE, not an agent: the theme this workspace's colours came "
+     "from (spec 064). It is the one place the word is not about a CLI."),
+    ("orchestrator/agents/handoff/index.mjs", 'codex',
+     "PERMANENT. The adapter roster, in the JavaScript mirror of the same split: the import of the "
+     "adapter file and the arm mapping a declared KIND to it."),
     ("red/red-host/src/handoff/mod.rs", 'codex',
-     "The adapter roster: `mod codex;` and the arm mapping a declared KIND to its reader. A module "
+     "PERMANENT. The adapter roster: `mod codex;` and the arm mapping a declared KIND to its reader. A module "
      "dispatch IS the prescribed shape — the key is the kind, never the name."),
     ("red/red-project/src/conversations/mod.rs", None,
-     "The adapter roster: `pub mod`, the dispatch to one file each, and ADAPTERS, which is the list "
+     "PERMANENT. The adapter roster: `pub mod`, the dispatch to one file each, and ADAPTERS, which is the list "
      "of CLIs this crate has a reader for. Membership comes from the registry."),
 ]
 
@@ -141,7 +110,11 @@ def strip_test_modules(text):
     """Blank out `#[cfg(test)] mod name { ... }` by brace matching, keeping line numbers."""
     out, index = [], 0
     while True:
-        found = re.search(r"#\[cfg\(test\)\]\s*mod\s+\w+\s*\{", text[index:])
+        """A visibility modifier is allowed between the attribute and `mod`: `pub(crate) mod tests`
+        is a test module like any other, and missing it makes deliberate fixtures fire — which
+        pushes the next person toward an exception for test code, the one kind this must never
+        collect."""
+        found = re.search(r"#\[cfg\(test\)\]\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{", text[index:])
         if not found:
             out.append(text[index:])
             return "".join(out)
@@ -169,6 +142,24 @@ def walk(targets):
             yield path, path.relative_to(ROOT).as_posix(), suffixes
 
 
+def words(line):
+    """Every identifier word in a line, however it is spelled.
+
+    A regular expression with a word boundary is the wrong tool twice over. `\b` does not break at
+    `_`, so `\bkimi\b` misses `kimi_flags` — the exact function name this check exists to catch,
+    and it passed that case the first time it was tried. Widening the boundary to "not a letter or
+    digit" then misses `codexModels`, because JavaScript spells the same violation in camelCase.
+
+    So the line is SPLIT into words instead: on anything that is not alphanumeric, and again at each
+    lowercase-to-uppercase step. `kimi_flags`, `codexModels`, `claude-flags`, `.kimi-code` and
+    `CLAUDE_PID` all yield the name as a word of its own; `codexish` does not, because that is a
+    different word.
+    """
+    for run in re.split(r"[^A-Za-z0-9]+", line):
+        for word in re.findall(r"[A-Z]+(?![a-z])|[A-Z][a-z0-9]*|[a-z0-9]+", run):
+            yield word.lower()
+
+
 def excused(relative, line):
     for path, needle, _ in EXCEPTIONS:
         if relative == path and (needle is None or needle in line):
@@ -182,12 +173,7 @@ def is_adapter(relative, name):
 
 
 def findings(targets=None):
-    """`\b` is the WRONG boundary here: `_` is a word character, so `\bkimi\b` does not match
-    `kimi_flags` — which is the exact function name this check exists to catch, and it passed the
-    first time it was tried. The boundary is "not a letter or digit", so `kimi_flags`,
-    `claude-flags` and `.kimi-code` all count."""
     names = roster()
-    pattern = {name: re.compile(rf"(?<![A-Za-z0-9]){re.escape(name)}(?![A-Za-z0-9])", re.I) for name in names}
     found = []
     for path, relative, suffixes in walk(targets):
         if not path.is_file() or path.suffix not in suffixes:
@@ -199,8 +185,9 @@ def findings(targets=None):
         if path.suffix == ".rs":
             text = strip_test_modules(text)
         for number, line in enumerate(text.split("\n"), 1):
+            spoken = set(words(line))
             for name in names:
-                if not pattern[name].search(line):
+                if name.lower() not in spoken:
                     continue
                 if is_adapter(relative, name) or excused(relative, line):
                     continue

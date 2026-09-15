@@ -506,11 +506,14 @@ pub(crate) async fn restart(front: &Arc<Front>, body: &str) -> String {
 fn compose_env(overrides: &serde_json::Map<String, Value>) -> Value {
     let inherited: serde_json::Map<String, Value> =
         std::env::vars().map(|(name, value)| (name, json!(value))).collect();
+    let known = recipes();
     let composed = red_agents::spawn::shell_environment(
         overrides,
         &inherited,
         std::env::consts::OS,
         &std::env::var("HOME").unwrap_or_default(),
+        &red_agents::launch::process_identity(&known[..]),
+        &red_agents::launch::install_paths(&known[..]),
     );
     json!(composed)
 }

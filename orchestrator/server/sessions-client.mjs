@@ -17,8 +17,9 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fail } from './store-client.mjs';
+import { processIdentity as agentsProcessIdentity, installPaths as agentsInstallPaths } from '../agents/agents-client.mjs';
 import { PtyHost } from './pty-client.mjs';
-import { readHandoff, checkResume } from '../agents/handoff.mjs';
+import { readHandoff, checkResume } from '../agents/handoff/index.mjs';
 import { conversationHandoff } from '../agents/agents-client.mjs';
 import { paneComposition, shortAgentId } from '../agents/agents-client.mjs';
 
@@ -36,13 +37,21 @@ const RECORD = ['rootId', 'type', 'agent', 'conversation', 'task', 'title', 'tit
 export const agentTitle = (agent, conversation, rootName) =>
   `${agent || 'Choose agent'}${conversation ? ` ${shortAgentId(agent, conversation)}` : ''} · ${rootName}`;
 
-/* What Claude Code stamps on every process it starts, naming that one session: a host that
-   carries them marks every pane it spawns a child of the session that started it. */
-export const AGENT_PROCESS_IDENTITY = ['CLAUDECODE', 'CLAUDE_PID', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_CHILD_SESSION',
-  'CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE_SESSION_ATTENDED', 'CLAUDE_CODE_BRIDGE_SESSION_ID', 'CLAUDE_CODE_EXECPATH',
-  'CLAUDE_CODE_MESSAGING_SOCKET', 'CLAUDE_CODE_MESSAGING_TOKEN'];
+/* What the declared CLIs stamp on every process they start, naming that one session: a host that
+   carries them marks every pane it spawns a child of the session that started it (KI-113). The list
+   is the RECIPES' — one CLI's variables used to be written out here, so the second CLI to stamp its
+   own would have gone on marking every pane a child (F220, spec 141). `envelope()` reads it, which
+   is why this is the async door and `shellEnvironment` takes what it found. */
+export const agentProcessIdentity = () => agentsProcessIdentity();
+export const agentInstallPaths = () => agentsInstallPaths();
 
-export function shellEnvironment(overrides = {}, { inherited = process.env, platform = process.platform, userDirectory = homedir() } = {}) {
+/** The envelope with the declarations already fetched — what a caller in an async context uses. */
+export async function envelope(overrides = {}, options = {}) {
+  const [identity, installs] = await Promise.all([agentProcessIdentity(), agentInstallPaths()]);
+  return shellEnvironment(overrides, { ...options, identity, installs });
+}
+
+export function shellEnvironment(overrides = {}, { inherited = process.env, platform = process.platform, userDirectory = homedir(), identity = [], installs = [] } = {}) {
   const win = platform === 'win32';
   const paths = win ? path.win32 : path.posix;
   const key = name => win ? name.toUpperCase() : name;
@@ -58,10 +67,12 @@ export function shellEnvironment(overrides = {}, { inherited = process.env, plat
   // contradict that for every pane the host ever spawns. An explicit override still wins.
   // A pane is a fresh top-level session, nobody's child — see sidecar: a-pane-is-nobodys-child-session.
   const overridden = new Set(Object.keys(overrides).map(key));
-  for (const name of ['NO_COLOR', ...AGENT_PROCESS_IDENTITY]) if (!overridden.has(key(name))) entries.delete(key(name));
+  for (const name of ['NO_COLOR', ...identity]) if (!overridden.has(key(name))) entries.delete(key(name));
   const env = Object.fromEntries(entries.values());
   const pathKey = entries.get(key('PATH'))?.[0] ?? (win ? 'Path' : 'PATH');
-  const extra = ['.local/bin', '.n/bin', '.opencode/bin', '.cargo/bin'].map(part => paths.join(userDirectory, part));
+  /* The places a CLI's own installer puts it, declared by the recipes, plus the two generic ones a
+     person's tools land in. Order is preserved: declared first, as it always was. */
+  const extra = ['.local/bin', '.n/bin', ...installs, '.cargo/bin'].map(part => paths.join(userDirectory, part));
   const candidates = [...(env[pathKey] === undefined ? [] : env[pathKey].split(paths.delimiter)), ...extra];
   const seen = new Set();
   env[pathKey] = candidates.filter(value => {

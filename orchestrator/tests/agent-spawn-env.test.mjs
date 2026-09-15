@@ -94,23 +94,28 @@ const SHELL_CASES = [
   }],
 ];
 
-function jsShellEnv(input, shellEnvironment) {
+function jsShellEnv(input, shellEnvironment, declared) {
   const undefine = values => Object.fromEntries(Object.entries(values).map(([key, value]) => [key, value ?? undefined]));
-  return shellEnvironment(undefine(input.overrides), { inherited: input.inherited, platform: input.platform, userDirectory: input.userDirectory });
+  return shellEnvironment(undefine(input.overrides), { inherited: input.inherited, platform: input.platform,
+    userDirectory: input.userDirectory, ...declared });
 }
 
 async function rustShellEnv(directory, input) {
   const file = path.join(directory, 'shell.json');
   await writeFile(file, JSON.stringify(input));
-  return JSON.parse((await run(BIN, ['shell', file])).stdout);
+  /* The registry too, since F220: what a pane must not inherit and where a CLI installs itself are
+     the recipes', so neither side can compose the envelope without reading the one document. */
+  return JSON.parse((await run(BIN, ['shell', REGISTRY, file])).stdout);
 }
 
 test('the shell envelope matches on every fixture', async t => {
-  const { shellEnvironment } = await import('../server/sessions-client.mjs');
+  const sessions = await import('../server/sessions-client.mjs');
+  const declared = { identity: await sessions.agentProcessIdentity(), installs: await sessions.agentInstallPaths() };
+  assert.ok(declared.identity.length > 0, 'the declarations arrived — an empty list scrubs nothing and would match trivially');
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-shell-env-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   for (const [title, input] of SHELL_CASES) {
-    const js = jsShellEnv(input, shellEnvironment);
+    const js = jsShellEnv(input, sessions.shellEnvironment, declared);
     const rust = await rustShellEnv(directory, input);
     assert.deepEqual(rust, js, title);
   }
@@ -134,8 +139,9 @@ test('the final spawn env is cleared in both compositions and keeps the launch i
   const plan = RECORDED[recorded];
   const cleared = { RENGINE_HANDOFF_GATE: undefined, RENGINE_HANDOFF_FILE: undefined, RENGINE_ORCHESTRATOR_SESSION: undefined,
     RENGINE_AGENT_CONVERSATION: undefined, RENGINE_AGENT_RESUME: undefined, RENGINE_AGENT_CONVERSATIONS: undefined };
+  const declared = { identity: await sessions.agentProcessIdentity(), installs: await sessions.agentInstallPaths() };
   const stage = (overrides) => sessions.shellEnvironment(overrides,
-    { inherited: shell.inherited, platform: shell.platform, userDirectory: shell.userDirectory });
+    { inherited: shell.inherited, platform: shell.platform, userDirectory: shell.userDirectory, ...declared });
   const js = stage({ ...cleared, ...stage({ ...shell.env, RENGINE_AGENT_HOME: shell.agentHome, ...cleared }), ...plan.sets, RENGINE_AGENT_HOME: shell.agentHome });
 
   const file = path.join(directory, 'final.json');

@@ -80,14 +80,14 @@ fn dispatch(method: &str, args: &Json) -> Result<Json, String> {
         }
         /* The codex hook layer's two numbers. The platform is the service's own, which is the
            launcher's — the key is what codex looks its trust entry up under. */
-        "codexHookKey" => {
+        "hookKey" => {
             let platform = if cfg!(windows) { "win32" } else { "unix" };
             let group = args.get(0).and_then(Json::as_u64).unwrap_or(0) as u32;
             let handler = args.get(1).and_then(Json::as_u64).unwrap_or(0) as u32;
             Ok(json!(red_agents::hooks::hook_key(platform, group, handler)))
         }
-        "codexHookTrustHash" => {
-            let Some(command) = text_arg(args, 0) else { return Err("codexHookTrustHash takes a command.".into()) };
+        "hookTrustHash" => {
+            let Some(command) = text_arg(args, 0) else { return Err("hookTrustHash takes a command.".into()) };
             let matcher = text_arg(args, 1).unwrap_or("startup|resume");
             Ok(json!(red_agents::hooks::hook_trust_hash(command, matcher)))
         }
@@ -103,6 +103,11 @@ fn dispatch(method: &str, args: &Json) -> Result<Json, String> {
             let recipes = load()?;
             Ok(red_agents::launch::conversation_handoff(&recipes, cli).unwrap_or(Json::Null))
         }
+        /* Unions over every declared recipe (F220, spec 141): what the CLIs stamp on their
+           children, and where they install themselves. Neither is about one CLI, which is why they
+           are whole-registry answers rather than a field on a recipe's projection. */
+        "processIdentity" => Ok(json!(red_agents::launch::process_identity(&load()?))),
+        "installPaths" => Ok(json!(red_agents::launch::install_paths(&load()?))),
         "conversationRead" => {
             let cli = args.get(0).and_then(Json::as_str).unwrap_or_default();
             let rest: Vec<String> = args

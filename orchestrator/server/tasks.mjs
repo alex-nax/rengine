@@ -48,7 +48,7 @@ export const writeCommand = declared => ask('writeCommand', NO_ROOT, { declared 
 export const writeDocument = data => ask('writeDocument', NO_ROOT, { data });
 export const renderPrompt = (template, values, source) => ask('renderPrompt', NO_ROOT, { template, values, source }).then(answer => answer.text);
 export const promptValues = row => ask('promptValues', NO_ROOT, { row });
-export const codexModels = (help = '') => ask('codexModels', NO_ROOT, { help }).then(answer => answer.models);
+export const helpModels = (help = '') => ask('helpModels', NO_ROOT, { help }).then(answer => answer.models);
 export const parseInstalled = text => ask('parseInstalled', NO_ROOT, { text }).then(answer => new Map(Object.entries(answer.installed)));
 export const taskWrite = (root, declared, data) => ask('taskWrite', root, { declared, data });
 export const promptFor = (root, name, values) => ask('promptFor', root, { name, values });

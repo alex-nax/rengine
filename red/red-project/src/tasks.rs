@@ -324,9 +324,12 @@ fn identifier(value: &str) -> bool {
         && characters.all(|c| c.is_ascii_alphanumeric() || "._:@/-".contains(c))
 }
 
-/// clap prints its choices as "[possible values: a, b, c]"; a codex that prints none leaves the
-/// list empty rather than inviting a guess at names that move faster than this file does.
-pub fn codex_models(help: &str) -> Vec<String> {
+/// The models a CLI whose recipe declares `models.kind = "help"` lists in its own `--help`.
+///
+/// clap prints its choices as "[possible values: a, b, c]"; a CLI that prints none leaves the list
+/// empty rather than inviting a guess at names that move faster than this file does. The KIND is
+/// what selects this parser — it was named for the first CLI to declare that kind (F220, spec 141).
+pub fn models_from_help(help: &str) -> Vec<String> {
     let lines: Vec<&str> = help.split('\n').map(|line| line.strip_suffix('\r').unwrap_or(line)).collect();
     for (index, line) in lines.iter().enumerate() {
         if !mentions_model(line) {
@@ -421,7 +424,7 @@ pub fn agents_menu(root_id: &str, recipes: &Value, declared: &Value, installed_t
         let mut fallback = record.get("default").cloned().unwrap_or_else(|| json!(""));
         let help_kind = recipes.get(cli).and_then(|recipe| recipe.get("models")).and_then(|models| models.get("kind")).and_then(Value::as_str) == Some("help");
         if declared_agents.is_none() && help_kind && known(cli) {
-            models = codex_models(&help_of(cli)).into_iter().map(|model| json!(model)).collect();
+            models = models_from_help(&help_of(cli)).into_iter().map(|model| json!(model)).collect();
             fallback = models.first().cloned().unwrap_or_else(|| json!(""));
         }
         agents.push(object(vec![
@@ -459,6 +462,6 @@ mod tests {
     fn a_longer_flag_is_not_the_model_flag() {
         assert!(super::mentions_model("  -m, --model <M>  [possible values: a]"));
         assert!(!super::mentions_model("  --modelling <M> [possible values: a]"));
-        assert_eq!(super::codex_models("  --modelling <M> [possible values: a]\n"), Vec::<String>::new());
+        assert_eq!(super::models_from_help("  --modelling <M> [possible values: a]\n"), Vec::<String>::new());
     }
 }

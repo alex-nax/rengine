@@ -187,30 +187,8 @@ pub fn stores(home: &Path, root_path: &str, since_days: u64) -> Result<Value, Fa
 /// Every CLI the registry declares, in declaration order. Falls back to the CLIs with adapters when
 /// no registry can be read, so a listing is never silently short.
 fn roster() -> Vec<String> {
-    let path = std::env::var("RENGINE_AGENT_REGISTRY").ok().unwrap_or_else(|| {
-        /* Walking UP to the document rather than counting directories down from the binary: a test
-           binary lives one level deeper (`target/debug/deps`), and a fixed depth finds nothing
-           there — which would answer a short roster that looked like a real one. */
-        std::env::current_exe()
-            .ok()
-            .and_then(|exe| {
-                exe.ancestors()
-                    .map(|directory| directory.join("orchestrator/agents/registry.toml"))
-                    .find(|candidate| candidate.is_file())
-            })
-            .map(|path| path.to_string_lossy().into_owned())
-            .unwrap_or_default()
-    });
-    let named = std::fs::read_to_string(&path).ok().and_then(|text| {
-        let extra = std::env::var("RENGINE_AGENT_REGISTRY_EXTRA")
-            .ok()
-            .filter(|path| !path.is_empty())
-            .and_then(|path| std::fs::read_to_string(&path).ok().map(|text| (text, path)));
-        red_agents::load_registry(&text, &path, extra.as_ref().map(|(text, path)| (text.as_str(), path.as_str())))
-            .ok()
-            .map(|recipes| recipes.into_iter().map(|(name, _)| name).collect::<Vec<_>>())
-    });
-    named.filter(|names: &Vec<String>| !names.is_empty()).unwrap_or_else(|| ADAPTERS.iter().map(|name| name.to_string()).collect())
+    let named: Vec<String> = crate::recipes::recipes().into_iter().map(|(name, _)| name).collect();
+    if named.is_empty() { ADAPTERS.iter().map(|name| name.to_string()).collect() } else { named }
 }
 
 /// The CLIs this crate has a reader for. The only place their names belong: a dispatch to one file

@@ -130,11 +130,14 @@ pub fn run(root: &Path, argv: &[String], env: &[(String, String)], timeout_ms: u
        a tool only in `~/.cargo/bin` is not on `process.env.PATH`, so the board drew a grey button
        while the route that ran the action found it and ran. The caller passes its OWN environment —
        what a `tools` check reads — and this adds what a shell adds. */
+    let recipes = crate::recipes::recipes();
     for (key, value) in red_agents::spawn::shell_environment(
         &serde_json::Map::new(),
         &env.iter().map(|(key, value)| (key.clone(), serde_json::json!(value))).collect(),
         std::env::consts::OS,
         &env.iter().find(|(key, _)| key == "HOME").map(|(_, value)| value.clone()).unwrap_or_default(),
+        &red_agents::launch::process_identity(&recipes),
+        &red_agents::launch::install_paths(&recipes),
     ) {
         command.env(key, value);
     }

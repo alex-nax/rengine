@@ -31,14 +31,6 @@ pub fn describe_age(when: i64, now: i64) -> String {
 
 type EnvMap = std::collections::BTreeMap<String, String>;
 
-/// sessions-client.mjs's AGENT_PROCESS_IDENTITY: what Claude Code stamps on every process it
-/// starts, naming that one session. A pane inheriting them is a child session (KI-113).
-pub const AGENT_PROCESS_IDENTITY: [&str; 10] = [
-    "CLAUDECODE", "CLAUDE_PID", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_CHILD_SESSION",
-    "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_SESSION_ATTENDED", "CLAUDE_CODE_BRIDGE_SESSION_ID", "CLAUDE_CODE_EXECPATH",
-    "CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN",
-];
-
 fn join_path(platform: &str, directory: &str, part: &str) -> String {
     // The simple shape path.posix.join / path.win32.join has for the inputs this function ever
     // gets: a clean directory and a relative part. win32 normalizes the part's separators.
@@ -51,11 +43,18 @@ fn join_path(platform: &str, directory: &str, part: &str) -> String {
 
 /// sessions.mjs's shellEnvironment: merge inherited, then overrides, then the colour defaults;
 /// a non-string value deletes; then scrub and augment PATH. JSON null stands in for undefined.
+/// `identity` is what the declared CLIs stamp on their children and `installs` is where they put
+/// themselves — both unions over the recipes (`launch::process_identity`, `launch::install_paths`),
+/// handed in rather than read here, because this function is pure and the recipes are data. One
+/// CLI's variables used to be a constant in this file, which meant the second CLI to stamp its own
+/// would have gone on marking every pane a child session of whoever started the host (KI-113, F220).
 pub fn shell_environment(
     overrides: &serde_json::Map<String, serde_json::Value>,
     inherited: &serde_json::Map<String, serde_json::Value>,
     platform: &str,
     user_directory: &str,
+    identity: &[String],
+    installs: &[String],
 ) -> EnvMap {
     let win = platform == "win32";
     let key = |name: &str| if win { name.to_uppercase() } else { name.to_string() };
@@ -88,7 +87,7 @@ pub fn shell_environment(
     // that for every pane the host ever spawns; the agent identity would make the pane a child
     // session of whatever started the host. An explicit override still wins.
     let overridden: Vec<String> = overrides.keys().map(|name| key(name)).collect();
-    for name in std::iter::once("NO_COLOR").chain(AGENT_PROCESS_IDENTITY) {
+    for name in std::iter::once("NO_COLOR").chain(identity.iter().map(String::as_str)) {
         let slot = key(name);
         if !overridden.contains(&slot) {
             entries.retain(|(k, _)| *k != slot);
@@ -99,8 +98,15 @@ pub fn shell_environment(
     let delimiter = if win { ';' } else { ':' };
     let path_key = entries.iter().find(|(k, _)| *k == key("PATH")).map(|(_, (name, _))| name.clone())
         .unwrap_or_else(|| if win { "Path".to_string() } else { "PATH".to_string() });
-    let extra = [".local/bin", ".n/bin", ".opencode/bin", ".cargo/bin"]
-        .map(|part| join_path(platform, user_directory, part));
+    /* The places a CLI's own installer puts it, declared by the recipes, plus the two generic ones
+       a person's tools land in. Order is preserved: declared first, as it always was. */
+    let extra: Vec<String> = [".local/bin", ".n/bin"]
+        .iter()
+        .map(|part| part.to_string())
+        .chain(installs.iter().cloned())
+        .chain(std::iter::once(".cargo/bin".to_string()))
+        .map(|part| join_path(platform, user_directory, &part))
+        .collect();
     let mut candidates: Vec<String> = env.get(&path_key)
         .map(|value| value.split(delimiter).map(str::to_string).collect())
         .unwrap_or_default();
@@ -256,10 +262,28 @@ mod tests {
         value.as_object().unwrap().clone()
     }
 
+    /* The SHIPPED declaration, so these exercise what a launch actually reads rather than a
+       restatement of it. A test that carried its own list would go on passing after the registry
+       dropped one. */
+    fn shipped() -> Vec<(String, crate::Value)> {
+        let text = std::fs::read_to_string("../../orchestrator/agents/registry.toml").expect("the registry");
+        crate::load_registry(&text, "registry.toml", None).expect("a registry that cooks")
+    }
+    fn envelope(
+        overrides: &serde_json::Map<String, serde_json::Value>,
+        inherited: &serde_json::Map<String, serde_json::Value>,
+        platform: &str,
+        home: &str,
+    ) -> EnvMap {
+        let recipes = shipped();
+        shell_environment(overrides, inherited, platform, home,
+            &crate::launch::process_identity(&recipes), &crate::launch::install_paths(&recipes))
+    }
+
     #[test]
     fn the_envelope_scrubs_and_augments() {
         let inherited = map(json!({ "PATH": "/usr/bin:/bin", "NO_COLOR": "1", "ELECTRON_RUN_AS_NODE": "1", "EDITOR": "vi" }));
-        let env = shell_environment(&serde_json::Map::new(), &inherited, "darwin", "/home/person");
+        let env = envelope(&serde_json::Map::new(), &inherited, "darwin", "/home/person");
         assert!(!env.contains_key("NO_COLOR"));
         assert!(!env.contains_key("ELECTRON_RUN_AS_NODE"));
         assert_eq!(env["TERM"], "xterm-256color");
@@ -273,18 +297,18 @@ mod tests {
         let inherited = map(json!({ "PATH": "/usr/bin:/bin", "CLAUDECODE": "1", "CLAUDE_PID": "92680",
             "CLAUDE_CODE_CHILD_SESSION": "1", "CLAUDE_CODE_SESSION_ID": "287bba3a", "CLAUDE_CODE_MESSAGING_TOKEN": "t",
             "CLAUDE_DIFF_TOOL": "cursor", "CLAUDE_EFFORT": "xhigh" }));
-        let env = shell_environment(&serde_json::Map::new(), &inherited, "darwin", "/home/person");
-        for name in AGENT_PROCESS_IDENTITY {
-            assert!(!env.contains_key(name), "{name} names the session that started the host");
+        let env = envelope(&serde_json::Map::new(), &inherited, "darwin", "/home/person");
+        for name in crate::launch::process_identity(&shipped()) {
+            assert!(!env.contains_key(&name), "{name} names the session that started the host");
         }
         assert_eq!(env["CLAUDE_DIFF_TOOL"], "cursor", "a preference is not an identity");
         assert_eq!(env["CLAUDE_EFFORT"], "xhigh");
         let overrides = map(json!({ "CLAUDE_CODE_SESSION_ID": "minted" }));
-        let env = shell_environment(&overrides, &inherited, "darwin", "/home/person");
+        let env = envelope(&overrides, &inherited, "darwin", "/home/person");
         assert_eq!(env["CLAUDE_CODE_SESSION_ID"], "minted", "an explicit override still wins");
         assert!(!env.contains_key("CLAUDE_CODE_CHILD_SESSION"));
         let win = map(json!({ "Path": "C:\\Windows", "claude_code_child_session": "1" }));
-        let env = shell_environment(&serde_json::Map::new(), &win, "win32", "C:\\Users\\person");
+        let env = envelope(&serde_json::Map::new(), &win, "win32", "C:\\Users\\person");
         assert!(!env.keys().any(|k| k.eq_ignore_ascii_case("CLAUDE_CODE_CHILD_SESSION")), "case-insensitive on Windows");
     }
 
@@ -292,7 +316,7 @@ mod tests {
     fn an_explicit_override_and_a_delete_behave() {
         let inherited = map(json!({ "PATH": "/usr/bin:/bin", "FOO": "x" }));
         let overrides = map(json!({ "NO_COLOR": "1", "FOO": serde_json::Value::Null }));
-        let env = shell_environment(&overrides, &inherited, "darwin", "/home/person");
+        let env = envelope(&overrides, &inherited, "darwin", "/home/person");
         assert_eq!(env["NO_COLOR"], "1", "an explicit override survives the scrub");
         assert!(!env.contains_key("FOO"), "a null deletes, the mechanism the cleared set rides on");
     }
@@ -300,7 +324,7 @@ mod tests {
     #[test]
     fn win32_keys_and_paths_follow_the_js_rules() {
         let inherited = map(json!({ "Path": "C:\\Windows;C:\\tools;C:\\TOOLS", "no_color": "1" }));
-        let env = shell_environment(&serde_json::Map::new(), &inherited, "win32", "C:\\Users\\person");
+        let env = envelope(&serde_json::Map::new(), &inherited, "win32", "C:\\Users\\person");
         assert!(!env.contains_key("NO_COLOR"));
         assert_eq!(env["Path"], "C:\\Windows;C:\\tools;C:\\Users\\person\\.local\\bin;C:\\Users\\person\\.n\\bin;C:\\Users\\person\\.opencode\\bin;C:\\Users\\person\\.cargo\\bin",
             "deduped case-insensitively, augmented, semicolon-joined");

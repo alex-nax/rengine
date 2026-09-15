@@ -6,6 +6,9 @@ description = "Red as a Claude Code IDE (F161, spec 102, spec 133): the lock the
 
 [dependencies]
 red-core = { path = "../red-core" }
+# The editor protocol this crate implements is ONE CLI's, and which one is a declaration: the
+# binary reads the recipe and hands `lock::Protocol` in, so the library names no CLI (F220).
+red-agents = { path = "../red-agents" }
 serde_json = { version = "1", features = ["preserve_order"] }
 getrandom = "0.3"
 # The socket. Both already linked by red-host, so no new registry decision: the bridge is an async

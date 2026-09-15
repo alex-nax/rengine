@@ -16,6 +16,29 @@ pub const RETAKE_TIMEOUT_MS: u64 = 20_000;
 /// `path.join` on posix: segments joined, `.` and `..` resolved, slashes collapsed, no trailing
 /// slash — and `path.join('', 'ide')` is the relative `ide`, which the JavaScript answered when
 /// `CLAUDE_CONFIG_DIR` was set to nothing.
+/// One CLI's editor protocol, as its recipe declares it. This crate implements the protocol and
+/// knows no CLI by name: where it looks for a published editor, the variable that moves that
+/// directory, and the header it presents the lock's token in are all the recipe's to say
+/// (F220, spec 141).
+#[derive(Clone, Debug)]
+pub struct Protocol {
+    pub config_var: String,
+    pub config_directory: String,
+    pub auth_header: String,
+}
+
+impl Protocol {
+    /// From the `ide` block of a recipe's view, as `red_agents::view` projects it.
+    pub fn declared(ide: &Value) -> Option<Protocol> {
+        let text = |key: &str| ide.get(key).and_then(Value::as_str).map(str::to_string);
+        Some(Protocol {
+            config_var: text("configVar")?,
+            config_directory: text("configDirectory")?,
+            auth_header: text("authHeader")?,
+        })
+    }
+}
+
 pub fn posix_join(base: &str, leaf: &str) -> String {
     let joined = if base.is_empty() { leaf.to_string() } else if leaf.is_empty() { base.to_string() } else { format!("{base}/{leaf}") };
     posix_normalize(&joined)
@@ -60,16 +83,20 @@ pub fn posix_resolve(path: &str, cwd: &str) -> String {
     }
 }
 
-/// The lock directory: rEngine's own override first, then the CLI's, moved by `CLAUDE_CONFIG_DIR`
-/// as Anthropic documents (KI-071, F113). `env` is passed in rather than read here, because the
-/// one-shot answers about an environment a caller composes.
-pub fn directory(env: &dyn Fn(&str) -> Option<String>) -> String {
+/// Where a published editor is announced: rEngine's own override first, then the CLI's own
+/// directory, which its own variable may move (KI-071, F113).
+///
+/// `env` is passed in rather than read here, because the one-shot answers about an environment a
+/// caller composes — and `protocol` for the same reason (F220, spec 141): this crate implements ONE
+/// CLI's editor protocol and is handed its spellings, so a CLI that moves its config directory
+/// changes a recipe rather than this file.
+pub fn directory(env: &dyn Fn(&str) -> Option<String>, protocol: &Protocol) -> String {
     if let Some(explicit) = env("RENGINE_IDE_DIRECTORY").filter(|value| !value.is_empty()) {
         return explicit;
     }
-    let config = match env("CLAUDE_CONFIG_DIR") {
+    let config = match env(&protocol.config_var) {
         Some(moved) => moved,
-        None => posix_join(&env("HOME").unwrap_or_default(), ".claude"),
+        None => posix_join(&env("HOME").unwrap_or_default(), &protocol.config_directory),
     };
     posix_join(&config, "ide")
 }
@@ -227,14 +254,31 @@ mod tests {
         assert_eq!(posix_resolve("x", "/cwd"), "/cwd/x");
     }
 
+    /* The SHIPPED declaration, so this exercises the protocol a run actually speaks. A test with its
+       own spellings would go on passing after the recipe changed one. */
+    fn declared() -> Protocol {
+        let recipes = red_agents::shipped_recipes();
+        recipes
+            .iter()
+            .find_map(|(_, raw)| Protocol::declared(red_agents::view(raw).get("ide")?))
+            .expect("a recipe declares an editor protocol")
+    }
+
     #[test]
     fn the_directory_follows_the_cli_unless_rengine_says_otherwise() {
-        let env = |pairs: &'static [(&'static str, &'static str)]| move |name: &str| pairs.iter().find(|(key, _)| *key == name).map(|(_, value)| value.to_string());
-        assert_eq!(directory(&env(&[("HOME", "/home/x")])), "/home/x/.claude/ide");
-        assert_eq!(directory(&env(&[("HOME", "/home/x"), ("CLAUDE_CONFIG_DIR", "/cfg")])), "/cfg/ide");
-        assert_eq!(directory(&env(&[("CLAUDE_CONFIG_DIR", "/cfg"), ("RENGINE_IDE_DIRECTORY", "/explicit")])), "/explicit");
-        assert_eq!(directory(&env(&[("CLAUDE_CONFIG_DIR", "")])), "ide", "set to nothing is not unset");
-        assert_eq!(directory(&env(&[("RENGINE_IDE_DIRECTORY", ""), ("CLAUDE_CONFIG_DIR", "/cfg/")])), "/cfg/ide", "an empty override is no override");
+        let protocol = declared();
+        let envs = |pairs: Vec<(String, &str)>| {
+            let owned: Vec<(String, String)> = pairs.into_iter().map(|(key, value)| (key, value.to_string())).collect();
+            move |name: &str| owned.iter().find(|(key, _)| key == name).map(|(_, value)| value.clone())
+        };
+        let moved = protocol.config_var.clone();
+        let home = || ("HOME".to_string(), "/home/x");
+        let ours = |value: &'static str| ("RENGINE_IDE_DIRECTORY".to_string(), value);
+        assert_eq!(directory(&envs(vec![home()]), &protocol), format!("/home/x/{}/ide", protocol.config_directory));
+        assert_eq!(directory(&envs(vec![home(), (moved.clone(), "/cfg")]), &protocol), "/cfg/ide");
+        assert_eq!(directory(&envs(vec![(moved.clone(), "/cfg"), ours("/explicit")]), &protocol), "/explicit");
+        assert_eq!(directory(&envs(vec![(moved.clone(), "")]), &protocol), "ide", "set to nothing is not unset");
+        assert_eq!(directory(&envs(vec![ours(""), (moved, "/cfg/")]), &protocol), "/cfg/ide", "an empty override is no override");
     }
 
     #[test]

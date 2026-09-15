@@ -434,6 +434,29 @@ fn declared_since(raw: &Value, view: &mut serde_json::Value) {
             }
         }
     }
+    /* F220: the rest of an `ide` block, which `project()` carries only the flags and env var of.
+       red-ide implements one CLI's editor protocol and is handed the spellings rather than keeping
+       them, the way it is already handed the environment it answers about. */
+    if let Some(ide) = raw.get("ide") {
+        if let Some(table) = view_ide(table) {
+            for key in ["configVar", "configDirectory", "authHeader"] {
+                if let Some(value) = ide.get(key).and_then(Value::string) {
+                    table.insert(key.to_string(), json!(value));
+                }
+            }
+        }
+    }
+    /* F220: the environment variables this CLI stamps on its children, and where it installs
+       itself. Both are things a pane's environment must know about EVERY declared CLI, not about
+       whichever one this launch is — so they are read as a union, and each is one recipe's to say. */
+    for key in ["identity", "install"] {
+        if let Some(block) = raw.get(key) {
+            table.insert(key.to_string(), json!({
+                "vars": strings_or_null(block.get("vars")),
+                "path": block.get("path").and_then(Value::string),
+            }));
+        }
+    }
     /* F216: what this CLI can be handed — a paused conversation by manifest — and what "ready to
        resume" means for it. */
     if let Some(handoff) = raw.get("conversation").and_then(|talk| talk.get("handoff")) {
@@ -450,6 +473,40 @@ fn declared_since(raw: &Value, view: &mut serde_json::Value) {
             hooks.insert("flag".to_string(), json!(flag));
         }
     }
+}
+
+fn view_ide(table: &mut serde_json::Map<String, serde_json::Value>) -> Option<&mut serde_json::Map<String, serde_json::Value>> {
+    table.get_mut("ide").and_then(serde_json::Value::as_object_mut)
+}
+
+/// The shipped registry as it sits beside the running binary, plus an extra document when a caller
+/// names one. The crates that need what EVERY CLI declares — the store's id shapes, the project's
+/// roster and command environment, the editor bridge's protocol — all asked this question, and
+/// three copies of the answer is two too many (F220, spec 141).
+///
+/// Empty when no document can be read, which is an honest "nothing is declared here" rather than a
+/// guess at what is.
+pub fn shipped_recipes() -> Vec<(String, Value)> {
+    let path = std::env::var("RENGINE_AGENT_REGISTRY").ok().filter(|path| !path.is_empty()).unwrap_or_else(|| {
+        /* Walking UP to the document rather than counting directories down from the binary: a test
+           binary lives one level deeper (`target/debug/deps`), and a fixed depth finds nothing
+           there — which would answer a short roster that looked like a real one. */
+        std::env::current_exe()
+            .ok()
+            .and_then(|exe| {
+                exe.ancestors()
+                    .map(|directory| directory.join("orchestrator/agents/registry.toml"))
+                    .find(|candidate| candidate.is_file())
+            })
+            .map(|path| path.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    });
+    let Ok(text) = std::fs::read_to_string(&path) else { return Vec::new() };
+    let extra = std::env::var("RENGINE_AGENT_REGISTRY_EXTRA")
+        .ok()
+        .filter(|path| !path.is_empty())
+        .and_then(|path| std::fs::read_to_string(&path).ok().map(|text| (text, path)));
+    load_registry(&text, &path, extra.as_ref().map(|(text, path)| (text.as_str(), path.as_str()))).unwrap_or_default()
 }
 
 /// A recipe's whole view as this crate reads it: the frozen projection with `declared_since`

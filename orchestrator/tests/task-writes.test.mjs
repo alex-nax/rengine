@@ -14,7 +14,7 @@ import { agentLaunch } from '../agents/agents-client.mjs';
 import { readDeclaration } from '../server/formats.mjs';
 import { CONTRACTS } from './contract.mjs';
 import { validateSchema } from '../server/store-client.mjs';
-import { agentsMenu, codexModels, modelArgs, promptFor, promptValues, writeDocument } from '../server/tasks.mjs';
+import { agentsMenu, helpModels, modelArgs, promptFor, promptValues, writeDocument } from '../server/tasks.mjs';
 import { declaration } from './format-fixtures.mjs';
 import { api, fakeDesktop, feedSocket, identity, ok, until } from './token-fixtures.mjs';
 import { fakeCli, features, taskDeclaration, taskProject, writeLog } from './task-fixtures.mjs';
@@ -362,8 +362,8 @@ test('the agent menu is the declaration’s when it has one and rEngine’s know
   assert.equal(declared.declared, true);
   assert.deepEqual(declared.agents, [{ cli: 'claude', installed: false, models: ['claude-opus-5'], default: 'claude-opus-5' }]);
 
-  assert.deepEqual(await codexModels('nothing here mentions a model'), []);
-  assert.deepEqual(await codexModels('  --profile <P>  [possible values: a, b]\n'), [], 'a possible-values list belonging to another flag is not a model list');
+  assert.deepEqual(await helpModels('nothing here mentions a model'), []);
+  assert.deepEqual(await helpModels('  --profile <P>  [possible values: a, b]\n'), [], 'a possible-values list belonging to another flag is not a model list');
   assert.deepEqual(modelArgs('claude', 'claude-opus-5'), ['--model', 'claude-opus-5']);
   assert.deepEqual(modelArgs('codex', 'gpt-5'), ['-m', 'gpt-5']);
   assert.deepEqual(modelArgs('kimi', 'kimi-code/kimi-for-coding'), ['-m', 'kimi-code/kimi-for-coding'], 'kimi spells its model flag -m');
