@@ -1,4 +1,6 @@
 #include "app.h"
+#include "dock_icon.h"
+#include "svg.h"
 #include "ui/ui.h"
 #include "automation.h"
 #include "render/font.h"   /* re_font_error: the reason a draw open failed, now that draw.c does not set SDL's */
@@ -83,6 +85,7 @@ int main(int argc, char **argv) {
   Uint32 automation_event = (automation || control) ? re_automation_start() : 0;
   bool running = true, closing = false, reload = false; int frames = 0, result = 0; cJSON *capture = NULL;
   char window_title[128] = RE_DEFAULT_TITLE;
+  char dock_icon[1024] = {0};   /* the mark file already handed to the platform (spec 136) */
   SDL_StartTextInput();
   while (running) {
     SDL_Event event; bool redraw = false;
@@ -127,6 +130,24 @@ int main(int argc, char **argv) {
       else if (suffix && *suffix) snprintf(title, sizeof(title), "%s — %s", window_title, suffix);
       else snprintf(title, sizeof(title), "%s", window_title);
       SDL_SetWindowTitle(window, title);
+    }
+    /* The Dock tile follows the title's rule, for the title's reason: the declaration arrives after
+     * the window exists, so the mark a project declares reaches the platform when it is known
+     * rather than at startup, and only when it CHANGES — rasterising an SVG every frame to hand the
+     * Dock a tile it already has would be a per-frame allocation for no pixels (spec 136). */
+    { const char *image = re_app_mark_image(app);
+      if (image && strcmp(dock_icon, image)) {
+        ReSvgImage art;
+        if (re_svg_rasterize(image, RE_DOCK_ICON_EDGE, RE_DOCK_ICON_EDGE, &art)) {
+          if (re_dock_icon_set(art.rgba, art.width, art.height)) re_copy(dock_icon, sizeof(dock_icon), image);
+          re_svg_free(&art);
+        } else {
+          /* Remembered as attempted either way, so an unreadable file is not retried every frame.
+           * The chrome already falls back to the glyph (spec 104 decision 7); the Dock keeps
+           * whatever tile the process had. */
+          re_copy(dock_icon, sizeof(dock_icon), image);
+        }
+      }
     }
     if (app->reload_requested) { app->reload_requested = false; closing = reload = true; }
     if (!redraw && !re_ui_animating() && frames && !smoke && !closing) continue; /* transitions ask for their own frames */

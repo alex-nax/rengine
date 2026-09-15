@@ -252,6 +252,16 @@ if(NOT MSVC)
   target_link_libraries(rengine_desktop_core PUBLIC m)
 endif()
 target_link_libraries(rengine_desktop_core PUBLIC ${CMAKE_DL_LIBS}) # plugin.c: the one dlopen/LoadLibrary wrapper (spec 106)
+# The Dock tile is AppKit's, so its implementation is Objective-C and only on Apple; every other
+# platform compiles the stub beside it, which reports no tile rather than claiming one (spec 136).
+if(APPLE)
+  enable_language(OBJC)
+  target_sources(rengine_desktop_core PRIVATE "orchestrator/native/dock_icon.m")
+  set_source_files_properties("orchestrator/native/dock_icon.m" PROPERTIES COMPILE_OPTIONS "-fno-objc-arc")
+  target_link_libraries(rengine_desktop_core PUBLIC "-framework AppKit")
+else()
+  target_sources(rengine_desktop_core PRIVATE "orchestrator/native/dock_icon.c")
+endif()
 """
 
 [target.rengine]

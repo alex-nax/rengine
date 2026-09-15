@@ -5,8 +5,8 @@
       "id": "opt-in-native-acceptance",
       "kind": "rationale",
       "anchor": {
-        "start": 16,
-        "end": 16,
+        "start": 17,
+        "end": 17,
         "snippet": "Uint32 re_automation_start(void) {"
       },
       "note": "Only explicit test-mode startup creates the stdin reader. Commands enqueue ordinary SDL key/mouse/text/focus events and expose read-only state/rendered snapshots. Pointer commands can set modifier state and wheel commands carry signed precise deltas plus inversion metadata to exercise production mouse reporting. It does not start a network listener or replace real file/session/game operations with fixtures. Tests clean their owned process; this remains separate from the agent desktop-action protocol. One command has a side effect beyond input: plugin (spec 106) loads a module into this window through re_app_plugin_load with the same three inputs the declaring lane will pass, so a real module is exercised in a real window before the declaration format exists; it is still only reachable through this opt-in channel. fileLinkCursor compares SDL_GetCursor with the real desktop-owned hand cursor, so a missing SDL_SetCursor call cannot pass by merely setting a desired-state flag. Input commands enqueue events; cursor checks wait for the subsequent rendered frame.",
@@ -22,8 +22,8 @@
       "id": "text-runs-carry-their-clip",
       "kind": "rationale",
       "anchor": {
-        "start": 81,
-        "end": 112,
+        "start": 89,
+        "end": 120,
         "symbol": "re_automation_command",
         "snippet": "  if (!strcmp(op, \"text-runs\")) {"
       },
@@ -37,7 +37,7 @@
   ],
   "source": {
     "path": "orchestrator/native/automation.c",
-    "sha256": "1d84daa69ef65904cb0c516f84714708416b59ccdb2d8061110da14bd6db2316",
+    "sha256": "a32c85d9d2744bf4c8d24f23025f2994bd758ab93854d8f5a2cb30a114f1dfed",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

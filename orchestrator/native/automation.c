@@ -1,4 +1,5 @@
 #include "automation.h"
+#include "dock_icon.h"
 #include "pluginview.h"
 #include "scene.h"
 #include "editor.h"
@@ -33,6 +34,13 @@ void re_automation_command(ReApp *app, SDL_Window *window, const cJSON *j) {
      * source rather than assuming they agree (spec 084 decision 4). */
     if (window) cJSON_AddStringToObject(state, "windowTitle", SDL_GetWindowTitle(window));
     cJSON_AddBoolToObject(state, "fileLinkCursor", app->file_link_cursor && SDL_GetCursor() == app->file_link_cursor);
+    /* The Dock tile as the OPERATING SYSTEM reports it, beside the window title that already
+       follows this rule (spec 084 decision 4): the pixels the platform holds, not the ones we
+       believe we sent. A tile we never set still answers — with whatever the process defaulted
+       to — which is exactly why the size is what a check compares (spec 136). */
+    { int dock_w = 0, dock_h = 0; re_dock_icon_size(&dock_w, &dock_h);
+      cJSON *dock = cJSON_AddObjectToObject(state, "dockIcon");
+      cJSON_AddNumberToObject(dock, "width", dock_w); cJSON_AddNumberToObject(dock, "height", dock_h); }
     re_automation_reply(id, state); return;
   }
   if (!strcmp(op, "stats")) {

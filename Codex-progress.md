@@ -1,3 +1,73 @@
+## Session 153 (macos) — 2026-09-15 — three workspaces onto current rEngine, and the mark on the Dock
+
+### The stale service binary, which is the finding
+
+`~/nolf-improved` would not start after its submodule moved 85 commits. `editor.sh` built
+everything, then died at `ensureSidecar`, and behind that `red-store-serve did not write store.json
+within 15s` with an **empty** `store-serve.log`.
+
+Two explanations were checked and both were wrong — the version jump, and machine load. The cause
+is that `service-client.mjs` resolves a service binary from `red/target/{debug,release}` while
+`editor.sh` and the cmake build refresh `.cache/desktop/`. The launcher kept spawning a
+`red-store-serve` two days older than the update; the freshly built one sat unused. `cargo build
+--manifest-path red/Cargo.toml --bins` in the checkout fixed it. **KI-112**, which also asks that
+the timeout name the binary it spawned and notice an immediate exit rather than always waiting the
+full 15 s — a service that died at once and one that is slow are reported identically today.
+
+This checkout has the same gap and is merely lucky: `npm test`'s `pretest` keeps `red/target/debug`
+warm, so it drifts only between a commit and the next test run.
+
+One of the failed attempts was self-inflicted: a `red-store-serve` started by hand to test, then
+killed, left a `store.json` naming a dead pid, and the launcher waits for a descriptor that never
+goes live. Stale descriptors are not handled on that path.
+
+### Three workspaces, and the orphans nobody was counting
+
+Every workspace had **supervisors nobody was counting**: nolf-improved three (2026-09-06,
+2026-09-10, live), vtmb-vr three (09-06, 09-07 with a week-old desktop window still open, live),
+and this checkout two more from 09-07. All reparented to init, all childless. Cleared.
+
+- **nolf-improved** pinned `868a70f` → `dca1360`; editor up.
+- **vtmb-vr** pinned `00ea7bed` → `dca1360` — 176 commits, a pin from 2026-09-07 — with `iklib`
+  cloned at `620bff1`; editor up.
+- **kohai** (`~/hirebase-v2.command`) runs this checkout directly rather than a submodule, so it
+  takes new code on launch. Its launcher had a latent bug: `#!/bin/bash` is 3.2 on macOS, where
+  `"${agent_flags[@]}"` on an EMPTY array under `set -u` is an unbound-variable error — reachable
+  only by passing `--agent` or `--handoff`, which is why double-clicking never showed it. Fixed with
+  `${agent_flags[@]+"${agent_flags[@]}"}` and proved both ways under `set -u` before relaunching.
+
+vtmb-vr also received the ankh it should always have had and the accent hue to match: `accent-hue`
+alone, because every accent colour is `oklch(L C var(--re-accent-hue))` and moving the hue re-tints
+the family with its contrast relationships intact. Hand-picking the colours is how a palette drifts
+apart a token at a time. An in-root declaration resolves artwork against the REPOSITORY ROOT, not
+beside itself — only an external declaration does that — which the real reader caught before it
+shipped.
+
+### F193: the mark reaches the operating system
+
+The Dock tile is the one place the declared mark was not. `SDL_SetWindowIcon` is the obvious answer
+and the wrong one: on macOS it sets the window's icon and leaves the tile alone. The tile is
+`NSApplication`'s `applicationIconImage`, so this is a platform seam — one Objective-C file on Apple
+only, following the Metal seam's existing `enable_language(OBJC)` and `-fno-objc-arc` so the build
+keeps one retain/release rule, with a stub elsewhere that reports **no** tile rather than claiming
+one.
+
+The check asks the operating system rather than the call — spec 084 decision 4 one layer out — and
+reads the representation's PIXELS, because the point size is what the caller asked to draw at and
+two bitmaps can share it. The fixture mark is 17.335 x 17.5537, so the tile is 506 x 512: asserting
+a square would be asserting the tile is stretched, and my first assertion did exactly that. The
+sabotage (removing `setApplicationIconImage:`) also proved the negative test is not vacuous — with
+no tile set the platform reports a real 256 x 256, so the two assertions separate two real values.
+
+Spec 136; F193 depends on F106 rather than editing it, because F106's criteria are accepted.
+
+Verification: `npm test` 353/353, `ctest` 20/20, `native-identity` 7/7, `native-render` 1/1 with
+**0 differing pixels** across all nine scene comparisons and all 27 per-primitive regions,
+`./init.sh` and the design gate pass. One unrelated intermittent `write EPIPE` in
+`recordings.test.mjs` appears with this work stashed as well, and the file passes 5/5 three times
+alone — recorded, not attributed here. Another session is active in this checkout; its
+`sessions-client.mjs`, `environment.test.mjs`, spec 096 and KI-113 edits were left untouched.
+
 # Progress Log
 
 ## Session 153 (macos) — 2026-09-15 — a pane is nobody's child session (KI-113)

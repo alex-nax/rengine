@@ -335,6 +335,14 @@ flowchart TD
   F189["F189: blocked"]
   F188 --> F189
   F150 --> F189
+  F190["F190: blocked"]
+  F155 --> F190
+  F191["F191: blocked"]
+  F190 --> F191
+  F192["F192: blocked"]
+  F190 --> F192
+  F193["F193: passing"]
+  F106 --> F193
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -480,3 +488,7 @@ flowchart TD
 | F187 | J0 | rengine | passing | F150b2 (the cutover half of F185): the workspace launches red-mcp instead of the node tool worker, agents/mcp-worker.mjs and runtime/tools.mjs are deleted, and the layered-update contract answers what updating a connector layer means once that layer is a compiled binary (owner, 2026-09-13; spec 129/065, KI-100). |
 | F188 | J0 | rengine | passing | F152a (the door half of F152): red-host owns the port and forwards what it does not own yet to a JS backend beside it — the shape the root-bound worker already runs one layer up — so the host can be ported a route at a time rather than all at once (owner, 2026-09-13; spec 129, KI-101). |
 | F189 | J0 | rengine | blocked | F152b (the cutover half of F152): the routes red-host owns move into it, the native desktop connects unchanged, the focus-eviction semantic is preserved verbatim, and server/main.mjs, desktops.mjs, surfaces.mjs and surface-protocol.mjs are deleted (owner, 2026-09-13; spec 129, KI-101). |
+| F190 | O1 | rengine | blocked | A repository's git worktrees are visible as a set: red-project discovers every worktree of a root's repository with its branch, whether its tree is clean, and whether its branch is merged into its base — the survey that decides whether one may be removed (spec 134 D1/D2; charter D20). |
+| F191 | O1 | rengine | blocked | Creating and removing a worktree from the workspace: the destination is the project's declared `worktrees` directory at contract 11, an undeclared project is asked and offered the declaration (charter D63), and removal is refused by name unless the worktree is clean and merged (spec 134 D1/D5/D6). |
+| F192 | O1 | rengine | blocked | The Projects modal replaces the toolbar's project switcher and path field: repositories group their worktree roots, the status bar names the current project and opens the modal, and the Agent control becomes the dropdown design has specified since spec 064 (spec 134 D3/D4/D7). |
+| F193 | O1 | rengine | passing | A project's declared mark is the application's tile on the operating system, not only inside the chrome: macOS draws the Dock tile from the same icon.image spec 104 resolves, rasterised, and a declaration that names only a glyph leaves the tile as the process found it. |

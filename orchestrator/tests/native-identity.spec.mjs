@@ -172,3 +172,52 @@ test('artwork that cannot be read leaves the glyph and reports the problem', { t
     await gui.close(); await server.close(); await rm(dir, { recursive: true, force: true });
   }
 });
+
+/* Spec 136: the declared mark reaches the OPERATING SYSTEM, not only the chrome. macOS draws the
+ * Dock tile from NSApplication's applicationIconImage, which SDL_SetWindowIcon does not touch, so
+ * this asserts the pixels the platform holds — read back from it — rather than that a call was
+ * made. The two roots differ in one thing: whether the declaration names artwork.
+ */
+const DOCK = { skip: process.platform !== 'darwin' ? 'the Dock tile is a macOS concept' : false, timeout: 90000 };
+
+test('a declared image becomes the Dock tile, and a glyph-only declaration leaves it alone', DOCK, async () => {
+  const dir = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-identity-dock-')));
+  const root = await branded(path.join(dir, 'kohai'), BRAND);
+  const server = await startServer({ stateDir: path.join(dir, 'state') });
+  const added = await server.store.addRoot(root);
+  const gui = await nativeClient(server, { root: added.id });
+  try {
+    await gui.until(s => s.connected && s.markImage === path.join(root, 'brand/mark.svg'),
+      'the declared artwork resolved');
+    /* RE_DOCK_ICON_EDGE on the LONG edge, in the representation's PIXELS. Not a square: the
+       rasteriser fits artwork uniformly and returns the fitted size, so this fixture's 17.335 x
+       17.5537 mark becomes 506 x 512 and keeps its own aspect. Asserting a square would be
+       asserting that the tile is stretched. Pixels rather than points, because the image is sized
+       in points at half this and only the pixels say what was handed over. */
+    const worn = await gui.until(s => Math.max(s.dockIcon?.width ?? 0, s.dockIcon?.height ?? 0) === 512,
+      'the platform took the tile');
+    const { width, height } = worn.dockIcon;
+    assert.equal(Math.max(width, height), 512, `the long edge is the tile edge: ${JSON.stringify(worn.dockIcon)}`);
+    const declared = 17.335 / 17.5537;
+    assert.ok(Math.abs(width / height - declared) < 0.01,
+      `and the artwork's aspect survived: ${width}x${height} against ${declared.toFixed(4)}`);
+  } finally { await gui.close(); await server.close(); await rm(dir, { recursive: true, force: true }); }
+});
+
+test('a declaration with no artwork leaves the Dock tile as the process found it', DOCK, async () => {
+  const dir = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-identity-dock-glyph-')));
+  /* Same fixture, one difference: a glyph instead of an image, and no files written. If the tile
+     were set from anything but declared artwork, this would wear it too — which is the only way
+     to know the assertion above is about the declaration and not about starting a window. */
+  const root = await branded(path.join(dir, 'kohai'), { ...BRAND, icon: { glyph: 'Ko', token: 'err' }, wordmark: undefined }, []);
+  const server = await startServer({ stateDir: path.join(dir, 'state') });
+  const added = await server.store.addRoot(root);
+  const gui = await nativeClient(server, { root: added.id });
+  try {
+    const state = await gui.until(s => s.connected && s.mark === 'Ko', 'the glyph declaration reached the chrome');
+    assert.equal(state.markImage, undefined, 'and it names no artwork');
+    /* Whatever the process defaulted to, it is not a 512-edge rasterisation of anything declared. */
+    assert.notEqual(Math.max(state.dockIcon?.width ?? 0, state.dockIcon?.height ?? 0), 512,
+      `no declared artwork, so no rasterised tile: ${JSON.stringify(state.dockIcon)}`);
+  } finally { await gui.close(); await server.close(); await rm(dir, { recursive: true, force: true }); }
+});
