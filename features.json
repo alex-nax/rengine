@@ -3731,6 +3731,268 @@
       "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
+    },
+    {
+      "id": 198,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "An ACP recipe a project declares (spec 138): the agent-recipe grammar gains an acp capability, contract 6 admits a model-less ACP entry, and kohai-acp proves it from Kohai's external declaration and registry-extra rather than from rEngine's own registry.",
+      "acceptance_criteria": [
+        "A registry-extra file declaring an acp recipe resolves identically through the Rust and JS clients; a recipe declaring both acp and a conversation start is refused by name.",
+        "An agents entry naming an acp recipe validates without models/default; the same entry for a non-ACP cli is refused with the existing message.",
+        "The agents menu lists the declared ACP agent for that root, and a root whose recipe file is missing lists it as declared-but-missing rather than launchable.",
+        "rEngine's own registry contains no string naming another project's product, asserted by a test.",
+        "Each rule observed failing for its own reason before it passes."
+      ],
+      "passes": false,
+      "dependencies": [
+        114
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 199,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "The Agent tab: one native C view of an ACP session for every ACP agent - transcript, composer, approve/deny where the agent asks permission, plan entries carrying links as buttons, tool calls in plain words, and an ended-here-continues-there state for a session the agent cannot load back. Held to D67's consumer-side standard.",
+      "acceptance_criteria": [
+        "A fixture ACP agent's transcript appears in the tab with no PTY, and the automation snapshot shows the composer and its send control.",
+        "A permission request renders exactly two controls and pressing deny reaches the agent as denied.",
+        "A plan entry carrying an https link renders as a button and the automation channel reports the URL that would open; a non-http link is not a button.",
+        "Closing the tab detaches; the session remains listed and reopening shows the same transcript.",
+        "A session whose agent cannot load it back is shown ended by name after a service replacement, with its transcript still readable.",
+        "No string drawn in the tab contains MCP, ACP or JSON-RPC (snapshot text assertion)."
+      ],
+      "passes": false,
+      "dependencies": [
+        114
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 200,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "low",
+      "description": "Declared extra MCP servers offered to an ACP agent (charter D70): a project lists them, the workspace passes them at session/new beside its own and names them in the tab, and an agent that does not advertise matching capabilities has them reported as not taken rather than dropped silently. Consumption by another project's bridge is an external prerequisite, referenced and never asserted.",
+      "acceptance_criteria": [
+        "A declared stdio server appears in a fixture agent's session/new with the workspace's own entry first.",
+        "A declared server whose executable is absent is refused by name in the tab and omitted from session/new.",
+        "An agent advertising no matching MCP capability receives only what it can take, and the tab says which were withheld.",
+        "What kohai-acp as installed actually takes is recorded as measured fact with its version, not asserted."
+      ],
+      "passes": false,
+      "dependencies": [
+        198
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 201,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "re_model: the C engine library over pinned llama.cpp (release archive plus SHA-256 at first configure, no shared libs, no server or example binaries, Metal on macOS) behind a C ABI - open a declared model, attach declared adapters, run one turn with a grammar, stream, cancel, report identity and counters (charter D68, spec 139).",
+      "acceptance_criteria": [
+        "Configure fetches nothing when the archive is present and refuses by name on a digest mismatch, observed by flipping one hex digit.",
+        "A CTest against a digest-pinned tiny fixture model produces identical tokens at temperature 0 across two runs; with the fixture absent the test is SKIPPED and the harness names the prerequisite, never green.",
+        "Cancel returns within one token of the request.",
+        "A model file whose digest differs from its declaration is refused before load, observed by corrupting one byte.",
+        "Load time, resident delta and tokens per second are recorded in an evidence document before any claim is made.",
+        "No server or example binary from the vendored engine is built."
+      ],
+      "passes": false,
+      "dependencies": [
+        133
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 202,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "Models and adapters declared per machine in the workspace state directory by path and digest, with a guided action that verifies them and never downloads, shown and confirmed before it writes (D63 pattern).",
+      "acceptance_criteria": [
+        "A declared file whose digest does not match is listed as not the model it claims to be, and the engine refuses to open it.",
+        "The action shows every file it would check and writes only on confirmation; a refusal leaves the state directory byte-identical.",
+        "No network access occurs during the action, asserted rather than assumed.",
+        "No home-relative default path appears in the source: a path is the person's explicit choice."
+      ],
+      "passes": false,
+      "dependencies": [
+        201
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 203,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "red-model: the Rust per-state-directory service importing re_model over FFI - the first Rust-imports-C in the cargo workspace - serving open, turn and cancel, and surviving host replacement with its model loaded.",
+      "acceptance_criteria": [
+        "The service writes its descriptor, accepts attach with the token, and answers a turn with the same tokens the C test produced.",
+        "It survives a host replacement with its model loaded.",
+        "A fault in the engine ends the service rather than the desktop, and the workspace reports it by name.",
+        "The link is proven through the project's CMake entry point rather than a hand-run cargo build.",
+        "The service names the binary it spawned and its mtime when it fails to start (KI-112's lesson applied)."
+      ],
+      "passes": false,
+      "dependencies": [
+        201
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 204,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "The local agent as an ACP agent through F114: the C turn loop with a host-supplied tool vtable, tools reached through one route on red-host with red-mcp linked as a library and the agent's identity explicit, so the project token gates the agent rather than exempting it as the person at the desktop.",
+      "acceptance_criteria": [
+        "The tool list the model sees is byte-identical to the captured tool manifest.",
+        "A tool call without the token is refused exactly as the MCP server refuses it, and a request carrying no agent identity is refused rather than treated as the desktop.",
+        "A turn appears in the Agent tab and in the session list with its conversation, and closing the window does not end it.",
+        "A permission request reaches the person and the answer reaches the loop.",
+        "Removing the identity check is observed letting an agent write while another holds the token."
+      ],
+      "passes": false,
+      "dependencies": [
+        114,
+        199,
+        202,
+        203
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 205,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "low",
+      "description": "Delegation: the local agent files a task and spawns a chosen CLI agent on it through the existing task and spawn tools, watches the feed and the task row, and reports the outcome. It never types into a pane. Policy lives in a project prompt file with a shipped default.",
+      "acceptance_criteria": [
+        "A delegated task appears in the project's own inventory through its declared write command, and a pane starts on it with the conversation's task set.",
+        "Without the token the delegation is refused by name and no pane starts.",
+        "The report cites the task key and the pane's conversation id; an unfinished pane is reported as running, never as done.",
+        "No input route call is made by the loop, asserted by route trace."
+      ],
+      "passes": false,
+      "dependencies": [
+        204
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 206,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "low",
+      "description": "Offload: red-model on a second machine reached through that machine's red-link, with the wire contract gaining the models a peer serves. Weights never cross the link.",
+      "acceptance_criteria": [
+        "A turn served by a red-model attached to a second state directory arrives through the facade with the same tokens as the local service produced.",
+        "One turn is served by a real second machine and the relay path is observed rather than assumed.",
+        "The local model declaration is unchanged before and after, and nothing larger than the transcript crosses the link.",
+        "Revoking the peer ends service by name."
+      ],
+      "passes": false,
+      "dependencies": [
+        203
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 207,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "low",
+      "description": "In-process: the C desktop links re_model for editor-local completion with a small declared model, measured against the desktop's recorded budgets. The agent's conversation stays host-owned.",
+      "acceptance_criteria": [
+        "Resident delta and median frame time with the model loaded are recorded before any claim and compared against the recorded ceiling, with any excess stated plainly.",
+        "Loading runs off the UI thread and no frame exceeds the budget during load.",
+        "Closing the window returns resident memory to baseline."
+      ],
+      "passes": false,
+      "dependencies": [
+        201,
+        202
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 208,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "low",
+      "description": "Adapter consumption (charter D69): an adapter declared beside its base by digest, refused on mismatch, attached per turn. Blocked - not failing - until the training project's readiness gate is green, because no adapter may exist before it.",
+      "acceptance_criteria": [
+        "An adapter whose declared base differs from the loaded model's digest is refused before attach.",
+        "A turn with and without a fixture adapter differs at temperature 0.",
+        "No code path in this repository writes a training example or dataset, asserted by search and route trace.",
+        "The row is recorded as blocked on the training project's gate rather than as failing, and says which gate."
+      ],
+      "passes": false,
+      "dependencies": [
+        201,
+        202
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 209,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "low",
+      "description": "The engine as a pack candidate: a pack manifest with a library facet and a measured quality record, consumable from outside the tree. Adoption and the approved claim remain a game's sign-off (D24, D44b, D45) and are not claimed here.",
+      "acceptance_criteria": [
+        "An out-of-tree consumer builds and links the engine from the declared path and target with no other target from this tree.",
+        "The quality record carries measured load, resident and throughput figures for the fixture model.",
+        "No manifest or document in this repository claims powered-by for it, asserted by the existing guard."
+      ],
+      "passes": false,
+      "dependencies": [
+        201
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }

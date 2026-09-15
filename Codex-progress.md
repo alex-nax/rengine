@@ -1,3 +1,42 @@
+## Session 155 (macos) — 2026-09-15 — agents inside the editor: two tracks, one seam (specs 138/139, planning only)
+
+Owner asked for a plan, routed to Fable by name. **Nothing is implemented.** Specs 138 and 139,
+charter D68–D70, rows F198–F209.
+
+**Both tracks converge on one unbuilt row.** D46 already said embedding an agent is "a later,
+separate step … and ACP is the transport it would use anyway", and its row is **F114**. Kohai
+already ships `kohai-acp`, an ACP adapter over stdio. So another project's agents and our own local
+model are *two recipes of one session kind* — same tab, same service, same transcript. Spec 129 left
+F114's language open; D67 closed it.
+
+**The wall on Track A, found before it was built.** `kohai-acp`'s `session/new` takes no parameters
+and nothing in its bridge reads `mcpServers` — zero occurrences. Its agents run in Cloudflare Durable
+Objects, and **a cloud process cannot reach a laptop's loopback**. The protocol has an answer (the
+experimental `type: "acp"` MCP transport, `mcp/connect`/`mcp/message`/`mcp/disconnect`) and it is
+kohai's to implement. So F200 builds the generic half — offer declared servers, report by name what
+an agent did not take — and asserts nothing about the other side.
+
+**Track B's placement, decided on measured facts rather than preference.** The owner's answer allowed
+in-process. The desktop's ceiling is 32 MiB above the SDL baseline (spec 068 D6) and the GGUFs here
+are 1.1–5.2 GiB; sessions outlive the window by design (D18, constraint 11). So the turn runs in a
+Rust host importing the C engine over FFI, and the desktop links **the same library** only for
+small-model completion — one implementation, two hosts, which is the seam pattern this tree already
+runs. The engine opens no socket in either shape, so the D57 question answers itself: offloaded, the
+only thing crossing a machine boundary is Rust, behind red-link.
+
+**Two things the owner's stated goal could not have as written.** A dev-side agent can never be
+"powered by": D24 is on the library facet, D44b makes approval a game's adoption plus sign-off, D45
+removed the claim from manifests — so the pack is built and the claim deferred. And the LoRA has no
+trainer GO, no adapter, no base model on this machine and a different data domain; the owner's answer
+resolves it by sequence — in-game inference first with **no adapter at all**, which needs no gate,
+adapters only after `vr-port-agent-training` F30 (21/30, GO not given).
+
+Recorded rather than discovered later: **D67's "Rust imports C" is the opposite direction from spec
+128 decision 7** ("C drives; Rust serves") for the companion. Pre-existing, outside these tracks,
+needs its own settling.
+
+`features.py validate` 161 rows; `./init.sh` and the design gate pass.
+
 ## Session 154 (macos) — 2026-09-15 — memories that survive a change of machine (spec 137, interview only)
 
 Owner: *"project memories of agents, they seem to be non-transferrable so if I will start in another

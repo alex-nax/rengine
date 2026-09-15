@@ -351,6 +351,35 @@ flowchart TD
   F195 --> F196
   F197["F197: blocked"]
   F195 --> F197
+  F198["F198: blocked"]
+  F114 --> F198
+  F199["F199: blocked"]
+  F114 --> F199
+  F200["F200: blocked"]
+  F198 --> F200
+  F201["F201: ready"]
+  F133 --> F201
+  F202["F202: blocked"]
+  F201 --> F202
+  F203["F203: blocked"]
+  F201 --> F203
+  F204["F204: blocked"]
+  F114 --> F204
+  F199 --> F204
+  F202 --> F204
+  F203 --> F204
+  F205["F205: blocked"]
+  F204 --> F205
+  F206["F206: blocked"]
+  F203 --> F206
+  F207["F207: blocked"]
+  F201 --> F207
+  F202 --> F207
+  F208["F208: blocked"]
+  F201 --> F208
+  F202 --> F208
+  F209["F209: blocked"]
+  F201 --> F209
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -504,3 +533,15 @@ flowchart TD
 | F195 | O1 | rengine | blocked | The Memories tab: what each agent holds for the selected root, read through a Rust route behind red-host (charter D57). An agent with no memory store says so rather than drawing an empty list, and the tab names which store a root uses before anything is synced. |
 | F196 | O1 | rengine | blocked | Carrying memories between machines: a repo-store root writes them into its own tree where git moves them, a workspace-store root keeps them in the state directory and a second machine fetches them over red-link's facade (charter D58). Installing onto a machine is shown and confirmed and never silent (D3), and a file that differs on both sides is chosen per file (D4). |
 | F197 | O1 | rengine | blocked | kimi's memories (charter D66): rEngine defines where they live and points kimi at them through its own SessionStart hook mechanism, with every other agent a reserved empty slot. Blocked on the recorded open question - whether kimi injects a SessionStart hook's stdout into context - which is answered before implementation, not guessed. |
+| F198 | O1 | rengine | blocked | An ACP recipe a project declares (spec 138): the agent-recipe grammar gains an acp capability, contract 6 admits a model-less ACP entry, and kohai-acp proves it from Kohai's external declaration and registry-extra rather than from rEngine's own registry. |
+| F199 | O1 | rengine | blocked | The Agent tab: one native C view of an ACP session for every ACP agent - transcript, composer, approve/deny where the agent asks permission, plan entries carrying links as buttons, tool calls in plain words, and an ended-here-continues-there state for a session the agent cannot load back. Held to D67's consumer-side standard. |
+| F200 | O1 | rengine | blocked | Declared extra MCP servers offered to an ACP agent (charter D70): a project lists them, the workspace passes them at session/new beside its own and names them in the tab, and an agent that does not advertise matching capabilities has them reported as not taken rather than dropped silently. Consumption by another project's bridge is an external prerequisite, referenced and never asserted. |
+| F201 | O1 | rengine | ready | re_model: the C engine library over pinned llama.cpp (release archive plus SHA-256 at first configure, no shared libs, no server or example binaries, Metal on macOS) behind a C ABI - open a declared model, attach declared adapters, run one turn with a grammar, stream, cancel, report identity and counters (charter D68, spec 139). |
+| F202 | O1 | rengine | blocked | Models and adapters declared per machine in the workspace state directory by path and digest, with a guided action that verifies them and never downloads, shown and confirmed before it writes (D63 pattern). |
+| F203 | O1 | rengine | blocked | red-model: the Rust per-state-directory service importing re_model over FFI - the first Rust-imports-C in the cargo workspace - serving open, turn and cancel, and surviving host replacement with its model loaded. |
+| F204 | O1 | rengine | blocked | The local agent as an ACP agent through F114: the C turn loop with a host-supplied tool vtable, tools reached through one route on red-host with red-mcp linked as a library and the agent's identity explicit, so the project token gates the agent rather than exempting it as the person at the desktop. |
+| F205 | O1 | rengine | blocked | Delegation: the local agent files a task and spawns a chosen CLI agent on it through the existing task and spawn tools, watches the feed and the task row, and reports the outcome. It never types into a pane. Policy lives in a project prompt file with a shipped default. |
+| F206 | O1 | rengine | blocked | Offload: red-model on a second machine reached through that machine's red-link, with the wire contract gaining the models a peer serves. Weights never cross the link. |
+| F207 | O1 | rengine | blocked | In-process: the C desktop links re_model for editor-local completion with a small declared model, measured against the desktop's recorded budgets. The agent's conversation stays host-owned. |
+| F208 | O1 | rengine | blocked | Adapter consumption (charter D69): an adapter declared beside its base by digest, refused on mismatch, attached per turn. Blocked - not failing - until the training project's readiness gate is green, because no adapter may exist before it. |
+| F209 | O1 | rengine | blocked | The engine as a pack candidate: a pack manifest with a library facet and a measured quality record, consumable from outside the tree. Adoption and the approved claim remain a game's sign-off (D24, D44b, D45) and are not claimed here. |
