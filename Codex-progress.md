@@ -1,3 +1,50 @@
+## Session 157 (macos) — 2026-09-15 — one adapter per agent, and the antipattern that needed a guard
+
+The owner, reading F210 as it landed:
+
+> *"we combine all codex_, claude_ and other methods in one file conversations.rs — that STRONGLY
+> CONTRADICTS the design decision for agent abstractions, each agent should be described in its own
+> adapter"*
+
+Correct, and worse than a style slip: **the spec written in the same session said "one adapter per
+CLI" (spec 140 decision 2), and the code violated it anyway.** Split into
+`conversations/{claude,codex,kimi}.rs` over a `mod.rs` that owns the return shapes, the helpers and
+the roster and knows nothing about any CLI's insides. codex's scan-window constants went with codex.
+42/42 still pass — the split moved code rather than rewrote it.
+
+The owner's next point is the one that matters: *"given that you wrote this code — signals that in
+other places we do not use proper abstractions."* A search found the same shape in five production
+places, none of them new:
+
+- `red-agents/src/parsers.rs` — `claude_flags`, `kimi_flags`, `codex_resume` and `kimi_id_shape` in
+  one file, with a match arm per agent dispatching to them.
+- `red-agents/src/bind.rs` — `if agent == "kimi"` deciding where MCP wiring goes.
+- `red-agents/src/launch.rs` — a kimi-named key in a shared plan.
+- `red-store` — `IdShape::KimiSession`, so the component that PERSISTS conversations knows one CLI's
+  id format.
+- `red-host` — `panes.rs` refusing a resume path unless the agent is literally codex, and
+  `handoff.rs` spawning with `--agent codex` hard-coded.
+
+Every one of them is an identity check standing in for a capability. Filed as **F213–F216**, each
+moving the difference into the recipe so shared code asks what a CLI can do rather than who it is.
+
+**F217 is the important row.** The specs that this violated already existed and did not prevent it;
+a rule a reader has to enforce is a rule that gets broken by the next writer, and in this case the
+next writer had just written the rule. `design.py check` fails the build on a hand-written product
+name — there is no equivalent for an agent name in shared code. F217 is that guard, and it is filed
+high.
+
+Recorded as an antipattern in the new `docs/lessons-learned.md`, with what it cost and how to tell
+you are doing it, and bound in `AGENTS.md` so it is read before the next adapter is written.
+
+Also in this session: the conversation rows expand to show the first and last thing said, the way a
+task row opens — one open at a time, collapsed by default, and a store with no message text says so
+rather than drawing an empty block. And a real bug the fixture caught: the row age read
+"20687 days ago" because `re_number` returns `int` and a millisecond timestamp is far past INT_MAX,
+so the truncation landed near the epoch.
+
+`red-project` 42/42, native-sessions 4/4, `./init.sh` and the design gate pass.
+
 ## Session 156 (macos) — 2026-09-15 — the conversations a CLI already has (F210, F211)
 
 The owner: *"if I'm in claude and write /resume - I see the list of conversations. Can we expose it

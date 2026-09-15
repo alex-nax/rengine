@@ -185,7 +185,27 @@ test('the Sessions tab lists conversations the CLI holds that rEngine never mint
     assert.ok(text.includes('Work begun outside the editor'),
       `the row wears the transcript's own title: ${text.slice(0, 400)}`);
 
-    /* Nothing under the store was written by listing it. */
+    /* Collapsed by default: the excerpt is not on screen until the row is opened. */
+    assert.ok(!text.includes('the thing I asked in a terminal'),
+      'a collapsed row shows no message text');
+
+    /* Opening the row shows what was said first and last, the way a task row opens. */
+    await gui.control('conversation-open', ONLY_ON_DISK, -1);
+    const opened = await gui.until(s => (s.controls ?? []).some(c => c.role === 'conversation-excerpt' && c.key === ONLY_ON_DISK),
+      'the row expands');
+    const inside = (await gui.command({ op: 'text-runs' })).map(r => r.text).join(' ');
+    assert.ok(inside.includes('the thing I asked in a terminal'),
+      `the expanded row shows the opening message: ${inside.slice(0, 300)}`);
+    assert.ok(inside.includes('opened with') && inside.includes('last said'),
+      'both halves are labelled');
+    assert.ok(opened.controls.some(c => c.role === 'resume-store' && c.key === ONLY_ON_DISK),
+      'and the row keeps its Resume while open');
+
+    /* Closing it again puts the text away: one open block at a time, like the task chooser. */
+    await gui.control('conversation-open', ONLY_ON_DISK, -1);
+    await gui.until(s => !(s.controls ?? []).some(c => c.role === 'conversation-excerpt'), 'the row closes');
+
+    /* Nothing under the store was written by listing or expanding it. */
     const after = await readFile(path.join(store, `${ONLY_ON_DISK}.jsonl`), 'utf8');
     assert.ok(after.includes('the thing I asked in a terminal'), 'the transcript is untouched');
   } finally {

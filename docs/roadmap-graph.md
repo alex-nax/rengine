@@ -384,6 +384,14 @@ flowchart TD
   F211["F211: passing"]
   F210 --> F211
   F212["F212: ready"]
+  F213["F213: ready"]
+  F214["F214: blocked"]
+  F213 --> F214
+  F215["F215: blocked"]
+  F213 --> F215
+  F216["F216: blocked"]
+  F213 --> F216
+  F217["F217: ready"]
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -552,3 +560,8 @@ flowchart TD
 | F210 | O1 | rengine | passing | Conversation-store adapters (spec 140): one per agent CLI, answering which conversations exist for a root with an id, a modified time and a title. Read-only - the stores belong to the CLIs. Identity is the declared project and root id; a CLI's path-derived key is mapped, never adopted. |
 | F211 | O1 | rengine | passing | The conversations view: the stores joined with rEngine's own session records, so a conversation the workspace has a pane for is marked and one it only knows from the CLI is listed all the same. Choosing one resumes it through the capability spec 096 already declares. |
 | F212 | O1 | rengine | ready | A workspace-visible warning when the retained session host advertises fewer capabilities than the running build declares, so a feature that is off because the host is old reads as old rather than as broken (KI-116). |
+| F213 | O1 | rengine | ready | The conversation-id parsers become one adapter per agent: red-agents/src/parsers.rs holds claude_flags, kimi_flags, codex_resume and kimi_id_shape in one file, which is the antipattern docs/lessons-learned.md records. Each moves to its own module exporting the same entry point, over a shared module that owns the Parsed shape and the id-shape helpers. |
+| F214 | O1 | rengine | blocked | Agent-specific branches in the bind and launch path move behind a declared capability. red-agents/src/bind.rs asks `if agent == "kimi"` to decide where MCP wiring goes and launch.rs inserts a kimi-named plan key; both are identity checks standing in for a capability the recipe should declare, so a fourth agent needing the same treatment means editing shared code again. |
+| F215 | O1 | rengine | blocked | The store stops knowing what an agent's conversation ids look like. red-store carries IdShape::KimiSession and red_store_check maps the literal "kimi" to it, so the component that persists conversations knows one CLI's id format — knowledge that belongs to that CLI's recipe. |
+| F216 | O1 | rengine | blocked | red-host's codex-specific branches move behind a declared capability: panes.rs refuses a resume path unless the agent is literally codex, and handoff.rs spawns with --agent codex hard-coded. Both encode a capability (which CLIs can be handed a conversation to resume) as an identity. |
+| F217 | O1 | rengine | ready | A guard that fails the build when an agent's name appears in shared code — the check that would have caught F210 and every row above. The product name already has one (design.py check fails on a hand-written occurrence); an agent name has none, which is why a spec saying "one adapter per CLI" did not prevent one file holding three. |

@@ -4057,6 +4057,108 @@
       "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
+    },
+    {
+      "id": 213,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "The conversation-id parsers become one adapter per agent: red-agents/src/parsers.rs holds claude_flags, kimi_flags, codex_resume and kimi_id_shape in one file, which is the antipattern docs/lessons-learned.md records. Each moves to its own module exporting the same entry point, over a shared module that owns the Parsed shape and the id-shape helpers.",
+      "acceptance_criteria": [
+        "Each agent's flag parsing lives in a file named for that agent and nothing else names it.",
+        "The dispatch in red-agents/src/main.rs resolves an adapter by name through one lookup rather than a match arm per agent.",
+        "The shared module contains no agent name, asserted by a search over its own source.",
+        "Every existing parser test still passes unchanged, proving the split moved code rather than rewrote behaviour."
+      ],
+      "passes": false,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 214,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "Agent-specific branches in the bind and launch path move behind a declared capability. red-agents/src/bind.rs asks `if agent == \"kimi\"` to decide where MCP wiring goes and launch.rs inserts a kimi-named plan key; both are identity checks standing in for a capability the recipe should declare, so a fourth agent needing the same treatment means editing shared code again.",
+      "acceptance_criteria": [
+        "The recipe grammar carries the capability these branches stand for, named for what it does rather than for who needs it.",
+        "bind and launch consult the recipe and contain no agent name.",
+        "An agent declaring the capability gets the same wiring kimi gets today, proven with a recipe fixture that is not kimi.",
+        "The existing kimi behaviour is unchanged, proven by its current evidence path."
+      ],
+      "passes": false,
+      "dependencies": [
+        213
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 215,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "The store stops knowing what an agent's conversation ids look like. red-store carries IdShape::KimiSession and red_store_check maps the literal \"kimi\" to it, so the component that persists conversations knows one CLI's id format — knowledge that belongs to that CLI's recipe.",
+      "acceptance_criteria": [
+        "The id shape a conversation must satisfy arrives from the recipe rather than from an enum variant named for an agent.",
+        "red-store contains no agent name, asserted by a search over the crate.",
+        "A conversation whose id does not match its declared shape is still refused, with the same message.",
+        "An agent whose ids are opaque is representable without a new variant."
+      ],
+      "passes": false,
+      "dependencies": [
+        213
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 216,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "low",
+      "description": "red-host's codex-specific branches move behind a declared capability: panes.rs refuses a resume path unless the agent is literally codex, and handoff.rs spawns with --agent codex hard-coded. Both encode a capability (which CLIs can be handed a conversation to resume) as an identity.",
+      "acceptance_criteria": [
+        "The handoff path asks the recipe what a CLI can be handed rather than comparing its name.",
+        "red-host contains no agent name outside a test fixture.",
+        "The existing codex handoff behaviour is unchanged, proven by the handoff spec.",
+        "A second CLI declaring the capability reaches the same path without a code change."
+      ],
+      "passes": false,
+      "dependencies": [
+        213
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 217,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "A guard that fails the build when an agent's name appears in shared code — the check that would have caught F210 and every row above. The product name already has one (design.py check fails on a hand-written occurrence); an agent name has none, which is why a spec saying \"one adapter per CLI\" did not prevent one file holding three.",
+      "acceptance_criteria": [
+        "A named agent appearing outside its own adapter, the registry, or a test fixture fails the check by name and location.",
+        "The check names the antipattern and points at docs/lessons-learned.md rather than only reporting a match.",
+        "It is reachable from init.sh so it runs with the other gates rather than on request.",
+        "Observed failing by reintroducing a single agent name into a shared file, and passing once removed.",
+        "The allowed places are declared in one list rather than inferred, so widening it is a visible decision."
+      ],
+      "passes": false,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }

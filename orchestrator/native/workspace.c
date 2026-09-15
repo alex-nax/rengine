@@ -316,8 +316,11 @@ static const char *describe_age(const cJSON *entry, char *buf, size_t size) {
 /* The store rows carry `modifiedAt` rather than rEngine's `lastSeenAt`, because a file's mtime is
  * all a CLI's own store offers. Same words, so the two lists read alike. */
 static const char *describe_store_age(const cJSON *entry, char *buf, size_t size) {
+  /* The DOUBLE, not re_number: that returns int, and a millisecond timestamp is far past INT_MAX,
+     so the truncation landed near the epoch and every row read "20687 days ago". */
+  const cJSON *when = cJSON_GetObjectItemCaseSensitive(entry, "modifiedAt");
   cJSON *shim = cJSON_CreateObject();
-  cJSON_AddNumberToObject(shim, "lastSeenAt", re_number(entry, "modifiedAt"));
+  cJSON_AddNumberToObject(shim, "lastSeenAt", cJSON_IsNumber(when) ? when->valuedouble : 0.0);
   describe_age(shim, buf, size);
   cJSON_Delete(shim);
   return buf;
@@ -381,6 +384,28 @@ static const char *conversation_token_action(ReApp *a, const char *conversation)
  * authority on what EXISTS — a conversation rEngine never minted is still a conversation — and
  * rEngine's record only says whether this workspace has a pane or a resume for it. Joining the two
  * this way round is the owner's rule: if a session is not in the CLI's list, there is no session. */
+/* Which conversation row is expanded, if any. One at a time, like the Tasks chooser: two open
+ * blocks in a list this dense stops being a list. A file-static because it is a view state, not
+ * workspace state — closing the tab forgets it, which is the right amount of memory for it. */
+static char conversation_open[96];
+static bool conversation_expanded(const char *cid) { return *cid && !strcmp(conversation_open, cid); }
+static void conversation_toggle(const char *cid) {
+  if (conversation_expanded(cid)) conversation_open[0] = 0;
+  else re_copy(conversation_open, sizeof(conversation_open), cid);
+}
+/* The first and last thing said, under the row that carries them. Each value gets its own layout
+ * column because re_ui_paragraph takes a whole row: without one it would seize the pane's width and
+ * the kicker would float over nothing, which is the mistake the Tasks detail already records. */
+static void conversation_excerpt(ReApp *a, mu_Context *ui, const char *cid, const char *kicker, const char *value) {
+  if (!value || !*value) return;
+  mu_layout_row(ui, 3, (int[]){RE_METRIC_SESSIONS_ATTACH_WIDTH, RE_METRIC_SESSIONS_STATE_WIDTH, -1}, RE_METRIC_SESSIONS_ROW_HEIGHT);
+  re_ui_label_ex(ui, "", RE_UI_MUTED | RE_UI_SMALL);
+  re_ui_label_ex(ui, kicker, RE_UI_MUTED | RE_UI_SMALL);
+  mu_layout_begin_column(ui);
+  re_ui_paragraph(ui, value, RE_UI_MUTED | RE_UI_SMALL);
+  mu_layout_end_column(ui);
+  re_app_control(a, ui, "conversation-excerpt", cid, -1);
+}
 static bool conversation_recorded(ReApp *a, const char *rid, const char *cid) {
   const cJSON *conv = NULL;
   cJSON_ArrayForEach(conv, cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(a->state, "conversations"), rid))
@@ -508,13 +533,27 @@ static void sessions_ui(ReApp *a, mu_Context *ui) {
       char label[1024];
       snprintf(label, sizeof(label), "%s · %s", agent_name(who), *title ? title : re_workspace_root_name(a, a->stores_root));
       char detail[256];
-      re_ui_row_ex(ui, label, RE_ICON_AGENT,
-                   conversation_detail(cid, "", false, detail, sizeof(detail)), 0, RE_UI_DISABLED);
+      /* The row itself is the toggle — no extra control in a row that already carries four. */
+      if (re_ui_row_ex(ui, label, RE_ICON_AGENT,
+                       conversation_detail(cid, "", false, detail, sizeof(detail)), 0,
+                       conversation_expanded(cid) ? RE_UI_ON : 0)) {
+        conversation_toggle(cid);
+      }
+      re_app_control(a, ui, "conversation-open", cid, -1);
       re_ui_pill(ui, "on disk", RE_UI_PILL_NEUTRAL);
       if (re_ui_button_ex(ui, "Resume", RE_ICON_ARROW_UP, RE_UI_SMALL)) resume_conversation(a, a->stores_root, who, cid);
       re_app_control(a, ui, "resume-store", cid, -1);
       re_ui_label_ex(ui, "", RE_UI_MUTED | RE_UI_SMALL);
       char age[64]; re_ui_label_ex(ui, describe_store_age(row, age, sizeof(age)), RE_UI_MUTED | RE_UI_SMALL);
+      if (conversation_expanded(cid)) {
+        conversation_excerpt(a, ui, cid, "opened with", re_string(row, "first"));
+        conversation_excerpt(a, ui, cid, "last said", re_string(row, "last"));
+        /* Said rather than left blank: a store with no excerpt to give is a fact about that CLI,
+           and an empty block reads as a view that failed to draw. */
+        if (!*re_string(row, "first") && !*re_string(row, "last")) {
+          conversation_excerpt(a, ui, cid, "", "This agent's store keeps no message text to preview.");
+        }
+      }
       mu_pop_id(ui);
     }
   }

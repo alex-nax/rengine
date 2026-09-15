@@ -115,6 +115,13 @@ a coherent change. Preserve other sessions' entries and unrelated edits.
   Metal on iOS — with Rust `red-core` as the networking library behind a small C ABI. Remote
   access runs on owner-pinned relay infrastructure with QR-paired Ed25519 peer identities; never
   the public libp2p bootstrap network.
+- **One adapter per agent, one file each.** A capability that behaves differently per agent CLI is
+  one file per CLI exporting the same entry point, over a shared module that owns the shapes and the
+  roster and knows nothing about any CLI's insides. A function named for an agent, an
+  `if agent == "…"`, or an enum variant named for one, in a file that is not that agent's, is the
+  antipattern `docs/lessons-learned.md` records — it makes adding an agent an edit to shared code
+  every other agent depends on. Where the difference is a capability rather than an identity, the
+  recipe declares it and shared code asks the recipe, never the name.
 - **Language is decided by who a component serves, not by where it sits (charter D67).** Consumer
   side — the mobile companion and, explicitly, the **editor interface** — is C (the kind Rust can
   import over FFI) or C++; Objective-C/Swift only on macOS and only where C++ is genuinely not an
