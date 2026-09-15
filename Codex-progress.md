@@ -1,4 +1,4 @@
-## Session 159 (macos) — 2026-09-15 — the last route off the JS host
+## Session 159 (macos) — 2026-09-15 — the last route off the JS host, and it is off
 
 Owner goal: *"proceed with js retirement in favour of rust"* (charter D57, spec 129).
 
@@ -48,17 +48,44 @@ do by hand. Also found: **this workspace's host is `server/main.mjs` with no `re
 unlike the three other workspaces on this machine, so it predates F188's door; and **KI-123**, 1134
 runtime directories with 11 descriptors, all sampled ones dead.
 
+### The cutover, and the two bugs it found
+
+`/api/game` and `/surface` are the door's now, game dashboard actions are pressed there, and
+**`games.mjs`, `surfaces.mjs` and `surface-protocol.mjs` are deleted**. Every route `main.mjs` still
+answers — all eleven — the door owns. The JS host serves nothing uniquely.
+
+Two real bugs, both caught because the seven failing specs were MIGRATED rather than rewritten to
+suit the new code:
+
+- **The reservation was never released.** `games.mjs` removed the surface on a session-exit event;
+  the door did not, so a viewer could attach to an exited game forever.
+- **The door read a pane's fields from the wrong level.** What rEngine composes lives under the
+  service's `meta`; only the id and state are the service's own. Reading `type` and `game` from the
+  top meant no pane ever matched "already running" — every launch of a running game would have
+  started a second one.
+
+**Where the evidence went.** Those specs asserted on JS internals — a wrapped `sessions.terminal`
+for the composed environment, `surfaces.items.size` for a reservation. Each claim moved to where it
+can still be made: a reservation is proven by whether a viewer can ATTACH, which is the consequence
+it exists for; the frame count, size and status by the status message the door sends that viewer;
+and the injection-race claim to `games::surface_environment`'s own test, which is the only place it
+can be made at all, because macOS purges `DYLD_*` before a protected interpreter sees them. That is
+a better set than the one it replaces: observable consequences rather than private fields.
+
+The parity suite could not outlive the module it compares against, so the JavaScript's answers to
+the 50-case corpus were **recorded before the deletion** (F173's device) and Rust is judged against
+the record.
+
 ### What is open
 
 - **F186 needs the owner**, in a pane bound to a current host. It is one dogfood run and it unblocks
-  F150 → F189 → F152 → the whole chain.
-- **Spec 142's cutover**: wiring `/api/game` and `/surface` into the door, then deleting the five JS
-  modules. The wiring is the same reversible pattern every other route used. The deletion is not:
-  the owner's live workspace is served by `main.mjs` alone, so deleting it changes how that
-  workspace starts, and that belongs in a run where a full start can be verified.
+  F150 → F189 → F152 → the rest of the chain.
+- **`main.mjs` stays**, and KI-102 says why: it is the process a launcher starts and the backend the
+  door is pointed at, so retiring it is **F163** — entry points move off Node. This row emptied it.
+  `desktops.mjs` retires with `worker.mjs` (F158), which still imports it.
 
-Commands: `cargo test` per crate (red-core 21/21, red-host 34/34); `npm test` 363/363; `./init.sh`
-green.
+Commands: `cargo test` per crate (red-core 21/21, red-host 35/35); `npm test` 361/362 with one
+known load flake; `./init.sh` green.
 
 ## Session 158 (macos) — 2026-09-15 — the provider split: a recipe declares, shared code implements
 
