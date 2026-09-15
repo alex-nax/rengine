@@ -112,6 +112,9 @@ length = 8
 
 [recipes.codex.mcp]
 kind = "config-args"
+# The flag each configuration entry rides on. Same key as the `flag` overlay's: "the flag this CLI
+# consumes its configuration with", spelled by the recipe rather than by the arm (F214/F218).
+flag = "-c"
 
 [recipes.codex.hooks]
 kind = "per-launch-config"

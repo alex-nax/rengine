@@ -40,6 +40,58 @@ fn strings(value: Option<&Json>) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// How to start this CLI BY HAND against a binding rEngine has already written — the line `bind`
+/// prints when the caller named an agent rEngine has no recipe for (F218, spec 141).
+///
+/// `None` when this CLI's overlay must be WRITTEN for it rather than handed to it: there is no line
+/// to print, because the binding does not exist until a launch writes it, and the honest answer is
+/// "re-run naming this CLI". Every spelling in the line is the recipe's — bind used to write these
+/// out per agent, which meant a recipe could change its flag and the printed hint would go on
+/// confidently telling a person the old one.
+pub fn start_hint(recipes: &[(String, Value)], cli: &str, paths: &Json) -> Option<String> {
+    let declared = projected(recipes, cli)?;
+    let mcp = declared.get("mcp")?;
+    let kind = mcp.get("kind").and_then(Json::as_str)?;
+    let flag = mcp.get("flag").and_then(Json::as_str)?;
+    let at = |key: &str| text(paths, key).unwrap_or("").to_string();
+    let quote = shell_quote;
+    let mut parts: Vec<String> = vec![cli.to_string()];
+    match kind {
+        "flag" => {
+            parts.extend([flag.to_string(), quote(&at("generic"))]);
+            /* A CLI handed per-launch settings is handed the flag its recipe spells them with, so a
+               session started outside the workspace reports its own conversation back the way a pane
+               does — the identity here is the launch's guess until the CLI confirms it. */
+            if let Some(hook_flag) = declared.get("hooks").and_then(|hooks| hooks.get("flag")).and_then(Json::as_str) {
+                parts.extend([hook_flag.to_string(), quote(&at("settings"))]);
+            }
+        }
+        "config-args" => {
+            let name = at("name");
+            for entry in [
+                format!("mcp_servers.{name}.command={}", json!(at("node"))),
+                format!("mcp_servers.{name}.args={}", json!([at("mcpMain"), "--context", at("contextFile")])),
+                format!("mcp_servers.{name}.required=true"),
+            ] {
+                parts.extend([flag.to_string(), quote(&entry)]);
+            }
+        }
+        _ => return None,
+    }
+    /* Which conversation, spelled the way this recipe spells it: the resume flag when one was named,
+       the start flag when rEngine is naming a fresh one, and neither when it declares no start. */
+    let talk = talk_of(recipes, cli);
+    let resuming = paths.get("resume").and_then(Json::as_bool).unwrap_or(false);
+    if let Some(talk) = &talk {
+        let side = if resuming { "resume" } else { "start" };
+        let spelling = talk.get(side).and_then(|value| value.get("args")).and_then(Json::as_array);
+        if let Some(first) = spelling.and_then(|args| args.first()).and_then(Json::as_str) {
+            parts.extend([first.to_string(), at("agentId")]);
+        }
+    }
+    Some(parts.join(" "))
+}
+
 /// Which MCP overlay this recipe declares — the capability, so callers ask what a CLI needs rather
 /// than who it is.
 pub fn mcp_kind(recipes: &[(String, Value)], cli: &str) -> Option<String> {
@@ -431,12 +483,18 @@ pub fn launch_plan(
     let mut consume_args: Vec<String> = vec![];
     let mut consume_env = Map::new();
 
+    /* The flag a CLI consumes its configuration with, for the two overlays that HAND it one rather
+       than writing a file for it. The kind is rEngine's; the spelling is the recipe's (F214). */
+    let consume_flag = declared.get("mcp").and_then(|mcp| mcp.get("flag")).and_then(Json::as_str);
     match overlay {
         "config-args" => {
+            let Some(flag) = consume_flag else {
+                return Err(format!("Recipe {agent} takes its MCP configuration as config arguments but does not declare which flag carries them."));
+            };
             consume_args = vec![
-                "-c".into(), format!("mcp_servers.{name}.command={}", json!(node)),
-                "-c".into(), format!("mcp_servers.{name}.args={}", server["args"]),
-                "-c".into(), format!("mcp_servers.{name}.required=true"),
+                flag.into(), format!("mcp_servers.{name}.command={}", json!(node)),
+                flag.into(), format!("mcp_servers.{name}.args={}", server["args"]),
+                flag.into(), format!("mcp_servers.{name}.required=true"),
             ];
             /* The SessionStart hook rides the same -c channel as the MCP wiring: codex loads hooks
                from every config layer, so the person's own ~/.codex entries run beside this launch's,
@@ -451,12 +509,12 @@ pub fn launch_plan(
                     .join(" ");
                 let platform = if windows { "win32" } else { "unix" };
                 consume_args.extend([
-                    "-c".into(), "features.hooks=true".into(),
-                    "-c".into(), format!(
+                    flag.into(), "features.hooks=true".into(),
+                    flag.into(), format!(
                         "hooks.SessionStart=[{{matcher=\"startup|resume\",hooks=[{{type=\"command\",command={}}}]}}]",
                         json!(command)
                     ),
-                    "-c".into(), format!(
+                    flag.into(), format!(
                         "hooks.state={{{}={{trusted_hash={}}}}}",
                         json!(crate::hooks::hook_key(platform, 0, 0)),
                         json!(crate::hooks::hook_trust_hash(&command, "startup|resume"))
@@ -477,7 +535,7 @@ pub fn launch_plan(
                     plan.insert("ide".into(), ide.clone());
                 }
             }
-            let Some(flag) = declared.get("mcp").and_then(|mcp| mcp.get("flag")).and_then(Json::as_str) else {
+            let Some(flag) = consume_flag else {
                 return Err(format!("Recipe {agent} consumes its MCP configuration by flag but does not declare which flag."));
             };
             consume_args = vec![flag.to_string(), generic.clone()];

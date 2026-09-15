@@ -722,6 +722,19 @@ void re_app_status(ReApp *a, ReDraw *draw) {
 
 /* The one overlay layer: sections of ordinary controls on a popover ground (spec 080). */
 
+
+/* What the Agent select shows when nobody has chosen. There is NO default CLI: the workspace's own
+   menu says which agents this root has, and the first it lists is the one a launch with no choice
+   falls to. Until that answer arrives there is no name to show, and a select with nothing selected
+   says so. This read "codex" — one agent's name standing in for "whoever this workspace has", which
+   also MISLED: the label said codex while a launch with no chosen agent used the person's
+   preferred-agent file (F219, spec 141). */
+const char *re_workspace_chosen_agent(const ReApp *a) {
+  if (*a->agent) return a->agent;
+  if (a->agent_count > 0) return a->agents[0];
+  return "Select";
+}
+
 static void close_view(ReApp *a) {
   RePane *p = &a->layout.panes[a->layout.active];
   if (!p->count) { re_copy(a->status, sizeof(a->status), "This pane has no view to close."); return; }
@@ -845,7 +858,7 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
        slack the field used to, so the row still ends at the window's edge — measured from the cells
        that actually follow rather than from a constant, which is what the old `trailing` did. */
     {
-      const char *chosen = *a->agent ? a->agent : "codex";
+      const char *chosen = re_workspace_chosen_agent(a);
       int trailing = re_draw_text_width(bar.draw, RE_FACE_UI, RE_METRIC_DESIGN_SIZE_SM, "Agent", -1)
                    + toolbar_width(&bar, chosen, RE_ICON_AGENT, RE_UI_ALIGN_LEFT | RE_UI_CARET)
                    + RE_METRIC_DESIGN_ICON_BUTTON
@@ -856,7 +869,7 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
     /* A SELECT, which is what `design/previews/workspace/toolbar.html` has specified since spec 064
        (`re-button re-select agent`); the native drifted to a text box, so a person could type a CLI
        this machine has not got and find out when the pane failed. Spec 134 D7. */
-    if (toolbar_cell(&bar, *a->agent ? a->agent : "codex", RE_ICON_AGENT,
+    if (toolbar_cell(&bar, re_workspace_chosen_agent(a), RE_ICON_AGENT,
                      RE_UI_ALIGN_LEFT | RE_UI_CARET | (!strcmp(a->dropdown, "agent") ? RE_UI_ON : 0),
                      RE_METRIC_DESIGN_GAP_LG)) {
       re_app_agents_menu(a);

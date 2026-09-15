@@ -182,6 +182,26 @@ fn post_json(url: &str, token: &str, body: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// The CLI whose hook spelling does NOT carry a provider flag — so when nothing names one, this is
+/// who reported (F219, spec 141).
+///
+/// rEngine WRITES that hook itself, in the settings file a `per-launch-settings` recipe is handed,
+/// and the command it writes omits the flag. Every other spelling passes `--provider` explicitly.
+/// So "who reports without saying so" is a capability the registry already declares, and reading it
+/// there is the difference between deriving the answer and assuming claude — which is what this did
+/// for as long as claude was the only CLI that reported at all. Two such recipes is not a guess this
+/// can make, and it says so rather than picking.
+fn unflagged_reporter(recipes: &[(String, crate::Value)]) -> Option<String> {
+    let mut found = recipes.iter().filter(|(_, raw)| {
+        raw.get("hooks")
+            .and_then(|hooks| hooks.get("kind"))
+            .and_then(crate::Value::string)
+            .is_some_and(|kind| kind == "per-launch-settings")
+    });
+    let only = found.next()?;
+    found.next().is_none().then(|| only.0.clone())
+}
+
 pub fn report_session(argv: &[String], recipes: &[(String, crate::Value)]) -> i32 {
     let env: std::collections::HashMap<String, String> = std::env::vars().collect();
     let mut notes: Vec<String> = Vec::new();
@@ -202,12 +222,36 @@ pub fn report_session(argv: &[String], recipes: &[(String, crate::Value)]) -> i3
         let Some(context_file) = binding_context(argv, &env) else {
             return Outcome { notes };
         };
+        let context: Value = match std::fs::read_to_string(&context_file) {
+            Ok(text) => match serde_json::from_str(&text) {
+                Ok(value) => value,
+                Err(error) => return fail(error.to_string()),
+            },
+            Err(error) => return fail(error.to_string()),
+        };
+        /* Who reported: the hook says so when its CLI's hook spelling carries a flag, and otherwise
+           THIS LAUNCH'S OWN CONTEXT says so — rEngine wrote both, and the context names the CLI it
+           was written for. This used to default to claude, from when claude was the only CLI that
+           reported; a default is one CLI's name standing in for "whoever this launch is"
+           (F219, spec 141), and it would have mis-attributed the first CLI to arrive without a
+           flag in its hook spelling. */
         let provider = argv
             .iter()
             .position(|arg| arg == "--provider")
             .and_then(|index| argv.get(index + 1))
             .cloned()
-            .unwrap_or_else(|| "claude".to_string());
+            .or_else(|| {
+                context
+                    .get("agent")
+                    .and_then(|agent| agent.get("session"))
+                    .and_then(|session| session.get("provider"))
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            })
+            .or_else(|| unflagged_reporter(recipes));
+        let Some(provider) = provider else {
+            return fail("the hook did not name a provider and nothing about this launch names a CLI");
+        };
         let Some(kind) = provider_kind(&provider, recipes) else {
             return fail(format!("Unknown agent provider: {provider}"));
         };
@@ -216,13 +260,6 @@ pub fn report_session(argv: &[String], recipes: &[(String, crate::Value)]) -> i3
             let event = input.get("hook_event_name").and_then(Value::as_str).unwrap_or("The hook");
             return fail(format!("{event} carried no session id."));
         }
-        let context: Value = match std::fs::read_to_string(&context_file) {
-            Ok(text) => match serde_json::from_str(&text) {
-                Ok(value) => value,
-                Err(error) => return fail(error.to_string()),
-            },
-            Err(error) => return fail(error.to_string()),
-        };
         let (url, token) = match connection(&context) {
             Ok(pair) => pair,
             Err(message) => return fail(message),

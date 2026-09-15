@@ -45,6 +45,9 @@ void re_overlay_token(ReApp *app, mu_Context *ui);
 /* The other direction: what the overlays need back from the workspace. Kept to four so the seam
  * stays legible — a fifth is a sign the split is in the wrong place. */
 const char *re_workspace_root_name(ReApp *app, const char *id);
+/* What the Agent select shows when nobody has chosen: the chosen CLI, else the first the workspace's
+   own menu lists, else "Select". No CLI is a default (F219, spec 141). */
+const char *re_workspace_chosen_agent(const ReApp *app);
 const char *re_workspace_root_path(ReApp *app, const char *id);
 void re_workspace_command(ReApp *app, int command); /* RE_COMMAND_*, as the pane menu runs them */
 void re_workspace_overlay_close(ReApp *app);

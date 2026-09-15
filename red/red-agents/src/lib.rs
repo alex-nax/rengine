@@ -396,7 +396,7 @@ pub fn id_matches(pattern: &str, id: &str) -> bool {
 /// the flag, the file and the variable are the CLI's, and declaring one without them is refused.
 fn required_spellings(kind: &str) -> &'static [&'static str] {
     match kind {
-        "flag" => &["flag"],
+        "flag" | "config-args" => &["flag"],
         "project-file" => &["path"],
         "env-defaults" => &["pathVar", "path"],
         "env-inline" => &["envVar"],

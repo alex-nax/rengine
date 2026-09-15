@@ -303,37 +303,38 @@ pub fn bind(
         lines.push(format!("  project MCP {written} (rEngine owns only the {} entry)", text(&plan, "name")));
     }
     if plan.get("custom").and_then(Json::as_bool).unwrap_or(false) {
-        /* claude and codex consume this configuration as it stands; gemini, opencode and kimi need
-           an overlay written for them, which bind writes only for the CLI the caller names. The
-           claude line carries --settings too, so a session started outside the workspace reports its
-           own conversation back the way a pane does: the identity here is the launch's guess until
-           the CLI confirms or corrects it. */
-        let generic = text(&plan, "generic");
-        let name = text(&plan, "name");
+        /* The caller named a CLI rEngine has no recipe for, so this says how to start one it DOES
+           know against the binding just written. Every line is generated from that recipe's declared
+           spellings (F218, spec 141): a CLI whose overlay it can be HANDED gets the command, and one
+           whose overlay must be WRITTEN is told to re-run naming itself, because the file does not
+           exist until a launch writes it. These lines used to be written out per agent, which meant
+           a recipe could change its flag while the hint went on confidently printing the old one. */
         let context_file = text(&plan, "contextFile");
         let settings = crate::launch::per_launch_settings(
             inputs.get("redAgents").and_then(Json::as_str).unwrap_or("red-agents"), &context_file, cfg!(windows));
         let settings_file = crate::launch::write_private(
             &std::path::Path::new(text(&plan, "directory").as_str()).join("settings.json"), &settings)?;
-        let node = inputs.get("nodeExecutable").and_then(Json::as_str).unwrap_or("node");
-        let mcp_main = inputs.get("mcpMain").and_then(Json::as_str).unwrap_or("");
-        let agent_id = text(&identity, "agentId");
-        let quote = crate::launch::shell_quote;
+        let paths = json!({
+            "generic": text(&plan, "generic"),
+            "settings": settings_file,
+            "contextFile": context_file,
+            "name": text(&plan, "name"),
+            "node": inputs.get("nodeExecutable").and_then(Json::as_str).unwrap_or("node"),
+            "mcpMain": inputs.get("mcpMain").and_then(Json::as_str).unwrap_or(""),
+            "agentId": text(&identity, "agentId"),
+            "resume": session.is_some(),
+        });
         lines.push(format!("Start the agent from {} with the flag its CLI consumes:", text(root, "path")));
-        lines.push(format!(
-            "  claude --mcp-config {} --settings {} {} {agent_id}",
-            quote(&generic), quote(&settings_file), if session.is_some() { "--resume" } else { "--session-id" }
-        ));
-        lines.push(format!(
-            "  codex {}",
-            [
-                "-c".to_string(), format!("mcp_servers.{name}.command={}", json!(node)),
-                "-c".to_string(), format!("mcp_servers.{name}.args={}", json!([mcp_main, "--context", context_file])),
-                "-c".to_string(), format!("mcp_servers.{name}.required=true"),
-            ].iter().map(|part| quote(part)).collect::<Vec<_>>().join(" ")
-        ));
-        lines.push("  gemini, opencode: re-run with --agent gemini or --agent opencode, which writes the overlay those CLIs read.".into());
-        lines.push("  kimi: re-run with --agent kimi, which writes the project .kimi-code/mcp.json the CLI reads.".into());
+        let mut written: Vec<String> = Vec::new();
+        for (cli, _) in recipes {
+            match crate::launch::start_hint(recipes, cli, &paths) {
+                Some(hint) => lines.push(format!("  {hint}")),
+                None => written.push(cli.clone()),
+            }
+        }
+        for cli in written {
+            lines.push(format!("  {cli}: re-run with --agent {cli}, which writes the overlay that CLI reads."));
+        }
     } else {
         lines.push(format!("Start the agent from {} with:", text(root, "path")));
         let args: Vec<String> = plan

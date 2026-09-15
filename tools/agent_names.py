@@ -45,12 +45,6 @@ EXCEPTIONS = [
     ("red/red-agents/src/lib.rs", 'const PARSERS',
      "The values registry.mjs refused, frozen with the record its projection is judged against. "
      "`conversation.read` is the live declaration; `parser` is a vestigial atom of the frozen shape."),
-    ("red/red-agents/src/bind.rs", None,
-     "bind's start hints for a CUSTOM agent are a per-CLI catalogue, and they now duplicate the "
-     "spellings the registry declares. F218 generates them from the recipes."),
-    ("red/red-agents/src/report.rs", 'unwrap_or_else(|| "claude"',
-     "The hook reporter defaults an absent --provider to claude, from when only claude reported. "
-     "Changing it moves installed hooks, so F219 does it deliberately."),
     ("red/red-agents/src/spawn.rs", 'CLAUDE',
      "The environment variables one CLI stamps on its own children, scrubbed so a pane does not "
      "inherit another session's identity (KI-113). Which variables those are is that CLI's, and "
@@ -72,9 +66,6 @@ EXCEPTIONS = [
      "the behaviour rather than describing it in shared prose."),
     ("orchestrator/launch.mjs", '--agent codex|claude',
      "The usage line's list of agents. F220 prints the roster the registry declares."),
-    ("orchestrator/native/workspace.c", '"codex"',
-     "The desktop falls back to codex when no agent is chosen — an identity standing in for 'the "
-     "first one declared'. F219."),
     ("orchestrator/native/render/syntax_theme.h", "Claude Design",
      "The name of a DESIGN SOURCE, not an agent: the theme this workspace's colours came from "
      "(spec 064). It is the one place the word is not about a CLI."),

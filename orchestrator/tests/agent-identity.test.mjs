@@ -11,7 +11,7 @@ import { startServer } from '../server/main.mjs';
 import { startWorker } from '../runtime/worker.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { agentLaunch, describeSession } from '../agents/agents-client.mjs';
-import { bind } from '../agents/agents-client.mjs';
+import { bind, forgetRecipes } from '../agents/agents-client.mjs';
 import { built } from './cargo.mjs';
 
 /* This spec drives a Rust binary through the service client, so it builds one first: run alone — or
@@ -274,3 +274,81 @@ async function withStateHome(home, action) {
   process.env.XDG_STATE_HOME = home;
   try { return await action(); } finally { if (previous === undefined) delete process.env.XDG_STATE_HOME; else process.env.XDG_STATE_HOME = previous; }
 }
+
+/* F218 (spec 141): binding for a CLI rEngine has NO recipe for prints how to start the ones it
+ * knows — and every line is generated from that recipe's declared spellings. This branch had no
+ * test at all while it was a per-agent catalogue written out by hand, which is how it came to
+ * duplicate flags the registry declares: change a recipe's flag and the hint went on confidently
+ * printing the old one. The proof is a CLI that exists nowhere in this tree.
+ */
+const HINT_RECIPE = `[recipes.hintcli]
+package = "@test/hintcli"
+
+[recipes.hintcli.update]
+kind = "reinstall"
+
+[recipes.hintcli.models]
+kind = "none"
+
+[recipes.hintcli.mcp]
+kind = "flag"
+flag = "--wire-up"
+
+[recipes.hintcli.conversation]
+ids = '^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$'
+parser = "claude-flags"
+normalize = "lowercase"
+provider = "hintcli"
+resumeLine = "hintcli --pick-up {id}"
+
+[recipes.hintcli.conversation.start]
+args = ["--begin-as"]
+`;
+
+test('binding an unknown CLI prints how to start the known ones, spelled as they declare', { timeout: 20000 }, async t => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-identity-hint-'));
+  await mkdir(path.join(directory, 'project'));
+  const home = path.join(directory, 'state-home');
+  const stateDir = path.join(home, 'rengine', 'only');
+  await mkdir(stateDir, { recursive: true });
+  const server = await startServer({ stateDir });
+  await writeFile(path.join(stateDir, 'sidecar.json'),
+    JSON.stringify({ url: server.url, token: server.token, instance: server.instance, pid: process.pid }), { mode: 0o600 });
+  const extra = path.join(directory, 'extra.toml');
+  await writeFile(extra, HINT_RECIPE);
+  process.env.RENGINE_AGENT_REGISTRY_EXTRA = extra;
+  t.after(async () => {
+    delete process.env.RENGINE_AGENT_REGISTRY_EXTRA;
+    forgetRecipes(); await server.close(); await rm(directory, { recursive: true, force: true });
+  });
+  forgetRecipes();
+  await server.store.addRoot(path.join(directory, 'project'));
+
+  /* An agent with no recipe: rEngine cannot configure it, so it says how to start one it knows. */
+  const bound = await withStateHome(home, () =>
+    bind(['--project', path.join(directory, 'project'), '--agent', 'nosuchcli']));
+  const lines = bound.report.split('\n').map(line => line.trim());
+  const id = bound.identity.agentId;
+
+  /* The CLI added as DATA is hinted, with ITS flags — none of which any source file contains. */
+  const hint = lines.find(line => line.startsWith('hintcli '));
+  assert.ok(hint, `the declared CLI is hinted: ${bound.report}`);
+  assert.match(hint, new RegExp(`^hintcli --wire-up \\S+ --begin-as ${id}$`),
+    `the hint is spelled the way the recipe spells it: ${hint}`);
+
+  /* And the shipped ones, each by its own declared flag rather than by claude's. */
+  assert.ok(lines.some(line => new RegExp(`^claude --mcp-config \\S+ --settings \\S+ --session-id ${id}$`).test(line)),
+    `claude's line carries its own flags and its settings: ${bound.report}`);
+  const codex = lines.find(line => line.startsWith('codex '));
+  assert.ok(codex, `codex is hinted: ${bound.report}`);
+  assert.equal((codex.match(/ -c /g) ?? []).length, 3, `each config entry rides codex's declared flag: ${codex}`);
+  assert.match(codex, /mcp_servers\.\S+\.required=true/, 'and the entries are the ones a launch would write');
+
+  /* A CLI whose overlay must be WRITTEN has no line to print: the file does not exist until a
+     launch writes it, so the honest answer is to re-run naming it. */
+  for (const cli of ['kimi', 'gemini', 'opencode']) {
+    assert.ok(lines.some(line => line === `${cli}: re-run with --agent ${cli}, which writes the overlay that CLI reads.`),
+      `${cli} is told to re-run rather than handed a command: ${bound.report}`);
+  }
+  assert.ok(!lines.some(line => line.startsWith('nosuchcli ')), 'and the CLI rEngine knows nothing about is not invented');
+});

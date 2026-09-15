@@ -49,6 +49,16 @@ test('the toolbar agent control is a select, offering what this machine has', { 
      an empty one, and this spec passed while the real control said "No agent is installed". */
   await gui.until(s => s.agents?.known === true, 'the workspace asked for its agent menu unprompted');
 
+  /* F219 (spec 141): NO CLI IS A DEFAULT. Nobody has chosen yet, so the select shows the first
+     agent this workspace's own menu names. It used to read "codex" whatever the menu said — and
+     whatever a launch with no chosen agent would actually have used, which is the misleading half.
+     Read from what is DRAWN, because the label is the whole claim. */
+  const before = await gui.command({ op: 'text-runs' });
+  const words = before.map(run => run.text);
+  assert.equal(start.agent ?? '', '', 'nobody has chosen an agent yet');
+  assert.ok(words.includes('claude'), `the first agent the menu names is shown: ${words.join(' | ')}`);
+  assert.ok(!words.includes('codex'), `and no CLI is assumed: ${words.join(' | ')}`);
+
   await gui.control('select', 'agent', -1);
   const open = await gui.until(s => listed(s).length > 0, 'the agent list opened');
   assert.deepEqual(listed(open).sort(), ['claude', 'codex', 'gemini'],

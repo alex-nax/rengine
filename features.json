@@ -4201,7 +4201,10 @@
       "owner_workspace": "rengine",
       "deliverable": "bind.rs's per-CLI start hints, generated from the declared spellings instead of written out per agent.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/specs/141-provider-abstraction.md",
+        "orchestrator/tests/agent-identity.test.mjs"
+      ]
     },
     {
       "id": 219,
@@ -4222,7 +4225,11 @@
       "owner_workspace": "rengine",
       "deliverable": "The reporter's provider default, the desktop's agent fallback, and the two exceptions they hold in the guard.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/specs/141-provider-abstraction.md",
+        "orchestrator/tests/native-agent-select.spec.mjs",
+        "orchestrator/tests/red-report-session.test.mjs"
+      ]
     },
     {
       "id": 220,
