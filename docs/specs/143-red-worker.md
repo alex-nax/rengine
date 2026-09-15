@@ -2,7 +2,7 @@
 
 Owner goal, 2026-09-15: *"finish remaining js"* (charter D57, spec 129; F158).
 
-Status: **in progress — 3 of 15 routes, the front door, and the feed's core.**
+Status: **in progress — 3 of 15 routes answered, the front door, the feed's core and fan-out, and the script rules.**
 
 ## The measurement that shaped this
 
@@ -32,7 +32,7 @@ rather than on the day a single enormous commit is reviewed.
 | `GET /api/agents-menu` | `red_project::tasks::agents_menu`, plus `agent.sh --action list` and one `--help` per CLI, plus the live panes from the host's `/api/state` | crate exists |
 | `POST /api/task` | the token gate, a per-root serialisation, `red_project::tasks::task_write`, a feed frame, and the tracker read back — **the tracker is F154's** unless the worker asks the door for it, which it may, since it already forwards there | crate exists |
 | `POST /api/agent-spawn` | the token gate, `red_agents::spawn`, and the host's own pane spawn | crate exists |
-| `POST /api/script-open` | `runtime/scripts.mjs` (25 lines) and the host's pane spawn | small |
+| `POST /api/script-open` | the desktop registry and the host's pane spawn; **its rules are done** — `scripts::script_path` judges the resolved path, `scripts::script_arguments` the bounds | half |
 | `GET /api/diagnostics`<br>`POST /api/ide-mention`<br>`POST /api/ide-selection` | **the IDE bridge**: the worker spawns one `red-ide serve` per bridge and answers `getDiagnostics` back down the pipe, because the language servers are the worker's (spec 133 D3) | infrastructure |
 | `POST /api/session-view`<br>`GET /api/runtime-desktops`<br>`POST /api/update-workspace` | **the desktop registry**: desktops register over the worker's socket and it holds them | infrastructure |
 | `POST /api/tracker/signin`<br>`POST /api/tracker/signout` | **a TLS decision** — rustls, hyper and hyper-util are already linked through libp2p, but the workspace has no root-certificate store | F154 |
