@@ -1,3 +1,51 @@
+## Session 160 (macos) — 2026-09-15 — red-worker begins, and the head is shared
+
+Owner goal: *"finish remaining js"*. This session did not finish it — 5,456 lines will not go in
+one sitting — but it started the biggest remaining unit and made the shape of it clear.
+
+**`red-worker` exists**, with four things landed and each sabotage-verified:
+
+- **The feed**, which is the one thing nothing else can serve: a watcher resumes from a cursor, the
+  subscription is taken BEFORE the replay so a frame can arrive twice and is sent once, and a
+  watcher a megabyte behind is closed with the sequence to reopen from rather than buffered. The
+  retired sentence is byte-identical to the JavaScript's and asserted as such, because a monitor
+  READS it and re-reads `feed_url`.
+- **The route table**, checked against `runtime/worker.mjs` by reading it. That check earned its
+  place at once: my own survey used a regex that missed paths with a slash, so it reported 13 unique
+  routes when there are **15** — `/api/tracker/signin` and `/api/tracker/signout` are the worker's
+  too — and `/api/session-view` is a POST where the table said GET.
+- **The front door**: it authenticates, refuses a path it has no opinion about rather than proxying
+  it, and forwards what it does not own with the HOST's credential and the body whole.
+- **The feed route and its fan-out**: per root, frames only, and a behind watcher named to the
+  caller rather than closed under the lock.
+
+**`head.rs` moved to red-core.** Two processes forward now — the door to its backend, the worker to
+the door — and a third copy of HTTP head parsing is what this crate exists to prevent.
+
+### The design that makes a half-ported worker safe
+
+`own_route` is the contract and is settled; `implemented` is how far the port has got. A route moves
+between them when its evidence lands, and until then it is FORWARDED — so a half-ported worker
+behaves exactly like the whole one. That is what lets this proceed a route at a time rather than as
+one commit nobody can review.
+
+### A sabotage that passed, and what it was worth
+
+Dropping the fan-out's event-name guard changed nothing, because only `frame` events carry a `frame`
+field today. The rule read as redundant and had no evidence. It has a case now — an event carrying a
+frame without being one — and nothing emits that yet, which is exactly why the rule needs it: the
+next event to carry a frame would be delivered as a feed frame without the guard.
+
+### What is left
+
+14 of the worker's 15 routes, its `/feed` socket, and the supervisor spawning it where it spawns
+node. Then F159 (supervisor and launcher, 932 lines), F154 (the remote tracker, 463 — and **a TLS
+decision**: rustls and hyper are already linked through libp2p but there is no root-certificate
+store), and F163 (entry points, which is what finally deletes `main.mjs`).
+
+Commands: `cargo test -p red-worker` 14/14, red-core 26/26, red-host 30/30; `npm test` 366/366;
+`./init.sh` green.
+
 ## Session 159 (macos) — 2026-09-15 — the last route off the JS host, and it is off
 
 Owner goal: *"proceed with js retirement in favour of rust"* (charter D57, spec 129).
