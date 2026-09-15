@@ -231,20 +231,24 @@ Three things worth keeping from the doing of it:
   because ref/unref were not counted. The sibling client had already met it and said so in a comment;
   this one carried a comment claiming the property and not the code that gives it.
 
-## Where the implementation departs from F213's written criteria — for the owner
+## F213's first criterion, amended — owner decision, 2026-09-15
 
-F213's row says *"each agent's flag parsing lives in a file named for that agent"*: three adapter
-files. What landed has **no per-agent parser file at all**, because the survey found the difference
-between claude and kimi was not code — it is the same flag scan with different flag lists. Three
-files of identical code around different constants would be duplication wearing an abstraction's
-clothes, and the constants belong where every other per-agent datum already lives: the registry.
+The row as accepted said *"each agent's flag parsing lives in a file named for that agent"*: three
+adapter files. What shipped has none, because the survey found claude and kimi were the same flag
+scan with different flag lists — three files of identical code around different constants would be
+duplication wearing an abstraction's clothes, and the constants belong where every other per-agent
+datum lives.
 
-So each agent's flag parsing does live in exactly one place that names it — `registry.toml` — and
-shared code implements two spellings named for what they do. The row's third criterion ("the shared
-module contains no agent name") is met more completely this way than by the route the first
-criterion describes. **The criteria are left as accepted and the row is not marked passing on this
-reading; the owner's call.** Where an agent genuinely differs in *code* rather than data — the
-conversation stores of F210 — the per-agent file stands, and this does not weaken that.
+Put to the owner with both routes and the cost of each; **the owner chose to amend the criterion**,
+so it now reads: *each agent's flag parsing is DECLARED in the one place that names it — its own
+recipe block in `registry.toml` — and no source file names any agent.* The other three criteria are
+unchanged and were already met; the third ("the shared module contains no agent name") is met more
+completely this way than the per-file route would have achieved, and is now enforced by F217's guard
+over the whole tree rather than by a search over one module.
+
+Where an agent genuinely differs in **code** rather than data — the conversation stores of F210,
+codex's rollout reader, one CLI's editor protocol — the per-agent file stands, and this does not
+weaken it.
 
 ## Sequence
 

@@ -4065,12 +4065,12 @@
       "priority": "medium",
       "description": "The conversation-id parsers become one adapter per agent: red-agents/src/parsers.rs holds claude_flags, kimi_flags, codex_resume and kimi_id_shape in one file, which is the antipattern docs/lessons-learned.md records. Each moves to its own module exporting the same entry point, over a shared module that owns the Parsed shape and the id-shape helpers.",
       "acceptance_criteria": [
-        "Each agent's flag parsing lives in a file named for that agent and nothing else names it.",
-        "The dispatch in red-agents/src/main.rs resolves an adapter by name through one lookup rather than a match arm per agent.",
-        "The shared module contains no agent name, asserted by a search over its own source.",
-        "Every existing parser test still passes unchanged, proving the split moved code rather than rewrote behaviour."
+        "Each agent's flag parsing is DECLARED in the one place that names it — its own recipe block in registry.toml — and no source file names any agent.",
+        "The dispatch resolves a spelling through one registry lookup rather than a match arm per agent.",
+        "The shared module contains no agent name, asserted by tools/agent_names.py over the whole tree.",
+        "Every existing parser test still passes unchanged, proving the change moved knowledge rather than rewrote behaviour."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [],
       "owner_workspace": "rengine",
       "deliverable": "red-agents/src/parsers.rs as two declared spellings, conversation.read in registry.toml, and spec 141.",
@@ -4093,7 +4093,7 @@
         "An agent declaring the capability gets the same wiring kimi gets today, proven with a recipe fixture that is not kimi.",
         "The existing kimi behaviour is unchanged, proven by its current evidence path."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         213
       ],
@@ -4118,7 +4118,7 @@
         "A conversation whose id does not match its declared shape is still refused, with the same message.",
         "An agent whose ids are opaque is representable without a new variant."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         213
       ],
@@ -4143,7 +4143,7 @@
         "The existing codex handoff behaviour is unchanged, proven by the handoff spec.",
         "A second CLI declaring the capability reaches the same path without a code change."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         213
       ],
@@ -4194,7 +4194,7 @@
         "A CLI whose overlay must be written for it is hinted to re-run with its own name, generated the same way.",
         "The existing bind report evidence still passes, including the claude line agent-identity.test.mjs matches."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         214
       ],
@@ -4218,7 +4218,7 @@
         "Both exceptions are removed from tools/agent_names.py, which is how this row proves itself.",
         "What a person sees when no agent is chosen is unchanged, or the change is deliberate and recorded."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         217
       ],
@@ -4244,14 +4244,20 @@
         "Every exception this row names is removed from tools/agent_names.py, which is how it proves itself.",
         "No behaviour changes: each move is proven by the evidence path that already covers it."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         217
       ],
       "owner_workspace": "rengine",
       "deliverable": "The declared keys and adapter files that replace each named exception, and the shrunken exception list in the guard.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/specs/141-provider-abstraction.md",
+        "docs/lessons-learned.md",
+        "orchestrator/tests/agent-names.test.mjs",
+        "orchestrator/tests/environment.test.mjs",
+        "tools/agent_names.py"
+      ]
     }
   ]
 }
