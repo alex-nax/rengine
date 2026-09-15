@@ -492,6 +492,12 @@ test('a desktop registers on the door and answers what the workspace asks it', {
     await rm(directory, { recursive: true, force: true });
   });
   const root = await backend.store.addRoot(directory);
+  /* The ledger service, started before the door so the door can ATTACH to it: `attaching` never
+     starts one, which is deliberate — two owners of one set of files is what D60/D61 prevent. In
+     production the layer above starts it; here this is that layer. */
+  const { Tokens } = await import('../runtime/token-client.mjs');
+  const tokens = await Tokens.open(stateDir, { alive: () => true });
+  t.after(() => tokens.close());
   /* A short acknowledgement budget, so the spec can watch a desktop fail to answer without
      spending the production four seconds on it. */
   const door = await front(t, stateDir, backend, { RENGINE_DESKTOP_ACTION_MS: '700' });
@@ -645,6 +651,82 @@ test('a desktop registers on the door and answers what the workspace asks it', {
   assert.equal((await crossed.json()).error, 'Session belongs to another root.');
   const missing = await ask(instance, '/api/session-view', { rootId: root.id, desktopId, id: 'no-such-pane' });
   assert.equal(missing.status, 404, 'a pane nobody has is not a pane this desktop can show');
+
+  /* --- the desktop's view of the project token (spec 095, spec 143) --------------------------- */
+  /* The registry is the door's, so the pinned status-bar segment is the door's too: it is pushed
+     over the socket a desktop registered on, which is what lets the segment never poll. With the
+     registry here rather than in a worker, a worker being replaced is not something a desktop can
+     notice — which is the whole of what spec 095's retirement relay existed to paper over. */
+  const segments = () => ours.frames.filter(frame => frame.type === 'token');
+  await until(() => segments().length, 'the desktop was pushed its token segment on registration');
+  const first = segments().at(-1);
+  assert.equal(first.rootId, root.id);
+  assert.equal(first.holder, null, 'nobody holds it yet');
+  assert.equal(typeof first.windowMs, 'number');
+
+  /* A second desktop, bound to a DIFFERENT project. Everything below is about this root, and none
+     of it may reach this one: a status bar showing another project's token is a person about to act
+     on a workspace they are not looking at. */
+  const otherRoot = await backend.store.addRoot(await mkdtemp(path.join(tmpdir(), 'red-host-unbound-')));
+  const unbound = desktop(instance);
+  await unbound.open;
+  unbound.socket.send(JSON.stringify({ type: 'desktop-register', rootIds: [otherRoot.id], sessionIds: [],
+    canReload: false, canAttach: false }));
+  await until(() => unbound.seen('desktop-registered'), 'the second desktop registered');
+  const theirSegments = () => unbound.frames.filter(frame => frame.type === 'token');
+  await until(() => theirSegments().length, 'and was pushed its own project\'s segment');
+  assert.ok(theirSegments().every(frame => frame.rootId === otherRoot.id));
+
+  /* An agent takes the token, which the desktop is not told about by asking — the ledger moved, so
+     the door pushes. This is the whole reason the segment lives on this socket. */
+  const agent = { agentId: '12345678-1234-1234-1234-123456789abc', label: 'an agent' };
+  const ledger = await tokens.ledger(root.id);
+  await ledger.contest(agent, 'working');
+  await until(() => segments().at(-1)?.holder?.agentId === agent.agentId,
+    `the desktop was pushed the transition it never asked for: ${JSON.stringify(segments().at(-1))}`);
+
+  /* And the person at the desktop taking it back, over the socket it registered on. A desktop has
+     more actions than an agent does, so the ledger judges which; what the DOOR judges is that the
+     frame came from a registered desktop bound to the project it names. */
+  ours.socket.send(JSON.stringify({ type: 'token-action', rootId: root.id, action: 'revoke' }));
+  await until(() => segments().at(-1)?.holder === null, 'the revoke landed and was pushed back');
+  assert.equal((await ledger.status(null)).holder, null, 'and it is the ledger that says so');
+
+  /* Nothing about this root ever reached the desktop that is not bound to it. */
+  assert.ok(theirSegments().every(frame => frame.rootId === otherRoot.id),
+    `another project's segments are not this desktop's: ${JSON.stringify(theirSegments().map(frame => frame.rootId))}`);
+  assert.equal(theirSegments().length, 1, 'and it was pushed nothing it did not need');
+
+  /* A project this desktop is not bound to is refused by name. */
+  ours.socket.send(JSON.stringify({ type: 'token-action', rootId: otherRoot.id, action: 'revoke' }));
+  await until(() => ours.frames.some(frame => frame.type === 'error' && /not bound to this desktop/.test(frame.error)),
+    'a project this desktop is not bound to is refused');
+
+  /* A socket that never said it was a desktop is not one, however well-formed its frame. */
+  const unregistered = desktop(instance);
+  await unregistered.open;
+  unregistered.socket.send(JSON.stringify({ type: 'token-action', rootId: root.id, action: 'settle' }));
+  await until(() => unregistered.seen('error'), 'an unregistered socket cannot act on the token');
+  assert.match(unregistered.seen('error').error, /Register the desktop before sending token actions/);
+  unregistered.socket.close();
+
+  /* The recorder lives in the desktop (spec 081), so a capture is announced BY the desktop on the
+     same socket — and it is a feed frame, so it is the ledger's. */
+  ours.socket.send(JSON.stringify({ type: 'recording', rootId: root.id, event: 'committed',
+    recordingId: 'rec-1', kind: 'explicit' }));
+  /* Read back through the ledger itself: the feed's ROUTE is the worker's, and what is being
+     asserted here is that the door minted the frame at all. */
+  const feed = async () => (await (await tokens.ledger(root.id)).feed.after(0)).frames;
+  await until(async () => (await feed()).some(frame => frame.type === 'capture.committed'),
+    'the capture reached the feed');
+  const captured = (await feed()).find(frame => frame.type === 'capture.committed');
+  assert.equal(captured.recordingId, 'rec-1');
+  assert.equal(captured.kind, 'explicit');
+  assert.equal(captured.by.kind, 'desktop', 'attributed to the desktop that recorded it');
+  assert.equal(captured.by.desktopId, desktopId);
+  ours.socket.send(JSON.stringify({ type: 'recording', rootId: root.id, event: 'exploded' }));
+  await until(() => ours.frames.some(frame => frame.type === 'error' && /started or committed/.test(frame.error)),
+    'an event nobody records is refused by name');
 
   /* And a desktop that goes away is gone from the list: the registry is the socket's, so it cannot
      outlive it. */

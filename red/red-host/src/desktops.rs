@@ -172,6 +172,39 @@ impl Desktops {
             .collect()
     }
 
+    /// Send one message to every desktop bound to a project, or to just one of them.
+    ///
+    /// The socket is the desktop's own, so this is how anything reaches it that it did not ask for:
+    /// the pinned token segment, and nothing else so far.
+    pub fn push(&self, root_id: &str, message: &str, only: Option<&Arc<Viewer>>) {
+        let clients = self.clients.lock().expect("desktops lock");
+        for desktop in clients.values() {
+            if !desktop.root_ids.iter().any(|root| root == root_id) {
+                continue;
+            }
+            if only.is_some_and(|wanted| !same(&desktop.viewer, wanted)) {
+                continue;
+            }
+            desktop.viewer.say(message.to_string());
+        }
+    }
+
+    /// The id this workspace knows one socket's desktop by, or `None` if it never registered.
+    pub fn identify(&self, viewer: &Arc<Viewer>) -> Option<String> {
+        let clients = self.clients.lock().expect("desktops lock");
+        clients.values().find(|desktop| same(&desktop.viewer, viewer)).map(|desktop| desktop.id.clone())
+    }
+
+    /// The projects one socket is bound to, for a caller that has just registered it.
+    pub fn bound(&self, viewer: &Arc<Viewer>) -> Vec<String> {
+        let clients = self.clients.lock().expect("desktops lock");
+        clients
+            .values()
+            .find(|desktop| same(&desktop.viewer, viewer))
+            .map(|desktop| desktop.root_ids.clone())
+            .unwrap_or_default()
+    }
+
     /// Ask a desktop to do something, and wait for it to say it took the request. The refusals are
     /// the JS host's, including the statuses a caller acts on.
     ///

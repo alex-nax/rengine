@@ -1,5 +1,5 @@
-/* The services a state directory keeps after its host is gone: its PTYs (charter D60) and its
- * store (D61). In production that is the point — a replaced host finds its panes and its state
+/* The services a state directory keeps after its host is gone: its PTYs (charter D60), its
+ * store (D61) and its token ledger (spec 132). In production that is the point — a replaced host finds its panes and its state
  * where it left them. In a suite it means a test that starts a REAL host, kills it, and deletes
  * its directory would leave a service holding a shell for a directory that no longer exists: the
  * PTY service never reaps while it holds a session, which is exactly the promise D60 makes.
@@ -14,7 +14,7 @@ import path from 'node:path';
 const run = promisify(execFile);
 
 export async function endStateServices(stateDir) {
-  for (const name of ['pty.json', 'store.json']) {
+  for (const name of ['pty.json', 'store.json', 'token.json']) {
     try {
       const descriptor = JSON.parse(await readFile(path.join(stateDir, name), 'utf8'));
       if (Number.isSafeInteger(descriptor.pid)) { try { process.kill(descriptor.pid, 'SIGKILL'); } catch { /* already gone */ } }
@@ -27,7 +27,7 @@ export async function endStateServices(stateDir) {
   try {
     const { stdout } = await run('ps', ['-axo', 'pid=,args=']);
     for (const line of stdout.split('\n')) {
-      if (!/red-(pty|store)-serve/.test(line) || !line.includes(`--state ${stateDir}`)) continue;
+      if (!/red-(pty|store|token)-serve/.test(line) || !line.includes(`--state ${stateDir}`)) continue;
       const pid = Number(line.trim().split(/\s+/)[0]);
       if (Number.isSafeInteger(pid)) { try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ } }
     }

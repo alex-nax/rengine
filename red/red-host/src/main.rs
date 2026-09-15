@@ -52,6 +52,8 @@ use routes::{answer_about_pane, answer_desktop_action, answer_from_store, answer
 /// this door refuses it the way a host does rather than guessing at its answers.
 const PTY_PROTOCOL: u64 = 2;
 const STORE_PROTOCOL: u64 = 1;
+/// The ledger service's protocol, as `token-client.mjs` names it.
+const TOKEN_PROTOCOL: u64 = 1;
 
 const USAGE: &str = "usage: red-host --state <dir> --backend <url> --backend-token <token> [--port N] [--pid N]";
 
@@ -76,6 +78,13 @@ struct Front {
     /// Everyone watching `/events`, and the desktops among them.
     hub: Arc<Hub>,
     desktops: Desktops,
+    /// The directory's token ledger, attached for the desktop's sake alone (spec 095, spec 143).
+    ///
+    /// The worker owns the token's ROUTES; the door owns the desktop's view of it, because the
+    /// registry is the door's and the pinned status-bar segment is pushed over the socket a desktop
+    /// registered on. That is what lets the segment never poll — and, with the registry here rather
+    /// than in a worker, what makes a worker being replaced something no desktop can notice.
+    tokens: Option<red_core::service::Client>,
     /// The surfaces games stream into (F155, spec 142): the loopback listener this door opened, the
     /// reservations it has minted, and the viewers attached to each. `None` when the listener could
     /// not be opened, and then a game that streams into a pane is refused rather than launched
@@ -269,12 +278,47 @@ async fn serve(options: Options) -> Result<(), String> {
         }
     }
     let hub = watching;
+    /* The registry exists before the ledger client does, because the client's event callback pushes
+       INTO it: the service starts pushing the moment it is attached, and a desktop that registered
+       in that instant would miss the first transition. */
+    let desktops = Desktops::new();
+    /* The callback cannot ASK the ledger — it runs on the client's own reader, and a call from
+       there would be the reader waiting for itself. So it names the project and a task does the
+       asking. */
+    let (wants, mut wanted) = tokio::sync::mpsc::unbounded_channel::<String>();
+    let tokens = red_core::service::Client::attaching(
+        std::path::Path::new(&options.state),
+        "token",
+        TOKEN_PROTOCOL,
+        Box::new(move |event: &serde_json::Value| {
+            /* A `token.*` frame moved the ledger, so every desktop bound to that project is pushed
+               the pinned segment — which is what lets the status bar never poll. Any other frame is
+               somebody else's business and reaches a desktop over the feed, not over this socket. */
+            let moved = event.get("event").and_then(serde_json::Value::as_str) == Some("frame")
+                && event
+                    .get("frame")
+                    .and_then(|frame| frame.get("type"))
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|kind| kind.starts_with("token."));
+            if !moved {
+                return;
+            }
+            if let Some(root) = event.get("rootId").and_then(serde_json::Value::as_str) {
+                let _ = wants.send(root.to_string());
+            }
+        }),
+    )
+    .unwrap_or_else(|message| {
+        eprintln!("red-host: no token ledger ({message}). A desktop's token segment will not update.");
+        None
+    });
     let front = Arc::new(Front {
         store,
         pty,
         panes,
         hub: hub.clone(),
-        desktops: Desktops::new(),
+        desktops,
+        tokens,
         surfaces,
         viewers: std::sync::atomic::AtomicU64::new(0),
         token: secret(),
@@ -285,6 +329,14 @@ async fn serve(options: Options) -> Result<(), String> {
         backend_token: options.backend_token.clone(),
         probes: red_project::devices::Probes::default(),
     });
+    {
+        let front = front.clone();
+        tokio::spawn(async move {
+            while let Some(root) = wanted.recv().await {
+                push_segment(&front, &root, None).await;
+            }
+        });
+    }
     /* The descriptor every consumer reads, written the way the JS host writes it: tmp then rename,
        0600, and the token this door checks rather than the backend's. */
     let descriptor = std::path::Path::new(&options.state).join("sidecar.json");
@@ -621,6 +673,132 @@ pub(crate) async fn ask_pty(front: &Arc<Front>, method: &str, args: serde_json::
     }
 }
 
+/// The same, to the token ledger — the desktop's half of it, which is all the door asks about.
+pub(crate) async fn ask_token(front: &Arc<Front>, method: &str, args: serde_json::Value) -> Result<serde_json::Value, String> {
+    let front = front.clone();
+    let method = method.to_string();
+    match tokio::task::spawn_blocking(move || front.tokens.as_ref().map(|client| client.call(&method, args))).await {
+        Ok(Some(outcome)) => outcome,
+        Ok(None) => Err("409|This workspace does not serve the project token ledger.".to_string()),
+        Err(error) => Err(format!("500|{error}")),
+    }
+}
+
+/// A desktop acting on the project token, over the socket it registered on.
+///
+/// A desktop has more actions than an agent does — settling, assigning, rejecting on someone's
+/// behalf — so this does not narrow them the way an agent's are narrowed; the ledger judges them.
+/// What is judged HERE is that the frame came from a registered desktop bound to the project it
+/// names, because a socket that had not said it was a desktop is not one.
+pub(crate) async fn desktop_token(
+    front: &Arc<Front>,
+    viewer: &Arc<events::Viewer>,
+    message: &serde_json::Value,
+) -> Result<(), String> {
+    let (root, desktop) = desktop_acting(front, viewer, message, "token actions")?;
+    /* An assign resolves an agent id against the conversations this project remembers, and a
+       function does not cross a socket — so what the worker's `lookup` would have answered is
+       looked up here and sent with the request. */
+    let asked = message.get("agentId").and_then(serde_json::Value::as_str);
+    let lookup = match asked {
+        Some(agent) => conversation_identity(front, &root, agent).await,
+        None => serde_json::Value::Null,
+    };
+    ask_token(
+        front,
+        "desktop",
+        serde_json::json!([root, message.get("action"), {
+            "contestId": message.get("contestId"),
+            "desktopId": desktop,
+            "reason": message.get("reason"),
+            "agentId": asked,
+            "lookup": lookup,
+        }]),
+    )
+    .await
+    .map_err(plain)?;
+    push_segment(front, &root, None).await;
+    Ok(())
+}
+
+/// A desktop announcing a capture it started or committed (spec 081): the recorder lives in the
+/// desktop, so this is the only place the frame can come from.
+pub(crate) async fn desktop_recording(
+    front: &Arc<Front>,
+    viewer: &Arc<events::Viewer>,
+    message: &serde_json::Value,
+) -> Result<(), String> {
+    let (root, desktop) = desktop_acting(front, viewer, message, "recording frames")?;
+    let kind = match message.get("event").and_then(serde_json::Value::as_str) {
+        Some("started") => "capture.started",
+        Some("committed") => "capture.committed",
+        _ => return Err("A recording frame carries event started or committed.".to_string()),
+    };
+    let clip = |name: &str, limit: usize| {
+        message.get(name).and_then(serde_json::Value::as_str).map(|value| value.chars().take(limit).collect::<String>())
+    };
+    let mut fields = serde_json::json!({
+        "sessionId": message.get("sessionId").cloned().unwrap_or(serde_json::Value::Null),
+        "gameId": message.get("gameId").cloned().unwrap_or(serde_json::Value::Null),
+        "recordingId": message.get("recordingId").cloned().unwrap_or(serde_json::Value::Null),
+        "kind": if message.get("kind") == Some(&serde_json::json!("explicit")) { "explicit" } else { "ring" },
+    });
+    if let Some(at) = clip("at", 40) {
+        fields["startedAt"] = serde_json::json!(at);
+    }
+    if let Some(error) = clip("error", 400) {
+        fields["error"] = serde_json::json!(error);
+    }
+    let by = serde_json::json!({ "kind": "desktop", "desktopId": desktop });
+    ask_token(front, "frame", serde_json::json!([root, kind, by, fields])).await.map_err(plain)?;
+    let _ = ask_token(front, "persist", serde_json::json!([root])).await;
+    Ok(())
+}
+
+/// The project and the desktop a frame on this socket is acting as — or why it is neither.
+fn desktop_acting(
+    front: &Arc<Front>,
+    viewer: &Arc<events::Viewer>,
+    message: &serde_json::Value,
+    what: &str,
+) -> Result<(String, String), String> {
+    let root = message.get("rootId").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    let Some(desktop) = front.desktops.identify(viewer) else {
+        return Err(format!("Register the desktop before sending {what}."));
+    };
+    if !front.desktops.bound(viewer).iter().any(|bound| *bound == root) {
+        return Err("That project is not bound to this desktop.".to_string());
+    }
+    Ok((root, desktop))
+}
+
+/// An agent the Tasks pane can list is not necessarily one the ledger has met on the wire, so a
+/// desktop's assign resolves through the conversations this project remembers (spec 103).
+async fn conversation_identity(front: &Arc<Front>, root_id: &str, agent_id: &str) -> serde_json::Value {
+    let Ok(listed) = ask(front, "listConversations", serde_json::json!([root_id])).await else {
+        return serde_json::Value::Null;
+    };
+    let empty = Vec::new();
+    let rows = listed.as_array().unwrap_or(&empty);
+    let Some(found) = rows.iter().find(|row| row.get("id").and_then(serde_json::Value::as_str) == Some(agent_id)) else {
+        return serde_json::Value::Null;
+    };
+    let name = found.get("agent").and_then(serde_json::Value::as_str).unwrap_or("agent");
+    let printable: String = name.chars().filter(|c| (' '..='~').contains(c)).take(32).collect();
+    let printable = if printable.is_empty() { "agent".to_string() } else { printable };
+    serde_json::json!({ "agentId": agent_id, "label": format!("{printable} {}", &agent_id[..agent_id.len().min(8)]) })
+}
+
+/// The pinned segment, to every desktop bound to this project — or to one of them.
+///
+/// Flat holder/contest/windowMs plus the sequence of the last `token.*` frame (spec 095, Native
+/// desktop). Pushed when a desktop registers and after every transition, so the status-bar segment
+/// never polls.
+pub(crate) async fn push_segment(front: &Arc<Front>, root_id: &str, only: Option<&Arc<events::Viewer>>) {
+    let Ok(frame) = ask_token(front, "segment", serde_json::json!([root_id])).await else { return };
+    front.desktops.push(root_id, &frame.to_string(), only);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -630,7 +808,7 @@ mod tests {
             surfaces: None,
             viewers: std::sync::atomic::AtomicU64::new(0),
             store: None, pty: None, panes: Arc::new(Mutex::new(std::collections::HashMap::new())),
-            hub: Arc::new(Hub::new()), desktops: Desktops::new(),
+            hub: Arc::new(Hub::new()), desktops: Desktops::new(), tokens: None,
             token: "a".repeat(64), instance: "i".into(), state: "/tmp/x".into(), url: "http://127.0.0.1:1".into(),
             backend: "http://127.0.0.1:2".into(), backend_token: "b".repeat(64),
             probes: red_project::devices::Probes::default(),

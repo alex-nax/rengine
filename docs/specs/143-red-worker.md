@@ -120,6 +120,39 @@ JavaScript's: WHO before what here, because a frame from somebody who is not a d
 be refused rather than one this worker cannot mint; the other way round there, because a worker with
 no ledger says so whoever is asking.
 
+## What the registry decision left at the door, and what it retires
+
+The desktop's view of the token lives on the desktop's socket, and that socket is the door's. So the
+door attaches to the ledger service too — the worker owns the token's ROUTES, the door owns the
+desktop's view of it:
+
+- **The pinned segment**, pushed when a desktop registers and after every `token.*` frame. That is
+  what lets the status bar never poll.
+- **`token-action` on the socket**, which is the person at the desktop acting. A desktop has more
+  actions than an agent does, so the ledger judges which; the door judges that the frame came from a
+  registered desktop bound to the project it names.
+- **`recording`**, because the recorder lives in the desktop (spec 081) and a capture frame is a
+  feed frame.
+
+An assign resolves an agent id against the conversations this project remembers, and a function does
+not cross a socket — so what the worker's `lookup` would have answered is looked up at the door and
+travels with the request.
+
+**This retires spec 095's retirement relay.** It existed so a retired worker could keep pushing
+segments to desktops it still held, by following the current worker's feed. With the registry and
+the push at the door, a worker being replaced is not something a desktop can notice. That machinery
+goes with `worker.mjs` rather than being ported.
+
+The callback that hears a `token.*` frame cannot ask the ledger for the segment: it runs on the
+service client's own reader, and a call from there would be the reader waiting for itself. It names
+the project and a task does the asking.
+
+**One gap before the cutover.** `Client::attaching` only attaches; nothing in Rust STARTS a service.
+Today the JS worker starts the ledger through `ServiceClient.attach`, and the door and the Rust
+worker attach to what it left running. When the supervisor spawns `red-worker` instead of node,
+something has to start `red-token-serve` — and it belongs in `red-core::service`, so the door and
+the worker get it from one place.
+
 ## The two children, and the ask between them
 
 `red-lsp-serve` holds the language servers a project declares, one process per project root, started
