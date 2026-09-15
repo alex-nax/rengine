@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir, writeFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { startServer } from '../server/main.mjs';
@@ -25,11 +25,31 @@ const roleKeys = (state, role) => (state.controls ?? []).filter(c => c.role === 
 
 test('the Sessions tab offers a project\'s past conversations for resume, most recent first', { timeout: 90000 }, async t => {
   const { dir, root: projectPath } = await project(t);
-  const server = await startServer({ stateDir: path.join(dir, 'state') });
-  const root = await server.store.addRoot(projectPath);
-  // Recorded before the desktop connects, so its first /api/state already carries them.
-  await server.store.recordConversation(root.id, { conversation: OLDER, agent: 'claude' });
-  await server.store.recordConversation(root.id, { conversation: NEWER, agent: 'claude' });
+  /* Seeded on disk rather than through recordConversation, because that stamps lastSeenAt from the
+     store's own clock and every conversation would read "just now" — a short string that fits a
+     column even when the column is starved. The row that actually failed carried a LONG age, so
+     the fixture has to carry one too, or the layout assertion below has nothing to catch. */
+  const stateDir = path.join(dir, 'state');
+  const ROOT_ID = 'cccccccc-3333-3333-3333-cccccccccccc';
+  const minutesAgo = n => Date.now() - n * 60000;
+  await mkdir(stateDir, { recursive: true });
+  await writeFile(path.join(stateDir, 'workspace.json'), JSON.stringify({
+    version: 1,
+    /* The REAL path: macOS resolves /var to /private/var and the tree compares canonicalised
+       paths, so a seeded root that skips this refuses its own project as outside itself. */
+    roots: [{ id: ROOT_ID, path: await realpath(projectPath), name: path.basename(projectPath) }],
+    drafts: {}, layout: null, preferences: {},
+    conversations: {
+      /* Most recently seen first, which is the order recordConversation maintains and the order
+         the view is asserted to preserve below. */
+      [ROOT_ID]: [
+        { id: NEWER, agent: 'claude', startedAt: minutesAgo(90), lastSeenAt: minutesAgo(26) },
+        { id: OLDER, agent: 'claude', startedAt: minutesAgo(180), lastSeenAt: minutesAgo(64) },
+      ],
+    },
+  }));
+  const server = await startServer({ stateDir });
+  const root = { id: ROOT_ID };
   const gui = await nativeClient(server, { root: root.id });
   try {
     await gui.until(s => s.connected && s.tabs.some(t => t?.type === 1 && t.tree), 'the workspace');
@@ -42,6 +62,24 @@ test('the Sessions tab offers a project\'s past conversations for resume, most r
     assert.equal(state.state.sessions.length, 0, 'no session was started to make the offer');
     const remembered = state.state.conversations[root.id].map(c => c.id);
     assert.deepEqual(remembered, [NEWER, OLDER]);
+
+    /* A row a person cannot read is a row that failed. The first column used to reserve
+       actions-width where the button column is attach-width, which spent the difference on a gap
+       in the middle and left the trailing column short of the age it had to write, so the row read
+       "26 minutes ag…" beside a hole. Text runs carry the drawn box AND the box after clipping, so
+       a truncated label is `visible.w !== w` — which a control rectangle could never show. */
+    const runs = await gui.command({ op: 'text-runs' });
+    const clipped = runs.filter(r => r.visible.w !== r.w || r.visible.h !== r.h);
+    assert.deepEqual(clipped, [], `every string in the Sessions tab is drawn whole: ${JSON.stringify(clipped)}`);
+
+    /* And the row says WHICH conversation it is. Every row here is "claude · rengine"; without the
+       id there is nothing to tell two of them apart, and the id is also what the CLI resumes by. */
+    const shown = runs.map(r => r.text);
+    for (const id of [NEWER, OLDER]) {
+      const head = id.split('-')[0];
+      assert.ok(shown.some(t => t.includes(head)),
+        `the row names the conversation ${head}: ${JSON.stringify(shown)}`);
+    }
   } finally {
     await gui.close(); await server.close();
   }

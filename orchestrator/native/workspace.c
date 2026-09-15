@@ -363,10 +363,29 @@ static const char *conversation_token_action(ReApp *a, const char *conversation)
   if (!re_token_holds(a, conversation)) return "";
   return re_token_holder_alive(a) ? "revoke" : "free";
 }
+/* The first column reserves EXACTLY what the four after it occupy. It used to reserve
+ * actions-width (155) where the button column is attach-width (80), which spent 75 pixels on a gap
+ * in the middle of the row and left the trailing column short of the age it had to write — so the
+ * row read "26 minutes ag…" beside a hole. Reserve what is actually laid out and both go away. */
 static void conversation_row(mu_Context *ui) {
-  mu_layout_row(ui, 5, (int[]){-RE_METRIC_SESSIONS_ACTIONS_WIDTH - RE_METRIC_SESSIONS_STATE_WIDTH - RE_METRIC_SESSIONS_TOKEN_WIDTH,
+  mu_layout_row(ui, 5, (int[]){-RE_METRIC_SESSIONS_STATE_WIDTH - RE_METRIC_SESSIONS_ATTACH_WIDTH
+                                 - RE_METRIC_SESSIONS_TOKEN_WIDTH - RE_METRIC_SESSIONS_AGE_WIDTH,
                                RE_METRIC_SESSIONS_STATE_WIDTH, RE_METRIC_SESSIONS_ATTACH_WIDTH,
                                RE_METRIC_SESSIONS_TOKEN_WIDTH, -1}, RE_METRIC_SESSIONS_ROW_HEIGHT);
+}
+/* What tells one conversation from another. The record carries an id, an agent and a task and no
+ * title, so the id's first segment is the distinguishing detail — and it is the same string the CLI
+ * resumes by, so a person reading the row can also type it. Without it every row in this list reads
+ * "claude · rengine" and names nothing. */
+static const char *conversation_detail(const char *id, const char *task, bool held, char *out, size_t size) {
+  char head[16] = {0};
+  for (size_t i = 0; i < sizeof(head) - 1 && id[i] && id[i] != '-'; i++) head[i] = id[i];
+  if (!*head) { re_copy(out, size, "names its own"); return out; }
+  if (held && task && *task) snprintf(out, size, "%s · %s · token", head, task);
+  else if (held) snprintf(out, size, "%s · token", head);
+  else if (task && *task) snprintf(out, size, "%s · %s", head, task);
+  else re_copy(out, size, head);
+  return out;
 }
 static void sessions_ui(ReApp *a, mu_Context *ui) {
   sessions_columns(ui, "Session", "State", "");
@@ -409,7 +428,10 @@ static void sessions_ui(ReApp *a, mu_Context *ui) {
       char key[80]; snprintf(key, sizeof(key), "c-%s", sid); mu_push_id(ui, key, (int)strlen(key));
       conversation_row(ui);
       char label[1024]; snprintf(label, sizeof(label), "%s · %s", agent_name(re_string(s, "agent")), re_workspace_root_name(a, rid));
-      re_ui_row_ex(ui, label, RE_ICON_AGENT, re_token_holds(a, conv) ? "token" : *conv ? "" : "names its own", 0, RE_UI_DISABLED);
+      char detail[256];
+      re_ui_row_ex(ui, label, RE_ICON_AGENT,
+                   conversation_detail(conv, re_string(s, "task"), re_token_holds(a, conv), detail, sizeof(detail)),
+                   0, RE_UI_DISABLED);
       re_ui_pill(ui, "live", RE_UI_PILL_OK);
       if (re_ui_button_ex(ui, "Attach", RE_ICON_UNKNOWN, RE_UI_SMALL)) re_app_tab(a, RE_TERMINAL, rid, "", sid, re_string(s, "title"));
       re_app_control(a, ui, "conversation-attach", sid, -1);
@@ -430,7 +452,10 @@ static void sessions_ui(ReApp *a, mu_Context *ui) {
       char key[80]; snprintf(key, sizeof(key), "r-%s", cid); mu_push_id(ui, key, (int)strlen(key));
       conversation_row(ui);
       char label[1024]; snprintf(label, sizeof(label), "%s · %s", agent_name(agent), re_workspace_root_name(a, rid));
-      re_ui_row_ex(ui, label, RE_ICON_AGENT, re_token_holds(a, cid) ? "token" : "", 0, RE_UI_DISABLED);
+      char detail[256];
+      re_ui_row_ex(ui, label, RE_ICON_AGENT,
+                   conversation_detail(cid, re_string(conv, "task"), re_token_holds(a, cid), detail, sizeof(detail)),
+                   0, RE_UI_DISABLED);
       re_ui_pill(ui, "past", RE_UI_PILL_NEUTRAL);
       if (re_ui_button_ex(ui, "Resume", RE_ICON_ARROW_UP, RE_UI_SMALL)) resume_conversation(a, rid, agent, cid);
       re_app_control(a, ui, "resume", cid, -1);
