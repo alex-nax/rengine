@@ -16,6 +16,8 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { built } from './cargo.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -37,12 +39,17 @@ async function host(t) {
     response.end(JSON.stringify({ reached: 'the host' }));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  t.after(() => new Promise(resolve => { server.closeAllConnections(); server.close(resolve); }));
-  return { url: `http://127.0.0.1:${server.address().port}`, seen };
+  const state = await mkdtemp(path.join(tmpdir(), 'rengine-worker-'));
+  t.after(async () => {
+    await new Promise(resolve => { server.closeAllConnections(); server.close(resolve); });
+    await rm(state, { recursive: true, force: true });
+  });
+  return { url: `http://127.0.0.1:${server.address().port}`, seen, state };
 }
 
-async function worker(t, upstream) {
-  const child = spawn(BIN, ['--host', upstream.url, '--host-token', HOST_TOKEN], { stdio: ['ignore', 'pipe', 'pipe'] });
+async function worker(t, upstream, stateDir) {
+  const child = spawn(BIN, ['--state', stateDir ?? upstream.state, '--host', upstream.url, '--host-token', HOST_TOKEN],
+    { stdio: ['ignore', 'pipe', 'pipe'] });
   let noise = '';
   child.stderr.on('data', bytes => { noise += bytes; });
   t.after(() => { try { child.kill('SIGKILL'); } catch { /* gone */ } });
@@ -107,4 +114,22 @@ test('a path the worker has no opinion about is refused, not proxied', async t =
     assert.equal((await answered.json()).error, 'Unknown workspace endpoint.');
   }
   assert.deepEqual(upstream.seen, [], 'a worker is not a proxy for its host');
+});
+
+/* The feed is the one route the worker answers itself, and the reason it exists as a process: one
+   writer, one sequence, and a watcher that resumes from a cursor. With no ledger service running it
+   says so rather than answering from nothing — and it says it HERE, never by forwarding, because a
+   host asked for a feed would answer about a different one. */
+test('the feed is the worker\'s own, and says so when it has no ledger to read', async t => {
+  const upstream = await host(t);
+  const started = await worker(t, upstream);
+
+  const missing = await ask(started, '/api/feed');
+  assert.equal(missing.status, 400, 'a feed is a root\'s feed');
+  assert.match((await missing.json()).error, /project root is required/);
+
+  const answered = await ask(started, '/api/feed?rootId=r');
+  assert.equal(answered.status, 409);
+  assert.match((await answered.json()).error, /does not serve the project token ledger/);
+  assert.deepEqual(upstream.seen, [], 'and it never asked the host about a feed of its own');
 });

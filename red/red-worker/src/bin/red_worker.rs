@@ -22,9 +22,17 @@ use red_core::head::Head;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
-const USAGE: &str = "usage: red-worker --host <url> --host-token <token> [--port N]";
+const USAGE: &str = "usage: red-worker --state <dir> --host <url> --host-token <token> [--port N]";
+/// The ledger service's protocol, as `token-client.mjs` names it. A worker that attached over a
+/// version the service does not speak would be told so by name rather than answering from a guess.
+const TOKEN_PROTOCOL: u64 = 1;
 
 struct Worker {
+    /// The state directory's token ledger and lifecycle feed, ATTACHED rather than opened: the feed
+    /// has one writer and one sequence (spec 103), and a worker that opened a second in-memory copy
+    /// would hand two watchers two different histories. `None` when no service is running, and then
+    /// the feed says so rather than answering from nothing.
+    ledger: Option<red_core::service::Client>,
     /// The session host this worker belongs to, and the credential it forwards with. A client never
     /// learns this one: it presents the worker's own.
     host: String,
@@ -34,20 +42,21 @@ struct Worker {
     url: String,
 }
 
-fn options() -> Result<(String, String, u16), String> {
+fn options() -> Result<(String, String, String, u16), String> {
     let argv: Vec<String> = std::env::args().skip(1).collect();
     let named = |name: &str| {
         argv.iter().position(|value| value == name).and_then(|at| argv.get(at + 1)).map(String::from)
     };
+    let state = named("--state").ok_or(USAGE)?;
     let host = named("--host").ok_or(USAGE)?;
     let host_token = named("--host-token").ok_or(USAGE)?;
     let port = named("--port").map(|value| value.parse::<u16>().map_err(|_| "--port takes a number".to_string()));
-    Ok((host, host_token, port.transpose()?.unwrap_or(0)))
+    Ok((state, host, host_token, port.transpose()?.unwrap_or(0)))
 }
 
 #[tokio::main]
 async fn main() -> std::process::ExitCode {
-    let (host, host_token, port) = match options() {
+    let (state, host, host_token, port) = match options() {
         Ok(options) => options,
         Err(message) => {
             eprintln!("red-worker: {message}");
@@ -62,7 +71,20 @@ async fn main() -> std::process::ExitCode {
         }
     };
     let port = listener.local_addr().map(|address| address.port()).unwrap_or(0);
+    let ledger = match red_core::service::Client::attaching(
+        std::path::Path::new(&state),
+        "token",
+        TOKEN_PROTOCOL,
+        Box::new(|_event: &serde_json::Value| {}),
+    ) {
+        Ok(client) => client,
+        Err(message) => {
+            eprintln!("red-worker: {message} The feed and the token will say so rather than answer.");
+            None
+        }
+    };
     let worker = Arc::new(Worker {
+        ledger,
         host,
         host_token,
         token: red_core::service::secret(),
@@ -112,9 +134,14 @@ async fn connection(worker: Arc<Worker>, mut client: TcpStream) -> io::Result<()
             }
             continue;
         }
-        /* Not yet: the feed socket and the routes land next, each with its evidence. Until one does,
-           it is forwarded, which is what makes a half-ported worker behave like the whole one. */
-        let _ = red_worker::serve::implemented(&head.method, &head.path());
+        if red_worker::serve::implemented(&head.method, &head.path()) {
+            let answer = answer_own(&worker, &head);
+            client.write_all(answer.as_bytes()).await?;
+            if !head.keeps_alive() {
+                return Ok(());
+            }
+            continue;
+        }
 
         /* Everything else is the host's. The head is replayed with this worker's credential swapped
            for the host's — a client never learns the host's — and the body is forwarded by its own
@@ -127,6 +154,31 @@ async fn connection(worker: Arc<Worker>, mut client: TcpStream) -> io::Result<()
         upstream.read_to_end(&mut answer).await?;
         client.write_all(&answer).await?;
         return Ok(());
+    }
+}
+
+/// The routes this worker answers itself.
+fn answer_own(worker: &Worker, head: &Head) -> String {
+    match (head.method.as_str(), head.path().as_str()) {
+        ("GET", "/api/feed") => {
+            let Some(root) = head.query("rootId").filter(|value| !value.is_empty()) else {
+                return refusal(400, "Bad Request", "A project root is required to read its feed.");
+            };
+            let Some(ledger) = &worker.ledger else {
+                return refusal(409, "Conflict", "This workspace worker does not serve the project token ledger.");
+            };
+            let cursor = red_worker::feed::cursor_of(head.query("after").as_deref());
+            match ledger.call("feedAfter", serde_json::json!([root, cursor, serde_json::Value::Null])) {
+                Ok(frames) => json(200, "OK", &frames.to_string()),
+                /* The ledger's refusal carries its own status ahead of a pipe, the way every
+                   service here answers one; anything else is this worker's to report as 500. */
+                Err(fault) => match fault.split_once('|') {
+                    Some((status, message)) => refusal(status.parse().unwrap_or(500), "Error", message),
+                    None => refusal(500, "Error", &fault),
+                },
+            }
+        }
+        _ => refusal(404, "Not Found", "Unknown workspace endpoint."),
     }
 }
 
