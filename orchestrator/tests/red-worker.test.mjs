@@ -17,9 +17,10 @@ import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { WebSocket, WebSocketServer } from 'ws';
+import { PRODUCT_NAME } from '../runtime/product.mjs';
 import { built } from './cargo.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -63,9 +64,13 @@ async function host(t, answers = {}) {
   return { url: `http://127.0.0.1:${server.address().port}`, seen, state, server };
 }
 
-async function worker(t, upstream, stateDir) {
-  const child = spawn(BIN, ['--state', stateDir ?? upstream.state, '--host', upstream.url, '--host-token', HOST_TOKEN],
-    { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env } });
+/* `--no-ide` by default, and it matters: a published bridge writes a lock into the person's own
+   `/ide` menu, so a suite that started one would have a side effect on whoever ran it. The test
+   that wants a bridge asks for one, into a directory of its own. */
+async function worker(t, upstream, stateDir, options = {}) {
+  const child = spawn(BIN, ['--state', stateDir ?? upstream.state, '--host', upstream.url, '--host-token', HOST_TOKEN,
+    ...(options.ide ? [] : ['--no-ide'])],
+    { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, ...(options.env ?? {}) } });
   let noise = '';
   child.stderr.on('data', bytes => { noise += bytes; });
   t.after(() => { try { child.kill('SIGKILL'); } catch { /* gone */ } });
@@ -556,3 +561,98 @@ const settleFor = async (check, timeout = 5000) => {
   }
   assert.fail('the tunnelled bytes never arrived');
 };
+
+/* --- what the editor pane and a connected CLI both read (spec 133, spec 102) -------------------- */
+/* The three routes over the two children the worker starts: `red-lsp-serve`, which holds the
+ * language servers a project declares, and `red-ide serve`, the bridge a CLI connects to. The
+ * relationship between them is the point — when a CLI asks the bridge for diagnostics the bridge
+ * asks back here, because the editor pane and `getDiagnostics` read ONE store (D3).
+ */
+test('diagnostics answer a version a poller can skip on, and never one it never held', { timeout: 120000 }, async t => {
+  const at = await mkdtemp(path.join(tmpdir(), 'rengine-lsp-'));
+  t.after(() => rm(at, { recursive: true, force: true }));
+  await writeFile(path.join(at, 'main.rs'), 'fn main() {}\n');
+  const upstream = await host(t, withRoot(at));
+  const started = await worker(t, upstream);
+
+  /* This project declares no language server, so there is nothing to have an opinion — and that is
+     an ANSWER rather than a refusal: rEngine runs a server a project declares and never installs
+     one, so a machine without it gets a named absence and not a broken pane. */
+  const first = await ask(started, `/api/diagnostics?rootId=r&path=main.rs`);
+  assert.equal(first.status, 200, JSON.stringify(await first.clone().json()));
+  const answer = await first.json();
+  assert.deepEqual(answer.items, []);
+  assert.equal(typeof answer.version, 'number');
+  assert.equal(answer.unchanged, undefined, 'a caller that asked for no version is told the items');
+
+  /* `since` is asked for by PRESENCE, not by value. `Number(null)` is 0 and a version starts at 0,
+     so a caller that omitted it was being told nothing had changed since a version it never held —
+     which is a pane that never draws its first diagnostic. */
+  const skipped = await ask(started, `/api/diagnostics?rootId=r&path=main.rs&since=${answer.version}`);
+  assert.deepEqual(await skipped.json(), { version: answer.version, unchanged: true });
+  const different = await ask(started, `/api/diagnostics?rootId=r&path=main.rs&since=${answer.version + 1}`);
+  assert.equal((await different.json()).unchanged, undefined, 'a version it does not hold is not a skip');
+
+  /* And a project the workspace does not have is refused before any toolchain is started. */
+  const unknown = await ask(started, '/api/diagnostics?rootId=nope&path=main.rs');
+  assert.equal(unknown.status, 404);
+  assert.equal((await unknown.json()).error, 'Unknown project root.');
+});
+
+test('the bridge publishes an editor for this worker, and the routes over it deliver a count', { timeout: 120000 }, async t => {
+  const at = await mkdtemp(path.join(tmpdir(), 'rengine-ide-'));
+  const ideDir = path.join(at, 'ide');
+  await mkdir(ideDir, { recursive: true });
+  t.after(() => rm(at, { recursive: true, force: true }));
+  await writeFile(path.join(at, 'main.rs'), 'fn main() {}\n');
+  const upstream = await host(t, withRoot(at, { pid: process.pid }));
+  const started = await worker(t, upstream, undefined, { ide: true, env: { RENGINE_IDE_DIRECTORY: ideDir } });
+
+  /* Published into a directory of this test's own: the lock is what a CLI reads to find an editor,
+     and it names the worker that owns it so a dead one's lock can be swept. */
+  const locks = await settleFiles(ideDir);
+  assert.equal(locks.length, 1, `one editor published: ${locks.join(', ')}`);
+  assert.match(locks[0], /^\d+\.lock$/, 'named by the port a CLI connects to');
+  const lock = JSON.parse(await readFile(path.join(ideDir, locks[0]), 'utf8'));
+  assert.equal(lock.ideName, PRODUCT_NAME, 'and it is this product, by the one declaration of its name');
+  assert.deepEqual(lock.workspaceFolders, [at], 'bound to the project this worker serves');
+
+  /* Nobody is connected, so both routes deliver to nobody — a COUNT, not a refusal. The desktop
+     reports a selection on every cursor move, and a refusal there is one a person sees constantly. */
+  const selected = await ask(started, '/api/ide-selection', { method: 'POST', body: JSON.stringify({
+    rootId: 'r', path: 'main.rs', text: 'fn main', selection: { start: { line: 0 }, end: { line: 0 } }, buffer: 'fn main() {}\n' }) });
+  assert.equal(selected.status, 200);
+  const reported = await selected.json();
+  assert.equal(reported.delivered, 0);
+  assert.deepEqual(reported.servers, [], 'this project declares no language server, so the buffer reached none');
+
+  const mentioned = await ask(started, '/api/ide-mention',
+    { method: 'POST', body: JSON.stringify({ rootId: 'r', path: 'main.rs', lineStart: 1, lineEnd: 2 }) });
+  assert.equal(mentioned.status, 200);
+  assert.equal((await mentioned.json()).delivered, 0);
+
+  /* And a root the workspace does not have is refused, because a file is named by a root and a path
+     within it — there is no file to mention without one. */
+  const unknown = await ask(started, '/api/ide-mention', { method: 'POST', body: JSON.stringify({ rootId: 'nope' }) });
+  assert.equal(unknown.status, 404);
+});
+
+test('a worker with no published editor still answers, and delivers to nobody', { timeout: 60000 }, async t => {
+  const at = await mkdtemp(path.join(tmpdir(), 'rengine-ide-'));
+  t.after(() => rm(at, { recursive: true, force: true }));
+  const upstream = await host(t, withRoot(at));
+  const started = await worker(t, upstream);
+  const selected = await ask(started, '/api/ide-selection',
+    { method: 'POST', body: JSON.stringify({ rootId: 'r', path: 'main.rs', text: '' }) });
+  assert.equal(selected.status, 200, 'the workspace opens whether or not a CLI can find an editor');
+  assert.equal((await selected.json()).delivered, 0);
+});
+
+async function settleFiles(directory, timeout = 20000) {
+  for (let waited = 0; waited < timeout; waited += 50) {
+    const found = await readdir(directory).catch(() => []);
+    if (found.length) return found;
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  assert.fail('no editor was published');
+}

@@ -2,7 +2,7 @@
 
 Owner goal, 2026-09-15: *"finish remaining js"* (charter D57, spec 129; F158).
 
-Status: **in progress — 8 of 13 routes answered and both sockets served** (the registry's two went to the door). What is left is the IDE bridge's three and F154's two.
+Status: **in progress — 11 of 13 routes answered and both sockets served** (the registry's two went to the door). What is left is F154's two.
 
 ## The measurement that shaped this
 
@@ -33,7 +33,7 @@ rather than on the day a single enormous commit is reviewed.
 | `POST /api/task` | — | **done**; the tracker is read back **through the door**, which answers a local one itself and forwards a remote one, so the worker needs none of its own |
 | `POST /api/agent-spawn` | — | **done** |
 | `POST /api/script-open` | — | **done** |
-| `GET /api/diagnostics`<br>`POST /api/ide-mention`<br>`POST /api/ide-selection` | **the IDE bridge**: the worker spawns one `red-ide serve` per bridge and answers `getDiagnostics` back down the pipe, because the language servers are the worker's (spec 133 D3) | infrastructure |
+| `GET /api/diagnostics`<br>`POST /api/ide-mention`<br>`POST /api/ide-selection` | — | **done** |
 | `POST /api/session-view`<br>`GET /api/runtime-desktops` | ~~the desktop registry~~ — **the door's** (below) | **done, and not here** |
 | `POST /api/update-workspace` | — | **done** |
 | `POST /api/tracker/signin`<br>`POST /api/tracker/signout` | **a TLS decision** — rustls, hyper and hyper-util are already linked through libp2p, but the workspace has no root-certificate store | F154 |
@@ -77,6 +77,35 @@ and its own de-duplication drops it whether the filter fired or not. The control
 under test. The other project is now run twelve frames ahead before anything crosses, and then
 removing the filter costs the watcher its OWN next frame — because a stranger's higher sequence
 advances the cursor past it.
+
+## The two children, and the ask between them
+
+`red-lsp-serve` holds the language servers a project declares, one process per project root, started
+the first time a file under it is asked about. `red-ide serve` is the bridge a CLI connects to. Both
+belong to the WORKER rather than to the state directory: a replaced worker starts its own, because a
+language server is a process somebody's editing session owns and not a workspace fact that outlives
+it.
+
+They speak the same shape — a request per line in, an answer per line out — so `pipe` is one client
+for both. What makes it more than a command runner is the **ask**: when a connected CLI asks the
+bridge for diagnostics, the bridge asks back, because the editor pane and `getDiagnostics` read one
+store (D3). A client that only wrote and read answers would deadlock the first time a CLI asked.
+
+Two rules are worth naming because both are a pane that silently never draws:
+
+- **`since` is asked for by PRESENCE, not by value.** `Number(null)` is 0 and a version starts at 0,
+  so a caller that omitted it was being told nothing had changed since a version it never held.
+- **A delivery that reached nobody is a COUNT, not a refusal.** The desktop reports a selection on
+  every cursor move; a refusal there is one a person sees constantly. A worker that could not
+  publish an editor at all still serves everything else and says so on stderr — a workspace that
+  refused to open because another editor held the lock would be a workspace nobody could open.
+
+Doing this found a live bug. `red-lsp` keys its diagnostic store by the URI it computes when a file
+is opened, and its copy of `pathToFileURL` kept `~` where Node encodes it as `%7E` — so a project
+under a path with a tilde in it had no diagnostics at all, and nothing said why. The rule is now
+`red_core::text::file_uri`, one implementation, read off Node character by character; `red-lsp` and
+the worker both call it, and the worker's own test asserts the two agree rather than re-asserting
+the characters.
 
 Every route's work runs on `spawn_blocking`. A CLI's `--help`, a call to the door and a project's
 own write command all block, and a runtime whose workers were all inside one would stop accepting

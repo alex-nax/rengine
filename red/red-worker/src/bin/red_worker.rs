@@ -30,7 +30,7 @@ use tokio_tungstenite::tungstenite::protocol::{CloseFrame, Role};
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::WebSocketStream;
 
-const USAGE: &str = "usage: red-worker --state <dir> --host <url> --host-token <token> [--port N]";
+const USAGE: &str = "usage: red-worker --state <dir> --host <url> --host-token <token> [--port N] [--ide-port N] [--no-ide]";
 /// The ledger service's protocol, as `token-client.mjs` names it. A worker that attached over a
 /// version the service does not speak would be told so by name rather than answering from a guess.
 const TOKEN_PROTOCOL: u64 = 1;
@@ -53,29 +53,51 @@ struct Worker {
     /// Everyone watching a feed, and the root each is watching. The ledger pushes one stream of
     /// events for the whole state directory and this is what turns it into per-root feeds.
     watchers: Arc<Watchers>,
+    /// One set of language servers per project, started the first time a file under it is asked
+    /// about — a workspace with three projects open does not run three toolchains nobody looked at.
+    servers: Arc<red_worker::editing::PerRoot>,
+    /// Red as a Claude Code IDE, published once for this worker. `None` when it could not be, and
+    /// then the routes over it deliver to nobody rather than refusing.
+    bridge: Option<red_worker::editing::Bridge>,
 }
 
-fn options() -> Result<(String, String, String, u16), String> {
+struct Options {
+    state: String,
+    host: String,
+    host_token: String,
+    port: u16,
+    /// The port the IDE bridge publishes on; 0 is "any". `--no-ide` starts none at all, which is
+    /// what a test wants: a bridge writes a lock into the person's own `/ide` menu.
+    ide_port: u16,
+    ide: bool,
+}
+
+fn options() -> Result<Options, String> {
     let argv: Vec<String> = std::env::args().skip(1).collect();
     let named = |name: &str| {
         argv.iter().position(|value| value == name).and_then(|at| argv.get(at + 1)).map(String::from)
     };
-    let state = named("--state").ok_or(USAGE)?;
-    let host = named("--host").ok_or(USAGE)?;
-    let host_token = named("--host-token").ok_or(USAGE)?;
-    let port = named("--port").map(|value| value.parse::<u16>().map_err(|_| "--port takes a number".to_string()));
-    Ok((state, host, host_token, port.transpose()?.unwrap_or(0)))
+    let number = |name: &str| named(name).map(|value| value.parse::<u16>().map_err(|_| format!("{name} takes a number")));
+    Ok(Options {
+        state: named("--state").ok_or(USAGE)?,
+        host: named("--host").ok_or(USAGE)?,
+        host_token: named("--host-token").ok_or(USAGE)?,
+        port: number("--port").transpose()?.unwrap_or(0),
+        ide_port: number("--ide-port").transpose()?.unwrap_or(0),
+        ide: !argv.iter().any(|value| value == "--no-ide"),
+    })
 }
 
 #[tokio::main]
 async fn main() -> std::process::ExitCode {
-    let (state, host, host_token, port) = match options() {
+    let chosen = match options() {
         Ok(options) => options,
         Err(message) => {
             eprintln!("red-worker: {message}");
             return std::process::ExitCode::from(2);
         }
     };
+    let Options { state, host, host_token, port, ide_port, ide } = chosen;
     let listener = match TcpListener::bind(("127.0.0.1", port)).await {
         Ok(listener) => listener,
         Err(error) => {
@@ -105,6 +127,10 @@ async fn main() -> std::process::ExitCode {
             None
         }
     };
+    /* The bridge asks back for diagnostics, so the servers exist before it does: the editor pane and
+       a connected CLI read ONE store (spec 133, D3), and that store is this. */
+    let servers = Arc::new(red_worker::editing::PerRoot::new());
+    let bridge = if ide { started_bridge(&host, &host_token, ide_port, &servers) } else { None };
     let worker = Arc::new(Worker {
         ledger,
         host,
@@ -113,6 +139,8 @@ async fn main() -> std::process::ExitCode {
         url: format!("http://127.0.0.1:{port}"),
         writes: red_worker::tasks::Writes::new(),
         watchers,
+        servers,
+        bridge,
     });
     /* One line, then serve: the supervisor reads this to learn where the worker is before it writes
        the descriptor that names it. */
@@ -203,6 +231,60 @@ async fn connection(worker: Arc<Worker>, mut client: TcpStream) -> io::Result<()
         answer.forward_body(&mut upstream, &mut upstream_buffered, &mut client).await?;
         if answer.closes() || !head.keeps_alive() {
             return Ok(());
+        }
+    }
+}
+
+/// Red as a Claude Code IDE, for as long as this worker lives.
+///
+/// A worker that cannot publish one still serves everything else and says so: the CLI's `/ide` menu
+/// is a convenience, and a workspace that refused to start because another editor held the lock
+/// would be a workspace nobody could open. The reason travels to stderr, where the supervisor that
+/// started this reads it.
+fn started_bridge(
+    host: &str,
+    host_token: &str,
+    port: u16,
+    servers: &Arc<red_worker::editing::PerRoot>,
+) -> Option<red_worker::editing::Bridge> {
+    let state = red_core::http::get(host, host_token, "/api/state").ok()?;
+    let roots: Vec<String> = state
+        .get("roots")
+        .and_then(serde_json::Value::as_array)
+        .map(|items| {
+            items.iter().filter_map(|item| item.get("path").and_then(serde_json::Value::as_str).map(str::to_string)).collect()
+        })
+        .unwrap_or_default();
+    /* The lock Claude Code reads must name a process that is one of a pane's own ancestors, and only
+       the session host is (spec 102). The host says its own pid; a worker that was told none
+       publishes without one rather than naming itself, which would be naming the wrong process. */
+    let host_pid = state.get("pid").and_then(serde_json::Value::as_i64);
+    let answering = servers.clone();
+    let options = serde_json::json!({
+        "roots": roots,
+        "hostPid": host_pid,
+        "workerPid": std::process::id(),
+        "port": port,
+        "host": "127.0.0.1",
+    });
+    match red_worker::editing::Bridge::start(
+        options,
+        Some(Box::new(move |method: &str, args: &[serde_json::Value]| {
+            if method != "diagnostics" {
+                return Err(format!("this worker cannot answer {method}."));
+            }
+            Ok(answering.about(args.first().and_then(serde_json::Value::as_str).unwrap_or_default()))
+        })),
+    ) {
+        Ok(bridge) => {
+            if !bridge.published {
+                eprintln!("red-worker: no editor published: {}", bridge.reason.clone().unwrap_or_else(|| "no reason given".to_string()));
+            }
+            Some(bridge)
+        }
+        Err(message) => {
+            eprintln!("red-worker: no editor published: {message}");
+            None
         }
     }
 }
@@ -450,6 +532,11 @@ fn answer_own(worker: &Worker, head: &Head, body: &str) -> String {
         ("POST", "/api/task") => answered_or_faulted(task(worker, head, body)),
         ("POST", "/api/agent-spawn") => answered_or_faulted(agent_spawn(worker, head, body)),
         ("POST", "/api/script-open") => answered_or_faulted(script_open(worker, head, body)),
+        /* The three the editor pane reads and writes. All of them are about ONE FILE, and all of
+           them name it the way every other route names one: a root, and a path within it. */
+        ("GET", "/api/diagnostics") => answered_or_faulted(diagnostics(worker, head)),
+        ("POST", "/api/ide-mention") => answered_or_faulted(ide_mention(worker, body)),
+        ("POST", "/api/ide-selection") => answered_or_faulted(ide_selection(worker, body)),
         _ => refusal(404, "Not Found", "Unknown workspace endpoint."),
     }
 }
@@ -609,6 +696,85 @@ fn shown(
         }
     }
     serde_json::Value::Object(answer)
+}
+
+/// What the language servers have said about one file, for the editor pane to draw.
+///
+/// The version lets a poller skip a render: the desktop asks twice a second and almost always gets
+/// told nothing changed. **`since` is asked for by presence, not by value** — `Number(null)` is 0
+/// and a version starts at 0, so a caller that omitted it was being told nothing had changed since
+/// a version it never held.
+///
+/// One call, and the version it answers is current: asking for the version first and the items
+/// afterwards would hand a poller a version drawn before the publish it is waiting for.
+fn diagnostics(worker: &Worker, head: &Head) -> Result<serde_json::Value, String> {
+    let (root_id, root_path) = root_of(worker, &head.query("rootId").unwrap_or_default())?;
+    let declared = red_project::declaration::read(&root_path, None);
+    let servers = worker.servers.of(&root_id, &root_path, &declared)?;
+    let file = red_worker::editing::file_in(&root_path, head.query("path").as_deref());
+    let answer = servers.diagnostics(&red_worker::editing::uri_for(&file))?;
+    let version = answer.get("version").cloned().unwrap_or(serde_json::Value::Null);
+    let since = head.query("since").and_then(|value| value.parse::<i64>().ok());
+    if since.is_some() && since == version.as_i64() {
+        return Ok(serde_json::json!({ "version": version, "unchanged": true }));
+    }
+    Ok(serde_json::json!({
+        "version": version,
+        "items": answer.get("items").cloned().unwrap_or_else(|| serde_json::json!([])),
+        "unavailable": answer.get("unavailable").cloned().unwrap_or(serde_json::Value::Null),
+    }))
+}
+
+/// The person pressed a button that says so. Deliberate, unlike the selection stream, and the CLI
+/// treats the two differently.
+fn ide_mention(worker: &Worker, body: &str) -> Result<serde_json::Value, String> {
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let (_, root_path) = root_of(worker, named(&data, "rootId"))?;
+    let file = red_worker::editing::file_in(&root_path, data.get("path").and_then(serde_json::Value::as_str));
+    let Some(bridge) = &worker.bridge else { return Ok(serde_json::json!({ "delivered": 0 })) };
+    let sent = bridge.mention(serde_json::json!({
+        "filePath": file,
+        "lineStart": data.get("lineStart"),
+        "lineEnd": data.get("lineEnd"),
+    }));
+    Ok(serde_json::json!({ "delivered": red_worker::editing::delivered(sent) }))
+}
+
+/// The desktop reports a fact about itself — which file, which range — and this turns it into the
+/// notification a connected CLI understands.
+///
+/// The path is resolved here because ROOTS live here: the desktop names a root and a path within
+/// it, as every other route does.
+fn ide_selection(worker: &Worker, body: &str) -> Result<serde_json::Value, String> {
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let (root_id, root_path) = root_of(worker, named(&data, "rootId"))?;
+    let file = red_worker::editing::file_in(&root_path, data.get("path").and_then(serde_json::Value::as_str));
+    /* The buffer the person is looking at, not the file on disk: the desktop sends what it holds and
+       that is what the servers are told, so a diagnostic describes the unsaved edit. */
+    let opened = match data.get("buffer").and_then(serde_json::Value::as_str) {
+        Some(buffer) => {
+            let declared = red_project::declaration::read(&root_path, None);
+            worker
+                .servers
+                .of(&root_id, &root_path, &declared)
+                .and_then(|servers| servers.open(&file, buffer))
+                .ok()
+                .and_then(|answer| answer.get("servers").cloned())
+        }
+        None => None,
+    };
+    let sent = match &worker.bridge {
+        Some(bridge) => bridge.selection(serde_json::json!({
+            "filePath": file,
+            "text": data.get("text").cloned().unwrap_or_else(|| serde_json::json!("")),
+            "selection": data.get("selection"),
+        })),
+        None => Ok(serde_json::json!(0)),
+    };
+    Ok(serde_json::json!({
+        "delivered": red_worker::editing::delivered(sent),
+        "servers": opened.unwrap_or_else(|| serde_json::json!([])),
+    }))
 }
 
 /// The briefs rEngine ships, beside the registry it ships.

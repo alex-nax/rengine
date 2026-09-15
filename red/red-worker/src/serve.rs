@@ -58,6 +58,9 @@ pub fn implemented(method: &str, path: &str) -> bool {
             | ("POST", "/api/agent-spawn")
             | ("POST", "/api/script-open")
             | ("POST", "/api/update-workspace")
+            | ("GET", "/api/diagnostics")
+            | ("POST", "/api/ide-mention")
+            | ("POST", "/api/ide-selection")
     )
 }
 

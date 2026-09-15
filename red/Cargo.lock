@@ -2813,6 +2813,7 @@ dependencies = [
  "futures-util",
  "red-agents",
  "red-core",
+ "red-lsp",
  "red-project",
  "red-token",
  "serde_json",

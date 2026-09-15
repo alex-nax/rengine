@@ -11,9 +11,11 @@
 //! `feed` is first because it is the one thing nothing else can serve: one writer, one sequence,
 //! and a watcher that resumes from a cursor.
 
+pub mod editing;
 pub mod feed;
 pub mod identity;
 pub mod menu;
+pub mod pipe;
 pub mod scripts;
 pub mod serve;
 pub mod spawn;

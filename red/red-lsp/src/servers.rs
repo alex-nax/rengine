@@ -386,18 +386,14 @@ impl Server {
     }
 }
 
-/// `pathToFileURL(file).href`.
+/// `pathToFileURL(file).href`, from the one implementation of it.
+///
+/// It lives in `red_core::text` because TWO processes key by it: this one, when a file is opened,
+/// and the worker, when it asks on behalf of the editor pane or of a connected CLI. The copy that
+/// used to be here kept `~` where Node encodes it, so a project under a path with a tilde in it had
+/// no diagnostics at all and nothing said why.
 pub fn uri_for(file: &Path) -> String {
-    let mut out = String::from("file://");
-    for byte in file.to_string_lossy().bytes() {
-        match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'/' | b':' | b'@' | b'+' | b'$' | b',' | b'!' | b'*' | b'(' | b')' | b'\'' | b';' | b'=' | b'&' => {
-                out.push(byte as char)
-            }
-            other => out.push_str(&format!("%{other:02X}")),
-        }
-    }
-    out
+    red_core::text::file_uri(&file.to_string_lossy())
 }
 
 pub struct Servers {

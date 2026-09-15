@@ -53,3 +53,50 @@ mod tests {
         assert_eq!(super::truncate_utf16("abcd", 99), "abcd");
     }
 }
+
+/// `pathToFileURL(file).href` — the shape the LSP store is keyed by.
+///
+/// Here, and used by both sides, because it is one string fact that TWO processes have to agree
+/// about: `red-lsp` keys its diagnostic store by the URI it computes when a file is opened, and the
+/// worker asks for that key on behalf of the editor pane and of a connected CLI. A URI that differed
+/// by one character would be a file that was broken for one of them and fine for the other, which is
+/// exactly what spec 133's D3 says must not be possible.
+///
+/// The set is Node's own, measured rather than assumed. The two easy mistakes are in it: `~` IS
+/// encoded, and `!$&'()*+,` are NOT — the opposite of the usual unreserved set, and the reason the
+/// two copies of this rule had drifted apart before it was moved here.
+pub fn file_uri(path: &str) -> String {
+    const KEPT: &[u8] = b"!$&'()*+,-.:;=@_/";
+    let mut out = String::from("file://");
+    for byte in path.as_bytes() {
+        if byte.is_ascii_alphanumeric() || KEPT.contains(byte) {
+            out.push(*byte as char);
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod uri_tests {
+    use super::file_uri;
+
+    /* Read off `pathToFileURL` character by character, because both sides of a store are keyed with
+       it and the JavaScript that still calls them computes it that way. */
+    #[test]
+    fn a_path_becomes_the_url_node_would_have_made() {
+        assert_eq!(file_uri("/work/project/src/main.rs"), "file:///work/project/src/main.rs");
+        assert_eq!(file_uri("/work/my project/a b.rs"), "file:///work/my%20project/a%20b.rs");
+        assert_eq!(file_uri("/work/proj/ünïcode.rs"), "file:///work/proj/%C3%BCn%C3%AFcode.rs");
+        /* The tilde, which the previous copy of this rule kept and Node encodes. A project under
+           a path with one in it had no diagnostics at all and nothing said why. */
+        assert_eq!(file_uri("/w/~notes/a.rs"), "file:///w/%7Enotes/a.rs");
+        assert_eq!(file_uri("/a-b_c.d~e!f'g(h)i"), "file:///a-b_c.d%7Ee!f'g(h)i");
+        assert_eq!(file_uri("/w/a#b?c.rs"), "file:///w/a%23b%3Fc.rs");
+        assert_eq!(file_uri("/w/a%b.rs"), "file:///w/a%25b.rs");
+        assert_eq!(file_uri("/w/a[b]c^d`e{f}g|h\"i<j>k.rs"),
+                   "file:///w/a%5Bb%5Dc%5Ed%60e%7Bf%7Dg%7Ch%22i%3Cj%3Ek.rs");
+        assert_eq!(file_uri("/w/$&*+,:;=@!'().rs"), "file:///w/$&*+,:;=@!'().rs", "and the punctuation it keeps");
+    }
+}
