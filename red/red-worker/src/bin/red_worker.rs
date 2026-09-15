@@ -135,7 +135,8 @@ async fn connection(worker: Arc<Worker>, mut client: TcpStream) -> io::Result<()
             continue;
         }
         if red_worker::serve::implemented(&head.method, &head.path()) {
-            let answer = answer_own(&worker, &head);
+            let body = if head.method == "POST" { head.read_body(&mut client, &mut buffered).await? } else { String::new() };
+            let answer = answer_own(&worker, &head, &body);
             client.write_all(answer.as_bytes()).await?;
             if !head.keeps_alive() {
                 return Ok(());
@@ -158,7 +159,7 @@ async fn connection(worker: Arc<Worker>, mut client: TcpStream) -> io::Result<()
 }
 
 /// The routes this worker answers itself.
-fn answer_own(worker: &Worker, head: &Head) -> String {
+fn answer_own(worker: &Worker, head: &Head, body: &str) -> String {
     match (head.method.as_str(), head.path().as_str()) {
         ("GET", "/api/feed") => {
             let Some(root) = head.query("rootId").filter(|value| !value.is_empty()) else {
@@ -168,17 +169,82 @@ fn answer_own(worker: &Worker, head: &Head) -> String {
                 return refusal(409, "Conflict", "This workspace worker does not serve the project token ledger.");
             };
             let cursor = red_worker::feed::cursor_of(head.query("after").as_deref());
-            match ledger.call("feedAfter", serde_json::json!([root, cursor, serde_json::Value::Null])) {
-                Ok(frames) => json(200, "OK", &frames.to_string()),
-                /* The ledger's refusal carries its own status ahead of a pipe, the way every
-                   service here answers one; anything else is this worker's to report as 500. */
-                Err(fault) => match fault.split_once('|') {
-                    Some((status, message)) => refusal(status.parse().unwrap_or(500), "Error", message),
-                    None => refusal(500, "Error", &fault),
+            answered(ledger.call("feedAfter", serde_json::json!([root, cursor, serde_json::Value::Null])))
+        }
+        ("GET", "/api/token") => {
+            let Some(root) = head.query("rootId").filter(|value| !value.is_empty()) else {
+                return refusal(400, "Bad Request", "A project root is required to read its token.");
+            };
+            let Some(client) = &worker.ledger else {
+                return refusal(409, "Conflict", "This workspace worker does not serve the project token ledger.");
+            };
+            /* The caller's own view of the token: who holds it, and whether THIS caller does. A
+               status read without an identity is still an answer — a person's desktop reads it. */
+            let who = identity_of(head);
+            answered(client.call("callerStatus", serde_json::json!([root, who])))
+        }
+        ("POST", "/api/token-action") => {
+            let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+            let root = data.get("rootId").and_then(serde_json::Value::as_str);
+            let who = identity_of(head);
+            /* The desktop a RETIRED worker forwards for one of its retained desktops, honoured only
+               in the absence of an agent: the person at a desktop is never gated, whichever worker
+               carries the frame, and an agent claiming to be one would be claiming its way past the
+               arbitration (spec 095, Retirement). */
+            let desk = who.is_none().then(|| red_worker::identity::desktop(|name| head.header(name))).flatten();
+            let action = data.get("action").and_then(serde_json::Value::as_str);
+            if let Some((status, message)) =
+                red_worker::serve::token_refusal(worker.ledger.is_some(), root, who.as_ref(), desk.as_deref(), action)
+            {
+                return refusal(status, "Error", message);
+            }
+            let (client, root, action) = (worker.ledger.as_ref().expect("a ledger"), root.expect("a root"), action.expect("an action"));
+            let acted = match &desk {
+                Some(desk) => client.call("desktop", serde_json::json!([root, action, {
+                    "contestId": data.get("contestId"), "desktopId": desk,
+                    "reason": data.get("reason"), "agentId": data.get("agentId"),
+                }])),
+                None => client.call(
+                    action,
+                    serde_json::json!([root, who, data.get("reason").and_then(serde_json::Value::as_str).unwrap_or("")]),
+                ),
+            };
+            match acted {
+                Ok(result) => match client.call("callerStatus", serde_json::json!([root, who])) {
+                    /* `{ ...result, status }`: the action's answer and the view it leaves behind, in
+                       one reply, so a caller does not read a status from before its own act. */
+                    Ok(status) => {
+                        let mut out = result.as_object().cloned().unwrap_or_default();
+                        out.insert("status".to_string(), status);
+                        json(200, "OK", &serde_json::Value::Object(out).to_string())
+                    }
+                    Err(fault) => faulted(&fault),
                 },
+                Err(fault) => faulted(&fault),
             }
         }
         _ => refusal(404, "Not Found", "Unknown workspace endpoint."),
+    }
+}
+
+/// Who this request says it is, for a route that records a name.
+fn identity_of(head: &Head) -> Option<serde_json::Value> {
+    red_worker::identity::agent(|name| head.header(name))
+}
+
+/// A service's answer, or its refusal with the status it chose.
+fn answered(result: Result<serde_json::Value, String>) -> String {
+    match result {
+        Ok(value) => json(200, "OK", &value.to_string()),
+        Err(fault) => faulted(&fault),
+    }
+}
+
+/// A refusal that arrived as `status|message`, which is how every service here answers one.
+fn faulted(fault: &str) -> String {
+    match fault.split_once('|') {
+        Some((status, message)) => refusal(status.parse().unwrap_or(500), "Error", message),
+        None => refusal(500, "Error", fault),
     }
 }
 

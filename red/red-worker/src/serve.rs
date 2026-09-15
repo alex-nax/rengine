@@ -49,7 +49,37 @@ pub fn own_route(method: &str, path: &str) -> bool {
 /// has got. A route moves from one to the other when it is implemented and its evidence is here,
 /// and until then it is forwarded, so a half-ported worker behaves exactly like the whole one.
 pub fn implemented(method: &str, path: &str) -> bool {
-    matches!((method, path), ("GET", "/api/feed"))
+    matches!((method, path), ("GET", "/api/feed") | ("GET", "/api/token") | ("POST", "/api/token-action"))
+}
+
+/// Why a token action cannot go ahead, in the order the question is asked. `None` means it can.
+///
+/// The ORDER is the JavaScript's and is load-bearing. A worker with no ledger says so whoever is
+/// asking — the fault is the workspace's, not the caller's — and only once there IS a ledger does
+/// it matter who is acting on it. Reversing the two would tell a person at a desktop that they had
+/// not identified themselves when the real answer is that this worker serves no ledger at all.
+pub fn token_refusal(
+    has_ledger: bool,
+    root: Option<&str>,
+    who: Option<&serde_json::Value>,
+    desktop: Option<&str>,
+    action: Option<&str>,
+) -> Option<(u16, &'static str)> {
+    if root.is_none_or(str::is_empty) {
+        return Some((400, "A project root is required to act on its token."));
+    }
+    if !has_ledger {
+        return Some((409, "This workspace worker does not serve the project token ledger."));
+    }
+    if who.is_none() && desktop.is_none() {
+        return Some((403, "Only an identified agent can act on the token; this request carried no X-Rengine-Agent header."));
+    }
+    /* A desktop's action is the ledger's to judge — it has more of them than an agent does — so only
+       an AGENT's is narrowed here to the three it may take. */
+    if desktop.is_none() && !matches!(action, Some("contest" | "reject" | "release")) {
+        return Some((400, "Choose contest, reject or release."));
+    }
+    None
 }
 
 /// The sockets a worker serves itself, and the ones it tunnels to the host.
@@ -143,6 +173,39 @@ mod tests {
         }
         let method = before.split("req.method === '").nth(1)?.split('\'').next()?.to_string();
         Some((method, path))
+    }
+
+    /* The refusal order, which is the JavaScript's and is load-bearing: reversing the ledger and
+       the identity would tell a person at a desktop they had not identified themselves when the
+       real answer is that this worker serves no ledger at all. */
+    #[test]
+    fn a_token_action_is_refused_in_the_order_the_question_is_asked() {
+        let who = serde_json::json!({ "agentId": "12345678-1234-1234-1234-123456789abc" });
+
+        /* A root first: everything below is about a root's token. */
+        assert_eq!(token_refusal(true, None, Some(&who), None, Some("contest")).map(|(code, _)| code), Some(400));
+        assert_eq!(token_refusal(true, Some(""), Some(&who), None, Some("contest")).map(|(code, _)| code), Some(400));
+
+        /* Then the ledger, WHOEVER is asking — including nobody, which is the ordering itself. */
+        assert_eq!(token_refusal(false, Some("r"), Some(&who), None, Some("contest")).map(|(code, _)| code), Some(409));
+        assert_eq!(token_refusal(false, Some("r"), None, None, None).map(|(code, _)| code), Some(409),
+                   "a worker with no ledger says so before it asks who is calling");
+
+        /* Then who: an unidentified caller is told which header names it. */
+        let (code, message) = token_refusal(true, Some("r"), None, None, Some("contest")).expect("refused");
+        assert_eq!(code, 403);
+        assert!(message.contains("X-Rengine-Agent"), "{message}");
+
+        /* Then what: an agent may take three actions and is told which. */
+        assert_eq!(token_refusal(true, Some("r"), Some(&who), None, Some("abscond")), Some((400, "Choose contest, reject or release.")));
+        assert_eq!(token_refusal(true, Some("r"), Some(&who), None, None).map(|(code, _)| code), Some(400));
+        for action in ["contest", "reject", "release"] {
+            assert_eq!(token_refusal(true, Some("r"), Some(&who), None, Some(action)), None, "{action} is one an agent may take");
+        }
+
+        /* A DESKTOP's action is the ledger's to judge — it has more of them than an agent does — so
+           it is not narrowed here, and a desktop needs no agent header. */
+        assert_eq!(token_refusal(true, Some("r"), None, Some("desk-1"), Some("settle")), None);
     }
 
     #[test]

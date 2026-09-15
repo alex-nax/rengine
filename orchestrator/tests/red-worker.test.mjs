@@ -133,3 +133,27 @@ test('the feed is the worker\'s own, and says so when it has no ledger to read',
   assert.match((await answered.json()).error, /does not serve the project token ledger/);
   assert.deepEqual(upstream.seen, [], 'and it never asked the host about a feed of its own');
 });
+
+/* The token is the other half of what the worker owns. It is arbitration among cooperating agents,
+   never an access boundary — every participant already holds the workspace capability — so what
+   these headers decide is whose NAME appears in a refusal and on a feed frame. */
+test('the token is the worker\'s own, and an unidentified caller cannot act on it', async t => {
+  const upstream = await host(t);
+  const started = await worker(t, upstream);
+
+  const rootless = await ask(started, '/api/token');
+  assert.equal(rootless.status, 400, 'a token is a root\'s token');
+  assert.match((await rootless.json()).error, /project root is required/);
+
+  /* A worker with NO LEDGER says so whoever is asking — the fault is the workspace's, not the
+     caller's — which is the refusal order the JS worker has and `serve::token_refusal` states.
+     The rest of that order is unit-tested there, because reaching it needs a live ledger. */
+  for (const headers of [{}, { 'X-Rengine-Agent': '12345678-1234-1234-1234-123456789abc' }]) {
+    const acted = await ask(started, '/api/token-action',
+      { method: 'POST', body: JSON.stringify({ rootId: 'r', action: 'contest' }), headers });
+    assert.equal(acted.status, 409);
+    assert.match((await acted.json()).error, /does not serve the project token ledger/);
+  }
+
+  assert.deepEqual(upstream.seen, [], 'the worker never asked the host about a token of its own');
+});
