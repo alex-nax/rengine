@@ -1,0 +1,23 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- PLACEHOLDER mark for the rEngine workspace: the letter the mark chip already draws, as
+       artwork, so the window carries something in the Dock. evenodd, so the bowl's counter is a
+       hole whichever way it winds. Replace it when Red has a real mark. -->
+  <path fill="#f97c3d" fill-rule="evenodd" d="
+    M 15 8
+    L 39 8
+    C 46.5 8 51 13 51 19.5
+    C 51 25.4 47.3 30.1 41.2 31.2
+    L 51.5 56
+    L 40.8 56
+    L 31.6 32.2
+    L 24.5 32.2
+    L 24.5 56
+    L 15 56
+    Z
+    M 24.5 15.4
+    L 24.5 24.8
+    L 38.4 24.8
+    C 41.4 24.8 43 22.9 43 20.1
+    C 43 17.3 41.4 15.4 38.4 15.4
+    Z" />
+</svg>

@@ -1,6 +1,10 @@
 {
-  "contract": 2,
+  "contract": 8,
   "project": "rEngine",
+  "title": "rEngine",
+  "icon": {
+    "image": ".rengine/brand/mark.svg"
+  },
   "formats": [
     {
       "id": "bmp-snapshot",

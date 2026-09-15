@@ -61,6 +61,18 @@ no tile set the platform reports a real 256 x 256, so the two assertions separat
 
 Spec 136; F193 depends on F106 rather than editing it, because F106's criteria are accepted.
 
+Then applied to every workspace, which is the point of it — four windows showing one generic tile
+is exactly the problem. `~/rengine` declared no icon and no title at contract 2 and now carries
+both at 8; `re:Lith` traded its `rL` glyph for artwork, because the reader enforces *exactly one*
+of glyph and image; `VtM:B` got its title, which it had never declared, and a redrawn ankh. Kohai
+already had both and needed only a build with F193 in it.
+
+The two new marks are placeholders and say so in their own source. re:Lith's is a monolith, which
+is what the name says; the first attempt was a smooth symmetrical taper and read as a bullet, so
+the facets are straight and the crown is off-centre. rEngine's is the letter the mark chip already
+draws. Both resolve and both wear a 512 x 512 tile, verified against the real declarations rather
+than a fixture.
+
 Verification: `npm test` 353/353, `ctest` 20/20, `native-identity` 7/7, `native-render` 1/1 with
 **0 differing pixels** across all nine scene comparisons and all 27 per-primitive regions,
 `./init.sh` and the design gate pass. One unrelated intermittent `write EPIPE` in
