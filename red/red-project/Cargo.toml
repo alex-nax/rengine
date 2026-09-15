@@ -8,6 +8,9 @@ description = "What a project declares about itself, and the artifacts it produc
 # `utf16_len`: every bound in this crate was written against JavaScript's String#length, which
 # counts UTF-16 code units rather than code points.
 red-core = { path = "../red-core" }
+# PKCE's S256 challenge (F154, spec 083): the provider recomputes it from the verifier, so the
+# digest is a contract rather than an implementation detail.
+sha2 = "0.10"
 # The bounded JSON Schema 2020-12 subset with identical error strings, ported in F169/F147a: the
 # declaration is validated by the same code the store validates with.
 red-store = { path = "../red-store" }

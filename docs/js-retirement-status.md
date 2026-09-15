@@ -3,7 +3,7 @@
 Charter D57 makes the orchestrator's target language Rust, and spec 129 retires the Node modules
 under `orchestrator/` one feature row at a time. This is where that stands.
 
-Measured 2026-09-15, at `1b247bb`. Regenerate the numbers with:
+Measured 2026-09-15, at `1b247bb`; the narrative below is current as of the F154 work that followed. Regenerate the numbers with:
 
 ```sh
 git ls-files '*.mjs' | grep -vE 'tests/|\.test\.mjs' | xargs wc -l | tail -1
@@ -37,18 +37,22 @@ not how many lines are left but **how many callers are left**, and there are fou
 | `runtime/tracker.mjs` | 58 | the worker's tracker routes |
 | `runtime/scripts.mjs` | 25 | `openScript` |
 
-**Status: `red-worker` answers 15 of 17 routes, serves both sockets, follows the host's session
-stream, and the supervisor can run it** (`startRuntime({ workerFile: null })`, proved by
-`worker-cutover.test.mjs`). It is not the default yet.
+**Status: `red-worker` answers every route**, serves both sockets, follows the host's session stream,
+and the supervisor can run it (`startRuntime({ workerFile: null })`, proved by
+`worker-cutover.test.mjs`). It is **not the default yet**, and what is in the way is one design
+question rather than a port.
 
-Between here and the default:
+Turning the default on passes every spec except `token-retirement.test.mjs`, on one assertion: the
+**pinned token segment** does not reach the desktop. It needs two things that are no longer in one
+place — the ledger, which is the worker's and lives in the RUNTIME directory, and the desktop
+registry, which is the door's and is bound to the HOST's state directory. `worker.mjs` had both.
 
-- **`POST /api/dashboard-run`** — composed rather than gated, the way `/api/game` is: an action whose
-  `kind` is `game` runs the project's preflight and the old-host refusal, and a device-bound one
-  bounds a `device-action.*` pair on the feed. `red_project::dashboard::dashboard_action` and
-  `run_payload` already exist.
-- **`POST /api/tracker/signin` and `/signout`** — a TLS decision, which is **F154**'s. Forwarded
-  meanwhile, and above a current door the backend answers them.
+The recommendation, and the two alternatives, are in `docs/specs/143-red-worker.md`: **move the
+ledger to the host's state directory**, beside the store and the PTYs, so the door attaches to it as
+it attaches to those. It is a data-location change and needs a migration.
+
+**F154 is done** as part of this: `red_core::tls` (trust roots from the MACHINE, not a bundled CA
+set), the PKCE sign-in flow, and both providers' reads.
 
 Three of the eight files above are already dead weight kept alive by the ninth: the registry moved to
 the door, and `ide`/`lsp-client`/`token-client` are clients of binaries that exist.
@@ -98,11 +102,13 @@ types, and F163 is the row that deletes them.
 
 ## What "done" looks like, in order
 
-1. **`/api/dashboard-run`** composed in `red-worker`. Small; the crate functions exist.
+1. ~~**`/api/dashboard-run`**~~ — **done**.
+1. **Decide where the token segment is pushed from** (spec 143). One question, three options, a
+   recommendation.
 2. **Default the supervisor to `red-worker`** and delete `worker.mjs` + the seven files that retire
    with it. **−1,429 lines**, the largest single deletion left.
-3. **F154** — a TLS client, and `tracker.mjs` + `tracker-auth.mjs` move. **−463**, and it unblocks
-   the worker's last two routes.
+3. ~~**F154**~~ — **done**: `red_core::tls`, `red_project::tracker_auth`, `red_project::tracker_remote`
+   and `red_worker::signin`. `tracker.mjs` + `tracker-auth.mjs` (**−463**) retire with `main.mjs`.
 4. **F159** — the supervisor. **−1,368**, the largest remaining port.
 5. **`sessions-client.mjs`** — how an agent CLI is launched. **−459**.
 6. **F163** — the entry points, `main.mjs` and the service clients that retire with it. **−~1,700**.

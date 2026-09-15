@@ -20,5 +20,6 @@ pub mod menu;
 pub mod pipe;
 pub mod scripts;
 pub mod serve;
+pub mod signin;
 pub mod spawn;
 pub mod tasks;

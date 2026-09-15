@@ -41,8 +41,8 @@ pub fn own_route(method: &str, path: &str) -> bool {
             | ("POST", "/api/task")
             /* The tracker's sign-in, which is the worker's because the grant it writes lives beside
                the workspace state and never in the committed declaration. Answering them needs a
-               network client for GitHub and Linear, and that is F154's decision to make — the table
-               says who OWNS the route, which is settled, not who has implemented it yet. */
+               network client, and the trust roots that client uses are the MACHINE's rather than a
+               bundled CA set (F154, `red_core::tls`). */
             | ("POST", "/api/tracker/signin")
             | ("POST", "/api/tracker/signout")
             /* Three the DOOR also answers, and that this worker must compose rather than forward:
@@ -53,10 +53,13 @@ pub fn own_route(method: &str, path: &str) -> bool {
             | ("GET", "/api/state")
             | ("POST", "/api/preferences")
             | ("POST", "/api/recording")
-            /* And the launch, which the door performs and this worker ATTRIBUTES: the host
+            /* And the two the door performs and this worker composes AROUND. The launch: the host
                announces the new session before the call returns, so who asked has to be queued
-               before the call is made. Gated and composed together. */
+               before the call is made. The board's button: an action is a launch, a device-bound
+               pane that bounds a pair on the feed, or an ordinary pane, and none of the three is a
+               forward. Both are gated and composed together, which is why neither is in `gated`. */
             | ("POST", "/api/game")
+            | ("POST", "/api/dashboard-run")
     )
 }
 
@@ -91,6 +94,9 @@ pub fn implemented(method: &str, path: &str) -> bool {
             | ("POST", "/api/preferences")
             | ("POST", "/api/recording")
             | ("POST", "/api/game")
+            | ("POST", "/api/dashboard-run")
+            | ("POST", "/api/tracker/signin")
+            | ("POST", "/api/tracker/signout")
     )
 }
 
@@ -118,8 +124,6 @@ pub fn gated(method: &str, path: &str) -> Option<(&'static str, Names)> {
     Some(match (method, path) {
         ("POST", "/api/stop") => ("stop_session", Names::Session),
         ("POST", "/api/agent-restart") => ("restart_agent", Names::Session),
-        ("POST", "/api/dashboard-run") => ("dashboard_run", Names::Root),
-        ("POST", "/api/dashboard-capture") => ("dashboard_capture", Names::Root),
         ("POST", "/api/desktop-action") => ("reload_desktop", Names::Root),
         _ => return None,
     })
@@ -156,6 +160,28 @@ pub fn capabilities(from_host: &serde_json::Value, serves_ledger: bool) -> serde
         out.insert("projectGameLaunch".to_string(), serde_json::json!(1));
     }
     serde_json::Value::Object(out)
+}
+
+/// The routes whose gate is INSIDE the route rather than on the way past.
+///
+/// A third place a gate can live, and the one a table of "gated, then forwarded" misses. These are
+/// answered here, so the forwarder never sees them — and each has a reason it cannot be gated
+/// generically: a launch has to queue its asker before it calls, a board's button has to know which
+/// of three things the action is, and a capture is answered from the project itself.
+///
+/// It exists so that `own_route` alone never EXCUSES a gate. Adding a route to `own_route` without
+/// one is otherwise invisible: the parity test below would see it as the worker's and stop asking.
+pub fn gates_internally(method: &str, path: &str) -> Option<&'static str> {
+    Some(match (method, path) {
+        ("POST", "/api/script-open") => "open_script",
+        ("POST", "/api/update-workspace") => "update_workspace",
+        ("POST", "/api/task") => "task_",
+        ("POST", "/api/agent-spawn") => "spawn_agent",
+        ("POST", "/api/game") => "launch_game",
+        ("POST", "/api/dashboard-run") => "dashboard_run",
+        ("POST", "/api/dashboard-capture") => "dashboard_capture",
+        _ => return None,
+    })
 }
 
 /// Why a token action cannot go ahead, in the order the question is asked. `None` means it can.
@@ -318,8 +344,11 @@ mod tests {
                naming the family rather than one action. */
             let tool = asked.split(['\'', '`']).nth(1).unwrap_or_default().to_string();
             let names = if asked.contains("snapshot(") { Names::Session } else { Names::Root };
-            /* The four this worker OWNS carry their own gate inside the route. */
-            if own_route(&method, &path) {
+            /* A route this worker ANSWERS carries its gate inside itself, and `gates_internally` is
+               where that is written down — `own_route` alone must never excuse a gate, or adding a
+               route to it would silently stop this test asking about one. */
+            if let Some(named) = gates_internally(&method, &path) {
+                assert!(tool.starts_with(named.trim_end_matches('_')), "{method} {path} is gated on {tool} and this table says {named}");
                 continue;
             }
             match gated(&method, &path) {
@@ -341,6 +370,26 @@ mod tests {
            keeps the two from both firing. */
         assert_eq!(gated("POST", "/api/game"), None);
         assert!(implemented("POST", "/api/game"));
+        assert_eq!(gated("POST", "/api/dashboard-run"), None, "and a board's button, for the same reason");
+        assert!(implemented("POST", "/api/dashboard-run"));
+        /* Both say where their gate went, so removing one is a visible edit rather than a silence. */
+        assert_eq!(gates_internally("POST", "/api/game"), Some("launch_game"));
+        assert_eq!(gates_internally("POST", "/api/dashboard-run"), Some("dashboard_run"));
+        /* The one project route that WRITES is gated too, and it is the case that found this table:
+           answering it here rather than forwarding it dropped its gate, and `own_route` hid that. */
+        assert_eq!(gates_internally("POST", "/api/dashboard-capture"), Some("dashboard_capture"));
+        assert_eq!(gates_internally("GET", "/api/dashboard"), None, "a read is not gated");
+
+        /* The two tables must not OVERLAP, and the overlap is not harmless: `implemented` is checked
+           first, so a route in both has its `gated` entry dead — and a reader fixing the gate would
+           edit the half that never runs. `/api/dashboard-capture` was in both, which is how this
+           assertion came to exist. */
+        for (method, path) in [("POST", "/api/game"), ("POST", "/api/dashboard-run"), ("POST", "/api/dashboard-capture"),
+                               ("POST", "/api/stop"), ("POST", "/api/agent-restart"), ("POST", "/api/desktop-action")] {
+            let both = gated(method, path).is_some() && gates_internally(method, path).is_some();
+            assert!(!both, "{method} {path} is in both gate tables, so one of them is dead");
+            assert!(gated(method, path).is_some() || gates_internally(method, path).is_some(), "{method} {path} is gated somewhere");
+        }
         /* A read is not gated: the token arbitrates what a caller may CHANGE. */
         assert_eq!(gated("GET", "/api/state"), None);
         assert_eq!(gated("GET", "/api/desktops"), None);

@@ -77,6 +77,8 @@ struct Worker {
     retired: std::sync::atomic::AtomicBool,
     /// The device probes this worker has taken, kept for as long as it is running.
     probes: red_project::devices::Probes,
+    /// The tracker sign-in in flight, if there is one. At most one per workspace (F154, spec 083).
+    signing_in: red_worker::signin::SigningIn,
     /// Feed sockets still writing. A worker is told it is retired and told to close in the same
     /// breath, and the retirement has to REACH its watchers before the process goes: a monitor that
     /// got a dropped connection instead of the close frame has no sequence to resume from and no
@@ -186,6 +188,7 @@ async fn main() -> std::process::ExitCode {
         launches: red_worker::launches::Launches::new(),
         retired: std::sync::atomic::AtomicBool::new(false),
         probes: red_project::devices::Probes::default(),
+        signing_in: red_worker::signin::SigningIn::new(),
         draining: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
     });
     /* One line, then serve: the supervisor reads this to learn where the worker is before it writes
@@ -590,12 +593,11 @@ fn told_the_feed(worker: &Arc<Worker>, session: &serde_json::Value) {
         .map(|since| since.as_millis() as i64)
         .unwrap_or(0);
     let root = worker.launches.root_of(&id, session);
+    /* The frame names itself: two pairs ride on this stream — a game a person watches, and a
+       device-bound dashboard action whose session bounds it. */
     match worker.launches.heard(session, now) {
-        red_worker::launches::Says::Started { by, fields } => {
-            note(worker, &root, "game.started", &by, fields);
-        }
-        red_worker::launches::Says::Ended { by, fields } => {
-            note(worker, &root, "game.ended", &by, fields);
+        red_worker::launches::Says::Started { kind, by, fields } | red_worker::launches::Says::Ended { kind, by, fields } => {
+            note(worker, &root, kind, &by, fields);
         }
         red_worker::launches::Says::Nothing => {}
     }
@@ -1069,6 +1071,11 @@ fn answer_own(worker: &Worker, head: &Head, body: &str) -> String {
         ("POST", "/api/preferences") => answered_or_faulted(preferences(worker, body)),
         ("POST", "/api/recording") => answered_or_faulted(recording(worker, head, body)),
         ("POST", "/api/game") => answered_or_faulted(game(worker, head, body)),
+        ("POST", "/api/dashboard-run") => answered_or_faulted(dashboard_run(worker, head, body)),
+        /* The tracker's sign-in, which is the worker's because the grant it writes lives beside the
+           WORKSPACE state and never in the committed declaration (spec 101). */
+        ("POST", "/api/tracker/signin") => answered_or_faulted(tracker_signin(worker, body)),
+        ("POST", "/api/tracker/signout") => answered_or_faulted(tracker_signout(worker, body)),
         ("GET", "/api/diagnostics") => answered_or_faulted(diagnostics(worker, head)),
         /* Everything a PROJECT declares about itself and leaves behind, answered here and never
            forwarded — the host beneath may predate these routes, and forwarding would answer from a
@@ -1187,6 +1194,14 @@ fn script_open(worker: &Worker, head: &Head, body: &str) -> Result<serde_json::V
     let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
     let (root_id, root_path) = root_of(worker, named(&data, "rootId"))?;
     gate(worker, &root_id, "open_script", head)?;
+    /* The same rules a declared action's env is judged by, asked of the one implementation of them.
+       `env` is read as a FIELD rather than as a value, so an absent one and a null one stay
+       different answers — a caller that sent nothing is not a caller that sent nothing valid. */
+    if data.get("env").is_some() {
+        if let Some(problem) = red_project::rules::env_rules(data.get("env"), "env").first() {
+            return Err(format!("400|Script env: {problem}"));
+        }
+    }
     let resolve = |path: &std::path::Path| std::fs::canonicalize(path).ok();
     let script = red_worker::scripts::script_path(std::path::Path::new(&root_path), data.get("path").and_then(serde_json::Value::as_str), &resolve)
         .map_err(|refused| format!("{}|{}", refused.status, refused.message))?;
@@ -1317,6 +1332,181 @@ fn ide_selection(worker: &Worker, body: &str) -> Result<serde_json::Value, Strin
     }))
 }
 
+/// `POST /api/dashboard-run`: a button on the project's board, pressed.
+///
+/// An action is one of three things and each becomes something different, which is why this cannot
+/// be a forward. A **game** action is a launch and takes the launch's refusals and its attribution.
+/// A **device-bound** one — the owner's "deploying to the box", named generally as any action whose
+/// declared device is not this machine — becomes a pane whose SESSION bounds a pair on the feed. And
+/// an ordinary one becomes a pane and nothing else.
+fn dashboard_run(worker: &Worker, head: &Head, body: &str) -> Result<serde_json::Value, String> {
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let (root_id, root_path) = root_of(worker, named(&data, "rootId"))?;
+    let by = gate(worker, &root_id, "dashboard_run", head)?;
+    let record = root_record(worker, &root_id)?;
+    let declaration_file = record.get("declarationFile").and_then(serde_json::Value::as_str).map(str::to_string);
+    let environment: Vec<(String, String)> = std::env::vars().collect();
+    let now = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|since| since.as_millis() as i64).unwrap_or(0);
+    let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
+    let context = red_project::devices::Context {
+        root_id: &root_id,
+        root_path: &root_path,
+        environment: &environment,
+        probes: &worker.probes,
+        refresh: false,
+        refreshed: Default::default(),
+        controls: false,
+        now: &now,
+    };
+    let action = red_project::dashboard::dashboard_action(&context, &declared, data.get("actionId").and_then(serde_json::Value::as_str))
+        .map_err(|fail| format!("{}|{}", fail.status.unwrap_or(500), fail.message))?;
+
+    /* A game action IS a launch, so it takes the launch's route rather than a copy of it: the
+       preflight, the old-host refusal, the queued asker and the attribution are all one thing. */
+    if action.get("kind").and_then(serde_json::Value::as_str) == Some("game") {
+        let asked = serde_json::json!({
+            "rootId": root_id,
+            "gameId": action.get("game").cloned().unwrap_or(serde_json::Value::Null),
+            "args": action.get("args").cloned().unwrap_or_else(|| serde_json::json!([])),
+        });
+        return game(worker, head, &asked.to_string());
+    }
+
+    let payload = red_project::dashboard::run_payload(&root_id, &root_path, &red_project::command::bash_path(), &action)
+        .map_err(|fail| format!("{}|{}", fail.status.unwrap_or(500), fail.message))?;
+    let created = ask_host(worker, "POST", "/api/terminal", &payload.to_string())?;
+    let session_id = created.get("id").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    /* The owner's "deploying to the device", named generally: any action whose declared device is
+       not this machine is device-bound, and its session bounds the pair. */
+    let device = action.get("device").filter(|device| !device.is_null());
+    let remote = device.and_then(|device| device.get("kind")).and_then(serde_json::Value::as_str);
+    if !session_id.is_empty() && remote.is_some_and(|kind| kind != red_project::devices::LOCAL) {
+        let device = device.expect("a device");
+        let fields = serde_json::json!({
+            "sessionId": session_id,
+            "actionId": action.get("id").cloned().unwrap_or(serde_json::Value::Null),
+            "deviceId": device.get("id").cloned().unwrap_or(serde_json::Value::Null),
+            "kind": device.get("kind").cloned().unwrap_or(serde_json::Value::Null),
+        });
+        worker.launches.device_action(&session_id, &root_id, &by, &fields);
+        note(worker, &root_id, "device-action.started", &by, fields);
+    }
+    let mut answer = created.as_object().cloned().unwrap_or_default();
+    /* The retained host may predate session titles, so the one this composed is the one answered. */
+    if let Some(title) = payload.get("title") {
+        answer.insert("title".to_string(), title.clone());
+    }
+    Ok(serde_json::Value::Object(answer))
+}
+
+/// Start a browser sign-in for this project's tracker.
+///
+/// Before an application is registered there is nothing to open, so the answer is **what to do**
+/// rather than a refusal: a person who has never done this has no other way to find out.
+fn tracker_signin(worker: &Worker, body: &str) -> Result<serde_json::Value, String> {
+    let (state_directory, project) = tracker_context(worker, body)?;
+    if red_project::tracker_auth::client(&state_directory).is_none() {
+        return Ok(serde_json::json!({ "ok": false, "setup": red_project::tracker_auth::setup_instructions(&state_directory) }));
+    }
+    worker.signing_in.begin(&state_directory, &project, Box::new(|_outcome| {}))
+}
+
+/// Sign out: drop the grant, telling the provider if it can be reached.
+fn tracker_signout(worker: &Worker, body: &str) -> Result<serde_json::Value, String> {
+    let (state_directory, project) = tracker_context(worker, body)?;
+    worker.signing_in.cancel();
+    red_project::tracker_auth::revoke(&state_directory, &project)
+        .map_err(|fail| format!("{}|{}", fail.status.unwrap_or(500), fail.message))
+}
+
+/// Where the credential lives, and what this project is called in it.
+///
+/// The project's own name, not its root id: a checkout moved or re-added keeps its tracker, because
+/// the declaration is what names the project and the root id is this workspace's bookkeeping.
+fn tracker_context(worker: &Worker, body: &str) -> Result<(String, String), String> {
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let asked = named(&data, "rootId").to_string();
+    let record = root_record(worker, &asked)?;
+    let root_path = record.get("path").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    let declaration_file = record.get("declarationFile").and_then(serde_json::Value::as_str).map(str::to_string);
+    let state = ask_host(worker, "GET", "/api/state", "")?;
+    let instance = state.get("instance").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    let directory = red_worker::signin::host_state_directory(&state, &instance, &process_table())
+        .map_err(|why| format!("409|{}", red_worker::signin::unknown_directory(&why)))?;
+    let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
+    let project = declared
+        .get("project")
+        .and_then(serde_json::Value::as_str)
+        .filter(|name| !name.is_empty())
+        .unwrap_or(&asked)
+        .to_string();
+    Ok((directory, project))
+}
+
+/// A tracker somebody else's server holds.
+///
+/// Without the workspace's state directory no credential was looked for, so "not signed in" would be
+/// a GUESS: the answer says the directory is unknown instead, and the local backend still reads.
+fn remote_tracker(worker: &Worker, root_id: &str, root_path: &str, declaration_file: Option<&str>) -> Result<serde_json::Value, String> {
+    let declared = red_project::declaration::read(root_path, declaration_file);
+    let state = ask_host(worker, "GET", "/api/state", "")?;
+    let instance = state.get("instance").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|since| since.as_millis() as i64)
+        .unwrap_or(0);
+    let directory = match red_worker::signin::host_state_directory(&state, &instance, &process_table()) {
+        Ok(directory) => directory,
+        Err(why) => {
+            let mut answer = red_project::tracker::project_tracker(root_id, root_path, &serde_json::json!({}))
+                .as_object()
+                .cloned()
+                .unwrap_or_default();
+            answer.insert("provider".to_string(), declared.get("tracker").and_then(|block| block.get("provider")).cloned().unwrap_or(serde_json::Value::Null));
+            answer.insert("rows".to_string(), serde_json::json!([]));
+            answer.insert("unavailable".to_string(), serde_json::json!(red_worker::signin::unknown_directory(&why)));
+            return Ok(serde_json::Value::Object(answer));
+        }
+    };
+    /* The declared project NAME, which is what the token file is keyed by — so a checkout that moved
+       or was re-added keeps its tracker. */
+    let identity = declared
+        .get("project")
+        .and_then(serde_json::Value::as_str)
+        .filter(|name| !name.is_empty())
+        .unwrap_or(root_id)
+        .to_string();
+    /* A signed-in grant is refreshed before it lapses; a pasted personal key never expires and is
+       handed back untouched. */
+    let grant = red_project::tracker_auth::stored(&directory, &identity).map(|grant| {
+        if red_project::tracker_auth::expiring(&grant, now) {
+            red_project::tracker_auth::refresh(&directory, &identity, &grant, now)
+        } else {
+            grant
+        }
+    });
+    let token = grant.as_ref().and_then(|grant| grant.get("accessToken").and_then(serde_json::Value::as_str).map(str::to_string));
+    Ok(red_project::tracker::remote_tracker(
+        root_id,
+        root_path,
+        &declared,
+        &directory,
+        token.as_deref(),
+        &red_project::tracker_remote::Network,
+        now,
+    ))
+}
+
+/// The process table, or nothing — which is an answer a caller can act on rather than a crash.
+fn process_table() -> String {
+    std::process::Command::new("ps")
+        .args(["-A", "-ww", "-o", "pid=,ppid=,command="])
+        .output()
+        .ok()
+        .map(|out| String::from_utf8_lossy(&out.stdout).to_string())
+        .unwrap_or_default()
+}
+
 /// The same request, asked about a different route.
 ///
 /// A launch runs the project's own preflight first, and that preflight IS `/api/game-config` — so
@@ -1348,13 +1538,21 @@ fn about_project(worker: &Worker, head: &Head, body: &str) -> Result<serde_json:
         .or_else(|| data.get("rootId").and_then(serde_json::Value::as_str).map(str::to_string))
         .unwrap_or_default();
     let root = root_record(worker, &asked)?;
+    /* One of these WRITES — a capture puts a file in the project — and it is gated for that reason.
+       Answering it here rather than forwarding it is what made this necessary: the gate was on the
+       way past, and there is no way past any more. */
+    if let Some(tool) = red_worker::serve::gates_internally(&head.method, &head.path()) {
+        gate(worker, &asked, tool, head)?;
+    }
     let root_path = root.get("path").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
     let declaration_file = root.get("declarationFile").and_then(serde_json::Value::as_str).map(str::to_string);
     let path = head.path();
-    /* A remote tracker needs a network client and F154 owns that decision, so it is handed on to
-       the door — which answers a local one itself and forwards a remote one to the backend. */
+    /* A remote tracker is answered HERE too, and it is the clearest case for why: the retained host
+       beneath may have no tracker route at all, so forwarding would answer 404 for a project whose
+       tasks are perfectly readable. The credential lives beside the WORKSPACE state, which is why
+       this is the worker's rather than the project's (spec 101). */
     if path == "/api/tracker" && !red_project::serve::local_tracker(&root_path, declaration_file.as_deref()) {
-        return ask_host(worker, "GET", &format!("/api/tracker?rootId={asked}"), "");
+        return remote_tracker(worker, &asked, &root_path, declaration_file.as_deref());
     }
     let environment: Vec<(String, String)> = std::env::vars().collect();
     red_project::serve::route(&red_project::serve::Asked {
@@ -1578,11 +1776,20 @@ fn faulted(fault: &str) -> String {
     }
 }
 
+/// Who may speak to this worker.
+///
+/// **On an UPGRADE the query's token is the credential, and any header is ignored.** A browser
+/// cannot set a header on an upgrade, so the token rides in the query — and the layer above this one
+/// forwards the socket with its OWN `Authorization` header still attached, because that is the
+/// header the client sent it. A check that preferred the header would refuse every socket that
+/// arrived through a proxy, which is every socket in a running workspace. The JavaScript worker
+/// wrote the query's token over the header before checking, which is the same rule said differently.
 fn authorized(worker: &Worker, head: &Head) -> bool {
-    let presented = head
-        .header("authorization")
-        .and_then(|value| value.strip_prefix("Bearer ").map(str::to_string))
-        .or_else(|| head.query("token"));
+    let presented = if head.upgrade {
+        head.query("token")
+    } else {
+        head.header("authorization").and_then(|value| value.strip_prefix("Bearer ").map(str::to_string))
+    };
     presented.is_some_and(|value| red_core::service::same_secret(&value, &worker.token))
 }
 

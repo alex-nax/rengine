@@ -695,10 +695,11 @@ test('a route the door answers is gated here before it is handed on', async t =>
   /* With no ledger there is nothing to be refused BY, so each goes through — and what this asserts
      is that it went through the gate on its way, not around it. The refusal order itself is
      `serve::token_refusal`'s, and the gate's own answers are the ledger's. */
-  /* `/api/game` is gated too and is not here: it is COMPOSED, because it has to run the project's
-     own preflight and queue the asker before it calls. Its own test is below. */
-  for (const [route, body] of [['/api/dashboard-run', { rootId: 'r', actionId: 'x' }],
-                               ['/api/desktop-action', { rootId: 'r', desktopId: 'd', action: 'reload' }]]) {
+  /* Only the routes that are gated ON THE WAY PAST are here. `/api/game`, `/api/dashboard-run` and
+     `/api/dashboard-capture` are gated too and are not: the worker ANSWERS all three, so there is no
+     way past, and each carries its gate inside itself (`serve::gates_internally`, which is where
+     that is written down so `own_route` can never quietly excuse one). */
+  for (const [route, body] of [['/api/desktop-action', { rootId: 'r', desktopId: 'd', action: 'reload' }]]) {
     const answered = await ask(started, route, { method: 'POST', body: JSON.stringify(body) });
     assert.equal(answered.status, 200, route);
     assert.equal(upstream.seen.at(-1).url, route, `${route} reached the door after the gate`);

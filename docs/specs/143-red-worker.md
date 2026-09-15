@@ -2,7 +2,7 @@
 
 Owner goal, 2026-09-15: *"finish remaining js"* (charter D57, spec 129; F158).
 
-Status: **the supervisor can run `red-worker`, and does not yet by default.** 15 of 17 routes are answered, both sockets are served, and the host's own stream is followed. Two things stand between here and the default: the project routes above a RETAINED host, and F154's two tracker routes.
+Status: **the supervisor can run `red-worker`, and does not yet by default.** Every route is answered — including the project's own, `dashboard-run`, and F154's two tracker routes — both sockets are served, and the host's own stream is followed. **One thing stands between here and the default**, and it is a design question rather than a port: where the token segment is pushed from.
 
 `docs/js-retirement-status.md` is the whole picture this row sits in: what JavaScript is left, which
 caller each file retires with, and the order the remaining four callers come off in.
@@ -164,7 +164,42 @@ the lock buys beyond the service's refusal is that no doomed process is spawned,
 died is reclaimed rather than blocking the survivor forever, and one held by a live process is
 refused by name with nothing started.
 
-## What the default cutover still needs
+## The one thing left, and it is a question
+
+Turning the default on now passes every spec except `token-retirement.test.mjs`, which fails on one
+assertion: *the contest is on the desktop before the layer moves*. The **pinned token segment** does
+not reach the desktop.
+
+It needs two things that are no longer in one place:
+
+- the **ledger**, which is the worker's, and lives in the **runtime directory**
+  (`runtimeDirectory(host)`);
+- the **desktop registry**, which is the door's since the registry decision above, and the door is
+  bound to the **host's state directory**.
+
+`worker.mjs` had both, because it held the registry and the ledger. The door cannot attach to a
+ledger it does not know the directory of, and the worker cannot see a desktop register because it
+tunnels `/events` byte for byte — deliberately, so a pane's bytes are never a second opinion.
+
+Three ways out, and the choice is the owner's because it touches D60/D61 and spec 095:
+
+1. **The ledger moves to the host's state directory**, beside the store and the PTYs. Then the door
+   attaches to it as it attaches to those, pushes the segment itself, and the split is clean: the
+   worker owns the token's ROUTES, the door owns the desktop's view. It also stops a ledger dying
+   with a runtime directory, which is what KI-123's 1134 of them are. It is a data-location change,
+   so it needs a migration for a workspace that has one where it is now.
+2. **The worker asks the door to push**, over a new host route. Small, but it leaves the door unable
+   to push on REGISTRATION — only the door knows a desktop just registered, and only the worker can
+   build the segment — so it needs the door to ask back, and then both directions exist.
+3. **The worker terminates `/events`** rather than tunnelling it, as `worker.mjs` did, and pushes on
+   the socket it serves. That is the shape that works today, and it gives up the property that a
+   pane's bytes pass through untouched.
+
+**(1) is the recommendation.** The ledger is a workspace fact and the workspace's state directory is
+where workspace facts live; the other two both add a direction of traffic to work around where it
+currently sits.
+
+## What the default cutover needed, and now has
 
 Turning the default on and running the suite named it exactly, which is what a cutover spec is for.
 
@@ -177,10 +212,22 @@ is gone believed about a device. The launch gained the two refusals that went wi
 project's own preflight, run HERE before anything reaches the host (spec 078, KI-043), and the
 old-host refusal for a host that would launch its removed built-in game instead of the declared one.
 
-What is left before the default: **`POST /api/dashboard-run`**, which is composed rather than gated
-for the same reason `/api/game` is — an action whose `kind` is `game` runs the preflight and the
-old-host refusal, and a device-bound one bounds a `device-action.*` pair on the feed.
-`red_project::dashboard::dashboard_action` and `run_payload` already exist.
+**Done — `POST /api/dashboard-run`**, composed rather than gated for the same reason `/api/game` is.
+An action is one of three things: a **game** action takes the launch's own route, refusals and
+attribution rather than a copy of them; a **device-bound** one — the owner's "deploying to the box",
+named generally as any action whose declared device is not this machine — becomes a pane whose
+session bounds a `device-action.*` pair on the feed; an ordinary one becomes a pane.
+
+**Done — F154.** `red_core::tls` is the HTTPS client, and its trust roots are the **machine's**
+(`rustls-native-certs`) rather than a bundled CA set: a person behind a corporate proxy that inspects
+TLS has their organisation's root in the OS store and nowhere else, and a binary carrying its own
+copy of Mozilla's list would fail for them with nothing they could do. `red_project::tracker_auth`
+is the PKCE flow — the client id, the setup a person reads, the S256 challenge, the authorize URL,
+the exchange, the rotation and the grant on disk — and `red_worker::signin` is the part that is a
+running process: one loopback listener, for one sign-in, on a **fixed** port, because Linear matches
+redirect URIs exactly and implements no port wildcard. `red_project::tracker_remote` is the two
+providers' reads. The worker answers `/api/tracker` for a remote provider itself, which is the
+clearest case of all for why: the retained host beneath may have no tracker route at all.
 
 The original reading of this gap, kept because it is the reason:
 

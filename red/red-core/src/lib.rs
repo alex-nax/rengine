@@ -16,6 +16,7 @@ pub mod service;
 /// frames over the same header.
 pub mod surface;
 pub mod text;
+pub mod tls;
 pub mod theme;
 pub mod time;
 pub mod translate;

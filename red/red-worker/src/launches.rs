@@ -23,10 +23,14 @@ use serde_json::{json, Value};
 pub const FRESH_MS: i64 = 10_000;
 
 /// What the feed should be told about one session transition, if anything.
+///
+/// `kind` is the frame's own name, because two different pairs ride on one stream: a GAME a person
+/// watches, and a device-bound dashboard ACTION — "deploying to the box" — whose session bounds it.
+/// They are the same shape and a different sentence.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Says {
-    Started { by: Value, fields: Value },
-    Ended { by: Value, fields: Value },
+    Started { kind: &'static str, by: Value, fields: Value },
+    Ended { kind: &'static str, by: Value, fields: Value },
     Nothing,
 }
 
@@ -49,6 +53,10 @@ pub struct Launches {
     of_session: Mutex<HashMap<String, Value>>,
     /// The games announced and not yet ended.
     open: Mutex<HashMap<String, Open>>,
+    /// The device-bound dashboard actions running, and the frame each will close with. A pane that
+    /// is a deploy to a box is the workspace touching something that is not this machine, and the
+    /// pair is how a person sees it start and stop.
+    devices: Mutex<HashMap<String, (String, Value, Value)>>,
 }
 
 impl Launches {
@@ -85,10 +93,28 @@ impl Launches {
         }
     }
 
+    /// A device-bound action has started on this session, and will close with these fields.
+    pub fn device_action(&self, session_id: &str, root_id: &str, by: &Value, fields: &Value) {
+        self.devices
+            .lock()
+            .expect("devices")
+            .insert(session_id.to_string(), (root_id.to_string(), by.clone(), fields.clone()));
+    }
+
     /// One session transition from the host's own stream. The answer is what the feed should say.
     pub fn heard(&self, session: &Value, now: i64) -> Says {
         let Some(id) = session.get("id").and_then(Value::as_str) else { return Says::Nothing };
         let running = session.get("state").and_then(Value::as_str) == Some("running");
+        /* A device action's pane stopping closes its pair FIRST, and it is checked before the game
+           half because a pane is one or the other and this one has already been announced. */
+        if !running {
+            let pending = self.devices.lock().expect("devices").remove(id);
+            if let Some((_, by, fields)) = pending {
+                let mut closing = fields.as_object().cloned().unwrap_or_default();
+                closing.insert("exitCode".to_string(), session.get("exitCode").cloned().unwrap_or(Value::Null));
+                return Says::Ended { kind: "device-action.ended", by, fields: Value::Object(closing) };
+            }
+        }
         let open = self.open.lock().expect("open").get(id).cloned();
         /* A pane this worker never announced and is not a game is nothing to do with the feed —
            which is what makes "no PTY output on the feed" structural rather than a filter. */
@@ -115,6 +141,7 @@ impl Launches {
                 };
                 self.open.lock().expect("open").insert(id.to_string(), record.clone());
                 Says::Started {
+                    kind: "game.started",
                     by,
                     fields: json!({ "sessionId": id, "gameId": record.game_id, "surface": record.surface, "args": record.args }),
                 }
@@ -123,6 +150,7 @@ impl Launches {
                 self.open.lock().expect("open").remove(id);
                 self.of_session.lock().expect("sessions").remove(id);
                 Says::Ended {
+                    kind: "game.ended",
                     by: open.by.clone(),
                     fields: json!({
                         "sessionId": id,
@@ -144,6 +172,7 @@ impl Launches {
             .and_then(Value::as_str)
             .map(str::to_string)
             .or_else(|| self.open.lock().expect("open").get(session_id).map(|open| open.root_id.clone()))
+            .or_else(|| self.devices.lock().expect("devices").get(session_id).map(|(root, _, _)| root.clone()))
             .unwrap_or_default()
     }
 
@@ -153,9 +182,28 @@ impl Launches {
     /// lands, and a monitor is left with a session that started and never stopped.
     pub fn inherit(&self, frames: &[Value]) {
         let mut open = self.open.lock().expect("open");
+        let mut devices = self.devices.lock().expect("devices");
         for frame in frames {
             let Some(id) = frame.get("sessionId").and_then(Value::as_str) else { continue };
             match frame.get("type").and_then(Value::as_str) {
+                Some("device-action.started") => {
+                    devices.insert(
+                        id.to_string(),
+                        (
+                            frame.get("rootId").and_then(Value::as_str).unwrap_or_default().to_string(),
+                            frame.get("by").cloned().unwrap_or_else(|| json!({ "kind": "workspace" })),
+                            json!({
+                                "sessionId": id,
+                                "actionId": frame.get("actionId").cloned().unwrap_or(Value::Null),
+                                "deviceId": frame.get("deviceId").cloned().unwrap_or(Value::Null),
+                                "kind": frame.get("kind").cloned().unwrap_or(Value::Null),
+                            }),
+                        ),
+                    );
+                }
+                Some("device-action.ended") => {
+                    devices.remove(id);
+                }
                 Some("game.started") => {
                     open.insert(
                         id.to_string(),
@@ -178,7 +226,9 @@ impl Launches {
 
     /// The sessions this worker believes are open, for closing the ones that are not.
     pub fn still_open(&self) -> Vec<String> {
-        self.open.lock().expect("open").keys().cloned().collect()
+        let mut held: Vec<String> = self.open.lock().expect("open").keys().cloned().collect();
+        held.extend(self.devices.lock().expect("devices").keys().cloned());
+        held
     }
 }
 
@@ -201,17 +251,19 @@ mod tests {
         let launches = Launches::new();
         launches.queue("root-1", &agent("one"), 1000);
         let says = launches.heard(&game("s1", "running"), 1010);
-        let Says::Started { by, fields } = says else { panic!("a game that started says so") };
+        let Says::Started { kind, by, fields } = says else { panic!("a game that started says so") };
+        assert_eq!(kind, "game.started");
         assert_eq!(by, agent("one"));
         assert_eq!(fields["sessionId"], json!("s1"));
         assert_eq!(fields["gameId"], json!("nolf"));
         assert_eq!(fields["args"], json!(["-w"]));
 
         /* And the ending carries the same asker, read back from the open pair. */
-        let Says::Ended { by, fields } = launches.heard(&json!({ "id": "s1", "rootId": "root-1", "state": "exited", "exitCode": 0 }), 2000)
+        let Says::Ended { kind, by, fields } = launches.heard(&json!({ "id": "s1", "rootId": "root-1", "state": "exited", "exitCode": 0 }), 2000)
         else {
             panic!("a game that ended says so")
         };
+        assert_eq!(kind, "game.ended");
         assert_eq!(by, agent("one"), "the ending is the starter's, not the workspace's");
         assert_eq!(fields["exitCode"], json!(0));
         assert_eq!(fields["gameId"], json!("nolf"), "and it remembers what it was");
@@ -285,13 +337,61 @@ mod tests {
         still.sort();
         assert_eq!(still, vec!["s1".to_string()], "one open, one already closed, and one that is not a game");
 
-        let Says::Ended { by, fields } = launches.heard(&json!({ "id": "s1", "rootId": "root-1", "state": "exited", "exitCode": 3 }), 0)
+        let Says::Ended { by, fields, .. } = launches.heard(&json!({ "id": "s1", "rootId": "root-1", "state": "exited", "exitCode": 3 }), 0)
         else {
             panic!("the inherited game still ends")
         };
         assert_eq!(by, agent("one"), "attributed to whoever started it, a worker ago");
         assert_eq!(fields["gameId"], json!("nolf"));
         assert_eq!(fields["exitCode"], json!(3));
+    }
+
+    /* The other pair on the same stream: the owner's "deploying to the box", named generally — any
+       action whose declared device is not this machine. Its session bounds the pair, and the pair is
+       how a person sees a deploy start and stop. */
+    #[test]
+    fn a_device_bound_action_is_a_pair_too_and_says_which_one_it_is() {
+        let launches = Launches::new();
+        let fields = json!({ "sessionId": "d1", "actionId": "deploy", "deviceId": "box", "kind": "adb" });
+        launches.device_action("d1", "root-1", &agent("one"), &fields);
+        /* It is already announced when it is registered, so a running transition says nothing. */
+        assert_eq!(launches.heard(&json!({ "id": "d1", "rootId": "root-1", "type": "terminal", "state": "running" }), 0), Says::Nothing);
+
+        let Says::Ended { kind, by, fields } = launches.heard(&json!({ "id": "d1", "rootId": "root-1", "state": "exited", "exitCode": 7 }), 0)
+        else {
+            panic!("the deploy ended")
+        };
+        assert_eq!(kind, "device-action.ended", "a deploy is not a game, and the frame says which");
+        assert_eq!(by, agent("one"));
+        assert_eq!(fields["actionId"], json!("deploy"));
+        assert_eq!(fields["deviceId"], json!("box"));
+        assert_eq!(fields["exitCode"], json!(7), "and how it went");
+        /* Once. */
+        assert_eq!(launches.heard(&json!({ "id": "d1", "rootId": "root-1", "state": "exited" }), 0), Says::Nothing);
+    }
+
+    /* A replaced worker inherits these the same way it inherits games: the `ended` half still lands,
+       so a person is not left watching a deploy that never finished. */
+    #[test]
+    fn a_replaced_worker_still_closes_the_deploys_its_predecessor_opened() {
+        let launches = Launches::new();
+        launches.inherit(&[
+            json!({ "type": "device-action.started", "sessionId": "d1", "rootId": "root-1", "actionId": "deploy", "deviceId": "box", "kind": "adb", "by": agent("one") }),
+            json!({ "type": "device-action.started", "sessionId": "d2", "rootId": "root-1", "actionId": "other" }),
+            json!({ "type": "device-action.ended", "sessionId": "d2" }),
+        ]);
+        assert_eq!(launches.still_open(), vec!["d1".to_string()]);
+        /* Minted on the project the PAIR remembers: the record that arrives at the end carries no
+           root, and a frame nobody can place is a frame nobody reads. Asked before the ending, which
+           is when the caller asks it. */
+        assert_eq!(launches.root_of("d1", &json!({ "id": "d1", "state": "exited" })), "root-1");
+        let Says::Ended { kind, by, fields } = launches.heard(&json!({ "id": "d1", "state": "exited", "exitCode": 0 }), 0)
+        else {
+            panic!("the inherited deploy still ends")
+        };
+        assert_eq!(kind, "device-action.ended");
+        assert_eq!(by, agent("one"), "attributed to whoever asked, a worker ago");
+        assert_eq!(fields["deviceId"], json!("box"));
     }
 
     /* An ending whose session record no longer says which project it was in is still minted, on the

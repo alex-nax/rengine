@@ -37,6 +37,12 @@ fn strings(value: &Value, key: &str) -> Vec<String> {
 }
 
 /// The neutral row every provider is flattened into.
+/// The same neutral row, for a provider's issue. Public because `tracker_remote` builds one and the
+/// two must be the same shape: a GitHub row and a local one are read by the same pane.
+pub fn remote_row(id: String, key: String, title: Value, state: (&str, &str, &str), fields: Vec<(&'static str, Value)>) -> Value {
+    row(id, key, title, state, fields)
+}
+
 fn row(id: String, key: String, title: Value, state: (&str, &str, &str), fields: Vec<(&'static str, Value)>) -> Value {
     let mut out = vec![
         ("id", json!(id)),
@@ -294,6 +300,53 @@ fn with_error(result: &Value, message: String) -> Value {
 }
 
 /// The whole local answer, in the shape the route gives it.
+/// The same answer, for a project whose tracker is somebody else's server (F154, spec 083).
+///
+/// `state_directory` is where the credential lives — beside the WORKSPACE state and never in the
+/// committed declaration — and `identity` is the declared project NAME the token file is keyed by,
+/// so a person can create it by name and a checkout that moved keeps its tracker.
+///
+/// **`identity` and the block's own `project` are different things.** The block's `project` is
+/// Linear's project filter. Naming both `project` made the filter silently take the token's value.
+pub fn remote_tracker(
+    root_id: &str,
+    root_path: &str,
+    declared: &Value,
+    state_directory: &str,
+    credential: Option<&str>,
+    fetching: &dyn crate::tracker_remote::Fetching,
+    now_ms: i64,
+) -> Value {
+    let _ = state_directory;
+    let block = declared.get("tracker").cloned().unwrap_or_else(|| json!({ "provider": "local" }));
+    let provider = block.get("provider").and_then(Value::as_str).unwrap_or("local").to_string();
+    let mut named = block.as_object().cloned().unwrap_or_default();
+    named.insert(
+        "identity".to_string(),
+        declared.get("project").cloned().filter(|name| !name.is_null()).unwrap_or_else(|| json!(root_id)),
+    );
+    let named = Value::Object(named);
+    let answered = match provider.as_str() {
+        "linear" => crate::tracker_remote::linear_rows(&named, credential, fetching),
+        _ => crate::tracker_remote::github_rows(&named, credential, fetching),
+    };
+    let base = object(vec![
+        ("rootId", json!(root_id)),
+        ("declared", json!(true)),
+        ("provider", json!(provider)),
+        ("rows", json!([])),
+        ("categories", json!(CATEGORIES)),
+        ("contract", declared.get("contract").cloned().unwrap_or(Value::Null)),
+    ]);
+    let joined = merge(base, &answered, vec![
+        ("fresh", json!(true)),
+        ("checkedAt", json!(red_core::time::iso(now_ms))),
+    ]);
+    /* The manifest is joined onto a remote provider's rows by the same reader, so a GitHub row and a
+       local one carry their evidence in the same shape. */
+    with_tests(root_path, declared, &joined)
+}
+
 pub fn project_tracker(root_id: &str, root_path: &str, declared: &Value) -> Value {
     let base = |provider: Value, extra: Vec<(&'static str, Value)>| {
         let mut out = vec![
