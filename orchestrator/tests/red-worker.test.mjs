@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { WebSocket, WebSocketServer } from 'ws';
+import { gameProject } from './game-fixtures.mjs';
 import { PRODUCT_NAME } from '../runtime/product.mjs';
 import { built } from './cargo.mjs';
 
@@ -142,10 +143,10 @@ test('a route the worker does not own reaches the host whole, with the host’s 
 
   /* A POST arrives with its body, which is the half a forwarder gets wrong: framing the request
      from the wrong length sends a body that is short, long, or somebody else's. */
-  /* A route that is purely the door's, deliberately: a GATED one would be asked about first and
-     what arrived at the host would be the gate's question rather than the caller's body. */
-  const body = JSON.stringify({ rootId: 'r', path: 'a.png' });
-  await ask(started, '/api/format-preview', { method: 'POST', body });
+  /* A route that is purely the door's, deliberately: a gated one would be asked about first and
+     what arrived would be the gate's question, and a PROJECT route the worker answers itself. */
+  const body = JSON.stringify({ id: 'pane-1', conversation: 'c', agent: 'claude' });
+  await ask(started, '/api/agent-conversation', { method: 'POST', body });
   assert.equal(upstream.seen.at(-1).method, 'POST');
   assert.equal(upstream.seen.at(-1).body, body, 'the body arrived whole');
 });
@@ -694,8 +695,9 @@ test('a route the door answers is gated here before it is handed on', async t =>
   /* With no ledger there is nothing to be refused BY, so each goes through — and what this asserts
      is that it went through the gate on its way, not around it. The refusal order itself is
      `serve::token_refusal`'s, and the gate's own answers are the ledger's. */
-  for (const [route, body] of [['/api/game', { rootId: 'r' }], ['/api/dashboard-run', { rootId: 'r', actionId: 'x' }],
-                               ['/api/dashboard-capture', { rootId: 'r', actionId: 'x' }],
+  /* `/api/game` is gated too and is not here: it is COMPOSED, because it has to run the project's
+     own preflight and queue the asker before it calls. Its own test is below. */
+  for (const [route, body] of [['/api/dashboard-run', { rootId: 'r', actionId: 'x' }],
                                ['/api/desktop-action', { rootId: 'r', desktopId: 'd', action: 'reload' }]]) {
     const answered = await ask(started, route, { method: 'POST', body: JSON.stringify(body) });
     assert.equal(answered.status, 200, route);
@@ -986,12 +988,18 @@ test('a worker announces itself once, and never for a probe', { timeout: 120000 
 test('a game launched through the worker leaves an attributed pair on the feed', { timeout: 120000 }, async t => {
   const root = randomUUID();
   const sessionId = 'game-1';
+  /* A project that declares a game the preflight passes: the worker runs that preflight itself,
+     before anything reaches the host, which is spec 078's rule and KI-043's lesson. */
+  const at = await mkdtemp(path.join(tmpdir(), 'rengine-game-'));
+  t.after(() => rm(at, { recursive: true, force: true }));
+  const projectPath = await gameProject(at, 'declared');
   let announced = null;
   const upstream = await host(t, {
-    '/api/state': () => ({ roots: [{ id: root, path: ROOT }], sessions: announced ? [announced] : [] }),
+    '/api/state': () => ({ roots: [{ id: root, path: projectPath }], sessions: announced ? [announced] : [],
+      capabilities: { projectGame: 1 } }),
     '/api/game': body => {
       /* Announced on the stream before the call returns, which is the gap the queue exists for. */
-      announced = { id: sessionId, rootId: root, type: 'game', state: 'running', game: body.gameId ?? 'nolf',
+      announced = { id: sessionId, rootId: root, type: 'game', state: 'running', game: body.gameId ?? 'fixture-game',
         surface: 'sdl', args: body.args ?? [] };
       sockets.clients.forEach(client => client.send(JSON.stringify({ type: 'session', session: announced })));
       return announced;
@@ -1023,14 +1031,14 @@ test('a game launched through the worker leaves an attributed pair on the feed',
      this needed to be told once, and is the gate working. */
   const agent = '12345678-1234-1234-1234-123456789abc';
   await (await tokens.ledger(root)).contest({ agentId: agent, label: 'claude 12345678' }, 'launching');
-  const launched = await ask(started, '/api/game', { method: 'POST', body: JSON.stringify({ rootId: root, gameId: 'nolf', args: ['-w'] }),
+  const launched = await ask(started, '/api/game', { method: 'POST', body: JSON.stringify({ rootId: root, gameId: 'fixture-game', args: ['-w'] }),
     headers: { 'X-Rengine-Agent': agent, 'X-Rengine-Agent-Label': 'claude 12345678' } });
   assert.equal(launched.status, 200, JSON.stringify(await launched.clone().json()));
 
   await settle(async () => (await frames()).some(frame => frame.type === 'game.started'), 'the launch reached the feed');
   const start = (await frames()).find(frame => frame.type === 'game.started');
   assert.equal(start.sessionId, sessionId);
-  assert.equal(start.gameId, 'nolf');
+  assert.equal(start.gameId, 'fixture-game');
   assert.deepEqual(start.args, ['-w']);
   /* Attributed to whoever asked — the whole reason the asker is queued before the call is made. */
   assert.equal(start.by.kind, 'agent');
@@ -1044,7 +1052,7 @@ test('a game launched through the worker leaves an attributed pair on the feed',
   await settle(async () => (await frames()).some(frame => frame.type === 'game.ended'), 'the ending reached the feed');
   const end = (await frames()).find(frame => frame.type === 'game.ended');
   assert.equal(end.by.agentId, agent, 'the ending is the starter\'s, not the workspace\'s');
-  assert.equal(end.gameId, 'nolf');
+  assert.equal(end.gameId, 'fixture-game');
   assert.equal(end.exitCode, 0);
 
   /* A pane that is not a game is nothing to do with the feed: that is what makes "no PTY output on
@@ -1056,7 +1064,7 @@ test('a game launched through the worker leaves an attributed pair on the feed',
      not the shape: a worker that fell back to reading whatever a frame happened to contain would
      turn a pane's bytes into feed frames the moment one of them looked like a session. */
   sockets.clients.forEach(client => client.send(JSON.stringify({ type: 'output', id: 'game-2', data: 'hello',
-    session: { id: 'game-2', rootId: root, type: 'game', state: 'running', game: 'nolf', args: [] } })));
+    session: { id: 'game-2', rootId: root, type: 'game', state: 'running', game: 'fixture-game', args: [] } })));
   await new Promise(resolve => setTimeout(resolve, 400));
   assert.equal((await frames()).length, before, 'a terminal and a pane\'s bytes are not feed frames');
 });

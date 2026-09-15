@@ -33,6 +33,23 @@ fn refuse(message: &str, status: u16) -> Refused {
 /// host — and "nothing was started" is the part that lets them not worry first.
 pub const OLD_HOST: &str = "This retained session host predates task-driven agent panes: it neither records the task on a conversation nor passes a pane's arguments to its CLI, so a spawn would start an agent with no prompt. Replacing the session host requires quiescence. Nothing was started.";
 
+/// The sentence a host too old to launch a DECLARED game is refused with.
+///
+/// A host that predates per-project game declarations has a removed built-in game and would launch
+/// that instead: the refusal names what it would do rather than what it lacks, because a person who
+/// asked for their game and got somebody else's has no way to tell from a capability name.
+pub const OLD_GAME_HOST: &str = "This retained session host predates per-project game declarations and would launch its removed built-in game; game_preflight answers from the declaration. Replacing the session host requires quiescence.";
+
+/// May this host launch a game the project declared?
+pub fn host_can_launch(state: &Value) -> Result<(), Refused> {
+    let declared = state.get("capabilities").and_then(|held| held.get("projectGame")).and_then(Value::as_i64);
+    if declared == Some(1) {
+        Ok(())
+    } else {
+        Err(refuse(OLD_GAME_HOST, 409))
+    }
+}
+
 /// Can this host carry a spawn at all? The capability is the host's own declaration.
 pub fn host_can_spawn(state: &Value) -> Result<(), Refused> {
     let declared = state
@@ -124,6 +141,47 @@ mod tests {
             }
         }
         assert_eq!(text, OLD_HOST, "the refusal a person acts on has drifted from the one they used to get");
+    }
+
+    /* The other old-host refusal, and it names the same kind of thing: what would happen, not which
+       flag is missing. A person who asked for their game and got the removed built-in one has no way
+       to tell from a capability name. */
+    #[test]
+    fn a_host_that_would_launch_the_wrong_game_is_refused_by_name() {
+        assert_eq!(host_can_launch(&json!({ "capabilities": { "projectGame": 1 } })), Ok(()));
+        for old in [json!({}), json!({ "capabilities": {} }), json!({ "capabilities": { "projectGame": 0 } })] {
+            let refused = host_can_launch(&old).expect_err("refused");
+            assert_eq!(refused.status, 409);
+            assert!(refused.message.contains("removed built-in game"), "{}", refused.message);
+            assert!(refused.message.contains("game_preflight answers from the declaration"),
+                    "it names what does work: {}", refused.message);
+        }
+    }
+
+    /* Both old-host sentences are ones a person acts on, so both are checked against the JavaScript
+       while it is still here — the same device as `the_old_host_sentence_is_the_javascripts`. */
+    #[test]
+    fn the_old_game_host_sentence_is_the_javascripts() {
+        let worker = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().and_then(|red| red.parent())
+            .expect("the checkout").join("orchestrator/runtime/worker.mjs");
+        let Ok(js) = std::fs::read_to_string(&worker) else { return };
+        let Some(at) = js.find("predates per-project game declarations") else {
+            panic!("the JavaScript no longer refuses an old host in these words");
+        };
+        let start = js[..at].rfind('\'').expect("an opening quote") + 1;
+        let (mut text, mut escaped) = (String::new(), false);
+        for character in js[start..].chars() {
+            match character {
+                _ if escaped => {
+                    text.push(character);
+                    escaped = false;
+                }
+                '\\' => escaped = true,
+                '\'' => break,
+                _ => text.push(character),
+            }
+        }
+        assert_eq!(text, OLD_GAME_HOST, "the refusal a person acts on has drifted from the one they used to get");
     }
 
     #[test]

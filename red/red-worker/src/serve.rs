@@ -19,6 +19,13 @@ use red_core::head::Head;
 /// belongs to the host and is answered here would answer from a worker's view of a workspace
 /// instead of the workspace's own.
 pub fn own_route(method: &str, path: &str) -> bool {
+    /* The project's own routes. The door answers them too — it is a workspace's front — but they are
+       the WORKER's as well, and for a reason the two-way split misses: the host beneath a worker may
+       predate them, and one that forwarded would answer from a host that never had them. One
+       implementation, `red_project::serve`, called by both. */
+    if red_project::serve::owns(method, path) {
+        return true;
+    }
     matches!(
         (method, path),
         ("GET", "/api/feed")
@@ -60,6 +67,11 @@ pub fn own_route(method: &str, path: &str) -> bool {
 /// has got. A route moves from one to the other when it is implemented and its evidence is here,
 /// and until then it is forwarded, so a half-ported worker behaves exactly like the whole one.
 pub fn implemented(method: &str, path: &str) -> bool {
+    /* Everything a PROJECT declares about itself, which the worker answers rather than forwards
+       because the host beneath it may predate these routes (spec 065, KI-043). */
+    if red_project::serve::owns(method, path) {
+        return true;
+    }
     matches!(
         (method, path),
         ("GET", "/api/feed")
@@ -206,10 +218,16 @@ mod tests {
 
         /* And the routes the door already answers, which it must NOT: answering them here would
            answer from a worker's view of a workspace rather than the workspace's own. */
-        for path in ["/api/dashboard", "/api/devices", "/api/formats", "/api/recordings",
-                     "/api/game-config", "/api/tracker", "/api/worktrees", "/api/bytes",
-                     "/api/desktops", "/api/stop"] {
+        for path in ["/api/desktops", "/api/stop", "/api/state-not-a-route"] {
             assert!(!own_route("GET", path), "{path} is the door's");
+        }
+        /* And a project's own, which the door answers AND the worker answers — because the host
+           beneath a worker may predate them. Listed here because a reader of the table above would
+           otherwise take them for the door's alone. */
+        for path in ["/api/dashboard", "/api/devices", "/api/formats", "/api/recordings",
+                     "/api/game-config", "/api/tracker", "/api/worktrees", "/api/bytes"] {
+            assert!(own_route("GET", path), "{path} is a project's");
+            assert!(implemented("GET", path), "and is answered here");
         }
         /* And the three the door answers that this worker COMPOSES: a state read carries what the
            worker adds, a preferences write is split, and the desktop's recording frame is a feed
@@ -218,7 +236,11 @@ mod tests {
         assert!(own_route("POST", "/api/preferences"));
         assert!(own_route("POST", "/api/recording"));
         assert!(own_route("POST", "/api/game"));
-        assert!(!own_route("GET", "/api/recording"), "reading one back is the project's, not the feed's");
+        /* `GET /api/recording` reads a recording out of a PROJECT and `POST /api/recording` is the
+           desktop's frame, which is the feed's. Both are the worker's and for different reasons,
+           which is the whole point of a route being a method and a path together. */
+        assert!(red_project::serve::owns("GET", "/api/recording"), "reading one back is the project's");
+        assert!(!red_project::serve::owns("POST", "/api/recording"), "and the frame is not");
         /* The desktop registry, settled as the door's: a desktop says it exists on the door's
            socket, so the two routes over that registry are answered where the sockets are. Listed
            separately because they were the worker's in the JavaScript and the reason they are not

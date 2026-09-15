@@ -165,6 +165,22 @@ refused by name with nothing started.
 
 Turning the default on and running the suite named it exactly, which is what a cutover spec is for.
 
+**Done — the project routes.** `red_project::serve` is the one implementation and both servers call
+it: `red-host`'s `answer_about_project` is now how the DOOR finds a root and where it keeps its probe
+cache, and nothing more. The worker answers them from the project itself and never forwards, and it
+keeps its own probe cache, which is the honest life for one — a probe answers for as long as the
+process that took it, and a replaced worker should ask again rather than repeat what a worker that
+is gone believed about a device. The launch gained the two refusals that went with them: the
+project's own preflight, run HERE before anything reaches the host (spec 078, KI-043), and the
+old-host refusal for a host that would launch its removed built-in game instead of the declared one.
+
+What is left before the default: **`POST /api/dashboard-run`**, which is composed rather than gated
+for the same reason `/api/game` is — an action whose `kind` is `game` runs the preflight and the
+old-host refusal, and a device-bound one bounds a `device-action.*` pair on the feed.
+`red_project::dashboard::dashboard_action` and `run_payload` already exist.
+
+The original reading of this gap, kept because it is the reason:
+
 **The project routes above a retained host.** `worker.mjs` answers `/api/game-config`,
 `/api/formats`, `/api/devices`, `/api/dashboard`, `/api/tracker`, `/api/worktrees`, `/api/bytes`,
 `/api/recordings` and `/api/recording` **itself**, and never asks the host — because the host beneath

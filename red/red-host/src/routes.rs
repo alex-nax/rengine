@@ -36,10 +36,11 @@ pub(crate) fn store_route(method: &str, path: &str) -> Option<&'static str> {
 /// declares and whether each answers, which of its dashboard actions may be pressed, a game's
 /// preflight, and its own task inventory.
 ///
-/// These read a project ROOT rather than the workspace's own state, so the door answers them from
-/// `red_project` directly — the same implementation the JS clients ask for through a binary. The
-/// door is the longer-lived of the two, so the probe cache it keeps is the same optimisation with a
-/// longer life: one listing costs one probe per device, not one per action.
+/// These read a project ROOT rather than the workspace's own state, and the answer is
+/// `red_project::serve`'s — the one implementation, which the WORKER also calls, because the host
+/// beneath a worker may predate these routes and a worker that forwarded them would answer from a
+/// host that never had them (spec 065, spec 143). What is here is only how this door finds the root
+/// and where it keeps its probe cache.
 ///
 /// `/api/tracker` is the exception, and it says so by forwarding: only the LOCAL backend is Rust,
 /// because the remote providers need a network client and F154 owns that decision.
@@ -60,146 +61,54 @@ pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &
     let root_path = root.get("path").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
     let id = root.get("id").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
     let declaration_file = root.get("declarationFile").and_then(serde_json::Value::as_str).map(str::to_string);
+    /* A remote tracker is the backend's business until F154; the door says so rather than answering
+       half of it. Read before the blocking half starts, because the answer decides whether there is
+       one. */
+    if path == "/api/tracker" && !red_project::serve::local_tracker(&root_path, declaration_file.as_deref()) {
+        return None;
+    }
     /* Everything the blocking half needs, taken before it starts: a task that outlives this call
        cannot borrow the request it came from. */
     let path = path.to_string();
-    let asked: Vec<Option<String>> = ["limit", "id", "artifact", "offset", "maxCharacters", "refresh", "gameId", "path", "length"]
-        .into_iter()
-        .map(|name| head.query(name))
-        .collect();
+    let asked: std::collections::HashMap<String, String> =
+        ["limit", "id", "artifact", "offset", "maxCharacters", "refresh", "gameId", "path", "length"]
+            .into_iter()
+            .filter_map(|name| head.query(name).map(|value| (name.to_string(), value)))
+            .collect();
     /* `/api/bytes` alone read its query as an OBJECT, where a repeated key keeps its last value. */
     let last: std::collections::HashMap<String, String> = ["offset", "length", "path"]
         .into_iter()
         .filter_map(|name| head.query_last(name).map(|value| (name.to_string(), value)))
         .collect();
-    /* A remote tracker is the backend's business until F154; the door says so rather than answering
-       half of it. Read before the blocking half starts, because the answer decides whether there is
-       one. */
-    if path == "/api/tracker" {
-        let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
-        let provider = declared
-            .get("tracker")
-            .and_then(|block| block.get("provider"))
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or("local");
-        if provider != "local" {
-            return None;
-        }
-    }
     let front = front.clone();
     let answer = tokio::task::spawn_blocking(move || {
-        let query = |index: usize| asked[index].clone();
         /* This process's own environment, which is what every one of these is answered against —
            including the `tools` half of an availability check. A route that RUNS a project's command
            gets the shell environment composed at the spawn, in `red_project::command`, so the board
            and the run read one PATH. */
         let environment: Vec<(String, String)> = std::env::vars().collect();
-        let now = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|since| since.as_millis() as i64).unwrap_or(0);
-        let context = |controls: bool, refresh: bool| red_project::devices::Context {
+        red_project::serve::route(&red_project::serve::Asked {
             root_id: &id,
             root_path: &root_path,
+            declaration_file: declaration_file.as_deref(),
+            path: &path,
+            data: &data,
+            query: &|name: &str| asked.get(name).cloned(),
+            query_last: &|name: &str| last.get(name).cloned(),
             environment: &environment,
+            /* The door is the longer-lived of the two servers that answer these, so the probe cache
+               it keeps is the same optimisation with a longer life: one listing costs one probe per
+               device, not one per action. */
             probes: &front.probes,
-            refresh,
-            refreshed: Default::default(),
-            controls,
-            now: &now,
-        };
-        match path.as_str() {
-        "/api/formats" => {
-            /* `listFormats`: the declaration, wearing the id of the root it was read for. */
-            let mut listed = serde_json::Map::new();
-            listed.insert("rootId".to_string(), serde_json::json!(id));
-            if let Some(fields) = red_project::declaration::read(&root_path, declaration_file.as_deref()).as_object() {
-                for (key, value) in fields {
-                    listed.insert(key.clone(), value.clone());
-                }
-            }
-            Ok(serde_json::Value::Object(listed))
-        }
-        "/api/recordings" => red_project::recordings::list(&id, &root_path, query(0).as_deref())
-            .map_err(refusal),
-        "/api/dashboard" => {
-            let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
-            Ok(red_project::dashboard::dashboard_actions(&context(false, false), &declared))
-        }
-        "/api/devices" => {
-            let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
-            /* The Devices tab asks for the controls bound to each box; a caller that only wants to
-               know which boxes answer asks the same route without them, which is what `resolve`
-               decided on the other side. The tab is the only caller of this route. */
-            Ok(red_project::dashboard::project_devices(&context(true, query(5).as_deref() == Some("1")), &declared))
-        }
-        "/api/game-config" => {
-            let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
-            red_project::games::inspect_game(&context(false, false), &declared, query(6).as_deref())
-                .map_err(refusal)
-        }
-        "/api/tracker" => {
-            let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
-            Ok(red_project::tracker::project_tracker(&id, &root_path, &declared))
-        }
-        /* A window of a file's own bytes. The query is handed over as it arrived — `Number('')` is 0
-           and an absent parameter is not an empty one — because that is what `readBytes` was given. */
-        "/api/bytes" => {
-            let mut asked_window = serde_json::Map::new();
-            asked_window.insert("path".into(), serde_json::json!(query(7).unwrap_or_default()));
-            for (name, index) in [("offset", 3usize), ("length", 8)] {
-                if let Some(value) = query(index) {
-                    asked_window.insert(name.into(), serde_json::json!(value));
-                }
-            }
-            /* `Object.fromEntries` is how this one route read its query, and it keeps the LAST of a
-               repeated key where `URLSearchParams#get` keeps the first. */
-            for (name, key) in [("offset", "offset"), ("length", "length"), ("path", "path")] {
-                if let Some(value) = last.get(key) {
-                    asked_window.insert(name.into(), serde_json::json!(value));
-                }
-            }
-            red_project::preview::read_bytes(&id, &root_path, &serde_json::Value::Object(asked_window)).map_err(refusal)
-        }
-        /* What git already knows about this root's repository (F190, spec 134). Read-only. */
-        "/api/worktrees" => red_project::worktrees::worktrees(&root_path, &environment).map_err(refusal),
-        /* The conversations each agent CLI already holds for this root (F210, spec 140).
-           On demand and never on a timer: codex partitions its store by DATE, so answering
-           "which of these belong to this project" means opening the head of every candidate. */
-        "/api/conversations" => {
-            let home = environment
-                .iter()
-                .find(|(key, _)| key == "HOME")
-                .map(|(_, value)| std::path::PathBuf::from(value))
-                .unwrap_or_default();
-            red_project::conversations::stores(&home, &root_path, 30).map_err(refusal)
-        }
-        "/api/format-preview" => {
-            let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
-            red_project::preview::format_preview(&root_path, &declared, &data, &environment).map_err(refusal)
-        }
-        /* The one project route that WRITES. */
-        "/api/dashboard-capture" => {
-            let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
-            red_project::capture::capture(&context(false, false), &declared, data.get("actionId").and_then(serde_json::Value::as_str)).map_err(refusal)
-        }
-        _ => red_project::recordings::read(
-            &id,
-            &root_path,
-            &query(1).unwrap_or_default(),
-            query(2).as_deref(),
-            query(3).as_deref(),
-            query(0).as_deref(),
-            query(4).as_deref(),
-        )
-        .map_err(refusal),
-        }
+        })
     })
     .await;
     Some(match answer {
         Ok(Ok(value)) => http_json(200, "OK", &value),
-        Ok(Err(fault)) => faulted(&fault),
+        Ok(Err(fail)) => faulted(&refusal(fail)),
         Err(error) => faulted(&format!("500|{error}")),
     })
 }
-
 /// The session routes this door answers itself. They are here rather than forwarded because the
 /// pane's record is the service's now (charter D62): the refusals below are the JS host's, applied
 /// to the same record the JS host applies them to, so the two cannot disagree about whether a pane

@@ -75,6 +75,8 @@ struct Worker {
     /// to the same one, so there is one writer and one sequence however many workers are alive —
     /// which is what retires spec 095's relay along with `worker.mjs`.
     retired: std::sync::atomic::AtomicBool,
+    /// The device probes this worker has taken, kept for as long as it is running.
+    probes: red_project::devices::Probes,
     /// Feed sockets still writing. A worker is told it is retired and told to close in the same
     /// breath, and the retirement has to REACH its watchers before the process goes: a monitor that
     /// got a dropped connection instead of the close frame has no sequence to resume from and no
@@ -183,6 +185,7 @@ async fn main() -> std::process::ExitCode {
         generation: std::sync::Mutex::new(None),
         launches: red_worker::launches::Launches::new(),
         retired: std::sync::atomic::AtomicBool::new(false),
+        probes: red_project::devices::Probes::default(),
         draining: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
     });
     /* One line, then serve: the supervisor reads this to learn where the worker is before it writes
@@ -646,6 +649,15 @@ fn game(worker: &Worker, head: &Head, body: &str) -> Result<serde_json::Value, S
     let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
     let (root_id, _) = root_of(worker, named(&data, "rootId"))?;
     let by = gate(worker, &root_id, "launch_game", head)?;
+    /* Refused HERE, from this worker's own preflight, before anything reaches the host: spec 078 and
+       KI-043's lesson is that the host must not be the one to answer, because the host beneath may
+       be the one that cannot. */
+    let config = about_project(worker, &head_for(head, "/api/game-config", &data), "")?;
+    if let Some(refusal) = config.get("refusal").and_then(serde_json::Value::as_str).filter(|value| !value.is_empty()) {
+        return Err(format!("409|{refusal}"));
+    }
+    let state = ask_host(worker, "GET", "/api/state", "")?;
+    red_worker::spawn::host_can_launch(&state).map_err(refused)?;
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|since| since.as_millis() as i64)
@@ -1058,6 +1070,11 @@ fn answer_own(worker: &Worker, head: &Head, body: &str) -> String {
         ("POST", "/api/recording") => answered_or_faulted(recording(worker, head, body)),
         ("POST", "/api/game") => answered_or_faulted(game(worker, head, body)),
         ("GET", "/api/diagnostics") => answered_or_faulted(diagnostics(worker, head)),
+        /* Everything a PROJECT declares about itself and leaves behind, answered here and never
+           forwarded — the host beneath may predate these routes, and forwarding would answer from a
+           host that never had them (spec 065, KI-043). The answer is `red_project::serve`'s, which
+           is also the door's, so the two cannot disagree about what a project declares. */
+        (method, path) if red_project::serve::owns(method, path) => answered_or_faulted(about_project(worker, head, body)),
         ("POST", "/api/ide-mention") => answered_or_faulted(ide_mention(worker, body)),
         ("POST", "/api/ide-selection") => answered_or_faulted(ide_selection(worker, body)),
         _ => refusal(404, "Not Found", "Unknown workspace endpoint."),
@@ -1300,6 +1317,60 @@ fn ide_selection(worker: &Worker, body: &str) -> Result<serde_json::Value, Strin
     }))
 }
 
+/// The same request, asked about a different route.
+///
+/// A launch runs the project's own preflight first, and that preflight IS `/api/game-config` — so
+/// it is asked for by name rather than reached into, and there is one path from a declaration to a
+/// refusal however a caller arrives at it.
+fn head_for(head: &Head, path: &str, data: &serde_json::Value) -> Head {
+    let mut query = vec![format!("rootId={}", named(data, "rootId"))];
+    if let Some(game) = data.get("gameId").and_then(serde_json::Value::as_str) {
+        query.push(format!("gameId={game}"));
+    }
+    Head {
+        raw: head.raw.clone(),
+        method: "GET".to_string(),
+        target: format!("{path}?{}", query.join("&")),
+        headers: head.headers.clone(),
+        upgrade: false,
+    }
+}
+
+/// One project route, answered from the project itself.
+///
+/// The worker keeps its own probe cache, which is the honest life for one: a probe answers for as
+/// long as the process that took it, and a replaced worker should ask again rather than repeat what
+/// a worker that is gone believed about a device.
+fn about_project(worker: &Worker, head: &Head, body: &str) -> Result<serde_json::Value, String> {
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let asked = head
+        .query("rootId")
+        .or_else(|| data.get("rootId").and_then(serde_json::Value::as_str).map(str::to_string))
+        .unwrap_or_default();
+    let root = root_record(worker, &asked)?;
+    let root_path = root.get("path").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    let declaration_file = root.get("declarationFile").and_then(serde_json::Value::as_str).map(str::to_string);
+    let path = head.path();
+    /* A remote tracker needs a network client and F154 owns that decision, so it is handed on to
+       the door — which answers a local one itself and forwards a remote one to the backend. */
+    if path == "/api/tracker" && !red_project::serve::local_tracker(&root_path, declaration_file.as_deref()) {
+        return ask_host(worker, "GET", &format!("/api/tracker?rootId={asked}"), "");
+    }
+    let environment: Vec<(String, String)> = std::env::vars().collect();
+    red_project::serve::route(&red_project::serve::Asked {
+        root_id: &asked,
+        root_path: &root_path,
+        declaration_file: declaration_file.as_deref(),
+        path: &path,
+        data: &data,
+        query: &|name: &str| head.query(name),
+        query_last: &|name: &str| head.query_last(name),
+        environment: &environment,
+        probes: &worker.probes,
+    })
+    .map_err(|fail| format!("{}|{}", fail.status.unwrap_or(500), fail.message))
+}
+
 /// The briefs rEngine ships, beside the registry it ships.
 fn shipped_prompts() -> std::path::PathBuf {
     std::env::current_exe()
@@ -1409,17 +1480,26 @@ fn bounded(file: &str, args: &[&str]) -> String {
 /// Asked of the host every time rather than cached, because roots are the WORKSPACE's and a project
 /// added since this worker started is one a caller may legitimately name.
 fn root_of(worker: &Worker, id: &str) -> Result<(String, String), String> {
-    let state = ask_host(worker, "GET", "/api/state", "")?;
-    let empty = Vec::new();
-    let roots = state.get("roots").and_then(serde_json::Value::as_array).unwrap_or(&empty);
-    let found = roots
-        .iter()
-        .find(|item| item.get("id").and_then(serde_json::Value::as_str) == Some(id))
-        .ok_or_else(|| "404|Unknown project root.".to_string())?;
+    let found = root_record(worker, id)?;
     Ok((
         id.to_string(),
         found.get("path").and_then(serde_json::Value::as_str).unwrap_or_default().to_string(),
     ))
+}
+
+/// The project as the WORKSPACE records it: its id, its path, and the declaration it was registered
+/// with where that is not the default one.
+fn root_record(worker: &Worker, id: &str) -> Result<serde_json::Value, String> {
+    let state = ask_host(worker, "GET", "/api/state", "")?;
+    let empty = Vec::new();
+    state
+        .get("roots")
+        .and_then(serde_json::Value::as_array)
+        .unwrap_or(&empty)
+        .iter()
+        .find(|item| item.get("id").and_then(serde_json::Value::as_str) == Some(id))
+        .cloned()
+        .ok_or_else(|| "404|Unknown project root.".to_string())
 }
 
 /// The token gate: may this caller do this, on this project?

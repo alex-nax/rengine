@@ -15,6 +15,7 @@ pub mod games;
 pub mod preview;
 pub mod recipes;
 pub mod recordings;
+pub mod serve;
 pub mod rules;
 pub mod tasks;
 pub mod tracker;
