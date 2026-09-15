@@ -50,14 +50,50 @@ A second one of the same family: cargo runs in-crate tests as threads in ONE pro
 names an extra registry through the environment changes what every other test sees. It surfaced
 immediately as a roster test answering six CLIs instead of five.
 
-### What is open, and one thing needing the owner
+### F218–F220: the split finished, measured by the guard's own exception list
 
-- **F213's row asks for a file per agent; what shipped has none**, because the difference between
-  claude and kimi was data, not code — the same flag scan with different flag lists. Three files of
-  identical code around different constants would be duplication wearing an abstraction's clothes.
-  The criteria are left as accepted and **F213 is not marked passing on my own reading**; F215 and
-  F216 depend on it and are held with it, which is the inventory doing its job. Spec 141 records
-  the rationale in full. F217 stands alone and passes.
+The list `tools/agent_names.py` carries went **21 → 5**, and the five that remain are marked
+PERMANENT: three adapter rosters (a module dispatch keyed on a declared KIND is the prescribed
+shape), the frozen `PARSERS` vocabulary, and `"Claude Design"`, which names a design source rather
+than a CLI. **No outstanding exception is left.**
+
+- **F219** — two identity DEFAULTS, both load-bearing and both derivable. The hook reporter assumed
+  claude when `--provider` was absent; it reads the launch's own context first, then falls back to
+  the CLI whose declared hook spelling carries no provider flag — a capability, not a name. The
+  desktop showed "codex" whenever nothing was chosen, and MISLED, because a launch with no chosen
+  agent used the person's `preferred-agent` file.
+- **F218** — bind's start hints were a per-CLI catalogue that now duplicated the declared spellings.
+  Generated from each recipe instead. **That branch had no test at all**, which is how it came to
+  duplicate them; it has one now, with a CLI called `hintcli` that exists nowhere in the tree.
+- **F220** — the identity scrub and install paths became unions over `identity.vars` / `install.path`
+  in both languages; red-ide's lock directory, config variable and auth header became an `ide` block
+  handed in as `lock::Protocol`; `codex_models`/`codexModels`/`codexHookKey`/`codexHookTrustHash`
+  are named for what they do; `kimiFile` was deleted, passed in and read by nothing; the JS handoff's
+  rollout reader became `agents/handoff/codex.mjs`, mirroring the Rust split; `--help` prints the
+  declared roster; the stale-tool message says once, for any CLI, what it named two CLIs to say.
+
+**The guard's word boundary was wrong twice.** `\b` does not break at `_`, so `\bkimi\b` misses
+`kimi_flags`. Widening it to "not a letter or digit" then misses `codexModels`, because JavaScript
+spells the same violation in camelCase — and both spellings were live findings the day it was fixed.
+`pub(crate) mod tests` was a third: unmatched, deliberate fixtures fired, which pushes the next
+person toward an exception for TEST code, the one kind that list must never collect. It splits
+identifiers into words now, and all three cases are pinned.
+
+**KI-121**, found by this work and not caused by it: two concurrent calls to the recipe service hang,
+because ref/unref were not counted — the first answer released the handles the second was waiting on.
+The sibling client had already met this and says so in a comment; this one carried a comment claiming
+the property without the code that gives it.
+
+And one more on evidence: **a test that computes its expectation from the declaration proves nothing
+on its own.** Changing `configDirectory` moved both sides and passed; the sabotage that counts is the
+code disagreeing with the declaration.
+
+### What is open, and the owner's decision on F213
+
+- **F213's row asked for a file per agent; what shipped has none**, because the difference between
+  claude and kimi was data, not code. Put to the owner with both routes and the cost of each; **the
+  owner amended the criterion**: each agent's flag parsing is DECLARED in the one place that names
+  it, and no source file names any agent. F213–F220 are marked passing with their evidence.
 - **KI-119**: `task-writes.test.mjs`'s token-contest spec fails under load with
   `ERR_STREAM_WRITE_AFTER_END` and passes alone — red in four of fourteen runs, ruled out as this
   work's by running it on a stashed tree. A service client that writes to a child it has not checked
@@ -66,7 +102,7 @@ immediately as a roster test answering six CLIs instead of five.
   defaults), F220 (per-CLI knowledge with nowhere declared to go).
 
 Commands: `cargo test` per crate (red-agents 26/26, red-store 2/2, red-host 19/19, red-project
-43/43); `npm test` 360/360; `./init.sh` green with the new gate.
+43/43, red-ide 19/19); `npm test` 362 with only KI-119 red; `./init.sh` green with the new gate.
 
 ## Session 157 (macos) — 2026-09-15 — one adapter per agent, and the antipattern that needed a guard
 
