@@ -59,6 +59,8 @@ struct Worker {
     /// Red as a Claude Code IDE, published once for this worker. `None` when it could not be, and
     /// then the routes over it deliver to nobody rather than refusing.
     bridge: Option<red_worker::editing::Bridge>,
+    /// The generation this worker claimed, once, on the first request that was not a probe.
+    generation: std::sync::Mutex<Option<i64>>,
 }
 
 struct Options {
@@ -159,6 +161,7 @@ async fn main() -> std::process::ExitCode {
         watchers,
         servers,
         bridge,
+        generation: std::sync::Mutex::new(None),
     });
     /* One line, then serve: the supervisor reads this to learn where the worker is before it writes
        the descriptor that names it. */
@@ -377,6 +380,44 @@ fn recording(worker: &Worker, head: &Head, body: &str) -> Result<serde_json::Val
         "type": frame.as_ref().and_then(|frame| frame.get("type").cloned()).unwrap_or(serde_json::Value::Null),
         "sequence": sequence_of(&frame),
     }))
+}
+
+/// Claim a generation and tell every project about it — once, on the first request that is not a
+/// probe (`lifecycle::announces`).
+///
+/// This is what the layer above reads to know a new worker took over: `workspace.updated` on each
+/// root's feed, carrying the generation this worker claimed. A worker with no ledger claims none,
+/// because a generation that nothing recorded is a number nobody can compare against.
+fn announce(worker: &Worker) {
+    let Some(ledger) = &worker.ledger else { return };
+    {
+        let held = worker.generation.lock().expect("generation");
+        if held.is_some() {
+            return;
+        }
+    }
+    let Ok(claimed) = ledger.call("bumpGeneration", serde_json::json!([])) else { return };
+    let generation = claimed.as_i64().or_else(|| claimed.get("generation").and_then(serde_json::Value::as_i64)).unwrap_or(0);
+    {
+        let mut held = worker.generation.lock().expect("generation");
+        if held.is_some() {
+            return;
+        }
+        *held = Some(generation);
+    }
+    let Ok(state) = ask_host(worker, "GET", "/api/state", "") else { return };
+    let empty = Vec::new();
+    let roots = state.get("roots").and_then(serde_json::Value::as_array).unwrap_or(&empty);
+    let by = serde_json::json!({ "kind": "workspace", "pid": std::process::id() });
+    for root in roots {
+        let Some(id) = root.get("id").and_then(serde_json::Value::as_str) else { continue };
+        note(worker, id, "workspace.updated", &by, serde_json::json!({ "layers": ["workspace"], "generation": generation }));
+    }
+}
+
+/// The socket a monitor opens to follow one project's feed, credential and all.
+fn feed_url(worker: &Worker, root_id: &str) -> String {
+    format!("{}/feed?rootId={root_id}&token={}", worker.url.replacen("http:", "ws:", 1), worker.token)
 }
 
 /// The gate for a route the door answers. `None` means it may go through.
@@ -607,7 +648,9 @@ impl tokio::io::AsyncWrite for Prefixed {
 
 /// The routes this worker answers itself.
 fn answer_own(worker: &Worker, head: &Head, body: &str) -> String {
-    let _ = body;
+    if red_worker::lifecycle::announces(&head.method, &head.path()) {
+        announce(worker);
+    }
     match (head.method.as_str(), head.path().as_str()) {
         ("GET", "/api/feed") => {
             let Some(root) = head.query("rootId").filter(|value| !value.is_empty()) else {
@@ -617,7 +660,18 @@ fn answer_own(worker: &Worker, head: &Head, body: &str) -> String {
                 return refusal(409, "Conflict", "This workspace worker does not serve the project token ledger.");
             };
             let cursor = red_worker::feed::cursor_of(head.query("after").as_deref());
-            answered(ledger.call("feedAfter", serde_json::json!([root, cursor, serde_json::Value::Null])))
+            let limit = head.query("limit").and_then(|value| value.parse::<i64>().ok()).map(|limit| limit.clamp(0, 1000));
+            match ledger.call("feedAfter", serde_json::json!([root, cursor, limit])) {
+                Ok(read) => {
+                    /* The read, plus the way to keep reading: `feed_url` composes its monitor URL
+                       from `socket`, so a feed answered without one is a feed nothing can follow. */
+                    let mut out = read.as_object().cloned().unwrap_or_default();
+                    out.insert("rootId".to_string(), serde_json::json!(root));
+                    out.insert("socket".to_string(), serde_json::json!(feed_url(worker, &root)));
+                    json(200, "OK", &serde_json::Value::Object(out).to_string())
+                }
+                Err(fault) => faulted(&fault),
+            }
         }
         ("GET", "/api/agents-menu") => {
             let Some(root) = head.query("rootId").filter(|value| !value.is_empty()) else {
@@ -662,7 +716,30 @@ fn answer_own(worker: &Worker, head: &Head, body: &str) -> String {
             /* The caller's own view of the token: who holds it, and whether THIS caller does. A
                status read without an identity is still an answer — a person's desktop reads it. */
             let who = identity_of(head);
-            answered(client.call("callerStatus", serde_json::json!([root, who])))
+            let tool: String = head.query("tool").unwrap_or_default().chars().filter(|c| c.is_ascii_lowercase() || *c == '_').take(40).collect();
+            match client.call("callerStatus", serde_json::json!([root, who, tool])) {
+                Ok(answer) => {
+                    /* The STATUS itself, with the caller and the refusal beside it — not a status
+                       nested inside one, which is the service's shape and not the route's. */
+                    let status = answer.get("status").cloned().unwrap_or(serde_json::Value::Null);
+                    /* The workspace's OWN record of which conversations this project has (spec 097),
+                       which is `state.conversations` — not `/api/conversations`, which scans a CLI's
+                       rollout store for candidates and is a different question entirely. */
+                    let conversations = ask_host(worker, "GET", "/api/state", "")
+                        .ok()
+                        .and_then(|state| state.get("conversations").and_then(|held| held.get(&root)).cloned())
+                        .unwrap_or(serde_json::Value::Null);
+                    let folded = red_worker::lifecycle::with_conversations(&status, &conversations, |value| {
+                        value.len() == 36 && value.bytes().all(|byte| byte.is_ascii_hexdigit() || byte == b'-')
+                    });
+                    let mut out = folded.as_object().cloned().unwrap_or_default();
+                    out.insert("caller".to_string(), who.unwrap_or(serde_json::Value::Null));
+                    out.insert("refusal".to_string(), answer.get("refusal").cloned().unwrap_or(serde_json::Value::Null));
+                    out.insert("feed".to_string(), serde_json::json!(feed_url(worker, &root)));
+                    json(200, "OK", &serde_json::Value::Object(out).to_string())
+                }
+                Err(fault) => faulted(&fault),
+            }
         }
         ("POST", "/api/token-action") => {
             let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
@@ -1149,14 +1226,6 @@ fn ask_host(worker: &Worker, method: &str, route: &str, body: &str) -> Result<se
 /// Who this request says it is, for a route that records a name.
 fn identity_of(head: &Head) -> Option<serde_json::Value> {
     red_worker::identity::agent(|name| head.header(name))
-}
-
-/// A service's answer, or its refusal with the status it chose.
-fn answered(result: Result<serde_json::Value, String>) -> String {
-    match result {
-        Ok(value) => json(200, "OK", &value.to_string()),
-        Err(fault) => faulted(&fault),
-    }
 }
 
 /// A refusal that arrived as `status|message`, which is how every service here answers one.

@@ -161,6 +161,25 @@ the lock buys beyond the service's refusal is that no doomed process is spawned,
 died is reclaimed rather than blocking the survivor forever, and one held by a live process is
 refused by name with nothing started.
 
+## What a caller follows this workspace by
+
+Three shapes, and each is the difference between a caller that can follow the workspace and one that
+can only ask it questions:
+
+- **`/api/feed` carries `socket`.** `feed_url` composes a monitor's URL out of it, so a feed
+  answered without one is a feed nothing can follow.
+- **`/api/token` answers the STATUS**, with the caller and the refusal beside it — not a status
+  nested inside one, which is the ledger service's shape and not the route's.
+- **The conversations this project remembers are folded into the identity list.** The ledger learns
+  an agentId only from a header on the wire, so a lane that has not called anything yet is invisible
+  to `token_status` and un-nameable. They are never minted, never override one the ledger has
+  actually seen, and are marked so a reader can tell the two apart (spec 097).
+
+And the **generation**, claimed once per worker process on the first request that is not a `/health`
+or `/api/state` probe. A candidate the supervisor prepares and then discards only ever answers those
+two, so a worker that never served anybody never claims one — otherwise the layer above would watch
+a workspace get replaced over and over by workers nobody used.
+
 ## The two children, and the ask between them
 
 `red-lsp-serve` holds the language servers a project declares, one process per project root, started

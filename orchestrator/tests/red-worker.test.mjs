@@ -868,3 +868,95 @@ test('a worker starts the ledger it serves, and a second one attaches to the sam
   const window = await ask(started, '/api/state').then(read => read.json());
   assert.equal(typeof window.preferences.tokenWindowMs, 'number', 'and the worker can read it');
 });
+
+/* --- what a caller reads to follow this workspace (spec 095, spec 097) ------------------------- */
+test('the token and the feed answer in the shapes a caller follows them by', { timeout: 120000 }, async t => {
+  const root = randomUUID();
+  const agentId = randomUUID();
+  const agent = { id: agentId, label: `claude ${agentId.slice(0, 8)}` };
+  const upstream = await host(t, { '/api/state': {
+    roots: [{ id: root, path: ROOT }],
+    /* The workspace's own record of this project's conversations (spec 097). */
+    conversations: { [root]: [{ id: agent.id, agent: 'claude', startedAt: 1700000000000, lastSeenAt: 1700000060000 }] },
+  } });
+  const { Tokens } = await import('../runtime/token-client.mjs');
+  const tokens = await Tokens.open(upstream.state, { alive: () => true });
+  t.after(async () => {
+    await tokens.close();
+    try {
+      const descriptor = JSON.parse(await readFile(path.join(upstream.state, 'token.json'), 'utf8'));
+      if (Number.isSafeInteger(descriptor.pid)) process.kill(descriptor.pid, 'SIGKILL');
+    } catch { /* never started, or already gone */ }
+  });
+  const started = await worker(t, upstream);
+
+  /* `feed_url` composes its monitor URL out of `socket`, so a feed answered without one is a feed
+     nothing can follow. */
+  const feed = await ask(started, `/api/feed?rootId=${root}`).then(read => read.json());
+  assert.equal(feed.rootId, root);
+  assert.ok(feed.socket.startsWith(started.url.replace('http', 'ws')), feed.socket);
+  assert.ok(feed.socket.includes(`rootId=${root}`) && feed.socket.includes(started.token), 'and it carries the way in');
+  assert.ok(Array.isArray(feed.frames));
+
+  /* The token answer is the STATUS itself, with the caller and the refusal beside it — not a status
+     nested inside one, which is the service's shape and not the route's. */
+  const status = await ask(started, `/api/token?rootId=${root}&tool=task_add`).then(read => read.json());
+  assert.equal(status.status, undefined, 'the status is the answer, not a field in it');
+  assert.ok(Array.isArray(status.identities), JSON.stringify(status));
+  assert.equal(status.holder, null);
+  assert.ok(status.feed.startsWith(started.url.replace('http', 'ws')), 'and it names the feed to follow');
+
+  /* The ledger learns an agentId only from a header on the wire, so a lane that has not called
+     anything is invisible and un-nameable. The conversations this project remembers are identities
+     it already has: folded in, marked, and never minted. */
+  const remembered = status.identities.find(entry => entry.agentId === agent.id);
+  assert.ok(remembered, `the remembered conversation is nameable: ${JSON.stringify(status.identities)}`);
+  assert.equal(remembered.conversation, true);
+  assert.equal(remembered.label, agent.label);
+
+  /* And one the ledger HAS met is its own record, never overridden by what is remembered. */
+  const ledger = await tokens.ledger(root);
+  await ledger.callerStatus({ agentId: agent.id, label: 'the one on the wire' }, null);
+  const again = await ask(started, `/api/token?rootId=${root}`).then(read => read.json());
+  const met = again.identities.filter(entry => entry.agentId === agent.id);
+  assert.equal(met.length, 1, 'one identity, not two');
+  assert.equal(met[0].label, 'the one on the wire');
+  assert.equal(met[0].conversation, undefined);
+});
+
+/* A candidate the supervisor prepares and then discards only ever answers /health and /api/state.
+ * A worker that claimed a generation on either would have the layer above watching a workspace get
+ * replaced over and over by workers that never served a single caller. */
+test('a worker announces itself once, and never for a probe', { timeout: 120000 }, async t => {
+  const root = randomUUID();
+  const upstream = await host(t, { '/api/state': { roots: [{ id: root, path: ROOT }] } });
+  const { Tokens } = await import('../runtime/token-client.mjs');
+  const tokens = await Tokens.open(upstream.state, { alive: () => true });
+  t.after(async () => {
+    await tokens.close();
+    try {
+      const descriptor = JSON.parse(await readFile(path.join(upstream.state, 'token.json'), 'utf8'));
+      if (Number.isSafeInteger(descriptor.pid)) process.kill(descriptor.pid, 'SIGKILL');
+    } catch { /* never started, or already gone */ }
+  });
+  const started = await worker(t, upstream);
+  const updates = async () => ((await (await tokens.ledger(root)).feed.after(0)).frames)
+    .filter(frame => frame.type === 'workspace.updated');
+
+  await ask(started, '/health');
+  await ask(started, '/api/state');
+  assert.deepEqual(await updates(), [], 'a probe is not a caller');
+
+  await ask(started, `/api/token?rootId=${root}`);
+  const announced = await updates();
+  assert.equal(announced.length, 1, 'and the first real request claims a generation');
+  assert.equal(announced[0].by.kind, 'workspace');
+  assert.deepEqual(announced[0].layers, ['workspace']);
+  assert.equal(typeof announced[0].generation, 'number');
+
+  /* Once per worker process: every request after it is not another workspace update. */
+  for (const route of [`/api/token?rootId=${root}`, `/api/feed?rootId=${root}`, `/api/agents-menu?rootId=${root}`]) {
+    await ask(started, route);
+  }
+  assert.equal((await updates()).length, 1, 'one announcement per worker, not one per request');
+});
