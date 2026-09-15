@@ -114,6 +114,11 @@ struct Front {
     url: String,
     backend: String,
     backend_token: String,
+    /// What the remote tracker providers have said lately (F154). The door is the longer-lived of
+    /// the two processes that answer these, so its cache is the same optimisation with a longer
+    /// life — and the budget it protects is a rate limit shared with everything else pointed at
+    /// that key.
+    trackers: red_project::tracker_remote::Cache,
     /// The device probes this door has taken, kept for as long as it is running.
     ///
     /// A probe is a bounded spawn against a box that may be unreachable, so one listing must cost
@@ -317,6 +322,7 @@ async fn serve(options: Options) -> Result<(), String> {
         backend: options.backend.clone(),
         backend_token: options.backend_token.clone(),
         probes: red_project::devices::Probes::default(),
+        trackers: red_project::tracker_remote::Cache::new(),
     });
     {
         let front = front.clone();
@@ -872,6 +878,7 @@ mod tests {
             token: "a".repeat(64), instance: "i".into(), state: "/tmp/x".into(), url: "http://127.0.0.1:1".into(),
             backend: "http://127.0.0.1:2".into(), backend_token: "b".repeat(64),
             probes: red_project::devices::Probes::default(),
+            trackers: red_project::tracker_remote::Cache::new(),
         }
     }
 

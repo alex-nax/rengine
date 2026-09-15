@@ -93,6 +93,10 @@ struct Worker {
     probes: red_project::devices::Probes,
     /// The tracker sign-in in flight, if there is one. At most one per workspace (F154, spec 083).
     signing_in: red_worker::signin::SigningIn,
+    /// What the remote providers have said lately. One poll every thirty seconds is about 5% of a
+    /// key's budget, and two callers arriving together share one request rather than spending it
+    /// twice.
+    trackers: red_project::tracker_remote::Cache,
     /// Feed sockets still writing. A worker is told it is retired and told to close in the same
     /// breath, and the retirement has to REACH its watchers before the process goes: a monitor that
     /// got a dropped connection instead of the close frame has no sequence to resume from and no
@@ -221,6 +225,7 @@ async fn main() -> std::process::ExitCode {
         desktops: red_core::desktops::Desktops::new(),
         sockets: std::sync::atomic::AtomicU64::new(0),
         signing_in: red_worker::signin::SigningIn::new(),
+        trackers: red_project::tracker_remote::Cache::new(),
         draining: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
     });
     /* One line, then serve: the supervisor reads this to learn where the worker is before it writes
@@ -1867,7 +1872,7 @@ fn tracker_context(worker: &Worker, body: &str) -> Result<(String, String), Stri
 ///
 /// Without the workspace's state directory no credential was looked for, so "not signed in" would be
 /// a GUESS: the answer says the directory is unknown instead, and the local backend still reads.
-fn remote_tracker(worker: &Worker, root_id: &str, root_path: &str, declaration_file: Option<&str>) -> Result<serde_json::Value, String> {
+fn remote_tracker(worker: &Worker, root_id: &str, root_path: &str, declaration_file: Option<&str>, refresh: bool) -> Result<serde_json::Value, String> {
     let declared = red_project::declaration::read(root_path, declaration_file);
     let state = ask_host(worker, "GET", "/api/state", "")?;
     let instance = state.get("instance").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
@@ -1910,9 +1915,10 @@ fn remote_tracker(worker: &Worker, root_id: &str, root_path: &str, declaration_f
         root_id,
         root_path,
         &declared,
-        &directory,
         token.as_deref(),
         &red_project::tracker_remote::Network,
+        &worker.trackers,
+        refresh,
         now,
     ))
 }
@@ -1972,7 +1978,7 @@ fn about_project(worker: &Worker, head: &Head, body: &str) -> Result<serde_json:
        tasks are perfectly readable. The credential lives beside the WORKSPACE state, which is why
        this is the worker's rather than the project's (spec 101). */
     if path == "/api/tracker" && !red_project::serve::local_tracker(&root_path, declaration_file.as_deref()) {
-        return remote_tracker(worker, &asked, &root_path, declaration_file.as_deref());
+        return remote_tracker(worker, &asked, &root_path, declaration_file.as_deref(), head.query("refresh").as_deref() == Some("1"));
     }
     let environment: Vec<(String, String)> = std::env::vars().collect();
     red_project::serve::route(&red_project::serve::Asked {

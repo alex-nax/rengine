@@ -61,12 +61,10 @@ pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &
     let root_path = root.get("path").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
     let id = root.get("id").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
     let declaration_file = root.get("declarationFile").and_then(serde_json::Value::as_str).map(str::to_string);
-    /* A remote tracker is the backend's business until F154; the door says so rather than answering
-       half of it. Read before the blocking half starts, because the answer decides whether there is
-       one. */
-    if path == "/api/tracker" && !red_project::serve::local_tracker(&root_path, declaration_file.as_deref()) {
-        return None;
-    }
+    /* A remote tracker is answered here too (F154): the credential lives beside THIS door's state
+       directory, which is the one thing about it the project itself cannot know. Read before the
+       blocking half starts, because it decides which answer this is. */
+    let remote = path == "/api/tracker" && !red_project::serve::local_tracker(&root_path, declaration_file.as_deref());
     /* Everything the blocking half needs, taken before it starts: a task that outlives this call
        cannot borrow the request it came from. */
     let path = path.to_string();
@@ -81,12 +79,16 @@ pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &
         .filter_map(|name| head.query_last(name).map(|value| (name.to_string(), value)))
         .collect();
     let front = front.clone();
+    let state = front.state.clone();
     let answer = tokio::task::spawn_blocking(move || {
         /* This process's own environment, which is what every one of these is answered against —
            including the `tools` half of an availability check. A route that RUNS a project's command
            gets the shell environment composed at the spawn, in `red_project::command`, so the board
            and the run read one PATH. */
         let environment: Vec<(String, String)> = std::env::vars().collect();
+        if remote {
+            return Ok(remote_tracker(&front, &state, &id, &root_path, declaration_file.as_deref(), asked.contains_key("refresh")));
+        }
         red_project::serve::route(&red_project::serve::Asked {
             root_id: &id,
             root_path: &root_path,
@@ -344,6 +346,52 @@ pub(crate) async fn answer_session_view(front: &Arc<Front>, body: &str) -> Strin
         Ok(value) => http_json(200, "OK", &value),
         Err(fault) => faulted(&fault),
     }
+}
+
+/// A tracker somebody else's server holds (F154, spec 083).
+///
+/// The credential lives beside the WORKSPACE state and never in the committed declaration, keyed by
+/// the declared project NAME — so a person can create it by name, and a checkout that moved or was
+/// re-added keeps its tracker.
+fn remote_tracker(
+    front: &Arc<Front>,
+    state_directory: &str,
+    root_id: &str,
+    root_path: &str,
+    declaration_file: Option<&str>,
+    refresh: bool,
+) -> serde_json::Value {
+    let declared = red_project::declaration::read(root_path, declaration_file);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|since| since.as_millis() as i64)
+        .unwrap_or(0);
+    let identity = declared
+        .get("project")
+        .and_then(serde_json::Value::as_str)
+        .filter(|name| !name.is_empty())
+        .unwrap_or(root_id)
+        .to_string();
+    /* A signed-in grant is refreshed before it lapses; a pasted personal key never expires and is
+       handed back untouched. */
+    let grant = red_project::tracker_auth::stored(state_directory, &identity).map(|grant| {
+        if red_project::tracker_auth::expiring(&grant, now) {
+            red_project::tracker_auth::refresh(state_directory, &identity, &grant, now)
+        } else {
+            grant
+        }
+    });
+    let token = grant.as_ref().and_then(|grant| grant.get("accessToken").and_then(serde_json::Value::as_str).map(str::to_string));
+    red_project::tracker::remote_tracker(
+        root_id,
+        root_path,
+        &declared,
+        token.as_deref(),
+        &red_project::tracker_remote::Network,
+        &front.trackers,
+        refresh,
+        now,
+    )
 }
 
 /// One retained pane as a caller reads it, or the service's refusal.

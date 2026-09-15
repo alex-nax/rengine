@@ -35,6 +35,24 @@ fn recipes() -> serde_json::Value {
         .unwrap_or_else(|| serde_json::json!({}))
 }
 
+/// A provider's answer, handed in rather than fetched.
+struct Recorded {
+    status: u16,
+    body: String,
+    asked: std::sync::Mutex<Vec<serde_json::Value>>,
+}
+
+impl red_project::tracker_remote::Fetching for Recorded {
+    fn post(&self, url: &str, _headers: &[(&str, &str)], body: &str) -> Result<(u16, String), String> {
+        self.asked.lock().expect("asked").push(serde_json::json!({ "url": url, "body": serde_json::from_str::<serde_json::Value>(body).unwrap_or(serde_json::Value::Null) }));
+        Ok((self.status, self.body.clone()))
+    }
+    fn get(&self, url: &str, _headers: &[(&str, &str)]) -> Result<(u16, String), String> {
+        self.asked.lock().expect("asked").push(serde_json::json!({ "url": url }));
+        Ok((self.status, self.body.clone()))
+    }
+}
+
 /// The briefs rEngine ships, beside the registry it ships.
 fn shipped_prompts() -> std::path::PathBuf {
     std::env::current_exe()
@@ -197,6 +215,38 @@ fn main() -> ExitCode {
            a CLI's own --help can be any size a caller sends. One call per run; none of them is a
            hot path — they are what a person or an agent does once, deliberately. */
         Some("tasks") => tasks(arg(1).unwrap_or_default(), arg(2).unwrap_or_default(), arg(3).unwrap_or_default()),
+        /* A remote provider's rows, from an answer a caller hands in rather than from the network
+           (F154). The network is `red_core::tls` in the servers; here it is a recorded answer, so
+           the corpus can drive this side and the JavaScript's with the same bytes and compare. */
+        Some("tracker-remote") => {
+            let mut text = String::new();
+            let _ = std::io::Read::read_to_string(&mut std::io::stdin(), &mut text);
+            let input: serde_json::Value = serde_json::from_str(text.trim()).unwrap_or(serde_json::Value::Null);
+            let declared = input.get("declared").cloned().unwrap_or(serde_json::Value::Null);
+            let credential = input.get("credential").and_then(serde_json::Value::as_str).map(str::to_string);
+            let answered = Recorded {
+                status: input.get("answered").and_then(|held| held.get("status")).and_then(serde_json::Value::as_u64).unwrap_or(200) as u16,
+                body: input.get("answered").and_then(|held| held.get("body")).and_then(serde_json::Value::as_str).unwrap_or("").to_string(),
+                asked: std::sync::Mutex::new(Vec::new()),
+            };
+            let (root_id, root_path) = (arg(1).unwrap_or_default(), arg(2).unwrap_or_default());
+            let answer = red_project::tracker::remote_tracker(
+                root_id,
+                root_path,
+                &declared,
+                credential.as_deref(),
+                &answered,
+                &red_project::tracker_remote::Cache::new(),
+                false,
+                input.get("now").and_then(serde_json::Value::as_i64).unwrap_or(1_700_000_000_000),
+            );
+            let mut out = answer.as_object().cloned().unwrap_or_default();
+            /* What was ASKED is part of the answer here: a filter that reaches the provider is the
+               whole of what a declaration means, and a corpus that compared only the rows would let
+               a wrong question return the right shape. */
+            out.insert("asked".to_string(), serde_json::json!(answered.asked.into_inner().unwrap_or_default()));
+            Ok(serde_json::Value::Object(out))
+        }
         /* The local backend and the tests-manifest join. The remote providers are not here: they
            need a network client, and F154 owns that decision — so a caller that has fetched rows of
            its own asks `tracker-tests` to join the manifest onto them. */

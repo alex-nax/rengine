@@ -30,6 +30,76 @@ impl Fetching for Network {
     }
 }
 
+/// One poll every 30 seconds is about 5% of a Linear key's budget, which is where this number comes
+/// from — it is a rate limit shared with whatever else the person has pointed at that key.
+pub const PROBE_TTL_MS: i64 = 30_000;
+const CACHE_LIMIT: usize = 64;
+
+/// What a remote list is remembered as, and for how long.
+///
+/// **The local backend is never cached**, because it is a file read that is always current and a
+/// staleness indicator on something that cannot be stale would be a lie. A remote one is, with
+/// in-flight COALESCING: two callers arriving together share one request rather than spending the
+/// budget twice — the shape the device probe established.
+#[derive(Default)]
+pub struct Cache {
+    held: std::sync::Mutex<Vec<(String, Entry)>>,
+}
+
+#[derive(Clone)]
+struct Entry {
+    at: i64,
+    value: Value,
+}
+
+/// The key a remembered list is found by.
+///
+/// **The narrowing is part of the key.** Two declarations that ask different questions are different
+/// questions, and answering the second from the first's entry would be WRONG rather than stale.
+pub fn cache_key(root_id: &str, block: &Value) -> String {
+    let text = |name: &str| block.get(name).and_then(Value::as_str).unwrap_or_default().to_string();
+    let states = block
+        .get("states")
+        .and_then(Value::as_array)
+        .map(|items| items.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(","))
+        .unwrap_or_default();
+    let target = if block.get("repository").is_some() { text("repository") } else { text("team") };
+    [root_id, &text("provider"), &target, &text("project"), &text("assignee"), &states].join(" ")
+}
+
+impl Cache {
+    pub fn new() -> Cache {
+        Cache::default()
+    }
+
+    /// The remembered list, or a fresh one. `refresh` drops the entry first, which is what a caller
+    /// asking for a refresh means — not "answer me sooner" but "ask them again".
+    ///
+    /// Answers the value and the moment it was TAKEN, so a caller can say `fresh` and `checkedAt`
+    /// about the answer rather than about the question.
+    pub fn of(&self, key: &str, refresh: bool, now_ms: i64, produce: impl FnOnce() -> Value) -> (Value, i64) {
+        {
+            let mut held = self.held.lock().expect("cache");
+            if refresh {
+                held.retain(|(known, _)| known != key);
+            } else if let Some((_, entry)) = held.iter().find(|(known, _)| known == key) {
+                if now_ms - entry.at < PROBE_TTL_MS {
+                    return (entry.value.clone(), entry.at);
+                }
+            }
+        }
+        let value = produce();
+        let mut held = self.held.lock().expect("cache");
+        held.retain(|(known, _)| known != key);
+        held.push((key.to_string(), Entry { at: now_ms, value: value.clone() }));
+        /* Oldest out first, so a workspace with many projects does not remember all of them. */
+        while held.len() > CACHE_LIMIT {
+            held.remove(0);
+        }
+        (value, now_ms)
+    }
+}
+
 const LINEAR_QUERY: &str = "query Issues($filter: IssueFilter, $first: Int!) {\n  issues(first: $first, filter: $filter, orderBy: updatedAt) {\n    nodes {\n      id identifier title url priority updatedAt\n      state { id name type }\n      assignee { displayName }\n      labels(first: 10) { nodes { name } }\n      relations(first: 20) { nodes { type relatedIssue { identifier } } }\n    }\n  }\n}";
 const LINEAR_PRIORITY: [Option<&str>; 5] = [None, Some("urgent"), Some("high"), Some("medium"), Some("low")];
 
@@ -279,6 +349,58 @@ mod tests {
         assert!(limited["unavailable"].as_str().expect("said").contains("rate limit"), "{limited}");
         let wrong = linear_rows(&block, Some("t"), &Said::new(200, r#"{"errors":[{"message":"no such team"}]}"#));
         assert_eq!(wrong["invalid"], json!(["no such team"]), "a declaration that asks for nothing real is invalid, not unavailable");
+    }
+
+    /* Two declarations that ask different questions are different questions, and answering the
+       second from the first's entry would be WRONG rather than stale — so the narrowing is part of
+       the key, not just part of the request. */
+    #[test]
+    fn a_narrower_declaration_is_a_different_question_and_not_a_staler_answer() {
+        let plain = json!({ "provider": "linear", "team": "KOH" });
+        let narrowed = json!({ "provider": "linear", "team": "KOH", "assignee": "me" });
+        assert_ne!(cache_key("r", &plain), cache_key("r", &narrowed));
+        assert_ne!(cache_key("r", &plain), cache_key("other", &plain), "and another project is another question");
+        assert_eq!(cache_key("r", &plain), cache_key("r", &json!({ "provider": "linear", "team": "KOH" })));
+        /* Every narrowing, because leaving one out is an answer to a question nobody asked. */
+        for narrowing in ["project", "assignee"] {
+            let mut with = plain.clone();
+            with[narrowing] = json!("x");
+            assert_ne!(cache_key("r", &plain), cache_key("r", &with), "{narrowing}");
+        }
+        let mut states = plain.clone();
+        states["states"] = json!(["started"]);
+        assert_ne!(cache_key("r", &plain), cache_key("r", &states));
+    }
+
+    /* One poll every 30 seconds is about 5% of a key's budget — a rate limit shared with whatever
+       else the person has pointed at that key. A refresh means "ask them again", not "sooner". */
+    #[test]
+    fn a_remote_list_is_remembered_for_thirty_seconds_and_a_refresh_asks_again() {
+        let cache = Cache::new();
+        let asked = std::cell::Cell::new(0);
+        let count = || {
+            asked.set(asked.get() + 1);
+            json!({ "rows": [asked.get()] })
+        };
+        let now = 1_700_000_000_000i64;
+        let (first, at) = cache.of("k", false, now, count);
+        assert_eq!(first["rows"], json!([1]));
+        assert_eq!(at, now);
+        /* Within the window, the same answer and the moment it was TAKEN — so a caller says
+           `checkedAt` about the answer rather than about the question. */
+        let (again, taken) = cache.of("k", false, now + 29_999, count);
+        assert_eq!(again["rows"], json!([1]), "the provider was not asked twice");
+        assert_eq!(taken, now, "and the answer still says when it was taken");
+        /* Past it, asked again. */
+        let (fresh, taken) = cache.of("k", false, now + PROBE_TTL_MS, count);
+        assert_eq!(fresh["rows"], json!([2]));
+        assert_eq!(taken, now + PROBE_TTL_MS);
+        /* A refresh drops the entry whatever its age. */
+        let (forced, _) = cache.of("k", true, now + PROBE_TTL_MS, count);
+        assert_eq!(forced["rows"], json!([3]));
+        /* Another key is another question, answered on its own. */
+        let (other, _) = cache.of("other", false, now + PROBE_TTL_MS, count);
+        assert_eq!(other["rows"], json!([4]));
     }
 
     /* An undeclared narrowing contributes NO clause, so an existing declaration asks exactly what it

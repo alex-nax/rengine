@@ -308,16 +308,17 @@ fn with_error(result: &Value, message: String) -> Value {
 ///
 /// **`identity` and the block's own `project` are different things.** The block's `project` is
 /// Linear's project filter. Naming both `project` made the filter silently take the token's value.
+#[allow(clippy::too_many_arguments)]
 pub fn remote_tracker(
     root_id: &str,
     root_path: &str,
     declared: &Value,
-    state_directory: &str,
     credential: Option<&str>,
     fetching: &dyn crate::tracker_remote::Fetching,
+    cache: &crate::tracker_remote::Cache,
+    refresh: bool,
     now_ms: i64,
 ) -> Value {
-    let _ = state_directory;
     let block = declared.get("tracker").cloned().unwrap_or_else(|| json!({ "provider": "local" }));
     let provider = block.get("provider").and_then(Value::as_str).unwrap_or("local").to_string();
     let mut named = block.as_object().cloned().unwrap_or_default();
@@ -326,10 +327,14 @@ pub fn remote_tracker(
         declared.get("project").cloned().filter(|name| !name.is_null()).unwrap_or_else(|| json!(root_id)),
     );
     let named = Value::Object(named);
-    let answered = match provider.as_str() {
-        "linear" => crate::tracker_remote::linear_rows(&named, credential, fetching),
-        _ => crate::tracker_remote::github_rows(&named, credential, fetching),
-    };
+    /* Remembered for thirty seconds, and asked again when a caller asks for a refresh — which means
+       "ask them again", not "answer me sooner". */
+    let (answered, at) = cache.of(&crate::tracker_remote::cache_key(root_id, &named), refresh, now_ms, || {
+        match provider.as_str() {
+            "linear" => crate::tracker_remote::linear_rows(&named, credential, fetching),
+            _ => crate::tracker_remote::github_rows(&named, credential, fetching),
+        }
+    });
     let base = object(vec![
         ("rootId", json!(root_id)),
         ("declared", json!(true)),
@@ -338,9 +343,11 @@ pub fn remote_tracker(
         ("categories", json!(CATEGORIES)),
         ("contract", declared.get("contract").cloned().unwrap_or(Value::Null)),
     ]);
+    /* `fresh` and `checkedAt` are about the ANSWER, not the question: a list read from the cache
+       says when it was actually taken, so a person looking at a stale board can see that it is. */
     let joined = merge(base, &answered, vec![
-        ("fresh", json!(true)),
-        ("checkedAt", json!(red_core::time::iso(now_ms))),
+        ("fresh", json!(now_ms - at < crate::tracker_remote::PROBE_TTL_MS)),
+        ("checkedAt", json!(red_core::time::iso(at))),
     ]);
     /* The manifest is joined onto a remote provider's rows by the same reader, so a GitHub row and a
        local one carry their evidence in the same shape. */

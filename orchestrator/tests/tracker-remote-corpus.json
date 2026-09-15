@@ -1,0 +1,498 @@
+{
+  "linear, not signed in": {
+    "rootId": "11111111-2222-3333-4444-555555555555",
+    "declared": true,
+    "provider": "linear",
+    "rows": [],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 5,
+    "denied": "Not signed in to Linear.",
+    "signIn": "linear",
+    "asked": []
+  },
+  "linear, a token it refuses": {
+    "rootId": "11111111-2222-3333-4444-555555555555",
+    "declared": true,
+    "provider": "linear",
+    "rows": [],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 5,
+    "denied": "Linear refused the token.",
+    "asked": [
+      {
+        "url": "https://api.linear.app/graphql",
+        "body": {
+          "query": "query Issues($filter: IssueFilter, $first: Int!) {\n  issues(first: $first, filter: $filter, orderBy: updatedAt) {\n    nodes {\n      id identifier title url priority updatedAt\n      state { id name type }\n      assignee { displayName }\n      labels(first: 10) { nodes { name } }\n      relations(first: 20) { nodes { type relatedIssue { identifier } } }\n    }\n  }\n}",
+          "variables": {
+            "filter": {
+              "team": {
+                "key": {
+                  "eq": "KOH"
+                }
+              },
+              "project": {
+                "name": {
+                  "eq": null
+                }
+              }
+            },
+            "first": 100
+          }
+        }
+      }
+    ]
+  },
+  "linear, a provider that is down": {
+    "rootId": "11111111-2222-3333-4444-555555555555",
+    "declared": true,
+    "provider": "linear",
+    "rows": [],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 5,
+    "unavailable": "Linear answered 500.",
+    "asked": [
+      {
+        "url": "https://api.linear.app/graphql",
+        "body": {
+          "query": "query Issues($filter: IssueFilter, $first: Int!) {\n  issues(first: $first, filter: $filter, orderBy: updatedAt) {\n    nodes {\n      id identifier title url priority updatedAt\n      state { id name type }\n      assignee { displayName }\n      labels(first: 10) { nodes { name } }\n      relations(first: 20) { nodes { type relatedIssue { identifier } } }\n    }\n  }\n}",
+          "variables": {
+            "filter": {
+              "team": {
+                "key": {
+                  "eq": "KOH"
+                }
+              },
+              "project": {
+                "name": {
+                  "eq": null
+                }
+              }
+            },
+            "first": 100
+          }
+        }
+      }
+    ]
+  },
+  "linear, rate limited": {
+    "rootId": "11111111-2222-3333-4444-555555555555",
+    "declared": true,
+    "provider": "linear",
+    "rows": [],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 5,
+    "unavailable": "Linear rate limit reached; the list refreshes shortly.",
+    "asked": [
+      {
+        "url": "https://api.linear.app/graphql",
+        "body": {
+          "query": "query Issues($filter: IssueFilter, $first: Int!) {\n  issues(first: $first, filter: $filter, orderBy: updatedAt) {\n    nodes {\n      id identifier title url priority updatedAt\n      state { id name type }\n      assignee { displayName }\n      labels(first: 10) { nodes { name } }\n      relations(first: 20) { nodes { type relatedIssue { identifier } } }\n    }\n  }\n}",
+          "variables": {
+            "filter": {
+              "team": {
+                "key": {
+                  "eq": "KOH"
+                }
+              },
+              "project": {
+                "name": {
+                  "eq": null
+                }
+              }
+            },
+            "first": 100
+          }
+        }
+      }
+    ]
+  },
+  "linear, a declaration that asks for nothing real": {
+    "rootId": "11111111-2222-3333-4444-555555555555",
+    "declared": true,
+    "provider": "linear",
+    "rows": [],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 5,
+    "invalid": [
+      "no such team"
+    ],
+    "asked": [
+      {
+        "url": "https://api.linear.app/graphql",
+        "body": {
+          "query": "query Issues($filter: IssueFilter, $first: Int!) {\n  issues(first: $first, filter: $filter, orderBy: updatedAt) {\n    nodes {\n      id identifier title url priority updatedAt\n      state { id name type }\n      assignee { displayName }\n      labels(first: 10) { nodes { name } }\n      relations(first: 20) { nodes { type relatedIssue { identifier } } }\n    }\n  }\n}",
+          "variables": {
+            "filter": {
+              "team": {
+                "key": {
+                  "eq": "KOH"
+                }
+              },
+              "project": {
+                "name": {
+                  "eq": null
+                }
+              }
+            },
+            "first": 100
+          }
+        }
+      }
+    ]
+  },
+  "linear, rows": {
+    "rootId": "11111111-2222-3333-4444-555555555555",
+    "declared": true,
+    "provider": "linear",
+    "rows": [
+      {
+        "id": "uuid-1",
+        "key": "KOH-12",
+        "title": "A thing",
+        "state": {
+          "id": "s1",
+          "name": "In Progress",
+          "category": "started"
+        },
+        "priority": "high",
+        "labels": [
+          "bug",
+          "ui"
+        ],
+        "assignee": "Alex",
+        "url": "https://linear.app/x",
+        "updatedAt": "2026-01-01T00:00:00.000Z",
+        "blockedBy": [
+          "KOH-9"
+        ],
+        "criteria": [],
+        "evidence": [],
+        "tests": []
+      }
+    ],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 5,
+    "asked": [
+      {
+        "url": "https://api.linear.app/graphql",
+        "body": {
+          "query": "query Issues($filter: IssueFilter, $first: Int!) {\n  issues(first: $first, filter: $filter, orderBy: updatedAt) {\n    nodes {\n      id identifier title url priority updatedAt\n      state { id name type }\n      assignee { displayName }\n      labels(first: 10) { nodes { name } }\n      relations(first: 20) { nodes { type relatedIssue { identifier } } }\n    }\n  }\n}",
+          "variables": {
+            "filter": {
+              "team": {
+                "key": {
+                  "eq": "KOH"
+                }
+              },
+              "project": {
+                "name": {
+                  "eq": null
+                }
+              }
+            },
+            "first": 100
+          }
+        }
+      }
+    ]
+  },
+  "linear, narrowed by project, assignee and states": {
+    "rootId": "11111111-2222-3333-4444-555555555555",
+    "declared": true,
+    "provider": "linear",
+    "rows": [],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 5,
+    "asked": [
+      {
+        "url": "https://api.linear.app/graphql",
+        "body": {
+          "query": "query Issues($filter: IssueFilter, $first: Int!) {\n  issues(first: $first, filter: $filter, orderBy: updatedAt) {\n    nodes {\n      id identifier title url priority updatedAt\n      state { id name type }\n      assignee { displayName }\n      labels(first: 10) { nodes { name } }\n      relations(first: 20) { nodes { type relatedIssue { identifier } } }\n    }\n  }\n}",
+          "variables": {
+            "filter": {
+              "team": {
+                "key": {
+                  "eq": "KOH"
+                }
+              },
+              "project": {
+                "name": {
+                  "eq": "Platform"
+                }
+              },
+              "assignee": {
+                "displayName": {
+                  "eq": "Alex"
+                }
+              },
+              "state": {
+                "type": {
+                  "in": [
+                    "started",
+                    "unstarted"
+                  ]
+                }
+              }
+            },
+            "first": 100
+          }
+        }
+      }
+    ]
+  },
+  "linear, narrowed to whoever holds the token": {
+    "rootId": "11111111-2222-3333-4444-555555555555",
+    "declared": true,
+    "provider": "linear",
+    "rows": [],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 5,
+    "asked": [
+      {
+        "url": "https://api.linear.app/graphql",
+        "body": {
+          "query": "query Issues($filter: IssueFilter, $first: Int!) {\n  issues(first: $first, filter: $filter, orderBy: updatedAt) {\n    nodes {\n      id identifier title url priority updatedAt\n      state { id name type }\n      assignee { displayName }\n      labels(first: 10) { nodes { name } }\n      relations(first: 20) { nodes { type relatedIssue { identifier } } }\n    }\n  }\n}",
+          "variables": {
+            "filter": {
+              "team": {
+                "key": {
+                  "eq": "KOH"
+                }
+              },
+              "project": {
+                "name": {
+                  "eq": null
+                }
+              },
+              "assignee": {
+                "isMe": {
+                  "eq": true
+                }
+              }
+            },
+            "first": 100
+          }
+        }
+      }
+    ]
+  },
+  "github, no token": {
+    "rootId": "11111111-2222-3333-4444-555555555555",
+    "declared": true,
+    "provider": "github",
+    "rows": [],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 5,
+    "denied": "No GitHub token. Put one in the workspace state directory as trackers/kohai.token",
+    "asked": []
+  },
+  "github, a token it refuses": {
+    "rootId": "11111111-2222-3333-4444-555555555555",
+    "declared": true,
+    "provider": "github",
+    "rows": [],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 5,
+    "denied": "GitHub refused the token.",
+    "asked": [
+      {
+        "url": "https://api.github.com/repos/o/r/issues?state=all&sort=updated&direction=desc&per_page=100"
+      }
+    ]
+  },
+  "github, a repository it cannot see": {
+    "rootId": "11111111-2222-3333-4444-555555555555",
+    "declared": true,
+    "provider": "github",
+    "rows": [],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 5,
+    "invalid": [
+      "o/r is not reachable with this token."
+    ],
+    "asked": [
+      {
+        "url": "https://api.github.com/repos/o/r/issues?state=all&sort=updated&direction=desc&per_page=100"
+      }
+    ]
+  },
+  "github, a provider that is down": {
+    "rootId": "11111111-2222-3333-4444-555555555555",
+    "declared": true,
+    "provider": "github",
+    "rows": [],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 5,
+    "unavailable": "GitHub answered 502.",
+    "asked": [
+      {
+        "url": "https://api.github.com/repos/o/r/issues?state=all&sort=updated&direction=desc&per_page=100"
+      }
+    ]
+  },
+  "github, rows": {
+    "rootId": "11111111-2222-3333-4444-555555555555",
+    "declared": true,
+    "provider": "github",
+    "rows": [
+      {
+        "id": "1",
+        "key": "#7",
+        "title": "Open one",
+        "state": {
+          "id": "open",
+          "name": "open",
+          "category": "unstarted"
+        },
+        "priority": null,
+        "labels": [
+          "bug",
+          "ui"
+        ],
+        "assignee": "alex",
+        "url": "https://github.test/7",
+        "updatedAt": "2026-01-01T00:00:00Z",
+        "blockedBy": [],
+        "criteria": [],
+        "evidence": [],
+        "tests": []
+      },
+      {
+        "id": "2",
+        "key": "#8",
+        "title": "Done",
+        "state": {
+          "id": "closed",
+          "name": "completed",
+          "category": "completed"
+        },
+        "priority": null,
+        "labels": [],
+        "assignee": null,
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [],
+        "evidence": [],
+        "tests": []
+      },
+      {
+        "id": "3",
+        "key": "#9",
+        "title": "Dropped",
+        "state": {
+          "id": "closed",
+          "name": "not_planned",
+          "category": "canceled"
+        },
+        "priority": null,
+        "labels": [],
+        "assignee": null,
+        "url": null,
+        "updatedAt": null,
+        "blockedBy": [],
+        "criteria": [],
+        "evidence": [],
+        "tests": []
+      }
+    ],
+    "categories": [
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+      "blocked"
+    ],
+    "contract": 5,
+    "asked": [
+      {
+        "url": "https://api.github.com/repos/o/r/issues?state=all&sort=updated&direction=desc&per_page=100"
+      }
+    ]
+  }
+}
