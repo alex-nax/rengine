@@ -5,7 +5,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 import { startServer } from '../server/main.mjs';
-import { startWorker } from '../runtime/worker.mjs';
+import { startWorker } from './red-worker-fixture.mjs';
 import { nativeClient } from './native-client.mjs';
 
 /* The desktop is pointed at a workspace *worker*, not at a bare session host: the language servers

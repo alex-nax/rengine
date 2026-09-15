@@ -1054,8 +1054,11 @@ fn answer_own(worker: &Worker, head: &Head, body: &str) -> String {
             match acted {
                 Ok(result) => match client.call("callerStatus", serde_json::json!([root, who])) {
                     /* `{ ...result, status }`: the action's answer and the view it leaves behind, in
-                       one reply, so a caller does not read a status from before its own act. */
-                    Ok(status) => {
+                       one reply, so a caller does not read a status from before its own act.
+                       The STATUS itself — `callerStatus` answers a status with a refusal beside it,
+                       which is the service's shape, and a `status.status` is not one a caller reads. */
+                    Ok(answered) => {
+                        let status = answered.get("status").cloned().unwrap_or(answered);
                         let mut out = result.as_object().cloned().unwrap_or_default();
                         out.insert("status".to_string(), status);
                         json(200, "OK", &serde_json::Value::Object(out).to_string())

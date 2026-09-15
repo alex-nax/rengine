@@ -5,7 +5,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 import { startServer } from '../server/main.mjs';
-import { startWorker } from '../runtime/worker.mjs';
+import { startWorker } from './red-worker-fixture.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { WorkspaceStore } from '../server/store-client.mjs';
 import http from 'node:http';

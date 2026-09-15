@@ -164,6 +164,45 @@ the lock buys beyond the service's refusal is that no doomed process is spawned,
 died is reclaimed rather than blocking the survivor forever, and one held by a live process is
 refused by name with nothing started.
 
+## The registry decision, revisited — and it was half wrong
+
+Trying to DELETE `worker.mjs` is what found this, which is the argument for trying.
+
+Eight specs that drove the JavaScript worker in-process now drive the binary, unchanged apart from
+one import (`orchestrator/tests/red-worker-fixture.mjs` is `startWorker`'s shape over a process).
+All of them pass. The ninth is `runtime.test.mjs`, the **legacy-host** case, and it does not:
+
+> *current desktop actions above legacy host*
+
+`legacyHost` is a proxy that 404s `/api/desktop*`, which is what an old session host looks like.
+`worker.mjs` answered those routes anyway, because it **held the registry** — and it held the
+registry because it **terminated `/events`** and handled `desktop-register` itself.
+
+`red-worker` tunnels `/events` byte for byte, deliberately, so a pane's bytes are never a second
+opinion. That means the registry cannot be the worker's, which is why it went to the door — and
+above a host that has no desktop routes, the door is not there.
+
+**This is the same lesson as the project routes, a second time.** A route the worker forwards is a
+route that answers from whatever is beneath it, and what is beneath it may predate the route. The
+test that says so is `capabilities.desktopActions`, which the worker advertises as `1` — a promise
+about what having a worker adds, which forwarding cannot keep.
+
+So the registry belongs at the **worker**, as `worker.mjs` had it, and the worker has to terminate
+`/events` to hold it. What that costs, and what it gives back:
+
+- The `/events` frames a worker must understand are the four the JS understood:
+  `desktop-register`, `desktop-action-result`, `token-action`, `recording`. Everything else is
+  passed through, which is what "a pane's bytes are never a second opinion" actually protects.
+- It **also settles the token segment**: the worker would hold the registry and the ledger together,
+  as `worker.mjs` did, and `POST /api/ledger` and the door's copy of `Desktops` both go.
+
+`red-host` keeps its registry: it serves `/events` for a workspace with no worker in front, which is
+the door's own case and is tested. The two are not a duplicate — they are the same registry for two
+different sockets, and the shared rules are already in one place.
+
+**Until that is done, `worker.mjs` stays**, and `runtime.test.mjs` is the one spec that still uses
+it. Everything else in the tree runs on `red-worker`.
+
 ## The last thing, and where it landed
 
 Turning the default on failed one assertion: *the contest is on the desktop before the layer moves*.

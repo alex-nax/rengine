@@ -144,9 +144,15 @@ pub fn gated(method: &str, path: &str) -> Option<(&'static str, Names)> {
 /// game needs the retained host's PTY and its embedded surface, so a worker may only repeat it when
 /// the host underneath actually declared the game half.
 pub fn capabilities(from_host: &serde_json::Value, serves_ledger: bool) -> serde_json::Value {
-    let mut out = from_host.as_object().cloned().unwrap_or_default();
-    let host_game = out.get("projectGame").and_then(serde_json::Value::as_i64) == Some(1);
-    out.remove("projectGameLaunch");
+    let held = from_host.as_object().cloned().unwrap_or_default();
+    let host_game = held.get("projectGame").and_then(serde_json::Value::as_i64) == Some(1);
+    /* Rebuilt without it rather than removed from it. This map preserves insertion order, and a
+       remove on one of those SWAPS the last entry into the hole — so taking `projectGameLaunch` out
+       moved `tracker` to where it had been, and a caller comparing the answer byte for byte saw a
+       different workspace. `{ projectGameLaunch, ...rest }` keeps the rest in order, and this is
+       that. */
+    let mut out: serde_json::Map<String, serde_json::Value> =
+        held.into_iter().filter(|(name, _)| name != "projectGameLaunch").collect();
     for name in ["desktopActions", "layeredUpdates", "scriptActions", "formatRegistry", "dashboard",
                  "projectGame", "recordings", "projectDevices", "tracker", "ide", "agentsMenu"] {
         out.insert(name.to_string(), serde_json::json!(1));
@@ -304,6 +310,16 @@ mod tests {
         /* And what the worker adds regardless, plus what the host said about itself. */
         assert_eq!(without["agentsMenu"], serde_json::json!(1));
         assert_eq!(without["handoff"], serde_json::json!(1), "the host's own answer is kept");
+
+        /* And in the host's own ORDER. A caller compares this answer byte for byte, and this map
+           preserves insertion order — so removing a key rather than rebuilding without it swapped
+           the last entry into the hole and quietly described a different workspace. */
+        let ordered = capabilities(
+            &serde_json::json!({ "a": 1, "projectGameLaunch": 1, "b": 1, "tracker": 1 }),
+            false,
+        );
+        let names: Vec<&String> = ordered.as_object().expect("an object").keys().take(3).collect();
+        assert_eq!(names, vec!["a", "b", "tracker"], "the host's keys keep their order, minus the one taken out");
     }
 
     /* Launching a game needs the retained host's PTY and its embedded surface, so it is the HOST's

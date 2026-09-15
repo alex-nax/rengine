@@ -54,6 +54,11 @@ process.stdin.setRawMode(true); console.log('CLI_READY'); process.stdin.on('data
     const session = await host.sessions.terminal({ rootId: root.id, command: process.execPath, args: [fixture] });
     legacy = await legacyHost(host);
     assert.equal((await request(legacy, 'state')).capabilities.desktopActions, undefined);
+    /* Deliberately the JAVASCRIPT worker, and the last spec that is: this is the legacy-host case,
+       and red-worker cannot serve the desktop registry above a host that has no desktop routes,
+       because the registry is the door's and this worker tunnels `/events` rather than terminating
+       it. Spec 143 records the finding and what it costs. Until that is settled, `worker.mjs` is
+       what answers here — which is why it is still in the tree. */
     const workerFile = path.join(directory, 'workspace-worker.mjs');
     const workerSource = `import ${JSON.stringify(pathToFileURL(path.resolve('orchestrator/runtime/worker.mjs')).href)};`;
     await writeFile(workerFile, workerSource);

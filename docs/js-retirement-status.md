@@ -37,19 +37,23 @@ not how many lines are left but **how many callers are left**, and there are fou
 | `runtime/tracker.mjs` | 58 | the worker's tracker routes |
 | `runtime/scripts.mjs` | 25 | `openScript` |
 
-**Status: `red-worker` answers every route**, serves both sockets, follows the host's session stream,
-and the supervisor can run it (`startRuntime({ workerFile: null })`, proved by
-`worker-cutover.test.mjs`). It is **not the default yet**, and what is in the way is one design
-question rather than a port.
+**Status: the supervisor runs `red-worker`.** Every route is answered, both sockets are served, the
+host's session stream is followed, and the whole suite is green on it. Eight specs that drove the
+JavaScript worker in-process now drive the binary, unchanged apart from one import.
 
-Turning the default on passes every spec except `token-retirement.test.mjs`, on one assertion: the
-**pinned token segment** does not reach the desktop. It needs two things that are no longer in one
-place — the ledger, which is the worker's and lives in the RUNTIME directory, and the desktop
-registry, which is the door's and is bound to the HOST's state directory. `worker.mjs` had both.
+**`worker.mjs` is still in the tree for exactly one spec**, and the reason is worth reading before
+the next step. `runtime.test.mjs`'s legacy-host case asserts *current desktop actions above legacy
+host*: `worker.mjs` answered `/api/desktops` above a host that has none, because it held the
+registry — and it held the registry because it **terminated `/events`**. `red-worker` tunnels that
+socket byte for byte, so the registry went to the door, and above a legacy host the door is not
+there.
 
-The recommendation, and the two alternatives, are in `docs/specs/143-red-worker.md`: **move the
-ledger to the host's state directory**, beside the store and the PTYs, so the door attaches to it as
-it attaches to those. It is a data-location change and needs a migration.
+That is the same lesson as the project routes, a second time: **a route the worker forwards answers
+from whatever is beneath it, and what is beneath it may predate the route.** The fix is to bring the
+registry back to the worker and terminate `/events` there, understanding the four frames the
+JavaScript understood and passing the rest through. It also settles where the token segment is
+pushed from, which is currently a worker telling the door where its ledger is. Both are in
+`docs/specs/143-red-worker.md`.
 
 **F154 is done** as part of this: `red_core::tls` (trust roots from the MACHINE, not a bundled CA
 set), the PKCE sign-in flow, and both providers' reads.
@@ -102,10 +106,9 @@ types, and F163 is the row that deletes them.
 
 ## What "done" looks like, in order
 
-1. ~~**`/api/dashboard-run`**~~ — **done**.
-1. **Decide where the token segment is pushed from** (spec 143). One question, three options, a
-   recommendation.
-2. **Default the supervisor to `red-worker`** and delete `worker.mjs` + the seven files that retire
+1. ~~**`/api/dashboard-run`**~~, ~~**the token segment**~~, ~~**defaulting the supervisor**~~ — **done**.
+2. **Bring the desktop registry back to the worker**, terminating `/events` there (spec 143). One
+   spec is waiting on it, and it settles the token segment's plumbing too. Then delete `worker.mjs` and delete `worker.mjs` + the seven files that retire
    with it. **−1,429 lines**, the largest single deletion left.
 3. ~~**F154**~~ — **done**: `red_core::tls`, `red_project::tracker_auth`, `red_project::tracker_remote`
    and `red_worker::signin`. `tracker.mjs` + `tracker-auth.mjs` (**−463**) retire with `main.mjs`.

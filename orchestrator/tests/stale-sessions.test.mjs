@@ -8,7 +8,7 @@ import path from 'node:path';
 import { WorkspaceStore, fail } from '../server/store-client.mjs';
 import { Desktops } from '../server/desktops.mjs';
 import { startServer } from '../server/main.mjs';
-import { startWorker, withoutEndedSessions } from '../runtime/worker.mjs';
+import { startWorker, withoutEndedSessions } from './red-worker-fixture.mjs';
 import { fakeDesktop, ok } from './token-fixtures.mjs';
 import { built } from './cargo.mjs';
 

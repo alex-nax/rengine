@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { startServer } from '../server/main.mjs';
-import { startWorker } from '../runtime/worker.mjs';
+import { startWorker } from './red-worker-fixture.mjs';
 import { agentLaunch } from '../agents/agents-client.mjs';
 import { readDeclaration } from '../server/formats.mjs';
 import { CONTRACTS } from './contract.mjs';
