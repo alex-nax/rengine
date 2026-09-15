@@ -185,6 +185,13 @@ constants). Never type the product's name into shipping
 code: `design.py check` fails on a hand-written occurrence, current or retired, and
 `design.py product` reports the same thing on its own. A rename is a data edit; see spec 108.
 
+**A document written for a reader outside this project names the EDITOR, never the project or its
+internal record.** `rEngine` is the project; `rEdit` is the editor it builds in the entertainment
+stream, and it is the only one of the two an outside reader has any use for (spec 109). Spec
+numbers, charter D-rows, feature ids and progress-log entries are this project's own bookkeeping
+and do not belong in an issue, a report or a message to another team: say the thing, do not cite
+the shelf it sits on. `design.py check` guards shipping code, not prose, so this one needs a reader.
+
 Keep owned source files under 1,000 lines; retain pinned upstream sources intact with their licenses.
 Public API documentation stays with the API. Longer file-local
 rationale belongs in `._llm.json` sidecars using the project llm-sidecar skill; refresh anchors

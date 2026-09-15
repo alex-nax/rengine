@@ -1,6 +1,6 @@
 # Draft issue for Kohai — `kohai-acp` should accept `session/new.mcpServers`
 
-**Status: draft, not filed.** Written in rEngine on 2026-09-15 for the owner to file in Kohai's
+**Status: draft, not filed.** Drafted 2026-09-15 for the owner to file in Kohai's
 tracker (prefix `BAS-`). Everything below was verified against the checkout at
 `~/hirebase-v2` on that date; line numbers are from it.
 
@@ -118,14 +118,14 @@ what it does. (3) is the real feature.
 
 ## Why we are asking
 
-**rEdit** — the desktop editor built by the rEngine project — is adding a generic Agent tab that
+**rEdit**, a desktop code editor, is adding a generic Agent tab that
 drives any declared ACP agent, with `kohai-acp` as one recipe. It offers its declared MCP servers at
 `session/new` and reports, by name, which ones an agent did not take. So the integration works today
 for conversation and is correct without this change; a Kohai agent simply shows as taking none.
 
 This issue is what would let a Kohai agent use the operator's local tools. It is Kohai's call
-whether that is wanted: the design deliberately asserts nothing about the bridge's behaviour and
-treats this as an external prerequisite (rEngine spec 138, charter D70).
+whether that is wanted: the integration deliberately asserts nothing about the bridge's behaviour and
+treats this as an external prerequisite.
 
 ## Verified on
 
