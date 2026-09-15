@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { before } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { mkdtemp, mkdir, writeFile, rm, realpath, readFile, symlink, stat } from 'node:fs/promises';
@@ -18,6 +18,14 @@ import { redImage } from './image-fixtures.mjs';
 import { declaration } from './format-fixtures.mjs';
 import { contract2, dashboard, dashboardProject } from './dashboard-fixtures.mjs';
 import { game, gameActions, gameProject, launcherDeclaration } from './game-fixtures.mjs';
+import { built } from './cargo.mjs';
+
+/* This spec drives a Rust binary through a service client, so it builds one first: run alone — or
+   used to check that a regression fails for its own reason — it would otherwise judge whatever
+   binary happened to be on disk, and a sabotage that is never compiled always passes. `npm test`
+   prebuilds and this is a no-op there (orchestrator/tests/cargo.mjs). */
+before(() => built('--bins'));
+
 
 const schema = JSON.parse(readFileSync('contracts/project-v1.schema.json', 'utf8'));
 const nolf = JSON.parse(readFileSync('orchestrator/tests/fixtures/nolf-merged-project.json', 'utf8'));

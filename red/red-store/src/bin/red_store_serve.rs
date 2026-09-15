@@ -26,7 +26,7 @@
 use std::io::{BufRead, Write};
 use std::process::ExitCode;
 
-use red_store::store::{resolve_in_root, IdShape, Store};
+use red_store::store::{resolve_in_root, Store};
 use serde_json::{json, Value};
 
 fn uuid_v4() -> String {
@@ -75,38 +75,6 @@ fn clock(tick: std::sync::Arc<std::sync::atomic::AtomicUsize>) -> impl FnMut() -
     }
 }
 
-/// The conversation id-shape a recipe declares, from its parser name in the registry document
-/// (the shape families the store knows; arbitrary regexes are F170's recorded boundary).
-fn registry_text() -> Option<String> {
-    if let Ok(declared) = std::env::var("RENGINE_AGENT_REGISTRY") {
-        return std::fs::read_to_string(declared).ok();
-    }
-    let exe = std::env::current_exe().ok()?;
-    let path = exe
-        .parent()
-        .and_then(|directory| directory.ancestors().nth(3))
-        .map(|root| root.join("orchestrator/agents/registry.toml"))?;
-    std::fs::read_to_string(path).ok()
-}
-
-fn shape_for(agent: &str) -> IdShape {
-    let parser = registry_text()
-        .and_then(|text| red_agents::load_registry(&text, "registry.toml", None).ok())
-        .and_then(|recipes| {
-            recipes
-                .iter()
-                .find(|(name, _)| name == agent)
-                .and_then(|(_, raw)| raw.get("conversation"))
-                .and_then(|talk| talk.get("parser"))
-                .and_then(red_agents::Value::string)
-                .map(str::to_string)
-        });
-    match parser.as_deref() {
-        Some("kimi-flags") => IdShape::KimiSession,
-        _ => IdShape::Uuid,
-    }
-}
-
 fn dispatch(store: &mut Store, method: &str, args: &Value) -> Result<Value, red_store::store::Fail> {
     let arg = |index: usize| args.get(index).cloned().unwrap_or(Value::Null);
     match method {
@@ -143,12 +111,8 @@ fn dispatch(store: &mut Store, method: &str, args: &Value) -> Result<Value, red_
         "listConversations" => Ok(store.list_conversations(arg(0).as_str().unwrap_or(""))),
         "recordConversation" => {
             let input = arg(1);
-            let shape = input
-                .get("agent")
-                .and_then(Value::as_str)
-                .map(shape_for)
-                .unwrap_or(IdShape::Uuid);
-            store.record_conversation(arg(0).as_str().unwrap_or(""), &input, shape)
+            let shape = input.get("agent").and_then(Value::as_str).and_then(red_store::recipes::shape_for);
+            store.record_conversation(arg(0).as_str().unwrap_or(""), &input, shape.as_deref())
         }
         "preferences" => store.preferences(&arg(0)),
         "validateSchema" => {

@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { before } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
@@ -10,6 +10,14 @@ import { Desktops } from '../server/desktops.mjs';
 import { startServer } from '../server/main.mjs';
 import { startWorker, withoutEndedSessions } from '../runtime/worker.mjs';
 import { fakeDesktop, ok } from './token-fixtures.mjs';
+import { built } from './cargo.mjs';
+
+/* This spec drives a Rust binary through a service client, so it builds one first: run alone — or
+   used to check that a regression fails for its own reason — it would otherwise judge whatever
+   binary happened to be on disk, and a sabotage that is never compiled always passes. `npm test`
+   prebuilds and this is a no-op there (orchestrator/tests/cargo.mjs). */
+before(() => built('--bins'));
+
 
 /* What a replaced session host leaves behind (spec 098). The desktop's saved layout outlives the
    process whose sessions it names, so the first registration after `--replace-host` advertises ids

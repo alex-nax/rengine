@@ -109,16 +109,14 @@ fn normalize(talk: &Json, id: &str) -> String {
         _ => id.to_string(),
     }
 }
-/* The recipe declares the shape as a pattern and the JS matched it with a real engine, so this does
-   too. Reading the pattern by sniffing for substrings is what the first version did, and it picked
-   the wrong alternative for kimi — whose ids accept a uuid OR a ULID, with an optional prefix. */
 fn ids_match(talk: &Json, id: &str) -> bool {
-    let Some(pattern) = text(talk, "ids") else { return false };
-    regex::RegexBuilder::new(pattern)
-        .case_insensitive(true)
-        .build()
-        .map(|expression| expression.is_match(id))
-        .unwrap_or(false)
+    text(talk, "ids").is_some_and(|pattern| crate::id_matches(pattern, id))
+}
+
+/// The shape this CLI's conversation ids take, as its recipe declares it. Public so a component
+/// that persists conversations can be handed the rule instead of containing it (F215, spec 141).
+pub fn conversation_ids(recipes: &[(String, Value)], cli: &str) -> Option<String> {
+    talk_of(recipes, cli).and_then(|talk| text(&talk, "ids").map(str::to_string))
 }
 
 /// `conversationArgs`: exactly one identifier is ever named, and only when rEngine names it.

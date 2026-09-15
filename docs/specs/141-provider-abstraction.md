@@ -113,6 +113,31 @@ Two frozen artifacts shaped this and are worth knowing about before touching a r
 duplicates the spellings the registry declares — change a recipe's flag and the hint lies. That is
 **F218**, and F217's guard must list it as a declared exception until it lands.
 
+## What F215 found: the store could not have learned a declared shape even if it asked
+
+The store's `IdShape::KimiSession` went, along with the third hand-rolled copy of the uuid and ULID
+rules; `record_conversation` takes the pattern its caller reads from the CLI's own recipe, matched
+through `red_agents::id_matches` — now the single matcher, with `launch` and `parsers` asking it too
+rather than keeping a copy each. What stays in the store is `minted_shape`, rEngine's own id, which
+is the store's to know because rEngine writes it when no CLI has named a conversation.
+
+Underneath that sat a quieter bug: the store's registry lookup read the shipped document and passed
+`None` for the extra one. **A recipe added as data could never have had its conversation shape
+reach the store** — the central promise of the registry, broken in the one component that persists
+what a recipe declares. It reads the extra document now, and the evidence is a CLI called
+`shoutycli` whose ids are `CONV-nnnnnn`: no code anywhere in the tree mentions it, its ids are
+accepted, and everything else is refused with the message unchanged.
+
+## A spec that drives a Rust binary must build it
+
+Not a provider question, but it nearly cost this work its evidence. Twenty-four specs drive a Rust
+service and never built one. Under `npm test` the `pretest` step covers them; run alone — which is
+exactly how a sabotage is checked — they judge whatever binary happens to be on disk. The F214
+fixture *passed against its own sabotage* for that reason, and only a second look caught it.
+
+They all call `built('--bins')` now (a no-op under the suite), and the same sabotage that silently
+passed fails on its own. A regression checked against a stale binary is not a regression.
+
 ## Where the implementation departs from F213's written criteria — for the owner
 
 F213's row says *"each agent's flag parsing lives in a file named for that agent"*: three adapter

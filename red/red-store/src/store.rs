@@ -135,37 +135,33 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
     digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
-/// The conversation id shape a recipe declares, injected (see the module note).
-#[derive(Clone, Copy, PartialEq)]
-pub enum IdShape {
-    Uuid,
-    KimiSession,
-}
+/// The shape a named CLI's conversation ids take: the pattern that CLI's own recipe declares,
+/// handed in by the caller (F215, spec 141).
+///
+/// The store used to carry an `IdShape::KimiSession` variant and a hand-rolled copy of the uuid and
+/// ULID rules — a component that persists conversations knowing one CLI's id format, and a third
+/// copy of a shape the registry already declares. It learns the rule now instead of containing it,
+/// and matches it through the one matcher every other caller uses, so a CLI whose ids are opaque is
+/// representable by declaring a pattern rather than by adding a variant here.
+pub type IdShape<'a> = Option<&'a str>;
 
 pub fn id_shape_ok(shape: IdShape, id: &str) -> bool {
     match shape {
-        IdShape::Uuid => uuid_shape(id),
-        IdShape::KimiSession => {
-            let body = id.get(8..).filter(|_| id[..8].eq_ignore_ascii_case("session_")).unwrap_or(id);
-            uuid_shape(body) || ulid_shape(body)
-        }
+        Some(pattern) => red_agents::id_matches(pattern, id),
+        /* No recipe declares a shape for this one, so the only id the store can vouch for is one
+           rEngine minted itself. */
+        None => minted_shape(id),
     }
 }
 
-fn uuid_shape(value: &str) -> bool {
+/// rEngine's OWN minted conversation id — a plain uuid. This is the store's to know: it is what
+/// rEngine writes when no CLI has named a conversation, not any CLI's format.
+fn minted_shape(value: &str) -> bool {
     let bytes = value.as_bytes();
     bytes.len() == 36
         && bytes.iter().enumerate().all(|(index, byte)| match index {
             8 | 13 | 18 | 23 => *byte == b'-',
             _ => byte.is_ascii_hexdigit(),
-        })
-}
-
-fn ulid_shape(value: &str) -> bool {
-    let bytes = value.as_bytes();
-    bytes.len() == 26
-        && bytes.iter().all(|byte| {
-            matches!(byte.to_ascii_uppercase(), b'0'..=b'9' | b'A'..=b'H' | b'J'..=b'K' | b'M'..=b'N' | b'P'..=b'T' | b'V'..=b'Z')
         })
 }
 
@@ -534,7 +530,7 @@ impl Store {
     pub fn record_conversation(&mut self, root_id: &str, input: &Value, shape: IdShape) -> Result<Value> {
         let conversation = input.get("conversation").and_then(Value::as_str).unwrap_or("").to_string();
         let agent = input.get("agent").and_then(Value::as_str);
-        let shaped = if agent.is_some() { id_shape_ok(shape, &conversation) } else { uuid_shape(&conversation) };
+        let shaped = if agent.is_some() { id_shape_ok(shape, &conversation) } else { minted_shape(&conversation) };
         if conversation.is_empty() || !shaped {
             return Err(Fail::new(
                 "An agent conversation must be a UUID rEngine minted, or a session id in the shape the named CLI resumes by.",
@@ -731,7 +727,7 @@ mod older_state_tests {
         let outcome = store.record_conversation(
             "no-such-root",
             &json!({"id": "00000000-0000-4000-8000-000000000000"}),
-            IdShape::Uuid,
+            None,
         );
         assert!(outcome.is_err(), "an unknown root is refused");
 

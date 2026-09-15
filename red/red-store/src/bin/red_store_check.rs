@@ -12,7 +12,7 @@
 use std::process::ExitCode;
 
 use red_store::schema::validate_schema;
-use red_store::store::{IdShape, Store};
+use red_store::store::Store;
 use serde_json::{json, Value};
 
 struct Replay {
@@ -124,12 +124,10 @@ impl Replay {
             }
             "recordConversation" => {
                 let input = arg(1);
-                let agent = input.get("agent").and_then(Value::as_str);
-                let shape = match agent {
-                    Some("kimi") => IdShape::KimiSession,
-                    _ => IdShape::Uuid,
-                };
-                self.store.record_conversation(arg(0).as_str().unwrap_or(""), &input, shape)
+                /* The recorded corpus replays real agents, so the shape comes from their own
+                   recipes — the same declaration the live service reads (F215, spec 141). */
+                let shape = input.get("agent").and_then(Value::as_str).and_then(red_store::recipes::shape_for);
+                self.store.record_conversation(arg(0).as_str().unwrap_or(""), &input, shape.as_deref())
             }
             "saveLayout" => {
                 self.store.save_layout(&arg(0))?;

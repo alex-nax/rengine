@@ -1,9 +1,17 @@
-import test from 'node:test';
+import test, { before } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { WorkspaceStore } from '../server/store-client.mjs';
+import { built } from './cargo.mjs';
+
+/* This spec drives a Rust binary through a service client, so it builds one first: run alone — or
+   used to check that a regression fails for its own reason — it would otherwise judge whatever
+   binary happened to be on disk, and a sabotage that is never compiled always passes. `npm test`
+   prebuilds and this is a no-op there (orchestrator/tests/cargo.mjs). */
+before(() => built('--bins'));
+
 
 async function fixture(t) {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-files-'));

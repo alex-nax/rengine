@@ -1,9 +1,17 @@
-import test from 'node:test';
+import test, { before } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { WorkspaceStore } from '../server/store-client.mjs';
+import { built } from './cargo.mjs';
+
+/* This spec drives a Rust binary through a service client, so it builds one first: run alone — or
+   used to check that a regression fails for its own reason — it would otherwise judge whatever
+   binary happened to be on disk, and a sabotage that is never compiled always passes. `npm test`
+   prebuilds and this is a no-op there (orchestrator/tests/cargo.mjs). */
+before(() => built('--bins'));
+
 
 // A conversation that lives only in the session host's memory dies with the host, which is the one
 // event a restart into it has to survive. See docs/specs/097-agent-conversation-persistence.md.
@@ -67,4 +75,45 @@ test('the remembered list is bounded, so a long-lived project cannot grow it wit
   assert.ok(listed.length <= 20, `kept ${listed.length}, expected at most 20`);
   assert.equal(listed[0].id, '00000039-0000-0000-0000-000000000000', 'the newest is kept');
   assert.equal(listed.some(entry => entry.id === '00000000-0000-0000-0000-000000000000'), false, 'the oldest is dropped');
+});
+
+/* F215, spec 141: the store does not know what any CLI's ids look like — the shape arrives from
+   that CLI's own recipe. A recipe added as data, for a CLI with no code anywhere in the tree, gets
+   its ids accepted and everything else refused, with no edit to the store. */
+test('the id shape a conversation must satisfy comes from the recipe, not from the store', async t => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'rengine-conversations-declared-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const extra = path.join(dir, 'extra.toml');
+  await writeFile(extra, `[recipes.shoutycli]
+package = "@test/shoutycli"
+
+[recipes.shoutycli.update]
+kind = "reinstall"
+
+[recipes.shoutycli.models]
+kind = "none"
+
+[recipes.shoutycli.mcp]
+kind = "flag"
+flag = "--servers"
+
+[recipes.shoutycli.conversation]
+ids = '^CONV-[0-9]{6}$'
+parser = "claude-flags"
+normalize = "none"
+provider = "shoutycli"
+resumeLine = "shoutycli --resume {id}"
+`);
+  process.env.RENGINE_AGENT_REGISTRY_EXTRA = extra;
+  process.env.RENGINE_AGENT_REGISTRY = path.resolve('orchestrator/agents/registry.toml');
+  t.after(() => { delete process.env.RENGINE_AGENT_REGISTRY_EXTRA; delete process.env.RENGINE_AGENT_REGISTRY; });
+
+  const store = await WorkspaceStore.open(path.join(dir, 'state'));
+  const root = await store.addRoot(dir);
+  await store.recordConversation(root.id, { conversation: 'CONV-004217', agent: 'shoutycli' });
+  assert.equal(store.listConversations(root.id)[0].id, 'CONV-004217', 'the declared shape is accepted');
+  await assert.rejects(store.recordConversation(root.id, { conversation: 'CONV-42', agent: 'shoutycli' }), /conversation/i,
+    'and an id its own recipe refuses is refused, with the message unchanged');
+  /* The declaration belongs to the CLI that made it: the same id under another name is not one. */
+  await assert.rejects(store.recordConversation(root.id, { conversation: 'CONV-004217', agent: 'claude' }), /conversation/i);
 });

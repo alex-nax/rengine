@@ -5,5 +5,6 @@
 //! host keeps serving while this crate proves the bytes against the corpus the JS host wrote
 //! (orchestrator/tests/red-store.test.mjs drives it; red-store-check is the judge).
 
+pub mod recipes;
 pub mod schema;
 pub mod store;

@@ -5,8 +5,8 @@
       "id": "root-path-binding",
       "kind": "constraint",
       "anchor": {
-        "start": 663,
-        "end": 663,
+        "start": 674,
+        "end": 674,
         "symbol": "resolve_in_root",
         "snippet": "pub fn resolve_in_root(root_path: &str, relative: &str, allow_missing: bool) -> Result<(String, String)> {"
       },
@@ -20,8 +20,8 @@
       "id": "save-and-draft-order",
       "kind": "rationale",
       "anchor": {
-        "start": 445,
-        "end": 445,
+        "start": 456,
+        "end": 456,
         "symbol": "save_text",
         "snippet": "pub fn save_text(&mut self, draft: &Value) -> Result<Value> {"
       },
@@ -34,8 +34,8 @@
       "id": "external-declaration-binding",
       "kind": "constraint",
       "anchor": {
-        "start": 240,
-        "end": 240,
+        "start": 251,
+        "end": 251,
         "symbol": "add_root",
         "snippet": "pub fn add_root(&mut self, directory: &str, declaration_file: Option<&str>) -> Result<Value> {"
       },
@@ -48,30 +48,37 @@
       "id": "conversations-must-outlive-the-host",
       "kind": "rationale",
       "anchor": {
-        "start": 519,
-        "end": 519,
+        "start": 530,
+        "end": 530,
         "symbol": "record_conversation",
         "snippet": "pub fn record_conversation(&mut self, root_id: &str, input: &Value, shape: IdShape) -> Result<Value> {"
       },
-      "note": "This exists because spec 096 shipped without it and was shaped for the wrong event. Session records live in the host's memory (Sessions keeps a Map), so a conversation recorded there dies with the host — and a host restart is precisely what a person reaches for a resume after. Persisting here, beside roots and drafts, is what makes resuming mean anything across the only event that matters. The bound is not decoration: this file is rewritten whole on every persist, so an unbounded per-root list would grow the write. Re-recording touches and re-fronts an existing row rather than appending, so a conversation resumed daily stays one row. See docs/specs/097-agent-conversation-persistence.md. What a conversation id may look like is per agent (spec 127): a UUID rEngine minted for anyone, or one of kimi's own shapes (session_<uuid>, ULID) when and only when the record names kimi — a shape is only ever accepted under the CLI that resumes by it.\n\nPorted from `orchestrator/server/store.mjs` (spec 129); the JavaScript this describes is gone.",
+      "note": "This exists because spec 096 shipped without it and was shaped for the wrong event. Session records live in the host's memory (Sessions keeps a Map), so a conversation recorded there dies with the host \u2014 and a host restart is precisely what a person reaches for a resume after. Persisting here, beside roots and drafts, is what makes resuming mean anything across the only event that matters. The bound is not decoration: this file is rewritten whole on every persist, so an unbounded per-root list would grow the write. Re-recording touches and re-fronts an existing row rather than appending, so a conversation resumed daily stays one row. See docs/specs/097-agent-conversation-persistence.md. What a conversation id may look like is per agent, and the store does not know it: the caller hands in the pattern that CLI's own recipe declares, and the store matches it through the one matcher every other caller uses (F215, spec 141). The rule it applies is unchanged \u2014 a shape is only ever accepted under the CLI that resumes by it \u2014 but the store used to CONTAIN that rule, as an IdShape variant named for one CLI plus a hand-rolled copy of the uuid and ULID tests. What remains here is rEngine's own minted id, a plain uuid, which is the store's to know because rEngine writes it when no CLI has named a conversation.\n\nPorted from `orchestrator/server/store.mjs` (spec 129); the JavaScript this describes is gone.",
       "refs": [
         "docs/specs/097-agent-conversation-persistence.md",
-        "docs/specs/127-kimi-agent-integration.md"
+        "docs/specs/127-kimi-agent-integration.md",
+        "docs/specs/141-provider-abstraction.md"
       ]
     },
     {
       "id": "per-root-preferences-merge",
       "kind": "constraint",
       "anchor": {
-        "start": 578,
-        "end": 578,
+        "start": 589,
+        "end": 589,
         "symbol": "preferences",
         "snippet": "pub fn preferences(&mut self, values: &Value) -> Result<Value> {"
       },
-      "note": "`themes` and `recording` are merged into what is stored rather than replacing it, and that is load-bearing rather than stylistic. The desktop sends only the key it just changed — one root's theme, one recording bound — because it has no reason to send the rest, and it may not even know the rest: a second window can hold a project this one never opened. Replacing the map (`{ themes }`) would silently drop every other project's remembered theme on the next change, which reads as \"my theme keeps resetting\" rather than as an error. The 64-entry cap exists for the reason the conversation bound does: this file is rewritten whole on every persist, so an unbounded map grows every write. Scalar preferences are not merged because they have no per-root structure to lose.\n\nPorted from `orchestrator/server/store.mjs` (spec 129); the JavaScript this describes is gone.",
+      "note": "`themes` and `recording` are merged into what is stored rather than replacing it, and that is load-bearing rather than stylistic. The desktop sends only the key it just changed \u2014 one root's theme, one recording bound \u2014 because it has no reason to send the rest, and it may not even know the rest: a second window can hold a project this one never opened. Replacing the map (`{ themes }`) would silently drop every other project's remembered theme on the next change, which reads as \"my theme keeps resetting\" rather than as an error. The 64-entry cap exists for the reason the conversation bound does: this file is rewritten whole on every persist, so an unbounded map grows every write. Scalar preferences are not merged because they have no per-root structure to lose.\n\nPorted from `orchestrator/server/store.mjs` (spec 129); the JavaScript this describes is gone.",
       "refs": [
         "docs/specs/080-desktop-settings.md"
       ]
     }
-  ]
+  ],
+  "source": {
+    "path": "red/red-store/src/store.rs",
+    "sha256": "676c4eb4afacdc0ba3b7e16e8139b39e4235fb54aadedd2048417fb7c46f03bc",
+    "format": "rust",
+    "format_fingerprint": "3802714b4569aa9e93696227dc96f5433c9f027b6349406e4e8901968d9e7fea"
+  }
 }

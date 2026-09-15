@@ -48,12 +48,7 @@ fn named_or_opaque(named: Option<String>, opaque: bool) -> Parsed {
 /// The shape the recipe declares, matched with a real engine. A recipe that declares no shape
 /// accepts nothing as named: an id nobody can describe is not an id this can hand on.
 fn shaped(talk: &Json, id: &str) -> bool {
-    let Some(pattern) = text(talk, "ids") else { return false };
-    regex::RegexBuilder::new(pattern)
-        .case_insensitive(true)
-        .build()
-        .map(|expression| expression.is_match(id))
-        .unwrap_or(false)
+    text(talk, "ids").is_some_and(|pattern| crate::id_matches(pattern, id))
 }
 
 /// `normalize` is the recipe's too: claude and codex lowercase their ids, kimi keeps its case.

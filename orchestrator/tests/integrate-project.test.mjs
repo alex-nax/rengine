@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { before } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -9,6 +9,14 @@ import { bashPath } from '../server/sessions-client.mjs';
 import { readDeclaration } from '../server/formats.mjs';
 import { askProject } from '../server/project-client.mjs';
 import { validateSchema } from '../server/store-client.mjs';
+import { built } from './cargo.mjs';
+
+/* This spec drives a Rust binary through a service client, so it builds one first: run alone — or
+   used to check that a regression fails for its own reason — it would otherwise judge whatever
+   binary happened to be on disk, and a sabotage that is never compiled always passes. `npm test`
+   prebuilds and this is a no-op there (orchestrator/tests/cargo.mjs). */
+before(() => built('--bins'));
+
 
 const execute = promisify(execFile);
 const ENGINE = path.resolve();

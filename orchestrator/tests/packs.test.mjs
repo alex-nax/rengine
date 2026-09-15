@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { before } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { mkdtemp, mkdir, writeFile, rm, realpath } from 'node:fs/promises';
@@ -11,6 +11,14 @@ import { declaration } from './format-fixtures.mjs';
 import { dashboard } from './dashboard-fixtures.mjs';
 import { game, second } from './game-fixtures.mjs';
 import { thisMachine, answering } from './device-fixtures.mjs';
+import { built } from './cargo.mjs';
+
+/* This spec drives a Rust binary through a service client, so it builds one first: run alone — or
+   used to check that a regression fails for its own reason — it would otherwise judge whatever
+   binary happened to be on disk, and a sabotage that is never compiled always passes. `npm test`
+   prebuilds and this is a no-op there (orchestrator/tests/cargo.mjs). */
+before(() => built('--bins'));
+
 
 /* A refusal that never fires leaves packsError undefined, and assert.match on undefined dies with
    "The string argument must be of type string" — red for the right reason, useless as a message.

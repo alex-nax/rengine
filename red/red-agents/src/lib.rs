@@ -379,6 +379,19 @@ fn args_or_null(value: Option<&Value>) -> serde_json::Value {
     }
 }
 
+/// Does this id have the shape a recipe declares? The pattern is the recipe's, matched with a real
+/// engine — **the one place any conversation id shape is judged** (spec 141 decision 1). `parsers`,
+/// `launch` and `red-store` all ask here, so no two of them can disagree about what a CLI's ids look
+/// like. They did: two hand-rolled copies read kimi's pattern by sniffing for substrings and picked
+/// the wrong alternative for ids that accept a uuid OR a ULID with an optional prefix.
+pub fn id_matches(pattern: &str, id: &str) -> bool {
+    regex::RegexBuilder::new(pattern)
+        .case_insensitive(true)
+        .build()
+        .map(|expression| expression.is_match(id))
+        .unwrap_or(false)
+}
+
 /// What each MCP overlay kind needs the recipe to spell out. The kind is rEngine's to implement;
 /// the flag, the file and the variable are the CLI's, and declaring one without them is refused.
 fn required_spellings(kind: &str) -> &'static [&'static str] {
