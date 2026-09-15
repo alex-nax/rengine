@@ -38,6 +38,14 @@ pub fn own_route(method: &str, path: &str) -> bool {
                says who OWNS the route, which is settled, not who has implemented it yet. */
             | ("POST", "/api/tracker/signin")
             | ("POST", "/api/tracker/signout")
+            /* Three the DOOR also answers, and that this worker must compose rather than forward:
+               the capabilities and the token window it adds to a state read, the half of a
+               preferences write that belongs beside the ledger rather than in the host's store, and
+               the desktop's recording frame, which is a feed frame and so is the feed owner's. The
+               parity table below skips these as the door's; they are listed here deliberately. */
+            | ("GET", "/api/state")
+            | ("POST", "/api/preferences")
+            | ("POST", "/api/recording")
     )
 }
 
@@ -61,7 +69,77 @@ pub fn implemented(method: &str, path: &str) -> bool {
             | ("GET", "/api/diagnostics")
             | ("POST", "/api/ide-mention")
             | ("POST", "/api/ide-selection")
+            /* Composed rather than owned: the door answers these and this worker adds to the
+               answer, so they are answered HERE and the door is asked inside. */
+            | ("GET", "/api/state")
+            | ("POST", "/api/preferences")
+            | ("POST", "/api/recording")
     )
+}
+
+/// How a gated route names the project it is about.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Names {
+    /// A `rootId` in the body: the caller names the project.
+    Root,
+    /// An `id` in the body naming a PANE, whose own record says which project it is in. Stopping or
+    /// restarting one is about the project it runs in, and only the pane knows which that is — a
+    /// caller's claim about it would let an agent gate itself against a project it is not in.
+    Session,
+}
+
+/// The routes this worker does not own but must not simply hand on: the token GATE.
+///
+/// A third category, and the one a table of "ours" and "theirs" misses by construction. These are
+/// answered by the door — stopping a pane, launching a game, reloading a desktop — and the JS worker
+/// intercepts each to ask the ledger first, because the door has no gate of its own and must not
+/// grow one (spec 065). A worker that forwarded them unchanged would be a workspace with no
+/// arbitration at all, and nothing would look broken.
+///
+/// The tool name is what a refusal says back, so it is the ledger's vocabulary and not this table's.
+pub fn gated(method: &str, path: &str) -> Option<(&'static str, Names)> {
+    Some(match (method, path) {
+        ("POST", "/api/game") => ("launch_game", Names::Root),
+        ("POST", "/api/stop") => ("stop_session", Names::Session),
+        ("POST", "/api/agent-restart") => ("restart_agent", Names::Session),
+        ("POST", "/api/dashboard-run") => ("dashboard_run", Names::Root),
+        ("POST", "/api/dashboard-capture") => ("dashboard_capture", Names::Root),
+        ("POST", "/api/desktop-action") => ("reload_desktop", Names::Root),
+        _ => return None,
+    })
+}
+
+/// What this worker adds to the host's own capability list.
+///
+/// A capability is a promise a caller reads before it calls: `red-mcp` refuses a tool by NAME when
+/// the workspace does not advertise it, rather than calling a worker that would pass every gate
+/// because it has none (spec 078's asymmetry). So the list is composed here — the host says what a
+/// HOST can do, and these are what having a worker in front of it adds.
+///
+/// **The ledger's three ride together.** `agentToken`, `taskWrites` and `agentSpawn` are all
+/// token-gated and all announce themselves on the feed, so a worker that serves no ledger can serve
+/// none of them and says so by naming none.
+///
+/// `projectGameLaunch` is the one that is the HOST's to promise and is stripped first: launching a
+/// game needs the retained host's PTY and its embedded surface, so a worker may only repeat it when
+/// the host underneath actually declared the game half.
+pub fn capabilities(from_host: &serde_json::Value, serves_ledger: bool) -> serde_json::Value {
+    let mut out = from_host.as_object().cloned().unwrap_or_default();
+    let host_game = out.get("projectGame").and_then(serde_json::Value::as_i64) == Some(1);
+    out.remove("projectGameLaunch");
+    for name in ["desktopActions", "layeredUpdates", "scriptActions", "formatRegistry", "dashboard",
+                 "projectGame", "recordings", "projectDevices", "tracker", "ide", "agentsMenu"] {
+        out.insert(name.to_string(), serde_json::json!(1));
+    }
+    if serves_ledger {
+        for name in ["agentToken", "taskWrites", "agentSpawn"] {
+            out.insert(name.to_string(), serde_json::json!(1));
+        }
+    }
+    if host_game {
+        out.insert("projectGameLaunch".to_string(), serde_json::json!(1));
+    }
+    serde_json::Value::Object(out)
 }
 
 /// Why a token action cannot go ahead, in the order the question is asked. `None` means it can.
@@ -124,11 +202,18 @@ mod tests {
 
         /* And the routes the door already answers, which it must NOT: answering them here would
            answer from a worker's view of a workspace rather than the workspace's own. */
-        for path in ["/api/state", "/api/dashboard", "/api/devices", "/api/formats", "/api/recordings",
+        for path in ["/api/dashboard", "/api/devices", "/api/formats", "/api/recordings",
                      "/api/game", "/api/game-config", "/api/tracker", "/api/worktrees", "/api/bytes",
-                     "/api/preferences", "/api/desktops", "/api/stop"] {
+                     "/api/desktops", "/api/stop"] {
             assert!(!own_route("GET", path), "{path} is the door's");
         }
+        /* And the three the door answers that this worker COMPOSES: a state read carries what the
+           worker adds, a preferences write is split, and the desktop's recording frame is a feed
+           frame. Forwarding any of them unchanged loses the half that is the worker's. */
+        assert!(own_route("GET", "/api/state"));
+        assert!(own_route("POST", "/api/preferences"));
+        assert!(own_route("POST", "/api/recording"));
+        assert!(!own_route("GET", "/api/recording"), "reading one back is the project's, not the feed's");
         /* The desktop registry, settled as the door's: a desktop says it exists on the door's
            socket, so the two routes over that registry are answered where the sockets are. Listed
            separately because they were the worker's in the JavaScript and the reason they are not
@@ -146,6 +231,89 @@ mod tests {
         assert!(!own_route("GET", "/api/token-action"), "the action is a POST");
         assert!(own_route("GET", "/api/token"));
         assert!(!own_route("POST", "/api/token"), "the status is a GET");
+    }
+
+    /* A capability is a promise a caller reads BEFORE it calls, so what is advertised and what can
+       actually be done have to be the same list. The three that ride with the ledger are the case
+       that matters: a worker with no ledger that still said `agentToken` would have every tool call
+       it and every gate pass, because there is nothing to refuse them. */
+    #[test]
+    fn the_ledgers_three_are_advertised_together_or_not_at_all() {
+        let host = serde_json::json!({ "handoff": 1, "taskConversations": 1 });
+        let with = capabilities(&host, true);
+        for name in ["agentToken", "taskWrites", "agentSpawn"] {
+            assert_eq!(with[name], serde_json::json!(1), "{name}");
+        }
+        let without = capabilities(&host, false);
+        for name in ["agentToken", "taskWrites", "agentSpawn"] {
+            assert_eq!(without.get(name), None, "{name} is not promised by a worker that serves no ledger");
+        }
+        /* And what the worker adds regardless, plus what the host said about itself. */
+        assert_eq!(without["agentsMenu"], serde_json::json!(1));
+        assert_eq!(without["handoff"], serde_json::json!(1), "the host's own answer is kept");
+    }
+
+    /* Launching a game needs the retained host's PTY and its embedded surface, so it is the HOST's
+       to promise. A worker may repeat it and may never invent it. */
+    #[test]
+    fn the_game_launch_is_the_hosts_promise_and_is_never_the_workers() {
+        let old = capabilities(&serde_json::json!({ "projectGameLaunch": 1 }), true);
+        assert_eq!(old.get("projectGameLaunch"), None, "a host that declared no game half launches none");
+        let current = capabilities(&serde_json::json!({ "projectGame": 1 }), true);
+        assert_eq!(current["projectGameLaunch"], serde_json::json!(1));
+        /* `projectGame` itself the worker DOES promise: the preflight is its own, read from the
+           declaration, and it answers whether or not the host beneath it can launch anything. */
+        assert_eq!(old["projectGame"], serde_json::json!(1));
+    }
+
+    /* The gates, against the module they replace. This is the test that finds the blind spot the
+       table above has by construction: a route the DOOR answers is skipped there as "not the
+       worker's", and six of them are still the worker's to GATE. Forwarding one unchanged is a
+       workspace with no arbitration, and nothing about it looks broken. */
+    #[test]
+    fn every_gate_the_javascript_worker_asks_for_is_asked_for_here() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().and_then(|red| red.parent()).expect("the checkout");
+        let Ok(js) = std::fs::read_to_string(root.join("orchestrator/runtime/worker.mjs")) else {
+            return;
+        };
+        /* `gate(req, <root>, '<tool>')`, and the route is the nearest `target.pathname ===` above
+           it — which is how the file reads, one route per `else if`. */
+        let mut route = None;
+        let mut missing = Vec::new();
+        for line in js.lines() {
+            if let Some((method, path)) = js_route(line) {
+                route = Some((method, path));
+            }
+            let Some(at) = line.find("gate(req,") else { continue };
+            let Some((method, path)) = route.clone() else { continue };
+            let asked = &line[at..];
+            /* A tool spelled with a template literal is the action's, and the table says so by
+               naming the family rather than one action. */
+            let tool = asked.split(['\'', '`']).nth(1).unwrap_or_default().to_string();
+            let names = if asked.contains("snapshot(") { Names::Session } else { Names::Root };
+            /* The four this worker OWNS carry their own gate inside the route. */
+            if own_route(&method, &path) {
+                continue;
+            }
+            match gated(&method, &path) {
+                Some((named, wanted)) if tool.starts_with(named.trim_end_matches('_')) && wanted == names => {}
+                _ => missing.push(format!("{method} {path} is gated on {tool} and this table does not say so")),
+            }
+        }
+        assert!(missing.is_empty(), "{missing:#?}");
+    }
+
+    /* Stopping a pane is about the project the PANE is in, and only the pane's record says which —
+       a caller's claim about it would let an agent gate itself against a project it is not in. */
+    #[test]
+    fn a_pane_route_is_gated_on_the_panes_own_project() {
+        assert_eq!(gated("POST", "/api/stop"), Some(("stop_session", Names::Session)));
+        assert_eq!(gated("POST", "/api/agent-restart"), Some(("restart_agent", Names::Session)));
+        assert_eq!(gated("POST", "/api/game"), Some(("launch_game", Names::Root)));
+        /* A read is not gated: the token arbitrates what a caller may CHANGE. */
+        assert_eq!(gated("GET", "/api/state"), None);
+        assert_eq!(gated("GET", "/api/desktops"), None);
+        assert_eq!(gated("GET", "/api/stop"), None, "the stop is a POST");
     }
 
     /* The table against the module it replaces, read from source. `runtime/worker.mjs` is still

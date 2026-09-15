@@ -2,7 +2,7 @@
 
 Owner goal, 2026-09-15: *"finish remaining js"* (charter D57, spec 129; F158).
 
-Status: **in progress — 11 of 13 routes answered and both sockets served** (the registry's two went to the door). What is left is F154's two.
+Status: **in progress — 14 of 16 routes answered and both sockets served** (the registry's two went to the door). What is left is F154's two.
 
 ## The measurement that shaped this
 
@@ -36,7 +36,9 @@ rather than on the day a single enormous commit is reviewed.
 | `GET /api/diagnostics`<br>`POST /api/ide-mention`<br>`POST /api/ide-selection` | — | **done** |
 | `POST /api/session-view`<br>`GET /api/runtime-desktops` | ~~the desktop registry~~ — **the door's** (below) | **done, and not here** |
 | `POST /api/update-workspace` | — | **done** |
-| `POST /api/tracker/signin`<br>`POST /api/tracker/signout` | **a TLS decision** — rustls, hyper and hyper-util are already linked through libp2p, but the workspace has no root-certificate store | F154 |
+| six gated routes<br>(`/api/game`, `/api/stop`, `/api/agent-restart`, `/api/dashboard-run`, `/api/dashboard-capture`, `/api/desktop-action`) | — | **done** — the door answers, the worker gates |
+| `GET /api/state`<br>`POST /api/preferences`<br>`POST /api/recording` | — | **done** — the door answers, the worker composes |
+| `POST /api/tracker/signin`<br>`POST /api/tracker/signout` | **a TLS decision** — rustls, hyper and hyper-util are already linked through libp2p, but the workspace has no root-certificate store. Forwarded meanwhile, and the door forwards them to the backend, which serves both: the gap is a RETAINED host that is too old, which is what the worker's copy existed for | F154 |
 | the `/feed` socket | — | **done** |
 
 The four that landed together are one shape, and it is worth naming because the next ones are it
@@ -77,6 +79,46 @@ and its own de-duplication drops it whether the filter fired or not. The control
 under test. The other project is now run twelve frames ahead before anything crosses, and then
 removing the filter costs the watcher its OWN next frame — because a stranger's higher sequence
 advances the cursor past it.
+
+## The third category the table missed
+
+`own_route` and the forwarder look like a complete split, and they are not. There is a third kind of
+route: one the **door answers** and the worker must not simply hand on.
+
+The parity test above hides them by construction — it skips any route whose path appears in the
+door's source, as "not the worker's". Six of those are still the worker's to **gate**. Stopping a
+pane, restarting an agent, launching a game, running or capturing a dashboard action, reloading a
+desktop: the door answers all of them and has no token gate of its own, and must not grow one
+(spec 065). A worker that forwarded them unchanged would be a workspace with no arbitration at all,
+and nothing about it would look broken.
+
+Three more are **composed**: the door answers, and the worker adds to the answer.
+
+| route | what the worker adds |
+|---|---|
+| `GET /api/state` | the capabilities having a worker adds, and the token window, which lives beside the ledger |
+| `POST /api/preferences` | the window is kept beside the ledger; the rest goes to the store |
+| `POST /api/recording` | the desktop's frame is a FEED frame, so it is the feed owner's however it arrives |
+
+`serve::gated` is now the table, and `every_gate_the_javascript_worker_asks_for_is_asked_for_here`
+reads `worker.mjs` for its `gate(req, …)` calls and requires each one to be in it. That test is what
+found the gap; without it the cutover would have shipped a workspace whose token did nothing.
+
+Three rules came out of writing them:
+
+- **A pane route is gated on the PANE's project.** Only the pane's own record says which project it
+  runs in; a caller's claim about it would let an agent gate itself against a project it is not in.
+- **The ledger's three capabilities ride together.** `agentToken`, `taskWrites` and `agentSpawn` are
+  all token-gated and all announce on the feed, so a worker with no ledger promises none — the
+  caller is refused by name rather than calling a worker that would pass every gate because it has
+  none (spec 078's asymmetry).
+- **`projectGameLaunch` is the HOST's promise**, stripped and only repeated when the host beneath
+  actually declared the game half. `projectGame` the worker does promise: the preflight is its own.
+
+The recording route refuses in the opposite order from a token action, and both are the
+JavaScript's: WHO before what here, because a frame from somebody who is not a desktop is theirs to
+be refused rather than one this worker cannot mint; the other way round there, because a worker with
+no ledger says so whoever is asking.
 
 ## The two children, and the ask between them
 

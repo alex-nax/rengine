@@ -199,6 +199,40 @@ async fn connection(worker: Arc<Worker>, mut client: TcpStream) -> io::Result<()
         if head.upgrade {
             return tunnel(&worker, client, buffered, &head).await;
         }
+        /* A route the DOOR answers that this worker must not simply hand on: the token gate, asked
+           before the forward rather than by asking the door to grow one (spec 065). A refusal ends
+           the request here; a pass falls through to the forwarder below unchanged. */
+        if !red_worker::serve::implemented(&head.method, &head.path())
+            && red_worker::serve::gated(&head.method, &head.path()).is_some()
+        {
+            let body = head.read_body(&mut client, &mut buffered).await?;
+            let refusal = {
+                let (worker, head, asked) = (worker.clone(), head.clone(), body.clone());
+                tokio::task::spawn_blocking(move || gate_for(&worker, &head, &asked))
+                    .await
+                    .unwrap_or_else(|_| Some("500|This worker failed while asking the ledger.".to_string()))
+            };
+            if let Some(fault) = refusal {
+                client.write_all(faulted(&fault).as_bytes()).await?;
+                if !head.keeps_alive() {
+                    return Ok(());
+                }
+                continue;
+            }
+            /* Past the gate: replayed at the door with the body already in hand. */
+            let (address, _) = red_core::http::address(&worker.host).map_err(io::Error::other)?;
+            let mut upstream = TcpStream::connect(&address).await?;
+            upstream.write_all(head.replayed(&worker.host, &worker.host_token).as_bytes()).await?;
+            upstream.write_all(body.as_bytes()).await?;
+            let mut upstream_buffered: Vec<u8> = Vec::new();
+            let Some(answer) = Head::read(&mut upstream, &mut upstream_buffered).await? else { return Ok(()) };
+            client.write_all(answer.raw.as_bytes()).await?;
+            answer.forward_body(&mut upstream, &mut upstream_buffered, &mut client).await?;
+            if answer.closes() || !head.keeps_alive() {
+                return Ok(());
+            }
+            continue;
+        }
         if red_worker::serve::implemented(&head.method, &head.path()) {
             let body = if head.method == "POST" { head.read_body(&mut client, &mut buffered).await? } else { String::new() };
             /* Off the async workers. Every one of these routes blocks — a CLI's `--help`, a call to
@@ -232,6 +266,132 @@ async fn connection(worker: Arc<Worker>, mut client: TcpStream) -> io::Result<()
         if answer.closes() || !head.keeps_alive() {
             return Ok(());
         }
+    }
+}
+
+/// `GET /api/state`, composed rather than forwarded.
+fn state(worker: &Worker) -> Result<serde_json::Value, String> {
+    let mut state = ask_host(worker, "GET", "/api/state", "")?;
+    let window = worker.ledger.as_ref().and_then(|ledger| ledger.call("window", serde_json::json!([])).ok());
+    let host_capabilities = state.get("capabilities").cloned().unwrap_or_else(|| serde_json::json!({}));
+    if let Some(out) = state.as_object_mut() {
+        out.insert("capabilities".to_string(), red_worker::serve::capabilities(&host_capabilities, worker.ledger.is_some()));
+        if let Some(window) = window {
+            let mut preferences = out.get("preferences").and_then(|value| value.as_object()).cloned().unwrap_or_default();
+            preferences.insert("tokenWindowMs".to_string(), window);
+            out.insert("preferences".to_string(), serde_json::Value::Object(preferences));
+        }
+    }
+    Ok(state)
+}
+
+/// `POST /api/preferences`, split.
+///
+/// The host's preference store allowlists its keys and drops the ones it does not know, so the token
+/// window is kept beside the LEDGER and the rest is forwarded unchanged. A worker that passed the
+/// whole body on would have the window silently dropped and the person's setting never take.
+fn preferences(worker: &Worker, body: &str) -> Result<serde_json::Value, String> {
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let mut rest = data.as_object().cloned().unwrap_or_default();
+    let window = rest.remove("tokenWindowMs");
+    if let Some(window) = window.filter(|value| !value.is_null()) {
+        let Some(ledger) = &worker.ledger else {
+            return Err("409|This workspace worker does not serve the project token ledger.".to_string());
+        };
+        ledger.call("setWindow", serde_json::json!([window]))?;
+    }
+    let mut answer = ask_host(worker, "POST", "/api/preferences", &serde_json::Value::Object(rest).to_string())?
+        .as_object()
+        .cloned()
+        .unwrap_or_default();
+    if let Some(ledger) = &worker.ledger {
+        if let Ok(window) = ledger.call("window", serde_json::json!([])) {
+            answer.insert("tokenWindowMs".to_string(), window);
+        }
+    }
+    Ok(serde_json::Value::Object(answer))
+}
+
+/// `POST /api/recording`: the desktop's own frame, arriving over HTTP.
+///
+/// The recorder lives in the desktop (spec 081), so a commit is announced BY the desktop. This is
+/// the route a retired worker forwards one to; the same body, the same frames, the same attribution.
+fn recording(worker: &Worker, head: &Head, body: &str) -> Result<serde_json::Value, String> {
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let (root_id, _) = root_of(worker, named(&data, "rootId"))?;
+    /* WHO before what: a frame from somebody who is not a desktop is refused as theirs, not as one
+       this worker cannot mint. An agent that sent one would be claiming to be the recorder, and the
+       recorder is the thing in front of the person — so its header is honoured only in the ABSENCE
+       of an agent's. The order is the JavaScript's, and it is the opposite of a token action's,
+       where a worker with no ledger says so whoever is asking. */
+    let desk = red_worker::identity::agent(|name| head.header(name))
+        .is_none()
+        .then(|| red_worker::identity::desktop(|name| head.header(name)))
+        .flatten();
+    let Some(desk) = desk else {
+        return Err("403|A recording frame is the desktop's; this request carried no X-Rengine-Desktop header.".to_string());
+    };
+    if worker.ledger.is_none() {
+        return Err("409|This workspace worker does not serve the project token ledger.".to_string());
+    }
+    let event = data.get("event").and_then(serde_json::Value::as_str);
+    let kind = match event {
+        Some("started") => "capture.started",
+        Some("committed") => "capture.committed",
+        _ => return Err("400|A recording frame carries event started or committed.".to_string()),
+    };
+    let mut fields = serde_json::json!({
+        "sessionId": data.get("sessionId").cloned().unwrap_or(serde_json::Value::Null),
+        "gameId": data.get("gameId").cloned().unwrap_or(serde_json::Value::Null),
+        "recordingId": data.get("recordingId").cloned().unwrap_or(serde_json::Value::Null),
+        "kind": if data.get("kind") == Some(&serde_json::json!("explicit")) { "explicit" } else { "ring" },
+    });
+    if let Some(at) = data.get("at").and_then(serde_json::Value::as_str) {
+        fields["startedAt"] = serde_json::json!(at.chars().take(40).collect::<String>());
+    }
+    if let Some(error) = data.get("error").and_then(serde_json::Value::as_str) {
+        fields["error"] = serde_json::json!(error.chars().take(400).collect::<String>());
+    }
+    let by = serde_json::json!({ "kind": "desktop", "desktopId": desk });
+    let frame = note(worker, &root_id, kind, &by, fields);
+    Ok(serde_json::json!({
+        "rootId": root_id,
+        "type": frame.as_ref().and_then(|frame| frame.get("type").cloned()).unwrap_or(serde_json::Value::Null),
+        "sequence": sequence_of(&frame),
+    }))
+}
+
+/// The gate for a route the door answers. `None` means it may go through.
+///
+/// The project is the one the route NAMES, and for a pane route that is the pane's own record —
+/// only the pane knows which project it runs in, and a caller's claim about it would let an agent
+/// gate itself against a project it is not in.
+fn gate_for(worker: &Worker, head: &Head, body: &str) -> Option<String> {
+    let (tool, names) = red_worker::serve::gated(&head.method, &head.path())?;
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let root = match names {
+        red_worker::serve::Names::Root => root_of(worker, named(&data, "rootId")).map(|(id, _)| id),
+        red_worker::serve::Names::Session => {
+            let id = named(&data, "id");
+            ask_host(worker, "GET", &format!("/api/session?id={id}"), "")
+                /* A route's own refusal arrives as its sentence and a pane that is not there is the
+                   only way this one refuses, so it is 404 — the JavaScript's `snapshot(id)`. A host
+                   that could not be reached at all is a different answer and says so. */
+                .map_err(|fault| match fault.contains("cannot reach") || fault.contains("no answer from") {
+                    true => format!("502|{fault}"),
+                    false => "404|Unknown session.".to_string(),
+                })
+                .and_then(|pane| {
+                    pane.get("rootId")
+                        .and_then(serde_json::Value::as_str)
+                        .map(str::to_string)
+                        .ok_or_else(|| "404|Unknown session.".to_string())
+                })
+        }
+    };
+    match root.and_then(|root| gate(worker, &root, tool, head)) {
+        Ok(_) => None,
+        Err(fault) => Some(fault),
     }
 }
 
@@ -534,6 +694,12 @@ fn answer_own(worker: &Worker, head: &Head, body: &str) -> String {
         ("POST", "/api/script-open") => answered_or_faulted(script_open(worker, head, body)),
         /* The three the editor pane reads and writes. All of them are about ONE FILE, and all of
            them name it the way every other route names one: a root, and a path within it. */
+        /* The workspace as a caller reads it, which is the host's answer plus what having a worker
+           in front of it adds: the capabilities this worker serves, and the token window, which
+           lives beside the ledger rather than in the host's preference store. */
+        ("GET", "/api/state") => answered_or_faulted(state(worker)),
+        ("POST", "/api/preferences") => answered_or_faulted(preferences(worker, body)),
+        ("POST", "/api/recording") => answered_or_faulted(recording(worker, head, body)),
         ("GET", "/api/diagnostics") => answered_or_faulted(diagnostics(worker, head)),
         ("POST", "/api/ide-mention") => answered_or_faulted(ide_mention(worker, body)),
         ("POST", "/api/ide-selection") => answered_or_faulted(ide_selection(worker, body)),

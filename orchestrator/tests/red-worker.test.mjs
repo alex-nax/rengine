@@ -120,8 +120,10 @@ test('a route the worker does not own reaches the host whole, with the host’s 
 
   /* A POST arrives with its body, which is the half a forwarder gets wrong: framing the request
      from the wrong length sends a body that is short, long, or somebody else's. */
-  const body = JSON.stringify({ rootId: 'r', actionId: 'press' });
-  await ask(started, '/api/dashboard-run', { method: 'POST', body });
+  /* A route that is purely the door's, deliberately: a GATED one would be asked about first and
+     what arrived at the host would be the gate's question rather than the caller's body. */
+  const body = JSON.stringify({ rootId: 'r', path: 'a.png' });
+  await ask(started, '/api/format-preview', { method: 'POST', body });
   assert.equal(upstream.seen.at(-1).method, 'POST');
   assert.equal(upstream.seen.at(-1).body, body, 'the body arrived whole');
 });
@@ -656,3 +658,162 @@ async function settleFiles(directory, timeout = 20000) {
   }
   assert.fail('no editor was published');
 }
+
+/* --- the third category: routes the DOOR answers and the worker must not simply hand on --------- */
+/* A table of "ours" and "theirs" misses these by construction. Stopping a pane, launching a game,
+ * reloading a desktop: the door answers all of them and has no token gate of its own, and must not
+ * grow one (spec 065). A worker that forwarded them unchanged would be a workspace with no
+ * arbitration at all, and nothing about it would look broken.
+ */
+test('a route the door answers is gated here before it is handed on', async t => {
+  const upstream = await host(t, { ...ROOTS, '/api/session': { id: 'pane-1', rootId: 'r', type: 'agent' } });
+  const started = await worker(t, upstream);
+
+  /* With no ledger there is nothing to be refused BY, so each goes through — and what this asserts
+     is that it went through the gate on its way, not around it. The refusal order itself is
+     `serve::token_refusal`'s, and the gate's own answers are the ledger's. */
+  for (const [route, body] of [['/api/game', { rootId: 'r' }], ['/api/dashboard-run', { rootId: 'r', actionId: 'x' }],
+                               ['/api/dashboard-capture', { rootId: 'r', actionId: 'x' }],
+                               ['/api/desktop-action', { rootId: 'r', desktopId: 'd', action: 'reload' }]]) {
+    const answered = await ask(started, route, { method: 'POST', body: JSON.stringify(body) });
+    assert.equal(answered.status, 200, route);
+    assert.equal(upstream.seen.at(-1).url, route, `${route} reached the door after the gate`);
+    assert.equal(upstream.seen.at(-1).body, JSON.stringify(body), 'with its body whole');
+    assert.equal(upstream.seen.at(-1).authorization, `Bearer ${HOST_TOKEN}`);
+  }
+
+  /* A project the workspace does not have is refused before the door is touched. */
+  const before = upstream.seen.length;
+  const unknown = await ask(started, '/api/game', { method: 'POST', body: JSON.stringify({ rootId: 'nope' }) });
+  assert.equal(unknown.status, 404);
+  assert.equal((await unknown.json()).error, 'Unknown project root.');
+  assert.deepEqual(upstream.seen.slice(before).map(request => request.url), ['/api/state'], 'and never forwarded');
+});
+
+/* Stopping a pane is about the project the PANE is in, and only the pane's own record says which.
+ * A caller's claim about it would let an agent gate itself against a project it is not in. */
+test('a pane route is gated on the pane\'s own project, never on the caller\'s claim', async t => {
+  const upstream = await host(t, { ...ROOTS, '/api/session': { id: 'pane-1', rootId: 'r', type: 'agent' } });
+  const started = await worker(t, upstream);
+
+  const stopped = await ask(started, '/api/stop', { method: 'POST', body: JSON.stringify({ id: 'pane-1' }) });
+  assert.equal(stopped.status, 200);
+  /* The pane was asked about — by id, with no root in the body at all — and then the stop went on. */
+  const asked = upstream.seen.map(request => request.url.split('?')[0]);
+  assert.ok(asked.includes('/api/session'), `the pane's own record was read: ${asked.join(', ')}`);
+  assert.equal(upstream.seen.at(-1).url, '/api/stop');
+
+  /* And a pane nobody has is refused here rather than at the door. */
+  const missing = await host(t, { '/api/session': { __status: 404, error: 'Unknown session.' } });
+  const other = await worker(t, missing);
+  const refused = await ask(other, '/api/agent-restart', { method: 'POST', body: JSON.stringify({ id: 'gone' }) });
+  assert.equal(refused.status, 404);
+  assert.deepEqual(missing.seen.map(request => request.url.split('?')[0]), ['/api/session'], 'nothing was restarted');
+});
+
+/* A capability is a promise a caller reads BEFORE it calls: `red-mcp` refuses a tool by name when
+ * the workspace does not advertise it, rather than calling a worker that would pass every gate
+ * because it has none. So a state read is composed here rather than forwarded. */
+test('a state read carries what having a worker in front of the door adds', async t => {
+  const upstream = await host(t, { '/api/state': { roots: [], preferences: { theme: 'dark' },
+    capabilities: { handoff: 1, projectGameLaunch: 1 } } });
+  const started = await worker(t, upstream);
+
+  const read = await ask(started, '/api/state');
+  const state = await read.json();
+  assert.equal(state.capabilities.handoff, 1, "the host's own answer is kept");
+  assert.equal(state.capabilities.agentsMenu, 1, 'and what the worker adds is added');
+  assert.equal(state.preferences.theme, 'dark', 'the preferences the host holds are untouched');
+
+  /* This worker serves no ledger, so it promises none of the three that ride with it — a worker
+     that said `agentToken` here would have every tool call it and every gate pass. */
+  for (const promise of ['agentToken', 'taskWrites', 'agentSpawn']) {
+    assert.equal(state.capabilities[promise], undefined, promise);
+  }
+  assert.equal(state.preferences.tokenWindowMs, undefined, 'and no window, because there is no ledger to hold one');
+
+  /* Launching a game is the HOST's promise: this host declared no game half, so the worker does not
+     repeat it however loudly the host claimed it. */
+  assert.equal(state.capabilities.projectGameLaunch, undefined);
+  assert.equal(state.capabilities.projectGame, 1, 'the preflight is the worker\'s own and answers regardless');
+});
+
+/* The host's preference store allowlists its keys and drops what it does not know, so the token
+ * window is kept beside the LEDGER. A worker that passed the whole body on would have the window
+ * silently dropped and the person's setting never take. */
+test('a preferences write is split, and the window never reaches the store that would drop it', async t => {
+  const upstream = await host(t, { ...ROOTS, '/api/preferences': body => ({ ...body, saved: true }) });
+  const started = await worker(t, upstream);
+
+  const written = await ask(started, '/api/preferences',
+    { method: 'POST', body: JSON.stringify({ theme: 'dark', tokenWindowMs: 60000 }) });
+  /* No ledger here, so the window half is refused by name rather than dropped in silence. */
+  assert.equal(written.status, 409);
+  assert.match((await written.json()).error, /does not serve the project token ledger/);
+  assert.deepEqual(upstream.seen.filter(request => request.url === '/api/preferences'), [],
+    'and nothing was half-written');
+
+  const rest = await ask(started, '/api/preferences', { method: 'POST', body: JSON.stringify({ theme: 'dark' }) });
+  assert.equal(rest.status, 200);
+  assert.deepEqual(JSON.parse(upstream.seen.at(-1).body), { theme: 'dark' }, 'the rest goes to the store that holds it');
+});
+
+/* The same write against a REAL ledger, because the half that matters is invisible without one:
+ * with nothing to keep the window, the route refuses before it forwards anything and a worker that
+ * passed the whole body on would look identical. */
+test('the window is kept beside the ledger and never sent to the store', { timeout: 120000 }, async t => {
+  const upstream = await host(t, { '/api/state': { roots: [], preferences: { theme: 'dark' }, capabilities: {} },
+    '/api/preferences': body => ({ ...body, saved: true }) });
+  const { Tokens } = await import('../runtime/token-client.mjs');
+  const tokens = await Tokens.open(upstream.state, { alive: () => true });
+  t.after(async () => {
+    await tokens.close();
+    try {
+      const descriptor = JSON.parse(await readFile(path.join(upstream.state, 'token.json'), 'utf8'));
+      if (Number.isSafeInteger(descriptor.pid)) process.kill(descriptor.pid, 'SIGKILL');
+    } catch { /* never started, or already gone */ }
+  });
+  const started = await worker(t, upstream);
+
+  const written = await ask(started, '/api/preferences',
+    { method: 'POST', body: JSON.stringify({ theme: 'light', tokenWindowMs: 45000 }) });
+  assert.equal(written.status, 200, JSON.stringify(await written.clone().json()));
+  const answer = await written.json();
+  assert.equal(answer.tokenWindowMs, 45000, 'the caller is told the window that took');
+  assert.equal(answer.theme, 'light', "and the store's own answer");
+  /* The store allowlists its keys and drops what it does not know, so the window must never be
+     among them: a worker that forwarded it whole would have the setting silently never take. */
+  const forwarded = JSON.parse(upstream.seen.filter(request => request.url === '/api/preferences').at(-1).body);
+  assert.equal(forwarded.tokenWindowMs, undefined, `the window never reached the store: ${JSON.stringify(forwarded)}`);
+  assert.equal(forwarded.theme, 'light');
+
+  /* And a state read carries it back, from beside the ledger rather than from the store. */
+  const state = await ask(started, '/api/state').then(read => read.json());
+  assert.equal(state.preferences.tokenWindowMs, 45000);
+  assert.equal(state.capabilities.agentToken, 1, 'this worker serves a ledger, so it says so');
+});
+
+/* The recorder lives in the desktop (spec 081), so a commit is announced BY the desktop — and a
+ * recording frame is a FEED frame, which makes it the feed owner's however it arrives. */
+test('a recording frame is the desktop\'s, and is refused when it is anyone else\'s', async t => {
+  const upstream = await host(t, ROOTS);
+  const started = await worker(t, upstream);
+  const send = (body, headers) => ask(started, '/api/recording', { method: 'POST', body: JSON.stringify(body), headers });
+
+  const anonymous = await send({ rootId: 'r', event: 'committed' });
+  assert.equal(anonymous.status, 403);
+  assert.match((await anonymous.json()).error, /carried no X-Rengine-Desktop header/);
+
+  /* An agent that sent one would be claiming to be the recorder, and the recorder is the thing in
+     front of the person: its header is honoured only in the ABSENCE of an agent's. */
+  const impostor = await send({ rootId: 'r', event: 'committed' },
+    { 'X-Rengine-Agent': '12345678-1234-1234-1234-123456789abc', 'X-Rengine-Desktop': 'desk-1' });
+  assert.equal(impostor.status, 403);
+
+  /* A desktop's own frame gets as far as the ledger, which this worker does not serve. */
+  const desktop = await send({ rootId: 'r', event: 'committed' }, { 'X-Rengine-Desktop': 'desk-1' });
+  assert.equal(desktop.status, 409);
+  assert.match((await desktop.json()).error, /does not serve the project token ledger/);
+  assert.deepEqual(upstream.seen.filter(request => request.url === '/api/recording'), [],
+    'and it was never forwarded to a host that has no feed');
+});
