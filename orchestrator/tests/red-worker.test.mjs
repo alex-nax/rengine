@@ -157,3 +157,22 @@ test('the token is the worker\'s own, and an unidentified caller cannot act on i
 
   assert.deepEqual(upstream.seen, [], 'the worker never asked the host about a token of its own');
 });
+
+/* The menu is built HERE and the live panes come from the host: this worker knows how to run a CLI
+   and ask what it offers; the host knows which roots there are and what is running in them. */
+test('the agents menu is the worker\'s, and a root the host does not have is refused', async t => {
+  const upstream = await host(t);
+  const started = await worker(t, upstream);
+
+  const rootless = await ask(started, '/api/agents-menu');
+  assert.equal(rootless.status, 400);
+  assert.match((await rootless.json()).error, /project root is required/);
+
+  /* The stand-in host answers `{ reached }` with no roots, so any root is unknown — and the worker
+     says which question it could not answer rather than passing the request on. */
+  const unknown = await ask(started, '/api/agents-menu?rootId=nope');
+  assert.equal(unknown.status, 404);
+  assert.equal((await unknown.json()).error, 'Unknown project root.');
+  assert.deepEqual(upstream.seen.map(request => request.url), ['/api/state'],
+    'it asked the host for the roots and nothing else');
+});

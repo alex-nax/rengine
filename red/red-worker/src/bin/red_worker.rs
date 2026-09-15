@@ -160,6 +160,7 @@ async fn connection(worker: Arc<Worker>, mut client: TcpStream) -> io::Result<()
 
 /// The routes this worker answers itself.
 fn answer_own(worker: &Worker, head: &Head, body: &str) -> String {
+    let _ = body;
     match (head.method.as_str(), head.path().as_str()) {
         ("GET", "/api/feed") => {
             let Some(root) = head.query("rootId").filter(|value| !value.is_empty()) else {
@@ -170,6 +171,39 @@ fn answer_own(worker: &Worker, head: &Head, body: &str) -> String {
             };
             let cursor = red_worker::feed::cursor_of(head.query("after").as_deref());
             answered(ledger.call("feedAfter", serde_json::json!([root, cursor, serde_json::Value::Null])))
+        }
+        ("GET", "/api/agents-menu") => {
+            let Some(root) = head.query("rootId").filter(|value| !value.is_empty()) else {
+                return refusal(400, "Bad Request", "A project root is required to list its agents.");
+            };
+            /* The host knows which roots there are and what is running in them; this worker knows
+               how to run a CLI and ask it what it offers. So the menu is built here and the live
+               panes come from there — the same relationship every forwarded route has. */
+            let Ok(state) = ask_host(worker, "GET", "/api/state", "") else {
+                return refusal(502, "Bad Gateway", "The session host did not answer.");
+            };
+            let empty = Vec::new();
+            let roots = state.get("roots").and_then(serde_json::Value::as_array).unwrap_or(&empty);
+            let Some(selected) = roots.iter().find(|item| item.get("id").and_then(serde_json::Value::as_str) == Some(root.as_str()))
+            else {
+                return refusal(404, "Not Found", "Unknown project root.");
+            };
+            let path = selected.get("path").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+            let recipes = red_agents::projection(&red_agents::shipped_recipes());
+            let declared = red_project::declaration::read(&path, None);
+            let mut machine = Machine { root: path };
+            let built = red_worker::menu::build(&root, &recipes, &declared, &mut machine);
+            let short = |agent: &str, id: &str| {
+                red_agents::launch::short_agent_id(&red_agents::shipped_recipes()[..], agent, id)
+            };
+            let live = red_worker::menu::live(
+                state.get("sessions").unwrap_or(&serde_json::Value::Null),
+                &root,
+                &|agent, id| format!("{agent} {}", short(agent, id)),
+            );
+            let mut answer = built.menu.as_object().cloned().unwrap_or_default();
+            answer.insert("live".to_string(), live);
+            json(200, "OK", &serde_json::Value::Object(answer).to_string())
         }
         ("GET", "/api/token") => {
             let Some(root) = head.query("rootId").filter(|value| !value.is_empty()) else {
@@ -224,6 +258,67 @@ fn answer_own(worker: &Worker, head: &Head, body: &str) -> String {
             }
         }
         _ => refusal(404, "Not Found", "Unknown workspace endpoint."),
+    }
+}
+
+/// Running the CLIs a menu has to ask. Bounded the way the JavaScript bounds them: eight seconds
+/// and a quarter-megabyte, and a CLI that does not answer contributes nothing rather than failing.
+struct Machine {
+    root: String,
+}
+
+impl red_worker::menu::Ask for Machine {
+    fn installed(&mut self) -> String {
+        let script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(std::path::Path::parent)
+            .map(|checkout| checkout.join("scripts/agent.sh"))
+            .unwrap_or_default();
+        bounded("/bin/bash", &[&script.to_string_lossy(), "--project", &self.root, "--action", "list"])
+    }
+
+    fn help(&mut self, cli: &str) -> String {
+        bounded(cli, &["--help"])
+    }
+}
+
+/// One process, with a deadline and a cap. Its failure is an empty answer, because a CLI that will
+/// not describe itself is a CLI with nothing to add to a menu — not a reason to refuse one.
+fn bounded(file: &str, args: &[&str]) -> String {
+    use std::process::{Command, Stdio};
+    let Ok(mut child) = Command::new(file).args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn()
+    else {
+        return String::new();
+    };
+    let deadline = std::time::Instant::now() + std::time::Duration::from_millis(red_worker::menu::HELP_TIMEOUT_MS);
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) if std::time::Instant::now() < deadline => std::thread::sleep(std::time::Duration::from_millis(20)),
+            /* Past its deadline, or unwaitable: killed, and whatever it managed to say is dropped —
+               a half-written help is not a model list. */
+            _ => {
+                let _ = child.kill();
+                return String::new();
+            }
+        }
+    }
+    let mut text = String::new();
+    if let Some(mut out) = child.stdout.take() {
+        use std::io::Read;
+        let mut buffer = Vec::new();
+        let _ = out.take(red_worker::menu::HELP_LIMIT as u64).read_to_end(&mut buffer);
+        text = String::from_utf8_lossy(&buffer).to_string();
+    }
+    text
+}
+
+/// One question for the session host, answered as JSON.
+fn ask_host(worker: &Worker, method: &str, route: &str, body: &str) -> Result<serde_json::Value, String> {
+    if method == "GET" {
+        red_core::http::get(&worker.host, &worker.host_token, route)
+    } else {
+        red_core::http::post(&worker.host, &worker.host_token, route, &serde_json::from_str(body).unwrap_or(serde_json::Value::Null), &[])
     }
 }
 

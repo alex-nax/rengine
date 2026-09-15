@@ -13,6 +13,9 @@ red-core = { path = "../red-core" }
 red-token = { path = "../red-token" }
 serde_json = { version = "1", features = ["preserve_order"] }
 red-project = { path = "../red-project" }
+# The recipes the agent menu is built from: which CLIs there are, and which keep their models in
+# their own --help rather than declaring them.
+red-agents = { path = "../red-agents" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "sync"] }
 
 # The worker as a process: the supervisor spawns this where it spawned node.

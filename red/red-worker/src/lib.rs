@@ -13,5 +13,6 @@
 
 pub mod feed;
 pub mod identity;
+pub mod menu;
 pub mod scripts;
 pub mod serve;

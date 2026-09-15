@@ -2811,6 +2811,7 @@ name = "red-worker"
 version = "0.1.0"
 dependencies = [
  "futures-util",
+ "red-agents",
  "red-core",
  "red-project",
  "red-token",

@@ -2,7 +2,7 @@
 
 Owner goal, 2026-09-15: *"finish remaining js"* (charter D57, spec 129; F158).
 
-Status: **in progress — 3 of 15 routes answered, the front door, the feed's core and fan-out, and the script rules.**
+Status: **in progress — 4 of 15 routes answered, the front door, the feed's core and fan-out, and the script rules.**
 
 ## The measurement that shaped this
 
@@ -29,7 +29,7 @@ rather than on the day a single enormous commit is reviewed.
 | `GET /api/feed` | the ledger service | **done** |
 | `GET /api/token` | the ledger service | **done** |
 | `POST /api/token-action` | the ledger service | **done** |
-| `GET /api/agents-menu` | `red_project::tasks::agents_menu`, plus `agent.sh --action list` and one `--help` per CLI, plus the live panes from the host's `/api/state` | crate exists |
+| `GET /api/agents-menu` | — | **done** |
 | `POST /api/task` | the token gate, a per-root serialisation, `red_project::tasks::task_write`, a feed frame, and the tracker read back — **the tracker is F154's** unless the worker asks the door for it, which it may, since it already forwards there | crate exists |
 | `POST /api/agent-spawn` | the token gate, `red_agents::spawn`, and the host's own pane spawn | crate exists |
 | `POST /api/script-open` | the desktop registry and the host's pane spawn; **its rules are done** — `scripts::script_path` judges the resolved path, `scripts::script_arguments` the bounds | half |
