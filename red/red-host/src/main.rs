@@ -40,6 +40,7 @@ mod head;
 mod images;
 mod panes;
 mod routes;
+mod surfaces;
 
 use desktops::Desktops;
 use events::Hub;
