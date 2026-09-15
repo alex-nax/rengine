@@ -116,31 +116,24 @@ mod tests {
         }
     }
 
-    /* A refusal a person ACTS on is a contract. While `worker.mjs` is here it is the authority;
-       when it goes this becomes a claim about a file that does not exist and is replaced by the
-       recorded answers, the way every other parity proof here was. */
+    /// The sentences `runtime/worker.mjs` refused with on the day it was replaced (F173).
+    fn recorded(name: &str) -> String {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(|red| red.parent())
+            .expect("the checkout")
+            .join("orchestrator/tests/worker-routes-fixtures.json");
+        let record: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).expect("the recorded answers")).expect("a record");
+        record["sentences"][name].as_str().expect("a sentence").to_string()
+    }
+
+    /* A refusal a person ACTS on is a contract, so it is judged against what they used to get —
+       recorded before the module that said it was deleted, and frozen: a record that moved with the
+       implementation would prove nothing. */
     #[test]
-    fn the_old_host_sentence_is_the_javascripts() {
-        let worker = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().and_then(|red| red.parent())
-            .expect("the checkout").join("orchestrator/runtime/worker.mjs");
-        let Ok(js) = std::fs::read_to_string(&worker) else { return };
-        let Some(at) = js.find("task-driven agent panes") else {
-            panic!("the JavaScript no longer refuses an old host in these words");
-        };
-        let start = js[..at].rfind('\'').expect("an opening quote") + 1;
-        let (mut text, mut escaped) = (String::new(), false);
-        for character in js[start..].chars() {
-            match character {
-                _ if escaped => {
-                    text.push(character);
-                    escaped = false;
-                }
-                '\\' => escaped = true,
-                '\'' => break,
-                _ => text.push(character),
-            }
-        }
-        assert_eq!(text, OLD_HOST, "the refusal a person acts on has drifted from the one they used to get");
+    fn the_old_host_sentence_is_the_one_a_person_used_to_get() {
+        assert_eq!(recorded("OLD_HOST"), OLD_HOST, "the refusal a person acts on has drifted");
     }
 
     /* The other old-host refusal, and it names the same kind of thing: what would happen, not which
@@ -158,30 +151,10 @@ mod tests {
         }
     }
 
-    /* Both old-host sentences are ones a person acts on, so both are checked against the JavaScript
-       while it is still here — the same device as `the_old_host_sentence_is_the_javascripts`. */
+    /* Both old-host sentences are ones a person acts on, so both are judged the same way. */
     #[test]
-    fn the_old_game_host_sentence_is_the_javascripts() {
-        let worker = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().and_then(|red| red.parent())
-            .expect("the checkout").join("orchestrator/runtime/worker.mjs");
-        let Ok(js) = std::fs::read_to_string(&worker) else { return };
-        let Some(at) = js.find("predates per-project game declarations") else {
-            panic!("the JavaScript no longer refuses an old host in these words");
-        };
-        let start = js[..at].rfind('\'').expect("an opening quote") + 1;
-        let (mut text, mut escaped) = (String::new(), false);
-        for character in js[start..].chars() {
-            match character {
-                _ if escaped => {
-                    text.push(character);
-                    escaped = false;
-                }
-                '\\' => escaped = true,
-                '\'' => break,
-                _ => text.push(character),
-            }
-        }
-        assert_eq!(text, OLD_GAME_HOST, "the refusal a person acts on has drifted from the one they used to get");
+    fn the_old_game_host_sentence_is_the_one_a_person_used_to_get() {
+        assert_eq!(recorded("OLD_GAME_HOST"), OLD_GAME_HOST, "the refusal a person acts on has drifted");
     }
 
     #[test]

@@ -324,39 +324,29 @@ mod tests {
        worker's", and six of them are still the worker's to GATE. Forwarding one unchanged is a
        workspace with no arbitration, and nothing about it looks broken. */
     #[test]
-    fn every_gate_the_javascript_worker_asks_for_is_asked_for_here() {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().and_then(|red| red.parent()).expect("the checkout");
-        let Ok(js) = std::fs::read_to_string(root.join("orchestrator/runtime/worker.mjs")) else {
-            return;
-        };
-        /* `gate(req, <root>, '<tool>')`, and the route is the nearest `target.pathname ===` above
-           it — which is how the file reads, one route per `else if`. */
-        let mut route = None;
+    fn every_gate_the_javascript_worker_asked_for_is_asked_for_here() {
+        let record = recorded();
         let mut missing = Vec::new();
-        for line in js.lines() {
-            if let Some((method, path)) = js_route(line) {
-                route = Some((method, path));
-            }
-            let Some(at) = line.find("gate(req,") else { continue };
-            let Some((method, path)) = route.clone() else { continue };
-            let asked = &line[at..];
-            /* A tool spelled with a template literal is the action's, and the table says so by
+        for asked in record["gates"].as_array().expect("gates") {
+            let (method, path) = (asked["method"].as_str().expect("a method"), asked["path"].as_str().expect("a path"));
+            let tool = asked["tool"].as_str().expect("a tool");
+            /* A tool spelled with a template literal is the action's, and the tables say so by
                naming the family rather than one action. */
-            let tool = asked.split(['\'', '`']).nth(1).unwrap_or_default().to_string();
-            let names = if asked.contains("snapshot(") { Names::Session } else { Names::Root };
+            let names = if asked["namedBy"] == serde_json::json!("session") { Names::Session } else { Names::Root };
             /* A route this worker ANSWERS carries its gate inside itself, and `gates_internally` is
                where that is written down — `own_route` alone must never excuse a gate, or adding a
                route to it would silently stop this test asking about one. */
-            if let Some(named) = gates_internally(&method, &path) {
+            if let Some(named) = gates_internally(method, path) {
                 assert!(tool.starts_with(named.trim_end_matches('_')), "{method} {path} is gated on {tool} and this table says {named}");
                 continue;
             }
-            match gated(&method, &path) {
+            match gated(method, path) {
                 Some((named, wanted)) if tool.starts_with(named.trim_end_matches('_')) && wanted == names => {}
                 _ => missing.push(format!("{method} {path} is gated on {tool} and this table does not say so")),
             }
         }
         assert!(missing.is_empty(), "{missing:#?}");
+        assert_eq!(record["gates"].as_array().expect("gates").len(), 10, "every gate the JavaScript asked for");
     }
 
     /* Stopping a pane is about the project the PANE is in, and only the pane's record says which —
@@ -396,49 +386,39 @@ mod tests {
         assert_eq!(gated("GET", "/api/stop"), None, "the stop is a POST");
     }
 
-    /* The table against the module it replaces, read from source. `runtime/worker.mjs` is still
-       here and is still the authority on which routes are the worker's; when it goes, this becomes
-       a claim about a file that no longer exists and is replaced by the recorded answers the way
-       every other parity proof here was. Until then, drift between the two is a bug in one of them.
+    /// The answers `runtime/worker.mjs` gave on the day it was replaced.
+    ///
+    /// **Recorded, not read live.** A parity proof cannot outlive the side it compares against
+    /// (F173): the module is gone, so what it said is the evidence now, and it is frozen — a record
+    /// that moved with the implementation would prove nothing.
+    fn recorded() -> serde_json::Value {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(|red| red.parent())
+            .expect("the checkout")
+            .join("orchestrator/tests/worker-routes-fixtures.json");
+        serde_json::from_str(&std::fs::read_to_string(&path).expect("the recorded answers")).expect("a record")
+    }
 
-       It caught one on its first run: `/api/session-view` is a POST and this table said GET. */
+    /* The table against the module it replaced. It caught one on its first run: `/api/session-view`
+       is a POST and this table said GET. */
     #[test]
-    fn the_table_is_what_the_javascript_worker_uniquely_serves() {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().and_then(|red| red.parent()).expect("the checkout");
-        let worker = root.join("orchestrator/runtime/worker.mjs");
-        let Ok(js) = std::fs::read_to_string(&worker) else {
-            /* The module is gone: this claim has outlived its subject and the recorded corpus is
-               the evidence now. Saying so beats passing quietly. */
-            return;
-        };
-        let door = ["routes.rs", "main.rs"]
-            .iter()
-            .filter_map(|name| std::fs::read_to_string(root.join("red/red-host/src").join(name)).ok())
-            .collect::<String>();
-
+    fn the_table_is_what_the_javascript_worker_uniquely_served() {
+        let record = recorded();
         let mut missing = Vec::new();
-        for line in js.lines() {
-            let Some((method, path)) = js_route(line) else { continue };
-            /* A route the door already answers is not the worker's, however the worker spells it. */
-            if door.contains(&format!("\"{path}\"")) {
+        for route in record["routes"].as_array().expect("routes") {
+            let (method, path) = (route["method"].as_str().expect("a method"), route["path"].as_str().expect("a path"));
+            /* A route the door already answers is not the worker's, however the worker spelled it —
+               except for the handful this worker COMPOSES, which `own_route` lists deliberately. */
+            if route["alsoTheDoors"] == serde_json::json!(true) && !own_route(method, path) {
                 continue;
             }
-            if !own_route(&method, &path) {
+            if !own_route(method, path) {
                 missing.push(format!("{method} {path}"));
             }
         }
-        assert!(missing.is_empty(), "the JavaScript worker serves these and this table does not: {missing:?}");
-    }
-
-    /// `req.method === 'X' && target.pathname === '/api/y'`, as the worker writes it.
-    fn js_route(line: &str) -> Option<(String, String)> {
-        let (before, after) = line.split_once("target.pathname === '")?;
-        let path = after.split('\'').next()?.to_string();
-        if !path.starts_with("/api/") {
-            return None;
-        }
-        let method = before.split("req.method === '").nth(1)?.split('\'').next()?.to_string();
-        Some((method, path))
+        assert!(missing.is_empty(), "the JavaScript worker served these and this table does not: {missing:?}");
+        assert!(record["routes"].as_array().expect("routes").len() >= 30, "the record is the whole dispatcher, not a sample");
     }
 
     /* The refusal order, which is the JavaScript's and is load-bearing: reversing the ledger and

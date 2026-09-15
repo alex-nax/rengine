@@ -1,0 +1,248 @@
+{
+  "recordedFrom": "orchestrator/runtime/worker.mjs",
+  "recordedAt": "2026-09-15",
+  "why": "F173: a parity proof cannot outlive the side it compares against. These are the answers runtime/worker.mjs gave on the day red-worker replaced it, so serve::own_route, serve::gated and spawn's two refusals keep being judged against something after the module is deleted. Never regenerate: a record that moves with the implementation proves nothing.",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/state",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/preferences",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/token",
+      "alsoTheDoors": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/token-action",
+      "alsoTheDoors": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/recording",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/feed",
+      "alsoTheDoors": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/script-open",
+      "alsoTheDoors": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/session-view",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/formats",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/format-preview",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/worktrees",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/bytes",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/game-config",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/devices",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/game",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/stop",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent-restart",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/update-workspace",
+      "alsoTheDoors": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/recordings",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/recording",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/tracker",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/task",
+      "alsoTheDoors": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent-spawn",
+      "alsoTheDoors": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/agents-menu",
+      "alsoTheDoors": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/tracker/signin",
+      "alsoTheDoors": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/diagnostics",
+      "alsoTheDoors": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/ide-mention",
+      "alsoTheDoors": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/ide-selection",
+      "alsoTheDoors": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/tracker/signout",
+      "alsoTheDoors": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/dashboard",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/dashboard-run",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/dashboard-capture",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/desktops",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/runtime-desktops",
+      "alsoTheDoors": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/desktop-action",
+      "alsoTheDoors": true
+    }
+  ],
+  "gates": [
+    {
+      "method": "POST",
+      "path": "/api/script-open",
+      "tool": "open_script",
+      "namedBy": "root"
+    },
+    {
+      "method": "POST",
+      "path": "/api/game",
+      "tool": "launch_game",
+      "namedBy": "root"
+    },
+    {
+      "method": "POST",
+      "path": "/api/stop",
+      "tool": "stop_session",
+      "namedBy": "session"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent-restart",
+      "tool": "restart_agent",
+      "namedBy": "session"
+    },
+    {
+      "method": "POST",
+      "path": "/api/update-workspace",
+      "tool": "update_workspace",
+      "namedBy": "root"
+    },
+    {
+      "method": "POST",
+      "path": "/api/task",
+      "tool": "task_${data.action ?? ",
+      "namedBy": "root"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent-spawn",
+      "tool": "spawn_agent",
+      "namedBy": "root"
+    },
+    {
+      "method": "POST",
+      "path": "/api/dashboard-run",
+      "tool": "dashboard_run",
+      "namedBy": "root"
+    },
+    {
+      "method": "POST",
+      "path": "/api/dashboard-capture",
+      "tool": "dashboard_capture",
+      "namedBy": "root"
+    },
+    {
+      "method": "POST",
+      "path": "/api/desktop-action",
+      "tool": "reload_desktop",
+      "namedBy": "root"
+    }
+  ],
+  "sentences": {
+    "OLD_HOST": "This retained session host predates task-driven agent panes: it neither records the task on a conversation nor passes a pane's arguments to its CLI, so a spawn would start an agent with no prompt. Replacing the session host requires quiescence. Nothing was started.",
+    "OLD_GAME_HOST": "This retained session host predates per-project game declarations and would launch its removed built-in game; game_preflight answers from the declaration. Replacing the session host requires quiescence."
+  }
+}
