@@ -78,13 +78,26 @@ struct Front {
     /// Everyone watching `/events`, and the desktops among them.
     hub: Arc<Hub>,
     desktops: Desktops,
+    /// Where the ledger this door pushes segments from lives, once a worker has said.
+    ///
+    /// The ledger is in the WORKER's directory rather than this one — an accident of which
+    /// `--state` each process was given, and spec 143 recommends moving it here beside the store and
+    /// the PTYs. Until that move, the worker says where it is on its way up: it is the process that
+    /// knows, and the door is the process that needs to know. One call, replaced by nothing when the
+    /// ledger moves.
+    ledger_directory: Mutex<Option<String>>,
     /// The directory's token ledger, attached for the desktop's sake alone (spec 095, spec 143).
     ///
     /// The worker owns the token's ROUTES; the door owns the desktop's view of it, because the
     /// registry is the door's and the pinned status-bar segment is pushed over the socket a desktop
     /// registered on. That is what lets the segment never poll — and, with the registry here rather
     /// than in a worker, what makes a worker being replaced something no desktop can notice.
-    tokens: Option<red_core::service::Client>,
+    ///
+    /// Attached lazily, because at start-up there is no worker yet and so no ledger to attach to.
+    tokens: Mutex<Option<red_core::service::Client>>,
+    /// Roots whose segment is wanted, for the task that does the asking: the client's event callback
+    /// runs on the client's own reader and a call from there would be the reader waiting for itself.
+    wants: tokio::sync::mpsc::UnboundedSender<String>,
     /// The surfaces games stream into (F155, spec 142): the loopback listener this door opened, the
     /// reservations it has minted, and the viewers attached to each. `None` when the listener could
     /// not be opened, and then a game that streams into a pane is refused rather than launched
@@ -286,39 +299,15 @@ async fn serve(options: Options) -> Result<(), String> {
        there would be the reader waiting for itself. So it names the project and a task does the
        asking. */
     let (wants, mut wanted) = tokio::sync::mpsc::unbounded_channel::<String>();
-    let tokens = red_core::service::Client::attaching(
-        std::path::Path::new(&options.state),
-        "token",
-        TOKEN_PROTOCOL,
-        Box::new(move |event: &serde_json::Value| {
-            /* A `token.*` frame moved the ledger, so every desktop bound to that project is pushed
-               the pinned segment — which is what lets the status bar never poll. Any other frame is
-               somebody else's business and reaches a desktop over the feed, not over this socket. */
-            let moved = event.get("event").and_then(serde_json::Value::as_str) == Some("frame")
-                && event
-                    .get("frame")
-                    .and_then(|frame| frame.get("type"))
-                    .and_then(serde_json::Value::as_str)
-                    .is_some_and(|kind| kind.starts_with("token."));
-            if !moved {
-                return;
-            }
-            if let Some(root) = event.get("rootId").and_then(serde_json::Value::as_str) {
-                let _ = wants.send(root.to_string());
-            }
-        }),
-    )
-    .unwrap_or_else(|message| {
-        eprintln!("red-host: no token ledger ({message}). A desktop's token segment will not update.");
-        None
-    });
     let front = Arc::new(Front {
         store,
         pty,
         panes,
         hub: hub.clone(),
         desktops,
-        tokens,
+        ledger_directory: Mutex::new(None),
+        tokens: Mutex::new(None),
+        wants,
         surfaces,
         viewers: std::sync::atomic::AtomicU64::new(0),
         token: secret(),
@@ -541,6 +530,27 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
             if !head.keeps_alive() { return Ok(()); }
             continue;
         }
+        /* A worker saying where the ledger it serves lives, so this door can push a desktop's token
+           segment from it. Only a worker can reach this: it is an api route behind this door's own
+           token. Idempotent, so every worker that starts may say so. */
+        if head.path() == "/api/ledger" && head.method == "POST" {
+            let body = head.read_body(&mut client, &mut buffered).await?;
+            let named: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
+            let directory = named.get("directory").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+            let answer = if directory.is_empty() {
+                faulted("400|Name the directory the ledger is served from.")
+            } else {
+                let told = front.clone();
+                match tokio::task::spawn_blocking(move || attach_ledger(&told, &directory)).await {
+                    Ok(Ok(attached)) => http_json(200, "OK", &serde_json::json!({ "attached": attached })),
+                    Ok(Err(message)) => faulted(&format!("409|{message}")),
+                    Err(error) => faulted(&format!("500|{error}")),
+                }
+            };
+            client.write_all(answer.as_bytes()).await?;
+            if !head.keeps_alive() { return Ok(()); }
+            continue;
+        }
         /* Every desktop on this workspace, whatever root it is bound to, and the last registration
            this door refused. A launcher waiting for a window it just started has no root to filter
            by yet, and needs the reason when none appears (spec 098). */
@@ -677,11 +687,58 @@ pub(crate) async fn ask_pty(front: &Arc<Front>, method: &str, args: serde_json::
 pub(crate) async fn ask_token(front: &Arc<Front>, method: &str, args: serde_json::Value) -> Result<serde_json::Value, String> {
     let front = front.clone();
     let method = method.to_string();
-    match tokio::task::spawn_blocking(move || front.tokens.as_ref().map(|client| client.call(&method, args))).await {
+    match tokio::task::spawn_blocking(move || {
+        front.tokens.lock().expect("tokens lock").as_ref().map(|client| client.call(&method, args))
+    })
+    .await
+    {
         Ok(Some(outcome)) => outcome,
         Ok(None) => Err("409|This workspace does not serve the project token ledger.".to_string()),
         Err(error) => Err(format!("500|{error}")),
     }
+}
+
+/// Attach to the ledger a worker has just named, unless this door already has one.
+///
+/// Told rather than found: the ledger is in the worker's directory rather than this one, and the
+/// worker is the process that knows. Idempotent, because every worker that starts says so and a
+/// second attach would be a second reader of one stream.
+pub(crate) fn attach_ledger(front: &Arc<Front>, directory: &str) -> Result<bool, String> {
+    {
+        let held = front.ledger_directory.lock().expect("ledger directory");
+        if held.as_deref() == Some(directory) && front.tokens.lock().expect("tokens lock").is_some() {
+            return Ok(false);
+        }
+    }
+    let wants = front.wants.clone();
+    let client = red_core::service::Client::attaching(
+        std::path::Path::new(directory),
+        "token",
+        TOKEN_PROTOCOL,
+        Box::new(move |event: &serde_json::Value| {
+            /* A `token.*` frame moved the ledger, so every desktop bound to that project is pushed
+               the pinned segment — which is what lets the status bar never poll. Any other frame is
+               somebody else's business and reaches a desktop over the feed, not over this socket. */
+            let moved = event.get("event").and_then(serde_json::Value::as_str) == Some("frame")
+                && event
+                    .get("frame")
+                    .and_then(|frame| frame.get("type"))
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|kind| kind.starts_with("token."));
+            if !moved {
+                return;
+            }
+            if let Some(root) = event.get("rootId").and_then(serde_json::Value::as_str) {
+                let _ = wants.send(root.to_string());
+            }
+        }),
+    )?;
+    let attached = client.is_some();
+    if attached {
+        *front.tokens.lock().expect("tokens lock") = client;
+        *front.ledger_directory.lock().expect("ledger directory") = Some(directory.to_string());
+    }
+    Ok(attached)
 }
 
 /// A desktop acting on the project token, over the socket it registered on.
@@ -808,7 +865,9 @@ mod tests {
             surfaces: None,
             viewers: std::sync::atomic::AtomicU64::new(0),
             store: None, pty: None, panes: Arc::new(Mutex::new(std::collections::HashMap::new())),
-            hub: Arc::new(Hub::new()), desktops: Desktops::new(), tokens: None,
+            hub: Arc::new(Hub::new()), desktops: Desktops::new(),
+            ledger_directory: Mutex::new(None), tokens: Mutex::new(None),
+            wants: tokio::sync::mpsc::unbounded_channel().0,
             token: "a".repeat(64), instance: "i".into(), state: "/tmp/x".into(), url: "http://127.0.0.1:1".into(),
             backend: "http://127.0.0.1:2".into(), backend_token: "b".repeat(64),
             probes: red_project::devices::Probes::default(),

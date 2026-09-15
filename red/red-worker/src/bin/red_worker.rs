@@ -239,6 +239,15 @@ async fn main() -> std::process::ExitCode {
         });
     }
 
+    /* The door pushes a desktop's token segment, and the ledger is in THIS directory rather than
+       its own — so it is told where. The worker is the process that knows; the door is the process
+       that needs to know. Spec 143 recommends moving the ledger beside the store and the PTYs, at
+       which point the door attaches on its own and this call goes. */
+    if worker.ledger.is_some() {
+        if let Err(fault) = ask_host(&worker, "POST", "/api/ledger", &serde_json::json!({ "directory": state }).to_string()) {
+            eprintln!("red-worker: the door could not attach to this ledger ({fault}). A desktop's token segment will not update.");
+        }
+    }
     /* The open pairs this worker inherits, and then the stream that closes them. A worker replaced
        mid-game reads its predecessor's `game.started` frames back out of the ring, so the `ended`
        half still lands and a monitor is not left with a game that never stopped. */

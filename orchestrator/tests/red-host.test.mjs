@@ -502,6 +502,13 @@ test('a desktop registers on the door and answers what the workspace asks it', {
      spending the production four seconds on it. */
   const door = await front(t, stateDir, backend, { RENGINE_DESKTOP_ACTION_MS: '700' });
   const instance = { url: door.url, token: JSON.parse(await readFile(path.join(stateDir, 'sidecar.json'), 'utf8')).token };
+  /* A door is TOLD where the ledger is, because it is in the worker's directory rather than its own
+     and the worker is the process that knows (spec 143). Here this test is that worker. */
+  const attached = await ask(instance, '/api/ledger', { directory: stateDir });
+  assert.equal(attached.status, 200);
+  assert.equal((await attached.json()).attached, true, 'the door attached to the ledger it was told about');
+  const again = await ask(instance, '/api/ledger', { directory: stateDir });
+  assert.equal((await again.json()).attached, false, 'and a second telling is not a second reader');
 
   /* Started at the backend: both hosts are given the same registration frame below, and the JS
      host can only judge a binding for a pane it holds. */

@@ -14,9 +14,8 @@ import { existsSync } from 'node:fs';
 import { windowStore, nativeControl, inspectWindow } from './windows.mjs';
 
 const defaultWorker = fileURLToPath(new URL('./worker.mjs', import.meta.url));
-/* The workspace worker in Rust (F158, spec 129, charter D57), which `startRuntime` runs when it is
-   handed `workerFile: null` — and will run by default once it answers the project routes above a
-   retained host (spec 143). Resolved the way every other Rust client here is resolved — the
+/* The workspace worker (F158, spec 129, charter D57): red-worker, which is what `startRuntime` runs
+   unless a caller hands it something else. Resolved the way every other Rust client here is resolved — the
    environment names one, then the release build, then the debug build — and a missing binary is named with the command that makes one, because this is the
    failure a person meets running a workspace out of a fresh clone. */
 export function redWorkerBinary(env = process.env) {
@@ -125,7 +124,7 @@ async function startWorker(host, filename, directory, idePort) {
   } catch (error) { child.kill(); throw error; }
 }
 
-export async function startRuntime({ host, directory, initial, binary = nativeBinary, workerFile = defaultWorker,
+export async function startRuntime({ host, directory, initial, binary = nativeBinary, workerFile = null,
   buildDesktop = prepareDesktop, toolWorkerFile = null, buildConnector = buildConnectorDefault, inspectUI = false, onDesktop = () => {} } = {}) {
   host = checkConnection(host);
   if (!path.isAbsolute(directory)) fail('Runtime directory must be absolute.');
@@ -133,11 +132,9 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
   const namedWorker = toolWorkerFile !== null;
   toolWorkerFile = path.resolve(toolWorkerFile ?? redMcpBinary());
   const hostState = async () => { const state = await call(host, 'state'); if (state.instance !== host.instance) fail('Original session host is no longer available.'); return state; };
-  /* `null` asks for the binary, resolved here rather than at module load so a checkout with no
-     build yet says so when a workspace is opened rather than when this file is imported. The
-     DEFAULT is still `worker.mjs`: red-worker answers everything above a current door and does not
-     yet answer the PROJECT routes above a retained host, which is the case spec 065 exists for
-     (spec 143). */
+  /* The default, resolved here rather than at module load so a checkout with no build yet says so
+     when a workspace is opened rather than when this file is imported. `worker.mjs` is still
+     accepted — it is what `runtime.test.mjs` hands in — and goes when the last caller does. */
   workerFile = workerFile ?? redWorkerBinary();
   await hostState(); await mkdir(directory, { recursive: true, mode: 0o700 });
   /* One port for this runtime's whole life, handed to every worker it starts. Claude Code reconnects

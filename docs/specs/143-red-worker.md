@@ -2,7 +2,7 @@
 
 Owner goal, 2026-09-15: *"finish remaining js"* (charter D57, spec 129; F158).
 
-Status: **the supervisor can run `red-worker`, and does not yet by default.** Every route is answered — including the project's own, `dashboard-run`, and F154's two tracker routes — both sockets are served, and the host's own stream is followed. **One thing stands between here and the default**, and it is a design question rather than a port: where the token segment is pushed from.
+Status: **cut over.** The supervisor runs `red-worker` by default. Every route is answered — the project's own, `dashboard-run`, F154's two tracker routes — both sockets are served, and the host's own stream is followed.
 
 `docs/js-retirement-status.md` is the whole picture this row sits in: what JavaScript is left, which
 caller each file retires with, and the order the remaining four callers come off in.
@@ -164,13 +164,13 @@ the lock buys beyond the service's refusal is that no doomed process is spawned,
 died is reclaimed rather than blocking the survivor forever, and one held by a live process is
 refused by name with nothing started.
 
-## The one thing left, and it is a question
+## The last thing, and where it landed
 
-Turning the default on now passes every spec except `token-retirement.test.mjs`, which fails on one
-assertion: *the contest is on the desktop before the layer moves*. The **pinned token segment** does
-not reach the desktop.
+Turning the default on failed one assertion: *the contest is on the desktop before the layer moves*.
+The **pinned token segment** was not reaching the desktop, and the reason is worth keeping because it
+is the shape of the whole split.
 
-It needs two things that are no longer in one place:
+The segment needs two things that are no longer in one place:
 
 - the **ledger**, which is the worker's, and lives in the **runtime directory**
   (`runtimeDirectory(host)`);
@@ -181,23 +181,30 @@ It needs two things that are no longer in one place:
 ledger it does not know the directory of, and the worker cannot see a desktop register because it
 tunnels `/events` byte for byte — deliberately, so a pane's bytes are never a second opinion.
 
-Three ways out, and the choice is the owner's because it touches D60/D61 and spec 095:
+Four ways out were on the table. Three of them move something:
 
 1. **The ledger moves to the host's state directory**, beside the store and the PTYs. Then the door
-   attaches to it as it attaches to those, pushes the segment itself, and the split is clean: the
-   worker owns the token's ROUTES, the door owns the desktop's view. It also stops a ledger dying
-   with a runtime directory, which is what KI-123's 1134 of them are. It is a data-location change,
-   so it needs a migration for a workspace that has one where it is now.
-2. **The worker asks the door to push**, over a new host route. Small, but it leaves the door unable
-   to push on REGISTRATION — only the door knows a desktop just registered, and only the worker can
-   build the segment — so it needs the door to ask back, and then both directions exist.
-3. **The worker terminates `/events`** rather than tunnelling it, as `worker.mjs` did, and pushes on
-   the socket it serves. That is the shape that works today, and it gives up the property that a
-   pane's bytes pass through untouched.
+   attaches to it as it attaches to those. It also stops a ledger living in a runtime directory,
+   which is what KI-123's 1134 of them are. It is a **data-location change** and needs a migration
+   for a workspace that already has one where it is now.
+2. **The worker asks the door to push**, over a new route. Small, but it leaves the door unable to
+   push on REGISTRATION — only the door knows a desktop just registered, and only the worker can
+   build the segment — so it needs a second direction of traffic.
+3. **The worker terminates `/events`** rather than tunnelling it, as `worker.mjs` did. That gives up
+   the property that a pane's bytes pass through untouched.
 
-**(1) is the recommendation.** The ledger is a workspace fact and the workspace's state directory is
-where workspace facts live; the other two both add a direction of traffic to work around where it
-currently sits.
+And the fourth, which is what shipped: **the worker TELLS the door where the ledger is**, once, on
+its way up (`POST /api/ledger`). The worker is the process that knows and the door is the process
+that needs to know. The door then attaches as it attaches to the store and the PTY service, and
+pushes on registration and on every transition from its own client — no second direction, nothing
+moved, and no data migration.
+
+It is idempotent: every worker that starts says so, and a second telling is not a second reader of
+one stream.
+
+**(1) is still the right long-term home**, and this is reversible into it: when the ledger moves
+beside the store and the PTYs, the door attaches on its own and the route and the call both go. What
+(4) buys is that the cutover did not have to wait on moving a person's token history.
 
 ## What the default cutover needed, and now has
 

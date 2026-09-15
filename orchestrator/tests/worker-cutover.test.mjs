@@ -52,12 +52,9 @@ test('the supervisor runs red-worker, and replaces it the way a layered update d
   });
   const root = await host.store.addRoot(project);
 
-  /* `null` asks the supervisor to resolve the binary, which is the cutover. It is not the DEFAULT
-     yet: red-worker answers everything above a current host and does not yet answer the project
-     routes above a RETAINED one, which is the case spec 065 exists for and which `games.test.mjs`,
-     `dashboard.test.mjs` and `hot-update.test.mjs` assert. */
+  /* No `workerFile`: the supervisor resolves the binary itself, which is the cutover. */
   assert.ok(redWorkerBinary().endsWith('red-worker'));
-  runtime = await startRuntime({ host, directory: runtimeDir, workerFile: null });
+  runtime = await startRuntime({ host, directory: runtimeDir });
 
   /* A workspace, through the binary. The capabilities are the ones having a WORKER adds — the
      host alone promises none of them — and the ledger's three say a ledger is actually served. */
