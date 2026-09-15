@@ -91,6 +91,49 @@ impl Watcher {
     }
 }
 
+/// Everyone watching a feed, and the root each is watching.
+///
+/// The ledger pushes one stream of events for the whole state directory; a watcher asked about ONE
+/// root. So the fan-out filters by root — a watcher handed another project's frames would show a
+/// monitor events from a workspace it is not looking at.
+#[derive(Default)]
+pub struct Watchers {
+    watching: std::sync::Mutex<Vec<(u64, String, Arc<Watcher>)>>,
+    next: std::sync::atomic::AtomicU64,
+}
+
+impl Watchers {
+    pub fn join(&self, root: &str, watcher: Arc<Watcher>) -> u64 {
+        let id = self.next.fetch_add(1, Ordering::SeqCst);
+        self.watching.lock().expect("watchers").push((id, root.to_string(), watcher));
+        id
+    }
+
+    pub fn leave(&self, id: u64) {
+        self.watching.lock().expect("watchers").retain(|(held, _, _)| *held != id);
+    }
+
+    /// One event from the ledger. Anything that is not a frame is not a feed frame — the ledger
+    /// pushes status and preferences over the same stream — and a watcher is told only about the
+    /// root it asked for.
+    ///
+    /// Returns the watchers that have fallen too far behind, for the caller to close: closing them
+    /// here would mean holding the lock across a socket write.
+    pub fn deliver(&self, event: &Value) -> Vec<u64> {
+        if event.get("event").and_then(Value::as_str) != Some("frame") {
+            return Vec::new();
+        }
+        let Some(frame) = event.get("frame") else { return Vec::new() };
+        let root = event.get("rootId").and_then(Value::as_str).unwrap_or_default();
+        let watching = self.watching.lock().expect("watchers");
+        watching
+            .iter()
+            .filter(|(_, watched, _)| watched == root)
+            .filter_map(|(id, _, watcher)| watcher.send(frame).is_err().then_some(*id))
+            .collect()
+    }
+}
+
 /// A cursor a watcher asked for. Anything that is not a whole number is 0 — the JavaScript read it
 /// with `Number(...)` and fell back to 0 for a value it could not use, which means "everything".
 pub fn cursor_of(asked: Option<&str>) -> i64 {
@@ -175,6 +218,47 @@ mod tests {
         assert_eq!(reason, "This workspace worker does not serve the project token ledger.");
         let long = Close::Refused("x".repeat(300)).frame().1;
         assert_eq!(long.chars().count(), 100, "a close reason is a header field, not a paragraph");
+    }
+
+    /* The fan-out's two rules, and both matter to a person: a monitor shown another project's
+       frames is showing a workspace nobody is looking at, and one shown a status where it expects a
+       frame has to guess what it is reading. */
+    #[test]
+    fn a_watcher_is_told_about_its_own_root_and_only_about_frames() {
+        let watchers = Watchers::default();
+        let (mine, _q1, mut receiver) = watcher(0);
+        let (theirs, _q2, mut other) = watcher(0);
+        watchers.join("root-1", Arc::new(mine));
+        watchers.join("root-2", Arc::new(theirs));
+
+        assert!(watchers.deliver(&json!({ "event": "frame", "rootId": "root-1", "frame": frame(1) })).is_empty());
+        assert_eq!(sequences(&mut receiver), vec![1]);
+        assert_eq!(sequences(&mut other), Vec::<i64>::new(), "another project's frames are not this watcher's");
+
+        /* The ledger pushes status and preferences over the same stream; neither is a feed frame. */
+        watchers.deliver(&json!({ "event": "status", "rootId": "root-1", "status": {} }));
+        watchers.deliver(&json!({ "event": "preferences", "preferences": {} }));
+        assert_eq!(sequences(&mut receiver), Vec::<i64>::new(), "only frames reach a feed");
+
+        /* And the case the EVENT NAME is checked for, rather than the field: an event that carries
+           a frame without being one. Nothing emits this today, which is exactly why the rule needs
+           a case — the guard reads as redundant against the three events that exist, and the next
+           one to carry a `frame` would be delivered as a feed frame without it. */
+        watchers.deliver(&json!({ "event": "frame.replaced", "rootId": "root-1", "frame": frame(9) }));
+        assert_eq!(sequences(&mut receiver), Vec::<i64>::new(), "a frame inside another event is not a feed frame");
+    }
+
+    #[test]
+    fn a_watcher_that_has_left_is_told_nothing_and_one_too_far_behind_is_named() {
+        let watchers = Watchers::default();
+        let (one, queued, mut receiver) = watcher(0);
+        let id = watchers.join("root-1", Arc::new(one));
+        queued.store(BEHIND_LIMIT + 1, Ordering::SeqCst);
+        assert_eq!(watchers.deliver(&json!({ "event": "frame", "rootId": "root-1", "frame": frame(1) })), vec![id],
+                   "the caller is told which to close, rather than a socket being written under the lock");
+        watchers.leave(id);
+        assert!(watchers.deliver(&json!({ "event": "frame", "rootId": "root-1", "frame": frame(2) })).is_empty());
+        assert_eq!(sequences(&mut receiver), Vec::<i64>::new());
     }
 
     #[test]
