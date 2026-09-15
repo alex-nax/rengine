@@ -2816,6 +2816,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "red-supervisor"
+version = "0.1.0"
+dependencies = [
+ "red-core",
+ "serde_json",
+]
+
+[[package]]
 name = "red-token"
 version = "0.1.0"
 dependencies = [

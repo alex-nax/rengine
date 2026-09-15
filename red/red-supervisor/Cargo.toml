@@ -1,0 +1,11 @@
+[package]
+name = "red-supervisor"
+version = "0.1.0"
+edition = "2021"
+description = "The update supervisor in Rust: layered updates, desktop windows and the durable integration transport (F159, spec 144, D57)"
+
+[dependencies]
+red-core = { path = "../red-core" }
+# `preserve_order`, because a project window's layout is the desktop's own document and is handed
+# back to it unchanged — a store that reordered its keys would hand a person a different layout.
+serde_json = { version = "1", features = ["preserve_order"] }

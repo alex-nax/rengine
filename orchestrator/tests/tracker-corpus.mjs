@@ -115,6 +115,9 @@ export const RECORDED = await (async () => {
   catch { return null; }
 })();
 
+/* Run directly, this says so rather than failing on a name that is not there. A recorder whose
+   subject is gone is not broken — it is finished. */
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
-  console.log(JSON.stringify(await answers(), null, 2));
+  console.error('tracker-corpus.json is frozen: server/tracker.mjs is deleted, so there is nothing left to record from.');
+  process.exit(1);
 }

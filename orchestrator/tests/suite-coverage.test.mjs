@@ -86,8 +86,13 @@ test('the suite builds the Rust binaries once, before any spec races another spe
    that followed broke nine specs. The string is identical either way; what differs is whether the
    file can be searched. Owned sources are text. */
 test('every owned source is text, so a search of the repository can see it', async () => {
-  const roots = ['orchestrator', 'red/red-core/src', 'red/red-agents/src', 'red/red-store/src',
-    'red/red-pty/src', 'red/red-mcp/src', 'red/red-host/src', 'red/red-project/src', 'red/red-token/src', 'tools'];
+  /* Every crate in the workspace, ASKED rather than listed: a hand-written list of crates is the
+     same invisibility one level up — four crates had been added since it was written and none of
+     them was being searched. */
+  const crates = (await readdir(path.join(ROOT, 'red'), { withFileTypes: true }))
+    .filter(entry => entry.isDirectory() && entry.name.startsWith('red-')).map(entry => `red/${entry.name}/src`);
+  assert.ok(crates.length >= 12, `the workspace's crates are found rather than listed: ${crates.length}`);
+  const roots = ['orchestrator', ...crates, 'tools'];
   const SOURCE = /\.(mjs|js|rs|c|h|py|json|toml|sh|md|css|html)$/;
   const opaque = [];
   const walk = async directory => {

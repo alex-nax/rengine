@@ -13,7 +13,6 @@ import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { windowStore, nativeControl, inspectWindow } from './windows.mjs';
 
-const defaultWorker = fileURLToPath(new URL('./worker.mjs', import.meta.url));
 /* The workspace worker (F158, spec 129, charter D57): red-worker, which is what `startRuntime` runs
    unless a caller hands it something else. Resolved the way every other Rust client here is resolved — the
    environment names one, then the release build, then the debug build — and a missing binary is named with the command that makes one, because this is the
@@ -80,7 +79,8 @@ async function reservePort() {
   } finally { await new Promise(resolve => probe.close(resolve)); }
 }
 /* One worker, however it is spelled. `red-worker` is a BINARY taking arguments and announcing
-   itself on stdout; `worker.mjs` was a forked module taking an IPC message and answering with one.
+   itself on stdout; the JavaScript worker was a forked module taking an IPC message and answering
+   with one.
    The two differ in exactly three places — how it is started, how it says it is ready, and how it
    is told to retire or close — so those three are what this hides, and everything above it asks
    `alive()` and `tell()` without knowing which it has.
@@ -133,8 +133,9 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
   toolWorkerFile = path.resolve(toolWorkerFile ?? redMcpBinary());
   const hostState = async () => { const state = await call(host, 'state'); if (state.instance !== host.instance) fail('Original session host is no longer available.'); return state; };
   /* The default, resolved here rather than at module load so a checkout with no build yet says so
-     when a workspace is opened rather than when this file is imported. `worker.mjs` is still
-     accepted — it is what `runtime.test.mjs` hands in — and goes when the last caller does. */
+     when a workspace is opened rather than when this file is imported. A caller may still hand in a
+     path of its own, and the suites do: a shim that execs the real binary, so a test can replace it
+     with a broken one without overwriting the binary every other spec is using. */
   workerFile = workerFile ?? redWorkerBinary();
   await hostState(); await mkdir(directory, { recursive: true, mode: 0o700 });
   /* One port for this runtime's whole life, handed to every worker it starts. Claude Code reconnects

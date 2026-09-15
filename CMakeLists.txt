@@ -84,6 +84,15 @@ if(BUILD_TESTING)
   add_test(NAME rust_red_pty COMMAND cargo test -p red-pty WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/red)
   add_test(NAME rust_red_mcp COMMAND cargo test -p red-mcp WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/red)
   add_test(NAME rust_red_host COMMAND cargo test -p red-host WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/red)
+  # The crates below are not imported above because nothing links them into the desktop — they are
+  # binaries the workspace RUNS. Their tests still have to be reachable from a runner: a crate whose
+  # tests no script invokes is the hole suite-coverage.test.mjs exists to prevent, one layer down.
+  add_test(NAME rust_red_project COMMAND cargo test -p red-project WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/red)
+  add_test(NAME rust_red_token COMMAND cargo test -p red-token WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/red)
+  add_test(NAME rust_red_lsp COMMAND cargo test -p red-lsp WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/red)
+  add_test(NAME rust_red_ide COMMAND cargo test -p red-ide WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/red)
+  add_test(NAME rust_red_worker COMMAND cargo test -p red-worker WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/red)
+  add_test(NAME rust_red_supervisor COMMAND cargo test -p red-supervisor WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/red)
 endif()
 
 # Subdirectory: packs/gpu

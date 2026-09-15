@@ -47,19 +47,13 @@ not how many lines are left but **how many callers are left**, and there are fou
 host's session stream is followed, and the whole suite is green on it. Eight specs that drove the
 JavaScript worker in-process now drive the binary, unchanged apart from one import.
 
-**`worker.mjs` is still in the tree for exactly one spec**, and the reason is worth reading before
-the next step. `runtime.test.mjs`'s legacy-host case asserts *current desktop actions above legacy
-host*: `worker.mjs` answered `/api/desktops` above a host that has none, because it held the
-registry — and it held the registry because it **terminated `/events`**. `red-worker` tunnels that
-socket byte for byte, so the registry went to the door, and above a legacy host the door is not
-there.
-
-That is the same lesson as the project routes, a second time: **a route the worker forwards answers
-from whatever is beneath it, and what is beneath it may predate the route.** The fix is to bring the
-registry back to the worker and terminate `/events` there, understanding the four frames the
-JavaScript understood and passing the rest through. It also settles where the token segment is
-pushed from, which is currently a worker telling the door where its ledger is. Both are in
-`docs/specs/143-red-worker.md`.
+**The registry is the worker's**, and the reason is the lesson of this whole epic, hit twice:
+`runtime.test.mjs`'s legacy-host case asserts *current desktop actions above legacy host*, and a
+worker that forwarded `/api/desktops` would answer from a host that never had the route. **A route
+the worker forwards answers from whatever is beneath it, and what is beneath it may predate the
+route.** So the registry is `red_core::desktops`, held by the worker, which terminates `/events`,
+understands the four frames the JavaScript understood and passes the rest through. That also settled
+where the token segment is pushed from and let `POST /api/ledger` go.
 
 **F154 is done** as part of this: `red_core::tls` (trust roots from the MACHINE, not a bundled CA
 set), the PKCE sign-in flow, and both providers' reads.
@@ -82,8 +76,10 @@ Details: `docs/specs/143-red-worker.md`.
 | `runtime/discovery.mjs` | 72 | runtime descriptor discovery |
 | `runtime/client.mjs`, `desktop.mjs`, `headless.mjs`, `bootstrap.mjs` | 140 | |
 
-**Status: untouched.** This is the largest genuinely-unported piece. It is also the one with the most
-process-lifecycle in it, which is the part a port gets wrong quietly.
+**Status: begun (spec 144).** `red_supervisor::windows` answers what `windows.mjs`'s store answered,
+case for case. Nothing is deleted yet, because a module retires with its caller and the caller is the
+supervisor process. This is still the largest genuinely-unported piece, and the one with the most
+process-lifecycle in it — the part a port gets wrong quietly.
 
 ### 3. The JS session host behind the door — 1,405 lines
 
@@ -111,13 +107,16 @@ types, and F163 is the row that deletes them.
 ## What "done" looks like, in order
 
 1. ~~**`/api/dashboard-run`**~~, ~~**the token segment**~~, ~~**defaulting the supervisor**~~ — **done**.
-2. **Bring the desktop registry back to the worker**, terminating `/events` there (spec 143). One
-   spec is waiting on it, and it settles the token segment's plumbing too. Then delete `worker.mjs` and delete `worker.mjs` + the seven files that retire
-   with it. **−1,429 lines**, the largest single deletion left.
+2. ~~**Bring the desktop registry back to the worker**~~ — **done**, and `worker.mjs` with it.
+   What is left of that group is seven client files that retire with the supervisor, not with it.
 3. ~~**F154**~~ — **done**, and its JavaScript with it: `server/tracker.mjs` and
    `server/tracker-auth.mjs` are deleted. The evidence is on the row in `features.json`; `passes`
    stays false only because the prerequisite chain (F153 → F152) is unmarked.
-4. **F159** — the supervisor. **−1,368**, the largest remaining port.
+4. **F159** — the supervisor. **−1,368**, the largest remaining port, and **started**: the
+   project-window store is `red_supervisor::windows`, judged against a 47-case record frozen from
+   `windows.mjs`. Six of the supervisor's thirteen routes are that store; the rest is process
+   lifecycle, which no record can judge and the existing suites do. `docs/specs/144-red-supervisor.md`
+   has the order the remaining six pieces come in.
 5. **`sessions-client.mjs`** — how an agent CLI is launched. **−459**.
 6. **F163** — the entry points, `main.mjs` and the service clients that retire with it. **−~1,700**.
 

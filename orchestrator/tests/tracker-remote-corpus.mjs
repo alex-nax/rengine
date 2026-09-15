@@ -6,23 +6,18 @@
  * these can be recorded the way everything else was — by driving the JavaScript with a provider's
  * answer handed in rather than fetched, and asking the Rust the same question with the same bytes.
  *
- *   node orchestrator/tests/tracker-remote-corpus.mjs > orchestrator/tests/tracker-remote-corpus.json
- *
- * Regenerate ONLY from a checkout where `tracker.mjs` still reads a provider. A record that moved
- * with the implementation would prove nothing.
+ * FROZEN. `tracker.mjs` is deleted, so there is nothing left to record from and this cannot be
+ * regenerated — which is the point rather than a limitation (F173): a record that moved with the
+ * implementation it checks would prove nothing. To change what is asked, add a case and record it
+ * from a checkout that still has the JavaScript, which is to say from history.
  *
  * What is recorded is the whole answer AND the request that produced it: a filter that reaches the
  * provider is the whole of what a declaration means, so a corpus comparing only rows would let a
  * wrong question return the right shape.
  */
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const ROOT_ID = '11111111-2222-3333-4444-555555555555';
-const NOW = 1_700_000_000_000;
 
 const linear = (extra = {}) => ({ contract: 5, project: 'kohai', formats: [], tracker: { provider: 'linear', team: 'KOH', ...extra } });
 const github = (extra = {}) => ({ contract: 5, project: 'kohai', formats: [], tracker: { provider: 'github', repository: 'o/r', ...extra } });
@@ -68,19 +63,6 @@ export const CASES = [
   ['github, rows', { declared: github(), credential: 'gh_x', answered: { status: 200, body: JSON.stringify(GITHUB_ISSUES) } }],
 ];
 
-/* A stand-in provider: it records what it was asked and answers what the case says. */
-function stub(answered, asked) {
-  return async (url, options = {}) => {
-    const headers = Object.fromEntries(Object.entries(options.headers ?? {}).map(([name, value]) => [name.toLowerCase(), value]));
-    asked.push(options.body ? { url, headers, body: JSON.parse(options.body) } : { url, headers });
-    return {
-      ok: answered.status >= 200 && answered.status < 300,
-      status: answered.status,
-      json: async () => JSON.parse(answered.body || '{}'),
-    };
-  };
-}
-
 /* `answers()` used to replay the corpus through tracker.mjs's REMOTE half and is gone with it (F173): a
  * parity proof cannot outlive the side it compares against, so what the module SAID is the evidence
  * now and the module that said it is deleted. The cases and the record below are what the Rust is
@@ -92,6 +74,9 @@ export const RECORDED = (() => {
   try { return require('./tracker-remote-corpus.json'); } catch { return null; }
 })();
 
+/* Run directly, this says so rather than failing on a name that is not there. A recorder whose
+   subject is gone is not broken — it is finished. */
 if (process.argv[1] && process.argv[1].endsWith('tracker-remote-corpus.mjs')) {
-  process.stdout.write(`${JSON.stringify(await answers(), null, 2)}\n`);
+  console.error('tracker-remote-corpus.json is frozen: server/tracker.mjs is deleted, so there is nothing left to record from.');
+  process.exit(1);
 }

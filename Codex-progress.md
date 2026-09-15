@@ -1,3 +1,55 @@
+## Session 161 (opus-5) — 2026-09-16 — The tracker's JavaScript goes, and the supervisor port begins
+
+Owner goal: *"finish remaining js"*.
+
+**The tracker is deleted.** `server/tracker.mjs` and `server/tracker-auth.mjs`, and the four specs
+whose subject went with them. Production JavaScript is **4,128 lines across 37 files**, from 5,504
+across 43 when this goal started — a quarter of it gone. Nothing lost its coverage; it moved to
+where the implementation is, and `tracker-record.test.mjs` went *because* F173 worked: it proved the
+record was what the JavaScript said, and the JavaScript is gone, so the record IS the evidence now.
+F154's row carries that evidence with `passes: false`, because the prerequisite chain (F153 → F152)
+is unmarked and a row claiming to pass over an unmarked prerequisite would be a claim with a hole in
+it.
+
+**F159 begins** — `docs/specs/144-red-supervisor.md`. The measurement that shapes it: the supervisor
+serves thirteen routes and **six of them are a store**. A project window is a row, a layout is a
+document the desktop hands back, and a report is a letter — no process in any of it, which is why it
+is the part that can be frozen exactly, and why it goes first.
+
+`red_supervisor::windows` answers what `runtime/windows.mjs`'s store answered, judged against
+`window-store-corpus.json`: 47 cases run as **one sequence against one store**, because most of what
+this module decides depends on what it was told before — a retry key is only a retry against an
+existing report, and an inbox cursor only means something against a sequence. Matched on the first
+run; five sabotages confirm the comparison, each observed failing at its own case (the report sent to
+the side that sent it; a bound counting bytes; a retry key overwriting; the listing carrying the
+layout; `hasMore` asked from the old cursor).
+
+Two things worth keeping:
+
+- **UTF-16 again**, and this is the second time this epic has hit it (F156b was the first). Every
+  bound in that store was written against `String.prototype.length`, which counts UTF-16 code units.
+  A port counting bytes refuses a summary of 1,100 accented characters the JavaScript accepted — the
+  same text, a different answer, and nothing the person who wrote it could act on.
+- **A hand-written list of crates is the same invisibility one layer down.** `suite-coverage.test.mjs`
+  checks that every owned source is searchable text, over a list of crates that had fallen four
+  behind; and only seven of the thirteen crates had their `cargo test` reachable from any runner at
+  all. The list is now read off the workspace, and the six missing crates are CTest targets.
+
+Nothing is deleted for F159 yet, deliberately: a module retires with its caller, and the caller is
+the supervisor process. The order the remaining six pieces come in is in spec 144.
+
+The record has a JavaScript half too, for as long as its subject does: `window-store-record.test.mjs`
+replays the same 47 cases against `windows.mjs` and compares, so the record cannot drift from what it
+froze. It goes with the module (F173), and the Rust replay is then the whole of the evidence.
+Sabotage-verified from the JavaScript side as well as the Rust.
+
+Gates: `./init.sh` green; `cargo test --workspace` **297/297**; `npm test` **365/365**. One earlier
+run in this session reported one failure and one cancelled test; it was not captured and did not
+reproduce across three subsequent full runs.
+
+What is left, in order, is in `docs/js-retirement-status.md`: the rest of F159's supervisor and
+launchers, the JS host behind red-host (1,405), and F163's entry points (839).
+
 ## Session 1 (opus-5) — 2026-09-15 — The workspace worker is Rust, and worker.mjs is deleted
 
 Owner goal: *"finish remaining js"*. The workspace worker layer is done.

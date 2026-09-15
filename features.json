@@ -2873,7 +2873,9 @@
       "owner_workspace": "rengine",
       "deliverable": "The Rust supervisor and launchers, the ported replace-host/headless suites; the five JS modules removed.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "F159 (the store half), 2026-09-16: docs/specs/144-red-supervisor.md \u2014 red_supervisor::windows answers what runtime/windows.mjs's project-window store answered: six of the supervisor's thirteen routes, and the half with no process in it. Judged against window-store-corpus.json, 47 cases run as ONE sequence against one store because most of what it decides depends on what it was told before \u2014 a retry key is only a retry against an existing report, an inbox cursor only means something against a sequence. Matched on the first run; five sabotages observed failing at their own case: the report addressed to the side that sent it, a bound counting bytes instead of UTF-16 code units (the second time this epic has hit that, after F156b), a retry key overwriting instead of refusing, the listing carrying the layout, and hasMore asked from the old cursor. Two rules no record could carry are unit tests beside the code: a refused write leaves the file byte-identical, and the store survives a supervisor restart, which is what makes the transport durable. Nothing is deleted yet \u2014 a module retires with its CALLER and the caller is the supervisor process. The record has a JavaScript half for as long as its subject does: window-store-record.test.mjs replays the same cases against windows.mjs, so the record cannot drift from what it froze; it retires with the module and is sabotage-verified from that side too. cargo test --workspace 297/297, npm test 365/365, ./init.sh green."
+      ]
     },
     {
       "id": 160,

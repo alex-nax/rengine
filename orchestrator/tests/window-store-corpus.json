@@ -1,0 +1,1110 @@
+{
+  "recordedFrom": "orchestrator/runtime/windows.mjs",
+  "recordedAt": "2026-09-16",
+  "fillers": {
+    "@big": {
+      "repeat": "x",
+      "times": 1048576
+    },
+    "@key128": {
+      "repeat": "k",
+      "times": 128
+    },
+    "@key129": {
+      "repeat": "k",
+      "times": 129
+    },
+    "@summary2000": {
+      "repeat": "s",
+      "times": 2000
+    },
+    "@summary2001": {
+      "repeat": "s",
+      "times": 2001
+    },
+    "@detail16000": {
+      "repeat": "d",
+      "times": 16000
+    },
+    "@detail16001": {
+      "repeat": "d",
+      "times": 16001
+    },
+    "@evidence2049": {
+      "repeat": "e",
+      "times": 2049
+    },
+    "@evidence10": {
+      "each": "e",
+      "times": 10
+    },
+    "@evidence11": {
+      "each": "e",
+      "times": 11
+    }
+  },
+  "why": "F173: a parity proof cannot outlive the side it compares against. These are the answers the JavaScript project-window store gave on the day red-supervisor replaced it. Never regenerate: a record that moves with the implementation proves nothing.",
+  "cases": [
+    {
+      "name": "a window is created for an origin, a project and an agent",
+      "op": {
+        "call": "create",
+        "originRootId": "root-origin",
+        "project": {
+          "id": "root-project",
+          "name": "Alpha"
+        },
+        "agentId": "agent-1"
+      },
+      "answer": {
+        "value": {
+          "id": "@1",
+          "originRootId": "root-origin",
+          "projectRootId": "root-project",
+          "agentId": "agent-1",
+          "title": "Alpha",
+          "createdAt": "<time>",
+          "layout": null
+        }
+      }
+    },
+    {
+      "name": "the same three answer the same window rather than a second one",
+      "op": {
+        "call": "create",
+        "originRootId": "root-origin",
+        "project": {
+          "id": "root-project",
+          "name": "Alpha"
+        },
+        "agentId": "agent-1"
+      },
+      "answer": {
+        "value": {
+          "id": "@1",
+          "originRootId": "root-origin",
+          "projectRootId": "root-project",
+          "agentId": "agent-1",
+          "title": "Alpha",
+          "createdAt": "<time>",
+          "layout": null
+        }
+      }
+    },
+    {
+      "name": "a different agent on the same pair is a different window",
+      "op": {
+        "call": "create",
+        "originRootId": "root-origin",
+        "project": {
+          "id": "root-project",
+          "name": "Alpha"
+        },
+        "agentId": "agent-2"
+      },
+      "answer": {
+        "value": {
+          "id": "@2",
+          "originRootId": "root-origin",
+          "projectRootId": "root-project",
+          "agentId": "agent-2",
+          "title": "Alpha",
+          "createdAt": "<time>",
+          "layout": null
+        }
+      }
+    },
+    {
+      "name": "a different project is a different window",
+      "op": {
+        "call": "create",
+        "originRootId": "root-origin",
+        "project": {
+          "id": "root-other",
+          "name": "Beta"
+        },
+        "agentId": "agent-1"
+      },
+      "answer": {
+        "value": {
+          "id": "@3",
+          "originRootId": "root-origin",
+          "projectRootId": "root-other",
+          "agentId": "agent-1",
+          "title": "Beta",
+          "createdAt": "<time>",
+          "layout": null
+        }
+      }
+    },
+    {
+      "name": "the origin lists the windows it is on either side of",
+      "op": {
+        "call": "list",
+        "rootId": "root-origin"
+      },
+      "answer": {
+        "value": [
+          {
+            "id": "@1",
+            "originRootId": "root-origin",
+            "projectRootId": "root-project",
+            "agentId": "agent-1",
+            "title": "Alpha",
+            "createdAt": "<time>"
+          },
+          {
+            "id": "@2",
+            "originRootId": "root-origin",
+            "projectRootId": "root-project",
+            "agentId": "agent-2",
+            "title": "Alpha",
+            "createdAt": "<time>"
+          },
+          {
+            "id": "@3",
+            "originRootId": "root-origin",
+            "projectRootId": "root-other",
+            "agentId": "agent-1",
+            "title": "Beta",
+            "createdAt": "<time>"
+          }
+        ]
+      }
+    },
+    {
+      "name": "the project side lists the same window from its end",
+      "op": {
+        "call": "list",
+        "rootId": "root-project"
+      },
+      "answer": {
+        "value": [
+          {
+            "id": "@1",
+            "originRootId": "root-origin",
+            "projectRootId": "root-project",
+            "agentId": "agent-1",
+            "title": "Alpha",
+            "createdAt": "<time>"
+          },
+          {
+            "id": "@2",
+            "originRootId": "root-origin",
+            "projectRootId": "root-project",
+            "agentId": "agent-2",
+            "title": "Alpha",
+            "createdAt": "<time>"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a root on neither side lists nothing",
+      "op": {
+        "call": "list",
+        "rootId": "root-stranger"
+      },
+      "answer": {
+        "value": []
+      }
+    },
+    {
+      "name": "the origin reads one window whole",
+      "op": {
+        "call": "get",
+        "rootId": "root-origin",
+        "id": "@1"
+      },
+      "answer": {
+        "value": {
+          "id": "@1",
+          "originRootId": "root-origin",
+          "projectRootId": "root-project",
+          "agentId": "agent-1",
+          "title": "Alpha",
+          "createdAt": "<time>",
+          "layout": null
+        }
+      }
+    },
+    {
+      "name": "the project side reads it too",
+      "op": {
+        "call": "get",
+        "rootId": "root-project",
+        "id": "@1"
+      },
+      "answer": {
+        "value": {
+          "id": "@1",
+          "originRootId": "root-origin",
+          "projectRootId": "root-project",
+          "agentId": "agent-1",
+          "title": "Alpha",
+          "createdAt": "<time>",
+          "layout": null
+        }
+      }
+    },
+    {
+      "name": "a root on neither side is refused by name",
+      "op": {
+        "call": "get",
+        "rootId": "root-stranger",
+        "id": "@1"
+      },
+      "answer": {
+        "refused": "Window is not linked to this project.",
+        "status": 404
+      }
+    },
+    {
+      "name": "an id nobody has is the same refusal",
+      "op": {
+        "call": "get",
+        "rootId": "root-origin",
+        "id": "no-such-window"
+      },
+      "answer": {
+        "refused": "Window is not linked to this project.",
+        "status": 404
+      }
+    },
+    {
+      "name": "a layout is saved by window id",
+      "op": {
+        "call": "layout",
+        "id": "@1",
+        "layout": {
+          "panes": [
+            {
+              "kind": "terminal"
+            }
+          ]
+        }
+      },
+      "answer": {
+        "value": {
+          "saved": true
+        }
+      }
+    },
+    {
+      "name": "and read back off the store",
+      "op": {
+        "call": "stateLayout",
+        "id": "@1"
+      },
+      "answer": {
+        "value": {
+          "panes": [
+            {
+              "kind": "terminal"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "a window with no layout yet answers null rather than a refusal",
+      "op": {
+        "call": "stateLayout",
+        "id": "@3"
+      },
+      "answer": {
+        "value": null
+      }
+    },
+    {
+      "name": "a layout for an unknown window is refused",
+      "op": {
+        "call": "layout",
+        "id": "no-such-window",
+        "layout": {
+          "panes": []
+        }
+      },
+      "answer": {
+        "refused": "Unknown project window.",
+        "status": 404
+      }
+    },
+    {
+      "name": "a layout that is not an object is refused",
+      "op": {
+        "call": "layout",
+        "id": "@1",
+        "layout": "panes"
+      },
+      "answer": {
+        "refused": "Invalid project window layout.",
+        "status": 400
+      }
+    },
+    {
+      "name": "a layout that is null is refused",
+      "op": {
+        "call": "layout",
+        "id": "@1",
+        "layout": null
+      },
+      "answer": {
+        "refused": "Invalid project window layout.",
+        "status": 400
+      }
+    },
+    {
+      "name": "a layout past a megabyte is refused",
+      "op": {
+        "call": "layout",
+        "id": "@1",
+        "layout": {
+          "pad": "@big"
+        }
+      },
+      "answer": {
+        "refused": "Invalid project window layout.",
+        "status": 400
+      }
+    },
+    {
+      "name": "the listing never carries a layout",
+      "op": {
+        "call": "list",
+        "rootId": "root-origin"
+      },
+      "answer": {
+        "value": [
+          {
+            "id": "@1",
+            "originRootId": "root-origin",
+            "projectRootId": "root-project",
+            "agentId": "agent-1",
+            "title": "Alpha",
+            "createdAt": "<time>"
+          },
+          {
+            "id": "@2",
+            "originRootId": "root-origin",
+            "projectRootId": "root-project",
+            "agentId": "agent-2",
+            "title": "Alpha",
+            "createdAt": "<time>"
+          },
+          {
+            "id": "@3",
+            "originRootId": "root-origin",
+            "projectRootId": "root-other",
+            "agentId": "agent-1",
+            "title": "Beta",
+            "createdAt": "<time>"
+          }
+        ]
+      }
+    },
+    {
+      "name": "the origin reports to the project side",
+      "op": {
+        "call": "report",
+        "rootId": "root-origin",
+        "input": {
+          "windowId": "@1",
+          "key": "k1",
+          "kind": "issue",
+          "summary": "The adapter drops frames"
+        }
+      },
+      "answer": {
+        "value": {
+          "report": {
+            "windowId": "@1",
+            "reportedByRootId": "root-origin",
+            "senderRootId": "root-origin",
+            "destinationRootId": "root-project",
+            "key": "k1",
+            "kind": "issue",
+            "summary": "The adapter drops frames",
+            "detail": "",
+            "evidence": [],
+            "sequence": 1,
+            "timestamp": "<time>"
+          },
+          "reused": false
+        }
+      }
+    },
+    {
+      "name": "the same key and the same content is the same report, reused",
+      "op": {
+        "call": "report",
+        "rootId": "root-origin",
+        "input": {
+          "windowId": "@1",
+          "key": "k1",
+          "kind": "issue",
+          "summary": "The adapter drops frames"
+        }
+      },
+      "answer": {
+        "value": {
+          "report": {
+            "windowId": "@1",
+            "reportedByRootId": "root-origin",
+            "senderRootId": "root-origin",
+            "destinationRootId": "root-project",
+            "key": "k1",
+            "kind": "issue",
+            "summary": "The adapter drops frames",
+            "detail": "",
+            "evidence": [],
+            "sequence": 1,
+            "timestamp": "<time>"
+          },
+          "reused": true
+        }
+      }
+    },
+    {
+      "name": "the same key with different content is refused rather than overwritten",
+      "op": {
+        "call": "report",
+        "rootId": "root-origin",
+        "input": {
+          "windowId": "@1",
+          "key": "k1",
+          "kind": "issue",
+          "summary": "Something else"
+        }
+      },
+      "answer": {
+        "refused": "Report retry key already has different content.",
+        "status": 409
+      }
+    },
+    {
+      "name": "a different key is a second report",
+      "op": {
+        "call": "report",
+        "rootId": "root-origin",
+        "input": {
+          "windowId": "@1",
+          "key": "k2",
+          "kind": "status",
+          "summary": "Adapter integrated",
+          "detail": "Frames land.",
+          "evidence": [
+            "npm test"
+          ]
+        }
+      },
+      "answer": {
+        "value": {
+          "report": {
+            "windowId": "@1",
+            "reportedByRootId": "root-origin",
+            "senderRootId": "root-origin",
+            "destinationRootId": "root-project",
+            "key": "k2",
+            "kind": "status",
+            "summary": "Adapter integrated",
+            "detail": "Frames land.",
+            "evidence": [
+              "npm test"
+            ],
+            "sequence": 2,
+            "timestamp": "<time>"
+          },
+          "reused": false
+        }
+      }
+    },
+    {
+      "name": "the project side reports back to the origin",
+      "op": {
+        "call": "report",
+        "rootId": "root-project",
+        "input": {
+          "windowId": "@1",
+          "key": "k3",
+          "kind": "issue",
+          "summary": "Fixed upstream"
+        }
+      },
+      "answer": {
+        "value": {
+          "report": {
+            "windowId": "@1",
+            "reportedByRootId": "root-project",
+            "senderRootId": "root-project",
+            "destinationRootId": "root-origin",
+            "key": "k3",
+            "kind": "issue",
+            "summary": "Fixed upstream",
+            "detail": "",
+            "evidence": [],
+            "sequence": 3,
+            "timestamp": "<time>"
+          },
+          "reused": false
+        }
+      }
+    },
+    {
+      "name": "the origin may report AS the project it opened, and that lands back with the origin",
+      "op": {
+        "call": "report",
+        "rootId": "root-origin",
+        "input": {
+          "windowId": "@1",
+          "key": "k4",
+          "kind": "issue",
+          "summary": "On behalf of the project",
+          "fromProject": true
+        }
+      },
+      "answer": {
+        "value": {
+          "report": {
+            "windowId": "@1",
+            "reportedByRootId": "root-origin",
+            "senderRootId": "root-project",
+            "destinationRootId": "root-origin",
+            "key": "k4",
+            "kind": "issue",
+            "summary": "On behalf of the project",
+            "detail": "",
+            "evidence": [],
+            "sequence": 4,
+            "timestamp": "<time>"
+          },
+          "reused": false
+        }
+      }
+    },
+    {
+      "name": "the project side may not report as the origin",
+      "op": {
+        "call": "report",
+        "rootId": "root-project",
+        "input": {
+          "windowId": "@1",
+          "key": "k5",
+          "kind": "issue",
+          "summary": "Not mine to send",
+          "fromProject": true
+        }
+      },
+      "answer": {
+        "refused": "Only the originating agent may report its linked project findings.",
+        "status": 403
+      }
+    },
+    {
+      "name": "a root on neither side cannot report at all",
+      "op": {
+        "call": "report",
+        "rootId": "root-stranger",
+        "input": {
+          "windowId": "@1",
+          "key": "k6",
+          "kind": "issue",
+          "summary": "The adapter drops frames"
+        }
+      },
+      "answer": {
+        "refused": "Window is not linked to this project.",
+        "status": 404
+      }
+    },
+    {
+      "name": "a kind that is neither issue nor status is refused",
+      "op": {
+        "call": "report",
+        "rootId": "root-origin",
+        "input": {
+          "windowId": "@1",
+          "key": "k7",
+          "kind": "note",
+          "summary": "The adapter drops frames"
+        }
+      },
+      "answer": {
+        "refused": "Invalid integration report.",
+        "status": 400
+      }
+    },
+    {
+      "name": "an empty key is refused",
+      "op": {
+        "call": "report",
+        "rootId": "root-origin",
+        "input": {
+          "windowId": "@1",
+          "key": "",
+          "kind": "issue",
+          "summary": "The adapter drops frames"
+        }
+      },
+      "answer": {
+        "refused": "Invalid integration report.",
+        "status": 400
+      }
+    },
+    {
+      "name": "a key past 128 characters is refused",
+      "op": {
+        "call": "report",
+        "rootId": "root-origin",
+        "input": {
+          "windowId": "@1",
+          "key": "@key129",
+          "kind": "issue",
+          "summary": "The adapter drops frames"
+        }
+      },
+      "answer": {
+        "refused": "Invalid integration report.",
+        "status": 400
+      }
+    },
+    {
+      "name": "a summary that is only whitespace is refused",
+      "op": {
+        "call": "report",
+        "rootId": "root-origin",
+        "input": {
+          "windowId": "@1",
+          "key": "k8",
+          "kind": "issue",
+          "summary": "   "
+        }
+      },
+      "answer": {
+        "refused": "Invalid integration report.",
+        "status": 400
+      }
+    },
+    {
+      "name": "a summary past 2000 characters is refused",
+      "op": {
+        "call": "report",
+        "rootId": "root-origin",
+        "input": {
+          "windowId": "@1",
+          "key": "k9",
+          "kind": "issue",
+          "summary": "@summary2001"
+        }
+      },
+      "answer": {
+        "refused": "Invalid integration report.",
+        "status": 400
+      }
+    },
+    {
+      "name": "a detail past 16000 characters is refused",
+      "op": {
+        "call": "report",
+        "rootId": "root-origin",
+        "input": {
+          "windowId": "@1",
+          "key": "k10",
+          "kind": "issue",
+          "summary": "The adapter drops frames",
+          "detail": "@detail16001"
+        }
+      },
+      "answer": {
+        "refused": "Invalid integration report.",
+        "status": 400
+      }
+    },
+    {
+      "name": "more than ten pieces of evidence is refused",
+      "op": {
+        "call": "report",
+        "rootId": "root-origin",
+        "input": {
+          "windowId": "@1",
+          "key": "k11",
+          "kind": "issue",
+          "summary": "The adapter drops frames",
+          "evidence": "@evidence11"
+        }
+      },
+      "answer": {
+        "refused": "Invalid integration report.",
+        "status": 400
+      }
+    },
+    {
+      "name": "a piece of evidence past 2048 characters is refused",
+      "op": {
+        "call": "report",
+        "rootId": "root-origin",
+        "input": {
+          "windowId": "@1",
+          "key": "k12",
+          "kind": "issue",
+          "summary": "The adapter drops frames",
+          "evidence": [
+            "@evidence2049"
+          ]
+        }
+      },
+      "answer": {
+        "refused": "Invalid integration report.",
+        "status": 400
+      }
+    },
+    {
+      "name": "evidence that is not a list is refused",
+      "op": {
+        "call": "report",
+        "rootId": "root-origin",
+        "input": {
+          "windowId": "@1",
+          "key": "k13",
+          "kind": "issue",
+          "summary": "The adapter drops frames",
+          "evidence": "npm test"
+        }
+      },
+      "answer": {
+        "refused": "Invalid integration report.",
+        "status": 400
+      }
+    },
+    {
+      "name": "the project side reads what the origin sent it",
+      "op": {
+        "call": "inbox",
+        "rootId": "root-project",
+        "options": {}
+      },
+      "answer": {
+        "value": {
+          "reports": [
+            {
+              "windowId": "@1",
+              "reportedByRootId": "root-origin",
+              "senderRootId": "root-origin",
+              "destinationRootId": "root-project",
+              "key": "k1",
+              "kind": "issue",
+              "summary": "The adapter drops frames",
+              "detail": "",
+              "evidence": [],
+              "sequence": 1,
+              "timestamp": "<time>"
+            },
+            {
+              "windowId": "@1",
+              "reportedByRootId": "root-origin",
+              "senderRootId": "root-origin",
+              "destinationRootId": "root-project",
+              "key": "k2",
+              "kind": "status",
+              "summary": "Adapter integrated",
+              "detail": "Frames land.",
+              "evidence": [
+                "npm test"
+              ],
+              "sequence": 2,
+              "timestamp": "<time>"
+            }
+          ],
+          "cursor": 2,
+          "hasMore": false
+        }
+      }
+    },
+    {
+      "name": "the origin reads what the project side sent it",
+      "op": {
+        "call": "inbox",
+        "rootId": "root-origin",
+        "options": {}
+      },
+      "answer": {
+        "value": {
+          "reports": [
+            {
+              "windowId": "@1",
+              "reportedByRootId": "root-project",
+              "senderRootId": "root-project",
+              "destinationRootId": "root-origin",
+              "key": "k3",
+              "kind": "issue",
+              "summary": "Fixed upstream",
+              "detail": "",
+              "evidence": [],
+              "sequence": 3,
+              "timestamp": "<time>"
+            },
+            {
+              "windowId": "@1",
+              "reportedByRootId": "root-origin",
+              "senderRootId": "root-project",
+              "destinationRootId": "root-origin",
+              "key": "k4",
+              "kind": "issue",
+              "summary": "On behalf of the project",
+              "detail": "",
+              "evidence": [],
+              "sequence": 4,
+              "timestamp": "<time>"
+            }
+          ],
+          "cursor": 4,
+          "hasMore": false
+        }
+      }
+    },
+    {
+      "name": "a cursor takes only what came after it",
+      "op": {
+        "call": "inbox",
+        "rootId": "root-project",
+        "options": {
+          "after": 1
+        }
+      },
+      "answer": {
+        "value": {
+          "reports": [
+            {
+              "windowId": "@1",
+              "reportedByRootId": "root-origin",
+              "senderRootId": "root-origin",
+              "destinationRootId": "root-project",
+              "key": "k2",
+              "kind": "status",
+              "summary": "Adapter integrated",
+              "detail": "Frames land.",
+              "evidence": [
+                "npm test"
+              ],
+              "sequence": 2,
+              "timestamp": "<time>"
+            }
+          ],
+          "cursor": 2,
+          "hasMore": false
+        }
+      }
+    },
+    {
+      "name": "a cursor past the end is empty and keeps itself",
+      "op": {
+        "call": "inbox",
+        "rootId": "root-project",
+        "options": {
+          "after": 999
+        }
+      },
+      "answer": {
+        "value": {
+          "reports": [],
+          "cursor": 999,
+          "hasMore": false
+        }
+      }
+    },
+    {
+      "name": "an inbox can be narrowed to one window",
+      "op": {
+        "call": "inbox",
+        "rootId": "root-project",
+        "options": {
+          "windowId": "@1"
+        }
+      },
+      "answer": {
+        "value": {
+          "reports": [
+            {
+              "windowId": "@1",
+              "reportedByRootId": "root-origin",
+              "senderRootId": "root-origin",
+              "destinationRootId": "root-project",
+              "key": "k1",
+              "kind": "issue",
+              "summary": "The adapter drops frames",
+              "detail": "",
+              "evidence": [],
+              "sequence": 1,
+              "timestamp": "<time>"
+            },
+            {
+              "windowId": "@1",
+              "reportedByRootId": "root-origin",
+              "senderRootId": "root-origin",
+              "destinationRootId": "root-project",
+              "key": "k2",
+              "kind": "status",
+              "summary": "Adapter integrated",
+              "detail": "Frames land.",
+              "evidence": [
+                "npm test"
+              ],
+              "sequence": 2,
+              "timestamp": "<time>"
+            }
+          ],
+          "cursor": 2,
+          "hasMore": false
+        }
+      }
+    },
+    {
+      "name": "a window the caller is on neither side of is refused",
+      "op": {
+        "call": "inbox",
+        "rootId": "root-stranger",
+        "options": {
+          "windowId": "@1"
+        }
+      },
+      "answer": {
+        "refused": "Window is not linked to this project.",
+        "status": 404
+      }
+    },
+    {
+      "name": "the origin may read the inbox of the project it opened",
+      "op": {
+        "call": "inbox",
+        "rootId": "root-origin",
+        "options": {
+          "windowId": "@1",
+          "projectSide": true
+        }
+      },
+      "answer": {
+        "value": {
+          "reports": [
+            {
+              "windowId": "@1",
+              "reportedByRootId": "root-origin",
+              "senderRootId": "root-origin",
+              "destinationRootId": "root-project",
+              "key": "k1",
+              "kind": "issue",
+              "summary": "The adapter drops frames",
+              "detail": "",
+              "evidence": [],
+              "sequence": 1,
+              "timestamp": "<time>"
+            },
+            {
+              "windowId": "@1",
+              "reportedByRootId": "root-origin",
+              "senderRootId": "root-origin",
+              "destinationRootId": "root-project",
+              "key": "k2",
+              "kind": "status",
+              "summary": "Adapter integrated",
+              "detail": "Frames land.",
+              "evidence": [
+                "npm test"
+              ],
+              "sequence": 2,
+              "timestamp": "<time>"
+            }
+          ],
+          "cursor": 2,
+          "hasMore": false
+        }
+      }
+    },
+    {
+      "name": "the project side may not read the origin inbox that way",
+      "op": {
+        "call": "inbox",
+        "rootId": "root-project",
+        "options": {
+          "windowId": "@1",
+          "projectSide": true
+        }
+      },
+      "answer": {
+        "refused": "Choose an originating project window for its project inbox.",
+        "status": 403
+      }
+    },
+    {
+      "name": "a project-side read with no window named is refused",
+      "op": {
+        "call": "inbox",
+        "rootId": "root-origin",
+        "options": {
+          "projectSide": true
+        }
+      },
+      "answer": {
+        "refused": "Choose an originating project window for its project inbox.",
+        "status": 403
+      }
+    },
+    {
+      "name": "a cursor that is not a whole number is refused",
+      "op": {
+        "call": "inbox",
+        "rootId": "root-project",
+        "options": {
+          "after": -1
+        }
+      },
+      "answer": {
+        "refused": "Invalid inbox cursor.",
+        "status": 400
+      }
+    },
+    {
+      "name": "the bounds themselves are allowed, so they are bounds and not a smaller box",
+      "op": {
+        "call": "report",
+        "rootId": "root-origin",
+        "input": {
+          "windowId": "@1",
+          "key": "@key128",
+          "kind": "issue",
+          "summary": "@summary2000",
+          "detail": "@detail16000",
+          "evidence": "@evidence10"
+        }
+      },
+      "answer": {
+        "value": {
+          "report": {
+            "windowId": "@1",
+            "reportedByRootId": "root-origin",
+            "senderRootId": "root-origin",
+            "destinationRootId": "root-project",
+            "key": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+            "kind": "issue",
+            "summary": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+            "detail": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "evidence": [
+              "e0",
+              "e1",
+              "e2",
+              "e3",
+              "e4",
+              "e5",
+              "e6",
+              "e7",
+              "e8",
+              "e9"
+            ],
+            "sequence": 5,
+            "timestamp": "<time>"
+          },
+          "reused": false
+        }
+      }
+    }
+  ]
+}
