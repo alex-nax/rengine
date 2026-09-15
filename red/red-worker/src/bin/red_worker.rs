@@ -61,6 +61,9 @@ struct Worker {
     bridge: Option<red_worker::editing::Bridge>,
     /// The generation this worker claimed, once, on the first request that was not a probe.
     generation: std::sync::Mutex<Option<i64>>,
+    /// Who asked for which launch, and which games are open. The feed carries a PAIR for a game and
+    /// this is what keeps it trustworthy across a launch that has not been given an id yet.
+    launches: red_worker::launches::Launches,
 }
 
 struct Options {
@@ -162,6 +165,7 @@ async fn main() -> std::process::ExitCode {
         servers,
         bridge,
         generation: std::sync::Mutex::new(None),
+        launches: red_worker::launches::Launches::new(),
     });
     /* One line, then serve: the supervisor reads this to learn where the worker is before it writes
        the descriptor that names it. */
@@ -171,6 +175,15 @@ async fn main() -> std::process::ExitCode {
     );
     use std::io::Write;
     let _ = std::io::stdout().flush();
+
+    /* The open pairs this worker inherits, and then the stream that closes them. A worker replaced
+       mid-game reads its predecessor's `game.started` frames back out of the ring, so the `ended`
+       half still lands and a monitor is not left with a game that never stopped. */
+    inherit_open_games(&worker);
+    {
+        let worker = worker.clone();
+        tokio::spawn(async move { follow_host(worker).await });
+    }
 
     loop {
         let Ok((client, _)) = listener.accept().await else { continue };
@@ -382,6 +395,105 @@ fn recording(worker: &Worker, head: &Head, body: &str) -> Result<serde_json::Val
     }))
 }
 
+/// What this worker's predecessor left open, read back out of each project's ring.
+fn inherit_open_games(worker: &Arc<Worker>) {
+    let Some(ledger) = &worker.ledger else { return };
+    let Ok(state) = ask_host(worker, "GET", "/api/state", "") else { return };
+    let empty = Vec::new();
+    for root in state.get("roots").and_then(serde_json::Value::as_array).unwrap_or(&empty) {
+        let Some(id) = root.get("id").and_then(serde_json::Value::as_str) else { continue };
+        let Ok(read) = ledger.call("feedAfter", serde_json::json!([id, 0, serde_json::Value::Null])) else { continue };
+        let frames = read.get("frames").and_then(serde_json::Value::as_array).cloned().unwrap_or_default();
+        worker.launches.inherit(&frames);
+    }
+    /* And anything that is no longer running gets its ending now: the pane may have stopped while
+       there was no worker to hear it. */
+    let sessions = state.get("sessions").and_then(serde_json::Value::as_array).cloned().unwrap_or_default();
+    for id in worker.launches.still_open() {
+        let found = sessions.iter().find(|session| session.get("id").and_then(serde_json::Value::as_str) == Some(id.as_str()));
+        let running = found.is_some_and(|session| session.get("state").and_then(serde_json::Value::as_str) == Some("running"));
+        if !running {
+            let record = found.cloned().unwrap_or_else(|| serde_json::json!({ "id": id, "type": "game", "state": "exited" }));
+            told_the_feed(worker, &record);
+        }
+    }
+}
+
+/// The host's own session stream, read for transitions and nothing else.
+///
+/// An `output` frame is never even parsed into a feed frame, which is what makes "no PTY output on
+/// the feed" structural rather than a filter somebody can forget. The socket is reopened when it
+/// drops, because a host that restarted is one this worker still fronts.
+async fn follow_host(worker: Arc<Worker>) {
+    let mut attempts = 0;
+    loop {
+        if follow_once(&worker).await.is_ok() {
+            attempts = 0;
+        }
+        attempts += 1;
+        if attempts > 20 {
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
+}
+
+async fn follow_once(worker: &Arc<Worker>) -> io::Result<()> {
+    let (address, authority) = red_core::http::address(&worker.host).map_err(io::Error::other)?;
+    let mut upstream = TcpStream::connect(&address).await?;
+    upstream
+        .write_all(
+            format!(
+                "GET /events?token={} HTTP/1.1\r\nHost: {authority}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: {}\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                worker.host_token,
+                tokio_tungstenite::tungstenite::handshake::client::generate_key()
+            )
+            .as_bytes(),
+        )
+        .await?;
+    let mut buffered = Vec::new();
+    let Some(answer) = Head::read(&mut upstream, &mut buffered).await? else { return Ok(()) };
+    if !answer.raw.starts_with("HTTP/1.1 101") {
+        return Err(io::Error::other("the session host refused the stream"));
+    }
+    let stream = Prefixed { buffered, inner: upstream };
+    let socket = WebSocketStream::from_raw_socket(stream, Role::Client, None).await;
+    let (_writing, mut reading) = socket.split();
+    while let Some(Ok(message)) = reading.next().await {
+        let Message::Text(text) = message else { continue };
+        let Ok(event) = serde_json::from_str::<serde_json::Value>(&text) else { continue };
+        if event.get("type").and_then(serde_json::Value::as_str) != Some("session") {
+            continue;
+        }
+        let Some(session) = event.get("session").cloned() else { continue };
+        let worker = worker.clone();
+        let _ = tokio::task::spawn_blocking(move || told_the_feed(&worker, &session)).await;
+    }
+    Ok(())
+}
+
+/// One session transition, as the feed hears it.
+fn told_the_feed(worker: &Arc<Worker>, session: &serde_json::Value) {
+    if worker.ledger.is_none() {
+        return;
+    }
+    let id = session.get("id").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|since| since.as_millis() as i64)
+        .unwrap_or(0);
+    let root = worker.launches.root_of(&id, session);
+    match worker.launches.heard(session, now) {
+        red_worker::launches::Says::Started { by, fields } => {
+            note(worker, &root, "game.started", &by, fields);
+        }
+        red_worker::launches::Says::Ended { by, fields } => {
+            note(worker, &root, "game.ended", &by, fields);
+        }
+        red_worker::launches::Says::Nothing => {}
+    }
+}
+
 /// Claim a generation and tell every project about it — once, on the first request that is not a
 /// probe (`lifecycle::announces`).
 ///
@@ -418,6 +530,45 @@ fn announce(worker: &Worker) {
 /// The socket a monitor opens to follow one project's feed, credential and all.
 fn feed_url(worker: &Worker, root_id: &str) -> String {
     format!("{}/feed?rootId={root_id}&token={}", worker.url.replacen("http:", "ws:", 1), worker.token)
+}
+
+/// `POST /api/game`: gated here, launched there, and attributed on the way past.
+///
+/// The door owns the launch and its refusals (F155). What this adds is the arbitration and the
+/// ATTRIBUTION: the host announces the new session before the launch call returns, so who asked
+/// cannot be looked up by session id at that moment. The asker is queued on the root first, and the
+/// frame takes it — which is the only reason a monitor can say who started a game.
+fn game(worker: &Worker, head: &Head, body: &str) -> Result<serde_json::Value, String> {
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let (root_id, _) = root_of(worker, named(&data, "rootId"))?;
+    let by = gate(worker, &root_id, "launch_game", head)?;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|since| since.as_millis() as i64)
+        .unwrap_or(0);
+    /* What was already running, read BEFORE the launch: a session id that was there a moment ago is
+       one the door coalesced onto, not one this call started. */
+    let running: Vec<String> = ask_host(worker, "GET", "/api/state", "")
+        .ok()
+        .and_then(|state| state.get("sessions").and_then(serde_json::Value::as_array).cloned())
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|session| session.get("id").and_then(serde_json::Value::as_str).map(str::to_string))
+        .collect();
+    worker.launches.queue(&root_id, &by, now);
+    let session = match ask_host(worker, "POST", "/api/game", body) {
+        Ok(session) => session,
+        Err(fault) => {
+            /* The launch was refused, so the asker takes its entry back rather than leaving it to
+               attach to somebody else's game ten seconds from now. */
+            let _ = worker.launches.next(&root_id, now);
+            return Err(fault);
+        }
+    };
+    if let Some(id) = session.get("id").and_then(serde_json::Value::as_str) {
+        worker.launches.landed(&root_id, id, &by, running.iter().any(|held| held == id), now);
+    }
+    Ok(session)
 }
 
 /// The gate for a route the door answers. `None` means it may go through.
@@ -795,6 +946,7 @@ fn answer_own(worker: &Worker, head: &Head, body: &str) -> String {
         ("GET", "/api/state") => answered_or_faulted(state(worker)),
         ("POST", "/api/preferences") => answered_or_faulted(preferences(worker, body)),
         ("POST", "/api/recording") => answered_or_faulted(recording(worker, head, body)),
+        ("POST", "/api/game") => answered_or_faulted(game(worker, head, body)),
         ("GET", "/api/diagnostics") => answered_or_faulted(diagnostics(worker, head)),
         ("POST", "/api/ide-mention") => answered_or_faulted(ide_mention(worker, body)),
         ("POST", "/api/ide-selection") => answered_or_faulted(ide_selection(worker, body)),

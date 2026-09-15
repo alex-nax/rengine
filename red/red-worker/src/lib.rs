@@ -14,6 +14,7 @@
 pub mod editing;
 pub mod feed;
 pub mod identity;
+pub mod launches;
 pub mod lifecycle;
 pub mod menu;
 pub mod pipe;

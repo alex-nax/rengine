@@ -85,6 +85,14 @@ async function worker(t, upstream, stateDir, options = {}) {
     child.stdout.on('data', chunk => { text += chunk; if (text.includes('\n')) resolve(text.split('\n')[0]); });
     child.once('exit', code => reject(new Error(`red-worker exited (${code}): ${noise}`)));
   });
+  /* A worker reads the roots and opens the host's stream as it comes up — it inherits the games its
+     predecessor left open. That is the WORKER's traffic, not the test's, so the record starts once
+     it has been seen: every assertion below about "what reached the host" is about what the test
+     caused, and would otherwise be counting a startup. */
+  for (let waited = 0; waited < 2000 && !upstream.seen.some(request => request.url === '/api/state'); waited += 25) {
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  upstream.seen.length = 0;
   return JSON.parse(line);
 }
 
@@ -959,4 +967,88 @@ test('a worker announces itself once, and never for a probe', { timeout: 120000 
     await ask(started, route);
   }
   assert.equal((await updates()).length, 1, 'one announcement per worker, not one per request');
+});
+
+/* --- the pair a game leaves on the feed (spec 078, spec 095) ----------------------------------- */
+/* A game pane is the one thing here a person starts and then watches for minutes, so the feed
+ * carries a PAIR for it and a monitor draws a session from the two. What makes the pair trustworthy
+ * is attribution across a gap: the host announces the new session BEFORE the launch call returns,
+ * so who asked cannot be looked up by session id at that moment.
+ */
+test('a game launched through the worker leaves an attributed pair on the feed', { timeout: 120000 }, async t => {
+  const root = randomUUID();
+  const sessionId = 'game-1';
+  let announced = null;
+  const upstream = await host(t, {
+    '/api/state': () => ({ roots: [{ id: root, path: ROOT }], sessions: announced ? [announced] : [] }),
+    '/api/game': body => {
+      /* Announced on the stream before the call returns, which is the gap the queue exists for. */
+      announced = { id: sessionId, rootId: root, type: 'game', state: 'running', game: body.gameId ?? 'nolf',
+        surface: 'sdl', args: body.args ?? [] };
+      sockets.clients.forEach(client => client.send(JSON.stringify({ type: 'session', session: announced })));
+      return announced;
+    },
+  });
+  const sockets = new WebSocketServer({ server: upstream.server });
+  const { Tokens } = await import('../runtime/token-client.mjs');
+  const tokens = await Tokens.open(upstream.state, { alive: () => true });
+  t.after(async () => {
+    await tokens.close();
+    try {
+      const descriptor = JSON.parse(await readFile(path.join(upstream.state, 'token.json'), 'utf8'));
+      if (Number.isSafeInteger(descriptor.pid)) process.kill(descriptor.pid, 'SIGKILL');
+    } catch { /* never started, or already gone */ }
+  });
+  const started = await worker(t, upstream);
+  const frames = async () => (await (await tokens.ledger(root)).feed.after(0)).frames;
+  const settle = async (check, what) => {
+    for (let waited = 0; waited < 15000; waited += 50) {
+      if (await check()) return;
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    assert.fail(what);
+  };
+  /* The worker must be listening before the launch, or the announcement lands in nobody's ear. */
+  await settle(async () => sockets.clients.size > 0, 'the worker subscribed to the host stream');
+
+  /* The token first, because launching a game is one of the exclusive things it arbitrates — which
+     this needed to be told once, and is the gate working. */
+  const agent = '12345678-1234-1234-1234-123456789abc';
+  await (await tokens.ledger(root)).contest({ agentId: agent, label: 'claude 12345678' }, 'launching');
+  const launched = await ask(started, '/api/game', { method: 'POST', body: JSON.stringify({ rootId: root, gameId: 'nolf', args: ['-w'] }),
+    headers: { 'X-Rengine-Agent': agent, 'X-Rengine-Agent-Label': 'claude 12345678' } });
+  assert.equal(launched.status, 200, JSON.stringify(await launched.clone().json()));
+
+  await settle(async () => (await frames()).some(frame => frame.type === 'game.started'), 'the launch reached the feed');
+  const start = (await frames()).find(frame => frame.type === 'game.started');
+  assert.equal(start.sessionId, sessionId);
+  assert.equal(start.gameId, 'nolf');
+  assert.deepEqual(start.args, ['-w']);
+  /* Attributed to whoever asked — the whole reason the asker is queued before the call is made. */
+  assert.equal(start.by.kind, 'agent');
+  assert.equal(start.by.agentId, agent);
+  assert.equal(start.by.label, 'claude 12345678');
+
+  /* And the ending, which carries the same asker and what the game was: read back from the open
+     pair, because the session record that arrives at the end no longer says. */
+  sockets.clients.forEach(client => client.send(JSON.stringify({ type: 'session',
+    session: { id: sessionId, rootId: root, type: 'game', state: 'exited', exitCode: 0 } })));
+  await settle(async () => (await frames()).some(frame => frame.type === 'game.ended'), 'the ending reached the feed');
+  const end = (await frames()).find(frame => frame.type === 'game.ended');
+  assert.equal(end.by.agentId, agent, 'the ending is the starter\'s, not the workspace\'s');
+  assert.equal(end.gameId, 'nolf');
+  assert.equal(end.exitCode, 0);
+
+  /* A pane that is not a game is nothing to do with the feed: that is what makes "no PTY output on
+     the feed" structural rather than a filter somebody can forget. */
+  const before = (await frames()).length;
+  sockets.clients.forEach(client => client.send(JSON.stringify({ type: 'session',
+    session: { id: 'term-1', rootId: root, type: 'terminal', state: 'running' } })));
+  /* And an `output` frame carrying everything a session frame would. The rule is the EVENT TYPE,
+     not the shape: a worker that fell back to reading whatever a frame happened to contain would
+     turn a pane's bytes into feed frames the moment one of them looked like a session. */
+  sockets.clients.forEach(client => client.send(JSON.stringify({ type: 'output', id: 'game-2', data: 'hello',
+    session: { id: 'game-2', rootId: root, type: 'game', state: 'running', game: 'nolf', args: [] } })));
+  await new Promise(resolve => setTimeout(resolve, 400));
+  assert.equal((await frames()).length, before, 'a terminal and a pane\'s bytes are not feed frames');
 });

@@ -2,7 +2,7 @@
 
 Owner goal, 2026-09-15: *"finish remaining js"* (charter D57, spec 129; F158).
 
-Status: **in progress — 14 of 16 routes answered and both sockets served** (the registry's two went to the door). What is left is F154's two.
+Status: **in progress — 15 of 17 routes answered, both sockets served, and the host's own stream followed** (the registry's two went to the door). What is left is F154's two.
 
 ## The measurement that shaped this
 
@@ -160,6 +160,34 @@ service's refusal leaves it looking right either way — so the test counts what
 the lock buys beyond the service's refusal is that no doomed process is spawned, a lock whose owner
 died is reclaimed rather than blocking the survivor forever, and one held by a live process is
 refused by name with nothing started.
+
+## The pair a game leaves on the feed
+
+A game pane is the one thing here a person starts and then watches for minutes, so the feed carries
+a **pair** for it and a monitor draws a session from the two. Three things make the pair
+trustworthy, and each is a thing that actually happens:
+
+- **The host announces the new session before the launch call returns.** So who asked cannot be
+  looked up by session id at that moment. The asker is queued on the ROOT first and the frame takes
+  the oldest still-fresh entry; a launch the door coalesced onto a session that was already running
+  takes its own entry back, and a launch that was refused takes it back too — an entry left behind
+  would attach to somebody else's game ten seconds later.
+- **A worker can be replaced mid-game.** The open pairs are read back out of each project's ring
+  rather than kept in a map that died with the last worker, so the `ended` half still lands and a
+  monitor is not left with a game that never stopped. Anything no longer running gets its ending at
+  startup: the pane may have stopped while there was no worker to hear it.
+- **An `output` frame is never parsed into a session.** The rule is the EVENT TYPE, not the shape —
+  a worker that read whatever a frame happened to contain would turn a pane's bytes into feed frames
+  the moment one of them looked like a session. That is what makes "no PTY output on the feed"
+  structural rather than a filter somebody can forget, and the test sends an `output` carrying a
+  complete session object to say so.
+
+`/api/game` is therefore gated AND composed: it has to queue the asker before it calls, so it is
+answered here rather than gated on the way past.
+
+The device-action pair (`device-action.started` / `.ended`) waits on `/api/dashboard-run`, which is
+still forwarded all the way to the JS backend — the frame needs the action's declared device, which
+is that route's own answer.
 
 ## What a caller follows this workspace by
 

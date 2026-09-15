@@ -46,6 +46,10 @@ pub fn own_route(method: &str, path: &str) -> bool {
             | ("GET", "/api/state")
             | ("POST", "/api/preferences")
             | ("POST", "/api/recording")
+            /* And the launch, which the door performs and this worker ATTRIBUTES: the host
+               announces the new session before the call returns, so who asked has to be queued
+               before the call is made. Gated and composed together. */
+            | ("POST", "/api/game")
     )
 }
 
@@ -74,6 +78,7 @@ pub fn implemented(method: &str, path: &str) -> bool {
             | ("GET", "/api/state")
             | ("POST", "/api/preferences")
             | ("POST", "/api/recording")
+            | ("POST", "/api/game")
     )
 }
 
@@ -99,7 +104,6 @@ pub enum Names {
 /// The tool name is what a refusal says back, so it is the ledger's vocabulary and not this table's.
 pub fn gated(method: &str, path: &str) -> Option<(&'static str, Names)> {
     Some(match (method, path) {
-        ("POST", "/api/game") => ("launch_game", Names::Root),
         ("POST", "/api/stop") => ("stop_session", Names::Session),
         ("POST", "/api/agent-restart") => ("restart_agent", Names::Session),
         ("POST", "/api/dashboard-run") => ("dashboard_run", Names::Root),
@@ -203,7 +207,7 @@ mod tests {
         /* And the routes the door already answers, which it must NOT: answering them here would
            answer from a worker's view of a workspace rather than the workspace's own. */
         for path in ["/api/dashboard", "/api/devices", "/api/formats", "/api/recordings",
-                     "/api/game", "/api/game-config", "/api/tracker", "/api/worktrees", "/api/bytes",
+                     "/api/game-config", "/api/tracker", "/api/worktrees", "/api/bytes",
                      "/api/desktops", "/api/stop"] {
             assert!(!own_route("GET", path), "{path} is the door's");
         }
@@ -213,6 +217,7 @@ mod tests {
         assert!(own_route("GET", "/api/state"));
         assert!(own_route("POST", "/api/preferences"));
         assert!(own_route("POST", "/api/recording"));
+        assert!(own_route("POST", "/api/game"));
         assert!(!own_route("GET", "/api/recording"), "reading one back is the project's, not the feed's");
         /* The desktop registry, settled as the door's: a desktop says it exists on the door's
            socket, so the two routes over that registry are answered where the sockets are. Listed
@@ -309,7 +314,11 @@ mod tests {
     fn a_pane_route_is_gated_on_the_panes_own_project() {
         assert_eq!(gated("POST", "/api/stop"), Some(("stop_session", Names::Session)));
         assert_eq!(gated("POST", "/api/agent-restart"), Some(("restart_agent", Names::Session)));
-        assert_eq!(gated("POST", "/api/game"), Some(("launch_game", Names::Root)));
+        /* The launch is gated too, but INSIDE the route: it also has to queue the asker before it
+           calls, so it is answered here rather than gated on the way past. `implemented` is what
+           keeps the two from both firing. */
+        assert_eq!(gated("POST", "/api/game"), None);
+        assert!(implemented("POST", "/api/game"));
         /* A read is not gated: the token arbitrates what a caller may CHANGE. */
         assert_eq!(gated("GET", "/api/state"), None);
         assert_eq!(gated("GET", "/api/desktops"), None);
