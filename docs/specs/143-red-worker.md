@@ -2,7 +2,7 @@
 
 Owner goal, 2026-09-15: *"finish remaining js"* (charter D57, spec 129; F158).
 
-Status: **in progress — 8 of 13 routes answered** (the registry's two went to the door), plus the front door and the feed's core and fan-out.
+Status: **in progress — 8 of 13 routes answered and both sockets served** (the registry's two went to the door). What is left is the IDE bridge's three and F154's two.
 
 ## The measurement that shaped this
 
@@ -37,7 +37,7 @@ rather than on the day a single enormous commit is reviewed.
 | `POST /api/session-view`<br>`GET /api/runtime-desktops` | ~~the desktop registry~~ — **the door's** (below) | **done, and not here** |
 | `POST /api/update-workspace` | — | **done** |
 | `POST /api/tracker/signin`<br>`POST /api/tracker/signout` | **a TLS decision** — rustls, hyper and hyper-util are already linked through libp2p, but the workspace has no root-certificate store | F154 |
-| the `/feed` socket | the fan-out, which exists; the socket, which does not | **next** |
+| the `/feed` socket | — | **done** |
 
 The four that landed together are one shape, and it is worth naming because the next ones are it
 too: **resolve the project, ask the gate, do the work, tell the feed.** The gate is
@@ -55,6 +55,28 @@ Two things are deliberately not the worker's:
   that is the door's `/api/session-view` (above). A failure to show is REPORTED, never retried: the
   pane is already running and retained, so a caller that tried again would start a second one, and
   the answer says so in words.
+
+## The two kinds of socket, and why the difference is the worker
+
+`/feed` is served here because nothing else can serve it: one writer, one sequence. `/events` and
+`/surface` belong to whoever answers the session routes, so they are tunnelled byte for byte — a
+client that reached the worker for a pane's bytes gets the host's, and never a second opinion.
+
+The feed's contract is the ORDER: **the subscription is taken before the replay.** A watcher that
+subscribed first and replayed second would see a frame twice; one that replayed first without
+holding the subscription would miss whatever happened in between. The watcher de-duplicates on the
+sequence it has been sent, so the overlap is invisible and the gap is impossible.
+
+That contract needed a case built for it. A test that waits for the replay to settle before writing
+anything passes under either order — the evidence is a frame minted in the instant between the
+socket opening and the history being read, which the correct order delivers and the reverse drops.
+
+The fan-out's root filter needed one too, and for a subtler reason: **a sequence is per-ledger and
+every ledger starts at 1**, so a stranger's frame carries a number the watcher has already passed
+and its own de-duplication drops it whether the filter fired or not. The control masked the thing
+under test. The other project is now run twelve frames ahead before anything crosses, and then
+removing the filter costs the watcher its OWN next frame — because a stranger's higher sequence
+advances the cursor past it.
 
 Every route's work runs on `spawn_blocking`. A CLI's `--help`, a call to the door and a project's
 own write command all block, and a runtime whose workers were all inside one would stop accepting
@@ -91,6 +113,11 @@ a **relay** — a retired worker following the current worker's feed to push fra
 still holds. With the registry at the door, the desktops never belonged to a worker in the first
 place, and a worker being replaced is not something a desktop can notice. That machinery retires
 with `worker.mjs` rather than being ported.
+
+While the sockets were being served, the forwarder was found reading each answer to end-of-
+connection rather than by its own framing — so every forwarded route waited out the host's
+keep-alive, and nineteen of them are forwards. It now frames the answer the way the door does. In
+the suite that is 12 seconds a test to 15 milliseconds.
 
 Evidence: `orchestrator/tests/red-host.test.mjs`, in the F189 registry test — the two routes
 against the JS `Desktops` while it is still the record of what the answers are. Three sabotages,

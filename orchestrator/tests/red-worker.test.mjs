@@ -14,10 +14,12 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { WebSocket, WebSocketServer } from 'ws';
 import { built } from './cargo.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -47,13 +49,18 @@ async function host(t, answers = {}) {
     const { __status, ...rest } = answer;
     response.end(JSON.stringify(rest));
   });
+  /* Held so they can be let go of: an upgraded socket is not a request, and `close()` waits for one
+     forever — which is how a tunnel test hangs after it has already passed. */
+  const live = new Set();
+  server.on('connection', socket => { live.add(socket); socket.once('close', () => live.delete(socket)); });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const state = await mkdtemp(path.join(tmpdir(), 'rengine-worker-'));
   t.after(async () => {
+    for (const socket of live) socket.destroy();
     await new Promise(resolve => { server.closeAllConnections(); server.close(resolve); });
     await rm(state, { recursive: true, force: true });
   });
-  return { url: `http://127.0.0.1:${server.address().port}`, seen, state };
+  return { url: `http://127.0.0.1:${server.address().port}`, seen, state, server };
 }
 
 async function worker(t, upstream, stateDir) {
@@ -193,6 +200,9 @@ test('the agents menu is the worker\'s, and a root the host does not have is ref
  * inside them (`spawn`, `scripts`, `tasks`) are unit-tested where they live.
  */
 const ROOTS = { '/api/state': { roots: [{ id: 'r', path: ROOT }], capabilities: { taskConversations: 1 } } };
+/* A root id the LEDGER will accept: it refuses anything that is not a UUID, so a feed test cannot
+   use the one-letter id the forwarding tests use. */
+const FEED_ROOT = randomUUID();
 const withRoot = (at, extra = {}) => ({ '/api/state': { roots: [{ id: 'r', path: at }], capabilities: { taskConversations: 1 }, ...extra } });
 
 test('updating the workspace is gated here and done there', async t => {
@@ -394,3 +404,155 @@ test('a task write is the project\'s own command, and its refusal is the project
   /* The tracker is never read back for a write that did not happen, and no pane was involved. */
   assert.deepEqual(upstream.seen.map(request => request.url.split('?')[0]), ['/api/state']);
 });
+
+/* --- the feed socket (spec 095, 101, 103) ------------------------------------------------------ */
+/* The one thing nothing else can serve, and the reason this is a process at all: one writer, one
+ * sequence, and a watcher that resumes from a cursor.
+ *
+ * Driven against the REAL ledger service, with the frames minted through the JavaScript client that
+ * every other writer in this workspace uses — so what this asserts is that a watcher on the Rust
+ * worker's socket sees what the workspace actually wrote, not what a fixture says it did.
+ */
+test('the feed socket replays from a cursor and then carries what happens next', { timeout: 120000 }, async t => {
+  const upstream = await host(t, { '/api/state': { roots: [{ id: FEED_ROOT, path: ROOT }] } });
+  const { Tokens } = await import('../runtime/token-client.mjs');
+  const tokens = await Tokens.open(upstream.state, { alive: () => true });
+  t.after(async () => {
+    await tokens.close();
+    for (const name of ['token.json']) {
+      try {
+        const descriptor = JSON.parse(await readFile(path.join(upstream.state, name), 'utf8'));
+        if (Number.isSafeInteger(descriptor.pid)) process.kill(descriptor.pid, 'SIGKILL');
+      } catch { /* never started, or already gone */ }
+    }
+  });
+  const mint = async (rootId, type, fields) => {
+    const ledger = await tokens.ledger(rootId);
+    const frame = await ledger.frame(type, { kind: 'workspace' }, fields);
+    await ledger.persist();
+    return frame;
+  };
+  /* Three frames on this root, and one on another, before the worker is even started. */
+  const before = [];
+  for (const key of ['F1', 'F2', 'F3']) before.push(await mint(FEED_ROOT, 'task.added', { key }));
+  /* Another project, deliberately AHEAD of this one. A sequence is per-ledger and both start at 1,
+     so a stranger's frame carries a number this watcher has already passed — and the watcher's own
+     de-duplication drops it whether the fan-out filtered it or not. That is the control masking the
+     thing under test (`docs/evidence/blind-regressions-2026-09-06.md`), and it is why this project
+     is run up past the one being watched before anything crosses. */
+  const other = randomUUID();
+  for (let n = 0; n < 12; n += 1) await mint(other, 'task.added', { key: `not-ours-${n}` });
+
+  const started = await worker(t, upstream);
+  const watch = (query, collected = []) => {
+    const socket = new WebSocket(`${started.url.replace('http', 'ws')}/feed?token=${started.token}&${query}`);
+    t.after(() => { try { socket.close(); } catch { /* gone */ } });
+    socket.on('message', bytes => { try { collected.push(JSON.parse(bytes.toString())); } catch { /* not ours */ } });
+    const ended = new Promise(resolve => socket.once('close', (code, reason) => resolve({ code, reason: reason.toString() })));
+    return { socket, collected, ended, open: once(socket, 'open') };
+  };
+  const settle = async (check, what) => {
+    for (let waited = 0; waited < 10000; waited += 25) {
+      if (check()) return;
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    assert.fail(what);
+  };
+
+  /* Everything, from the beginning — and only this project's. */
+  const all = watch(`rootId=${FEED_ROOT}`);
+  await all.open;
+  await settle(() => all.collected.length >= 3, 'the feed replayed what was already written');
+  assert.deepEqual(all.collected.map(frame => frame.key), ['F1', 'F2', 'F3']);
+  assert.ok(all.collected.every(frame => frame.rootId === FEED_ROOT));
+
+  /* A cursor: everything AFTER the sequence a watcher last read, which is how a monitor that went
+     away and came back does not see the same event twice. */
+  const resumed = watch(`rootId=${FEED_ROOT}&after=${before[1].sequence}`);
+  await resumed.open;
+  await settle(() => resumed.collected.length >= 1, 'the feed resumed from the cursor');
+  assert.deepEqual(resumed.collected.map(frame => frame.key), ['F3'], 'and nothing it had already read');
+
+  /* And then what happens next, live, to both — the replay and the subscription overlap and a frame
+     that arrives both ways is still sent once. */
+  await mint(FEED_ROOT, 'task.updated', { key: 'F4' });
+  await settle(() => all.collected.length >= 4 && resumed.collected.length >= 2, 'the live frame reached both watchers');
+  assert.deepEqual(all.collected.map(frame => frame.key), ['F1', 'F2', 'F3', 'F4']);
+  assert.deepEqual(resumed.collected.map(frame => frame.key), ['F3', 'F4']);
+
+  /* Another project's frame reaches neither: a monitor shown one is showing a workspace nobody is
+     looking at. */
+  await mint(other, 'task.added', { key: 'still-not-ours' });
+  await mint(FEED_ROOT, 'task.added', { key: 'F5' });
+  await settle(() => all.collected.some(frame => frame.key === 'F5'), 'the next frame on this root arrived');
+  /* Asserted HERE, after another project has written, rather than on the replay: the replay is
+     per-root at the service and cannot carry a stranger, so a check before this one is a check the
+     fan-out's filter could never fail. */
+  assert.ok(all.collected.every(frame => frame.rootId === FEED_ROOT),
+    `another project's frames are not this watcher's: ${JSON.stringify(all.collected.map(frame => frame.key))}`);
+  assert.deepEqual(all.collected.map(frame => frame.key), ['F1', 'F2', 'F3', 'F4', 'F5']);
+
+  /* THE ordering contract, and the only case that can tell the two orders apart: a frame minted in
+     the instant between the socket opening and the worker having read the history. The subscription
+     is taken FIRST, so that frame is either replayed or delivered live — it cannot be neither. A
+     worker that replayed and then subscribed would drop exactly this one, and would look correct in
+     every test that waits for the replay to settle before writing anything. */
+  const racing = watch(`rootId=${FEED_ROOT}`);
+  await racing.open;
+  const raced = await mint(FEED_ROOT, 'task.added', { key: 'F6' });
+  await settle(() => racing.collected.some(frame => frame.sequence === raced.sequence),
+    'a frame minted while the feed was still opening reached the watcher');
+
+  /* A feed is a ROOT's feed, and a watcher that named none is told so in the close rather than
+     handed the workspace's. */
+  const rootless = watch('');
+  const ended = await rootless.ended;
+  assert.equal(ended.code, 1011);
+  assert.equal(ended.reason, 'A project root is required to read its feed.');
+
+  /* The host is never asked about a feed of its own. */
+  assert.deepEqual(upstream.seen.filter(request => request.url.startsWith('/feed')), []);
+});
+
+/* `/events` and `/surface` belong to whoever answers the session routes, so a client that reached
+ * the worker for a pane's bytes gets the HOST's — carried through byte for byte, never decoded and
+ * re-encoded, because a worker that parsed them would be a second opinion about a stream it has no
+ * view of. */
+test('a socket the host owns is tunnelled, not answered', { timeout: 60000 }, async t => {
+  const upstream = await host(t);
+  const sockets = new WebSocketServer({ server: upstream.server });
+  const said = [];
+  sockets.on('connection', (socket, request) => {
+    socket.send(JSON.stringify({ type: 'hello', at: request.url }));
+    socket.on('message', bytes => { said.push(bytes.toString()); socket.send(JSON.stringify({ type: 'echo', of: bytes.toString() })); });
+  });
+  const started = await worker(t, upstream);
+
+  for (const route of ['/events', '/surface?id=pane-1']) {
+    const socket = new WebSocket(`${started.url.replace('http', 'ws')}${route}${route.includes('?') ? '&' : '?'}token=${started.token}`);
+    t.after(() => { try { socket.close(); } catch { /* gone */ } });
+    const frames = [];
+    socket.on('message', bytes => frames.push(JSON.parse(bytes.toString())));
+    await once(socket, 'open');
+    await new Promise(resolve => setTimeout(resolve, 150));
+    assert.equal(frames[0].type, 'hello', `${route} reached the host`);
+    assert.ok(frames[0].at.startsWith(route.split('?')[0]), `${route} arrived as itself: ${frames[0].at}`);
+
+    /* And the client's own bytes reach the host unchanged. */
+    socket.send('{"type":"attach","id":"pane-1"}');
+    /* Waited for the ANSWER, not for the host to have recorded the question: the two directions are
+       independent, and asserting the echo the moment the host saw the send is a race. */
+    await settleFor(() => frames.some(frame => frame.type === 'echo'));
+    assert.ok(said.includes('{"type":"attach","id":"pane-1"}'), 'the client\'s own bytes arrived unchanged');
+    assert.equal(frames.find(frame => frame.type === 'echo').of, '{"type":"attach","id":"pane-1"}');
+    socket.close();
+  }
+});
+
+const settleFor = async (check, timeout = 5000) => {
+  for (let waited = 0; waited < timeout; waited += 25) {
+    if (check()) return;
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  assert.fail('the tunnelled bytes never arrived');
+};

@@ -16,11 +16,19 @@
 //! like the whole one. That is what makes the port safe to do a route at a time.
 
 use std::io;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
+use futures_util::{SinkExt, StreamExt};
 use red_core::head::Head;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use red_worker::feed::{Close, Sent, Watcher, Watchers};
+use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::mpsc::unbounded_channel;
+use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
+use tokio_tungstenite::tungstenite::protocol::{CloseFrame, Role};
+use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::WebSocketStream;
 
 const USAGE: &str = "usage: red-worker --state <dir> --host <url> --host-token <token> [--port N]";
 /// The ledger service's protocol, as `token-client.mjs` names it. A worker that attached over a
@@ -42,6 +50,9 @@ struct Worker {
     url: String,
     /// One write at a time per project, for the two routes that change a tracker (spec 103).
     writes: red_worker::tasks::Writes,
+    /// Everyone watching a feed, and the root each is watching. The ledger pushes one stream of
+    /// events for the whole state directory and this is what turns it into per-root feeds.
+    watchers: Arc<Watchers>,
 }
 
 fn options() -> Result<(String, String, String, u16), String> {
@@ -73,11 +84,20 @@ async fn main() -> std::process::ExitCode {
         }
     };
     let port = listener.local_addr().map(|address| address.port()).unwrap_or(0);
+    /* Built before the client, because the client's event callback delivers INTO it: the ledger
+       starts pushing the moment it is attached, and a fan-out that did not exist yet would drop
+       whatever arrived first. */
+    let watchers = Arc::new(Watchers::default());
+    let fan_out = watchers.clone();
     let ledger = match red_core::service::Client::attaching(
         std::path::Path::new(&state),
         "token",
         TOKEN_PROTOCOL,
-        Box::new(|_event: &serde_json::Value| {}),
+        Box::new(move |event: &serde_json::Value| {
+            for behind in fan_out.deliver(event) {
+                fan_out.close(behind, Close::Behind);
+            }
+        }),
     ) {
         Ok(client) => client,
         Err(message) => {
@@ -92,6 +112,7 @@ async fn main() -> std::process::ExitCode {
         token: red_core::service::secret(),
         url: format!("http://127.0.0.1:{port}"),
         writes: red_worker::tasks::Writes::new(),
+        watchers,
     });
     /* One line, then serve: the supervisor reads this to learn where the worker is before it writes
        the descriptor that names it. */
@@ -137,6 +158,19 @@ async fn connection(worker: Arc<Worker>, mut client: TcpStream) -> io::Result<()
             }
             continue;
         }
+        /* The two kinds of socket, and the difference IS the worker. `/feed` is served here because
+           nothing else can serve it — one writer, one sequence. `/events` and `/surface` belong to
+           whoever answers the session routes, so they are tunnelled byte for byte: a client that
+           reached the worker for a pane's bytes gets the host's, and never a second opinion. */
+        if head.upgrade && red_worker::serve::own_socket(&head.path()) {
+            let key = head.header("sec-websocket-key").unwrap_or_default();
+            client.write_all(accepted(&key).as_bytes()).await?;
+            serve_feed(worker, client, buffered, &head).await;
+            return Ok(());
+        }
+        if head.upgrade {
+            return tunnel(&worker, client, buffered, &head).await;
+        }
         if red_worker::serve::implemented(&head.method, &head.path()) {
             let body = if head.method == "POST" { head.read_body(&mut client, &mut buffered).await? } else { String::new() };
             /* Off the async workers. Every one of these routes blocks — a CLI's `--help`, a call to
@@ -157,15 +191,157 @@ async fn connection(worker: Arc<Worker>, mut client: TcpStream) -> io::Result<()
 
         /* Everything else is the host's. The head is replayed with this worker's credential swapped
            for the host's — a client never learns the host's — and the body is forwarded by its own
-           framing. */
+           framing. The ANSWER is framed the same way: reading it to end-of-connection instead would
+           wait out the host's keep-alive on every forwarded route, which is nineteen of them. */
         let (address, _) = red_core::http::address(&worker.host).map_err(io::Error::other)?;
         let mut upstream = TcpStream::connect(&address).await?;
         upstream.write_all(head.replayed(&worker.host, &worker.host_token).as_bytes()).await?;
         head.forward_body(&mut client, &mut buffered, &mut upstream).await?;
-        let mut answer = Vec::new();
-        upstream.read_to_end(&mut answer).await?;
-        client.write_all(&answer).await?;
-        return Ok(());
+        let mut upstream_buffered: Vec<u8> = Vec::new();
+        let Some(answer) = Head::read(&mut upstream, &mut upstream_buffered).await? else { return Ok(()) };
+        client.write_all(answer.raw.as_bytes()).await?;
+        answer.forward_body(&mut upstream, &mut upstream_buffered, &mut client).await?;
+        if answer.closes() || !head.keeps_alive() {
+            return Ok(());
+        }
+    }
+}
+
+/// The 101 a client gets before the frames start.
+fn accepted(key: &str) -> String {
+    format!(
+        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {}\r\n\r\n",
+        tokio_tungstenite::tungstenite::handshake::derive_accept_key(key.as_bytes())
+    )
+}
+
+/// The `/feed` socket: the frames a watcher has not seen, and then the ones that happen next.
+///
+/// **The subscription is taken BEFORE the replay.** A watcher that subscribed first and replayed
+/// second would see a frame twice; one that replayed first without holding the subscription would
+/// miss whatever happened in between. So it joins the fan-out at its cursor, replays over the top,
+/// and the watcher's own de-duplication makes the overlap invisible.
+async fn serve_feed(worker: Arc<Worker>, client: TcpStream, buffered: Vec<u8>, head: &Head) {
+    let stream = Prefixed { buffered, inner: client };
+    let socket = WebSocketStream::from_raw_socket(stream, Role::Server, None).await;
+    let (mut writing, mut reading) = socket.split();
+    let (out, mut queue) = unbounded_channel::<Sent>();
+    let queued = Arc::new(AtomicUsize::new(0));
+
+    /* The writer owns the socket's sending half, so a close travels down the same queue the frames
+       do and cannot overtake them. */
+    let writer = tokio::spawn(async move {
+        while let Some(sent) = queue.recv().await {
+            let message = match sent {
+                Sent::Frame(text) => {
+                    queued.fetch_sub(text.len().min(queued.load(Ordering::SeqCst)), Ordering::SeqCst);
+                    Message::Text(text.into())
+                }
+                Sent::Close(why) => {
+                    let (code, reason) = why.frame();
+                    let _ = writing
+                        .send(Message::Close(Some(CloseFrame { code: CloseCode::from(code), reason: reason.into() })))
+                        .await;
+                    break;
+                }
+            };
+            if writing.send(message).await.is_err() {
+                break;
+            }
+        }
+        let _ = writing.close().await;
+    });
+
+    let refuse = |out: &tokio::sync::mpsc::UnboundedSender<Sent>, why: Close| {
+        let _ = out.send(Sent::Close(why));
+    };
+    let root = head.query("rootId").unwrap_or_default();
+    let cursor = red_worker::feed::cursor_of(head.query("after").as_deref());
+    match &worker.ledger {
+        _ if root.is_empty() => refuse(&out, Close::Refused("A project root is required to read its feed.".to_string())),
+        None => refuse(&out, Close::Refused("This workspace worker does not serve the project token ledger.".to_string())),
+        Some(ledger) => {
+            let queued = Arc::new(AtomicUsize::new(0));
+            let watcher = Arc::new(Watcher::new(out.clone(), queued, cursor));
+            let id = worker.watchers.join(&root, watcher.clone());
+            /* Replayed over the live subscription. A frame that arrives both ways is sent once. */
+            match ledger.call("feedAfter", serde_json::json!([root, cursor, serde_json::Value::Null])) {
+                Ok(history) => {
+                    let empty = Vec::new();
+                    let frames = history.get("frames").and_then(serde_json::Value::as_array).unwrap_or(&empty);
+                    for frame in frames {
+                        if watcher.send(frame).is_err() {
+                            worker.watchers.close(id, Close::Behind);
+                            break;
+                        }
+                    }
+                }
+                Err(fault) => {
+                    worker.watchers.close(id, Close::Refused(fault.split_once('|').map(|(_, why)| why).unwrap_or(&fault).to_string()));
+                }
+            }
+            /* A watcher sends nothing: the feed is one-way, and a client that talks is simply read
+               until it goes away. What ends this is the socket closing, either end. */
+            while let Some(Ok(message)) = reading.next().await {
+                if matches!(message, Message::Close(_)) {
+                    break;
+                }
+            }
+            worker.watchers.leave(id);
+        }
+    }
+    drop(out);
+    let _ = writer.await;
+}
+
+/// A socket the host owns, carried through byte for byte.
+///
+/// Not decoded and re-encoded: a pane's bytes and a game's frames are the host's answer, and a
+/// worker that parsed them would be a second opinion about a stream it has no view of.
+async fn tunnel(worker: &Worker, mut client: TcpStream, buffered: Vec<u8>, head: &Head) -> io::Result<()> {
+    let (address, _) = red_core::http::address(&worker.host).map_err(io::Error::other)?;
+    let mut upstream = TcpStream::connect(&address).await?;
+    upstream.write_all(head.replayed(&worker.host, &worker.host_token).as_bytes()).await?;
+    if !buffered.is_empty() {
+        upstream.write_all(&buffered).await?;
+    }
+    /* Both halves at once, for as long as either end has anything to say. */
+    let _ = tokio::io::copy_bidirectional(&mut client, &mut upstream).await;
+    Ok(())
+}
+
+/// A stream whose first bytes were already read off the socket while the head was being parsed.
+/// Dropping them would eat the first frame of every upgrade that arrived in one packet.
+struct Prefixed {
+    buffered: Vec<u8>,
+    inner: TcpStream,
+}
+
+impl tokio::io::AsyncRead for Prefixed {
+    fn poll_read(
+        mut self: std::pin::Pin<&mut Self>,
+        context: &mut std::task::Context<'_>,
+        buffer: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<io::Result<()>> {
+        if !self.buffered.is_empty() {
+            let take = self.buffered.len().min(buffer.remaining());
+            let held: Vec<u8> = self.buffered.drain(..take).collect();
+            buffer.put_slice(&held);
+            return std::task::Poll::Ready(Ok(()));
+        }
+        std::pin::Pin::new(&mut self.inner).poll_read(context, buffer)
+    }
+}
+
+impl tokio::io::AsyncWrite for Prefixed {
+    fn poll_write(mut self: std::pin::Pin<&mut Self>, context: &mut std::task::Context<'_>, bytes: &[u8]) -> std::task::Poll<io::Result<usize>> {
+        std::pin::Pin::new(&mut self.inner).poll_write(context, bytes)
+    }
+    fn poll_flush(mut self: std::pin::Pin<&mut Self>, context: &mut std::task::Context<'_>) -> std::task::Poll<io::Result<()>> {
+        std::pin::Pin::new(&mut self.inner).poll_flush(context)
+    }
+    fn poll_shutdown(mut self: std::pin::Pin<&mut Self>, context: &mut std::task::Context<'_>) -> std::task::Poll<io::Result<()>> {
+        std::pin::Pin::new(&mut self.inner).poll_shutdown(context)
     }
 }
 

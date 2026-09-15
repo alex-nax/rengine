@@ -52,9 +52,20 @@ impl Close {
     }
 }
 
+/// What travels down a watcher's queue: a frame, or the end of it.
+///
+/// One channel rather than two, because the ORDER of the two matters — a close that overtook the
+/// frames already queued would drop them, and a watcher told to reopen from a sequence it was never
+/// sent would come back to a gap.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Sent {
+    Frame(String),
+    Close(Close),
+}
+
 /// One watcher's end of the feed: a queue, and how far behind it has fallen.
 pub struct Watcher {
-    out: UnboundedSender<String>,
+    out: UnboundedSender<Sent>,
     queued: Arc<AtomicUsize>,
     /// The highest sequence this watcher has been sent, so a replay and a live frame cannot
     /// deliver the same one twice.
@@ -62,7 +73,7 @@ pub struct Watcher {
 }
 
 impl Watcher {
-    pub fn new(out: UnboundedSender<String>, queued: Arc<AtomicUsize>, cursor: i64) -> Watcher {
+    pub fn new(out: UnboundedSender<Sent>, queued: Arc<AtomicUsize>, cursor: i64) -> Watcher {
         Watcher { out, queued, delivered: std::sync::Mutex::new(cursor) }
     }
 
@@ -86,7 +97,7 @@ impl Watcher {
         }
         let text = frame.to_string();
         self.queued.fetch_add(text.len(), Ordering::SeqCst);
-        let _ = self.out.send(text);
+        let _ = self.out.send(Sent::Frame(text));
         Ok(())
     }
 }
@@ -111,6 +122,31 @@ impl Watchers {
 
     pub fn leave(&self, id: u64) {
         self.watching.lock().expect("watchers").retain(|(held, _, _)| *held != id);
+    }
+
+    /// End one watcher, telling it why. It leaves the fan-out first, so a frame that arrives while
+    /// the close is still travelling does not queue behind it.
+    pub fn close(&self, id: u64, why: Close) {
+        let held = {
+            let mut watching = self.watching.lock().expect("watchers");
+            let at = watching.iter().position(|(held, _, _)| *held == id);
+            at.map(|at| watching.remove(at).2)
+        };
+        if let Some(watcher) = held {
+            let _ = watcher.out.send(Sent::Close(why));
+        }
+    }
+
+    /// End every watcher, which is what retirement is: each is told where the next worker is and
+    /// resumes from the cursor it had.
+    pub fn close_all(&self, why: Close) {
+        let held: Vec<Arc<Watcher>> = std::mem::take(&mut *self.watching.lock().expect("watchers"))
+            .into_iter()
+            .map(|(_, _, watcher)| watcher)
+            .collect();
+        for watcher in held {
+            let _ = watcher.out.send(Sent::Close(why.clone()));
+        }
     }
 
     /// One event from the ledger. Anything that is not a frame is not a feed frame — the ledger
@@ -146,7 +182,7 @@ mod tests {
     use serde_json::json;
     use tokio::sync::mpsc::unbounded_channel;
 
-    fn watcher(cursor: i64) -> (Watcher, Arc<AtomicUsize>, tokio::sync::mpsc::UnboundedReceiver<String>) {
+    fn watcher(cursor: i64) -> (Watcher, Arc<AtomicUsize>, tokio::sync::mpsc::UnboundedReceiver<Sent>) {
         let (out, receiver) = unbounded_channel();
         let queued = Arc::new(AtomicUsize::new(0));
         (Watcher::new(out, queued.clone(), cursor), queued, receiver)
@@ -156,9 +192,10 @@ mod tests {
         json!({ "sequence": sequence, "type": "token.taken" })
     }
 
-    fn sequences(receiver: &mut tokio::sync::mpsc::UnboundedReceiver<String>) -> Vec<i64> {
+    fn sequences(receiver: &mut tokio::sync::mpsc::UnboundedReceiver<Sent>) -> Vec<i64> {
         let mut seen = Vec::new();
-        while let Ok(text) = receiver.try_recv() {
+        while let Ok(sent) = receiver.try_recv() {
+            let Sent::Frame(text) = sent else { continue };
             let value: Value = serde_json::from_str(&text).expect("a frame");
             seen.push(value["sequence"].as_i64().expect("a sequence"));
         }
@@ -259,6 +296,39 @@ mod tests {
         watchers.leave(id);
         assert!(watchers.deliver(&json!({ "event": "frame", "rootId": "root-1", "frame": frame(2) })).is_empty());
         assert_eq!(sequences(&mut receiver), Vec::<i64>::new());
+    }
+
+    /* A close travels down the SAME queue the frames do, so it cannot overtake them: a watcher told
+       to reopen from a sequence it was never sent would come back to a gap. */
+    #[test]
+    fn a_watcher_is_ended_after_the_frames_it_was_already_sent() {
+        let watchers = Watchers::default();
+        let (one, _queued, mut receiver) = watcher(0);
+        let id = watchers.join("root-1", Arc::new(one));
+        watchers.deliver(&json!({ "event": "frame", "rootId": "root-1", "frame": frame(1) }));
+        watchers.close(id, Close::Behind);
+        assert_eq!(receiver.try_recv(), Ok(Sent::Frame(frame(1).to_string())), "the frame it was sent");
+        assert_eq!(receiver.try_recv(), Ok(Sent::Close(Close::Behind)), "and then the end of it");
+
+        /* And a watcher that has been closed has left: a frame after it reaches nobody. */
+        assert!(watchers.deliver(&json!({ "event": "frame", "rootId": "root-1", "frame": frame(2) })).is_empty());
+    }
+
+    /* Retirement is every watcher at once, each told where the next worker is. */
+    #[test]
+    fn a_retirement_ends_every_watcher_with_the_way_forward() {
+        let watchers = Watchers::default();
+        let mut queues = Vec::new();
+        for root in ["root-1", "root-2"] {
+            let (one, _queued, receiver) = watcher(0);
+            watchers.join(root, Arc::new(one));
+            queues.push(receiver);
+        }
+        watchers.close_all(Close::Retired);
+        for mut receiver in queues {
+            assert_eq!(receiver.try_recv(), Ok(Sent::Close(Close::Retired)));
+        }
+        assert!(watchers.deliver(&json!({ "event": "frame", "rootId": "root-1", "frame": frame(1) })).is_empty());
     }
 
     #[test]
