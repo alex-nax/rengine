@@ -27,3 +27,9 @@ prost-build = "0.13"
 [[bin]]
 name = "red-contract"
 path = "src/bin/red_contract.rs"
+
+# The surface corpus judge: the JS suite owns the cases and the implementation being replaced, this
+# end answers them, and the suite compares the two (spec 142).
+[[bin]]
+name = "red-surface"
+path = "src/bin/red_surface.rs"

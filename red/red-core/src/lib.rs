@@ -10,6 +10,10 @@
 
 pub mod http;
 pub mod service;
+/// The game surface wire format (F155/F189, spec 142): frames one way, input the other. Here
+/// rather than in the door because it IS a protocol, and because the companion streams the same
+/// frames over the same header.
+pub mod surface;
 pub mod text;
 pub mod theme;
 pub mod time;
