@@ -2,8 +2,9 @@
 
 Owner goal, 2026-09-15: *"proceed with js retirement in favour of rust"* (charter D57, spec 129).
 
-Status: **the wire format has landed and is proved byte-exact; the listener, the launch and the
-cutover follow.**
+Status: **three of four landed** — the wire format (proved byte-exact against the JavaScript), the
+transport with focus eviction preserved, and the launch decisions. The cutover — wiring `/api/game`
+and `/surface` into the door and deleting the five JS modules — is what remains.
 
 ## Why this row, and why now
 
@@ -52,6 +53,20 @@ Dropping the width bound entirely left the suite green. The cases come in pairs 
 of each pair builds the header from the bad dimension so its byte count agrees and only the bound
 can refuse it. This is the control masking the thing under test, which
 `docs/evidence/blind-regressions-2026-09-06.md` already has six of.
+
+## What is left
+
+The three pieces above are the parts with decisions in them, and each is tested and
+sabotage-verified on its own. What remains is wiring:
+
+1. `POST /api/game` answered by the door: `red_project::games::inspect_game` for the preflight,
+   `games::decide` for the verdict, `panes` for the spawn, `surfaces` for the reservation.
+2. The `/surface` upgrade served by the door instead of spliced to the backend.
+3. `main.mjs`, `games.mjs`, `surfaces.mjs`, `surface-protocol.mjs` and `desktops.mjs` deleted, per
+   KI-102 — this is the row that moves the last route, so it is the row that deletes them.
+
+The cooperative surface suite (`surface.test.mjs`, `native-game.spec.mjs`) is the evidence for the
+cutover, and it is a real gate: it drives a producer through the actual socket.
 
 ## Evidence
 
