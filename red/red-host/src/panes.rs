@@ -533,8 +533,10 @@ fn compose_env(overrides: &serde_json::Map<String, Value>) -> Value {
     json!(composed)
 }
 
+/// One implementation, in `red_project::command`, because the worker names the same interpreter
+/// when it opens a project script as a tab and the two must not disagree.
 fn bash_path() -> String {
-    std::env::var("RENGINE_BASH").ok().filter(|value| !value.is_empty()).unwrap_or_else(|| "/bin/bash".to_string())
+    red_project::command::bash_path()
 }
 
 /// The node a pane's launcher runs. The JS host passes the exact interpreter running it; this door

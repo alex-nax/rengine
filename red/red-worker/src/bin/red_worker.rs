@@ -40,6 +40,8 @@ struct Worker {
     /// What this worker's own clients present.
     token: String,
     url: String,
+    /// One write at a time per project, for the two routes that change a tracker (spec 103).
+    writes: red_worker::tasks::Writes,
 }
 
 fn options() -> Result<(String, String, String, u16), String> {
@@ -89,6 +91,7 @@ async fn main() -> std::process::ExitCode {
         host_token,
         token: red_core::service::secret(),
         url: format!("http://127.0.0.1:{port}"),
+        writes: red_worker::tasks::Writes::new(),
     });
     /* One line, then serve: the supervisor reads this to learn where the worker is before it writes
        the descriptor that names it. */
@@ -136,7 +139,15 @@ async fn connection(worker: Arc<Worker>, mut client: TcpStream) -> io::Result<()
         }
         if red_worker::serve::implemented(&head.method, &head.path()) {
             let body = if head.method == "POST" { head.read_body(&mut client, &mut buffered).await? } else { String::new() };
-            let answer = answer_own(&worker, &head, &body);
+            /* Off the async workers. Every one of these routes blocks — a CLI's `--help`, a call to
+               the door, a project's own write command — and a runtime whose workers were all inside
+               one would stop accepting the connection that was waiting to be told so. */
+            let answer = {
+                let (worker, head) = (worker.clone(), head.clone());
+                tokio::task::spawn_blocking(move || answer_own(&worker, &head, &body))
+                    .await
+                    .unwrap_or_else(|_| refusal(500, "Error", "This worker failed while answering."))
+            };
             client.write_all(answer.as_bytes()).await?;
             if !head.keeps_alive() {
                 return Ok(());
@@ -257,7 +268,222 @@ fn answer_own(worker: &Worker, head: &Head, body: &str) -> String {
                 Err(fault) => faulted(&fault),
             }
         }
+        /* The three routes that CHANGE a project, and the one that changes the workspace. Each is
+           the same shape: resolve the project, ask the gate, do the work, tell the feed. */
+        ("POST", "/api/update-workspace") => answered_or_faulted(update_workspace(worker, head, body)),
+        ("POST", "/api/task") => answered_or_faulted(task(worker, head, body)),
+        ("POST", "/api/agent-spawn") => answered_or_faulted(agent_spawn(worker, head, body)),
+        ("POST", "/api/script-open") => answered_or_faulted(script_open(worker, head, body)),
         _ => refusal(404, "Not Found", "Unknown workspace endpoint."),
+    }
+}
+
+/// Updating the workspace itself: the gate is the worker's, the work is the host's.
+///
+/// The host serves this route and this worker only forwards it, so the gate has to intercept before
+/// the forward rather than ask the host to grow one (spec 065). That is the whole of what is here.
+fn update_workspace(worker: &Worker, head: &Head, body: &str) -> Result<serde_json::Value, String> {
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let (root_id, _) = root_of(worker, named(&data, "rootId"))?;
+    gate(worker, &root_id, "update_workspace", head)?;
+    ask_host(worker, "POST", "/api/update-workspace", body)
+}
+
+/// Writing a row to the project's tracker (spec 103, decision 2).
+///
+/// Token-gated and serialised, in that order: the gate refuses a non-holder before the queue, so a
+/// refusal never waits behind somebody else's write. The frame is minted AFTER the project's own
+/// command returned rather than when it was asked for — a feed that announced a write that then
+/// failed would be a feed a reader could not trust.
+fn task(worker: &Worker, head: &Head, body: &str) -> Result<serde_json::Value, String> {
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let (root_id, root_path) = root_of(worker, named(&data, "rootId"))?;
+    let action = data.get("action").and_then(serde_json::Value::as_str);
+    let by = gate(worker, &root_id, &red_worker::tasks::tool_of(action), head)?;
+    let written = {
+        let lock = worker.writes.of(&root_id);
+        let _held = red_worker::tasks::Writes::taken(&lock);
+        let declared = red_project::declaration::read(&root_path, None);
+        let environment: Vec<(String, String)> = std::env::vars().collect();
+        red_project::tasks::task_write(&root_id, &root_path, &declared, &data, &environment)
+            .map_err(|fail| format!("{}|{}", fail.status.unwrap_or(500), fail.message))?
+    };
+    let key = written.get("key").cloned().unwrap_or(serde_json::Value::Null);
+    let frame = note(worker, &root_id, red_worker::tasks::frame_of(action), &by,
+        serde_json::json!({ "key": key, "action": action }));
+    /* Read back through the door, which answers a local tracker itself and forwards a remote one —
+       so the worker needs no tracker of its own to tell a caller what its write left behind. */
+    let tracker = ask_host(worker, "GET", &format!("/api/tracker?rootId={root_id}&refresh=1"), "")
+        .unwrap_or(serde_json::Value::Null);
+    let mut answer = written.as_object().cloned().unwrap_or_default();
+    answer.insert("sequence".to_string(), sequence_of(&frame));
+    answer.insert("tracker".to_string(), tracker);
+    Ok(serde_json::Value::Object(answer))
+}
+
+/// Starting an agent CLI on a task, in a pane (spec 103).
+///
+/// The refusals come first and each is one a caller can act on — `spawn`'s three decisions — and
+/// then nothing is started until every one of them has passed. What makes the ORDER matter is that
+/// this route launches a process: a caller that gets a refusal here can be certain nothing ran.
+fn agent_spawn(worker: &Worker, head: &Head, body: &str) -> Result<serde_json::Value, String> {
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let (root_id, root_path) = root_of(worker, named(&data, "rootId"))?;
+    let by = gate(worker, &root_id, "spawn_agent", head)?;
+    let state = ask_host(worker, "GET", "/api/state", "")?;
+    red_worker::spawn::host_can_spawn(&state).map_err(refused)?;
+    let agent = red_worker::spawn::agent_name(data.get("agent").and_then(serde_json::Value::as_str)).map_err(refused)?;
+    let brief = data.get("brief").and_then(serde_json::Value::as_str).unwrap_or("task").to_string();
+    let listed = ask_host(worker, "GET", &format!("/api/tracker?rootId={root_id}"), "")?;
+    let row = red_worker::tasks::row_of(&listed, data.get("taskKey")).map_err(refused)?;
+    let recipes = red_agents::projection(&red_agents::shipped_recipes());
+    let model = data.get("model").and_then(serde_json::Value::as_str);
+    let mut args = red_project::tasks::model_args(&recipes, &agent, model)
+        .map_err(|fail| format!("{}|{}", fail.status.unwrap_or(500), fail.message))?;
+    /* The CLI's own initial prompt is a positional argument after the model flag, which is how both
+       of the CLIs that take one take it. The pane's launcher appends these after the MCP wiring. */
+    let written = red_project::tasks::prompt_for(&root_path, &brief, &red_project::tasks::prompt_values(&row), &shipped_prompts())
+        .map_err(|fail| format!("{}|{}", fail.status.unwrap_or(500), fail.message))?;
+    args.push(written.get("text").and_then(serde_json::Value::as_str).unwrap_or_default().to_string());
+    let mut payload = serde_json::json!({ "rootId": root_id, "type": "agent", "agent": agent, "action": "launch", "args": args });
+    /* Named here rather than left to the host, and only for a CLI that accepts being told which
+       conversation to start: one that can only resume, or that names its own, is started unnamed
+       and records none — never a refusal for a spawn that named nothing the caller chose. */
+    if red_worker::spawn::names_the_conversation(&recipes, &agent) {
+        payload["conversation"] = serde_json::json!(red_core::service::uuid_v4());
+    }
+    let session = ask_host(worker, "POST", "/api/terminal", &payload.to_string())?;
+    let conversation = session.get("conversation").cloned().filter(|value| !value.is_null());
+    if let Some(conversation) = &conversation {
+        let told = serde_json::json!({ "id": session.get("id"), "conversation": conversation,
+            "agent": agent, "task": row.get("key") });
+        ask_host(worker, "POST", "/api/agent-conversation", &told.to_string())?;
+    }
+    let frame = note(worker, &root_id, "agent.spawned", &by, serde_json::json!({
+        "taskKey": row.get("key"), "agent": agent, "model": model,
+        "conversation": conversation, "sessionId": session.get("id"),
+    }));
+    let mut answer = serde_json::Map::new();
+    answer.insert("rootId".to_string(), serde_json::json!(root_id));
+    answer.insert("taskKey".to_string(), row.get("key").cloned().unwrap_or(serde_json::Value::Null));
+    answer.insert("agent".to_string(), serde_json::json!(agent));
+    answer.insert("model".to_string(), serde_json::json!(model));
+    answer.insert("brief".to_string(), serde_json::json!(brief));
+    answer.insert("conversation".to_string(), conversation.unwrap_or(serde_json::Value::Null));
+    answer.insert("session".to_string(), session.clone());
+    answer.insert("sequence".to_string(), sequence_of(&frame));
+    Ok(shown(worker, &data, &root_id, &session, serde_json::Value::Object(answer),
+        "The agent pane was started and is retained. Use show_session; do not spawn it again."))
+}
+
+/// Opening a project script as an interactive tab.
+///
+/// The rules are `scripts`'s and are judged on the RESOLVED path. What is here is the rest of the
+/// route: the gate, the pane, and the desktop that shows it.
+fn script_open(worker: &Worker, head: &Head, body: &str) -> Result<serde_json::Value, String> {
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let (root_id, root_path) = root_of(worker, named(&data, "rootId"))?;
+    gate(worker, &root_id, "open_script", head)?;
+    let resolve = |path: &std::path::Path| std::fs::canonicalize(path).ok();
+    let script = red_worker::scripts::script_path(std::path::Path::new(&root_path), data.get("path").and_then(serde_json::Value::as_str), &resolve)
+        .map_err(|refused| format!("{}|{}", refused.status, refused.message))?;
+    /* A directory is not a script, and only the filesystem knows which this is. */
+    if !script.is_file() {
+        return Err("403|Script escapes the bound project.".to_string());
+    }
+    let arguments = red_worker::scripts::script_arguments(data.get("args"))
+        .map_err(|refused| format!("{}|{}", refused.status, refused.message))?;
+    let mut args = vec![script.to_string_lossy().to_string()];
+    args.extend(arguments);
+    let payload = serde_json::json!({ "rootId": root_id, "command": red_project::command::bash_path(),
+        "args": args, "env": data.get("env").cloned().unwrap_or_else(|| serde_json::json!({})) });
+    let mut session = ask_host(worker, "POST", "/api/terminal", &payload.to_string())?;
+    let name = script.file_name().map(|name| name.to_string_lossy().to_string()).unwrap_or_default();
+    if let Some(record) = session.as_object_mut() {
+        record.insert("title".to_string(), serde_json::json!(format!("Script · {name}")));
+    }
+    Ok(shown(worker, &data, &root_id, &session, serde_json::json!({ "session": session }),
+        "The script was started and is retained. Use show_session; do not launch it again."))
+}
+
+/// Show a pane this route just started in the desktop the caller named, if it named one.
+///
+/// **A failure to show is reported, never retried.** The pane is already running and retained, so a
+/// caller that tried again would start a second one — which is why the detail says so in words.
+/// Attaching is the DOOR's (spec 143): the desktops register on its socket, so the worker asks it.
+fn shown(
+    worker: &Worker,
+    data: &serde_json::Value,
+    root_id: &str,
+    session: &serde_json::Value,
+    answer: serde_json::Value,
+    detail: &str,
+) -> serde_json::Value {
+    let Some(desktop) = data.get("desktopId").and_then(serde_json::Value::as_str) else { return answer };
+    let asked = serde_json::json!({ "rootId": root_id, "desktopId": desktop, "id": session.get("id") });
+    let mut answer = answer.as_object().cloned().unwrap_or_default();
+    match ask_host(worker, "POST", "/api/session-view", &asked.to_string()) {
+        Ok(view) => {
+            answer.insert("view".to_string(), view);
+        }
+        Err(fault) => {
+            let message = fault.split_once('|').map(|(_, message)| message).unwrap_or(&fault);
+            answer.insert("view".to_string(), serde_json::json!({ "status": "not_attached", "error": message }));
+            answer.insert("detail".to_string(), serde_json::json!(detail));
+        }
+    }
+    serde_json::Value::Object(answer)
+}
+
+/// The briefs rEngine ships, beside the registry it ships.
+fn shipped_prompts() -> std::path::PathBuf {
+    std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.ancestors().nth(4).map(|checkout| checkout.join("orchestrator/templates/prompts")))
+        .unwrap_or_default()
+}
+
+/// A field a route names a project by.
+fn named<'a>(data: &'a serde_json::Value, field: &str) -> &'a str {
+    data.get(field).and_then(serde_json::Value::as_str).unwrap_or_default()
+}
+
+/// One of this crate's own refusals, as the `status|message` every service here answers with.
+fn refused<R: Refusing>(refused: R) -> String {
+    format!("{}|{}", refused.status(), refused.message())
+}
+
+/// The two refusal types this binary composes, said once. They are separate types because they are
+/// separate decisions — what a spawn may do, and what a script may be — and neither borrows the
+/// other's statuses.
+trait Refusing {
+    fn status(&self) -> u16;
+    fn message(&self) -> String;
+}
+
+impl Refusing for red_worker::spawn::Refused {
+    fn status(&self) -> u16 {
+        self.status
+    }
+    fn message(&self) -> String {
+        self.message.clone()
+    }
+}
+
+impl Refusing for red_worker::tasks::Refused {
+    fn status(&self) -> u16 {
+        self.status
+    }
+    fn message(&self) -> String {
+        self.message.clone()
+    }
+}
+
+/// A composed route's answer, or its refusal with the status it chose.
+fn answered_or_faulted(result: Result<serde_json::Value, String>) -> String {
+    match result {
+        Ok(value) => json(200, "OK", &value.to_string()),
+        Err(fault) => faulted(&fault),
     }
 }
 
@@ -304,13 +530,85 @@ fn bounded(file: &str, args: &[&str]) -> String {
         }
     }
     let mut text = String::new();
-    if let Some(mut out) = child.stdout.take() {
+    if let Some(out) = child.stdout.take() {
         use std::io::Read;
         let mut buffer = Vec::new();
         let _ = out.take(red_worker::menu::HELP_LIMIT as u64).read_to_end(&mut buffer);
         text = String::from_utf8_lossy(&buffer).to_string();
     }
     text
+}
+
+/// The project this request named, as the host knows it: its id and its path on disk.
+///
+/// Asked of the host every time rather than cached, because roots are the WORKSPACE's and a project
+/// added since this worker started is one a caller may legitimately name.
+fn root_of(worker: &Worker, id: &str) -> Result<(String, String), String> {
+    let state = ask_host(worker, "GET", "/api/state", "")?;
+    let empty = Vec::new();
+    let roots = state.get("roots").and_then(serde_json::Value::as_array).unwrap_or(&empty);
+    let found = roots
+        .iter()
+        .find(|item| item.get("id").and_then(serde_json::Value::as_str) == Some(id))
+        .ok_or_else(|| "404|Unknown project root.".to_string())?;
+    Ok((
+        id.to_string(),
+        found.get("path").and_then(serde_json::Value::as_str).unwrap_or_default().to_string(),
+    ))
+}
+
+/// The token gate: may this caller do this, on this project?
+///
+/// A request with no agent header is the DESKTOP's, and the desktop is never gated (spec 095,
+/// decision 6) — the header is arbitration among cooperating agents, not authentication. So a
+/// caller that named nobody passes, and what comes back is who the feed will say did it.
+fn gate(worker: &Worker, root_id: &str, tool: &str, head: &Head) -> Result<serde_json::Value, String> {
+    let who = identity_of(head);
+    let Some(ledger) = &worker.ledger else {
+        /* No ledger to arbitrate with: the JavaScript lets the call through for the same reason it
+           lets an unidentified one through — there is nothing to be refused BY. The routes that
+           cannot work without one refuse on their own account. */
+        return Ok(actor(who, head));
+    };
+    let Some(who) = who else { return Ok(actor(None, head)) };
+    let answer = ledger.call("gate", serde_json::json!([root_id, who, tool]))?;
+    match answer.get("refusal").and_then(serde_json::Value::as_str) {
+        Some(refusal) => Err(format!("409|{refusal}")),
+        None => Ok(actor(Some(who), head)),
+    }
+}
+
+/// Who the feed will say did this. An agent by its id and label; otherwise the person at a desktop,
+/// named when a retired worker is carrying their frame and anonymous when they are here themselves.
+fn actor(who: Option<serde_json::Value>, head: &Head) -> serde_json::Value {
+    match who {
+        Some(who) => serde_json::json!({
+            "kind": "agent",
+            "agentId": who.get("agentId").cloned().unwrap_or(serde_json::Value::Null),
+            "label": who.get("label").cloned().unwrap_or(serde_json::Value::Null),
+        }),
+        None => match red_worker::identity::desktop(|name| head.header(name)) {
+            Some(desktop) => serde_json::json!({ "kind": "desktop", "desktopId": desktop }),
+            None => serde_json::json!({ "kind": "desktop" }),
+        },
+    }
+}
+
+/// A frame on this project's feed, minted and persisted. `None` when there is no ledger to mint it
+/// on, which is not an error: the route's own work is done and the frame is what announced it.
+fn note(worker: &Worker, root_id: &str, kind: &str, by: &serde_json::Value, fields: serde_json::Value) -> Option<serde_json::Value> {
+    let ledger = worker.ledger.as_ref()?;
+    let frame = ledger.call("frame", serde_json::json!([root_id, kind, by, fields])).ok()?;
+    let _ = ledger.call("persist", serde_json::json!([root_id]));
+    Some(frame)
+}
+
+/// The sequence a frame landed at, as a route answers it: the number a caller reads the feed from.
+fn sequence_of(frame: &Option<serde_json::Value>) -> serde_json::Value {
+    frame
+        .as_ref()
+        .and_then(|frame| frame.get("sequence").cloned())
+        .unwrap_or(serde_json::Value::Null)
 }
 
 /// One question for the session host, answered as JSON.

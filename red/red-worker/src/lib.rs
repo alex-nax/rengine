@@ -17,3 +17,4 @@ pub mod menu;
 pub mod scripts;
 pub mod serve;
 pub mod spawn;
+pub mod tasks;

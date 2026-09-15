@@ -115,6 +115,15 @@ fn unblock<T>(_source: &T) {}
 /// stdio streams ended, and its timer refused at `timeoutMs` whether or not either had happened —
 /// so a producer that exits 0 leaving a background child holding stdout was a 504, never a wait for
 /// an end-of-file that is not coming. See sidecar: execution-boundary.
+/// The bash a pane runs a script under.
+///
+/// Here rather than in either server because BOTH need it and they must not disagree: the door
+/// spawns a pane's shell, and the worker names the interpreter when it opens a project script as a
+/// tab. `sessions-client.mjs` reads the same variable, and falls back the same way.
+pub fn bash_path() -> String {
+    std::env::var("RENGINE_BASH").ok().filter(|value| !value.is_empty()).unwrap_or_else(|| "/bin/bash".to_string())
+}
+
 pub fn run(root: &Path, argv: &[String], env: &[(String, String)], timeout_ms: u64, max_bytes: usize) -> Result<Run, Failed> {
     let Some((program, rest)) = argv.split_first() else {
         return Err(Failed { message: "Cannot start : no command".into(), status: 500 });

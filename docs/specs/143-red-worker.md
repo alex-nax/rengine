@@ -2,7 +2,7 @@
 
 Owner goal, 2026-09-15: *"finish remaining js"* (charter D57, spec 129; F158).
 
-Status: **in progress — 4 of 15 routes answered, the front door, the feed's core and fan-out, and the script rules.**
+Status: **in progress — 8 of 13 routes answered** (the registry's two went to the door), plus the front door and the feed's core and fan-out.
 
 ## The measurement that shaped this
 
@@ -30,14 +30,35 @@ rather than on the day a single enormous commit is reviewed.
 | `GET /api/token` | the ledger service | **done** |
 | `POST /api/token-action` | the ledger service | **done** |
 | `GET /api/agents-menu` | — | **done** |
-| `POST /api/task` | the token gate, a per-root serialisation, `red_project::tasks::task_write`, a feed frame, and the tracker read back — **the tracker is F154's** unless the worker asks the door for it, which it may, since it already forwards there | crate exists |
-| `POST /api/agent-spawn` | the token gate, `spawn`'s three decisions (**done**), the host's own pane spawn, and the door's `/api/session-view` to show it | half |
-| `POST /api/script-open` | the host's pane spawn, then the door's `/api/session-view`; **its rules are done** — `scripts::script_path` judges the resolved path, `scripts::script_arguments` the bounds | half |
+| `POST /api/task` | — | **done**; the tracker is read back **through the door**, which answers a local one itself and forwards a remote one, so the worker needs none of its own |
+| `POST /api/agent-spawn` | — | **done** |
+| `POST /api/script-open` | — | **done** |
 | `GET /api/diagnostics`<br>`POST /api/ide-mention`<br>`POST /api/ide-selection` | **the IDE bridge**: the worker spawns one `red-ide serve` per bridge and answers `getDiagnostics` back down the pipe, because the language servers are the worker's (spec 133 D3) | infrastructure |
 | `POST /api/session-view`<br>`GET /api/runtime-desktops` | ~~the desktop registry~~ — **the door's** (below) | **done, and not here** |
-| `POST /api/update-workspace` | the token gate, then the host's own call | crate exists |
+| `POST /api/update-workspace` | — | **done** |
 | `POST /api/tracker/signin`<br>`POST /api/tracker/signout` | **a TLS decision** — rustls, hyper and hyper-util are already linked through libp2p, but the workspace has no root-certificate store | F154 |
-| the `/feed` socket | the fan-out, which exists; the socket, which does not | next |
+| the `/feed` socket | the fan-out, which exists; the socket, which does not | **next** |
+
+The four that landed together are one shape, and it is worth naming because the next ones are it
+too: **resolve the project, ask the gate, do the work, tell the feed.** The gate is
+`red_token`'s `gate` call — settle, note the caller, ask for the refusal, persist, in one round trip
+rather than four — and a request with no agent header passes it, because the header is arbitration
+among cooperating agents and the person at a desktop is never gated. A worker with no ledger also
+passes, for the same reason an unidentified caller does: there is nothing to be refused *by*.
+
+Two things are deliberately not the worker's:
+
+- **The tracker read.** `POST /api/task` answers with the tracker as the write left it, and asks the
+  door for it. The door answers a local tracker itself and forwards a remote one, so nothing here
+  waits on F154's TLS decision.
+- **Showing the pane.** `script-open` and `agent-spawn` both end by showing what they started, and
+  that is the door's `/api/session-view` (above). A failure to show is REPORTED, never retried: the
+  pane is already running and retained, so a caller that tried again would start a second one, and
+  the answer says so in words.
+
+Every route's work runs on `spawn_blocking`. A CLI's `--help`, a call to the door and a project's
+own write command all block, and a runtime whose workers were all inside one would stop accepting
+the connection that was waiting to be told so.
 
 ## The answer: the registry is the door's
 

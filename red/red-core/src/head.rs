@@ -14,6 +14,7 @@ use tokio::net::TcpStream;
 /// the route behind it does — but it must not RESERVE what a client's header claims.
 const MAX_BODY: usize = 8 * 1024 * 1024;
 
+#[derive(Clone)]
 pub struct Head {
     pub raw: String,
     pub method: String,

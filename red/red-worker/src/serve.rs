@@ -48,7 +48,17 @@ pub fn own_route(method: &str, path: &str) -> bool {
 /// has got. A route moves from one to the other when it is implemented and its evidence is here,
 /// and until then it is forwarded, so a half-ported worker behaves exactly like the whole one.
 pub fn implemented(method: &str, path: &str) -> bool {
-    matches!((method, path), ("GET", "/api/feed") | ("GET", "/api/token") | ("POST", "/api/token-action") | ("GET", "/api/agents-menu"))
+    matches!(
+        (method, path),
+        ("GET", "/api/feed")
+            | ("GET", "/api/token")
+            | ("POST", "/api/token-action")
+            | ("GET", "/api/agents-menu")
+            | ("POST", "/api/task")
+            | ("POST", "/api/agent-spawn")
+            | ("POST", "/api/script-open")
+            | ("POST", "/api/update-workspace")
+    )
 }
 
 /// Why a token action cannot go ahead, in the order the question is asked. `None` means it can.
