@@ -4,6 +4,9 @@ Owner goal, 2026-09-15: *"finish remaining js"* (charter D57, spec 129; F158).
 
 Status: **the supervisor can run `red-worker`, and does not yet by default.** 15 of 17 routes are answered, both sockets are served, and the host's own stream is followed. Two things stand between here and the default: the project routes above a RETAINED host, and F154's two tracker routes.
 
+`docs/js-retirement-status.md` is the whole picture this row sits in: what JavaScript is left, which
+caller each file retires with, and the order the remaining four callers come off in.
+
 ## The measurement that shaped this
 
 `runtime/worker.mjs` is 733 lines and reads like the biggest port left. It is not, because it is a
