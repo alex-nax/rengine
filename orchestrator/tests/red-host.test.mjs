@@ -106,6 +106,13 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   const root = await backend.store.addRoot(directory);
   const door = await front(t, stateDir, backend);
 
+  /* `/api/tracker` is NOT in the list below any more, and the reason is the migration finishing
+     rather than an exemption: the backend no longer has the route to compare against. Its credential
+     lives beside the workspace state, which is the door's, so F154 moved the whole thing here and
+     `server/tracker.mjs` went. What the door answers is compared against the recorded JavaScript by
+     `tracker-parity` and `tracker-remote-parity` instead — the same claim, one layer down, and it
+     survives the module's deletion where a live comparison could not. */
+
   /* The descriptor a consumer reads names the door, with a token of its own. */
   const descriptor = JSON.parse(await readFile(path.join(stateDir, 'sidecar.json'), 'utf8'));
   assert.equal(descriptor.url, door.url, 'the descriptor names the front door');
@@ -121,7 +128,7 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   const fold = value => JSON.parse(JSON.stringify(value, (key, item) => (key === 'checkedAt' ? '<stamp>' : item)));
   for (const route of [`/api/dashboard?rootId=${root.id}`, `/api/formats?rootId=${root.id}`,
     `/api/recordings?rootId=${root.id}`, `/api/devices?rootId=${root.id}`,
-    `/api/game-config?rootId=${root.id}`, `/api/tracker?rootId=${root.id}`]) {
+    `/api/game-config?rootId=${root.id}`]) {
     const [through, around] = await Promise.all([ask(instance, route), ask(backend, route)]);
     assert.equal(through.status, around.status, `${route} answers the same status`);
     /* `checkedAt` is a wall clock on both sides and the two calls are not the same instant. */

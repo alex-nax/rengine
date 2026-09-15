@@ -103,21 +103,13 @@ async function fixture(directory, name, options) {
    document that will not parse — V8 says one thing and serde another. Marked rather than excused. */
 export const PARSER_WORDED = 'an inventory that is not JSON';
 
-export async function answers() {
-  const { projectTracker } = await import('../server/tracker.mjs');
-  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-tracker-corpus-')));
-  const recorded = {};
-  try {
-    for (const [name, options] of CASES) {
-      const slug = name.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 48);
-      const root = { id: `root-${slug}`, path: await fixture(directory, slug, options), name: 'fixture' };
-      const answer = await projectTracker(root, options.declared, {});
-      recorded[name] = { ...answer, rootId: '<rootId>' };
-    }
-    return recorded;
-  } finally { await rm(directory, { recursive: true, force: true }); }
-}
-
+/* `answers()` used to replay the corpus through tracker.mjs's LOCAL half and is gone with it (F173): a
+ * parity proof cannot outlive the side it compares against, so what the module SAID is the evidence
+ * now and the module that said it is deleted. The cases and the record below are what the Rust is
+ * judged against, and they are frozen — regenerating them from the implementation they check would
+ * prove nothing. To change what is asked, add a case and record it from a checkout that still has
+ * the JavaScript, which is to say from history.
+ */
 export const RECORDED = await (async () => {
   try { return JSON.parse(await readFile(new URL('./tracker-corpus.json', import.meta.url), 'utf8')); }
   catch { return null; }

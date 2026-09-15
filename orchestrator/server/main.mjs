@@ -11,7 +11,6 @@ import { Sessions } from './sessions-client.mjs';
 import { listFormats, formatPreview, readBytes, readDeclaration } from './formats.mjs';
 import { dashboardAction, dashboardActions, dashboardRunPayload, dashboardCapture } from './dashboard.mjs';
 import { inspectGame, projectDevices } from './devices.mjs';
-import { projectTracker } from './tracker.mjs';
 import { listRecordings, readRecording } from './recordings.mjs';
 import { runtimeDirectory } from '../runtime/discovery.mjs';
 
@@ -71,8 +70,6 @@ export async function startServer({ stateDir, port = 0, retainSessions = false, 
                the process a pane descends from, without the process table (specs 101 and 102). */
             case '/api/formats': value = await listFormats(await store.root(query.get('rootId'))); break;
             case '/api/dashboard': value = await dashboardActions(await store.root(query.get('rootId')), preflight); break;
-            case '/api/tracker': { const selected = await store.root(query.get('rootId'));
-              value = await projectTracker(selected, await readDeclaration(selected), { stateDirectory: stateDir, refresh: query.get('refresh') === '1' }); break; }
             case '/api/devices': { const selected = await store.root(query.get('rootId'));
               value = await projectDevices(selected, await readDeclaration(selected),
                 { refresh: query.get('refresh') === '1', preflight, resolve: () => dashboardActions(selected, preflight) }); break; }

@@ -81,38 +81,13 @@ function stub(answered, asked) {
   };
 }
 
-/** Every case, through `tracker.mjs` as a caller reaches it. */
-export async function answers() {
-  const { projectTracker } = await import('../server/tracker.mjs');
-  const { forget } = await import('../server/tracker.mjs');
-  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-remote-corpus-'));
-  const out = {};
-  try {
-    for (const [name, spec] of CASES) {
-      const root = path.join(directory, name.replace(/[^a-z0-9]+/gi, '-'));
-      await mkdir(path.join(root, '.rengine'), { recursive: true });
-      await writeFile(path.join(root, '.rengine/project.json'), JSON.stringify(spec.declared));
-      const state = path.join(root, 'state');
-      await mkdir(path.join(state, 'trackers'), { recursive: true });
-      if (spec.credential) await writeFile(path.join(state, 'trackers', 'kohai.token'), spec.credential);
-      const asked = [];
-      /* The cache is per-module and keyed by the narrowing, so it is cleared between cases: a corpus
-         that answered case six from case five's entry would record the cache, not the provider. */
-      forget();
-      const declared = { declared: true, ...spec.declared };
-      const answer = await projectTracker({ id: ROOT_ID, path: root }, declared,
-        { stateDirectory: state, fetch: stub(spec.answered, asked) });
-      /* `checkedAt` is a clock reading and `fresh` follows from it, so both are dropped: what is
-         recorded is what a provider's answer BECOMES, not when it was read. */
-      const { checkedAt, fresh, ...rest } = answer;
-      out[name] = { ...rest, asked };
-    }
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-  return out;
-}
-
+/* `answers()` used to replay the corpus through tracker.mjs's REMOTE half and is gone with it (F173): a
+ * parity proof cannot outlive the side it compares against, so what the module SAID is the evidence
+ * now and the module that said it is deleted. The cases and the record below are what the Rust is
+ * judged against, and they are frozen — regenerating them from the implementation they check would
+ * prove nothing. To change what is asked, add a case and record it from a checkout that still has
+ * the JavaScript, which is to say from history.
+ */
 export const RECORDED = (() => {
   try { return require('./tracker-remote-corpus.json'); } catch { return null; }
 })();
