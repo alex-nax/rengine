@@ -36,12 +36,14 @@ before(() => built('--bins'));
  * the worker COMPOSES be driven — the ladder of refusals a spawn walks down is a ladder of answers
  * from here, and what the worker did with each is the assertion. */
 async function host(t, answers = {}) {
-  const seen = [];
+  const seen = [], ignore = [];
   const server = http.createServer(async (request, response) => {
     const chunks = [];
     for await (const chunk of request) chunks.push(chunk);
     const body = Buffer.concat(chunks).toString('utf8');
-    seen.push({ method: request.method, url: request.url, authorization: request.headers.authorization, body });
+    if (!ignore.some(prefix => request.url.startsWith(prefix))) {
+      seen.push({ method: request.method, url: request.url, authorization: request.headers.authorization, body });
+    }
     const route = request.url.split('?')[0];
     const scripted = answers[route];
     const value = typeof scripted === 'function' ? scripted(body ? JSON.parse(body) : null, request.url) : scripted;
@@ -61,7 +63,7 @@ async function host(t, answers = {}) {
     await new Promise(resolve => { server.closeAllConnections(); server.close(resolve); });
     await rm(state, { recursive: true, force: true });
   });
-  return { url: `http://127.0.0.1:${server.address().port}`, seen, state, server };
+  return { url: `http://127.0.0.1:${server.address().port}`, seen, ignore, state, server };
 }
 
 /* `--no-ide` by default, and it matters: a published bridge writes a lock into the person's own
@@ -89,10 +91,16 @@ async function worker(t, upstream, stateDir, options = {}) {
      predecessor left open. That is the WORKER's traffic, not the test's, so the record starts once
      it has been seen: every assertion below about "what reached the host" is about what the test
      caused, and would otherwise be counting a startup. */
-  for (let waited = 0; waited < 2000 && !upstream.seen.some(request => request.url === '/api/state'); waited += 25) {
+  /* Waited out rather than counted: a worker reads the roots more than once on the way up, and a
+     helper that cleared after the first would leave the second in the record. */
+  for (let quiet = 0, seen = -1; quiet < 200; quiet += 25) {
+    if (upstream.seen.length !== seen) { seen = upstream.seen.length; quiet = 0; }
     await new Promise(resolve => setTimeout(resolve, 25));
   }
   upstream.seen.length = 0;
+  /* The worker keeps trying to open the host's session stream, and a stand-in host with no socket
+     server refuses each attempt. Those are the WORKER's, whenever they land. */
+  upstream.ignore.push('/events');
   return JSON.parse(line);
 }
 

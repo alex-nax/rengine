@@ -2,7 +2,7 @@
 
 Owner goal, 2026-09-15: *"finish remaining js"* (charter D57, spec 129; F158).
 
-Status: **in progress — 15 of 17 routes answered, both sockets served, and the host's own stream followed** (the registry's two went to the door). What is left is F154's two.
+Status: **the supervisor can run `red-worker`, and does not yet by default.** 15 of 17 routes are answered, both sockets are served, and the host's own stream is followed. Two things stand between here and the default: the project routes above a RETAINED host, and F154's two tracker routes.
 
 ## The measurement that shaped this
 
@@ -160,6 +160,61 @@ service's refusal leaves it looking right either way — so the test counts what
 the lock buys beyond the service's refusal is that no doomed process is spawned, a lock whose owner
 died is reclaimed rather than blocking the survivor forever, and one held by a live process is
 refused by name with nothing started.
+
+## What the default cutover still needs
+
+Turning the default on and running the suite named it exactly, which is what a cutover spec is for.
+
+**The project routes above a retained host.** `worker.mjs` answers `/api/game-config`,
+`/api/formats`, `/api/devices`, `/api/dashboard`, `/api/tracker`, `/api/worktrees`, `/api/bytes`,
+`/api/recordings` and `/api/recording` **itself**, and never asks the host — because the host beneath
+may predate them. That is the whole of spec 065 and KI-043's lesson, and `capabilities.projectGame`
+is the worker's promise about it: *a routine workspace update must light the capability up*.
+`red-worker` forwards them instead, so above a current door they are right and above a retained host
+they answer from a host that never had them. Three specs say so — `games.test.mjs`,
+`dashboard.test.mjs` and `hot-update.test.mjs` — and they are requirements, not obstacles.
+
+The answer is not a second copy. `red-host`'s `routes::answer_about_project` is that composition
+already and `red-project` is a dependency of both servers, so it moves into `red-project` and both
+call it. One implementation, two servers — the same shape `bash_path` and `file_uri` took when the
+same question came up smaller.
+
+**F154's two.** `/api/tracker/signin` and `/api/tracker/signout` need a TLS client. They are
+forwarded meanwhile, and above a current door the backend answers them.
+
+And one spec's SUBJECT changes with the cutover rather than its outcome:
+`token-retirement.test.mjs` drives the JS worker's relay, which the registry decision retires (above).
+It goes with `worker.mjs`, and what replaces it is `worker-cutover.test.mjs`'s retirement assertions.
+
+## The cutover
+
+The supervisor spawns the binary. Three things differ between a forked module and a process, and
+those three are all the supervisor hides — everything above it asks `alive()` and `tell()` without
+knowing which it has:
+
+| | `worker.mjs` | `red-worker` |
+|---|---|---|
+| started with | an IPC message | arguments |
+| says it is ready by | an IPC message | one JSON line on stdout |
+| told to retire or close by | an IPC message | one JSON line on **stdin** |
+
+Stdin rather than a route, because retiring is control of the PROCESS and not of the workspace; and
+rather than a signal, because there is no second signal on every platform this runs on. It is also
+the shape this worker already speaks to its own children with.
+
+**What retirement now means.** The ledger is a service (F157) and both workers attach to the same
+one, so there is one writer and one sequence however many workers are alive — a retired worker needs
+no hand-off and keeps answering everything it can, because its streams are still somebody's pane.
+What it stops is **minting**: the worker that replaced it follows the same host stream, and two
+minting on one ledger would put every transition on the feed twice. Its feed watchers are told where
+to go, once, and its IDE bridge is released so `/ide` lists one editor again as soon as the
+supervisor has switched.
+
+**And a close waits for that to land.** The supervisor sends `retired` and `close` back to back; a
+process that went away between them would leave every watcher with a dropped connection instead of
+the sentence that tells it where to resume. Feed sockets still writing are counted, and a close
+waits for them — bounded, because a client that has stopped reading must not keep a replaced worker
+alive.
 
 ## The pair a game leaves on the feed
 

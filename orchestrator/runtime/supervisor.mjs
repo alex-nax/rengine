@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { fork } from 'node:child_process';
+import { fork, spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdir, rm, writeFile, rename } from 'node:fs/promises';
@@ -14,6 +14,23 @@ import { existsSync } from 'node:fs';
 import { windowStore, nativeControl, inspectWindow } from './windows.mjs';
 
 const defaultWorker = fileURLToPath(new URL('./worker.mjs', import.meta.url));
+/* The workspace worker in Rust (F158, spec 129, charter D57), which `startRuntime` runs when it is
+   handed `workerFile: null` — and will run by default once it answers the project routes above a
+   retained host (spec 143). Resolved the way every other Rust client here is resolved — the
+   environment names one, then the release build, then the debug build — and a missing binary is named with the command that makes one, because this is the
+   failure a person meets running a workspace out of a fresh clone. */
+export function redWorkerBinary(env = process.env) {
+  const declared = env.RENGINE_RED_WORKER;
+  if (declared) {
+    if (existsSync(declared)) return declared;
+    throw new Error(`RENGINE_RED_WORKER names ${declared}, which does not exist.`);
+  }
+  for (const profile of ['release', 'debug']) {
+    const candidate = path.join(project, 'red/target', profile, 'red-worker');
+    if (existsSync(candidate)) return candidate;
+  }
+  throw new Error('The red-worker binary is required (run: cargo build -p red-worker, or set RENGINE_RED_WORKER).');
+}
 /* The connector layer is an executable now (F187): red-mcp, built from this checkout. It is
    resolved the way every other Rust client here is resolved — the environment names one, then the
    release build, then the debug build — and published in the descriptor so a facade runs the
@@ -63,23 +80,48 @@ async function reservePort() {
     return probe.address().port;
   } finally { await new Promise(resolve => probe.close(resolve)); }
 }
+/* One worker, however it is spelled. `red-worker` is a BINARY taking arguments and announcing
+   itself on stdout; `worker.mjs` was a forked module taking an IPC message and answering with one.
+   The two differ in exactly three places — how it is started, how it says it is ready, and how it
+   is told to retire or close — so those three are what this hides, and everything above it asks
+   `alive()` and `tell()` without knowing which it has.
+
+   Control goes down STDIN for a binary: not a route, because retiring is control of the process
+   rather than of the workspace, and not a signal, because there is no second signal on every
+   platform this runs on. */
+function spawnWorker(filename, host, directory, idePort) {
+  if (filename.endsWith('.mjs')) {
+    const child = fork(filename, [], { stdio: ['ignore', 'ignore', 'pipe', 'ipc'], windowsHide: true });
+    return { child, stderr: child.stderr, start: () => child.send({ host, directory, idePort }),
+      ready: resolve => child.on('message', data => { if (data.type === 'ready') resolve(data); else if (data.type === 'failed') throw new Error(data.error); }),
+      alive: () => child.exitCode === null && child.signalCode === null && child.connected,
+      tell: message => { if (child.connected) child.send(message); } };
+  }
+  const child = spawn(filename, ['--state', directory, '--host', host.url, '--host-token', host.token,
+    '--ide-port', String(idePort)], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+  return { child, stderr: child.stderr, start: () => {},
+    ready: resolve => { let text = ''; child.stdout.on('data', chunk => { text += chunk; if (text.includes('\n')) resolve(JSON.parse(text.split('\n')[0])); }); },
+    alive: () => child.exitCode === null && child.signalCode === null,
+    tell: message => { if (child.exitCode === null && child.signalCode === null && child.stdin.writable) child.stdin.write(`${JSON.stringify(message)}\n`); } };
+}
+
 async function startWorker(host, filename, directory, idePort) {
-  const child = fork(filename, [], { stdio: ['ignore', 'ignore', 'pipe', 'ipc'], windowsHide: true });
-  let diagnostics = ''; child.stderr.on('data', data => { diagnostics = (diagnostics + data).slice(-8000); });
+  const worker = spawnWorker(filename, host, directory, idePort);
+  const child = worker.child;
+  let diagnostics = ''; worker.stderr.on('data', data => { diagnostics = (diagnostics + data).slice(-8000); });
   try {
     const ready = await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('Workspace worker startup timed out.')), 10000);
-      const cleanup = () => { clearTimeout(timer); child.off('error', bad); child.off('exit', exited); child.off('message', message); };
+      const timer = setTimeout(() => reject(new Error('Workspace worker startup timed out.')), 30000);
+      const cleanup = () => { clearTimeout(timer); child.off('error', bad); child.off('exit', exited); };
       const bad = error => { cleanup(); reject(error); };
       const exited = () => bad(new Error(`Workspace worker exited during startup. ${diagnostics}`));
-      const message = data => { if (data.type === 'ready') { cleanup(); resolve(data); } else if (data.type === 'failed') bad(new Error(data.error)); };
-      child.once('error', bad); child.once('exit', exited); child.on('message', message);
-      child.send({ host, directory, idePort });
+      child.once('error', bad); child.once('exit', exited);
+      try { worker.ready(value => { cleanup(); resolve(value); }); worker.start(); } catch (error) { bad(error); }
     });
     checkConnection(ready);
     const state = await call(ready, 'state');
     if (state.instance !== host.instance || state.capabilities.layeredUpdates !== 1) fail('Candidate workspace failed identity/capability checks.');
-    return { ...ready, child, requests: 0, streams: 0, generation: randomUUID() };
+    return { ...ready, child, alive: worker.alive, tell: worker.tell, requests: 0, streams: 0, generation: randomUUID() };
   } catch (error) { child.kill(); throw error; }
 }
 
@@ -91,6 +133,12 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
   const namedWorker = toolWorkerFile !== null;
   toolWorkerFile = path.resolve(toolWorkerFile ?? redMcpBinary());
   const hostState = async () => { const state = await call(host, 'state'); if (state.instance !== host.instance) fail('Original session host is no longer available.'); return state; };
+  /* `null` asks for the binary, resolved here rather than at module load so a checkout with no
+     build yet says so when a workspace is opened rather than when this file is imported. The
+     DEFAULT is still `worker.mjs`: red-worker answers everything above a current door and does not
+     yet answer the PROJECT routes above a retained host, which is the case spec 065 exists for
+     (spec 143). */
+  workerFile = workerFile ?? redWorkerBinary();
   await hostState(); await mkdir(directory, { recursive: true, mode: 0o700 });
   /* One port for this runtime's whole life, handed to every worker it starts. Claude Code reconnects
      to the port it first read out of the lock file and never re-reads the directory, so a port that
@@ -105,7 +153,7 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
   const token = randomBytes(32).toString('hex');
   const instance = { version: 1, pid: process.pid, token, instance: host.instance, host, directory };
   const ownRoot = async id => { const state = await hostState(); if (!state.roots.some(root => root.id === id)) fail('Unknown project root.', 404); return state; };
-  const available = worker => worker.child.exitCode === null && worker.child.signalCode === null && worker.child.connected;
+  const available = worker => worker.alive();
   const watch = worker => worker.child.once('exit', () => {
     if (worker === current && !closing && !active) recover();
   });
@@ -124,14 +172,14 @@ export async function startRuntime({ host, directory, initial, binary = nativeBi
   watch(current);
   const retire = worker => {
     if (!retired.has(worker) || preserved.has(worker) || worker.requests || worker.streams) return;
-    retired.delete(worker); if (worker.child.connected) worker.child.send({ type: 'close' });
+    retired.delete(worker); worker.tell({ type: 'close' });
   };
   /* Spec 095, Retirement: a replaced worker keeps draining its streams (spec 065) and hands the
      stateful half — the ledger, the feed and the host subscription that mints game.* — to the
      worker that replaced it, so one process owns them. Sent where the retirement is committed
      rather than at the swap: a failed update restores the previous worker as the current one, and
      a worker told it was retired would then be forwarding requests to itself. */
-  const notifyRetired = worker => { if (worker.child.connected) worker.child.send({ type: 'retired' }); };
+  const notifyRetired = worker => worker.tell({ type: 'retired' });
   const list = async rootId => {
     await ownRoot(rootId);
     const values = await Promise.all([current, ...retired].map(async worker => {

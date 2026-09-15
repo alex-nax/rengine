@@ -64,6 +64,22 @@ struct Worker {
     /// Who asked for which launch, and which games are open. The feed carries a PAIR for a game and
     /// this is what keeps it trustworthy across a launch that has not been given an id yet.
     launches: red_worker::launches::Launches,
+    /// Replaced, but still draining (spec 095, Retirement).
+    ///
+    /// A retired worker keeps answering everything it can, because its streams are still somebody's
+    /// pane. What it stops doing is **minting**: the worker that replaced it follows the same host
+    /// stream, and two workers minting `game.*` on one ledger would put every transition on the
+    /// feed twice. Its feed watchers are told where to go, once.
+    ///
+    /// The ledger itself needs no hand-off any more. It is a SERVICE (F157) and both workers attach
+    /// to the same one, so there is one writer and one sequence however many workers are alive —
+    /// which is what retires spec 095's relay along with `worker.mjs`.
+    retired: std::sync::atomic::AtomicBool,
+    /// Feed sockets still writing. A worker is told it is retired and told to close in the same
+    /// breath, and the retirement has to REACH its watchers before the process goes: a monitor that
+    /// got a dropped connection instead of the close frame has no sequence to resume from and no
+    /// reason to re-read `feed_url`.
+    draining: Arc<std::sync::atomic::AtomicUsize>,
 }
 
 struct Options {
@@ -166,15 +182,56 @@ async fn main() -> std::process::ExitCode {
         bridge,
         generation: std::sync::Mutex::new(None),
         launches: red_worker::launches::Launches::new(),
+        retired: std::sync::atomic::AtomicBool::new(false),
+        draining: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
     });
     /* One line, then serve: the supervisor reads this to learn where the worker is before it writes
-       the descriptor that names it. */
+       the descriptor that names it. The instance is the HOST's — a worker is only ever a front for
+       one, and the layer above checks the two agree before it keeps a candidate. */
+    let instance = ask_host(&worker, "GET", "/api/state", "")
+        .ok()
+        .and_then(|state| state.get("instance").cloned())
+        .unwrap_or(serde_json::Value::Null);
     println!(
         "{}",
-        serde_json::json!({ "started": true, "url": worker.url, "token": worker.token, "pid": std::process::id() })
+        serde_json::json!({ "started": true, "url": worker.url, "token": worker.token,
+                            "instance": instance, "pid": std::process::id() })
     );
     use std::io::Write;
     let _ = std::io::stdout().flush();
+
+    /* The supervisor's channel, one JSON line at a time — the same shape this worker speaks to its
+       own children with. Not a route, because this is control of the PROCESS and not of the
+       workspace; not a signal, because there is no second signal on every platform this runs on.
+       A supervisor hands it a PIPE, and that pipe closing is the supervisor going away: a worker
+       nobody can retire or replace goes too. Stdin that is not a pipe — a terminal, `/dev/null`, a
+       file — is not a channel at all, and its end means nothing: a worker started by hand to look at
+       it keeps serving. */
+    let supervised = supervising_pipe();
+    {
+        let worker = worker.clone();
+        std::thread::spawn(move || {
+            use std::io::BufRead;
+            for line in std::io::stdin().lock().lines().map_while(Result::ok) {
+                let Ok(message) = serde_json::from_str::<serde_json::Value>(&line) else { continue };
+                match message.get("type").and_then(serde_json::Value::as_str) {
+                    Some("retired") => retire(&worker),
+                    /* Drained first. The supervisor sends `retired` and `close` back to back, and a
+                       process that went away between them would leave every watcher with a dropped
+                       connection instead of the sentence that tells it where to go. */
+                    Some("close") => {
+                        drained(&worker);
+                        std::process::exit(0);
+                    }
+                    _ => {}
+                }
+            }
+            if supervised {
+                drained(&worker);
+                std::process::exit(0);
+            }
+        });
+    }
 
     /* The open pairs this worker inherits, and then the stream that closes them. A worker replaced
        mid-game reads its predecessor's `game.started` frames back out of the ring, so the `ended`
@@ -395,6 +452,51 @@ fn recording(worker: &Worker, head: &Head, body: &str) -> Result<serde_json::Val
     }))
 }
 
+/// Replaced: stop minting, and tell every watcher where the next worker is.
+///
+/// Told ONCE — a second `retired` must not close a feed a client has since reopened on this worker,
+/// which it may legitimately have done while this one was still draining.
+fn retire(worker: &Arc<Worker>) {
+    if worker.retired.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
+    /* The bridge goes at retirement rather than at close, so `/ide` lists one editor again as soon
+       as the supervisor has switched: a CLI connects only when exactly one is offered. */
+    if let Some(bridge) = &worker.bridge {
+        bridge.close();
+    }
+    worker.watchers.close_all(Close::Retired);
+}
+
+/// Is stdin a supervisor's pipe, or is it nothing?
+///
+/// The difference decides what its END means. A pipe closing is the process that spawned this one
+/// going away; `/dev/null` or a terminal was never a channel, and reading nothing from it is not an
+/// instruction to stop serving a workspace.
+fn supervising_pipe() -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::FileTypeExt;
+        use std::os::unix::io::FromRawFd;
+        /* Borrowed, never owned: this must not close the descriptor it is asking about. */
+        let held = std::mem::ManuallyDrop::new(unsafe { std::fs::File::from_raw_fd(0) });
+        return held.metadata().map(|about| about.file_type().is_fifo() || about.file_type().is_socket()).unwrap_or(false);
+    }
+    #[cfg(not(unix))]
+    {
+        true
+    }
+}
+
+/// Wait for the feed sockets to finish saying what they were told to say. Bounded, because a client
+/// that has stopped reading must not keep a replaced worker alive.
+fn drained(worker: &Arc<Worker>) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    while worker.draining.load(std::sync::atomic::Ordering::SeqCst) > 0 && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+}
+
 /// What this worker's predecessor left open, read back out of each project's ring.
 fn inherit_open_games(worker: &Arc<Worker>) {
     let Some(ledger) = &worker.ledger else { return };
@@ -474,7 +576,9 @@ async fn follow_once(worker: &Arc<Worker>) -> io::Result<()> {
 
 /// One session transition, as the feed hears it.
 fn told_the_feed(worker: &Arc<Worker>, session: &serde_json::Value) {
-    if worker.ledger.is_none() {
+    /* A retired worker mints nothing: the one that replaced it follows the same stream, and two
+       minting on one ledger would put every transition on the feed twice. */
+    if worker.ledger.is_none() || worker.retired.load(std::sync::atomic::Ordering::SeqCst) {
         return;
     }
     let id = session.get("id").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
@@ -679,6 +783,10 @@ async fn serve_feed(worker: Arc<Worker>, client: TcpStream, buffered: Vec<u8>, h
     let (mut writing, mut reading) = socket.split();
     let (out, mut queue) = unbounded_channel::<Sent>();
     let queued = Arc::new(AtomicUsize::new(0));
+    /* Counted for as long as this socket has anything left to write, so a retirement reaches its
+       watcher before the process that was told to close goes away. */
+    worker.draining.fetch_add(1, Ordering::SeqCst);
+    let draining = worker.draining.clone();
 
     /* The writer owns the socket's sending half, so a close travels down the same queue the frames
        do and cannot overtake them. */
@@ -702,6 +810,7 @@ async fn serve_feed(worker: Arc<Worker>, client: TcpStream, buffered: Vec<u8>, h
             }
         }
         let _ = writing.close().await;
+        draining.fetch_sub(1, Ordering::SeqCst);
     });
 
     let refuse = |out: &tokio::sync::mpsc::UnboundedSender<Sent>, why: Close| {
@@ -710,6 +819,7 @@ async fn serve_feed(worker: Arc<Worker>, client: TcpStream, buffered: Vec<u8>, h
     let root = head.query("rootId").unwrap_or_default();
     let cursor = red_worker::feed::cursor_of(head.query("after").as_deref());
     match &worker.ledger {
+        _ if worker.retired.load(std::sync::atomic::Ordering::SeqCst) => refuse(&out, Close::Retired),
         _ if root.is_empty() => refuse(&out, Close::Refused("A project root is required to read its feed.".to_string())),
         None => refuse(&out, Close::Refused("This workspace worker does not serve the project token ledger.".to_string())),
         Some(ledger) => {
