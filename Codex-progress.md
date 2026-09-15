@@ -1,3 +1,48 @@
+## Session 156 (macos) — 2026-09-15 — the conversations a CLI already has (F210, F211)
+
+The owner: *"if I'm in claude and write /resume - I see the list of conversations. Can we expose it
+for the editor?"* Built, after a day of diagnosing that repeatedly answered a smaller question than
+the one asked.
+
+**The join runs the owner's way round.** Their rule, stated plainly: *"id of that session is
+universal, if agent session is not in that list — that means no agent session at all."* So the CLI's
+store is the authority on what EXISTS, and rEngine's record only says whether this workspace has a
+pane or a resume for it. A conversation begun in a terminal is listed; one rEngine also knows is
+drawn once. The reverse — treating rEngine's records as the list — is what left the view showing
+three rows when the machine held seventeen conversations.
+
+**Three stores, three shapes, and the shapes decided the work.** claude keys a directory by the
+checkout PATH with separators turned to dashes, one file per conversation named by the id `--resume`
+takes. kimi ships a real index keyed by working directory and needs no transcript opened. codex
+partitions by DATE, so answering "which of these belong to this project" costs the head of every
+candidate — which is the whole reason the listing is on demand and never on a timer.
+
+**The real data corrected two guesses that fixtures had passed.** codex's first `user_message` sits
+at byte 110,591, behind a `world_state` record of 19 KB, so a window sized for the cwd found no
+title at all. And claude writes `ai-title` repeatedly as a conversation is renamed, so the newest is
+at the END of the file while the person's opening message is at the front — the title reads a head
+and a tail. Titles stay best-effort per CLI, and a row without one still carries its id and its age;
+kimi's store has no title to offer and that is recorded rather than invented.
+
+**Two fixtures that would have passed for the wrong reason, caught before they were trusted.** The
+first layout regression passed against its own sabotage, because conversations recorded through the
+store are stamped "just now" and a short string fits even a starved column — the row that actually
+failed carried a long age, so the fixture had to seed one. And the F211 fixture redirects `HOME`
+around `startServer`, because the route reads it from the environment the front door was SPAWNED
+with; without that it would have listed the real `~/.claude` and gone green on the wrong data.
+
+Also fixed the row the owner photographed: `conversation_row` reserved actions-width where the
+button column is attach-width, spending 75 pixels on a gap in the middle and starving the trailing
+column of the age it had to write. It reserves what it actually lays out now, with a declared
+age-width, and every row names its conversation.
+
+Verification: `npm test` 354/354, `ctest` 20/20, `red-project` 41/41, native-sessions 4/4,
+`./init.sh` and the design gate pass. Sabotage-verified both ways: the old reservation clips
+"26 minutes ago" to 58 of 66 pixels; drawing no store rows loses the CLI-held conversation entirely.
+
+Spec 140; F210 and F211 pass. F212 — a warning when the host is older than the build — is still open,
+and is what would have made this whole day's three symptoms read as one cause.
+
 ## Session 155 (macos) — 2026-09-15 — agents inside the editor: two tracks, one seam (specs 138/139, planning only)
 
 Owner asked for a plan, routed to Fable by name. **Nothing is implemented.** Specs 138 and 139,

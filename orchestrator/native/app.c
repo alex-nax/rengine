@@ -5,7 +5,7 @@
 /* Operations at or above OP_BYTES belong to a format view and carry its mode in `revision`;
  * everything else must sort below it, or the request path reads a format that is not there. */
 enum { OP_STATE = 1, OP_LOAD, OP_SAVE, OP_DRAFT, OP_DISCARD, OP_CREATE, OP_ROOT, OP_GENERIC, OP_LAYOUT, OP_EXPAND,
-       OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_SIGNIN, OP_DIAGNOSTICS, OP_AGENTS_MENU, OP_AGENT_SPAWN, OP_WORKTREES, OP_IMAGE, OP_BYTES, OP_PREVIEW, OP_ENTRY };
+       OP_FORMATS, OP_DASHBOARD, OP_CAPTURE, OP_SIGNIN, OP_DIAGNOSTICS, OP_AGENTS_MENU, OP_AGENT_SPAWN, OP_WORKTREES, OP_IMAGE, OP_BYTES, OP_PREVIEW, OP_ENTRY, OP_STORES };
 /* Enforced rather than remembered. A merge that appends a new operation after OP_BYTES makes the
  * request path read a format a tracker or agent tab does not have, and the symptom is a request that
  * never completes rather than an error where the mistake was made. */
@@ -256,6 +256,19 @@ void re_app_tracker_refresh(ReApp *a, int tab) { tracker_request(a, tab, true); 
 /* The selected root's repository and every worktree of it (spec 134 D1). Asked when the Projects
    modal opens and not already held for that root: the survey runs `git status` in each worktree,
    which is the devices/tasks shape — a gesture, never a timer. */
+/* The conversations each CLI holds, for the selected root. Asked once per root: the answer is a
+ * walk of three stores, one of which is partitioned by date, so a timer would be a poll over the
+ * filesystem. Reopening the tab on a different root asks again. */
+void re_app_stores(ReApp *a) {
+  if (!*a->root || !strcmp(a->stores_root, a->root)) return;
+  char *route = re_net_query("conversations", a->root, "");
+  if (!route) return;
+  re_copy(a->stores_root, sizeof(a->stores_root), a->root);
+  cJSON_Delete(a->stores); a->stores = NULL; a->stores_error[0] = 0; a->stores_known = false;
+  request(a, OP_STORES, -1, route, NULL);
+  free(route);
+}
+
 void re_app_worktrees(ReApp *a) {
   if (!*a->root || !strcmp(a->worktrees_root, a->root)) return;
   char *route = re_net_query("worktrees", a->root, "");
@@ -693,6 +706,13 @@ static void response(ReApp *a, ReMessage *m) {
       re_copy(a->worktrees_error, sizeof(a->worktrees_error), error);
       a->worktree_count = 0; cJSON_Delete(j); return;
     }
+    /* A host that predates this route refuses it, and that is a fact about the host rather than a
+       workspace fault: the view says the stores could not be read and still draws what rEngine
+       itself recorded. `known` is set either way, so "asked and refused" never reads as "waiting". */
+    if (p.operation == OP_STORES) {
+      re_copy(a->stores_error, sizeof(a->stores_error), error);
+      a->stores_known = true; cJSON_Delete(j); return;
+    }
     if (p.operation == OP_AGENT_SPAWN && p.tab >= 0) { re_tracker_spawn_failed(a, p.tab, error); cJSON_Delete(j); return; }
     if (!m->status && p.timeout > 0) { snprintf(budget, sizeof(budget), "%s · no reply within %ld ms (declared timeoutMs %ld plus transport)", error, p.timeout, p.timeout - 2000L); error = budget; }
     re_copy(a->status, sizeof(a->status), error);
@@ -706,6 +726,9 @@ static void response(ReApp *a, ReMessage *m) {
     case OP_STATE: state_loaded(a, j); break;
     case OP_FORMATS: formats_loaded(a, j); break;
     case OP_DASHBOARD: dashboard_probed(a, j); break;
+    case OP_STORES:
+      cJSON_Delete(a->stores); a->stores = cJSON_Duplicate(j, 1); a->stores_known = true; a->stores_error[0] = 0;
+      break;
     case OP_WORKTREES: {
       a->worktree_count = 0;
       re_copy(a->worktrees_repository, sizeof(a->worktrees_repository), re_string(j, "repository"));
@@ -1009,7 +1032,7 @@ void re_app_close(ReApp *a) {
     re_editor_close(a->tabs[i].editor); re_game_close(a->tabs[i].game); re_format_close(a->tabs[i].format); re_image_close(a->tabs[i].image);
   }
   re_plugins_close(a->plugins);
-  re_socket_close(a->events); re_net_close(a->net); cJSON_Delete(a->state); cJSON_Delete(a->previous_layout); cJSON_Delete(a->controls); cJSON_Delete(a->conversations); cJSON_Delete(a->formats); cJSON_Delete(a->dashboards); cJSON_Delete(a->dashboards_opened); free(a);
+  re_socket_close(a->events); re_net_close(a->net); cJSON_Delete(a->state); cJSON_Delete(a->previous_layout); cJSON_Delete(a->controls); cJSON_Delete(a->conversations); cJSON_Delete(a->formats); cJSON_Delete(a->dashboards); cJSON_Delete(a->dashboards_opened); cJSON_Delete(a->stores); free(a);
 }
 cJSON *re_app_inspect(ReApp *a) {
   cJSON *j = serialize(a); cJSON_AddStringToObject(j, "status", a->status); cJSON_AddBoolToObject(j, "connected", a->connected); cJSON_AddStringToObject(j, "root", a->root);

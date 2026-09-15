@@ -7,6 +7,7 @@
 
 pub mod capture;
 pub mod command;
+pub mod conversations;
 pub mod dashboard;
 pub mod declaration;
 pub mod devices;

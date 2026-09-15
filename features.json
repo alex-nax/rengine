@@ -4007,12 +4007,14 @@
         "An agent with no conversation store reports that, distinguishably from an empty list and from a store that could not be read.",
         "Nothing under the CLIs' directories is modified, asserted by comparing a digest of the tree before and after."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [],
       "owner_workspace": "rengine",
       "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "F210, 2026-09-15: red_project::conversations reads each CLI's own store for a root and writes to none of them. The three are shaped differently and the differences decided the work: claude keys a directory by the checkout PATH with separators turned to dashes, one file per conversation named by the id --resume takes; kimi ships a real index keyed by working directory, so it answers without opening a transcript; codex partitions by DATE, so 'which of these belong to this project' costs the head of every candidate — which is why the whole listing is on demand and never on a timer. Measured against the real stores on this machine rather than fixtures alone: claude 4, codex 12, kimi 1 for this root. Two window sizes were wrong on the first pass and the real data said so: codex's first user_message sat at byte 110,591 behind a 19 KB world_state record, and claude's newest ai-title is at the END of a transcript while the person's opening message is at the front, so the title reads a head AND a tail. Titles are best-effort per CLI and a row without one still carries its id and age; kimi's store offers no title at all, which is recorded rather than invented. An agent with no store reports present:false, distinct from an empty list and from an unreadable one. Six unit tests including one that fingerprints the whole home directory before and after a listing and asserts nothing moved. red-project 41/41."
+      ]
     },
     {
       "id": 211,
@@ -4026,14 +4028,16 @@
         "The list is fetched when the view opens rather than on a timer.",
         "With a host that predates agentConversations the view still lists what the stores hold and says the join is unavailable, rather than showing nothing."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         210
       ],
       "owner_workspace": "rengine",
       "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "F211, 2026-09-15: /api/conversations on red-host (charter D57) and the Sessions tab drawing what it answers beside rEngine's own records. The join runs the owner's way round: the CLI's store is the authority on what EXISTS — 'if an agent session is not in that list, there is no agent session' — and rEngine's record only says whether this workspace has a pane or a resume for it, so a conversation begun in a terminal is listed and one rEngine also knows is drawn once. Asked when the view draws rather than on a timer. A host that predates the route has its refusal said out loud instead of leaving the section blank, because not-yet and not-there read the same on screen and this repository has learned that three times. The regression seeds a claude store for the root, redirects HOME around startServer — the route reads it from the environment the front door was SPAWNED with, and a fixture that forgot would have listed the real ~/.claude and passed for the wrong reason — and asserts the row is offered for resume, carries the transcript's own title rather than a bare id, and that listing wrote nothing. Sabotage-verified by drawing no store rows: red at 'the conversation held only by the CLI is offered'. npm test 354/354, ctest 20/20, native-sessions 4/4, ./init.sh and the design gate pass."
+      ]
     },
     {
       "id": 212,

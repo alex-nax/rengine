@@ -160,6 +160,17 @@ pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &
         }
         /* What git already knows about this root's repository (F190, spec 134). Read-only. */
         "/api/worktrees" => red_project::worktrees::worktrees(&root_path, &environment).map_err(refusal),
+        /* The conversations each agent CLI already holds for this root (F210, spec 140).
+           On demand and never on a timer: codex partitions its store by DATE, so answering
+           "which of these belong to this project" means opening the head of every candidate. */
+        "/api/conversations" => {
+            let home = environment
+                .iter()
+                .find(|(key, _)| key == "HOME")
+                .map(|(_, value)| std::path::PathBuf::from(value))
+                .unwrap_or_default();
+            red_project::conversations::stores(&home, &root_path, 30).map_err(refusal)
+        }
         "/api/format-preview" => {
             let declared = red_project::declaration::read(&root_path, declaration_file.as_deref());
             red_project::preview::format_preview(&root_path, &declared, &data, &environment).map_err(refusal)

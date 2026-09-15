@@ -380,8 +380,8 @@ flowchart TD
   F202 --> F208
   F209["F209: blocked"]
   F201 --> F209
-  F210["F210: ready"]
-  F211["F211: blocked"]
+  F210["F210: passing"]
+  F211["F211: passing"]
   F210 --> F211
   F212["F212: ready"]
 ```
@@ -549,6 +549,6 @@ flowchart TD
 | F207 | O1 | rengine | blocked | In-process: the C desktop links re_model for editor-local completion with a small declared model, measured against the desktop's recorded budgets. The agent's conversation stays host-owned. |
 | F208 | O1 | rengine | blocked | Adapter consumption (charter D69): an adapter declared beside its base by digest, refused on mismatch, attached per turn. Blocked - not failing - until the training project's readiness gate is green, because no adapter may exist before it. |
 | F209 | O1 | rengine | blocked | The engine as a pack candidate: a pack manifest with a library facet and a measured quality record, consumable from outside the tree. Adoption and the approved claim remain a game's sign-off (D24, D44b, D45) and are not claimed here. |
-| F210 | O1 | rengine | ready | Conversation-store adapters (spec 140): one per agent CLI, answering which conversations exist for a root with an id, a modified time and a title. Read-only - the stores belong to the CLIs. Identity is the declared project and root id; a CLI's path-derived key is mapped, never adopted. |
-| F211 | O1 | rengine | blocked | The conversations view: the stores joined with rEngine's own session records, so a conversation the workspace has a pane for is marked and one it only knows from the CLI is listed all the same. Choosing one resumes it through the capability spec 096 already declares. |
+| F210 | O1 | rengine | passing | Conversation-store adapters (spec 140): one per agent CLI, answering which conversations exist for a root with an id, a modified time and a title. Read-only - the stores belong to the CLIs. Identity is the declared project and root id; a CLI's path-derived key is mapped, never adopted. |
+| F211 | O1 | rengine | passing | The conversations view: the stores joined with rEngine's own session records, so a conversation the workspace has a pane for is marked and one it only knows from the CLI is listed all the same. Choosing one resumes it through the capability spec 096 already declares. |
 | F212 | O1 | rengine | ready | A workspace-visible warning when the retained session host advertises fewer capabilities than the running build declares, so a feature that is off because the host is old reads as old rather than as broken (KI-116). |

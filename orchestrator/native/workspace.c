@@ -298,6 +298,7 @@ static const char *agent_name(const char *agent) { return agent && *agent ? agen
 /* The last-seen wording mirrors describe_age in red/red-agents/src/spawn.rs (spec 097), which is
    where it went when F178 deleted its JS twin; the desktop formats the persisted lastSeenAt rather
    than asking the service for a string. */
+static const char *describe_store_age(const cJSON *entry, char *buf, size_t size);
 static const char *describe_age(const cJSON *entry, char *buf, size_t size) {
   const cJSON *seen = cJSON_GetObjectItemCaseSensitive(entry, "lastSeenAt");
   double when = cJSON_IsNumber(seen) ? seen->valuedouble : 0.0;
@@ -310,6 +311,15 @@ static const char *describe_age(const cJSON *entry, char *buf, size_t size) {
   else if (gap < DAY) snprintf(buf, size, "%d hours ago", (int)(gap / HR + 0.5));
   else if (gap < 2 * DAY) re_copy(buf, size, "yesterday");
   else snprintf(buf, size, "%d days ago", (int)(gap / DAY + 0.5));
+  return buf;
+}
+/* The store rows carry `modifiedAt` rather than rEngine's `lastSeenAt`, because a file's mtime is
+ * all a CLI's own store offers. Same words, so the two lists read alike. */
+static const char *describe_store_age(const cJSON *entry, char *buf, size_t size) {
+  cJSON *shim = cJSON_CreateObject();
+  cJSON_AddNumberToObject(shim, "lastSeenAt", re_number(entry, "modifiedAt"));
+  describe_age(shim, buf, size);
+  cJSON_Delete(shim);
   return buf;
 }
 /* The id of a running agent pane holding this conversation, or "" when none does; a live conversation
@@ -367,6 +377,16 @@ static const char *conversation_token_action(ReApp *a, const char *conversation)
  * actions-width (155) where the button column is attach-width (80), which spent 75 pixels on a gap
  * in the middle of the row and left the trailing column short of the age it had to write — so the
  * row read "26 minutes ag…" beside a hole. Reserve what is actually laid out and both go away. */
+/* Whether rEngine has a record of its own for a conversation the CLI reported. The store is the
+ * authority on what EXISTS — a conversation rEngine never minted is still a conversation — and
+ * rEngine's record only says whether this workspace has a pane or a resume for it. Joining the two
+ * this way round is the owner's rule: if a session is not in the CLI's list, there is no session. */
+static bool conversation_recorded(ReApp *a, const char *rid, const char *cid) {
+  const cJSON *conv = NULL;
+  cJSON_ArrayForEach(conv, cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(a->state, "conversations"), rid))
+    if (!strcmp(re_string(conv, "id"), cid)) return true;
+  return false;
+}
 static void conversation_row(mu_Context *ui) {
   mu_layout_row(ui, 5, (int[]){-RE_METRIC_SESSIONS_STATE_WIDTH - RE_METRIC_SESSIONS_ATTACH_WIDTH
                                  - RE_METRIC_SESSIONS_TOKEN_WIDTH - RE_METRIC_SESSIONS_AGE_WIDTH,
@@ -388,6 +408,9 @@ static const char *conversation_detail(const char *id, const char *task, bool he
   return out;
 }
 static void sessions_ui(ReApp *a, mu_Context *ui) {
+  /* Asked when the view draws rather than on a timer: the answer walks three stores and one of
+     them is partitioned by date, so a poll would be a filesystem sweep every interval (spec 140). */
+  re_app_stores(a);
   sessions_columns(ui, "Session", "State", "");
   const cJSON *session = NULL;
   cJSON_ArrayForEach(session, cJSON_GetObjectItemCaseSensitive(a->state, "sessions")) {
@@ -464,6 +487,43 @@ static void sessions_ui(ReApp *a, mu_Context *ui) {
       conversation_reported(a, rid, agent, cid, "", false, action);
       mu_pop_id(ui);
     }
+  }
+  /* What the CLIs themselves hold (F210/F211). rEngine's records above cover what it minted; these
+     are the rest — conversations begun in a terminal, or before this workspace existed. A row
+     rEngine also knows is marked, so the two lists read as one. */
+  const cJSON *agent_store = NULL;
+  cJSON_ArrayForEach(agent_store, cJSON_GetObjectItemCaseSensitive(a->stores, "agents")) {
+    const char *who = re_string(agent_store, "agent");
+    const cJSON *held = cJSON_GetObjectItemCaseSensitive(agent_store, "conversations");
+    if (!cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(agent_store, "present"))) continue;
+    const cJSON *row = NULL;
+    cJSON_ArrayForEach(row, held) {
+      const char *cid = re_string(row, "id"); if (!*cid) continue;
+      /* Already drawn above as rEngine's own: the record and the store agree, so one row is right. */
+      if (conversation_recorded(a, a->stores_root, cid)) continue;
+      any_conversation = true;
+      char key[96]; snprintf(key, sizeof(key), "s-%s", cid); mu_push_id(ui, key, (int)strlen(key));
+      conversation_row(ui);
+      const char *title = re_string(row, "title");
+      char label[1024];
+      snprintf(label, sizeof(label), "%s · %s", agent_name(who), *title ? title : re_workspace_root_name(a, a->stores_root));
+      char detail[256];
+      re_ui_row_ex(ui, label, RE_ICON_AGENT,
+                   conversation_detail(cid, "", false, detail, sizeof(detail)), 0, RE_UI_DISABLED);
+      re_ui_pill(ui, "on disk", RE_UI_PILL_NEUTRAL);
+      if (re_ui_button_ex(ui, "Resume", RE_ICON_ARROW_UP, RE_UI_SMALL)) resume_conversation(a, a->stores_root, who, cid);
+      re_app_control(a, ui, "resume-store", cid, -1);
+      re_ui_label_ex(ui, "", RE_UI_MUTED | RE_UI_SMALL);
+      char age[64]; re_ui_label_ex(ui, describe_store_age(row, age, sizeof(age)), RE_UI_MUTED | RE_UI_SMALL);
+      mu_pop_id(ui);
+    }
+  }
+  /* A store that was asked for and refused is said out loud. Not-yet and not-there read the same
+     on screen otherwise, which this repository has now learned three times. */
+  if (a->stores_known && *a->stores_error) {
+    mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_DESIGN_TREE_ROW);
+    char note[320]; snprintf(note, sizeof(note), "The agents' own conversation stores could not be read: %s", a->stores_error);
+    re_ui_label_ex(ui, note, RE_UI_MUTED | RE_UI_SMALL);
   }
   if (!any_conversation) { mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_DESIGN_TREE_ROW); re_ui_label_ex(ui, "No agent conversations yet.", RE_UI_MUTED); }
   mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_SESSIONS_HEADING_HEIGHT);

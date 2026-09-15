@@ -79,6 +79,11 @@ typedef struct ReApp {
      on a timer — the devices/tasks rule, because the survey runs git in every worktree. */
   ReWorktreeRow worktrees[RE_WORKTREES]; int worktree_count;
   char worktrees_root[65], worktrees_repository[1024], worktrees_error[256];
+  /* What each agent CLI already holds for the selected root (F210/F211, spec 140). rEngine's own
+     records cover the conversations it MINTED; these are every conversation there is, including
+     ones begun outside the editor. Asked when the Sessions tab opens and not on a timer, because
+     codex partitions its store by date and answering costs a read of every candidate. */
+  cJSON *stores; char stores_root[65], stores_error[256]; bool stores_known;
   mu_Rect project_rect;                      /* the status bar's project segment, which opens the modal */
   bool initialized, connected, vim, layout_dirty, quitting;
   int width, height, preset;                 /* last laid-out size and the active theme preset */
@@ -178,6 +183,7 @@ void re_app_tracker_refresh(ReApp *app, int tab);
 void re_app_tracker_signin(ReApp *app, int tab);        /* opens the provider's sign-in page */
 void re_app_agents_menu(ReApp *app);  /* spec 134 D7: the toolbar select's list, for the selected root */
 void re_app_worktrees(ReApp *app);    /* spec 134 D1: the selected root's repository, for the Projects modal */
+void re_app_stores(ReApp *app);       /* spec 140 F210: the conversations each agent CLI holds for this root */
 void re_app_agent_spawn(ReApp *app, int tab, const cJSON *body);  /* spec 103: the Tasks pane owns the answer */
 void re_app_open_url(ReApp *app, const char *url);      /* hands a task's link to the browser */
 void re_devices_ui(ReApp *app, mu_Context *ui, int tab);

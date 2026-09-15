@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, mkdir, writeFile, realpath } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir, writeFile, realpath, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { startServer } from '../server/main.mjs';
@@ -128,6 +128,66 @@ test('a live agent that names its own conversations is attach-only and marked no
     // The raw process list is unchanged: the live agent is still there with its Stop and Attach.
     assert.ok(roleKeys(state, 'stop').includes(live.id), 'the process list still stops it');
     assert.ok(roleKeys(state, 'attach').includes(live.id), 'and still attaches it');
+  } finally {
+    await gui.close(); await server.close();
+  }
+});
+
+/* F210/F211 (spec 140): the conversations the CLI itself holds, which rEngine never minted.
+ *
+ * This is the owner's actual ask — /resume's list — and it is a different set from rEngine's own
+ * records: a conversation begun in a terminal, or before this workspace existed, is in the CLI's
+ * store and in no session record. The store is the authority on what EXISTS; rEngine's record only
+ * says whether this workspace has a pane for it.
+ */
+test('the Sessions tab lists conversations the CLI holds that rEngine never minted', { timeout: 90000 }, async t => {
+  const { dir, root: projectPath } = await project(t);
+  const real = await realpath(projectPath);
+  /* A claude store for THIS root, keyed the way claude keys it: the checkout path with every
+     separator turned into a dash. The home directory is redirected at the host, so the fixture
+     never touches the real ~/.claude. */
+  const home = path.join(dir, 'home');
+  const store = path.join(home, '.claude', 'projects', real.replaceAll('/', '-'));
+  await mkdir(store, { recursive: true });
+  const ONLY_ON_DISK = 'dddddddd-4444-4444-4444-dddddddddddd';
+  await writeFile(path.join(store, `${ONLY_ON_DISK}.jsonl`),
+    '{"type":"user","message":{"content":"the thing I asked in a terminal"}}\n' +
+    '{"type":"ai-title","aiTitle":"Work begun outside the editor"}\n');
+
+  const stateDir = path.join(dir, 'state');
+  const ROOT_ID = 'eeeeeeee-5555-5555-5555-eeeeeeeeeeee';
+  await mkdir(stateDir, { recursive: true });
+  await writeFile(path.join(stateDir, 'workspace.json'), JSON.stringify({
+    version: 1,
+    roots: [{ id: ROOT_ID, path: real, name: path.basename(real) }],
+    drafts: {}, layout: null, preferences: {}, conversations: {},
+  }));
+  /* HOME is read by the route from the environment the front door was SPAWNED with, so it is set
+     around startServer and restored after — startServer takes no env of its own, and a fixture that
+     forgot this would quietly list the real ~/.claude and pass for the wrong reason. */
+  const realHome = process.env.HOME;
+  process.env.HOME = home;
+  let server;
+  try { server = await startServer({ stateDir }); } finally { process.env.HOME = realHome; }
+  const gui = await nativeClient(server, { root: ROOT_ID });
+  try {
+    await gui.until(s => s.connected && s.tabs.some(x => x?.type === 1 && x.tree), 'the workspace');
+    await gui.control('toolbar', 'Sessions', -1);
+    /* Offered for resume even though no session record names it: the CLI's store is what says it
+       exists. rEngine minted nothing here — state.conversations is empty. */
+    const shown = await gui.until(s => (s.controls ?? []).some(c => c.role === 'resume-store' && c.key === ONLY_ON_DISK),
+      "the conversation held only by the CLI is offered");
+    assert.deepEqual(shown.state.conversations, {}, 'rEngine recorded none of it; the store is the source');
+
+    /* And it is named by its own title rather than by a bare id, which is the whole point. */
+    const runs = await gui.command({ op: 'text-runs' });
+    const text = runs.map(r => r.text).join(' | ');
+    assert.ok(text.includes('Work begun outside the editor'),
+      `the row wears the transcript's own title: ${text.slice(0, 400)}`);
+
+    /* Nothing under the store was written by listing it. */
+    const after = await readFile(path.join(store, `${ONLY_ON_DISK}.jsonl`), 'utf8');
+    assert.ok(after.includes('the thing I asked in a terminal'), 'the transcript is untouched');
   } finally {
     await gui.close(); await server.close();
   }
