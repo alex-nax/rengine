@@ -343,6 +343,14 @@ flowchart TD
   F190 --> F192
   F193["F193: passing"]
   F106 --> F193
+  F194["F194: blocked"]
+  F191 --> F194
+  F195["F195: blocked"]
+  F194 --> F195
+  F196["F196: blocked"]
+  F195 --> F196
+  F197["F197: blocked"]
+  F195 --> F197
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -492,3 +500,7 @@ flowchart TD
 | F191 | O1 | rengine | blocked | Creating and removing a worktree from the workspace: the destination is the project's declared `worktrees` directory at contract 11, an undeclared project is asked and offered the declaration (charter D63), and removal is refused by name unless the worktree is clean and merged (spec 134 D1/D5/D6). |
 | F192 | O1 | rengine | blocked | The Projects modal replaces the toolbar's project switcher and path field: repositories group their worktree roots, the status bar names the current project and opens the modal, and the Agent control becomes the dropdown design has specified since spec 064 (spec 134 D3/D4/D7). |
 | F193 | O1 | rengine | passing | A project's declared mark is the application's tile on the operating system, not only inside the chrome: macOS draws the Dock tile from the same icon.image spec 104 resolves, rasterised, and a declaration that names only a glyph leaves the tile as the process found it. |
+| F194 | O1 | rengine | blocked | A project declares where its agent memories live (contract 12, charter D65): memories.store is "repo" with a sibling path, or "workspace"; rEngine reads the block, refuses a path outside the root, and offers to write the declaration under D63 rather than editing it silently. |
+| F195 | O1 | rengine | blocked | The Memories tab: what each agent holds for the selected root, read through a Rust route behind red-host (charter D57). An agent with no memory store says so rather than drawing an empty list, and the tab names which store a root uses before anything is synced. |
+| F196 | O1 | rengine | blocked | Carrying memories between machines: a repo-store root writes them into its own tree where git moves them, a workspace-store root keeps them in the state directory and a second machine fetches them over red-link's facade (charter D58). Installing onto a machine is shown and confirmed and never silent (D3), and a file that differs on both sides is chosen per file (D4). |
+| F197 | O1 | rengine | blocked | kimi's memories (charter D66): rEngine defines where they live and points kimi at them through its own SessionStart hook mechanism, with every other agent a reserved empty slot. Blocked on the recorded open question - whether kimi injects a SessionStart hook's stdout into context - which is answered before implementation, not guessed. |

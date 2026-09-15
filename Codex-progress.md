@@ -1,3 +1,41 @@
+## Session 154 (macos) — 2026-09-15 — memories that survive a change of machine (spec 137, interview only)
+
+Owner: *"project memories of agents, they seem to be non-transferrable so if I will start in another
+machine - I will not have access to them, so maybe we can implement 'Memories' tab"*. A grill-me
+interview, ending in a spec and four rows. **Nothing is implemented.**
+
+What the codebase settled before the owner was asked. Claude's memories live in
+`~/.claude/projects/<slug>/memory/` and the slug is derived from the checkout PATH — so even a copied
+home directory would not line up on a second machine, and identity has to be the declared project
+and root id. Twenty-five projects here have one. And the owner's "headless helper" is
+`launch.mjs --headless`, whose own message says the bind is loopback and to reach it "through your
+own tunnel" — which it need not be, because **red-link already is the path**: a libp2p façade over
+the same internal HTTP API, through a circuit relay on purpose so the NAT route is the only route
+(D57/D58, F140/F180).
+
+What only the owner could settle. The backend is **per project, declared** — repo for the checkouts
+that own one, workspace-plus-network for kohai, whose declaration is external (D65). Installing is
+shown and confirmed; conflicts are chosen per file, never by a rule, because a memory is prose
+someone wrote deliberately and mtime is a poor proxy for intent.
+
+**One answer reshaped a branch and one overrode a recommendation.** kimi has no memory store at all —
+no per-project directory, no AGENTS.md, nothing memory-shaped — so "+kimi" could not mean what it
+said. The owner chose to have rEngine define one anyway, against the recommendation to reserve the
+slot. Reading kimi afterwards made that sounder than the objection allowed: its `config.toml` takes
+`[[hooks]]` with `event = "SessionStart"`, and **rEngine already owns one there** (spec 127's
+report-session hook), so memories can arrive through kimi's own mechanism. The open question is
+recorded rather than guessed: whether kimi injects a hook's stdout into context. If it does, the
+existing hook carries memories and there is no second edit to a person's global CLI configuration —
+which is the outcome to aim at. F197 is written so that question is answered with evidence first.
+
+The privacy cost of D65 is stated in the spec rather than discovered later: `store: "repo"` puts a
+personal note in a project's history permanently, for everyone with repository access. That is
+exactly why the owner excluded the one project whose declaration is external.
+
+Spec `docs/specs/137-agent-memories.md`; charter **D65** and **D66**; rows **F194–F197**
+(declaration and contract 12, the tab and its Rust route, carrying between machines, kimi). Contract
+12 is not cut yet. `features.py validate` 149 rows, `./init.sh` passes.
+
 ## Session 153 (macos) — 2026-09-15 — three workspaces onto current rEngine, and the mark on the Dock
 
 ### The stale service binary, which is the finding

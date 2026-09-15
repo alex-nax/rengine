@@ -3643,6 +3643,94 @@
       "evidence": [
         "F193, 2026-09-15: owner request — \"Can we also make configured icon (even if it is a placeholder) appear in macos doc panel?\" SDL_SetWindowIcon is the obvious answer and the wrong one: on macOS it sets the window's icon and leaves the Dock tile alone, so the tile is NSApplication's applicationIconImage and this is a platform seam. One Objective-C file on Apple only, following the Metal seam's existing enable_language(OBJC) and -fno-objc-arc so the build has one retain/release rule; every other platform gets the stub beside it, which reports NO tile rather than claiming one. The bitmap is declared NSBitmapFormatAlphaNonpremultiplied because re_svg_rasterize returns STRAIGHT alpha — declaring premultiplied would darken every edge pixel against its own transparency, a dirty halo rather than a visibly wrong flag. The tile follows the window title's rule for the title's reason (the declaration arrives after the window exists) and is set only when the named file changes, and an unreadable file is remembered as attempted so it is not retried every frame. The check asks the OPERATING SYSTEM: re_dock_icon_size reads back the representation's PIXELS, which is spec 084 decision 4 applied one layer out — pixels rather than points, because the point size is what the caller asked to draw at and two bitmaps can share it. The fixture mark is 17.335 x 17.5537, so the tile is 506 x 512, not a square: asserting a square would be asserting the tile is stretched. Sabotage: removing setApplicationIconImage: leaves the declared root reporting the process default, red at 'the platform took the tile', with the glyph test still green — which also proves the negative assertion is not vacuous, since that default is a real 256 x 256. native-identity 7/7, npm test 353/353, ctest 20/20, ./init.sh and the design gate pass. Spec 136."
       ]
+    },
+    {
+      "id": 194,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "A project declares where its agent memories live (contract 12, charter D65): memories.store is \"repo\" with a sibling path, or \"workspace\"; rEngine reads the block, refuses a path outside the root, and offers to write the declaration under D63 rather than editing it silently.",
+      "acceptance_criteria": [
+        "A declaration carrying memories.store \"repo\" resolves its path against the root and refuses one that escapes it, reusing the worktrees block's siblingPath rule.",
+        "memories.path is refused when store is \"workspace\".",
+        "The block requires contract 12 and a declaration below it is reported by name, not silently ignored.",
+        "A project declaring no memories block has no memories surface and no behaviour change.",
+        "rEngine offers to write the block, shown in full and only on confirmation (D63)."
+      ],
+      "passes": false,
+      "dependencies": [
+        191
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 195,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "The Memories tab: what each agent holds for the selected root, read through a Rust route behind red-host (charter D57). An agent with no memory store says so rather than drawing an empty list, and the tab names which store a root uses before anything is synced.",
+      "acceptance_criteria": [
+        "The tab lists each agent, its memory files and their sizes for the selected root.",
+        "An agent with no memory store is reported as having none, distinguishable from one whose list has not arrived and from one that is empty.",
+        "The tab names the declared store (repo or workspace) before a first sync, not after.",
+        "The route is Rust in red/ behind red-host and the desktop reads it through the same client as every other workspace read.",
+        "Identity is the declared project and root id, never the checkout path."
+      ],
+      "passes": false,
+      "dependencies": [
+        194
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 196,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "Carrying memories between machines: a repo-store root writes them into its own tree where git moves them, a workspace-store root keeps them in the state directory and a second machine fetches them over red-link's facade (charter D58). Installing onto a machine is shown and confirmed and never silent (D3), and a file that differs on both sides is chosen per file (D4).",
+      "acceptance_criteria": [
+        "A repo-store root's memories appear in a second checkout of the same repository after a pull.",
+        "A workspace-store root's memories are fetched by a second machine over red-link's facade rather than from the repo.",
+        "Installing shows every file that would be written with its change, and writing nothing on refusal leaves ~/.claude/projects/<slug>/memory byte-identical.",
+        "A file differing on both sides offers keep-local, take-remote and keep-both; no rule resolves it, and declining leaves both stores untouched.",
+        "A memory naming a credential is refused by both stores."
+      ],
+      "passes": false,
+      "dependencies": [
+        195
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 197,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "low",
+      "description": "kimi's memories (charter D66): rEngine defines where they live and points kimi at them through its own SessionStart hook mechanism, with every other agent a reserved empty slot. Blocked on the recorded open question - whether kimi injects a SessionStart hook's stdout into context - which is answered before implementation, not guessed.",
+      "acceptance_criteria": [
+        "Whether kimi injects a SessionStart hook's stdout into its context is established and recorded with evidence before any config is written.",
+        "If it does, the existing report-session hook carries memories and no second edit to the person's global CLI configuration is made.",
+        "If it does not, the mechanism returns to the owner rather than being chosen here.",
+        "codex, gemini and opencode rows exist and report that they have no per-project memory store.",
+        "Any edit to ~/.kimi-code/config.toml is shown, confirmed, backed up and restored on failure, as bootstrap-agent-hooks already does."
+      ],
+      "passes": false,
+      "dependencies": [
+        195
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }
