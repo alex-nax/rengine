@@ -115,6 +115,16 @@ a coherent change. Preserve other sessions' entries and unrelated edits.
   Metal on iOS — with Rust `red-core` as the networking library behind a small C ABI. Remote
   access runs on owner-pinned relay infrastructure with QR-paired Ed25519 peer identities; never
   the public libp2p bootstrap network.
+- **Language is decided by who a component serves, not by where it sits (charter D67).** Consumer
+  side — the mobile companion and, explicitly, the **editor interface** — is C (the kind Rust can
+  import over FFI) or C++; Objective-C/Swift only on macOS and only where C++ is genuinely not an
+  option. Dev suite and server infrastructure is Rust. This refines D57 rather than overriding it:
+  the orchestrator's server and network components are Rust, and the surfaces a person touches are
+  not those. The FFI direction is **Rust imports C**, never the reverse, so a consumer-side
+  component is shaped as a C library a Rust service can call — which is what lets one
+  implementation sit in-process in the desktop and be driven from a Rust service when offloaded.
+  The editor interface being consumer side is a requirement, not a classification: polish it until
+  someone with no technical background can use it.
 - Honor the training project's held-out-data and grader boundaries. Recording a run does not
   authorize training, data export, or model creation.
 - Do not delegate by default. Spawn agents only when the user or an applicable skill asks for it.
