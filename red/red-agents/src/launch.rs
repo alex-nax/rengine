@@ -511,7 +511,8 @@ pub fn launch_plan(
             };
             let defaults = env.get(var).and_then(Json::as_str).unwrap_or("").to_string();
             let previous: Json = match std::fs::read_to_string(&defaults) {
-                Ok(text) => parse_jsonc(&text).map_err(|_| "Invalid Gemini system defaults; existing configuration was preserved.".to_string())?,
+                Ok(text) => parse_jsonc(&text)
+                    .map_err(|_| format!("Invalid system defaults in {defaults}; existing configuration was preserved."))?,
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => json!({}),
                 Err(error) => return Err(format!("cannot read {defaults}: {error}")),
             };

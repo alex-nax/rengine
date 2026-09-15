@@ -43,8 +43,28 @@ shapes, the helpers and the roster; the dispatch is a lookup, not a branch. Wher
 a *capability* rather than an identity — "this CLI needs an MCP overlay written for it" — declare
 the capability in the recipe and let the shared code ask the recipe, never the name.
 
-**Why it needs a guard, not a rule.** This entry did not exist when F210 was written, but the specs
+**Why it needed a guard, not a rule.** This entry did not exist when F210 was written, but the specs
 it violates did, and they did not stop it. `design.py check` fails the build on a hand-written
-product name; nothing comparable exists for an agent name in shared code. F217 is that guard.
+product name; nothing comparable existed for an agent name in shared code.
 
-**Open cleanup:** F213–F217 carry the places this shape already exists.
+**The guard: `python3 tools/agent_names.py check`** (F217), run by `init.sh` with the other gates.
+It reads the roster from `registry.toml`, so a CLI added as data is guarded the day it is added, and
+it reports the name and the line. Comments, `#[cfg(test)]` modules, tests directories and a file
+whose own name is the agent's are all allowed — prose explaining why code is shaped a way may name
+the CLI that motivated it, a fixture naming one deliberately is the point of the fixture, and an
+adapter is the prescribed answer. Everything else is a finding.
+
+Two things that guard learned the hard way, both worth keeping in mind for any check like it:
+
+- **`\b` is the wrong word boundary.** `_` is a word character, so `\bkimi\b` does not match
+  `kimi_flags` — the exact function name this check exists to catch. It passed the F210 shape the
+  first time it was tried. The boundary is "not a letter or digit".
+- **Stripping `//` comments naively hides code.** `"https://claude.ai/code"` truncates at the
+  slashes and takes the name with it. The strip has to know it is inside a string.
+
+**Exceptions are declared in one list**, in the checker, each with a reason and the feature that
+will remove it — so widening it is a visible decision in a diff. A check whose exceptions are
+inferred teaches nothing; one with no exceptions at all gets deleted the first time it is in the way.
+
+**Open cleanup:** F218 (bind's per-CLI hint catalogue), F219 (two identity defaults) and F220 (the
+per-CLI knowledge with nowhere declared to go) work through that list. F213–F217 are done.

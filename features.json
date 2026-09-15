@@ -4181,6 +4181,49 @@
       "deliverable": "bind.rs's per-CLI start hints, generated from the declared spellings instead of written out per agent.",
       "external_references": [],
       "evidence": []
+    },
+    {
+      "id": 219,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "Two identity DEFAULTS: red-agents/src/report.rs defaults an absent --provider to claude, from when only claude reported a session, and orchestrator/native/workspace.c falls back to \"codex\" when no agent is chosen. Both are one CLI's name standing in for \"the first one declared\", and both are load-bearing — changing the reporter's default moves hooks already installed in people's CLI configuration, and changing the desktop's changes what a person gets when they press the button. tools/agent_names.py carries them as declared exceptions.",
+      "acceptance_criteria": [
+        "The reporter refuses or names a provider by rule rather than assuming one, and an installed hook that omits --provider is accounted for.",
+        "The desktop's fallback agent comes from the declared roster or from a preference, not from a literal.",
+        "Both exceptions are removed from tools/agent_names.py, which is how this row proves itself.",
+        "What a person sees when no agent is chosen is unchanged, or the change is deliberate and recorded."
+      ],
+      "passes": false,
+      "dependencies": [
+        217
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The reporter's provider default, the desktop's agent fallback, and the two exceptions they hold in the guard.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 220,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "Per-CLI knowledge that lives in shared code because it has nowhere declared to go: the CLAUDE_CODE_* identity variables a pane scrubs (spawn.rs and sessions-client.mjs, KI-113), the install directories a PATH search adds (.opencode/bin), red-ide's whole claude-shaped bridge (the lock directory, the discovery path, the x-claude-code-ide-authorization header), red-project's tasks.rs and its codexModels method, red-mcp's message and orchestrator/agents/mcp.mjs's explanation that two CLIs differ in how they take a changed tool list, and launch.mjs's usage line listing the five agents. Each is either a recipe key or an adapter file; tools/agent_names.py carries all of them as declared exceptions, which is the list this row works through.",
+      "acceptance_criteria": [
+        "Each place is resolved as a declared recipe key or as an adapter file named for its agent, and the choice is recorded per place.",
+        "red-ide gets the adapter split red-project's conversations already have, or a recorded reason why the bridge is one CLI's protocol and belongs whole.",
+        "The usage line and any other list of agents is printed from the declared roster.",
+        "Every exception this row names is removed from tools/agent_names.py, which is how it proves itself.",
+        "No behaviour changes: each move is proven by the evidence path that already covers it."
+      ],
+      "passes": false,
+      "dependencies": [
+        217
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The declared keys and adapter files that replace each named exception, and the shrunken exception list in the guard.",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }

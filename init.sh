@@ -37,6 +37,9 @@ fi
 python3 tools/features.py validate
 python3 tools/shaders.py check
 python3 tools/seam_prefix.py check
+# An agent CLI's name in shared code is the antipattern docs/lessons-learned.md records, and a spec
+# saying so did not prevent it (F217, spec 141).
+python3 tools/agent_names.py check
 python3 tools/features.py status
 
 if [ -d .git ] || [ -f .git ]; then

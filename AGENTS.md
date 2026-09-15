@@ -199,6 +199,13 @@ numbers, charter D-rows, feature ids and progress-log entries are this project's
 and do not belong in an issue, a report or a message to another team: say the thing, do not cite
 the shelf it sits on. `design.py check` guards shipping code, not prose, so this one needs a reader.
 
+**An agent CLI's name may not appear in shared code**, and `python3 tools/agent_names.py check`
+fails the build when it does (F217, spec 141). Shared code asks the recipe what a CLI *can do*; it
+never asks who the CLI is. Comments, test fixtures and a file named for its own agent are allowed —
+an adapter is the prescribed answer, and a recipe key is the other. Exceptions are declared in one
+list in the checker, with a reason each. `docs/lessons-learned.md` records what this cost when it
+was only prose.
+
 Keep owned source files under 1,000 lines; retain pinned upstream sources intact with their licenses.
 Public API documentation stays with the API. Longer file-local
 rationale belongs in `._llm.json` sidecars using the project llm-sidecar skill; refresh anchors

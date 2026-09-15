@@ -4,7 +4,7 @@ Owner goal, 2026-09-15: *"design abstraction interface and achieve complete prov
 catching an agent-per-function file that contradicted the project's own stated design
 (`docs/lessons-learned.md`).
 
-Status: **design, with F213–F217 as the work.**
+Status: **F213–F217 implemented; F218–F220 carry what the guard now declares as exceptions.**
 
 ## The rule, in one line
 
@@ -168,6 +168,33 @@ and leaving the old wording on the new meaning would be worse than changing it.
 `orchestrator/agents/handoff.mjs` still reads codex's rollouts in JavaScript. That is the JS half of
 the `rollout-jsonl` kind, retiring under D57 with the rest of the JS host; its gate and its probe now
 ask the recipe, so the two halves agree about *who* can be handed a conversation.
+
+## F217: the guard, and the four things it caught about itself
+
+`python3 tools/agent_names.py check` runs in `init.sh` with the other gates and is covered by
+`orchestrator/tests/agent-names.test.mjs`. The roster is read from `registry.toml`, so it cannot
+drift from the document it defends.
+
+It found three places the survey had missed, all of them real:
+
+- the `CLAUDE_CODE_*` identity variables a pane scrubs (`spawn.rs` and `sessions-client.mjs`),
+- `red_project.rs`'s `codexModels` method,
+- and, once the boundary was right, everything with an underscore in it.
+
+And two bugs in itself, both of which passed a first test before failing a better one:
+
+- **`\b` does not break at `_`.** `\bkimi\b` does not match `kimi_flags`. The guard passed the exact
+  F210 shape the first time it was run against it — the one case it exists for.
+- **A naive `//` strip hides code.** `"https://claude.ai/code"` truncates at the slashes.
+
+Both cases are pinned in the spec, and all four of the guard's defences — the boundary, the
+quote-aware strip, the skipped test modules and the registry-read roster — are sabotage-verified:
+each fails the test that claims it, and nothing else.
+
+The exceptions are a declared list with a reason and a feature each: **F218** (bind's hint
+catalogue), **F219** (two identity defaults — the reporter's `--provider` and the desktop's agent
+fallback), **F220** (per-CLI knowledge with nowhere declared to go: the identity scrub, install
+paths, red-ide's claude-shaped bridge, tasks, and the usage line).
 
 ## Where the implementation departs from F213's written criteria — for the owner
 

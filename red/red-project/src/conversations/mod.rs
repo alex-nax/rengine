@@ -156,19 +156,66 @@ pub fn stores(home: &Path, root_path: &str, since_days: u64) -> Result<Value, Fa
     if root_path.is_empty() {
         return Err(refuse("A project root is required to list its conversations.", 400));
     }
-    Ok(json!({
-        "root": root_path,
-        "agents": [
-            claude::list(home, root_path),
-            codex::list(home, root_path, since_days),
-            kimi::list(home, root_path),
-            /* Declared and empty on purpose: these CLIs have no per-project conversation store, and
-               saying so is the answer. An agent missing from the list would read as an oversight. */
-            json!({ "agent": "gemini", "store": "", "present": false, "conversations": [] }),
-            json!({ "agent": "opencode", "store": "", "present": false, "conversations": [] }),
-        ],
-    }))
+    /* The ROSTER is the registry's, in the order it declares (spec 141 decision 5). An adapter
+       answers for a CLI whose store this crate can read; every other declared CLI is answered
+       DECLARED AND EMPTY, because a CLI missing from the list would read as an oversight rather
+       than as "this one keeps no per-project store". Adding a CLI to the registry adds a row here
+       with no edit, and giving it an adapter is one line below. */
+    let roster = roster();
+    /* The ones this crate can READ come first, in adapter order, then everyone else in the order the
+       registry declares them: a person reading the list sees the stores that have something in them
+       together, rather than two permanently empty rows in the middle. The split is by capability —
+       "is there a reader for this CLI" — not by a remembered order. */
+    let (readable, rest): (Vec<String>, Vec<String>) =
+        roster.into_iter().partition(|cli| ADAPTERS.contains(&cli.as_str()));
+    let ordered = ADAPTERS
+        .iter()
+        .map(|name| name.to_string())
+        .filter(|name| readable.contains(name))
+        .chain(rest);
+    let answers: Vec<Value> = ordered
+        .map(|cli| match cli.as_str() {
+            "claude" => claude::list(home, root_path),
+            "codex" => codex::list(home, root_path, since_days),
+            "kimi" => kimi::list(home, root_path),
+            other => json!({ "agent": other, "store": "", "present": false, "conversations": [] }),
+        })
+        .collect();
+    Ok(json!({ "root": root_path, "agents": answers }))
 }
+
+/// Every CLI the registry declares, in declaration order. Falls back to the CLIs with adapters when
+/// no registry can be read, so a listing is never silently short.
+fn roster() -> Vec<String> {
+    let path = std::env::var("RENGINE_AGENT_REGISTRY").ok().unwrap_or_else(|| {
+        /* Walking UP to the document rather than counting directories down from the binary: a test
+           binary lives one level deeper (`target/debug/deps`), and a fixed depth finds nothing
+           there — which would answer a short roster that looked like a real one. */
+        std::env::current_exe()
+            .ok()
+            .and_then(|exe| {
+                exe.ancestors()
+                    .map(|directory| directory.join("orchestrator/agents/registry.toml"))
+                    .find(|candidate| candidate.is_file())
+            })
+            .map(|path| path.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    });
+    let named = std::fs::read_to_string(&path).ok().and_then(|text| {
+        let extra = std::env::var("RENGINE_AGENT_REGISTRY_EXTRA")
+            .ok()
+            .filter(|path| !path.is_empty())
+            .and_then(|path| std::fs::read_to_string(&path).ok().map(|text| (text, path)));
+        red_agents::load_registry(&text, &path, extra.as_ref().map(|(text, path)| (text.as_str(), path.as_str())))
+            .ok()
+            .map(|recipes| recipes.into_iter().map(|(name, _)| name).collect::<Vec<_>>())
+    });
+    named.filter(|names: &Vec<String>| !names.is_empty()).unwrap_or_else(|| ADAPTERS.iter().map(|name| name.to_string()).collect())
+}
+
+/// The CLIs this crate has a reader for. The only place their names belong: a dispatch to one file
+/// each, which is what an adapter roster is.
+const ADAPTERS: [&str; 3] = ["claude", "codex", "kimi"];
 
 #[cfg(test)]
 pub(crate) mod tests {
@@ -223,6 +270,7 @@ pub(crate) mod tests {
        "this CLI keeps no conversation store", which is a fact a person can act on. */
     #[test]
     fn every_agent_is_named_even_with_no_store() {
+        let _guard = ENVIRONMENT.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let home = temp("named");
         let answer = stores(&home, "/tmp/demo", 3650).expect("a listing");
         let agents: Vec<&str> = answer["agents"]
@@ -233,6 +281,50 @@ pub(crate) mod tests {
             .collect();
         assert_eq!(agents, vec!["claude", "codex", "kimi", "gemini", "opencode"]);
         assert_eq!(json!(agents.len()), json!(5));
+        let _ = fs::remove_dir_all(&home);
+    }
+
+    /* Who is listed is the REGISTRY's, not a list kept here (F217, spec 141 decision 5): a CLI added
+       as data is answered for, declared and empty, because this crate has no reader for it — and a
+       CLI missing from the list would read as an oversight rather than as "keeps no store". */
+    /* `stores()` reads the registry from the process environment, and cargo runs these tests as
+       threads in ONE process — so a test that names an extra registry changes what every other test
+       sees. It showed up immediately as the roster test answering six CLIs; the lock is what keeps
+       them from being flaky by construction. */
+    static ENVIRONMENT: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /* A recipe with no conversation block at all: the registry's minimum, which is the point. */
+    const RECIPE: &str = r#"[recipes.newcomer]
+package = "@test/newcomer"
+
+[recipes.newcomer.update]
+kind = "reinstall"
+
+[recipes.newcomer.mcp]
+kind = "flag"
+flag = "--servers"
+"#;
+
+    #[test]
+    fn a_cli_added_as_data_is_listed_without_an_edit_here() {
+        let _guard = ENVIRONMENT.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let home = temp("declared-roster");
+        let extra = home.join("extra.toml");
+        fs::write(&extra, RECIPE).expect("extra registry");
+        std::env::set_var("RENGINE_AGENT_REGISTRY_EXTRA", &extra);
+        let answer = stores(&home, "/tmp/demo", 3650).expect("a listing");
+        std::env::remove_var("RENGINE_AGENT_REGISTRY_EXTRA");
+        let agents: Vec<&str> = answer["agents"]
+            .as_array()
+            .expect("agents")
+            .iter()
+            .map(|a| a.get("agent").and_then(Value::as_str).unwrap_or(""))
+            .collect();
+        assert!(agents.contains(&"newcomer"), "a declared CLI is answered for: {agents:?}");
+        let newcomer = answer["agents"].as_array().expect("agents").iter().find(|a| a["agent"] == "newcomer").expect("the row");
+        assert_eq!(newcomer["present"], json!(false), "declared and empty, because nothing here reads its store");
+        /* And the readable ones still come first, so the split is by capability, not by arrival. */
+        assert_eq!(&agents[..3], &["claude", "codex", "kimi"]);
         let _ = fs::remove_dir_all(&home);
     }
 }
