@@ -787,8 +787,9 @@ test('a pane started at the door is the pane the JS host would have started', { 
   assert.deepEqual(await refused({ rootId: root.id, type: 'game' }), [400, 'Use the game adapter to launch a game.']);
   assert.deepEqual(await refused({ rootId: root.id, type: 'game-adapter' }), [400, 'Use the game adapter to launch a game.']);
   assert.deepEqual(await refused({ rootId: root.id, cols: 1, rows: 1 }), [400, 'Invalid terminal dimensions.']);
-  assert.deepEqual(await refused({ rootId: root.id, handoffFile: '/nowhere.json' }), [400, 'Handoff requires the Codex workspace launcher.'],
-    'a handoff that is not the Codex launcher is refused before the file is touched');
+  assert.deepEqual(await refused({ rootId: root.id, handoffFile: '/nowhere.json' }),
+    [400, 'Handoff requires a workspace launcher for a CLI that can be handed a conversation.'],
+    'a handoff for a CLI that declares no handoff is refused before the file is touched (F216: the refusal is about the capability now, not about being codex)');
 
   /* One directory, one set of panes, whichever host started them. The door lists what the service
      holds; the JS host lists the same, because it registers a pane the moment the service announces

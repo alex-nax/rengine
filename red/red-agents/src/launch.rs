@@ -113,6 +113,15 @@ fn ids_match(talk: &Json, id: &str) -> bool {
     text(talk, "ids").is_some_and(|pattern| crate::id_matches(pattern, id))
 }
 
+/// What this CLI can be handed, as its recipe declares it: `{ kind, ready }`, or `None` when it
+/// declares nothing — which is an honest "this CLI has not said it can be handed a conversation",
+/// not a judgement about who it is (F216, spec 141).
+pub fn conversation_handoff(recipes: &[(String, Value)], cli: &str) -> Option<Json> {
+    talk_of(recipes, cli)
+        .and_then(|talk| talk.get("handoff").cloned())
+        .filter(|value| !value.is_null())
+}
+
 /// The shape this CLI's conversation ids take, as its recipe declares it. Public so a component
 /// that persists conversations can be handed the rule instead of containing it (F215, spec 141).
 pub fn conversation_ids(recipes: &[(String, Value)], cli: &str) -> Option<String> {

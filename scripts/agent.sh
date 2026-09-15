@@ -53,6 +53,15 @@ registry_field() {
   "$red_agents" show "$1" "$2" 2>/dev/null
 }
 
+# What a CLI declares it CAN do, one `key=value` per line. Asking this is the alternative to
+# comparing a name: `check-resume` refused every agent but codex by name, so a second CLI that could
+# be handed a conversation had to edit this script to say so (F216, spec 141).
+registry_capability() {
+  [ -n "$red_agents" ] || registry_names >/dev/null
+  [ -n "$red_agents" ] || return 127
+  "$red_agents" can "$1" "$2" 2>/dev/null
+}
+
 usage() {
   local names
   names="$(registry_names | tr '\n' '|')"
@@ -198,11 +207,25 @@ launch_agent() {
 
 if [ "$action" = list ]; then list_agents; exit 0; fi
 if [ "$action" = check-resume ]; then
-  [ "$agent" = codex ] || { echo 'Resume currently supports Codex.' >&2; exit 2; }
-  executable="$(find_agent codex || true)"
-  [ -n "$executable" ] || { echo 'Codex is missing; install it explicitly through Manage.' >&2; exit 127; }
-  "$executable" resume --help >/dev/null
-  "$executable" login status
+  [ -n "$agent" ] || { echo 'Select --agent or set RENGINE_AGENT.' >&2; exit 2; }
+  # The recipe says whether this CLI can be handed a paused conversation, and what "ready" means for
+  # it. Each declared probe runs with the CLI's own executable and must succeed.
+  capability="$(registry_capability "$agent" handoff)" \
+    || { echo "$agent cannot be handed a paused conversation to resume." >&2; exit 2; }
+  [ -n "$capability" ] || { echo "$agent cannot be handed a paused conversation to resume." >&2; exit 2; }
+  executable="$(find_agent "$agent" || true)"
+  [ -n "$executable" ] || { echo "$agent is missing; install it explicitly through Manage." >&2; exit 127; }
+  # Read from a here-document, not a pipe: a pipe puts the loop in a subshell, where a failing
+  # probe would exit that subshell and leave check-resume reporting success.
+  while IFS= read -r line; do
+    case "$line" in ready=*) ;; *) continue ;; esac
+    probe="${line#ready=}"
+    # The declared probe is a word list, split deliberately.
+    # shellcheck disable=SC2086
+    "$executable" $probe >/dev/null || exit 1
+  done <<EOF
+$capability
+EOF
   exit 0
 fi
 if [ -z "$agent" ] && [ -f "$agent_home/preferred-agent" ]; then IFS= read -r agent < "$agent_home/preferred-agent" || true; fi

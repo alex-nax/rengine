@@ -6,6 +6,7 @@ import { ensureSidecar, request } from './launcher/sidecar.mjs';
 import { runHeadless } from './launcher/headless.mjs';
 import { hostAge, replaceHost } from './launcher/replace.mjs';
 import { readHandoff, checkResume } from './agents/handoff.mjs';
+import { handoffCapableAgents } from './agents/agents-client.mjs';
 import { bashPath, shellEnvironment } from './server/sessions-client.mjs';
 
 const options = { state: path.join(homedir(), '.local/state/rengine'), agent: undefined };
@@ -33,10 +34,18 @@ if (options.headless) {
   if (refused) throw new Error(`--headless cannot be combined with ${refused[0]}: ${refused[2]}.`);
 }
 if (options.handoff) {
-  if (options.noAgent || (options.agent !== undefined && options.agent !== 'codex')) throw new Error('--handoff requires Codex and cannot use --no-agent.');
+  /* A manifest does not name a CLI, so the recipes do: whoever declares that a paused conversation
+     can be handed to them. One is the answer; several means this has to be told which (F216). */
+  const capable = await handoffCapableAgents();
+  if (options.noAgent) throw new Error('--handoff cannot use --no-agent.');
+  if (options.agent !== undefined && !capable.includes(options.agent)) {
+    throw new Error(`--handoff requires a CLI that can be handed a conversation: ${capable.join(', ') || 'none is declared'}.`);
+  }
+  const cli = options.agent ?? (capable.length === 1 ? capable[0] : undefined);
+  if (!cli) throw new Error(`--handoff needs --agent to say which CLI: ${capable.join(', ') || 'none is declared'}.`);
   const handoff = await readHandoff(options.handoff, options.project && path.resolve(options.project));
-  options.project = handoff.project; options.agent = 'codex'; options.handoff = handoff.filename;
-  await checkResume(bashPath(), handoff.project, shellEnvironment({ RENGINE_AGENT_HOME: path.join(path.resolve(options.state), 'agents') }));
+  options.project = handoff.project; options.agent = cli; options.handoff = handoff.filename;
+  await checkResume(bashPath(), cli, handoff.project, shellEnvironment({ RENGINE_AGENT_HOME: path.join(path.resolve(options.state), 'agents') }));
 }
 if (options.launchGame && !options.project) throw new Error('--launch-game requires --project DIR.');
 if (options.declaration && !options.project) throw new Error('--declaration requires --project DIR.');

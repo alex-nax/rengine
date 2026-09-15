@@ -4,6 +4,9 @@
 //!   red-agents show <agent> [field]        the shell record (CLI/PACKAGE/UPDATE_KIND/
 //!                                          UPDATE_COMMAND/STRIP_PREFIX), one field or all
 //!   red-agents parse <cli> -- <args...>    what the CLI's argv says about its conversation
+//!   red-agents can <cli> <capability>      does this CLI declare it? the declaration on stdout,
+//!                                          exit 2 when it does not — so a shell caller asks what
+//!                                          a CLI CAN do rather than comparing its name
 //!   red-agents hook-key [--platform P] [group handler]
 //!   red-agents trust-hash <command> [matcher]
 //!
@@ -15,7 +18,7 @@ use std::process::ExitCode;
 
 use red_agents::{hooks, parsers, Value};
 
-const USAGE: &str = "Usage: red-agents list [--names] | show <agent> [field] | parse <cli> -- <args...> | hook-key [--platform win32|unix] [group handler] | trust-hash <command> [matcher]";
+const USAGE: &str = "Usage: red-agents list [--names] | show <agent> [field] | parse <cli> -- <args...> | can <cli> <capability> | hook-key [--platform win32|unix] [group handler] | trust-hash <command> [matcher]";
 
 fn registry_path() -> Result<String, String> {
     if let Ok(declared) = std::env::var("RENGINE_AGENT_REGISTRY") {
@@ -85,6 +88,40 @@ fn main() -> ExitCode {
                     println!("{cli}");
                 } else {
                     println!("{cli}\t{}", raw.get("package").and_then(Value::string).unwrap_or(""));
+                }
+            }
+            ExitCode::SUCCESS
+        }
+        /* What a CLI CAN do, for a caller that would otherwise compare its name — agent.sh's resume
+           check being the one that did (F216, spec 141). The declaration is the answer: its atoms
+           on stdout, one `key=value` per line, and exit 2 when this CLI declares nothing. */
+        "can" => {
+            let (Some(cli), Some(capability)) = (args.get(1), args.get(2)) else {
+                return fail(USAGE);
+            };
+            let recipes = match load() {
+                Ok(recipes) => recipes,
+                Err(error) => return fail(error),
+            };
+            if !recipes.iter().any(|(name, _)| name == cli) {
+                return fail(format!("No agent named {cli} is registered."));
+            }
+            let declared = match capability.as_str() {
+                "handoff" => red_agents::launch::conversation_handoff(&recipes, cli),
+                other => return fail(format!("rEngine has no capability named {other}.")),
+            };
+            let Some(declared) = declared else {
+                return fail(format!("{cli} does not declare {capability}."));
+            };
+            for (key, value) in declared.as_object().into_iter().flatten() {
+                match value {
+                    serde_json::Value::Null => {}
+                    serde_json::Value::Array(items) => {
+                        for item in items {
+                            println!("{key}={}", item.as_str().unwrap_or_default());
+                        }
+                    }
+                    other => println!("{key}={}", other.as_str().map(str::to_string).unwrap_or_else(|| other.to_string())),
                 }
             }
             ExitCode::SUCCESS

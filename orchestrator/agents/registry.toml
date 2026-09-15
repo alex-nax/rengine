@@ -87,6 +87,16 @@ normalize = "lowercase"
 provider = "codex"
 resumeLine = "codex resume {id}"
 
+# What this CLI can be HANDED: a paused conversation named by a manifest, which rEngine confirms
+# exists on this machine before launching a pane that would otherwise start a new conversation
+# wearing the old one's name. `kind` says how this CLI stores its conversations, and red-host
+# implements the kinds — a CLI declaring a kind rEngine has no reader for is refused by that kind,
+# never by its name (F216, spec 141). `ready` is what "ready to resume" means for this CLI: each
+# probe is run with the CLI's own executable and must succeed before a pane is launched.
+[recipes.codex.conversation.handoff]
+kind = "rollout-jsonl"
+ready = ["resume --help", "login status"]
+
 # codex names a conversation with a positional after a subcommand rather than with a flag, so the
 # scan skips flags that take values and reads the first bare word.
 [recipes.codex.conversation.read]

@@ -55,11 +55,13 @@ export async function readHandoff(filename, project, env = process.env) {
   return { filename, project: root, checkpoint, sessionId: value.sessionId };
 }
 
-export async function checkResume(bash, project, env) {
+/* Which CLI is asked is the caller's, from the pane being launched: agent.sh reads what that CLI
+   declares "ready to resume" means (F216, spec 141). */
+export async function checkResume(bash, cli, project, env) {
   try {
-    await execute(bash, [agentScript, '--project', project, '--agent', 'codex', '--action', 'check-resume'],
+    await execute(bash, [agentScript, '--project', project, '--agent', cli, '--action', 'check-resume'],
       { env, timeout: 15000, maxBuffer: 65536 });
-  } catch (error) { throw new Error(`Codex resume prerequisites failed: ${error.stderr || error.message}`); }
+  } catch (error) { throw new Error(`${cli} resume prerequisites failed: ${error.stderr || error.message}`); }
 }
 
 export async function waitForPresentation(gate) {

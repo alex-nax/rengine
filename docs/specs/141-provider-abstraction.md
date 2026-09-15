@@ -138,6 +138,37 @@ fixture *passed against its own sabotage* for that reason, and only a second loo
 They all call `built('--bins')` now (a no-op under the suite), and the same sabotage that silently
 passed fails on its own. A regression checked against a stale binary is not a regression.
 
+## What F216 found: the gate, the reader and the probe were three identity checks, in three languages
+
+`red-host` refused a handoff unless the agent was literally `codex`; `agent.sh`'s `check-resume`
+refused every agent but codex by name; the JS door did the same. Three copies of one question.
+
+The question is a capability, so the recipe answers it: `conversation.handoff` declares `kind` — how
+this CLI stores its conversations — and `ready`, what "ready to resume" means for it, as probes run
+with the CLI's own executable. `red-host` implements the kinds and dispatches to an adapter;
+`handoff.rs` became `handoff/mod.rs` (the manifest, which is rEngine's format) and `handoff/codex.rs`
+(the rollout store, which is codex's). The shared half names no CLI, and a kind rEngine has no
+reader for is refused **by the kind**.
+
+Three things fell out of it:
+
+- **A fourth copy of the id shape.** The manifest carried its own `is_uuid`, so a CLI whose recipe
+  declares a different shape would have had its own ids refused. It uses the declared pattern now.
+- **The same extra-registry bug as F215**, in `red-host`'s `recipes()`: it read only the shipped
+  document, so a CLI added as data was invisible to the door.
+- **`agent.sh`'s probe loop ran in a subshell** as first written here, where a failing probe would
+  have exited the subshell and left `check-resume` reporting success. It reads from a here-document
+  instead, and that is checked.
+
+**One observable string changed**, deliberately: `Handoff requires the Codex workspace launcher.` is
+now `Handoff requires a workspace launcher for a CLI that can be handed a conversation.` The refusal
+means something different than it did — not "you are not codex" but "this CLI declares no handoff" —
+and leaving the old wording on the new meaning would be worse than changing it.
+
+`orchestrator/agents/handoff.mjs` still reads codex's rollouts in JavaScript. That is the JS half of
+the `rollout-jsonl` kind, retiring under D57 with the rest of the JS host; its gate and its probe now
+ask the recipe, so the two halves agree about *who* can be handed a conversation.
+
 ## Where the implementation departs from F213's written criteria — for the owner
 
 F213's row says *"each agent's flag parsing lives in a file named for that agent"*: three adapter

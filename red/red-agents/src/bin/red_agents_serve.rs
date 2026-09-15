@@ -95,6 +95,14 @@ fn dispatch(method: &str, args: &Json) -> Result<Json, String> {
            recipe's declared spelling; the three agent-named methods it replaces had no caller
            outside this file, which is what a wire surface shaped around identities tends to
            become. */
+        /* What a CLI declares it can be HANDED (F216, spec 141). It is not an atom of
+           `resolvedRecipes`, because that projection is frozen to the shape registry.mjs emitted —
+           so the capability gets a method, the way the read spelling did. */
+        "conversationHandoff" => {
+            let cli = args.get(0).and_then(Json::as_str).unwrap_or_default();
+            let recipes = load()?;
+            Ok(red_agents::launch::conversation_handoff(&recipes, cli).unwrap_or(Json::Null))
+        }
         "conversationRead" => {
             let cli = args.get(0).and_then(Json::as_str).unwrap_or_default();
             let rest: Vec<String> = args

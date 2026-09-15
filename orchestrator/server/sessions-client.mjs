@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { fail } from './store-client.mjs';
 import { PtyHost } from './pty-client.mjs';
 import { readHandoff, checkResume } from '../agents/handoff.mjs';
+import { conversationHandoff } from '../agents/agents-client.mjs';
 import { paneComposition, shortAgentId } from '../agents/agents-client.mjs';
 
 const agentScript = fileURLToPath(new URL('../../scripts/agent.sh', import.meta.url));
@@ -267,11 +268,16 @@ export class Sessions extends EventEmitter {
       RENGINE_AGENT_CONVERSATION: undefined, RENGINE_AGENT_RESUME: undefined, RENGINE_AGENT_CONVERSATIONS: undefined };
     env = shellEnvironment({ ...env, RENGINE_AGENT_HOME: path.join(this.store.directory, 'agents'), ...cleared });
     if (handoffFile) {
-      if (type !== 'agent' || agent !== 'codex' || action !== 'launch' || args?.length || !this.workspaceContext) fail('Handoff requires the Codex workspace launcher.');
+      /* Which CLIs can be handed a paused conversation is the recipes' to say (F216, spec 141):
+         a CLI declares `conversation.handoff` or it cannot be handed one. */
+      const canBeHanded = type === 'agent' && agent ? await conversationHandoff(agent) : null;
+      if (!canBeHanded || action !== 'launch' || args?.length || !this.workspaceContext) {
+        fail('Handoff requires a workspace launcher for a CLI that can be handed a conversation.');
+      }
       handoff = await readHandoff(handoffFile, root.path, env);
       const existing = [...this.items.values()].find(item => item.rootId === rootId && item.state === 'running' && item.handoff?.sessionId === handoff.sessionId);
       if (existing) return this.snapshot(existing.id);
-      await checkResume(bashPath(), root.path, env);
+      await checkResume(bashPath(), agent, root.path, env);
       gate = path.join(this.store.directory, 'integrations', `${id}.ready`);
       env = { ...env, RENGINE_HANDOFF_GATE: gate, RENGINE_HANDOFF_FILE: handoff.filename, RENGINE_ORCHESTRATOR_SESSION: id };
     }

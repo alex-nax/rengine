@@ -434,6 +434,16 @@ fn declared_since(raw: &Value, view: &mut serde_json::Value) {
             }
         }
     }
+    /* F216: what this CLI can be handed — a paused conversation by manifest — and what "ready to
+       resume" means for it. */
+    if let Some(handoff) = raw.get("conversation").and_then(|talk| talk.get("handoff")) {
+        if let Some(talk) = table.get_mut("conversation").and_then(serde_json::Value::as_object_mut) {
+            talk.insert("handoff".to_string(), json!({
+                "kind": handoff.get("kind").and_then(Value::string),
+                "ready": strings_or_null(handoff.get("ready")),
+            }));
+        }
+    }
     /* F214: the flag that hands a `per-launch-settings` CLI the settings written for its launch. */
     if let Some(flag) = raw.get("hooks").and_then(|hooks| hooks.get("flag")).and_then(Value::string) {
         if let Some(hooks) = table.get_mut("hooks").and_then(serde_json::Value::as_object_mut) {

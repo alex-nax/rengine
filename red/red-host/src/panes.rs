@@ -21,7 +21,15 @@ use crate::{ask, ask_pty, Front};
 fn recipes() -> Vec<(String, red_agents::Value)> {
     let path = registry();
     let text = std::fs::read_to_string(&path).unwrap_or_default();
-    red_agents::load_registry(&text, &path, None).unwrap_or_default()
+    /* Including the extra document: a recipe added as DATA is the registry's central promise, and a
+       host that read only the shipped file would answer about a CLI it had been told about as
+       though it did not exist (F216, spec 141). */
+    let extra = std::env::var("RENGINE_AGENT_REGISTRY_EXTRA")
+        .ok()
+        .filter(|path| !path.is_empty())
+        .and_then(|path| std::fs::read_to_string(&path).ok().map(|text| (text, path)));
+    red_agents::load_registry(&text, &path, extra.as_ref().map(|(text, path)| (text.as_str(), path.as_str())))
+        .unwrap_or_default()
 }
 
 fn registry() -> String {
@@ -261,12 +269,22 @@ async fn spawn_pane(front: &Arc<Front>, options: &Value) -> Result<Value, String
     let mut handoff: Option<Value> = None;
     let mut gate: Option<String> = None;
     if let Some(manifest) = text("handoffFile") {
-        if kind != "agent" || text("agent").as_deref() != Some("codex") || text("action").unwrap_or_else(|| "launch".into()) != "launch"
+        /* Which CLIs can be handed a paused conversation is the recipes' to say, not a name to
+           compare (F216, spec 141): a CLI declares `conversation.handoff` or it cannot be handed
+           one. Everything else about the shape of this launch is unchanged. */
+        let cli = text("agent").unwrap_or_default();
+        let known = recipes();
+        let declared = red_agents::launch::conversation_handoff(&known[..], &cli);
+        let Some(declared) = declared.filter(|_| kind == "agent") else {
+            return Err("400|Handoff requires a workspace launcher for a CLI that can be handed a conversation.".to_string());
+        };
+        if text("action").unwrap_or_else(|| "launch".into()) != "launch"
             || options.get("args").and_then(Value::as_array).is_some_and(|args| !args.is_empty())
         {
-            return Err("400|Handoff requires the Codex workspace launcher.".to_string());
+            return Err("400|Handoff requires a workspace launcher for a CLI that can be handed a conversation.".to_string());
         }
-        let read = read_handoff(&manifest, &root_path, &env)?;
+        let ids = red_agents::launch::conversation_ids(&known[..], &cli);
+        let read = read_handoff(&manifest, &root_path, &env, &declared, ids.as_deref())?;
         /* A pane already running this conversation is the answer, not a second one: the launcher is
            allowed to ask twice and a person must not end up with two CLIs on one session. */
         let running = front.panes.lock().expect("panes lock").values().find(|session| {
@@ -279,7 +297,7 @@ async fn spawn_pane(front: &Arc<Front>, options: &Value) -> Result<Value, String
         if let Some(session) = running {
             return Ok(session);
         }
-        check_resume(&bash_path(), &root_path, &env)?;
+        check_resume(&bash_path(), &cli, &root_path, &env)?;
         let path = state.join("integrations").join(format!("{id}.ready"));
         gate = Some(path.to_string_lossy().into_owned());
         overrides.insert("RENGINE_HANDOFF_GATE".to_string(), json!(gate));

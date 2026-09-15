@@ -12,7 +12,7 @@ let handoff = null;
 if (process.env.RENGINE_HANDOFF_GATE) {
   await waitForPresentation(process.env.RENGINE_HANDOFF_GATE);
   handoff = await readHandoff(process.env.RENGINE_HANDOFF_FILE, process.cwd());
-  await checkResume(process.env.RENGINE_BASH, handoff.project, process.env);
+  await checkResume(process.env.RENGINE_BASH, agent, handoff.project, process.env);
   args.push(...resumeArgs(handoff));
 }
 /* This runs in the pane, so its own working directory is the one the CLI will inherit and the one

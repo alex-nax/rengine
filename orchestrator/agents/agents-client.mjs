@@ -173,6 +173,16 @@ const ptySessionId = (sessions = []) => {
 export const agentIdentity = ({ sessions = [], ...inputs } = {}) => open().call('agentIdentity', [{
   pid: process.pid, platform: process.platform, ptySessionId: ptySessionId(sessions), ...inputs,
 }]);
+/* What this CLI declares it can be handed: `{ kind, ready }` or null. The door asks this rather
+   than comparing a name, so a CLI that declares the capability reaches the same path (F216). */
+export const conversationHandoff = agent => open().call('conversationHandoff', [agent]);
+/* Every CLI that declares it, for a caller with a manifest and no CLI named: one is the answer,
+   several means the caller has to say which, none means nothing here can be handed one. */
+export const handoffCapableAgents = async () => {
+  const capable = [];
+  for (const name of agentNames()) if (await conversationHandoff(name)) capable.push(name);
+  return capable;
+};
 export const conversationArgs = (agent, identity, resume = false) =>
   open().call('conversationArgs', [agent, identity ?? null, resume]);
 export const codexHookKey = (group = 0, handler = 0) => open().call('codexHookKey', [group, handler]);
