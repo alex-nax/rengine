@@ -14,3 +14,8 @@ red-token = { path = "../red-token" }
 serde_json = { version = "1", features = ["preserve_order"] }
 red-project = { path = "../red-project" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "sync"] }
+
+# The worker as a process: the supervisor spawns this where it spawned node.
+[[bin]]
+name = "red-worker"
+path = "src/bin/red_worker.rs"

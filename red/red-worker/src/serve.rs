@@ -42,6 +42,16 @@ pub fn own_route(method: &str, path: &str) -> bool {
     )
 }
 
+/// What THIS BINARY answers today, which is a moving subset of `own_route`.
+///
+/// The two are deliberately separate. `own_route` is the contract — the routes that are the
+/// worker's, checked against the module it replaces — and it is settled. This is how far the port
+/// has got. A route moves from one to the other when it is implemented and its evidence is here,
+/// and until then it is forwarded, so a half-ported worker behaves exactly like the whole one.
+pub fn implemented(method: &str, path: &str) -> bool {
+    matches!((method, path), ("GET", "/api/feed"))
+}
+
 /// The sockets a worker serves itself, and the ones it tunnels to the host.
 ///
 /// `/feed` is the worker's own — it is the one thing nothing else can serve. `/events` and
@@ -140,6 +150,19 @@ mod tests {
         assert!(own_socket("/feed"));
         assert!(!own_socket("/events"), "a pane's bytes belong to whoever answers the session routes");
         assert!(!own_socket("/surface"), "and so do a game's frames");
+    }
+
+    /* The port's own progress, and the property that makes it safe to be half-done: everything
+       implemented is owned, so a route can never be answered here that the worker does not own. */
+    #[test]
+    fn everything_implemented_is_owned() {
+        for (method, path) in [("GET", "/api/feed"), ("GET", "/api/token"), ("POST", "/api/token-action"),
+                               ("POST", "/api/task"), ("GET", "/api/state"), ("POST", "/api/tracker/signin")] {
+            if implemented(method, path) {
+                assert!(own_route(method, path), "{method} {path} is answered here but is not the worker's");
+            }
+        }
+        assert!(implemented("GET", "/api/feed"), "the feed is the one it exists for, so it is first");
     }
 
     #[test]
