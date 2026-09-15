@@ -1,5 +1,42 @@
 # Progress Log
 
+## Session 153 (macos) — 2026-09-15 — a pane is nobody's child session (KI-113)
+
+Opened from the vtmb-vr workspace, whose every new Claude pane read *"Transcript saving is off —
+inherited CLAUDE_CODE_CHILD_SESSION marker"*. Walked the pane's ancestry: the CLI, its launcher
+and `red-pty-serve` all carried `CLAUDECODE=1`, `CLAUDE_PID=92680`, `CLAUDE_CODE_SESSION_ID=287bba3a`,
+`CLAUDE_CODE_CHILD_SESSION=1`, the messaging socket and token and the bridge session id — and so did
+the session host (PID 68514), which had been replaced from a Bash tool inside the rEngine-development
+pane. `shellEnvironment` rebuilds from `process.env`, so the identity of the pane that started the
+host reached every pane it spawned. Read out of the 2.1.272 binary: the CLI treats the marker's
+presence as "nested child" and stops writing the transcript, and its sibling message says `--resume`
+will not find the session — so the conversation id rEngine minted for each pane (spec 096 D3) named a
+transcript that was never written. A second visible symptom: the bridge session id in this pane's
+environment is the rEngine-development pane's, so a commit trailer taken from the environment would
+have linked a stranger's session.
+
+Fix, spec 096 D9: both envelopes — `shellEnvironment` in `sessions-client.mjs` and
+`shell_environment` in red-agents `spawn.rs` — drop a named `AGENT_PROCESS_IDENTITY` set from the
+inherited layer under the NO_COLOR rules (explicit override wins, case-insensitive on Windows).
+Preferences that merely start with `CLAUDE_` and `CLAUDE_CODE_*` configuration stay: agent panes run
+a non-login bash and would never get the owner's settings back. Forcing
+`CLAUDE_CODE_FORCE_SESSION_PERSISTENCE=1` was rejected — it would keep the transcript while
+`CLAUDE_PID` and the messaging socket still pointed a pane at another session. Rationale in
+`sessions-client.mjs._llm.json#a-pane-is-nobodys-child-session`; the sidecar's other anchors had
+drifted (31→44, 125→249) and were re-anchored by snippet.
+
+Verification: `environment.test.mjs` gained the identity test, `agent-spawn-env.test.mjs` a parity
+fixture (identity inherited, one id minted as an override, preferences present) and the win32 case;
+`spawn.rs` the Rust twin. `cargo test -p red-agents spawn` **7/7**. `npm test` 354 twice: 349 and
+351 — the reds were `external-declaration` (30 s timeout) and `red-mcp-calls`, neither touching the
+envelope, both **5/5 alone**; the second run shared the machine with a concurrent `cargo test`, the
+KI-084/088 shape. Sidecar validators clean on both edited files. vtmb-vr's `scripts/replace-host.sh`
+scrubs the same names before detaching (its dry run from inside a pane: `claude-identity [0]`).
+
+Not done here: the vtmb-vr host that showed the defect still runs the old envelope and keeps handing
+the marker to new panes until it is replaced; the panes it has spawned so far, this one included,
+cannot be resumed. Recorded as KI-113 with that consequence.
+
 ## Session 152 (macos) — 2026-09-14 — resumed pane; exact JSON numbers restore the window gate
 
 Resumed the original Codex conversation through native session

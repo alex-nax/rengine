@@ -6,9 +6,9 @@
 //! the clock arrive as data so the parity fixtures decide nothing at random.
 //!
 //! `shell_environment` mirrors the envelope the composition travels in: the colour declaration,
-//! the NO_COLOR and ELECTRON_RUN_AS_NODE scrubs, the delete-on-non-string mechanism the cleared
-//! set rides on, and the PATH augmentation — so "cleared in both compositions" is a fact two
-//! languages compute identically (KI-068's lesson).
+//! the NO_COLOR, ELECTRON_RUN_AS_NODE and agent-process-identity scrubs, the delete-on-non-string
+//! mechanism the cleared set rides on, and the PATH augmentation — so "cleared in both
+//! compositions" is a fact two languages compute identically (KI-068's lesson).
 
 use serde_json::json;
 
@@ -30,6 +30,14 @@ pub fn describe_age(when: i64, now: i64) -> String {
 }
 
 type EnvMap = std::collections::BTreeMap<String, String>;
+
+/// sessions-client.mjs's AGENT_PROCESS_IDENTITY: what Claude Code stamps on every process it
+/// starts, naming that one session. A pane inheriting them is a child session (KI-113).
+pub const AGENT_PROCESS_IDENTITY: [&str; 10] = [
+    "CLAUDECODE", "CLAUDE_PID", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_SESSION_ATTENDED", "CLAUDE_CODE_BRIDGE_SESSION_ID", "CLAUDE_CODE_EXECPATH",
+    "CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN",
+];
 
 fn join_path(platform: &str, directory: &str, part: &str) -> String {
     // The simple shape path.posix.join / path.win32.join has for the inputs this function ever
@@ -77,10 +85,14 @@ pub fn shell_environment(
     let electron = key("ELECTRON_RUN_AS_NODE");
     entries.retain(|(k, _)| *k != electron);
     // TERM/COLORTERM declare this surface colour-capable; an inherited NO_COLOR would contradict
-    // that for every pane the host ever spawns. An explicit override still wins.
-    let no_color = key("NO_COLOR");
-    if !overrides.keys().any(|name| key(name) == no_color) {
-        entries.retain(|(k, _)| *k != no_color);
+    // that for every pane the host ever spawns; the agent identity would make the pane a child
+    // session of whatever started the host. An explicit override still wins.
+    let overridden: Vec<String> = overrides.keys().map(|name| key(name)).collect();
+    for name in std::iter::once("NO_COLOR").chain(AGENT_PROCESS_IDENTITY) {
+        let slot = key(name);
+        if !overridden.contains(&slot) {
+            entries.retain(|(k, _)| *k != slot);
+        }
     }
 
     let mut env: EnvMap = entries.iter().map(|(_, (name, value))| (name.clone(), value.clone())).collect();
@@ -254,6 +266,26 @@ mod tests {
         assert_eq!(env["COLORTERM"], "truecolor");
         assert_eq!(env["EDITOR"], "vi");
         assert_eq!(env["PATH"], "/usr/bin:/bin:/home/person/.local/bin:/home/person/.n/bin:/home/person/.opencode/bin:/home/person/.cargo/bin");
+    }
+
+    #[test]
+    fn a_pane_is_nobodys_child_session() {
+        let inherited = map(json!({ "PATH": "/usr/bin:/bin", "CLAUDECODE": "1", "CLAUDE_PID": "92680",
+            "CLAUDE_CODE_CHILD_SESSION": "1", "CLAUDE_CODE_SESSION_ID": "287bba3a", "CLAUDE_CODE_MESSAGING_TOKEN": "t",
+            "CLAUDE_DIFF_TOOL": "cursor", "CLAUDE_EFFORT": "xhigh" }));
+        let env = shell_environment(&serde_json::Map::new(), &inherited, "darwin", "/home/person");
+        for name in AGENT_PROCESS_IDENTITY {
+            assert!(!env.contains_key(name), "{name} names the session that started the host");
+        }
+        assert_eq!(env["CLAUDE_DIFF_TOOL"], "cursor", "a preference is not an identity");
+        assert_eq!(env["CLAUDE_EFFORT"], "xhigh");
+        let overrides = map(json!({ "CLAUDE_CODE_SESSION_ID": "minted" }));
+        let env = shell_environment(&overrides, &inherited, "darwin", "/home/person");
+        assert_eq!(env["CLAUDE_CODE_SESSION_ID"], "minted", "an explicit override still wins");
+        assert!(!env.contains_key("CLAUDE_CODE_CHILD_SESSION"));
+        let win = map(json!({ "Path": "C:\\Windows", "claude_code_child_session": "1" }));
+        let env = shell_environment(&serde_json::Map::new(), &win, "win32", "C:\\Users\\person");
+        assert!(!env.keys().any(|k| k.eq_ignore_ascii_case("CLAUDE_CODE_CHILD_SESSION")), "case-insensitive on Windows");
     }
 
     #[test]

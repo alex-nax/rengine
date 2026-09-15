@@ -35,6 +35,12 @@ const RECORD = ['rootId', 'type', 'agent', 'conversation', 'task', 'title', 'tit
 export const agentTitle = (agent, conversation, rootName) =>
   `${agent || 'Choose agent'}${conversation ? ` ${shortAgentId(agent, conversation)}` : ''} · ${rootName}`;
 
+/* What Claude Code stamps on every process it starts, naming that one session: a host that
+   carries them marks every pane it spawns a child of the session that started it. */
+export const AGENT_PROCESS_IDENTITY = ['CLAUDECODE', 'CLAUDE_PID', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_CHILD_SESSION',
+  'CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE_SESSION_ATTENDED', 'CLAUDE_CODE_BRIDGE_SESSION_ID', 'CLAUDE_CODE_EXECPATH',
+  'CLAUDE_CODE_MESSAGING_SOCKET', 'CLAUDE_CODE_MESSAGING_TOKEN'];
+
 export function shellEnvironment(overrides = {}, { inherited = process.env, platform = process.platform, userDirectory = homedir() } = {}) {
   const win = platform === 'win32';
   const paths = win ? path.win32 : path.posix;
@@ -49,7 +55,9 @@ export function shellEnvironment(overrides = {}, { inherited = process.env, plat
   entries.delete(key('ELECTRON_RUN_AS_NODE'));
   // TERM/COLORTERM above declare this surface colour-capable; an inherited NO_COLOR would
   // contradict that for every pane the host ever spawns. An explicit override still wins.
-  if (!Object.keys(overrides).some(name => key(name) === key('NO_COLOR'))) entries.delete(key('NO_COLOR'));
+  // A pane is a fresh top-level session, nobody's child — see sidecar: a-pane-is-nobodys-child-session.
+  const overridden = new Set(Object.keys(overrides).map(key));
+  for (const name of ['NO_COLOR', ...AGENT_PROCESS_IDENTITY]) if (!overridden.has(key(name))) entries.delete(key(name));
   const env = Object.fromEntries(entries.values());
   const pathKey = entries.get(key('PATH'))?.[0] ?? (win ? 'Path' : 'PATH');
   const extra = ['.local/bin', '.n/bin', '.opencode/bin', '.cargo/bin'].map(part => paths.join(userDirectory, part));

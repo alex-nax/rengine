@@ -81,8 +81,15 @@ const SHELL_CASES = [
     inherited: { PATH: '/usr/bin:/bin', RENGINE_AGENT_CONVERSATION: 'stale', FOO: 'x' },
     overrides: { FOO: null, RENGINE_AGENT_CONVERSATION: null }, platform: 'darwin', userDirectory: '/home/person',
   }],
+  ['a host started inside a Claude pane hands no session identity to a pane (KI-113)', {
+    inherited: { PATH: '/usr/bin:/bin', CLAUDECODE: '1', CLAUDE_PID: '92680', CLAUDE_CODE_ENTRYPOINT: 'cli',
+      CLAUDE_CODE_CHILD_SESSION: '1', CLAUDE_CODE_SESSION_ID: '287bba3a', CLAUDE_CODE_SESSION_ATTENDED: '1',
+      CLAUDE_CODE_BRIDGE_SESSION_ID: 'session_01', CLAUDE_CODE_EXECPATH: '/v/2.1.260', CLAUDE_CODE_MESSAGING_SOCKET: '/tmp/s',
+      CLAUDE_CODE_MESSAGING_TOKEN: 't', CLAUDE_DIFF_TOOL: 'cursor', CLAUDE_EFFORT: 'xhigh' },
+    overrides: { CLAUDE_CODE_SESSION_ID: 'minted' }, platform: 'darwin', userDirectory: '/home/person',
+  }],
   ['win32 upper-cases keys and dedupes PATH case-insensitively', {
-    inherited: { Path: 'C:\\Windows;C:\\tools', TOOLS: 'C:\\tools', no_color: '1' },
+    inherited: { Path: 'C:\\Windows;C:\\tools', TOOLS: 'C:\\tools', no_color: '1', claude_code_child_session: '1' },
     overrides: {}, platform: 'win32', userDirectory: 'C:\\Users\\person',
   }],
 ];

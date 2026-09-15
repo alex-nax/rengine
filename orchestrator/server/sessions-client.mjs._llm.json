@@ -5,8 +5,8 @@
       "id": "windows-environment-casing",
       "kind": "rationale",
       "anchor": {
-        "start": 31,
-        "end": 31,
+        "start": 44,
+        "end": 44,
         "snippet": "export function shellEnvironment(overrides = {}, { inherited = process.env, platform = process.platform, userDirectory = homedir() } = {}) {"
       },
       "note": "Spreading process.env loses Windows' case-insensitive lookup behavior. Normalize inherited and override names before adding CLI directories so a new PATH cannot mask the real Path. Later overrides retain their spelling, POSIX keys remain case-sensitive, and Electron's run-as-Node setting is removed regardless of Windows casing. Explicit inputs make the platform transformation testable on Mac without claiming Windows process qualification.",
@@ -19,8 +19,8 @@
       "id": "views-are-not-owners",
       "kind": "constraint",
       "anchor": {
-        "start": 71,
-        "end": 71,
+        "start": 86,
+        "end": 86,
         "snippet": "export class Sessions extends EventEmitter {"
       },
       "note": "The sidecar owns PTYs independently of display connections. Socket detach must never invoke stop or shutdown. Exited state comes from the actual PTY exit event; layout/session records cannot resurrect a PID.",
@@ -32,8 +32,8 @@
       "id": "one-retained-handoff",
       "kind": "rationale",
       "anchor": {
-        "start": 125,
-        "end": 125,
+        "start": 249,
+        "end": 249,
         "snippet": "  async terminal(options) {"
       },
       "note": "Serialize handoff creation per project, then reuse a running session by canonical root and exact conversation UUID. Snapshot the validated manifest privately before spawning; editing the original while its pane is waiting must not retarget an existing session. A fresh unique readiness path prevents stale releases. Presentation releases only a live waiting bootstrap; input is rejected while waiting. Reload and view detach retain both waiting and running sessions. A later explicit launch after Stop/exit creates a fresh gated PTY.",
@@ -45,11 +45,11 @@
       "id": "optional-session-title",
       "kind": "rationale",
       "anchor": {
-        "start": 135,
-        "end": 135,
+        "start": 259,
+        "end": 259,
         "snippet": "if (title !== undefined && (typeof title !== 'string' || !title.trim() || title.length > 200)) fail('Session title must be a short string.');"
       },
-      "note": "Dashboard runs name their sessions (Script \u00b7 x.sh, Log \u00b7 title) and a declared game names its own (<title> \u00b7 <root>); the option is bounded and optional so every existing caller keeps the derived title, which no longer names any game. A game session also carries its declared surface and id so a restored tab picks the live view or the retained-output view. A retained host older than these fields ignores them, which is why the worker also returns the title on its own reply. A declared cwd travels the same way and is re-confined here: the resolved directory must be the root or inside it, so the working directory of a launched game can never be widened by a reader change alone.",
+      "note": "Dashboard runs name their sessions (Script · x.sh, Log · title) and a declared game names its own (<title> · <root>); the option is bounded and optional so every existing caller keeps the derived title, which no longer names any game. A game session also carries its declared surface and id so a restored tab picks the live view or the retained-output view. A retained host older than these fields ignores them, which is why the worker also returns the title on its own reply. A declared cwd travels the same way and is re-confined here: the resolved directory must be the root or inside it, so the working directory of a launched game can never be widened by a reader change alone.",
       "refs": [
         "docs/specs/075-project-dashboard.md"
       ]
@@ -58,34 +58,52 @@
       "id": "the-surface-owns-its-colour-declaration",
       "kind": "rationale",
       "anchor": {
-        "start": 45,
-        "end": 45,
-        "snippet": "if (!Object.keys(overrides).some(name => key(name) === key('NO_COLOR'))) entries.delete(key('NO_COLOR'));"
+        "start": 60,
+        "end": 60,
+        "snippet": "for (const name of ['NO_COLOR', ...AGENT_PROCESS_IDENTITY]) if (!overridden.has(key(name))) entries.delete(key(name));"
       },
-      "note": "This function sets TERM=xterm-256color and COLORTERM=truecolor two lines above, which is a declaration that the surface can render colour. Forwarding an inherited NO_COLOR contradicts that declaration for every pane the session host will ever spawn, and the host is durable across window and agent restarts (spec 065), so the contradiction outlives every remedy short of killing the host. That is not hypothetical: on 2026-09-07 a workspace whose launcher had been started from an agent CLI's shell \u2014 those set NO_COLOR for the shells they spawn \u2014 ran every pane monochrome while the pane itself measured 256 colours with SGR passing through intact. Blanking rather than deleting does NOT work: Node disables colour on the variable's presence, measured as depth 1 for NO_COLOR= and 8 for absence, so the key has to go. An explicit override still wins, because a project action asking for plain output is a different thing from an accident of launch provenance."
+      "note": "This function sets TERM=xterm-256color and COLORTERM=truecolor two lines above, which is a declaration that the surface can render colour. Forwarding an inherited NO_COLOR contradicts that declaration for every pane the session host will ever spawn, and the host is durable across window and agent restarts (spec 065), so the contradiction outlives every remedy short of killing the host. That is not hypothetical: on 2026-09-07 a workspace whose launcher had been started from an agent CLI's shell — those set NO_COLOR for the shells they spawn — ran every pane monochrome while the pane itself measured 256 colours with SGR passing through intact. Blanking rather than deleting does NOT work: Node disables colour on the variable's presence, measured as depth 1 for NO_COLOR= and 8 for absence, so the key has to go. An explicit override still wins, because a project action asking for plain output is a different thing from an accident of launch provenance."
     },
     {
       "id": "a-pane-restart-is-not-a-host-restart",
       "kind": "rationale",
       "anchor": {
-        "start": 265,
-        "end": 265,
+        "start": 403,
+        "end": 403,
         "snippet": "async restartAgent(id) {"
       },
-      "note": "Replacing one agent child is deliberately much smaller than replacing the session host. The host keeps its PTYs, its drafts and every other pane, so this is not a quiescence event under spec 065 and costs no other conversation. It exists because the alternative was observed and was unacceptable: an environment defect baked into the host could only be cleared by killing the host, which destroys every live agent conversation on it, leaving the owner to choose between a broken environment and their work. The two guards are the whole contract \u2014 a non-agent session has no conversation to return to, and an agent recorded without one cannot be resumed, so it is refused by name rather than restarted into a second conversation that would look like the first. See docs/specs/096-agent-session-resume.md."
+      "note": "Replacing one agent child is deliberately much smaller than replacing the session host. The host keeps its PTYs, its drafts and every other pane, so this is not a quiescence event under spec 065 and costs no other conversation. It exists because the alternative was observed and was unacceptable: an environment defect baked into the host could only be cleared by killing the host, which destroys every live agent conversation on it, leaving the owner to choose between a broken environment and their work. The two guards are the whole contract — a non-agent session has no conversation to return to, and an agent recorded without one cannot be resumed, so it is refused by name rather than restarted into a second conversation that would look like the first. See docs/specs/096-agent-session-resume.md."
     },
     {
       "id": "environment-cleared-in-both-compositions",
       "kind": "constraint",
       "anchor": {
-        "start": 142,
-        "end": 142,
+        "start": 266,
+        "end": 266,
         "snippet": "const cleared = { RENGINE_HANDOFF_GATE: undefined, RENGINE_HANDOFF_FILE: undefined, RENGINE_ORCHESTRATOR_SESSION: undefined,"
       },
-      "note": "shellEnvironment() rebuilds from this process's own environment on every call, and only an override whose value is undefined deletes a key. So a key cleared in this first composition is inherited again by the second one at pty.spawn unless the same deletions are repeated there \u2014 which is why `cleared` is a named object applied twice rather than an inline list applied once. It is not cosmetic: when a session host runs inside an agent pane (the normal case for a host started from a workspace terminal), the second composition handed every pane the host's OWN RENGINE_AGENT_RESUME, RENGINE_AGENT_CONVERSATION and RENGINE_AGENT_CONVERSATIONS. Measured on 2026-09-07 from such a pane: task-writes.test.mjs's spawn test failed on origin/main because the leaked RENGINE_AGENT_RESUME=1 turned the CLI's `--session-id` into `--resume`, i.e. a spawn continued somebody else's conversation. Order differs between the two on purpose: `cleared` last in the first (it must beat a caller's env), `cleared` first in the second (this launch's own deliberate values must beat it).",
+      "note": "shellEnvironment() rebuilds from this process's own environment on every call, and only an override whose value is undefined deletes a key. So a key cleared in this first composition is inherited again by the second one at pty.spawn unless the same deletions are repeated there — which is why `cleared` is a named object applied twice rather than an inline list applied once. It is not cosmetic: when a session host runs inside an agent pane (the normal case for a host started from a workspace terminal), the second composition handed every pane the host's OWN RENGINE_AGENT_RESUME, RENGINE_AGENT_CONVERSATION and RENGINE_AGENT_CONVERSATIONS. Measured on 2026-09-07 from such a pane: task-writes.test.mjs's spawn test failed on origin/main because the leaked RENGINE_AGENT_RESUME=1 turned the CLI's `--session-id` into `--resume`, i.e. a spawn continued somebody else's conversation. Order differs between the two on purpose: `cleared` last in the first (it must beat a caller's env), `cleared` first in the second (this launch's own deliberate values must beat it).",
       "refs": [
         "docs/specs/097-agent-conversation-persistence.md",
         "docs/evidence/spawn-no-picker-2026-09-07.md"
+      ]
+    },
+    {
+      "id": "a-pane-is-nobodys-child-session",
+      "kind": "constraint",
+      "anchor": {
+        "start": 60,
+        "end": 60,
+        "symbol": "shellEnvironment",
+        "snippet": "for (const name of ['NO_COLOR', ...AGENT_PROCESS_IDENTITY]) if (!overridden.has(key(name))) entries.delete(key(name));"
+      },
+      "note": "Claude Code stamps every process it starts with its own identity: CLAUDECODE, CLAUDE_PID, CLAUDE_CODE_ENTRYPOINT, CLAUDE_CODE_CHILD_SESSION, CLAUDE_CODE_SESSION_ID, CLAUDE_CODE_SESSION_ATTENDED, CLAUDE_CODE_BRIDGE_SESSION_ID, CLAUDE_CODE_EXECPATH and the CLAUDE_CODE_MESSAGING_{SOCKET,TOKEN} pair (read out of the 2.1.272 binary and off a live host's environment, 2026-09-15). A session host started from a Bash tool inside a pane inherits all of them — the vtmb-vr host of 2026-09-15 carried CLAUDE_PID=92680 and CLAUDE_CODE_SESSION_ID=287bba3a from the rEngine-development pane that replaced it — and since this function rebuilds from process.env on every call, every pane it ever spawned inherited them too. The one that matters is CLAUDE_CODE_CHILD_SESSION: the CLI reads its presence as 'I am a nested child of another session' and turns transcript persistence off (status line: 'Transcript saving is off — inherited CLAUDE_CODE_CHILD_SESSION marker · restart with CLAUDE_CODE_FORCE_SESSION_PERSISTENCE=1 to keep future transcripts'; its sibling message says '--resume will not find this session'). So the conversation id rEngine minted and recorded for the pane (spec 096 D3) named a transcript that was never written, and the Sessions tab offered a resume that could not work. Same shape as the NO_COLOR entry above and the same remedy: the drop applies to the inherited layer only, an explicit override still wins (the parity fixture minted a CLAUDE_CODE_SESSION_ID that way), and it is case-insensitive on Windows. Preferences that merely start with CLAUDE_ (CLAUDE_DIFF_TOOL, CLAUDE_EFFORT) and configuration under CLAUDE_CODE_* (USE_BEDROCK, OAUTH_TOKEN, TMPDIR ...) are deliberately NOT on the list — a blanket prefix scrub would strip the owner's own settings from every agent pane, which runs a non-login bash and would never get them back. CLAUDE_CODE_SSE_PORT was considered and left off: rEngine sets it itself per pane (the IDE probe), and a user launching from an editor's terminal may want that editor. The Rust twin is red-agents spawn.rs AGENT_PROCESS_IDENTITY; agent-spawn-env.test.mjs holds both to one answer. Forcing CLAUDE_CODE_FORCE_SESSION_PERSISTENCE=1 instead was rejected: it would paper over the leak while CLAUDE_PID and the messaging socket still pointed a pane at a stranger's session.",
+      "refs": [
+        "docs/specs/096-agent-session-resume.md",
+        "known-issues.md#KI-113",
+        "red/red-agents/src/spawn.rs._llm.json",
+        "orchestrator/tests/environment.test.mjs",
+        "orchestrator/tests/agent-spawn-env.test.mjs"
       ]
     }
   ]
