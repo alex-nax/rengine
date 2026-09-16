@@ -18,11 +18,16 @@
 //!   means "I detached for an update" rather than "I closed".
 //! - [`replace`] — which process gets a SIGTERM when a session host is replaced, and the several
 //!   that must not.
+//! - [`stop`] — the acting half of that: reading `ps`, sending the signal, watching a port close.
+//! - [`host`] — the session host as a launcher deals with it: find the binary, start one, say how
+//!   old the running one is.
 
 pub mod desktop;
+pub mod host;
 pub mod jobs;
 pub mod replace;
 pub mod runtime;
+pub mod stop;
 pub mod update;
 pub mod views;
 pub mod windows;

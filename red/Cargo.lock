@@ -2820,6 +2820,7 @@ dependencies = [
 name = "red-supervisor"
 version = "0.1.0"
 dependencies = [
+ "red-agents",
  "red-core",
  "serde_json",
  "tokio",

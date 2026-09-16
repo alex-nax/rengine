@@ -6,6 +6,7 @@ description = "The update supervisor in Rust: layered updates, desktop windows a
 
 [dependencies]
 red-core = { path = "../red-core" }
+red-agents = { path = "../red-agents" }
 # `preserve_order`, because a project window's layout is the desktop's own document and is handed
 # back to it unchanged — a store that reordered its keys would hand a person a different layout.
 serde_json = { version = "1", features = ["preserve_order"] }
@@ -17,3 +18,8 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-uti
 [[bin]]
 name = "red-supervisor"
 path = "src/bin/red_supervisor.rs"
+
+# The launcher: `npm start`, and the three commands that were their own files (spec 145).
+[[bin]]
+name = "red-launch"
+path = "src/bin/red_launch.rs"

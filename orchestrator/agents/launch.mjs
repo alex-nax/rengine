@@ -1,10 +1,11 @@
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
+import { promisify } from 'node:util';
 import { agentLaunch, describeSession } from './agents-client.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { checkConnection } from '../runtime/protocol.mjs';
 import { readHandoff, waitForPresentation, resumeArgs, checkResume } from './handoff/index.mjs';
-import { ancestorsOf, listProcesses } from '../launcher/replace.mjs';
+import { serveBinary } from '../runtime/service-client.mjs';
 
 const [agent, executable, contextFile, ...args] = process.argv.slice(2);
 if (!agent || !executable || !contextFile) throw new Error('Expected agent identity, executable and workspace context.');
@@ -21,7 +22,9 @@ if (process.env.RENGINE_HANDOFF_GATE) {
    The host's pid identifies this workspace's own editor among however many cover the folder; a host
    too old to report it leaves auto-connect to the count, which is the previous behaviour. */
 let ourPids = [];
-try { ourPids = ancestorsOf(process.pid, await listProcesses()); }
+/* The chain is `red-launch`'s to read: one `ps` parser for the whole workspace, in the binary that
+   also uses it to refuse replacing a host from inside it (spec 145). */
+try { ourPids = JSON.parse((await promisify(execFile)(serveBinary('RENGINE_RED_LAUNCH', 'red-launch'), ['ancestors', '--pid', String(process.pid)])).stdout).ancestors; }
 catch { /* the editor decision is not worth failing a pane launch over */ }
 const plan = await agentLaunch({ agent, executable, contextFile, args, handoff, cwd: process.cwd(), ourPids,
   conversation: process.env.RENGINE_AGENT_CONVERSATION, resume: process.env.RENGINE_AGENT_RESUME === '1' });

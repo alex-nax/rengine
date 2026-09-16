@@ -8,11 +8,11 @@ import { fileURLToPath } from 'node:url';
 import { networkInterfaces, tmpdir } from 'node:os';
 import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { alive, ensureSidecar } from '../launcher/sidecar.mjs';
+import { LAUNCH } from './red-launch.mjs';
 import { startServer } from './red-host-fixture.mjs';
 import { endStateServices } from './state-services.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const LAUNCH = path.join(ROOT, 'orchestrator/launch.mjs');
 const READY = 'rengine headless ready ';
 const run = promisify(execFile);
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -40,7 +40,7 @@ async function stopSidecar(directory) {
 // Start the real launcher and resolve the fields of its ready line. A launcher that dies first
 // rejects with everything it printed, so a failure names the reason rather than timing out blind.
 function headless(t, directory, args = [], env = {}) {
-  const child = spawn(process.execPath, [LAUNCH, '--headless', '--state', directory, ...args],
+  const child = spawn(LAUNCH(), ['--headless', '--state', directory, ...args],
     { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, ...env } });
   const seen = { stdout: '', stderr: '' };
   child.stdout.setEncoding('utf8'); child.stderr.setEncoding('utf8');
@@ -157,7 +157,7 @@ test('--headless refuses the desktop-only flags, before starting anything', { ti
   const directory = await scratch(t);
   // The kill timeout is what makes a lost refusal readable: without it the launcher would accept the
   // combination, stay in the foreground supervising a sidecar, and the test would time out saying nothing.
-  const attempt = args => run(process.execPath, [LAUNCH, '--headless', '--state', directory, ...args],
+  const attempt = args => run(LAUNCH(), ['--headless', '--state', directory, ...args],
     { cwd: ROOT, timeout: 6000, killSignal: 'SIGKILL' });
 
   await assert.rejects(attempt(['--project', directory, '--launch-game']), /--headless cannot be combined with --launch-game/);
@@ -188,7 +188,7 @@ test('the full start path still builds the desktop and spawns it',
     // A start that took the headless path instead would supervise its sidecar for ever rather than
     // build and spawn, so the kill timeout bounds it and the recordings — not the exit status — are
     // what the assertions read. Otherwise the only failure would be "command failed", naming nothing.
-    const outcome = await run(process.execPath, [LAUNCH, '--state', directory],
+    const outcome = await run(LAUNCH(), ['--state', directory],
       { cwd: ROOT, timeout: 45000, killSignal: 'SIGKILL',
         env: { ...process.env, PATH: `${stubs}${path.delimiter}${process.env.PATH}`, RENGINE_NATIVE_BINARY: binary } })
       .then(() => null, error => error);

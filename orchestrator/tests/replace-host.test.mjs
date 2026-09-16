@@ -1,142 +1,48 @@
+/* Replacing a session host, end to end (F159, spec 145; spec 098, F94).
+ *
+ * The decisions — which process is a session host, which is a supervisor, whose ancestor is whose,
+ * and what the report says — are `red_supervisor::replace`, judged against `replace-host-corpus.json`
+ * on a process table captured from a real machine. The signalling is `red_supervisor::stop`, whose
+ * own tests start real processes and stop them.
+ *
+ * What is left here is what only a real workspace can show: a throwaway host actually replaced, its
+ * port actually closed, its panes actually adopted by the host that follows — and, the load-bearing
+ * half, that a refusal reaches the launcher BEFORE anything is signalled. That last one is why this
+ * file doctors a captured process table rather than trusting the unit tests: a refusal that is
+ * implemented and not wired up reads exactly like one that works.
+ */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import net from 'node:net';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { spawn, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { endStateServices } from './state-services.mjs';
 import { tmpdir } from 'node:os';
-import { mkdir, mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { alive, ensureSidecar, request } from '../launcher/sidecar.mjs';
-import { ancestorsOf, findHost, findSupervisors, hostAge, hostArguments, insideHost, listProcesses, parseProcessTable, portReleased, replaceHost, stopProcess } from '../launcher/replace.mjs';
+import { LAUNCH, ROOT, replaceHost } from './red-launch.mjs';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const LAUNCH = path.join(ROOT, 'orchestrator/launch.mjs');
+const run = promisify(execFile);
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-// The machine this was written on, as ps printed it: one workspace's host with a pane inside it, two
-// sibling projects' own instances, a supervisor with its worker and desktop, a worktree's preflight
-// host, and a state directory with a space in it. Nothing here is signalled; the table is data.
-const HIREBASE = '/home/x/.local/state/redit/hirebase-v2';
 const VTMB = '/home/x/.local/state/rengine/vtmb-vr-2249049057';
-const NOLF = '/home/x/.local/state/rengine/nolf-improved-2056293539';
-const TABLE = parseProcessTable(`
-    1     0 /sbin/launchd
- 9599     1 /usr/bin/node /home/x/rengine/orchestrator/runtime/supervisor.mjs
- 9603  9599 /home/x/rengine/red/target/debug/red-worker --state /home/x/rengine/.cache/runtime/d5fe12fe --host http://127.0.0.1:1234
-82044  9599 /home/x/rengine/.cache/runtime/d5fe12fe/versions/ccd74ad2/bin/rengine --control
-68944     1 /usr/bin/node /home/x/rengine/orchestrator/server/main.mjs --state ${HIREBASE}
-12336 68944 /usr/bin/node /home/x/rengine/scripts/../orchestrator/agents/launch.mjs claude /usr/bin/claude
-12342 12336 /usr/bin/claude --mcp-config ${HIREBASE}/integrations/x/mcp.json
-94222 12342 /bin/zsh -c source snapshot.sh
-90297     1 /usr/bin/node /home/x/vtmb-vr/third_party/rengine/orchestrator/server/main.mjs --state ${VTMB}
-90359     1 /usr/bin/node /home/x/vtmb-vr/third_party/rengine/orchestrator/runtime/supervisor.mjs
-60124     1 /usr/bin/node /home/x/nolf-improved/third_party/rengine/orchestrator/server/main.mjs --state ${NOLF}
-44686     1 /usr/bin/node /home/x/nolf-improved/third_party/rengine/orchestrator/server/main.mjs --state /home/x/.local/state/rengine
-29815     1 /usr/bin/node /home/x/rengine/.cache/worktrees/agent-token-2/orchestrator/server/main.mjs --state /var/folders/T/rengine-preflight-rjyCY8
-77001     1 /usr/bin/node /home/x/rengine/orchestrator/server/main.mjs --state /home/x/My Workspaces/with space
-`);
-const inTable = pid => TABLE.some(entry => entry.pid === pid);
-const descriptor = pid => ({ pid, url: 'http://127.0.0.1:61942', token: 'f'.repeat(64), instance: 'd5fe12fe' });
 
-test('the process table comes from ps and keeps a state directory with a space in it whole', () => {
-  assert.equal(TABLE.length, 14);
-  assert.deepEqual(TABLE[4], { pid: 68944, ppid: 1, command: `/usr/bin/node /home/x/rengine/orchestrator/server/main.mjs --state ${HIREBASE}` });
-  assert.deepEqual(hostArguments(TABLE.at(-1).command), { script: '/home/x/rengine/orchestrator/server/main.mjs', stateDir: '/home/x/My Workspaces/with space' });
-  assert.equal(hostArguments(TABLE[1].command), null, 'a supervisor is not a host');
-  assert.equal(hostArguments(TABLE[5].command), null, 'an agent launcher is not a host');
+/** `ps` as the launcher reads it, so a case can hand back a doctored copy of this machine. */
+const table = async () => (await run('ps', ['-A', '-ww', '-o', 'pid=,ppid=,command='], { maxBuffer: 64 * 1024 * 1024 })).stdout;
+const rows = text => text.split('\n').map(line => /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(line)).filter(Boolean)
+  .map(([, pid, ppid, command]) => ({ pid: Number(pid), ppid: Number(ppid), command: command.trim() }));
+const asText = list => list.map(({ pid, ppid, command }) => `${pid} ${ppid} ${command}`).join('\n');
+const portClosed = url => new Promise(resolve => {
+  const { hostname, port } = new URL(url);
+  const socket = net.connect({ host: hostname, port: Number(port) });
+  socket.setTimeout(500);
+  socket.once('connect', () => { socket.destroy(); resolve(false); });
+  socket.once('timeout', () => { socket.destroy(); resolve(true); });
+  socket.once('error', () => resolve(true));
 });
 
-test('the host of a state directory is the PID its descriptor names, and only if that PID serves that directory', async () => {
-  const found = await findHost(HIREBASE, { processes: TABLE, alive: inTable, descriptor: descriptor(68944) });
-  assert.equal(found.process.pid, 68944);
-
-  // Each of these is a real neighbour on the machine. A descriptor pointing at any of them — a stale
-  // file copied between directories, a reused PID — must be refused by name, not acted on.
-  await assert.rejects(findHost(HIREBASE, { processes: TABLE, alive: inTable, descriptor: descriptor(90297) }),
-    error => error.message.includes(VTMB) && error.message.includes(`not ${HIREBASE}`) && error.message.includes('Nothing was signalled'));
-  await assert.rejects(findHost(HIREBASE, { processes: TABLE, alive: inTable, descriptor: descriptor(60124) }),
-    error => error.message.includes(NOLF) && error.message.includes('Nothing was signalled'));
-  await assert.rejects(findHost(HIREBASE, { processes: TABLE, alive: inTable, descriptor: descriptor(29815) }), /rengine-preflight-rjyCY8, not/);
-  await assert.rejects(findHost(HIREBASE, { processes: TABLE, alive: inTable, descriptor: descriptor(9599) }), /PID 9599, but that process is not a session host: .*supervisor\.mjs/);
-  await assert.rejects(findHost(HIREBASE, { processes: TABLE, alive: inTable, descriptor: descriptor(12336) }), /not a session host/);
-
-  assert.deepEqual(await findHost(HIREBASE, { processes: TABLE, alive: inTable, descriptor: descriptor(55555) }),
-    { descriptor: descriptor(55555), process: null, stale: true }, 'a PID that is gone is stale, not a refusal');
-  assert.deepEqual(await findHost(HIREBASE, { processes: TABLE, alive: inTable, descriptor: null }), { descriptor: null, process: null });
-});
-
-test('a launcher running inside the workspace is recognised by its ancestry', () => {
-  assert.deepEqual(ancestorsOf(94222, TABLE), [12342, 12336, 68944, 1]);
-  assert.equal(insideHost(68944, TABLE, 94222), true, 'a pane inside the hirebase-v2 workspace');
-  assert.equal(insideHost(90297, TABLE, 94222), false, 'that pane is not inside vtmb-vr');
-  assert.equal(insideHost(68944, TABLE, 9603), false, 'the supervisor worker is beside the host, not under it');
-  assert.equal(insideHost(68944, TABLE, 424242), false, 'an unknown PID has no ancestors here');
-});
-
-test('only a supervisor bound to this host instance, alive and actually a supervisor, is selected', async t => {
-  const runtimeRoot = await mkdtemp(path.join(tmpdir(), 'rengine-runtime-'));
-  t.after(() => rm(runtimeRoot, { recursive: true, force: true }));
-  const put = async (name, value) => { await mkdir(path.join(runtimeRoot, name)); await writeFile(path.join(runtimeRoot, name, 'runtime.json'), typeof value === 'string' ? value : JSON.stringify(value)); };
-  await put('ours', { version: 1, pid: 9599, url: 'http://127.0.0.1:54352', host: { instance: 'd5fe12fe' } });
-  await put('theirs', { version: 1, pid: 90359, url: 'http://127.0.0.1:1', host: { instance: 'vtmb' } });
-  await put('reused-pid', { version: 1, pid: 9603, url: 'http://127.0.0.1:2', host: { instance: 'd5fe12fe' } });
-  await put('gone', { version: 1, pid: 40404, url: 'http://127.0.0.1:3', host: { instance: 'd5fe12fe' } });
-  await put('broken', '{not json');
-  await mkdir(path.join(runtimeRoot, 'empty'));
-  const found = await findSupervisors('d5fe12fe', TABLE, { runtimeRoot });
-  assert.deepEqual(found.map(({ pid, url, children }) => ({ pid, url, children: children.map(child => child.pid) })),
-    [{ pid: 9599, url: 'http://127.0.0.1:54352', children: [9603, 82044] }]);
-  assert.deepEqual(await findSupervisors('d5fe12fe', TABLE, { runtimeRoot: path.join(runtimeRoot, 'absent') }), []);
-});
-
-test('a process that honours SIGTERM gets nothing else; one that ignores it gets SIGKILL, in that order', async () => {
-  const fake = ({ diesOn }) => {
-    const sent = []; let dead = false;
-    return { sent, kill: (pid, signal) => { sent.push(signal); if (signal === diesOn) dead = true; }, alive: () => !dead, sleep: async () => {}, graceMs: 0, killMs: 1000 };
-  };
-  const polite = fake({ diesOn: 'SIGTERM' });
-  assert.deepEqual(await stopProcess(4242, polite), { pid: 4242, outcome: 'stopped on SIGTERM' });
-  assert.deepEqual(polite.sent, ['SIGTERM']);
-
-  const stubborn = fake({ diesOn: 'SIGKILL' });
-  assert.deepEqual(await stopProcess(4242, stubborn), { pid: 4242, outcome: 'ignored SIGTERM, killed' });
-  assert.deepEqual(stubborn.sent, ['SIGTERM', 'SIGKILL']);
-
-  const gone = fake({ diesOn: 'SIGTERM' }); gone.alive = () => false;
-  assert.deepEqual(await stopProcess(4242, gone), { pid: 4242, outcome: 'already gone' });
-  assert.deepEqual(gone.sent, [], 'nothing is signalled at a PID that is already gone; it may belong to someone else by now');
-
-  const immortal = fake({ diesOn: 'never' }); immortal.killMs = 0;
-  await assert.rejects(stopProcess(4242, immortal), /still alive after SIGKILL/);
-});
-
-test('a host whose descriptor is older than the code is stale, one that is newer is not', async t => {
-  const stateDir = await mkdtemp(path.join(tmpdir(), 'rengine-age-state-'));
-  const checkoutRoot = await mkdtemp(path.join(tmpdir(), 'rengine-age-checkout-'));
-  t.after(async () => { await rm(stateDir, { recursive: true, force: true }); await rm(checkoutRoot, { recursive: true, force: true }); });
-  assert.equal(await hostAge(stateDir, { checkoutRoot }), null, 'no descriptor, no host, no age');
-  await writeFile(path.join(stateDir, 'sidecar.json'), '{}');
-  await mkdir(path.join(checkoutRoot, 'orchestrator/server'), { recursive: true });
-  await mkdir(path.join(checkoutRoot, 'contracts'), { recursive: true });
-  await writeFile(path.join(checkoutRoot, 'orchestrator/server/main.mjs'), '');
-  await writeFile(path.join(checkoutRoot, 'orchestrator/server/main.mjs._llm.json'), '');
-  await writeFile(path.join(checkoutRoot, 'contracts/project-v1.schema.json'), '');
-  const at = (file, when) => utimes(file, when, when);
-  const hostStart = new Date('2026-09-07T09:16:13Z');
-  await at(path.join(stateDir, 'sidecar.json'), hostStart);
-  await at(path.join(checkoutRoot, 'orchestrator/server/main.mjs'), new Date('2026-09-07T08:00:00Z'));
-  await at(path.join(checkoutRoot, 'contracts/project-v1.schema.json'), new Date('2026-09-07T11:13:56Z'));
-  await at(path.join(checkoutRoot, 'orchestrator/server/main.mjs._llm.json'), new Date('2026-09-07T12:00:00Z'));
-  const stale = await hostAge(stateDir, { checkoutRoot });
-  assert.equal(stale.stale, true);
-  assert.equal(stale.newestFile, 'contracts/project-v1.schema.json', 'the schema counts: it is frozen in the host too, and a sidecar note does not');
-  assert.equal(stale.startedAt.toISOString(), hostStart.toISOString());
-  await at(path.join(stateDir, 'sidecar.json'), new Date('2026-09-07T11:30:00Z'));
-  assert.equal((await hostAge(stateDir, { checkoutRoot })).stale, false);
-});
-
-// From here on a real, throwaway host is started for the test and stopped by it. Stopping it and
-// removing its directory is one hook, for the reason headless.test.mjs records.
+// A real, throwaway host is started for each test and stopped by it. Stopping it and removing its
+// directory is one hook, for the reason headless.test.mjs records.
 async function scratch(t) {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-replace-'));
   t.after(async () => {
@@ -154,39 +60,48 @@ async function stopSidecar(directory) {
   try { process.kill(pid, 'SIGTERM'); } catch { return; }
   for (let attempt = 0; attempt < 200 && alive(pid); attempt++) await pause(20);
 }
+async function runtimeRoot(t) {
+  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-runtime-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  return directory;
+}
 
 test('replacing a throwaway host: the old one exits, its port closes, a new one answers, and the report says so', { timeout: 60000 }, async t => {
   const directory = await scratch(t);
-  const runtimeRoot = await mkdtemp(path.join(tmpdir(), 'rengine-runtime-'));
-  t.after(() => rm(runtimeRoot, { recursive: true, force: true }));
+  const runtime = await runtimeRoot(t);
   const old = await ensureSidecar(directory);
   const root = await request(old, 'roots', { path: directory });
   const session = await request(old, 'terminal', { rootId: root.id });
   assert.equal(session.state, 'running');
 
-  const said = [];
-  const report = await replaceHost(directory, { runtimeRoot, log: text => said.push(text) });
+  const done = await replaceHost(directory, ['--runtime-root', runtime]);
+  assert.equal(done.code, 0, done.stderr);
+  const said = done.stdout;
 
-  assert.equal(report.previous.pid, old.pid);
-  assert.equal(report.previous.instance, old.instance);
   assert.equal(alive(old.pid), false, 'the old host exited');
-  assert.equal(await portReleased(old.url, { timeoutMs: 1 }), true, 'and its port refuses connections');
   /* Only the host is signalled: its stdio services (the store) are gone by the time the children
      are looked at, because their stdin closed with it. */
-  assert.deepEqual(report.stopped.map(({ role, outcome }) => ({ role, outcome })), [{ role: 'host', outcome: 'stopped on SIGTERM' }]);
-  assert.deepEqual((report.retained ?? []).map(item => item.role).sort(), ['pty service', 'store service'],
-    'and the children that are not the host\'s to end: the state directory keeps its panes (D60) and its store (D61)');
-  assert.deepEqual(report.ended.map(item => [item.id, item.type]), [[session.id, 'terminal']],
-    'the report names the session that changes hands');
+  assert.match(said, new RegExp(`\\n {2}host PID ${old.pid}: stopped on SIGTERM\\n`));
+  assert.doesNotMatch(said, /host child PID/, 'nothing else of the host\'s was stopped');
+  for (const role of ['pty service', 'store service']) {
+    assert.match(said, new RegExp(`left the ${role} running \\(PID \\d+\\): it belongs to `),
+      'the children that are not the host\'s to end: the state directory keeps its panes (D60) and its store (D61)');
+  }
+  assert.match(said, new RegExp(`stopped host PID ${old.pid} \\(${old.url}, instance ${old.instance}, started \\d{4}-`));
+  assert.match(said, /handed 1 running session\(s\) to the next host:\n {4}terminal — /, 'the report names the session that changes hands');
 
-  assert.notEqual(report.started.pid, old.pid);
-  assert.notEqual(report.started.instance, old.instance, 'a new host, not the old one found again');
-  assert.ok(alive(report.started.pid));
-  assert.equal(report.started.checkout, `${ROOT}/`);
+  const started = /Started host PID (\d+) \((\S+), instance (\S+)\) from (\S+)\.$/m.exec(said);
+  assert.ok(started, said);
+  const [, pid, url, instance, checkout] = started;
+  assert.notEqual(Number(pid), old.pid);
+  assert.notEqual(instance, old.instance, 'a new host, not the old one found again');
+  assert.ok(alive(Number(pid)));
+  assert.equal(checkout, `${ROOT}/`);
+
   const written = JSON.parse(await readFile(path.join(directory, 'sidecar.json'), 'utf8'));
-  assert.equal(written.pid, report.started.pid, 'the descriptor now names the new host');
+  assert.equal(written.pid, Number(pid), 'the descriptor now names the new host');
   const state = await request(written, 'state');
-  assert.equal(state.instance, report.started.instance);
+  assert.equal(state.instance, instance);
   assert.deepEqual(state.roots.map(item => item.id), [root.id], 'the root persisted across the replacement');
   /* F94 asserted here that sessions did NOT persist, because when it was written the PTYs were
      file descriptors inside the host. Charter D60 (owner, 2026-09-13) moved them to the state
@@ -198,52 +113,61 @@ test('replacing a throwaway host: the old one exits, its port closes, a new one 
   assert.equal(carried.pid, session.pid, 'the same child process, not a fresh one');
   assert.equal(carried.state, 'running');
 
-  const text = said.join('\n');
-  assert.match(text, new RegExp(`stopped host PID ${old.pid} \\(${old.url}, instance ${old.instance}, started \\d{4}-`));
-  assert.match(text, /handed 1 running session\(s\) to the next host:\n {4}terminal — /);
-  assert.match(text, new RegExp(`Started host PID ${report.started.pid} \\(${report.started.url}, instance ${report.started.instance}\\)`));
+  assert.equal(await portClosed(old.url), true, 'and the old port refuses connections');
 });
+
 
 test('a refusal leaves the real host untouched: another directory claimed, or a launcher inside the workspace', { timeout: 60000 }, async t => {
   const directory = await scratch(t);
-  const runtimeRoot = await mkdtemp(path.join(tmpdir(), 'rengine-runtime-'));
-  t.after(() => rm(runtimeRoot, { recursive: true, force: true }));
+  const runtime = await runtimeRoot(t);
   const old = await ensureSidecar(directory);
-  const real = await listProcesses();
+  const real = rows(await table());
   const mine = real.find(entry => entry.pid === old.pid);
-  assert.ok(mine && hostArguments(mine.command), `ps shows the throwaway host: ${mine?.command}`);
+  assert.ok(mine && /red-host --state /.test(mine.command), `ps shows the throwaway host: ${mine?.command}`);
 
   // The same PID, but ps says it serves vtmb-vr's directory: a descriptor that lies, or a PID reused.
-  const claimed = real.map(entry => entry.pid === old.pid ? { ...entry, command: `${hostArguments(entry.command).script} --state ${VTMB}` } : entry);
-  await assert.rejects(replaceHost(directory, { runtimeRoot, processes: claimed, log: () => {} }),
-    error => error.message.includes(VTMB) && error.message.includes('Nothing was signalled'));
+  const claimedFile = path.join(directory, 'claimed.txt');
+  await writeFile(claimedFile, asText(real.map(entry =>
+    entry.pid === old.pid ? { ...entry, command: `${entry.command.split(' --state ')[0]} --state ${VTMB}` } : entry)));
+  const claimed = await replaceHost(directory, ['--runtime-root', runtime, '--process-table', claimedFile]);
+  assert.equal(claimed.code, 1, claimed.stdout);
+  assert.match(claimed.stderr, new RegExp(`${VTMB}[\\s\\S]*Nothing was signalled`));
   assert.equal(alive(old.pid), true, 'nothing was signalled');
   assert.equal((await request(old, 'state')).instance, old.instance, 'and it still answers as itself');
 
-  // This test process, re-parented under the host: the shape of a pane asking to end itself.
-  const inside = real.map(entry => entry.pid === process.pid ? { ...entry, ppid: old.pid } : entry);
-  await assert.rejects(replaceHost(directory, { runtimeRoot, processes: inside, log: () => {} }), /inside the workspace it would replace.*PID \d+ is one of its ancestors.*Nothing was signalled/);
+  /* The launcher, re-parented under the host: the shape of a pane asking to end itself. The row has
+     to name the LAUNCHER's own pid, which nothing knows until it exists — so a shell writes its own
+     pid into the table and then `exec`s the launcher, which inherits that pid exactly. */
+  const insideFile = path.join(directory, 'inside.txt');
+  await writeFile(insideFile, `${asText(real)}\n`);
+  const script = `printf '%s %s %s\\n' "$$" ${old.pid} the-launcher >> ${JSON.stringify(insideFile)}; `
+    + `exec ${JSON.stringify(LAUNCH())} replace-host --state ${JSON.stringify(directory)} `
+    + `--runtime-root ${JSON.stringify(runtime)} --process-table ${JSON.stringify(insideFile)}`;
+  const inside = await run('/bin/sh', ['-c', script], { cwd: ROOT }).then(() => ({ code: 0, stdout: '', stderr: '' }),
+    error => ({ code: error.code ?? 1, stdout: error.stdout ?? '', stderr: error.stderr ?? error.message }));
+  assert.equal(inside.code, 1, inside.stdout);
+  assert.match(inside.stderr, /inside the workspace it would replace[\s\S]*PID \d+ is one of its ancestors[\s\S]*Nothing was signalled/);
   assert.equal(alive(old.pid), true);
   assert.equal(JSON.parse(await readFile(path.join(directory, 'sidecar.json'), 'utf8')).pid, old.pid, 'the descriptor was not touched either');
 });
 
 test('a stale descriptor is cleared and a fresh host started, with no refusal', { timeout: 60000 }, async t => {
   const directory = await scratch(t);
-  const runtimeRoot = await mkdtemp(path.join(tmpdir(), 'rengine-runtime-'));
-  t.after(() => rm(runtimeRoot, { recursive: true, force: true }));
-  await writeFile(path.join(directory, 'sidecar.json'), JSON.stringify({ url: 'http://127.0.0.1:1', token: 'f'.repeat(64), instance: 'gone', pid: 2147483000 }));
-  const said = [];
-  const report = await replaceHost(directory, { runtimeRoot, log: text => said.push(text) });
-  assert.equal(report.previous.stale, true);
-  assert.deepEqual(report.stopped, []);
-  assert.ok(alive(report.started.pid));
-  assert.match(said.join('\n'), /named PID 2147483000, which is gone; the stale descriptor was removed/);
+  const runtime = await runtimeRoot(t);
+  await writeFile(path.join(directory, 'sidecar.json'),
+    JSON.stringify({ url: 'http://127.0.0.1:1', token: 'f'.repeat(64), instance: 'gone', pid: 2147483000 }));
+  const done = await replaceHost(directory, ['--runtime-root', runtime]);
+  assert.equal(done.code, 0, done.stderr);
+  assert.match(done.stdout, /named PID 2147483000, which is gone; the stale descriptor was removed/);
+  assert.doesNotMatch(done.stdout, /stopped host PID/, 'nothing was signalled');
+  const started = /Started host PID (\d+) /.exec(done.stdout);
+  assert.ok(started && alive(Number(started[1])), done.stdout);
 });
 
 test('--headless --replace-host through the launcher comes up as a different host', { timeout: 60000 }, async t => {
   const directory = await scratch(t);
   const old = await ensureSidecar(directory);
-  const child = spawn(process.execPath, [LAUNCH, '--headless', '--replace-host', '--state', directory], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(LAUNCH(), ['--headless', '--replace-host', '--state', directory], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
   t.after(() => { child.kill('SIGKILL'); });
   const seen = { stdout: '', stderr: '' };
   child.stdout.setEncoding('utf8'); child.stderr.setEncoding('utf8');
