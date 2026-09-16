@@ -9,6 +9,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { startServer } from './red-host-fixture.mjs';
 import { discoverRuntime, runtimeDirectory, ensureRuntime, alive } from '../runtime/discovery.mjs';
 import { request } from '../launcher/sidecar.mjs';
+import { LAUNCH } from './red-launch.mjs';
 
 test('the existing launcher reaches native bootstrap once, then CLI actions replace the managed desktop', { timeout: 60000 }, async () => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-native-bootstrap-')));
@@ -23,7 +24,7 @@ process.stdin.setRawMode(true); console.log('BOOTSTRAP_RETAINED_CLI'); process.s
     const root = await host.store.addRoot(project);
     const session = await host.sessions.terminal({ rootId: root.id, command: process.execPath, args: [fixture] });
     const execute = promisify(execFile);
-    const launch = () => execute(process.execPath, ['orchestrator/launch.mjs', '--project', project, '--state', stateDir, '--no-agent'], {
+    const launch = () => execute(LAUNCH(), ['--project', project, '--state', stateDir, '--no-agent'], {
       timeout: 25000, env: { ...process.env, RENGINE_LAYERED_CHILD: undefined, RENGINE_NATIVE_BINARY: undefined } });
     const first = await launch(); assert.match(first.stdout, /update supervisor ready/);
     runtime = await discoverRuntime(host); assert.ok(runtime);
@@ -64,7 +65,7 @@ test('native bootstrap opens an empty workspace without creating a terminal or a
   try {
     host = await startServer({ stateDir: directory });
     await writeFile(path.join(directory, 'sidecar.json'), JSON.stringify({ url: host.url, token: host.token, instance: host.instance, pid: process.pid }), { mode: 0o600 });
-    const result = await promisify(execFile)(process.execPath, ['orchestrator/launch.mjs', '--state', directory, '--no-agent'], {
+    const result = await promisify(execFile)(LAUNCH(), ['--state', directory, '--no-agent'], {
       timeout: 20000, env: { ...process.env, RENGINE_LAYERED_CHILD: undefined, RENGINE_NATIVE_BINARY: undefined } });
     assert.match(result.stdout, /update supervisor ready/);
     runtime = await discoverRuntime(host); assert.ok(runtime);

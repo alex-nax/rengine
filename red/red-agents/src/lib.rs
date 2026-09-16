@@ -50,6 +50,37 @@ pub mod mint {
     }
 }
 
+pub mod handoff;
+
+/// The registry document this build reads: `$RENGINE_AGENT_REGISTRY`, else the one beside the
+/// checkout's `orchestrator/agents/`. Here rather than beside one binary because three of them ask.
+pub fn registry_path() -> Result<String, String> {
+    if let Ok(declared) = std::env::var("RENGINE_AGENT_REGISTRY") {
+        return Ok(declared);
+    }
+    let exe = std::env::current_exe().map_err(|error| format!("the registry document needs RENGINE_AGENT_REGISTRY: {error}"))?;
+    // red/target/debug/<binary> -> debug/ .. target/ .. red/ .. the repository root.
+    exe.parent()
+        .and_then(|directory| directory.ancestors().nth(3))
+        .map(|root| root.join("orchestrator/agents/registry.toml").to_string_lossy().into_owned())
+        .ok_or_else(|| "the registry document needs RENGINE_AGENT_REGISTRY".to_string())
+}
+
+/// Every declared recipe, with the extra document read at call time — a recipe added as data needs
+/// no process restart, which is what the JavaScript this replaces promised.
+pub fn recipes() -> Result<Vec<(String, Value)>, String> {
+    let path = registry_path()?;
+    let text = std::fs::read_to_string(&path).map_err(|error| format!("cannot read {path}: {error}"))?;
+    let extra = match std::env::var("RENGINE_AGENT_REGISTRY_EXTRA") {
+        Ok(extra_path) if !extra_path.is_empty() => {
+            let extra_text = std::fs::read_to_string(&extra_path).map_err(|error| format!("cannot read {extra_path}: {error}"))?;
+            Some((extra_text, extra_path))
+        }
+        _ => None,
+    };
+    load_registry(&text, &path, extra.as_ref().map(|(text, path)| (text.as_str(), path.as_str())))
+}
+
 pub mod hooks;
 pub mod launch;
 pub mod parsers;

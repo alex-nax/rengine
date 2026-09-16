@@ -28,13 +28,14 @@ npm start -- --project /absolute/path/to/nolf-improved --agent codex --launch-ga
 
 The launcher builds and runs the native executable. The first CMake configure downloads a
 checksum-pinned libcurl source archive; the other small C dependencies are vendored with licenses.
-Node currently runs the development launcher and retained PTY/file/agent service as separate
-processes. It is not linked into the GUI or either game. Service migration timing remains open.
+The launcher, the session host and the PTY/file/agent services are Rust binaries in separate
+processes; nothing is linked into the GUI or either game. Node runs only the helpers a pane still
+execs, and those are retiring one at a time.
 
 A machine that only needs to *host* sessions runs the sidecar alone:
 
 ```sh
-node orchestrator/launch.mjs --headless --state /absolute/state/dir --project /absolute/project
+npm run start:headless -- --state /absolute/state/dir --project /absolute/project
 npm run start:headless -- --state /absolute/state/dir
 ```
 

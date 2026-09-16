@@ -186,8 +186,8 @@ pub fn start_service(
 
 /// The service as its own session, so it is not in this process's group and does not die with it.
 /// That is the whole of D60/D61: the service belongs to the state directory, not to whoever started
-/// it.
-fn spawn_detached(binary: &Path, args: &[String], log: std::fs::File) -> Result<i64, String> {
+/// it — and the same is true of the session host, which the launcher starts this way (spec 145).
+pub fn spawn_detached(binary: &Path, args: &[String], log: std::fs::File) -> Result<i64, String> {
     let mut command = std::process::Command::new(binary);
     command.args(args).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(log);
     #[cfg(unix)]

@@ -12,6 +12,7 @@ import http from 'node:http';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { built } from './cargo.mjs';
+import { LAUNCH } from './red-launch.mjs';
 
 /* This spec drives a Rust binary through a service client, so it builds one first: run alone — or
    used to check that a regression fails for its own reason — it would otherwise judge whatever
@@ -123,7 +124,7 @@ test('launcher refuses a legacy host before registering roots or creating sessio
   t.after(async () => { await new Promise(resolve => server.close(resolve)); await rm(directory, { recursive: true, force: true }); });
   await writeFile(path.join(directory, 'sidecar.json'), JSON.stringify({ url: `http://127.0.0.1:${server.address().port}`, token, instance, pid: process.pid }));
   let failure;
-  try { await promisify(execFile)(process.execPath, ['orchestrator/launch.mjs', '--project', directory, '--declaration', path.join(directory, 'profile.json'), '--state', directory, '--no-agent']); }
+  try { await promisify(execFile)(LAUNCH(), ['--project', directory, '--declaration', path.join(directory, 'profile.json'), '--state', directory, '--no-agent']); }
   catch (error) { failure = error; }
   assert.deepEqual(mutations, [], 'the legacy host receives no root or session mutations');
   assert.match(failure?.stderr ?? '', /predates external declarations/);

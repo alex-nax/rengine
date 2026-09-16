@@ -109,7 +109,7 @@ async function rustShellEnv(directory, input) {
 }
 
 test('the shell envelope matches on every fixture', async t => {
-  const sessions = await import('../server/sessions-client.mjs');
+  const sessions = await import('./sessions-client.mjs');
   const declared = { identity: await sessions.agentProcessIdentity(), installs: await sessions.agentInstallPaths() };
   assert.ok(declared.identity.length > 0, 'the declarations arrived — an empty list scrubs nothing and would match trivially');
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-shell-env-'));
@@ -125,7 +125,7 @@ test('the shell envelope matches on every fixture', async t => {
  * ORCHESTRATOR_SESSION/HANDOFF_* values in the inherited set must be gone after BOTH
  * compositions, the launch's own CONVERSATION must survive, and AGENT_HOME must be present. */
 test('the final spawn env is cleared in both compositions and keeps the launch identity', async t => {
-  const sessions = await import('../server/sessions-client.mjs');
+  const sessions = await import('./sessions-client.mjs');
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-final-env-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const [recorded, input] = CASES[4];

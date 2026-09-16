@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, stat, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { bashPath } from '../server/sessions-client.mjs';
+import { bashPath } from './sessions-client.mjs';
 import { readDeclaration } from './formats.mjs';
 import { askProject } from './project-client.mjs';
 import { validateSchema } from './store-client.mjs';
@@ -171,10 +171,10 @@ test('the scaffolded launcher bootstraps the pinned tree and never launches unde
   // stops at one level leaves third_party/iklib empty and fails later on a missing header.
   assert.ok(commands.some(command => command.includes('submodule update --init --recursive third_party/rengine')),
     `the bootstrap reaches what rEngine carries: ${JSON.stringify(commands)}`);
-  assert.ok(!commands.some(command => command.includes('launch.mjs')), commands);
+  assert.ok(!commands.some(command => command.includes('red-launch')), commands);
 
   const launched = await execute(bashPath(), [path.join(root, 'editor.sh'), '--dry-run', '--agent', 'codex'], { cwd: root, timeout: 60000, encoding: 'utf8' });
-  const launch = printed(launched.stdout).filter(command => command.includes('orchestrator/launch.mjs'));
+  const launch = printed(launched.stdout).filter(command => command.includes('red-launch'));
   assert.equal(launch.length, 1, launched.stdout);
   assert.ok(launch[0].includes(`--project ${root}`) && launch[0].includes('--agent codex'), launch[0]);
 });

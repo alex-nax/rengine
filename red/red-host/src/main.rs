@@ -36,7 +36,6 @@ use tokio::net::{TcpListener, TcpStream};
 mod desktops;
 mod events;
 mod games;
-mod handoff;
 mod images;
 mod panes;
 mod routes;

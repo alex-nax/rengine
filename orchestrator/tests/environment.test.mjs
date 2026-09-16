@@ -1,6 +1,6 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { shellEnvironment, agentProcessIdentity, agentInstallPaths } from '../server/sessions-client.mjs';
+import { shellEnvironment, agentProcessIdentity, agentInstallPaths } from './sessions-client.mjs';
 import { closeAgents } from '../agents/agents-client.mjs';
 import { built } from './cargo.mjs';
 

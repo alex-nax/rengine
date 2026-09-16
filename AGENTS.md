@@ -162,7 +162,7 @@ does **not** require the owner to restart anything by hand: `restart-supervisor`
 stops this workspace's update supervisor and starts a detached one from the current checkout, closing
 and reopening only its desktop windows while the session host and every retained terminal, agent and
 draft are untouched. It takes `--state DIR`; find the right directory by running
-`orchestrator/launcher/restart-supervisor.mjs --state DIR --plan`, which is read-only and names the
+`red-launch restart-supervisor --state DIR --plan`, which is read-only and names the
 host it would leave alone. Its confirm prompt has no non-interactive bypass by design, so open it as
 a script tab and let the owner answer. For kimi panes, `bootstrap-agent-hooks` (F138, spec 127) is
 the optional guided install of kimi's SessionStart hook — the one owner-confirmed edit to the

@@ -22,7 +22,7 @@ import net from 'node:net';
 import { WebSocket } from 'ws';
 import { startServer } from './red-host-fixture.mjs';
 import { PtyHost } from './pty-client.mjs';
-import { agentTitle } from '../server/sessions-client.mjs';
+import { agentTitle } from './sessions-client.mjs';
 import { runtimeDirectory } from '../runtime/discovery.mjs';
 import { fakeCli } from './task-fixtures.mjs';
 import { endStateServices } from './state-services.mjs';

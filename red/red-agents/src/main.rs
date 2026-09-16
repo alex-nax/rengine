@@ -20,33 +20,8 @@ use red_agents::{hooks, parsers, Value};
 
 const USAGE: &str = "Usage: red-agents list [--names] | show <agent> [field] | parse <cli> -- <args...> | can <cli> <capability> | hook-key [--platform win32|unix] [group handler] | trust-hash <command> [matcher]";
 
-fn registry_path() -> Result<String, String> {
-    if let Ok(declared) = std::env::var("RENGINE_AGENT_REGISTRY") {
-        return Ok(declared);
-    }
-    let exe = std::env::current_exe().map_err(|error| format!("the registry document needs RENGINE_AGENT_REGISTRY: {error}"))?;
-    // red/target/debug/red-agents -> debug/ .. target/ .. red/ .. the repository root.
-    let path = exe
-        .parent()
-        .and_then(|directory| directory.ancestors().nth(3))
-        .map(|root| root.join("orchestrator/agents/registry.toml"))
-        .ok_or_else(|| "the registry document needs RENGINE_AGENT_REGISTRY".to_string())?;
-    Ok(path.to_string_lossy().into_owned())
-}
-
 fn load() -> Result<Vec<(String, Value)>, String> {
-    let path = registry_path()?;
-    let text = std::fs::read_to_string(&path).map_err(|error| format!("cannot read {path}: {error}"))?;
-    // The extra file is read through the environment at call time, as the JS side reads it:
-    // a recipe added as data needs no process restart (and no edit of the shipped document).
-    let extra = match std::env::var("RENGINE_AGENT_REGISTRY_EXTRA") {
-        Ok(extra_path) if !extra_path.is_empty() => {
-            let extra_text = std::fs::read_to_string(&extra_path).map_err(|error| format!("cannot read {extra_path}: {error}"))?;
-            Some((extra_text, extra_path))
-        }
-        _ => None,
-    };
-    red_agents::load_registry(&text, &path, extra.as_ref().map(|(text, path)| (text.as_str(), path.as_str())))
+    red_agents::recipes()
 }
 
 fn show_record(cli: &str, raw: &Value) -> Vec<(&'static str, String)> {

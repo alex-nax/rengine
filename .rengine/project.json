@@ -218,10 +218,10 @@
             "script": "orchestrator/actions/restart-supervisor.sh",
             "requires": [
               "orchestrator/actions/restart-supervisor.sh",
-              "orchestrator/launcher/restart-supervisor.mjs"
+              "red/red-supervisor/src/bin/red_launch.rs"
             ],
             "tools": [
-              "node"
+              "cargo"
             ]
           },
           {

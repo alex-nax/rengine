@@ -19,7 +19,7 @@
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { askProject } from './project-client.mjs';
-import { bashPath, shellEnvironment } from '../server/sessions-client.mjs';
+import { bashPath, shellEnvironment } from './sessions-client.mjs';
 import { agentNames, recipe } from '../agents/agents-client.mjs';
 import { fail } from './store-client.mjs';
 

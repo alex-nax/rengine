@@ -53,7 +53,7 @@ EXCEPTIONS = [
     ("orchestrator/agents/handoff/index.mjs", 'codex',
      "PERMANENT. The adapter roster, in the JavaScript mirror of the same split: the import of the "
      "adapter file and the arm mapping a declared KIND to it."),
-    ("red/red-host/src/handoff/mod.rs", 'codex',
+    ("red/red-agents/src/handoff/mod.rs", 'codex',
      "PERMANENT. The adapter roster: `mod codex;` and the arm mapping a declared KIND to its reader. A module "
      "dispatch IS the prescribed shape — the key is the kind, never the name."),
     ("red/red-project/src/conversations/mod.rs", None,

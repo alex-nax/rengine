@@ -6,7 +6,7 @@ import path from 'node:path';
 import { agentLaunch, describeSession } from '../agents/agents-client.mjs';
 import { bind } from '../agents/agents-client.mjs';
 import { startServer } from './red-host-fixture.mjs';
-import { agentTitle } from '../server/sessions-client.mjs';
+import { agentTitle } from './sessions-client.mjs';
 import { endStateServices } from './state-services.mjs';
 import { fakeCli } from './task-fixtures.mjs';
 import { Tokens, readIdentity } from './token-client.mjs';

@@ -1,5 +1,9 @@
 //! Reading a handoff manifest (F189; `agents/handoff.mjs`'s host half).
 //!
+//! It sits in `red-agents` rather than in a host because THREE callers want it and there must be
+//! one answer: the session host launching a handoff pane, the workspace launcher's `--handoff`
+//! (spec 145), and the recipes this reading already consults to learn what a CLI can be handed.
+//!
 //! A handoff says *resume this exact paused conversation, in this project, from this checkpoint*.
 //! Every check here exists because the alternative is worse than refusing: a manifest that named
 //! another project would move a person's session sideways, a checkpoint outside the project would
@@ -33,9 +37,9 @@ fn confirm_conversation(kind: &str, session_id: &str, root: &Path, env: &Value) 
 
 /// Read and judge the manifest, answering the record a pane is launched with. `handoff` is what the
 /// CLI's recipe declares it can be handed, and `ids` the shape that CLI's conversation ids take.
-pub(crate) fn read_handoff(
+pub fn read_handoff(
     filename: &str,
-    project: &Path,
+    project: Option<&Path>,
     env: &Value,
     handoff: &Value,
     ids: Option<&str>,
@@ -50,7 +54,7 @@ pub(crate) fn read_handoff(
     let session_id = value.get("sessionId").and_then(Value::as_str).unwrap_or_default().to_string();
     /* The id's shape is the CLI's own declaration, matched by the one matcher every other caller
        uses. A hand-rolled uuid test lived here and accepted a shape the recipe might not. */
-    let shaped = ids.is_some_and(|pattern| red_agents::id_matches(pattern, &session_id));
+    let shaped = ids.is_some_and(|pattern| crate::id_matches(pattern, &session_id));
     if value.get("version").and_then(Value::as_u64) != Some(1)
         || !shaped
         || !value.get("project").is_some_and(Value::is_string)
@@ -61,9 +65,15 @@ pub(crate) fn read_handoff(
     let named = value.get("project").and_then(Value::as_str).unwrap_or_default();
     let root = std::fs::canonicalize(filename.parent().unwrap_or(Path::new("/")).join(named))
         .map_err(|error| refuse(&error.to_string()))?;
-    let here = std::fs::canonicalize(project).map_err(|error| refuse(&error.to_string()))?;
-    if here != root {
-        return Err(refuse("Handoff belongs to a different project."));
+    /* A project is a CROSS-CHECK, not a requirement, and the JavaScript said so in one character:
+       `if (project && ...)`. The launcher's `--project` is optional and the resume command has never
+       passed one, so an unconditional comparison here canonicalizes an empty path and answers the
+       whole command with `No such file or directory` — naming neither the flag nor the manifest. */
+    if let Some(named) = project {
+        let here = std::fs::canonicalize(named).map_err(|error| refuse(&error.to_string()))?;
+        if here != root {
+            return Err(refuse("Handoff belongs to a different project."));
+        }
     }
     let checkpoint = std::fs::canonicalize(root.join(value.get("checkpoint").and_then(Value::as_str).unwrap_or_default()))
         .map_err(|error| refuse(&error.to_string()))?;
@@ -87,7 +97,7 @@ pub(crate) fn read_handoff(
 /// The CLI's own prerequisites, asked the way the workspace asks them everywhere else: through
 /// `agent.sh`, so a change to what "logged in" means is a change in one place. Which CLI is asked
 /// is the caller's, from the pane being launched.
-pub(crate) fn check_resume(bash: &str, cli: &str, project: &Path, env: &Value) -> Result<(), String> {
+pub fn check_resume(bash: &str, cli: &str, project: &Path, env: &Value) -> Result<(), String> {
     let script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .and_then(std::path::Path::parent)
@@ -163,7 +173,7 @@ mod tests {
         rollout(&home, session_id, &directory);
         let env = json!({ "CODEX_HOME": home.to_string_lossy() });
         let declared = json!({ "kind": "rollout-jsonl", "ready": ["resume --help"] });
-        let read = read_handoff(&file, &directory, &env, &declared, Some(UUIDS)).expect("a declared kind is read");
+        let read = read_handoff(&file, Some(&directory), &env, &declared, Some(UUIDS)).expect("a declared kind is read");
         assert_eq!(read.get("sessionId").and_then(Value::as_str), Some(session_id));
         let _ = std::fs::remove_dir_all(&directory);
     }
@@ -174,7 +184,7 @@ mod tests {
         let session_id = "00000000-0000-0000-0000-000000000058";
         let file = manifest(&directory, session_id);
         let env = json!({ "CODEX_HOME": directory.join("store").to_string_lossy() });
-        let refusal = read_handoff(&file, &directory, &env, &json!({ "kind": "carrier-pigeon" }), Some(UUIDS)).unwrap_err();
+        let refusal = read_handoff(&file, Some(&directory), &env, &json!({ "kind": "carrier-pigeon" }), Some(UUIDS)).unwrap_err();
         assert!(refusal.contains("carrier-pigeon"), "the refusal names the kind: {refusal}");
         assert!(!refusal.contains("codex"), "and nothing about who declared it: {refusal}");
         let _ = std::fs::remove_dir_all(&directory);
@@ -188,10 +198,10 @@ mod tests {
         let file = manifest(&directory, session_id);
         let env = json!({ "CODEX_HOME": directory.join("store").to_string_lossy() });
         let declared = json!({ "kind": "rollout-jsonl" });
-        let refusal = read_handoff(&file, &directory, &env, &declared, Some(r"^CONV-[0-9]{6}$")).unwrap_err();
+        let refusal = read_handoff(&file, Some(&directory), &env, &declared, Some(r"^CONV-[0-9]{6}$")).unwrap_err();
         assert!(refusal.contains("version-1 handoff"), "a shape its recipe refuses is not a handoff: {refusal}");
         /* And a recipe that declares no shape vouches for nothing, rather than falling back to one. */
-        assert!(read_handoff(&file, &directory, &env, &declared, None).is_err());
+        assert!(read_handoff(&file, Some(&directory), &env, &declared, None).is_err());
         let _ = std::fs::remove_dir_all(&directory);
     }
 }

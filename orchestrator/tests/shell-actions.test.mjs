@@ -1,4 +1,4 @@
-import { bashPath } from '../server/sessions-client.mjs';
+import { bashPath } from './sessions-client.mjs';
 import test, { before } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';

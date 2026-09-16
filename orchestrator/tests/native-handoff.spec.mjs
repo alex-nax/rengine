@@ -9,6 +9,7 @@ import { startServer } from './red-host-fixture.mjs';
 import { nativeClient, nativeBridge } from './native-client.mjs';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { LAUNCH } from './red-launch.mjs';
 
 test('handoff waits for a presented native pane and reload retains the once-resumed CLI', { timeout: 60000 }, async () => {
   const dir = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-native-handoff-')));
@@ -56,8 +57,8 @@ process.stdin.on('data', () => console.log('CLI_RECEIVED_INPUT'));
     await gui.until(s => s.connected, 'desktop without agent view'); await delay(200);
     await assert.rejects(readFile(marker), { code: 'ENOENT' });
     await gui.close(); gui = null;
-    const launch = () => nativeBridge(spawn(process.execPath,
-      ['orchestrator/launch.mjs', '--handoff', handoffFile, '--state', stateDir, '--inspect-ui'],
+    const launch = () => nativeBridge(spawn(LAUNCH(),
+      ['--handoff', handoffFile, '--state', stateDir, '--inspect-ui'],
       { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, CODEX_HOME: home } }), { timeout: 15000 });
     gui = launch();
     let state = await gui.until(s => s.tabs.some(t => t?.session === agent.id && t.rect[2] > 0 && t.text?.includes('RESUMED_IN_NATIVE_PANE')), 'presented resumed agent');
