@@ -95,10 +95,10 @@ const fold = (value, root) => JSON.parse(JSON.stringify(value, (key, item) => {
 }));
 
 export async function answers() {
-  const { projectDevices, forgetProbes } = await import('../server/devices.mjs');
-  const { dashboardActions } = await import('../server/dashboard.mjs');
-  const { readDeclaration } = await import('../server/formats.mjs');
-  const { inspectGame } = await import('../server/devices.mjs');
+  const { projectDevices, forgetProbes } = await import('./devices.mjs');
+  const { dashboardActions } = await import('./dashboard.mjs');
+  const { readDeclaration } = await import('./formats.mjs');
+  const { inspectGame } = await import('./devices.mjs');
   /* realpath, because macOS hands back a /var symlink to /private/var and `resolveInRoot`
      refuses a path that leaves the root through one — which would make every `requires` read as
      missing and record a corpus of false negatives. `devices.test.mjs`'s own `scratch()` does the

@@ -11,7 +11,7 @@ import { startServer } from './red-host-fixture.mjs';
 import { startSupervisor } from './red-supervisor-fixture.mjs';
 import { forward, json, tunnel } from '../runtime/protocol.mjs';
 import { request } from '../launcher/sidecar.mjs';
-import { readDeclaration } from '../server/formats.mjs';
+import { readDeclaration } from './formats.mjs';
 import { CONTRACTS } from './contract.mjs';
 import { declaration } from './format-fixtures.mjs';
 import { absent, game, gameDeclaration, gameProject, gamesDeclaration, launcherDeclaration, second } from './game-fixtures.mjs';

@@ -136,7 +136,7 @@ export const CASES = [
 
 /* One project per case, read the way a workspace reads it. */
 async function answers() {
-  const { readDeclaration } = await import('../server/formats.mjs');
+  const { readDeclaration } = await import('./formats.mjs');
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-declaration-record-'));
   const recorded = {};
   try {

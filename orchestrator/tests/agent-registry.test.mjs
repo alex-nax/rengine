@@ -13,7 +13,7 @@ import { spawnSync } from 'node:child_process';
    a data edit — proven here by registering one as data and watching every consumer follow. */
 import { agentNames, recipe, resolvedRecipes, MCP_OVERLAYS, HOOK_OVERLAYS, processIdentity, installPaths } from '../agents/agents-client.mjs';
 import { agentLaunch, agentConversation, hookTrustHash } from '../agents/agents-client.mjs';
-import { knownAgents, modelArgs } from '../server/tasks.mjs';
+import { knownAgents, modelArgs } from './tasks.mjs';
 import { ideConnectFlag } from '../agents/ide-connect.mjs';
 import { ideDirectory } from '../runtime/ide.mjs';
 import { built } from './cargo.mjs';

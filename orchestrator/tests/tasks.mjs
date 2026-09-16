@@ -19,9 +19,9 @@
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { askProject } from './project-client.mjs';
-import { bashPath, shellEnvironment } from './sessions-client.mjs';
+import { bashPath, shellEnvironment } from '../server/sessions-client.mjs';
 import { agentNames, recipe } from '../agents/agents-client.mjs';
-import { fail } from './store-client.mjs';
+import { fail } from '../server/store-client.mjs';
 
 const agentScript = fileURLToPath(new URL('../../scripts/agent.sh', import.meta.url));
 const ask = (call, root, input) => askProject(['tasks', call, root.id, root.path], JSON.stringify(input));

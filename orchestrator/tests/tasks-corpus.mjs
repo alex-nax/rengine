@@ -110,7 +110,7 @@ async function fixture(directory, name, options) {
 }
 
 export async function answers() {
-  const tasks = await import('../server/tasks.mjs');
+  const tasks = await import('./tasks.mjs');
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-tasks-corpus-')));
   const recorded = {};
   try {

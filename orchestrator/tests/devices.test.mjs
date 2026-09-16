@@ -4,9 +4,9 @@ import { mkdtemp, mkdir, writeFile, rm, stat, realpath, readFile } from 'node:fs
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { readDeclaration } from '../server/formats.mjs';
+import { readDeclaration } from './formats.mjs';
 import { CONTRACTS } from './contract.mjs';
-import { declaredDevices, deviceFor, forgetProbes, projectDevices, PROBE_TTL_MS } from '../server/devices.mjs';
+import { declaredDevices, deviceFor, forgetProbes, projectDevices, PROBE_TTL_MS } from './devices.mjs';
 
 /* One device's status, read out of the listing that carries it. `deviceStatus` was this module's
    own export until F155; the implementation is `red_project::devices` now, and a caller asks for a
@@ -14,8 +14,8 @@ import { declaredDevices, deviceFor, forgetProbes, projectDevices, PROBE_TTL_MS 
    listings come from one run. */
 const statusOf = async (root, declared, id, options) =>
   (await projectDevices(root, declared, options)).devices.find(device => device.id === id);
-import { inspectGame } from '../server/devices.mjs';
-import { dashboardActions } from '../server/dashboard.mjs';
+import { inspectGame } from './devices.mjs';
+import { dashboardActions } from './dashboard.mjs';
 import { declaration } from './format-fixtures.mjs';
 import { gameDeclaration } from './game-fixtures.mjs';
 import {

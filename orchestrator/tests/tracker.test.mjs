@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { readDeclaration } from '../server/formats.mjs';
+import { readDeclaration } from './formats.mjs';
 import { CONTRACTS } from './contract.mjs';
 import { startServer } from './red-host-fixture.mjs';
 

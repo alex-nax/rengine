@@ -11,10 +11,10 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { startServer } from './red-host-fixture.mjs';
 import { startWorker } from './red-worker-fixture.mjs';
 import { agentLaunch } from '../agents/agents-client.mjs';
-import { readDeclaration } from '../server/formats.mjs';
+import { readDeclaration } from './formats.mjs';
 import { CONTRACTS } from './contract.mjs';
 import { validateSchema } from '../server/store-client.mjs';
-import { agentsMenu, helpModels, modelArgs, promptFor, promptValues, writeDocument } from '../server/tasks.mjs';
+import { agentsMenu, helpModels, modelArgs, promptFor, promptValues, writeDocument } from './tasks.mjs';
 import { declaration } from './format-fixtures.mjs';
 import { api, fakeDesktop, feedSocket, identity, ok, until } from './token-fixtures.mjs';
 import { fakeCli, features, taskDeclaration, taskProject, writeLog } from './task-fixtures.mjs';

@@ -6,8 +6,8 @@ import { mkdtemp, mkdir, writeFile, readFile, readdir, stat, realpath, rm } from
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { bashPath } from '../server/sessions-client.mjs';
-import { readDeclaration } from '../server/formats.mjs';
-import { askProject } from '../server/project-client.mjs';
+import { readDeclaration } from './formats.mjs';
+import { askProject } from './project-client.mjs';
 import { validateSchema } from '../server/store-client.mjs';
 import { built } from './cargo.mjs';
 

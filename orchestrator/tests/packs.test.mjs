@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { mkdtemp, mkdir, writeFile, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { readDeclaration } from '../server/formats.mjs';
+import { readDeclaration } from './formats.mjs';
 import { CONTRACTS } from './contract.mjs';
 import { validateSchema } from '../server/store-client.mjs';
 import { declaration } from './format-fixtures.mjs';

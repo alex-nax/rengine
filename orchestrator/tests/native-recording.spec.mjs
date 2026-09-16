@@ -5,7 +5,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 import { startServer } from './red-host-fixture.mjs';
-import { listRecordings, readRecording } from '../server/recordings.mjs';
+import { listRecordings, readRecording } from './recordings.mjs';
 import { nativeClient } from './native-client.mjs';
 
 const fixture = () => path.resolve(process.platform === 'win32'

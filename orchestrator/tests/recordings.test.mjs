@@ -11,7 +11,7 @@ import { startServer } from './red-host-fixture.mjs';
 import { startWorker } from './red-worker-fixture.mjs';
 import { forward, json } from '../runtime/protocol.mjs';
 import { request } from '../launcher/sidecar.mjs';
-import { listRecordings, readRecording } from '../server/recordings.mjs';
+import { listRecordings, readRecording } from './recordings.mjs';
 import { manifest, segment } from './recording-fixtures.mjs';
 
 /* The tool server is the red-mcp binary now (F187): this drives the same connection a pane gets. */

@@ -88,7 +88,7 @@ test('a window opened on a declared project wears its name and mark', { timeout:
 
 test('identity keys are refused below contract 5 and an unknown token is named', { timeout: 60000 }, async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-identity-contract-'));
-  const { readDeclaration } = await import('../server/formats.mjs');
+  const { readDeclaration } = await import('./formats.mjs');
   const early = await project(path.join(dir, 'early'), { ...DECLARED, contract: 4 });
   const bad = await project(path.join(dir, 'bad'), { ...DECLARED, icon: { glyph: 'x', token: 'chartreuse' } });
   const good = await project(path.join(dir, 'good'), DECLARED);
@@ -164,7 +164,7 @@ test('artwork that cannot be read leaves the glyph and reports the problem', { t
     const state = await gui.until(s => s.connected && s.title === 'Kohai', 'the title still reaches the chrome');
     assert.equal(state.mark, 'Ko', 'the declared glyph is what the chip falls back to');
     assert.equal(state.wordmarkLight, undefined, 'an unreadable wordmark is not offered to the chrome');
-    const { readDeclaration } = await import('../server/formats.mjs');
+    const { readDeclaration } = await import('./formats.mjs');
     const declared = await readDeclaration(root);
     assert.match(declared.artworkError, /cannot be read/, 'and the problem is reported, not swallowed');
     assert.equal(declared.formats[0].id, 'text', 'while the rest of the declaration survives');

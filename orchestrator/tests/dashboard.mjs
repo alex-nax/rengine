@@ -5,9 +5,9 @@
  * and that is the session host's business rather than the project reader's.
  */
 import { probeCacheFor, declarationOf, workspaceListings } from './devices.mjs';
-import { fail } from './store-client.mjs';
+import { fail } from '../server/store-client.mjs';
 import { askProject } from './project-client.mjs';
-import { bashPath } from './sessions-client.mjs';
+import { bashPath } from '../server/sessions-client.mjs';
 
 /* `preflight` is still taken and still ignored: the reader on the other side runs the game preflight
    itself, from the same declaration, which is what made a second copy of those checks unnecessary. */

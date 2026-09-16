@@ -13,7 +13,7 @@ git ls-files '*.mjs' | grep -vE 'tests/|\.test\.mjs' | xargs wc -l | tail -1
 
 | | lines |
 |---|---|
-| Production JavaScript remaining | **3,012** across 33 files |
+| Production JavaScript remaining | **2,711** across 27 files |
 | Rust in `red/` | ~34,000 |
 
 Down from 5,504 across 43 when this was first written — **35% of it gone**. The worker, the tracker
@@ -92,7 +92,7 @@ pipes. What is left is the launchers, which are their own commands rather than t
 | ~~`server/sessions-client.mjs`'s `Sessions`~~ | ~~380~~ | **deleted** — the pane record is the service's (D62) |
 | `server/store-client.mjs` | 229 | client of `red-store-serve`; 21 specs |
 | `server/pty-client.mjs` | 189 | client of `red-pty-serve`; 3 specs |
-| `server/{tasks,devices,project-client,formats,dashboard,recordings}.mjs` | 301 | thin clients of `red-project` |
+| ~~`server/{tasks,devices,project-client,formats,dashboard,recordings}.mjs`~~ | ~~301~~ | **moved to `tests/`** — thin clients of `red-project` with no product caller left |
 | `server/sessions-client.mjs` | 79 | the shell envelope, bash on Windows, a pane's title |
 
 **Status: a workspace runs no JavaScript host.** `ensureSidecar` starts `red-host`, which starts the
@@ -117,8 +117,15 @@ it keeps the mirror the JS client kept — subscribe to `/events`, attach to eac
 answer the synchronous reads from what has arrived. The door replays a pane's whole scrollback on
 attach, so the mirror is complete rather than "from when we looked".
 
-What is left in `orchestrator/server/` are **thin clients of Rust**, each a few lines over
-`askProject` or a service socket, kept alive by the specs that still import them:
+**Some of this is reclassified rather than deleted, and the table says which.** Six of those files —
+`formats`, `dashboard`, `devices`, `tasks`, `recordings` and `project-client` — are a few lines each
+over `askProject`, and after `main.mjs` went they had **no product importer at all**. They moved to
+`orchestrator/tests/`, where what they are is what they do: how a spec asks the Rust. The code did
+not disappear; its role changed, and counting it as product would have been the fiction.
+
+`store-client.mjs` and `pty-client.mjs` are the same shape but still have product callers
+(`external-project.mjs` wants `validateSchema`; `agents-client.mjs` wants `fail`), so they stay
+until those do.
 
 `red-host.test.mjs` did **not** retire. It compared the door against the JS host; both sides are
 `red-host` now, so it compares **two hosts on one state directory** — which is what a host
