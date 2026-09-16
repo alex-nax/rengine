@@ -16,7 +16,7 @@ existing generated context file (from its launcher/MCP configuration); never pri
 From the rEngine checkout, run the terminal routine with explicit values:
 
 ```sh
-bash orchestrator/actions/project-window.sh \
+bash actions/posix/project-window.sh \
   --context /absolute/path/to/existing-context.json \
   --project /absolute/path/to/game-project \
   --agent <current-retained-agent-id>
@@ -100,13 +100,13 @@ Use `open_script` to run a project-relative `.sh` file with literal `args` in an
 if it does not. Read the script purpose before invocation: it runs with the project's normal
 terminal permissions and may perform the actions it implements. No shell is silently installed.
 
-For example, open `orchestrator/actions/workspace-status.sh` with `args` containing `--context`
+For example, open `actions/posix/workspace-status.sh` with `args` containing `--context`
 and this agent's existing context path. Its new tab lets the human choose project windows,
 integration inbox or update status. The menu is a useful UI in its own right; it need not wait
 for a native dialog. Explicit arguments help automation but do not replace a requested interactive
 experience. The selected `wizard` skill guides authoring such flows.
 
-Older connector fallback: put `{"path":"orchestrator/actions/workspace-status.sh","args":["--context","/absolute/path/to/context.json"]}`
+Older connector fallback: put `{"path":"actions/posix/workspace-status.sh","args":["--context","/absolute/path/to/context.json"]}`
 in a JSON file, then run `client.mjs script --context FILE --desktop ID --script SCRIPT_JSON`.
 Use `show_session` or `client.mjs show-session --context FILE --desktop ID --session SESSION_ID`
 to reattach. Closing a tab retains a waiting script and its output; explicit Stop ends it.

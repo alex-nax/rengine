@@ -91,7 +91,7 @@ test('project windows retain one agent, isolated layouts, inspection and durable
     const reopened = await gui.until(s => s.tabs.some(t => t?.dirty && t.text.includes('Retain this draft')));
     assert.deepEqual(reopened.layout, projectLayout, 'selected editor and pane layout survive close/reopen');
     assert.equal(await readFile(path.join(projectPath, 'note.txt'), 'utf8'), 'game disk text\n');
-    const cli = await execute(bashPath(), ['orchestrator/actions/project-window.sh', '--context', source.context, '--project', projectPath, '--agent', agent.id]);
+    const cli = await execute(bashPath(), ['actions/posix/project-window.sh', '--context', source.context, '--project', projectPath, '--agent', agent.id]);
     assert.match(cli.stdout, new RegExp(windowId)); assert.match(cli.stderr, /Completed 3 stages/);
     assert.equal((await source.call('list_project_windows')).windows.length, 1);
     const scriptPath = path.join(originPath, 'choice.sh');

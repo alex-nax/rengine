@@ -1,6 +1,6 @@
 //! red-agent-launch: the launcher a person's CLI actually runs inside (F163, spec 146, charter D57).
 //!
-//! `orchestrator/agents/launch.mjs`, which `scripts/agent.sh` execs at the end of a pane launch.
+//! `orchestrator/agents/launch.mjs`, which `actions/pane/posix/agent.sh` execs at the end of a pane launch.
 //! It is the last live JavaScript entry point in a pane, and deleting it takes nine modules with
 //! it — everything it imported existed only to serve this one file.
 //!

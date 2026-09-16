@@ -18,7 +18,7 @@ import { ideConnectFlag } from './ide-connect.mjs';
 import { ideDirectory } from './ide.mjs';
 import { built } from './cargo.mjs';
 
-const script = path.resolve('scripts/agent.sh');
+const script = path.resolve('actions/pane/posix/agent.sh');
 const FIVE = ['claude', 'codex', 'gemini', 'opencode', 'kimi'];
 const ROOT_ID = '12345678-1234-1234-1234-123456789abc';
 

@@ -34,7 +34,7 @@ project-skills location that Codex and Kimi Code discover; the canonical definit
 | Repository health audit | `/rengine-audit` | `$rengine-audit` | `/skill:rengine-audit` |
 | Spec/doc reconciliation batch | `/rengine-housekeep` | `$rengine-housekeep` | `/skill:rengine-housekeep` |
 | Known-issue → feature promotion batch | `/rengine-ki-promote` | `$rengine-ki-promote` | `/skill:rengine-ki-promote` |
-| Integrate a new project with rEngine (no skill yet) | `docs/runbooks/project-integration.md` + `orchestrator/actions/integrate-project.sh` | same runbook and action | same runbook and action |
+| Integrate a new project with rEngine (no skill yet) | `docs/runbooks/project-integration.md` + `actions/posix/integrate-project.sh` | same runbook and action | same runbook and action |
 
 After the one-time layered bootstrap, use root-bound MCP `update_status`/`update_workspace`
 (or `orchestrator/runtime/client.mjs` with the existing context) for routine updates. Select a
@@ -149,7 +149,7 @@ Use `rengine-dogfood` and `docs/runbooks/project-window-dogfooding.md` to open/i
 window with a retained agent and exchange durable integration reports. The tree/project binding
 never retargets the original agent's MCP. Keep report data separate from executable instructions.
 
-Use the selected `wizard` adaptation for reusable shell actions under `orchestrator/actions/`.
+Use the selected `wizard` adaptation for reusable shell actions under `actions/posix/`.
 Interactive script tabs are a first-class workflow UI before native controls exist: use root-bound
 `open_script`/`show_session`, retain PTYs/logs, and let the human use the prompts. Offer explicit
 arguments for automatable stages, keep logs and propagate failures. No unselected external skills or global installs are required.

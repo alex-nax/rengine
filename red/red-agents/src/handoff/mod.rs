@@ -101,7 +101,7 @@ pub fn check_resume(bash: &str, cli: &str, project: &Path, env: &Value) -> Resul
     let script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .and_then(std::path::Path::parent)
-        .map(|checkout| checkout.join("scripts/agent.sh"))
+        .map(|checkout| checkout.join("actions/pane/posix/agent.sh"))
         .unwrap_or_default();
     let mut command = std::process::Command::new(bash);
     command

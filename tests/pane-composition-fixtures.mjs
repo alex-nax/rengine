@@ -12,7 +12,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const PATHS = {
-  agentScript: '/repo/scripts/agent.sh',
+  agentScript: '/repo/actions/pane/posix/agent.sh',
   rootPath: '/work/project',
   workspaceContextFile: '/state/integrations/12345678-1234-1234-1234-123456789abc.json',
   listingFile: '/state/integrations/00000000-0000-0000-0000-0000000000aa.conversations.tsv',

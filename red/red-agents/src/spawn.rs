@@ -335,7 +335,7 @@ mod tests {
             "id": "sid", "agent": null, "conversation": null, "resume": false, "action": "launch",
             "args": [], "workspace": true, "remembered": [], "mint": "minted-uuid", "now": 1_800_000_000_000i64,
             "paths": {
-                "agentScript": "/repo/scripts/agent.sh", "rootPath": "/work/project",
+                "agentScript": "/repo/actions/pane/posix/agent.sh", "rootPath": "/work/project",
                 "workspaceContextFile": "/state/integrations/root.json",
                 "listingFile": "/state/integrations/sid.conversations.tsv",
                 "node": "/usr/local/bin/node", "bash": "/bin/bash",

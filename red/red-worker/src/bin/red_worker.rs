@@ -2058,7 +2058,7 @@ impl red_worker::menu::Ask for Machine {
         let script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .and_then(std::path::Path::parent)
-            .map(|checkout| checkout.join("scripts/agent.sh"))
+            .map(|checkout| checkout.join("actions/pane/posix/agent.sh"))
             .unwrap_or_default();
         bounded("/bin/bash", &[&script.to_string_lossy(), "--project", &self.root, "--action", "list"])
     }

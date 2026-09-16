@@ -23,7 +23,7 @@ import { bashPath, shellEnvironment } from './sessions-client.mjs';
 import { agentNames, recipe } from './agents-client.mjs';
 import { fail } from './store-client.mjs';
 
-const agentScript = fileURLToPath(new URL('../scripts/agent.sh', import.meta.url));
+const agentScript = fileURLToPath(new URL('../actions/pane/posix/agent.sh', import.meta.url));
 const ask = (call, root, input) => askProject(['tasks', call, root.id, root.path], JSON.stringify(input));
 
 /* What the menu offers when a project declares no `agents` block: the registry's recipes, each with

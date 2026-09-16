@@ -16,7 +16,7 @@
     }
   ],
   "source": {
-    "path": "orchestrator/actions/project-window.sh",
+    "path": "actions/posix/project-window.sh",
     "sha256": "a23d88d00f843a70534fee36b2422068ec392d586487ce149650909fc629e2e5",
     "format": "shell",
     "format_fingerprint": "0c07404ffdecc7f9c766fddf6b5a92dfedbae0728eaef728c4c42a67f47f7f4a"

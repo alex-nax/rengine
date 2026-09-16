@@ -43,7 +43,7 @@
     }
   ],
   "source": {
-    "path": "orchestrator/actions/integrate-project.sh",
+    "path": "actions/posix/integrate-project.sh",
     "sha256": "61cdfd72f3efc7d7f90676d8a2dd0b54907b185b51a3a02e4eda61e1ad67b681",
     "format": "shell",
     "format_fingerprint": "0c07404ffdecc7f9c766fddf6b5a92dfedbae0728eaef728c4c42a67f47f7f4a"

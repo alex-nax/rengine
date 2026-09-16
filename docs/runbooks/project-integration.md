@@ -46,7 +46,7 @@ cannot persist the binding. This external path does not use the in-project recip
 The mechanical part is one command. Run it from this checkout:
 
 ```sh
-bash orchestrator/actions/integrate-project.sh \
+bash actions/posix/integrate-project.sh \
   --project /absolute/path/to/game-project \
   --name my-project \
   --game-title "My game" --game-exe build/my-game --game-surface external
@@ -246,7 +246,7 @@ a fix branch before the pin moved. A review that requests changes holds the pin,
 ## 8. Open the project window with the retained agent
 
 ```sh
-bash orchestrator/actions/project-window.sh \
+bash actions/posix/project-window.sh \
   --context /absolute/path/to/existing-context.json \
   --project /absolute/path/to/game-project \
   --agent <current-retained-agent-id>
@@ -384,7 +384,7 @@ Same caveat: the `games` array below is the shape this project is adopting, not 
 ## What the orchestrator UI will automate
 
 Today this recipe is a runbook plus a wizard, and the wizard is meant to be run **in a script tab**:
-`open_script` on `orchestrator/actions/integrate-project.sh` gives a retained PTY where a human
+`open_script` on `actions/posix/integrate-project.sh` gives a retained PTY where a human
 answers the prompts and reads the follow-ups (spec 071 — interactive scripts are a first-class
 workflow UI before native controls exist).
 

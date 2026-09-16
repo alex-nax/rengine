@@ -9,7 +9,7 @@ import { spawnSync } from 'node:child_process';
    rEngine ever offers to make to a person's global agent configuration, and only on explicit
    request — shown, confirmed, backed up, doctor-verified and restored on failure. The tests run
    against a fake kimi on PATH and a throwaway KIMI_CODE_HOME; no real configuration is touched. */
-const script = path.resolve('orchestrator/actions/bootstrap-agent-hooks.sh');
+const script = path.resolve('actions/posix/bootstrap-agent-hooks.sh');
 
 async function fixture(t, { doctor = 0, config } = {}) {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-hooks-'));

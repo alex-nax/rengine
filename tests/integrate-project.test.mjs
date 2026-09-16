@@ -20,7 +20,7 @@ before(() => built('--bins'));
 
 const execute = promisify(execFile);
 const ENGINE = path.resolve();
-const ACTION = path.join(ENGINE, 'orchestrator/actions/integrate-project.sh');
+const ACTION = path.join(ENGINE, 'actions/posix/integrate-project.sh');
 const SCHEMA = JSON.parse(await readFile(path.join(ENGINE, 'contracts/project-v1.schema.json'), 'utf8'));
 const CONTRACTS = new Set(SCHEMA.properties.contract.enum ?? []);
 const knowsGames = CONTRACTS.has(3) && Boolean(SCHEMA.properties.games);

@@ -379,7 +379,7 @@ async fn spawn_pane(front: &Arc<Front>, options: &Value) -> Result<Value, String
                 "workspace": true,
                 "remembered": remembered,
                 "paths": {
-                    "agentScript": checkout().join("scripts/agent.sh").to_string_lossy(),
+                    "agentScript": checkout().join("actions/pane/posix/agent.sh").to_string_lossy(),
                     "rootPath": root_path.to_string_lossy(),
                     "workspaceContextFile": context.to_string_lossy(),
                     "listingFile": integrations.join(format!("{id}.conversations.tsv")).to_string_lossy(),

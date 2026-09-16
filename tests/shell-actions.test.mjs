@@ -15,7 +15,7 @@ import { built } from './cargo.mjs';
    prebuilds and this is a no-op there (tests/cargo.mjs). */
 before(() => built('--bins'));
 
-const execute = promisify(execFile), helper = path.resolve('orchestrator/actions/lib/wizard.sh');
+const execute = promisify(execFile), helper = path.resolve('actions/posix/lib/wizard.sh');
 
 /* Every module path a shell action names has to EXIST. `replace-host.sh` went on naming
  * `orchestrator/launch.mjs` for a day after that file was deleted, and the way it failed is why
@@ -28,7 +28,7 @@ const execute = promisify(execFile), helper = path.resolve('orchestrator/actions
  * can be checked without doing any of that is that what they point at is there. */
 test('no shell action names a module that has been deleted', async () => {
   const root = fileURLToPath(new URL('..', import.meta.url));
-  const directories = ['orchestrator/actions', 'scripts'];
+  const directories = ['actions/posix', 'actions/pane/posix'];
   const dangling = [];
   for (const directory of directories) {
     for (const entry of await readdir(path.join(root, directory))) {
@@ -56,7 +56,7 @@ test('shell actions preserve literal argv and progress, and propagate failures',
 test('missing noninteractive values and incomplete procedures fail promptly', async () => {
   await assert.rejects(execute(bashPath(), ['-c', 'source "$1"; re_ask RE_PROJECT Project </dev/null', 'fixture', helper], { timeout: 2000 }), error => error.code === 2 && /Supply an explicit argument/.test(error.stderr));
   await assert.rejects(execute(bashPath(), ['-c', 'source "$1"; re_wizard Demo 2; re_stage One; re_finish', 'fixture', helper]), error => error.code === 2 && /Incomplete/.test(error.stderr));
-  await assert.rejects(execute(bashPath(), ['orchestrator/actions/project-window.sh', '--project'], { timeout: 2000 }), error => error.code === 2 && /Missing value/.test(error.stderr));
+  await assert.rejects(execute(bashPath(), ['actions/posix/project-window.sh', '--project'], { timeout: 2000 }), error => error.code === 2 && /Missing value/.test(error.stderr));
 });
 
 test('interactive wizard input hides secrets and Ctrl-C cancels without success', async () => {

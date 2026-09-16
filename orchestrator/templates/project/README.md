@@ -1,6 +1,6 @@
 # Consumer project templates
 
-What `orchestrator/actions/integrate-project.sh` copies into a project that is adopting rEngine,
+What `actions/posix/integrate-project.sh` copies into a project that is adopting rEngine,
 and what a person copies by hand when doing it without the wizard. The recipe around them is
 `docs/runbooks/project-integration.md`; the contract they encode is spec 077 plus specs 074
 (formats, contract 1), 075 (dashboard, contract 2) and 078 (game targets, contract 3).

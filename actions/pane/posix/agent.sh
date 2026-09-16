@@ -9,6 +9,10 @@ agent_home="${RENGINE_AGENT_HOME:-${XDG_STATE_HOME:-$HOME/.local/state}/rengine/
 extra=()
 extra_count=0
 launcher_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# The checkout, from actions/pane/posix/ (charter D71). Named once rather than spelled as
+# ../../.. at each use: this script moved two levels down and every sibling lookup moved
+# with it, which is the kind of thing that is silently wrong until a binary is "missing".
+checkout_dir="$(cd -- "$launcher_dir/../../.." && pwd)"
 
 # The one table every agent fact comes from (spec 114, charter D46): packages, update modes,
 # resume spellings. The registry is a TOML document (F167) read through the red-agents binary
@@ -23,7 +27,7 @@ red_agents_bin() {
     return 1
   fi
   local candidate
-  for candidate in "$launcher_dir/../red/target/debug/red-agents" "$launcher_dir/../red/target/release/red-agents"; do
+  for candidate in "$checkout_dir/red/target/debug/red-agents" "$checkout_dir/red/target/release/red-agents"; do
     [ -x "$candidate" ] && { printf '%s\n' "$candidate"; return 0; }
   done
   return 1
@@ -38,7 +42,7 @@ red_agent_launch_bin() {
     return 1
   fi
   local candidate
-  for candidate in "$launcher_dir/../red/target/debug/red-agent-launch" "$launcher_dir/../red/target/release/red-agent-launch"; do
+  for candidate in "$checkout_dir/red/target/debug/red-agent-launch" "$checkout_dir/red/target/release/red-agent-launch"; do
     [ -x "$candidate" ] && { printf '%s\n' "$candidate"; return 0; }
   done
   return 1

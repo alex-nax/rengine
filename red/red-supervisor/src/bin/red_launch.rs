@@ -79,7 +79,7 @@ fn absolute(value: &str) -> PathBuf {
 /// `orchestrator/build.mjs`: configure and build the native desktop under a lock, so two launchers
 /// racing for the same `.cache/desktop` do not build over each other.
 ///
-/// The node executable is still passed to cmake, because the desktop still execs `scripts/agent.sh`
+/// The node executable is still passed to cmake, because the desktop still execs `actions/pane/posix/agent.sh`
 /// and the MCP facade. That coupling is F163's to remove; naming it here is what makes it visible
 /// when it goes.
 fn build() -> Result<(), String> {
@@ -190,7 +190,7 @@ fn replace_host(state_dir: &Path, argv: &[String]) -> Result<Value, String> {
 }
 
 /// `--plan` reads and reports; without it the tool acts. The confirm prompt with no non-interactive
-/// bypass lives in `orchestrator/actions/restart-supervisor.sh`, which is where it always was.
+/// bypass lives in `actions/posix/restart-supervisor.sh`, which is where it always was.
 fn restart_command(argv: &[String]) -> Result<i32, String> {
     let Some(state) = named(argv, "--state").cloned().or_else(|| std::env::var("RENGINE_STATE_DIR").ok()) else {
         eprintln!("Usage: red-launch restart-supervisor --state DIR [--plan | --stop-only]");

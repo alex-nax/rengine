@@ -44,7 +44,7 @@
     }
   ],
   "source": {
-    "path": "scripts/agent.sh",
+    "path": "actions/pane/posix/agent.sh",
     "sha256": "92523ab4912bbc70e4754e0245c9f1f4fc4be709757a408f0d0233b899b92e11",
     "format": "shell",
     "format_fingerprint": "0c07404ffdecc7f9c766fddf6b5a92dfedbae0728eaef728c4c42a67f47f7f4a"

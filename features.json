@@ -643,7 +643,7 @@
       "passes": true,
       "dependencies": [],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/077-project-integration-recipe.md, docs/runbooks/project-integration.md, orchestrator/actions/integrate-project.sh, orchestrator/templates/project/ and tests/integrate-project.test.mjs",
+      "deliverable": "docs/specs/077-project-integration-recipe.md, docs/runbooks/project-integration.md, actions/posix/integrate-project.sh, orchestrator/templates/project/ and tests/integrate-project.test.mjs",
       "external_references": [
         "nolf-improved docs/specs/feature-1700-rengine-submodule.md",
         "nolf-improved docs/specs/feature-1703-editor-launcher.md",
@@ -824,7 +824,7 @@
         71
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/078-project-game-declaration.md, contracts/project-v1.schema.json, orchestrator/server/{game-rules,games}.mjs, editor/app.c, orchestrator/actions/integrate-project.sh, orchestrator/templates/project/test_rengine_project_decl.py, docs/runbooks/project-integration.md, tests/{cooperative.test.mjs,surface-producer.mjs,game-fixtures.mjs,native-cooperative.spec.mjs}",
+      "deliverable": "docs/specs/078-project-game-declaration.md, contracts/project-v1.schema.json, orchestrator/server/{game-rules,games}.mjs, editor/app.c, actions/posix/integrate-project.sh, orchestrator/templates/project/test_rengine_project_decl.py, docs/runbooks/project-integration.md, tests/{cooperative.test.mjs,surface-producer.mjs,game-fixtures.mjs,native-cooperative.spec.mjs}",
       "external_references": [
         "vtmb-vr F1147 (the consumer's own surface-protocol client, src/platform/workspace_surface.cpp)"
       ],
@@ -1076,7 +1076,7 @@
         92
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/097-agent-conversation-persistence.md; listConversations and recordConversation in orchestrator/server/store.mjs; the listing, describeAge and Sessions.recordConversation in orchestrator/server/sessions.mjs; the report in orchestrator/agents/launch.mjs; /api/agent-conversation and conversations on /api/state in orchestrator/server/main.mjs; scoped conversations in orchestrator/agents/mcp-worker.mjs; choose_conversation in scripts/agent.sh; tests/{conversations,conversation-picker}.test.mjs.",
+      "deliverable": "docs/specs/097-agent-conversation-persistence.md; listConversations and recordConversation in orchestrator/server/store.mjs; the listing, describeAge and Sessions.recordConversation in orchestrator/server/sessions.mjs; the report in orchestrator/agents/launch.mjs; /api/agent-conversation and conversations on /api/state in orchestrator/server/main.mjs; scoped conversations in orchestrator/agents/mcp-worker.mjs; choose_conversation in actions/pane/posix/agent.sh; tests/{conversations,conversation-picker}.test.mjs.",
       "external_references": [],
       "evidence": [
         "tests/conversations.test.mjs: conversations outlive the session host that recorded them",
@@ -1466,7 +1466,7 @@
         94
       ],
       "owner_workspace": "rengine",
-      "deliverable": "orchestrator/launcher/restart-supervisor.mjs, orchestrator/actions/restart-supervisor.sh, its dashboard declaration in .rengine/project.json, and tests/restart-supervisor.test.mjs.",
+      "deliverable": "orchestrator/launcher/restart-supervisor.mjs, actions/posix/restart-supervisor.sh, its dashboard declaration in .rengine/project.json, and tests/restart-supervisor.test.mjs.",
       "external_references": [],
       "evidence": [
         "tests/restart-supervisor.test.mjs: the session host is never among the processes stopped",
@@ -1626,7 +1626,7 @@
       "milestone": "O2",
       "category": "integration",
       "priority": "high",
-      "description": "One declared agent recipe registry replaces the four private tables the launch path keeps today (NAMED and CONVERSATIONS in agents/config.mjs, FLAGS in agents/ide-connect.mjs, MODEL_FLAGS and KNOWN_AGENTS in server/tasks.mjs, and the case arms in scripts/agent.sh): each recipe names its package, install, model flag, conversation flags, MCP overlay, hooks overlay and ACP command, and every consumer reads the one table, so adding an agent is a data edit rather than five edits that can disagree (charter D46).",
+      "description": "One declared agent recipe registry replaces the four private tables the launch path keeps today (NAMED and CONVERSATIONS in agents/config.mjs, FLAGS in agents/ide-connect.mjs, MODEL_FLAGS and KNOWN_AGENTS in server/tasks.mjs, and the case arms in actions/pane/posix/agent.sh): each recipe names its package, install, model flag, conversation flags, MCP overlay, hooks overlay and ACP command, and every consumer reads the one table, so adding an agent is a data edit rather than five edits that can disagree (charter D46).",
       "acceptance_criteria": [
         "One registry is the single source for an agent's package, install command, model flag, conversation/resume flags, MCP config overlay and hooks overlay; config.mjs, tasks.mjs, ide-connect.mjs and agent.sh each read it rather than carrying their own table, and no agent name is spelled in more than one place.",
         "Adding a recipe adds an agent end to end: a new entry makes the agent selectable, installable, launchable with its MCP overlay, and offered for a task spawn, with no other file edited.",
@@ -1639,7 +1639,7 @@
       "passes": true,
       "dependencies": [],
       "owner_workspace": "rengine",
-      "deliverable": "The recipe registry module and its schema, the rewired orchestrator/agents/config.mjs, orchestrator/agents/ide-connect.mjs, orchestrator/server/tasks.mjs and scripts/agent.sh, the CLAUDE_CONFIG_DIR fix in orchestrator/runtime/ide.mjs, and its tests.",
+      "deliverable": "The recipe registry module and its schema, the rewired orchestrator/agents/config.mjs, orchestrator/agents/ide-connect.mjs, orchestrator/server/tasks.mjs and actions/pane/posix/agent.sh, the CLAUDE_CONFIG_DIR fix in orchestrator/runtime/ide.mjs, and its tests.",
       "external_references": [],
       "evidence": [
         "docs/specs/114-dev-suite-roadmap.md: why protocol before embedding, and where the implicit registry lives today",
@@ -2332,7 +2332,7 @@
       "category": "integration",
       "priority": "high",
       "description": "Kimi Code is a named agent with the same pane functionality as the other four CLIs, because the owner directed unified integration \u2014 the same for everyone, including session listing+discovery. A kimi pane is detected, installed and updated through agent.sh; its launch wires the workspace MCP through the project-level .kimi-code/mcp.json (the only per-project channel kimi publishes), owning exactly one namespaced key and preserving every foreign entry; its session identity comes from its own --session flags with kimi --session <id> as the resume line and an honest unknown for -c or the selector; and live session reporting arrives through a SessionStart hook installed only by an explicit, reversible guided dashboard action, never by a silent write to the person's global config (owner, 2026-09-11; spec 127). F113 stays the follow-up that collapses the per-consumer tables into one registry.",
-      "deliverable": "The kimi entries in orchestrator/agents/config.mjs, orchestrator/server/tasks.mjs and scripts/agent.sh, the .kimi-code/mcp.json merge, env-preferred context resolution in orchestrator/agents/mcp.mjs, --provider kimi in orchestrator/agents/report-session.mjs, the orchestrator/actions/bootstrap-agent-hooks.sh guided action declared in .rengine/project.json, the usage-string updates, the AGENTS.md entry-points refresh, and the tests that saw each behavior fail first.",
+      "deliverable": "The kimi entries in orchestrator/agents/config.mjs, orchestrator/server/tasks.mjs and actions/pane/posix/agent.sh, the .kimi-code/mcp.json merge, env-preferred context resolution in orchestrator/agents/mcp.mjs, --provider kimi in orchestrator/agents/report-session.mjs, the actions/posix/bootstrap-agent-hooks.sh guided action declared in .rengine/project.json, the usage-string updates, the AGENTS.md entry-points refresh, and the tests that saw each behavior fail first.",
       "acceptance_criteria": [
         "kimi is named everywhere the other four CLIs are named: launcher and bind usage strings, agent.sh list/install/update, KNOWN_AGENTS and MODEL_FLAGS.",
         "A kimi pane launch wires the workspace MCP through .kimi-code/mcp.json at the pane's repository root: the file is created when absent, every foreign entry is preserved, only rEngine's own rengine_<rootId12> key is replaced, and invalid existing JSON is refused with the file left untouched.",

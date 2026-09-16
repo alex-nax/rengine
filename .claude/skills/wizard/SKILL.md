@@ -9,8 +9,8 @@ Read the target project's AGENTS.md and existing action before designing stages.
 intended inputs, side effects and acceptance check in a spec. The owner's current request can
 settle the stages; ask only for missing decisions or a concrete approval boundary.
 
-Use Bash 3.2-compatible `.sh` entry points under `orchestrator/actions/`, reusable helpers from
-`orchestrator/actions/lib/wizard.sh`, and `project-window.sh` as the working reference. Native
+Use Bash 3.2-compatible `.sh` entry points under `actions/posix/`, reusable helpers from
+`actions/posix/lib/wizard.sh`, and `project-window.sh` as the working reference. Native
 Windows uses the project's explicit Bash/Git Bash prerequisite; WSL is a distinct environment,
 not evidence for native Windows. Do not silently install a shell or dependency.
 

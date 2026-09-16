@@ -16,7 +16,7 @@
     }
   ],
   "source": {
-    "path": "orchestrator/actions/lib/wizard.sh",
+    "path": "actions/posix/lib/wizard.sh",
     "sha256": "6154e53cc1d8fcd82a9a25d5f002440754c10522b9e816c248346b796ca541ce",
     "format": "shell",
     "format_fingerprint": "0c07404ffdecc7f9c766fddf6b5a92dfedbae0728eaef728c4c42a67f47f7f4a"

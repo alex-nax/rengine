@@ -18,7 +18,7 @@
 # --inspect-ui, --replace-host, -- …) are forwarded to red-launch unchanged.
 #
 # npm is not on this path. `cargo` builds the launcher, the launcher builds the desktop through
-# cmake, and `node` is still required only because the desktop execs `scripts/agent.sh` and the MCP
+# cmake, and `node` is still required only because the desktop execs `actions/pane/posix/agent.sh` and the MCP
 # facade — the last coupling F163 removes, which is why it is named in the prerequisite report
 # rather than assumed.
 set -euo pipefail
@@ -143,7 +143,7 @@ else
     log "ok      SDL2 $SDL_FOUND"
 fi
 
-# node is NOT the launcher's any more; it is what the desktop execs for scripts/agent.sh and the MCP
+# node is NOT the launcher's any more; it is what the desktop execs for actions/pane/posix/agent.sh and the MCP
 # facade. F163 removes this line, and until it does, a missing node is a broken agent pane rather
 # than a broken launch — so it is reported and does not stop anything.
 # A bare RENGINE_NODE is a NAME, not a path: a host older than this checkout exports the word

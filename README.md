@@ -91,7 +91,7 @@ can supply it instead. Original PTY-host and supervisor protocol replacements st
 quiescence. Routine updates preserve the host, CLI and conversation. See
 [layered updates](docs/specs/065-layered-workspace-updates.md).
 
-To open a game project with the current agent, run `orchestrator/actions/project-window.sh`
+To open a game project with the current agent, run `actions/posix/project-window.sh`
 with explicit context, project path and retained agent ID. Each project window keeps its own
 layout; root-bound tools inspect/focus/close/reopen it and exchange durable integration reports.
 Agents can open interactive `.sh` flows in new retained tabs with **open_script**, then reattach
@@ -104,7 +104,7 @@ To bring a **new** project into rEngine, follow the
 [integration recipe](docs/runbooks/project-integration.md): pin rEngine as a submodule, install the
 `editor.sh` launching point, declare the project's formats, game and dashboard in
 `.rengine/project.json`, and keep the declaration test the project runs itself. The mechanical part
-is one command — `bash orchestrator/actions/integrate-project.sh --project ABS_DIR --name NAME`
+is one command — `bash actions/posix/integrate-project.sh --project ABS_DIR --name NAME`
 (add `--game-title`/`--game-exe`, or `--dry-run` to see the plan) — which copies the templates in
 `orchestrator/templates/project/`, never overwrites an existing file and prints the follow-ups it
 leaves to the project. nolf-improved and vtmb-vr are the worked instances in that runbook.

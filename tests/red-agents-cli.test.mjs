@@ -155,7 +155,7 @@ test('agent.sh reads the registry through the binary, with node gone', async t =
   await build();
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-agent-sh-rust-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  const script = path.join(ROOT, 'scripts/agent.sh');
+  const script = path.join(ROOT, 'actions/pane/posix/agent.sh');
   const env = { ...process.env, PATH: `${directory}:/usr/bin:/bin`,
     RENGINE_AGENT_HOME: path.join(directory, 'managed'), RENGINE_NODE: '/nonexistent/node' };
   const listed = spawnSync('bash', [script, '--project', tmpdir(), '--action', 'list'], { env, encoding: 'utf8', timeout: 15000 });

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 
-const script = path.resolve('scripts/agent.sh');
+const script = path.resolve('actions/pane/posix/agent.sh');
 const OLDER = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const NEWER = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 

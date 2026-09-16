@@ -5,7 +5,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 
-const script = path.resolve('scripts/agent.sh');
+const script = path.resolve('actions/pane/posix/agent.sh');
 async function fixture(t) {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-agent-'));
   t.after(() => rm(dir, { recursive: true, force: true }));

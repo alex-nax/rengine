@@ -74,7 +74,7 @@ trap 'printf "Bootstrap canceled. Nothing was written.\n" >&2; exit 130' INT
 re_wizard 'rEngine agent hook bootstrap (kimi)' 4
 
 re_stage 'Detect the CLI'
-command -v kimi >/dev/null || { printf 'kimi is not installed. Install it explicitly first (scripts/agent.sh --agent kimi --action install, or https://www.kimi.com/code).\n' >&2; exit 127; }
+command -v kimi >/dev/null || { printf 'kimi is not installed. Install it explicitly first (actions/pane/posix/agent.sh --agent kimi --action install, or https://www.kimi.com/code).\n' >&2; exit 127; }
 kimi --version || true
 
 re_stage 'What changes, and where'

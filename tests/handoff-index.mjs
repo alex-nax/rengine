@@ -7,7 +7,7 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const execute = promisify(execFile);
-const agentScript = fileURLToPath(new URL('../scripts/agent.sh', import.meta.url));
+const agentScript = fileURLToPath(new URL('../actions/pane/posix/agent.sh', import.meta.url));
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 
 /* The declared kinds this module can read a conversation store for, and who reads each. One arm per
