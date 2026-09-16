@@ -167,10 +167,19 @@ fn parse(argv: Vec<String>) -> Result<Options, String> {
         map.insert(name.to_string(), value.clone());
     }
     let want = |name: &str| map.get(name).cloned().ok_or_else(|| format!("--{name} is required"));
+    /* A backend is OPTIONAL now, and that is the whole shape of this row: this door answered every
+       route the JS host served long before anyone checked, and a full suite run forwards nothing.
+       With no `--backend` there is nothing behind this process — the routes it does not know are
+       refused here, in the words the JS host refused them with. */
+    let backend = map.get("backend").cloned();
+    let backend_token = map.get("backend-token").cloned();
+    if backend.is_some() != backend_token.is_some() {
+        return Err("--backend and --backend-token travel together or not at all".to_string());
+    }
     Ok(Options {
         state: want("state")?,
-        backend: want("backend")?,
-        backend_token: want("backend-token")?,
+        backend: backend.unwrap_or_default(),
+        backend_token: backend_token.unwrap_or_default(),
         port: match map.get("port") {
             Some(value) => value.parse().map_err(|_| "--port is not a number".to_string())?,
             None => 0,
@@ -207,6 +216,27 @@ async fn serve(options: Options) -> Result<(), String> {
         .await
         .map_err(|error| format!("loopback is unavailable: {error}"))?;
     let port = listener.local_addr().map_err(|error| error.to_string())?.port();
+    /* Started if nobody has. A door is the layer that OWNS the store and the panes, so it is the
+       layer that makes sure there is one of each to own — the same act `red-worker` performs for
+       the ledger, under the same lock two callers cannot both win. A failure is not fatal: the
+       routes over each say so by name, and everything else still serves. */
+    for (name, variable, binary, protocol) in [
+        ("store", "RENGINE_RED_STORE_SERVE", "red-store-serve", STORE_PROTOCOL),
+        ("pty", "RENGINE_RED_PTY_SERVE", "red-pty-serve", PTY_PROTOCOL),
+    ] {
+        match red_core::service::serve_binary(variable, binary).and_then(|path| {
+            red_core::service::start_service(
+                std::path::Path::new(&options.state),
+                name,
+                protocol,
+                &path,
+                &["--state".to_string(), options.state.clone()],
+            )
+        }) {
+            Ok(()) => {}
+            Err(message) => eprintln!("red-host: no {name} service ({message})"),
+        }
+    }
     let store = match red_core::service::Client::attach(std::path::Path::new(&options.state), "store", STORE_PROTOCOL) {
         Ok(client) => client,
         Err(message) => {
@@ -584,9 +614,25 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
             surface_socket::serve(front, stream, session).await;
             return Ok(());
         }
-        /* Everything else is the backend's, for now. The head is replayed with this door's token
-           swapped for the backend's — a client never learns the backend's credential — and the body
-           is forwarded by its own framing. */
+        /* With no backend there is nothing else: this door answers the workspace, and a route it
+           does not know is refused here rather than handed to a process that is not there. The
+           sentence is the JS host's own default case, because a client cannot tell which host it
+           reached and must not have to. */
+        if front.backend.is_empty() {
+            let answer = if head.path().starts_with("/api/") {
+                faulted("404|Unknown workspace endpoint.")
+            } else {
+                faulted("404|No web client is installed. Use the native desktop.")
+            };
+            client.write_all(answer.as_bytes()).await?;
+            if !head.keeps_alive() {
+                return Ok(());
+            }
+            continue;
+        }
+        /* Everything else is the backend's, while there is one. The head is replayed with this
+           door's token swapped for the backend's — a client never learns the backend's credential —
+           and the body is forwarded by its own framing. */
         let (backend_host, _) = red_core::http::address(&front.backend).map_err(io::Error::other)?;
         let mut upstream = TcpStream::connect(&backend_host).await?;
         upstream.write_all(head.replayed(&front.backend, &front.backend_token).as_bytes()).await?;
@@ -648,7 +694,10 @@ fn refuse(front: &Front, head: &Head) -> Option<String> {
         }
         return None;
     }
-    refusal(404, "Not Found", "Unknown workspace endpoint.")
+    /* Not an api path at all, which is a browser. The sentence is the JS host's, because it is the
+       one a person pointing a browser at their workspace has always been given and it says the
+       useful thing: there is nothing to see here, the client is the desktop. */
+    refusal(404, "Not Found", "No web client is installed. Use the native desktop.")
 }
 
 

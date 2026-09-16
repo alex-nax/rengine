@@ -48,23 +48,10 @@ pub fn parse_process_table(text: &str) -> Vec<Process> {
     rows
 }
 
-/// The state directory a session host serves, read off its command line.
-///
-/// A host is spawned as exactly `[main.mjs, "--state", DIR]`, so the directory is the TAIL — which
-/// is what makes a directory with a space in its name survive.
-pub fn host_arguments(command: &str) -> Option<(String, String)> {
-    let at = command.find("server/main.mjs")?;
-    /* `server/main.mjs` must end a path component rather than merely appear in one. */
-    let script_start = command[..at].rfind(char::is_whitespace).map(|space| space + 1).unwrap_or(0);
-    let script_end = at + "server/main.mjs".len();
-    let script = command[script_start..script_end].to_string();
-    let rest = command[script_end..].trim_start();
-    let directory = rest.strip_prefix("--state")?.trim_start().trim_end();
-    if directory.is_empty() {
-        return None;
-    }
-    Some((script, directory.to_string()))
-}
+/// The state directory a session host serves, read off its command line — `red_core`'s, because a
+/// worker looking for its workspace's credential reads the same table for the same reason, and two
+/// answers to "is that a session host?" is two chances to refuse a live one.
+pub use red_core::descriptor::host_arguments;
 
 /// Every pid between this one and the top of the tree.
 pub fn ancestors_of(pid: i64, processes: &[Process]) -> Vec<i64> {
@@ -369,6 +356,31 @@ mod tests {
             seen += 1;
         }
         assert!(seen >= 24, "the whole record was replayed: {seen}");
+    }
+
+    /* The host is a BINARY now (F152), and a workspace started before that upgrade is still running
+       the module. The frozen record predates the binary — it is what the JavaScript said on the day
+       — so the new spelling gets its own case rather than a regenerated record. A check that knew
+       only one spelling would refuse to replace a live host, which is a refusal nobody can act on. */
+    #[test]
+    fn both_spellings_of_a_session_host_name_the_directory_they_serve() {
+        for command in [
+            "/usr/bin/node /x/orchestrator/server/main.mjs --state /home/x/My Workspaces/with space",
+            "/x/red/target/debug/red-host --state /home/x/My Workspaces/with space",
+            "red-host --state /home/x/My Workspaces/with space",
+        ] {
+            let (_, directory) = host_arguments(command).unwrap_or_else(|| panic!("a host: {command}"));
+            assert_eq!(directory, "/home/x/My Workspaces/with space", "{command}");
+        }
+        /* And the two processes that are NOT hosts, both of which sit beside one in the table. */
+        for command in [
+            "/x/red/target/debug/red-supervisor --state /x/.cache/runtime/d5fe12fe",
+            "/x/red/target/debug/red-worker --state /x --host http://127.0.0.1:1234",
+            "/usr/bin/node /x/orchestrator/runtime/supervisor.mjs",
+            "/x/red-hostile --state /x",
+        ] {
+            assert_eq!(host_arguments(command), None, "{command}");
+        }
     }
 
     /* The refusal that keeps a person from replacing the host their own terminal lives in. */

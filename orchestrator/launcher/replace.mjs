@@ -26,9 +26,14 @@ export function parseProcessTable(text) {
   return rows;
 }
 
-// A host is spawned as exactly [main.mjs, '--state', directory], so the directory is the tail.
+/* A host is spawned as exactly [host, '--state', directory], so the directory is the TAIL — which
+   is what keeps a directory with a space in its name whole.
+
+   Two spellings, for the same reason `supervises` has two: the host is `red-host` now (F152), and a
+   workspace started before that upgrade is still running `server/main.mjs`. A check that knew only
+   one would refuse to replace a live host — "that process is not a session host" — for the other. */
 export function hostArguments(command) {
-  const match = /(?:^|\s)(\S*server\/main\.mjs)\s+--state\s+(.+?)\s*$/.exec(command);
+  const match = /(?:^|\s)(\S*(?:server\/main\.mjs|(?:^|\/)red-host))\s+--state\s+(.+?)\s*$/.exec(command);
   return match ? { script: match[1], stateDir: match[2] } : null;
 }
 

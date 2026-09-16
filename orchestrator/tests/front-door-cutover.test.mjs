@@ -1,17 +1,18 @@
-/* F189 (F152b, spec 129): the workspace a launcher starts is served by red-host.
+/* F189/F152 (spec 129): the workspace a launcher starts IS red-host, and nothing else.
  *
- * Every other spec in this suite starts a host IN PROCESS and drives it directly, which is the
- * right shape for testing what that host does and says nothing about what a person's workspace
- * actually runs. This one starts a workspace the way `launch.mjs`, the desktop and the MCP all
- * start one — `ensureSidecar` on a state directory — and asks what is answering.
+ * Every other spec in this suite starts a host in process and drives it directly, which is the right
+ * shape for testing what that host does and says nothing about what a person's workspace actually
+ * runs. This one starts a workspace the way `launch.mjs`, the desktop and the MCP all start one —
+ * `ensureSidecar` on a state directory — and asks what is answering.
  *
- * The answer has to be the pair: the Rust door on the port, the JS host behind it for the routes
- * F153–F156 have not moved, and one process the launcher can name for both. Before this, red-host
- * existed and no workspace ran it.
+ * It used to be a PAIR: the Rust door on the port with a JS host behind it for the routes that had
+ * not moved. They had all moved. With the forwarder instrumented, a full suite run forwarded zero
+ * requests, so the door now runs with no backend at all and this asserts the shape that leaves —
+ * one process, its own services, and no Node anywhere near the workspace.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -47,42 +48,43 @@ async function workspace(t, env = {}) {
   finally { if (before === undefined) delete process.env.RENGINE_RED_HOST; else process.env.RENGINE_RED_HOST = before; }
 }
 
-test('the workspace a launcher starts is answered by red-host, with the JS host behind it', { timeout: 120000 }, async t => {
+test('the workspace a launcher starts is red-host, and there is nothing behind it', { timeout: 120000 }, async t => {
   await built('-p', 'red-host', '--bin', 'red-host');
   const { directory, stateDir, instance } = await workspace(t);
 
   /* The descriptor names the process the launcher started — the one `replace.mjs` stops and
-     `discoverSidecar` asks about — and a url that is NOT that process's. */
+     `discoverSidecar` asks about — and it is the process answering, because there is only one. */
   assert.ok(alive(instance.pid), 'the workspace names a live process');
   const state = await request(instance, 'state');
   assert.equal(state.instance, instance.instance, 'and the identity the descriptor carries is the one answering');
-  assert.notEqual(state.pid, instance.pid, 'the process answering is not the process the launcher started');
+  assert.equal(state.pid, instance.pid, 'the process answering IS the process the launcher started');
   const running = await doors(stateDir);
-  assert.equal(running.length, 1, `exactly one door serves this directory: ${JSON.stringify(running.map(d => d.pid))}`);
-  assert.equal(running[0].pid, state.pid, 'and it is the process answering');
-  assert.ok((await processes(directory)).some(entry => entry.command.includes('server/main.mjs')),
-    'with the JS host still behind it, for the routes that have not moved');
+  assert.equal(running.length, 1, `exactly one host serves this directory: ${JSON.stringify(running.map(d => d.pid))}`);
+  assert.equal(running[0].pid, instance.pid);
 
-  /* Both halves are really in the path: a route the door owns and a route it forwards both answer
-     through the one port a client knows about. */
+  /* No Node anywhere near this workspace. That is the whole claim of the row: the JS host is not
+     started, not waited for, and not there. */
+  const node = (await processes(directory)).filter(entry => /server\/main\.mjs/.test(entry.command));
+  assert.deepEqual(node, [], `no JavaScript host serves this workspace: ${JSON.stringify(node)}`);
+
+  /* Routes from every half of what a workspace is, through the one port a client knows about: the
+     store's, the project's, and the panes'. Each used to be a different process. */
   const root = await request(instance, 'roots', { path: directory });
-  assert.equal((await request(instance, `tree?rootId=${root.id}&path=`)).entries.length >= 1, true, 'a route the door owns');
-  /* `dashboard` is one of the thirteen F153–F156 still own, so this answer came from behind the
-     door — through it, in the JS host's own words, for a project that declares nothing. */
-  const forwarded = await request(instance, `dashboard?rootId=${root.id}`);
-  assert.deepEqual(forwarded, { rootId: root.id, declared: false, groups: [] }, 'and one it forwards');
+  assert.ok((await request(instance, `tree?rootId=${root.id}&path=`)).entries.length >= 1, 'the store');
+  assert.deepEqual(await request(instance, `dashboard?rootId=${root.id}`),
+    { rootId: root.id, declared: false, groups: [] }, 'what the project declares');
+  assert.deepEqual((await request(instance, `desktops?rootId=${root.id}`)).desktops, [], 'and the desktops on its socket');
 
-  /* The pair lives and dies together. A door left behind would answer `/health` and every route it
-     owns for a backend that is gone, which reads as a healthy workspace to everything that asks. */
+  /* Stopping it stops the workspace. Its services are the state directory's and outlive it by
+     design (charter D60/D61), which is why they are not asserted gone here. */
   process.kill(instance.pid, 'SIGKILL');
   for (let waited = 0; waited < 8000 && (await doors(stateDir)).length; waited += 100) await delay(100);
-  assert.deepEqual(await doors(stateDir), [], 'the door stops with the host it fronts');
+  assert.deepEqual(await doors(stateDir), [], 'the host is gone with the process that was signalled');
 });
 
-/* And what happens without it. red-host is the host now — it answers the store routes, the session
- * routes, `/api/state` and the socket, and `main.mjs` serves only what F153–F156 have not moved. A
- * checkout that has not built it cannot serve a workspace, and a launcher that came up anyway would
- * publish a descriptor for something that answers `/health` and little else. */
+/* And what happens without it. red-host IS the workspace now, so a checkout that has not built it
+ * has no workspace at all — and the launcher says which binary is missing and how to make one,
+ * rather than publishing a descriptor for something that is not there. */
 test('a checkout with no red-host refuses to serve a workspace, by name', { timeout: 120000 }, async t => {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-cutover-none-'));
   const stateDir = path.join(directory, 'state');
@@ -94,11 +96,11 @@ test('a checkout with no red-host refuses to serve a workspace, by name', { time
   const before = process.env.RENGINE_RED_HOST;
   process.env.RENGINE_RED_HOST = path.join(tmpdir(), 'no-such-red-host');
   try {
-    await assert.rejects(ensureSidecar(stateDir), /Sidecar exited during startup|still starting/,
+    /* Refused BEFORE anything is started, and by name: the sentence carries the command that makes
+       the missing binary, because this is the failure a person meets out of a fresh clone. */
+    await assert.rejects(ensureSidecar(stateDir), /RENGINE_RED_HOST names .*which does not exist/,
       'the launcher does not get a workspace');
   } finally { if (before === undefined) delete process.env.RENGINE_RED_HOST; else process.env.RENGINE_RED_HOST = before; }
-  const log = await readFile(path.join(stateDir, 'sidecar.log'), 'utf8');
-  assert.match(log, /red-host is required to serve a workspace and was not found/, 'and is told why');
   assert.deepEqual(await doors(stateDir), []);
   assert.equal(existsSync(path.join(stateDir, 'sidecar.json')), false, 'with no descriptor left behind');
 });

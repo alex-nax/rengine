@@ -633,16 +633,15 @@ pub fn host_state_directory(state: &serde_json::Value, instance: &str, table: &s
         }
     }
     Err(format!(
-        "the session host does not say where its state lives, and no main.mjs --state process serves instance {instance}"
+        "the session host does not say where its state lives, and no host process serves instance {instance}"
     ))
 }
 
-/// `<anything>server/main.mjs --state <directory>` at the end of a command line.
+/// The state directory a host's command line names — `red_core`'s, which knows both spellings of a
+/// session host. This module's own copy knew only `server/main.mjs`, so the day the host became a
+/// binary it stopped finding any workspace at all.
 fn host_arguments(command: &str) -> Option<String> {
-    let at = command.find("server/main.mjs")?;
-    let rest = command[at + "server/main.mjs".len()..].trim_start();
-    let directory = rest.strip_prefix("--state")?.trim();
-    (!directory.is_empty()).then(|| directory.trim_end().to_string())
+    red_core::descriptor::host_arguments(command).map(|(_, directory)| directory)
 }
 
 /// What a caller is told when the directory cannot be found. It names the consequence and the two

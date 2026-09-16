@@ -1,9 +1,27 @@
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { mkdir, open, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const serverMain = fileURLToPath(new URL('../server/main.mjs', import.meta.url));
+const checkout = fileURLToPath(new URL('../../', import.meta.url));
+
+/* The session host (F152, spec 129, charter D57): red-host, which is what `ensureSidecar` starts.
+   Resolved the way every other Rust client here is resolved — the environment names one, then the
+   release build, then the debug build — and a missing binary is named with the command that makes
+   one, because this is the failure a person meets running a workspace out of a fresh clone. */
+export function redHostBinary(env = process.env) {
+  const declared = env.RENGINE_RED_HOST;
+  if (declared) {
+    if (existsSync(declared)) return declared;
+    throw new Error(`RENGINE_RED_HOST names ${declared}, which does not exist.`);
+  }
+  for (const profile of ['release', 'debug']) {
+    const candidate = path.join(checkout, 'red/target', profile, 'red-host');
+    if (existsSync(candidate)) return candidate;
+  }
+  throw new Error('The red-host binary is required (run: cargo build -p red-host, or set RENGINE_RED_HOST).');
+}
 const pause = () => new Promise(resolve => setTimeout(resolve, 75));
 export const alive = pid => {
   if (!Number.isSafeInteger(pid) || pid < 1) return false;
@@ -67,8 +85,11 @@ export async function ensureSidecar(directory) {
   try {
     const ready = await discoverSidecar(directory); if (ready) return ready;
     const log = await open(path.join(directory, 'sidecar.log'), 'a', 0o600);
-    const child = spawn(process.execPath, [serverMain, '--state', directory], { detached: true, stdio: ['ignore', log.fd, log.fd], windowsHide: true,
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: undefined } });
+    /* The host is a BINARY (F152). It starts the state directory's own store and PTY services,
+       publishes `sidecar.json` itself, and answers every route a workspace is made of — a full
+       suite run through the old door forwarded nothing to the JavaScript behind it, which is what
+       said this was ready. */
+    const child = spawn(redHostBinary(), ['--state', directory], { detached: true, stdio: ['ignore', log.fd, log.fd], windowsHide: true });
     await log.close();
     let failure;
     child.on('error', error => { failure = error; });

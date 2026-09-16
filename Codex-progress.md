@@ -126,6 +126,28 @@ now; getting there took:
 Both are the difference between "the update failed" and "the update failed and took your window
 with it".
 
+**A workspace runs no JavaScript host.** `ensureSidecar` starts `red-host`, which starts the state
+directory's own store and PTY services, publishes `sidecar.json`, and answers everything. What said
+this was ready was a MEASUREMENT rather than a survey: with the forwarder instrumented, a full
+`npm test` run forwarded **zero** requests to the JavaScript behind the door. It had been answering
+nothing, and nobody had asked.
+
+`host-standalone.test.mjs` drives a host started with no `--backend` at all — projects, files,
+drafts, a real pane that runs and talks, the board, the socket a desktop registers on, and the
+refusal for a route nobody serves. `front-door-cutover.test.mjs` asserts the other half: no
+`server/main.mjs` process serves a workspace, and the descriptor's pid IS the process answering.
+
+Three things had to learn that the host is a binary, and each would have been a refusal nobody could
+act on: `replace.mjs`'s `hostArguments` (a host replacement would have said "that process is not a
+session host" about a live one), `red_worker::signin`'s copy of the same scan, and the door's own
+"No web client is installed" sentence, which red-host had been answering differently. The scan is
+`red_core::descriptor::host_arguments` now — one answer to "is that a session host?", both spellings,
+because a workspace started before the upgrade is still running the module.
+
+The 1,405 lines are still in the tree, and it is worth being exact about why: 76 specs call
+`startServer` and reach into the `store` and `sessions` objects it returns. They are a test fixture
+now, not a host.
+
 **Four copies of one question became one.** "Is this descriptor mine, and is its process alive?" was
 answered four different ways in the Rust tree, and each copy was weaker than the last: red-mcp asked
 the process table by shelling out to `kill -0` (a process you may not signal reads as dead), and
@@ -200,7 +222,7 @@ replays the same 47 cases against `windows.mjs` and compares, so the record cann
 froze. It goes with the module (F173), and the Rust replay is then the whole of the evidence.
 Sabotage-verified from the JavaScript side as well as the Rust.
 
-Gates: `./init.sh` green; `cargo test --workspace` **343/343**; `npm test` **370/370**, plus the
+Gates: `./init.sh` green; `cargo test --workspace` **344/344**; `npm test` **370/370**, plus the
 four desktop specs run by name: `native-updates` 1/1, `native-stale-sessions` 3/3,
 `native-token-e2e` 1 of 2 and `native-project-windows` 0 of 1 — those last two failing at HEAD too,
 for reasons that are nothing to do with this work and are now **KI-125**: six specs reach for

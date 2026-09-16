@@ -84,19 +84,30 @@ suite that drove the module drives the binary — including the four desktop spe
 window through the supervisor's automation relay because a process cannot hand anyone a child's
 pipes. What is left is the launchers, which are their own commands rather than this layer.
 
-### 3. The JS session host behind the door — 1,405 lines
+### 3. The JS session host — 1,405 lines, and OFF THE PRODUCT PATH
 
 | file | lines | |
 |---|---|---|
 | `server/sessions-client.mjs` | 459 | the agent launcher: env, resume, titles |
 | `server/store-client.mjs` | 229 | client of `red-store-serve` |
-| `server/main.mjs` | 227 | the dispatcher `red-host` fronts |
+| `server/main.mjs` | 209 | the dispatcher `red-host` used to front |
 | `server/pty-client.mjs` | 189 | client of `red-pty-serve` |
 | `server/{tasks,devices,project-client,formats,dashboard,recordings}.mjs` | 301 | thin clients of `red-project` |
 
-**Status: `red-host` owns the port and answers most of it; this is what it still forwards to.** Four
-of these are clients of Rust services that already exist and retire with `main.mjs`. What is real
-work: `sessions-client.mjs` (how an agent CLI is actually launched) and F154's two tracker files.
+**Status: a workspace runs no JavaScript host.** `ensureSidecar` starts `red-host`, which starts the
+state directory's own store and PTY services, publishes `sidecar.json` and answers every route a
+workspace is made of. `front-door-cutover.test.mjs` asserts that no `server/main.mjs` process serves
+a workspace, and `host-standalone.test.mjs` drives a host with **no backend at all** — projects,
+files, drafts, a real pane, the board, and the socket a desktop registers on.
+
+**What said it was ready was a measurement, not a survey.** With the forwarder instrumented, a full
+`npm test` run forwarded **zero** requests to the JavaScript behind the door. It had been answering
+nothing.
+
+These 1,405 lines are now a **test fixture**: 76 specs call `startServer` and reach into the `store`
+and `sessions` objects it returns. Deleting them is one mechanical conversion — `startServer` becomes
+a fixture that starts `red-host` and answers those calls over its routes, the way
+`red-supervisor-fixture.mjs` and `red-worker-fixture.mjs` already do for their layers.
 
 ### 4. Agent-side and entry points — 839 lines (**F163**)
 
@@ -120,8 +131,9 @@ types, and F163 is the row that deletes them.
    protocol. `runtime/supervisor.mjs`, `windows.mjs` and `desktop.mjs` are deleted. What is left of
    F159 is the **launchers** — `replace.mjs`, `restart-supervisor.mjs`, `headless.mjs`,
    `bootstrap.mjs`, and `discovery.mjs` with `protocol.mjs` behind it. **−780 more.**
-5. **`sessions-client.mjs`** — how an agent CLI is launched. **−459**.
-6. **F163** — the entry points, `main.mjs` and the service clients that retire with it. **−~1,700**.
+5. **The JS host's deletion** — it is off the product path already; what holds it in the tree is
+   `startServer`, which 76 specs use as a fixture. One mechanical conversion. **−1,405**.
+6. **F163** — the entry points and the launchers that retire with them. **−~880**.
 
 ## Two things worth knowing before the next step
 

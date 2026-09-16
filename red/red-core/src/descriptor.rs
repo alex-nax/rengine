@@ -281,6 +281,33 @@ fn reachable_runtime(connection: &Connection, host: &Connection) -> Result<(), S
     }
 }
 
+/// The state directory a session host serves, read off its command line — or `None` if that command
+/// line is not a session host's.
+///
+/// A host is spawned as exactly `[host, "--state", DIR]`, so the directory is the **tail**, which is
+/// what keeps a directory with a space in its name whole.
+///
+/// **Two spellings.** The host is `red-host` now (F152) and a workspace started before that upgrade
+/// is still running `server/main.mjs`. Both a host replacement and a worker looking for its
+/// workspace's credential read this table, and a check that knew only one spelling would tell a
+/// person their live host "is not a session host" — a refusal nobody can act on.
+pub fn host_arguments(command: &str) -> Option<(String, String)> {
+    let (at, name) = ["server/main.mjs", "red-host"]
+        .into_iter()
+        .filter_map(|name| command.find(name).map(|at| (at, name)))
+        .find(|(at, name)| {
+            let ends_component =
+                at + name.len() == command.len() || command[at + name.len()..].starts_with(char::is_whitespace);
+            let starts_component =
+                *at == 0 || command[..*at].ends_with('/') || command[..*at].ends_with(char::is_whitespace);
+            ends_component && (name.contains('/') || starts_component)
+        })?;
+    let script_start = command[..at].rfind(char::is_whitespace).map(|space| space + 1).unwrap_or(0);
+    let script = command[script_start..at + name.len()].to_string();
+    let directory = command[at + name.len()..].trim_start().strip_prefix("--state")?.trim();
+    (!directory.is_empty()).then(|| (script, directory.to_string()))
+}
+
 /// What starting one of these takes, beyond finding out that nobody has.
 pub struct Starting<'a> {
     pub directory: &'a Path,
