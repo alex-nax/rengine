@@ -156,13 +156,30 @@ caller polling after a failure can still see what failed.
    gone with the two record tests whose subject they were (F173). `runtime/protocol.mjs` stays until
    `discovery.mjs` does, which is the same rule: a module retires with its CALLER.
 
+## One service per directory, and the race that was not
+
+F159's third criterion asks for **one** ensure path. `red_core::descriptor::ensure` is it: take a
+lock, spawn, wait for the thing to publish itself. Two callers asking together get one process.
+
+Writing it found a live defect in shipped Rust. A lock file is **created and then written**, so for
+an instant it exists and names nobody — and `service::start_service` read that as "nobody holds it",
+removed the winner's lock while the winner was still spawning, took it, and spawned a **second
+service**. The token ledger, the PTY service and the store all start through that path. Only a lock
+that is readable and names a process that is **gone** is reclaimed now; an unwritten or unreadable
+one means somebody is starting.
+
+The JavaScript did not have this bug — it caught `SyntaxError` separately from "missing" and waited
+— and the port had flattened the two into one `.ok()`. Driven by two callers in one process, and
+sabotage-verified three times running.
+
 ## The third criterion, and the one thing standing in its way
 
 F159 asks that *"the sidecar request/ensure path the remaining Rust binaries use is one shared
 implementation."* There were **four** copies of "is this descriptor mine, and is its process alive?"
 in the Rust tree. Two are now one:
 
-- `red_core::descriptor` is the implementation, with `red_core::http` underneath it.
+- `red_core::descriptor` is the implementation, with `red_core::http` underneath it, and
+  `descriptor::ensure` is the start path `service::start_service` now uses too.
 - `red-mcp`'s private copy is gone, and it had a real defect: it asked the process table by
   **shelling out to `kill -0`**, which reports a live process the caller may not signal as *dead*.
   Every agent pane's tool routing went through that check.

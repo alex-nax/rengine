@@ -126,6 +126,16 @@ now; getting there took:
 Both are the difference between "the update failed" and "the update failed and took your window
 with it".
 
+**One service per directory, and the race that was not.** F159's third criterion asks for one
+ensure path, so `red_core::descriptor::ensure` is it — take a lock, spawn, wait for the thing to
+publish itself. Writing it found a **live defect in shipped Rust**: a lock file is created and THEN
+written, so for an instant it exists and names nobody, and `service::start_service` read that as
+"nobody holds it" — removing the winner's lock while the winner was still spawning, taking it, and
+spawning a second service. The token ledger, the PTY service and the store all start through that
+path. The JavaScript did not have this bug; it caught `SyntaxError` separately from "missing" and
+waited, and the port had flattened the two into one `.ok()`. Driven by two callers in one process,
+sabotage-verified three times running.
+
 **Which process gets a SIGTERM is Rust too.** `replace.mjs`'s decisions are
 `red_supervisor::replace`: almost all of that module is a refusal to SIGNAL — a pid that is alive but
 is not a session host, a host serving a different directory (compared on the resolved path, because
@@ -182,7 +192,7 @@ replays the same 47 cases against `windows.mjs` and compares, so the record cann
 froze. It goes with the module (F173), and the Rust replay is then the whole of the evidence.
 Sabotage-verified from the JavaScript side as well as the Rust.
 
-Gates: `./init.sh` green; `cargo test --workspace` **339/339**; `npm test` **369/369**, plus the
+Gates: `./init.sh` green; `cargo test --workspace` **343/343**; `npm test` **369/369**, plus the
 four desktop specs run by name: `native-updates` 1/1, `native-stale-sessions` 3/3,
 `native-token-e2e` 1 of 2 and `native-project-windows` 0 of 1 — those last two failing at HEAD too,
 for reasons that are nothing to do with this work and are now **KI-125**: six specs reach for

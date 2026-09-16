@@ -145,14 +145,11 @@ pub fn serve_binary(variable: &str, basename: &str) -> Result<std::path::PathBuf
 
 /// Start the service serving `directory` if none is, and say nothing if one already is.
 ///
-/// **One service per directory**, so the start is taken under a lock: two processes attaching at
-/// once must not each spawn one, and a lock whose owner died must not block the survivor forever.
-/// The discipline is `service-client.mjs`'s, which is the only thing that has ever started one of
-/// these — and a Rust process that started them differently would be a second convention for the
-/// same file.
-///
-/// Detached, with its own log beside the descriptor, because the service outlives whoever started
-/// it: that is the whole of D60/D61.
+/// **One service per directory**, and the lock discipline that makes that true is
+/// `descriptor::ensure` — shared with the session host and the supervisor, because it is the same
+/// question three times and it had been answered three ways. One of those ways had a race that
+/// started two services: a lock file exists for an instant before its owner is written, and reading
+/// that as "nobody holds it" lets a second caller take it while the first is still spawning.
 pub fn start_service(
     directory: &Path,
     name: &str,
@@ -160,74 +157,39 @@ pub fn start_service(
     binary: &Path,
     args: &[String],
 ) -> Result<(), String> {
-    std::fs::create_dir_all(directory).map_err(|error| format!("{} cannot be created: {error}", directory.display()))?;
     let descriptor = directory.join(format!("{name}.json"));
-    if serving_this_protocol(&descriptor, protocol) {
-        return Ok(());
-    }
-    let lock = directory.join(format!("{name}-startup.lock"));
-    let deadline = std::time::Instant::now() + Duration::from_secs(15);
-    loop {
-        match std::fs::OpenOptions::new().write(true).create_new(true).open(&lock) {
-            Ok(mut held) => {
-                use std::io::Write;
-                let _ = write!(held, "{{\"pid\":{}}}", std::process::id());
-                let outcome = under_lock(directory, name, protocol, binary, args, &descriptor);
-                let _ = std::fs::remove_file(&lock);
-                return outcome;
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-                /* Somebody else is starting one. If it arrived, that is the answer; if the holder is
-                   gone, the lock is theirs no longer. */
-                if serving_this_protocol(&descriptor, protocol) {
-                    return Ok(());
-                }
-                let owner = std::fs::read_to_string(&lock)
-                    .ok()
-                    .and_then(|text| serde_json::from_str::<Value>(&text).ok())
-                    .and_then(|held| held.get("pid").and_then(Value::as_i64));
-                match owner {
-                    Some(pid) if pid_is_live(pid) => {}
-                    /* A lock with no readable owner is a lock nobody is holding. */
-                    _ => {
-                        let _ = std::fs::remove_file(&lock);
-                        continue;
-                    }
-                }
-                if std::time::Instant::now() > deadline {
-                    return Err(format!(
-                        "{} is held by a live process; no second {name} service was started.",
-                        lock.display()
-                    ));
-                }
-                std::thread::sleep(Duration::from_millis(50));
-            }
-            Err(error) => return Err(format!("{} cannot be taken: {error}", lock.display())),
-        }
-    }
+    let lock = format!("{name}-startup.lock");
+    let log = format!("{name}-serve.log");
+    let held = |path: &Path| {
+        format!("{} is held by a live process; no second {name} service was started.", path.display())
+    };
+    let exited = |path: &Path| format!("{} exited during startup; see {}.", binary.display(), path.display());
+    let slow = |_pid: i64| {
+        format!("{} did not write {} within 15s; see {}.", binary.display(), descriptor.display(), directory.join(&log).display())
+    };
+    let options = crate::descriptor::Starting {
+        directory,
+        lock: &lock,
+        log: &log,
+        deadline: Duration::from_secs(15),
+        held: &held,
+        exited: &exited,
+        slow: &slow,
+    };
+    let owned = descriptor.clone();
+    crate::descriptor::ensure(
+        &options,
+        &|| Ok(serving_this_protocol(&owned, protocol).then_some(())),
+        &|log| spawn_detached(binary, args, log),
+    )
 }
 
-fn under_lock(
-    directory: &Path,
-    name: &str,
-    protocol: u64,
-    binary: &Path,
-    args: &[String],
-    descriptor: &Path,
-) -> Result<(), String> {
-    /* Checked again with the lock held: whoever we waited behind may have started it. */
-    if serving_this_protocol(descriptor, protocol) {
-        return Ok(());
-    }
-    let log_path = directory.join(format!("{name}-serve.log"));
-    let log = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&log_path)
-        .map_err(|error| format!("{} cannot be opened: {error}", log_path.display()))?;
+/// The service as its own session, so it is not in this process's group and does not die with it.
+/// That is the whole of D60/D61: the service belongs to the state directory, not to whoever started
+/// it.
+fn spawn_detached(binary: &Path, args: &[String], log: std::fs::File) -> Result<i64, String> {
     let mut command = std::process::Command::new(binary);
     command.args(args).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(log);
-    /* Its own session, so it is not in this process's group and does not die with it. */
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
@@ -238,20 +200,10 @@ fn under_lock(
             });
         }
     }
-    command.spawn().map_err(|error| format!("cannot start {}: {error}", binary.display()))?;
-    let deadline = std::time::Instant::now() + Duration::from_secs(15);
-    while std::time::Instant::now() < deadline {
-        if serving_this_protocol(descriptor, protocol) {
-            return Ok(());
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    }
-    Err(format!(
-        "{} did not write {} within 15s; see {}.",
-        binary.display(),
-        descriptor.display(),
-        log_path.display()
-    ))
+    command
+        .spawn()
+        .map(|child| child.id() as i64)
+        .map_err(|error| format!("cannot start {}: {error}", binary.display()))
 }
 
 /// A descriptor that names a service this build can speak to, and that answers.

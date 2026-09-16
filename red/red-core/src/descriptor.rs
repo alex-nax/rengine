@@ -281,10 +281,151 @@ fn reachable_runtime(connection: &Connection, host: &Connection) -> Result<(), S
     }
 }
 
+/// What starting one of these takes, beyond finding out that nobody has.
+pub struct Starting<'a> {
+    pub directory: &'a Path,
+    /// `startup.lock`, the file two callers race for.
+    pub lock: &'a str,
+    /// Where the child's own output goes, because it outlives whoever started it.
+    pub log: &'a str,
+    pub deadline: std::time::Duration,
+    /// Somebody else holds the lock and is alive.
+    pub held: &'a dyn Fn(&Path) -> String,
+    /// The child we started went away before it published anything.
+    pub exited: &'a dyn Fn(&Path) -> String,
+    /// It is alive and has not published anything yet.
+    pub slow: &'a dyn Fn(i64) -> String,
+}
+
+/// Start the thing serving this directory if nobody is, and say nothing if somebody already is.
+///
+/// **One per directory**, so the start is taken under a lock — and the lock is the interesting part:
+///
+/// - A caller that loses the race **asks again** rather than waiting the lock out, because the
+///   winner publishes a descriptor and that is the answer both of them wanted.
+/// - A lock whose owner is **gone** is a lock nobody holds, and is taken. A process that died
+///   between creating the lock and spawning must not block the directory forever.
+/// - Once the child exists, the lock is **rewritten with the CHILD's pid**. That is what makes the
+///   rule above safe: if this process dies now, the next caller finds a lock owned by something
+///   alive and waits for it, instead of taking it and starting a second one.
+/// - The lock is removed by whoever still owns it, and kept by the one that handed it to a child.
+pub fn ensure<T>(
+    options: &Starting,
+    discover: &dyn Fn() -> Result<Option<T>, String>,
+    spawn: &dyn Fn(std::fs::File) -> Result<i64, String>,
+) -> Result<T, String> {
+    create_private(options.directory)?;
+    if let Some(found) = discover()? {
+        return Ok(found);
+    }
+    let lock = options.directory.join(options.lock);
+    let deadline = std::time::Instant::now() + options.deadline;
+    loop {
+        match std::fs::OpenOptions::new().write(true).create_new(true).open(&lock) {
+            Ok(mut held) => {
+                use std::io::Write;
+                let _ = write!(held, "{{\"pid\":{}}}", std::process::id());
+                let (outcome, keep) = under_lock(options, &lock, discover, spawn);
+                /* Removed unless it was handed to a live child: see the rewrite above. The flag
+                   travels BESIDE the result rather than inside it, because the case that has to keep
+                   the lock is a FAILURE — a child that is alive and has not published yet. */
+                if !keep {
+                    let _ = std::fs::remove_file(&lock);
+                }
+                return outcome;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                if let Some(found) = discover()? {
+                    return Ok(found);
+                }
+                /* A lock is created and THEN written, so for an instant it exists and names
+                   nobody. Reading that as "nobody holds it" is how two hosts get started on one
+                   state directory: this thread removes the winner's lock while the winner is still
+                   spawning, takes it, and spawns a second one. Measured, with two callers in one
+                   process — only a lock that is READABLE and names a process that is GONE is
+                   reclaimed; an unwritten or unreadable one means somebody is starting. */
+                let owner = match std::fs::read_to_string(&lock) {
+                    Ok(text) => serde_json::from_str::<Value>(&text).ok().and_then(|held| held.get("pid").and_then(Value::as_i64)),
+                    /* It went while we were looking: try to take it. */
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                    Err(_) => None,
+                };
+                if owner.is_some_and(|pid| !alive(pid)) {
+                    let _ = std::fs::remove_file(&lock);
+                    continue;
+                }
+                if std::time::Instant::now() > deadline {
+                    return Err((options.held)(&lock));
+                }
+                std::thread::sleep(std::time::Duration::from_millis(75));
+            }
+            Err(error) => return Err(format!("{} cannot be taken: {error}", lock.display())),
+        }
+    }
+}
+
+/// With the lock held. The `bool` says whether the lock was handed to a live child and must be kept.
+fn under_lock<T>(
+    options: &Starting,
+    lock: &Path,
+    discover: &dyn Fn() -> Result<Option<T>, String>,
+    spawn: &dyn Fn(std::fs::File) -> Result<i64, String>,
+) -> (Result<T, String>, bool) {
+    /* Asked again with the lock held: whoever we waited behind may have started it. */
+    match discover() {
+        Ok(Some(found)) => return (Ok(found), false),
+        Err(why) => return (Err(why), false),
+        Ok(None) => {}
+    }
+    let log_path = options.directory.join(options.log);
+    let log = match std::fs::OpenOptions::new().create(true).append(true).open(&log_path) {
+        Ok(log) => log,
+        Err(error) => return (Err(format!("{} cannot be opened: {error}", log_path.display())), false),
+    };
+    let pid = match spawn(log) {
+        Ok(pid) => pid,
+        Err(why) => return (Err(why), false),
+    };
+    if pid > 0 {
+        let _ = std::fs::write(lock, format!("{{\"pid\":{pid}}}"));
+    }
+    let deadline = std::time::Instant::now() + options.deadline;
+    loop {
+        if !alive(pid) {
+            return (Err((options.exited)(&log_path)), false);
+        }
+        match discover() {
+            /* It published itself: the lock goes, because the thing it was protecting is done. */
+            Ok(Some(found)) => return (Ok(found), false),
+            Err(why) => return (Err(why), false),
+            Ok(None) => {}
+        }
+        if std::time::Instant::now() > deadline {
+            /* KEPT. The child is alive and may still publish; a lock removed now would let the next
+               caller take it and start a second one beside the child this one started. */
+            return (Err((options.slow)(pid)), true);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(75));
+    }
+}
+
+fn create_private(path: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(path).map_err(|error| format!("{} cannot be created: {error}", path.display()))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+    use std::path::PathBuf;
+    use std::sync::Arc;
+    use std::time::Duration;
 
     fn token() -> String {
         "a".repeat(64)
@@ -448,6 +589,119 @@ mod tests {
         let refused = discover_runtime(&host, &directory).expect_err("an error, never a None");
         assert!(refused.starts_with(&format!("Runtime PID {} is alive but unavailable. No duplicate was started", std::process::id())), "{refused}");
         std::fs::remove_dir_all(&directory).ok();
+    }
+
+    fn starting_in(directory: &Path) -> (String, String, String) {
+        (
+            format!("{} is owned", directory.display()),
+            "it exited".to_string(),
+            "it is slow".to_string(),
+        )
+    }
+
+    /* Two callers asking together get ONE process, and the loser gets the winner's answer rather
+       than a second start. That is the whole of what the lock is for. */
+    #[test]
+    fn two_callers_asking_together_start_one_thing() {
+        let directory = std::env::temp_dir().join(format!("red-ensure-one-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        let started = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let published = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let go = |directory: PathBuf, started: Arc<std::sync::atomic::AtomicUsize>, published: Arc<std::sync::atomic::AtomicBool>| {
+            std::thread::spawn(move || {
+                let (held, exited, slow) = starting_in(&directory);
+                let options = Starting {
+                    directory: &directory,
+                    lock: "startup.lock",
+                    log: "start.log",
+                    deadline: Duration::from_secs(5),
+                    held: &|_| held.clone(),
+                    exited: &|_| exited.clone(),
+                    slow: &|_| slow.clone(),
+                };
+                ensure(
+                    &options,
+                    &|| Ok(published.load(std::sync::atomic::Ordering::SeqCst).then(|| "serving".to_string())),
+                    &|_log| {
+                        started.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                        std::thread::sleep(Duration::from_millis(150));
+                        published.store(true, std::sync::atomic::Ordering::SeqCst);
+                        Ok(std::process::id() as i64)
+                    },
+                )
+            })
+        };
+        let first = go(directory.clone(), started.clone(), published.clone());
+        let second = go(directory.clone(), started.clone(), published.clone());
+        assert_eq!(first.join().expect("joined"), Ok("serving".to_string()));
+        assert_eq!(second.join().expect("joined"), Ok("serving".to_string()));
+        assert_eq!(started.load(std::sync::atomic::Ordering::SeqCst), 1, "exactly one was started");
+        assert!(!directory.join("startup.lock").exists(), "and the lock went with the start it protected");
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    /* A lock whose owner is gone is a lock nobody holds. A process that died between creating it
+       and spawning must not block the directory forever. */
+    #[test]
+    fn a_lock_whose_owner_is_gone_is_taken() {
+        let directory = std::env::temp_dir().join(format!("red-ensure-dead-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).expect("a directory");
+        std::fs::write(directory.join("startup.lock"), "{\"pid\":4194303}").expect("a stale lock");
+        let (held, exited, slow) = starting_in(&directory);
+        let options = Starting {
+            directory: &directory, lock: "startup.lock", log: "start.log",
+            deadline: Duration::from_secs(5),
+            held: &|_| held.clone(), exited: &|_| exited.clone(), slow: &|_| slow.clone(),
+        };
+        let up = std::sync::atomic::AtomicBool::new(false);
+        let found = ensure(
+            &options,
+            &|| Ok(up.load(std::sync::atomic::Ordering::SeqCst).then(|| "serving".to_string())),
+            &|_log| { up.store(true, std::sync::atomic::Ordering::SeqCst); Ok(std::process::id() as i64) },
+        );
+        assert_eq!(found, Ok("serving".to_string()));
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    /* And one whose owner is ALIVE is waited for, then refused by name — never taken. Taking it is
+       how a second host gets started beside a live one. */
+    #[test]
+    fn a_lock_a_live_process_holds_is_refused_rather_than_taken() {
+        let directory = std::env::temp_dir().join(format!("red-ensure-live-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).expect("a directory");
+        std::fs::write(directory.join("startup.lock"), format!("{{\"pid\":{}}}", std::process::id())).expect("a held lock");
+        let (held, exited, slow) = starting_in(&directory);
+        let options = Starting {
+            directory: &directory, lock: "startup.lock", log: "start.log",
+            deadline: Duration::from_millis(200),
+            held: &|_| held.clone(), exited: &|_| exited.clone(), slow: &|_| slow.clone(),
+        };
+        let refused = ensure(&options, &|| Ok(None::<String>), &|_log| panic!("nothing may be started")).expect_err("refused");
+        assert!(refused.contains("is owned"), "{refused}");
+        assert!(directory.join("startup.lock").exists(), "and the lock is left where it was");
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    /* A child that never publishes but is still ALIVE keeps the lock, because removing it would let
+       the next caller start a second one beside it. One that DIED releases it. */
+    #[test]
+    fn the_lock_is_kept_for_a_live_child_and_released_for_a_dead_one() {
+        for (label, pid, keeps) in [("slow", std::process::id() as i64, true), ("dead", 4_194_303i64, false)] {
+            let directory = std::env::temp_dir().join(format!("red-ensure-{label}-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&directory);
+            let (held, exited, slow) = starting_in(&directory);
+            let options = Starting {
+                directory: &directory, lock: "startup.lock", log: "start.log",
+                deadline: Duration::from_millis(150),
+                held: &|_| held.clone(), exited: &|_| exited.clone(), slow: &|_| slow.clone(),
+            };
+            let refused = ensure(&options, &|| Ok(None::<String>), &|_log| Ok(pid)).expect_err("refused");
+            assert_eq!(refused, if keeps { "it is slow" } else { "it exited" }, "{label}");
+            assert_eq!(directory.join("startup.lock").exists(), keeps, "{label}");
+            let _ = std::fs::remove_dir_all(&directory);
+        }
     }
 
     /// The sentences, checked against the JavaScript that still says them — and against the record
