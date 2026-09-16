@@ -126,6 +126,14 @@ now; getting there took:
 Both are the difference between "the update failed" and "the update failed and took your window
 with it".
 
+**Which process gets a SIGTERM is Rust too.** `replace.mjs`'s decisions are
+`red_supervisor::replace`: almost all of that module is a refusal to SIGNAL — a pid that is alive but
+is not a session host, a host serving a different directory (compared on the resolved path, because
+a directory reached through a link is the same one), and a launcher running inside the workspace it
+would replace, which would die with the host it signalled. Judged against 25 cases over the process
+table the JavaScript's own suite was written against, including a state directory with a space in
+its name; matched first run, six sabotages.
+
 **A leak the suite's own flakiness was pointing at, and nobody had read.** `npm test` failed
 intermittently on different specs; catching one showed *"Every sign-in port is busy (47821, 47822,
 47823, 47824, 47825). Close what is using one and try again."* — a sentence written this session,
@@ -174,7 +182,7 @@ replays the same 47 cases against `windows.mjs` and compares, so the record cann
 froze. It goes with the module (F173), and the Rust replay is then the whole of the evidence.
 Sabotage-verified from the JavaScript side as well as the Rust.
 
-Gates: `./init.sh` green; `cargo test --workspace` **336/336**; `npm test` **367/367**, plus the
+Gates: `./init.sh` green; `cargo test --workspace` **339/339**; `npm test` **369/369**, plus the
 four desktop specs run by name: `native-updates` 1/1, `native-stale-sessions` 3/3,
 `native-token-e2e` 1 of 2 and `native-project-windows` 0 of 1 — those last two failing at HEAD too,
 for reasons that are nothing to do with this work and are now **KI-125**: six specs reach for

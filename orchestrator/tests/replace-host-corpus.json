@@ -1,0 +1,423 @@
+{
+  "recordedFrom": "orchestrator/launcher/replace.mjs",
+  "recordedAt": "2026-09-16",
+  "table": "\n    1     0 /sbin/launchd\n 9599     1 /usr/bin/node /home/x/rengine/orchestrator/runtime/supervisor.mjs\n 9600     1 /home/x/rengine/red/target/debug/red-supervisor --state /home/x/rengine/.cache/runtime/d5fe12fe\n 9603  9599 /home/x/rengine/red/target/debug/red-worker --state /home/x/rengine/.cache/runtime/d5fe12fe --host http://127.0.0.1:1234\n82044  9599 /home/x/rengine/.cache/runtime/d5fe12fe/versions/ccd74ad2/bin/rengine --control\n68944     1 /usr/bin/node /home/x/rengine/orchestrator/server/main.mjs --state /home/x/.local/state/redit/hirebase-v2\n12336 68944 /usr/bin/node /home/x/rengine/scripts/../orchestrator/agents/launch.mjs claude /usr/bin/claude\n12342 12336 /usr/bin/claude --mcp-config /home/x/.local/state/redit/hirebase-v2/integrations/x/mcp.json\n94222 12342 /bin/zsh -c source snapshot.sh\n90297     1 /usr/bin/node /home/x/vtmb-vr/third_party/rengine/orchestrator/server/main.mjs --state /home/x/.local/state/rengine/vtmb-vr-2249049057\n90359     1 /usr/bin/node /home/x/vtmb-vr/third_party/rengine/orchestrator/runtime/supervisor.mjs\n60124     1 /usr/bin/node /home/x/nolf-improved/third_party/rengine/orchestrator/server/main.mjs --state /home/x/.local/state/rengine/nolf-improved-2056293539\n44686     1 /usr/bin/node /home/x/nolf-improved/third_party/rengine/orchestrator/server/main.mjs --state /home/x/.local/state/rengine\n29815     1 /usr/bin/node /home/x/rengine/.cache/worktrees/agent-token-2/orchestrator/server/main.mjs --state /var/folders/T/rengine-preflight-rjyCY8\n77001     1 /usr/bin/node /home/x/rengine/orchestrator/server/main.mjs --state /home/x/My Workspaces/with space\n",
+  "why": "F173: a parity proof cannot outlive the side it compares against. What this module decides is which process gets a SIGTERM, and these are the answers it gave on the day red-supervisor replaced it. Never regenerate: a record that moves with the implementation proves nothing.",
+  "cases": [
+    {
+      "name": "the table is parsed, spaces in a state directory and all",
+      "op": {
+        "call": "parseProcessTable"
+      },
+      "answer": {
+        "value": [
+          {
+            "pid": 1,
+            "ppid": 0,
+            "command": "/sbin/launchd"
+          },
+          {
+            "pid": 9599,
+            "ppid": 1,
+            "command": "/usr/bin/node /home/x/rengine/orchestrator/runtime/supervisor.mjs"
+          },
+          {
+            "pid": 9600,
+            "ppid": 1,
+            "command": "/home/x/rengine/red/target/debug/red-supervisor --state /home/x/rengine/.cache/runtime/d5fe12fe"
+          },
+          {
+            "pid": 9603,
+            "ppid": 9599,
+            "command": "/home/x/rengine/red/target/debug/red-worker --state /home/x/rengine/.cache/runtime/d5fe12fe --host http://127.0.0.1:1234"
+          },
+          {
+            "pid": 82044,
+            "ppid": 9599,
+            "command": "/home/x/rengine/.cache/runtime/d5fe12fe/versions/ccd74ad2/bin/rengine --control"
+          },
+          {
+            "pid": 68944,
+            "ppid": 1,
+            "command": "/usr/bin/node /home/x/rengine/orchestrator/server/main.mjs --state /home/x/.local/state/redit/hirebase-v2"
+          },
+          {
+            "pid": 12336,
+            "ppid": 68944,
+            "command": "/usr/bin/node /home/x/rengine/scripts/../orchestrator/agents/launch.mjs claude /usr/bin/claude"
+          },
+          {
+            "pid": 12342,
+            "ppid": 12336,
+            "command": "/usr/bin/claude --mcp-config /home/x/.local/state/redit/hirebase-v2/integrations/x/mcp.json"
+          },
+          {
+            "pid": 94222,
+            "ppid": 12342,
+            "command": "/bin/zsh -c source snapshot.sh"
+          },
+          {
+            "pid": 90297,
+            "ppid": 1,
+            "command": "/usr/bin/node /home/x/vtmb-vr/third_party/rengine/orchestrator/server/main.mjs --state /home/x/.local/state/rengine/vtmb-vr-2249049057"
+          },
+          {
+            "pid": 90359,
+            "ppid": 1,
+            "command": "/usr/bin/node /home/x/vtmb-vr/third_party/rengine/orchestrator/runtime/supervisor.mjs"
+          },
+          {
+            "pid": 60124,
+            "ppid": 1,
+            "command": "/usr/bin/node /home/x/nolf-improved/third_party/rengine/orchestrator/server/main.mjs --state /home/x/.local/state/rengine/nolf-improved-2056293539"
+          },
+          {
+            "pid": 44686,
+            "ppid": 1,
+            "command": "/usr/bin/node /home/x/nolf-improved/third_party/rengine/orchestrator/server/main.mjs --state /home/x/.local/state/rengine"
+          },
+          {
+            "pid": 29815,
+            "ppid": 1,
+            "command": "/usr/bin/node /home/x/rengine/.cache/worktrees/agent-token-2/orchestrator/server/main.mjs --state /var/folders/T/rengine-preflight-rjyCY8"
+          },
+          {
+            "pid": 77001,
+            "ppid": 1,
+            "command": "/usr/bin/node /home/x/rengine/orchestrator/server/main.mjs --state /home/x/My Workspaces/with space"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a session host names the directory it serves",
+      "op": {
+        "call": "hostArguments",
+        "command": "/usr/bin/node /home/x/rengine/orchestrator/server/main.mjs --state /home/x/My Workspaces/with space"
+      },
+      "answer": {
+        "value": {
+          "script": "/home/x/rengine/orchestrator/server/main.mjs",
+          "stateDir": "/home/x/My Workspaces/with space"
+        }
+      }
+    },
+    {
+      "name": "a host started from a worktree is still a host",
+      "op": {
+        "call": "hostArguments",
+        "command": "/usr/bin/node /home/x/rengine/.cache/worktrees/agent-token-2/orchestrator/server/main.mjs --state /var/folders/T/rengine-preflight-rjyCY8"
+      },
+      "answer": {
+        "value": {
+          "script": "/home/x/rengine/.cache/worktrees/agent-token-2/orchestrator/server/main.mjs",
+          "stateDir": "/var/folders/T/rengine-preflight-rjyCY8"
+        }
+      }
+    },
+    {
+      "name": "a supervisor is not a host",
+      "op": {
+        "call": "hostArguments",
+        "command": "/usr/bin/node /home/x/rengine/orchestrator/runtime/supervisor.mjs"
+      },
+      "answer": {
+        "value": null
+      }
+    },
+    {
+      "name": "an agent CLI is not a host",
+      "op": {
+        "call": "hostArguments",
+        "command": "/usr/bin/claude --mcp-config /x/mcp.json"
+      },
+      "answer": {
+        "value": null
+      }
+    },
+    {
+      "name": "a host with no --state is not one this may act on",
+      "op": {
+        "call": "hostArguments",
+        "command": "/usr/bin/node /home/x/rengine/orchestrator/server/main.mjs"
+      },
+      "answer": {
+        "value": null
+      }
+    },
+    {
+      "name": "a pane deep inside a host knows its ancestors",
+      "op": {
+        "call": "ancestorsOf",
+        "pid": 94222
+      },
+      "answer": {
+        "value": [
+          12342,
+          12336,
+          68944,
+          1
+        ]
+      }
+    },
+    {
+      "name": "a launcher inside the workspace is recognised",
+      "op": {
+        "call": "insideHost",
+        "hostPid": 68944,
+        "self": 94222
+      },
+      "answer": {
+        "value": true
+      }
+    },
+    {
+      "name": "a launcher outside it is not",
+      "op": {
+        "call": "insideHost",
+        "hostPid": 68944,
+        "self": 90297
+      },
+      "answer": {
+        "value": false
+      }
+    },
+    {
+      "name": "and a host is not inside itself",
+      "op": {
+        "call": "insideHost",
+        "hostPid": 68944,
+        "self": 68944
+      },
+      "answer": {
+        "value": false
+      }
+    },
+    {
+      "name": "the JavaScript supervisor is one",
+      "op": {
+        "call": "supervises",
+        "command": "/usr/bin/node /home/x/rengine/orchestrator/runtime/supervisor.mjs"
+      },
+      "answer": {
+        "value": true
+      }
+    },
+    {
+      "name": "the binary is one",
+      "op": {
+        "call": "supervises",
+        "command": "/home/x/rengine/red/target/debug/red-supervisor --state /home/x/rengine/.cache/runtime/d5fe12fe"
+      },
+      "answer": {
+        "value": true
+      }
+    },
+    {
+      "name": "a worker under it is not",
+      "op": {
+        "call": "supervises",
+        "command": "/home/x/rengine/red/target/debug/red-worker --state /x --host http://127.0.0.1:1234"
+      },
+      "answer": {
+        "value": false
+      }
+    },
+    {
+      "name": "and neither is a desktop",
+      "op": {
+        "call": "supervises",
+        "command": "/home/x/rengine/.cache/runtime/d5fe12fe/versions/ccd74ad2/bin/rengine --control"
+      },
+      "answer": {
+        "value": false
+      }
+    },
+    {
+      "name": "the host a descriptor names",
+      "op": {
+        "call": "findHost",
+        "stateDir": "/home/x/.local/state/redit/hirebase-v2",
+        "descriptor": {
+          "pid": 68944,
+          "url": "http://127.0.0.1:61942",
+          "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "instance": "d5fe12fe"
+        },
+        "alive": [
+          68944
+        ]
+      },
+      "answer": {
+        "value": {
+          "descriptor": {
+            "pid": 68944,
+            "url": "http://127.0.0.1:61942",
+            "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "instance": "d5fe12fe"
+          },
+          "pid": 68944,
+          "stale": false
+        }
+      }
+    },
+    {
+      "name": "a descriptor naming a pid that is gone is stale",
+      "op": {
+        "call": "findHost",
+        "stateDir": "/home/x/.local/state/redit/hirebase-v2",
+        "descriptor": {
+          "pid": 68944,
+          "url": "http://127.0.0.1:61942",
+          "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "instance": "d5fe12fe"
+        },
+        "alive": []
+      },
+      "answer": {
+        "value": {
+          "descriptor": {
+            "pid": 68944,
+            "url": "http://127.0.0.1:61942",
+            "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "instance": "d5fe12fe"
+          },
+          "pid": null,
+          "stale": true
+        }
+      }
+    },
+    {
+      "name": "a descriptor naming a pid nothing in the table has is stale",
+      "op": {
+        "call": "findHost",
+        "stateDir": "/home/x/.local/state/redit/hirebase-v2",
+        "descriptor": {
+          "pid": 11111,
+          "url": "http://127.0.0.1:61942",
+          "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "instance": "d5fe12fe"
+        },
+        "alive": [
+          11111
+        ]
+      },
+      "answer": {
+        "value": {
+          "descriptor": {
+            "pid": 11111,
+            "url": "http://127.0.0.1:61942",
+            "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "instance": "d5fe12fe"
+          },
+          "pid": null,
+          "stale": true
+        }
+      }
+    },
+    {
+      "name": "no descriptor at all is nothing to replace",
+      "op": {
+        "call": "findHost",
+        "stateDir": "/home/x/.local/state/redit/hirebase-v2",
+        "descriptor": null,
+        "alive": []
+      },
+      "answer": {
+        "value": {
+          "descriptor": null,
+          "pid": null,
+          "stale": false
+        }
+      }
+    },
+    {
+      "name": "a pid that is alive but is not a host is refused by name",
+      "op": {
+        "call": "findHost",
+        "stateDir": "/home/x/.local/state/redit/hirebase-v2",
+        "descriptor": {
+          "pid": 12342,
+          "url": "http://127.0.0.1:61942",
+          "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "instance": "d5fe12fe"
+        },
+        "alive": [
+          12342
+        ]
+      },
+      "answer": {
+        "refused": "/home/x/.local/state/redit/hirebase-v2/sidecar.json names PID 12342, but that process is not a session host: /usr/bin/claude --mcp-config /home/x/.local/state/redit/hirebase-v2/integrations/x/mcp.json. Nothing was signalled."
+      }
+    },
+    {
+      "name": "a host serving ANOTHER directory is refused by name",
+      "op": {
+        "call": "findHost",
+        "stateDir": "/home/x/.local/state/redit/hirebase-v2",
+        "descriptor": {
+          "pid": 90297,
+          "url": "http://127.0.0.1:61942",
+          "token": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "instance": "d5fe12fe"
+        },
+        "alive": [
+          90297
+        ]
+      },
+      "answer": {
+        "refused": "PID 90297 is the session host of /home/x/.local/state/rengine/vtmb-vr-2249049057, not /home/x/.local/state/redit/hirebase-v2. Nothing was signalled."
+      }
+    },
+    {
+      "name": "a replacement that stopped a host, its supervisor and its children",
+      "op": {
+        "call": "describeReport",
+        "report": "full"
+      },
+      "answer": {
+        "value": "Replaced the session host of /home/x/.local/state/redit/hirebase-v2:\n  stopped host PID 68944 (http://127.0.0.1:61942, instance d5fe12fe, started 2026-09-10T08:30:00.000Z)\n  supervisor PID 9599: stopped on SIGTERM\n  supervisor child PID 82044: ignored SIGTERM, killed\n  host PID 68944: stopped on SIGTERM\n  host child PID 12336: already gone\n  handed 2 running session(s) to the next host:\n    agent (claude) — claude · hirebase, conversation 287bba3a\n    terminal — build\n  left the pty service running (PID 10282): it belongs to /home/x/.local/state/redit/hirebase-v2, not to a host\n  left the store service running (PID 10280): it belongs to /home/x/.local/state/redit/hirebase-v2, not to a host\nStarted host PID 70001 (http://127.0.0.1:61999, instance ab12cd34) from /home/x/rengine/."
+      }
+    },
+    {
+      "name": "a replacement with nothing running",
+      "op": {
+        "call": "describeReport",
+        "report": "empty"
+      },
+      "answer": {
+        "value": "Replaced the session host of /home/x/.local/state/redit/hirebase-v2:\n  stopped host PID 68944 (http://127.0.0.1:61942, instance d5fe12fe)\n  host PID 68944: stopped on SIGTERM\n  no running sessions to hand over\nStarted host PID 70001 (http://127.0.0.1:61999, instance ab12cd34) from /home/x/rengine/."
+      }
+    },
+    {
+      "name": "a stale descriptor, cleared",
+      "op": {
+        "call": "describeReport",
+        "report": "stale"
+      },
+      "answer": {
+        "value": "sidecar.json in /home/x/.local/state/redit/hirebase-v2 named PID 68944, which is gone; the stale descriptor was removed.\nStarted host PID 70001 (http://127.0.0.1:61999, instance ab12cd34) from /home/x/rengine/."
+      }
+    },
+    {
+      "name": "no host recorded at all",
+      "op": {
+        "call": "describeReport",
+        "report": "none"
+      },
+      "answer": {
+        "value": "No session host was recorded in /home/x/.local/state/redit/hirebase-v2; nothing to replace.\nStarted host PID 70001 (http://127.0.0.1:61999, instance ab12cd34) from /home/x/rengine/."
+      }
+    },
+    {
+      "name": "a host that would not say what it was holding",
+      "op": {
+        "call": "describeReport",
+        "report": "silent"
+      },
+      "answer": {
+        "value": "Replaced the session host of /home/x/.local/state/redit/hirebase-v2:\n  stopped host PID 68944 (http://127.0.0.1:61942, instance d5fe12fe, started 2026-09-10T08:30:00.000Z)\n  host PID 68944: stopped on SIGTERM\n  no running sessions to hand over\n  note: the host did not answer /api/state before it was stopped (fetch failed); its running sessions could not be listed\nStarted host PID 70001 (http://127.0.0.1:61999, instance ab12cd34) from /home/x/rengine/."
+      }
+    }
+  ]
+}

@@ -147,8 +147,10 @@ caller polling after a failure can still see what failed.
    tunnelled byte for byte. `--worker`, `--connector`, `--desktop`, `--port`, `--inspect-ui` and
    `--initial` are the flags that replace what `startRuntime` took as injected functions.
 6. ~~**The automation relay**~~ — done (below), and with it the desktop layer is driven end to end.
-7. **The launchers.** `replace.mjs`'s process-table scan, `restart-supervisor.mjs`'s confirm prompt
-   with no non-interactive bypass and its read-only `--plan`, `headless.mjs`, `bootstrap.mjs`.
+7. **The launchers.** `replace.mjs`'s **decisions** are `red_supervisor::replace` (below); what is
+   left of it is the orchestration, which waits on a Rust `ensureSidecar`. Then
+   `restart-supervisor.mjs`'s confirm prompt with no non-interactive bypass and its read-only
+   `--plan`, `headless.mjs`, `bootstrap.mjs`.
 8. ~~**Cut over and delete.**~~ Done: `ensureRuntime` spawns the binary, and
    `runtime/supervisor.mjs` (434), `runtime/windows.mjs` (109) and `runtime/desktop.mjs` (47) are
    gone with the two record tests whose subject they were (F173). `runtime/protocol.mjs` stays until
@@ -276,6 +278,34 @@ which a reading of the code had missed:
 
 Neither is visible in a green run. Both are the difference between "the update failed" and "the
 update failed and took your window with it".
+
+## Which process gets a SIGTERM
+
+Replacing a session host is the one operation here that signals things a person cares about, and it
+starts from a descriptor that names a pid — on a machine where a pid is recycled in minutes. So
+almost all of `replace.mjs` is a **refusal to signal**, and `red_supervisor::replace` is those
+refusals:
+
+- a pid that is alive but is **not a session host**;
+- a host that serves a **different state directory**, compared on the RESOLVED path because a
+  directory reached through a link is the same directory;
+- a launcher running **inside the workspace it would replace**, which would die with the host it
+  signalled, halfway through — refused with somewhere else to run it, because "run it elsewhere" is
+  useless without an elsewhere.
+
+Two things are deliberately not stopped with the host: the state directory's PTY service and its
+store (charter D60/D61). They are children in `ps` only because the parent that started them has not
+exited, and stopping either would take from the next host exactly what those decisions gave it.
+
+`orchestrator/tests/replace-host-corpus.json` is 25 cases over the process table the JavaScript's own
+suite was written against — one workspace's host with a pane inside it, two sibling projects, a
+supervisor with its worker and desktop, a worktree's preflight host, and a state directory with a
+space in its name. It matched on the first run; six sabotages confirm it, including the one that
+splits a command line on whitespace and turns that last directory into two.
+
+The report is recorded too, because a person reads it while deciding whether their editor is about
+to vanish. Since charter D60 its sessions are **handed over** rather than ended, and the record pins
+that wording along with the rest.
 
 ## What this does not change
 

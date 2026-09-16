@@ -16,9 +16,12 @@
 //!   before anything is switched to it.
 //! - [`views`] — the managed desktop windows, the snapshot each one runs, and the exit code that
 //!   means "I detached for an update" rather than "I closed".
+//! - [`replace`] — which process gets a SIGTERM when a session host is replaced, and the several
+//!   that must not.
 
 pub mod desktop;
 pub mod jobs;
+pub mod replace;
 pub mod runtime;
 pub mod update;
 pub mod views;
