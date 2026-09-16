@@ -9,33 +9,11 @@
 //! decision — `bind` IS the caller. It is a command a person runs, with nothing above it to gather
 //! anything on its behalf.
 
-use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use serde_json::{json, Value as Json};
 
 use crate::Value;
-
-/// `path` is the whole path, `/health` or `/api/state`. HTTP/1.0 on purpose: a 1.1 server may answer
-/// chunked, and a body read as JSON straight off the socket would then start with its chunk length —
-/// which is exactly how this first failed, as "trailing characters at line 1 column 4".
-fn http_get(url: &str, token: &str, path: &str) -> Result<Json, String> {
-    let after = url.strip_prefix("http://").ok_or("Invalid local workspace connection.")?;
-    let addr = after.split('/').next().unwrap_or(after);
-    let mut stream = std::net::TcpStream::connect(addr).map_err(|error| error.to_string())?;
-    stream.set_read_timeout(Some(std::time::Duration::from_secs(10))).map_err(|error| error.to_string())?;
-    use std::io::Write;
-    let request = format!("GET {path} HTTP/1.0\r\nHost: {addr}\r\nAuthorization: Bearer {token}\r\nConnection: close\r\n\r\n");
-    stream.write_all(request.as_bytes()).map_err(|error| error.to_string())?;
-    let mut response = String::new();
-    stream.read_to_string(&mut response).map_err(|error| error.to_string())?;
-    let status: u16 = response.split_whitespace().nth(1).and_then(|code| code.parse().ok()).unwrap_or(0);
-    let body = response.split("\r\n\r\n").nth(1).unwrap_or("");
-    if !(200..300).contains(&status) {
-        return Err(format!("workspace returned {status}"));
-    }
-    serde_json::from_str(body).map_err(|error| error.to_string())
-}
 
 fn is_dir(path: &Path) -> bool {
     std::fs::metadata(path).map(|meta| meta.is_dir()).unwrap_or(false)
@@ -81,46 +59,19 @@ pub fn state_directories(explicit: Option<&str>, home: &str) -> Vec<PathBuf> {
     found
 }
 
-fn alive(pid: i64) -> bool {
-    if pid <= 1 {
-        return false;
-    }
-    #[cfg(unix)]
-    unsafe {
-        extern "C" {
-            fn kill(pid: i32, sig: i32) -> i32;
-        }
-        kill(pid as i32, 0) == 0
-    }
-    #[cfg(not(unix))]
-    true
-}
-
-/// The descriptor, checked the way the JS discovery checked it: a loopback URL, a 64-hex token, a
-/// live pid, and a health answer whose identity is the descriptor's.
+/// The live session host of a state directory, if there is one.
+///
+/// `red_core::descriptor` answers this for the whole workspace, and that is the point: this module
+/// had its own copy, with its own process-table check and its own HTTP client, and the copy was
+/// WEAKER — it asked `/health` and ignored what came back, so it would have bound an agent to
+/// anything answering on that port. Four answers to "is this descriptor mine, and is its process
+/// alive?" is four chances to answer it differently.
 fn discover(directory: &Path) -> Result<Option<Json>, String> {
-    let descriptor = directory.join("sidecar.json");
-    let text = match std::fs::read_to_string(&descriptor) {
-        Ok(text) => text,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(error.to_string()),
-    };
-    let instance: Json = serde_json::from_str(&text).map_err(|error| error.to_string())?;
-    let url = instance.get("url").and_then(Json::as_str).unwrap_or("");
-    let token = instance.get("token").and_then(Json::as_str).unwrap_or("");
-    let loopback = url.starts_with("http://127.0.0.1");
-    let token_shaped = token.len() == 64 && token.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase());
-    if !loopback || !token_shaped {
-        return Err("Invalid sidecar descriptor.".to_string());
-    }
-    let pid = instance.get("pid").and_then(Json::as_i64).unwrap_or(0);
-    if !alive(pid) {
-        return Ok(None);
-    }
-    let health = http_get(url, token, "/health")
-        .map_err(|error| format!("Existing sidecar PID {pid} is alive but unavailable: {error}. No second sidecar was started."))?;
-    let _ = health;
-    Ok(Some(instance))
+    red_core::descriptor::discover_sidecar(directory).map(|found| {
+        found.map(|held| {
+            json!({ "url": held.url, "token": held.token, "instance": held.instance, "pid": held.pid })
+        })
+    })
 }
 
 fn real(path: &str) -> PathBuf {
@@ -150,7 +101,7 @@ fn find_instance(project: &str, state: Option<&str>, home: &str) -> Result<Found
         };
         let url = instance.get("url").and_then(Json::as_str).unwrap_or("").to_string();
         let token = instance.get("token").and_then(Json::as_str).unwrap_or("").to_string();
-        let state_json = match http_get(&url, &token, "/api/state") {
+        let state_json = match red_core::http::get(&url, &token, "/api/state") {
             Ok(value) => value,
             Err(message) => {
                 problems.push(format!("{}: {message}", directory.display()));

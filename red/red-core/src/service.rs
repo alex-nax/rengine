@@ -213,14 +213,6 @@ fn serving_this_protocol(descriptor: &Path, protocol: u64) -> bool {
         .is_some_and(|named| named == protocol)
 }
 
-/// `process.kill(pid, 0)` — is anything still there? EPERM is something, owned by somebody else.
-/// Is this process still there? One implementation, in `descriptor` — every layer of this workspace
-/// asks it about a pid out of a descriptor, and two answers to that question is how a second host
-/// gets started beside a live one.
-fn pid_is_live(pid: i64) -> bool {
-    crate::descriptor::alive(pid)
-}
-
 #[cfg(unix)]
 extern "C" {
     fn setsid() -> i32;

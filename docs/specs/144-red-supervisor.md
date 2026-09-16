@@ -172,157 +172,27 @@ The JavaScript did not have this bug — it caught `SyntaxError` separately from
 — and the port had flattened the two into one `.ok()`. Driven by two callers in one process, and
 sabotage-verified three times running.
 
-## The third criterion, and the one thing standing in its way
+## The third criterion, met
 
 F159 asks that *"the sidecar request/ensure path the remaining Rust binaries use is one shared
 implementation."* There were **four** copies of "is this descriptor mine, and is its process alive?"
-in the Rust tree. Two are now one:
+in the Rust tree. There is one:
 
-- `red_core::descriptor` is the implementation, with `red_core::http` underneath it, and
-  `descriptor::ensure` is the start path `service::start_service` now uses too.
+- `red_core::descriptor` is the implementation, with `red_core::http` underneath it and
+  `descriptor::ensure` as the start path.
 - `red-mcp`'s private copy is gone, and it had a real defect: it asked the process table by
   **shelling out to `kill -0`**, which reports a live process the caller may not signal as *dead*.
   Every agent pane's tool routing went through that check.
+- `service::start_service` uses `descriptor::ensure` instead of its own lock loop — which is how the
+  race above was found.
+- `red-agents::bind` uses it too, and its copy was the **weakest**: it asked `/health` and threw the
+  answer away, so it would have bound an agent to anything answering on that port. `red-agents` takes
+  the `red-core` dependency its manifest had avoided; the note there says why, and no binary in the
+  crate grew when it did. Measured before taking it, not after.
 
-Two copies are left, and both are in `red-agents`, which **deliberately has no `red-core`
-dependency**: its manifest says so, because the hand-rolled TOML parser exists to accept exactly the
-grammar the JavaScript parser accepts. Taking the dependency would pull prost, rustls and tokio into
-a crate whose binaries are spawned per pane, to read one JSON file.
-
-- `red-agents::bind::discover` is `discoverSidecar` again, with a **weaker** health check: it
-  ignores the `protocol` and `instance` a `/health` answer carries, so it would bind an agent to
-  any process answering on that port.
-- `red-agents::bind::http_get` is a fifth hand-rolled HTTP client.
-
-The choice is between taking the dependency and extracting the descriptor reader into a crate small
-enough for `red-agents` to depend on. It belongs with the rest of F159 rather than before it, and
-it is written down here so the criterion is met on purpose rather than declared.
-
-## What the binary is, and what proves it
-
-    red-supervisor --state DIR --host URL --host-token TOKEN
-                   [--worker PATH] [--connector PATH] [--desktop PATH]
-                   [--port N] [--inspect-ui] [--initial JSON]
-
-It binds a loopback port, announces itself on stdout as one JSON line — the same shape `red-worker`
-announces one layer down — writes `runtime.json`, and serves. The flags are what `startRuntime` took
-as injected functions: a suite that handed in a `workerFile` hands in `--worker`, one that handed in
-a `toolWorkerFile` hands in `--connector`.
-
-`orchestrator/tests/supervisor-cutover.test.mjs` drives it against a real session host: the
-descriptor it publishes, `/health` without a credential, the refusals for a missing credential and a
-foreign origin, the composed `/api/state`, a forwarded `/api/feed` (the one route nothing but a
-worker can serve), the update status, the refusals **in order**, and a whole layered workspace update
-— candidate started, checked against this host, switched in, the previous worker retired and closed.
-It passed on the first run; four sabotages confirm it:
-
-| sabotage | what went red |
-|---|---|
-| the layers are judged before the root | a bad root with bad layers answered about the layers |
-| `update-status` is forwarded rather than answered | *Unknown workspace endpoint* |
-| a foreign `Origin` is accepted | the 401 that is not one |
-| the previous worker is never closed | *Timed out: the replaced worker drained and closed* |
-
-## The automation relay, which is what the cutover turned on
-
-A supervisor that is a **process** cannot hand a test the desktop's pipes, and three desktop specs
-depend on exactly that. `native-updates`, `native-project-windows` and `native-token-e2e` pass an
-`onDesktop` callback into `startRuntime`, take the child, and drive the window over its stdin and
-stdout with the automation protocol — clicks, keys, state reads.
-
-What made that work was worth noticing, because it was also the answer: **the supervisor and the
-test were already two speakers on one stream, split by the sign of the id.** The control channel
-numbers its requests DOWN from -1; the automation protocol numbers its own UP from 1; each ignores
-what is not its own. In JavaScript they simply both attached a listener to the same pipes.
-
-So the supervisor **relays** that stream rather than owning it. `GET /automation?owner=…` with an
-`Upgrade` header, under `--inspect-ui` only, answers `101` and then carries newline JSON both ways:
-every line the control channel did not ask for goes out unchanged, and every line that comes back
-goes down the desktop's stdin under the same lock the channel's own writes take. Nothing is
-interpreted on the way through — the other protocol is not this one's business. A running workspace
-serves no such route at all.
-
-The alternative — proxying each click as an HTTP call — was rejected: the automation protocol is
-interactive and per-frame, and a route that exists only for tests and is slow enough to change what
-they observe is worse than no route.
-
-## The desktop layer, driven
-
-`orchestrator/tests/fake-desktop.mjs` is a window as far as the supervisor is concerned: it
-registers itself through the workspace, answers the control channel, exits 75 when told to reload
-and 0 when told to close, and answers the automation protocol on the same stream. That is the whole
-of what a supervisor requires of a window, and it is what lets the choreography be driven without a
-built native binary.
-
-With it, `supervisor-cutover.test.mjs` proves: a window opens and **`open-desktop` does not answer
-until it has registered** (a supervisor that answered on spawn would hand a launcher a window that
-may never arrive); the same binding is the same window rather than a second one beside it; the relay
-carries the other protocol; a desktop-layer update tells it to reload, sees the 75, and brings it
-back as a different process; and a window that detaches **on its own** — the person pressing its
-update key — comes back too.
-
-Two of those rules had no case until a sabotage of each passed, which is the shape
-`docs/evidence/blind-regressions-2026-09-06.md` records:
-
-- **Exit 75 read as a close** changed nothing, because a window that goes during an update is
-  classified `Expected` and the update checks the code itself. The `Detached` classification is only
-  reached by an UNSOLICITED 75 — so the fixture grew a `detach` op, and now it is.
-- **A detach while an update is running** queued a second job with no complaint. Two `perform`
-  threads would each believe they were the active one. It is driven now by declaring a slow desktop
-  build, which holds an update in its prepare phase — where the window is not yet marked updating —
-  and landing the detach inside that window.
-
-The second one also settled a question the code did not answer out loud: the queued update then
-**fails**, by name, because the desktop it was told to replace let go of its registration on the way
-out. That is right rather than unfortunate — the person asked for the same window twice at once and
-got the answer to the second ask.
-
-## What the deepest suite found
-
-`native-updates.spec.mjs` is the one that drives the whole choreography — a three-layer update with
-an unsaved draft in the editor, a build that fails, a candidate that will not start, a keyboard-driven
-update that fails, a CLI-driven connector update, and a worker crash with the window reconnecting.
-It passes on the Rust supervisor, and getting there found **two real bugs in the rollback**, both of
-which a reading of the code had missed:
-
-1. **A replacement window that dies on start was forgotten before the rollback could restore it.**
-   The restarted view is a NEW `View`, and nothing marked it as belonging to the update — so its own
-   watcher classified the exit as a close and removed it from the registry, and the rollback found
-   nothing to put back. It is marked before it can exit now.
-2. **A failed PREPARATION could not restore a window that had already gone.** That is exactly the
-   keyboard case: the person's window detaches itself, and then the build for its replacement fails.
-   The window is taken before anything is prepared now, rather than looked up after.
-
-Neither is visible in a green run. Both are the difference between "the update failed" and "the
-update failed and took your window with it".
-
-## Which process gets a SIGTERM
-
-Replacing a session host is the one operation here that signals things a person cares about, and it
-starts from a descriptor that names a pid — on a machine where a pid is recycled in minutes. So
-almost all of `replace.mjs` is a **refusal to signal**, and `red_supervisor::replace` is those
-refusals:
-
-- a pid that is alive but is **not a session host**;
-- a host that serves a **different state directory**, compared on the RESOLVED path because a
-  directory reached through a link is the same directory;
-- a launcher running **inside the workspace it would replace**, which would die with the host it
-  signalled, halfway through — refused with somewhere else to run it, because "run it elsewhere" is
-  useless without an elsewhere.
-
-Two things are deliberately not stopped with the host: the state directory's PTY service and its
-store (charter D60/D61). They are children in `ps` only because the parent that started them has not
-exited, and stopping either would take from the next host exactly what those decisions gave it.
-
-`orchestrator/tests/replace-host-corpus.json` is 25 cases over the process table the JavaScript's own
-suite was written against — one workspace's host with a pane inside it, two sibling projects, a
-supervisor with its worker and desktop, a worktree's preflight host, and a state directory with a
-space in its name. It matched on the first run; six sabotages confirm it, including the one that
-splits a command line on whitespace and turns that last directory into two.
-
-The report is recorded too, because a person reads it while deciding whether their editor is about
-to vanish. Since charter D60 its sessions are **handed over** rather than ended, and the record pins
-that wording along with the rest.
+That last one had no case until a sabotage of it passed. It has one now: a state directory whose
+descriptor points at a live host and claims another instance — the shape a stale descriptor takes
+when a port is reused — and binding refuses it by name.
 
 ## What this does not change
 

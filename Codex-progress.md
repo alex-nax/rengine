@@ -126,6 +126,14 @@ now; getting there took:
 Both are the difference between "the update failed" and "the update failed and took your window
 with it".
 
+**Four copies of one question became one.** "Is this descriptor mine, and is its process alive?" was
+answered four different ways in the Rust tree, and each copy was weaker than the last: red-mcp asked
+the process table by shelling out to `kill -0` (a process you may not signal reads as dead), and
+`red-agents::bind` asked `/health` and threw the answer away — it would have bound an agent to
+anything answering on that port. All four are `red_core::descriptor` now. `red-agents` takes the
+red-core dependency its manifest had avoided, measured before rather than after: no binary in the
+crate grew. The bind case had no test until a sabotage of it passed; it has one now.
+
 **One service per directory, and the race that was not.** F159's third criterion asks for one
 ensure path, so `red_core::descriptor::ensure` is it — take a lock, spawn, wait for the thing to
 publish itself. Writing it found a **live defect in shipped Rust**: a lock file is created and THEN
@@ -192,7 +200,7 @@ replays the same 47 cases against `windows.mjs` and compares, so the record cann
 froze. It goes with the module (F173), and the Rust replay is then the whole of the evidence.
 Sabotage-verified from the JavaScript side as well as the Rust.
 
-Gates: `./init.sh` green; `cargo test --workspace` **343/343**; `npm test` **369/369**, plus the
+Gates: `./init.sh` green; `cargo test --workspace` **343/343**; `npm test` **370/370**, plus the
 four desktop specs run by name: `native-updates` 1/1, `native-stale-sessions` 3/3,
 `native-token-e2e` 1 of 2 and `native-project-windows` 0 of 1 — those last two failing at HEAD too,
 for reasons that are nothing to do with this work and are now **KI-125**: six specs reach for

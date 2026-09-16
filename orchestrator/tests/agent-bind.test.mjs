@@ -58,3 +58,47 @@ test('a home with nothing in it scans the base and stops', async () => {
     assert.deepEqual(await stateDirectories(undefined, home), [path.join(home, 'rengine')]);
   } finally { await rm(home, { recursive: true, force: true }); }
 });
+
+/* Binding an agent to a workspace ends with a process that answers on a loopback port. So the
+ * question the descriptor's health check exists for is: is the thing answering there THIS workspace?
+ *
+ * It is not hypothetical. A descriptor can outlive the host it named while another workspace takes
+ * the port, and a check that asked `/health` and ignored the answer — which is what this module's
+ * own copy of discovery did — would hand an agent a token for somebody else's sessions.
+ */
+test('a port answering for another workspace is not this one, and binding refuses it', { timeout: 60000 }, async () => {
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  const { startServer } = await import('../server/main.mjs');
+  const { endStateServices } = await import('./state-services.mjs');
+  const run = promisify(execFile);
+  const home = await mkdtemp(path.join(tmpdir(), 'rengine-bind-foreign-'));
+  const project = path.join(home, 'project');
+  await mkdir(project, { recursive: true });
+  const hostState = path.join(home, 'host');
+  const host = await startServer({ stateDir: hostState });
+  try {
+    await host.store.addRoot(project);
+    /* A state directory whose descriptor points at that live host but CLAIMS another instance —
+       exactly the shape a stale descriptor takes when a port is reused. Its pid is this test, so
+       there is no question of the process being gone: it is alive, it answers, and it is not ours. */
+    const stale = path.join(home, 'rengine', 'stale');
+    await mkdir(stale, { recursive: true });
+    await writeFile(path.join(stale, 'sidecar.json'), JSON.stringify({
+      url: host.url, token: host.token, instance: '99999999-9999-4999-8999-999999999999', pid: process.pid,
+    }));
+    const refused = await run(path.join(process.cwd(), 'red/target/debug/red-agents'),
+      ['bind', '--project', project, '--state', stale, '--agent', 'claude'],
+      { encoding: 'utf8', timeout: 30000 }).then(() => null, error => error);
+    assert.ok(refused, 'binding to a workspace that is not this one must fail');
+    const said = `${refused.stdout ?? ''}${refused.stderr ?? ''}`;
+    assert.match(said, /No live workspace instance serves/, said);
+    assert.match(said, /alive but unavailable: Sidecar identity mismatch/,
+      `the health answer is CHECKED, not merely asked for: ${said}`);
+    assert.match(said, /No second sidecar was started/, said);
+  } finally {
+    await host.close({ retain: false });
+    await endStateServices(hostState);
+    await rm(home, { recursive: true, force: true });
+  }
+});

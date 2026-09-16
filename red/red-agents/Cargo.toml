@@ -15,6 +15,11 @@ getrandom = "0.3"
 # alternative for kimi, whose ids accept a uuid OR a ULID -- so the pattern is matched, not guessed.
 regex = "1"
 sha2 = "0.10"
+# The one way this workspace reads a descriptor and reaches a loopback workspace (F159, spec 144).
+# Taken deliberately despite the note above: the TOML parser stays hand-rolled for the parity it was
+# written for, and "is this descriptor mine, and is its process alive?" had four answers in this tree
+# until it had one. Measured before taking it — no binary here grew.
+red-core = { path = "../red-core" }
 
 # The projection dump: prints what the registry resolves to, so the JS parity test can compare
 # the two sides of the one document. A binary rather than a test, as red-contract is.
