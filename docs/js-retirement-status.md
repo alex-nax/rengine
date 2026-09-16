@@ -1,9 +1,9 @@
 # JavaScript retirement: what is left
 
-Charter D57 makes the orchestrator's target language Rust, and spec 129 retires the Node modules
-under `orchestrator/` one feature row at a time. This is where that stands.
+Charter D57 makes the orchestrator's target language Rust, and spec 129 retired the Node modules
+under `orchestrator/` one feature row at a time. This is where that ended.
 
-Measured 2026-09-16, at `3c421df`; the narrative below is current as of the F152 work that followed. Regenerate the numbers with:
+Measured 2026-09-16, at `68d78ab`. Regenerate the number with:
 
 ```sh
 git ls-files '*.mjs' | grep -vE 'tests/|\.test\.mjs' | xargs wc -l | tail -1
@@ -13,169 +13,70 @@ git ls-files '*.mjs' | grep -vE 'tests/|\.test\.mjs' | xargs wc -l | tail -1
 
 | | lines |
 |---|---|
-| Production JavaScript remaining | **2,031** across 23 files |
-| Rust in `red/` | ~34,000 |
+| Production JavaScript remaining | **30** in 1 file |
+| Rust in `red/` | ~36,000 |
 
-Down from 5,504 across 43 when this was first written — **63% of it gone**. The worker, the tracker
-and now the supervisor: `runtime/worker.mjs`, `runtime/scripts.mjs`, `server/desktops.mjs`,
-`runtime/tracker.mjs`, `server/tracker.mjs`, `server/tracker-auth.mjs`, `runtime/supervisor.mjs`,
-`runtime/windows.mjs` and `runtime/desktop.mjs`.
+Down from 5,504 across 43 files when this was first written — **99.5% of it gone**, in two days.
 
-**The line count is the wrong headline, and it is worth saying why.** Most of what remains is not
-waiting to be rewritten — it is waiting to be *deleted*. A JS module retires with its CALLER, not on
-its own: `runtime/ide.mjs` and `runtime/lsp-client.mjs` are 316 lines that already do nothing but
-speak to Rust binaries, and they go the day `worker.mjs` does, not before. So the useful measure is
-not how many lines are left but **how many callers are left**, and there are four.
+## What is left, and why it stays
 
-## The four callers
+`orchestrator/templates/external/commands.mjs`, 30 lines. It is **JavaScript on purpose rather than
+by history**, and it is the only file here that can say so.
 
-### 1. `worker.mjs` and its world — ~600 lines left of 1,429
+It is not part of this workspace. The external installer copies it into a *consumer project's*
+profile (spec 085), where the declaration's dashboard actions run it: it reads that project's
+`package.json`, lists the scripts it declares, runs one through the project's package manager, and
+pretty-prints JSON. Every one of those is a fact about the Node ecosystem, in a project that is a
+Node project — the installer refuses one without a `package.json`.
 
-| file | lines | |
-|---|---|---|
-| ~~`runtime/worker.mjs`~~ | ~~733~~ | **deleted** |
-| ~~`server/desktops.mjs`~~ | ~~76~~ | **deleted** — the registry is `red_core::desktops` |
-| ~~`runtime/scripts.mjs`~~ | ~~25~~ | **deleted** |
-| `runtime/ide.mjs` | 191 | client of `red-ide serve`; retires with `agents/ide-connect.mjs` (F163) |
-| ~~`runtime/token-client.mjs`~~ | ~~161~~ | **moved to `tests/`** — no product caller left |
-| ~~`server/tracker.mjs`~~ | ~~231~~ | **deleted** (was group 3) |
-| ~~`server/tracker-auth.mjs`~~ | ~~232~~ | **deleted** (was group 3) |
-| ~~`runtime/lsp-client.mjs`~~ | ~~125~~ | **moved to `tests/`** — no product caller left |
-| `runtime/protocol.mjs` | 60 | shared with the supervisor, so it goes with F159 |
-| ~~`runtime/tracker.mjs`~~ | ~~58~~ | **deleted** — `red_worker::signin` finds a retained host |
+Replacing it would mean shipping a Rust binary into a web project's profile whose whole job is to
+shell out to `pnpm` and parse `package.json`. That is a worse tool for the job, not a better one,
+and it would make an install depend on a compiled artifact where today it depends on the runtime
+the project already has.
 
-**Status: the supervisor runs `red-worker`.** Every route is answered, both sockets are served, the
-host's session stream is followed, and the whole suite is green on it. Eight specs that drove the
-JavaScript worker in-process now drive the binary, unchanged apart from one import.
+**This is the line the retirement stops at**, and it is a different kind of line from the ones
+before it. Everything else went because it was the JavaScript rEngine happened to be written in
+first. This stays because of what it is about.
 
-**The registry is the worker's**, and the reason is the lesson of this whole epic, hit twice:
-`runtime.test.mjs`'s legacy-host case asserts *current desktop actions above legacy host*, and a
-worker that forwarded `/api/desktops` would answer from a host that never had the route. **A route
-the worker forwards answers from whatever is beneath it, and what is beneath it may predate the
-route.** So the registry is `red_core::desktops`, held by the worker, which terminates `/events`,
-understands the four frames the JavaScript understood and passes the rest through. That also settled
-where the token segment is pushed from and let `POST /api/ledger` go.
+## What went, in order
 
-**F154 is done** as part of this: `red_core::tls` (trust roots from the MACHINE, not a bundled CA
-set), the PKCE sign-in flow, and both providers' reads.
+The last day of it, each row with its own frozen record where one was possible (F173):
 
-Three of the eight files above are already dead weight kept alive by the ninth: the registry moved to
-the door, and `ide`/`lsp-client`/`token-client` are clients of binaries that exist.
+| what | replaced by |
+|---|---|
+| `server/main.mjs`, `server/sessions.mjs` and the thin clients | `red-host` |
+| `runtime/worker.mjs`, `runtime/scripts.mjs`, `server/desktops.mjs` | `red-worker` |
+| `runtime/tracker.mjs`, `server/tracker.mjs`, `server/tracker-auth.mjs` | `red-project` |
+| `runtime/supervisor.mjs`, `runtime/windows.mjs`, `runtime/desktop.mjs` | `red-supervisor` |
+| `launch.mjs`, `build.mjs`, `launcher/{headless,replace,restart-supervisor}.mjs` | `red-launch` |
+| `agents/launch.mjs`, `agents-client.mjs`, `ide-connect.mjs`, `handoff/`, `runtime/ide.mjs` | `red-agent-launch` |
+| `agents/mcp.mjs` | `red-mcp --facade` |
+| `runtime/bootstrap.mjs` | `red-launch bootstrap` |
+| `runtime/client.mjs` | `red-launch client` |
+| `external-project.mjs` | `red-project install-external` |
 
-Details: `docs/specs/143-red-worker.md`.
+`runtime/{discovery,protocol,service-client}.mjs` and `launcher/sidecar.mjs` were not rewritten:
+`red_core::descriptor` had already replaced what they decided, and they moved to `tests/` as the
+fixtures 35 specs judge it against. `orchestrator/runtime/` and `orchestrator/launcher/` are gone as
+directories.
 
-### 2. The supervisor and the launchers — 780 lines left of 1,368 (**F159**)
+## Where node is still required, and for what
 
-| file | lines | |
-|---|---|---|
-| ~~`runtime/supervisor.mjs`~~ | ~~434~~ | **deleted** — `red-supervisor` is a process |
-| ~~`runtime/windows.mjs`~~ | ~~109~~ | **deleted** — `red_supervisor::windows` |
-| ~~`runtime/desktop.mjs`~~ | ~~47~~ | **deleted** — `red_supervisor::desktop` |
-| `launcher/replace.mjs` | 224 | `--replace-host`, the process-table scan |
-| `runtime/service-client.mjs` | 199 | now duplicated by `red_core::service::start_service` |
-| `launcher/restart-supervisor.mjs` | 96 | the declared action |
-| `launcher/sidecar.mjs` | 89 | descriptor discovery |
-| `runtime/discovery.mjs` | 72 | runtime descriptor discovery; starts the binary now |
-| `runtime/protocol.mjs` | 60 | retires with `discovery.mjs`, its last caller |
-| `runtime/client.mjs`, `headless.mjs`, `bootstrap.mjs` | 93 | |
+Node is no longer on any path that opens a workspace. It is required in three places, all of them
+outside the product:
 
-**Status: the supervisor is deleted (spec 144).** `ensureRuntime` starts `red-supervisor`, and every
-suite that drove the module drives the binary — including the four desktop specs, which reach a
-window through the supervisor's automation relay because a process cannot hand anyone a child's
-pipes. What is left is the launchers, which are their own commands rather than this layer.
+1. **The test suite.** `npm test` is still the runner, and the specs use the MCP SDK, `ws` and
+   `node-pty` to drive the Rust binaries from the outside. That is a harness, not a product, and
+   driving a Rust MCP server with the reference client is a *feature* of the evidence.
+2. **An agent pane's CLI**, where that CLI is itself a Node program. rEngine does not choose that.
+3. **An external project's profile helper**, above.
 
-### 3. The JS session host — 82 lines left of 1,405
+The desktop build requires none: `find_program(node REQUIRED)` and `-DRENGINE_NODE_EXECUTABLE` are
+gone from `cmake.toml`, and a from-scratch `.cache/desktop` mentions node zero times.
 
-| file | lines | |
-|---|---|---|
-| ~~`server/main.mjs`~~ | ~~209~~ | **deleted** |
-| ~~`server/sessions-client.mjs`'s `Sessions`~~ | ~~380~~ | **deleted** — the pane record is the service's (D62) |
-| ~~`server/store-client.mjs`~~ | ~~229~~ | **moved to `tests/`** — its last product call was the external installer's schema check |
-| ~~`server/pty-client.mjs`~~ | ~~189~~ | **moved to `tests/`** — no product caller left |
-| ~~`server/{tasks,devices,project-client,formats,dashboard,recordings}.mjs`~~ | ~~301~~ | **moved to `tests/`** — thin clients of `red-project` with no product caller left |
-| `server/sessions-client.mjs` | 82 | the shell envelope, bash on Windows, a pane's title |
+## The entry points
 
-**Status: a workspace runs no JavaScript host.** `ensureSidecar` starts `red-host`, which starts the
-state directory's own store and PTY services, publishes `sidecar.json` and answers every route a
-workspace is made of. `front-door-cutover.test.mjs` asserts that no `server/main.mjs` process serves
-a workspace, and `host-standalone.test.mjs` drives a host with **no backend at all** — projects,
-files, drafts, a real pane, the board, and the socket a desktop registers on.
-
-**What said it was ready was a measurement, not a survey.** With the forwarder instrumented, a full
-`npm test` run forwarded **zero** requests to the JavaScript behind the door. It had been answering
-nothing.
-
-What is left of these is a **test fixture**: 76 specs call `startServer` and reach into the `store`
-and `sessions` objects it returns. Deleting them means `startServer` becomes a fixture over
-`red-host`'s routes, the way `red-supervisor-fixture.mjs` and `red-worker-fixture.mjs` already do for
-their layers — and the shape of that work is worth writing down, because the call count understates
-it:
-
-`red-host-fixture.mjs` is that fixture, and the mirror is why it is one rather than a
-search-and-replace: 91 call sites read `sessions.snapshot(id, true).output` inside a polling loop, so
-it keeps the mirror the JS client kept — subscribe to `/events`, attach to each pane as it appears,
-answer the synchronous reads from what has arrived. The door replays a pane's whole scrollback on
-attach, so the mirror is complete rather than "from when we looked".
-
-**Some of this is reclassified rather than deleted, and the table says which.** Six of those files —
-`formats`, `dashboard`, `devices`, `tasks`, `recordings` and `project-client` — are a few lines each
-over `askProject`, and after `main.mjs` went they had **no product importer at all**. They moved to
-`orchestrator/tests/`, where what they are is what they do: how a spec asks the Rust. The code did
-not disappear; its role changed, and counting it as product would have been the fiction.
-
-`pty-client.mjs` moved too, once nothing in the product imported it. `store-client.mjs` was the one
-left, and it was held by a single call: `external-project.mjs` validated the declaration it composes
-before writing anything, and asked the store's schema validator to do it. That one was a port rather
-than a move — the installer is a person-facing command, and "the project is untouched when the
-declaration is wrong" is a property it is tested for.
-
-It now asks **`red-project declaration`**, the reader the product itself opens a workspace with, from
-a throwaway directory of its own. That is a stricter check than the schema call it replaces: the
-schema validator answered "is this well-formed JSON for the contract", while the reader also applies
-each section's own rules — so the installer refuses exactly what a workspace would refuse to open,
-and refuses it before it has written anything. Sabotaged (the reported error dropped),
-`external-project.test.mjs` goes red on `title: ''` with `Missing expected rejection`, which is the
-case that rule is for. With that call gone the store client has no product importer either, and the
-whole of `orchestrator/server/` is 82 lines of shell envelope.
-
-`red-host.test.mjs` did **not** retire. It compared the door against the JS host; both sides are
-`red-host` now, so it compares **two hosts on one state directory** — which is what a host
-replacement actually produces (charter D62). Every assertion is unchanged and each means more: "both
-hosts answer the same" was a migration check and is now the rule the directory is built on.
-
-### 4. Agent-side and entry points — 860 lines (**F163**)
-
-`agents/agents-client.mjs` (253), `agents/mcp.mjs` (127), `orchestrator/launch.mjs` (109),
-`external-project.mjs` (110), `agents/handoff/*.mjs` (105), and six smaller files.
-
-**Status: mostly thin.** `agents/mcp.mjs` is a facade over `red-mcp`, which exists; `agents-client`
-speaks to the recipe service. `launch.mjs` and `external-project.mjs` are the entry points a person
-types, and F163 is the row that deletes them.
-
-## What "done" looks like, in order
-
-1. ~~**`/api/dashboard-run`**~~, ~~**the token segment**~~, ~~**defaulting the supervisor**~~ — **done**.
-2. ~~**Bring the desktop registry back to the worker**~~ — **done**, and `worker.mjs` with it.
-   What is left of that group is seven client files that retire with the supervisor, not with it.
-3. ~~**F154**~~ — **done**, and its JavaScript with it: `server/tracker.mjs` and
-   `server/tracker-auth.mjs` are deleted. The evidence is on the row in `features.json`; `passes`
-   stays false only because the prerequisite chain (F153 → F152) is unmarked.
-4. ~~**F159's supervisor**~~ — **done, −590**: `red-supervisor` is a process that starts a worker, answers its own routes, forwards
-   the rest, publishes the descriptor, opens and updates desktop windows and relays their automation
-   protocol. `runtime/supervisor.mjs`, `windows.mjs` and `desktop.mjs` are deleted. What is left of
-   F159 is the **launchers** — `replace.mjs`, `restart-supervisor.mjs`, `headless.mjs`,
-   `bootstrap.mjs`, and `discovery.mjs` with `protocol.mjs` behind it. **−780 more.**
-5. **The rest of the JS host** — 842 lines of thin clients over Rust, kept alive by the specs that
-   import them. Each is a few lines over `askProject` or a service socket; the specs that test the
-   JS implementations directly have Rust parity tests already. **−842**.
-6. **F163** — the entry points and the launchers that retire with them. **−~880**.
-
-## Two things worth knowing before the next step
-
-**A module retires with its caller.** Counting lines invites porting a client that has nothing to
-port. `surfaces.mjs` retired with `games.mjs`; `windows.mjs` will retire with `supervisor.mjs`.
-
-**A parity proof cannot outlive the side it compares against** (F173). Several Rust tests read
-`worker.mjs` and `main.mjs` as the authority on what the answers are. Those tests say so in a comment
-and fall back to a recorded corpus when the file is gone — so the deletion step is *record the
-answers first, then delete*, not *delete and see what breaks*.
+`./editor.sh` opens this checkout with no npm anywhere in it: cargo builds the launcher, the
+launcher builds the desktop through cmake. `package.json` remains as the **test harness's** file —
+its `scripts` are thin wrappers over `cargo run` plus the suite itself, which is what F163 meant by
+"shrinks to metadata".

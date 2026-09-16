@@ -25,7 +25,7 @@
 
 use std::path::{Component, Path, PathBuf};
 
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 
 /// The helper copied into every profile, shipped with the binary so an install needs no checkout.
 const COMMANDS: &str = include_str!("../../../orchestrator/templates/external/commands.mjs");

@@ -1,3 +1,89 @@
+## Session 162 (opus-5) — 2026-09-16 — The JavaScript is retired
+
+Owner goal: *"finalize js retirement"*, after a morning spent on the three launchers.
+
+**Production JavaScript is 30 lines in one file, from 5,504 across 43 when this goal started.**
+99.5%, and the last file is the one that can say it is JavaScript on purpose:
+`templates/external/commands.mjs` is copied into an external project's PROFILE, where it reads that
+project's `package.json`, lists its scripts and runs them through its package manager. Replacing it
+would mean shipping a Rust binary into a web project to shell out to pnpm. `docs/js-retirement-status.md`
+is rewritten around that distinction, because it is the only interesting thing left to say about the
+number.
+
+**The pane launcher went first, because everything else hung off it.** `scripts/agent.sh` execed
+`agents/launch.mjs`, and that file's imports were six more modules. `red-agent-launch` is the ACTING
+half only — the plan was already Rust's and already judged against what `config.mjs` composed for
+every CLI (F173) — so what moved is the handoff gate, the sentences a person reads, the report back
+to the workspace, and the child with its signals and its exit code. Judged against
+`pane-launch-corpus.json`: seven launches through a fake CLI that reports its own argv, environment
+and working directory, recorded from `launch.mjs` before it was deleted. All seven matched with **no
+intended divergence at all**, which is the whole value of that comparison.
+
+Two things that record did NOT let slide:
+
+- The trust hash is taken over a command line carrying the per-launch mint, so it differs on every
+  run — of the JavaScript as much as of the Rust. A record that is not reproducible is not a record;
+  it is scrubbed, like the mint.
+- `mcpMain` could not simply become `red-mcp`. `launch_plan` composes the server as
+  `{command: <node>, args: [mcpMain, …]}`, so naming the binary writes `node /path/to/red-mcp` into
+  every pane's mcp.json — a server that cannot start, in a file a person reads. That is a change to
+  the SHAPE the plan composes, and the shape has its own frozen record, so it became its own row.
+
+**`mcp.mjs` was not a shim, and that is why it took a real feature to replace.** A CLI opens one
+stdio connection to its MCP server and keeps it for the session, so a workspace updating its tools
+mid-conversation has to keep that connection while changing what is behind it. `red-mcp --facade`
+is that process. Four rules, each with a case:
+
+- a candidate that will not start does not replace a working worker — **this one had no case**, and
+  a sabotage that dropped the running worker passed every other test in the file, so it got one;
+- an idle CLI is still told the list changed, which needs a watcher thread rather than a check
+  between requests;
+- a stale name is answered with the way back, in words true for every CLI rather than a named one;
+- a worker whose pipe broke is replaced rather than reported — that is the ordinary END of a layered
+  update, and answering "broken pipe" would turn a successful update into a failed tool call.
+
+The env-first context resolution came with it (spec 127 decision 5): a project-level mcp.json is
+shared between panes and last-writer-wins, so the `--context` in it can name another pane's launch.
+
+**The desktop needs no interpreter.** `runtime/bootstrap.mjs` is `red-launch bootstrap`, and with it
+`find_program(node REQUIRED)` and `-DRENGINE_NODE_EXECUTABLE` left `cmake.toml`. The evidence is the
+criterion's own test rather than a reading: a from-scratch `.cache/desktop` build and a headless
+launch, both under a `node` on PATH that exits 66 and prints if invoked — **zero invocations in
+either**.
+
+`runtime/client.mjs` is `red-launch client`, which also closes KI-125's second half: two dashboard
+actions asked `[ -x "$RENGINE_NODE" ]`, and a pane's RENGINE_NODE holds the bare word `node`, so
+they refused with "Node is required" on a machine that has node. `external-project.mjs` is
+`red-project install-external`.
+
+With those gone, `runtime/{discovery,protocol,service-client}.mjs` and `launcher/sidecar.mjs` had no
+production caller: `red_core::descriptor` had already replaced what they DECIDE, and they moved to
+`tests/` as the fixtures 35 specs judge it against. `orchestrator/runtime/` and
+`orchestrator/launcher/` are gone as directories.
+
+**A suite-shaped lesson worth keeping.** The new pane-launch cases got their own file, and six
+unrelated specs started failing — a different six each run, all green in isolation. `node --test`
+runs FILES concurrently and this suite already sits at that limit; `launcher.test.mjs` says so in
+its own timeout comment. Folding the cases into `red-agents-launch.test.mjs` fixed it. One more
+file, not one more second of work, was the cost.
+
+**Earlier the same day**, before this goal: `editor.sh` at the root (npm-free), and four defects
+each of which failed silently — `--handoff` with no `--project` dying on `canonicalize("")`; the
+desktop's bootstrap baking the bare word `node` into an `execv`; `replace-host.sh` naming a deleted
+module while reporting success from a detached child; and `launcher.command --agent` dying on bash
+3.2's empty-array expansion. nolf-improved and vtmb-vr are pinned at `fca8630` with their editor.sh
+repointed, and `~/hirebase-v2.command` is now `~/kohai.command`.
+
+**Not marked passing.** F163's row carries the evidence and stays `passes: false`: whether "entry
+points move off Node" is met with a node-project helper still shipped, and whether package.json
+"shrinking to metadata" is satisfied by it remaining the test harness's file, are the owner's calls.
+Both are written down rather than decided here.
+
+Gates: `./init.sh`, `design.py check`, `agent_names.py check`, `features.py validate` — green. 369
+JS tests, 353 Rust tests. `native-project-windows.spec.mjs` fails at `host.sessions.record is not a
+function`, identical at HEAD with everything stashed; it is KI-125's fixture drift and is not this
+session's.
+
 ## Session 161 (opus-5) — 2026-09-16 — The tracker and the supervisor are deleted
 
 Owner goal: *"finish remaining js"*.

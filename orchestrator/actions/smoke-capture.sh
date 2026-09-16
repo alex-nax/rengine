@@ -5,7 +5,7 @@ set -euo pipefail
 RE_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 cd "$RE_ROOT"
 RE_BINARY=${RENGINE_NATIVE_BINARY:-.cache/desktop/bin/rengine}
-[[ -x "$RE_BINARY" ]] || { printf 'Build the desktop first (npm run build).\n' >&2; exit 2; }
+[[ -x "$RE_BINARY" ]] || { printf 'Build the desktop first (./editor.sh --bootstrap-only).\n' >&2; exit 2; }
 RE_SHOT=$(mktemp -t rengine-smoke).bmp
 trap 'rm -f "$RE_SHOT"' EXIT
 "$RE_BINARY" ${1:+--renderer "$1"} --smoke-test --snapshot "$RE_SHOT" >&2

@@ -104,7 +104,7 @@ is missing and `exec`s the launcher on the project root:
 ```sh
 ./editor.sh --check           # prerequisites and build state, changes nothing (1 if missing)
 ./editor.sh --dry-run         # print every command as "+ …"
-./editor.sh --bootstrap-only  # submodule init, npm ci, build:surface, build — no desktop
+./editor.sh --bootstrap-only  # submodule init, npm ci, cargo build, build:surface, build — no desktop
 ./editor.sh --rebuild         # redo npm ci and both native builds
 ./editor.sh --agent codex --launch-game -- --extra-launcher-flag
 ```
@@ -263,8 +263,8 @@ agent on a machine where the desktop is not running — has no MCP binding and c
 press the controls it cannot. Bind it by discovery from the rEngine checkout:
 
 ```sh
-npm run bind -- --project /absolute/path/to/game-project --agent claude            # a new session
-npm run bind -- --project /absolute/path/to/game-project --agent claude --session UUID   # one that exists
+red-agents bind --project /absolute/path/to/game-project --agent claude            # a new session
+red-agents bind --project /absolute/path/to/game-project --agent claude --session UUID   # one that exists
 ```
 
 It reads no `RENGINE_*` environment variable. It scans the sidecar descriptors under

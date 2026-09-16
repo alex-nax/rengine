@@ -1,6 +1,6 @@
 # 146 — red-agent-launch: the pane's own launcher is a binary (F163, spec 129, charter D57)
 
-**Status**: implementing. **Depends on**: spec 129 (the Rust rewrite), spec 141 (the provider
+**Status**: complete. **Depends on**: spec 129 (the Rust rewrite), spec 141 (the provider
 split), spec 102/133 (red-ide), spec 145 (red-launch).
 
 ## What this is
@@ -64,11 +64,11 @@ only as imports of the file this spec replaces.
 
 `agents/mcp.mjs` stays, for the reason below.
 
-## Deferred: the pane's MCP server
+## The pane's MCP server — deferred within this spec, then done
 
-The intent was to point `mcpMain` at `red-mcp` here, which is what would let `agents/mcp.mjs` be
-deleted with the rest. It cannot ride on this row, and the reason is worth writing down because it
-is invisible from the input: `launch_plan` composes the server as
+The intent was to point `mcpMain` at `red-mcp` in the launcher row, which is what would let
+`agents/mcp.mjs` be deleted with the rest. It could not ride there, and the reason is worth keeping
+because it is invisible from the input: `launch_plan` composes the server as
 
 ```json
 { "type": "stdio", "command": "<node>", "args": ["<mcpMain>", "--context", "<file>"] }
@@ -77,8 +77,16 @@ is invisible from the input: `launch_plan` composes the server as
 so naming the Rust binary as `mcpMain` writes `node /path/to/red-mcp` into every pane's `mcp.json`
 — a server that cannot start, in a file a person reads. The switch is a change to the SHAPE the
 plan composes, and that shape is covered by its own frozen record (`agents-fixtures.json`, F173).
-It gets its own row and its own evidence rather than arriving as a passenger on this one, where the
-whole value of the comparison is that there is no intended divergence at all.
+It got its own row and its own evidence rather than arriving as a passenger on the launcher's, where
+the whole value of the comparison is that there is no intended divergence at all.
+
+**What it took**, once separated: `launch_plan` gained `mcpCommand`, an argv PREFIX, with `mcpMain`
+kept because the frozen record is taken through it — so that record still passes unchanged, and the
+one declared divergence is normalised on both sides with the new value asserted directly. And
+`mcp.mjs` turned out not to be a shim at all: it is the process that holds a CLI's stdio connection
+while the worker behind it is replaced by an update. `red-mcp --facade` is that, with a watcher
+thread so an IDLE CLI is still told the list changed, and a worker that is replaced rather than
+reported when its pipe breaks — which is the ordinary end of a layered update.
 
 ## Evidence
 
