@@ -53,7 +53,7 @@ test('the refuse case names the agent in the composition\'s own words', async ()
    One case end to end says the two entry points answer the same thing — a client that quietly
    stopped passing the mint or the clock would pass every fixture above and still be wrong. */
 test('the service answers the same plan as the fixture binary', async () => {
-  const { paneComposition, closeAgents } = await import('../agents/agents-client.mjs');
+  const { paneComposition, closeAgents } = await import('./agents-client.mjs');
   const [title, input] = CASES[0];
   try {
     const plan = await paneComposition({

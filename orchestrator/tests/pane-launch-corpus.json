@@ -1,0 +1,212 @@
+{
+  "identityNames": [
+    "CLAUDECODE",
+    "CLAUDE_PID",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_BRIDGE_SESSION_ID",
+    "CLAUDE_CODE_EXECPATH",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
+    "CLAUDE_CODE_MESSAGING_TOKEN"
+  ],
+  "cases": [
+    {
+      "name": "claude",
+      "code": 0,
+      "said": [
+        "Editor: No editor is published for this directory, so auto-connect would fail at startup.",
+        "Workspace MCP: rengine_123456781234",
+        "Workspace identity: claude <short> — claude session <uuid>; resume this agent with: claude --resume <uuid>"
+      ],
+      "stderr": [],
+      "received": {
+        "argv": [
+          "--mcp-config",
+          "<dir>/rengine_<root>-<mint>/mcp.json",
+          "--settings",
+          "<dir>/rengine_<root>-<mint>/settings.json",
+          "--session-id",
+          "<uuid>"
+        ],
+        "cwd": "/private<dir>",
+        "env": {
+          "RENGINE_AGENT_HOME": "<dir>/agent-home",
+          "RENGINE_IDE_DIRECTORY": "<dir>/ide-locks",
+          "RENGINE_MCP_CONFIG": "<dir>/rengine_<root>-<mint>/mcp.json"
+        },
+        "present": [
+          "CLAUDECODE",
+          "CLAUDE_CODE_SESSION_ID"
+        ]
+      }
+    },
+    {
+      "name": "codex",
+      "code": 0,
+      "said": [
+        "Workspace MCP: rengine_123456781234",
+        "Workspace identity: codex <short>"
+      ],
+      "stderr": [],
+      "received": {
+        "argv": [
+          "-c",
+          "mcp_servers.rengine_123456781234.command=\"/Users/alex/.n/bin/node\"",
+          "-c",
+          "mcp_servers.rengine_123456781234.args=[\"<root>/orchestrator/agents/mcp.mjs\",\"--context\",\"<dir>/rengine_<root>-<mint>/context.json\"]",
+          "-c",
+          "mcp_servers.rengine_123456781234.required=true",
+          "-c",
+          "features.hooks=true",
+          "-c",
+          "hooks.SessionStart=[{matcher=\"startup|resume\",hooks=[{type=\"command\",command=\"<root>/red/target/debug/red-agents report-session --provider codex --context <dir>/rengine_<root>-<mint>/context.json\"}]}]",
+          "-c",
+          "hooks.state={\"/<session-flags>/config.toml:session_start:0:0\"={trusted_hash=\"<hash>\"}}"
+        ],
+        "cwd": "/private<dir>",
+        "env": {
+          "RENGINE_AGENT_HOME": "<dir>/agent-home",
+          "RENGINE_IDE_DIRECTORY": "<dir>/ide-locks",
+          "RENGINE_MCP_CONFIG": "<dir>/rengine_<root>-<mint>/mcp.json"
+        },
+        "present": [
+          "CLAUDECODE",
+          "CLAUDE_CODE_SESSION_ID"
+        ]
+      }
+    },
+    {
+      "name": "kimi",
+      "code": 0,
+      "said": [
+        "Workspace MCP: rengine_123456781234",
+        "Workspace identity: kimi <short>"
+      ],
+      "stderr": [],
+      "received": {
+        "argv": [],
+        "cwd": "/private<dir>",
+        "env": {
+          "RENGINE_AGENT_HOME": "<dir>/agent-home",
+          "RENGINE_IDE_DIRECTORY": "<dir>/ide-locks",
+          "RENGINE_MCP_CONFIG": "<dir>/rengine_<root>-<mint>/mcp.json"
+        },
+        "present": [
+          "CLAUDECODE",
+          "CLAUDE_CODE_SESSION_ID"
+        ]
+      }
+    },
+    {
+      "name": "gemini",
+      "code": 0,
+      "said": [
+        "Workspace MCP: rengine_123456781234",
+        "Workspace identity: gemini <short>"
+      ],
+      "stderr": [],
+      "received": {
+        "argv": [],
+        "cwd": "/private<dir>",
+        "env": {
+          "RENGINE_AGENT_HOME": "<dir>/agent-home",
+          "RENGINE_IDE_DIRECTORY": "<dir>/ide-locks",
+          "RENGINE_MCP_CONFIG": "<dir>/rengine_<root>-<mint>/mcp.json"
+        },
+        "present": [
+          "CLAUDECODE",
+          "CLAUDE_CODE_SESSION_ID"
+        ]
+      }
+    },
+    {
+      "name": "opencode",
+      "code": 0,
+      "said": [
+        "Workspace MCP: rengine_123456781234",
+        "Workspace identity: opencode <short>"
+      ],
+      "stderr": [],
+      "received": {
+        "argv": [],
+        "cwd": "/private<dir>",
+        "env": {
+          "RENGINE_AGENT_HOME": "<dir>/agent-home",
+          "RENGINE_IDE_DIRECTORY": "<dir>/ide-locks",
+          "RENGINE_MCP_CONFIG": "<dir>/rengine_<root>-<mint>/mcp.json"
+        },
+        "present": [
+          "CLAUDECODE",
+          "CLAUDE_CODE_SESSION_ID"
+        ]
+      }
+    },
+    {
+      "name": "claude-extra-args",
+      "code": 0,
+      "said": [
+        "Editor: No editor is published for this directory, so auto-connect would fail at startup.",
+        "Workspace MCP: rengine_123456781234",
+        "Workspace identity: claude <short> — claude session <uuid>; resume this agent with: claude --resume <uuid>"
+      ],
+      "stderr": [],
+      "received": {
+        "argv": [
+          "--mcp-config",
+          "<dir>/rengine_<root>-<mint>/mcp.json",
+          "--settings",
+          "<dir>/rengine_<root>-<mint>/settings.json",
+          "--session-id",
+          "<uuid>",
+          "--model",
+          "opus"
+        ],
+        "cwd": "/private<dir>",
+        "env": {
+          "RENGINE_AGENT_HOME": "<dir>/agent-home",
+          "RENGINE_IDE_DIRECTORY": "<dir>/ide-locks",
+          "RENGINE_MCP_CONFIG": "<dir>/rengine_<root>-<mint>/mcp.json"
+        },
+        "present": [
+          "CLAUDECODE",
+          "CLAUDE_CODE_SESSION_ID"
+        ]
+      }
+    },
+    {
+      "name": "claude-reporting",
+      "code": 0,
+      "said": [
+        "Editor: No editor is published for this directory, so auto-connect would fail at startup.",
+        "Workspace MCP: rengine_123456781234",
+        "Workspace identity: claude <short> — claude session <uuid>; resume this agent with: claude --resume <uuid>"
+      ],
+      "stderr": [
+        "The workspace was not told which conversation this pane holds: <reason>"
+      ],
+      "received": {
+        "argv": [
+          "--mcp-config",
+          "<dir>/rengine_<root>-<mint>/mcp.json",
+          "--settings",
+          "<dir>/rengine_<root>-<mint>/settings.json",
+          "--session-id",
+          "<uuid>"
+        ],
+        "cwd": "/private<dir>",
+        "env": {
+          "RENGINE_AGENT_HOME": "<dir>/agent-home",
+          "RENGINE_IDE_DIRECTORY": "<dir>/ide-locks",
+          "RENGINE_MCP_CONFIG": "<dir>/rengine_<root>-<mint>/mcp.json",
+          "RENGINE_ORCHESTRATOR_SESSION": "<uuid>"
+        },
+        "present": [
+          "CLAUDECODE",
+          "CLAUDE_CODE_SESSION_ID"
+        ]
+      }
+    }
+  ]
+}

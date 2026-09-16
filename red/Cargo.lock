@@ -2822,6 +2822,7 @@ version = "0.1.0"
 dependencies = [
  "red-agents",
  "red-core",
+ "red-ide",
  "serde_json",
  "tokio",
 ]

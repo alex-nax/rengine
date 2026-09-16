@@ -13,7 +13,7 @@
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import { processIdentity as agentsProcessIdentity, installPaths as agentsInstallPaths, shortAgentId } from '../agents/agents-client.mjs';
+import { processIdentity as agentsProcessIdentity, installPaths as agentsInstallPaths, shortAgentId } from './agents-client.mjs';
 /* One conversation, one set of eight characters: the pane title, the picker row, the identity label
    and the token segment all show the same prefix, so a person recognises the same thing in each. */
 export const agentTitle = (agent, conversation, rootName) =>

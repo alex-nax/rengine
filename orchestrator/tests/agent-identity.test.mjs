@@ -10,8 +10,8 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { startServer } from './red-host-fixture.mjs';
 import { startWorker } from './red-worker-fixture.mjs';
 import { request } from '../launcher/sidecar.mjs';
-import { agentLaunch, describeSession } from '../agents/agents-client.mjs';
-import { bind, forgetRecipes } from '../agents/agents-client.mjs';
+import { agentLaunch, describeSession } from './agents-client.mjs';
+import { bind, forgetRecipes } from './agents-client.mjs';
 import { built } from './cargo.mjs';
 
 /* This spec drives a Rust binary through the service client, so it builds one first: run alone — or

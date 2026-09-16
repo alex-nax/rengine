@@ -1,7 +1,7 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { shellEnvironment, agentProcessIdentity, agentInstallPaths } from './sessions-client.mjs';
-import { closeAgents } from '../agents/agents-client.mjs';
+import { closeAgents } from './agents-client.mjs';
 import { built } from './cargo.mjs';
 
 /* This spec drives a Rust binary through a service client, so it builds one first: run alone — or

@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { agentLaunch } from '../agents/agents-client.mjs';
+import { agentLaunch } from './agents-client.mjs';
 import { built } from './cargo.mjs';
 
 /* This spec drives a Rust binary through the service client, so it builds one first: run alone — or

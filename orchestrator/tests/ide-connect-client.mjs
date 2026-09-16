@@ -2,7 +2,7 @@
  * question as `ide-connect.mjs` will ask it, without the module in between. */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { recipe } from '../agents/agents-client.mjs';
+import { recipe } from './agents-client.mjs';
 import { BINARY } from './ide-serve-client.mjs';
 
 const run = promisify(execFile);

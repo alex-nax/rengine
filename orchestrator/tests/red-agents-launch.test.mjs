@@ -18,8 +18,14 @@ import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { agentLaunch, hookTrustHash, closeAgents } from '../agents/agents-client.mjs';
+import { agentLaunch, hookTrustHash, closeAgents } from './agents-client.mjs';
 import { LAUNCHES, recordLaunch, scrub } from './agents-fixtures.mjs';
+/* Spec 146's half lives in this file rather than its own, and deliberately: node --test runs FILES
+   concurrently, this suite already sits at that limit — `launcher.test.mjs` says so in its own
+   timeout comment — and one more file tipped six unrelated specs past their budgets. The two halves
+   belong together anyway: this is the launch, judged against what the JavaScript answered. */
+import { CASES, ROOT as CHECKOUT, recordLaunch as recordPaneLaunch } from './pane-launch-corpus.mjs';
+import { mkdtemp as makeTemp, writeFile as write, chmod as mode } from 'node:fs/promises';
 import { built } from './cargo.mjs';
 
 const run = promisify(execFile);
@@ -75,4 +81,62 @@ test('the trust hash is computed, not copied: a different command hashes differe
   const other = await hookTrustHash("'/opt/red-agents' report-session --context '/tmp/b.json'");
   assert.notEqual(one, other, 'two commands codex would trust separately hash separately');
   assert.match(one, /^sha256:[0-9a-f]{64}$/);
+});
+
+
+/* ---- the ACTING half: spec 146 ------------------------------------------------------------- */
+
+const RECORD = JSON.parse(await readFile(new URL('./pane-launch-corpus.json', import.meta.url), 'utf8'));
+const BINARY = () => process.env.RENGINE_RED_AGENT_LAUNCH || path.join(CHECKOUT, 'red/target/debug/red-agent-launch');
+
+test('the Rust pane launcher hands a CLI what launch.mjs handed it, for every CLI', { timeout: 180000 }, async t => {
+  await built('-p', 'red-supervisor');
+  const directory = await makeTemp(path.join(tmpdir(), 'rengine-pane-launch-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+
+  const launcher = { command: BINARY(), args: [] };
+  for (const kase of CASES) {
+    const expected = RECORD.cases.find(item => item.name === kase.name);
+    assert.ok(expected, `${kase.name} is in the record`);
+    const actual = await recordPaneLaunch(launcher, kase, directory);
+    /* The whole case at once: a per-field comparison reports the first difference and hides the
+       rest, and what matters when this fails is everything that moved. */
+    assert.deepEqual(actual, expected, `${kase.name}: the pane launch differs from what launch.mjs did`);
+  }
+});
+
+/* "Prints and continues" is the behaviour a green run cannot tell from "never happened", so the
+   best-effort paths get a case each. Each of these WOULD be a refusal if the rule were dropped. */
+test('a pane is not refused because something optional did not answer', { timeout: 120000 }, async t => {
+  await built('-p', 'red-supervisor');
+  const directory = await makeTemp(path.join(tmpdir(), 'rengine-pane-optional-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+
+  /* The host at 127.0.0.1:1 answers nothing, so the session list and the conversation report both
+     fail. The record's `claude-reporting` case carries the sentence; this asserts the CONSEQUENCE:
+     the CLI still ran, and the exit code is the CLI's. */
+  const reported = await recordPaneLaunch({ command: BINARY(), args: [] },
+    { name: 'optional', agent: 'claude', session: '00000000-0000-0000-0000-0000000000a1' }, directory);
+  assert.equal(reported.code, 0, reported.stderr.join('\n'));
+  assert.ok(reported.received, 'the CLI ran even though the workspace never answered');
+  assert.match(reported.stderr.join('\n'), /was not told which conversation/);
+});
+
+/* The exit code is the CLI's, and a launcher that swallowed it would make every failed agent look
+   like a clean exit to whatever is watching the pane. */
+test('the exit code that comes out is the CLI\'s own', { timeout: 120000 }, async t => {
+  await built('-p', 'red-supervisor');
+  const directory = await makeTemp(path.join(tmpdir(), 'rengine-pane-exit-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const context = { url: 'http://127.0.0.1:1', token: 'a'.repeat(64), instance: '12345678-1234-1234-1234-123456789abc', rootId: '12345678-1234-1234-1234-123456789abc' };
+  const contextFile = path.join(directory, 'root-context.json');
+  await write(contextFile, JSON.stringify(context));
+  const cli = path.join(directory, 'exits-17');
+  await write(cli, '#!/bin/bash\nexit 17\n');
+  await mode(cli, 0o755);
+  const run = promisify(execFile);
+  const env = { PATH: process.env.PATH, HOME: directory, RENGINE_IDE_DIRECTORY: path.join(directory, 'locks') };
+  const failed = await run(BINARY(), ['claude', cli, contextFile], { cwd: directory, env }).then(
+    () => ({ code: 0 }), error => ({ code: error.code }));
+  assert.equal(failed.code, 17, 'the CLI exited 17 and the launcher carried it out');
 });

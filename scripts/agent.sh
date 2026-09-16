@@ -29,6 +29,21 @@ red_agents_bin() {
   return 1
 }
 
+# The pane's own launcher, which is a binary too (F163, spec 146): it composes the plan, says what
+# a person reads, tells the workspace which conversation this pane holds, and becomes the shell
+# around the CLI. RENGINE_RED_AGENT_LAUNCH names it where an install puts it somewhere unusual.
+red_agent_launch_bin() {
+  if [ -n "${RENGINE_RED_AGENT_LAUNCH:-}" ]; then
+    [ -x "$RENGINE_RED_AGENT_LAUNCH" ] && { printf '%s\n' "$RENGINE_RED_AGENT_LAUNCH"; return 0; }
+    return 1
+  fi
+  local candidate
+  for candidate in "$launcher_dir/../red/target/debug/red-agent-launch" "$launcher_dir/../red/target/release/red-agent-launch"; do
+    [ -x "$candidate" ] && { printf '%s\n' "$candidate"; return 0; }
+  done
+  return 1
+}
+
 registry_names() {
   if [ "$have_names" = 0 ]; then
     have_names=1
@@ -200,7 +215,12 @@ launch_agent() {
   choose_conversation
   printf 'Launching %s in %s\n' "$executable" "$project"
   if [ -n "${RENGINE_WORKSPACE_CONTEXT:-}" ]; then
-    exec "${RENGINE_NODE:-node}" "$launcher_dir/../orchestrator/agents/launch.mjs" "$agent" "$executable" "$RENGINE_WORKSPACE_CONTEXT" ${extra[@]+"${extra[@]}"}
+    local pane_launcher
+    pane_launcher="$(red_agent_launch_bin)" || {
+      echo 'red-agent-launch is missing; build it with: cargo build --manifest-path red/Cargo.toml --bins' >&2
+      return 127
+    }
+    exec "$pane_launcher" "$agent" "$executable" "$RENGINE_WORKSPACE_CONTEXT" ${extra[@]+"${extra[@]}"}
   fi
   exec "$executable" ${extra[@]+"${extra[@]}"}
 }

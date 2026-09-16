@@ -40,7 +40,7 @@ function binary(declared, name, crate) {
 
 export const MCP_OVERLAYS = ['flag', 'config-args', 'env-defaults', 'env-inline', 'project-file'];
 export const HOOK_OVERLAYS = [null, 'per-launch-settings', 'per-launch-config', 'guided-bootstrap'];
-export const REGISTRY_DOCUMENT = fileURLToPath(new URL('./registry.toml', import.meta.url));
+export const REGISTRY_DOCUMENT = fileURLToPath(new URL('../agents/registry.toml', import.meta.url));
 
 /* Primed once per process, and re-primed when the extra document's name changes: the module this
    replaces read RENGINE_AGENT_REGISTRY_EXTRA at call time so a recipe added as data needed no
@@ -157,7 +157,9 @@ function open() {
 export const closeAgents = () => { service?.child.kill(); service = null; };
 
 const NODE = process.execPath;
-const MCP_MAIN = fileURLToPath(new URL('./mcp.mjs', import.meta.url));
+/* Still the shipped facade, which has not moved: this client is a spec fixture now, but the path it
+   composes is the one a real launch composes, and the frozen record is what says so. */
+const MCP_MAIN = fileURLToPath(new URL('../agents/mcp.mjs', import.meta.url));
 const redAgentsBinary = () => binary('RENGINE_RED_AGENTS', 'red-agents', 'red-agents');
 
 export const describeSession = identity => open().call('describeSession', [identity ?? null]);

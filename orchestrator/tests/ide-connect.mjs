@@ -7,7 +7,7 @@
  * stays the caller's probe: `agents-client.mjs` resolves it before asking `red-agents` for a plan
  * (owner, 2026-09-13), and only the decision inside it crossed to Rust.
  */
-import { ask } from '../runtime/ide.mjs';
+import { ask } from './ide.mjs';
 import { recipe, resolvedRecipes } from './agents-client.mjs';
 
 /** The editors published for a directory: `red-ide offered`, with the lock directory defaulted by the binary. */

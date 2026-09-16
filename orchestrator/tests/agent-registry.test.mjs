@@ -11,11 +11,11 @@ import { spawnSync } from 'node:child_process';
    id shapes, MCP overlay kind, hooks overlay kind and IDE connect. config.mjs, tasks.mjs,
    ide-connect.mjs and agent.sh read it rather than carrying their own tables, so adding an agent is
    a data edit — proven here by registering one as data and watching every consumer follow. */
-import { agentNames, recipe, resolvedRecipes, MCP_OVERLAYS, HOOK_OVERLAYS, processIdentity, installPaths } from '../agents/agents-client.mjs';
-import { agentLaunch, agentConversation, hookTrustHash } from '../agents/agents-client.mjs';
+import { agentNames, recipe, resolvedRecipes, MCP_OVERLAYS, HOOK_OVERLAYS, processIdentity, installPaths } from './agents-client.mjs';
+import { agentLaunch, agentConversation, hookTrustHash } from './agents-client.mjs';
 import { knownAgents, modelArgs } from './tasks.mjs';
-import { ideConnectFlag } from '../agents/ide-connect.mjs';
-import { ideDirectory } from '../runtime/ide.mjs';
+import { ideConnectFlag } from './ide-connect.mjs';
+import { ideDirectory } from './ide.mjs';
 import { built } from './cargo.mjs';
 
 const script = path.resolve('scripts/agent.sh');

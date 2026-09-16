@@ -7,6 +7,9 @@ description = "The update supervisor in Rust: layered updates, desktop windows a
 [dependencies]
 red-core = { path = "../red-core" }
 red-agents = { path = "../red-agents" }
+# The pane launcher probes for a published editor. `red-ide` depends on `red-agents`, so the pane
+# launcher cannot live there; this is the crate that reaches both without a cycle (spec 146).
+red-ide = { path = "../red-ide" }
 # `preserve_order`, because a project window's layout is the desktop's own document and is handed
 # back to it unchanged — a store that reordered its keys would hand a person a different layout.
 serde_json = { version = "1", features = ["preserve_order"] }
@@ -23,3 +26,8 @@ path = "src/bin/red_supervisor.rs"
 [[bin]]
 name = "red-launch"
 path = "src/bin/red_launch.rs"
+
+# The pane's launcher, sibling to the workspace's: `agents/launch.mjs` (spec 146).
+[[bin]]
+name = "red-agent-launch"
+path = "src/bin/red_agent_launch.rs"

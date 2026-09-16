@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { offeredEditors, autoConnect, ideConnectFlag } from '../agents/ide-connect.mjs';
+import { offeredEditors, autoConnect, ideConnectFlag } from './ide-connect.mjs';
 // The fixtures publish OUR name, because "is this editor ours?" is what these tests are about.
 // Taking it from the same export the code compares against is what makes the question survive a
 // rename: a fixture holding the old word would still pass while auto-connect silently stopped.
-import { IDE_NAME } from '../runtime/ide.mjs';
-import { agentLaunch } from '../agents/agents-client.mjs';
+import { IDE_NAME } from './ide.mjs';
+import { agentLaunch } from './agents-client.mjs';
 import { built } from './cargo.mjs';
 
 /* This spec drives a Rust binary through the service client, so it builds one first: run alone — or

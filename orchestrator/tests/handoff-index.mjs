@@ -1,5 +1,5 @@
 import { readFile, realpath, access, stat } from 'node:fs/promises';
-import * as codex from './codex.mjs';
+import * as codex from './handoff-codex.mjs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -7,7 +7,7 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const execute = promisify(execFile);
-const agentScript = fileURLToPath(new URL('../../../scripts/agent.sh', import.meta.url));
+const agentScript = fileURLToPath(new URL('../../scripts/agent.sh', import.meta.url));
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 
 /* The declared kinds this module can read a conversation store for, and who reads each. One arm per

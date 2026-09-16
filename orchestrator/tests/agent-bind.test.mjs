@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { stateDirectories } from '../agents/agents-client.mjs';
+import { stateDirectories } from './agents-client.mjs';
 import { built } from './cargo.mjs';
 
 /* This spec drives a Rust binary through the service client, so it builds one first: run alone — or

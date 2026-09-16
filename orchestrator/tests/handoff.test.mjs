@@ -6,8 +6,8 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { readHandoff } from '../agents/handoff/index.mjs';
-import { conversationHandoff, handoffCapableAgents, forgetRecipes } from '../agents/agents-client.mjs';
+import { readHandoff } from './handoff-index.mjs';
+import { conversationHandoff, handoffCapableAgents, forgetRecipes } from './agents-client.mjs';
 import { built } from './cargo.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
