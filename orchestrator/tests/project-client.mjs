@@ -13,7 +13,7 @@ import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fail } from '../server/store-client.mjs';
+import { fail } from './store-client.mjs';
 
 const project = fileURLToPath(new URL('../..', import.meta.url));
 

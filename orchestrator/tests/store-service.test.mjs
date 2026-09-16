@@ -18,7 +18,7 @@ import { promisify } from 'node:util';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { WorkspaceStore } from '../server/store-client.mjs';
+import { WorkspaceStore } from './store-client.mjs';
 import { built } from './cargo.mjs';
 
 const run = promisify(execFile);

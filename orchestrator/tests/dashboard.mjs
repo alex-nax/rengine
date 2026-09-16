@@ -5,7 +5,7 @@
  * and that is the session host's business rather than the project reader's.
  */
 import { probeCacheFor, declarationOf, workspaceListings } from './devices.mjs';
-import { fail } from '../server/store-client.mjs';
+import { fail } from './store-client.mjs';
 import { askProject } from './project-client.mjs';
 import { bashPath } from '../server/sessions-client.mjs';
 

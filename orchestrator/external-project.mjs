@@ -1,11 +1,34 @@
-import { mkdir, readFile, writeFile, realpath, stat, chmod } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile, realpath, rm, stat, chmod } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { validateSchema } from './server/store-client.mjs';
+import { serveBinary } from './runtime/service-client.mjs';
+
+const run = promisify(execFile);
 
 const checkout = fileURLToPath(new URL('../', import.meta.url));
 const quote = text => `'${text.replaceAll("'", "'\\''")}'`;
 const within = (root, file) => { const rel = path.relative(root, file); return !rel || (rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel)); };
+
+/* The composed declaration is checked BEFORE anything is written, by the reader the product
+   itself uses: `red-project declaration` applies the contract, the schema and each section's own
+   rules, so the installer refuses exactly what a workspace would refuse to open. That reader takes
+   a file, so the candidate is written to a throwaway directory of its own — a wrong declaration
+   must leave the profile, the launcher and the project as it found them. */
+async function checkDeclaration(project, declaration) {
+  const directory = await mkdtemp(path.join(tmpdir(), 'redit-declaration-'));
+  const candidate = path.join(directory, 'project.json');
+  try {
+    await writeFile(candidate, `${JSON.stringify(declaration, null, 2)}\n`);
+    const { stdout } = await run(serveBinary('RENGINE_RED_PROJECT', 'red-project'), ['declaration', project, candidate]);
+    const { error } = JSON.parse(stdout);
+    /* The reader names the file it read; the person installing asked about a declaration this
+       command composed, and that path is a temporary directory they will never see again. */
+    if (error) throw new Error(error.startsWith(`${candidate}: `) ? error.slice(candidate.length + 2) : error);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+}
 
 async function canonicalDestination(filename) {
   try { return await realpath(filename); }
@@ -44,9 +67,7 @@ export async function installExternalProject(options) {
     formats: [{ id: 'json', title: 'JSON', match: ['*.json'], modes: ['text', 'raw', 'preview'], default: 'text',
       preview: { kind: 'text', command: [node, helper, 'json', '${file}'], timeoutMs: 10000, maxBytes: 4194304 } }],
     dashboard: { title, groups } };
-  const schema = JSON.parse(await readFile(new URL('../contracts/project-v1.schema.json', import.meta.url), 'utf8'));
-  const errors = await validateSchema(schema, declaration);
-  if (errors.length) throw new Error(errors.join('; '));
+  await checkDeclaration(project, declaration);
   const script = `#!/bin/bash\nset -euo pipefail\nexport PATH=${quote(process.env.PATH ?? path.dirname(node))}\nagent_flags=(--no-agent)\nfor argument in "$@"; do\n  case "$argument" in\n    --agent|--handoff) agent_flags=() ;;\n    --project|--declaration|--state) echo 'This launcher is bound to its installed project and state.' >&2; exit 2 ;;\n  esac\ndone\nexec ${quote(node)} ${quote(path.join(checkout, 'orchestrator/launch.mjs'))} --project ${quote(project)} --declaration ${quote(declarationFile)} --state ${quote(state)} "\${agent_flags[@]}" "$@"\n`;
   const files = [[helper, await readFile(new URL('./templates/external/commands.mjs', import.meta.url), 'utf8'), 0o644],
     [declarationFile, `${JSON.stringify(declaration, null, 2)}\n`, 0o644], [launcher, script, 0o755]];

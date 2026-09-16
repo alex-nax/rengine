@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { WorkspaceStore } from '../server/store-client.mjs';
+import { WorkspaceStore } from './store-client.mjs';
 import { built } from './cargo.mjs';
 
 /* This spec drives a Rust binary through a service client, so it builds one first: run alone — or

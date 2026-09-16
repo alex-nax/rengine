@@ -7,7 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { startServer } from './red-host-fixture.mjs';
 import { startWorker } from './red-worker-fixture.mjs';
 import { request } from '../launcher/sidecar.mjs';
-import { WorkspaceStore } from '../server/store-client.mjs';
+import { WorkspaceStore } from './store-client.mjs';
 import http from 'node:http';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';

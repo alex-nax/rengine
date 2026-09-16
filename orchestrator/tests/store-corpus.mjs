@@ -9,7 +9,7 @@ const STAMPS = [1_800_000_000_000, 1_800_000_060_000, 1_800_000_120_000, 1_800_0
 const UUID_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
 
 async function capture(directory) {
-  const { WorkspaceStore } = await import('../server/store-client.mjs');
+  const { WorkspaceStore } = await import('./store-client.mjs');
   const projectA = path.join(directory, 'project-a');
   const projectB = path.join(directory, 'project-b');
   await mkdir(projectA, { recursive: true });
@@ -148,7 +148,7 @@ async function capture(directory) {
 }
 
 async function schemaCases() {
-  const { validateSchema } = await import('../server/store-client.mjs');
+  const { validateSchema } = await import('./store-client.mjs');
   const cases = [];
   const add = (name, schema, value) => cases.push({ name, schema, value, errors: validateSchema(schema, value) });
   add('type', { type: 'string' }, 42);

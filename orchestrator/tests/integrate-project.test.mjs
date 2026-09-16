@@ -8,7 +8,7 @@ import path from 'node:path';
 import { bashPath } from '../server/sessions-client.mjs';
 import { readDeclaration } from './formats.mjs';
 import { askProject } from './project-client.mjs';
-import { validateSchema } from '../server/store-client.mjs';
+import { validateSchema } from './store-client.mjs';
 import { built } from './cargo.mjs';
 
 /* This spec drives a Rust binary through a service client, so it builds one first: run alone — or

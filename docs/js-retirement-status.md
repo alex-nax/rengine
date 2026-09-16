@@ -3,7 +3,7 @@
 Charter D57 makes the orchestrator's target language Rust, and spec 129 retires the Node modules
 under `orchestrator/` one feature row at a time. This is where that stands.
 
-Measured 2026-09-15, at `1b247bb`; the narrative below is current as of the F154 work that followed. Regenerate the numbers with:
+Measured 2026-09-16, at `3c421df`; the narrative below is current as of the F152 work that followed. Regenerate the numbers with:
 
 ```sh
 git ls-files '*.mjs' | grep -vE 'tests/|\.test\.mjs' | xargs wc -l | tail -1
@@ -13,10 +13,10 @@ git ls-files '*.mjs' | grep -vE 'tests/|\.test\.mjs' | xargs wc -l | tail -1
 
 | | lines |
 |---|---|
-| Production JavaScript remaining | **2,239** across 24 files |
+| Production JavaScript remaining | **2,031** across 23 files |
 | Rust in `red/` | ~34,000 |
 
-Down from 5,504 across 43 when this was first written — **35% of it gone**. The worker, the tracker
+Down from 5,504 across 43 when this was first written — **63% of it gone**. The worker, the tracker
 and now the supervisor: `runtime/worker.mjs`, `runtime/scripts.mjs`, `server/desktops.mjs`,
 `runtime/tracker.mjs`, `server/tracker.mjs`, `server/tracker-auth.mjs`, `runtime/supervisor.mjs`,
 `runtime/windows.mjs` and `runtime/desktop.mjs`.
@@ -84,16 +84,16 @@ suite that drove the module drives the binary — including the four desktop spe
 window through the supervisor's automation relay because a process cannot hand anyone a child's
 pipes. What is left is the launchers, which are their own commands rather than this layer.
 
-### 3. The JS session host — 842 lines left of 1,405
+### 3. The JS session host — 82 lines left of 1,405
 
 | file | lines | |
 |---|---|---|
 | ~~`server/main.mjs`~~ | ~~209~~ | **deleted** |
 | ~~`server/sessions-client.mjs`'s `Sessions`~~ | ~~380~~ | **deleted** — the pane record is the service's (D62) |
-| `server/store-client.mjs` | 229 | client of `red-store-serve`; 21 specs |
+| ~~`server/store-client.mjs`~~ | ~~229~~ | **moved to `tests/`** — its last product call was the external installer's schema check |
 | ~~`server/pty-client.mjs`~~ | ~~189~~ | **moved to `tests/`** — no product caller left |
 | ~~`server/{tasks,devices,project-client,formats,dashboard,recordings}.mjs`~~ | ~~301~~ | **moved to `tests/`** — thin clients of `red-project` with no product caller left |
-| `server/sessions-client.mjs` | 79 | the shell envelope, bash on Windows, a pane's title |
+| `server/sessions-client.mjs` | 82 | the shell envelope, bash on Windows, a pane's title |
 
 **Status: a workspace runs no JavaScript host.** `ensureSidecar` starts `red-host`, which starts the
 state directory's own store and PTY services, publishes `sidecar.json` and answers every route a
@@ -123,21 +123,30 @@ over `askProject`, and after `main.mjs` went they had **no product importer at a
 `orchestrator/tests/`, where what they are is what they do: how a spec asks the Rust. The code did
 not disappear; its role changed, and counting it as product would have been the fiction.
 
-`pty-client.mjs` moved too, once nothing in the product imported it. `store-client.mjs` is the one
-left, and it is held by a single call: `external-project.mjs` validates the declaration it composes
-before writing anything, and asks the store's schema validator to do it. That is a real port rather
+`pty-client.mjs` moved too, once nothing in the product imported it. `store-client.mjs` was the one
+left, and it was held by a single call: `external-project.mjs` validated the declaration it composes
+before writing anything, and asked the store's schema validator to do it. That one was a port rather
 than a move — the installer is a person-facing command, and "the project is untouched when the
 declaration is wrong" is a property it is tested for.
+
+It now asks **`red-project declaration`**, the reader the product itself opens a workspace with, from
+a throwaway directory of its own. That is a stricter check than the schema call it replaces: the
+schema validator answered "is this well-formed JSON for the contract", while the reader also applies
+each section's own rules — so the installer refuses exactly what a workspace would refuse to open,
+and refuses it before it has written anything. Sabotaged (the reported error dropped),
+`external-project.test.mjs` goes red on `title: ''` with `Missing expected rejection`, which is the
+case that rule is for. With that call gone the store client has no product importer either, and the
+whole of `orchestrator/server/` is 82 lines of shell envelope.
 
 `red-host.test.mjs` did **not** retire. It compared the door against the JS host; both sides are
 `red-host` now, so it compares **two hosts on one state directory** — which is what a host
 replacement actually produces (charter D62). Every assertion is unchanged and each means more: "both
 hosts answer the same" was a migration check and is now the rule the directory is built on.
 
-### 4. Agent-side and entry points — 839 lines (**F163**)
+### 4. Agent-side and entry points — 860 lines (**F163**)
 
 `agents/agents-client.mjs` (253), `agents/mcp.mjs` (127), `orchestrator/launch.mjs` (109),
-`external-project.mjs` (89), `agents/handoff/*.mjs` (105), and six smaller files.
+`external-project.mjs` (110), `agents/handoff/*.mjs` (105), and six smaller files.
 
 **Status: mostly thin.** `agents/mcp.mjs` is a facade over `red-mcp`, which exists; `agents-client`
 speaks to the recipe service. `launch.mjs` and `external-project.mjs` are the entry points a person

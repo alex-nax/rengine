@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { readDeclaration } from './formats.mjs';
 import { matchFormat } from './contract.mjs';
-import { validateSchema } from '../server/store-client.mjs';
+import { validateSchema } from './store-client.mjs';
 import { declaration } from './format-fixtures.mjs';
 import { game, second } from './game-fixtures.mjs';
 import { dashboard } from './dashboard-fixtures.mjs';

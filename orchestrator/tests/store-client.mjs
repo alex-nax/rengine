@@ -9,9 +9,13 @@
  * module and deletes store.mjs and schema.mjs.
  *
  * The store as a service of its state directory (charter D61): one owner for a directory, every
- * host attaching to it, so a front door serving `/api/tree` and a JS backend serving the routes it
- * has not moved yet are reading and writing one store rather than two copies of one file. Finding
- * and starting that service is `runtime/service-client.mjs`'s, shared with red-pty and red-token.
+ * host attaching to it rather than keeping its own copy of one file. Finding and starting that
+ * service is `runtime/service-client.mjs`'s, shared with red-pty and red-token.
+ *
+ * It sits in `tests/` because that is now the whole of it. The JS backend that was its last
+ * product caller is deleted, and the external installer asks `red-project` to read the declaration
+ * it composes rather than borrowing the store's schema validator; what is left is how a spec
+ * reaches the Rust store directly.
  */
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';

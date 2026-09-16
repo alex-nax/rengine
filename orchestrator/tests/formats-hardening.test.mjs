@@ -9,7 +9,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { startServer } from './red-host-fixture.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { readDeclaration } from './formats.mjs';
-import { validateSchema } from '../server/store-client.mjs';
+import { validateSchema } from './store-client.mjs';
 import { producer, pack, declaration, entries, project } from './format-fixtures.mjs';
 import { built } from './cargo.mjs';
 

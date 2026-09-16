@@ -54,7 +54,7 @@ test('the JS host reads what the crate writes (the other direction)', async t =>
      recorded bytes describe. */
   const outDir = path.join(directory, 'rust-replay');
   await run(CHECK, [file, '--emit', outDir], { maxBuffer: 32 * 1024 * 1024 });
-  const { WorkspaceStore } = await import('../server/store-client.mjs');
+  const { WorkspaceStore } = await import('./store-client.mjs');
   const store = await WorkspaceStore.open(path.join(outDir, 'state'));
   const { realpath } = await import('node:fs/promises');
   const expected = JSON.parse(corpus.ops[corpus.ops.length - 1].file.replaceAll('<DIR>', await realpath(outDir)));

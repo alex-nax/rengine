@@ -233,8 +233,29 @@ KI-124's load-sensitive language-server spec the only intermittent left — it f
 later runs and passes alone, which is the known issue's own recorded shape. The other intermittent
 was the sign-in port leak above, and it is fixed.
 
-What is left, in order, is in `docs/js-retirement-status.md`: the rest of F159's supervisor and
-launchers, the JS host behind red-host (1,405), and F163's entry points (839).
+**The clients follow their callers.** With the JS host deleted, the thin clients under
+`orchestrator/server/` had no product importer left — which is a fact about their role, not a
+judgement about their quality. `pty-client.mjs` and the six `red-project` clients moved to
+`orchestrator/tests/`, where what they are is what they do: how a spec asks the Rust. The code did
+not disappear; counting it as product would have been the fiction.
+
+`store-client.mjs` was the one held by a real call rather than by habit. `external-project.mjs`
+validates the declaration it composes **before writing anything**, and it asked the store's schema
+validator to do it — so that one was a port, not a move. The installer now asks **`red-project
+declaration`**, the reader the product itself opens a workspace with, from a throwaway directory of
+its own. That is a *stricter* check than the call it replaces: `validateSchema` answered "is this
+well-formed for the contract", while the reader also applies each section's own rules. The installer
+refuses exactly what a workspace would refuse to open, and refuses it before any output exists.
+Sabotage-verified: with the reported error dropped, `external-project.test.mjs` goes red on
+`title: ''` with `Missing expected rejection` — the case that rule is for — and green when restored.
+
+`orchestrator/server/` is 82 lines of shell envelope now, held by `launch.mjs`. Production
+JavaScript is **2,031 lines across 23 files**, from 5,504 across 43 when this goal started — 63% of
+it gone. `npm test` **371/371**, `./init.sh` green.
+
+What is left, in order, is in `docs/js-retirement-status.md`: F159's launchers (780), the shell
+envelope behind `launch.mjs` (82), and F163's entry points (860) — all of it held by the commands a
+person runs, which is the last unit rather than a collection of loose ends.
 
 ## Session 1 (opus-5) — 2026-09-15 — The workspace worker is Rust, and worker.mjs is deleted
 

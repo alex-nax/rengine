@@ -13,7 +13,7 @@ import { startWorker } from './red-worker-fixture.mjs';
 import { agentLaunch } from '../agents/agents-client.mjs';
 import { readDeclaration } from './formats.mjs';
 import { CONTRACTS } from './contract.mjs';
-import { validateSchema } from '../server/store-client.mjs';
+import { validateSchema } from './store-client.mjs';
 import { agentsMenu, helpModels, modelArgs, promptFor, promptValues, writeDocument } from './tasks.mjs';
 import { declaration } from './format-fixtures.mjs';
 import { api, fakeDesktop, feedSocket, identity, ok, until } from './token-fixtures.mjs';

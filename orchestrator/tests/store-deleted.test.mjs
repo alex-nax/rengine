@@ -23,7 +23,7 @@ test('the retired modules are deleted, and nothing shipping imports them', async
   for (const directory of ['orchestrator']) {
     for (const file of (await readdir(path.join(ROOT, directory), { recursive: true }))
       .filter(name => name.endsWith('.mjs') && !name.includes('node_modules'))) {
-      if (['server/store-client.mjs', 'tests/store-corpus.mjs'].includes(file)) continue;
+      if (['tests/store-client.mjs', 'tests/store-corpus.mjs'].includes(file)) continue;
       const text = await readFile(path.join(ROOT, directory, file), 'utf8');
       for (const [index, line] of text.split('\n').entries()) {
         if (reference.test(line) && !line.trimStart().startsWith('//') && !line.trimStart().startsWith('*')) {
