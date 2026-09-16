@@ -41,6 +41,19 @@ not: only `X-Rengine-*` NAMES with printable ASCII values are laid down. The nam
 load-bearing one — those lines travel beside `Authorization`, and a caller that could name its own
 header could send a second one.
 
+**What a desktop is launched with is also frozen.** `runtime/desktop.mjs` hands a window a handful
+of `RENGINE_*` variables and one argument, and the native side reads them to learn which workspace
+it belongs to and what to open. The **absences** carry as much as the values: JavaScript drops an
+`undefined` from a spawn environment, so an ordinary desktop has no `RENGINE_WINDOW_ID` at all while
+one with no terminal has `RENGINE_INITIAL_TERMINAL=""` — and a port writing `""` for both would tell
+the native side this desktop IS a project window whose id happens to be blank. The record is taken
+by launching a real child and asking it what it received, which is the only way to record an
+absence; `Option` is the distinction on the Rust side. Six sabotages.
+
+The control channel came with it: one newline-framed JSON request per line, ids counting DOWN from
+-1 because the desktop numbers its own upward, and every non-JSON line skipped — a window that
+printed a warning must not fail the inspection in flight.
+
 Two things worth keeping:
 
 - **UTF-16 again**, and this is the second time this epic has hit it (F156b was the first). Every
@@ -60,9 +73,9 @@ replays the same 47 cases against `windows.mjs` and compares, so the record cann
 froze. It goes with the module (F173), and the Rust replay is then the whole of the evidence.
 Sabotage-verified from the JavaScript side as well as the Rust.
 
-Gates: `./init.sh` green; `cargo test --workspace` **308/308**; `npm test` **365/365** on five
-consecutive runs. Two earlier runs in the session each reported one failure or one cancelled test;
-neither was captured and neither reproduced.
+Gates: `./init.sh` green; `cargo test --workspace` **314/314**; `npm test` **367/367**. Two earlier
+runs in the session each reported one failure or one cancelled test; neither was captured, and
+neither reproduced across six later full runs.
 
 What is left, in order, is in `docs/js-retirement-status.md`: the rest of F159's supervisor and
 launchers, the JS host behind red-host (1,405), and F163's entry points (839).

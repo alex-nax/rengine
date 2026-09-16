@@ -8,4 +8,5 @@
 //! judged exactly against what the JavaScript said, case by case, before anything that spawns a
 //! child is moved.
 
+pub mod desktop;
 pub mod windows;

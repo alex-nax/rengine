@@ -62,6 +62,24 @@ And a retry key is a promise rather than a name: the same key with the same cont
 report, so a client that timed out and asked again gets one letter; the same key with *different*
 content is refused rather than allowed to rewrite what the recipient may already have read.
 
+## The other contract: what a desktop is launched with
+
+`runtime/desktop.mjs` hands a window a handful of `RENGINE_*` variables and one argument, and the
+native side reads them at startup to learn which workspace it belongs to, which window it is, and
+what to open in it. Getting one wrong does not crash: it produces a window that starts and is
+quietly bound to nothing, or that resumes an agent nobody asked to resume.
+
+**The absences carry as much as the values.** JavaScript drops an `undefined` from a spawn
+environment entirely, so an ordinary desktop has no `RENGINE_WINDOW_ID` **at all**, while a desktop
+with no terminal has `RENGINE_INITIAL_TERMINAL=""` — two different facts, and a port writing `""`
+for both would tell the native side that this desktop *is* a project window whose id happens to be
+blank. `Option` is that distinction on the Rust side.
+
+`orchestrator/tests/desktop-launch-corpus.json` is the record, and it is taken by launching a real
+child through the real `launchDesktop` and asking it what it received — which is the only way to
+record an absence, because the object handed to `spawn` cannot show one. Six sabotages, including
+the two that collapse an absence into an empty string.
+
 ## The record
 
 `orchestrator/tests/window-store-corpus.json` — 47 cases, run as **one sequence against one store**
@@ -93,8 +111,10 @@ tell why. This is the second time this epic has hit it (F156b was the first).
    `checkConnection` and the discovery half of `launcher/sidecar.mjs` and `runtime/discovery.mjs`.
    What is left of this piece is the **ensure** half — the startup lock that makes two callers
    asking together produce one process — which waits for a Rust caller to have.
-3. **The desktop child.** Snapshot, launch, the newline-framed control channel, `--plan`-style
-   inspection. `runtime/desktop.mjs` and the `nativeControl` half of `runtime/windows.mjs`.
+3. ~~**The desktop child.**~~ Done for the two halves that can be judged: what a window is
+   launched with (`red_supervisor::desktop::environment`, against a record taken from a process that
+   actually received it) and the control channel it is asked things over. What is left is the
+   snapshot and the prepared-build step, which spawn a build and belong with the job below.
 4. **The worker child and the job.** `startWorker`'s identity/capability check, `perform`'s ordering,
    and the recovery that is used once.
 5. **The server.** Routes, forward, tunnel — `red_core::head` already frames all three, and

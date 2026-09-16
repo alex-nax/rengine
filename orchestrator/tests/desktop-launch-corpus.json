@@ -1,0 +1,284 @@
+{
+  "recordedFrom": "orchestrator/runtime/desktop.mjs",
+  "recordedAt": "2026-09-16",
+  "instance": {
+    "url": "http://127.0.0.1:8931",
+    "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "instance": "11111111-2222-3333-4444-555555555555"
+  },
+  "why": "F173: a parity proof cannot outlive the side it compares against. This is the environment runtime/desktop.mjs actually handed a desktop process on the day red-supervisor replaced it, absences included. Never regenerate: a record that moves with the implementation proves nothing.",
+  "cases": [
+    {
+      "name": "a desktop on a project and nothing else",
+      "binding": {
+        "owner": "owner-1",
+        "view": "view-1",
+        "root": "root-1"
+      },
+      "inspectUI": false,
+      "argv": [
+        "--control"
+      ],
+      "env": {
+        "RENGINE_WORKSPACE_URL": "http://127.0.0.1:8931",
+        "RENGINE_WORKSPACE_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "RENGINE_INITIAL_ROOT": "root-1",
+        "RENGINE_INITIAL_TERMINAL": "",
+        "RENGINE_INITIAL_AGENT": "",
+        "RENGINE_INITIAL_GAME": "",
+        "RENGINE_LAYERED_CHILD": "1",
+        "RENGINE_CAN_RELOAD": "1",
+        "RENGINE_DESKTOP_OWNER": "owner-1",
+        "RENGINE_DESKTOP_VIEW": "view-1"
+      },
+      "absent": [
+        "RENGINE_WINDOW_ID",
+        "RENGINE_WINDOW_TITLE",
+        "RENGINE_RESUME_AGENT"
+      ]
+    },
+    {
+      "name": "an empty workspace names no root at all",
+      "binding": {
+        "owner": "owner-1",
+        "view": "view-1",
+        "root": ""
+      },
+      "inspectUI": false,
+      "argv": [
+        "--control"
+      ],
+      "env": {
+        "RENGINE_WORKSPACE_URL": "http://127.0.0.1:8931",
+        "RENGINE_WORKSPACE_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "RENGINE_INITIAL_ROOT": "",
+        "RENGINE_INITIAL_TERMINAL": "",
+        "RENGINE_INITIAL_AGENT": "",
+        "RENGINE_INITIAL_GAME": "",
+        "RENGINE_LAYERED_CHILD": "1",
+        "RENGINE_CAN_RELOAD": "1",
+        "RENGINE_DESKTOP_OWNER": "owner-1",
+        "RENGINE_DESKTOP_VIEW": "view-1"
+      },
+      "absent": [
+        "RENGINE_WINDOW_ID",
+        "RENGINE_WINDOW_TITLE",
+        "RENGINE_RESUME_AGENT"
+      ]
+    },
+    {
+      "name": "a project window carries its id and the title the store kept",
+      "binding": {
+        "owner": "owner-1",
+        "view": "view-1",
+        "root": "root-1",
+        "windowId": "window-1",
+        "title": "Alpha"
+      },
+      "inspectUI": false,
+      "argv": [
+        "--control"
+      ],
+      "env": {
+        "RENGINE_WORKSPACE_URL": "http://127.0.0.1:8931",
+        "RENGINE_WORKSPACE_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "RENGINE_WINDOW_ID": "window-1",
+        "RENGINE_WINDOW_TITLE": "Alpha",
+        "RENGINE_INITIAL_ROOT": "root-1",
+        "RENGINE_INITIAL_TERMINAL": "",
+        "RENGINE_INITIAL_AGENT": "",
+        "RENGINE_INITIAL_GAME": "",
+        "RENGINE_LAYERED_CHILD": "1",
+        "RENGINE_CAN_RELOAD": "1",
+        "RENGINE_DESKTOP_OWNER": "owner-1",
+        "RENGINE_DESKTOP_VIEW": "view-1"
+      },
+      "absent": [
+        "RENGINE_RESUME_AGENT"
+      ]
+    },
+    {
+      "name": "a desktop opening straight onto a terminal",
+      "binding": {
+        "owner": "owner-1",
+        "view": "view-1",
+        "root": "root-1",
+        "terminal": "session-1"
+      },
+      "inspectUI": false,
+      "argv": [
+        "--control"
+      ],
+      "env": {
+        "RENGINE_WORKSPACE_URL": "http://127.0.0.1:8931",
+        "RENGINE_WORKSPACE_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "RENGINE_INITIAL_ROOT": "root-1",
+        "RENGINE_INITIAL_TERMINAL": "session-1",
+        "RENGINE_INITIAL_AGENT": "",
+        "RENGINE_INITIAL_GAME": "",
+        "RENGINE_LAYERED_CHILD": "1",
+        "RENGINE_CAN_RELOAD": "1",
+        "RENGINE_DESKTOP_OWNER": "owner-1",
+        "RENGINE_DESKTOP_VIEW": "view-1"
+      },
+      "absent": [
+        "RENGINE_WINDOW_ID",
+        "RENGINE_WINDOW_TITLE",
+        "RENGINE_RESUME_AGENT"
+      ]
+    },
+    {
+      "name": "a desktop opening onto an agent, resuming it",
+      "binding": {
+        "owner": "owner-1",
+        "view": "view-1",
+        "root": "root-1",
+        "agent": "session-2",
+        "resume": true
+      },
+      "inspectUI": false,
+      "argv": [
+        "--control"
+      ],
+      "env": {
+        "RENGINE_WORKSPACE_URL": "http://127.0.0.1:8931",
+        "RENGINE_WORKSPACE_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "RENGINE_INITIAL_ROOT": "root-1",
+        "RENGINE_INITIAL_TERMINAL": "",
+        "RENGINE_INITIAL_AGENT": "session-2",
+        "RENGINE_INITIAL_GAME": "",
+        "RENGINE_RESUME_AGENT": "1",
+        "RENGINE_LAYERED_CHILD": "1",
+        "RENGINE_CAN_RELOAD": "1",
+        "RENGINE_DESKTOP_OWNER": "owner-1",
+        "RENGINE_DESKTOP_VIEW": "view-1"
+      },
+      "absent": [
+        "RENGINE_WINDOW_ID",
+        "RENGINE_WINDOW_TITLE"
+      ]
+    },
+    {
+      "name": "a desktop opening onto an agent WITHOUT resuming it",
+      "binding": {
+        "owner": "owner-1",
+        "view": "view-1",
+        "root": "root-1",
+        "agent": "session-2",
+        "resume": false
+      },
+      "inspectUI": false,
+      "argv": [
+        "--control"
+      ],
+      "env": {
+        "RENGINE_WORKSPACE_URL": "http://127.0.0.1:8931",
+        "RENGINE_WORKSPACE_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "RENGINE_INITIAL_ROOT": "root-1",
+        "RENGINE_INITIAL_TERMINAL": "",
+        "RENGINE_INITIAL_AGENT": "session-2",
+        "RENGINE_INITIAL_GAME": "",
+        "RENGINE_LAYERED_CHILD": "1",
+        "RENGINE_CAN_RELOAD": "1",
+        "RENGINE_DESKTOP_OWNER": "owner-1",
+        "RENGINE_DESKTOP_VIEW": "view-1"
+      },
+      "absent": [
+        "RENGINE_WINDOW_ID",
+        "RENGINE_WINDOW_TITLE",
+        "RENGINE_RESUME_AGENT"
+      ]
+    },
+    {
+      "name": "a desktop opening onto a game",
+      "binding": {
+        "owner": "owner-1",
+        "view": "view-1",
+        "root": "root-1",
+        "game": "session-3"
+      },
+      "inspectUI": false,
+      "argv": [
+        "--control"
+      ],
+      "env": {
+        "RENGINE_WORKSPACE_URL": "http://127.0.0.1:8931",
+        "RENGINE_WORKSPACE_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "RENGINE_INITIAL_ROOT": "root-1",
+        "RENGINE_INITIAL_TERMINAL": "",
+        "RENGINE_INITIAL_AGENT": "",
+        "RENGINE_INITIAL_GAME": "session-3",
+        "RENGINE_LAYERED_CHILD": "1",
+        "RENGINE_CAN_RELOAD": "1",
+        "RENGINE_DESKTOP_OWNER": "owner-1",
+        "RENGINE_DESKTOP_VIEW": "view-1"
+      },
+      "absent": [
+        "RENGINE_WINDOW_ID",
+        "RENGINE_WINDOW_TITLE",
+        "RENGINE_RESUME_AGENT"
+      ]
+    },
+    {
+      "name": "all three initial panes at once",
+      "binding": {
+        "owner": "owner-1",
+        "view": "view-1",
+        "root": "root-1",
+        "terminal": "session-1",
+        "agent": "session-2",
+        "game": "session-3"
+      },
+      "inspectUI": false,
+      "argv": [
+        "--control"
+      ],
+      "env": {
+        "RENGINE_WORKSPACE_URL": "http://127.0.0.1:8931",
+        "RENGINE_WORKSPACE_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "RENGINE_INITIAL_ROOT": "root-1",
+        "RENGINE_INITIAL_TERMINAL": "session-1",
+        "RENGINE_INITIAL_AGENT": "session-2",
+        "RENGINE_INITIAL_GAME": "session-3",
+        "RENGINE_LAYERED_CHILD": "1",
+        "RENGINE_CAN_RELOAD": "1",
+        "RENGINE_DESKTOP_OWNER": "owner-1",
+        "RENGINE_DESKTOP_VIEW": "view-1"
+      },
+      "absent": [
+        "RENGINE_WINDOW_ID",
+        "RENGINE_WINDOW_TITLE",
+        "RENGINE_RESUME_AGENT"
+      ]
+    },
+    {
+      "name": "a desktop opened for inspection takes a different argument",
+      "binding": {
+        "owner": "owner-1",
+        "view": "view-1",
+        "root": "root-1"
+      },
+      "inspectUI": true,
+      "argv": [
+        "--automation"
+      ],
+      "env": {
+        "RENGINE_WORKSPACE_URL": "http://127.0.0.1:8931",
+        "RENGINE_WORKSPACE_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "RENGINE_INITIAL_ROOT": "root-1",
+        "RENGINE_INITIAL_TERMINAL": "",
+        "RENGINE_INITIAL_AGENT": "",
+        "RENGINE_INITIAL_GAME": "",
+        "RENGINE_LAYERED_CHILD": "1",
+        "RENGINE_CAN_RELOAD": "1",
+        "RENGINE_DESKTOP_OWNER": "owner-1",
+        "RENGINE_DESKTOP_VIEW": "view-1"
+      },
+      "absent": [
+        "RENGINE_WINDOW_ID",
+        "RENGINE_WINDOW_TITLE",
+        "RENGINE_RESUME_AGENT"
+      ]
+    }
+  ]
+}
