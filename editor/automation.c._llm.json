@@ -29,7 +29,7 @@
       },
       "note": "What a control's rectangle cannot say. The inspect payload reports controls, and a control's rectangle told a spec that a row existed and nothing about the strings inside it \u2014 so two strings drawn on top of each other was invisible to every test and obvious in a screenshot (2026-09-14). The draw list already holds the answer, so this reports it: every RE_CMD_TEXT of the last completed frame, its measured box, and the clip in force when it was emitted.\n\nThe clip is not an extra: it is what separates the two failures a spec wants to tell apart. Without it a label microui clipped reads as an overlap (the unclipped box runs under its neighbour) and a name elided to a stub reads as whole. Both boxes are reported \u2014 `x/y/w/h` is the string's full extent, `visible` is that intersected with the clip \u2014 so a spec says which it means: `visible == full` is \"drawn whole\", and two `visible` boxes intersecting is \"drawn on top of each other\".\n\nThe frame this reads is the LAST one: the list is reset in `re_draw_begin` and automation commands are handled between frames, so a caller that changes state must let a frame draw before asking.",
       "refs": [
-        "orchestrator/tests/native-agent-select.spec.mjs",
+        "tests/native-agent-select.spec.mjs",
         "docs/specs/134-project-and-worktree-browser.md",
         "docs/specs/067-draw-list-contract.md"
       ]

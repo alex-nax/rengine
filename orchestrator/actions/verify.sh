@@ -19,7 +19,7 @@ case "$RE_STAGE" in
   design)   printf '== design and shader guards\n\n'; python3 tools/design.py check; python3 tools/shaders.py check;;
   build)    printf '== native build\n\n'; "$RE_LAUNCH" build;;
   ctest)    printf '== native unit tests\n\n'; "$RE_LAUNCH" build; ctest --test-dir .cache/desktop --output-on-failure;;
-  render)   printf '== renderer comparison across backends\n\n'; "$RE_LAUNCH" build; node --test orchestrator/tests/native-render.spec.mjs;;
+  render)   printf '== renderer comparison across backends\n\n'; "$RE_LAUNCH" build; node --test tests/native-render.spec.mjs;;
   desktop)  printf '== native desktop suite\n\n'; npm run test:desktop;;
   features) printf '== inventory\n\n'; python3 tools/features.py validate; python3 tools/features.py status; python3 tools/features.py next;;
   *) printf 'verify.sh harness|design|build|ctest|render|desktop|features\n' >&2; exit 2;;

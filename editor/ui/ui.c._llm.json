@@ -53,9 +53,9 @@
         "symbol": "apply_scissor",
         "snippet": "static void apply_scissor(void) {"
       },
-      "note": "Owned controls draw straight into the draw list at build time and so never saw microui's clip. Nothing bounded them, and once the explorer and the dashboard could scroll, their rows and path bars painted over the tab strip and the toolbar; the owner reported it as content drawn above its pane. Every control now takes its container's clip before drawing, the primitives emit it lazily so an unchanged clip costs nothing, and a control that narrows its own clip intersects with the container's rather than replacing it. A panel or a popover clears the scissor instead, because both are drawn outside any container and the popover's shadow deliberately reaches past its window. The regression test is in orchestrator/tests/native-scrollbars.spec.mjs: it samples every row of the toolbar and the tab strip, scrolls the explorer and requires that no pixel above the pane changed.",
+      "note": "Owned controls draw straight into the draw list at build time and so never saw microui's clip. Nothing bounded them, and once the explorer and the dashboard could scroll, their rows and path bars painted over the tab strip and the toolbar; the owner reported it as content drawn above its pane. Every control now takes its container's clip before drawing, the primitives emit it lazily so an unchanged clip costs nothing, and a control that narrows its own clip intersects with the container's rather than replacing it. A panel or a popover clears the scissor instead, because both are drawn outside any container and the popover's shadow deliberately reaches past its window. The regression test is in tests/native-scrollbars.spec.mjs: it samples every row of the toolbar and the tab strip, scrolls the explorer and requires that no pixel above the pane changed.",
       "refs": [
-        "orchestrator/tests/native-scrollbars.spec.mjs",
+        "tests/native-scrollbars.spec.mjs",
         "docs/specs/080-settings-popover.md"
       ]
     },
@@ -83,7 +83,7 @@
         "symbol": "text_clipped",
         "snippet": "static void text_clipped(uint8_t face, int size, const char *text, int x, int y, mu_Color color, mu_Rect box) {"
       },
-      "note": "A clip command breaks an adapter's batch and sets a scissor, so text that already fits its box is drawn without one. The check costs a width measurement, which the control has usually taken anyway, and it keeps ordinary rows of a long list to a single batch. CORRECTION (spec 118): until 2026-09-09 this described behaviour that did not happen. ui_clip narrowed the box, and the very next primitive called apply_scissor, which restored the container's wider scissor whenever ui.applied differed from it \u2014 exactly the state ui_clip had just created \u2014 so the narrow clip was emitted and undone before anything was drawn. text_clipped had never clipped, for any caller. apply_scissor now leaves an explicit clip alone until ui_clip(NULL) releases it, and the cost model above is finally true. Labels route through text_clipped as of the same change, because re_ui_label_ex drew at its cell origin and a long task title ran across the buttons beside it. There IS a regression now: orchestrator/tests/native-label-clip.spec.mjs snapshots two frames and asserts that lengthening a title changes no pixel right of its column \u2014 reverting this one condition bleeds 689 pixels to the pane edge. Spec 119 extended it again: contents(), which draws every button, select and menu item label, also ended in a bare ui_text, so controls had the same overflow labels did \u2014 invisible only because no control's label had ever been long enough to reach anything. It clips to a box that stops before the caret, so a label cannot run under its own chevron.",
+      "note": "A clip command breaks an adapter's batch and sets a scissor, so text that already fits its box is drawn without one. The check costs a width measurement, which the control has usually taken anyway, and it keeps ordinary rows of a long list to a single batch. CORRECTION (spec 118): until 2026-09-09 this described behaviour that did not happen. ui_clip narrowed the box, and the very next primitive called apply_scissor, which restored the container's wider scissor whenever ui.applied differed from it \u2014 exactly the state ui_clip had just created \u2014 so the narrow clip was emitted and undone before anything was drawn. text_clipped had never clipped, for any caller. apply_scissor now leaves an explicit clip alone until ui_clip(NULL) releases it, and the cost model above is finally true. Labels route through text_clipped as of the same change, because re_ui_label_ex drew at its cell origin and a long task title ran across the buttons beside it. There IS a regression now: tests/native-label-clip.spec.mjs snapshots two frames and asserts that lengthening a title changes no pixel right of its column \u2014 reverting this one condition bleeds 689 pixels to the pane edge. Spec 119 extended it again: contents(), which draws every button, select and menu item label, also ended in a bare ui_text, so controls had the same overflow labels did \u2014 invisible only because no control's label had ever been long enough to reach anything. It clips to a box that stops before the caret, so a label cannot run under its own chevron.",
       "refs": [
         "docs/specs/067-draw-list-contract.md"
       ]
@@ -132,7 +132,7 @@
       "refs": [
         "docs/specs/120-virtualised-task-list.md",
         "known-issues.md",
-        "orchestrator/tests/native-tracker-virtual.spec.mjs"
+        "tests/native-tracker-virtual.spec.mjs"
       ]
     }
   ],

@@ -101,7 +101,7 @@
             ],
             "requires": [
               "package.json",
-              "orchestrator/tests/native.spec.mjs"
+              "tests/native.spec.mjs"
             ],
             "tools": [
               "node"
@@ -140,7 +140,7 @@
               "render"
             ],
             "requires": [
-              "orchestrator/tests/native-render.spec.mjs",
+              "tests/native-render.spec.mjs",
               "tools/render_compare.py"
             ],
             "tools": [

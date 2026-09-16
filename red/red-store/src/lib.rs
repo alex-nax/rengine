@@ -3,7 +3,7 @@
 //! `store` is WorkspaceStore with byte-compatible on-disk behavior; `schema` is the bounded
 //! JSON Schema subset with identical error strings. Nothing is deleted in this slice: the JS
 //! host keeps serving while this crate proves the bytes against the corpus the JS host wrote
-//! (orchestrator/tests/red-store.test.mjs drives it; red-store-check is the judge).
+//! (tests/red-store.test.mjs drives it; red-store-check is the judge).
 
 pub mod recipes;
 pub mod schema;

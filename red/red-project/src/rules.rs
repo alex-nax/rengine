@@ -5,7 +5,7 @@
 //! it settled. That is why three JS modules could share them and why they are one module here.
 //!
 //! **The messages are the contract.** Each one is what a person reads when their project will not
-//! load, and `orchestrator/tests/declaration-fixtures.json` records them as the JS wrote them — so
+//! load, and `tests/declaration-fixtures.json` records them as the JS wrote them — so
 //! a rule that reads better here is a rule that broke its record.
 
 use serde_json::{json, Map, Value};
@@ -489,7 +489,7 @@ pub fn object(pairs: Vec<(&str, Value)>) -> Value {
 mod tests {
     use serde_json::json;
 
-    /* The corpus that judges these rules (`orchestrator/tests/declaration-fixtures.json`) is frozen:
+    /* The corpus that judges these rules (`tests/declaration-fixtures.json`) is frozen:
        it was recorded from the JavaScript while the JavaScript existed, so a case cannot be added to
        it now. This is the rule it could not have caught either way — every fixture in it is ASCII,
        and the bound is the one place where "how long is this string" has two answers. */

@@ -42,7 +42,7 @@
       "note": "The seam's own targets agree on orientation across all three APIs \u2014 row 0 means the same thing everywhere, which is what let `backend_seam.c` carry one Y formula and one scissor expression. `glReadPixels` does not: it is specified bottom-up regardless.\n\nSo the flip belongs to the OpenGL host, not to the seam and not to the backend. A Vulkan or Metal host reading back its own image will not need one, and pushing this into shared code would give them a flip they would have to undo. The committed reference frames are the thing that would catch it either way \u2014 a whole-image vertical flip is not subtle \u2014 which is why it can be stated once here rather than defended by its own test.",
       "refs": [
         "docs/specs/124-seam-three-backends.md",
-        "orchestrator/tests/references/README.md"
+        "tests/references/README.md"
       ]
     },
     {

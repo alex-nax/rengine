@@ -1,5 +1,5 @@
 //! The judge (F157, spec 132): replays a recorded script against this ledger and prints the same
-//! document `orchestrator/tests/token-transcript.mjs` printed from the JavaScript one.
+//! document `tests/token-transcript.mjs` printed from the JavaScript one.
 //!
 //!   red-token-replay < script.json > answers.json
 //!

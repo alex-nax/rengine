@@ -7,7 +7,7 @@
 //!
 //! Everything here was read out of one CLI binary and checked against the running CLI; every rule
 //! is a distrust rule, and each is judged against the answers the JavaScript gave before it was
-//! replaced (`orchestrator/tests/ide-corpus.json`, `ide-connect-corpus.json`).
+//! replaced (`tests/ide-corpus.json`, `ide-connect-corpus.json`).
 
 pub mod bridge;
 pub mod discovery;

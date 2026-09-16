@@ -39,7 +39,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 REGISTRY = ROOT / "orchestrator/agents/registry.toml"
 SOURCES = [("red", (".rs",)), ("orchestrator", (".mjs", ".c", ".h", ".js"))]
-SKIP = ("node_modules", "red/target", "third_party", ".cache", "/tests/", "orchestrator/tests")
+SKIP = ("node_modules", "red/target", "third_party", ".cache", "/tests/", "tests")
 
 # Every place an agent name is allowed to stay, with the reason and what will remove it. A path is
 # a file; a (path, line-substring) pair narrows an exception to the one line that earned it.

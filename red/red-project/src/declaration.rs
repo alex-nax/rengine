@@ -10,7 +10,7 @@
 //! project that declared something this workspace is too old to understand should be told which
 //! contract to move to rather than which key to delete.
 //!
-//! The answers are recorded in `orchestrator/tests/declaration-fixtures.json` as the JavaScript
+//! The answers are recorded in `tests/declaration-fixtures.json` as the JavaScript
 //! wrote them, and this is judged against that record.
 
 use serde_json::{json, Map, Value};

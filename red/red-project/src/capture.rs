@@ -4,7 +4,7 @@
 //! command, judges the bytes it produced, and lands a PNG and a manifest row inside the project —
 //! so the order of its refusals is part of its contract. Nothing is written until the bytes have
 //! been judged, and a refusal says so: "nothing was written" is a promise a person relies on when a
-//! capture fails, and `orchestrator/tests/capture-corpus.json` records the directory afterwards for
+//! capture fails, and `tests/capture-corpus.json` records the directory afterwards for
 //! exactly that reason.
 
 use serde_json::{json, Value};

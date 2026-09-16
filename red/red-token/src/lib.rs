@@ -9,7 +9,7 @@
 //! for keeping agents out of each other's way.
 //!
 //! So the port is judged against a transcript recorded from the JavaScript while it still existed
-//! (`orchestrator/tests/token-transcript.json`): forty steps of one state machine, each step's
+//! (`tests/token-transcript.json`): forty steps of one state machine, each step's
 //! answer, the status it leaves and both files on disk at the end. `red-token-replay` is the judge.
 //!
 //! Key order is part of that record. Objects here are built in the order the JavaScript built them,

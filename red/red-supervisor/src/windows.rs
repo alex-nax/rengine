@@ -17,7 +17,7 @@
 //! *different* content is refused rather than allowed to overwrite what the recipient may already
 //! have read.
 //!
-//! Every answer here is judged against `orchestrator/tests/window-store-corpus.json`, which is what
+//! Every answer here is judged against `tests/window-store-corpus.json`, which is what
 //! `runtime/windows.mjs` said on the day this replaced it (F173).
 
 use std::path::{Path, PathBuf};
@@ -388,7 +388,7 @@ mod tests {
             .parent()
             .and_then(|red| red.parent())
             .expect("the checkout")
-            .join("orchestrator/tests/window-store-corpus.json");
+            .join("tests/window-store-corpus.json");
         serde_json::from_str(&std::fs::read_to_string(&path).expect("the recorded answers")).expect("a record")
     }
 

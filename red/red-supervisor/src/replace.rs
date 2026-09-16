@@ -231,7 +231,7 @@ mod tests {
             .parent()
             .and_then(|red| red.parent())
             .expect("the checkout")
-            .join("orchestrator/tests/replace-host-corpus.json");
+            .join("tests/replace-host-corpus.json");
         serde_json::from_str(&std::fs::read_to_string(&path).expect("the recorded answers")).expect("a record")
     }
 

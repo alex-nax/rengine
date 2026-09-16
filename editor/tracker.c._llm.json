@@ -12,7 +12,7 @@
       "note": "The agent menu and the open chooser are file-scope here rather than fields on ReApp because one window draws one Tasks surface at a time and one row has a chooser open at a time, nothing outside this file reads either, and fixed arrays mean nothing is owned that a close path would have to free. The menu carries the root it answered for: a second Tasks tab on another project must not inherit this one's agent list, so every use is behind menu_answers(tab root) and a chooser opened before the answer says \"Reading the agent menu\" rather than listing another project's CLIs. The kinds are mutually exclusive by construction: chooser_toggle writes one `kind` and one `task`, so opening Tests on a row closes a Spawn chooser open elsewhere. That is deliberate \u2014 two open blocks would each claim to describe \"the\" task, which is the confusion the inline layout exists to prevent.",
       "refs": [
         "docs/specs/103-task-driven-agents.md",
-        "orchestrator/tests/native-tasks-controls.spec.mjs"
+        "tests/native-tasks-controls.spec.mjs"
       ]
     },
     {
@@ -54,7 +54,7 @@
       "note": "Measured before it was written (spec 120): with ~/nolf-improved's 1317 tasks the tab emitted 35 213 draw commands a frame against 842 after, because every row was laid out, had its full description measured by re_draw_text_width, and became draw commands that microui then clipped away. The cost was O(inventory) to show about twenty rows.\n\nThe adaptation of React Native's VirtualizedList drops its hardest part. That list must estimate row heights and correct once it has measured them, because it builds a retained tree before laying it out; here rows are emitted in order, so after a spacer `layout->next_row` IS the content offset of the row about to be drawn. The window is computed from truth every frame \u2014 nothing is estimated and nothing needs correcting.\n\nTwo things a later editor will be tempted to simplify and must not. A run of skipped rows becomes ONE spacer of the run's exact height minus one style->spacing (the layout adds a spacing after every row); drop that and content_size shrinks, so the scrollbar reports the viewport rather than the list. And the row named by menu.task is always emitted even when it is outside the window, because an open chooser's block is far taller than its row and reaches into the viewport when the row does not \u2014 without the exception, scrolling a detail block half off the top makes it disappear.\n\nThe regression asserts the draw list stays flat as the inventory grows AND that the visible rows are pixel-identical between a 200-row and a 1300-row list: a window that drew the wrong rows would pass a command count and fail the pixels.",
       "refs": [
         "docs/specs/120-virtualised-task-list.md",
-        "orchestrator/tests/native-tracker-virtual.spec.mjs"
+        "tests/native-tracker-virtual.spec.mjs"
       ]
     }
   ],

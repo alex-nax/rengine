@@ -122,7 +122,7 @@ mod tests {
             .parent()
             .and_then(|red| red.parent())
             .expect("the checkout")
-            .join("orchestrator/tests/worker-routes-fixtures.json");
+            .join("tests/worker-routes-fixtures.json");
         let record: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&path).expect("the recorded answers")).expect("a record");
         record["sentences"][name].as_str().expect("a sentence").to_string()

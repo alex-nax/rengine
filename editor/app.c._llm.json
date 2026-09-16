@@ -26,7 +26,7 @@
       "note": "The cap counts rows rather than open branches, because rows are what a person scrolls and what the desktop lays out; two branches can differ by three orders of magnitude. It is enforced when a listing arrives rather than when one is requested, since the size of a directory is not known until then, and a refusal after the fact still refuses. A branch is protected when the directory being opened sits under it or when the selected file does, and the selection is the file being worked on, not whichever folder was last toggled: toggling a folder would otherwise clear the protection this rule exists to give. Collapsing copies the path first, because the collapse frees the slot that path lives in and the branch test would then be comparing against a cleared buffer, which once closed every open branch.",
       "refs": [
         "docs/specs/080-settings-popover.md",
-        "orchestrator/tests/native-explorer.spec.mjs"
+        "tests/native-explorer.spec.mjs"
       ]
     },
     {

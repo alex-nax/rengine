@@ -294,7 +294,7 @@ pub fn format_preview(root_path: &str, declared: &Value, data: &Value, environme
 /// `/api/format-preview` is a JSON body and they arrive as numbers. What a route cannot deliver — a
 /// boolean, an array — refuses here rather than following `Number()` into coercions this project
 /// does not rely on, and so does a hexadecimal spelling. The record is
-/// `orchestrator/tests/preview-corpus.mjs`.
+/// `tests/preview-corpus.mjs`.
 fn as_window(value: &Value) -> Option<u64> {
     const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
     let number = match value {

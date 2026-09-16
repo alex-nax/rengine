@@ -33,7 +33,7 @@ elseif(WIN32)
 endif()
 # The fixture's source lives with the orchestrator tests, outside this project directory, which
 # cmkr's source grouping cannot express; it is declared here as plain CMake instead.
-add_executable(rengine_surface_fixture ../../orchestrator/tests/surface_fixture.cpp)
+add_executable(rengine_surface_fixture ../../tests/surface_fixture.cpp)
 target_compile_features(rengine_surface_fixture PRIVATE cxx_std_17)
 target_link_libraries(rengine_surface_fixture PRIVATE SDL2::SDL2 OpenGL::GL)
 if(APPLE)

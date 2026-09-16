@@ -599,10 +599,10 @@
       "deliverable": "themed overlays, theme files and docs/evidence",
       "external_references": [],
       "evidence": [
-        "orchestrator/tests/native-settings.spec.mjs: the popover carries the five settings, the accent track ramps through more than eight hues, a hue change persists and re-tints the brand, Escape and an outside press close the top surface, opening a menu closes the popover and the reverse, the pane menu runs its rows and the shortcut it prints does the same thing.",
-        "orchestrator/tests/native-settings.spec.mjs: a theme file setting the palette ramp, a semantic role and a view token reaches the view that reads it; the project theme is not applied until it is chosen, is remembered per root and returns on the next desktop; export writes the card's format and imports back.",
-        "orchestrator/tests/native-design.spec.mjs and design/cards.json: the popover ground, hover, separator and hint come from the generated card reference.",
-        "orchestrator/tests/native-scrollbars.spec.mjs: scrolling a view repaints no pixel above it (the clip correction found while building this).",
+        "tests/native-settings.spec.mjs: the popover carries the five settings, the accent track ramps through more than eight hues, a hue change persists and re-tints the brand, Escape and an outside press close the top surface, opening a menu closes the popover and the reverse, the pane menu runs its rows and the shortcut it prints does the same thing.",
+        "tests/native-settings.spec.mjs: a theme file setting the palette ramp, a semantic role and a view token reaches the view that reads it; the project theme is not applied until it is chosen, is remembered per root and returns on the next desktop; export writes the card's format and imports back.",
+        "tests/native-design.spec.mjs and design/cards.json: the popover ground, hover, separator and hint come from the generated card reference.",
+        "tests/native-scrollbars.spec.mjs: scrolling a view repaints no pixel above it (the clip correction found while building this).",
         ".cache/evidence/settings-popover.json, .cache/evidence/settings-popover.bmp, .cache/evidence/settings-menu.bmp",
         "Gates on macOS 2026-09-06: npm test 56/56, npm run test:desktop 22/22, CTest 5/5, python3 tools/design.py check, the cross-backend render comparison including the new gradient in the primitives scene."
       ]
@@ -638,12 +638,12 @@
       "acceptance_criteria": [
         "docs/runbooks/project-integration.md carries the ordered recipe with runnable commands (prerequisites, submodule pin policy, editor.sh launching point, contract-3 .rengine/project.json, the tests a consumer keeps and how to register them, skills/AGENTS wiring, the cross-vendor review gate, opening the project window, layered updates, owner-verified consumer gates, pin bumps), the nolf-improved and vtmb-vr instances as tables, and what the orchestrator UI will automate.",
         "orchestrator/actions/integrate-project.sh follows the lib/wizard.sh conventions and scaffolds a consumer in five stages (verify the repository and the advertised pin, pin third_party/rengine, install editor.sh, write .rengine/project.json, copy the declaration test); explicit arguments run unattended, missing values prompt only on a TTY, existing files are reported and skipped, --dry-run prints the plan and writes nothing, and the follow-ups it leaves to the project are printed.",
-        "orchestrator/templates/project/ holds editor.sh, the reference project.json, the generic test_rengine_project_decl.py and a README naming each destination, none of them naming a specific game or format; orchestrator/tests/integrate-project.test.mjs scaffolds a temporary git repository and asserts the declared structure through the shipped schema and cross-rule modules, the contract-1 core through readDeclaration, the launcher dry runs, the copied Python test, skip-never-overwrite, an empty --dry-run and the pinned submodule."
+        "orchestrator/templates/project/ holds editor.sh, the reference project.json, the generic test_rengine_project_decl.py and a README naming each destination, none of them naming a specific game or format; tests/integrate-project.test.mjs scaffolds a temporary git repository and asserts the declared structure through the shipped schema and cross-rule modules, the contract-1 core through readDeclaration, the launcher dry runs, the copied Python test, skip-never-overwrite, an empty --dry-run and the pinned submodule."
       ],
       "passes": true,
       "dependencies": [],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/077-project-integration-recipe.md, docs/runbooks/project-integration.md, orchestrator/actions/integrate-project.sh, orchestrator/templates/project/ and orchestrator/tests/integrate-project.test.mjs",
+      "deliverable": "docs/specs/077-project-integration-recipe.md, docs/runbooks/project-integration.md, orchestrator/actions/integrate-project.sh, orchestrator/templates/project/ and tests/integrate-project.test.mjs",
       "external_references": [
         "nolf-improved docs/specs/feature-1700-rengine-submodule.md",
         "nolf-improved docs/specs/feature-1703-editor-launcher.md",
@@ -724,9 +724,9 @@
       "external_references": [],
       "evidence": [
         "docs/evidence/nested-explorer-macos-2026-09-06.md",
-        "orchestrator/tests/native-explorer.spec.mjs: with the setting on, a directory expands in place at the card's indentation and keeps its siblings, a second level nests under the first, a click collapses the branch whole, and the caret drills in; with the setting off the view drills down as before.",
-        "orchestrator/tests/native-explorer.spec.mjs: the row cap collapses the least-recently-expanded branch and names it in the status line, and refuses the expansion instead when the opened directory and the selected file leave no unprotected branch.",
-        "orchestrator/tests/native-explorer.spec.mjs: expansion survives a reload of the same directory.",
+        "tests/native-explorer.spec.mjs: with the setting on, a directory expands in place at the card's indentation and keeps its siblings, a second level nests under the first, a click collapses the branch whole, and the caret drills in; with the setting off the view drills down as before.",
+        "tests/native-explorer.spec.mjs: the row cap collapses the least-recently-expanded branch and names it in the status line, and refuses the expansion instead when the opened directory and the selected file leave no unprotected branch.",
+        "tests/native-explorer.spec.mjs: expansion survives a reload of the same directory.",
         "Gates on macOS 2026-09-06: npm test 56/56, npm run test:desktop 26/26, CTest 5/5, python3 tools/design.py check, the cross-backend render comparison."
       ]
     },
@@ -747,7 +747,7 @@
         72
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/078-project-game-declaration.md (layered-update asymmetry), orchestrator/server/games.mjs and main.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, orchestrator/tests/games.test.mjs and dashboard.test.mjs",
+      "deliverable": "docs/specs/078-project-game-declaration.md (layered-update asymmetry), orchestrator/server/games.mjs and main.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, tests/games.test.mjs and dashboard.test.mjs",
       "external_references": [
         "vtmb-vr and nolf-improved .rengine/project.json declarations"
       ],
@@ -772,7 +772,7 @@
         74
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/081-game-recording.md, editor/recording.c and jpeg.c, orchestrator/server/recordings.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, editor/tests/recording_test.c, orchestrator/tests/recordings.test.mjs and native-recording.spec.mjs",
+      "deliverable": "docs/specs/081-game-recording.md, editor/recording.c and jpeg.c, orchestrator/server/recordings.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, editor/tests/recording_test.c, tests/recordings.test.mjs and native-recording.spec.mjs",
       "external_references": [
         "capture-mcp (per-app audio and transcription) \u2014 KI-044"
       ],
@@ -798,7 +798,7 @@
         74
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/082-project-devices.md, contracts/project-v1.schema.json, orchestrator/server/{device-rules,devices,formats,games,dashboard}.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, editor/{devices.c,devices.h,app.c,workspace.c,theme.json}, orchestrator/tests/{devices.test.mjs,device-fixtures.mjs,native-devices.spec.mjs}",
+      "deliverable": "docs/specs/082-project-devices.md, contracts/project-v1.schema.json, orchestrator/server/{device-rules,devices,formats,games,dashboard}.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, editor/{devices.c,devices.h,app.c,workspace.c,theme.json}, tests/{devices.test.mjs,device-fixtures.mjs,native-devices.spec.mjs}",
       "external_references": [
         "vtmb-vr/docs/specs/feature-1146-device-targets.md (consumer proposal)",
         "vtmb-vr and nolf-improved .rengine/project.json declarations"
@@ -824,7 +824,7 @@
         71
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/078-project-game-declaration.md, contracts/project-v1.schema.json, orchestrator/server/{game-rules,games}.mjs, editor/app.c, orchestrator/actions/integrate-project.sh, orchestrator/templates/project/test_rengine_project_decl.py, docs/runbooks/project-integration.md, orchestrator/tests/{cooperative.test.mjs,surface-producer.mjs,game-fixtures.mjs,native-cooperative.spec.mjs}",
+      "deliverable": "docs/specs/078-project-game-declaration.md, contracts/project-v1.schema.json, orchestrator/server/{game-rules,games}.mjs, editor/app.c, orchestrator/actions/integrate-project.sh, orchestrator/templates/project/test_rengine_project_decl.py, docs/runbooks/project-integration.md, tests/{cooperative.test.mjs,surface-producer.mjs,game-fixtures.mjs,native-cooperative.spec.mjs}",
       "external_references": [
         "vtmb-vr F1147 (the consumer's own surface-protocol client, src/platform/workspace_surface.cpp)"
       ],
@@ -852,11 +852,11 @@
       "deliverable": "docs/specs/083-task-tracking.md, contracts/project-v1.schema.json, orchestrator/server/tracker*.mjs, editor/tracker.c, and their tests",
       "external_references": [],
       "evidence": [
-        "orchestrator/tests/tracker.test.mjs: the local backend derives the same readiness tools/features.py reports, an undeclared project still shows its own inventory, and a project with neither says so rather than showing an empty list.",
-        "orchestrator/tests/tracker.test.mjs: a tracker block under contract 4 is refused naming the required version, a provider missing its locator is refused naming it, a locator belonging to another provider is refused, and a token key in the declaration is refused outright.",
-        "orchestrator/tests/tracker.test.mjs: a Linear team reaches the neutral row keeping its own state names with the shared category; the personal key is sent bare; a second read inside the window costs no request and an explicit refresh does spend one.",
-        "orchestrator/tests/tracker.test.mjs: a missing token, a refused token and a Linear rate limit each answer in the backend's vocabulary rather than as HTTP status codes; GitHub issues reach the same row and pull requests are excluded.",
-        "orchestrator/tests/native-tracker.spec.mjs: the Tasks tab opens only when asked, lists the inventory with each row a reachable control, and a declared Linear tracker without a token names the file to create instead of showing an empty list.",
+        "tests/tracker.test.mjs: the local backend derives the same readiness tools/features.py reports, an undeclared project still shows its own inventory, and a project with neither says so rather than showing an empty list.",
+        "tests/tracker.test.mjs: a tracker block under contract 4 is refused naming the required version, a provider missing its locator is refused naming it, a locator belonging to another provider is refused, and a token key in the declaration is refused outright.",
+        "tests/tracker.test.mjs: a Linear team reaches the neutral row keeping its own state names with the shared category; the personal key is sent bare; a second read inside the window costs no request and an explicit refresh does spend one.",
+        "tests/tracker.test.mjs: a missing token, a refused token and a Linear rate limit each answer in the backend's vocabulary rather than as HTTP status codes; GitHub issues reach the same row and pull requests are excluded.",
+        "tests/native-tracker.spec.mjs: the Tasks tab opens only when asked, lists the inventory with each row a reachable control, and a declared Linear tracker without a token names the file to create instead of showing an empty list.",
         "Sabotages run separately, each failing only its own claim: readiness ignoring unmet dependencies; a Bearer prefix on a Linear personal key; the declared provider ignored in favour of local.",
         "Gates on macOS 2026-09-07: npm test 89/89, CTest 6/6, python3 tools/design.py check."
       ]
@@ -882,9 +882,9 @@
       "deliverable": "docs/specs/084-project-identity.md, contracts/project-v1.schema.json, editor/workspace.c and main.c, and their tests",
       "external_references": [],
       "evidence": [
-        "orchestrator/tests/native-identity.spec.mjs: an undeclared project shows rEdit in the chrome and in the operating system window title; a project declaring a title and glyph under contract 5 wears both, and the brand chip takes the declared token colour rather than the accent.",
-        "orchestrator/tests/native-identity.spec.mjs: identity comes from the window's primary root \u2014 selecting a second, declared root through the project menu does not rename the chrome. Verified failing when identity reads the selected root instead.",
-        "orchestrator/tests/native-identity.spec.mjs: title and icon under contract 4 are refused naming the required version, and an icon token outside the design set is refused naming the token.",
+        "tests/native-identity.spec.mjs: an undeclared project shows rEdit in the chrome and in the operating system window title; a project declaring a title and glyph under contract 5 wears both, and the brand chip takes the declared token colour rather than the accent.",
+        "tests/native-identity.spec.mjs: identity comes from the window's primary root \u2014 selecting a second, declared root through the project menu does not rename the chrome. Verified failing when identity reads the selected root instead.",
+        "tests/native-identity.spec.mjs: title and icon under contract 4 are refused naming the required version, and an icon token outside the design set is refused naming the token.",
         "Sabotages run separately, each failing only its own claim: identity read from the selected root; the declared token ignored in favour of the accent.",
         "Gates on macOS 2026-09-07: npm test 78/78, npm run test:desktop 38/38, CTest 6/6, python3 tools/design.py check."
       ]
@@ -911,7 +911,7 @@
         76
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/082-project-devices.md, orchestrator/server/{devices,main}.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, editor/{devices.c,theme.json,theme.h}, orchestrator/tests/{devices.test.mjs,native-devices.spec.mjs} (input seam merged with 1a9c591)",
+      "deliverable": "docs/specs/082-project-devices.md, orchestrator/server/{devices,main}.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, editor/{devices.c,theme.json,theme.h}, tests/{devices.test.mjs,native-devices.spec.mjs} (input seam merged with 1a9c591)",
       "external_references": [
         "vtmb-vr scripts/wizards/remote-rengine.sh, the pcvr-bound install action this makes reachable"
       ],
@@ -960,7 +960,7 @@
       "passes": true,
       "dependencies": [],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/090-headless-workspace-start.md, orchestrator/launcher/headless.mjs, the --headless branch in orchestrator/launch.mjs, the start:headless script, and orchestrator/tests/headless.test.mjs",
+      "deliverable": "docs/specs/090-headless-workspace-start.md, orchestrator/launcher/headless.mjs, the --headless branch in orchestrator/launch.mjs, the start:headless script, and tests/headless.test.mjs",
       "external_references": [],
       "evidence": [
         "docs/evidence/headless-start-macos-2026-09-07.md"
@@ -1016,10 +1016,10 @@
       "passes": true,
       "dependencies": [],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/096-agent-session-resume.md; shellEnvironment in orchestrator/server/sessions.mjs; orchestrator/tests/environment.test.mjs.",
+      "deliverable": "docs/specs/096-agent-session-resume.md; shellEnvironment in orchestrator/server/sessions.mjs; tests/environment.test.mjs.",
       "external_references": [],
       "evidence": [
-        "orchestrator/tests/environment.test.mjs: the surface owns its colour declaration, so an inherited NO_COLOR never reaches a pane"
+        "tests/environment.test.mjs: the surface owns its colour declaration, so an inherited NO_COLOR never reaches a pane"
       ]
     },
     {
@@ -1043,15 +1043,15 @@
         91
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/096-agent-session-resume.md; agentConversation and agentLaunch in orchestrator/agents/config.mjs; orchestrator/agents/launch.mjs; spawnTerminal, snapshot and restartAgent in orchestrator/server/sessions.mjs; /api/agent-restart and the agentConversations capability in orchestrator/server/main.mjs; the restart_agent tool in orchestrator/agents/mcp-worker.mjs; orchestrator/tests/{agent-config,sessions}.test.mjs.",
+      "deliverable": "docs/specs/096-agent-session-resume.md; agentConversation and agentLaunch in orchestrator/agents/config.mjs; orchestrator/agents/launch.mjs; spawnTerminal, snapshot and restartAgent in orchestrator/server/sessions.mjs; /api/agent-restart and the agentConversations capability in orchestrator/server/main.mjs; the restart_agent tool in orchestrator/agents/mcp-worker.mjs; tests/{agent-config,sessions}.test.mjs.",
       "external_references": [],
       "evidence": [
-        "orchestrator/tests/agent-config.test.mjs: rEngine names the conversation it launches and resumes that same one",
-        "orchestrator/tests/sessions.test.mjs: restarting refuses anything it cannot put back into its own conversation",
-        "orchestrator/tests/conversation-identity.test.mjs: a pane launch carries exactly one conversation, and that conversation is the identity",
-        "orchestrator/tests/conversation-identity.test.mjs: a person\u2019s own --resume wins over the host\u2019s conversation, and the record follows the launch",
-        "orchestrator/tests/conversation-identity.test.mjs: a launch that continues or forks reports no conversation rather than claiming a minted one",
-        "orchestrator/tests/conversation-identity.test.mjs: a restart puts the pane back on the same conversation, so the identity survives it",
+        "tests/agent-config.test.mjs: rEngine names the conversation it launches and resumes that same one",
+        "tests/sessions.test.mjs: restarting refuses anything it cannot put back into its own conversation",
+        "tests/conversation-identity.test.mjs: a pane launch carries exactly one conversation, and that conversation is the identity",
+        "tests/conversation-identity.test.mjs: a person\u2019s own --resume wins over the host\u2019s conversation, and the record follows the launch",
+        "tests/conversation-identity.test.mjs: a launch that continues or forks reports no conversation rather than claiming a minted one",
+        "tests/conversation-identity.test.mjs: a restart puts the pane back on the same conversation, so the identity survives it",
         "docs/evidence/conversation-is-identity-2026-09-07.md"
       ]
     },
@@ -1076,13 +1076,13 @@
         92
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/097-agent-conversation-persistence.md; listConversations and recordConversation in orchestrator/server/store.mjs; the listing, describeAge and Sessions.recordConversation in orchestrator/server/sessions.mjs; the report in orchestrator/agents/launch.mjs; /api/agent-conversation and conversations on /api/state in orchestrator/server/main.mjs; scoped conversations in orchestrator/agents/mcp-worker.mjs; choose_conversation in scripts/agent.sh; orchestrator/tests/{conversations,conversation-picker}.test.mjs.",
+      "deliverable": "docs/specs/097-agent-conversation-persistence.md; listConversations and recordConversation in orchestrator/server/store.mjs; the listing, describeAge and Sessions.recordConversation in orchestrator/server/sessions.mjs; the report in orchestrator/agents/launch.mjs; /api/agent-conversation and conversations on /api/state in orchestrator/server/main.mjs; scoped conversations in orchestrator/agents/mcp-worker.mjs; choose_conversation in scripts/agent.sh; tests/{conversations,conversation-picker}.test.mjs.",
       "external_references": [],
       "evidence": [
-        "orchestrator/tests/conversations.test.mjs: conversations outlive the session host that recorded them",
-        "orchestrator/tests/conversations.test.mjs: the remembered list is bounded, so a long-lived project cannot grow it without limit",
-        "orchestrator/tests/conversation-picker.test.mjs: a pane offers the conversations this project already has",
-        "orchestrator/tests/conversation-picker.test.mjs: a workspace-minted conversation is still offered the history, and Enter keeps the new one"
+        "tests/conversations.test.mjs: conversations outlive the session host that recorded them",
+        "tests/conversations.test.mjs: the remembered list is bounded, so a long-lived project cannot grow it without limit",
+        "tests/conversation-picker.test.mjs: a pane offers the conversations this project already has",
+        "tests/conversation-picker.test.mjs: a workspace-minted conversation is still offered the history, and Enter keeps the new one"
       ]
     },
     {
@@ -1106,13 +1106,13 @@
         85
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/098-replace-session-host.md; orchestrator/launcher/replace.mjs (findHost, insideHost, findSupervisors, stopProcess, portReleased, hostAge, replaceHost); --replace-host and the host-age notice in orchestrator/launch.mjs; orchestrator/tests/replace-host.test.mjs.",
+      "deliverable": "docs/specs/098-replace-session-host.md; orchestrator/launcher/replace.mjs (findHost, insideHost, findSupervisors, stopProcess, portReleased, hostAge, replaceHost); --replace-host and the host-age notice in orchestrator/launch.mjs; tests/replace-host.test.mjs.",
       "external_references": [],
       "evidence": [
-        "orchestrator/tests/replace-host.test.mjs: the host of a state directory is the PID its descriptor names, and only if that PID serves that directory",
-        "orchestrator/tests/replace-host.test.mjs: a refusal leaves the real host untouched: another directory claimed, or a launcher inside the workspace",
-        "orchestrator/tests/replace-host.test.mjs: replacing a throwaway host: the old one exits, its port closes, a new one answers, and the report says so",
-        "orchestrator/tests/replace-host.test.mjs: --headless --replace-host through the launcher comes up as a different host"
+        "tests/replace-host.test.mjs: the host of a state directory is the PID its descriptor names, and only if that PID serves that directory",
+        "tests/replace-host.test.mjs: a refusal leaves the real host untouched: another directory claimed, or a launcher inside the workspace",
+        "tests/replace-host.test.mjs: replacing a throwaway host: the old one exits, its port closes, a new one answers, and the report says so",
+        "tests/replace-host.test.mjs: --headless --replace-host through the launcher comes up as a different host"
       ]
     },
     {
@@ -1136,12 +1136,12 @@
         93
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/099-sessions-tab-resume.md; the Conversations section, describe_age, conversation_session and resume_conversation in editor/workspace.c; orchestrator/tests/native-sessions.spec.mjs; its entry in package.json test:desktop.",
+      "deliverable": "docs/specs/099-sessions-tab-resume.md; the Conversations section, describe_age, conversation_session and resume_conversation in editor/workspace.c; tests/native-sessions.spec.mjs; its entry in package.json test:desktop.",
       "external_references": [],
       "evidence": [
-        "orchestrator/tests/native-sessions.spec.mjs: the Sessions tab offers a project's past conversations for resume, most recent first",
-        "orchestrator/tests/native-sessions.spec.mjs: Resume starts a pane bound to that same conversation, not a fresh one",
-        "orchestrator/tests/native-sessions.spec.mjs: a live agent that names its own conversations is attach-only and marked not resumable"
+        "tests/native-sessions.spec.mjs: the Sessions tab offers a project's past conversations for resume, most recent first",
+        "tests/native-sessions.spec.mjs: Resume starts a pane bound to that same conversation, not a fresh one",
+        "tests/native-sessions.spec.mjs: a live agent that names its own conversations is attach-only and marked not resumable"
       ]
     },
     {
@@ -1191,15 +1191,15 @@
         78
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/100-tracker-view-filters.md; assignee and states on the tracker block in contracts/project-v1.schema.json; the linear-only rule in trackerRules (orchestrator/server/formats.mjs); linearFilter, the single-variable LINEAR_QUERY and the filter-aware cache key in orchestrator/server/tracker.mjs; orchestrator/tests/tracker-filter.test.mjs.",
+      "deliverable": "docs/specs/100-tracker-view-filters.md; assignee and states on the tracker block in contracts/project-v1.schema.json; the linear-only rule in trackerRules (orchestrator/server/formats.mjs); linearFilter, the single-variable LINEAR_QUERY and the filter-aware cache key in orchestrator/server/tracker.mjs; tests/tracker-filter.test.mjs.",
       "external_references": [],
       "evidence": [
-        "orchestrator/tests/tracker-filter.test.mjs: the filter names the signed-in user, or a person by display name",
-        "orchestrator/tests/tracker-filter.test.mjs: declared states reach the query as the category vocabulary, in declaration order",
-        "orchestrator/tests/tracker-filter.test.mjs: with neither key declared the filter is the one the tracker has always sent",
-        "orchestrator/tests/tracker-filter.test.mjs: a state category outside the vocabulary is refused when it is declared, not when it is queried",
-        "orchestrator/tests/tracker-filter.test.mjs: both keys belong to Linear, and a backend that cannot honour one refuses it by name",
-        "orchestrator/tests/tracker-filter.test.mjs: two declarations that ask different questions do not share one cached answer"
+        "tests/tracker-filter.test.mjs: the filter names the signed-in user, or a person by display name",
+        "tests/tracker-filter.test.mjs: declared states reach the query as the category vocabulary, in declaration order",
+        "tests/tracker-filter.test.mjs: with neither key declared the filter is the one the tracker has always sent",
+        "tests/tracker-filter.test.mjs: a state category outside the vocabulary is refused when it is declared, not when it is queried",
+        "tests/tracker-filter.test.mjs: both keys belong to Linear, and a backend that cannot honour one refuses it by name",
+        "tests/tracker-filter.test.mjs: two declarations that ask different questions do not share one cached answer"
       ]
     },
     {
@@ -1225,13 +1225,13 @@
         78
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/101-live-capability-updates.md; orchestrator/runtime/tracker.mjs; the tracker routes and tracker capability in orchestrator/runtime/worker.mjs; stateDir on /api/state in orchestrator/server/main.mjs with the shared signIn in orchestrator/server/tracker-auth.mjs; toolWorker in the supervisor descriptor (orchestrator/runtime/supervisor.mjs); the descriptor watcher, probed-worker choice and stale-name answer in orchestrator/agents/mcp.mjs; list_tasks in orchestrator/agents/mcp-worker.mjs; orchestrator/tests/hot-update.test.mjs with its stale-tool-worker.mjs fixture.",
+      "deliverable": "docs/specs/101-live-capability-updates.md; orchestrator/runtime/tracker.mjs; the tracker routes and tracker capability in orchestrator/runtime/worker.mjs; stateDir on /api/state in orchestrator/server/main.mjs with the shared signIn in orchestrator/server/tracker-auth.mjs; toolWorker in the supervisor descriptor (orchestrator/runtime/supervisor.mjs); the descriptor watcher, probed-worker choice and stale-name answer in orchestrator/agents/mcp.mjs; list_tasks in orchestrator/agents/mcp-worker.mjs; tests/hot-update.test.mjs with its stale-tool-worker.mjs fixture.",
       "external_references": [],
       "evidence": [
-        "orchestrator/tests/hot-update.test.mjs: the tracker routes are served by the worker above a retained host that never had them",
-        "orchestrator/tests/hot-update.test.mjs: a host that says where its state lives needs no process table",
-        "orchestrator/tests/hot-update.test.mjs: the state directory is keyed by the descriptor instance, never the URL or the first host row",
-        "orchestrator/tests/hot-update.test.mjs: an idle facade learns of a connector update without a request, and a stale name is refused with the way back",
+        "tests/hot-update.test.mjs: the tracker routes are served by the worker above a retained host that never had them",
+        "tests/hot-update.test.mjs: a host that says where its state lives needs no process table",
+        "tests/hot-update.test.mjs: the state directory is keyed by the descriptor instance, never the URL or the first host row",
+        "tests/hot-update.test.mjs: an idle facade learns of a connector update without a request, and a stale name is refused with the way back",
         "docs/evidence/live-capability-updates-2026-09-07.md: the read-only live probe of host PID 33465 and the sabotage table",
         "docs/evidence/live-capability-updates-2026-09-07.md: the live workspace,connector update on supervisor 44390 and the tracker it delivered"
       ]
@@ -1258,14 +1258,14 @@
         74
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/102-editor-as-claude-ide.md; orchestrator/runtime/ide.mjs; the bridge lifecycle and POST /api/ide-selection in orchestrator/runtime/worker.mjs; pid on /api/state in orchestrator/server/main.mjs; orchestrator/tests/ide.test.mjs.",
+      "deliverable": "docs/specs/102-editor-as-claude-ide.md; orchestrator/runtime/ide.mjs; the bridge lifecycle and POST /api/ide-selection in orchestrator/runtime/worker.mjs; pid on /api/state in orchestrator/server/main.mjs; tests/ide.test.mjs.",
       "external_references": [],
       "evidence": [
-        "orchestrator/tests/ide.test.mjs: the lock file is the one Claude Code knows how to read",
-        "orchestrator/tests/ide.test.mjs: an MCP client over the socket lists the tools and reads diagnostics",
-        "orchestrator/tests/ide.test.mjs: a connection without the token is refused",
-        "orchestrator/tests/ide.test.mjs: a selection posted by the desktop reaches a connected CLI",
-        "orchestrator/tests/ide.test.mjs: stale locks are collected and the bridge removes its own",
+        "tests/ide.test.mjs: the lock file is the one Claude Code knows how to read",
+        "tests/ide.test.mjs: an MCP client over the socket lists the tools and reads diagnostics",
+        "tests/ide.test.mjs: a connection without the token is refused",
+        "tests/ide.test.mjs: a selection posted by the desktop reaches a connected CLI",
+        "tests/ide.test.mjs: stale locks are collected and the bridge removes its own",
         "docs/evidence/editor-as-claude-ide-2026-09-07.md: the real CLI connecting, the observed handshake and the eight sabotages"
       ]
     },
@@ -1292,11 +1292,11 @@
       "deliverable": "A selection accessor over ReEditor's existing select_start/select_end in editor/editor.{c,h}, the report from the focused pane in the desktop, and the existing POST /api/ide-selection it feeds; docs/specs/102-editor-as-claude-ide.md slice 2.",
       "external_references": [],
       "evidence": [
-        "orchestrator/tests/native-ide-selection.spec.mjs: the focused editor reports its selection in the units the protocol counts",
-        "orchestrator/tests/ide.test.mjs: the worker resolves the desktop's root and path into the file path the CLI is given",
+        "tests/native-ide-selection.spec.mjs: the focused editor reports its selection in the units the protocol counts",
+        "tests/ide.test.mjs: the worker resolves the desktop's root and path into the file path the CLI is given",
         "docs/evidence/editor-as-claude-ide-2026-09-07.md: the three native sabotages, and the live selection that reached a connected CLI",
-        "orchestrator/tests/ide.test.mjs: the deliberate mention is a different notification from the passive selection",
-        "orchestrator/tests/native-diagnostics.spec.mjs: the pane offers the control and says it sent"
+        "tests/ide.test.mjs: the deliberate mention is a different notification from the passive selection",
+        "tests/native-diagnostics.spec.mjs: the pane offers the control and says it sent"
       ]
     },
     {
@@ -1348,12 +1348,12 @@
       "deliverable": "An LSP client owned by the workspace worker, the language-server block in the project declaration (contract 6), document sync from the native editor, and the diagnostics store behind getDiagnostics and the editor's own rendering. Charter D37; docs/specs/102-editor-as-claude-ide.md.",
       "external_references": [],
       "evidence": [
-        "orchestrator/tests/lsp.test.mjs: a declared server is started, told the buffer, and its diagnostics are what getDiagnostics reads",
-        "orchestrator/tests/lsp.test.mjs: a declared server that is not on the machine is named, and the workspace keeps working",
-        "orchestrator/tests/lsp.test.mjs: a server that crashes is restarted, and its diagnostics do not outlive it",
-        "orchestrator/tests/ide.test.mjs: getDiagnostics answers with what the project's declared language server published",
+        "tests/lsp.test.mjs: a declared server is started, told the buffer, and its diagnostics are what getDiagnostics reads",
+        "tests/lsp.test.mjs: a declared server that is not on the machine is named, and the workspace keeps working",
+        "tests/lsp.test.mjs: a server that crashes is restarted, and its diagnostics do not outlive it",
+        "tests/ide.test.mjs: getDiagnostics answers with what the project's declared language server published",
         "docs/evidence/editor-as-claude-ide-2026-09-07.md: the six LSP sabotages",
-        "orchestrator/tests/native-diagnostics.spec.mjs: the editor pane draws what the project's language server said"
+        "tests/native-diagnostics.spec.mjs: the editor pane draws what the project's language server said"
       ]
     },
     {
@@ -1377,15 +1377,15 @@
         99
       ],
       "owner_workspace": "rengine",
-      "deliverable": "orchestrator/agents/ide-connect.mjs; the FLAGS table and the plan's ide decision in orchestrator/agents/config.mjs; the cwd and the printed reason in orchestrator/agents/launch.mjs; orchestrator/tests/ide-connect.test.mjs.",
+      "deliverable": "orchestrator/agents/ide-connect.mjs; the FLAGS table and the plan's ide decision in orchestrator/agents/config.mjs; the cwd and the printed reason in orchestrator/agents/launch.mjs; tests/ide-connect.test.mjs.",
       "external_references": [],
       "evidence": [
-        "orchestrator/tests/ide-connect.test.mjs: exactly one is the rule, because that is the rule the CLI applies",
-        "orchestrator/tests/ide-connect.test.mjs: an editor is offered when its folders cover the directory, and not when they merely look like it",
-        "orchestrator/tests/ide-connect.test.mjs: a CLI with no auto-connect option gets nothing added to its command line",
-        "orchestrator/tests/ide-connect.test.mjs: the launch plan carries the flag, and says why when it does not",
+        "tests/ide-connect.test.mjs: exactly one is the rule, because that is the rule the CLI applies",
+        "tests/ide-connect.test.mjs: an editor is offered when its folders cover the directory, and not when they merely look like it",
+        "tests/ide-connect.test.mjs: a CLI with no auto-connect option gets nothing added to its command line",
+        "tests/ide-connect.test.mjs: the launch plan carries the flag, and says why when it does not",
         "docs/evidence/editor-as-claude-ide-2026-09-07.md: the four-editor measurement that set the rule",
-        "orchestrator/tests/ide-connect.test.mjs: this workspace's own editor is named by port, so a machine-mate's does not block it",
+        "tests/ide-connect.test.mjs: this workspace's own editor is named by port, so a machine-mate's does not block it",
         "docs/evidence/editor-as-claude-ide-2026-09-07.md: the pane that came up connected with two editors offered"
       ]
     },
@@ -1441,8 +1441,8 @@
       "evidence": [
         "docs/specs/104-project-brand-artwork.md",
         "orchestrator/native/tests/svg_test.c (native_svg): the real Kohai mark and wordmark rasterise, uniform fit, refusals",
-        "orchestrator/tests/contracts.test.mjs: exactly one mark, .svg only, confined paths, contract-8 floor, missing file reported",
-        "orchestrator/tests/native-identity.spec.mjs: the chrome wears the artwork (#CC4F4C found in the bar) and falls back to the glyph without it"
+        "tests/contracts.test.mjs: exactly one mark, .svg only, confined paths, contract-8 floor, missing file reported",
+        "tests/native-identity.spec.mjs: the chrome wears the artwork (#CC4F4C found in the bar) and falls back to the glyph without it"
       ]
     },
     {
@@ -1466,12 +1466,12 @@
         94
       ],
       "owner_workspace": "rengine",
-      "deliverable": "orchestrator/launcher/restart-supervisor.mjs, orchestrator/actions/restart-supervisor.sh, its dashboard declaration in .rengine/project.json, and orchestrator/tests/restart-supervisor.test.mjs.",
+      "deliverable": "orchestrator/launcher/restart-supervisor.mjs, orchestrator/actions/restart-supervisor.sh, its dashboard declaration in .rengine/project.json, and tests/restart-supervisor.test.mjs.",
       "external_references": [],
       "evidence": [
-        "orchestrator/tests/restart-supervisor.test.mjs: the session host is never among the processes stopped",
-        "orchestrator/tests/restart-supervisor.test.mjs: the replacement is detached, or it would die with the pane that asked for it",
-        "orchestrator/tests/restart-supervisor.test.mjs: a state directory with no live host is refused, and nothing is signalled",
+        "tests/restart-supervisor.test.mjs: the session host is never among the processes stopped",
+        "tests/restart-supervisor.test.mjs: the replacement is detached, or it would die with the pane that asked for it",
+        "tests/restart-supervisor.test.mjs: a state directory with no live host is refused, and nothing is signalled",
         "docs/evidence/editor-as-claude-ide-2026-09-07.md: the live supervisor restart on the owner's workspace"
       ]
     },
@@ -1498,12 +1498,12 @@
         60
       ],
       "owner_workspace": "rengine",
-      "deliverable": "editor/plugin_abi.h (the header a plugin compiles against), editor/plugin.{c,h} (registry, version negotiation, the one dlopen/LoadLibrary wrapper), editor/pluginview.{c,h} (RE_PLUGIN views and re_app_plugin_load for the declaring lane), the automation `plugin` op, the fixture modules under editor/tests/plugins/, rengine_plugin_test (CTest native_plugin), orchestrator/tests/native-plugin.spec.mjs; docs/specs/106-plugin-abi.md.",
+      "deliverable": "editor/plugin_abi.h (the header a plugin compiles against), editor/plugin.{c,h} (registry, version negotiation, the one dlopen/LoadLibrary wrapper), editor/pluginview.{c,h} (RE_PLUGIN views and re_app_plugin_load for the declaring lane), the automation `plugin` op, the fixture modules under editor/tests/plugins/, rengine_plugin_test (CTest native_plugin), tests/native-plugin.spec.mjs; docs/specs/106-plugin-abi.md.",
       "external_references": [],
       "evidence": [
         "docs/specs/106-plugin-abi.md",
         "orchestrator/native/tests/plugin_test.c (native_plugin): real modules loaded and refused by name for each reason, the ten-command frame, idempotence, colour by token",
-        "orchestrator/tests/native-plugin.spec.mjs: the fixture's tab and its pixels in a real window, the clip, the restart; refusals with the window still answering",
+        "tests/native-plugin.spec.mjs: the fixture's tab and its pixels in a real window, the clip, the restart; refusals with the window still answering",
         "docs/evidence/plugin-abi-2026-09-07.md: the sabotage table"
       ]
     },
@@ -1528,16 +1528,16 @@
         106
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/107-pack-manifest.md, the packs block and $defs.pack in contracts/project-v1.schema.json, packsRules plus the contract-9 ceiling and SECTIONS entry in orchestrator/server/formats.mjs, and orchestrator/tests/packs.test.mjs.",
+      "deliverable": "docs/specs/107-pack-manifest.md, the packs block and $defs.pack in contracts/project-v1.schema.json, packsRules plus the contract-9 ceiling and SECTIONS entry in orchestrator/server/formats.mjs, and tests/packs.test.mjs.",
       "external_references": [],
       "evidence": [
         "docs/specs/107-pack-manifest.md: the manifest shape, the pin's two halves and the forms that were rejected",
-        "orchestrator/tests/packs.test.mjs: contract 9 carries a pack whose facets are a library and a plugin",
-        "orchestrator/tests/packs.test.mjs: packs on contract 8 is refused for the contract it needs, not as an unknown key",
-        "orchestrator/tests/packs.test.mjs: each pack refusal names the pack and the key",
-        "orchestrator/tests/packs.test.mjs: a declaration that does not name packs reads exactly as it did (the ten blocks of contracts 1-8)",
+        "tests/packs.test.mjs: contract 9 carries a pack whose facets are a library and a plugin",
+        "tests/packs.test.mjs: packs on contract 8 is refused for the contract it needs, not as an unknown key",
+        "tests/packs.test.mjs: each pack refusal names the pack and the key",
+        "tests/packs.test.mjs: a declaration that does not name packs reads exactly as it did (the ten blocks of contracts 1-8)",
         "docs/evidence/pack-manifest-2026-09-07.md: the fourteen-row sabotage table, including the inverted D24 that only the acceptance test caught",
-        "orchestrator/tests/task-writes.test.mjs: the contract-ceiling tripwire, raised to 9 with contract 6's own keys reconfirmed"
+        "tests/task-writes.test.mjs: the contract-ceiling tripwire, raised to 9 with contract 6's own keys reconfirmed"
       ]
     },
     {
@@ -1560,14 +1560,14 @@
         79
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The product block in editor/theme.json, the generator and guard in tools/design.py, the generated orchestrator/runtime/product.mjs, the rewired consumers in editor/app.h, orchestrator/runtime/ide.mjs, orchestrator/runtime/lsp.mjs and orchestrator/server/tracker-auth.mjs, and orchestrator/tests/product-name.test.mjs.",
+      "deliverable": "The product block in editor/theme.json, the generator and guard in tools/design.py, the generated orchestrator/runtime/product.mjs, the rewired consumers in editor/app.h, orchestrator/runtime/ide.mjs, orchestrator/runtime/lsp.mjs and orchestrator/server/tracker-auth.mjs, and tests/product-name.test.mjs.",
       "external_references": [],
       "evidence": [
-        "orchestrator/tests/product-name.test.mjs: the generated artifacts carry the declaration rather than a copy of it",
-        "orchestrator/tests/product-name.test.mjs: the lock file other people read publishes the declared name, and IDE_NAME is that name",
-        "orchestrator/tests/product-name.test.mjs: a language server is told the declared name, read off the bytes sent to it",
-        "orchestrator/tests/product-name.test.mjs: the sign-in callback page wears the declared name, read off the page it serves",
-        "orchestrator/tests/product-name.test.mjs: no shipping source hard-codes the product name, and the guard goes red on a decoy that holds one in a string and in a regular expression while its comment is left alone",
+        "tests/product-name.test.mjs: the generated artifacts carry the declaration rather than a copy of it",
+        "tests/product-name.test.mjs: the lock file other people read publishes the declared name, and IDE_NAME is that name",
+        "tests/product-name.test.mjs: a language server is told the declared name, read off the bytes sent to it",
+        "tests/product-name.test.mjs: the sign-in callback page wears the declared name, read off the page it serves",
+        "tests/product-name.test.mjs: no shipping source hard-codes the product name, and the guard goes red on a decoy that holds one in a string and in a regular expression while its comment is left alone",
         "docs/evidence/product-name-2026-09-07.md: the sabotage table, including the two runs that break the generated path"
       ]
     },
@@ -1589,12 +1589,12 @@
         109
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/112-poweredby-removed.md, the removal of poweredBy from $defs.pack and the contract-9 description in contracts/project-v1.schema.json, the replaced rule in orchestrator/server/formats.mjs with its sidecar entry, and the D45 cases in orchestrator/tests/packs.test.mjs.",
+      "deliverable": "docs/specs/112-poweredby-removed.md, the removal of poweredBy from $defs.pack and the contract-9 description in contracts/project-v1.schema.json, the replaced rule in orchestrator/server/formats.mjs with its sidecar entry, and the D45 cases in tests/packs.test.mjs.",
       "external_references": [],
       "evidence": [
         "docs/specs/112-poweredby-removed.md: the decision, what it revises in D44, and the three sabotages with their observed failures",
-        "orchestrator/tests/packs.test.mjs: poweredBy is refused on either facet and whatever its value, and the refusal names the sign-off",
-        "orchestrator/tests/packs.test.mjs: the old facet reasoning is gone rather than reworded",
+        "tests/packs.test.mjs: poweredBy is refused on either facet and whatever its value, and the refusal names the sign-off",
+        "tests/packs.test.mjs: the old facet reasoning is gone rather than reworded",
         "docs/specs/000-charter.md: D45, and D44 annotated in place where its poweredBy clause was withdrawn"
       ]
     },
@@ -1644,7 +1644,7 @@
       "evidence": [
         "docs/specs/114-dev-suite-roadmap.md: why protocol before embedding, and where the implicit registry lives today",
         "orchestrator/agents/registry.mjs: the one declared table (package, update mode, model flag, conversation/resume spellings with id shapes and parsers, MCP overlay kind, hooks overlay kind, IDE connect) plus its shell surface (list/show) for agent.sh; config.mjs, tasks.mjs, ide-connect.mjs, store.mjs, worker.mjs, report-session.mjs, bind.mjs and agent.sh all read it",
-        "orchestrator/tests/agent-registry.test.mjs: recipe validity, every consumer reading the one table, a recipe added as DATA becoming an agent end to end (selectable, installable, launchable, spawnable) with no file edited, per-capability named refusal, the codex hook overlay, and CLAUDE_CONFIG_DIR",
+        "tests/agent-registry.test.mjs: recipe validity, every consumer reading the one table, a recipe added as DATA becoming an agent end to end (selectable, installable, launchable, spawnable) with no file edited, per-capability named refusal, the codex hook overlay, and CLAUDE_CONFIG_DIR",
         "docs/evidence/codex-sessionstart-hook-2026-09-11.md: codex's hook trust gate, the verified self-trust formula (key + trusted_hash in the same -c layer, no ~/.codex write), SessionStart's live payload, and the end-to-end report to the workspace route under provider codex",
         "sabotage checks 2026-09-11: a private model-flag table in tasks.mjs reddened the data-added-agent test, a dropped features.hooks reddened the overlay test, and a hardcoded agent.sh list reddened both listing tests \u2014 each restored green",
         "consumer path 2026-09-11: bash scripts/agent.sh --action list reflects this machine through the registry; scripted agentLaunch for all five CLIs composes the right overlays; npm test 258/258"
@@ -1697,8 +1697,8 @@
       "external_references": [],
       "evidence": [
         "docs/specs/116-task-evidence.md: the dropped field, the five sabotages, and the coverage gap S4 exposed",
-        "orchestrator/tests/tracker.test.mjs: a local row carries its evidence and a GitHub row answers with an empty list",
-        "orchestrator/tests/native-tracker.spec.mjs: the Tests caret opens the claim and what proves it, and says so when there is none"
+        "tests/tracker.test.mjs: a local row carries its evidence and a GitHub row answers with an empty list",
+        "tests/native-tracker.spec.mjs: the Tests caret opens the claim and what proves it, and says so when there is none"
       ]
     },
     {
@@ -1725,8 +1725,8 @@
       "evidence": [
         "docs/specs/117-task-tests-manifest.md: the shape, the four sabotages, and the three contract tripwires that fired",
         "contracts/task-tests-v1.schema.json: the manifest's own schema, with sabotage as the field the format exists for",
-        "orchestrator/tests/tracker.test.mjs: the join by provider key, unproven without sabotage rows, criterion drift refused, and no entry moving a row",
-        "orchestrator/tests/native-tracker.spec.mjs: the entry drawn with its own proven or UNPROVEN line"
+        "tests/tracker.test.mjs: the join by provider key, unproven without sabotage rows, criterion drift refused, and no entry moving a row",
+        "tests/native-tracker.spec.mjs: the entry drawn with its own proven or UNPROVEN line"
       ]
     },
     {
@@ -1828,7 +1828,7 @@
         "tools/design.py native_gpu_device_layer: the gate refusing SDL, VkSurface, Swapchain or Present in the device layer, sabotage-verified",
         "known-issues.md KI-079: the Vulkan render-identity check owed on a host with a Vulkan loader, which is why this row is not passing",
         "docs/specs/122-gpu-device-layer.md: the Vulkan backend runs here after all \u2014 Homebrew's MoltenVK ICD manifest lives under etc/, off the loader's search path; one variable closed KI-079",
-        "orchestrator/tests/native-render.spec.mjs: vulkanEnv() discovers the ICD manifest; Vulkan matches the SDL reference on all three scenes with 0 pixels outside the edge band and 0 validation messages",
+        "tests/native-render.spec.mjs: vulkanEnv() discovers the ICD manifest; Vulkan matches the SDL reference on all three scenes with 0 pixels outside the edge band and 0 validation messages",
         "packs/gpu/tests/gpu_device_test.c: the selection logic against a mock loader \u2014 five sabotages, each observed failing on its own assertion"
       ]
     },
@@ -1915,14 +1915,14 @@
       "external_references": [],
       "evidence": [
         "docs/specs/122-gpu-device-layer.md: the pack's shape, the outside-consumer evidence with its two sabotages, and the C/C++ obstacle the seam runs into",
-        "orchestrator/tests/pack-gpu.test.mjs: a project outside this build adds the pack, links it, runs it, and gets no other rEngine target",
+        "tests/pack-gpu.test.mjs: a project outside this build adds the pack, links it, runs it, and gets no other rEngine target",
         "packs/gpu/pack.json: the two-part pin, whose revision is rEngine's own commit",
         "docs/specs/123-gpu-seam.md: the seam generalised from vtmb-vr's device.h \u2014 a C core with a header-only C++ facade, its OpenGL backend, and why the Vulkan one is sequenced with the files that need a render-target API",
         "packs/gpu/tests/gpu_seam_test.c: the GL backend judged on real pixels through a real driver; thirteen sabotages, four of which found gaps the first version of the test could not see",
-        "orchestrator/tests/pack-gpu-seam.test.mjs: a C++ project outside this repository builds the pack and compiles every one of vtmb-vr's 23 called methods unchanged, with a drift check against the real call sites",
-        "orchestrator/tests/pack-gpu.test.mjs: the outside project links and calls BOTH layers \u2014 the device layer and the seam \u2014 which is criterion 8's other half; shipping only gpu_device.c was observed failing it with undefined _re_seam_backend and _re_seam_counters",
+        "tests/pack-gpu-seam.test.mjs: a C++ project outside this repository builds the pack and compiles every one of vtmb-vr's 23 called methods unchanged, with a drift check against the real call sites",
+        "tests/pack-gpu.test.mjs: the outside project links and calls BOTH layers \u2014 the device layer and the seam \u2014 which is criterion 8's other half; shipping only gpu_device.c was observed failing it with undefined _re_seam_backend and _re_seam_counters",
         "packs/gpu/pack.json: names both layers and all three public headers (gpu_device.h, gpu_seam.h, gpu_seam.hpp); it described only the device layer until 2026-09-11",
-        "orchestrator/tests/pack-gpu-seam.test.mjs: a C++ project outside this repository builds the pack and uses the header-only facade, and the fixture is re-derived against vtmb-vr's real call sites"
+        "tests/pack-gpu-seam.test.mjs: a C++ project outside this repository builds the pack and uses the header-only facade, and the fixture is re-derived against vtmb-vr's real call sites"
       ]
     },
     {
@@ -1944,12 +1944,12 @@
         115
       ],
       "owner_workspace": "rengine",
-      "deliverable": "re_ui_paragraph in editor/ui/ui.{c,h}, the label clip in contents(), the detail chooser in editor/tracker.c, and orchestrator/tests/native-label-clip.spec.mjs.",
+      "deliverable": "re_ui_paragraph in editor/ui/ui.{c,h}, the label clip in contents(), the detail chooser in editor/tracker.c, and tests/native-label-clip.spec.mjs.",
       "external_references": [],
       "evidence": [
         "docs/specs/119-task-detail-view.md: the control, the gesture, and why buttons had the same overflow",
-        "orchestrator/tests/native-label-clip.spec.mjs: no bleed past the column, and the description wrapping onto several lines",
-        "orchestrator/tests/native-label-clip.spec.mjs: the rail spans the block, asserted against the same frame with the detail closed so no colour is hard-coded"
+        "tests/native-label-clip.spec.mjs: no bleed past the column, and the description wrapping onto several lines",
+        "tests/native-label-clip.spec.mjs: the rail spans the block, asserted against the same frame with the detail closed so no colour is hard-coded"
       ]
     },
     {
@@ -1971,13 +1971,13 @@
         124
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The windowed row loop and list_spacer in editor/tracker.c, and orchestrator/tests/native-tracker-virtual.spec.mjs.",
+      "deliverable": "The windowed row loop and list_spacer in editor/tracker.c, and tests/native-tracker-virtual.spec.mjs.",
       "external_references": [
         "reactnative.dev/docs/virtualizedlist: the windowing technique this adapts, minus its height estimation"
       ],
       "evidence": [
         "docs/specs/120-virtualised-task-list.md: the measurement, why immediate mode needs no height estimate, and the sabotage",
-        "orchestrator/tests/native-tracker-virtual.spec.mjs: the draw list stays flat as the inventory grows, and the visible rows are pixel-identical",
+        "tests/native-tracker-virtual.spec.mjs: the draw list stays flat as the inventory grows, and the visible rows are pixel-identical",
         "known-issues.md KI-076: the stale-hover submit a cross-vendor review found in this feature, fixed in the owned control layer"
       ]
     },
@@ -2081,7 +2081,7 @@
         "docs/specs/124-seam-three-backends.md: the frame takes its target because Vulkan has no default framebuffer \u2014 an API question failed into by a test rather than guessed",
         "Its work and evidence are complete; the row waits because F123 cannot pass until the Vulkan and Metal backends land (F130, F131), which is KI-082's knot rather than anything owed here.",
         "docs/specs/124-seam-three-backends.md: ten sabotages, each observed failing on the assertion that owns it, including one that was blind when written and was caught by the pass",
-        "orchestrator/tests/pack-gpu-seam.test.mjs: the C++ facade compiles vtmb-vr's call sites, and the fixture cannot drift away from them"
+        "tests/pack-gpu-seam.test.mjs: the C++ facade compiles vtmb-vr's call sites, and the fixture cannot drift away from them"
       ],
       "passes": true
     },
@@ -2109,10 +2109,10 @@
       "evidence": [
         "docs/specs/124-seam-three-backends.md: one shader source reaches all three backends through glslang and SPIRV-Cross, so no runtime compiler is introduced",
         "packs/gpu/src/gpu_seam_vk.c and gpu_seam_vk_draw.c: pipelines coalesced at draw time and cached, dynamic rendering, descriptor sets per draw, uniforms reflected out of SPIR-V by name",
-        "orchestrator/tests/pack-gpu-backends.test.mjs: the same call sites on both backends \u2014 2 of 921,600 pixels differ on the built-in scene and 61 on Sponza's 393 draws, none outside a 2px edge band, with zero validation messages",
+        "tests/pack-gpu-backends.test.mjs: the same call sites on both backends \u2014 2 of 921,600 pixels differ on the built-in scene and 61 on Sponza's 393 draws, none outside a 2px edge band, with zero validation messages",
         "docs/specs/124-seam-three-backends.md: the y-axis decision a consumer inherits, and why frame-time totals rather than per-frame medians are the comparable number",
         "Its work and evidence are complete; the row waits on F123, as F129's and F132's do (KI-082).",
-        "orchestrator/tests/pack-gpu-backends.test.mjs: the same scene.c renders on OpenGL and Vulkan, 1 of 921,600 pixels differing and none outside the 2px edge band, with zero validation messages",
+        "tests/pack-gpu-backends.test.mjs: the same scene.c renders on OpenGL and Vulkan, 1 of 921,600 pixels differing and none outside the 2px edge band, with zero validation messages",
         "criterion 6, allocations per frame: re_seam_counters was added 2026-09-11 because nothing recorded them. OpenGL and Metal allocate 0 per steady frame; Vulkan allocates 32, exactly one descriptor set per draw (KI-086). The test gates the shape \u2014 no more than one allocation per draw \u2014 and a second per draw was observed failing it"
       ],
       "passes": true
@@ -2139,10 +2139,10 @@
       "evidence": [
         "docs/specs/124-seam-three-backends.md: the owner's decision to carry Metal in the pack rather than leave rEngine's third backend outside the seam",
         "packs/gpu/src/gpu_seam_metal.m: the third backend, 800 lines, sharing the SPIR-V reflector because SPIRV-Cross preserves the std140 layout when it emits MSL",
-        "orchestrator/tests/pack-gpu-backends.test.mjs: Metal differs from the OpenGL reference in 2 of 921,600 pixels, none outside a 2px edge band",
+        "tests/pack-gpu-backends.test.mjs: Metal differs from the OpenGL reference in 2 of 921,600 pixels, none outside a 2px edge band",
         "docs/specs/124-seam-three-backends.md: the Y axis answered differently for all three APIs, and the two Metal sabotages that are honest limits rather than gaps",
         "Its work and evidence are complete; the row waits on F123, as F129's, F132's and F130's do (KI-082).",
-        "orchestrator/tests/pack-gpu-backends.test.mjs: the same scene.c renders on Metal, 5 of 921,600 pixels differing and none outside the edge band",
+        "tests/pack-gpu-backends.test.mjs: the same scene.c renders on Metal, 5 of 921,600 pixels differing and none outside the edge band",
         "criterion 4, allocations per frame: 0 per steady frame on Metal, recorded beside OpenGL's 0 and Vulkan's 32 by the counters added 2026-09-11"
       ],
       "passes": true
@@ -2170,10 +2170,10 @@
       "evidence": [
         "docs/specs/124-seam-three-backends.md: why the gate renders a procedural scene and Sponza is for humans",
         "packs/gpu/examples/scene: 14 parts, three programs, both filters and both wraps, an off-screen pass sampled by a later draw, and a blended overlay \u2014 all through the seam",
-        "orchestrator/tests/pack-gpu-scene.test.mjs: built by a project outside this repository and judged on pixels; five sabotages each failing on the assertion that owns it",
+        "tests/pack-gpu-scene.test.mjs: built by a project outside this repository and judged on pixels; five sabotages each failing on the assertion that owns it",
         "Crytek Sponza loads as 786,801 vertices in 393 parts, which is the per-draw state stress a Vulkan backend has to survive",
         "Its work and evidence are complete; the row waits on F123, as F129's does (KI-082).",
-        "orchestrator/tests/pack-gpu-scene.test.mjs: criterion 5's first test \u2014 the fetch script refuses a destination inside the repository before creating anything, names the sha256 it will verify, and states CC BY 3.0 and the model's author. Removing the guard and blanking the checksum were each observed failing it"
+        "tests/pack-gpu-scene.test.mjs: criterion 5's first test \u2014 the fetch script refuses a destination inside the repository before creating anything, names the sha256 it will verify, and states CC BY 3.0 and the model's author. Removing the guard and blanking the checksum were each observed failing it"
       ],
       "passes": true
     },
@@ -2200,17 +2200,17 @@
       "external_references": [],
       "evidence": [
         "docs/specs/124-seam-three-backends.md: why a reference-image gate replaces SDL_Renderer as the oracle",
-        "orchestrator/tests/references/: the reference frames captured from SDL_Renderer while it is still a shipping path, as D54's ordering requires \u2014 432 KiB of PNG for three 2560x1600 scenes",
+        "tests/references/: the reference frames captured from SDL_Renderer while it is still a shipping path, as D54's ordering requires \u2014 432 KiB of PNG for three 2560x1600 scenes",
         "tools/render_compare.py: a PNG reader, so a committed reference can be data rather than a code path",
         "docs/specs/124-seam-three-backends.md: the sabotage that justifies it \u2014 one shared colour changed, cross-backend comparison and the live SDL oracle both saw nothing, the recorded frames saw 2,467,394 pixels",
         "packs/gpu/include/rengine/gpu_seam.h: the vertex layout gained a second attribute type, because rEngine's UI vertex packs colour as bytes and the seam could only describe floats \u2014 implemented and sabotage-verified on all three backends",
         "docs/specs/124-seam-three-backends.md: the desktop maintains its UI shader in three hand-written copies (inline GLSL, shaders/ui.*, inline MSL) implementing the same five SDF modes \u2014 they agree today, by hand",
         "docs/specs/124-seam-three-backends.md: the five increments, eleven sabotages and the six defects writing real consumers found in the seam",
-        "orchestrator/tests/native-render.spec.mjs: opengl, metal and vulkan are three compile-time copies of the seam, judged against the recorded frames \u2014 392 / 436 / 32,195 px, 0 outside the 2px band, identical to what the hand-written backends produced",
+        "tests/native-render.spec.mjs: opengl, metal and vulkan are three compile-time copies of the seam, judged against the recorded frames \u2014 392 / 436 / 32,195 px, 0 outside the 2px band, identical to what the hand-written backends produced",
         "2,082 lines across 15 files deleted: backend_gl.c, backend_metal.m, backend_vk.c, backend_sdl.c, their headers and sidecars, and shaders/ui.vert, ui.frag, ui_spv.h",
         "tools/design.py: the render-layering rule now allows a graphics API only in render/seam_host_*.c, so the migration's claim is what the build refuses rather than what a spec asserts",
         "docs/specs/124-seam-three-backends.md: the five increments, the sabotages and the six defects that writing real consumers found in the seam",
-        "orchestrator/tests/native-render.spec.mjs: opengl, metal and vulkan are three compile-time copies of the seam, judged against the recorded frames \u2014 392 / 436 / 32,195 px, 0 outside the 2px band, identical to what the hand-written backends produced",
+        "tests/native-render.spec.mjs: opengl, metal and vulkan are three compile-time copies of the seam, judged against the recorded frames \u2014 392 / 436 / 32,195 px, 0 outside the 2px band, identical to what the hand-written backends produced",
         "2,082 lines across 15 files deleted: backend_gl.c, backend_metal.m, backend_vk.c, backend_sdl.c, their headers and sidecars, and shaders/ui.vert, ui.frag, ui_spv.h",
         "tools/design.py: the render-layering rule now allows a graphics API only in render/seam_host_*.c, so the migration's claim is what the build refuses rather than what a spec asserts"
       ],
@@ -2260,8 +2260,8 @@
       "external_references": [],
       "evidence": [
         "orchestrator/native/plugin_render.h and render/plugin_seam.c: the seam as a table of pointers, compiled once per graphics API so the copy a plugin calls is the copy the window renders with. docs/specs/126 records why a plugin cannot call the seam directly (charter D56) and why that shape lets the pack's sources compile unmodified.",
-        "orchestrator/tests/native-plugin-render.spec.mjs \u2014 the render fixture registers two tabs and reports what it saw as colour: c1 a target asked for this frame renders and composites; c2 a target kept past its frame is refused, so its colour never reaches the tab; c3 the tab under the pointer is told so and the other is told the pointer is elsewhere. Sabotage-verified: the per-frame `asked` guard removed (red on c2) and every tab told the pointer is inside it (red on c3).",
-        "orchestrator/tests/native-plugin.spec.mjs: ABI 2 refuses a module built against 3, naming both versions (c4).",
+        "tests/native-plugin-render.spec.mjs \u2014 the render fixture registers two tabs and reports what it saw as colour: c1 a target asked for this frame renders and composites; c2 a target kept past its frame is refused, so its colour never reaches the tab; c3 the tab under the pointer is told so and the other is told the pointer is elsewhere. Sabotage-verified: the per-frame `asked` guard removed (red on c2) and every tab told the pointer is inside it (red on c3).",
+        "tests/native-plugin.spec.mjs: ABI 2 refuses a module built against 3, naming both versions (c4).",
         "orchestrator/native/tests/plugin_test.c: the grant is counted, not described \u2014 sizeof(RePluginHost) is its three versions plus exactly sixteen pointers, so a member added without a decision fails the build's own suite. Observed failing with an unauthorised `keyboard` member added (c5).",
         "The renderer-change half of c2 is structural: a pass belongs to the ReDraw that made it and is released when a different one asks, and --renderer is a launch flag so one window cannot switch. Recorded rather than claimed as measured.",
         "BLOCKED, not unevidenced: every criterion above has evidence and a sabotage. The row cannot pass while F108 does not, and F108 fails on one thing only \u2014 its Windows criterion, which is NOT MET behind KI-038 and the same platform gap KI-087 records for the seam. Nothing further is owed on macOS."
@@ -2291,8 +2291,8 @@
       "owner_workspace": "rengine",
       "external_references": [],
       "evidence": [
-        "orchestrator/tests/native-scene-tab.spec.mjs \u2014 three tests. Cmd/Ctrl E opens the built-in procedural scene in its own tab and it renders, with no session started, no surface reserved and no game view opened (c1's no-second-process half, c2). The plugin compiles the pack example's scene.c and obj.c rather than copies (c3). An .obj in the explorer opens a Scene tab on that model (c1), a drag moves the camera (c5), the scene's pass builds in under 4 ms and the window's frame median is within half again of the same window with no Scene tab (c4), and a restored Scene tab renders instead of naming an unloaded plugin.",
-        "Crytek Sponza verified by hand on 2026-09-12 from ~/assets/sponza/sponza.obj: 786,801 vertices in 393 parts, opened by clicking the .obj in the explorer, rendered on Metal through the desktop's own seam. The committed fixture is orchestrator/tests/fixtures/models/two-part.obj, small but two usemtl groups so it arrives as parts; a gate may not depend on a local asset.",
+        "tests/native-scene-tab.spec.mjs \u2014 three tests. Cmd/Ctrl E opens the built-in procedural scene in its own tab and it renders, with no session started, no surface reserved and no game view opened (c1's no-second-process half, c2). The plugin compiles the pack example's scene.c and obj.c rather than copies (c3). An .obj in the explorer opens a Scene tab on that model (c1), a drag moves the camera (c5), the scene's pass builds in under 4 ms and the window's frame median is within half again of the same window with no Scene tab (c4), and a restored Scene tab renders instead of naming an unloaded plugin.",
+        "Crytek Sponza verified by hand on 2026-09-12 from ~/assets/sponza/sponza.obj: 786,801 vertices in 393 parts, opened by clicking the .obj in the explorer, rendered on Metal through the desktop's own seam. The committed fixture is tests/fixtures/models/two-part.obj, small but two usemtl groups so it arrives as parts; a gate may not depend on a local asset.",
         "Sabotage-verified, each for its own reason: the composite removed (the tab drops to one colour), the OpenGL table handed to a Metal window (red), the drag ignoring the pointer (0 pixels differ), the scene rendered twenty times a frame (9.37 ms to build), and a restored tab left as a placeholder (99.9% of it still the pane's ground).",
         "c4's frame-COUNT half is structural and was found to be untestable as a scene property: the ABI gives a plugin no way to ask for a frame, so making the scene animate every frame does not wake the window. What the scene can spend is time inside the frames the window already draws, and that is what is measured. Recorded in spec 126.",
         "BLOCKED, not unevidenced: every criterion above has evidence and a sabotage. The row cannot pass while F108 does not, and F108 fails on one thing only \u2014 its Windows criterion, which is NOT MET behind KI-038 and the same platform gap KI-087 records for the seam. Nothing further is owed on macOS."
@@ -2322,7 +2322,7 @@
         "docs/specs/126-scene-view-and-test-artifacts.md: artifacts are declared rather than guessed at from what log points to",
         "contracts/task-tests-v1.schema.json: last.artifacts, root-relative paths with an optional label; log stays the text output it was",
         "orchestrator/server/tracker.mjs: each artifact settled at read time through resolveInRoot and a stat, so a row says ok, missing or outside before anyone clicks",
-        "orchestrator/tests/native-tracker.spec.mjs: one artifact on disk, one named but not written, one escaping the root; three sabotages each caught"
+        "tests/native-tracker.spec.mjs: one artifact on disk, one named but not written, one escaping the root; three sabotages each caught"
       ],
       "passes": true
     },
@@ -2349,10 +2349,10 @@
       ],
       "evidence": [
         "docs/specs/127-kimi-agent-integration.md: the owner direction, the verified channel facts, and the ten decisions",
-        "orchestrator/tests/agent-kimi.test.mjs: the .kimi-code/mcp.json wiring (foreign entries preserved, stale rengine_ keys reclaimed, invalid JSON refused with the file untouched), the --session flag spellings with honest unknowns and no minting, the picker/restart resume spelling, and the facade's env-first context resolution (red before implementation: connection closed on the unreachable second pane)",
-        "orchestrator/tests/report-session.test.mjs: a kimi SessionStart payload reports the real id over POST /api/agent-conversation with kimi's own label and resume line",
-        "orchestrator/tests/agent-hooks.test.mjs: the bootstrap action's stages against a fake kimi and throwaway KIMI_CODE_HOME \u2014 preserve+append, idempotence, doctor-verify with byte-for-byte restore, dry-run, confirmation gating, named refusals",
-        "orchestrator/tests/agent.test.mjs, task-writes.test.mjs, conversation-picker.test.mjs, sessions.test.mjs, conversations.test.mjs, agent-identity.test.mjs: list/install/update parity, the agent menu and -m model flag, the picker's prefix-stripped row resuming the full id, the host's no-mint/refuse/restart gate, the store's per-agent id shapes, and a binding writing the project file at the bound root",
+        "tests/agent-kimi.test.mjs: the .kimi-code/mcp.json wiring (foreign entries preserved, stale rengine_ keys reclaimed, invalid JSON refused with the file untouched), the --session flag spellings with honest unknowns and no minting, the picker/restart resume spelling, and the facade's env-first context resolution (red before implementation: connection closed on the unreachable second pane)",
+        "tests/report-session.test.mjs: a kimi SessionStart payload reports the real id over POST /api/agent-conversation with kimi's own label and resume line",
+        "tests/agent-hooks.test.mjs: the bootstrap action's stages against a fake kimi and throwaway KIMI_CODE_HOME \u2014 preserve+append, idempotence, doctor-verify with byte-for-byte restore, dry-run, confirmation gating, named refusals",
+        "tests/agent.test.mjs, task-writes.test.mjs, conversation-picker.test.mjs, sessions.test.mjs, conversations.test.mjs, agent-identity.test.mjs: list/install/update parity, the agent menu and -m model flag, the picker's prefix-stripped row resuming the full id, the host's no-mint/refuse/restart gate, the store's per-agent id shapes, and a binding writing the project file at the bound root",
         "sabotage observations 2026-09-11: dropping foreign-key preservation reds 'a foreign entry is preserved'; accepting kimi-shaped ids under any name reds the cross-name rejection in conversations.test.mjs",
         "real machine 2026-09-11: scripts/agent.sh --action list detects kimi 0.42.0 at ~/.kimi-code/bin/kimi; a scripted agentLaunch against a tmp repo writes the exact .kimi-code/mcp.json kimi reads and reports identity kimi 3f85774e with resume line kimi --session session_3f85774e-\u2026; bootstrap-agent-hooks.sh --agent kimi --dry-run shows the change and writes nothing. A live orchestrator pane launch and the real hook install are the owner's explicit gestures, not this session's side effect"
       ],
@@ -2379,7 +2379,7 @@
       ],
       "evidence": [
         "docs/evidence/rust-workspace-f139-2026-09-11.md: criterion-by-criterion results, the sabotage table, the Corrosion toolchain-resolution finding, and the in-slice decisions",
-        "orchestrator/tests/rust-workspace.test.mjs: seven subtests pinning the exact toolchain pin, the workspace skeletons, the zero-registry-dependency guarantee, the exact Corrosion sha, the regenerated CMakeLists, the ctest wiring and the init.sh check \u2014 each observed red for its own reason before passing",
+        "tests/rust-workspace.test.mjs: seven subtests pinning the exact toolchain pin, the workspace skeletons, the zero-registry-dependency guarantee, the exact Corrosion sha, the regenerated CMakeLists, the ctest wiring and the init.sh check \u2014 each observed red for its own reason before passing",
         "rust-toolchain.toml, red/Cargo.toml, red/Cargo.lock: the exact 1.93.1 channel and the two-local-package lockfile proving no fetch outside the pins",
         "cmake.toml: the Corrosion v0.6.1 commit pin, corrosion_import_crate for red-core and red-link, and the rust_red_core/rust_red_link ctest entries"
       ]
@@ -2405,11 +2405,11 @@
       "evidence": [
         "red/red-core/proto/red/v1/red.proto: the red.v1 contract \u2014 workspace and roots, sessions, the contract-2 dashboard, contract-5 tasks, the F113 agent registry, the project token and the feed as a oneof",
         "red/red-core/src/translate.rs: the strict translation. A field the contract expects and the host did not send, a wrong type, an unknown enum value, and a field the host sent that nothing consumed are all drift; a field v1 deliberately does not carry is declared by name",
-        "orchestrator/tests/red-contract.test.mjs: criterion 1 \u2014 a real session host and runtime worker, a declared project, a running session and an exited one, a live /events socket, and red-contract judging all of it; 7 shapes with nothing left over",
+        "tests/red-contract.test.mjs: criterion 1 \u2014 a real session host and runtime worker, a declared project, a running session and an exited one, a live /events socket, and red-contract judging all of it; 7 shapes with nothing left over",
         "docs/specs/128-rust-retirement-and-companion.md: the four disagreements the harness found on its first real run, including a tracker's denied/unavailable/invalid answers that v1 had missed",
         "criterion 2, three sabotages each observed failing for its own reason: a renamed field, a renamed session state, and a feed event the contract does not carry. The enum sabotage did NOT fire first time \u2014 the fixture's only session never exited \u2014 and the harness now produces both states and asserts it did",
         "red/red-core/src/version.rs: criterion 3 \u2014 PROTOCOL_VERSION is one constant, the proto package and the libp2p protocol name are both built from it, a test reads the .proto on disk to prove its package line agrees, and negotiate() refuses a mismatched peer naming both versions",
-        "orchestrator/tests/rust-workspace.test.mjs: Cargo.lock is the dependency pin F139 deferred to F140 \u2014 exact version and SHA-256 per crate, sabotage-verified \u2014 and init.sh refuses without protoc"
+        "tests/rust-workspace.test.mjs: Cargo.lock is the dependency pin F139 deferred to F140 \u2014 exact version and SHA-256 per crate, sabotage-verified \u2014 and init.sh refuses without protoc"
       ]
     },
     {
@@ -2506,7 +2506,7 @@
         "apps/companion: the Android app builds with pinned Gradle 8.13 (wrapper distribution verified by SHA-256), AGP 8.7.3, Kotlin 2.0.21, NDK 27.2.12479018 and CMake 3.22.1, arm64 only",
         "apps/companion/app/src/main/cpp/CMakeLists.txt: criterion 1 \u2014 microui, the draw list, utf8 and theme are compiled from their places in this repository, and a missing origin is refused by name rather than fallen back on",
         "Ran on a Quest 3 (Horizon OS, API 34), which is spec 128 decision 10's case: 'draw list carries 12 command(s) from the desktop's own UI layer' \u2014 the screen the desktop builds, built on the device",
-        "orchestrator/tests/companion-build.test.mjs: three sabotages observed failing \u2014 a copied microui under apps/, an NDK pin floated to 27.+, and a wrapper that stopped verifying its distribution",
+        "tests/companion-build.test.mjs: three sabotages observed failing \u2014 a copied microui under apps/, an NDK pin floated to 27.+, and a wrapper that stopped verifying its distribution",
         "NOT met: criterion 2 (no Vulkan surface on the device layer yet, so no snapshot and no measured frame budget) and criterion 3 (the C ABI round-trip waits on F141's fa\u00e7ade). ui.c is excluded until common.h stops pulling SDL.h, recorded in the CMake",
         "charter D59 amends D58: Android gets an OpenGL ES path beside Vulkan. Measured \u2014 the owner's Adreno 619 reports Vulkan 1.1.128 and lacks VK_KHR_dynamic_rendering and VK_KHR_synchronization2, so the seam's Vulkan backend cannot run there; the same build brought the renderer up on a Quest 3 (Adreno 740, Vulkan 1.3.295)",
         "orchestrator/native/render/seam_host_android_gl.c: 146 lines of EGL, the fifth member of spec 124's one-file-per-platform split. The renderer above it is backend_seam.c unchanged",
@@ -2625,7 +2625,7 @@
         "docs/evidence/report-session-f172-2026-09-13.md",
         "docs/evidence/red-agents-cli-f171-2026-09-12.md",
         "docs/evidence/agents-swap-f173-2026-09-13.md",
-        "orchestrator/agents/{registry,config,report-session,bind}.mjs are deleted (4209680, 6c4e756); agents-client.mjs is a thin client over red-agents-serve, and orchestrator/tests/red-agents-cli.test.mjs holds the byte-exact CLI, parser and codex trust-hash comparisons against the frozen JS answers."
+        "orchestrator/agents/{registry,config,report-session,bind}.mjs are deleted (4209680, 6c4e756); agents-client.mjs is a thin client over red-agents-serve, and tests/red-agents-cli.test.mjs holds the byte-exact CLI, parser and codex trust-hash comparisons against the frozen JS answers."
       ]
     },
     {
@@ -2677,7 +2677,7 @@
         "docs/evidence/pty-retention-f177-2026-09-13.md",
         "docs/evidence/sessions-swap-f178-2026-09-13.md",
         "docs/evidence/session-handover-f179-2026-09-13.md",
-        "Criterion 1: the scenario set \u2014 spawn, attach, scrollback, resize, kill and the OUTPUT_LIMIT truncation counted in UTF-16 units \u2014 is pinned against what the JS session host answered before it was deleted (orchestrator/tests/pty-scenario-fixtures.json). Criterion 2: a session survives the host being SIGKILLed and the next host adopts it with the same child process, title, root and scrollback (session-handover.test.mjs), which is charter D60 and supersedes one clause of F94 criterion 4 with the owner's decision as its reason. orchestrator/server/sessions.mjs is deleted."
+        "Criterion 1: the scenario set \u2014 spawn, attach, scrollback, resize, kill and the OUTPUT_LIMIT truncation counted in UTF-16 units \u2014 is pinned against what the JS session host answered before it was deleted (tests/pty-scenario-fixtures.json). Criterion 2: a session survives the host being SIGKILLed and the next host adopts it with the same child process, title, root and scrollback (session-handover.test.mjs), which is charter D60 and supersedes one clause of F94 criterion 4 with the owner's decision as its reason. orchestrator/server/sessions.mjs is deleted."
       ]
     },
     {
@@ -2704,7 +2704,7 @@
       "evidence": [
         "AMENDED 2026-09-13 by owner decision (KI-102): criterion 3 \u2014 \"the four JS modules removed\" \u2014 cannot be met at this row's place in the sequence. Thirteen of main.mjs's 33 routes belong to F153\u2013F156, and a front door has to forward what it does not own yet, so this row cannot both forward to the JS host and delete it. The deletion moves to the end of the host arc: F189 ports what this row owns and leaves main.mjs serving only the routes it does not, F153\u2013F156 each move their routes out of that backend, and the four modules are deleted by the row that moves the last one. The other two criteria are unchanged and no row loses work.",
         "F152 THE DOOR IS THE HOST, 2026-09-16: a workspace runs no JavaScript host. ensureSidecar starts red-host, which starts the state directory's own store and PTY services (red_core::service::start_service, the same act red-worker performs for the ledger), publishes sidecar.json itself and answers every route a workspace is made of; --backend is optional now and a route nobody serves is refused HERE in the JS host's own words. WHAT SAID THIS WAS READY WAS A MEASUREMENT, NOT A SURVEY: with the forwarder instrumented, a full npm test run forwarded ZERO requests to the JavaScript behind the door \u2014 it had been answering nothing. host-standalone.test.mjs drives a host started with no --backend at all: the descriptor it publishes, the two services it started as their own processes, a project and its tree and a file and a draft, a real PTY pane that runs and talks, what the project declares, a desktop registering over /events, and the two refusals for routes nobody serves. front-door-cutover.test.mjs asserts the other half and was rewritten for it: exactly one process serves the directory, the descriptor's pid IS the process answering, and NO server/main.mjs process serves a workspace. Three things had to learn the host is a binary, each otherwise a refusal nobody could act on: replace.mjs's hostArguments (a host replacement would have refused to replace a live host), red_worker::signin's copy of the same scan (a worker could no longer find its workspace's credential), and the door's browser refusal, which had diverged from the JS sentence. The scan is red_core::descriptor::host_arguments now \u2014 one answer, both spellings, because a workspace started before the upgrade still runs the module. The 1,405 lines remain in the tree as a TEST FIXTURE: 76 specs call startServer and reach into the store and sessions objects it returns. npm test 370/370, cargo test --workspace 344/344.",
-        "F152 THE CLIENTS FOLLOW THEIR CALLERS, 2026-09-16: with the JS host deleted, the thin clients under orchestrator/server/ had no product importer left. pty-client.mjs and the six red-project clients moved to orchestrator/tests/, where what they are is what they do. store-client.mjs was the one held by a real call rather than by habit \u2014 external-project.mjs validated the declaration it composes BEFORE writing anything, through the store's schema validator \u2014 so that one was ported rather than moved: the installer now asks red-project declaration, the reader the product itself opens a workspace with, from a throwaway directory of its own. That is a STRICTER check than the schema call it replaces: validateSchema answered 'well-formed for the contract', while the reader also applies each section's own rules, so the installer refuses exactly what a workspace would refuse to open \u2014 and refuses it before any output exists. Sabotage-verified: with the reported error dropped, external-project.test.mjs goes red on title: '' with 'Missing expected rejection', the case that rule is for, and green when restored. orchestrator/server/ is 82 lines of shell envelope now, and production JavaScript is 2,031 lines across 23 files \u2014 63% of the 5,504 it started at. npm test 371/371, ./init.sh green."
+        "F152 THE CLIENTS FOLLOW THEIR CALLERS, 2026-09-16: with the JS host deleted, the thin clients under orchestrator/server/ had no product importer left. pty-client.mjs and the six red-project clients moved to tests/, where what they are is what they do. store-client.mjs was the one held by a real call rather than by habit \u2014 external-project.mjs validated the declaration it composes BEFORE writing anything, through the store's schema validator \u2014 so that one was ported rather than moved: the installer now asks red-project declaration, the reader the product itself opens a workspace with, from a throwaway directory of its own. That is a STRICTER check than the schema call it replaces: validateSchema answered 'well-formed for the contract', while the reader also applies each section's own rules, so the installer refuses exactly what a workspace would refuse to open \u2014 and refuses it before any output exists. Sabotage-verified: with the reported error dropped, external-project.test.mjs goes red on title: '' with 'Missing expected rejection', the case that rule is for, and green when restored. orchestrator/server/ is 82 lines of shell envelope now, and production JavaScript is 2,031 lines across 23 files \u2014 63% of the 5,504 it started at. npm test 371/371, ./init.sh green."
       ]
     },
     {
@@ -2749,7 +2749,7 @@
       "external_references": [],
       "evidence": [
         "F154, 2026-09-16: the work is done and the JS is deleted; `passes` stays false because the prerequisite chain (F153 -> F152) is not marked, and a row that claimed to pass over an unmarked prerequisite would be a claim with a hole in it. The evidence below is what a reviewer needs when that chain is settled.",
-        "orchestrator/tests/tracker-remote-parity.test.mjs \u2014 the Rust providers answer the 14 recorded cases from tracker-remote-corpus.json, which is what tracker.mjs said before it was deleted. Both the ANSWER and the REQUEST are compared: denied (4 cases), invalid (2), unavailable (3) and the signIn naming are each their own case and the test counts them, so a corpus of four empty lists could not pass quietly. Sabotage-verified: the signIn naming dropped, the assignee narrowing never sent, a personal key sent with a Bearer prefix, and the priority scale read the obvious way round.",
+        "tests/tracker-remote-parity.test.mjs \u2014 the Rust providers answer the 14 recorded cases from tracker-remote-corpus.json, which is what tracker.mjs said before it was deleted. Both the ANSWER and the REQUEST are compared: denied (4 cases), invalid (2), unavailable (3) and the signIn naming are each their own case and the test counts them, so a corpus of four empty lists could not pass quietly. Sabotage-verified: the signIn naming dropped, the assignee narrowing never sent, a personal key sent with a Bearer prefix, and the priority scale read the obvious way round.",
         "red/red-project/src/tracker_remote.rs \u2014 the 30-second cache with the NARROWING in its key (two declarations that ask different questions are different questions) and a refresh that drops the entry; `fresh` and `checkedAt` describe the answer rather than the question.",
         "red/red-project/src/tasks.rs \u2014 a write on a remote provider is refused by name, because neither provider offers concurrency control on an issue write (spec 083 decision 1).",
         "red/red-core/src/tls.rs \u2014 the HTTPS client, with the MACHINE's trust roots rather than a bundled CA set.",
@@ -2802,7 +2802,7 @@
       "external_references": [],
       "evidence": [
         "F156a, 2026-09-14: docs/evidence/image-route-f156a-2026-09-14.md \u2014 /api/image is answered by red-host and orchestrator/server/images.mjs is deleted, with the image-dimensions npm dependency. The first JavaScript module this epic removes. The spec is unchanged in what it drives and gained each refusal's own words; three sabotages verified. formats.mjs and recordings.mjs, the rest of this row, are unchanged.",
-        "F156b PREPARATION, 2026-09-14: docs/evidence/declaration-record-f156b-2026-09-14.md \u2014 readDeclaration's answers are recorded over a 38-case corpus (orchestrator/tests/declaration-fixtures.{mjs,json}) before the module is replaced, the way F148/F172/F178 recorded theirs. declaration-record.test.mjs drives the live reader over the same corpus so the record cannot drift from what it froze; two sabotages verified. Nothing is ported or deleted by this.",
+        "F156b PREPARATION, 2026-09-14: docs/evidence/declaration-record-f156b-2026-09-14.md \u2014 readDeclaration's answers are recorded over a 38-case corpus (tests/declaration-fixtures.{mjs,json}) before the module is replaced, the way F148/F172/F178 recorded theirs. declaration-record.test.mjs drives the live reader over the same corpus so the record cannot drift from what it froze; two sabotages verified. Nothing is ported or deleted by this.",
         "F156c, 2026-09-14: docs/evidence/recordings-f156c-2026-09-14.md \u2014 the recording reader is red-project's, and recordings.mjs is a 46-line client over it (was 115). KI-107's blocker was not one: the thin-client pattern store-client/pty-client/agents-client already established lets the implementation leave while the module's API stays, so the worker goes on serving the capability from its own checkout by running the checkout's Rust. recordings.test.mjs and native-recording.spec.mjs are unchanged; three sabotages verified.",
         "F156b, 2026-09-14: docs/evidence/declaration-reader-f156b-2026-09-14.md \u2014 readDeclaration and the cross-field rules of device-rules/game-rules/dashboard-rules are red-project's; formats.mjs is 169 lines (was 386) and keeps only what runs a project's own commands. Judged against the 57-case record frozen from the JS: 56 exact, one held to its prefix because the parenthetical is the JSON parser's own wording (V8 vs serde), marked in the corpus rather than excused. One rule was missing and the record did not catch it \u2014 tracker.write, whose floor differs from its block's \u2014 because the corpus had no case; task-writes.test.mjs caught it and four cases were recorded from the JavaScript that still existed. Three sabotages.",
         "F156d, 2026-09-14: /api/formats, /api/recordings and /api/recording are answered by red-host from red-project rather than forwarded, proven the way the store routes were \u2014 with the backend stopped, they still answer.",
@@ -2833,8 +2833,8 @@
       "deliverable": "The Rust feed and token protocol, the ported token-e2e and token-retirement suites; the two JS modules removed.",
       "external_references": [],
       "evidence": [
-        "F157 PREPARATION, 2026-09-14: docs/evidence/token-transcript-f157-2026-09-14.md \u2014 the ledger's clock and mint travel as data (defaults unchanged), and its answers are recorded as a 40-step transcript with both files it leaves behind (orchestrator/tests/token-transcript.{mjs,json}). Recording it found that status() settles nothing \u2014 the worker settles before every answer, and a transcript of status alone would have let a replacement skip it \u2014 and that the session-not-process identity rule had no case until a sabotage passed. Three sabotages verified. Nothing is ported by this.",
-        "F157, 2026-09-14: docs/evidence/token-ledger-in-rust-f157-2026-09-14.md \u2014 red-token replaces runtime/token.mjs and runtime/feed.mjs. The ledger, the ring and the workspace preferences are a service of the state directory (red-token-serve on red_core::service, protocol 1), and runtime/token-client.mjs keeps the Tokens/Ledger surface over it. Judged against the 46-step transcript recorded from the JavaScript: every answer, every status and both files on disk, key for key (orchestrator/tests/token-parity.test.mjs). Recording and porting it found that status() handed out the ledger's own cooldown map \u2014 the record had captured forty views of its last value \u2014 and that two rules had NO case until a sabotage of each passed: an assign charging the contester a cooldown, and a rejection charging the current window rather than the contest's. Six steps added and re-recorded while token.mjs still existed; the first forty came back byte-identical. Five sabotages verified, including KI-065's temporary-naming regression ported to Rust with the rule. One writer by construction now: token-retirement asserts neither worker writes the ledger, only the service both attach to. npm test 331/331; cargo test -p red-token -p red-core 22/22. store-client.mjs (322 -> 230) and pty-client.mjs (288 -> 189) then collapsed onto the same runtime/service-client.mjs, verified by sabotaging the protocol check in the shared module (pty-retention's 'ended by name, never adopted' goes red). JS on the app path 6,533 -> 6,275.",
+        "F157 PREPARATION, 2026-09-14: docs/evidence/token-transcript-f157-2026-09-14.md \u2014 the ledger's clock and mint travel as data (defaults unchanged), and its answers are recorded as a 40-step transcript with both files it leaves behind (tests/token-transcript.{mjs,json}). Recording it found that status() settles nothing \u2014 the worker settles before every answer, and a transcript of status alone would have let a replacement skip it \u2014 and that the session-not-process identity rule had no case until a sabotage passed. Three sabotages verified. Nothing is ported by this.",
+        "F157, 2026-09-14: docs/evidence/token-ledger-in-rust-f157-2026-09-14.md \u2014 red-token replaces runtime/token.mjs and runtime/feed.mjs. The ledger, the ring and the workspace preferences are a service of the state directory (red-token-serve on red_core::service, protocol 1), and runtime/token-client.mjs keeps the Tokens/Ledger surface over it. Judged against the 46-step transcript recorded from the JavaScript: every answer, every status and both files on disk, key for key (tests/token-parity.test.mjs). Recording and porting it found that status() handed out the ledger's own cooldown map \u2014 the record had captured forty views of its last value \u2014 and that two rules had NO case until a sabotage of each passed: an assign charging the contester a cooldown, and a rejection charging the current window rather than the contest's. Six steps added and re-recorded while token.mjs still existed; the first forty came back byte-identical. Five sabotages verified, including KI-065's temporary-naming regression ported to Rust with the rule. One writer by construction now: token-retirement asserts neither worker writes the ledger, only the service both attach to. npm test 331/331; cargo test -p red-token -p red-core 22/22. store-client.mjs (322 -> 230) and pty-client.mjs (288 -> 189) then collapsed onto the same runtime/service-client.mjs, verified by sabotaging the protocol check in the shared module (pty-retention's 'ended by name, never adopted' goes red). JS on the app path 6,533 -> 6,275.",
         "F157 DESKTOP GATE, 2026-09-14: the 43-spec desktop suite (not run by npm test, KI-105) passes 78 of 81 with the ledger as a service \u2014 every token spec included, so the desktop's status segment reads the Rust ledger through the same pushes. Both failures predate this session's commits, verified by running each spec at c127141: KI-105's native-handoff, and native-project-windows, bisected to bfc0675 and filed as KI-108 (two defects, the first fixed here \u2014 a spec relabelling a pane by mutating the host's own copy of a record that belongs to the PTY service since D62). Also fixed a defect of this row's own, found by comparing the new service with red-store rather than by a test: red-token-serve held the ledger lock across the socket write, so one client that stopped reading would have frozen the workspace's arbitration; the pushes queue under the lock and go out after it."
       ]
     },
@@ -2981,7 +2981,7 @@
       "milestone": "J0",
       "category": "workspace",
       "priority": "medium",
-      "description": "The JS test suite sunsets: every row of orchestrator/tests/suite-coverage.test.mjs has a named Rust-side or native-side equivalent or a recorded reason, the suite-coverage mechanism itself is ported so no fixture silently leaves the report, and node --test exits every gate (owner, 2026-09-11; spec 129, D57).",
+      "description": "The JS test suite sunsets: every row of tests/suite-coverage.test.mjs has a named Rust-side or native-side equivalent or a recorded reason, the suite-coverage mechanism itself is ported so no fixture silently leaves the report, and node --test exits every gate (owner, 2026-09-11; spec 129, D57).",
       "acceptance_criteria": [
         "Every suite-coverage row names its Rust/native equivalent or its recorded reason; the ported ledger itself fails on an unnamed spec.",
         "./init.sh passes on a machine without node, and node --test appears in no gate."
@@ -3036,7 +3036,7 @@
       "deliverable": "re_layout_open_target and the pane MRU, the per-view content container, drop_target and the drag preview, with docs/specs/130-open-target-pane-and-tab-drag-preview.md.",
       "external_references": [],
       "evidence": [
-        "orchestrator/tests/native-open-target.spec.mjs \u2014 three desktop tests, each sabotage-verified: the open target (red on 'With two panes, a file opens in the work pane'), the scroll memory (red on 'The explorer comes back to where it was scrolled'), the ghost position (red on 'the ghost is under the cursor, not left behind') and preview/drop agreement (red on the insertion index).",
+        "tests/native-open-target.spec.mjs \u2014 three desktop tests, each sabotage-verified: the open target (red on 'With two panes, a file opens in the work pane'), the scroll memory (red on 'The explorer comes back to where it was scrolled'), the ghost position (red on 'the ghost is under the cursor, not left behind') and preview/drop agreement (red on the insertion index).",
         "orchestrator/native/tests/layout_test.c \u2014 re_layout_open_target across one, two and three panes, a stale MRU entry and no history; red on dropping the not-from clause and on trusting a stale entry."
       ]
     },
@@ -3168,8 +3168,8 @@
       "external_references": [],
       "evidence": [
         "docs/evidence/report-session-f172-2026-09-13.md",
-        "orchestrator/tests/red-report-session.test.mjs: fourteen cases against answers the JS CLI recorded before deletion (report-session-fixtures.json) \u2014 exit code, stderr, stdout, the POST body and the context file afterwards, for the three reporting providers, the two refusals, both binding orders, the gating and the malformed edges (c1).",
-        "orchestrator/tests/report-session.test.mjs: the pre-existing eight tests ported to the binary \u2014 the launcher's settings file and hook line, the line `bind` prints running with no environment, the conversation replacing the identity, the kimi and codex hooks with their own resume spellings, and the tool worker's next call following the CLI (c2).",
+        "tests/red-report-session.test.mjs: fourteen cases against answers the JS CLI recorded before deletion (report-session-fixtures.json) \u2014 exit code, stderr, stdout, the POST body and the context file afterwards, for the three reporting providers, the two refusals, both binding orders, the gating and the malformed edges (c1).",
+        "tests/report-session.test.mjs: the pre-existing eight tests ported to the binary \u2014 the launcher's settings file and hook line, the line `bind` prints running with no environment, the conversation replacing the identity, the kimi and codex hooks with their own resume spellings, and the tool worker's next call following the CLI (c2).",
         "Sabotage-verified, each for its own reason: the POST body's fields reordered (red on 'the POST the host recorded'), the launcher writing `node report-session.mjs` again (red on 'the hook runs the red-agents binary by absolute path'), and unparseable stdin swallowed into {} again (red on 'trouble goes to stderr and nowhere else').",
         "npm test: 297 of 297 with orchestrator/agents/report-session.mjs deleted in the same commit."
       ]
@@ -3195,7 +3195,7 @@
       "evidence": [
         "docs/evidence/agents-swap-f173-2026-09-13.md",
         "orchestrator/agents/agents-client.mjs with red-agents-serve: ide-connect, worker, tasks, sessions and the agent launcher read recipes and launch plans from the Rust side, with modelArgs and ideConnectFlag still synchronous \u2014 F173 c1's 'external API unchanged' (c1).",
-        "orchestrator/tests/red-agents-launch.test.mjs: a full launch plan for each of the five CLIs against the answers config.mjs gave \u2014 args, consumed flags, identity, and every per-launch file by content and by mode; orchestrator/tests/red-agents-serve.test.mjs and red-agents-cli.test.mjs for the recipes, the CLI surface, the parsers and the codex hook math (c1).",
+        "tests/red-agents-launch.test.mjs: a full launch plan for each of the five CLIs against the answers config.mjs gave \u2014 args, consumed flags, identity, and every per-launch file by content and by mode; tests/red-agents-serve.test.mjs and red-agents-cli.test.mjs for the recipes, the CLI surface, the parsers and the codex hook math (c1).",
         "registry.mjs, config.mjs and bind.mjs are deleted in the same commit; `bind` is a red-agents subcommand, verified against the live workspace on 2026-09-13 (c2).",
         "Sabotage-verified, each for its own reason: the settings file not written, the kimi project file accumulating rengine_ entries, the client not naming the documents per request, a dropped --settings flag, and the trust hash computed for the wrong matcher.",
         "npm test: 303 of 303."
@@ -3285,7 +3285,7 @@
         "docs/specs/131-pty-retention.md",
         "docs/evidence/pty-retention-f177-2026-09-13.md",
         "The decision is charter D60, owner 2026-09-13: red-pty-serve is long-lived per state directory, found through a pty.json descriptor with sidecar.json's loopback-plus-token discipline, and a starting host adopts the live sessions by attaching rather than by handover.",
-        "orchestrator/tests/pty-retention.test.mjs: five tests, six sabotages \u2014 a SIGKILLed host leaves its service and its shell running and the next host adopts the same session id, PID and scrollback and types into it; the token and the attach handshake gate everything; two racing hosts leave one red-pty-serve in the process table; a protocol mismatch is named and ended rather than adopted; an idle service reaps itself and one holding a session does not."
+        "tests/pty-retention.test.mjs: five tests, six sabotages \u2014 a SIGKILLed host leaves its service and its shell running and the next host adopts the same session id, PID and scrollback and types into it; the token and the attach handshake gate everything; two racing hosts leave one red-pty-serve in the process table; a protocol mismatch is named and ended rather than adopted; an idle service reaps itself and one holding a session does not."
       ]
     },
     {
@@ -3309,7 +3309,7 @@
       "evidence": [
         "docs/evidence/sessions-swap-f178-2026-09-13.md",
         "orchestrator/server/sessions.mjs is deleted; orchestrator/server/sessions-client.mjs delegates spawn, input, resize and stop to red-pty and keeps the metadata composition. No production JS module imports node-pty any more; the pane-identity composition is red-agents' agent_pane_composition, reached through the service's paneComposition method.",
-        "orchestrator/tests/{pane-composition,pty-scenario}-fixtures.json: what the deleted module answered, captured before deletion and never regenerated \u2014 agent-spawn-env.test.mjs and pty-service.test.mjs compare the Rust against the record instead of against a second implementation that no longer exists.",
+        "tests/{pane-composition,pty-scenario}-fixtures.json: what the deleted module answered, captured before deletion and never regenerated \u2014 agent-spawn-env.test.mjs and pty-service.test.mjs compare the Rust against the record instead of against a second implementation that no longer exists.",
         "npm test 309/309 with the module deleted; four sabotages observed failing for their own reasons (the id ignored, the environment inherited, stop delegating nothing, the UTF-16 truncation drifting by one unit), plus the deletion itself observed as ERR_MODULE_NOT_FOUND across 20 suites before the importers moved."
       ]
     },
@@ -3331,7 +3331,7 @@
       "deliverable": "The red-link binary in fa\u00e7ade, relay and probe modes; the request/response envelope in the red.v1 contract; the forced-relay loopback test.",
       "evidence": [
         "docs/evidence/red-link-facade-f180-2026-09-13.md",
-        "orchestrator/tests/red-link.test.mjs: a live session host and worker behind red-link attach, which opens no TCP listener at all \u2014 every listen address it reports is a p2p-circuit \u2014 and a probe that completes workspace, dashboard, tasks, token and agents through the relay, compared field by field with what the host and worker answer directly; the relay's own reservation and one accepted circuit per request are asserted as the proof of path.",
+        "tests/red-link.test.mjs: a live session host and worker behind red-link attach, which opens no TCP listener at all \u2014 every listen address it reports is a p2p-circuit \u2014 and a probe that completes workspace, dashboard, tasks, token and agents through the relay, compared field by field with what the host and worker answer directly; the relay's own reservation and one accepted circuit per request are asserted as the proof of path.",
         "Four sabotages observed failing for their own reasons: a direct listener on the fa\u00e7ade, a section answered without asking the workspace, a root-scoped request allowed through with no root, and the relay no longer reporting circuits (which proves the circuit count is load-bearing rather than decorative).",
         "npm test 311/311 on three consecutive runs with red-link relay and red-link attach processes running throughout; cargo test -p red-link -p red-core 12 tests."
       ],
@@ -3379,7 +3379,7 @@
       "evidence": [
         "docs/evidence/lifecycle-contract-f182-2026-09-13.md",
         "red/red-core/proto/red/v1/red.proto: LifecycleEvent with a fifteen-arm oneof, Lifecycle carrying cursor and retainedFrom, and Actor/Party as the two shapes the workspace actually sends; the feed response's socket URL is declared ignored because it embeds the workspace token.",
-        "red/red-core/src/translate.rs: strict translation \u2014 an unmodeled frame type and an unconsumed field are both drift; orchestrator/tests/red-contract.test.mjs judges the live ring after contesting, claiming and releasing the token and writing a task (4 frames of the 15 types, the rest recorded as modeled-but-not-exercised).",
+        "red/red-core/src/translate.rs: strict translation \u2014 an unmodeled frame type and an unconsumed field are both drift; tests/red-contract.test.mjs judges the live ring after contesting, claiming and releasing the token and writing a task (4 frames of the 15 types, the rest recorded as modeled-but-not-exercised).",
         "Two sabotages observed failing for their own reasons (a frame grows a field; the workspace renames a frame type), the second after moving the fixture's type assertion below the checker so it fails for the contract's reason rather than a precondition.",
         "The richer fixture also exposed a gap F140's own fixture could not see: TokenParty did not carry agentId, since, firstSeenAt or lastSeenAt, because no fixture had ever produced a holder, a contester or a remembered identity."
       ],
@@ -3403,7 +3403,7 @@
       "deliverable": "The WebSocket client against the worker's feed, the long-lived libp2p stream that carries it, and the ordering and cursor-resume evidence.",
       "evidence": [
         "docs/evidence/lifecycle-stream-f183-2026-09-13.md",
-        "orchestrator/tests/red-link.test.mjs: a subscriber on /red/1/feed is given the ring from its cursor in the workspace's own order, then a frame written after it subscribed arrives on the same stream; sequences increase and never repeat, and a second subscriber resuming at a cursor is given the frame after it rather than the one it had.",
+        "tests/red-link.test.mjs: a subscriber on /red/1/feed is given the ring from its cursor in the workspace's own order, then a frame written after it subscribed arrives on the same stream; sequences increase and never repeat, and a second subscriber resuming at a cursor is given the frame after it rather than the one it had.",
         "Two sabotages observed failing for their own reasons: the cursor ignored (resume gives the frame already seen), and the stream closed after each frame (the subscriber sees an unexpected end of file where a stream should be)."
       ],
       "external_references": []
@@ -3428,7 +3428,7 @@
       "evidence": [
         "docs/evidence/mcp-surface-f184-2026-09-13.md",
         "red/red-mcp: the crate, serving initialize/tools/list/ping from red/red-mcp/src/tools.json \u2014 the surface captured from the live JS worker rather than retyped, because the 38 descriptions ARE the surface an agent reads.",
-        "orchestrator/tests/red-mcp.test.mjs: both servers started against one live workspace and driven by the same MCP client, compared deeply (order, descriptions, schemas, annotations, server identity, instructions, capabilities); plus the three binding refusals in the worker's own words.",
+        "tests/red-mcp.test.mjs: both servers started against one live workspace and driven by the same MCP client, compared deeply (order, descriptions, schemas, annotations, server identity, instructions, capabilities); plus the three binding refusals in the worker's own words.",
         "Sabotages observed failing for their own reasons: a description drifting by three words, and the JS worker growing a tool without a recapture."
       ],
       "external_references": []
@@ -3452,7 +3452,7 @@
       "deliverable": "The Rust tool calls, the native exec change, the fixture-identical conversation, and the deletion commit.",
       "evidence": [
         "docs/evidence/mcp-calls-f185-2026-09-13.md",
-        "Criterion 1 is met: orchestrator/tests/red-mcp-calls.test.mjs runs a 50-call conversation covering all 38 tools against both servers and compares every answer, normalising only per-workspace values (uuids, hashes, timestamps, ports, pids, durations, the workspace directory and a conversation's eight-character prefix). Four sabotages observed failing for their own reasons. Criteria 2 and 3 are F187's: the cutover turns on what updating a connector layer means once that layer is a compiled binary.",
+        "Criterion 1 is met: tests/red-mcp-calls.test.mjs runs a 50-call conversation covering all 38 tools against both servers and compares every answer, normalising only per-workspace values (uuids, hashes, timestamps, ports, pids, durations, the workspace directory and a conversation's eight-character prefix). Four sabotages observed failing for their own reasons. Criteria 2 and 3 are F187's: the cutover turns on what updating a connector layer means once that layer is a compiled binary.",
         "docs/evidence/mcp-cutover-f187-2026-09-13.md",
         "Criteria 2 and 3 are met by F187, which lands in the same arc: the modules are deleted, a pane's MCP is still spawned per launch, and hot-update.test.mjs holds the generation swap \u2014 a running facade keeps serving and picks up the new connector on the next generation."
       ],
@@ -3497,7 +3497,7 @@
         "docs/evidence/mcp-cutover-f187-2026-09-13.md",
         "The decision: the connector layer's contract is unchanged and its payload is an executable \u2014 the layer builds (cargo build -p red-mcp), probes by running the binary's own --probe, and adopts by bumping connectorGeneration, which is the desktop layer's order. Spec 065's completion-vs-acceptance, the generation and per-launch spawning are untouched.",
         "orchestrator/agents/mcp-worker.mjs and orchestrator/runtime/tools.mjs are deleted; agents/mcp.mjs spawns its worker as a command; six suites that drove the JS worker directly now drive the binary unchanged.",
-        "orchestrator/tests/incomplete-tool-worker.mjs pins the probe's required tools \u2014 a candidate that starts and answers but cannot serve the update path is refused naming what it lacks, and the generation does not move. Added because emptying the probe's required list changed no test."
+        "tests/incomplete-tool-worker.mjs pins the probe's required tools \u2014 a candidate that starts and answers but cannot serve the update path is refused naming what it lacks, and the generation does not move. Added because emptying the probe's required list changed no test."
       ],
       "external_references": []
     },
@@ -3521,7 +3521,7 @@
       "deliverable": "The session record carried by red-pty, the adopt path, the retain switch, the replace.mjs report, and the live handover test.",
       "evidence": [
         "docs/evidence/session-handover-f179-2026-09-13.md",
-        "orchestrator/tests/session-handover.test.mjs: a host started as its own process, a pane typed into, the host SIGKILLed, and a second host that lists the pane with the same child PID, title and root and types into it with the scrollback intact.",
+        "tests/session-handover.test.mjs: a host started as its own process, a pane typed into, the host SIGKILLed, and a second host that lists the pane with the same child PID, title and root and types into it with the scrollback intact.",
         "Three sabotages observed failing for their own reasons: adopting nothing, not retaining, and replace.mjs stopping the PTY service with the host's other children.",
         "F94 criterion 4's \"sessions do not [persist]\" clause is superseded by charter D60 with the owner's own words as the reason; replace-host.test.mjs asserts the adoption and the new \"handed \u2026 to the next host\" wording."
       ],
@@ -3543,7 +3543,7 @@
       "deliverable": "The red-host crate in front-door mode, its head parser and forwarder, and the through-the-door parity spec.",
       "evidence": [
         "docs/evidence/red-host-door-f188-2026-09-13.md",
-        "orchestrator/tests/red-host.test.mjs: the same live host driven directly and through the door \u2014 six read routes, a POST with a body, the two refusals in the JS host's own words, /health answered by the door, and a session attached over /events whose input reaches the pane and whose output comes back.",
+        "tests/red-host.test.mjs: the same live host driven directly and through the door \u2014 six read routes, a POST with a body, the two refusals in the JS host's own words, /health answered by the door, and a session attached over /events whose input reaches the pane and whose output comes back.",
         "Three sabotages observed failing for their own reasons: the token check removed, the socket token passed upstream unchanged, and the upgrade copied one way only \u2014 the last of which leaves every receiving assertion passing."
       ],
       "external_references": []
@@ -3568,10 +3568,10 @@
       "deliverable": "The ported routes and sockets, the desktop evidence, and the deletion commit.",
       "evidence": [
         "FIRST HALF, 2026-09-13 (row stays open): docs/evidence/red-host-store-routes-f189-2026-09-13.md \u2014 the eight store routes (tree, file, roots, save, draft, discard, layout, preferences) are answered by red-host itself from the state directory's own store service (D61); the session routes, desktops and surfaces have not moved and main.mjs is still the backend of the other twenty-five routes and both sockets.",
-        "orchestrator/tests/red-host.test.mjs: the route the door owns still answers 200 with the backend stopped, while a route it forwards fails at the socket \u2014 the check that distinguishes a moved route from a forwarded one, since after D61 both readers give the same answer to a parity comparison.",
+        "tests/red-host.test.mjs: the route the door owns still answers 200 with the backend stopped, while a route it forwards fails at the socket \u2014 the check that distinguishes a moved route from a forwarded one, since after D61 both readers give the same answer to a parity comparison.",
         "Four sabotages observed failing for their own reasons: the route forwarded after all, the {ok: true} shape dropped, the store's status ignored, and a POST body left unread.",
         "SECOND SLICE, 2026-09-13 (row stays open): docs/evidence/pane-record-d62-2026-09-13.md \u2014 charter D62, the pane record becomes the service's (red-pty `describe`, protocol 2, a spawn announced like an exit), and red-host answers /api/session, /api/input, /api/resize and /api/stop from the same record the JS host answers from \u2014 including the scrollback, which is written from UTF-16 units because a lone surrogate at a chunk boundary is a legal JS string and not a legal Rust one. Five sabotages, one of which passed at first because the host's write-through announced the pane as a side effect.",
-        "THIRD SLICE, 2026-09-13 (row stays open): red-host serves /events itself \u2014 the JS host's frames, its refusals, its 1013 backpressure \u2014 and the desktop registry moved with it (/api/desktops, /api/desktop-action), because a desktop says it exists by sending a frame on that socket. orchestrator/tests/native-front-door.spec.mjs is criterion 1's evidence: the real native binary, pointed at red-host, drives the tree, a file, an edit, a Save that lands on disk and a pane that echoes what was typed, with no change to orchestrator/native/. surfaces.mjs is games.mjs's frame transport rather than this row's module (it moves with F155); /surface is spliced byte for byte and untouched, which is how the focus-eviction semantic is preserved verbatim here.",
+        "THIRD SLICE, 2026-09-13 (row stays open): red-host serves /events itself \u2014 the JS host's frames, its refusals, its 1013 backpressure \u2014 and the desktop registry moved with it (/api/desktops, /api/desktop-action), because a desktop says it exists by sending a frame on that socket. tests/native-front-door.spec.mjs is criterion 1's evidence: the real native binary, pointed at red-host, drives the tree, a file, an edit, a Save that lands on disk and a pane that echoes what was typed, with no change to orchestrator/native/. surfaces.mjs is games.mjs's frame transport rather than this row's module (it moves with F155); /surface is spliced byte for byte and untouched, which is how the focus-eviction semantic is preserved verbatim here.",
         "FOURTH SLICE, 2026-09-13 (row stays open): /api/state is the door's own answer \u2014 the store's state and the panes the service holds, with this process's identity \u2014 compared field for field against the JS host's. The comparison found that the door's pane records were not advancing their `sequence` with the pane's output, which a reconnecting desktop reads (specs 059/060). Three sabotages. Still forwarded: the pane-composition routes (/api/terminal, /api/agent-restart, /api/agent-conversation), which need the checkout path and would be a second live implementation of pane composition until F155 moves games and dashboard-run.",
         "FIFTH SLICE, 2026-09-13 (row stays open): /api/agent-conversation \u2014 the pane correcting the workspace \u2014 is the door's, as two writes that must not come apart (the store's conversation record, the service's pane record), with the title's short form taken from the CLI's own recipe through red-agents and compared against agentTitle imported from the JS host. Three sabotages. Left forwarded: /api/terminal and /api/agent-restart, which spawn.",
         "SIXTH SLICE, 2026-09-13: /api/terminal and /api/agent-restart are the door's, which moves the last of the routes F152 names. The composition is red-agents' (F168) and is not re-implemented; the plumbing around it is, including readHandoff. Four sabotages, one of which (a pane's environment inherited rather than composed, KI-068's lesson) passed until the door was started carrying another pane's identity and the pane was asked what it was given. The row stays open: /surface is still spliced, F153-F156's thirteen routes are still forwarded, and nothing is deleted (KI-102, KI-106).",
@@ -4105,7 +4105,7 @@
       "external_references": [],
       "evidence": [
         "docs/specs/141-provider-abstraction.md",
-        "orchestrator/tests/red-agents-cli.test.mjs",
+        "tests/red-agents-cli.test.mjs",
         "orchestrator/agents/registry.toml"
       ]
     },
@@ -4130,8 +4130,8 @@
       "external_references": [],
       "evidence": [
         "docs/specs/141-provider-abstraction.md",
-        "orchestrator/tests/agent-kimi.test.mjs",
-        "orchestrator/tests/agent-registry.test.mjs"
+        "tests/agent-kimi.test.mjs",
+        "tests/agent-registry.test.mjs"
       ]
     },
     {
@@ -4155,7 +4155,7 @@
       "external_references": [],
       "evidence": [
         "docs/specs/141-provider-abstraction.md",
-        "orchestrator/tests/conversations.test.mjs",
+        "tests/conversations.test.mjs",
         "red/red-store/src/recipes.rs"
       ]
     },
@@ -4180,7 +4180,7 @@
       "external_references": [],
       "evidence": [
         "docs/specs/141-provider-abstraction.md",
-        "orchestrator/tests/handoff.test.mjs",
+        "tests/handoff.test.mjs",
         "red/red-host/src/handoff/mod.rs"
       ]
     },
@@ -4205,7 +4205,7 @@
       "evidence": [
         "docs/specs/141-provider-abstraction.md",
         "docs/lessons-learned.md",
-        "orchestrator/tests/agent-names.test.mjs",
+        "tests/agent-names.test.mjs",
         "tools/agent_names.py"
       ]
     },
@@ -4231,7 +4231,7 @@
       "external_references": [],
       "evidence": [
         "docs/specs/141-provider-abstraction.md",
-        "orchestrator/tests/agent-identity.test.mjs"
+        "tests/agent-identity.test.mjs"
       ]
     },
     {
@@ -4255,8 +4255,8 @@
       "external_references": [],
       "evidence": [
         "docs/specs/141-provider-abstraction.md",
-        "orchestrator/tests/native-agent-select.spec.mjs",
-        "orchestrator/tests/red-report-session.test.mjs"
+        "tests/native-agent-select.spec.mjs",
+        "tests/red-report-session.test.mjs"
       ]
     },
     {
@@ -4282,8 +4282,8 @@
       "evidence": [
         "docs/specs/141-provider-abstraction.md",
         "docs/lessons-learned.md",
-        "orchestrator/tests/agent-names.test.mjs",
-        "orchestrator/tests/environment.test.mjs",
+        "tests/agent-names.test.mjs",
+        "tests/environment.test.mjs",
         "tools/agent_names.py"
       ]
     }

@@ -28,7 +28,7 @@
       "note": "The seam keeps every image it owns in `GENERAL` and never transitions one it did not create, so both ends of the swapchain's layout cycle belong here: `UNDEFINED` to `GENERAL` before the frame, `GENERAL` to `PRESENT_SRC_KHR` after it.\n\nNeither is optional and neither moves a pixel. Presenting straight from `GENERAL` renders a frame that looks perfect and is invalid \u2014 the validation layers say so in six messages, and nothing else does. That is why the render spec runs a validation capture for this path and not only for `backend_vk.c`.",
       "refs": [
         "docs/specs/124-seam-three-backends.md",
-        "orchestrator/tests/native-render.spec.mjs"
+        "tests/native-render.spec.mjs"
       ]
     },
     {

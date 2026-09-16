@@ -6,7 +6,7 @@
 //! starts its own daemon.
 //!
 //! Every sentence here is read by a person in the Devices tab, and every one of them is compared
-//! word for word against `orchestrator/tests/devices-corpus.json` — the answers the JavaScript gave,
+//! word for word against `tests/devices-corpus.json` — the answers the JavaScript gave,
 //! recorded before it was replaced.
 
 use std::collections::HashMap;

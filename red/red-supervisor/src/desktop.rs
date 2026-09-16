@@ -12,7 +12,7 @@
 //! from a spawn environment entirely, so a desktop that is not a project window has no
 //! `RENGINE_WINDOW_ID` at all, while one with no terminal has `RENGINE_INITIAL_TERMINAL=""` — two
 //! different facts, and a port that wrote `""` for both would collapse them. `Option` is that
-//! distinction, and `orchestrator/tests/desktop-launch-corpus.json` is the record of it, taken from
+//! distinction, and `tests/desktop-launch-corpus.json` is the record of it, taken from
 //! a process that actually received the environment rather than from the object handed to `spawn`.
 //!
 //! **How it is asked things.** One newline-framed JSON request per line down stdin, one answer per
@@ -286,7 +286,7 @@ mod tests {
             .parent()
             .and_then(|red| red.parent())
             .expect("the checkout")
-            .join("orchestrator/tests/desktop-launch-corpus.json");
+            .join("tests/desktop-launch-corpus.json");
         serde_json::from_str(&std::fs::read_to_string(&path).expect("the recorded launches")).expect("a record")
     }
 

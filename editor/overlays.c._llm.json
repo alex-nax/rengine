@@ -29,7 +29,7 @@
       "refs": [
         "docs/specs/134-project-and-worktree-browser.md",
         "editor/ui/ui.c._llm.json#menu-item",
-        "orchestrator/tests/native-agent-select.spec.mjs"
+        "tests/native-agent-select.spec.mjs"
       ]
     }
   ],
