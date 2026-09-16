@@ -13,7 +13,7 @@ git ls-files '*.mjs' | grep -vE 'tests/|\.test\.mjs' | xargs wc -l | tail -1
 
 | | lines |
 |---|---|
-| Production JavaScript remaining | **2,425** across 25 files |
+| Production JavaScript remaining | **2,239** across 24 files |
 | Rust in `red/` | ~34,000 |
 
 Down from 5,504 across 43 when this was first written — **35% of it gone**. The worker, the tracker
@@ -91,7 +91,7 @@ pipes. What is left is the launchers, which are their own commands rather than t
 | ~~`server/main.mjs`~~ | ~~209~~ | **deleted** |
 | ~~`server/sessions-client.mjs`'s `Sessions`~~ | ~~380~~ | **deleted** — the pane record is the service's (D62) |
 | `server/store-client.mjs` | 229 | client of `red-store-serve`; 21 specs |
-| `server/pty-client.mjs` | 189 | client of `red-pty-serve`; 3 specs |
+| ~~`server/pty-client.mjs`~~ | ~~189~~ | **moved to `tests/`** — no product caller left |
 | ~~`server/{tasks,devices,project-client,formats,dashboard,recordings}.mjs`~~ | ~~301~~ | **moved to `tests/`** — thin clients of `red-project` with no product caller left |
 | `server/sessions-client.mjs` | 79 | the shell envelope, bash on Windows, a pane's title |
 
@@ -123,9 +123,11 @@ over `askProject`, and after `main.mjs` went they had **no product importer at a
 `orchestrator/tests/`, where what they are is what they do: how a spec asks the Rust. The code did
 not disappear; its role changed, and counting it as product would have been the fiction.
 
-`store-client.mjs` and `pty-client.mjs` are the same shape but still have product callers
-(`external-project.mjs` wants `validateSchema`; `agents-client.mjs` wants `fail`), so they stay
-until those do.
+`pty-client.mjs` moved too, once nothing in the product imported it. `store-client.mjs` is the one
+left, and it is held by a single call: `external-project.mjs` validates the declaration it composes
+before writing anything, and asks the store's schema validator to do it. That is a real port rather
+than a move — the installer is a person-facing command, and "the project is untouched when the
+declaration is wrong" is a property it is tested for.
 
 `red-host.test.mjs` did **not** retire. It compared the door against the JS host; both sides are
 `red-host` now, so it compares **two hosts on one state directory** — which is what a host

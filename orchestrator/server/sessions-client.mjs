@@ -13,7 +13,6 @@
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import { fail } from './store-client.mjs';
 import { processIdentity as agentsProcessIdentity, installPaths as agentsInstallPaths, shortAgentId } from '../agents/agents-client.mjs';
 /* One conversation, one set of eight characters: the pane title, the picker row, the identity label
    and the token segment all show the same prefix, so a person recognises the same thing in each. */
@@ -65,6 +64,10 @@ export function shellEnvironment(overrides = {}, { inherited = process.env, plat
   }).join(paths.delimiter);
   return env;
 }
+
+/* One refusal, rather than a dependency on the store's client for it: this file has no other reason
+   to know about a store. */
+const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
 
 export function bashPath() {
   if (process.env.RENGINE_BASH) return process.env.RENGINE_BASH;

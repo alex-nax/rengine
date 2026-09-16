@@ -30,7 +30,7 @@ const OUTPUT_LIMIT = 1024 * 1024;
 /* The two drivers. `js` is the real Sessions class on a real store; `rust` is the pty client on
    the service. Both expose the same harness surface. */
 async function rustDriver(t, directory) {
-  const client = await import('../server/pty-client.mjs');
+  const client = await import('./pty-client.mjs');
   const pty = await client.PtyHost.open();
   const events = [];
   pty.on('event', event => events.push(event));

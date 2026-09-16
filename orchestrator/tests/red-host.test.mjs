@@ -21,7 +21,7 @@ import path from 'node:path';
 import net from 'node:net';
 import { WebSocket } from 'ws';
 import { startServer } from './red-host-fixture.mjs';
-import { PtyHost } from '../server/pty-client.mjs';
+import { PtyHost } from './pty-client.mjs';
 import { agentTitle } from '../server/sessions-client.mjs';
 import { runtimeDirectory } from '../runtime/discovery.mjs';
 import { fakeCli } from './task-fixtures.mjs';

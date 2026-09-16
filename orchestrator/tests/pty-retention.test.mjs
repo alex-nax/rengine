@@ -19,12 +19,12 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 /* The number the host speaks, read rather than typed: a protocol bump is a one-line change in the
    client and this spec should follow it rather than pin a stale number. */
-import { PTY_PROTOCOL } from '../server/pty-client.mjs';
+import { PTY_PROTOCOL } from './pty-client.mjs';
 import { built } from './cargo.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SERVE = path.join(ROOT, 'red/target/debug/red-pty-serve');
-const CLIENT = path.join(ROOT, 'orchestrator/server/pty-client.mjs');
+const CLIENT = path.join(ROOT, 'orchestrator/tests/pty-client.mjs');
 const run = promisify(execFile);
 
 const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
