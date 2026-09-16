@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { nativeClient } from './native-client.mjs';
 import { startTasksSidecar } from './tasks-controls-fixtures.mjs';
 

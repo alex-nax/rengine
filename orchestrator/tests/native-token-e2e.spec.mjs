@@ -4,7 +4,7 @@ import { mkdtemp, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { startSupervisor, window as attach, openWindow } from './red-supervisor-fixture.mjs';
 import { tokenProject, identity, api, ok, until, feedSocket } from './token-fixtures.mjs';
 

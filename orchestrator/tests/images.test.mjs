@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm, symlink, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 /* The limit the route enforces (red-host's `images.rs`), named here because this spec's whole job
    is to drive a file one byte past it. */
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -51,5 +51,7 @@ test('image reads authenticate, retain root binding and reject unsupported or ov
     assert.equal((await response.json()).error, said, filename);
   }
   assert.deepEqual(await readFile(path.join(roots[0].path, 'same.png')), redImage);
-  assert.deepEqual(server.store.state.drafts, {});
+  /* `/api/state` lists drafts, where the JS host's internal store keyed them. Both say
+     'none'; the wire shape is the one a client has always seen. */
+  assert.deepEqual((await server.state()).drafts, []);
 });

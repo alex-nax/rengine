@@ -4,7 +4,7 @@ import { copyFile, mkdir, mkdtemp, readdir, symlink, writeFile } from 'node:fs/p
 import { constants } from 'node:fs';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { nativeClient } from './native-client.mjs';
 
 test('the declared NOLF game renders and accepts menu input in the C/microui workspace', { timeout: 60000 }, async () => {

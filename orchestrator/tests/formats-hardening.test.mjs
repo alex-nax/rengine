@@ -6,7 +6,7 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { readDeclaration } from '../server/formats.mjs';
 import { validateSchema } from '../server/store-client.mjs';

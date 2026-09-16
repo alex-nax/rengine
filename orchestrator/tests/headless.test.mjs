@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { networkInterfaces, tmpdir } from 'node:os';
 import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { alive, ensureSidecar } from '../launcher/sidecar.mjs';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { endStateServices } from './state-services.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

@@ -4,7 +4,7 @@ import { chmod, mkdtemp, mkdir, rm, realpath, writeFile, readFile } from 'node:f
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { nativeClient } from './native-client.mjs';
 import { answering, counted, deviceProject, devicesDeclaration, localGame, remoteGame, silent, slow, thisMachine } from './device-fixtures.mjs';
 

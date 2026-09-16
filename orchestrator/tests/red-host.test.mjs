@@ -20,7 +20,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
 import { WebSocket } from 'ws';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { PtyHost } from '../server/pty-client.mjs';
 import { agentTitle } from '../server/sessions-client.mjs';
 import { runtimeDirectory } from '../runtime/discovery.mjs';
@@ -44,8 +44,13 @@ async function until(check, what, timeout = 15000) {
   assert.fail(`${what} (not within ${timeout / 1000}s)`);
 }
 
-async function front(t, stateDir, backend, env = {}) {
-  const child = spawn(BINARY, ['--state', stateDir, '--backend', backend.url, '--backend-token', backend.token],
+/* A SECOND host on the same state directory. It used to be "the door, in front of the JS backend";
+   with the JS host gone it is what a state directory actually has during a host replacement — two
+   processes reading one store, one PTY service and one set of pane records (charter D62). The
+   assertions below are unchanged, and they mean more here: "both hosts answer the same" was a
+   migration check and is now the rule the directory is built on. */
+async function front(t, stateDir, _other, env = {}) {
+  const child = spawn(BINARY, ['--state', stateDir],
     { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, ...env } });
   let noise = '';
   child.stderr.on('data', data => { noise = (noise + data).slice(-2000); });
@@ -58,23 +63,10 @@ async function front(t, stateDir, backend, env = {}) {
   return JSON.parse(line);
 }
 
-/* What `main.mjs` composed for `/api/state` before the door took the route: the store's own state,
-   the drafts named without their text, and the panes this host holds. Kept here as the record of
-   what that answer was, which is what the door is measured against now that the route is gone. */
-const composed = host => JSON.parse(JSON.stringify(shaped(host)));
-/* Through `JSON.stringify`, because that is what the route did: a field the host left undefined was
-   a field its answer did not carry, and comparing the object rather than the answer would compare
-   two things that were never on the wire. */
-const shaped = host => ({
-  instance: host.instance, stateDir: host.stateDir, pid: process.pid,
-  capabilities: { taskConversations: 1, handoff: 1, desktopActions: 1, formatRegistry: 1, dashboard: 1,
-    projectGame: 1, projectGameLaunch: 1, recordings: 1, projectDevices: 1, externalDeclarations: 1,
-    agentConversations: 1, tracker: 1 },
-  roots: host.store.state.roots, layout: host.store.state.layout, preferences: host.store.state.preferences,
-  conversations: host.store.state.conversations ?? {},
-  drafts: Object.values(host.store.state.drafts).map(({ rootId, path, updatedAt }) => ({ rootId, path, updatedAt })),
-  sessions: host.sessions.list(),
-});
+/* `/api/state` as the OTHER host on this directory composes it. It used to be a hand-built copy of
+   what `main.mjs` composed, because the JS host had no route to ask; now both hosts have the same
+   route, and "the two agree" is the rule the directory is built on rather than a migration check. */
+const composed = host => host.state();
 
 const ask = (instance, route, body, extra = {}) => fetch(`${instance.url}${route}`, {
   method: body === undefined ? 'GET' : 'POST',
@@ -91,7 +83,7 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
   /* The backend owns the state directory, which since D61 means it ATTACHES to that directory's
      store service rather than starting one of its own — and so does the door. One owner, two
      readers: that is what makes a route safe to move. */
-  const backend = await startServer({ stateDir, retainSessions: true, frontDoor: false });
+  const backend = await startServer({ stateDir, retainSessions: true });
   let stopped = false;
   /* Ending the services and removing the directory is ONE hook, in that order, for the reason
      headless.test.mjs records: after-hooks run in registration order, and a descriptor that has
@@ -144,7 +136,7 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
     await backend.store.readText(root.id, 'note.txt'), 'and reads a file as the store reads it');
   const opening = await (await ask(instance, '/api/state')).json();
   assert.deepEqual({ ...opening, instance: null, pid: null, stateDir: null },
-    { ...composed(backend), instance: null, pid: null, stateDir: null },
+    { ...await composed(backend), instance: null, pid: null, stateDir: null },
     'and composes /api/state the way the host composed it');
   assert.equal(opening.instance, door.instance, 'the door says who IT is');
   assert.equal(opening.stateDir, stateDir, 'and which directory it serves');
@@ -172,7 +164,7 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
      file it belongs to, and a state poll that shipped every draft's contents would grow with them. */
   const drafted = await (await ask(instance, '/api/state')).json();
   assert.equal(drafted.drafts.length, 1, 'the door says which file has a draft');
-  assert.deepEqual(drafted.drafts, composed(backend).drafts, 'in the same words the host composed');
+  assert.deepEqual(drafted.drafts, (await composed(backend)).drafts, 'in the same words the host composed');
   assert.equal('text' in drafted.drafts[0], false, 'and not what is in it');
 
   const discarded = await ask(instance, '/api/discard', { rootId: root.id, path: 'note.txt' });
@@ -251,7 +243,7 @@ test('nothing behind the front door can tell it is there', { timeout: 300000 }, 
      way the JS host composes them, which is the whole of what a desktop draws its Sessions tab from. */
   const doorState = await (await ask(instance, '/api/state')).json();
   assert.equal(doorState.sessions.length, 1, 'the door lists the pane');
-  assert.deepEqual(doorState.sessions, composed(backend).sessions, 'exactly as the host that started it lists it');
+  assert.deepEqual(doorState.sessions, (await composed(backend)).sessions, 'exactly as the host that started it lists it');
 
   /* `/surface` is still the backend's, and this is what proves the splice is alive now that
      `/events` is not using it: the door performs no handshake of its own for this path, so an
@@ -353,7 +345,7 @@ test('a pane record changed by one host is the record every host answers from', 
   await built('-p', 'red-host', '--bin', 'red-host');
   const directory = await mkdtemp(path.join(tmpdir(), 'red-host-record-'));
   const stateDir = path.join(directory, 'state');
-  const backend = await startServer({ stateDir, retainSessions: true, frontDoor: false });
+  const backend = await startServer({ stateDir, retainSessions: true });
   let stopped = false, client;
   t.after(async () => {
     await client?.close();
@@ -388,14 +380,13 @@ test('a pane record changed by one host is the record every host answers from', 
     const answer = await ask(instance, '/api/input', { id: session.id, data: 'ignored' });
     return [answer.status, (await answer.json()).error];
   };
-  /* The JS host is asked through its own Sessions rather than through a route it no longer serves:
-     the same implementation, one layer down, which is the point — this proves the HOST applied a
-     record another process wrote, not that a route forwarded. */
-  const refusedBehind = () => { try { backend.sessions.input(session.id, 'ignored'); return null; } catch (error) { return [error.status, error.message]; } };
+  /* The OTHER host is asked over its own port, which is the point: it learned the gate from a record
+     a third process wrote, and it applies that record rather than forwarding the question. */
+  const refusedBehind = () => waiting(backend);
   await until(async () => (await waiting(instance))[0] === 409, 'the door sees the gate');
   assert.deepEqual(await waiting(instance), [409, 'Handoff is waiting for its native view.'],
     'the door refuses input for a pane it was never told about directly');
-  assert.deepEqual(refusedBehind(), [409, 'Handoff is waiting for its native view.'],
+  assert.deepEqual(await refusedBehind(), [409, 'Handoff is waiting for its native view.'],
     'and so does the host that spawned it, which learned the same way');
 
   /* And released by the HOST, through its own API, the way the native view releases a handoff pane
@@ -491,7 +482,7 @@ test('a desktop registers on the door and answers what the workspace asks it', {
   await built('-p', 'red-host', '--bin', 'red-host');
   const directory = await mkdtemp(path.join(tmpdir(), 'red-host-desktop-'));
   const stateDir = path.join(directory, 'state');
-  const backend = await startServer({ stateDir, retainSessions: true, frontDoor: false });
+  const backend = await startServer({ stateDir, retainSessions: true });
   t.after(async () => {
     await backend.close({ retain: false });
     await endStateServices(stateDir);
@@ -751,7 +742,7 @@ test('a pane reports its conversation to the door, and the workspace and the pan
   await built('-p', 'red-host', '--bin', 'red-host');
   const directory = await mkdtemp(path.join(tmpdir(), 'red-host-conversation-'));
   const stateDir = path.join(directory, 'state');
-  const backend = await startServer({ stateDir, retainSessions: true, frontDoor: false });
+  const backend = await startServer({ stateDir, retainSessions: true });
   let client;
   t.after(async () => {
     await client?.close();
@@ -831,7 +822,7 @@ test('a pane started at the door is the pane the JS host would have started', { 
   const project = path.join(directory, 'project');
   await mkdir(project, { recursive: true });
   const stateDir = path.join(directory, 'state');
-  const backend = await startServer({ stateDir, retainSessions: true, frontDoor: false });
+  const backend = await startServer({ stateDir, retainSessions: true });
   t.after(async () => {
     await backend.close({ retain: false });
     await endStateServices(stateDir);
@@ -992,7 +983,7 @@ test('a dashboard action the door can press is pressed there, and a game reaches
       { id: 'play', title: 'Play', kind: 'game', game: 'fixture-game' },
     ] }] },
   }));
-  const backend = await startServer({ stateDir, retainSessions: true, frontDoor: false });
+  const backend = await startServer({ stateDir, retainSessions: true });
   let stopped = false;
   t.after(async () => {
     if (!stopped) await backend.close({ retain: false });

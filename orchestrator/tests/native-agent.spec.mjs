@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { nativeClient } from './native-client.mjs';
 
 test('installed Codex boots through the Bash launcher in the native terminal', { timeout: 30000 }, async () => {

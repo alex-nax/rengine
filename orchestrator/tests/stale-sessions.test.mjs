@@ -6,7 +6,7 @@ import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { WorkspaceStore, fail } from '../server/store-client.mjs';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { startWorker, withoutEndedSessions } from './red-worker-fixture.mjs';
 import { fakeDesktop, ok } from './token-fixtures.mjs';
 import { built } from './cargo.mjs';

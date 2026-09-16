@@ -5,7 +5,7 @@ import { watch } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { WebSocket } from 'ws';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { startSupervisor } from './red-supervisor-fixture.mjs';
 import { tokenProject, identity, identityHeaders, api, ok, until, fakeDesktop, feedSocket } from './token-fixtures.mjs';
 

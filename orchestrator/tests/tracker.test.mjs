@@ -5,7 +5,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { readDeclaration } from '../server/formats.mjs';
 import { CONTRACTS } from './contract.mjs';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 
 const FORMAT = { id: 'text', title: 'Text', match: ['*.txt'], modes: ['raw'], default: 'raw' };
 const base = tracker => ({ contract: 5, project: 'kohai', formats: [FORMAT], ...(tracker ? { tracker } : {}) });

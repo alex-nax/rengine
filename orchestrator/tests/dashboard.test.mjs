@@ -7,7 +7,7 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { startSupervisor } from './red-supervisor-fixture.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { readDeclaration, listFormats } from '../server/formats.mjs';
@@ -125,7 +125,9 @@ test('availability, script and log sessions and captures run through the host', 
   const shown = await request(server, `dashboard?${new URLSearchParams({ rootId: brokenRoot.id })}`);
   assert.equal(shown.declared, true); assert.match(shown.error, /kind/); assert.deepEqual(shown.groups, []);
   assert.equal((await request(server, `formats?${new URLSearchParams({ rootId: brokenRoot.id })}`)).formats[0].id, 'fixture-pack', 'formats keep working');
-  assert.deepEqual(server.store.state.drafts, {});
+  /* `/api/state` lists drafts, where the JS host's internal store keyed them. Both say
+     'none'; the wire shape is the one a client has always seen. */
+  assert.deepEqual((await server.state()).drafts, []);
 });
 
 test('the replaceable worker and the MCP tools expose the dashboard', { timeout: 30000 }, async t => {

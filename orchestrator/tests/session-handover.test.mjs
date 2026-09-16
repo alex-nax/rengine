@@ -17,13 +17,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const MAIN = path.join(ROOT, 'orchestrator/server/main.mjs');
+const HOST = process.env.RENGINE_RED_HOST || path.join(ROOT, 'red/target/debug/red-host');
 const delay = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 const alive = pid => { try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; } };
 
 /* A host as a person starts one: its own process, on a state directory it owns. */
 async function host(t, stateDir) {
-  const child = spawn(process.execPath, [MAIN, '--state', stateDir], { stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(HOST, ['--state', stateDir], { stdio: ['ignore', 'pipe', 'pipe'] });
   let noise = '';
   child.stderr.on('data', data => { noise = (noise + data).slice(-2000); });
   t.after(() => { try { child.kill('SIGKILL'); } catch { /* gone */ } });

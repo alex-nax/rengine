@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readdir, rm, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { installExternalProject } from '../external-project.mjs';
 import { nativeClient } from './native-client.mjs';

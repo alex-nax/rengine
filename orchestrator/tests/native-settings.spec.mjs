@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { nativeClient } from './native-client.mjs';
 
 const run = promisify(execFile);
@@ -86,7 +86,7 @@ setInterval(() => {}, 1000);`);
     assert.deepEqual(choices, ['default', 'teal', 'light'], `the list names every preset: ${JSON.stringify(choices)}`);
     await gui.control('dropdown', 'teal', -1);
     await gui.until(s => !s.controls?.some(c => c.role === 'dropdown'), 'picking a value closes the list');
-    assert.equal(server.store.state.preferences.theme, 'teal', 'the choice applied and persisted');
+    assert.equal((await server.state()).preferences.theme, 'teal', 'the choice applied and persisted');
     await gui.command({ op: 'theme', name: 'default' });
 
     // Escape closes the list first and leaves the surface that opened it.
@@ -140,7 +140,7 @@ setInterval(() => {}, 1000);`);
     // A hue change applies immediately and persists as a workspace preference.
     await gui.click(accent.rect[0] + Math.round(accent.rect[2] * 0.75), accent.rect[1] + Math.round(accent.rect[3] / 2));
     await delay(150);
-    const hue = server.store.state.preferences.accentHue;
+    const hue = (await server.state()).preferences.accentHue;
     assert.equal(typeof hue, 'number', 'the hue persists');
     assert.ok(hue > 180, `the hue followed the click: ${hue}`);
     const tinted = path.join(dir, 'settings-tinted.bmp');
@@ -239,7 +239,7 @@ test('a theme file overrides all three token layers and a project theme is offer
     assert.equal(await gui.command({ op: 'snapshot', path: after }), true);
     const themed = await probe(after, { pane: [40, 300] });
     assert.equal(themed.pane, '#16202b', 'the palette layer reached the view that reads it');
-    assert.equal(server.store.state.preferences.themes[root.id], 'harbour', 'the activation is remembered for this root');
+    assert.equal((await server.state()).preferences.themes[root.id], 'harbour', 'the activation is remembered for this root');
 
     // It comes back on the next desktop for the same root, without being asked again.
     await gui.close();
@@ -286,8 +286,8 @@ test('settings reach a second window through the workspace preferences', { timeo
     await first.control('settings', 'vim', -1);
     await first.control('settings', 'explorer', -1);
     await delay(200);
-    assert.equal(server.store.state.preferences.vim, true, 'Vim persisted');
-    assert.equal(server.store.state.preferences.explorer, 'nested', 'the explorer mode persisted');
+    assert.equal((await server.state()).preferences.vim, true, 'Vim persisted');
+    assert.equal((await server.state()).preferences.explorer, 'nested', 'the explorer mode persisted');
     second = await nativeClient(server, { root: root.id });
     const state = await second.until(s => s.connected && s.vim !== undefined, 'second window');
     assert.equal(state.vim, true, 'the second window opens with Vim on');

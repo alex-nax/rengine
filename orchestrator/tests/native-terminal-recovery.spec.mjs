@@ -5,7 +5,7 @@ import path from 'node:path';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { nativeClient } from './native-client.mjs';
 
 test('animated PTY output and a stream burst keep both native terminals interactive', { timeout: 45000 }, async () => {

@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm, realpath } from 'node:fs/promi
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { nativeClient } from './native-client.mjs';
 import { declaration, pack, entries } from './format-fixtures.mjs';
 
@@ -82,7 +82,9 @@ test('registered formats open raw, preview their tree with entries, retry failur
     assert.equal(state.tabs[note].formatMode, undefined); assert.ok(state.controls.some(c => c.tab === note && c.role === 'save'));
     assert.equal(state.tabs[restored].formatMode, 'preview');
     assert.equal(await readFile(path.join(project, 'note.txt'), 'utf8'), 'note\n');
-    assert.deepEqual(server.store.state.drafts, {});
+    /* `/api/state` lists drafts, where the JS host's internal store keyed them. Both say
+     'none'; the wire shape is the one a client has always seen. */
+  assert.deepEqual((await server.state()).drafts, []);
   } finally {
     await gui?.close(); await server?.close(); await rm(directory, { recursive: true, force: true });
   }

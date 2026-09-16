@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { WebSocket } from 'ws';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 
 test('loopback API authenticates root-bound files and rejects stale saves through HTTP', async t => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-api-'));

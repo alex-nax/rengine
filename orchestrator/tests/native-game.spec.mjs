@@ -4,7 +4,7 @@ import { mkdtemp, rm, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { nativeClient } from './native-client.mjs';
 
 test('native game texture streams real SDL frames and releases controls on native Escape', { timeout: 30000 }, async () => {

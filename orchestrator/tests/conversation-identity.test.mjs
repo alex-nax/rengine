@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { agentLaunch, describeSession } from '../agents/agents-client.mjs';
 import { bind } from '../agents/agents-client.mjs';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { WorkspaceStore } from '../server/store-client.mjs';
 import { Sessions, agentTitle } from '../server/sessions-client.mjs';
 import { Tokens, readIdentity } from '../runtime/token-client.mjs';

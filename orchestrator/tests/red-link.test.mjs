@@ -18,7 +18,7 @@ import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { startWorker } from './red-worker-fixture.mjs';
 import { identity, ok } from './token-fixtures.mjs';
 import { taskDeclaration, taskProject } from './task-fixtures.mjs';

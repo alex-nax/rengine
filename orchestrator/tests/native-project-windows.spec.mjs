@@ -9,7 +9,7 @@ import { promisify } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { nativeBridge, nativeClient, launchDesktop, nativeBinary } from './native-client.mjs';
 import { startSupervisor, window as attach } from './red-supervisor-fixture.mjs';
 
@@ -36,7 +36,7 @@ test('project windows retain one agent, isolated layouts, inspection and durable
     await host.sessions.record(record);
     originUI = await nativeClient(host, { root: origin.id, agent: agent.id });
     await originUI.until(s => s.tabs.some(t => t?.session === agent.id && t.text?.includes('ORIGINAL_AGENT_READY')));
-    await delay(400); const originalLayout = structuredClone(host.store.state.layout);
+    await delay(400); const originalLayout = structuredClone((await host.state()).layout);
     const runtimeDir = path.join(directory, 'runtime');
     runtime = await startSupervisor({ host, directory: runtimeDir, inspectUI: true });
     /* The supervisor is a process (F159), so a window is reached through its automation relay. A
@@ -62,7 +62,7 @@ test('project windows retain one agent, isolated layouts, inspection and durable
     const editor = state.tabs.find(t => t?.type === 2); await gui.click(editor.rect[0] + 10, editor.rect[1] + 10);
     await gui.command({ op: 'text', text: 'Retain this draft ' });
     await gui.until(s => s.tabs.some(t => t?.dirty)); await delay(400);
-    assert.deepEqual(host.store.state.layout, originalLayout, 'project window never overwrites the original window layout');
+    assert.deepEqual((await host.state()).layout, originalLayout, 'project window never overwrites the original window layout');
     const inspect = await source.call('project_window_action', { windowId, action: 'inspect', screenshot: true });
     const projectLayout = inspect.state.layout; assert.equal(inspect.pid, opened.pid); assert.ok(inspect.state.tabs.some(t => t?.dirty)); assert.equal(inspect.state.state, undefined);
     assert.ok((await stat(inspect.snapshot)).size > 1000);

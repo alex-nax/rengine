@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { WebSocket } from 'ws';
 import { startIdeBridge, sweep, IDE_NAME } from '../runtime/ide.mjs';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { startWorker } from './red-worker-fixture.mjs';
 import { uriFor } from '../runtime/lsp-client.mjs';
 import { setTimeout as delay } from 'node:timers/promises';

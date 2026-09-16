@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { startSupervisor } from './red-supervisor-fixture.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { readDeclaration } from '../server/formats.mjs';
@@ -122,7 +122,9 @@ test('previews, entries and raw windows run declared commands inside the root bo
   const relativeRoot = await server.store.addRoot(relative);
   const viaScript = await request(server, 'format-preview', { rootId: relativeRoot.id, path: 'sample.pack' });
   assert.equal(viaScript.command[0], path.join(relative, 'tools/pack.sh')); assert.equal(viaScript.tree.dirs[0].name, 'Worlds');
-  assert.deepEqual(server.store.state.drafts, {});
+  /* `/api/state` lists drafts, where the JS host's internal store keyed them. Both say
+     'none'; the wire shape is the one a client has always seen. */
+  assert.deepEqual((await server.state()).drafts, []);
 });
 
 test('command bounds fail visibly with the first stderr line', { timeout: 20000 }, async t => {

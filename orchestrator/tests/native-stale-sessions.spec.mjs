@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, writeFile, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { startServer } from '../server/main.mjs';
+import { startServer } from './red-host-fixture.mjs';
 import { nativeBinary } from './native-client.mjs';
 import { startSupervisor, window as attach, openWindow } from './red-supervisor-fixture.mjs';
 import { api, ok } from './token-fixtures.mjs';
