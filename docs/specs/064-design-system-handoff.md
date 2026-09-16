@@ -22,8 +22,8 @@ carries the renderer work, and the desktop keeps an interim theme source until t
   roles, per-view) plus `[data-theme]` presets (default, teal, light). `design/tokens.json` is a
   generated mirror that keeps the design notes and the renderer primitive list.
   `python3 tools/design.py resolve <preset>` resolves `var()` chains and oklch to sRGB 8-bit.
-- `orchestrator/native/theme.json` is the interim source of the shipping desktop's colours,
-  typography and layout metrics; `generate` derives `orchestrator/native/theme.h` from it. The
+- `editor/theme.json` is the interim source of the shipping desktop's colours,
+  typography and layout metrics; `generate` derives `editor/theme.h` from it. The
   teal preset reproduces its surfaces and controls. The interim source retires when F60 generates
   the runtime theme from `tokens.css`.
 - Cards are HTML with an `@dsCard` first line (name, group, subtitle, viewport) and one stylesheet
@@ -32,7 +32,7 @@ carries the renderer work, and the desktop keeps an interim theme source until t
   applied behaviour.
 - `check` rejects stale generated output, mirror drift, malformed or non-self-contained cards,
   undefined or cyclic token references, any numeric `mu_color`/`vterm_color_rgb` literal in
-  `orchestrator/native/*.c`, and numeric sizes in `mu_layout_row` calls.
+  `editor/*.c`, and numeric sizes in `mu_layout_row` calls.
 - Syncing uses Claude Design's incremental design-system tool with a per-run plan limited to
   `design/**`; the credential belongs to the owner's interactive `/design-login`.
 - Standard library only for the tool; pinned upstream sources stay untouched.

@@ -16,7 +16,7 @@ architecture constraint 15, [library quality](../library-quality.md).
   adapter with passing integration checks. Games are never required to use it.
 - Appearance is designed in the Claude Design project and pulled into `design/` (spec 064). The
   theming update pulled on 2026-09-06 is the first design target for the GPU renderer. The
-  interim `orchestrator/native/theme.json` → `theme.h` path keeps the current look until then.
+  interim `editor/theme.json` → `theme.h` path keeps the current look until then.
 
 ## What the theming update asks of the renderer
 

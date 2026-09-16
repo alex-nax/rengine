@@ -38,7 +38,7 @@ reaches any of them.
 
 ## The header a plugin compiles against
 
-`orchestrator/native/plugin_abi.h`. It includes `render/draw_list.h` for the value types
+`editor/plugin_abi.h`. It includes `render/draw_list.h` for the value types
 (`ReColor`, `ReRect`, the face, corner, gradient and icon enums) and nothing else — no microui,
 no SDL, no cJSON, no workspace header.
 
@@ -85,7 +85,7 @@ moves or removes a member bumps `RE_PLUGIN_ABI_VERSION`.
 
 ## The loader
 
-`orchestrator/native/plugin.{h,c}` owns the registry and the one platform wrapper
+`editor/plugin.{h,c}` owns the registry and the one platform wrapper
 (`dlopen`/`dlsym` on POSIX, `LoadLibraryA`/`GetProcAddress` on Windows). Nothing else in the tree
 calls either. The registry is independent of the workspace — it takes a draw list and an area,
 not an `ReApp` — so the CTest exercises it headlessly and the desktop glue is thin:
@@ -109,8 +109,8 @@ variable and no search path.
 
 | Check | Establishes |
 | --- | --- |
-| `orchestrator/native/tests/plugin_test.c` (`native_plugin`) against real modules built from `tests/plugins/` | the fixture loads and registers its tab; its commands reach a draw list with the identifiable colour and text; a wrong ABI (older and newer) is refused naming the path and both versions and its `start` is never called; a newer draw list is refused, an older one accepted; a module without the entry point and a path that will not open are refused by name and the registry stays usable; a bad `abi` string is refused before the file is opened; a second load of the same name is one plugin; a declining `start` is reported, not drawn, and not stopped; the clip is the tab's area on entry, cannot widen, and is reset on exit; a colour resolves by token name and an unknown token does not |
-| `orchestrator/tests/native-plugin.spec.mjs` in `test:desktop` | in a real window the fixture's tab appears in the layout with its title and type, its magenta reaches the snapshot inside the tab's rectangle and its right-aligned label lands where `text_width` put it; a refused module is listed by name and the window keeps answering; the plugin tab survives a window restart |
+| `editor/tests/plugin_test.c` (`native_plugin`) against real modules built from `tests/plugins/` | the fixture loads and registers its tab; its commands reach a draw list with the identifiable colour and text; a wrong ABI (older and newer) is refused naming the path and both versions and its `start` is never called; a newer draw list is refused, an older one accepted; a module without the entry point and a path that will not open are refused by name and the registry stays usable; a bad `abi` string is refused before the file is opened; a second load of the same name is one plugin; a declining `start` is reported, not drawn, and not stopped; the clip is the tab's area on entry, cannot widen, and is reset on exit; a colour resolves by token name and an unknown token does not |
+| `tests/native-plugin.spec.mjs` in `test:desktop` | in a real window the fixture's tab appears in the layout with its title and type, its magenta reaches the snapshot inside the tab's rectangle and its right-aligned label lands where `text_width` put it; a refused module is listed by name and the window keeps answering; the plugin tab survives a window restart |
 | `docs/evidence/plugin-abi-2026-09-07.md` | the sabotage table: each regression observed red for its own reason |
 
 ## What this spec does not do

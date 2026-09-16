@@ -34,7 +34,7 @@ never parses the key's meaning.
 { "version": 1, "at": "2026-09-09T12:00:00Z", "commit": "0dd8c66…",
   "entries": [{
     "task": "F115",
-    "test": { "path": "orchestrator/tests/tracker.test.mjs", "name": "a task carries the evidence…" },
+    "test": { "path": "tests/tracker.test.mjs", "name": "a task carries the evidence…" },
     "claim": "the evidence reaches the row and a remote provider answers with an empty list",
     "criteria": [1, 2],
     "tier": "gate",

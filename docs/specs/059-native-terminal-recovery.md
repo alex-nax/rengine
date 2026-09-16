@@ -33,7 +33,7 @@ terminal ID. Input stays disabled until its fresh snapshot arrives. This path ne
 sessions nor sends another continuation prompt. A replaced service identity/address still needs
 explicit launcher reconnection.
 
-`orchestrator/tests/native-terminal-recovery.spec.mjs` exercises actual PTYs and native input
+`tests/native-terminal-recovery.spec.mjs` exercises actual PTYs and native input
 with ANSI cursor clears, Unicode, color and synchronized-update sequences; it then fills the
 transport with stale output events and verifies executed input in both PTYs. A local TCP proxy
 forces an outage. The test verifies loss/recovery, same PIDs/session count, fresh input after

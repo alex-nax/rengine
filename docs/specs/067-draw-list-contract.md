@@ -6,7 +6,7 @@ Parent: [GPU rendering](066-gpu-rendering.md), charter D29–D30, architecture c
 
 ## Contract (version 2)
 
-`orchestrator/native/render/draw_list.h` is the boundary. It includes only C standard headers.
+`editor/render/draw_list.h` is the boundary. It includes only C standard headers.
 
 - Coordinates are logical pixels in `ReRect {x, y, w, h}`; the list carries `width`, `height`,
   the drawable `density` (drawable pixels per logical pixel) and the frame's `clear` colour.
@@ -54,7 +54,7 @@ the monospace face when absent.
 - The game view creates and updates its frame texture through the contract and appends a
   `TEXTURE` command with `RE_DRAW_FLIP_Y`.
 - Layering guard: `python3 tools/design.py check` fails when any file under
-  `orchestrator/native` other than `render/backend_*.c` or `.m` mentions SDL rendering symbols
+  `editor` other than `render/backend_*.c` or `.m` mentions SDL rendering symbols
   (`SDL_Render*`, `SDL_Texture*`, `SDL_FRect`, `SDL_FLIP*`, `SDL_Vertex`), OpenGL, Metal or Vulkan
   identifiers. Windowing, input and file helpers from SDL remain allowed above the list.
 

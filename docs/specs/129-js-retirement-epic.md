@@ -1,6 +1,10 @@
 # The JS retirement epic (J0): hourly slices off the Node orchestrator
 
-Date: 2026-09-11. Status: **decisions taken, rows filed.** Asked for by the owner: *"we need an
+Date: 2026-09-11. Status: **the retirement is done; the inventory has not caught up.** Every JS
+module this spec names as retired is deleted (verified 2026-09-16, housekeeping), and production
+JavaScript is zero — see [docs/js-retirement-status.md](../js-retirement-status.md). What remains
+of the epic is F164 (the JS *test* suite, still JavaScript by design) and F165 (the dogfood day),
+plus the marking backlog recorded under "What is actually left" below. Asked for by the owner: *"we need an
 epic for js retirement thus I can set up a loop pointing this epic that every hour it takes a
 little (spec'ed and documented) slice in favour of getting rid ourselves of js code. Rust is much
 safer."*
@@ -36,14 +40,17 @@ by definition unblocked; a slice that is not is nobody's invitation to improvise
    their own reason at least once before they pass (the AGENTS.md regression rule), which
    normally means: port the test against the JS module, watch it pass, delete the module, watch
    the test fail for the absence, then implement until green.
-3. **Coverage is ported, never dropped.** `orchestrator/tests/suite-coverage.test.mjs` is the
+3. **Coverage is ported, never dropped.** `tests/suite-coverage.test.mjs` is the
    ledger: every spec it names keeps a named check (Rust-side or native-side) or a recorded
    reason. A test that silently leaves the suite is invisible in a green report.
 4. **Behavior discovered but undocumented gets documented in the slice's evidence** — the JS
    modules carry two years of load-bearing quirks (see the hazards below), and a port is the
    last good chance to write them down.
 
-## Live-coupling hazards (read before taking a slice)
+## Live-coupling hazards (historical — every one of these is now resolved)
+
+Kept because a slice-by-slice reader needs to know what the hazard WAS, and because each one
+describes a coupling that a future port of a live system will meet again in a different costume.
 
 - **`agents/mcp-worker.mjs` is the connection every agent pane uses right now** — including the
   agent executing the slice. F150's cutover must land with a real pane of each CLI reconnecting
@@ -83,10 +90,12 @@ Dependencies are the honest ones; `features.json` is authoritative, this table i
 | F158 | red-worker | `runtime/worker.mjs` (736) | Rust root-bound worker | MCP routes, token/recording forwarding, layered updates with completion≠acceptance; hot-update suite retains every session across replacement |
 | F159 | red-supervisor + launchers | `runtime/supervisor.mjs`, `launcher/headless.mjs`, `launcher/replace.mjs`, `launcher/restart-supervisor.mjs`, `launcher/sidecar.mjs` | Rust supervisor + launchers | restart-supervisor keeps its no-bypass confirm and read-only `--plan`; spec 098 host replacement preserves PTY host and CLI; spec 090 headless works |
 | F160 | red-client | `runtime/client.mjs`, `runtime/discovery.mjs` | Rust routine-update CLI | update_status/update_workspace identical against the Rust host; discovery keeps spec 101's distrust rules |
+| | *(as shipped)* | *both gone* | **no `red-client` binary**: `client.mjs` became `red-launch client` (spec 146), and `discovery.mjs` was not ported at all — `red_core::descriptor` had already replaced what it decides, so it moved to `tests/` as the fixture 35 specs judge that against | |
 | F161 | red-ide | `runtime/ide.mjs`, `runtime/lsp.mjs` | Rust editor integration | lock discovery honors `CLAUDE_CONFIG_DIR` (F113 repair) and the editor-as-IDE distrust rules; LSP per spec 079 or recorded re-scope |
 | F162 | red-util | `runtime/scripts.mjs`, `runtime/windows.mjs`, `runtime/desktop.mjs`, `runtime/bootstrap.mjs`, `orchestrator/external-project.mjs` | Rust script tabs, project windows, bootstrap | spec 071 script-tab and spec 069 dogfooding semantics identical on their suites |
+| | *(as shipped)* | *all five gone* | **no `red-util` binary**: the five went to four different homes — `scripts.mjs` into `red-worker`, `windows.mjs` and `desktop.mjs` into `red-supervisor` (F159), `bootstrap.mjs` into `red-launch bootstrap` and `external-project.mjs` into `red-project install-external` (both spec 146) | |
 | F163 | Entry points | `orchestrator/build.mjs`, `orchestrator/launch.mjs`, `orchestrator/prepare.mjs`, `package.json`'s runtime role | cmake/cargo are the only entry points | `RENGINE_NODE_EXECUTABLE` and the build.lock dance replaced; `node_modules` not needed to build or run; no gate references `npm test` |
-| F164 | Suite sunset | `orchestrator/tests/*.mjs` | Rust-side + native-side suites | every suite-coverage row has a named equivalent or recorded reason; `node --test` in no gate; `./init.sh` passes with no node installed |
+| F164 | Suite sunset | `tests/*.mjs` | Rust-side + native-side suites | every suite-coverage row has a named equivalent or recorded reason; `node --test` in no gate; `./init.sh` passes with no node installed |
 | F165 | **Epic close: node-free dogfood day** | node itself | — | one full dogfood day on the Rust-only stack (every CLI's panes, terminals, updates, recordings, dashboard actions, this MCP), evidence in `Codex-progress.md`; AGENTS.md's D57 bullet rewritten past tense |
 
 After F165, `node` is gone from the boot path and this epic is complete. What remains in JS by
@@ -166,3 +175,26 @@ nothing changed: the verdicts stood, the binary on disk did not.
 - F114 (ACP session kind) stays the open O2 row; it is unaffected by this epic and may land in
   JS first (retired later by F148/F149's data-driven registry) or wait for Rust — either is
   consistent with D46.
+
+## What is actually left (housekeeping, 2026-09-16)
+
+**The code landed; the inventory did not.** Nine rows carry recorded evidence and still read
+`passes: false` — F152, F153, F154, F155, F156, F157, F159, F161, F163 — because the chain is
+unmarked from F152 down and, as session 161 put it, *a row claiming to pass over an unmarked
+prerequisite would be a claim with a hole in it*. The hole is real and the work is not: every
+module those rows name is deleted.
+
+This is the one thing in this epic that needs an owner, and housekeeping cannot do it (`passes`
+never flips to true in a housekeeping pass — the skill's own rule). See **KI-127**.
+
+Genuinely open, not a marking question:
+
+- **F164 — the JS test suite.** Still JavaScript, and deliberately: `npm test` drives the Rust
+  binaries from outside with the MCP reference client, `ws` and `node-pty`. Whether that counts as
+  "sunset" is a judgement the row has not been given.
+- **F165 — the node-free dogfood day.** Not run.
+
+Two binaries this table promised were never built, and the rows above say what happened instead:
+there is no `red-client` and no `red-util`. That is not a failure — a slice's job was to delete its
+JavaScript, and where the work belonged beside an existing crate it went there. Recorded because a
+reader looking for `red-util` would otherwise conclude a slice was skipped.

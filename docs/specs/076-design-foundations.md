@@ -12,7 +12,7 @@ F69 (Windows card evidence).
 | 1 | Controls the design needs beyond microui are written as owned additions in microui's conventions, never a fork, and they join the curated library packs. | Owner: “if microui is not enough - we write addition keeping the same compatible contract and conventions like in microui lib - these extensions will be also part of our library packs”, 2026-09-06 (charter D33); this also answers spec 066's open control-layer question |
 | 2 | F60 is narrowed to the foundations plus the toolbar, tab strip and status bar; the views become F67, menus/theme panel/theme files F68, and Windows card evidence F69. Each carries its own card evidence. F60's dependencies on F37 (tree, previews, editing) and F54 (session browser) move to F67 with them, because those are the surfaces that were narrowed out; F60 keeps F57. | Recommended, owner confirmed (accepted-criteria and dependency correction) |
 | 3 | Card matching is gated mechanically: `tools/design.py cards` extracts each card's geometry and resolved token colours into a JSON reference, and the native snapshot is asserted at named probe points. Full native snapshots go into evidence for one owner sign-off on the visual whole. | Recommended, owner confirmed |
-| 4 | The control layer is its own build target from the start (`orchestrator/native/ui`), with a public header, no workspace dependencies and no allocation. | Recommended, owner confirmed |
+| 4 | The control layer is its own build target from the start (`editor/ui`), with a public header, no workspace dependencies and no allocation. | Recommended, owner confirmed |
 | 5 | Icons come from Bootstrap Icons, pinned as one TTF in `third_party` and rasterised through the existing font path as a third face. A generated table maps each card symbol to an icon name; `design.py check` fails on an unmapped symbol. | Recommended, owner confirmed |
 | 6 | The UI face is bundled Inter 4.1 (OFL-1.1) in Regular, Medium and SemiBold, so weights are real faces and metrics match on both desktops. A theme file may still point the UI font at a system face. | Recommended, owner confirmed |
 | 7 | The hue gradient becomes a first-class draw-list primitive rather than a texture: an axis-aligned linear gradient over up to eight caller-supplied stops with per-corner radius, interpolated in 8-bit sRGB, one quad per segment with vertex colours so all four adapters agree. The draw list goes to version 2. | Owner decision against the texture recommendation |
@@ -25,9 +25,9 @@ F69 (Windows card evidence).
 
 - **Theme generation.** `design/tokens.css` becomes the runtime theme source: `tools/design.py generate`
   resolves all three layers and every preset into `theme.h`, so `default`, `teal` and `light` are
-  compiled in and switch live. `orchestrator/native/theme.json` retires as the interim source once the
+  compiled in and switch live. `editor/theme.json` retires as the interim source once the
   generated header carries the same names.
-- **The control layer** (`orchestrator/native/ui/`, target `rengine_ui`): rounded buttons in three
+- **The control layer** (`editor/ui/`, target `rengine_ui`): rounded buttons in three
   variants (ghost, standard, primary), grouped segmented buttons, selects, text fields with an icon
   slot and placeholder, checkboxes, sliders, separators, pills, labels, the focus ring and the
   transition clock. Conventions follow pinned microui exactly: `mu_Context` supplies ids, layout and
@@ -52,7 +52,7 @@ slider and theme files. F69 repeats the card evidence on Windows.
 - `tools/design.py cards` writes `design/cards.json`: per card and per element, the geometry
   (position, size, radius, padding, row height) and the resolved sRGB colours of every state, taken
   from the card HTML and the token layers, never hand-copied.
-- `orchestrator/tests/native-design.spec.mjs` drives the desktop to each covered surface, captures a
+- `tests/native-design.spec.mjs` drives the desktop to each covered surface, captures a
   snapshot and asserts the reference's probe points: pixel colour at named coordinates for rest,
   hover, focus, active and disabled states, and geometry from the automation `state` op.
 - The committed native desktop suite, CTest and the render comparison keep passing on macOS; the SDL

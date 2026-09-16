@@ -137,10 +137,14 @@ game simulation or require the training stack to launch a game.
 | `contracts/` | Versioned schemas justified by their first consumers: `project-v1.schema.json` is the project declaration nolf-improved validates against (spec 074) |
 | `catalog/` (future) | Curated entries and conformance evidence |
 | `adapters/` (future) | Development-tool adapters; runtime glue usually stays with the host |
-| `templates/` (future) | Minimal agent-neutral project harness and optional native wrappers |
-| `orchestrator/` | Desktop UI, launcher, retained session service and acceptance tests; live game integration in progress |
+| `templates/` | The artifacts `red-project install-external` and the integration wizard copy into a consumer: `editor.sh`, `project.json`, the declaration test, and the profile helper (spec 077, spec 085) |
+| `editor/` | The C/microui desktop — the editor itself. Consumer-side C by charter D67, which is what the directory's name is for (charter D71) |
+| `tests/` | The whole acceptance suite: `*.test.mjs` (unit, `npm test`) and `*.spec.mjs` (desktop GUI, `npm run test:desktop`) with the fixtures both share |
+| `actions/` | The shell this product ships, once per platform: `posix/` and `win/` for the dashboard actions, `pane/` for the agent-pane launcher. Bash is not used on Windows, even transitionally (charter D71) |
+| `agents/` | `registry.toml`, the one declarative CLI recipe table, read from the checkout at runtime so a CLI added as data needs no rebuild (F167, spec 141) |
+| `red/` | The Rust cargo workspace: the session host, the worker, the supervisor, the launchers, the MCP server and the services (charter D57) |
 | `design/` | Claude Design source: three-layer `tokens.css` with presets, component styles and preview cards; `tools/design.py` mirrors, validates and resolves them; never a runtime dependency (specs 064 and 066) |
-| `orchestrator/native/render/` | Draw-list contract, fonts and the SDL and OpenGL adapters (specs 067–068) |
+| `editor/render/` | Draw-list contract, fonts and the SDL and OpenGL adapters (specs 067–068) |
 | `cmake.toml`, `adapters/sdl2/cmake.toml`, `cmake/cmkr.cmake` | Build definitions and the pinned cmkr bootstrap that generates every committed `CMakeLists.txt` |
 
 Do not create empty runtime modules to imply progress. Introduce each directory with its first

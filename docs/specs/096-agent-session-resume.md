@@ -92,7 +92,7 @@ so far fewer defects require reaching for the host at all.
 
 ## Verification
 
-Unit, in `orchestrator/tests/`:
+Unit, in `tests/`:
 
 | Check | Establishes |
 | --- | --- |

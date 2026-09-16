@@ -18,7 +18,7 @@ Status: **design; nothing implemented.** Rows F201–F209.
 - **Delegation exists**: `task_add`, `task_decompose` and `spawn_agent` behind the project token
   (spec 103), with the feed as the return channel.
 - **The seam pattern is the shape**: one source with one host file per platform
-  (`orchestrator/native/render/seam_host.h`); the companion proves a second binary from the same
+  (`editor/render/seam_host.h`); the companion proves a second binary from the same
   modules.
 - **Weights are prerequisites, not sources** — the SDL2/protoc rule: checked for, installed by the
   owner, never fetched silently.

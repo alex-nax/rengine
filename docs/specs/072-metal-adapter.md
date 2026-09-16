@@ -31,7 +31,7 @@ introduced; the verified configuration is recorded in the evidence.
 
 ## Verification
 
-- `orchestrator/tests/native-render.spec.mjs` captures `sdl`, `opengl` and `metal` from separate
+- `tests/native-render.spec.mjs` captures `sdl`, `opengl` and `metal` from separate
   server state, gates each GPU backend against the SDL reference under the spec 068 tolerances and
   budgets, and records Metal-versus-OpenGL numbers per scene.
 - The committed native desktop suite passes on `RENGINE_RENDERER=metal`; CTest passes; the SDL

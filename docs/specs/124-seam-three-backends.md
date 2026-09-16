@@ -449,7 +449,7 @@ D54's ordering is the whole point, so it was done first: **the reference frames 
 SDL_Renderer while it is still a shipping path.** Doing it afterwards would have meant recording
 whatever the seam produced and calling it correct.
 
-`orchestrator/tests/references/render-{workspace,terminal,primitives}.png` — 432 KiB for all three at
+`tests/references/render-{workspace,terminal,primitives}.png` — 432 KiB for all three at
 2560x1600, because 16 MiB of BMP each cannot live in a repository two games pin as a submodule.
 `render_compare.py` gained a PNG reader (zlib plus the five PNG filters, about fifty lines, standard
 library only) and `native-render.spec.mjs` now judges every backend against them.

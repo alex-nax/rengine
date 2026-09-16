@@ -225,7 +225,7 @@ it is: `Cmd/Ctrl E`, listed in the pane menu, where the card compares colours ra
 
 Everything the first pass listed is done, and one of the four turned out to be the wrong question.
 
-- **F135 c2 and c3 now have a fixture.** `tests/plugins/render_plugin.c` registers two tabs and
+- **F135 c2 and c3 now have a fixture.** `editor/tests/plugins/render_plugin.c` registers two tabs and
   reports what it saw the only way a plugin can — as colour. One asks for a target every frame and
   presents it; the other asks once, keeps the handle and presents it on every later frame, which the
   host refuses, so that colour can never reach the screen. Each paints a marker saying what the

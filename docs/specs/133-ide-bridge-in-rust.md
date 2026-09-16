@@ -57,13 +57,13 @@ JSON answer: `red-ide directory`, `red-ide sweep <directory>`, `red-ide offered`
 
 Two records, taken from the JavaScript while it still answered and then frozen (spec 129's device):
 
-- `orchestrator/tests/ide-corpus.json` — the bridge, driven through a raw WebSocket client so every
+- `tests/ide-corpus.json` — the bridge, driven through a raw WebSocket client so every
   frame is recorded as the text that crossed the socket. Cases: the lock as written, the four ways a
   host pid can be missing, the startup sweep on thirteen lock shapes, the MCP handshake and every
   silence, `getDiagnostics` and its sources, the token gate in nine presentations, the subprotocol,
   fan-out, close, the retake, the port never released, a successor closed while waiting, a slow
   source, a directory that cannot be created, and the directory rule under eight environments.
-- `orchestrator/tests/ide-connect-corpus.json` — discovery: containment and the sibling, NFC,
+- `tests/ide-connect-corpus.json` — discovery: containment and the sibling, NFC,
   liveness on five pids, the lock's shape, the port read off the filename, and every sentence
   `autoConnect` can answer with.
 

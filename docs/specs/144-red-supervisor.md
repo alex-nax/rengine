@@ -76,14 +76,14 @@ with no terminal has `RENGINE_INITIAL_TERMINAL=""` — two different facts, and 
 for both would tell the native side that this desktop *is* a project window whose id happens to be
 blank. `Option` is that distinction on the Rust side.
 
-`orchestrator/tests/desktop-launch-corpus.json` is the record, and it is taken by launching a real
+`tests/desktop-launch-corpus.json` is the record, and it is taken by launching a real
 child through the real `launchDesktop` and asking it what it received — which is the only way to
 record an absence, because the object handed to `spawn` cannot show one. Six sabotages, including
 the two that collapse an absence into an empty string.
 
 ## The record
 
-`orchestrator/tests/window-store-corpus.json` — 47 cases, run as **one sequence against one store**
+`tests/window-store-corpus.json` — 47 cases, run as **one sequence against one store**
 rather than as independent answers, because most of what this module decides depends on what it was
 told before. `red_supervisor::windows`'s replay matched it on the first run; five sabotages confirm
 the comparison, each observed failing at its own case:

@@ -42,7 +42,7 @@ The queue is every `docs/specs/NNN-*.md` (lowest number first) with no ledger ro
    evidence files it cites, `grep -n "<spec number>" Codex-progress.md known-issues.md docs/`.
 2. **Verify** every load-bearing claim against the code: files, functions, constants, limits,
    commands, test names. Build a claim table (claim, reality, verdict: OK / DRIFT / UNVERIFIED).
-   For token or metric claims, check `orchestrator/native/theme.json` and `design/tokens.css`.
+   For token or metric claims, check `editor/theme.json` and `design/tokens.css`.
 3. **Fix** the spec to present-tense truth; write a concise spec from the code when a landed
    behaviour has none.
 4. **Extract** lessons removed from the spec into `docs/lessons-learned.md`.

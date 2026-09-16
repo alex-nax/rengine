@@ -6,7 +6,7 @@
 >
 > Ported 2026-09-14 (F161, [spec 133](133-ide-bridge-in-rust.md)): the bridge and the discovery
 > are `red/red-ide/`; `runtime/ide.mjs` and `agents/ide-connect.mjs` are its clients. Every rule
-> below is unchanged and is held by `orchestrator/tests/ide-corpus.json` and
+> below is unchanged and is held by `tests/ide-corpus.json` and
 > `ide-connect-corpus.json`, recorded from the JavaScript before it was replaced.
 
 Date: 2026-09-07. Status: recorded from owner direction — *"claude code has /ide integration can we

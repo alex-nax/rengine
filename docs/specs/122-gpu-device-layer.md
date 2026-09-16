@@ -108,7 +108,7 @@ that, and F120's sixth criterion names it specifically.
 
 ## The pack (F123's shipped half)
 
-The device layer is not in `orchestrator/native/render/` any more: it lives at **`packs/gpu/`**, and
+The device layer is not in `editor/render/` any more: it lives at **`packs/gpu/`**, and
 rEngine consumes it from there. That ordering matters — the suite builds the same bytes a project
 outside this repository does, rather than a copy that can drift, which is F123's fifth criterion.
 
@@ -126,7 +126,7 @@ refusal that says what to pass, rather than a header-not-found fifty lines later
 
 ### The evidence, which is a project outside this build
 
-`orchestrator/tests/pack-gpu.test.mjs` writes a CMake project that has never heard of rEngine's
+`tests/pack-gpu.test.mjs` writes a CMake project that has never heard of rEngine's
 build, `add_subdirectory`s the pack, links `rengine::gpu`, includes the public header, and runs the
 resulting binary. It then asserts the two properties that make this a pack rather than a directory,
 and both were observed failing for their own reason:

@@ -101,7 +101,7 @@ is not edited; this spec is the note that S9's subject is gone.
 RED first: with the rule still reading `poweredBy !== undefined && library === undefined`, the new
 case reported *"onLibrary: no refusal was reported at all; the declaration was accepted"* — the
 library facet accepting the key, which is exactly the behaviour D45 removes, and not some earlier
-failure. GREEN after: `node --test orchestrator/tests/packs.test.mjs` 4/4.
+failure. GREEN after: `node --test tests/packs.test.mjs` 4/4.
 
 Three sabotages, each applied to `formats.mjs`, run, restored, and byte-compared with `cmp`:
 

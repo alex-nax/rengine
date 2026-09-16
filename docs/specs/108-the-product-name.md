@@ -19,7 +19,7 @@ Four strings in shipping code, and nothing else:
 
 | Where | What it is | Who sees it |
 | --- | --- | --- |
-| `RE_DEFAULT_TITLE` in `orchestrator/native/app.h` | the workspace title a project has not overridden (spec 084) | anyone running the desktop |
+| `RE_DEFAULT_TITLE` in `editor/app.h` | the workspace title a project has not overridden (spec 084) | anyone running the desktop |
 | `IDE_NAME` in `orchestrator/runtime/ide.mjs` | `ideName` in the `~/.claude/ide/<port>.lock` file | **other people**, in their `/ide` menu beside VS Code and Cursor |
 | `clientInfo.name` in `orchestrator/runtime/lsp.mjs` | what we call ourselves to a language server | whoever reads a server's log |
 | the callback page `<title>` in `orchestrator/server/tracker-auth.mjs` | the tab a Linear sign-in returns into | the person signing in |
@@ -30,7 +30,7 @@ Spec 105 counted them before any of this was built, and the count held.
 
 | # | Decision | Attribution |
 | --- | --- | --- |
-| 1 | The name is **declared once**, in `orchestrator/native/theme.json`, beside the other values the desktop's generator turns into constants. | Owner's D41 wording — "generated the way theme tokens are" — taken literally: the tokens' declaration file is the tokens' declaration file. |
+| 1 | The name is **declared once**, in `editor/theme.json`, beside the other values the desktop's generator turns into constants. | Owner's D41 wording — "generated the way theme tokens are" — taken literally: the tokens' declaration file is the tokens' declaration file. |
 | 2 | The C side is generated into `theme.h` by `tools/design.py generate`, as `RE_PRODUCT_NAME` and `RE_PRODUCT_SUITE`. `RE_DEFAULT_TITLE` becomes an alias of `RE_PRODUCT_NAME` rather than a second literal. | Follows decision 1 and the existing `RE_COLOR_*` / `RE_METRIC_*` path; `theme.h` is already included everywhere through `common.h`. |
 | 3 | The JS side is a **generated ES module**, `orchestrator/runtime/product.mjs`, written by the same `generate` run and checked by the same `check`. | Recommended over reading `theme.json` at run time. The reasoning is below; it is a layering argument, not a taste one. |
 | 4 | A guard in `tools/design.py check` fails when the product name — or a retired name — appears as a **string literal** in shipping code outside the declaration, the generated files, and one named test. | The deliverable is "the name is not hard-coded"; without a guard that is an intention, not a property. |
@@ -41,7 +41,7 @@ Spec 105 counted them before any of this was built, and the count held.
 ### Why a generated module rather than reading the JSON
 
 `orchestrator/runtime/` is the replaceable workspace layer (spec 101): it is what a layered update
-ships. `orchestrator/native/theme.json` belongs to the desktop's build inputs. Having the worker read
+ships. `editor/theme.json` belongs to the desktop's build inputs. Having the worker read
 the native tree's JSON at run time would make a shipping layer depend on a path in another layer,
 which is exactly the dependency layered updates exist to avoid — and it would add an I/O failure to
 the act of knowing your own name. A generated module is content rather than a path: it is imported
@@ -55,10 +55,10 @@ remembered string, because there is no fallback to write.
 ## Shape
 
 ```
-orchestrator/native/theme.json   "product": { "name": "Red", "suite": "Red Suite", "retired": ["rEdit"] }
+editor/theme.json   "product": { "name": "Red", "suite": "Red Suite", "retired": ["rEdit"] }
         │
         └── python3 tools/design.py generate
-                ├── orchestrator/native/theme.h        RE_PRODUCT_NAME, RE_PRODUCT_SUITE
+                ├── editor/theme.h        RE_PRODUCT_NAME, RE_PRODUCT_SUITE
                 │        └── app.h  #define RE_DEFAULT_TITLE RE_PRODUCT_NAME  → main.c, app.c
                 └── orchestrator/runtime/product.mjs   PRODUCT_NAME, PRODUCT_SUITE
                          ├── runtime/ide.mjs      IDE_NAME = PRODUCT_NAME   → the lock file
@@ -98,7 +98,7 @@ The sabotage runs behind each of those are in `docs/evidence/product-name-2026-0
 - Charter **D36** keeps its own wording, because it is the decision that D41 revises; a decision row
   that silently agrees with its successor destroys the record of there having been a change.
 - Prose comments in files owned by other lanes (`orchestrator/runtime/worker.mjs`,
-  `orchestrator/tests/native-client.mjs`, `orchestrator/tests/hot-update.test.mjs`) still say the old
+  `tests/native-client.mjs`, `tests/hot-update.test.mjs`) still say the old
   word. They are comments, so decision 5 leaves them; they are also not this lane's files.
 
 ## Not done here

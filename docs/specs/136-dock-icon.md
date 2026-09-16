@@ -47,7 +47,7 @@ platform seam, not an SDL call.
 
 ## Acceptance
 
-`orchestrator/tests/native-identity.spec.mjs`, beside the artwork tests that already drive this
+`tests/native-identity.spec.mjs`, beside the artwork tests that already drive this
 declaration, skipped off macOS:
 
 - A root declaring `icon.image` wears a tile whose long edge is 512 pixels and whose aspect is the

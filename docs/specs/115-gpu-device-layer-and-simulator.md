@@ -9,7 +9,7 @@ and OpenXR, and removing it is what makes the Simulator reachable.
 
 ## Ditching SDL: measured, then answered
 
-`orchestrator/native/` uses **172 distinct SDL symbols**:
+`editor/` uses **172 distinct SDL symbols**:
 
 | Area | Symbols | Would we have to write it ourselves? |
 | --- | --- | --- |

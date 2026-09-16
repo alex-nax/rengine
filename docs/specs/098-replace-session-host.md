@@ -1,6 +1,7 @@
 # Replacing a workspace's session host on purpose (F94)
 
-Date: 2026-09-07. Status: recorded from owner direction, given after three restarts of the hirebase-v2
+Date: 2026-09-07. Status: shipped; reconciled 2026-09-16 (housekeeping) against a host that is now
+Rust and a launcher that is now a binary. Recorded from owner direction, given after three restarts of the hirebase-v2
 workspace changed nothing they could see. Parent: [spec 065](065-layered-updates.md), which made the
 session host a retained layer and said only that replacing it "requires quiescence" without saying how
 a person reaches that state. Related: [spec 090](090-headless-workspace-start.md) for the launcher
@@ -48,14 +49,14 @@ Three facts make this a product defect rather than a person forgetting a step.
 
 | # | Decision | Attribution |
 | --- | --- | --- |
-| 1 | Replacement is an **explicit launcher flag**, `--replace-host`, on `orchestrator/launch.mjs`. The generated `.command` forwards unknown flags, so the single command for the owner's workspace is `~/hirebase-v2.command --replace-host`, with the project, declaration and state directory already bound. It works with `--headless` too. | Owner ("a supported way ... so this never again requires an incantation"); the flag over an `actions/` script because the launcher is the thing people already run |
+| 1 | Replacement is an **explicit launcher flag**, `--replace-host`, on the launcher (`orchestrator/launch.mjs` then; `red-launch` since spec 145). The generated `.command` forwards unknown flags, so the single command for the owner's workspace is `~/hirebase-v2.command --replace-host`, with the project, declaration and state directory already bound. It works with `--headless` too. | Owner ("a supported way ... so this never again requires an incantation"); the flag over an `actions/` script because the launcher is the thing people already run |
 | 2 | The host is found through **its own descriptor and the process table, never `pgrep`**. `sidecar.json` names the PID; `ps -A -ww -o pid=,ppid=,command=` confirms that PID is `server/main.mjs --state <this directory>`. A PID that is not a session host, or that serves another state directory, is **refused by name and nothing is signalled**. `pgrep`'s ancestor exclusion is exactly the trap; a tool that used it would inherit the trap. | Recommended; the refusal is what keeps vtmb-vr's and nolf-improved's hosts safe when they share the machine |
 | 3 | The launcher **refuses to replace the host it runs inside.** If the host PID is among the launcher's own ancestors, a pane inside the workspace is asking to end itself half-way through; the message says to run it from a terminal outside rEngine. | Recommended; the same ancestry that defeats `pkill` |
 | 4 | **Supervisor first, then host; graceful, then forceful.** The update supervisor bound to the host's instance is found through its `runtime.json` (host identity matched, PID confirmed as `supervisor.mjs`) and receives `SIGTERM`, which closes its desktops and workers; then the host receives `SIGTERM`, which stops its sessions; each gets `SIGKILL` only if it ignores the first signal past a deadline. Direct children of a force-killed host are swept. Stopping the supervisor first means nothing tries to recover a worker against a dying host. | Recommended |
 | 5 | The old port must be **confirmed released** before a new host starts: a connection to the descriptor's URL must be refused. The stale descriptor is removed only then, so `ensureSidecar` cannot mistake a reused PID for the old host. | Recommended |
 | 6 | The new host starts through **`ensureSidecar` from this checkout**, the same path a normal start uses, so the replacement is the ordinary host and not a special one. | Recommended |
 | 7 | The report says **what was stopped and what was started**: the old PID, instance, URL and start time; each running session that ended, by type and title; every process signalled and how it went; the new PID, instance and URL. Conversations are persisted (097), so the ended agent panes are resumable from the pane. | Owner ("report clearly what it stopped and started") |
-| 8 | A normal start **says when the host is older than the code.** If `sidecar.json` (written at host start) is older than the newest file under `orchestrator/server`, `orchestrator/launcher`, `agents`, `scripts` or `contracts`, the launcher prints which file changed and names `--replace-host`. It never replaces on its own: a retained host holds live sessions, and ending them is the person's call. | Recommended; turns the silent no-op into a sentence |
+| 8 | A normal start **says when the host is older than the code.** If `sidecar.json` (written at host start) is older than the newest file under the code areas, the launcher prints which file changed and names `--replace-host`. Those areas are `red_supervisor::host::CODE_AREAS`, and they are still the JavaScript list — `orchestrator/{server,launcher,agents}`, `scripts`, `contracts` — none of which exists any more, so the notice now under-reports rather than over-reports. That is the safe direction for a notice telling someone to end their sessions, and it is KI-120's to fix. It never replaces on its own: a retained host holds live sessions, and ending them is the person's call. | Recommended; turns the silent no-op into a sentence |
 
 ## What a replacement leaves behind (KI-064)
 
@@ -83,7 +84,7 @@ expected first frame after a deliberate replacement, and all three layers have t
 
 | Layer | What it does | When a live workspace gets it |
 | --- | --- | --- |
-| **Host** — `server/desktops.mjs`, `Desktops.register` | Drops ids `sessions.snapshot` answers 404 for, keeps the different-root refusal for ids the host *does* have, keeps `Invalid desktop bindings.` for a malformed frame, registers the desktop, and names the dropped ids as `unknownSessions` in the `desktop-registered` frame. | **Only at the next `--replace-host`.** A Node process holds the modules it imported at start (the premise of this whole spec), so the running host keeps the old `Desktops` until it is replaced. |
+| **Host** — `server/desktops.mjs`, `Desktops.register` | Drops ids `sessions.snapshot` answers 404 for, keeps the different-root refusal for ids the host *does* have, keeps `Invalid desktop bindings.` for a malformed frame, registers the desktop, and names the dropped ids as `unknownSessions` in the `desktop-registered` frame. | **Only at the next `--replace-host`.** A Node process holds the modules it imported at start (the premise of this whole spec), so the running host keeps the old `Desktops` until it is replaced. **The premise outlived the Node host**: `red-host` is a process too, and a running binary is exactly as frozen as a running interpreter — which is why this spec is still current after the language changed under it. |
 | **Worker** — `runtime/worker.mjs`, the `desktop-register` interception | `withoutEndedSessions` filters `sessionIds` against the `/api/state` it just refreshed and hands the removed ids to `Desktops.register` as `dropped`, so they reach the desktop in the same frame. The worker also remembers the last registration it refused and publishes it on `/api/runtime-desktops`. | **At the next `update_workspace`** — this is the replaceable layer, so it reaches a running workspace without touching the host or its PTYs. |
 | **Desktop** — `native/app.c`, `register_desktop` | Advertises only session ids present in the `state.sessions` it already holds (fetched by `OP_STATE` before registration). A restored tab whose session is absent is marked ended: it is not attached to anything, `re_app_inspect` reports `sessionEnded`, and the status bar says how many views are in that state and that Sessions offers the conversation back (spec 097/099). No new widget — the tab stays where the person left it. | **At the next desktop reload/update.** |
 | **Supervisor** — `runtime/supervisor.mjs`, `waitView` | On timeout, names the last registration a worker refused and what the desktop process printed, instead of only that it did not register. | With the worker layer. |
@@ -131,3 +132,27 @@ belongs to the owner, from a terminal outside rEngine:
 
 The record of that run — the report it prints, and that the tracker tab, terminal colour and
 conversation offer then match the checkout — closes this feature under `docs/evidence/`.
+
+## What the language change did and did not alter (housekeeping, 2026-09-16)
+
+Nothing in the *decisions* above moved. What moved is where the code lives and what runs it:
+
+| Then | Now |
+| --- | --- |
+| `orchestrator/launch.mjs --replace-host` | `red-launch --replace-host` (spec 145) |
+| `launcher/replace.mjs` decides what to signal | `red_supervisor::replace` decides, `stop` acts |
+| `orchestrator/actions/replace-host.sh` | `actions/posix/replace-host.sh` (charter D71) |
+| the host is `server/main.mjs` under node | the host is `red-host` |
+
+**One defect found and fixed on 2026-09-16, outside this pass:** the shell action went on naming
+`orchestrator/launch.mjs` for a day after that module was deleted, and it failed in the worst
+available way — the action double-forks a DETACHED child, so node's "Cannot find module" went to a
+log nobody opens, the mark file was written by the python that execs the child, and the action
+printed *"The launcher is detached as PID …"* and exited 0. A dashboard action that reports success
+and replaces nothing. `shell-actions.test.mjs` now scans every action for module paths that are not
+there.
+
+Still open, and named here because this spec is where a reader looks for it: the action's detach is
+a `python3 -c 'os.setsid()'` double fork, which is POSIX-only. `restart-supervisor` solved the same
+problem by moving its detach into Rust (F159), and this one has not. Under charter D71's no-bash
+rule that is the difference between an action that ports to Windows and one that cannot.

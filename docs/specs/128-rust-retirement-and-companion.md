@@ -326,7 +326,7 @@ builds.
 - **No red-core.** Criterion 3's C ABI round-trip waits on F141's façade; there is nothing to connect
   to yet. `Companion.kt` carries the protocol string and nothing else.
 - **Not the owned control layer.** `ui.c` (D33) is SDL-free in itself — it draws through the draw
-  list and nothing else — but it includes `orchestrator/native/common.h`, which includes `SDL.h`.
+  list and nothing else — but it includes `editor/common.h`, which includes `SDL.h`.
   Splitting that header is its own change. Pulling the layer in before it is split would mean either
   an SDL dependency on Android or a copied module, which are the two things this arrangement exists
   to avoid, so the CMake says so where the source list would otherwise look incomplete.

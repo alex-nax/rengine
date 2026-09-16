@@ -77,7 +77,7 @@ into a pane is enough — and resumed the **spawning** agent's conversation in a
 
 So the rule is one step wider than decision 5 states it: the offer belongs to an interactive **bare**
 launch, and both an explicit resume and an initial prompt are launches that have already chosen. The
-guard lives in two places on purpose — `scripts/agent.sh` refuses to ask, and the workspace refuses to
+guard lives in two places on purpose — `actions/pane/posix/agent.sh` refuses to ask, and the workspace refuses to
 write the listing for a caller that named a conversation or passed arguments — because a listing can
 reach a pane from a stale environment as well as from this host, and the host can be older than the
 worker that spawns through it. Evidence, with the reds and the sabotage table:

@@ -75,7 +75,7 @@ cost a root container, and fifteen panes with a surface open already sit at micr
 **D5 — A created worktree lands where the project's declaration says.** *(owner-decided, against
 the recommendation offered)* A new `worktrees` block in `.rengine/project.json` names the
 directory, at **contract 11** — the next number; the ceiling is the schema's own enum, read by
-`red_project::declaration::CONTRACTS` and by `orchestrator/tests/contract.mjs`. The alternative
+`red_project::declaration::CONTRACTS` and by `tests/contract.mjs`. The alternative
 offered was git's `../<repo>-<branch>` convention; the declaration was chosen instead, so a
 project owns where its worktrees live the way it already owns its dashboard, games and tracker.
 

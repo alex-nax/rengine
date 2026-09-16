@@ -90,7 +90,7 @@ Two of the three streams already pass through the native desktop: **frames** arr
 (and the session host retains a bounded copy besides). So this feature writes down streams the
 desktop already handles rather than capturing anything new.
 
-The ring is therefore **in the desktop** (`orchestrator/native/recording.c`), and that placement is
+The ring is therefore **in the desktop** (`editor/recording.c`), and that placement is
 forced as well as convenient:
 
 - The encoder is a C header. A Node-side ring would need an image encoder Node does not have

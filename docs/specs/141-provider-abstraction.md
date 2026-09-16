@@ -172,7 +172,7 @@ ask the recipe, so the two halves agree about *who* can be handed a conversation
 ## F217: the guard, and the four things it caught about itself
 
 `python3 tools/agent_names.py check` runs in `init.sh` with the other gates and is covered by
-`orchestrator/tests/agent-names.test.mjs`. The roster is read from `registry.toml`, so it cannot
+`tests/agent-names.test.mjs`. The roster is read from `registry.toml`, so it cannot
 drift from the document it defends.
 
 It found three places the survey had missed, all of them real:

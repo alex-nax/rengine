@@ -59,7 +59,7 @@ collide across machines; flag only same-machine duplicates.
 
 - `AGENTS.md`: boundaries match the charter decisions (D-rows) and list the project skills.
 - `docs/architecture.md`: constraints and the placement table match the tree
-  (`find orchestrator/native -type d`, `ls tools design`).
+  (`find editor -type d`, `ls tools design`).
 - `docs/roadmap.md`: milestones match `features.json`; the expansion rule matches D29.
 - `docs/specs/056-native-desktop.md`: checkpoint paragraph reflects landed specs.
 - `design/README.md` and `docs/specs/064`: match `tools/design.py` commands.
@@ -69,9 +69,9 @@ collide across machines; flag only same-machine duplicates.
 
 - `python3 tools/design.py check` already guards colour literals, layout-row literals and
   rendering-API symbols above the draw list; report any exemption added.
-- Owned files under 1,000 lines: `wc -l orchestrator/native/*.c orchestrator/native/render/*.c tools/*.py | sort -n | tail`.
+- Owned files under 1,000 lines: `wc -l editor/*.c editor/render/*.c tools/*.py | sort -n | tail`.
 - `git diff --stat HEAD -- third_party/` is empty and `third_party/sources.json` hashes match.
-- Sidecars valid: `for f in orchestrator/native/*.c orchestrator/native/render/*.c; do python3 ~/.claude/skills/llm-sidecar/scripts/validate_sidecar.py $f; done`.
+- Sidecars valid: `for f in editor/*.c editor/render/*.c; do python3 ~/.claude/skills/llm-sidecar/scripts/validate_sidecar.py $f; done`.
 - No `~/...` paths, hidden downloads or umbrella runtime introduced by new components.
 
 ## 8. Roadmap alignment

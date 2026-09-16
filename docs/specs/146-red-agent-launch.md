@@ -5,7 +5,7 @@ split), spec 102/133 (red-ide), spec 145 (red-launch).
 
 ## What this is
 
-`scripts/agent.sh` ends by execing `agents/launch.mjs`, and that module is what a
+`actions/pane/posix/agent.sh` ends by execing `agents/launch.mjs`, and that module is what a
 person's CLI actually runs inside. It is the last **live** JavaScript entry point in a pane, and it
 holds the remaining production tree up: it imports `agents-client.mjs`, and through it
 `service-client.mjs`, `launcher/sidecar.mjs`, `runtime/protocol.mjs`, `agents/handoff/`, and — for
@@ -63,7 +63,7 @@ them. Each is a module whose Rust counterpart already exists and is already judg
 only as imports of the file this spec replaces.
 
 `agents/mcp.mjs` stays, for the reason below — and went in its own row once that reason was dealt
-with. `templates/external/commands.mjs` became `commands.py`: see the note at the end.
+with. `templates/external/commands.py` became `commands.py`: see the note at the end.
 
 ## The pane's MCP server — deferred within this spec, then done
 

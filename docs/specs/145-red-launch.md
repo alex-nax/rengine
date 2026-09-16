@@ -54,7 +54,7 @@ target the pid its own descriptor already names, never widen what it signals.
 3. **The supervisor is stopped before the host**, so nothing recovers a worker against a dying host.
 4. **`restart-supervisor` never signals the host.** Its `--plan` is read-only and names the host it
    would leave alone; the confirm prompt with no non-interactive bypass stays in
-   `orchestrator/actions/restart-supervisor.sh`, which is where it always was.
+   `actions/posix/restart-supervisor.sh`, which is where it always was.
 5. **The new supervisor is started detached**, in its own session. Whoever asked for the restart is
    usually a pane inside the workspace being restarted.
 6. **Exit 75 means "I detached for an update".** The launcher rebuilds and runs the desktop again;

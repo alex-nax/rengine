@@ -169,7 +169,7 @@ refused by name with nothing started.
 Trying to DELETE `worker.mjs` is what found this, which is the argument for trying.
 
 Eight specs that drove the JavaScript worker in-process now drive the binary, unchanged apart from
-one import (`orchestrator/tests/red-worker-fixture.mjs` is `startWorker`'s shape over a process).
+one import (`tests/red-worker-fixture.mjs` is `startWorker`'s shape over a process).
 All of them pass. The ninth is `runtime.test.mjs`, the **legacy-host** case, and it does not:
 
 > *current desktop actions above legacy host*
@@ -463,7 +463,7 @@ connection rather than by its own framing — so every forwarded route waited ou
 keep-alive, and nineteen of them are forwards. It now frames the answer the way the door does. In
 the suite that is 12 seconds a test to 15 milliseconds.
 
-Evidence: `orchestrator/tests/red-host.test.mjs`, in the F189 registry test — the two routes
+Evidence: `tests/red-host.test.mjs`, in the F189 registry test — the two routes
 against the JS `Desktops` while it is still the record of what the answers are. Three sabotages,
 each rebuilt before its run (KI-120): an attach frame with no session record, the pane's root read
 from the caller's claim instead of the record, and a refusal that is never cleared.

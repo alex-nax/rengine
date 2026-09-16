@@ -105,7 +105,7 @@ clip. Nothing bounded them, so a scrolled explorer painted its rows and its path
 strip and the toolbar; the owner reported it against the live desktop. Every control now takes its
 container's clip, a control that narrows its own intersects rather than replaces, and panels and
 popovers clear it because they are drawn outside any container. The invariant is asserted in
-`orchestrator/tests/native-scrollbars.spec.mjs`: scrolling a view may not change one pixel above it.
+`tests/native-scrollbars.spec.mjs`: scrolling a view may not change one pixel above it.
 
 Three more, each found by the owner or by a gate rather than by reading:
 

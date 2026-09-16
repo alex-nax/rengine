@@ -18,7 +18,7 @@ Status: **design; nothing implemented.** Rows F198–F200; the session kind they
   pauses and surfaces "approval needed" plus a link as an ACP plan entry, and the decision is made
   in Kohai. So the tab draws a *link* for a kohai turn, not an approve button.
 - **The plugin ABI is the wrong door.** A plugin reaches nothing that touches the store, a session
-  or the host connection (spec 106, `orchestrator/native/plugin_abi.h`). An agent is a session.
+  or the host connection (spec 106, `editor/plugin_abi.h`). An agent is a session.
 - **The registry already extends from outside** (`RENGINE_AGENT_REGISTRY_EXTRA`), and contract 6
   already admits "an installed executable" as a `cli`.
 - **rEngine holds no kohai credential.** The bridge reads `~/.config/kohai/credentials.json`

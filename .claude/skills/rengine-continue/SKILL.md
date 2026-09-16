@@ -50,7 +50,7 @@ Owner decisions that change a boundary also get a charter D-row and an `AGENTS.m
 ## Phase 4: FAILING CHECK first
 
 Behaviour changes need a failing regression or an equally meaningful acceptance check before the
-change: a CTest under `orchestrator/native/tests/`, a native spec under `orchestrator/tests/`
+change: a CTest under `editor/tests/`, a native spec under `tests/`
 driven through `--automation`, a service test, or a byte-identical snapshot baseline taken
 **before** editing (`.cache/desktop/bin/rengine --smoke-test --snapshot before.bmp`). Documentation
 changes need document and graph checks instead.
@@ -58,7 +58,7 @@ changes need document and graph checks instead.
 ## Phase 5: IMPLEMENT the bounded change
 
 - Views append to the draw list; never name rendering-API symbols above `render/backend_*.c`.
-- Colours and layout sizes come from `RE_COLOR_*` / `RE_METRIC_*` (`orchestrator/native/theme.json`
+- Colours and layout sizes come from `RE_COLOR_*` / `RE_METRIC_*` (`editor/theme.json`
   → `theme.h`); add a token before a new value.
 - Keep owned files under 1,000 lines; pinned `third_party/` stays pristine; new dependencies are
   pinned in `third_party/sources.json` with licences.

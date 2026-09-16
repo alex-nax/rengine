@@ -8,7 +8,7 @@ Status: **design; nothing implemented.** Rows F210–F212.
 ## Why this is not the same as what rEngine already does
 
 Spec 096 already mints a conversation at launch (D3), records it on the session (D5), and
-`scripts/agent.sh` already offers a chooser from a `RENGINE_AGENT_CONVERSATIONS` file. That covers
+`actions/pane/posix/agent.sh` already offers a chooser from a `RENGINE_AGENT_CONVERSATIONS` file. That covers
 **panes rEngine started**.
 
 `/resume` lists something larger: every conversation the CLI itself holds for this project,

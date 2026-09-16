@@ -58,7 +58,7 @@ projection scaled by density.
 - Results on macOS: workspace and terminal scenes differ in zero pixels; the primitives scene
   differs in 0.80% of pixels, all inside the edge band; OpenGL medians 0.297, 0.411 and 0.491 ms
   against SDL 0.663, 1.990 and 1.413 ms; resident memory +20.3 MiB; the eight committed native
-  specs pass on OpenGL. `orchestrator/tests/native-render.spec.mjs` is part of `npm run test:desktop`.
+  specs pass on OpenGL. `tests/native-render.spec.mjs` is part of `npm run test:desktop`.
 - Evidence: `docs/evidence/opengl-adapter-macos-2026-09-06.md`. Windows: not run (KI-014).
 
 ## Deferred

@@ -58,7 +58,7 @@ today — a git merge a person resolves.
 (`revoke` | `free`) with the root, exactly as the popover does; the ledger answers with the next
 `token` frame and the row follows it. No new pane, no new tab type, no enum change.
 
-*What shipped, 2026-09-07* (`orchestrator/native/workspace.c`, `token.{c,h}`, `app.c`; evidence with
+*What shipped, 2026-09-07* (`editor/workspace.c`, `token.{c,h}`, `app.c`; evidence with
 the sabotage table: `docs/evidence/sessions-token-controls-2026-09-07.md`). Corrections against the
 paragraph above, each because the code says otherwise:
 
@@ -87,7 +87,7 @@ paragraph above, each because the code says otherwise:
 dashboard already has; availability follows the tracker's provider (`local` writes; remote rows offer
 Spawn only). A task that agents are working shows their labels (`claude 5b8d47c2`).
 
-*What shipped, 2026-09-07* (`orchestrator/native/tracker.{c,h}`, `app.{c,h}`, `token.{c,h}`; evidence
+*What shipped, 2026-09-07* (`editor/tracker.{c,h}`, `app.{c,h}`, `token.{c,h}`; evidence
 with the sabotage table: `docs/evidence/tasks-pane-controls-2026-09-07.md`). Corrections against the
 paragraph above, each because the code says otherwise:
 
@@ -222,7 +222,7 @@ against the paragraphs above, each because the code says otherwise:
 
 The first `spawn_agent` there ever was reached its pane, and the pane put the [spec
 097](097-agent-conversation-persistence.md) conversation picker in front of it: the workspace had
-history for this project, the host wrote it for the pane, and `scripts/agent.sh` asked which to
+history for this project, the host wrote it for the pane, and `actions/pane/posix/agent.sh` asked which to
 resume and blocked on stdin. The pane received a `1` — a click into a pane is enough — and **resumed
 the conversation of the agent that had spawned it**, in a second process; the next pane sat on the
 prompt for an hour. Everything spec 103 itself does was correct: the model flag, the prompt, the task
@@ -240,7 +240,7 @@ Correction to the paragraphs above, because the code now says otherwise:
 - **This is the third thing the host had to be told, not the second.** Criterion 8 said the host
   changes only to accept `task`; the shipped note above added forwarding a pane's `args`. It also has
   to decide **who is offered the project's conversations** — bare panes only. That change is in
-  `server/sessions.mjs` and lands at the next `--replace-host`; `scripts/agent.sh` carries the same
+  `server/sessions.mjs` and lands at the next `--replace-host`; `actions/pane/posix/agent.sh` carries the same
   rule and lands immediately, which is why a spawn against the current host is already safe.
 
 Evidence, with the reds and the sabotage table:

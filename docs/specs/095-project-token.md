@@ -218,7 +218,7 @@ and pid travel because a refusal has to *name* the holder and the ledger has to 
 holder's process is still there, and the worker has no table to look either up in. A request without
 the first header is the desktop's. The host ignores unknown headers, so this costs no host change.
 
-**Liveness is the pid, and the pid follows the session.** `scripts/agent.sh` execs the launcher, so a
+**Liveness is the pid, and the pid follows the session.** `actions/pane/posix/agent.sh` execs the launcher, so a
 pane-spawned agent's `process.pid` *is* the pty session pid the host lists; `bind.mjs` records
 `process.ppid`, the terminal that will run the CLI. Both are a process alive exactly while the agent
 is, so no `boundBy` discriminator is needed and none was added. Because the identity is the session
@@ -229,7 +229,7 @@ refreshes the holder's pid and the identities registry: the resumed session keep
 When an agent is spawned by the workspace, `launch.mjs` also records the pty session it runs under
 where it can, so the desktop can show *claude · vtmb-vr* rather than a UUID. This spec first said the
 launcher's *parent* is the session's shell whose pid the host lists; that is wrong. `sessions.mjs`
-spawns `bash scripts/agent.sh …` and `launch_agent()` ends in `exec node …/launch.mjs`, so the
+spawns `bash actions/pane/posix/agent.sh …` and `launch_agent()` ends in `exec node …/launch.mjs`, so the
 launcher replaces that shell and its own pid **is** the pid the host lists. The implementation matches
 either the launcher's pid or its parent's, and records `sessionId` when one of them is a listed agent
 session. Where neither matches, the label and pid stand.
@@ -416,7 +416,7 @@ of either kind. A ring commit sends only `committed`, so a `capture.committed` w
 ### What shipped (stage 3, 2026-09-07)
 
 The per-window state, the segment, the popover and the recorder's announcement are
-`orchestrator/native/token.{c,h}` beside `devices.c` and `tracker.c`; `app.c` parses the frame and
+`editor/token.{c,h}` beside `devices.c` and `tracker.c`; `app.c` parses the frame and
 `workspace.c` places the segment and the surface. The segment is not a control: the status bar is
 drawn outside microui, after every pane, so the face is `re_token_status` and the press is served in
 `re_app_event` beside the pane strip's context menu, with the rectangle reported to automation. A
@@ -508,7 +508,7 @@ A worker that receives it:
   every `token.*` frame it re-reads `GET /api/token?rootId` and pushes the pinned flat `token` frame
   to those sockets; also on a fresh `desktop-register` after retirement. `Ledger.segment()` and the
   relay build that frame through one function, so **the frame text on the desktop's socket is
-  unchanged** and the desktop needs no change at all — `orchestrator/native/*` is untouched.
+  unchanged** and the desktop needs no change at all — `editor/*` is untouched.
 
 Consequences worth stating. A retained desktop's controls are answered a round trip later than a
 locally-served one, and the answer arrives as the relayed push rather than as a locally-built one;
@@ -574,7 +574,7 @@ than passing every call — the spec 078 asymmetry, handled at design time this 
    One line of `runtime/supervisor.mjs` changed with it: the fork message now carries the runtime
    directory (`child.send({ host, directory })`) so a worker persists where its supervisor says,
    with `runtimeDirectory(host)` as the fallback an older supervisor leaves it. The retained host and
-   `orchestrator/native/*` are untouched.
+   `editor/*` are untouched.
 3. The status-bar segment and popover; the desktop's `recording` frame. Ships as `desktop`.
 4. Recording controls over MCP (`recording_start`, `recording_stop`), in spec 081's terms, gated by
    the token; a follow-up to that spec, not this one.

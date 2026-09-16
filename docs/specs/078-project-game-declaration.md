@@ -425,7 +425,7 @@ connector predates the tools and picks them up only through a layered `connector
 
 ## Qualification of the real consumers
 
-`orchestrator/tests/contracts.test.mjs` pins both real consumer declarations as fixtures, copied
+`tests/contracts.test.mjs` pins both real consumer declarations as fixtures, copied
 fresh from the consumers' own `.rengine/project.json`: vtmb-vr's contract-3 document (formats + two
 external games + dashboard) and nolf-improved's live contract-2 document (formats + dashboard, no
 games), plus a contract-1 document. It also validates the vtmb-vr document with its two quick-start
@@ -486,7 +486,7 @@ already reports it as a named preflight issue.
 4. `npm test`, `npm run test:desktop`, CTest, `./init.sh`, design check and sidecar validation
    pass; the native build has zero warnings. `RENGINE_NOLF_ROOT=… npm run test:game-nolf` launches
    the real NOLF build through a dashboard game action and sees its frames.
-5. **`cooperative` (F77).** The suite never depends on a consumer binary: `orchestrator/tests/
+5. **`cooperative` (F77).** The suite never depends on a consumer binary: `tests/
    surface-producer.mjs` is a fixture producer that reads the two variables, greets both channels
    through the committed `surface-protocol.mjs` encoder, sends frames and reports its own
    environment on stdout, and `game-fixtures.mjs` declares it as a `cooperative` record. Covered:

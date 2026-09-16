@@ -214,7 +214,7 @@ owned layer that sits on pristine microui.
 {
   "name": "rengine-ui",
   "pin": { "version": "0.1.0", "revision": "5b8e0f2c7a13d946b0e8c25f7a1d34906bce2f18" },
-  "library": { "path": "orchestrator/native/ui", "target": "rengine::ui" }
+  "library": { "path": "editor/ui", "target": "rengine::ui" }
 }
 ```
 
@@ -248,7 +248,7 @@ There is no loader and no build integration in this feature, and this spec does 
 plugin lane consumes `plugin.abi` and `plugin.module`; a game's own CMake consumes `library.path` and
 `library.target` from its own workspace under its own authority.
 
-Every regression in `orchestrator/tests/packs.test.mjs` was observed failing for its own reason before
+Every regression in `tests/packs.test.mjs` was observed failing for its own reason before
 it was believed: the sabotage table is
 [`docs/evidence/pack-manifest-2026-09-07.md`](../evidence/pack-manifest-2026-09-07.md).
 

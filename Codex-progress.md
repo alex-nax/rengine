@@ -1,3 +1,52 @@
+## Session 163 (opus-5) — 2026-09-16 — The layout, and a housekeeping batch behind it
+
+Owner goal: the restructure decided in session 162's interview, then *"1. delete 2. run an iteration
+of housekeep on subset including orchestrator 3. proceed"*.
+
+**`orchestrator/` is gone**, in five commits that each build and each read as "nothing changed but
+paths": `editor/` (the C desktop), `tests/`, `actions/{posix,win,pane}/`, `agents/`, `templates/`.
+`scripts/` went with it. Charter D71 and spec 147 hold the reasoning; the interview is in 162's
+entry.
+
+Every commit broke something a substitution alone would not have fixed, and a gate found each:
+
+- **`tests/` hung rather than failed.** Every spec resolved the repository root as `'../..'` from
+  `orchestrator/tests/`; from `tests/` that is the root's PARENT, so the first thing the suite did
+  was open `/Users/alex/contracts/project-v1.schema.json` and wait. Sixty-four files, in three
+  passes rather than one sed: a SINGLE `'../X'` inside a temp directory is a path-TRAVERSAL fixture
+  — `../secret.env`, `../escape.txt` — and one blind substitution would have quietly defanged the
+  tests that prove a traversal is refused.
+- **`agent.sh` moved two levels down** and every sibling lookup was `$launcher_dir/../`. It anchors
+  once on `checkout_dir` now. The symptom was "The red-agents binary is required", which reads as a
+  missing build rather than as a moved script.
+- **I corrupted a pinned hash.** `hooks.rs` pins a sha256 over a fixed command line containing
+  `/repo/orchestrator/agents/report-session.mjs`; rewriting that path changed the input, so the hash
+  changed and `the_hash_matches_the_recorded_formula` went red. That is what a pinned hash is for.
+  Three frozen corpora were excluded byte for byte for the same reason.
+- **Three repository-wide gates were scanning directories that no longer existed** —
+  `suite-coverage` (twice), `store-deleted`, `shell-actions` — and `design.py`'s `PRODUCT_ROOTS`
+  listed `orchestrator`, which after the move scans nothing and reports it to nobody.
+
+**Housekeeping batch 077, 098, 129**, plus a guarded path sweep. The sweep's rule is the useful
+part: rewrite only what MOVED, and leave `orchestrator/{server,runtime,launcher,…}` alone, because
+those name retired JavaScript and the old path is the correct name for a thing that does not exist.
+Spec paths that did not resolve: **48 → 7**, and the seven are all pre-existing plans rather than
+this restructure's.
+
+**KI-126 is the finding.** Nine J0 rows — F152–F157, F159, F161, F163 — carry recorded evidence and
+read `passes: false`, and every JavaScript module they name is deleted. The reason is a good one
+(session 161: a row claiming to pass over an unmarked prerequisite would be a claim with a hole in
+it), but the hole is now bookkeeping rather than work, and `features.py next` cannot surface what
+depends on them. A housekeeping pass may never flip `passes` to true, and neither may a session that
+did not do the work — so it is the owner's.
+
+Spec 129's own table promised two binaries that were never built: there is no `red-client` and no
+`red-util`. Recorded where that work actually went, because a reader looking for `red-util` would
+otherwise conclude a slice was skipped.
+
+`dist/` — 8.7 MB of built web client from 2026-09-05, gitignored and untracked, with no source in
+the tree — deleted from disk. Nothing to commit; git never had it.
+
 ## Session 162 (opus-5) — 2026-09-16 — The JavaScript is retired
 
 Owner goal: *"finalize js retirement"*, after a morning spent on the three launchers.

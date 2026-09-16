@@ -32,8 +32,8 @@ the fix; the existing native fixture must then pass without weakening its compar
 Commands:
 
 - `cargo test --manifest-path red/Cargo.toml -p red-core --test json_numbers`
-- `node --test orchestrator/tests/red-mcp-numbers.test.mjs` (included in `npm test`)
-- `node --test --test-concurrency=1 orchestrator/tests/native-project-windows.spec.mjs`
+- `node --test tests/red-mcp-numbers.test.mjs` (included in `npm test`)
+- `node --test --test-concurrency=1 tests/native-project-windows.spec.mjs`
 - `./init.sh`, `python3 tools/design.py check`, `npm run build`,
   `ctest --test-dir .cache/desktop --output-on-failure`, `npm test`.
 

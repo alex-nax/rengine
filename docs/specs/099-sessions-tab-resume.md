@@ -2,7 +2,7 @@
 
 Date: 2026-09-07. Status: recorded from owner direction, given a third time after the picker shipped
 on the wrong surface. Parent: [spec 097](097-agent-conversation-persistence.md), which persisted the
-conversations and put the offer in `scripts/agent.sh` as a terminal prompt; and
+conversations and put the offer in `actions/pane/posix/agent.sh` as a terminal prompt; and
 [spec 096](096-agent-session-resume.md). This moves the offer to where the owner asked for it.
 
 ## The situation it answers

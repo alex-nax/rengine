@@ -108,7 +108,7 @@ workspace` design project. It settles four things the first version got wrong:
   and that is what the reader came for.
 
 The card's guard bites, incidentally: `design.py check` refused two symbols the preview used that no
-entry in `orchestrator/native/icons.json` claims, which is exactly the drift it exists to stop.
+entry in `editor/icons.json` claims, which is exactly the drift it exists to stop.
 
 **One measurement had to move with the design.** The wrap assertion anchored on the `tracker-detail`
 control, which used to be the header row; with the header gone that anchor sits inside the

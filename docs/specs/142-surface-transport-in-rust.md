@@ -102,7 +102,7 @@ worker (F158). The two that could go, went.
 ## Evidence
 
 - A corpus of frames and input events, each run through the JS implementation and the Rust one and
-  compared byte for byte, refusals included: `orchestrator/tests/surface-protocol-parity.test.mjs`.
+  compared byte for byte, refusals included: `tests/surface-protocol-parity.test.mjs`.
 - The existing cooperative surface suite (`surface.test.mjs`, `native-game.spec.mjs`) passing
   against the Rust door once the transport moves.
 - Each refusal observed failing for its own reason by sabotage, per the work protocol.

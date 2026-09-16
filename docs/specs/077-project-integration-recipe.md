@@ -16,13 +16,13 @@ the single `game` object with a `games` array on 2026-09-06 and every artifact b
 - `docs/runbooks/project-integration.md` — the ordered recipe with runnable commands, the two
   worked instances (reLith/nolf-improved, reSource/vtmb-vr) and what the orchestrator UI will
   automate later.
-- `orchestrator/actions/integrate-project.sh` — a wizard in the `lib/wizard.sh` conventions
+- `actions/posix/integrate-project.sh` — a wizard in the `lib/wizard.sh` conventions
   (explicit arguments first, `re_ask` only in a human terminal, stage logs on stderr) that
   scaffolds a consumer: submodule pin, `editor.sh`, `.rengine/project.json`, declaration test.
 - `templates/project/` — the copied artifacts (`editor.sh`, `project.json`,
   `test_rengine_project_decl.py`) plus a README naming each one's destination. Templates are
   project-agnostic: no game, engine or archive format is named in them.
-- `orchestrator/tests/integrate-project.test.mjs` — scaffolds a temporary git repository and
+- `tests/integrate-project.test.mjs` — scaffolds a temporary git repository and
   asserts the result validates, never overwrites, and writes nothing under `--dry-run`.
 
 Out of scope: running a consumer's gates, bumping a pin, native controls for any of it, and the
@@ -39,7 +39,8 @@ project-specific syntax.
    remote. The pin is the contract version the project's bindings were written against. Never
    edit inside the submodule; findings go back through `report_integration`.
 3. **`editor.sh` as the launching point**: bootstrap the pinned tree (submodule init, `npm ci`,
-   `npm run build:surface`, `npm run build`) and `exec` its launcher on the project root, with
+   `cargo build --bins`, `npm run build:surface`, `npm run build`) and `exec` its launcher on the
+   project root, with
    `--check`, `--dry-run`, `--bootstrap-only` and `--rebuild` modes and forwarded launcher
    options. Everything it installs lands inside the submodule's ignored directories.
 4. **Declare the project** in `.rengine/project.json`: `formats` over the project's own CLI with
@@ -53,7 +54,7 @@ project-specific syntax.
 7. **Review gate**: a cross-vendor read-only review of the rEngine side of the integration, its
    verdict recorded in the consumer (nolf-improved keeps
    `docs/findings/rengine-format-registry-codex-review-2026-09-06.md`).
-8. **Open the project window** with the retained agent (`orchestrator/actions/project-window.sh`),
+8. **Open the project window** with the retained agent (`actions/posix/project-window.sh`),
    then keep rEngine current with layered `update_workspace` runs.
 9. **Consumer gates** are owner-verified in the real window; a pin bump re-runs the binding tests.
 
@@ -96,14 +97,14 @@ one placeholder until the contract relaxes that bound (KI-042).
 
 1. The runbook contains the ordered recipe with runnable commands for every step above, the two
    worked instances as tables, and the "what the orchestrator UI will automate" close.
-2. `orchestrator/actions/integrate-project.sh` follows the wizard conventions (`re_wizard`,
+2. `actions/posix/integrate-project.sh` follows the wizard conventions (`re_wizard`,
    `re_stage`, `re_run`, `re_finish`, `re_ask` only on a TTY), accepts
    `--project/--name/--rengine-url/--pin/--contract/--game-*/--dry-run/--no-submodule`, rejects
    unknown options and missing values with exit 2, rejects the retired `sdl2-interpose` surface by
    naming `embedded`, and prints its follow-ups on completion.
 3. Templates exist for `editor.sh`, `project.json` and `test_rengine_project_decl.py` with a
    README naming each destination; none of them names a specific game or file format.
-4. `orchestrator/tests/integrate-project.test.mjs` scaffolds a temporary git repository and
+4. `tests/integrate-project.test.mjs` scaffolds a temporary git repository and
    asserts: the declaration exists and satisfies the rules this checkout ships, checked by calling
    `validateSchema` over the committed contract plus the shared cross-rule modules rather than by
    restating them (while the committed schema predates contract 3 the core is validated with the
@@ -121,3 +122,30 @@ one placeholder until the contract relaxes that bound (KI-042).
 
 Boundaries: no new dependency, no native code, no contract change, no network access in the tests,
 and no modification of any consumer checkout from this repository.
+
+## Reconciled 2026-09-16 (housekeeping)
+
+The recipe's *shape* is unchanged; three things under it moved, and one is a behaviour a consumer
+feels:
+
+- **The launcher it `exec`s is a binary.** `orchestrator/launch.mjs` is deleted; `editor.sh` resolves
+  `red-launch` (`$RENGINE_RED_LAUNCH`, then release, then debug) and execs that. Spec 145.
+- **The template builds the Rust binaries on every launch.** It did not, and that was a real hole:
+  the template built the DESKTOP only when the desktop was missing, so a pin bump left it execing a
+  `red-launch` that had never been built. `cargo build --bins` is a few seconds when nothing moved,
+  and it is the same KI-112 trap the root `editor.sh` closes.
+- **`RENGINE_NODE` is resolved before it is tested.** A host older than the current pin exports the
+  bare word `node` into every pane, and `[ -x node ]` says no on a machine that has node — so
+  `editor.sh` run from a workspace pane reported node missing and offered to install one. Both the
+  template and the two consumers carry the fix.
+- **Paths**: `orchestrator/actions/` is `actions/posix/`, `orchestrator/templates/` is `templates/`
+  (charter D71).
+
+**The external half of this recipe changed tool.** `orchestrator/external-project.mjs` is
+`red-project install-external`, and the helper it copies into a profile is `commands.py` rather than
+`commands.mjs` — the owner's call, on the grounds that reading `package.json` is reading JSON and
+running `pnpm` is running a subprocess, neither of which wants the Node runtime (spec 146).
+
+Still true and worth keeping: a consumer owns its `editor.sh` copy. `nolf-improved` and `vtmb-vr`
+have both diverged from the template deliberately — vtmb carries `--bind`/`--session`, nolf its own
+state derivation — which is the boundary this spec draws working as intended rather than drift.

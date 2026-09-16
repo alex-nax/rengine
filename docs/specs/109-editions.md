@@ -48,7 +48,7 @@ one edition would make the entertainment build ship the business name.
 The correction is small and belongs to whoever implements this: the brand moves into the edition
 manifest, and `product.suite` is removed from the generated product block rather than quietly
 redefined. `product.name` — the binary's own name, Red — is unaffected and stays exactly as it is.
-`orchestrator/tests/product-name.test.mjs` asserts `PRODUCT_SUITE === 'Red Suite'` today, so the
+`tests/product-name.test.mjs` asserts `PRODUCT_SUITE === 'Red Suite'` today, so the
 removal is a visible edit to a test rather than a silent drift.
 
 **A default layout is not an override.** The store already persists a workspace's layout, and D22's
@@ -87,7 +87,7 @@ no name is typed into shipping code — and F110's plumbing survives; only what 
 
 ### 2. How the manifest gets there
 
-An **install action in the suite**, now: `orchestrator/actions/install-edition.sh` creating the state
+An **install action in the suite**, now: `actions/posix/install-edition.sh` creating the state
 directory and writing the manifest, opening as a retained script tab like `restart-supervisor.sh` and
 `integrate-project.sh`. A platform installer later calls the same code rather than reimplementing it;
 packaging is still unresolved (KI-008) and this does not wait for it.

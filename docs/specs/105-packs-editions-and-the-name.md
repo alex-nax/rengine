@@ -60,7 +60,7 @@ so against this paragraph.
 Found by the implementation, recorded here rather than quietly narrowed. D38 says a plugin
 "registers tabs **and controls** through the owned control layer (D33), never through pristine
 microui's context". Those two halves conflict: every one of the fourteen owned controls in
-`orchestrator/native/ui/ui.h` takes `mu_Context *` as its first parameter, by D33's own design. A
+`editor/ui/ui.h` takes `mu_Context *` as its first parameter, by D33's own design. A
 plugin can therefore register a **tab** — that goes through the app's own tab model and needs no
 context — but cannot call a control without being handed the very thing the clause keeps private.
 
