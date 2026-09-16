@@ -83,7 +83,7 @@ const until = async (check, label) => {
 };
 
 export async function answers() {
-  const { LanguageServers, uriFor } = await import('../runtime/lsp-client.mjs');
+  const { LanguageServers, uriFor } = await import('./lsp-client.mjs');
   const recorded = {};
   for (const [name, options] of CASES) {
     const directory = await mkdtemp(path.join(tmpdir(), 'rengine-lsp-corpus-'));

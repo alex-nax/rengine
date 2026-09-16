@@ -8,7 +8,7 @@ import { WebSocket } from 'ws';
 import { startIdeBridge, sweep, IDE_NAME } from '../runtime/ide.mjs';
 import { startServer } from './red-host-fixture.mjs';
 import { startWorker } from './red-worker-fixture.mjs';
-import { uriFor } from '../runtime/lsp-client.mjs';
+import { uriFor } from './lsp-client.mjs';
 import { setTimeout as delay } from 'node:timers/promises';
 import { built } from './cargo.mjs';
 

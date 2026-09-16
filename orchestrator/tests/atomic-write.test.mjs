@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { Tokens } from '../runtime/token-client.mjs';
+import { Tokens } from './token-client.mjs';
 import { built } from './cargo.mjs';
 
 /* KI-065. `writeAtomically` named its temporary after the writing *process*, so two writes to one

@@ -9,7 +9,7 @@ import { startServer } from './red-host-fixture.mjs';
 import { agentTitle } from '../server/sessions-client.mjs';
 import { endStateServices } from './state-services.mjs';
 import { fakeCli } from './task-fixtures.mjs';
-import { Tokens, readIdentity } from '../runtime/token-client.mjs';
+import { Tokens, readIdentity } from './token-client.mjs';
 import { built } from './cargo.mjs';
 
 /* This spec drives a Rust binary through the service client, so it builds one first: run alone — or

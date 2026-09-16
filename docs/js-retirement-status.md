@@ -13,7 +13,7 @@ git ls-files '*.mjs' | grep -vE 'tests/|\.test\.mjs' | xargs wc -l | tail -1
 
 | | lines |
 |---|---|
-| Production JavaScript remaining | **2,711** across 27 files |
+| Production JavaScript remaining | **2,425** across 25 files |
 | Rust in `red/` | ~34,000 |
 
 Down from 5,504 across 43 when this was first written — **35% of it gone**. The worker, the tracker
@@ -37,10 +37,10 @@ not how many lines are left but **how many callers are left**, and there are fou
 | ~~`server/desktops.mjs`~~ | ~~76~~ | **deleted** — the registry is `red_core::desktops` |
 | ~~`runtime/scripts.mjs`~~ | ~~25~~ | **deleted** |
 | `runtime/ide.mjs` | 191 | client of `red-ide serve`; retires with `agents/ide-connect.mjs` (F163) |
-| `runtime/token-client.mjs` | 161 | client of `red-token-serve`; four specs still drive it |
+| ~~`runtime/token-client.mjs`~~ | ~~161~~ | **moved to `tests/`** — no product caller left |
 | ~~`server/tracker.mjs`~~ | ~~231~~ | **deleted** (was group 3) |
 | ~~`server/tracker-auth.mjs`~~ | ~~232~~ | **deleted** (was group 3) |
-| `runtime/lsp-client.mjs` | 125 | client of `red-lsp-serve`; the LSP corpus compares against it (F173) |
+| ~~`runtime/lsp-client.mjs`~~ | ~~125~~ | **moved to `tests/`** — no product caller left |
 | `runtime/protocol.mjs` | 60 | shared with the supervisor, so it goes with F159 |
 | ~~`runtime/tracker.mjs`~~ | ~~58~~ | **deleted** — `red_worker::signin` finds a retained host |
 

@@ -19,7 +19,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { PRODUCT_NAME, PRODUCT_FAMILY } from '../runtime/product.mjs';
 import { startIdeBridge, IDE_NAME } from '../runtime/ide.mjs';
-import { LanguageServers } from '../runtime/lsp-client.mjs';
+import { LanguageServers } from './lsp-client.mjs';
 import { built } from './cargo.mjs';
 
 /* This spec drives a Rust binary through a service client, so it builds one first: run alone — or

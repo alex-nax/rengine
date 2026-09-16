@@ -494,7 +494,7 @@ test('a task write is the project\'s own command, and its refusal is the project
  */
 test('the feed socket replays from a cursor and then carries what happens next', { timeout: 120000 }, async t => {
   const upstream = await host(t, { '/api/state': { roots: [{ id: FEED_ROOT, path: ROOT }] } });
-  const { Tokens } = await import('../runtime/token-client.mjs');
+  const { Tokens } = await import('./token-client.mjs');
   const tokens = await Tokens.open(upstream.state, { alive: () => true });
   t.after(async () => {
     await tokens.close();
@@ -839,7 +839,7 @@ test('a preferences write is split, and the window never reaches the store that 
 test('the window is kept beside the ledger and never sent to the store', { timeout: 120000 }, async t => {
   const upstream = await host(t, { '/api/state': { roots: [], preferences: { theme: 'dark' }, capabilities: {} },
     '/api/preferences': body => ({ ...body, saved: true }) });
-  const { Tokens } = await import('../runtime/token-client.mjs');
+  const { Tokens } = await import('./token-client.mjs');
   const tokens = await Tokens.open(upstream.state, { alive: () => true });
   t.after(async () => {
     await tokens.close();
@@ -948,7 +948,7 @@ test('the token and the feed answer in the shapes a caller follows them by', { t
     /* The workspace's own record of this project's conversations (spec 097). */
     conversations: { [root]: [{ id: agent.id, agent: 'claude', startedAt: 1700000000000, lastSeenAt: 1700000060000 }] },
   } });
-  const { Tokens } = await import('../runtime/token-client.mjs');
+  const { Tokens } = await import('./token-client.mjs');
   const tokens = await Tokens.open(upstream.state, { alive: () => true });
   t.after(async () => {
     await tokens.close();
@@ -999,7 +999,7 @@ test('the token and the feed answer in the shapes a caller follows them by', { t
 test('a worker announces itself once, and never for a probe', { timeout: 120000 }, async t => {
   const root = randomUUID();
   const upstream = await host(t, { '/api/state': { roots: [{ id: root, path: ROOT }] } });
-  const { Tokens } = await import('../runtime/token-client.mjs');
+  const { Tokens } = await import('./token-client.mjs');
   const tokens = await Tokens.open(upstream.state, { alive: () => true });
   t.after(async () => {
     await tokens.close();
@@ -1057,7 +1057,7 @@ test('a game launched through the worker leaves an attributed pair on the feed',
     },
   });
   const sockets = new WebSocketServer({ server: upstream.server });
-  const { Tokens } = await import('../runtime/token-client.mjs');
+  const { Tokens } = await import('./token-client.mjs');
   const tokens = await Tokens.open(upstream.state, { alive: () => true });
   t.after(async () => {
     await tokens.close();

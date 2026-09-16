@@ -492,7 +492,7 @@ test('a desktop registers on the door and answers what the workspace asks it', {
   /* The ledger service, started before the door so the door can ATTACH to it: `attaching` never
      starts one, which is deliberate — two owners of one set of files is what D60/D61 prevent. In
      production the layer above starts it; here this is that layer. */
-  const { Tokens } = await import('../runtime/token-client.mjs');
+  const { Tokens } = await import('./token-client.mjs');
   const tokens = await Tokens.open(stateDir, { alive: () => true });
   t.after(() => tokens.close());
   /* A short acknowledgement budget, so the spec can watch a desktop fail to answer without
