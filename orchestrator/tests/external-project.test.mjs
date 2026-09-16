@@ -35,6 +35,12 @@ test('external installer keeps the project untouched and quotes launcher paths l
   await assert.rejects(run(process.execPath, [path.join(options.profile, 'commands.mjs'), 'deploy'], { cwd: options.project }), /Unknown external action/);
   await assert.rejects(run('/bin/bash', [installed.launcher, '--project', '/tmp']), /bound to its installed project/);
   await assert.rejects(run('/bin/bash', [installed.launcher, '--unknown']), /Unknown option/);
+  /* `--agent` EMPTIES agent_flags, and `"${a[@]}"` on an empty array under `set -u` is an unbound
+     variable in bash 3.2 — which is /bin/bash on every macOS. So the one documented way to open
+     this launcher with an agent died in the shell before exec, and the person got no window and a
+     sentence about an array. Paired with --unknown so the refusal proves the exec HAPPENED: it is
+     red-launch's words, not bash's. */
+  await assert.rejects(run('/bin/bash', [installed.launcher, '--agent', 'codex', '--unknown']), /Unknown option/);
   assert.deepEqual(await readdir(options.project), ['package.json']);
   await installExternalProject(options);
   await writeFile(installed.declarationFile, 'owner edit');

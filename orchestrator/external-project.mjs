@@ -69,9 +69,12 @@ export async function installExternalProject(options) {
     dashboard: { title, groups } };
   await checkDeclaration(project, declaration);
   /* The launcher is a binary (spec 145), resolved once and written into the script: the person who
-     runs this has a shortcut on their desktop, not a checkout they build. */
+     runs this has a shortcut on their desktop, not a checkout they build.
+     `${a[@]+"${a[@]}"}` rather than `"${a[@]}"`: `--agent` empties agent_flags, and an empty array
+     under `set -u` is an UNBOUND VARIABLE in bash 3.2, which is /bin/bash on every macOS. The one
+     documented way to open this launcher with an agent died in the shell before exec. */
   const launch = serveBinary('RENGINE_RED_LAUNCH', 'red-launch');
-  const script = `#!/bin/bash\nset -euo pipefail\nexport PATH=${quote(process.env.PATH ?? path.dirname(node))}\nagent_flags=(--no-agent)\nfor argument in "$@"; do\n  case "$argument" in\n    --agent|--handoff) agent_flags=() ;;\n    --project|--declaration|--state) echo 'This launcher is bound to its installed project and state.' >&2; exit 2 ;;\n  esac\ndone\nexec ${quote(launch)} --project ${quote(project)} --declaration ${quote(declarationFile)} --state ${quote(state)} "\${agent_flags[@]}" "$@"\n`;
+  const script = `#!/bin/bash\nset -euo pipefail\nexport PATH=${quote(process.env.PATH ?? path.dirname(node))}\nagent_flags=(--no-agent)\nfor argument in "$@"; do\n  case "$argument" in\n    --agent|--handoff) agent_flags=() ;;\n    --project|--declaration|--state) echo 'This launcher is bound to its installed project and state.' >&2; exit 2 ;;\n  esac\ndone\nexec ${quote(launch)} --project ${quote(project)} --declaration ${quote(declarationFile)} --state ${quote(state)} \${agent_flags[@]+"\${agent_flags[@]}"} "$@"\n`;
   const files = [[helper, await readFile(new URL('./templates/external/commands.mjs', import.meta.url), 'utf8'), 0o644],
     [declarationFile, `${JSON.stringify(declaration, null, 2)}\n`, 0o644], [launcher, script, 0o755]];
   for (const [filename, content] of files) {
