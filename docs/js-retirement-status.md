@@ -105,9 +105,29 @@ files, drafts, a real pane, the board, and the socket a desktop registers on.
 nothing.
 
 These 1,405 lines are now a **test fixture**: 76 specs call `startServer` and reach into the `store`
-and `sessions` objects it returns. Deleting them is one mechanical conversion — `startServer` becomes
-a fixture that starts `red-host` and answers those calls over its routes, the way
-`red-supervisor-fixture.mjs` and `red-worker-fixture.mjs` already do for their layers.
+and `sessions` objects it returns. Deleting them means `startServer` becomes a fixture over
+`red-host`'s routes, the way `red-supervisor-fixture.mjs` and `red-worker-fixture.mjs` already do for
+their layers — and the shape of that work is worth writing down, because the call count understates
+it:
+
+| what the specs use | times | what it takes |
+|---|---:|---|
+| `store.addRoot`, `sessions.terminal`, `sessions.stop`, `sessions.input`, `store.readText`, `store.preferences`, `store.saveLayout`, `store.list`, `store.recordConversation`, `store.listConversations` | ~250 | already async; a route each |
+| **`sessions.snapshot(id, output)`** | **91** | **synchronous**, and usually inside a polling loop |
+| `sessions.list`, `sessions.items.size`, `sessions.get` | 21 | synchronous |
+| `store.state.{preferences,drafts,layout,roots,conversations}` | 16 | synchronous |
+| `sessions.record`, `sessions.presented`, `sessions.emit` | 3 | internals, one spec each |
+| `startServer({ frontDoor: false })` | 8 | a backend with no door, which will not exist |
+
+The synchronous reads are the work. Making them `await` would touch 91 polling loops; the better
+shape is the one the JS client already has — **a small event-driven mirror**: subscribe to
+`/events`, keep the pane records and their output as they arrive, and answer `snapshot`, `list`,
+`items` and `get` from that cache. Perhaps 120 lines, and then the import swap is mechanical.
+
+Two specs genuinely retire with the backend rather than converting: `red-host.test.mjs`'s
+store-sharing case and its three-process pane-record case both exist to compare the door against the
+JS host, and a parity proof cannot outlive the side it compares against (F173). Most of that file is
+already backend-free — it asserts the door's answers directly.
 
 ### 4. Agent-side and entry points — 839 lines (**F163**)
 
