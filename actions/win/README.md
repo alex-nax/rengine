@@ -33,6 +33,16 @@ run under 5.1:
 
 ## Status
 
-Written from the posix originals and **not yet run on Windows**. Each file says so at its top, and
-a feature row closes on the evidence of running them — not on their existing. See spec 147, and the
-Windows arc that follows it.
+Written from the posix originals. **Parsed on the real host and not yet run there** — and the
+difference matters, so here is exactly what each means:
+
+- **Proved (2026-09-16):** all nine files parse under Windows PowerShell 5.1.26100 on
+  `pr0fe@192.168.31.217`, through `[Management.Automation.Language.Parser]::ParseFile`. No 5.1
+  incompatibility, no unterminated string, no construct the target refuses to read.
+- **Not proved:** that any of them DOES what its posix sibling does. Nothing has been executed.
+  Parsing catches a typo; it says nothing about whether the detach detaches, whether the confirm
+  refuses without a terminal, or whether `red-launch` is even reachable — `red/` does not compile on
+  Windows yet (62 `cfg(unix)` blocks against 1 `cfg(windows)`).
+
+Each file carries an UNVERIFIED header saying the same. A feature row closes on the evidence of
+running them, not on their existing. See spec 147 and the Windows arc that follows it.

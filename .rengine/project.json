@@ -1,5 +1,5 @@
 {
-  "contract": 8,
+  "contract": 9,
   "project": "rEngine",
   "title": "rEngine",
   "icon": {
@@ -41,7 +41,6 @@
             "title": "Harness gate",
             "description": "init.sh: inventory validation, shader check and whitespace checks.",
             "kind": "script",
-            "script": "actions/posix/verify.sh",
             "args": [
               "harness"
             ],
@@ -51,14 +50,14 @@
             ],
             "tools": [
               "python3"
-            ]
+            ],
+            "action": "verify"
           },
           {
             "id": "design-guards",
             "title": "Design and shader guards",
             "description": "Regeneration drift, colour literals, layering and the committed SPIR-V.",
             "kind": "script",
-            "script": "actions/posix/verify.sh",
             "args": [
               "design"
             ],
@@ -69,14 +68,14 @@
             ],
             "tools": [
               "python3"
-            ]
+            ],
+            "action": "verify"
           },
           {
             "id": "native-tests",
             "title": "Native unit tests",
             "description": "Builds the desktop and runs CTest: layout, editor, terminal and draw list.",
             "kind": "script",
-            "script": "actions/posix/verify.sh",
             "args": [
               "ctest"
             ],
@@ -88,14 +87,14 @@
               "node",
               "cmake",
               "ctest"
-            ]
+            ],
+            "action": "verify"
           },
           {
             "id": "desktop-suite",
             "title": "Native desktop suite",
             "description": "The committed end-to-end specs; honours RENGINE_RENDERER.",
             "kind": "script",
-            "script": "actions/posix/verify.sh",
             "args": [
               "desktop"
             ],
@@ -105,14 +104,14 @@
             ],
             "tools": [
               "node"
-            ]
+            ],
+            "action": "verify"
           },
           {
             "id": "inventory",
             "title": "Inventory status",
             "description": "features.json validation, milestone status and the next ready feature.",
             "kind": "script",
-            "script": "actions/posix/verify.sh",
             "args": [
               "features"
             ],
@@ -122,7 +121,8 @@
             ],
             "tools": [
               "python3"
-            ]
+            ],
+            "action": "verify"
           }
         ]
       },
@@ -135,7 +135,6 @@
             "title": "Compare every backend",
             "description": "SDL reference against the GPU adapters under the recorded tolerances and budgets.",
             "kind": "script",
-            "script": "actions/posix/verify.sh",
             "args": [
               "render"
             ],
@@ -149,7 +148,8 @@
             ],
             "artifacts": [
               ".cache/evidence/render-compare.json"
-            ]
+            ],
+            "action": "verify"
           },
           {
             "id": "smoke-capture",
@@ -182,13 +182,13 @@
             "title": "Workspace status",
             "description": "Interactive: project windows, the integration inbox and update status.",
             "kind": "script",
-            "script": "actions/posix/workspace-status.sh",
             "requires": [
               "actions/posix/workspace-status.sh"
             ],
             "tools": [
               "node"
-            ]
+            ],
+            "action": "workspace-status"
           },
           {
             "id": "progress-log",
@@ -215,21 +215,20 @@
             "title": "Restart update supervisor",
             "description": "Interactive: stops this workspace's update supervisor and starts a detached one from this checkout. Its desktop windows close and reopen; the session host and every retained terminal, agent and draft are untouched.",
             "kind": "script",
-            "script": "actions/posix/restart-supervisor.sh",
             "requires": [
               "actions/posix/restart-supervisor.sh",
               "red/red-supervisor/src/bin/red_launch.rs"
             ],
             "tools": [
               "cargo"
-            ]
+            ],
+            "action": "restart-supervisor"
           },
           {
             "id": "bootstrap-agent-hooks",
             "title": "Bootstrap agent hooks (kimi)",
-            "description": "Interactive: installs kimi's SessionStart hook so its sessions report the conversation they run back to this workspace (spec 127). Shown, confirmed, backed up and doctor-verified; restores on failure. Optional — panes work without it.",
+            "description": "Interactive: installs kimi's SessionStart hook so its sessions report the conversation they run back to this workspace (spec 127). Shown, confirmed, backed up and doctor-verified; restores on failure. Optional \u2014 panes work without it.",
             "kind": "script",
-            "script": "actions/posix/bootstrap-agent-hooks.sh",
             "args": [
               "--agent",
               "kimi"
@@ -240,7 +239,8 @@
             "tools": [
               "node",
               "kimi"
-            ]
+            ],
+            "action": "bootstrap-agent-hooks"
           }
         ]
       }

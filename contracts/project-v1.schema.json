@@ -518,7 +518,14 @@
           }
         },
         "script": {
-          "$ref": "#/$defs/relativePath"
+          "$ref": "#/$defs/relativePath",
+          "description": "kind script, contracts 1-8 ONLY: the root-relative .sh path to run. Replaced by `action` from contract 9, because a path cannot express the per-platform split and bash is not used on Windows (charter D71)."
+        },
+        "action": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "maxLength": 64,
+          "description": "kind script, contract 9 and later: the NAME of an action, resolved as actions/<platform>/<name>.<ext> — actions/posix/<name>.sh or actions/win/<name>.ps1. A name rather than a path on purpose: a reader that predates contract 9 meets an unknown key in this closed schema and refuses it by name, instead of running the posix file on Windows and being silently wrong."
         },
         "args": {
           "type": "array",

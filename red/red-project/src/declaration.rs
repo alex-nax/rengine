@@ -293,6 +293,38 @@ fn section_rules(name: &str, block: &Value, context: &Context) -> Vec<String> {
 /// The reader. `declaration_file` is spec 085's external declaration, which sits outside the root
 /// it describes — which is why the artwork beside it resolves against ITS directory rather than the
 /// project's.
+/// The file a named action resolves to on this platform: `actions/<platform>/<name>.<ext>`.
+///
+/// Bash is not used on Windows, even transitionally (charter D71), so the two platforms do not
+/// share a file and the extension follows the directory rather than being guessed from it.
+pub fn action_path(name: &str, os: &str) -> String {
+    if os == "windows" {
+        format!("actions/win/{name}.ps1")
+    } else {
+        format!("actions/posix/{name}.sh")
+    }
+}
+
+/// Expand every `kind: script` action's NAME into the path this platform runs, leaving the name in
+/// place so a reader of the answer can still see what was declared.
+fn resolve_action_names(dashboard: &Value, os: &str) -> Value {
+    let mut out = dashboard.clone();
+    let Some(groups) = out.get_mut("groups").and_then(Value::as_array_mut) else { return out };
+    for group in groups {
+        let Some(actions) = group.get_mut("actions").and_then(Value::as_array_mut) else { continue };
+        for action in actions {
+            if action.get("kind").and_then(Value::as_str) != Some("script") {
+                continue;
+            }
+            let Some(name) = action.get("action").and_then(Value::as_str).map(str::to_string) else { continue };
+            if let Some(map) = action.as_object_mut() {
+                map.insert("script".to_string(), json!(action_path(&name, os)));
+            }
+        }
+    }
+    out
+}
+
 pub fn read(root_path: &str, declaration_file: Option<&str>) -> Value {
     let external = declaration_file.is_some();
     let source = declaration_file.unwrap_or(".rengine/project.json").to_string();
@@ -523,6 +555,14 @@ pub fn read(root_path: &str, declaration_file: Option<&str>) -> Value {
         );
         problems.extend(section_rules(section.name, block, &context));
         if problems.is_empty() {
+            /* Contract 9 declares a script action by NAME; everything downstream — availability's
+               `requires`, the run payload, the worker — wants a path. Resolving it HERE means one
+               place knows the rule and nothing below has to learn the contract (charter D71). */
+            let block = if section.name == "dashboard" && contract >= crate::rules::ACTION_CONTRACT {
+                resolve_action_names(block, std::env::consts::OS)
+            } else {
+                block.clone()
+            };
             result.insert(section.name.to_string(), block.clone());
             if section.name == "devices" {
                 context.devices = Some(block.clone());
@@ -580,5 +620,37 @@ mod tests {
             .filter_map(serde_json::Value::as_i64)
             .collect();
         assert_eq!(declared, super::CONTRACTS.to_vec());
+    }
+}
+
+#[cfg(test)]
+mod action_tests {
+    use super::*;
+
+    /* Charter D71: bash is not used on Windows, even transitionally, so the two platforms do not
+       share a file. The extension follows the DIRECTORY rather than being guessed from the name. */
+    #[test]
+    fn a_named_action_resolves_per_platform() {
+        assert_eq!(action_path("verify", "macos"), "actions/posix/verify.sh");
+        assert_eq!(action_path("verify", "linux"), "actions/posix/verify.sh");
+        assert_eq!(action_path("verify", "windows"), "actions/win/verify.ps1");
+    }
+
+    /* The resolution leaves the NAME in place. A reader of the answer has to be able to see what
+       was declared, not only what this machine resolved it to — otherwise a bug report from a
+       Windows user and one from a macOS user describe two different declarations. */
+    #[test]
+    fn the_name_survives_the_resolution() {
+        let dashboard = json!({ "title": "T", "groups": [{ "id": "g", "title": "G", "actions": [
+            { "id": "a", "title": "A", "kind": "script", "action": "verify", "args": ["harness"] },
+            { "id": "b", "title": "B", "kind": "log", "command": ["echo", "hi"] },
+        ] }] });
+        let resolved = resolve_action_names(&dashboard, "windows");
+        let action = &resolved["groups"][0]["actions"][0];
+        assert_eq!(action["action"], json!("verify"), "the declaration is still readable");
+        assert_eq!(action["script"], json!("actions/win/verify.ps1"), "and the path is this platform's");
+        assert_eq!(action["args"], json!(["harness"]), "everything else is untouched");
+        /* A kind that is not `script` names no action and must not grow a path. */
+        assert!(resolved["groups"][0]["actions"][1].get("script").is_none());
     }
 }

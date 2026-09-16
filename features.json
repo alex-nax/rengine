@@ -4286,6 +4286,29 @@
         "tests/environment.test.mjs",
         "tools/agent_names.py"
       ]
+    },
+    {
+      "id": 221,
+      "milestone": "J0",
+      "category": "orchestrator",
+      "priority": "medium",
+      "description": "Every dashboard action runs on Windows with no bash: the eight PowerShell ports in actions/win/ are EXECUTED on a Windows host and their behaviour compared to the posix originals, and the Rust side stops assuming bash \u2014 red_project::command::bash_path() and its live call sites in red-worker (dashboard run_payload, the agent menu, pipe) and red-host (panes.rs, including a terminal pane's default shell) gain a Windows arm, and actions/pane/win/agent.ps1 replaces the RENGINE_BASH wrap red-agent-launch applies on win32 (owner, 2026-09-16: \"You should not use bash on windows even at transitional phases\"; charter D71, spec 147).",
+      "acceptance_criteria": [
+        "Each of the eight actions runs to completion on the Windows host and produces the same outcome as its posix sibling, recorded stage by stage in an evidence document.",
+        "No bash is invoked anywhere on the Windows path: red_project::command::bash_path() has a Windows arm, and a terminal pane's default shell on win32 is not /bin/bash.",
+        "actions/pane/win/agent.ps1 launches a CLI pane without RENGINE_BASH, and red-agent-launch's win32 branch no longer wraps the CLI in a shell.",
+        "The refusals keep their shape: restart-supervisor's confirm still has no non-interactive bypass, and replace-host still refuses to exit before its detached child reports."
+      ],
+      "passes": false,
+      "dependencies": [
+        163
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The eight ports proven by execution, agent.ps1, the Windows arms in red-project/red-worker/red-host, and the evidence document recording each stage.",
+      "external_references": [],
+      "evidence": [
+        "Not started. What IS established (2026-09-16): all nine files under actions/win/ parse under Windows PowerShell 5.1.26100 on pr0fe@192.168.31.217. Parsing proves the target can read them and nothing more \u2014 no file has been executed, and red/ does not compile on Windows yet (62 cfg(unix) blocks against 1 cfg(windows), with red-host and red-agents having no Windows arm)."
+      ]
     }
   ]
 }

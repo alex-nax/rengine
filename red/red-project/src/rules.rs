@@ -12,6 +12,11 @@ use serde_json::{json, Map, Value};
 
 pub const LOCAL: &str = "local";
 pub const DEVICE_CONTRACT: i64 = 4;
+/// From contract 9 a script action is declared by NAME and the reader resolves
+/// `actions/<platform>/<name>.<ext>` (charter D71, spec 147). A path cannot express the platform
+/// split, and a name cannot be mistaken for one: a reader that predates this meets an unknown key
+/// in a closed schema and refuses it BY NAME, rather than running the posix file on Windows.
+pub const ACTION_CONTRACT: i64 = 9;
 
 /// `JSON.stringify(value)` as a message fragment: a missing value reads `undefined`, the way a
 /// template literal renders it.
@@ -323,7 +328,7 @@ pub fn games_rules(games: &Value, context: &Context) -> Vec<String> {
 
 fn kind_fields(kind: &str) -> Option<&'static [&'static str]> {
     match kind {
-        "script" => Some(&["script", "args", "env"]),
+        "script" => Some(&["script", "action", "args", "env"]),
         "log" => Some(&["command", "filters"]),
         "capture" => Some(&["command", "into", "format"]),
         "game" => Some(&["game", "args"]),
@@ -333,7 +338,9 @@ fn kind_fields(kind: &str) -> Option<&'static [&'static str]> {
 
 fn kind_required(kind: &str) -> &'static [&'static str] {
     match kind {
-        "script" => &["script"],
+        /* Neither key is required unconditionally: which one is depends on the contract, and the
+           script branch below says so with a message naming the contract. */
+        "script" => &[],
         "log" => &["command"],
         "capture" => &["command", "into", "format"],
         "game" => &["game"],
@@ -341,8 +348,18 @@ fn kind_required(kind: &str) -> &'static [&'static str] {
     }
 }
 
-const EVERY_KIND_FIELD: [&str; 9] =
-    ["script", "args", "env", "command", "filters", "command", "into", "format", "game"];
+const EVERY_KIND_FIELD: [&str; 10] =
+    ["script", "action", "args", "env", "command", "filters", "command", "into", "format", "game"];
+
+/// The shape of an action's name: a plain kebab word, and nothing that could be a path. The whole
+/// point of a name is that it is not one, so a separator, a dot or a leading dash is refused here
+/// rather than becoming a traversal at resolution time.
+fn action_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 64
+        && name.starts_with(|c: char| c.is_ascii_lowercase() || c.is_ascii_digit())
+        && name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+}
 
 pub fn dashboard_rules(dashboard: &Value, context: &Context) -> Vec<String> {
     let mut errors = Vec::new();
@@ -413,10 +430,33 @@ pub fn dashboard_rules(dashboard: &Value, context: &Context) -> Vec<String> {
                 }
             }
             if kind == "script" {
-                if let Some(script) = action.get("script").and_then(Value::as_str) {
-                    let shell = script.contains(['|', ';', '&', '$', '`']);
-                    if !root_relative(&json!(script)) || !script.ends_with(".sh") || shell {
-                        errors.push(format!("{where_}.script must be a root-relative .sh path inside the root"));
+                /* Contract 9 REPLACES the path with a name. Both are refused in the other's
+                   contract rather than quietly accepted, because a declaration that carries both
+                   has two answers to "what runs" and a reader would have to pick one. */
+                let by_name = context.contract.is_some_and(|contract| contract >= ACTION_CONTRACT);
+                if by_name {
+                    if action.get("script").is_some() {
+                        errors.push(format!(
+                            "{where_}.script is not used from contract {ACTION_CONTRACT}: name the action instead, and it resolves as actions/<platform>/<name>.<ext>"
+                        ));
+                    }
+                    match action.get("action").and_then(Value::as_str) {
+                        Some(name) if action_name(name) => {}
+                        Some(_) => errors.push(format!("{where_}.action must be a lowercase name, not a path")),
+                        None => errors.push(format!("{where_}.action is required for kind script")),
+                    }
+                } else {
+                    if action.get("action").is_some() {
+                        errors.push(format!(
+                            "{where_}.action requires contract {ACTION_CONTRACT} (declared contract {})",
+                            context.contract.unwrap_or(0)
+                        ));
+                    }
+                    if let Some(script) = action.get("script").and_then(Value::as_str) {
+                        let shell = script.contains(['|', ';', '&', '$', '`']);
+                        if !root_relative(&json!(script)) || !script.ends_with(".sh") || shell {
+                            errors.push(format!("{where_}.script must be a root-relative .sh path inside the root"));
+                        }
                     }
                 }
             }
