@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use serde_json::{json, Value};
 
-use crate::handoff::{check_resume, read_handoff};
+use red_agents::handoff::{check_resume, read_handoff};
 use crate::routes::{faulted, http_text};
 use crate::{ask, ask_pty, Front};
 
@@ -299,7 +299,9 @@ async fn spawn_pane(front: &Arc<Front>, options: &Value) -> Result<Value, String
             return Err("400|Handoff requires a workspace launcher for a CLI that can be handed a conversation.".to_string());
         }
         let ids = red_agents::launch::conversation_ids(&known[..], &cli);
-        let read = read_handoff(&manifest, &root_path, &env, &declared, ids.as_deref())?;
+        /* A pane is always IN a root, so the host always cross-checks; the launcher is the caller
+           that may have no project to compare against. */
+        let read = read_handoff(&manifest, Some(&root_path), &env, &declared, ids.as_deref())?;
         /* A pane already running this conversation is the answer, not a second one: the launcher is
            allowed to ask twice and a person must not end up with two CLIs on one session. */
         let running = front.panes.lock().expect("panes lock").values().find(|session| {
@@ -539,18 +541,12 @@ fn bash_path() -> String {
     red_project::command::bash_path()
 }
 
-/// The node a pane's launcher runs. The JS host passes the exact interpreter running it; this door
-/// has none of its own, so it passes what the workspace declared and lets `agent.sh` fall back to
-/// whatever is on PATH — which is what that script has always done.
+/// The node a pane's launcher runs. The JS host passed the exact interpreter running it; this door
+/// has none of its own, so it resolves one — and it must be an absolute path, because `RENGINE_NODE`
+/// is EXPORTED into every pane and a script that asks `[ -x "$RENGINE_NODE" ]` gets a no from a
+/// bare name. Shared with the launcher's build, which bakes the same value into the desktop.
 fn node_path() -> String {
-    for name in ["RENGINE_NODE", "RENGINE_NODE_EXECUTABLE"] {
-        if let Ok(declared) = std::env::var(name) {
-            if !declared.is_empty() {
-                return declared;
-            }
-        }
-    }
-    "node".to_string()
+    red_project::command::node_path()
 }
 
 /// The binding an agent pane's CLI reads, and the one its connector routes by (spec 095).

@@ -10,6 +10,7 @@
 
 pub mod descriptor;
 pub mod desktops;
+pub mod env;
 pub mod head;
 pub mod http;
 pub mod service;

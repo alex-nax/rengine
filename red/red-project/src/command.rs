@@ -120,6 +120,8 @@ fn unblock<T>(_source: &T) {}
 /// Here rather than in either server because BOTH need it and they must not disagree: the door
 /// spawns a pane's shell, and the worker names the interpreter when it opens a project script as a
 /// tab. `sessions-client.mjs` reads the same variable, and falls back the same way.
+pub use red_core::env::{node_path, on_path};
+
 pub fn bash_path() -> String {
     std::env::var("RENGINE_BASH").ok().filter(|value| !value.is_empty()).unwrap_or_else(|| "/bin/bash".to_string())
 }
@@ -420,4 +422,5 @@ mod tests {
         assert!(!survivor.exists(), "the backgrounded writer went with its group");
         let _ = std::fs::remove_dir_all(&root);
     }
+
 }
