@@ -76,10 +76,11 @@ Details: `docs/specs/143-red-worker.md`.
 | `runtime/discovery.mjs` | 72 | runtime descriptor discovery |
 | `runtime/client.mjs`, `desktop.mjs`, `headless.mjs`, `bootstrap.mjs` | 140 | |
 
-**Status: begun (spec 144).** `red_supervisor::windows` answers what `windows.mjs`'s store answered,
-case for case. Nothing is deleted yet, because a module retires with its caller and the caller is the
-supervisor process. This is still the largest genuinely-unported piece, and the one with the most
-process-lifecycle in it — the part a port gets wrong quietly.
+**Status: four of seven pieces (spec 144).** The window store, the descriptors, the desktop launch
+and control channel, and the update job are Rust and judged against frozen records. Nothing is
+deleted yet, because a module retires with its caller and the caller is the supervisor process. What
+is left is the process choreography — the part a port gets wrong quietly, and the part only the live
+suites can judge.
 
 ### 3. The JS session host behind the door — 1,405 lines
 
@@ -112,11 +113,14 @@ types, and F163 is the row that deletes them.
 3. ~~**F154**~~ — **done**, and its JavaScript with it: `server/tracker.mjs` and
    `server/tracker-auth.mjs` are deleted. The evidence is on the row in `features.json`; `passes`
    stays false only because the prerequisite chain (F153 → F152) is unmarked.
-4. **F159** — the supervisor. **−1,368**, the largest remaining port, and **started**: the
-   project-window store is `red_supervisor::windows`, judged against a 47-case record frozen from
-   `windows.mjs`. Six of the supervisor's thirteen routes are that store; the rest is process
-   lifecycle, which no record can judge and the existing suites do. `docs/specs/144-red-supervisor.md`
-   has the order the remaining six pieces come in.
+4. **F159** — the supervisor. **−1,368**, the largest remaining port, and **four of its seven
+   pieces are done**: the project-window store, the descriptors, what a desktop is launched with and
+   the channel it is asked over, and the update job a caller asks for and polls. Each is judged
+   against a record frozen from the JavaScript, or against the JavaScript while it still says the
+   sentence. What is left is the process choreography — starting, switching and putting back — which
+   no record can judge and the existing suites do. `docs/specs/144-red-supervisor.md` has the order,
+   and the one design question the cutover turns on: a supervisor that is a process cannot hand a
+   test the desktop's pipes.
 5. **`sessions-client.mjs`** — how an agent CLI is launched. **−459**.
 6. **F163** — the entry points, `main.mjs` and the service clients that retire with it. **−~1,700**.
 

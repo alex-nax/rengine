@@ -126,9 +126,17 @@ pub struct SigningIn {
     held: Mutex<Option<Arc<Pending>>>,
 }
 
+/// A sign-in in flight, as everything OTHER than the listening thread sees it.
+///
+/// It deliberately does not own the listener. The listener is moved into the thread that accepts on
+/// it, so the port is released the moment that thread returns — and the thing that ends a sign-in
+/// only needs to know where to knock. Holding it here instead is how the port came to be kept for
+/// the worker's whole life: `held` keeps the last sign-in, and the deadline thread keeps another
+/// reference for five minutes, so a person who signed in once never got that port back and the
+/// fifth workspace on a machine was told every registered port was busy with nothing to close.
 struct Pending {
-    /// Closing this ends the listener's thread, which is how a replacement cancels the one before.
-    listener: std::net::TcpListener,
+    /// Where to knock to wake the blocking accept. There is no portable way to interrupt one.
+    address: std::net::SocketAddr,
     ended: std::sync::atomic::AtomicBool,
 }
 
@@ -185,12 +193,15 @@ impl SigningIn {
         let state = auth::base64url(&red_core::service::secret().into_bytes()[..24]);
         let started = auth::authorize(&client_id, &redirect, &verifier, &state);
 
-        let pending = Arc::new(Pending { listener, ended: std::sync::atomic::AtomicBool::new(false) });
+        let address = listener.local_addr().map_err(|error| format!("503|The sign-in port could not be read: {error}"))?;
+        let pending = Arc::new(Pending { address, ended: std::sync::atomic::AtomicBool::new(false) });
         *self.held.lock().expect("signing in") = Some(pending.clone());
         let (directory, project, redirect_for) = (state_directory.to_string(), project.to_string(), redirect.clone());
         let serving = pending.clone();
+        /* The listener is MOVED here and nowhere else, so when this thread returns the port is free
+           — whether the browser came back, a replacement cancelled it, or the deadline passed. */
         std::thread::spawn(move || {
-            serve_callback(&serving, &directory, &project, &client_id, &redirect_for, &verifier, &state, settled, exchanging)
+            serve_callback(listener, &serving, &directory, &project, &client_id, &redirect_for, &verifier, &state, settled, exchanging)
         });
         /* The deadline is its own thread because the listener blocks: a forgotten tab must not hold
            a registered port until the workspace closes. */
@@ -215,15 +226,15 @@ fn end(pending: &Arc<Pending>) {
     if pending.ended.swap(true, std::sync::atomic::Ordering::SeqCst) {
         return;
     }
-    /* Waking the accept by connecting to it, then letting the listener drop: there is no portable
-       way to interrupt a blocking accept, and a thread left in one holds the port. */
-    if let Ok(address) = pending.listener.local_addr() {
-        let _ = std::net::TcpStream::connect(address);
-    }
+    /* Waking the accept by connecting to it, so the thread that owns the listener can see the flag
+       and return: there is no portable way to interrupt a blocking accept, and a thread left in one
+       holds the port. */
+    let _ = std::net::TcpStream::connect(pending.address);
 }
 
 #[allow(clippy::too_many_arguments)]
 fn serve_callback(
+    listener: std::net::TcpListener,
     pending: &Arc<Pending>,
     state_directory: &str,
     project: &str,
@@ -234,7 +245,7 @@ fn serve_callback(
     settled: Box<dyn Fn(&Value) + Send + 'static>,
     exchanging: Exchanging,
 ) {
-    for stream in pending.listener.incoming() {
+    for stream in listener.incoming() {
         if pending.ended.load(std::sync::atomic::Ordering::SeqCst) {
             return;
         }
@@ -362,6 +373,25 @@ mod tests {
     }
 
     /// The `state` a sign-in bound itself to, read out of the URL it handed back.
+    /// The five callback ports are a FIXED, shared resource. Tests that bind one take turns, because
+    /// otherwise they race each other for the same five numbers and fail for a reason that has
+    /// nothing to do with what they assert — which is exactly the shape of the suite flake that
+    /// found the leak these tests now cover.
+    fn ports() -> std::sync::MutexGuard<'static, ()> {
+        static TURN: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        TURN.lock().unwrap_or_else(|held| held.into_inner())
+    }
+
+    /// The port a sign-in was given, read off the redirect it published.
+    fn port_of(redirect: &str) -> u16 {
+        redirect
+            .split("127.0.0.1:")
+            .nth(1)
+            .and_then(|rest| rest.split('/').next())
+            .and_then(|port| port.parse().ok())
+            .expect("a port in the redirect")
+    }
+
     fn state_of(url: &str) -> String {
         url.split("&state=").nth(1).and_then(|rest| rest.split('&').next()).expect("a state").to_string()
     }
@@ -371,6 +401,7 @@ mod tests {
        sign-in test proved, and the reason the exchange is injectable at all. */
     #[test]
     fn a_browser_sign_in_stores_a_grant_and_the_tab_says_so() {
+        let _turn = ports();
         let at = scratch("stores");
         let signing = SigningIn::new();
         let outcome: Arc<Mutex<Option<Value>>> = Arc::new(Mutex::new(None));
@@ -412,6 +443,7 @@ mod tests {
        this workspace is still waiting on — otherwise a stranger could cancel it by guessing a path. */
     #[test]
     fn a_callback_that_is_not_this_sign_in_stores_nothing_and_does_not_end_it() {
+        let _turn = ports();
         let at = scratch("mismatched");
         let signing = SigningIn::new();
         let started = signing
@@ -438,6 +470,7 @@ mod tests {
        sign-in that failed. */
     #[test]
     fn a_declined_sign_in_says_so_and_leaves_no_grant() {
+        let _turn = ports();
         let at = scratch("declined");
         let signing = SigningIn::new();
         let outcome: Arc<Mutex<Option<Value>>> = Arc::new(Mutex::new(None));
@@ -477,6 +510,7 @@ mod tests {
        either. */
     #[test]
     fn a_second_sign_in_replaces_the_first_rather_than_leaving_it_listening() {
+        let _turn = ports();
         let at = scratch("second");
         let signing = SigningIn::new();
         let first = signing.beginning(&at, "kohai", Box::new(|_| {}), Box::new(|_, _, _, _, now| {
@@ -502,6 +536,51 @@ mod tests {
         assert!(said.contains("Signed in"), "{said}");
         assert_eq!(wait_for(|| auth::stored(&at, "kohai")).expect("a grant")["accessToken"], json!("second"));
         signing.cancel();
+        let _ = std::fs::remove_dir_all(&at);
+    }
+
+    /* The port comes BACK. A sign-in that is over — settled, replaced or timed out — must release
+       the port it was given, and this one did not: the listener was owned by the `Pending` that
+       `held` keeps and that the five-minute deadline thread keeps a second reference to, so a
+       workspace that signed in once never gave that port back. There are five registered ports and
+       a machine runs several workspaces, so the fifth was told "Every sign-in port is busy. Close
+       what is using one and try again" with nothing to close. Found as an intermittent suite
+       failure, which is what a leak looks like from outside. */
+    #[test]
+    fn a_finished_sign_in_gives_its_port_back() {
+        let _turn = ports();
+        let at = scratch("port-returned");
+        let signing = SigningIn::new();
+        let started = signing
+            .beginning(&at, "kohai", Box::new(|_| {}), Box::new(|_, _, _, _, now| {
+                Ok(auth::grant_from(&json!({ "access_token": "t" }), now))
+            }))
+            .expect("started");
+        let redirect = started["redirect"].as_str().expect("a redirect").to_string();
+        let port = port_of(&redirect);
+        assert!(auth::CALLBACK_PORTS.contains(&port), "a registered port: {port}");
+        assert!(std::net::TcpListener::bind(("127.0.0.1", port)).is_err(), "it is held while the sign-in is open");
+
+        /* Settled: the browser came back and the grant was stored. */
+        let said = browser(&redirect, &state_of(started["url"].as_str().expect("a url")), "code=c");
+        assert!(said.contains("Signed in"), "{said}");
+        assert!(
+            wait_for(|| std::net::TcpListener::bind(("127.0.0.1", port)).ok()).is_some(),
+            "the port is free once the sign-in is over"
+        );
+
+        /* And a sign-in that is CANCELLED rather than finished gives it back too. */
+        let again = signing
+            .beginning(&at, "kohai", Box::new(|_| {}), Box::new(|_, _, _, _, now| {
+                Ok(auth::grant_from(&json!({ "access_token": "t" }), now))
+            }))
+            .expect("started");
+        let port = port_of(again["redirect"].as_str().expect("a redirect"));
+        signing.cancel();
+        assert!(
+            wait_for(|| std::net::TcpListener::bind(("127.0.0.1", port)).ok()).is_some(),
+            "a cancelled sign-in frees its port as well"
+        );
         let _ = std::fs::remove_dir_all(&at);
     }
 

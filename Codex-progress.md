@@ -54,6 +54,40 @@ The control channel came with it: one newline-framed JSON request per line, ids 
 -1 because the desktop numbers its own upward, and every non-JSON line skipped — a window that
 printed a warning must not fail the inspection in flight.
 
+**The update job's caller-facing half is Rust too** — `red_supervisor::jobs`: what may be asked
+for, in what order it is refused, and the status a caller polls. Three rules were worth writing down
+rather than translating:
+
+- **Completion is not acceptance.** Asking answers 202 with a job id and a sentence naming where the
+  outcome will be, because a caller treating the 202 as success would report a failed update as a
+  working one.
+- **The refusals are ordered** — root, layers, desktop, then whether another update is running — so
+  a caller that named a bad layer *and* a foreign desktop gets the same sentence every time. A
+  recovery in flight counts as running: a worker being put back is the same kind of busy, and
+  switching one out from under the process restoring it is what the order prevents.
+- **A job never ends in `recovering`.** That word means the switch failed and the previous state is
+  going back; a caller polling for it would wait on something that is not an outcome.
+
+An absent `desktopId` is an absent FIELD rather than a null, because `JSON.stringify` drops an
+`undefined` and a workspace-only job has never carried the key. Five sabotages.
+
+**A leak the suite's own flakiness was pointing at, and nobody had read.** `npm test` failed
+intermittently on different specs; catching one showed *"Every sign-in port is busy (47821, 47822,
+47823, 47824, 47825). Close what is using one and try again."* — a sentence written this session,
+now arriving with nothing to close.
+
+`red_worker::signin`'s callback listener was owned by the `Pending` that `held` keeps for the
+worker's life, and that the five-minute deadline thread keeps a second reference to. So a workspace
+that signed in **once** never gave that port back. There are five registered ports (the provider
+matches redirect URIs exactly and implements no wildcard, so they cannot be OS-assigned) and this
+machine runs four workspaces. The listener is now moved into the thread that accepts on it and
+nowhere else, so the port is released the moment that thread returns — settled, replaced or timed
+out. Sabotage-verified by reintroducing the extra handle.
+
+The port tests also take turns now: five fixed ports are a shared resource, and tests racing each
+other for them fail for reasons that have nothing to do with what they assert — which is the shape
+the flake wore.
+
 Two things worth keeping:
 
 - **UTF-16 again**, and this is the second time this epic has hit it (F156b was the first). Every
@@ -73,9 +107,10 @@ replays the same 47 cases against `windows.mjs` and compares, so the record cann
 froze. It goes with the module (F173), and the Rust replay is then the whole of the evidence.
 Sabotage-verified from the JavaScript side as well as the Rust.
 
-Gates: `./init.sh` green; `cargo test --workspace` **314/314**; `npm test` **367/367**. Two earlier
-runs in the session each reported one failure or one cancelled test; neither was captured, and
-neither reproduced across six later full runs.
+Gates: `./init.sh` green; `cargo test --workspace` **323/323**; `npm test` **367/367**, with
+KI-124's load-sensitive language-server spec the only intermittent left — it failed in two of three
+later runs and passes alone, which is the known issue's own recorded shape. The other intermittent
+was the sign-in port leak above, and it is fixed.
 
 What is left, in order, is in `docs/js-retirement-status.md`: the rest of F159's supervisor and
 launchers, the JS host behind red-host (1,405), and F163's entry points (839).

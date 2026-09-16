@@ -104,6 +104,27 @@ code units. A port that counted bytes would refuse a summary of 1,100 accented c
 JavaScript accepted — the same text, a different answer, and no way for the person who wrote it to
 tell why. This is the second time this epic has hit it (F156b was the first).
 
+## Completion is not acceptance, and the refusals are ordered
+
+Asking for an update answers **202** with a job id and a sentence that names where the outcome will
+be. A caller that treated the 202 as success would report a failed update as a working one, so the
+queued answer says so in words: *"Update queued. Read update_status for completion or failure."*
+
+The refusals come in a fixed order — root, layers, desktop, then whether another update is running —
+because a caller that named a bad layer *and* a desktop on another project must get the same
+sentence every time, not whichever check happened to be cheapest. A recovery in flight counts as
+running: a worker being put back is the same kind of busy as an update, and switching one out from
+under the process restoring it is the failure that ordering prevents.
+
+A job **never ends in `recovering`**. That state means the switch failed and the previous state is
+going back; by the time the job is finished it is `failed`, because a caller polling a job that
+stayed `recovering` forever would be waiting on a word that is not an outcome.
+
+Two shapes that look like details and are not: an absent `desktopId` is an **absent field** rather
+than a null (`JSON.stringify` drops an `undefined`, so a workspace-only job has never carried the
+key), and the job list keeps the newest thirty-two rather than the first thirty-two — it exists so a
+caller polling after a failure can still see what failed.
+
 ## The order the rest comes in
 
 1. ~~**The window store.**~~ Done.
@@ -115,8 +136,10 @@ tell why. This is the second time this epic has hit it (F156b was the first).
    launched with (`red_supervisor::desktop::environment`, against a record taken from a process that
    actually received it) and the control channel it is asked things over. What is left is the
    snapshot and the prepared-build step, which spawn a build and belong with the job below.
-4. **The worker child and the job.** `startWorker`'s identity/capability check, `perform`'s ordering,
-   and the recovery that is used once.
+4. **The worker child and the job.** The caller's half is done — `red_supervisor::jobs` is what
+   may be asked for, in what order it is refused, and the status a caller polls. What is left is
+   `startWorker`'s identity/capability check, `perform`'s ordering, and the recovery that is used
+   once.
 5. **The server.** Routes, forward, tunnel — `red_core::head` already frames all three, and
    `red-worker` is the working example of doing it against a child.
 6. **The launchers.** `replace.mjs`'s process-table scan, `restart-supervisor.mjs`'s confirm prompt
@@ -149,6 +172,29 @@ a crate whose binaries are spawned per pane, to read one JSON file.
 The choice is between taking the dependency and extracting the descriptor reader into a crate small
 enough for `red-agents` to depend on. It belongs with the rest of F159 rather than before it, and
 it is written down here so the criterion is met on purpose rather than declared.
+
+## The one design question the cutover turns on
+
+A supervisor that is a **process** cannot hand a test the desktop's pipes, and three desktop specs
+depend on exactly that. `native-updates`, `native-project-windows` and `native-token-e2e` pass an
+`onDesktop` callback into `startRuntime`, take the child, and drive the window over its stdin and
+stdout with the automation protocol — clicks, keys, state reads.
+
+What makes that work today is worth noticing, because it is also the answer: **the supervisor and
+the test are already two speakers on one stream, split by the sign of the id.** The supervisor's
+control channel numbers its requests DOWN from -1; the automation protocol numbers its own UP from
+1; each side ignores what is not its own. In JavaScript they simply both attach a listener to the
+same pipes.
+
+So the cutover needs the supervisor to **relay** that stream rather than own it: under
+`--inspect-ui`, a socket route carries the automation half — every line the desktop says that is not
+an answer to one of the supervisor's own negative ids goes out to whoever is attached, and every
+line that comes back goes down the desktop's stdin. That makes explicit what is implicit now, and it
+is gated on the same flag that already means "a test is driving this".
+
+The alternative — proxying each click as an HTTP call — is rejected: the automation protocol is
+interactive and per-frame, and a route that exists only for tests and is slow enough to change what
+they observe is worse than no route.
 
 ## What this does not change
 

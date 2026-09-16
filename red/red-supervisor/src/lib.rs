@@ -9,4 +9,5 @@
 //! child is moved.
 
 pub mod desktop;
+pub mod jobs;
 pub mod windows;
