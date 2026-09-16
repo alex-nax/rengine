@@ -103,6 +103,19 @@ pub fn check_connection(value: &Value) -> Result<Connection, String> {
 /// signal is a process. Treating it as gone is how a workspace starts a second host beside a live
 /// one, so the permission error is the one case worth spelling out.
 pub fn alive(pid: i64) -> bool {
+    signal(pid, 0)
+}
+
+/// Send a signal to a process, or ask whether it is there at all with signal 0.
+///
+/// One place in this workspace talks to the process table, because the answer has to be the same
+/// everywhere: `EPERM` is a **yes**. A process we are not allowed to signal is a process, and
+/// treating it as gone is how a second session host gets started beside a live one.
+///
+/// Signalling by pid rather than through a `Child` handle is deliberate for the callers that hand
+/// their child to a thread that waits on it — the waiter owns the handle, and everyone else has the
+/// number.
+pub fn signal(pid: i64, number: i32) -> bool {
     if pid < 1 || pid > i32::MAX as i64 {
         return false;
     }
@@ -110,15 +123,19 @@ pub fn alive(pid: i64) -> bool {
     {
         /* EPERM is 1 on every platform this runs on, and one `extern "C"` for one signal is cheaper
            than a dependency that would have to be pinned and vendored for it. */
-        let answer = unsafe { kill(pid as i32, 0) };
+        let answer = unsafe { kill(pid as i32, number) };
         answer == 0 || std::io::Error::last_os_error().raw_os_error() == Some(1)
     }
     #[cfg(not(unix))]
     {
-        let _ = pid;
+        let _ = (pid, number);
         true
     }
 }
+
+/// `SIGTERM`, which is what this workspace asks a child to stop with: a desktop saves its drafts on
+/// it, and a worker drains its sockets. `SIGKILL` is for a child that did not.
+pub const TERM: i32 = 15;
 
 #[cfg(unix)]
 extern "C" {

@@ -9,3 +9,11 @@ red-core = { path = "../red-core" }
 # `preserve_order`, because a project window's layout is the desktop's own document and is handed
 # back to it unchanged — a store that reordered its keys would hand a person a different layout.
 serde_json = { version = "1", features = ["preserve_order"] }
+# The server: loopback HTTP, plus the two sockets it tunnels to the worker byte for byte. The same
+# tokio every server here already links, with only the features the head and the copy need.
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time"] }
+
+# The supervisor as a process: what `runtime/discovery.mjs` starts where it forked a module.
+[[bin]]
+name = "red-supervisor"
+path = "src/bin/red_supervisor.rs"

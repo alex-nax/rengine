@@ -21,11 +21,7 @@
 
 use serde_json::{json, Value};
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Refused {
-    pub message: String,
-    pub status: u16,
-}
+pub use crate::Refused;
 
 fn refuse<T>(message: &str, status: u16) -> Result<T, Refused> {
     Err(Refused { message: message.to_string(), status })

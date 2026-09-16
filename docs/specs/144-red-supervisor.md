@@ -2,9 +2,10 @@
 
 Owner goal, 2026-09-15: *"finish remaining js"* (charter D57, spec 129; F159).
 
-Status: **in progress.** The project-window store is Rust and judged against a frozen record of what
-the JavaScript said. Nothing is deleted yet: a module retires with its caller, and the caller is the
-supervisor process itself.
+Status: **the binary serves.** `red-supervisor` is a process: it starts a worker, answers its own
+routes, forwards the rest, publishes the descriptor and performs a layered workspace update, proved
+end to end against a real session host by `supervisor-cutover.test.mjs`. Nothing is deleted yet —
+what stands between here and that is the automation relay and the launchers.
 
 `docs/js-retirement-status.md` is the whole picture this row sits in. Spec 143 is the worker one
 layer below, and its device is the one used here: **record the old implementation's answers before
@@ -140,11 +141,16 @@ caller polling after a failure can still see what failed.
    may be asked for, in what order it is refused, and the status a caller polls. What is left is
    `startWorker`'s identity/capability check, `perform`'s ordering, and the recovery that is used
    once.
-5. **The server.** Routes, forward, tunnel — `red_core::head` already frames all three, and
-   `red-worker` is the working example of doing it against a child.
-6. **The launchers.** `replace.mjs`'s process-table scan, `restart-supervisor.mjs`'s confirm prompt
+5. ~~**The server.**~~ Done. `red-supervisor --state DIR --host URL --host-token TOKEN` binds a
+   loopback port, announces itself on stdout as one JSON line, writes `runtime.json`, and serves —
+   its own thirteen routes, everything else forwarded to the worker, `/events` and `/surface`
+   tunnelled byte for byte. `--worker`, `--connector`, `--desktop`, `--port`, `--inspect-ui` and
+   `--initial` are the flags that replace what `startRuntime` took as injected functions.
+6. **The automation relay** (below), which is what three desktop specs need before they can be
+   pointed at a supervisor that is a process — and the last thing the binary is missing.
+7. **The launchers.** `replace.mjs`'s process-table scan, `restart-supervisor.mjs`'s confirm prompt
    with no non-interactive bypass and its read-only `--plan`, `headless.mjs`, `bootstrap.mjs`.
-7. **Cut over and delete.** `discovery.mjs` spawns the binary where it forks the module — the same
+8. **Cut over and delete.** `discovery.mjs` spawns the binary where it forks the module — the same
    fork-versus-spawn seam the supervisor itself grew for `red-worker` — and the eleven JavaScript
    files retire together, with their caller.
 
@@ -172,6 +178,31 @@ a crate whose binaries are spawned per pane, to read one JSON file.
 The choice is between taking the dependency and extracting the descriptor reader into a crate small
 enough for `red-agents` to depend on. It belongs with the rest of F159 rather than before it, and
 it is written down here so the criterion is met on purpose rather than declared.
+
+## What the binary is, and what proves it
+
+    red-supervisor --state DIR --host URL --host-token TOKEN
+                   [--worker PATH] [--connector PATH] [--desktop PATH]
+                   [--port N] [--inspect-ui] [--initial JSON]
+
+It binds a loopback port, announces itself on stdout as one JSON line — the same shape `red-worker`
+announces one layer down — writes `runtime.json`, and serves. The flags are what `startRuntime` took
+as injected functions: a suite that handed in a `workerFile` hands in `--worker`, one that handed in
+a `toolWorkerFile` hands in `--connector`.
+
+`orchestrator/tests/supervisor-cutover.test.mjs` drives it against a real session host: the
+descriptor it publishes, `/health` without a credential, the refusals for a missing credential and a
+foreign origin, the composed `/api/state`, a forwarded `/api/feed` (the one route nothing but a
+worker can serve), the update status, the refusals **in order**, and a whole layered workspace update
+— candidate started, checked against this host, switched in, the previous worker retired and closed.
+It passed on the first run; four sabotages confirm it:
+
+| sabotage | what went red |
+|---|---|
+| the layers are judged before the root | a bad root with bad layers answered about the layers |
+| `update-status` is forwarded rather than answered | *Unknown workspace endpoint* |
+| a foreign `Origin` is accepted | the 401 that is not one |
+| the previous worker is never closed | *Timed out: the replaced worker drained and closed* |
 
 ## The one design question the cutover turns on
 

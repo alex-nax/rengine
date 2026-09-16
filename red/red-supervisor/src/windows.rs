@@ -24,12 +24,9 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{json, Value};
 
-/// Why an ask was refused, and the status the route answers with. Both are the JavaScript's.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Refused {
-    pub message: String,
-    pub status: u16,
-}
+/// Why an ask was refused, and the status the route answers with. Both are the JavaScript's, and
+/// there is one of these for the whole crate.
+pub use crate::Refused;
 
 fn refuse<T>(message: &str, status: u16) -> Result<T, Refused> {
     Err(Refused { message: message.to_string(), status })

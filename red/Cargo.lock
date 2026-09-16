@@ -2821,6 +2821,7 @@ version = "0.1.0"
 dependencies = [
  "red-core",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]

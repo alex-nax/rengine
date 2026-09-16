@@ -1,4 +1,4 @@
-## Session 161 (opus-5) — 2026-09-16 — The tracker's JavaScript goes, and the supervisor port begins
+## Session 161 (opus-5) — 2026-09-16 — The tracker's JavaScript goes, and red-supervisor serves
 
 Owner goal: *"finish remaining js"*.
 
@@ -71,6 +71,18 @@ rather than translating:
 An absent `desktopId` is an absent FIELD rather than a null, because `JSON.stringify` drops an
 `undefined` and a workspace-only job has never carried the key. Five sabotages.
 
+**`red-supervisor` is a process, and it serves.** It starts a worker, answers its own thirteen
+routes, forwards the rest, tunnels `/events` and `/surface` byte for byte, publishes `runtime.json`,
+and performs a whole layered workspace update — candidate started, checked against this host,
+switched in, previous worker retired and closed. `supervisor-cutover.test.mjs` drives the binary
+against a real session host and it passed on the first run; four sabotages confirm it (the layers
+judged before the root, `update-status` forwarded rather than answered, a foreign `Origin` accepted,
+and the previous worker never closed).
+
+The flags are what `startRuntime` took as injected functions: `--worker`, `--connector`, `--desktop`,
+`--inspect-ui`, `--initial`. One is still missing, and it is the thing the cutover turns on — see
+below.
+
 **A leak the suite's own flakiness was pointing at, and nobody had read.** `npm test` failed
 intermittently on different specs; catching one showed *"Every sign-in port is busy (47821, 47822,
 47823, 47824, 47825). Close what is using one and try again."* — a sentence written this session,
@@ -100,14 +112,24 @@ Two things worth keeping:
   all. The list is now read off the workspace, and the six missing crates are CTest targets.
 
 Nothing is deleted for F159 yet, deliberately: a module retires with its caller, and the caller is
-the supervisor process. The order the remaining six pieces come in is in spec 144.
+the supervisor process — which is not yet the one that runs.
+
+**What the cutover turns on, written down rather than discovered at the wrong moment.** A supervisor
+that is a PROCESS cannot hand a test the desktop's pipes, and three desktop specs pass an `onDesktop`
+callback into `startRuntime`, take the child, and drive the window over its stdin and stdout. What
+makes that work today is also the answer: **the supervisor and the test are already two speakers on
+one stream, split by the sign of the id** — the control channel counts DOWN from -1, the automation
+protocol counts UP from 1, and each ignores what is not its own. So the supervisor has to RELAY the
+automation half under `--inspect-ui` rather than own it. Proxying each click as an HTTP call is
+rejected: a route that exists only for tests and is slow enough to change what they observe is worse
+than no route.
 
 The record has a JavaScript half too, for as long as its subject does: `window-store-record.test.mjs`
 replays the same 47 cases against `windows.mjs` and compares, so the record cannot drift from what it
 froze. It goes with the module (F173), and the Rust replay is then the whole of the evidence.
 Sabotage-verified from the JavaScript side as well as the Rust.
 
-Gates: `./init.sh` green; `cargo test --workspace` **323/323**; `npm test` **367/367**, with
+Gates: `./init.sh` green; `cargo test --workspace` **335/335**; `npm test` **368/368**, with
 KI-124's load-sensitive language-server spec the only intermittent left — it failed in two of three
 later runs and passes alone, which is the known issue's own recorded shape. The other intermittent
 was the sign-in port leak above, and it is fixed.
