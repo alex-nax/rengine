@@ -5,8 +5,8 @@ import { existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { WorkspaceStore } from '../server/store-client.mjs';
-import { Sessions } from '../server/sessions-client.mjs';
+import { startServer } from './red-host-fixture.mjs';
+import { endStateServices } from './state-services.mjs';
 import { fakeCli } from './task-fixtures.mjs';
 import { built } from './cargo.mjs';
 
@@ -18,46 +18,48 @@ before(() => built('--bins'));
 
 
 const until = async predicate => {
-  const end = Date.now() + 5000;
+  const end = Date.now() + 15000;
   while (!predicate()) { if (Date.now() > end) throw new Error('Session condition timed out'); await new Promise(r => setTimeout(r, 25)); }
 };
 
 test('real terminals retain identity/output without views and Stop affects only its session', { timeout: 15000 }, async t => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-sessions-'));
-  const store = await WorkspaceStore.open(path.join(dir, 'state'));
+  const stateDir = path.join(dir, 'state');
+  const host = await startServer({ stateDir });
+  const store = host.store, sessions = host.sessions;
   const root = await store.addRoot(dir);
-  const sessions = new Sessions(store);
-  t.after(async () => { await sessions.shutdown(); await rm(dir, { recursive: true, force: true }); });
+  t.after(async () => { await host.close({ retain: false }); await endStateServices(stateDir); await rm(dir, { recursive: true, force: true }); });
   const shell = process.platform === 'win32'
     ? { command: 'powershell.exe', args: ['-NoLogo', '-NoProfile'] }
     : { command: '/bin/bash', args: ['--noprofile', '--norc'] };
   const a = await sessions.terminal({ rootId: root.id, ...shell });
   const b = await sessions.terminal({ rootId: root.id, ...shell });
   const command = process.platform === 'win32' ? 'Write-Output ("first-" + "terminal")\r' : "printf 'first-%s\\n' terminal\r";
-  sessions.input(a.id, command);
+  await sessions.input(a.id, command);
   await until(() => sessions.get(a.id).output.includes('first-terminal'));
   const pid = sessions.get(a.id).pid;
-  sessions.resize(a.id, 110, 35);
+  await sessions.resize(a.id, 110, 35);
   assert.equal(sessions.snapshot(a.id).cols, 110);
   assert.equal(sessions.snapshot(a.id).rootId, root.id);
   assert.equal(sessions.snapshot(a.id).pid, pid);
   await sessions.stop(a.id);
   await until(() => sessions.get(a.id).state === 'exited');
   assert.equal(sessions.get(b.id).state, 'running');
-  sessions.input(b.id, process.platform === 'win32' ? 'Write-Output ("second-" + "alive")\r' : "printf 'second-%s\\n' alive\r");
+  await sessions.input(b.id, process.platform === 'win32' ? 'Write-Output ("second-" + "alive")\r' : "printf 'second-%s\\n' alive\r");
   await until(() => sessions.get(b.id).output.includes('second-alive'));
-  assert.throws(() => sessions.input(a.id, 'anything'), /not running/);
-  assert.throws(() => sessions.resize(b.id, 0, 1), /dimensions/);
+  await assert.rejects(sessions.input(a.id, 'anything'), /not running/);
+  await assert.rejects(sessions.resize(b.id, 0, 1), /dimensions/);
 });
 
 // A restart is only meaningful when rEngine knows which conversation to resume into. Refusing by
 // name beats silently starting a second conversation. See docs/specs/096-agent-session-resume.md.
 test('restarting refuses anything it cannot put back into its own conversation', { timeout: 15000 }, async t => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-restart-'));
-  const store = await WorkspaceStore.open(path.join(dir, 'state'));
+  const stateDir = path.join(dir, 'state');
+  const host = await startServer({ stateDir });
+  const store = host.store, sessions = host.sessions;
   const root = await store.addRoot(dir);
-  const sessions = new Sessions(store);
-  t.after(async () => { await sessions.shutdown(); await rm(dir, { recursive: true, force: true }); });
+  t.after(async () => { await host.close({ retain: false }); await endStateServices(stateDir); await rm(dir, { recursive: true, force: true }); });
   const shell = process.platform === 'win32'
     ? { command: 'powershell.exe', args: ['-NoLogo', '-NoProfile'] }
     : { command: '/bin/bash', args: ['--noprofile', '--norc'] };
@@ -73,17 +75,17 @@ test('restarting refuses anything it cannot put back into its own conversation',
 // live spawn ended up resuming the conversation of the agent that spawned it.
 test('the project’s conversations are offered to a bare pane only', { timeout: 30000 }, async t => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-offer-'));
-  const store = await WorkspaceStore.open(path.join(dir, 'state'));
+  const stateDir = path.join(dir, 'state');
+  const host = await startServer({ stateDir });
+  const store = host.store, sessions = host.sessions;
   const root = await store.addRoot(dir);
-  const sessions = new Sessions(store);
-  // The listing is composed here, before the pane is spawned, so a context the launcher cannot reach
-  // is enough: what is under test is which launches get one written for them.
-  sessions.workspaceContext = { url: 'http://127.0.0.1:1', token: 'unreachable', instance: 'test' };
-  t.after(async () => { await sessions.shutdown(); await rm(dir, { recursive: true, force: true }); });
-  await fakeCli(store.directory, 'claude');
+  /* The context a pane is given is the HOST's own now: it mints one from the port it is answering
+     on. What is under test is unchanged — which launches get a listing written for them. */
+  t.after(async () => { await host.close({ retain: false }); await endStateServices(stateDir); await rm(dir, { recursive: true, force: true }); });
+  await fakeCli(stateDir, 'claude');
   const earlier = randomUUID();
   await store.recordConversation(root.id, { conversation: earlier, agent: 'claude' });
-  const listingOf = id => path.join(store.directory, 'integrations', `${id}.conversations.tsv`);
+  const listingOf = id => path.join(stateDir, 'integrations', `${id}.conversations.tsv`);
 
   const bare = await sessions.terminal({ rootId: root.id, type: 'agent', agent: 'claude' });
   assert.equal(existsSync(listingOf(bare.id)), true, 'a bare pane with history is offered it');
@@ -104,12 +106,12 @@ test('the project’s conversations are offered to a bare pane only', { timeout:
 // restart back into the recorded one.
 test('kimi is never minted a conversation: naming one without resume is refused by name', { timeout: 30000 }, async t => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-kimi-mint-'));
-  const store = await WorkspaceStore.open(path.join(dir, 'state'));
+  const stateDir = path.join(dir, 'state');
+  const host = await startServer({ stateDir });
+  const store = host.store, sessions = host.sessions;
   const root = await store.addRoot(dir);
-  const sessions = new Sessions(store);
-  sessions.workspaceContext = { url: 'http://127.0.0.1:1', token: 'unreachable', instance: 'test' };
-  t.after(async () => { await sessions.shutdown(); await rm(dir, { recursive: true, force: true }); });
-  await fakeCli(store.directory, 'kimi');
+  t.after(async () => { await host.close({ retain: false }); await endStateServices(stateDir); await rm(dir, { recursive: true, force: true }); });
+  await fakeCli(stateDir, 'kimi');
   const kimiSession = 'session_3f85774e-05bb-4791-bb9f-1c90dc37d0e6';
   await store.recordConversation(root.id, { conversation: kimiSession, agent: 'kimi' });
 
@@ -127,14 +129,15 @@ test('kimi is never minted a conversation: naming one without resume is refused 
 // inherits that pane's listing. Nothing but this launch may decide what this pane is offered.
 test('a listing inherited from the host’s own environment never reaches a pane', { timeout: 15000 }, async t => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-inherit-'));
-  const store = await WorkspaceStore.open(path.join(dir, 'state'));
+  const stateDir = path.join(dir, 'state');
+  const host = await startServer({ stateDir });
+  const store = host.store, sessions = host.sessions;
   const root = await store.addRoot(dir);
-  const sessions = new Sessions(store);
   const before = process.env.RENGINE_AGENT_CONVERSATIONS;
   process.env.RENGINE_AGENT_CONVERSATIONS = path.join(dir, 'somebody-elses.tsv');
   t.after(async () => {
     if (before === undefined) delete process.env.RENGINE_AGENT_CONVERSATIONS; else process.env.RENGINE_AGENT_CONVERSATIONS = before;
-    await sessions.shutdown(); await rm(dir, { recursive: true, force: true });
+    await host.close({ retain: false }); await endStateServices(stateDir); await rm(dir, { recursive: true, force: true });
   });
   const shell = process.platform === 'win32'
     ? { command: 'powershell.exe', args: ['-NoLogo', '-NoProfile', '-Command', 'Write-Output ("listing=" + $(if ($env:RENGINE_AGENT_CONVERSATIONS) { $env:RENGINE_AGENT_CONVERSATIONS } else { "none" }))'] }
@@ -151,10 +154,11 @@ test('a listing inherited from the host’s own environment never reaches a pane
    instant exits at once is the shape that makes the race likely rather than rare. */
 test('a child that exits during the spawn round trip is still seen exiting', { timeout: 30000 }, async t => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-instant-exit-'));
-  const store = await WorkspaceStore.open(path.join(dir, 'state'));
+  const stateDir = path.join(dir, 'state');
+  const host = await startServer({ stateDir });
+  const store = host.store, sessions = host.sessions;
   const root = await store.addRoot(dir);
-  const sessions = new Sessions(store);
-  t.after(async () => { await sessions.shutdown(); await rm(dir, { recursive: true, force: true }); });
+  t.after(async () => { await host.close({ retain: false }); await endStateServices(stateDir); await rm(dir, { recursive: true, force: true }); });
   const spawned = await Promise.all(Array.from({ length: 12 }, (_, index) =>
     sessions.terminal({ rootId: root.id, command: '/bin/sh', args: ['-c', `exit ${index % 5}`] })));
   for (const session of spawned) {

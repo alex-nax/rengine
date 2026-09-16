@@ -13,7 +13,7 @@ git ls-files '*.mjs' | grep -vE 'tests/|\.test\.mjs' | xargs wc -l | tail -1
 
 | | lines |
 |---|---|
-| Production JavaScript remaining | **3,575** across 34 files |
+| Production JavaScript remaining | **3,012** across 33 files |
 | Rust in `red/` | ~34,000 |
 
 Down from 5,504 across 43 when this was first written — **35% of it gone**. The worker, the tracker
@@ -84,15 +84,16 @@ suite that drove the module drives the binary — including the four desktop spe
 window through the supervisor's automation relay because a process cannot hand anyone a child's
 pipes. What is left is the launchers, which are their own commands rather than this layer.
 
-### 3. The JS session host — 1,405 lines, and OFF THE PRODUCT PATH
+### 3. The JS session host — 842 lines left of 1,405
 
 | file | lines | |
 |---|---|---|
-| `server/sessions-client.mjs` | 459 | the agent launcher: env, resume, titles |
-| `server/store-client.mjs` | 229 | client of `red-store-serve` |
-| `server/main.mjs` | 209 | the dispatcher `red-host` used to front |
-| `server/pty-client.mjs` | 189 | client of `red-pty-serve` |
+| ~~`server/main.mjs`~~ | ~~209~~ | **deleted** |
+| ~~`server/sessions-client.mjs`'s `Sessions`~~ | ~~380~~ | **deleted** — the pane record is the service's (D62) |
+| `server/store-client.mjs` | 229 | client of `red-store-serve`; 21 specs |
+| `server/pty-client.mjs` | 189 | client of `red-pty-serve`; 3 specs |
 | `server/{tasks,devices,project-client,formats,dashboard,recordings}.mjs` | 301 | thin clients of `red-project` |
+| `server/sessions-client.mjs` | 79 | the shell envelope, bash on Windows, a pane's title |
 
 **Status: a workspace runs no JavaScript host.** `ensureSidecar` starts `red-host`, which starts the
 state directory's own store and PTY services, publishes `sidecar.json` and answers every route a
@@ -104,30 +105,25 @@ files, drafts, a real pane, the board, and the socket a desktop registers on.
 `npm test` run forwarded **zero** requests to the JavaScript behind the door. It had been answering
 nothing.
 
-These 1,405 lines are now a **test fixture**: 76 specs call `startServer` and reach into the `store`
+What is left of these is a **test fixture**: 76 specs call `startServer` and reach into the `store`
 and `sessions` objects it returns. Deleting them means `startServer` becomes a fixture over
 `red-host`'s routes, the way `red-supervisor-fixture.mjs` and `red-worker-fixture.mjs` already do for
 their layers — and the shape of that work is worth writing down, because the call count understates
 it:
 
-| what the specs use | times | what it takes |
-|---|---:|---|
-| `store.addRoot`, `sessions.terminal`, `sessions.stop`, `sessions.input`, `store.readText`, `store.preferences`, `store.saveLayout`, `store.list`, `store.recordConversation`, `store.listConversations` | ~250 | already async; a route each |
-| **`sessions.snapshot(id, output)`** | **91** | **synchronous**, and usually inside a polling loop |
-| `sessions.list`, `sessions.items.size`, `sessions.get` | 21 | synchronous |
-| `store.state.{preferences,drafts,layout,roots,conversations}` | 16 | synchronous |
-| `sessions.record`, `sessions.presented`, `sessions.emit` | 3 | internals, one spec each |
-| `startServer({ frontDoor: false })` | 8 | a backend with no door, which will not exist |
+`red-host-fixture.mjs` is that fixture, and the mirror is why it is one rather than a
+search-and-replace: 91 call sites read `sessions.snapshot(id, true).output` inside a polling loop, so
+it keeps the mirror the JS client kept — subscribe to `/events`, attach to each pane as it appears,
+answer the synchronous reads from what has arrived. The door replays a pane's whole scrollback on
+attach, so the mirror is complete rather than "from when we looked".
 
-The synchronous reads are the work. Making them `await` would touch 91 polling loops; the better
-shape is the one the JS client already has — **a small event-driven mirror**: subscribe to
-`/events`, keep the pane records and their output as they arrive, and answer `snapshot`, `list`,
-`items` and `get` from that cache. Perhaps 120 lines, and then the import swap is mechanical.
+What is left in `orchestrator/server/` are **thin clients of Rust**, each a few lines over
+`askProject` or a service socket, kept alive by the specs that still import them:
 
-Two specs genuinely retire with the backend rather than converting: `red-host.test.mjs`'s
-store-sharing case and its three-process pane-record case both exist to compare the door against the
-JS host, and a parity proof cannot outlive the side it compares against (F173). Most of that file is
-already backend-free — it asserts the door's answers directly.
+`red-host.test.mjs` did **not** retire. It compared the door against the JS host; both sides are
+`red-host` now, so it compares **two hosts on one state directory** — which is what a host
+replacement actually produces (charter D62). Every assertion is unchanged and each means more: "both
+hosts answer the same" was a migration check and is now the rule the directory is built on.
 
 ### 4. Agent-side and entry points — 839 lines (**F163**)
 
@@ -151,8 +147,9 @@ types, and F163 is the row that deletes them.
    protocol. `runtime/supervisor.mjs`, `windows.mjs` and `desktop.mjs` are deleted. What is left of
    F159 is the **launchers** — `replace.mjs`, `restart-supervisor.mjs`, `headless.mjs`,
    `bootstrap.mjs`, and `discovery.mjs` with `protocol.mjs` behind it. **−780 more.**
-5. **The JS host's deletion** — it is off the product path already; what holds it in the tree is
-   `startServer`, which 76 specs use as a fixture. One mechanical conversion. **−1,405**.
+5. **The rest of the JS host** — 842 lines of thin clients over Rust, kept alive by the specs that
+   import them. Each is a few lines over `askProject` or a service socket; the specs that test the
+   JS implementations directly have Rust parity tests already. **−842**.
 6. **F163** — the entry points and the launchers that retire with them. **−~880**.
 
 ## Two things worth knowing before the next step

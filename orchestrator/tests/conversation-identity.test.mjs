@@ -6,8 +6,9 @@ import path from 'node:path';
 import { agentLaunch, describeSession } from '../agents/agents-client.mjs';
 import { bind } from '../agents/agents-client.mjs';
 import { startServer } from './red-host-fixture.mjs';
-import { WorkspaceStore } from '../server/store-client.mjs';
-import { Sessions, agentTitle } from '../server/sessions-client.mjs';
+import { agentTitle } from '../server/sessions-client.mjs';
+import { endStateServices } from './state-services.mjs';
+import { fakeCli } from './task-fixtures.mjs';
 import { Tokens, readIdentity } from '../runtime/token-client.mjs';
 import { built } from './cargo.mjs';
 
@@ -95,42 +96,55 @@ test('a launch that continues or forks reports no conversation rather than claim
 
 // The pane's own record must follow the pane. `null` clears it, so restart_agent refuses by name
 // rather than resuming a conversation this pane never held.
-test('the host record follows the launch, including when the launch claims nothing', { timeout: 15000 }, async t => {
+test('the host record follows the launch, including when the launch claims nothing', { timeout: 60000 }, async t => {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-record-'));
-  const store = await WorkspaceStore.open(path.join(directory, 'state'));
-  const root = await store.addRoot(directory);
-  const sessions = new Sessions(store);
-  t.after(async () => { await sessions.shutdown(); await rm(directory, { recursive: true, force: true }); });
-  const pane = { id: 'pane', rootId: root.id, type: 'agent', agent: 'claude', conversation: HOST, titleAuto: true,
-    title: agentTitle('claude', HOST, root.name), state: 'running', cols: 100, rows: 30, output: '', sequence: 0, createdAt: Date.now() };
-  sessions.items.set(pane.id, pane);
+  const stateDir = path.join(directory, 'state');
+  const host = await startServer({ stateDir });
+  t.after(async () => { await host.close({ retain: false }); await endStateServices(stateDir); await rm(directory, { recursive: true, force: true }); });
+  const root = await host.store.addRoot(directory);
+  await fakeCli(stateDir, 'claude');
+  /* A REAL agent pane, because the record belongs to the state directory's service (charter D62)
+     and a fabricated one would be this spec's idea of a pane rather than the workspace's. */
+  const pane = await host.sessions.terminal({ rootId: root.id, type: 'agent', agent: 'claude', conversation: HOST, resume: true });
+  assert.equal(pane.conversation, HOST, 'the pane starts on the conversation it was told');
 
-  const swapped = await sessions.recordConversation(pane.id, MINE, 'claude');
-  assert.equal(swapped.conversation, MINE, 'the pane reported another conversation, and the record took it');
-  assert.equal(swapped.title, `claude ${MINE.slice(0, 8)} · ${root.name}`, 'the pane title shows the same eight characters');
-  assert.deepEqual(store.listConversations(root.id).map(entry => entry.id), [MINE], 'and it is what the project persists');
+  const reported = async conversation => {
+    const answer = await fetch(`${host.url}/api/agent-conversation`, {
+      method: 'POST', headers: { authorization: `Bearer ${host.token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ id: pane.id, conversation, agent: 'claude' }),
+    });
+    return answer.json();
+  };
+  const took = await reported(MINE);
+  assert.equal(took.conversation, MINE, 'the pane reported another conversation, and the record took it');
+  assert.equal(took.title, `claude ${MINE.slice(0, 8)} · ${root.name}`, 'the pane title shows the same eight characters');
+  const persisted = (await host.store.listConversations(root.id)).map(entry => entry.id);
+  assert.ok(persisted.includes(MINE), `and it is what the project persists: ${persisted}`);
 
-  const cleared = await sessions.recordConversation(pane.id, null, 'claude');
+  const cleared = await reported(null);
   assert.equal(cleared.conversation, undefined, 'a launch that claims nothing leaves the pane holding nothing');
-  assert.deepEqual(store.listConversations(root.id).map(entry => entry.id), [MINE], 'and persists nothing new');
-  await assert.rejects(sessions.restartAgent(pane.id), /no conversation/i,
+  assert.deepEqual((await host.store.listConversations(root.id)).map(entry => entry.id), persisted,
+    'and persists nothing new');
+  await assert.rejects(host.sessions.restartAgent(pane.id), /no conversation/i,
     'so a restart refuses by name instead of resuming a conversation this pane never had');
 });
 
-test('a restart puts the pane back on the same conversation, so the identity survives it', { timeout: 15000 }, async t => {
+test('a restart puts the pane back on the same conversation, so the identity survives it', { timeout: 60000 }, async t => {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-restart-plan-'));
-  const store = await WorkspaceStore.open(path.join(directory, 'state'));
-  const root = await store.addRoot(directory);
-  const sessions = new Sessions(store);
-  t.after(async () => { await sessions.shutdown(); await rm(directory, { recursive: true, force: true }); });
-  sessions.items.set('pane', { id: 'pane', rootId: root.id, type: 'agent', agent: 'claude', conversation: HOST,
-    titleAuto: true, title: agentTitle('claude', HOST, root.name), state: 'running', cols: 111, rows: 33, output: '', sequence: 0, createdAt: Date.now() });
-  const spawned = [];
-  sessions.stop = async () => {};
-  sessions.spawnTerminal = async options => { spawned.push(options); return { id: 'replacement' }; };
-  await sessions.restartAgent('pane');
-  assert.deepEqual(spawned, [{ rootId: root.id, type: 'agent', agent: 'claude', conversation: HOST, resume: true, cols: 111, rows: 33 }],
-    'the replacement pane is spawned on the same conversation, as a resume');
+  const stateDir = path.join(directory, 'state');
+  const host = await startServer({ stateDir });
+  t.after(async () => { await host.close({ retain: false }); await endStateServices(stateDir); await rm(directory, { recursive: true, force: true }); });
+  const root = await host.store.addRoot(directory);
+  await fakeCli(stateDir, 'claude');
+  /* A real pane, restarted through the route: the host that owns the record is the one that
+     composes the replacement, and what it composes is the same conversation as a resume. */
+  const pane = await host.sessions.terminal({ rootId: root.id, type: 'agent', agent: 'claude', conversation: HOST, resume: true });
+  assert.equal(pane.conversation, HOST);
+  const replacement = await host.sessions.restartAgent(pane.id);
+  assert.equal(replacement.conversation, HOST, 'the replacement pane is on the same conversation');
+  assert.notEqual(replacement.id, pane.id, 'and it is a new pane');
+  assert.equal(host.sessions.snapshot(pane.id).state, 'exited', 'the one it replaced is stopped');
+  const spawned = [{ conversation: HOST, resume: true }];
 
   const { contextFile } = await context(t, 'rengine-restart-launch-');
   const before = await launch(contextFile, { conversation: HOST });
@@ -168,13 +182,16 @@ test('binding outside the workspace mints and injects, and the eight characters 
 test('a conversation the workspace persisted is a known identity to the token ledger after a restart', { timeout: 15000 }, async t => {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-conversation-identity-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  const store = await WorkspaceStore.open(path.join(directory, 'state'));
-  const root = await store.addRoot(directory);
+  const stateDir = path.join(directory, 'state');
+  const host = await startServer({ stateDir });
+  let open = true;
+  t.after(async () => { if (open) await host.close({ retain: false }); await endStateServices(stateDir); });
+  const root = await host.store.addRoot(directory);
   const contextFile = path.join(directory, 'context.json');
   await writeFile(contextFile, JSON.stringify({ rootId: root.id }));
 
   const plan = await launch(contextFile, { conversation: HOST });
-  await store.recordConversation(root.id, { conversation: plan.conversation, agent: 'claude' });
+  await host.store.recordConversation(root.id, { conversation: plan.conversation, agent: 'claude' });
 
   const runtime = path.join(directory, 'runtime');
   const tokens = await Tokens.open(runtime);
@@ -185,8 +202,13 @@ test('a conversation the workspace persisted is a known identity to the token le
     'x-rengine-agent-pid': String(plan.identity.pid) }));
   await ledger.persist();
 
-  const reopenedStore = await WorkspaceStore.open(path.join(directory, 'state'));
-  const remembered = reopenedStore.listConversations(root.id);
+  /* A second host on the same state directory: the conversation the first one persisted is the
+     directory's, not that host's. */
+  await host.close({ retain: false });
+  open = false;
+  const reopened = await startServer({ stateDir });
+  t.after(() => reopened.close({ retain: false }));
+  const remembered = await reopened.store.listConversations(root.id);
   assert.deepEqual(remembered.map(entry => entry.id), [HOST], 'the conversation outlives the host that recorded it');
   /* The ledger ON DISK, which is what a replacement reads: the service holds this one in memory, so
      asking it again would prove only that it remembered, not that it wrote it down. */

@@ -120,10 +120,12 @@ export async function startServer({ stateDir, port = 0, retainSessions = false }
 
   const sessions = {
     get items() { return { get size() { return items.size; }, get: id => items.get(id), has: id => items.has(id), keys: () => items.keys(), values: () => items.values() }; },
+    /* `get` carries the scrollback where `snapshot` asks for it, because the JS item did: a caller
+       polling `get(id).output` is the commonest shape in this suite. */
     get(id) {
       const held = items.get(id);
       if (!held) fail('Unknown session.', 404);
-      return held;
+      return { ...held, output: outputs.get(id) ?? '' };
     },
     snapshot(id, includeOutput = false) {
       const held = sessions.get(id);
@@ -141,6 +143,9 @@ export async function startServer({ stateDir, port = 0, retainSessions = false }
     input: (id, data) => call('input', { id, data }),
     resize: (id, cols, rows) => call('resize', { id, cols, rows }),
     async restart(options) { const answer = await call('agent-restart', options); learn(answer); return answer; },
+    restartAgent(id) { return sessions.restart({ id }); },
+    /* What `startServer` used to give a spec for tearing a host down. */
+    shutdown() { return undefined; },
     /* A pane's native view has appeared. On the socket, because that is where the door takes it —
        and awaited until the RECORD says so, because the caller's next line is usually about what
        the release made possible. */

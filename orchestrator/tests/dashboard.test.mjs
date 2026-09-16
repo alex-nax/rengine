@@ -30,7 +30,9 @@ before(() => built('--bins'));
 const schema = JSON.parse(readFileSync('contracts/project-v1.schema.json', 'utf8'));
 const nolf = JSON.parse(readFileSync('orchestrator/tests/fixtures/nolf-merged-project.json', 'utf8'));
 const withActions = (edit, base = contract2()) => { const doc = structuredClone(base); edit(doc.dashboard); return doc; };
-const waitOutput = async (server, id, text) => { for (let i = 0; i < 100; i++) { if (server.sessions.snapshot(id, true).output.includes(text)) return; await delay(50); } throw new Error(`session never printed ${text}`); };
+/* The scrollback arrives over the workspace socket now rather than out of a shared object, so the
+   budget is what a pane takes to start and say something rather than what a function call takes. */
+const waitOutput = async (server, id, text) => { for (let i = 0; i < 400; i++) { if ((server.sessions.items.has(id) ? server.sessions.snapshot(id, true).output : '').includes(text)) return; await delay(50); } throw new Error(`session never printed ${text}`); };
 
 test('contract 2 declarations validate, contract 1 stays accepted and dashboard errors are precise and isolated', async () => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-dashboard-decl-')));
