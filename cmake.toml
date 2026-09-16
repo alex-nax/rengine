@@ -15,12 +15,10 @@ include(CTest)
 find_package(SDL2 2.32.10 EXACT CONFIG REQUIRED)
 include(orchestrator/native/curl.cmake)
 set(RENGINE_VENDOR "${PROJECT_SOURCE_DIR}/third_party")
-find_program(RENGINE_NODE_EXECUTABLE NAMES node REQUIRED)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 if(APPLE)
   enable_language(OBJC)
 endif()
-file(TO_CMAKE_PATH "${RENGINE_NODE_EXECUTABLE}" RENGINE_NODE_PATH)
 
 # The seam, once per graphics API. A game ships one backend and pays no indirection (charter
 # D14b/D51); rEngine's desktop keeps --renderer a runtime switch (spec 126 decision 3), so it builds
@@ -278,8 +276,10 @@ type = "executable"
 sources = ["orchestrator/native/main.c", "orchestrator/native/automation.c", "orchestrator/native/bootstrap.c"]
 private-link-libraries = ["rengine_desktop_core"]
 cmake-after = """
-target_compile_definitions(rengine PRIVATE RENGINE_NODE="${RENGINE_NODE_PATH}"
-  RENGINE_BOOTSTRAP="${PROJECT_SOURCE_DIR}/orchestrator/runtime/bootstrap.mjs")
+# The checkout this desktop was built from, which is how it finds its sibling binaries at runtime
+# (F163, spec 146). It used to be a baked path to `node` and a path to a script; the desktop needs
+# neither, and this build requires no node at all.
+target_compile_definitions(rengine PRIVATE RENGINE_CHECKOUT="${PROJECT_SOURCE_DIR}")
 set_target_properties(rengine PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 if(WIN32)
   add_custom_command(TARGET rengine POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different

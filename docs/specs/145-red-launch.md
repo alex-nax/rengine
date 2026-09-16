@@ -64,12 +64,13 @@ target the pid its own descriptor already names, never widen what it signals.
 
 ## The build
 
-`red-launch build` is `orchestrator/build.mjs`: `cmake -S . -B .cache/desktop -DCMAKE_BUILD_TYPE=Release
--DRENGINE_NODE_EXECUTABLE=<node>` and then `cmake --build`, under `build.lock` so two launchers do
-not build at once. The node executable is still passed, because the desktop still execs
-`scripts/agent.sh` and the MCP facade; it is resolved from `$RENGINE_NODE_EXECUTABLE`, then
-`$RENGINE_NODE`, then `node` on `PATH`. That coupling is F163's to remove, and naming it here is
-what makes it visible when it goes.
+`red-launch build` is `orchestrator/build.mjs`: `cmake -S . -B .cache/desktop -DCMAKE_BUILD_TYPE=Release`
+and then `cmake --build`, under `build.lock` so two launchers do not build at once.
+
+It used to pass `-DRENGINE_NODE_EXECUTABLE=<node>`, because the desktop execed a node script at
+startup. **It does not any more** (F163, spec 146): the desktop's bootstrap is `red-launch bootstrap`,
+the build bakes `RENGINE_CHECKOUT` instead of an interpreter, and `find_program(node REQUIRED)` is
+gone from `cmake.toml`. Naming the coupling here is what made it visible when it went.
 
 ## Evidence
 

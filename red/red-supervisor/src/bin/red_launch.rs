@@ -35,6 +35,7 @@ fn main() -> ExitCode {
         Some("replace-host") => replace_host_command(&argv[1..]).map(|()| 0),
         Some("restart-supervisor") => restart_command(&argv[1..]),
         Some("ancestors") => ancestors_command(&argv[1..]).map(|()| 0),
+        Some("bootstrap") => bootstrap_command(&argv[1..]).map(|()| 0),
         _ => workspace(&argv),
     };
     match outcome {
@@ -118,14 +119,14 @@ fn build() -> Result<(), String> {
 }
 
 fn configure_and_build(root: &Path, directory: &Path) -> Result<(), String> {
-    let node = node_executable();
+    /* No node is passed, and none is needed: the desktop's bootstrap is `red-launch bootstrap` now,
+       so the build bakes the CHECKOUT rather than an interpreter (F163, spec 146). */
     let configure: Vec<String> = vec![
         "-S".into(),
         root.to_string_lossy().into(),
         "-B".into(),
         directory.to_string_lossy().into(),
         "-DCMAKE_BUILD_TYPE=Release".into(),
-        format!("-DRENGINE_NODE_EXECUTABLE={node}"),
     ];
     let compile: Vec<String> = vec![
         "--build".into(),
@@ -146,15 +147,6 @@ fn configure_and_build(root: &Path, directory: &Path) -> Result<(), String> {
         }
     }
     Ok(())
-}
-
-/// The node the desktop will exec for the helpers that are still JavaScript.
-///
-/// Absolute, and shared with the door that exports the same value into every pane: `re_bootstrap`
-/// reaches this with `execv`, which does not search PATH, so a bare name makes the child exit 127
-/// having printed nothing and the desktop opens with no update supervisor behind it.
-fn node_executable() -> String {
-    red_core::env::node_path()
 }
 
 /* ---- the process-table commands -------------------------------------------------------------- */
@@ -233,6 +225,100 @@ fn ancestors_command(argv: &[String]) -> Result<(), String> {
     let chain = red_supervisor::replace::ancestors_of(pid, &process_table(argv)?);
     println!("{}", json!({ "pid": pid, "ancestors": chain }));
     Ok(())
+}
+
+/* ---- the desktop's own bootstrap ------------------------------------------------------------- */
+
+/// `orchestrator/runtime/bootstrap.mjs`, which the DESKTOP execs at startup (F163, spec 146).
+///
+/// This is the last thing the native binary needed an interpreter for. It is baked in at cmake
+/// time as `RENGINE_BOOTSTRAP` and reached with `execv`, which is why spec 145 had to resolve the
+/// node path to an absolute one first: a bare name made this fail silently and the window opened
+/// with no update supervisor behind it.
+///
+/// What it does is small and is entirely about ORDER: the desktop already holds a workspace
+/// capability, so this asks that workspace who it is, works out what the window should open with,
+/// and makes sure a supervisor is serving it before the desktop draws anything.
+fn bootstrap_command(argv: &[String]) -> Result<(), String> {
+    let binary = named(argv, "--binary").ok_or("Native bootstrap requires its executable path.")?;
+    let url = std::env::var("RENGINE_WORKSPACE_URL").unwrap_or_default();
+    let token = std::env::var("RENGINE_WORKSPACE_TOKEN").unwrap_or_default();
+    /* The same shape `checkConnection` insisted on, and for the same reason: the token is a
+       capability, so a URL naming another machine would send it there. */
+    let mut host = descriptor::check_connection(&json!({ "url": url, "token": token, "instance": "0".repeat(36) }))
+        .map_err(|_| "Native bootstrap requires a local workspace capability.".to_string())?;
+    let state = descriptor::request(&host, "state", None, &[])?;
+    host.instance = state.get("instance").and_then(Value::as_str).unwrap_or_default().to_string();
+
+    let value = |name: &str| std::env::var(name).ok().unwrap_or_default();
+    /* A desktop launched with no root opens on whichever the workspace lists first, which is what a
+       person sees when they open a workspace that already has one. */
+    let mut root = value("RENGINE_INITIAL_ROOT");
+    if root.is_empty() {
+        root = state
+            .get("roots")
+            .and_then(Value::as_array)
+            .and_then(|roots| roots.first())
+            .and_then(|first| first.get("id"))
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+    }
+    let initial = json!({
+        "root": root,
+        "terminal": value("RENGINE_INITIAL_TERMINAL"),
+        "agent": value("RENGINE_INITIAL_AGENT"),
+        "game": value("RENGINE_INITIAL_GAME"),
+        "resume": value("RENGINE_RESUME_AGENT") == "1",
+    });
+    let runtime = ensure_runtime(&host, &absolute(binary), &checkout())?;
+    println!(
+        "rEngine update supervisor ready (PID {}); retained sessions are unchanged.",
+        runtime.get("pid").and_then(Value::as_i64).unwrap_or(0)
+    );
+    /* The initial window is opened over the ROUTE, cold or warm, so there is one path for it rather
+       than two that can disagree. A window that will not open leaves the workspace up and says so,
+       which is what a person can act on. */
+    let connection = descriptor::check_connection(&runtime)?;
+    descriptor::request(&connection, "open-desktop", Some(&initial), &[])?;
+    Ok(())
+}
+
+/// The supervisor serving this host, started detached if there is none — `ensureRuntime`, under the
+/// same lock discipline every other one-per-directory process here takes (`descriptor::ensure`).
+fn ensure_runtime(host: &Connection, desktop: &Path, root: &Path) -> Result<Value, String> {
+    let directory = red_supervisor::runtime_directory(root, &host.instance);
+    std::fs::create_dir_all(&directory).map_err(|error| format!("{} cannot be created: {error}", directory.display()))?;
+    let binary = red_core::service::serve_binary("RENGINE_RED_SUPERVISOR", "red-supervisor")?;
+    let args = vec![
+        "--state".to_string(),
+        directory.to_string_lossy().into_owned(),
+        "--host".to_string(),
+        host.url.clone(),
+        "--host-token".to_string(),
+        host.token.clone(),
+        "--desktop".to_string(),
+        desktop.to_string_lossy().into_owned(),
+    ];
+    let held = |path: &Path| format!("Runtime startup is still owned by another live process ({}).", path.display());
+    let exited = |path: &Path| format!("Runtime exited during startup; inspect {}.", path.display());
+    let slow = |pid: i64| format!("Runtime PID {pid} is still starting; inspect runtime.log.");
+    let options = descriptor::Starting {
+        directory: &directory,
+        lock: "startup.lock",
+        log: "runtime.log",
+        deadline: Duration::from_secs(25),
+        held: &held,
+        exited: &exited,
+        slow: &slow,
+    };
+    let owned = directory.clone();
+    let connection = host.clone();
+    descriptor::ensure(
+        &options,
+        &|| descriptor::discover_runtime(&connection, &owned),
+        &|log| red_core::service::spawn_detached(&binary, &args, log),
+    )
 }
 
 /* ---- the workspace launcher ------------------------------------------------------------------ */
