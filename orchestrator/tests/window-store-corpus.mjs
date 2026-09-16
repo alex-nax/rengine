@@ -140,42 +140,20 @@ function fold(value, minted) {
   return value;
 }
 
-export async function answers() {
-  const { windowStore } = await import('../runtime/windows.mjs');
-  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-window-corpus-'));
-  try {
-    const store = await windowStore(directory), minted = [], recorded = [];
-    for (const [name, op] of CASES) {
-      const asked = resolve(op, minted);
-      let answer;
-      try {
-        if (op.call === 'create') answer = { value: await store.create(asked.originRootId, asked.project, asked.agentId) };
-        else if (op.call === 'list') answer = { value: store.list(asked.rootId) };
-        else if (op.call === 'get') answer = { value: store.get(asked.rootId, asked.id) };
-        else if (op.call === 'layout') answer = { value: await store.layout(asked.id, asked.layout) };
-        else if (op.call === 'stateLayout') answer = { value: store.stateLayout(asked.id) ?? null };
-        else if (op.call === 'report') answer = { value: await store.report(asked.rootId, asked.input) };
-        else if (op.call === 'inbox') answer = { value: store.inbox(asked.rootId, asked.options) };
-        else throw new Error(`Unknown call ${op.call}`);
-        /* A created window's id is what every later `@N` means, and only a NEW one takes a slot:
-           `create` answers an existing window rather than a second one, and a record that gave the
-           reused answer its own slot would renumber everything after it. */
-        if (op.call === 'create' && !minted.includes(answer.value.id)) minted.push(answer.value.id);
-      } catch (error) {
-        answer = { refused: error.message, status: error.status ?? null };
-      }
-      recorded.push({ name, op, answer: fold(answer, minted) });
-    }
-    return { recordedFrom: 'orchestrator/runtime/windows.mjs', recordedAt: '2026-09-16', fillers: FILLERS,
-      why: 'F173: a parity proof cannot outlive the side it compares against. These are the answers the JavaScript project-window store gave on the day red-supervisor replaced it. Never regenerate: a record that moves with the implementation proves nothing.',
-      cases: recorded };
-  } finally { await rm(directory, { recursive: true, force: true }); }
-}
-
+/* `answers()` drove `runtime/windows.mjs` and is gone with it (F173): a parity proof cannot outlive the
+ * side it compares against, so what the module SAID is the evidence now and the module that said
+ * it is deleted. The cases and the record below are what the Rust is judged against, and they are
+ * frozen — regenerating them from the implementation they check would prove nothing. To change
+ * what is asked, add a case and record it from a checkout that still has the JavaScript, which is
+ * to say from history.
+ */
 export const RECORDED = (() => {
   try { return require('./window-store-corpus.json'); } catch { return null; }
 })();
 
+/* Run directly, this says so rather than failing on a name that is not there. A recorder whose
+   subject is gone is not broken — it is finished. */
 if (process.argv[1] && process.argv[1].endsWith('window-store-corpus.mjs')) {
-  process.stdout.write(`${JSON.stringify(await answers(), null, 2)}\n`);
+  console.error('window-store-corpus.json is frozen: runtime/windows.mjs is deleted, so there is nothing left to record from.');
+  process.exit(1);
 }

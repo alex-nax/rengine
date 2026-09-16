@@ -13,12 +13,13 @@ git ls-files '*.mjs' | grep -vE 'tests/|\.test\.mjs' | xargs wc -l | tail -1
 
 | | lines |
 |---|---|
-| Production JavaScript remaining | **4,128** across 37 files |
+| Production JavaScript remaining | **3,575** across 34 files |
 | Rust in `red/` | ~34,000 |
 
-Down from 5,504 across 43 when this was first written. Gone: `runtime/worker.mjs`,
-`runtime/scripts.mjs`, `server/desktops.mjs`, `runtime/tracker.mjs`, `server/tracker.mjs` and
-`server/tracker-auth.mjs` — **a quarter of it**.
+Down from 5,504 across 43 when this was first written — **35% of it gone**. The worker, the tracker
+and now the supervisor: `runtime/worker.mjs`, `runtime/scripts.mjs`, `server/desktops.mjs`,
+`runtime/tracker.mjs`, `server/tracker.mjs`, `server/tracker-auth.mjs`, `runtime/supervisor.mjs`,
+`runtime/windows.mjs` and `runtime/desktop.mjs`.
 
 **The line count is the wrong headline, and it is worth saying why.** Most of what remains is not
 waiting to be rewritten — it is waiting to be *deleted*. A JS module retires with its CALLER, not on
@@ -63,25 +64,25 @@ the door, and `ide`/`lsp-client`/`token-client` are clients of binaries that exi
 
 Details: `docs/specs/143-red-worker.md`.
 
-### 2. The supervisor and the launchers — 1,368 lines (**F159**)
+### 2. The supervisor and the launchers — 780 lines left of 1,368 (**F159**)
 
 | file | lines | |
 |---|---|---|
-| `runtime/supervisor.mjs` | 439 | layered updates, desktop windows, retirement |
+| ~~`runtime/supervisor.mjs`~~ | ~~434~~ | **deleted** — `red-supervisor` is a process |
+| ~~`runtime/windows.mjs`~~ | ~~109~~ | **deleted** — `red_supervisor::windows` |
+| ~~`runtime/desktop.mjs`~~ | ~~47~~ | **deleted** — `red_supervisor::desktop` |
 | `launcher/replace.mjs` | 224 | `--replace-host`, the process-table scan |
 | `runtime/service-client.mjs` | 199 | now duplicated by `red_core::service::start_service` |
-| `runtime/windows.mjs` | 109 | the window store |
 | `launcher/restart-supervisor.mjs` | 96 | the declared action |
 | `launcher/sidecar.mjs` | 89 | descriptor discovery |
-| `runtime/discovery.mjs` | 72 | runtime descriptor discovery |
-| `runtime/client.mjs`, `desktop.mjs`, `headless.mjs`, `bootstrap.mjs` | 140 | |
+| `runtime/discovery.mjs` | 72 | runtime descriptor discovery; starts the binary now |
+| `runtime/protocol.mjs` | 60 | retires with `discovery.mjs`, its last caller |
+| `runtime/client.mjs`, `headless.mjs`, `bootstrap.mjs` | 93 | |
 
-**Status: the binary serves and the desktop layer is driven (spec 144).** `red-supervisor` is a
-process that starts a worker, answers its own routes, forwards the rest, performs layered updates and
-relays a window's automation protocol, with the window store, the descriptors, the desktop launch and
-the update job each judged against a record frozen from the JavaScript. Nothing is deleted yet,
-because a module retires with its caller and the caller is the supervisor process — which needs the
-launchers and the cutover first.
+**Status: the supervisor is deleted (spec 144).** `ensureRuntime` starts `red-supervisor`, and every
+suite that drove the module drives the binary — including the four desktop specs, which reach a
+window through the supervisor's automation relay because a process cannot hand anyone a child's
+pipes. What is left is the launchers, which are their own commands rather than this layer.
 
 ### 3. The JS session host behind the door — 1,405 lines
 
@@ -114,10 +115,11 @@ types, and F163 is the row that deletes them.
 3. ~~**F154**~~ — **done**, and its JavaScript with it: `server/tracker.mjs` and
    `server/tracker-auth.mjs` are deleted. The evidence is on the row in `features.json`; `passes`
    stays false only because the prerequisite chain (F153 → F152) is unmarked.
-4. **F159** — the supervisor. **−1,368**, the largest remaining port, and **the binary serves**: `red-supervisor` starts a worker, answers its own
-   routes, forwards the rest, publishes the descriptor, opens and updates desktop windows and relays
-   their automation protocol — all proved end to end against a real session host. What is left is
-   the launchers and the cutover itself. `docs/specs/144-red-supervisor.md` has the order.
+4. ~~**F159's supervisor**~~ — **done, −590**: `red-supervisor` is a process that starts a worker, answers its own routes, forwards
+   the rest, publishes the descriptor, opens and updates desktop windows and relays their automation
+   protocol. `runtime/supervisor.mjs`, `windows.mjs` and `desktop.mjs` are deleted. What is left of
+   F159 is the **launchers** — `replace.mjs`, `restart-supervisor.mjs`, `headless.mjs`,
+   `bootstrap.mjs`, and `discovery.mjs` with `protocol.mjs` behind it. **−780 more.**
 5. **`sessions-client.mjs`** — how an agent CLI is launched. **−459**.
 6. **F163** — the entry points, `main.mjs` and the service clients that retire with it. **−~1,700**.
 

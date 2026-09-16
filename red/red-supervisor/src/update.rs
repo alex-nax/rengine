@@ -44,6 +44,14 @@ impl Supervisor {
         let mut previous_binary: Option<std::path::PathBuf> = None;
         let mut previous_worker: Option<Arc<worker::Child>> = None;
         let mut started_desktop = false;
+        /* The window this update is working on, HELD rather than looked up again. A replacement that
+           dies on start is forgotten by its own watcher the moment it exits, so a rollback that went
+           back to the map would find nothing there and quietly restore nothing. */
+        /* Taken BEFORE anything is prepared, because a preparation that fails must still be able to
+           put back a window that is already gone — which is exactly the keyboard case: the person's
+           window detached itself, and then the build for its replacement failed. */
+        let mut held_view: Option<Arc<crate::views::View>> =
+            chosen.and_then(|chosen| self.views.lock().expect("views").get(&chosen.owner).cloned());
 
         let prepared = (|| -> Result<(), String> {
             if has("workspace") {
@@ -55,6 +63,10 @@ impl Supervisor {
                 )?);
             }
             if has("desktop") {
+                /* The binary this window is running, noted before the build can change what is on
+                   disk: a failed switch puts THIS back, and after a build there is no other way to
+                   know what it was. */
+                previous_binary = held_view.as_ref().map(|view| view.binary.lock().expect("binary").clone());
                 replacement = Some(self.prepare_desktop(&self.state.join("versions").join(&job_id))?);
             }
             if has("connector") {
@@ -108,7 +120,12 @@ impl Supervisor {
                     let restarted = self
                         .start_view(&chosen.owner, &binary, binding)
                         .map_err(|refused| refused.message)?;
+                    /* Marked BEFORE it can exit: a replacement that dies on start is this update's
+                       business, and a watcher that classified it as a close would remove it from the
+                       registry before the rollback below could put the previous one back. */
+                    restarted.updating.store(true, Ordering::SeqCst);
                     started_desktop = true;
+                    held_view = Some(restarted.clone());
                     self.views.lock().expect("views").insert(chosen.owner.clone(), restarted.clone());
                     self.wait_view(&restarted).map_err(|refused| refused.message)?;
                 }
@@ -122,6 +139,7 @@ impl Supervisor {
         if let Err(why) = &switched {
             self.put_back(
                 chosen,
+                held_view.clone(),
                 closed,
                 candidate.take(),
                 previous_worker.clone(),
@@ -130,16 +148,16 @@ impl Supervisor {
                 previous_connector,
             );
             let outcome = Err(why.clone());
-            self.finish_retirement(previous_worker.as_ref(), chosen);
+            self.finish_retirement(previous_worker.as_ref(), held_view.as_ref());
             return outcome;
         }
-        self.finish_retirement(previous_worker.as_ref(), chosen);
+        self.finish_retirement(previous_worker.as_ref(), held_view.as_ref());
         Ok(())
     }
 
     /// The previous worker is no longer needed for a rollback: tell it, and close it if nothing is
     /// using it. Told ONCE, and only here — this is the moment the switch is final.
-    fn finish_retirement(self: &Arc<Self>, previous: Option<&Arc<worker::Child>>, chosen: Option<&Chosen>) {
+    fn finish_retirement(self: &Arc<Self>, previous: Option<&Arc<worker::Child>>, view: Option<&Arc<crate::views::View>>) {
         if let Some(previous) = previous {
             self.release(&previous.generation);
             if self.is_retiring(&previous.generation) {
@@ -147,10 +165,8 @@ impl Supervisor {
             }
             self.retire(previous);
         }
-        if let Some(chosen) = chosen {
-            if let Some(view) = self.views.lock().expect("views").get(&chosen.owner) {
-                view.updating.store(false, Ordering::SeqCst);
-            }
+        if let Some(view) = view {
+            view.updating.store(false, Ordering::SeqCst);
         }
     }
 
@@ -159,6 +175,7 @@ impl Supervisor {
     fn put_back(
         self: &Arc<Self>,
         chosen: Option<&Chosen>,
+        held_view: Option<Arc<crate::views::View>>,
         closed: bool,
         candidate: Option<Arc<worker::Child>>,
         previous_worker: Option<Arc<worker::Child>>,
@@ -186,8 +203,7 @@ impl Supervisor {
             }
         }
         let Some(chosen) = chosen else { return };
-        let view = self.views.lock().expect("views").get(&chosen.owner).cloned();
-        let Some(view) = view else { return };
+        let Some(view) = held_view else { return };
         /* A replacement that started but never registered is taken down before the previous one is
            put back: two windows on one owner is two windows fighting over the same persistence. */
         if started_desktop && view.running() && view.error.lock().expect("error").is_none() {
@@ -205,6 +221,9 @@ impl Supervisor {
         match self.start_view(&chosen.owner, &binary, binding) {
             Ok(back) => {
                 self.views.lock().expect("views").insert(chosen.owner.clone(), back.clone());
+                /* The window that is going to STAY, so its exit is a person closing it rather than
+                   an update's business. */
+                back.updating.store(false, Ordering::SeqCst);
                 match self.wait_view(&back) {
                     Ok(()) => {
                         if let Some(job) = self.jobs.lock().expect("jobs").active() {

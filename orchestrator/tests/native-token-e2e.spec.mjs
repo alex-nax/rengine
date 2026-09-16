@@ -5,8 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { startServer } from '../server/main.mjs';
-import { startRuntime } from '../runtime/supervisor.mjs';
-import { nativeBridge } from './native-client.mjs';
+import { startSupervisor, window as attach, openWindow } from './red-supervisor-fixture.mjs';
 import { tokenProject, identity, api, ok, until, feedSocket } from './token-fixtures.mjs';
 
 /* The two halves of the project token, meeting (spec 095). Stage 2 proved the ledger against a
@@ -30,14 +29,16 @@ async function workspace(t, { game } = {}) {
   const root = await host.store.addRoot(project);
   const session = game ? await game(host, root) : null;
   const views = [];
-  const runtime = await startRuntime({ host, directory: path.join(directory, 'runtime'), inspectUI: true,
-    initial: { root: root.id, ...(session ? { game: session.id } : {}) },
-    onDesktop: child => child.once('spawn', () => views.push(nativeBridge(child))) });
+  /* The supervisor is a process (F159), so the window it opens is reached through its automation
+     relay rather than through the child it used to hand over. */
+  const runtime = await startSupervisor({ host, directory: path.join(directory, 'runtime'), inspectUI: true,
+    initial: { root: root.id, ...(session ? { game: session.id } : {}) } });
   t.after(async () => {
     for (const view of views) await view.close();
     await runtime.close(); await host.close(); await rm(directory, { recursive: true, force: true });
   });
   const supervisor = { url: runtime.url, token: runtime.token };
+  views.push(await attach(runtime, (await openWindow(runtime, root.id)).owner));
   const gui = views.at(-1);
   await gui.until(s => s.connected, 'the desktop the supervisor launched reaches the workspace worker');
   return { directory, project, host, root, runtime, supervisor, views, gui, session };

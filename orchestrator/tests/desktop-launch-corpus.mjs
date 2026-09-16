@@ -50,41 +50,20 @@ const seen = Object.fromEntries(Object.entries(process.env).filter(([name]) => n
 process.stdout.write(JSON.stringify({ argv: process.argv.slice(2), env: seen }));
 `;
 
-export async function answers() {
-  const { launchDesktop } = await import('../runtime/desktop.mjs');
-  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-desktop-corpus-'));
-  try {
-    const reporter = path.join(directory, 'reporter.js');
-    await writeFile(reporter, REPORTER);
-    await chmod(reporter, 0o755);
-    const cases = [];
-    for (const [name, { binding, inspectUI = false }] of CASES) {
-      const child = launchDesktop(reporter, INSTANCE, binding, { inspectUI });
-      let text = '';
-      child.stdout.on('data', chunk => { text += chunk; });
-      const code = await new Promise((resolve, reject) => { child.once('exit', resolve); child.once('error', reject); });
-      if (code !== 0) throw new Error(`the reporter exited ${code}`);
-      const answer = JSON.parse(text);
-      /* The environment the SUPERVISOR composes, not the one this test process happened to have:
-         `launchDesktop` spreads `process.env`, so a machine with RENGINE_* set in its shell would
-         otherwise record its own. Only the names desktop.mjs writes are kept. */
-      const written = ['RENGINE_WORKSPACE_URL', 'RENGINE_WORKSPACE_TOKEN', 'RENGINE_WINDOW_ID', 'RENGINE_WINDOW_TITLE',
-        'RENGINE_INITIAL_ROOT', 'RENGINE_INITIAL_TERMINAL', 'RENGINE_INITIAL_AGENT', 'RENGINE_INITIAL_GAME',
-        'RENGINE_RESUME_AGENT', 'RENGINE_LAYERED_CHILD', 'RENGINE_CAN_RELOAD', 'RENGINE_DESKTOP_OWNER', 'RENGINE_DESKTOP_VIEW'];
-      const env = {};
-      for (const key of written) if (key in answer.env) env[key] = answer.env[key];
-      cases.push({ name, binding, inspectUI: inspectUI === true, argv: answer.argv, env, absent: written.filter(key => !(key in answer.env)) });
-    }
-    return { recordedFrom: 'orchestrator/runtime/desktop.mjs', recordedAt: '2026-09-16', instance: INSTANCE,
-      why: 'F173: a parity proof cannot outlive the side it compares against. This is the environment runtime/desktop.mjs actually handed a desktop process on the day red-supervisor replaced it, absences included. Never regenerate: a record that moves with the implementation proves nothing.',
-      cases };
-  } finally { await rm(directory, { recursive: true, force: true }); }
-}
-
+/* `answers()` drove `runtime/desktop.mjs` and is gone with it (F173): a parity proof cannot outlive the
+ * side it compares against, so what the module SAID is the evidence now and the module that said
+ * it is deleted. The cases and the record below are what the Rust is judged against, and they are
+ * frozen — regenerating them from the implementation they check would prove nothing. To change
+ * what is asked, add a case and record it from a checkout that still has the JavaScript, which is
+ * to say from history.
+ */
 export const RECORDED = (() => {
   try { return require('./desktop-launch-corpus.json'); } catch { return null; }
 })();
 
+/* Run directly, this says so rather than failing on a name that is not there. A recorder whose
+   subject is gone is not broken — it is finished. */
 if (process.argv[1] && process.argv[1].endsWith('desktop-launch-corpus.mjs')) {
-  process.stdout.write(`${JSON.stringify(await answers(), null, 2)}\n`);
+  console.error('desktop-launch-corpus.json is frozen: runtime/desktop.mjs is deleted, so there is nothing left to record from.');
+  process.exit(1);
 }

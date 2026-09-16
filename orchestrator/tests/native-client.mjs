@@ -12,13 +12,63 @@ import { tmpdir } from 'node:os';
 process.env.RENGINE_IDE_DIRECTORY ??= await mkdtemp(path.join(tmpdir(), 'rengine-spec-ide-'));
 
 
+/* Where the desktop is built to, which is `red_supervisor::desktop::native_binary`'s answer on the
+   other side. A spec that needs the binary asks here rather than importing a production module for
+   one path — `runtime/desktop.mjs` retired with the supervisor that launched windows (F159). */
+export const nativeBinary = process.env.RENGINE_NATIVE_BINARY
+  ?? path.resolve('.cache/desktop/bin', process.platform === 'win32' ? 'Release/rengine.exe' : 'rengine');
+
+/* One desktop window, launched DIRECTLY rather than through a supervisor. The supervisor composes
+   this environment itself now (`red_supervisor::desktop::environment`, frozen against what the
+   JavaScript handed a window); what is here is a spec standing in for a supervisor, to prove what a
+   window does when it is handed a control channel and nothing else. */
+export function launchDesktop(binary, instance, binding, { inspectUI = false } = {}) {
+  return spawn(binary, inspectUI ? ['--automation'] : ['--control'], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: false, env: {
+    ...process.env, RENGINE_WORKSPACE_URL: instance.url, RENGINE_WORKSPACE_TOKEN: instance.token,
+    RENGINE_WINDOW_ID: binding.windowId, RENGINE_WINDOW_TITLE: binding.title,
+    RENGINE_INITIAL_ROOT: binding.root, RENGINE_INITIAL_TERMINAL: binding.terminal ?? '',
+    RENGINE_INITIAL_AGENT: binding.agent ?? '', RENGINE_INITIAL_GAME: binding.game ?? '',
+    RENGINE_RESUME_AGENT: binding.resume ? '1' : undefined, RENGINE_LAYERED_CHILD: '1',
+    RENGINE_CAN_RELOAD: '1', RENGINE_DESKTOP_OWNER: binding.owner, RENGINE_DESKTOP_VIEW: binding.view,
+  } });
+}
+
 export async function nativeClient(instance, { root = '', terminal = '', agent = '', game = '', env: extra = {} } = {}) {
-  const executable = process.env.RENGINE_NATIVE_BINARY ?? path.resolve('.cache/desktop/bin', process.platform === 'win32' ? 'Release/rengine.exe' : 'rengine');
+  const executable = nativeBinary;
   const child = spawn(executable, ['--automation'], { stdio: ['pipe', 'pipe', 'pipe'], env: {
     ...process.env, RENGINE_WORKSPACE_URL: instance.url, RENGINE_WORKSPACE_TOKEN: instance.token,
     RENGINE_INITIAL_ROOT: root, RENGINE_INITIAL_TERMINAL: terminal, RENGINE_INITIAL_AGENT: agent, RENGINE_INITIAL_GAME: game, ...extra,
   } });
   return nativeBridge(child);
+}
+
+/* Everything a spec does with a window, over whatever can carry ONE command and answer it.
+ *
+ * It used to be inseparable from a child process, because that is what a spec had: the supervisor
+ * was a module in the same process and handed over the pipes. A supervisor that is a PROCESS cannot
+ * (F159, spec 144), so a window is reached through its automation relay instead — and everything
+ * above the command is the same either way, which is why it lives here rather than in either. */
+export function bridgeOn({ command, close, diagnostics = () => '' }) {
+  async function until(predicate, label = 'native state') {
+    let state;
+    for (let i = 0; i < 160; i++) { state = await command({ op: 'state' }); if (predicate(state)) return state; await delay(50); }
+    throw new Error(`${label} not reached: ${JSON.stringify(state)}\n${diagnostics()}`);
+  }
+  async function click(x, y) {
+    await command({ op: 'motion', x, y }); await delay(60);
+    await command({ op: 'button', x, y, down: true }); await delay(60);
+    await command({ op: 'button', x, y, down: false }); await delay(60);
+  }
+  async function key(key, mod = 0) {
+    await command({ op: 'key', key, mod }); await command({ op: 'key', key, mod, down: false }); await delay(30);
+  }
+  async function control(role, key, tab) {
+    const matches = c => c.role === role && c.key === key && (tab === undefined || c.tab === tab);
+    const state = await until(s => s.controls?.some(matches), `${role} ${key}`);
+    const { rect: [x, y, w, h] } = state.controls.find(matches);
+    await click(x + w / 2, y + h / 2);
+  }
+  return { command, until, click, key, control, close, diagnostics };
 }
 
 export function nativeBridge(child, { timeout = 8000 } = {}) {
@@ -39,25 +89,6 @@ export function nativeBridge(child, { timeout = 8000 } = {}) {
       child.stdin.write(`${JSON.stringify({ id, ...value })}\n`);
     });
   }
-  async function until(predicate, label = 'native state') {
-    let state;
-    for (let i = 0; i < 160; i++) { state = await command({ op: 'state' }); if (predicate(state)) return state; await delay(50); }
-    throw new Error(`${label} not reached: ${JSON.stringify(state)}\n${diagnostics}`);
-  }
-  async function click(x, y) {
-    await command({ op: 'motion', x, y }); await delay(60);
-    await command({ op: 'button', x, y, down: true }); await delay(60);
-    await command({ op: 'button', x, y, down: false }); await delay(60);
-  }
-  async function key(key, mod = 0) {
-    await command({ op: 'key', key, mod }); await command({ op: 'key', key, mod, down: false }); await delay(30);
-  }
-  async function control(role, key, tab) {
-    const matches = c => c.role === role && c.key === key && (tab === undefined || c.tab === tab);
-    const state = await until(s => s.controls?.some(matches), `${role} ${key}`);
-    const { rect: [x, y, w, h] } = state.controls.find(matches);
-    await click(x + w / 2, y + h / 2);
-  }
   async function close() {
     if (child.exitCode === null && child.signalCode === null) {
       let timeout;
@@ -68,5 +99,5 @@ export function nativeBridge(child, { timeout = 8000 } = {}) {
     }
     child.stdin.destroy(); lines.close(); child.stdout.destroy(); child.stderr.destroy();
   }
-  return { child, command, until, click, key, control, close, diagnostics: () => diagnostics };
+  return { child, ...bridgeOn({ command, close, diagnostics: () => diagnostics }) };
 }

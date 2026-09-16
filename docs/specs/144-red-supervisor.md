@@ -2,11 +2,10 @@
 
 Owner goal, 2026-09-15: *"finish remaining js"* (charter D57, spec 129; F159).
 
-Status: **the binary serves, and the desktop layer is driven.** `red-supervisor` is a process: it
-starts a worker, answers its own routes, forwards the rest, publishes the descriptor, opens and
-updates desktop windows, and relays their automation protocol — all proved end to end against a real
-session host by `supervisor-cutover.test.mjs`. Nothing is deleted yet; the launchers and the cutover
-itself are what is left.
+Status: **done, and `runtime/supervisor.mjs` is deleted.** `ensureRuntime` starts `red-supervisor`;
+every suite that drove the module drives the binary, including the four desktop specs. What is left
+of F159 is the launchers — `replace.mjs`, `restart-supervisor.mjs`, `headless.mjs`, `bootstrap.mjs`
+— which are their own commands rather than this layer.
 
 `docs/js-retirement-status.md` is the whole picture this row sits in. Spec 143 is the worker one
 layer below, and its device is the one used here: **record the old implementation's answers before
@@ -150,9 +149,10 @@ caller polling after a failure can still see what failed.
 6. ~~**The automation relay**~~ — done (below), and with it the desktop layer is driven end to end.
 7. **The launchers.** `replace.mjs`'s process-table scan, `restart-supervisor.mjs`'s confirm prompt
    with no non-interactive bypass and its read-only `--plan`, `headless.mjs`, `bootstrap.mjs`.
-8. **Cut over and delete.** `discovery.mjs` spawns the binary where it forks the module — the same
-   fork-versus-spawn seam the supervisor itself grew for `red-worker` — and the eleven JavaScript
-   files retire together, with their caller.
+8. ~~**Cut over and delete.**~~ Done: `ensureRuntime` spawns the binary, and
+   `runtime/supervisor.mjs` (434), `runtime/windows.mjs` (109) and `runtime/desktop.mjs` (47) are
+   gone with the two record tests whose subject they were (F173). `runtime/protocol.mjs` stays until
+   `discovery.mjs` does, which is the same rule: a module retires with its CALLER.
 
 ## The third criterion, and the one thing standing in its way
 
@@ -257,6 +257,25 @@ The second one also settled a question the code did not answer out loud: the que
 **fails**, by name, because the desktop it was told to replace let go of its registration on the way
 out. That is right rather than unfortunate — the person asked for the same window twice at once and
 got the answer to the second ask.
+
+## What the deepest suite found
+
+`native-updates.spec.mjs` is the one that drives the whole choreography — a three-layer update with
+an unsaved draft in the editor, a build that fails, a candidate that will not start, a keyboard-driven
+update that fails, a CLI-driven connector update, and a worker crash with the window reconnecting.
+It passes on the Rust supervisor, and getting there found **two real bugs in the rollback**, both of
+which a reading of the code had missed:
+
+1. **A replacement window that dies on start was forgotten before the rollback could restore it.**
+   The restarted view is a NEW `View`, and nothing marked it as belonging to the update — so its own
+   watcher classified the exit as a close and removed it from the registry, and the rollback found
+   nothing to put back. It is marked before it can exit now.
+2. **A failed PREPARATION could not restore a window that had already gone.** That is exactly the
+   keyboard case: the person's window detaches itself, and then the build for its replacement fails.
+   The window is taken before anything is prepared now, rather than looked up after.
+
+Neither is visible in a green run. Both are the difference between "the update failed" and "the
+update failed and took your window with it".
 
 ## What this does not change
 

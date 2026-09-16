@@ -1,4 +1,4 @@
-## Session 161 (opus-5) — 2026-09-16 — The tracker's JavaScript goes, and red-supervisor serves
+## Session 161 (opus-5) — 2026-09-16 — The tracker and the supervisor are deleted
 
 Owner goal: *"finish remaining js"*.
 
@@ -107,6 +107,25 @@ A tooling hazard worth naming: a Python heredoc turned `\r\n` into real newlines
 literal, and Rust normalises a CR away in a string literal — so the relay answered a `101` framed
 with bare LFs and no client could read it. It compiled, it ran, and only the end-to-end test saw it.
 
+**`runtime/supervisor.mjs` is deleted**, with `windows.mjs` and `desktop.mjs`. `ensureRuntime`
+starts `red-supervisor`, and every suite that drove the module drives the binary — including the four
+desktop specs, which reach a window through the relay because a process cannot hand anyone a child's
+pipes. **Production JavaScript is 3,575 across 34 files, from 5,504 across 43: 35% of it gone.**
+
+**The deepest suite found two real bugs in the rollback**, and neither is visible in a green run.
+`native-updates.spec.mjs` drives a three-layer update with an unsaved draft open, a build that fails,
+a candidate that will not start, a keyboard-driven update that fails, and a worker crash. It passes
+now; getting there took:
+
+- **A replacement window that dies on start was forgotten before the rollback could restore it.** The
+  restarted view is a NEW view, and nothing marked it as the update's — so its watcher read the exit
+  as a close, removed it, and the rollback found nothing to put back.
+- **A failed PREPARATION could not restore a window that had already gone**, which is exactly the
+  keyboard case: the person's window detaches itself and then the build for its replacement fails.
+
+Both are the difference between "the update failed" and "the update failed and took your window
+with it".
+
 **A leak the suite's own flakiness was pointing at, and nobody had read.** `npm test` failed
 intermittently on different specs; catching one showed *"Every sign-in port is busy (47821, 47822,
 47823, 47824, 47825). Close what is using one and try again."* — a sentence written this session,
@@ -135,8 +154,10 @@ Two things worth keeping:
   behind; and only seven of the thirteen crates had their `cargo test` reachable from any runner at
   all. The list is now read off the workspace, and the six missing crates are CTest targets.
 
-Nothing is deleted for F159 yet, deliberately: a module retires with its caller, and the caller is
-the supervisor process — which is not yet the one that runs.
+What is left of F159 is the launchers — `replace.mjs`, `restart-supervisor.mjs`, `headless.mjs`,
+`bootstrap.mjs`, and `discovery.mjs` with `protocol.mjs` behind it, 780 lines. They are their own
+commands rather than this layer. `runtime/protocol.mjs` stays until `discovery.mjs` does, which is
+the same rule that governed every deletion here: a module retires with its CALLER.
 
 **What the cutover turns on, written down rather than discovered at the wrong moment.** A supervisor
 that is a PROCESS cannot hand a test the desktop's pipes, and three desktop specs pass an `onDesktop`
@@ -153,7 +174,13 @@ replays the same 47 cases against `windows.mjs` and compares, so the record cann
 froze. It goes with the module (F173), and the Rust replay is then the whole of the evidence.
 Sabotage-verified from the JavaScript side as well as the Rust.
 
-Gates: `./init.sh` green; `cargo test --workspace` **336/336**; `npm test` **370/370**, with
+Gates: `./init.sh` green; `cargo test --workspace` **336/336**; `npm test` **367/367**, plus the
+four desktop specs run by name: `native-updates` 1/1, `native-stale-sessions` 3/3,
+`native-token-e2e` 1 of 2 and `native-project-windows` 0 of 1 — those last two failing at HEAD too,
+for reasons that are nothing to do with this work and are now **KI-125**: six specs reach for
+`server.games`, which the host has not exposed since `server/games.mjs` was deleted, and
+`project-window.sh` cannot find `node` in the shell it is run in. That is also why the desktop gate
+has had no number since. Otherwise, with
 KI-124's load-sensitive language-server spec the only intermittent left — it failed in two of three
 later runs and passes alone, which is the known issue's own recorded shape. The other intermittent
 was the sign-in port leak above, and it is fixed.

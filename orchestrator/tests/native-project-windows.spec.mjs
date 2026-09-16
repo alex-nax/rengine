@@ -10,9 +10,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { startServer } from '../server/main.mjs';
-import { startRuntime } from '../runtime/supervisor.mjs';
-import { launchDesktop, nativeBinary } from '../runtime/desktop.mjs';
-import { nativeBridge, nativeClient } from './native-client.mjs';
+import { nativeBridge, nativeClient, launchDesktop, nativeBinary } from './native-client.mjs';
+import { startSupervisor, window as attach } from './red-supervisor-fixture.mjs';
 
 const execute = promisify(execFile);
 test('project windows retain one agent, isolated layouts, inspection and durable two-root reports', { timeout: 60000 }, async () => {
@@ -39,7 +38,11 @@ test('project windows retain one agent, isolated layouts, inspection and durable
     await originUI.until(s => s.tabs.some(t => t?.session === agent.id && t.text?.includes('ORIGINAL_AGENT_READY')));
     await delay(400); const originalLayout = structuredClone(host.store.state.layout);
     const runtimeDir = path.join(directory, 'runtime');
-    runtime = await startRuntime({ host, directory: runtimeDir, inspectUI: true, onDesktop: child => child.once('spawn', () => views.push(nativeBridge(child))) });
+    runtime = await startSupervisor({ host, directory: runtimeDir, inspectUI: true });
+    /* The supervisor is a process (F159), so a window is reached through its automation relay. A
+       window's OWNER is its window id, and a reopened window is a new process on the same owner —
+       so this re-attaches where it used to take the newest child. */
+    const reach = async owner => { const held = await attach(runtime, owner); views.push(held); return held; };
     const connect = async root => {
       const context = path.join(directory, `${root.id}.json`);
       await writeFile(context, JSON.stringify({ url: host.url, token: host.token, instance: host.instance, rootId: root.id, runtimeDirectory: runtimeDir }));
@@ -51,7 +54,7 @@ test('project windows retain one agent, isolated layouts, inspection and durable
     const source = await connect(origin), target = await connect(project), outsider = await connect(foreign);
     const opened = await source.call('open_project_window', { path: projectPath, agentId: agent.id }), windowId = opened.id;
     assert.equal(opened.originRootId, origin.id); assert.equal(opened.projectRootId, project.id);
-    let gui = views.at(-1);
+    let gui = await reach(windowId);
     await gui.until(s => s.tabs.some(t => t?.type === 1 && t.root === project.id) && s.tabs.some(t => t?.session === agent.id && t.root === origin.id && t.text?.includes('ORIGINAL_AGENT_READY')));
     assert.equal((await source.call('open_project_window', { path: projectPath, agentId: agent.id })).pid, opened.pid);
     await gui.control('tree-entry', 'note.txt');
@@ -83,7 +86,7 @@ test('project windows retain one agent, isolated layouts, inspection and durable
     assert.equal((await source.call('project_window_action', { windowId, action: 'close' })).sessionsRetained, true);
     assert.equal(host.sessions.snapshot(agent.id).pid, agent.pid); assert.equal(host.sessions.snapshot(agent.id).state, 'running');
     assert.equal((await source.call('list_project_windows')).windows[0].status, 'closed');
-    await source.call('project_window_action', { windowId, action: 'reopen' }); gui = views.at(-1);
+    await source.call('project_window_action', { windowId, action: 'reopen' }); gui = await reach(windowId);
     const reopened = await gui.until(s => s.tabs.some(t => t?.dirty && t.text.includes('Retain this draft')));
     assert.deepEqual(reopened.layout, projectLayout, 'selected editor and pane layout survive close/reopen');
     assert.equal(await readFile(path.join(projectPath, 'note.txt'), 'utf8'), 'game disk text\n');

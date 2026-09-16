@@ -17,6 +17,7 @@ import { connect } from 'node:net';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { request } from '../launcher/sidecar.mjs';
+import { bridgeOn } from './native-client.mjs';
 
 export function redSupervisorBinary() {
   return process.env.RENGINE_RED_SUPERVISOR || path.resolve('red/target/debug/red-supervisor');
@@ -114,6 +115,45 @@ export async function automation(runtime, owner, { timeout = 8000 } = {}) {
   return {
     command,
     diagnostics: () => diagnostics,
-    close: () => new Promise(resolve => { socket.once('close', resolve); socket.end(); }),
+    /* Closing something already closed must be a no-op rather than a wait. A window that went away
+       — replaced by an update, or closed by the person — takes its relay with it, and a test tidying
+       up afterwards would otherwise wait for an event that already happened. */
+    close: () => new Promise(resolve => {
+      if (socket.destroyed) { resolve(); return; }
+      socket.once('close', resolve);
+      socket.end();
+      setTimeout(() => { socket.destroy(); resolve(); }, 2000).unref();
+    }),
   };
+}
+
+/* A window this supervisor manages, driven the way a spec drove one when it had the child.
+ *
+ * `owner` is what `open-desktop` answered, or what `desktops?rootId=` lists. A window that has been
+ * replaced by an update is a NEW process on the SAME owner, so a spec re-attaches rather than
+ * holding a bridge across the switch — which is the one thing that differs from holding a pipe.
+ */
+export async function window(runtime, owner, options) {
+  const relay = await automation(runtime, owner, options);
+  /* `close` asks the WINDOW to quit and then lets go of the relay, which is what `nativeBridge`'s
+     close did with a child: closing the pipe alone would leave the window on the screen, and a spec
+     asserting that sessions survive a closed window would be asserting it about a window that is
+     still open. A window that has already gone answers nothing, and that is not an error. */
+  return bridgeOn({
+    ...relay,
+    close: async () => { await relay.command({ op: 'quit' }).catch(() => {}); await relay.close(); },
+  });
+}
+
+/* The owner of the window open on this project, waited for: a desktop is registered before
+   `open-desktop` answers, but a window opened by `--initial` is registered before this process has
+   the supervisor's address at all. */
+export async function openWindow(runtime, rootId, { attempts = 200 } = {}) {
+  for (let at = 0; at < attempts; at++) {
+    const { desktops } = await request(runtime, `desktops?${new URLSearchParams({ rootId })}`);
+    const managed = desktops.find(desktop => desktop.managed);
+    if (managed) return managed;
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  throw new Error(`No managed desktop window on ${rootId}`);
 }

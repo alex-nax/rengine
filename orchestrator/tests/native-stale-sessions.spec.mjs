@@ -6,9 +6,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { startServer } from '../server/main.mjs';
-import { startRuntime } from '../runtime/supervisor.mjs';
-import { snapshotBinary, nativeBinary } from '../runtime/desktop.mjs';
-import { nativeBridge } from './native-client.mjs';
+import { nativeBinary } from './native-client.mjs';
+import { startSupervisor, window as attach, openWindow } from './red-supervisor-fixture.mjs';
 import { api, ok } from './token-fixtures.mjs';
 
 /* What a replaced session host leaves behind (spec 098): the desktop's saved layout, whose tabs name
@@ -68,10 +67,12 @@ async function workspace(t) {
     for (const value of views) await value.close();
     await runtime?.close(); await host.close(); await rm(directory, { recursive: true, force: true });
   });
-  runtime = await startRuntime({ host, directory: path.join(directory, 'runtime'), inspectUI: true,
-    initial: { root: root.id },
-    buildDesktop: dir => snapshotBinary(nativeBinary, dir),
-    onDesktop: child => child.once('spawn', () => views.push(nativeBridge(child))) });
+  /* The supervisor is a process (F159), so the window it opens is reached through its automation
+     relay rather than through a child's pipes. `--initial` is what asks for the window; the relay is
+     attached to the owner the supervisor answers with. */
+  runtime = await startSupervisor({ host, directory: path.join(directory, 'runtime'), inspectUI: true,
+    initial: { root: root.id }, binary: nativeBinary });
+  views.push(await attach(runtime, (await openWindow(runtime, root.id)).owner));
   return { directory, host, root, live, stale, runtime, views,
     supervisor: { url: runtime.url, token: runtime.token }, gui: () => views.at(-1) };
 }
@@ -109,12 +110,10 @@ test('a registration the workspace really does refuse is named in the timeout', 
   const foreign = await host.sessions.terminal({ rootId: theirs.id, command: process.execPath, args: [path.join(other, 'cli.cjs')] });
   await host.store.saveLayout(foreignLayout(mine.id, foreign.id));
 
-  const views = [];
-  const runtime = await startRuntime({ host, directory: path.join(directory, 'runtime'), inspectUI: true,
-    buildDesktop: dir => snapshotBinary(nativeBinary, dir),
-    onDesktop: child => child.once('spawn', () => views.push(nativeBridge(child))) });
+  /* No window is reached here on purpose: the point of this case is that one never registers. */
+  const runtime = await startSupervisor({ host, directory: path.join(directory, 'runtime'), inspectUI: true,
+    binary: nativeBinary });
   t.after(async () => {
-    for (const value of views) await value.close();
     await runtime.close(); await host.close(); await rm(directory, { recursive: true, force: true });
   });
 
@@ -130,10 +129,12 @@ test('a registration the workspace really does refuse is named in the timeout', 
 });
 
 test('a replacement desktop comes up under the same layout and registers again', { timeout: 120000 }, async t => {
-  const { root, live, stale, supervisor, views, gui } = await workspace(t);
+  const { root, live, stale, supervisor, runtime, views, gui } = await workspace(t);
   await gui().until(s => s.connected, 'the first desktop registers');
   const before = (await ok(supervisor, `desktops?${new URLSearchParams({ rootId: root.id })}`)).desktops[0];
-  const previous = gui().child.pid;
+  /* The window's process, as the SUPERVISOR reports it: this test no longer holds the child, so the
+     thing that says "a different process is running now" is the listing rather than a handle. */
+  const previous = before.pid;
 
   /* The `waitView` path that failed: the supervisor spawns a replacement and waits for it to appear
      in `runtime-desktops`. Under a layout naming a dead session it never did. */
@@ -145,12 +146,14 @@ test('a replacement desktop comes up under the same layout and registers again',
     if (!['succeeded', 'failed'].includes(job?.status)) await delay(75);
   }
   assert.equal(job.status, 'succeeded', `the replacement registered: ${job.error ?? ''} ${job.recoveryError ?? ''}`);
-  assert.equal(views.length, 2, 'a second desktop process was launched');
-  assert.notEqual(gui().child.pid, previous);
 
   const after = await ok(supervisor, `desktops?${new URLSearchParams({ rootId: root.id })}`);
   assert.equal(after.desktops.length, 1, 'the runtime layer is registered again after the replacement');
+  assert.notEqual(after.desktops[0].pid, previous, 'a second desktop process was launched');
   assert.deepEqual(after.desktops[0].sessionIds, [live.id]);
+  /* Re-attached, because the window is a NEW process on the same owner: a relay follows the pipes
+     of the process it was opened on, exactly as a child handle did. */
+  views.push(await attach(runtime, after.desktops[0].owner));
   const state = await gui().until(s => s.tabs.some(x => x?.session === stale), 'the replacement restored the same layout');
   assert.equal(state.tabs.find(x => x?.session === stale).sessionEnded, true);
 });

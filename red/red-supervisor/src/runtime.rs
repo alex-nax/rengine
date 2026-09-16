@@ -444,13 +444,16 @@ impl Supervisor {
     /// not reach the workspace is not a window a person can use — and the refusal a worker gave
     /// WHILE this view was being waited for is the sentence that says why (spec 098).
     pub fn wait_view(&self, view: &Arc<View>) -> Result<(), Refused> {
-        let started = red_core::time::iso(now());
+        /* Milliseconds, because that is what a worker stamps a refusal with. Compared as a STRING
+           against an ISO stamp it never matched, so the reason a window never appeared was dropped
+           and the timeout said only that it had not — which is the whole thing spec 098 added. */
+        let started = now();
         let deadline = Instant::now() + REGISTER_TIMEOUT;
         let mut refused: Option<String> = None;
         while Instant::now() < deadline {
             if !view.running() {
                 let said = view.error.lock().expect("error").clone().unwrap_or_else(|| view.diagnostics.lock().expect("diagnostics").clone());
-                return failed(&format!("Replacement desktop exited: {said}"));
+                return refuse(&format!("Replacement desktop exited: {said}"), 500);
             }
             let wanted = view.binding.lock().expect("binding").view.clone();
             for held in self.all_workers() {
@@ -464,8 +467,8 @@ impl Supervisor {
                 }
                 /* Only a refusal seen since this wait began: an older one names another desktop. */
                 if let Some(error) = answer.get("registerError") {
-                    let at = error.get("at").and_then(Value::as_str).unwrap_or_default();
-                    if at >= started.as_str() {
+                    let at = error.get("at").and_then(Value::as_i64).unwrap_or(0);
+                    if at >= started {
                         refused = error.get("message").and_then(Value::as_str).map(str::to_string);
                     }
                 }
@@ -473,7 +476,7 @@ impl Supervisor {
             std::thread::sleep(Duration::from_millis(75));
         }
         let said = view.diagnostics.lock().expect("diagnostics").clone();
-        failed(&views::never_registered(refused.as_deref(), &said))
+        refuse(&views::never_registered(refused.as_deref(), &said), 500)
     }
 
     /// The person pressed the desktop's own update key, and it detached expecting to come back.
