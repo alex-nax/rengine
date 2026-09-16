@@ -12,7 +12,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = [
-    ('orchestrator/native/terminal.c', 'real-vt-screen'),
+    ('editor/terminal.c', 'real-vt-screen'),
     ('orchestrator/server/store.mjs', 'save-and-draft-order'),
     ('orchestrator/runtime/supervisor.mjs', 'prepare-switch-recover'),
 ]

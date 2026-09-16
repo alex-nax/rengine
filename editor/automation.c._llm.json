@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "opt-in-native-acceptance",
+      "kind": "rationale",
+      "anchor": {
+        "start": 17,
+        "end": 17,
+        "snippet": "Uint32 re_automation_start(void) {"
+      },
+      "note": "Only explicit test-mode startup creates the stdin reader. Commands enqueue ordinary SDL key/mouse/text/focus events and expose read-only state/rendered snapshots. Pointer commands can set modifier state and wheel commands carry signed precise deltas plus inversion metadata to exercise production mouse reporting. It does not start a network listener or replace real file/session/game operations with fixtures. Tests clean their owned process; this remains separate from the agent desktop-action protocol. One command has a side effect beyond input: plugin (spec 106) loads a module into this window through re_app_plugin_load with the same three inputs the declaring lane will pass, so a real module is exercised in a real window before the declaration format exists; it is still only reachable through this opt-in channel. fileLinkCursor compares SDL_GetCursor with the real desktop-owned hand cursor, so a missing SDL_SetCursor call cannot pass by merely setting a desired-state flag. Input commands enqueue events; cursor checks wait for the subsequent rendered frame.",
+      "refs": [
+        "docs/specs/056-native-desktop.md",
+        "docs/specs/061-pane-scroll-controls.md",
+        "docs/specs/062-agent-desktop-actions.md",
+        "docs/specs/063-terminal-mouse-reporting.md",
+        "docs/specs/106-plugin-abi.md"
+      ]
+    },
+    {
+      "id": "text-runs-carry-their-clip",
+      "kind": "rationale",
+      "anchor": {
+        "start": 89,
+        "end": 120,
+        "symbol": "re_automation_command",
+        "snippet": "  if (!strcmp(op, \"text-runs\")) {"
+      },
+      "note": "What a control's rectangle cannot say. The inspect payload reports controls, and a control's rectangle told a spec that a row existed and nothing about the strings inside it \u2014 so two strings drawn on top of each other was invisible to every test and obvious in a screenshot (2026-09-14). The draw list already holds the answer, so this reports it: every RE_CMD_TEXT of the last completed frame, its measured box, and the clip in force when it was emitted.\n\nThe clip is not an extra: it is what separates the two failures a spec wants to tell apart. Without it a label microui clipped reads as an overlap (the unclipped box runs under its neighbour) and a name elided to a stub reads as whole. Both boxes are reported \u2014 `x/y/w/h` is the string's full extent, `visible` is that intersected with the clip \u2014 so a spec says which it means: `visible == full` is \"drawn whole\", and two `visible` boxes intersecting is \"drawn on top of each other\".\n\nThe frame this reads is the LAST one: the list is reset in `re_draw_begin` and automation commands are handled between frames, so a caller that changes state must let a frame draw before asking.",
+      "refs": [
+        "orchestrator/tests/native-agent-select.spec.mjs",
+        "docs/specs/134-project-and-worktree-browser.md",
+        "docs/specs/067-draw-list-contract.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "editor/automation.c",
+    "sha256": "a32c85d9d2744bf4c8d24f23025f2994bd758ab93854d8f5a2cb30a114f1dfed",
+    "format": "c",
+    "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
+  }
+}

@@ -5,7 +5,7 @@
  * the same things a person does: open the tree, open a file, edit it, save it, type in a pane and
  * read what came back.
  *
- * Nothing in `orchestrator/native/` changes for this. That is the claim — the desktop cannot tell —
+ * Nothing in `editor/` changes for this. That is the claim — the desktop cannot tell —
  * and the way to check a claim like that is to run the real binary against the new host rather than
  * to compare route handlers.
  */

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compile the draw list's one shader into every dialect its backends need (spec 124, F133).
 
-generate: from orchestrator/native/render/shaders/ui.glsl, emit OpenGL 3.30 source, Vulkan SPIR-V
+generate: from editor/render/shaders/ui.glsl, emit OpenGL 3.30 source, Vulkan SPIR-V
           and Metal MSL into the committed ui_shaders.h.
 check:    fail when the header no longer matches the source it was generated from.
 
@@ -24,7 +24,7 @@ import sys
 import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SHADERS = ROOT / "orchestrator" / "native" / "render" / "shaders"
+SHADERS = ROOT / "editor" / "render" / "shaders"
 # Why NDC_Y is per-dialect, when everything else in this generator is one source:
 #
 # The seam promises that NDC -1 lands in ROW 0 of the target on every API, which is what lets an

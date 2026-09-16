@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-RENDER = ROOT / "orchestrator/native/render"
+RENDER = ROOT / "editor/render"
 APIS = ("opengl", "vulkan", "metal")
 
 # Every header that declares a symbol one of the three copies DEFINES. The pack's two public

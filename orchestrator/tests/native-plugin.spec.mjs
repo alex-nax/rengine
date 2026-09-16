@@ -11,7 +11,7 @@ import { startServer } from './red-host-fixture.mjs';
 import { nativeClient } from './native-client.mjs';
 
 // Spec 106: a plugin is loaded into a REAL window, and what it drew is read back off the screen.
-// The modules are the fixtures the desktop build produces from orchestrator/native/tests/plugins/;
+// The modules are the fixtures the desktop build produces from editor/tests/plugins/;
 // the automation `plugin` op stands in for the declaration the other lane will pass to the same
 // loader with the same three inputs.
 const run = promisify(execFile);

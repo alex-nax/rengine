@@ -13,7 +13,7 @@ languages = ["C"]
 cmake-after = """
 include(CTest)
 find_package(SDL2 2.32.10 EXACT CONFIG REQUIRED)
-include(orchestrator/native/curl.cmake)
+include(editor/curl.cmake)
 set(RENGINE_VENDOR "${PROJECT_SOURCE_DIR}/third_party")
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 if(APPLE)
@@ -32,7 +32,7 @@ endif()
 foreach(api IN LISTS RENGINE_SEAM_APIS)
   set(RENGINE_GPU_TARGET_NAME "rengine_gpu_${api}")
   set(RENGINE_GPU_SEAM_BACKEND "${api}")
-  set(RENGINE_GPU_FORCE_INCLUDE "${PROJECT_SOURCE_DIR}/orchestrator/native/render/seam_prefix_${api}.h")
+  set(RENGINE_GPU_FORCE_INCLUDE "${PROJECT_SOURCE_DIR}/editor/render/seam_prefix_${api}.h")
   add_subdirectory(packs/gpu "${CMAKE_BINARY_DIR}/packs/gpu-${api}")
 endforeach()
 # Normal variables shadow the pack's cache entries, so they must go before the UNPREFIXED pack is
@@ -111,17 +111,17 @@ target_include_directories(rengine_vterm SYSTEM PUBLIC "${RENGINE_VENDOR}/libvte
 
 [target.rengine_svg]
 type = "static"
-sources = ["orchestrator/native/svg.c"]
+sources = ["editor/svg.c"]
 cmake-after = """
-target_include_directories(rengine_svg PRIVATE "${PROJECT_SOURCE_DIR}/orchestrator/native")
+target_include_directories(rengine_svg PRIVATE "${PROJECT_SOURCE_DIR}/editor")
 target_include_directories(rengine_svg SYSTEM PRIVATE "${RENGINE_VENDOR}/nanosvg") # pinned nanosvg (spec 104)
 """
 
 [target.rengine_jpeg]
 type = "static"
-sources = ["orchestrator/native/jpeg.c"]
+sources = ["editor/jpeg.c"]
 cmake-after = """
-target_include_directories(rengine_jpeg PRIVATE "${PROJECT_SOURCE_DIR}/orchestrator/native")
+target_include_directories(rengine_jpeg PRIVATE "${PROJECT_SOURCE_DIR}/editor")
 target_include_directories(rengine_jpeg SYSTEM PRIVATE "${RENGINE_VENDOR}/stb") # pinned stb_image_write (spec 081)
 """
 
@@ -135,8 +135,8 @@ target_include_directories(rengine_jpeg SYSTEM PRIVATE "${RENGINE_VENDOR}/stb") 
 
 [target.rengine_seam_opengl]
 type = "static"
-sources = ["orchestrator/native/render/backend_seam.c", "orchestrator/native/render/plugin_seam.c", "orchestrator/native/render/seam_host_gl.c"]
-include-directories = ["orchestrator/native"]
+sources = ["editor/render/backend_seam.c", "editor/render/plugin_seam.c", "editor/render/seam_host_gl.c"]
+include-directories = ["editor"]
 private-link-libraries = ["SDL2::SDL2", "rengine_microui", "rengine_gpu_opengl"]
 compile-features = ["c_std_11"]
 compile-definitions = ["SDL_MAIN_HANDLED"]
@@ -155,8 +155,8 @@ endif()
 
 [target.rengine_seam_vulkan]
 type = "static"
-sources = ["orchestrator/native/render/backend_seam.c", "orchestrator/native/render/plugin_seam.c", "orchestrator/native/render/seam_host_vk.c"]
-include-directories = ["orchestrator/native"]
+sources = ["editor/render/backend_seam.c", "editor/render/plugin_seam.c", "editor/render/seam_host_vk.c"]
+include-directories = ["editor"]
 private-link-libraries = ["SDL2::SDL2", "rengine_microui", "rengine_gpu_vulkan"]
 compile-features = ["c_std_11"]
 compile-definitions = ["SDL_MAIN_HANDLED"]
@@ -173,17 +173,17 @@ endif()
 [target.rengine_seam_metal]
 type = "static"
 condition = "apple"
-sources = ["orchestrator/native/render/backend_seam.c", "orchestrator/native/render/plugin_seam.c"]
-include-directories = ["orchestrator/native"]
+sources = ["editor/render/backend_seam.c", "editor/render/plugin_seam.c"]
+include-directories = ["editor"]
 private-link-libraries = ["SDL2::SDL2", "rengine_microui", "rengine_gpu_metal"]
 compile-features = ["c_std_11"]
 compile-definitions = ["SDL_MAIN_HANDLED"]
 cmake-after = """
 enable_language(OBJC)
-target_sources(rengine_seam_metal PRIVATE orchestrator/native/render/seam_host_metal.m)
+target_sources(rengine_seam_metal PRIVATE editor/render/seam_host_metal.m)
 # Without ARC, matching the pack's own Metal file: the host owns its device, layer and drawable in a
 # plain C struct with explicit retain/release.
-set_source_files_properties(orchestrator/native/render/seam_host_metal.m
+set_source_files_properties(editor/render/seam_host_metal.m
                             PROPERTIES COMPILE_OPTIONS "-fno-objc-arc")
 target_link_libraries(rengine_seam_metal PUBLIC "-framework Metal" "-framework QuartzCore" "-framework Foundation")
 if(NOT MSVC)
@@ -201,11 +201,11 @@ endif()
 [target.rengine_render]
 type = "static"
 sources = [
-  "orchestrator/native/theme.c", "orchestrator/native/theme_file.c", "orchestrator/native/draw.c",
-  "orchestrator/native/render/utf8.c", "orchestrator/native/render/draw_list.c",
-  "orchestrator/native/render/font.c",
+  "editor/theme.c", "editor/theme_file.c", "editor/draw.c",
+  "editor/render/utf8.c", "editor/render/draw_list.c",
+  "editor/render/font.c",
 ]
-include-directories = ["orchestrator/native"]
+include-directories = ["editor"]
 link-libraries = ["SDL2::SDL2", "rengine_microui", "rengine_json", "rengine_seam_opengl", "rengine_seam_vulkan"]
 compile-features = ["c_std_11"]
 compile-definitions = ["SDL_MAIN_HANDLED"]
@@ -223,8 +223,8 @@ endif()
 
 [target.rengine_ui]
 type = "static"
-sources = ["orchestrator/native/ui/ui.c"]
-include-directories = ["orchestrator/native"]
+sources = ["editor/ui/ui.c"]
+include-directories = ["editor"]
 link-libraries = ["rengine_render", "rengine_microui"]
 compile-features = ["c_std_11"]
 cmake-after = """
@@ -236,19 +236,19 @@ endif()
 [target.rengine_desktop_core]
 type = "static"
 sources = [
-  "orchestrator/native/layout.c", "orchestrator/native/net.c",
-  "orchestrator/native/terminal.c", "orchestrator/native/editor.c", "orchestrator/native/syntax.c",
-  "orchestrator/native/app.c", "orchestrator/native/imageview.c", "orchestrator/native/filelink.c",
-  "orchestrator/native/workspace.c", "orchestrator/native/overlays.c", "orchestrator/native/game.c", "orchestrator/native/scroll.c",
-  "orchestrator/native/scene.c", "orchestrator/native/hexview.c", "orchestrator/native/formatview.c",
-  "orchestrator/native/dashboard.c", "orchestrator/native/tracker.c", "orchestrator/native/recording.c", "orchestrator/native/devices.c",
-  "orchestrator/native/token.c",
-  "orchestrator/native/plugin.c", "orchestrator/native/pluginview.c",
+  "editor/layout.c", "editor/net.c",
+  "editor/terminal.c", "editor/editor.c", "editor/syntax.c",
+  "editor/app.c", "editor/imageview.c", "editor/filelink.c",
+  "editor/workspace.c", "editor/overlays.c", "editor/game.c", "editor/scroll.c",
+  "editor/scene.c", "editor/hexview.c", "editor/formatview.c",
+  "editor/dashboard.c", "editor/tracker.c", "editor/recording.c", "editor/devices.c",
+  "editor/token.c",
+  "editor/plugin.c", "editor/pluginview.c",
 ]
 # The pack's include path, headers only and no link: plugin_render.h names the seam's value types
 # because the render extension is the seam by pointer (charter D55). Which COPY is called is decided
 # at runtime through seam_backends.h, so nothing here depends on a prefixed target.
-include-directories = ["orchestrator/native", "packs/gpu/include"]
+include-directories = ["editor", "packs/gpu/include"]
 link-libraries = ["SDL2::SDL2", "rengine_ui", "rengine_render", "rengine_microui", "rengine_json", "rengine_vterm", "rengine_jpeg", "rengine_svg", "CURL::libcurl"]
 compile-features = ["c_std_11"]
 compile-definitions = ["SDL_MAIN_HANDLED"]
@@ -263,17 +263,17 @@ target_link_libraries(rengine_desktop_core PUBLIC ${CMAKE_DL_LIBS}) # plugin.c: 
 # platform compiles the stub beside it, which reports no tile rather than claiming one (spec 136).
 if(APPLE)
   enable_language(OBJC)
-  target_sources(rengine_desktop_core PRIVATE "orchestrator/native/dock_icon.m")
-  set_source_files_properties("orchestrator/native/dock_icon.m" PROPERTIES COMPILE_OPTIONS "-fno-objc-arc")
+  target_sources(rengine_desktop_core PRIVATE "editor/dock_icon.m")
+  set_source_files_properties("editor/dock_icon.m" PROPERTIES COMPILE_OPTIONS "-fno-objc-arc")
   target_link_libraries(rengine_desktop_core PUBLIC "-framework AppKit")
 else()
-  target_sources(rengine_desktop_core PRIVATE "orchestrator/native/dock_icon.c")
+  target_sources(rengine_desktop_core PRIVATE "editor/dock_icon.c")
 endif()
 """
 
 [target.rengine]
 type = "executable"
-sources = ["orchestrator/native/main.c", "orchestrator/native/automation.c", "orchestrator/native/bootstrap.c"]
+sources = ["editor/main.c", "editor/automation.c", "editor/bootstrap.c"]
 private-link-libraries = ["rengine_desktop_core"]
 cmake-after = """
 # The checkout this desktop was built from, which is how it finds its sibling binaries at runtime
@@ -336,7 +336,7 @@ add_test(NAME native_gpu_device COMMAND rengine_gpu_device_test)
 [target.rengine_layout_test]
 condition = "testing"
 type = "executable"
-sources = ["orchestrator/native/tests/layout_test.c"]
+sources = ["editor/tests/layout_test.c"]
 private-link-libraries = ["rengine_desktop_core"]
 cmake-after = """
 if(MSVC)
@@ -354,7 +354,7 @@ endif()
 [target.rengine_editor_test]
 condition = "testing"
 type = "executable"
-sources = ["orchestrator/native/tests/editor_test.c"]
+sources = ["editor/tests/editor_test.c"]
 private-link-libraries = ["rengine_desktop_core"]
 cmake-after = """
 if(MSVC)
@@ -372,7 +372,7 @@ endif()
 [target.rengine_terminal_test]
 condition = "testing"
 type = "executable"
-sources = ["orchestrator/native/tests/terminal_test.c"]
+sources = ["editor/tests/terminal_test.c"]
 private-link-libraries = ["rengine_desktop_core"]
 cmake-after = """
 if(MSVC)
@@ -390,22 +390,22 @@ endif()
 [target.rengine_svg_test]
 condition = "testing"
 type = "executable"
-sources = ["orchestrator/native/tests/svg_test.c"]
+sources = ["editor/tests/svg_test.c"]
 private-link-libraries = ["rengine_svg"]
 cmake-after = """
-target_include_directories(rengine_svg_test PRIVATE "${PROJECT_SOURCE_DIR}/orchestrator/native")
+target_include_directories(rengine_svg_test PRIVATE "${PROJECT_SOURCE_DIR}/editor")
 if(MSVC)
   target_compile_options(rengine_svg_test PRIVATE /UNDEBUG)
 else()
   target_compile_options(rengine_svg_test PRIVATE -UNDEBUG)
 endif()
-add_test(NAME native_svg COMMAND rengine_svg_test "${PROJECT_SOURCE_DIR}/orchestrator/native/tests/fixtures")
+add_test(NAME native_svg COMMAND rengine_svg_test "${PROJECT_SOURCE_DIR}/editor/tests/fixtures")
 """
 
 [target.rengine_draw_list_test]
 condition = "testing"
 type = "executable"
-sources = ["orchestrator/native/tests/draw_list_test.c"]
+sources = ["editor/tests/draw_list_test.c"]
 private-link-libraries = ["rengine_desktop_core"]
 cmake-after = """
 if(MSVC)
@@ -423,7 +423,7 @@ endif()
 [target.rengine_syntax_test]
 condition = "testing"
 type = "executable"
-sources = ["orchestrator/native/tests/syntax_test.c"]
+sources = ["editor/tests/syntax_test.c"]
 private-link-libraries = ["rengine_desktop_core"]
 cmake-after = """
 if(MSVC)
@@ -441,7 +441,7 @@ endif()
 [target.rengine_recording_test]
 condition = "testing"
 type = "executable"
-sources = ["orchestrator/native/tests/recording_test.c"]
+sources = ["editor/tests/recording_test.c"]
 private-link-libraries = ["rengine_desktop_core"]
 cmake-after = """
 target_compile_definitions(rengine_recording_test PRIVATE RENGINE_TEST_TMP="${CMAKE_BINARY_DIR}/recording-test")
@@ -462,8 +462,8 @@ endif()
 [target.rengine_plugin_fixture]
 condition = "testing"
 type = "shared"
-sources = ["orchestrator/native/tests/plugins/fixture_plugin.c"]
-include-directories = ["orchestrator/native"]
+sources = ["editor/tests/plugins/fixture_plugin.c"]
+include-directories = ["editor"]
 compile-features = ["c_std_11"]
 cmake-after = """
 # PREFIX "" keeps each module's file name its target name, under ${CMAKE_BINARY_DIR}/plugins on every platform.
@@ -474,8 +474,8 @@ function(rengine_plugin_output name)
   endif()
 endfunction()
 function(rengine_plugin_variant name)
-  add_library(${name} SHARED "${PROJECT_SOURCE_DIR}/orchestrator/native/tests/plugins/fixture_plugin.c")
-  target_include_directories(${name} PRIVATE "${PROJECT_SOURCE_DIR}/orchestrator/native")
+  add_library(${name} SHARED "${PROJECT_SOURCE_DIR}/editor/tests/plugins/fixture_plugin.c")
+  target_include_directories(${name} PRIVATE "${PROJECT_SOURCE_DIR}/editor")
   target_compile_features(${name} PRIVATE c_std_11)
   target_compile_definitions(${name} PRIVATE ${ARGN})
   rengine_plugin_output(${name})
@@ -502,7 +502,7 @@ add_library(rengine_plugin_scene SHARED
 target_include_directories(rengine_plugin_scene PRIVATE
   "${PROJECT_SOURCE_DIR}/packs/gpu/examples/scene"
   "${PROJECT_SOURCE_DIR}/packs/gpu/include"
-  "${PROJECT_SOURCE_DIR}/orchestrator/native")
+  "${PROJECT_SOURCE_DIR}/editor")
 target_include_directories(rengine_plugin_scene SYSTEM PRIVATE "${RENGINE_VENDOR}/stb")
 target_compile_features(rengine_plugin_scene PRIVATE c_std_11)
 if(NOT MSVC)
@@ -516,21 +516,21 @@ rengine_plugin_output(rengine_plugin_scene)
 
 # The render fixture (F135): the only module that exercises D55's two grants, so it needs the pack's
 # headers for the seam's value types exactly as the desktop's plugin layer does.
-add_library(rengine_plugin_render SHARED "${PROJECT_SOURCE_DIR}/orchestrator/native/tests/plugins/render_plugin.c")
+add_library(rengine_plugin_render SHARED "${PROJECT_SOURCE_DIR}/editor/tests/plugins/render_plugin.c")
 target_include_directories(rengine_plugin_render PRIVATE
-  "${PROJECT_SOURCE_DIR}/orchestrator/native" "${PROJECT_SOURCE_DIR}/packs/gpu/include")
+  "${PROJECT_SOURCE_DIR}/editor" "${PROJECT_SOURCE_DIR}/packs/gpu/include")
 target_compile_features(rengine_plugin_render PRIVATE c_std_11)
 rengine_plugin_output(rengine_plugin_render)
 
-add_library(rengine_plugin_blank SHARED "${PROJECT_SOURCE_DIR}/orchestrator/native/tests/plugins/blank_plugin.c")
-target_include_directories(rengine_plugin_blank PRIVATE "${PROJECT_SOURCE_DIR}/orchestrator/native")
+add_library(rengine_plugin_blank SHARED "${PROJECT_SOURCE_DIR}/editor/tests/plugins/blank_plugin.c")
+target_include_directories(rengine_plugin_blank PRIVATE "${PROJECT_SOURCE_DIR}/editor")
 rengine_plugin_output(rengine_plugin_blank)
 """
 
 [target.rengine_plugin_test]
 condition = "testing"
 type = "executable"
-sources = ["orchestrator/native/tests/plugin_test.c"]
+sources = ["editor/tests/plugin_test.c"]
 private-link-libraries = ["rengine_desktop_core"]
 cmake-after = """
 if(MSVC)
@@ -543,7 +543,7 @@ add_dependencies(rengine_plugin_test rengine_plugin_fixture rengine_plugin_fixtu
 add_test(NAME native_plugin COMMAND rengine_plugin_test
   $<TARGET_FILE:rengine_plugin_fixture> $<TARGET_FILE:rengine_plugin_fixture_abi_old> $<TARGET_FILE:rengine_plugin_fixture_abi_new>
   $<TARGET_FILE:rengine_plugin_fixture_list_new> $<TARGET_FILE:rengine_plugin_fixture_list_old> $<TARGET_FILE:rengine_plugin_blank>
-  $<TARGET_FILE:rengine_plugin_fixture_decline> "${PROJECT_SOURCE_DIR}/orchestrator/native/tests/plugin_test.c")
+  $<TARGET_FILE:rengine_plugin_fixture_decline> "${PROJECT_SOURCE_DIR}/editor/tests/plugin_test.c")
 if(WIN32)
   add_custom_command(TARGET rengine_plugin_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
     $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_plugin_test>)
@@ -553,7 +553,7 @@ endif()
 [target.rengine_filelink_test]
 condition = "testing"
 type = "executable"
-sources = ["orchestrator/native/tests/filelink_test.c"]
+sources = ["editor/tests/filelink_test.c"]
 private-link-libraries = ["rengine_desktop_core"]
 cmake-after = """
 if(MSVC)
@@ -571,7 +571,7 @@ endif()
 [target.rengine_imageview_test]
 condition = "testing"
 type = "executable"
-sources = ["orchestrator/native/tests/imageview_test.c"]
+sources = ["editor/tests/imageview_test.c"]
 private-link-libraries = ["rengine_desktop_core"]
 cmake-after = """
 if(MSVC)
@@ -579,7 +579,7 @@ if(MSVC)
 else()
   target_compile_options(rengine_imageview_test PRIVATE -UNDEBUG)
 endif()
-add_test(NAME native_imageview COMMAND rengine_imageview_test "${PROJECT_SOURCE_DIR}/orchestrator/native/tests/fixtures")
+add_test(NAME native_imageview COMMAND rengine_imageview_test "${PROJECT_SOURCE_DIR}/editor/tests/fixtures")
 if(WIN32)
   add_custom_command(TARGET rengine_imageview_test POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
     $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:rengine_imageview_test>)

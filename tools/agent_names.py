@@ -47,7 +47,7 @@ EXCEPTIONS = [
     ("red/red-agents/src/lib.rs", 'const PARSERS',
      "PERMANENT. The values registry.mjs refused, frozen with the record its projection is judged against. "
      "`conversation.read` is the live declaration; `parser` is a vestigial atom of the frozen shape."),
-    ("orchestrator/native/render/syntax_theme.h", "Claude Design",
+    ("editor/render/syntax_theme.h", "Claude Design",
      "PERMANENT. The name of a DESIGN SOURCE, not an agent: the theme this workspace's colours came "
      "from (spec 064). It is the one place the word is not about a CLI."),
     ("orchestrator/agents/handoff/index.mjs", 'codex',

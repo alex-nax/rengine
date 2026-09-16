@@ -334,7 +334,7 @@
       "passes": true,
       "dependencies": [],
       "owner_workspace": "rengine",
-      "deliverable": "orchestrator/native/render/ contract and reference adapter with evidence",
+      "deliverable": "editor/render/ contract and reference adapter with evidence",
       "external_references": [],
       "evidence": [
         "docs/evidence/draw-list-macos-2026-09-06.md"
@@ -508,7 +508,7 @@
         63
       ],
       "owner_workspace": "rengine",
-      "deliverable": "orchestrator/native/formatview.c, hexview.c, native-format-registry.spec.mjs and evidence",
+      "deliverable": "editor/formatview.c, hexview.c, native-format-registry.spec.mjs and evidence",
       "external_references": [],
       "evidence": []
     },
@@ -551,7 +551,7 @@
         64
       ],
       "owner_workspace": "rengine",
-      "deliverable": "orchestrator/native/dashboard.c, native-dashboard.spec.mjs and evidence",
+      "deliverable": "editor/dashboard.c, native-dashboard.spec.mjs and evidence",
       "external_references": [],
       "evidence": []
     },
@@ -772,7 +772,7 @@
         74
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/081-game-recording.md, orchestrator/native/recording.c and jpeg.c, orchestrator/server/recordings.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, orchestrator/native/tests/recording_test.c, orchestrator/tests/recordings.test.mjs and native-recording.spec.mjs",
+      "deliverable": "docs/specs/081-game-recording.md, editor/recording.c and jpeg.c, orchestrator/server/recordings.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, editor/tests/recording_test.c, orchestrator/tests/recordings.test.mjs and native-recording.spec.mjs",
       "external_references": [
         "capture-mcp (per-app audio and transcription) \u2014 KI-044"
       ],
@@ -798,7 +798,7 @@
         74
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/082-project-devices.md, contracts/project-v1.schema.json, orchestrator/server/{device-rules,devices,formats,games,dashboard}.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, orchestrator/native/{devices.c,devices.h,app.c,workspace.c,theme.json}, orchestrator/tests/{devices.test.mjs,device-fixtures.mjs,native-devices.spec.mjs}",
+      "deliverable": "docs/specs/082-project-devices.md, contracts/project-v1.schema.json, orchestrator/server/{device-rules,devices,formats,games,dashboard}.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, editor/{devices.c,devices.h,app.c,workspace.c,theme.json}, orchestrator/tests/{devices.test.mjs,device-fixtures.mjs,native-devices.spec.mjs}",
       "external_references": [
         "vtmb-vr/docs/specs/feature-1146-device-targets.md (consumer proposal)",
         "vtmb-vr and nolf-improved .rengine/project.json declarations"
@@ -824,7 +824,7 @@
         71
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/078-project-game-declaration.md, contracts/project-v1.schema.json, orchestrator/server/{game-rules,games}.mjs, orchestrator/native/app.c, orchestrator/actions/integrate-project.sh, orchestrator/templates/project/test_rengine_project_decl.py, docs/runbooks/project-integration.md, orchestrator/tests/{cooperative.test.mjs,surface-producer.mjs,game-fixtures.mjs,native-cooperative.spec.mjs}",
+      "deliverable": "docs/specs/078-project-game-declaration.md, contracts/project-v1.schema.json, orchestrator/server/{game-rules,games}.mjs, editor/app.c, orchestrator/actions/integrate-project.sh, orchestrator/templates/project/test_rengine_project_decl.py, docs/runbooks/project-integration.md, orchestrator/tests/{cooperative.test.mjs,surface-producer.mjs,game-fixtures.mjs,native-cooperative.spec.mjs}",
       "external_references": [
         "vtmb-vr F1147 (the consumer's own surface-protocol client, src/platform/workspace_surface.cpp)"
       ],
@@ -849,7 +849,7 @@
         60
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/083-task-tracking.md, contracts/project-v1.schema.json, orchestrator/server/tracker*.mjs, orchestrator/native/tracker.c, and their tests",
+      "deliverable": "docs/specs/083-task-tracking.md, contracts/project-v1.schema.json, orchestrator/server/tracker*.mjs, editor/tracker.c, and their tests",
       "external_references": [],
       "evidence": [
         "orchestrator/tests/tracker.test.mjs: the local backend derives the same readiness tools/features.py reports, an undeclared project still shows its own inventory, and a project with neither says so rather than showing an empty list.",
@@ -879,7 +879,7 @@
         60
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/084-project-identity.md, contracts/project-v1.schema.json, orchestrator/native/workspace.c and main.c, and their tests",
+      "deliverable": "docs/specs/084-project-identity.md, contracts/project-v1.schema.json, editor/workspace.c and main.c, and their tests",
       "external_references": [],
       "evidence": [
         "orchestrator/tests/native-identity.spec.mjs: an undeclared project shows rEdit in the chrome and in the operating system window title; a project declaring a title and glyph under contract 5 wears both, and the brand chip takes the declared token colour rather than the accent.",
@@ -911,7 +911,7 @@
         76
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/082-project-devices.md, orchestrator/server/{devices,main}.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, orchestrator/native/{devices.c,theme.json,theme.h}, orchestrator/tests/{devices.test.mjs,native-devices.spec.mjs} (input seam merged with 1a9c591)",
+      "deliverable": "docs/specs/082-project-devices.md, orchestrator/server/{devices,main}.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, editor/{devices.c,theme.json,theme.h}, orchestrator/tests/{devices.test.mjs,native-devices.spec.mjs} (input seam merged with 1a9c591)",
       "external_references": [
         "vtmb-vr scripts/wizards/remote-rengine.sh, the pcvr-bound install action this makes reachable"
       ],
@@ -991,7 +991,7 @@
         81
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/095-project-token.md; identity in orchestrator/agents/{config,launch}.mjs and a new bind.mjs; ledger, feed and gates in orchestrator/runtime/worker.mjs; token_*/feed_* tools and the identity header in orchestrator/agents/mcp-worker.mjs; the status-bar segment in orchestrator/native/app.c",
+      "deliverable": "docs/specs/095-project-token.md; identity in orchestrator/agents/{config,launch}.mjs and a new bind.mjs; ledger, feed and gates in orchestrator/runtime/worker.mjs; token_*/feed_* tools and the identity header in orchestrator/agents/mcp-worker.mjs; the status-bar segment in editor/app.c",
       "external_references": [],
       "evidence": [
         "docs/evidence/agent-identity-2026-09-07.md",
@@ -1136,7 +1136,7 @@
         93
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/099-sessions-tab-resume.md; the Conversations section, describe_age, conversation_session and resume_conversation in orchestrator/native/workspace.c; orchestrator/tests/native-sessions.spec.mjs; its entry in package.json test:desktop.",
+      "deliverable": "docs/specs/099-sessions-tab-resume.md; the Conversations section, describe_age, conversation_session and resume_conversation in editor/workspace.c; orchestrator/tests/native-sessions.spec.mjs; its entry in package.json test:desktop.",
       "external_references": [],
       "evidence": [
         "orchestrator/tests/native-sessions.spec.mjs: the Sessions tab offers a project's past conversations for resume, most recent first",
@@ -1289,7 +1289,7 @@
         99
       ],
       "owner_workspace": "rengine",
-      "deliverable": "A selection accessor over ReEditor's existing select_start/select_end in orchestrator/native/editor.{c,h}, the report from the focused pane in the desktop, and the existing POST /api/ide-selection it feeds; docs/specs/102-editor-as-claude-ide.md slice 2.",
+      "deliverable": "A selection accessor over ReEditor's existing select_start/select_end in editor/editor.{c,h}, the report from the focused pane in the desktop, and the existing POST /api/ide-selection it feeds; docs/specs/102-editor-as-claude-ide.md slice 2.",
       "external_references": [],
       "evidence": [
         "orchestrator/tests/native-ide-selection.spec.mjs: the focused editor reports its selection in the units the protocol counts",
@@ -1413,7 +1413,7 @@
         95
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/103-task-driven-agents.md; Sessions-tab token controls in orchestrator/native/workspace.c; task write routes and agent-spawn in orchestrator/runtime/worker.mjs; task_*/spawn_agent tools in orchestrator/agents/mcp-worker.mjs; Tasks-pane controls in orchestrator/native/tracker.c; contract 6 in contracts/project-v1.schema.json; shipped prompts under orchestrator/templates/prompts",
+      "deliverable": "docs/specs/103-task-driven-agents.md; Sessions-tab token controls in editor/workspace.c; task write routes and agent-spawn in orchestrator/runtime/worker.mjs; task_*/spawn_agent tools in orchestrator/agents/mcp-worker.mjs; Tasks-pane controls in editor/tracker.c; contract 6 in contracts/project-v1.schema.json; shipped prompts under orchestrator/templates/prompts",
       "external_references": [],
       "evidence": []
     },
@@ -1436,7 +1436,7 @@
         79
       ],
       "owner_workspace": "rengine",
-      "deliverable": "third_party/nanosvg, orchestrator/native/svg.{c,h}, contract 8, toolbar_brand artwork",
+      "deliverable": "third_party/nanosvg, editor/svg.{c,h}, contract 8, toolbar_brand artwork",
       "external_references": [],
       "evidence": [
         "docs/specs/104-project-brand-artwork.md",
@@ -1498,7 +1498,7 @@
         60
       ],
       "owner_workspace": "rengine",
-      "deliverable": "orchestrator/native/plugin_abi.h (the header a plugin compiles against), orchestrator/native/plugin.{c,h} (registry, version negotiation, the one dlopen/LoadLibrary wrapper), orchestrator/native/pluginview.{c,h} (RE_PLUGIN views and re_app_plugin_load for the declaring lane), the automation `plugin` op, the fixture modules under orchestrator/native/tests/plugins/, rengine_plugin_test (CTest native_plugin), orchestrator/tests/native-plugin.spec.mjs; docs/specs/106-plugin-abi.md.",
+      "deliverable": "editor/plugin_abi.h (the header a plugin compiles against), editor/plugin.{c,h} (registry, version negotiation, the one dlopen/LoadLibrary wrapper), editor/pluginview.{c,h} (RE_PLUGIN views and re_app_plugin_load for the declaring lane), the automation `plugin` op, the fixture modules under editor/tests/plugins/, rengine_plugin_test (CTest native_plugin), orchestrator/tests/native-plugin.spec.mjs; docs/specs/106-plugin-abi.md.",
       "external_references": [],
       "evidence": [
         "docs/specs/106-plugin-abi.md",
@@ -1545,7 +1545,7 @@
       "milestone": "O1",
       "category": "workspace",
       "priority": "medium",
-      "description": "The product is Red, and its name stops being hard-coded: one declaration in orchestrator/native/theme.json is generated into theme.h for the desktop and orchestrator/runtime/product.mjs for the workspace layer, every consumer reads the generated value, and a guard fails when shipping code spells the name instead (charter D41, spec 108).",
+      "description": "The product is Red, and its name stops being hard-coded: one declaration in editor/theme.json is generated into theme.h for the desktop and orchestrator/runtime/product.mjs for the workspace layer, every consumer reads the generated value, and a guard fails when shipping code spells the name instead (charter D41, spec 108).",
       "acceptance_criteria": [
         "The name is declared once and generated: theme.json carries the product block, tools/design.py generate writes RE_PRODUCT_NAME and RE_PRODUCT_SUITE into theme.h and PRODUCT_NAME and PRODUCT_SUITE into orchestrator/runtime/product.mjs, and design.py check fails when either generated file is stale or hand-edited.",
         "All four consumers read the generated value: RE_DEFAULT_TITLE is an alias of RE_PRODUCT_NAME, IDE_NAME is PRODUCT_NAME, the LSP clientInfo name is PRODUCT_NAME, and the tracker sign-in callback page takes its title from PRODUCT_NAME.",
@@ -1560,7 +1560,7 @@
         79
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The product block in orchestrator/native/theme.json, the generator and guard in tools/design.py, the generated orchestrator/runtime/product.mjs, the rewired consumers in orchestrator/native/app.h, orchestrator/runtime/ide.mjs, orchestrator/runtime/lsp.mjs and orchestrator/server/tracker-auth.mjs, and orchestrator/tests/product-name.test.mjs.",
+      "deliverable": "The product block in editor/theme.json, the generator and guard in tools/design.py, the generated orchestrator/runtime/product.mjs, the rewired consumers in editor/app.h, orchestrator/runtime/ide.mjs, orchestrator/runtime/lsp.mjs and orchestrator/server/tracker-auth.mjs, and orchestrator/tests/product-name.test.mjs.",
       "external_references": [],
       "evidence": [
         "orchestrator/tests/product-name.test.mjs: the generated artifacts carry the declaration rather than a copy of it",
@@ -1614,7 +1614,7 @@
       "passes": true,
       "dependencies": [],
       "owner_workspace": "rengine",
-      "deliverable": "The output buffer, flush_output, the static handlers and re_terminal_inspect_output in orchestrator/native/terminal.c, its declaration in orchestrator/native/terminal.h, and the batching case in orchestrator/native/tests/terminal_test.c.",
+      "deliverable": "The output buffer, flush_output, the static handlers and re_terminal_inspect_output in editor/terminal.c, its declaration in editor/terminal.h, and the batching case in editor/tests/terminal_test.c.",
       "external_references": [],
       "evidence": [
         "docs/specs/113-terminal-input-batching.md: the mechanism, the measured RED, and the chunk-boundary verification with its per-chunk lead bytes",
@@ -1693,7 +1693,7 @@
       "passes": true,
       "dependencies": [],
       "owner_workspace": "rengine",
-      "deliverable": "The evidence mapping in orchestrator/server/tracker.mjs, the neutral row field, the detail block in orchestrator/native/tracker.c, the schema description correction, and its tests.",
+      "deliverable": "The evidence mapping in orchestrator/server/tracker.mjs, the neutral row field, the detail block in editor/tracker.c, the schema description correction, and its tests.",
       "external_references": [],
       "evidence": [
         "docs/specs/116-task-evidence.md: the dropped field, the five sabotages, and the coverage gap S4 exposed",
@@ -1747,7 +1747,7 @@
         116
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The verdict gesture in orchestrator/native/tracker.c, its route through the existing task write path in orchestrator/server/tasks.mjs, the agent-facing tool, and its tests.",
+      "deliverable": "The verdict gesture in editor/tracker.c, its route through the existing task write path in orchestrator/server/tasks.mjs, the agent-facing tool, and its tests.",
       "external_references": [],
       "evidence": [
         "docs/specs/114-dev-suite-roadmap.md: why a verdict is filed rather than asserted"
@@ -1821,7 +1821,7 @@
         59
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The device layer interface and implementation split out of orchestrator/native/render/backend_vk.c, the desktop backend rewired onto it, and its comparison tests.",
+      "deliverable": "The device layer interface and implementation split out of editor/render/backend_vk.c, the desktop backend rewired onto it, and its comparison tests.",
       "external_references": [],
       "evidence": [
         "docs/specs/122-gpu-device-layer.md: what moved, what deliberately did not, the guard's two observed failures, and what verification is owed",
@@ -1944,7 +1944,7 @@
         115
       ],
       "owner_workspace": "rengine",
-      "deliverable": "re_ui_paragraph in orchestrator/native/ui/ui.{c,h}, the label clip in contents(), the detail chooser in orchestrator/native/tracker.c, and orchestrator/tests/native-label-clip.spec.mjs.",
+      "deliverable": "re_ui_paragraph in editor/ui/ui.{c,h}, the label clip in contents(), the detail chooser in editor/tracker.c, and orchestrator/tests/native-label-clip.spec.mjs.",
       "external_references": [],
       "evidence": [
         "docs/specs/119-task-detail-view.md: the control, the gesture, and why buttons had the same overflow",
@@ -1971,7 +1971,7 @@
         124
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The windowed row loop and list_spacer in orchestrator/native/tracker.c, and orchestrator/tests/native-tracker-virtual.spec.mjs.",
+      "deliverable": "The windowed row loop and list_spacer in editor/tracker.c, and orchestrator/tests/native-tracker-virtual.spec.mjs.",
       "external_references": [
         "reactnative.dev/docs/virtualizedlist: the windowing technique this adapts, minus its height estimation"
       ],
@@ -3640,7 +3640,7 @@
         190
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": [
         "F192 (the data path), 2026-09-14: /api/worktrees is answered by red-host from red_project::worktrees and by the worker from a thin client, so the desktop can ask for the survey over HTTP rather than through a binary. Proven the way every owned project route is: with the backend stopped, the door still answers \u2014 here with the refusal a project outside a repository earns (415, 'This project is not in a git repository.'), which is the ordinary case for a scratch root and not a fault. Sabotage verified by removing it from the door's match, which the spec sees as the forward-with-no-backend it is written against. The repository stays a grouping for the view: the route answers one root's repository and its worktrees, and nothing in the store learns what a repository is (spec 134 D2). The modal, the status-bar opener, the toolbar removals and the agent dropdown are the rest of this row.",
@@ -3666,7 +3666,7 @@
         106
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": [
         "F193, 2026-09-15: owner request \u2014 \"Can we also make configured icon (even if it is a placeholder) appear in macos doc panel?\" SDL_SetWindowIcon is the obvious answer and the wrong one: on macOS it sets the window's icon and leaves the Dock tile alone, so the tile is NSApplication's applicationIconImage and this is a platform seam. One Objective-C file on Apple only, following the Metal seam's existing enable_language(OBJC) and -fno-objc-arc so the build has one retain/release rule; every other platform gets the stub beside it, which reports NO tile rather than claiming one. The bitmap is declared NSBitmapFormatAlphaNonpremultiplied because re_svg_rasterize returns STRAIGHT alpha \u2014 declaring premultiplied would darken every edge pixel against its own transparency, a dirty halo rather than a visibly wrong flag. The tile follows the window title's rule for the title's reason (the declaration arrives after the window exists) and is set only when the named file changes, and an unreadable file is remembered as attempted so it is not retried every frame. The check asks the OPERATING SYSTEM: re_dock_icon_size reads back the representation's PIXELS, which is spec 084 decision 4 applied one layer out \u2014 pixels rather than points, because the point size is what the caller asked to draw at and two bitmaps can share it. The fixture mark is 17.335 x 17.5537, so the tile is 506 x 512, not a square: asserting a square would be asserting the tile is stretched. Sabotage: removing setApplicationIconImage: leaves the declared root reporting the process default, red at 'the platform took the tile', with the glyph test still green \u2014 which also proves the negative assertion is not vacuous, since that default is a real 256 x 256. native-identity 7/7, npm test 353/353, ctest 20/20, ./init.sh and the design gate pass. Spec 136."
@@ -3690,7 +3690,7 @@
         191
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
     },
@@ -3712,7 +3712,7 @@
         194
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
     },
@@ -3734,7 +3734,7 @@
         195
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
     },
@@ -3756,7 +3756,7 @@
         195
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
     },
@@ -3778,7 +3778,7 @@
         114
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
     },
@@ -3801,7 +3801,7 @@
         114
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
     },
@@ -3822,7 +3822,7 @@
         198
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
     },
@@ -3845,7 +3845,7 @@
         133
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
     },
@@ -3866,7 +3866,7 @@
         201
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
     },
@@ -3888,7 +3888,7 @@
         201
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
     },
@@ -3913,7 +3913,7 @@
         203
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
     },
@@ -3934,7 +3934,7 @@
         204
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
     },
@@ -3955,7 +3955,7 @@
         203
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
     },
@@ -3976,7 +3976,7 @@
         202
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
     },
@@ -3998,7 +3998,7 @@
         202
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
     },
@@ -4018,7 +4018,7 @@
         201
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
     },
@@ -4038,7 +4038,7 @@
       "passes": true,
       "dependencies": [],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": [
         "F210, 2026-09-15: red_project::conversations reads each CLI's own store for a root and writes to none of them. The three are shaped differently and the differences decided the work: claude keys a directory by the checkout PATH with separators turned to dashes, one file per conversation named by the id --resume takes; kimi ships a real index keyed by working directory, so it answers without opening a transcript; codex partitions by DATE, so 'which of these belong to this project' costs the head of every candidate \u2014 which is why the whole listing is on demand and never on a timer. Measured against the real stores on this machine rather than fixtures alone: claude 4, codex 12, kimi 1 for this root. Two window sizes were wrong on the first pass and the real data said so: codex's first user_message sat at byte 110,591 behind a 19 KB world_state record, and claude's newest ai-title is at the END of a transcript while the person's opening message is at the front, so the title reads a head AND a tail. Titles are best-effort per CLI and a row without one still carries its id and age; kimi's store offers no title at all, which is recorded rather than invented. An agent with no store reports present:false, distinct from an empty list and from an unreadable one. Six unit tests including one that fingerprints the whole home directory before and after a listing and asserts nothing moved. red-project 41/41."
@@ -4061,7 +4061,7 @@
         210
       ],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": [
         "F211, 2026-09-15: /api/conversations on red-host (charter D57) and the Sessions tab drawing what it answers beside rEngine's own records. The join runs the owner's way round: the CLI's store is the authority on what EXISTS \u2014 'if an agent session is not in that list, there is no agent session' \u2014 and rEngine's record only says whether this workspace has a pane or a resume for it, so a conversation begun in a terminal is listed and one rEngine also knows is drawn once. Asked when the view draws rather than on a timer. A host that predates the route has its refusal said out loud instead of leaving the section blank, because not-yet and not-there read the same on screen and this repository has learned that three times. The regression seeds a claude store for the root, redirects HOME around startServer \u2014 the route reads it from the environment the front door was SPAWNED with, and a fixture that forgot would have listed the real ~/.claude and passed for the wrong reason \u2014 and asserts the row is offered for resume, carries the transcript's own title rather than a bare id, and that listing wrote nothing. Sabotage-verified by drawing no store rows: red at 'the conversation held only by the CLI is offered'. npm test 354/354, ctest 20/20, native-sessions 4/4, ./init.sh and the design gate pass."
@@ -4082,7 +4082,7 @@
       "passes": false,
       "dependencies": [],
       "owner_workspace": "rengine",
-      "deliverable": "The Projects modal in orchestrator/native, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
+      "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
       "evidence": []
     },
@@ -4239,7 +4239,7 @@
       "milestone": "O1",
       "category": "workspace",
       "priority": "medium",
-      "description": "Two identity DEFAULTS: red-agents/src/report.rs defaults an absent --provider to claude, from when only claude reported a session, and orchestrator/native/workspace.c falls back to \"codex\" when no agent is chosen. Both are one CLI's name standing in for \"the first one declared\", and both are load-bearing \u2014 changing the reporter's default moves hooks already installed in people's CLI configuration, and changing the desktop's changes what a person gets when they press the button. tools/agent_names.py carries them as declared exceptions.",
+      "description": "Two identity DEFAULTS: red-agents/src/report.rs defaults an absent --provider to claude, from when only claude reported a session, and editor/workspace.c falls back to \"codex\" when no agent is chosen. Both are one CLI's name standing in for \"the first one declared\", and both are load-bearing \u2014 changing the reporter's default moves hooks already installed in people's CLI configuration, and changing the desktop's changes what a person gets when they press the button. tools/agent_names.py carries them as declared exceptions.",
       "acceptance_criteria": [
         "The reporter refuses or names a provider by rule rather than assuming one, and an installed hook that omits --provider is accounted for.",
         "The desktop's fallback agent comes from the declared roster or from a preference, not from a literal.",

@@ -67,13 +67,13 @@ test('the published name is the one the owner settled, and changing it is a publ
 });
 
 test('the generated artifacts carry the declaration rather than a copy of it', async () => {
-  const declared = JSON.parse(await readFile(path.join(ROOT, 'orchestrator/native/theme.json'), 'utf8')).product;
+  const declared = JSON.parse(await readFile(path.join(ROOT, 'editor/theme.json'), 'utf8')).product;
   assert.equal(PRODUCT_NAME, declared.name, 'the JS module is generated from the declaration');
   assert.equal(PRODUCT_FAMILY, declared.family);
 
   // The C side of the same declaration. Asserted by reading the generated header, so a stale one is
   // caught here as well as by `python3 tools/design.py check`.
-  const header = await readFile(path.join(ROOT, 'orchestrator/native/theme.h'), 'utf8');
+  const header = await readFile(path.join(ROOT, 'editor/theme.h'), 'utf8');
   assert.match(header, /^#define RE_PRODUCT_NAME "(.*)"$/m);
   assert.equal(/^#define RE_PRODUCT_NAME "(.*)"$/m.exec(header)[1], declared.name,
     'theme.h names the declared product; app.h aliases RE_DEFAULT_TITLE to it');

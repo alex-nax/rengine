@@ -31,7 +31,7 @@ test('a dashboard game action launches the declared game in its own window while
     /* Removing the game cell also frees the width and the gap it reserved, and a half-done removal
        still compiles and only renders one gap wrong. So pin the row: the trailing cells are laid
        out from the reservation, and the last of them has to land exactly on the toolbar's padding. */
-    const pad = JSON.parse(await readFile('orchestrator/native/theme.json', 'utf8')).metrics.design['toolbar-pad'];
+    const pad = JSON.parse(await readFile('editor/theme.json', 'utf8')).metrics.design['toolbar-pad'];
     const bar = state.controls.filter(c => c.tab === -1 && ['toolbar', 'textbox', 'checkbox'].includes(c.role))
       .map(c => ({ key: c.key, left: c.rect[0], right: c.rect[0] + c.rect[2] })).sort((x, y) => x.left - y.left);
     assert.equal(bar[0].key, 'Tree', 'the switcher opens the row, after the drawn brand mark');

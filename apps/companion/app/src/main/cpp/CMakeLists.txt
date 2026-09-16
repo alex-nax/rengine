@@ -12,7 +12,7 @@ project(companion C)
 
 # apps/companion/app/src/main/cpp -> the repository root
 get_filename_component(RE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../.." ABSOLUTE)
-if(NOT EXISTS "${RE_ROOT}/orchestrator/native/render/draw_list.c")
+if(NOT EXISTS "${RE_ROOT}/editor/render/draw_list.c")
   message(FATAL_ERROR
     "companion: the shared C modules are not where this build expects them (looked in ${RE_ROOT}). "
     "This app compiles the desktop's sources from one origin; it carries no copies to fall back on.")
@@ -44,23 +44,23 @@ endif()
 add_library(companion SHARED
   companion.c
   "${RE_ROOT}/third_party/microui/microui.c"
-  "${RE_ROOT}/orchestrator/native/render/draw_list.c"
-  "${RE_ROOT}/orchestrator/native/render/utf8.c"
-  "${RE_ROOT}/orchestrator/native/render/font.c"
-  "${RE_ROOT}/orchestrator/native/theme.c"
+  "${RE_ROOT}/editor/render/draw_list.c"
+  "${RE_ROOT}/editor/render/utf8.c"
+  "${RE_ROOT}/editor/render/font.c"
+  "${RE_ROOT}/editor/theme.c"
   # The draw glue and the D33 owned control layer — the desktop's real look, not microui's defaults.
   # Both were unreachable here until draw.h stopped pulling common.h (and with it SDL); ui.c was
   # SDL-free all along and only its header's include chain kept it on the desktop (charter D59).
-  "${RE_ROOT}/orchestrator/native/draw.c"
-  "${RE_ROOT}/orchestrator/native/ui/ui.c"
+  "${RE_ROOT}/editor/draw.c"
+  "${RE_ROOT}/editor/ui/ui.c"
   # draw.h's stats are cJSON; the desktop reports them over its API and the companion will over the
   # façade, so the type comes along rather than being conditioned out.
   "${RE_ROOT}/third_party/cjson/cJSON.c"
   # The renderer, unchanged: backend_seam.c is the draw list on the pack's seam and it compiles here
   # exactly as it does on the desktop, because the window handle above the host is opaque. The host
   # beside it is the one file per platform (spec 124's split, now with a fourth member).
-  "${RE_ROOT}/orchestrator/native/render/backend_seam.c"
-  "${RE_ROOT}/orchestrator/native/render/${RE_COMPANION_HOST}"
+  "${RE_ROOT}/editor/render/backend_seam.c"
+  "${RE_ROOT}/editor/render/${RE_COMPANION_HOST}"
   # The pack, from packs/gpu like any consumer.
   ${RE_COMPANION_SEAM}
 )
@@ -69,7 +69,7 @@ add_library(companion SHARED
 # and the SDL event pump are the desktop's half of the boundary, and the companion brings its own.
 
 target_include_directories(companion PRIVATE
-  "${RE_ROOT}/orchestrator/native"
+  "${RE_ROOT}/editor"
   "${RE_ROOT}/third_party/microui"
   "${RE_ROOT}/third_party/stb"
   "${RE_ROOT}/third_party/cjson"
@@ -87,7 +87,7 @@ target_compile_definitions(companion PRIVATE VK_USE_PLATFORM_ANDROID_KHR VK_NO_P
 # points seam_backends.h declares, so the one backend this binary carries has to answer to those
 # names — which is what the generated rename header does, and why no #ifdef appears in draw.c.
 target_compile_options(companion PRIVATE
-  "SHELL:-include ${RE_ROOT}/orchestrator/native/render/seam_prefix_${RE_COMPANION_BACKEND}.h")
+  "SHELL:-include ${RE_ROOT}/editor/render/seam_prefix_${RE_COMPANION_BACKEND}.h")
 if(RE_COMPANION_BACKEND STREQUAL "opengl")
   target_compile_definitions(companion PRIVATE RE_COMPANION_OPENGL)
 else()

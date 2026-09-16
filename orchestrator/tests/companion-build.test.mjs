@@ -32,7 +32,7 @@ test('the companion compiles the desktop C modules from their place in this repo
     assert.ok(existsSync(path.join(ROOT, source)), `${source} is where the companion expects it`);
   }
   assert.ok(shared.includes('third_party/microui/microui.c'), 'microui comes from the pinned upstream copy');
-  assert.ok(shared.includes('orchestrator/native/render/draw_list.c'), 'the draw list is the desktop\'s own');
+  assert.ok(shared.includes('editor/render/draw_list.c'), 'the draw list is the desktop\'s own');
 
   /* The build refuses rather than falling back when the tree moves, because a native build that
      silently compiles nothing shared is the failure this whole arrangement is against. */
