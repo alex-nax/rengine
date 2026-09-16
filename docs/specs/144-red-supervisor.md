@@ -2,10 +2,11 @@
 
 Owner goal, 2026-09-15: *"finish remaining js"* (charter D57, spec 129; F159).
 
-Status: **the binary serves.** `red-supervisor` is a process: it starts a worker, answers its own
-routes, forwards the rest, publishes the descriptor and performs a layered workspace update, proved
-end to end against a real session host by `supervisor-cutover.test.mjs`. Nothing is deleted yet —
-what stands between here and that is the automation relay and the launchers.
+Status: **the binary serves, and the desktop layer is driven.** `red-supervisor` is a process: it
+starts a worker, answers its own routes, forwards the rest, publishes the descriptor, opens and
+updates desktop windows, and relays their automation protocol — all proved end to end against a real
+session host by `supervisor-cutover.test.mjs`. Nothing is deleted yet; the launchers and the cutover
+itself are what is left.
 
 `docs/js-retirement-status.md` is the whole picture this row sits in. Spec 143 is the worker one
 layer below, and its device is the one used here: **record the old implementation's answers before
@@ -146,8 +147,7 @@ caller polling after a failure can still see what failed.
    its own thirteen routes, everything else forwarded to the worker, `/events` and `/surface`
    tunnelled byte for byte. `--worker`, `--connector`, `--desktop`, `--port`, `--inspect-ui` and
    `--initial` are the flags that replace what `startRuntime` took as injected functions.
-6. **The automation relay** (below), which is what three desktop specs need before they can be
-   pointed at a supervisor that is a process — and the last thing the binary is missing.
+6. ~~**The automation relay**~~ — done (below), and with it the desktop layer is driven end to end.
 7. **The launchers.** `replace.mjs`'s process-table scan, `restart-supervisor.mjs`'s confirm prompt
    with no non-interactive bypass and its read-only `--plan`, `headless.mjs`, `bootstrap.mjs`.
 8. **Cut over and delete.** `discovery.mjs` spawns the binary where it forks the module — the same
@@ -204,28 +204,59 @@ It passed on the first run; four sabotages confirm it:
 | a foreign `Origin` is accepted | the 401 that is not one |
 | the previous worker is never closed | *Timed out: the replaced worker drained and closed* |
 
-## The one design question the cutover turns on
+## The automation relay, which is what the cutover turned on
 
 A supervisor that is a **process** cannot hand a test the desktop's pipes, and three desktop specs
 depend on exactly that. `native-updates`, `native-project-windows` and `native-token-e2e` pass an
 `onDesktop` callback into `startRuntime`, take the child, and drive the window over its stdin and
 stdout with the automation protocol — clicks, keys, state reads.
 
-What makes that work today is worth noticing, because it is also the answer: **the supervisor and
-the test are already two speakers on one stream, split by the sign of the id.** The supervisor's
-control channel numbers its requests DOWN from -1; the automation protocol numbers its own UP from
-1; each side ignores what is not its own. In JavaScript they simply both attach a listener to the
-same pipes.
+What made that work was worth noticing, because it was also the answer: **the supervisor and the
+test were already two speakers on one stream, split by the sign of the id.** The control channel
+numbers its requests DOWN from -1; the automation protocol numbers its own UP from 1; each ignores
+what is not its own. In JavaScript they simply both attached a listener to the same pipes.
 
-So the cutover needs the supervisor to **relay** that stream rather than own it: under
-`--inspect-ui`, a socket route carries the automation half — every line the desktop says that is not
-an answer to one of the supervisor's own negative ids goes out to whoever is attached, and every
-line that comes back goes down the desktop's stdin. That makes explicit what is implicit now, and it
-is gated on the same flag that already means "a test is driving this".
+So the supervisor **relays** that stream rather than owning it. `GET /automation?owner=…` with an
+`Upgrade` header, under `--inspect-ui` only, answers `101` and then carries newline JSON both ways:
+every line the control channel did not ask for goes out unchanged, and every line that comes back
+goes down the desktop's stdin under the same lock the channel's own writes take. Nothing is
+interpreted on the way through — the other protocol is not this one's business. A running workspace
+serves no such route at all.
 
-The alternative — proxying each click as an HTTP call — is rejected: the automation protocol is
+The alternative — proxying each click as an HTTP call — was rejected: the automation protocol is
 interactive and per-frame, and a route that exists only for tests and is slow enough to change what
 they observe is worse than no route.
+
+## The desktop layer, driven
+
+`orchestrator/tests/fake-desktop.mjs` is a window as far as the supervisor is concerned: it
+registers itself through the workspace, answers the control channel, exits 75 when told to reload
+and 0 when told to close, and answers the automation protocol on the same stream. That is the whole
+of what a supervisor requires of a window, and it is what lets the choreography be driven without a
+built native binary.
+
+With it, `supervisor-cutover.test.mjs` proves: a window opens and **`open-desktop` does not answer
+until it has registered** (a supervisor that answered on spawn would hand a launcher a window that
+may never arrive); the same binding is the same window rather than a second one beside it; the relay
+carries the other protocol; a desktop-layer update tells it to reload, sees the 75, and brings it
+back as a different process; and a window that detaches **on its own** — the person pressing its
+update key — comes back too.
+
+Two of those rules had no case until a sabotage of each passed, which is the shape
+`docs/evidence/blind-regressions-2026-09-06.md` records:
+
+- **Exit 75 read as a close** changed nothing, because a window that goes during an update is
+  classified `Expected` and the update checks the code itself. The `Detached` classification is only
+  reached by an UNSOLICITED 75 — so the fixture grew a `detach` op, and now it is.
+- **A detach while an update is running** queued a second job with no complaint. Two `perform`
+  threads would each believe they were the active one. It is driven now by declaring a slow desktop
+  build, which holds an update in its prepare phase — where the window is not yet marked updating —
+  and landing the detach inside that window.
+
+The second one also settled a question the code did not answer out loud: the queued update then
+**fails**, by name, because the desktop it was told to replace let go of its registration on the way
+out. That is right rather than unfortunate — the person asked for the same window twice at once and
+got the answer to the second ask.
 
 ## What this does not change
 

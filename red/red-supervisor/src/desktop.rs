@@ -17,8 +17,14 @@
 //!
 //! **How it is asked things.** One newline-framed JSON request per line down stdin, one answer per
 //! line back up stdout, and the ids count DOWN from -1 because the desktop's own requests count up.
-//! Everything else on that stream is the native side's diagnostics and is skipped rather than
-//! parsed — a window that printed a warning must not fail an inspection.
+//!
+//! That sign is not decoration: **the supervisor was never the only speaker on this stream.** A
+//! desktop under `--automation` answers a second protocol — clicks, keys, state reads — numbered
+//! UPWARD, and in the JavaScript a test simply attached its own listener to the same pipes. A
+//! supervisor that is a PROCESS cannot hand anyone those pipes, so what was implicit becomes a
+//! relay: every line this channel did not ask for goes to whoever is [`overhear`]ing, and
+//! [`say`](Control::say) puts a raw line back down the same stdin. Nothing is interpreted on the way
+//! through, which is the point — the other protocol is not this one'''s business.
 
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -107,6 +113,8 @@ pub const REPLY_TIMEOUT: Duration = Duration::from_secs(5);
 pub const REPLY_LIMIT: usize = 8 * 1024 * 1024;
 
 type Pending = Arc<Mutex<HashMap<i64, Sender<Result<Value, String>>>>>;
+/// Whoever is listening to the half of the stream this channel did not ask for.
+type Overhearing = Arc<Mutex<Option<Arc<dyn Fn(&str) + Send + Sync>>>>;
 
 /// The control channel to one desktop window.
 ///
@@ -119,6 +127,7 @@ pub struct Control {
     /// Counts DOWN from -1. The desktop numbers its own requests upward, so a negative id can never
     /// be mistaken for one of them.
     next: Mutex<i64>,
+    overhearing: Overhearing,
 }
 
 fn settle(pending: &Pending, id: i64, answer: Result<Value, String>) {
@@ -141,8 +150,10 @@ impl Control {
             inbox: Mutex::new(Box::new(inbox)),
             pending: Arc::new(Mutex::new(HashMap::new())),
             next: Mutex::new(-1),
+            overhearing: Arc::new(Mutex::new(None)),
         });
         let pending = control.pending.clone();
+        let overhearing = control.overhearing.clone();
         std::thread::spawn(move || {
             let mut reader = BufReader::new(outbox);
             let mut line = String::new();
@@ -158,9 +169,22 @@ impl Control {
                     settle_all(&pending, TOO_MUCH);
                     continue;
                 }
-                let Ok(value) = serde_json::from_str::<Value>(line.trim_end()) else { continue };
-                let Some(id) = value.get("id").and_then(Value::as_i64) else { continue };
-                settle(&pending, id, Ok(value.get("result").cloned().unwrap_or(Value::Null)));
+                let claimed = serde_json::from_str::<Value>(line.trim_end())
+                    .ok()
+                    .and_then(|value| value.get("id").and_then(Value::as_i64).map(|id| (id, value)))
+                    .filter(|(id, _)| pending.lock().expect("pending lock").contains_key(id));
+                match claimed {
+                    Some((id, value)) => settle(&pending, id, Ok(value.get("result").cloned().unwrap_or(Value::Null))),
+                    /* Not this channel'''s: the other speaker'''s answer, or a diagnostic. Passed
+                       through untouched, because interpreting it would make this channel a party to
+                       a protocol it has no business in. */
+                    None => {
+                        let listening = overhearing.lock().expect("overhearing").clone();
+                        if let Some(listening) = listening {
+                            listening(line.trim_end());
+                        }
+                    }
+                }
             }
             /* The stream ended, which is the window going away. Everyone waiting is told so rather
                than left to time out five seconds later on a process that is already gone. */
@@ -207,6 +231,29 @@ impl Control {
     /// The child exited. Everyone waiting is told, rather than left to time out on a dead process.
     pub fn ended(&self) {
         settle_all(&self.pending, EXITED);
+        self.overhearing.lock().expect("overhearing").take();
+    }
+
+    /// Listen to the half of the stream this channel does not ask for.
+    ///
+    /// One listener at a time, and attaching replaces whoever was there — two relays on one window
+    /// would each see half of the other'''s answers, which is worse than one of them being told it
+    /// lost the window.
+    pub fn overhear(&self, listening: Arc<dyn Fn(&str) + Send + Sync>) {
+        *self.overhearing.lock().expect("overhearing") = Some(listening);
+    }
+
+    pub fn deafen(&self) {
+        self.overhearing.lock().expect("overhearing").take();
+    }
+
+    /// Put a raw line down the same stdin, under the same lock the channel'''s own writes take — so
+    /// two speakers never interleave halves of a line.
+    pub fn say(&self, line: &str) -> Result<(), String> {
+        let mut inbox = self.inbox.lock().expect("inbox lock");
+        writeln!(inbox, "{}", line.trim_end())
+            .and_then(|()| inbox.flush())
+            .map_err(|error| error.to_string())
     }
 }
 
@@ -350,6 +397,55 @@ mod tests {
         assert_eq!(serde_json::from_str::<Value>(&line).expect("json")["id"], json!(-2));
         says.send(format!("{}\n", json!({ "id": -2, "result": true }))).expect("sent");
         assert_eq!(again.join().expect("joined").expect("an answer"), json!(true));
+    }
+
+    /* The relay, and the reason the ids count in opposite directions. A desktop under `--automation`
+       answers a SECOND protocol numbered upward; in JavaScript a test attached its own listener to
+       the same pipes. A supervisor that is a process cannot hand anyone those pipes, so what was
+       implicit is a relay — and nothing on the way through is interpreted. */
+    #[test]
+    fn the_half_of_the_stream_this_channel_did_not_ask_for_reaches_whoever_is_listening() {
+        let (control, window, says) = paired();
+        let overheard = Arc::new(Mutex::new(Vec::<String>::new()));
+        let kept = overheard.clone();
+        control.overhear(Arc::new(move |line: &str| kept.lock().expect("overheard").push(line.to_string())));
+
+        let held = control.clone();
+        let asking = std::thread::spawn(move || held.ask(json!({ "op": "control-state" })));
+        let line = window.inbox.recv_timeout(Duration::from_secs(5)).expect("the question");
+        assert_eq!(serde_json::from_str::<Value>(&line).expect("json")["id"], json!(-1));
+
+        /* The other speaker'''s answer, a diagnostic, and an answer to an id nobody is waiting on:
+           all three are somebody else'''s and all three go through. */
+        says.send(format!("{}
+", json!({ "id": 7, "result": { "controls": [] } }))).expect("sent");
+        says.send("renderer: ready
+".to_string()).expect("sent");
+        says.send(format!("{}
+", json!({ "id": -99, "result": true }))).expect("sent");
+        /* And this channel'''s own answer, which does NOT. */
+        says.send(format!("{}
+", json!({ "id": -1, "result": { "panes": 1 } }))).expect("sent");
+        assert_eq!(asking.join().expect("joined").expect("an answer")["panes"], json!(1));
+
+        let seen = overheard.lock().expect("overheard").clone();
+        assert_eq!(seen.len(), 3, "three lines were not this channel'''s: {seen:?}");
+        assert!(seen[0].contains(r#""id":7"#), "{:?}", seen[0]);
+        assert_eq!(seen[1], "renderer: ready");
+        assert!(seen[2].contains("-99"), "an answer to an id nobody is waiting on is not ours either");
+        assert!(seen.iter().all(|line| !line.contains("panes")), "and our own answer stayed ours");
+
+        /* The other speaker writes back down the same stdin, under the same lock. */
+        control.say(&json!({ "id": 8, "op": "motion", "x": 10, "y": 20 }).to_string()).expect("said");
+        let went = window.inbox.recv_timeout(Duration::from_secs(5)).expect("the raw line");
+        assert_eq!(serde_json::from_str::<Value>(&went).expect("json")["op"], json!("motion"));
+
+        /* Deafened, and the relay stops without disturbing the channel. */
+        control.deafen();
+        says.send("after
+".to_string()).expect("sent");
+        std::thread::sleep(Duration::from_millis(50));
+        assert_eq!(overheard.lock().expect("overheard").len(), 3, "nothing more was relayed");
     }
 
     /// The window went away. Everyone waiting is told so, rather than left to time out five seconds

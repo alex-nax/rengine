@@ -83,6 +83,30 @@ The flags are what `startRuntime` took as injected functions: `--worker`, `--con
 `--inspect-ui`, `--initial`. One is still missing, and it is the thing the cutover turns on — see
 below.
 
+**And the desktop layer is driven, through a relay.** A supervisor that is a PROCESS cannot hand a
+test the desktop's pipes. What made that work in JavaScript was also the answer: the supervisor and
+the test were already two speakers on one stream, split by the sign of the id — the control channel
+counts DOWN from -1, the automation protocol counts UP from 1. So the supervisor relays that half
+rather than owning it: `GET /automation?owner=…` under `--inspect-ui`, `101`, then newline JSON both
+ways, with nothing interpreted on the way through.
+
+`fake-desktop.mjs` is a window as far as the supervisor is concerned — it registers through the
+workspace, answers the control channel, exits 75 when told to reload and 0 when told to close — and
+with it the whole choreography is driven without a built native binary: open (which does not answer
+until the window has REGISTERED), reuse, relay, a desktop-layer update with the 75 handshake, and a
+window that detaches on its own.
+
+**Two rules had no case until a sabotage of each passed.** Reading 75 as a close changed nothing,
+because a window that goes during an update is classified `Expected` and the update checks the code
+itself — the `Detached` branch is only reached by an UNSOLICITED 75, so the fixture grew a `detach`
+op. And a detach *while* an update is running queued a second job with no complaint; two `perform`
+threads would each believe they were the active one. It is driven now by declaring a slow desktop
+build, which holds an update in its prepare phase and lands the detach inside that window.
+
+A tooling hazard worth naming: a Python heredoc turned `\r\n` into real newlines inside a Rust byte
+literal, and Rust normalises a CR away in a string literal — so the relay answered a `101` framed
+with bare LFs and no client could read it. It compiled, it ran, and only the end-to-end test saw it.
+
 **A leak the suite's own flakiness was pointing at, and nobody had read.** `npm test` failed
 intermittently on different specs; catching one showed *"Every sign-in port is busy (47821, 47822,
 47823, 47824, 47825). Close what is using one and try again."* — a sentence written this session,
@@ -129,7 +153,7 @@ replays the same 47 cases against `windows.mjs` and compares, so the record cann
 froze. It goes with the module (F173), and the Rust replay is then the whole of the evidence.
 Sabotage-verified from the JavaScript side as well as the Rust.
 
-Gates: `./init.sh` green; `cargo test --workspace` **335/335**; `npm test` **368/368**, with
+Gates: `./init.sh` green; `cargo test --workspace` **336/336**; `npm test` **370/370**, with
 KI-124's load-sensitive language-server spec the only intermittent left — it failed in two of three
 later runs and passes alone, which is the known issue's own recorded shape. The other intermittent
 was the sign-in port leak above, and it is fixed.

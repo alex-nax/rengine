@@ -76,11 +76,12 @@ Details: `docs/specs/143-red-worker.md`.
 | `runtime/discovery.mjs` | 72 | runtime descriptor discovery |
 | `runtime/client.mjs`, `desktop.mjs`, `headless.mjs`, `bootstrap.mjs` | 140 | |
 
-**Status: the binary serves (spec 144).** `red-supervisor` is a process that starts a worker,
-answers its own routes, forwards the rest and performs a layered update, with the window store, the
-descriptors, the desktop launch and the update job each judged against a record frozen from the
-JavaScript. Nothing is deleted yet, because a module retires with its caller and the caller is the
-supervisor process — which needs the automation relay and the launchers first.
+**Status: the binary serves and the desktop layer is driven (spec 144).** `red-supervisor` is a
+process that starts a worker, answers its own routes, forwards the rest, performs layered updates and
+relays a window's automation protocol, with the window store, the descriptors, the desktop launch and
+the update job each judged against a record frozen from the JavaScript. Nothing is deleted yet,
+because a module retires with its caller and the caller is the supervisor process — which needs the
+launchers and the cutover first.
 
 ### 3. The JS session host behind the door — 1,405 lines
 
@@ -114,11 +115,9 @@ types, and F163 is the row that deletes them.
    `server/tracker-auth.mjs` are deleted. The evidence is on the row in `features.json`; `passes`
    stays false only because the prerequisite chain (F153 → F152) is unmarked.
 4. **F159** — the supervisor. **−1,368**, the largest remaining port, and **the binary serves**: `red-supervisor` starts a worker, answers its own
-   routes, forwards the rest, publishes the descriptor and performs a layered workspace update,
-   proved end to end against a real session host. What stands between here and the deletion is the
-   automation relay — a supervisor that is a PROCESS cannot hand a test the desktop's pipes, and
-   three desktop specs drive a window through exactly those — and the launchers.
-   `docs/specs/144-red-supervisor.md` has both.
+   routes, forwards the rest, publishes the descriptor, opens and updates desktop windows and relays
+   their automation protocol — all proved end to end against a real session host. What is left is
+   the launchers and the cutover itself. `docs/specs/144-red-supervisor.md` has the order.
 5. **`sessions-client.mjs`** — how an agent CLI is launched. **−459**.
 6. **F163** — the entry points, `main.mjs` and the service clients that retire with it. **−~1,700**.
 

@@ -227,9 +227,13 @@ impl Supervisor {
     }
 
     /// Build the desktop and take the copy this update would run.
+    ///
+    /// The build is a DECLARED command rather than a fixed one: what builds a desktop is the
+    /// checkout's business, and a supervisor that hard-coded it would have to be rebuilt to follow a
+    /// change in it. Absent, this is a snapshot of what is already on disk.
     fn prepare_desktop(&self, into: &std::path::Path) -> Result<std::path::PathBuf, String> {
         if let Some(command) = std::env::var("RENGINE_DESKTOP_BUILD").ok().filter(|value| !value.is_empty()) {
-            run(&command, &[], Duration::from_secs(600))?;
+            shell(&command, Duration::from_secs(600))?;
         }
         views::snapshot(&self.desktop_binary, into)
     }
@@ -240,7 +244,7 @@ impl Supervisor {
     /// answers bound to this root, and it says so by exiting 0.
     fn prepare_connector(&self, root_id: &str) -> Result<(), String> {
         if let Some(command) = std::env::var("RENGINE_CONNECTOR_BUILD").ok().filter(|value| !value.is_empty()) {
-            run(&command, &[], Duration::from_secs(600))?;
+            shell(&command, Duration::from_secs(600))?;
         }
         if !self.named_connector {
             if let Ok(built) = red_core::service::serve_binary("RENGINE_RED_MCP", "red-mcp") {
@@ -262,6 +266,11 @@ impl Supervisor {
         let _ = std::fs::remove_file(&context);
         probed.map(|_| ()).map_err(|why| format!("Candidate MCP worker failed: {why}"))
     }
+}
+
+/// A declared build command, run the way a person would type it.
+fn shell(command: &str, within: Duration) -> Result<String, String> {
+    run("/bin/sh", &["-c".to_string(), command.to_string()], within)
 }
 
 /// One command, bounded, with whatever it said if it failed.

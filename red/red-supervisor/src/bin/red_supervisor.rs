@@ -207,6 +207,12 @@ async fn connection(supervisor: Arc<Supervisor>, mut client: TcpStream) -> io::R
             client.write_all(refusal(401, runtime::AUTH_REQUIRED).as_bytes()).await?;
             return Ok(());
         }
+        /* The relay is an upgrade this crate defines rather than a WebSocket, so it is recognised
+           by its path and its own `Upgrade` token — and it authenticates with an ordinary bearer
+           header, because the client on the far end is not a browser. */
+        if head.path() == "/automation" && head.header("upgrade").is_some() {
+            return automation(&supervisor, client, buffered, &head).await;
+        }
         if head.upgrade {
             /* `/events` and `/surface` belong to whoever answers the session routes, so they are
                tunnelled byte for byte: a client that reached this layer for a pane's bytes gets the
@@ -391,6 +397,77 @@ async fn tunnel(
         target.write_all(&buffered).await?;
     }
     let _ = tokio::io::copy_bidirectional(&mut client, &mut target).await;
+    Ok(())
+}
+
+/// The automation half of a window's stream, relayed (spec 144).
+///
+/// A supervisor that is a PROCESS cannot hand anyone the desktop's pipes, and a desktop under
+/// `--automation` answers a second protocol on the same stream — numbered UPWARD, where this
+/// layer's own control channel counts down from -1. In JavaScript a test simply attached a listener
+/// to the same pipes; here it attaches to this instead, and every line the control channel did not
+/// ask for goes out unchanged.
+///
+/// Only under `--inspect-ui`, which is already the flag that means "a test is driving this". A
+/// running workspace serves no such route at all.
+async fn automation(
+    supervisor: &Arc<Supervisor>,
+    mut client: TcpStream,
+    buffered: Vec<u8>,
+    head: &Head,
+) -> io::Result<()> {
+    if !supervisor.inspect_ui {
+        client.write_all(refusal(404, "This supervisor serves no automation relay.").as_bytes()).await?;
+        return Ok(());
+    }
+    let owner = head.query("owner").unwrap_or_default();
+    let control = supervisor
+        .views
+        .lock()
+        .expect("views")
+        .get(&owner)
+        .and_then(|view| view.control.lock().expect("control").clone());
+    let Some(control) = control else {
+        client.write_all(refusal(404, "No managed desktop window has that owner.").as_bytes()).await?;
+        return Ok(());
+    };
+    client
+        .write_all(b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: rengine-automation\r\nConnection: Upgrade\r\n\r\n")
+        .await?;
+
+    /* The relay runs on the control channel's own reader thread, which must never block on a
+       socket: it names the line and a task does the writing. */
+    let (out, mut queue) = tokio::sync::mpsc::unbounded_channel::<String>();
+    control.overhear(Arc::new(move |line: &str| {
+        let _ = out.send(line.to_string());
+    }));
+    let (mut reading, mut writing) = client.into_split();
+    let writer = tokio::spawn(async move {
+        while let Some(line) = queue.recv().await {
+            if writing.write_all(format!("{line}\n").as_bytes()).await.is_err() {
+                return;
+            }
+        }
+    });
+
+    /* And back the other way: whole lines only, because half a command is not one. */
+    let mut held: Vec<u8> = buffered;
+    loop {
+        while let Some(at) = held.iter().position(|byte| *byte == b'\n') {
+            let line: Vec<u8> = held.drain(..=at).collect();
+            let text = String::from_utf8_lossy(&line[..line.len() - 1]).trim_end().to_string();
+            if !text.is_empty() && control.say(&text).is_err() {
+                break;
+            }
+        }
+        let mut chunk = [0u8; 8192];
+        match tokio::io::AsyncReadExt::read(&mut reading, &mut chunk).await {
+            Ok(0) | Err(_) => break,
+            Ok(read) => held.extend_from_slice(&chunk[..read]),
+        }
+    }
+    control.deafen();
+    writer.abort();
     Ok(())
 }
 
