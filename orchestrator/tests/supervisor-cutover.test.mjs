@@ -288,6 +288,47 @@ test('red-supervisor opens, drives, updates and closes a desktop window', { time
   assert.match(seen, /Window is not linked to this project/, 'a window this project does not have is refused');
 });
 
+/* `--initial`: a workspace asked for with a window already in it.
+ *
+ * It is worth its own case because of an ordering that is not cosmetic. A desktop registers by
+ * connecting BACK to the supervisor's own port, so a supervisor that opened its initial window
+ * before it was accepting connections would wait ten seconds for a registration sitting in the
+ * listen backlog and then report that the window never arrived. Nothing else in this file would
+ * have caught it: every other window is opened over a route, which by definition means the accept
+ * loop is already running.
+ */
+test('red-supervisor opens the window it was asked to start with', { timeout: 300000 }, async t => {
+  await built('--bins');
+  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-supervisor-initial-'));
+  const project = path.join(directory, 'project');
+  await mkdir(project);
+  const stateDir = path.join(directory, 'host');
+  const host = await startServer({ stateDir });
+  const runtimeDir = path.join(directory, 'runtime');
+  let supervisor;
+  t.after(async () => {
+    await supervisor?.close();
+    await host.close({ retain: false });
+    await endStateServices(stateDir);
+    await endStateServices(runtimeDir);
+    await rm(directory, { recursive: true, force: true });
+  });
+  const root = await host.store.addRoot(project);
+  const { writeFile, chmod } = await import('node:fs/promises');
+  const desktop = path.join(directory, 'fake-desktop');
+  await writeFile(desktop, `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(path.resolve('orchestrator/tests/fake-desktop.mjs'))} "$@"\n`);
+  await chmod(desktop, 0o755);
+
+  supervisor = await startSupervisor(host, runtimeDir,
+    ['--desktop', desktop, '--initial', JSON.stringify({ root: root.id })]);
+
+  /* No waiting: the supervisor does not announce itself until the initial window has registered, so
+     by the time this test has its address the window is already there. */
+  const listed = (await request(supervisor, `desktops?rootId=${root.id}`)).desktops;
+  assert.equal(listed.length, 1, 'the window it was asked to start with had registered');
+  assert.equal(listed[0].managed, true);
+});
+
 /* The guard that keeps two updates off one supervisor. A window that detaches on its own while an
  * update is already running must NOT queue a second job — two `perform` threads would each believe
  * they were the active one, and the second would overwrite the first's record of what it was doing.

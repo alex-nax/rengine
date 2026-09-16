@@ -11,11 +11,15 @@ const run = promisify(execFile);
 const TOOL = path.resolve('orchestrator/launcher/restart-supervisor.mjs');
 
 /* A process table shaped like the real one: the host for a state directory, its supervisor, that
-   supervisor's desktop child, and a second workspace's host that must never be touched. */
+   supervisor's desktop child, and a second workspace's host that must never be touched.
+   The two supervisors are deliberately spelled DIFFERENTLY — one is the binary (F159) and one the
+   module a workspace started before that upgrade is still running — because a scan that knew only
+   one of them would report "no update supervisor is running" for a live workspace and then leave it
+   running through a host replacement. */
 function fixture(stateDir, otherState) {
   return [
     { pid: 100, ppid: 1, command: `node /checkout/orchestrator/server/main.mjs --state ${stateDir}` },
-    { pid: 200, ppid: 1, command: 'node /checkout/orchestrator/runtime/supervisor.mjs' },
+    { pid: 200, ppid: 1, command: '/checkout/red/target/debug/red-supervisor --state /checkout/.cache/runtime/ours' },
     { pid: 300, ppid: 200, command: '/checkout/.cache/desktop/bin/rengine --control' },
     { pid: 400, ppid: 1, command: `node /checkout/orchestrator/server/main.mjs --state ${otherState}` },
     { pid: 500, ppid: 1, command: 'node /checkout/orchestrator/runtime/supervisor.mjs' },
@@ -47,6 +51,10 @@ test('the plan names the host it will not touch and the supervisor it will', asy
     assert.equal(value.refusal, undefined);
     assert.equal(value.host.pid, 100);
     assert.equal(value.host.instance, 'ours');
+    /* And the supervisor it WILL touch, which is the other half of this test's own name and was
+       going unasserted: a scan that found none would read here as a workspace with no supervisor. */
+    assert.deepEqual(value.supervisors.map(found => found.pid), [200], 'this workspace\'s supervisor, and only it');
+    assert.equal(value.supervisors[0].children.length, 1, 'with the desktop window that closes with it');
   } finally { await rm(w.dir, { recursive: true, force: true }); }
 });
 
@@ -80,6 +88,7 @@ test('the session host is never among the processes stopped', async () => {
     assert.ok(!signalled.includes(100), `the host was signalled: ${signalled.join(', ')}`);
     assert.ok(!signalled.includes(400), 'and neither was another workspace\'s host');
     assert.ok(!signalled.includes(500), 'nor another workspace\'s supervisor');
+    assert.ok(signalled.includes(200), `this workspace's supervisor WAS stopped: ${signalled.join(', ')}`);
     assert.equal(value.host.pid, 100, 'it is reported as kept');
     assert.match(report(value), /was not signalled; its sessions are intact/);
   } finally { await rm(w.dir, { recursive: true, force: true }); }

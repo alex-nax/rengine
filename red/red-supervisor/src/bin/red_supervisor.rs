@@ -146,6 +146,15 @@ async fn start(chosen: Options) -> Result<(), String> {
     *supervisor.url.lock().expect("url") = format!("http://127.0.0.1:{port}");
     supervisor.persist()?;
 
+    /* Serving BEFORE the initial desktop is opened, and this order is not cosmetic: a desktop
+       registers by connecting back to this port, so a supervisor that opened one before it was
+       accepting connections would wait ten seconds for a window whose registration was sitting in
+       the listen backlog, and then report that the window never arrived. */
+    {
+        let held = supervisor.clone();
+        tokio::spawn(async move { serving(held, listener).await });
+    }
+
     if let Some(initial) = chosen.initial.as_deref().filter(|value| !value.is_empty()) {
         let asked: Value = serde_json::from_str(initial).map_err(|error| format!("--initial is not JSON: {error}"))?;
         let held = supervisor.clone();
@@ -181,6 +190,13 @@ async fn start(chosen: Options) -> Result<(), String> {
         });
     }
 
+    /* Nothing left to do on this task: the serving is its own, and the process lives until it is
+       signalled or its worker cannot be replaced. */
+    std::future::pending::<()>().await;
+    Ok(())
+}
+
+async fn serving(supervisor: Arc<Supervisor>, listener: TcpListener) {
     loop {
         let Ok((client, _)) = listener.accept().await else { continue };
         let held = supervisor.clone();

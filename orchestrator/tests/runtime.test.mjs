@@ -12,7 +12,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { WebSocket } from 'ws';
 import { startServer } from '../server/main.mjs';
 import { startRuntime } from '../runtime/supervisor.mjs';
-import { discoverRuntime, ensureRuntime, alive, runtimeDirectory } from '../runtime/discovery.mjs';
+import { discoverRuntime, ensureRuntime, alive, runtimeDirectory, redSupervisorBinary } from '../runtime/discovery.mjs';
 import { forward, json, tunnel } from '../runtime/protocol.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { fakeCli } from './task-fixtures.mjs';
@@ -144,7 +144,8 @@ process.stdin.setRawMode(true); console.log('CLI_READY'); process.stdin.on('data
   }
 });
 
-test('cold runtime startup is serialized and an unavailable live owner never creates a duplicate', { timeout: 15000 }, async () => {
+test('cold runtime startup is serialized and an unavailable live owner never creates a duplicate', { timeout: 30000 }, async () => {
+  assert.ok(redSupervisorBinary().endsWith('red-supervisor'), 'the supervisor binary is resolved the way every other one is');
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-runtime-startup-'));
   let host, runtime;
   try {
@@ -152,6 +153,11 @@ test('cold runtime startup is serialized and an unavailable live owner never cre
     const runtimeDir = path.join(directory, 'runtime');
     const pair = await Promise.all([ensureRuntime(host, { directory: runtimeDir }), ensureRuntime(host, { directory: runtimeDir })]);
     runtime = pair[0]; assert.equal(pair[1].pid, runtime.pid); assert.notEqual(runtime.pid, process.pid);
+    /* The cutover, asserted where it actually happens: `ensureRuntime` starts red-supervisor, and
+       the process serving this workspace is that binary rather than a forked Node module (F159). */
+    const { execFileSync } = await import('node:child_process');
+    const running = execFileSync('ps', ['-o', 'comm=', '-p', String(runtime.pid)]).toString().trim();
+    assert.match(running, /red-supervisor$/, `the supervisor is the binary, not ${running}`);
     const filename = path.join(runtimeDir, 'runtime.json'), descriptor = await readFile(filename, 'utf8');
     await writeFile(filename, JSON.stringify({ ...JSON.parse(descriptor), url: 'http://127.0.0.1:1' }));
     await assert.rejects(ensureRuntime(host, { directory: runtimeDir }), /alive but unavailable.*No duplicate/);

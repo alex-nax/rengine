@@ -65,6 +65,17 @@ export function ancestorsOf(pid, processes) {
 }
 export const insideHost = (hostPid, processes, self = process.pid) => ancestorsOf(self, processes).includes(hostPid);
 
+/* The descriptor names a pid; this is what stops a STALE one from naming somebody else's process.
+   A pid is recycled in minutes on a busy machine, and what follows a match here is a SIGTERM.
+
+   Two spellings, because the supervisor is a binary now (F159, spec 144) and a workspace started
+   before that upgrade is still running the module. A check that knew only the new one would report
+   "no update supervisor is running" for a live workspace and then leave it running through a host
+   replacement; one that knew only the old one does the same the other way round. */
+export function supervises(command) {
+  return /runtime\/supervisor\.mjs(\s|$)/.test(command) || /(^|\/)red-supervisor(\s|$)/.test(command);
+}
+
 export async function findSupervisors(instance, processes, { runtimeRoot = path.join(checkout, '.cache/runtime') } = {}) {
   let names = [];
   try { names = await readdir(runtimeRoot); } catch (error) { if (error.code !== 'ENOENT') throw error; }
@@ -74,7 +85,7 @@ export async function findSupervisors(instance, processes, { runtimeRoot = path.
     try { value = JSON.parse(await readFile(path.join(runtimeRoot, name, 'runtime.json'), 'utf8')); } catch { continue; }
     if (value?.host?.instance !== instance) continue;
     const entry = processes.find(candidate => candidate.pid === value.pid);
-    if (!entry || !/runtime\/supervisor\.mjs(\s|$)/.test(entry.command)) continue;
+    if (!entry || !supervises(entry.command)) continue;
     found.push({ pid: value.pid, url: value.url, directory: path.join(runtimeRoot, name), children: processes.filter(candidate => candidate.ppid === value.pid) });
   }
   return found;

@@ -1,4 +1,5 @@
-import { fork } from 'node:child_process';
+import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { mkdir, open, readFile, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -7,6 +8,23 @@ import { request } from '../launcher/sidecar.mjs';
 import { checkConnection } from './protocol.mjs';
 
 const project = fileURLToPath(new URL('../../', import.meta.url));
+
+/* The update supervisor (F159, spec 144, charter D57): red-supervisor, which is what `ensureRuntime`
+   starts. Resolved the way every other Rust client here is resolved — the environment names one,
+   then the release build, then the debug build — and a missing binary is named with the command that
+   makes one, because this is the failure a person meets running a workspace out of a fresh clone. */
+export function redSupervisorBinary(env = process.env) {
+  const declared = env.RENGINE_RED_SUPERVISOR;
+  if (declared) {
+    if (existsSync(declared)) return declared;
+    throw new Error(`RENGINE_RED_SUPERVISOR names ${declared}, which does not exist.`);
+  }
+  for (const profile of ['release', 'debug']) {
+    const candidate = path.join(project, 'red/target', profile, 'red-supervisor');
+    if (existsSync(candidate)) return candidate;
+  }
+  throw new Error('The red-supervisor binary is required (run: cargo build -p red-supervisor, or set RENGINE_RED_SUPERVISOR).');
+}
 export const runtimeDirectory = host => path.join(project, '.cache/runtime', checkConnection(host).instance);
 export const alive = pid => { if (!Number.isSafeInteger(pid) || pid < 1) return false; try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; } };
 export async function discoverRuntime(host, directory = runtimeDirectory(host)) {
@@ -49,24 +67,34 @@ export async function ensureRuntime(host, { initial, binary, directory = runtime
     const ready = await discoverRuntime(host, directory);
     if (ready) { if (initial) await request(ready, 'open-desktop', initial); return ready; }
     const log = await open(path.join(directory, 'runtime.log'), 'a', 0o600);
-    const child = fork(fileURLToPath(new URL('./supervisor.mjs', import.meta.url)), [], { detached: true, stdio: ['ignore', log.fd, log.fd, 'ipc'], windowsHide: true });
+    /* Detached, with its own log and no pipes to inherit: the supervisor outlives whoever started
+       it, exactly as the session host does. Its announcement goes to the log rather than to a pipe
+       this process would have to keep open — the descriptor it writes is what says it is up, and
+       that is the same thing `discoverRuntime` reads for a supervisor that was already running. */
+    const child = spawn(redSupervisorBinary(), ['--state', directory, '--host', host.url, '--host-token', host.token,
+      ...(binary ? ['--desktop', binary] : [])],
+      { detached: true, stdio: ['ignore', log.fd, log.fd], windowsHide: true });
     await log.close();
-    let failure, initialized = false;
+    let failure;
     child.on('error', error => { failure = error; });
-    child.on('message', message => { if (message.type === 'failed') failure = new Error(message.error); if (message.type === 'ready') initialized = true; });
     if (child.pid) {
       release = false; await lock.truncate(0); await lock.write(JSON.stringify({ pid: child.pid }), 0, 'utf8');
     }
-    child.send({ host, directory, initial, binary }); child.unref();
-    try {
-      for (;;) {
-        if (failure) { release = true; throw failure; }
-        if (!alive(child.pid)) { release = true; throw new Error('Runtime exited during startup; inspect runtime.log.'); }
-        const started = await discoverRuntime(host, directory);
-        if (started && initialized) { release = true; return started; }
-        if (Date.now() > deadline) throw new Error('Runtime is still starting; startup ownership remains held.');
-        await delay(75);
+    child.unref();
+    for (;;) {
+      if (failure) { release = true; throw failure; }
+      if (!alive(child.pid)) { release = true; throw new Error('Runtime exited during startup; inspect runtime.log.'); }
+      const started = await discoverRuntime(host, directory);
+      if (started) {
+        release = true;
+        /* The initial window is opened over the ROUTE, cold or warm, so there is one path for it
+           rather than two that can disagree. A window that will not open leaves the workspace up
+           and says so, which is what a person can act on. */
+        if (initial) await request(started, 'open-desktop', initial);
+        return started;
       }
-    } finally { if (child.connected) child.disconnect(); }
+      if (Date.now() > deadline) throw new Error('Runtime is still starting; startup ownership remains held.');
+      await delay(75);
+    }
   } finally { await lock.close(); if (release) await rm(filename, { force: true }); }
 }
